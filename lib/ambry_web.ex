@@ -44,8 +44,17 @@ defmodule AmbryWeb do
 
   def live_view do
     quote do
-      use Phoenix.LiveView,
+      use Surface.LiveView,
         layout: {AmbryWeb.LayoutView, "live.html"}
+
+      # Include shared imports and aliases for views
+      unquote(view_helpers())
+    end
+  end
+
+  def component do
+    quote do
+      use Surface.Component
 
       unquote(view_helpers())
     end
@@ -53,7 +62,7 @@ defmodule AmbryWeb do
 
   def live_component do
     quote do
-      use Phoenix.LiveComponent
+      use Surface.LiveComponent
 
       unquote(view_helpers())
     end
