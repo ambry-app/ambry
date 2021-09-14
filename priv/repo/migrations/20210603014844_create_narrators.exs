@@ -3,9 +3,9 @@ defmodule Ambry.Repo.Migrations.CreateNarrators do
 
   def change do
     create table(:narrators) do
-      add :name, :text
-
       timestamps()
+
+      add :name, :text
     end
   end
 end

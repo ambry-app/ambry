@@ -16,7 +16,7 @@
                 Narrated by
                 {#for narrator <- media.narrators}
                   <LiveRedirect
-                    to={Routes.narrator_show_path(@socket, :show, narrator)}
+                    to={Routes.person_show_path(@socket, :show, narrator.person_id)}
                     class="text-lime-500 hover:underline"
                   >
                     {narrator.name}

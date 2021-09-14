@@ -4,15 +4,14 @@ defmodule Ambry.Narrators.Narrator do
   import Ecto.Changeset
 
   alias Ambry.Media.Media
+  alias Ambry.People.Person
 
   schema "narrators" do
     many_to_many :media, Media, join_through: "media_narrators"
-
     has_many :books, through: [:media, :book]
+    belongs_to :person, Person
 
     field :name, :string
-    field :description, :string
-    field :image_path, :string
 
     timestamps()
   end

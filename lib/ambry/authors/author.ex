@@ -4,13 +4,13 @@ defmodule Ambry.Authors.Author do
   import Ecto.Changeset
 
   alias Ambry.Books.Book
+  alias Ambry.People.Person
 
   schema "authors" do
     many_to_many :books, Book, join_through: "authors_books"
+    belongs_to :person, Person
 
     field :name, :string
-    field :description, :string
-    field :image_path, :string
 
     timestamps()
   end

@@ -3,9 +3,9 @@ defmodule Ambry.Repo.Migrations.CreateUploads do
 
   def change do
     create table(:uploads) do
-      add :temp_path, :text
-
       timestamps()
+
+      add :temp_path, :text
     end
   end
 end

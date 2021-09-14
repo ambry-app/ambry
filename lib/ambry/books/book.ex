@@ -12,7 +12,6 @@ defmodule Ambry.Books.Book do
     has_many :media, Media
     has_many :series_books, SeriesBook
     has_many :book_authors, BookAuthor
-
     many_to_many :series, Series, join_through: "books_series"
     many_to_many :authors, Author, join_through: "authors_books"
 

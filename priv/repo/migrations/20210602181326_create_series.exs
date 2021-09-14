@@ -3,9 +3,9 @@ defmodule Ambry.Repo.Migrations.CreateSeries do
 
   def change do
     create table(:series) do
-      add :name, :text
-
       timestamps()
+
+      add :name, :text
     end
   end
 end

@@ -13,10 +13,11 @@ defmodule Ambry.Accounts.UserToken do
   @session_validity_in_days 60
 
   schema "users_tokens" do
+    belongs_to :user, Ambry.Accounts.User
+
     field :token, :binary
     field :context, :string
     field :sent_to, :string
-    belongs_to :user, Ambry.Accounts.User
 
     timestamps(updated_at: false)
   end

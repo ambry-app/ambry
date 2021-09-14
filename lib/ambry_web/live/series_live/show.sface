@@ -4,7 +4,7 @@
   by
   {#for author <- @authors}
     <LiveRedirect
-      to={Routes.author_show_path(@socket, :show, author)}
+      to={Routes.person_show_path(@socket, :show, author.person_id)}
       class="text-lime-500 hover:underline"
     >
       {author.name}

@@ -3,9 +3,9 @@ defmodule Ambry.Repo.Migrations.CreateAuthors do
 
   def change do
     create table(:authors) do
-      add :name, :text
-
       timestamps()
+
+      add :name, :text
     end
   end
 end

@@ -7,7 +7,6 @@ defmodule Ambry.Series.Series do
 
   schema "series" do
     has_many :series_books, SeriesBook
-
     many_to_many :books, Book, join_through: "books_series"
 
     field :name, :string

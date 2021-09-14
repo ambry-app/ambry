@@ -3,12 +3,12 @@ defmodule Ambry.Repo.Migrations.CreatePlayerStates do
 
   def change do
     create table(:player_states) do
+      timestamps()
+
       add :position, :decimal
       add :playback_rate, :decimal
       add :media_id, references(:media, on_delete: :nothing)
       add :user_id, references(:users, on_delete: :nothing)
-
-      timestamps()
     end
 
     create index(:player_states, [:media_id])

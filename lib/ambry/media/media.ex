@@ -9,9 +9,7 @@ defmodule Ambry.Media.Media do
 
   schema "media" do
     belongs_to :book, Book
-
     has_many :media_narrators, MediaNarrator
-
     many_to_many :narrators, Narrator, join_through: "media_narrators"
 
     field :path, :string

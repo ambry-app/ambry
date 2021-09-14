@@ -3,11 +3,11 @@ defmodule Ambry.Repo.Migrations.CreateMedia do
 
   def change do
     create table(:media) do
+      timestamps()
+
       add :path, :text
       add :book_id, references(:books, on_delete: :nothing)
       add :narrator_id, references(:narrators, on_delete: :nothing)
-
-      timestamps()
     end
 
     create index(:media, [:book_id])
