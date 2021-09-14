@@ -34,6 +34,7 @@ defmodule Ambry.MixProject do
   defp deps do
     [
       {:argon2_elixir, "~> 2.0"},
+      {:earmark, "~> 1.4"},
       {:ecto_sql, "~> 3.6"},
       {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
       {:floki, ">= 0.30.0", only: :test},
@@ -48,6 +49,7 @@ defmodule Ambry.MixProject do
       {:plug_cowboy, "~> 2.5"},
       {:postgrex, ">= 0.0.0"},
       {:surface, "~> 0.5"},
+      {:surface_formatter, "~> 0.5"},
       {:swoosh, "~> 1.3"},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"}
@@ -66,7 +68,8 @@ defmodule Ambry.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.deploy": ["esbuild default --minify", "phx.digest"]
+      "assets.deploy": ["esbuild default --minify", "phx.digest"],
+      format: ["format", "surface.format"]
     ]
   end
 end

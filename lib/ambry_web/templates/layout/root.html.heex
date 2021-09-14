@@ -5,27 +5,29 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <%= csrf_meta_tag() %>
-    <%= live_title_tag assigns[:page_title] || "Ambry", suffix: " · Phoenix Framework" %>
+    <%= live_title_tag assigns[:page_title] || "Personal Audiobook Streaming", suffix: " · Ambry" %>
     <link phx-track-static rel="stylesheet" href={Routes.static_path(@conn, "/assets/app.css")}/>
     <script defer phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
   </head>
-  <body>
-    <header>
-      <section class="container">
-        <nav>
-          <ul>
-            <li><a href="https://hexdocs.pm/phoenix/overview.html">Get Started</a></li>
-            <%= if function_exported?(Routes, :live_dashboard_path, 2) do %>
-              <li><%= link "LiveDashboard", to: Routes.live_dashboard_path(@conn, :home) %></li>
-            <% end %>
-          </ul>
-          <%= render "_user_menu.html", assigns %>
-        </nav>
-        <a href="https://phoenixframework.org/" class="phx-logo">
-          <img src={Routes.static_path(@conn, "/images/phoenix.png")} alt="Phoenix Framework Logo"/>
+  <body class="text-gray-800">
+    <header class="px-4 sm:px-10 py-2 flex items-center shadow-md">
+      <section id="logo" class="min-w-max">
+        <a href="/">
+          <img class="h-12" src={Routes.static_path(@conn, "/images/logo_optimized.svg")} />
         </a>
       </section>
+      <section id="search" class="hidden sm:inline-block flex-grow mx-8">
+        <input type="text" placeholder="Search..." class="h-8 px-4 border border-gray-200 rounded-full shadow-inner" />
+      </section>
+      <section id="user" class="hidden sm:flex min-w-max items-center cursor-pointer">
+        <img class="h-12 mr-2 rounded-full" src={gravatar_url("chris@xn--dos-dma.com")} />
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </section>
     </header>
-    <%= @inner_content %>
+    <main class="m-4 sm:m-10">
+      <%= @inner_content %>
+    </main>
   </body>
 </html>

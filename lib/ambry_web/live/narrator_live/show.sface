@@ -1,0 +1,18 @@
+<div class="sm:flex sm:flex-row">
+  <section id="photo" class="flex-none min-w-max mb-4 sm:mb-0">
+    <img
+      src={"/uploads/" <> @narrator.image_path}
+      class="mx-auto rounded-full shadow-lg object-cover object-top h-60 w-60"
+    />
+  </section>
+  <section id="description" class="sm:ml-10">
+    <h1 class="text-4xl">{@narrator.name}</h1>
+    <div class="markdown max-w-md mt-4 text-sm text-gray-600">
+      {raw(Earmark.as_html!(@narrator.description))}
+    </div>
+  </section>
+</div>
+
+<h2 class="mt-8 mb-4 text-3xl">Narrated by {@narrator.name}</h2>
+
+<BookTiles books={@narrator.books} />

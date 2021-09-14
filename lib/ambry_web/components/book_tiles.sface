@@ -1,0 +1,41 @@
+<div class="flex flex-wrap -mx-5">
+  {#for {book, number} <- @books}
+    <div class="my-5 px-5 w-full sm:w-1/3 md:w-1/4 lg:w-1/5 xl:w-1/6 text-center">
+      {#if number}
+        <p>Book {number}</p>
+      {/if}
+      <LiveRedirect to={Routes.book_show_path(@socket, :show, book)}>
+        <img
+          src={"/uploads/" <> book.image_path}
+          class="w-full rounded-lg shadow-md border border-gray-200"
+        />
+      </LiveRedirect>
+      <p class="hover:underline">
+        <LiveRedirect to={Routes.book_show_path(@socket, :show, book)}>
+          {book.title}
+        </LiveRedirect>
+      </p>
+      <p class="text-sm text-gray-600">
+        by
+        {#for author <- book.authors}
+          <LiveRedirect to={Routes.author_show_path(@socket, :show, author)} class="hover:underline">
+            {author.name}
+          </LiveRedirect>
+          <span class="last:hidden">,</span>
+        {/for}
+      </p>
+      <p class="text-xs text-gray-400">
+        {#for series_book <- book.series_books}
+          <LiveRedirect
+            to={Routes.series_show_path(@socket, :show, series_book.series)}
+            class="hover:underline"
+          >
+            {series_book.series.name}
+            #{series_book.book_number}
+          </LiveRedirect>
+          <span class="last:hidden">,</span>
+        {/for}
+      </p>
+    </div>
+  {/for}
+</div>

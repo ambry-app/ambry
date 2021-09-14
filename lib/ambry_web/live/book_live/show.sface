@@ -1,0 +1,48 @@
+<div class="sm:flex sm:flex-row">
+  <section id="cover" class="flex-none mb-4 sm:mb-0 sm:w-80">
+    <div class="sm:hidden">
+      <Header book={@book} />
+    </div>
+    <img src={"/uploads/" <> @book.image_path} class="rounded-3xl shadow-lg w-full sm:w-80">
+    <p class="text-gray-600 mt-2 text-sm">Published {Calendar.strftime(@book.published, "%B %-d, %Y")}</p>
+    {#if @book.media != []}
+      <h2 class="text-2xl mt-4 mb-2">Recordings</h2>
+      <div class="rounded-lg border shadow-lg px-3 divide-y divide-gray-200">
+        {#for media <- @book.media}
+          <div class="flex items-center py-3">
+            <div class="flex-grow mr-8">
+              <p class="text-lg">{@book.title} ({recording_type(media)})</p>
+              <p class="text-gray-400">
+                Narrated by
+                {#for narrator <- media.narrators}
+                  <LiveRedirect
+                    to={Routes.narrator_show_path(@socket, :show, narrator)}
+                    class="text-lime-500 hover:underline"
+                  >
+                    {narrator.name}
+                  </LiveRedirect>
+                  <span class="last:hidden">,</span>
+                {/for}
+              </p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </div>
+        {/for}
+      </div>
+    {/if}
+  </section>
+  <section id="description" class="max-w-md sm:ml-10">
+    <div class="hidden sm:block">
+      <Header book={@book} />
+    </div>
+    <div class="markdown mt-4 text-sm text-gray-600">
+      {raw(Earmark.as_html!(@book.description))}
+    </div>
+  </section>
+</div>

@@ -98,6 +98,7 @@ defmodule AmbryWeb do
 
       import AmbryWeb.ErrorHelpers
       import AmbryWeb.Gettext
+      import AmbryWeb.Gravatar
       alias AmbryWeb.Router.Helpers, as: Routes
     end
   end

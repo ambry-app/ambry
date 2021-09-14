@@ -1,3 +1,7 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
+
+div.markdown p {
+  margin-bottom: 1rem;
+}

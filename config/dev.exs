@@ -67,7 +67,8 @@ config :ambry, AmbryWeb.Endpoint,
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
       ~r"lib/ambry_web/(live|views)/.*(ex)$",
-      ~r"lib/ambry_web/templates/.*(eex)$"
+      ~r"lib/ambry_web/templates/.*(eex)$",
+      ~r"lib/ambry_web/live/.*(sface)$"
     ]
   ]
 
@@ -80,3 +81,5 @@ config :phoenix, :stacktrace_depth, 20
 
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
+
+config :ambry, uploads_path: Path.join(File.cwd!(), "uploads")

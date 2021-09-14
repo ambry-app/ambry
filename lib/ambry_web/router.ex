@@ -23,6 +23,17 @@ defmodule AmbryWeb.Router do
     get "/", PageController, :index
   end
 
+  scope "/", AmbryWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live "/authors/:id", AuthorLive.Show, :show
+    live "/series/:id", SeriesLive.Show, :show
+    live "/narrators/:id", NarratorLive.Show, :show
+    live "/books/:id", BookLive.Show, :show
+    # live "/media/:id", MediaLive.Show, :show
+    # live "/upload", UploadLive.Index, :new
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", AmbryWeb do
   #   pipe_through :api

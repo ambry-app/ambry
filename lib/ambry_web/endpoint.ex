@@ -1,6 +1,8 @@
 defmodule AmbryWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :ambry
 
+  require Application
+
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
@@ -21,6 +23,13 @@ defmodule AmbryWeb.Endpoint do
     from: :ambry,
     gzip: false,
     only: ~w(assets fonts images favicon.ico robots.txt)
+
+  # Serve static user uploads
+  plug Plug.Static,
+    at: "/uploads",
+    from: Application.compile_env!(:ambry, :uploads_path),
+    gzip: false,
+    only: ~w(images)
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
