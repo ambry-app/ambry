@@ -2,24 +2,22 @@
 <p class="text-xl text-gray-600">
   by
   {#for author <- @book.authors}
-    <LiveRedirect
-      to={Routes.person_show_path(@socket, :show, author.person_id)}
+    <a
       class="text-lime-500 hover:underline"
-    >
-      {author.name}
-    </LiveRedirect>
-    <span class="last:hidden">,</span>
+      data-phx-link="redirect"
+      data-phx-link-state="push"
+      href={Routes.person_show_path(@socket, :show, author.person_id)}
+    >{author.name}</a><span class="last:hidden">,</span>
   {/for}
 </p>
-<p class="text-gray-400">
-  {#for series_book <- @book.series_books}
+
+{#for series_book <- Enum.sort_by(@book.series_books, & &1.series.name)}
+  <p class="text-gray-400">
     <LiveRedirect
       to={Routes.series_show_path(@socket, :show, series_book.series)}
       class="hover:underline"
     >
-      {series_book.series.name}
-      #{series_book.book_number}
+      {series_book.series.name} #{series_book.book_number}
     </LiveRedirect>
-    <span class="last:hidden">,</span>
-  {/for}
-</p>
+  </p>
+{/for}

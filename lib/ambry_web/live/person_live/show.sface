@@ -9,7 +9,7 @@
     <h1 class="text-4xl">{@person.name}</h1>
     <div x-data="readMore">
       <div
-        class="markdown relative max-w-md mt-4 text-sm text-gray-600 max-h-44 overflow-y-hidden"
+        class="markdown relative max-w-md mt-4 text-gray-600 max-h-44 overflow-y-hidden"
         :class="{ 'max-h-44': !expanded }"
       >
         {raw(Earmark.as_html!(@person.description))}

@@ -21,6 +21,17 @@ defmodule Ambry.Books do
   end
 
   @doc """
+  Lists recent books.
+  """
+  def get_recent_books!(offset \\ 0, limit \\ 10) do
+    query = from b in Book, order_by: [desc: b.inserted_at], offset: ^offset, limit: ^limit
+
+    query
+    |> preload([:authors, series_books: :series])
+    |> Repo.all()
+  end
+
+  @doc """
   Gets a book.
   """
   def get_book!(book_id) do

@@ -12,9 +12,9 @@
   <body class="text-gray-800">
     <header class="px-4 sm:px-10 py-2 flex items-center shadow-md">
       <section id="logo" class="min-w-max">
-        <a href="/">
+        <%= live_redirect to: "/" do %>
           <img class="h-10 sm:h-12" src={Routes.static_path(@conn, "/images/logo_optimized.svg")} />
-        </a>
+        <% end %>
       </section>
       <section id="search" class="flex-grow mx-0 sm:mx-5 md:mx-10">
         <input type="text" placeholder="Search..." class="hidden sm:inline-block h-8 px-4 border border-gray-200 rounded-full shadow-inner" />

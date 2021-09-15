@@ -15,13 +15,12 @@
               <p class="text-gray-400">
                 Narrated by
                 {#for narrator <- media.narrators}
-                  <LiveRedirect
-                    to={Routes.person_show_path(@socket, :show, narrator.person_id)}
+                  <a
                     class="text-lime-500 hover:underline"
-                  >
-                    {narrator.name}
-                  </LiveRedirect>
-                  <span class="last:hidden">,</span>
+                    data-phx-link="redirect"
+                    data-phx-link-state="push"
+                    href={Routes.person_show_path(@socket, :show, narrator.person_id)}
+                  >{narrator.name}</a><span class="last:hidden">,</span>
                 {/for}
               </p>
             </div>
@@ -41,7 +40,7 @@
     <div class="hidden sm:block">
       <Header book={@book} />
     </div>
-    <div class="markdown mt-4 text-sm text-gray-600">
+    <div class="markdown mt-4 text-gray-600">
       {raw(Earmark.as_html!(@book.description))}
     </div>
   </section>

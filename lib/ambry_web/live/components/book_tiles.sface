@@ -1,6 +1,6 @@
-<div class="flex flex-wrap -mx-5">
+<div class="grid gap-4 sm:gap-6 md:gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
   {#for {book, number} <- @books}
-    <div class="my-5 px-5 w-1/2 sm:w-1/3 md:w-1/4 lg:w-1/5 xl:w-1/6 text-center">
+    <div class="text-center text-lg">
       {#if number}
         <p>Book {number}</p>
       {/if}
@@ -8,29 +8,29 @@
         <LiveRedirect to={Routes.book_show_path(@socket, :show, book)}>
           <img
             src={"/uploads/" <> book.image_path}
-            class="w-full rounded-lg shadow-md border border-gray-200 filter group-hover:saturate-200"
+            class="w-full rounded-lg shadow-md border border-gray-200 filter group-hover:saturate-200 group-hover:shadow-lg group-hover:-mt-1"
           />
         </LiveRedirect>
-        <p class="group-hover:underline">
+        <p class="group-hover:underline group-hover:mt-1">
           <LiveRedirect to={Routes.book_show_path(@socket, :show, book)}>
             {book.title}
           </LiveRedirect>
         </p>
       </div>
-      <p class="text-sm text-gray-600">
+      <p class="text-gray-600">
         by
         {#for author <- book.authors}
-          <LiveRedirect
-            to={Routes.person_show_path(@socket, :show, author.person_id)}
+          <a
             class="hover:underline"
-          >
-            {author.name}
-          </LiveRedirect>
-          <span class="last:hidden">,</span>
+            data-phx-link="redirect"
+            data-phx-link-state="push"
+            href={Routes.person_show_path(@socket, :show, author.person_id)}
+          >{author.name}</a><span class="last:hidden">,</span>
         {/for}
       </p>
-      <p class="text-xs text-gray-400">
-        {#for series_book <- book.series_books}
+
+      {#for series_book <- Enum.sort_by(book.series_books, & &1.series.name)}
+        <p class="text-sm text-gray-400">
           <LiveRedirect
             to={Routes.series_show_path(@socket, :show, series_book.series)}
             class="hover:underline"
@@ -38,9 +38,8 @@
             {series_book.series.name}
             #{series_book.book_number}
           </LiveRedirect>
-          <span class="last:hidden">,</span>
-        {/for}
-      </p>
+        </p>
+      {/for}
     </div>
   {/for}
 </div>

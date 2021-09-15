@@ -1,0 +1,3 @@
+<h1 class="text-4xl mb-4">Recently added</h1>
+
+<BookTiles books={@books} />

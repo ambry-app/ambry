@@ -18,14 +18,9 @@ defmodule AmbryWeb.Router do
   end
 
   scope "/", AmbryWeb do
-    pipe_through :browser
-
-    get "/", PageController, :index
-  end
-
-  scope "/", AmbryWeb do
     pipe_through [:browser, :require_authenticated_user]
 
+    live "/", HomeLive.Recent, :recent
     live "/people/:id", PersonLive.Show, :show
     live "/series/:id", SeriesLive.Show, :show
     live "/books/:id", BookLive.Show, :show
