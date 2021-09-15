@@ -20,7 +20,7 @@
       </div>
       <p class="text-right" x-show="canReadMore">
         <span
-          class="text-lime-500 cursor-pointer"
+          class="text-lime-500 cursor-pointer hover:underline"
           @click="toggle()"
           x-text="expanded ? 'Read less' : 'Read more'"
         />
