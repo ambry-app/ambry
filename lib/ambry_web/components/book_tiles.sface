@@ -18,7 +18,10 @@
       <p class="text-sm text-gray-600">
         by
         {#for author <- book.authors}
-          <LiveRedirect to={Routes.person_show_path(@socket, :show, author.person_id)} class="hover:underline">
+          <LiveRedirect
+            to={Routes.person_show_path(@socket, :show, author.person_id)}
+            class="hover:underline"
+          >
             {author.name}
           </LiveRedirect>
           <span class="last:hidden">,</span>

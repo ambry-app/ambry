@@ -24,6 +24,25 @@ import topbar from '../vendor/topbar'
 import Alpine from 'alpinejs'
 
 window.Alpine = Alpine
+
+Alpine.data('readMore', () => ({
+  canReadMore: false,
+  expanded: false,
+  init () {
+    const {
+      clientWidth,
+      clientHeight,
+      scrollWidth,
+      scrollHeight
+    } = this.$el.firstElementChild
+
+    this.canReadMore = scrollHeight > clientHeight || scrollWidth > clientWidth
+  },
+  toggle () {
+    this.expanded = !this.expanded
+  }
+}))
+
 Alpine.start()
 
 let csrfToken = document
