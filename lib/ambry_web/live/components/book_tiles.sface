@@ -8,10 +8,10 @@
         <LiveRedirect to={Routes.book_show_path(@socket, :show, book)}>
           <img
             src={"/uploads/" <> book.image_path}
-            class="w-full rounded-lg shadow-md border border-gray-200 filter group-hover:saturate-200 group-hover:shadow-lg group-hover:-mt-1"
+            class="w-full rounded-lg shadow-md border border-gray-200 filter group-hover:saturate-200 group-hover:shadow-lg group-hover:-translate-y-1 transition"
           />
         </LiveRedirect>
-        <p class="group-hover:underline group-hover:mt-1">
+        <p class="group-hover:underline">
           <LiveRedirect to={Routes.book_show_path(@socket, :show, book)}>
             {book.title}
           </LiveRedirect>
