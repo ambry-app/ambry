@@ -17,7 +17,7 @@
           </LiveRedirect>
         </p>
       </div>
-      <p class="text-gray-600">
+      <p class="text-gray-500">
         by
         {#for author <- book.authors}
           <a

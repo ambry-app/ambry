@@ -29,7 +29,7 @@ defmodule AmbryWeb.Endpoint do
     at: "/uploads",
     from: Application.compile_env!(:ambry, :uploads_path),
     gzip: false,
-    only: ~w(images)
+    only: ~w(images media)
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.

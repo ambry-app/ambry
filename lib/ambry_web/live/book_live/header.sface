@@ -1,5 +1,5 @@
 <h1 class="text-4xl">{@book.title}</h1>
-<p class="text-xl text-gray-600">
+<p class="text-xl text-gray-500">
   by
   {#for author <- @book.authors}
     <a

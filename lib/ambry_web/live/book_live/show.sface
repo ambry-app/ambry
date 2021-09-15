@@ -4,7 +4,7 @@
       <Header book={@book} />
     </div>
     <img src={"/uploads/" <> @book.image_path} class="rounded-3xl shadow-lg w-full sm:w-80">
-    <p class="text-gray-600 mt-2 text-sm">Published {Calendar.strftime(@book.published, "%B %-d, %Y")}</p>
+    <p class="text-gray-500 mt-2 text-sm">Published {Calendar.strftime(@book.published, "%B %-d, %Y")}</p>
     {#if @book.media != []}
       <h2 class="text-2xl mt-4 mb-2">Recordings</h2>
       <div class="rounded-lg border shadow-lg px-3 divide-y divide-gray-200">
@@ -40,7 +40,7 @@
     <div class="hidden sm:block">
       <Header book={@book} />
     </div>
-    <div class="markdown mt-4 text-gray-600">
+    <div class="markdown mt-4">
       {raw(Earmark.as_html!(@book.description))}
     </div>
   </section>
