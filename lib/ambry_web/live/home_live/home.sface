@@ -1,9 +1,9 @@
 <div class="space-y-8">
   <Recent
     id="recently-played"
-    title="Recently played"
+    title="Continue listening"
     load={&recently_played_books(@current_user, &1, &2)}
   />
 
-  <Recent id="recently-added" title="Recently added" load={&recently_added_books/2} />
+  <Recent id="recently-added" title="Newest books" load={&recently_added_books/2} />
 </div>
