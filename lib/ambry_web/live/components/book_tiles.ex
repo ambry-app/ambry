@@ -12,6 +12,7 @@ defmodule AmbryWeb.Components.BookTiles do
   def update(%{books: books} = assigns, socket) do
     books =
       case books do
+        [] -> []
         [%Book{} | _] = books -> Enum.map(books, &{&1, nil})
         [%SeriesBook{} | _] = series_books -> Enum.map(series_books, &{&1.book, &1.book_number})
       end

@@ -1,3 +1,15 @@
-<h1 class="text-4xl mb-4">Recently added</h1>
+<div id={@id}>
+  {#if @books != []}
+    <h1 class="text-4xl mb-4">{@title}</h1>
 
-<BookTiles books={@books} />
+    <BookTiles books={@books} />
+
+    {#if @show_load_more?}
+      <p class="text-right">
+        <button :on-click="load-more" class="text-lime-500 hover:underline">
+          Load more
+        </button>
+      </p>
+    {/if}
+  {/if}
+</div>

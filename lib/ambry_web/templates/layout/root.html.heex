@@ -10,14 +10,14 @@
     <script defer phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
   </head>
   <body class="text-gray-700">
-    <header class="px-4 sm:px-10 py-2 flex items-center shadow-md">
+    <header class="fixed z-50 bg-white w-full px-4 sm:px-10 py-2 flex items-center shadow-md">
       <section id="logo" class="min-w-max">
         <%= live_redirect to: "/" do %>
           <img class="h-10 sm:h-12" src={Routes.static_path(@conn, "/images/logo_optimized.svg")} />
         <% end %>
       </section>
       <section id="search" class="flex-grow ml-0 sm:ml-5 md:ml-10">
-        <input type="text" placeholder="Search..." class="hidden sm:inline-block h-8 px-4 border border-gray-200 rounded-full shadow-inner" />
+        <input type="text" placeholder="Search..." class="hidden sm:inline-block h-8 px-4 border border-gray-200 rounded-full shadow-inner focus:outline-none focus:ring-2 focus:ring-lime-500" />
       </section>
       <section id="small-player" class="flex-grow flex justify-end sm:mx-2 md:mx-5 text-gray-700">
         <!-- previous chapter -->
@@ -85,7 +85,7 @@
         </svg>
       </section>
     </header>
-    <main class="m-4 sm:m-10">
+    <main class="py-20 mx-4 sm:mx-10">
       <%= @inner_content %>
     </main>
   </body>

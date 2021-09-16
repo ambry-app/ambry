@@ -3,7 +3,6 @@ defmodule AmbryWeb.SeriesLive.Show do
 
   alias Ambry.Series
   alias AmbryWeb.Components.BookTiles
-  alias Surface.Components.LiveRedirect
 
   @impl true
   def mount(%{"id" => series_id}, _session, socket) do

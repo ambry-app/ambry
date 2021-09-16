@@ -24,13 +24,12 @@
                 {/for}
               </p>
             </div>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                clip-rule="evenodd"
-              />
-            </svg>
+            <button :on-click="load-media" :values={media_id: media.id}>
+              <svg width="44" viewBox="0 0 50 50" fill="none">
+                <circle class="text-gray-300" cx="25" cy="25" r="24" stroke="currentColor" stroke-width="1.5" />
+                <path d="M20 16l14 9l-14 9z" fill="currentColor" />
+              </svg>
+            </button>
           </div>
         {/for}
       </div>

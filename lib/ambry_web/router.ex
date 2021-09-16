@@ -20,7 +20,7 @@ defmodule AmbryWeb.Router do
   scope "/", AmbryWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    live "/", HomeLive.Recent, :recent
+    live "/", HomeLive.Home, :home
     live "/people/:id", PersonLive.Show, :show
     live "/series/:id", SeriesLive.Show, :show
     live "/books/:id", BookLive.Show, :show

@@ -35,6 +35,19 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  Gets recent player states for a given user.
+  """
+  def get_recent_player_states(user_id, offset \\ 0, limit \\ 10) do
+    PlayerState
+    |> where([ps], ps.user_id == ^user_id)
+    |> order_by({:desc, :updated_at})
+    |> offset(^offset)
+    |> limit(^limit)
+    |> preload(media: [book: [:authors, series_books: :series]])
+    |> Repo.all()
+  end
+
+  @doc """
   Gets the most recent player state for a given user, if any.
   """
   def get_most_recent_player_state(user_id) do

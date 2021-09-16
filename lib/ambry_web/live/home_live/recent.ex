@@ -1,17 +1,39 @@
 defmodule AmbryWeb.HomeLive.Recent do
-  use AmbryWeb, :live_view
+  use AmbryWeb, :live_component
 
-  alias Ambry.Books
   alias AmbryWeb.Components.BookTiles
 
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
+  @limit 10
+
+  prop title, :string, required: true
+  prop load, :any, required: true
+
+  data show_load_more?, :boolean, default: true
+  data books, :list, default: []
 
   @impl true
-  def mount(_params, _session, socket) do
-    books = Books.get_recent_books!()
-
+  def update(assigns, socket) do
     {:ok,
      socket
-     |> assign(:books, books)}
+     |> assign(assigns)
+     |> load_books()}
+  end
+
+  @impl true
+  def handle_event("load-more", _params, socket) do
+    {:noreply, load_books(socket)}
+  end
+
+  defp load_books(%{assigns: assigns} = socket) do
+    books = Map.get(assigns, :books, [])
+    offset = Map.get(assigns, :offset, 0)
+    more_books = assigns.load.(offset, @limit)
+    books = books ++ more_books
+    show_load_more? = length(more_books) == @limit
+
+    socket
+    |> assign(:books, books)
+    |> assign(:offset, offset + @limit)
+    |> assign(:show_load_more?, show_load_more?)
   end
 end
