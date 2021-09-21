@@ -2,8 +2,7 @@ defmodule AmbryWeb.BookLive.Show do
   use AmbryWeb, :live_view
 
   alias Ambry.Books
-  alias Ambry.Media
-  alias AmbryWeb.BookLive.Header
+  alias AmbryWeb.BookLive.{Header, PlayButton}
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 
@@ -15,15 +14,6 @@ defmodule AmbryWeb.BookLive.Show do
      socket
      |> assign(:page_title, book.title)
      |> assign(:book, book)}
-  end
-
-  @impl true
-  def handle_event("load-media", %{"media_id" => media_id}, socket) do
-    user = socket.assigns.current_user
-
-    Media.load_media!(user.id, media_id)
-
-    {:noreply, socket}
   end
 
   def recording_type(%{abridged: true}), do: "Abridged"

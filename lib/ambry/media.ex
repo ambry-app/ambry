@@ -10,11 +10,14 @@ defmodule Ambry.Media do
   alias Ambry.PubSub
   alias Ambry.Repo
 
+  @media_preload [:narrators, book: [:authors, series_books: :series]]
+  @player_state_preload [media: @media_preload]
+
   def get_media!(media_id) do
     Repo.get!(Media, media_id)
 
     Media
-    |> preload([:narrators, book: [:authors, series_books: :series]])
+    |> preload(^@media_preload)
     |> Repo.get!(media_id)
   end
 
@@ -43,7 +46,7 @@ defmodule Ambry.Media do
     |> order_by({:desc, :updated_at})
     |> offset(^offset)
     |> limit(^limit)
-    |> preload(media: [book: [:authors, series_books: :series]])
+    |> preload(^@player_state_preload)
     |> Repo.all()
   end
 
@@ -56,7 +59,7 @@ defmodule Ambry.Media do
       |> where([ps], ps.user_id == ^user_id)
       |> order_by({:desc, :updated_at})
       |> limit(1)
-      |> preload(media: [:narrators, book: [:authors, series_books: :series]])
+      |> preload(^@player_state_preload)
       |> Repo.one()
 
     case result do
@@ -72,13 +75,13 @@ defmodule Ambry.Media do
   Creates or touches a player state for the given user and media, then
   broadcasts a message about it.
   """
-  def load_media!(user_id, media_id) do
+  def load_and_play_media!(user_id, media_id) do
     result =
       PlayerState
       |> where([ps], ps.user_id == ^user_id and ps.media_id == ^media_id)
       |> Repo.one()
 
-    _player_state =
+    player_state =
       case result do
         nil ->
           {:ok, player_state} = create_player_state(%{user_id: user_id, media_id: media_id})
@@ -91,9 +94,29 @@ defmodule Ambry.Media do
       end
 
     PubSub.broadcast(
-      "users:#{user_id}:load-media",
-      :load_media
+      "users:#{user_id}:load-and-play-media",
+      {:load_and_play_media, player_state.id}
     )
+  end
+
+  @doc """
+  Gets or creates a player state for the given user and media.
+  """
+  def get_or_create_player_state!(user_id, media_id) do
+    result =
+      PlayerState
+      |> where([ps], ps.user_id == ^user_id and ps.media_id == ^media_id)
+      |> preload(^@player_state_preload)
+      |> Repo.one()
+
+    case result do
+      nil ->
+        {:ok, player_state} = create_player_state(%{user_id: user_id, media_id: media_id})
+        Repo.preload(player_state, @player_state_preload)
+
+      %PlayerState{} = player_state ->
+        player_state
+    end
   end
 
   @doc """
@@ -110,7 +133,11 @@ defmodule Ambry.Media do
       ** (Ecto.NoResultsError)
 
   """
-  def get_player_state!(id), do: Repo.get!(PlayerState, id)
+  def get_player_state!(id) do
+    PlayerState
+    |> preload(^@player_state_preload)
+    |> Repo.get!(id)
+  end
 
   @doc """
   Creates a player_state.

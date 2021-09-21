@@ -1,0 +1,215 @@
+<header class="fixed z-50 bg-white w-full shadow-md">
+  <div
+    id="media-player"
+    phx-hook="mediaPlayer"
+    x-data="{ playing: false }"
+    {...player_state_attrs(@player_state)}
+  >
+    <audio />
+  </div>
+  <div class="px-4 sm:px-10 py-2 flex items-center max-w-screen-2xl 2xl:mx-auto">
+    <div class="min-w-max">
+      <LiveRedirect to={Routes.home_home_path(@socket, :home)}>
+        <img class="h-10 sm:h-12" src={Routes.static_path(@socket, "/images/logo_optimized.svg")}>
+      </LiveRedirect>
+    </div>
+    <div class="flex-grow ml-0 sm:ml-5 md:ml-10">
+      <input
+        type="text"
+        placeholder="Search..."
+        class="hidden sm:inline-block h-8 w-52 px-4 border border-gray-200 rounded-full shadow-inner focus:outline-none focus:ring-2 focus:ring-lime-500"
+      />
+    </div>
+    <button class="flex min-w-max items-center" :on-click="toggle">
+      <!-- {#if !is_nil(@player_state) && !@expanded}
+        <div class="mx-2">
+          <img
+            src={"/uploads/" <> @player_state.media.book.image_path}
+            class="h-10 sm:h-12 object-center object-cover rounded shadow-md border border-gray-200"
+          />
+        </div>
+      {/if} -->
+      <img class="h-10 sm:h-12 mr-2 rounded-full shadow-md" src={gravatar_url(@current_user.email)}>
+      {#if @expanded}
+        <ChevronUp />
+      {#else}
+        <ChevronDown />
+      {/if}
+    </button>
+  </div>
+  {#if @expanded}
+    <div class="px-4 sm:px-10 h-72">
+      <!-- {#if !is_nil(@player_state)}
+        <div class="p-4 pb-6 space-y-6">
+          <div class="flex items-center space-x-3.5 sm:space-x-5 lg:space-x-3.5 xl:space-x-5">
+            <div class="min-w-0 flex-auto space-y-0.5">
+              {#if @player_state.media.book.series_books != []}
+                <p class="text-lime-600 dark:text-lime-400 text-sm sm:text-base lg:text-sm xl:text-base font-semibold uppercase">
+                  {#for series_book <- @player_state.media.book.series_books}
+                    <LiveRedirect
+                      to={Routes.series_show_path(@socket, :show, series_book.series)}
+                      class="hover:underline"
+                    >
+                      {series_book.series.name}
+                    </LiveRedirect>
+                    - Book {series_book.book_number}<span class="last:hidden">,
+                    </span>
+                  {/for}
+                </p>
+              {/if}
+              <h2 class="text-black dark:text-white text-base sm:text-xl lg:text-base xl:text-xl font-semibold truncate">
+                <LiveRedirect
+                  to={Routes.book_show_path(@socket, :show, @player_state.media.book)}
+                  class="hover:underline"
+                >
+                  {@player_state.media.book.title}
+                </LiveRedirect>
+              </h2>
+              <p class="text-gray-500 dark:text-gray-400 text-base sm:text-lg lg:text-base xl:text-lg font-medium">
+                by
+                {#for author <- @player_state.media.book.authors}
+                  <LiveRedirect
+                    to={Routes.person_show_path(@socket, :show, author.person_id)}
+                    class="hover:underline"
+                  >
+                    {author.name}<span class="last:hidden">,
+                    </span>
+                  </LiveRedirect>
+                {/for}
+              </p>
+              <p class="italic text-gray-400 dark:text-gray-500 text-base sm:text-lg lg:text-base xl:text-lg font-medium">
+                narrated by
+                {#for narrator <- @player_state.media.narrators}
+                  <LiveRedirect
+                    to={Routes.person_show_path(@socket, :show, narrator.person_id)}
+                    class="hover:underline"
+                  >
+                    {narrator.name}<span class="last:hidden">,
+                    </span>
+                  </LiveRedirect>
+                {/for}
+                {#if @player_state.media.full_cast}
+                  and a full cast
+                {/if}
+              </p>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div id="progress-bar" class="bg-gray-200 dark:bg-black rounded-full overflow-hidden">
+              <div
+                class="bg-lime-500 dark:bg-lime-400 h-2"
+                style={"width: #{progress_percent(@player_state)}%;"}
+              />
+            </div>
+            <div class="text-gray-500 dark:text-gray-400 flex justify-between text-sm font-medium tabular-nums">
+              <div>{format_timecode(@player_state.position)}</div>
+              <div>{format_timecode(@player_state.duration)}</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 text-black dark:bg-gray-900 dark:text-white py-4 px-1 sm:px-3 lg:px-1 xl:px-3 grid grid-cols-5 sm:grid-cols-7 lg:grid-cols-5 xl:grid-cols-7 items-center">
+          {!-- bookmarks --}
+          <button type="button" class="mx-auto">
+            <svg width="24" height="24" fill="none">
+              <path
+                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+          {!-- previous chapter --}
+          <button type="button" class="hidden sm:block lg:hidden xl:block mx-auto">
+            <svg width="17" height="18">
+              <path d="M0 0h2v18H0V0zM4 9l13-9v18L4 9z" fill="currentColor" />
+            </svg>
+          </button>
+          {!-- back 10 --}
+          {!--
+            To generate text path: https://danmarshall.github.io/google-font-to-svg-path/
+            font: Roboto
+            size: 13
+            variant 500 (or 300?)
+            then copy-paste path to: https://yqnn.github.io/svg-path-editor/
+            and translate:
+            x: 10
+            y: 17
+            then paste into top path below
+          --}
+          <button type="button" class="mx-auto" @click="mediaPlayer.seekRelative(-10)">
+            <svg width="34" height="39" fill="none">
+              <path
+                d="M 13.802 17.095 L 13.802 26.369 L 12.266 26.369 L 12.266 18.949 L 10 19.723 L 10 18.422 L 13.605 17.095 L 13.802 17.095 Z M 23.038 20.879 L 23.038 22.478 A 8.528 8.528 0 0 1 22.972 23.575 Q 22.817 24.772 22.292 25.484 Q 21.546 26.496 20.023 26.496 A 3.612 3.612 0 0 1 19.119 26.39 A 2.415 2.415 0 0 1 17.766 25.509 A 3.237 3.237 0 0 1 17.276 24.561 Q 17 23.743 16.989 22.586 L 16.989 20.986 A 8.598 8.598 0 0 1 17.048 19.944 Q 17.199 18.713 17.735 17.997 A 2.398 2.398 0 0 1 19.191 17.083 A 3.793 3.793 0 0 1 20.01 17 A 3.751 3.751 0 0 1 20.903 17.1 A 2.384 2.384 0 0 1 22.273 17.971 A 3.152 3.152 0 0 1 22.745 18.877 Q 22.894 19.314 22.968 19.851 A 8.212 8.212 0 0 1 23.038 20.879 Z M 21.496 22.84 L 21.496 20.752 A 7.599 7.599 0 0 0 21.469 20.092 Q 21.412 19.438 21.232 19.025 A 1.705 1.705 0 0 0 21.14 18.844 A 1.16 1.16 0 0 0 20.308 18.263 A 1.69 1.69 0 0 0 20.01 18.238 A 1.561 1.561 0 0 0 19.558 18.3 A 1.142 1.142 0 0 0 18.899 18.812 A 1.949 1.949 0 0 0 18.702 19.259 Q 18.561 19.713 18.532 20.381 A 7.957 7.957 0 0 0 18.525 20.606 L 18.525 22.7 A 7.428 7.428 0 0 0 18.554 23.377 Q 18.627 24.174 18.887 24.63 A 1.246 1.246 0 0 0 19.282 25.064 Q 19.52 25.221 19.839 25.255 A 1.718 1.718 0 0 0 20.023 25.265 A 1.474 1.474 0 0 0 20.487 25.196 A 1.148 1.148 0 0 0 21.121 24.678 A 2.005 2.005 0 0 0 21.316 24.227 Q 21.483 23.685 21.496 22.84 Z"
+                fill="currentColor"
+              />
+              <path
+                d="M1 22c0 8.837 7.163 16 16 16s16-7.163 16-16S25.837 6 17 6"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
+              <path d="M17 0L9 6l8 6V0z" fill="currentColor" />
+            </svg>
+          </button>
+          {!-- play/pause --}
+          <button
+            type="button"
+            class="mx-auto"
+            @click="playing ? mediaPlayer.pause() : mediaPlayer.play(); playing = !playing"
+          >
+            <svg width="50" height="50" fill="none">
+              <circle
+                class="text-gray-300 dark:text-gray-500"
+                cx="25"
+                cy="25"
+                r="24"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
+              {#if @playing}
+                <path d="M18 16h4v18h-4V16zM28 16h4v18h-4z" fill="currentColor" />
+              {#else}
+                <path d="M20 16l14 9l-14 9z" fill="currentColor" />
+              {/if}
+            </svg>
+          </button>
+          {!-- forward 10 --}
+          <button type="button" class="mx-auto" @click="mediaPlayer.seekRelative(10)">
+            <svg width="34" height="39" fill="none">
+              <path
+                d="M 13.802 17.095 L 13.802 26.369 L 12.266 26.369 L 12.266 18.949 L 10 19.723 L 10 18.422 L 13.605 17.095 L 13.802 17.095 Z M 23.038 20.879 L 23.038 22.478 A 8.528 8.528 0 0 1 22.972 23.575 Q 22.817 24.772 22.292 25.484 Q 21.546 26.496 20.023 26.496 A 3.612 3.612 0 0 1 19.119 26.39 A 2.415 2.415 0 0 1 17.766 25.509 A 3.237 3.237 0 0 1 17.276 24.561 Q 17 23.743 16.989 22.586 L 16.989 20.986 A 8.598 8.598 0 0 1 17.048 19.944 Q 17.199 18.713 17.735 17.997 A 2.398 2.398 0 0 1 19.191 17.083 A 3.793 3.793 0 0 1 20.01 17 A 3.751 3.751 0 0 1 20.903 17.1 A 2.384 2.384 0 0 1 22.273 17.971 A 3.152 3.152 0 0 1 22.745 18.877 Q 22.894 19.314 22.968 19.851 A 8.212 8.212 0 0 1 23.038 20.879 Z M 21.496 22.84 L 21.496 20.752 A 7.599 7.599 0 0 0 21.469 20.092 Q 21.412 19.438 21.232 19.025 A 1.705 1.705 0 0 0 21.14 18.844 A 1.16 1.16 0 0 0 20.308 18.263 A 1.69 1.69 0 0 0 20.01 18.238 A 1.561 1.561 0 0 0 19.558 18.3 A 1.142 1.142 0 0 0 18.899 18.812 A 1.949 1.949 0 0 0 18.702 19.259 Q 18.561 19.713 18.532 20.381 A 7.957 7.957 0 0 0 18.525 20.606 L 18.525 22.7 A 7.428 7.428 0 0 0 18.554 23.377 Q 18.627 24.174 18.887 24.63 A 1.246 1.246 0 0 0 19.282 25.064 Q 19.52 25.221 19.839 25.255 A 1.718 1.718 0 0 0 20.023 25.265 A 1.474 1.474 0 0 0 20.487 25.196 A 1.148 1.148 0 0 0 21.121 24.678 A 2.005 2.005 0 0 0 21.316 24.227 Q 21.483 23.685 21.496 22.84 Z"
+                fill="currentColor"
+              />
+              <path
+                d="M33 22c0 8.837-7.163 16-16 16S1 30.837 1 22 8.163 6 17 6"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
+              <path d="M17 0l8 6-8 6V0z" fill="currentColor" />
+            </svg>
+          </button>
+          {!-- next chapter --}
+          <button type="button" class="hidden sm:block lg:hidden xl:block mx-auto">
+            <svg width="17" height="18" viewBox="0 0 17 18" fill="none">
+              <path d="M17 0H15V18H17V0Z" fill="currentColor" />
+              <path d="M13 9L0 0V18L13 9Z" fill="currentColor" />
+            </svg>
+          </button>
+          {!-- speed --}
+          <button
+            type="button"
+            phx-click="foo"
+            class="mx-auto border border-gray-300 rounded-md text-sm font-medium py-0.5 px-2 text-gray-500 dark:border-gray-600 dark:text-gray-400"
+          >
+            {format_decimal(@player_state.playback_rate)}x
+          </button>
+        </div>
+      {/if} -->
+    </div>
+    <div>
+      <button class="block m-auto" :on-click="toggle">
+        <ChevronUp />
+      </button>
+    </div>
+  {/if}
+</header>

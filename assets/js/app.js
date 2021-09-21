@@ -22,8 +22,25 @@ import { Socket } from 'phoenix'
 import { LiveSocket } from 'phoenix_live_view'
 import topbar from '../vendor/topbar'
 import Alpine from 'alpinejs'
+import { MediaPlayerHook } from './hooks/media_player'
 
 window.Alpine = Alpine
+
+// Alpine.store('playerState', {
+//   mediaId: null,
+
+//   isPlaying (mediaId) {
+//     return this.mediaId == mediaId
+//   },
+
+//   play (mediaId) {
+//     this.mediaId = mediaId
+//   },
+
+//   pause () {
+//     this.mediaId = null
+//   }
+// })
 
 Alpine.data('readMore', () => ({
   canReadMore: false,
@@ -43,6 +60,36 @@ Alpine.data('readMore', () => ({
   }
 }))
 
+Alpine.data('playMediaButton', mediaId => ({
+  mediaId: mediaId,
+  isPlaying: false,
+
+  // hackety hack to workaround alpine.js double-attaching event listeners
+  init () {
+    this.isPlaying = window.mediaPlaying == this.mediaId
+
+    if (!this.$el.playMediaButtonInitialized) {
+      this.$el.addEventListener('click', () => {
+        this.playPause(this.mediaId)
+      })
+      this.$el.playMediaButtonInitialized = true
+    }
+  },
+
+  playPause () {
+    if (window.mediaPlayer) {
+      // if (this.$store.playerState.isPlaying(this.mediaId)) {
+      if (this.isPlaying) {
+        this.isPlaying = false
+        window.mediaPlayer.pause()
+      } else {
+        this.isPlaying = true
+        window.mediaPlayer.loadAndPlayMedia(this.mediaId)
+      }
+    }
+  }
+}))
+
 Alpine.start()
 
 let csrfToken = document
@@ -50,7 +97,9 @@ let csrfToken = document
   .getAttribute('content')
 let liveSocket = new LiveSocket('/live', Socket, {
   params: { _csrf_token: csrfToken },
-  hooks: {},
+  hooks: {
+    mediaPlayer: MediaPlayerHook
+  },
   dom: {
     onBeforeElUpdated (from, to) {
       if (from._x_dataStack) {

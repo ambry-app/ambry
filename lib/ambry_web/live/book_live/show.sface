@@ -24,15 +24,12 @@
                 {/for}
               </p>
             </div>
-            <button :on-click="load-media" :values={media_id: media.id}>
-              <svg width="44" viewBox="0 0 50 50" fill="none">
-                <circle class="text-gray-300" cx="25" cy="25" r="24" stroke="currentColor" stroke-width="1.5" />
-                <path d="M20 16l14 9l-14 9z" fill="currentColor" />
-              </svg>
-            </button>
+            <PlayButton media={media} />
           </div>
         {/for}
       </div>
+    {#else}
+      <p class="mt-4 font-bold">Sorry, there are no recording uploaded for this book.</p>
     {/if}
   </section>
   <section id="description" class="max-w-md sm:ml-10">
