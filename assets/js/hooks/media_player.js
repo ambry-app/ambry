@@ -9,8 +9,6 @@ export const MediaPlayerHook = {
     player.initialize(audio, mediaPath, false)
     player.on(MediaPlayer.events.CAN_PLAY, () => this.canPlay())
 
-    // this.setupPositionDrag()
-
     this.handleEvent('reload-media', opts => {
       this.reloadMedia(opts)
     })
@@ -35,15 +33,21 @@ export const MediaPlayerHook = {
   // player controls
 
   play () {
-    // Alpine.store('playerState').play(this.mediaId)
-    window.mediaPlaying = this.mediaId
     this.player.play()
   },
 
   pause () {
-    // Alpine.store('playerState').pause()
-    window.mediaPlaying = null
     this.player.pause()
+  },
+
+  playPause () {
+    if (this.player.isReady()) {
+      if (this.player.isPaused()) {
+        this.play()
+      } else {
+        this.pause()
+      }
+    }
   },
 
   seekRelative (seconds) {
@@ -103,37 +107,6 @@ export const MediaPlayerHook = {
   playbackTimeUpdated () {
     const time = this.player.time()
     this.pushEvent('playback-time-updated', { 'playback-time': time })
-  },
-
-  setupPositionDrag () {
-    const bar = document.getElementById('progress-bar')
-    const calcRatio = event => {
-      const width = bar.clientWidth
-      const position = event.layerX
-      let ratio = position / width
-
-      return Math.min(Math.max(ratio, 0), 1)
-    }
-    let dragging = false
-
-    bar.addEventListener('mousedown', event => {
-      const ratio = calcRatio(event)
-
-      this.seekRatio(ratio)
-
-      dragging = true
-    })
-    bar.addEventListener('mousemove', event => {
-      if (dragging) {
-        const ratio = calcRatio(event)
-
-        event.preventDefault()
-        this.seekRatio(ratio)
-      }
-    })
-    bar.addEventListener('mouseup', _event => {
-      dragging = false
-    })
   },
 
   reloadMedia (opts) {

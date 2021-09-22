@@ -4,7 +4,7 @@ defmodule AmbryWeb.HeaderLive.Header do
   alias Ambry.Media
   alias Ambry.PubSub
   alias AmbryWeb.Components.{ChevronDown, ChevronUp}
-  alias AmbryWeb.HeaderLive.PlayButton
+  alias AmbryWeb.HeaderLive.{PlayButton, Player}
   alias Surface.Components.LiveRedirect
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
@@ -126,43 +126,6 @@ defmodule AmbryWeb.HeaderLive.Header do
 
     {:noreply, assign(socket, :player_state, player_state)}
   end
-
-  # # Show at least one decimal place, even if it's zero.
-  # defp format_decimal(decimal) do
-  #   rounded = Decimal.round(decimal, 1)
-
-  #   if Decimal.equal?(rounded, decimal), do: rounded, else: decimal
-  # end
-
-  # defp format_timecode(nil) do
-  #   "unknown"
-  # end
-
-  # defp format_timecode(decimal_seconds) do
-  #   seconds = decimal_seconds |> Decimal.round() |> Decimal.to_integer()
-
-  #   hours = div(seconds, 3600)
-  #   remainder = rem(seconds, 3600)
-  #   minutes = div(remainder, 60)
-  #   seconds = rem(remainder, 60)
-
-  #   format(hours, minutes, seconds)
-  # end
-
-  # defp format(0, minutes, seconds), do: "#{minutes}:#{pad(seconds)}"
-  # defp format(hours, minutes, seconds), do: "#{hours}:#{pad(minutes)}:#{pad(seconds)}"
-
-  # defp pad(number), do: :io_lib.format('~2..0B', [number])
-
-  # defp progress_percent(%{duration: nil}), do: "0.0"
-
-  # defp progress_percent(%{position: position, duration: duration}) do
-  #   position
-  #   |> Decimal.div(duration)
-  #   |> Decimal.mult(100)
-  #   |> Decimal.round(1)
-  #   |> Decimal.to_string()
-  # end
 
   defp player_state_attrs(nil), do: %{}
 
