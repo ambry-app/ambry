@@ -5,7 +5,7 @@ defmodule AmbryWeb.HeaderLive.Header do
   alias Ambry.PubSub
   alias AmbryWeb.Components.{ChevronDown, ChevronUp}
   alias AmbryWeb.HeaderLive.{PlayButton, Player}
-  alias Surface.Components.LiveRedirect
+  alias Surface.Components.{Link, LiveRedirect}
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 

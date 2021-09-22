@@ -113,11 +113,18 @@ export const MediaPlayerHook = {
     const player = this.player
     const { mediaId, mediaPath } = this.el.dataset
 
-    player.attachSource(mediaPath)
+    if (this.player.isReady()) {
+      this.pause()
+    }
 
-    player.on(MediaPlayer.events.CAN_PLAY, () => this.canPlay(opts))
+    // wait a bit so that the pause action can take effect
+    window.setImmediate(() => {
+      player.attachSource(mediaPath)
 
-    this.mediaId = mediaId
+      player.on(MediaPlayer.events.CAN_PLAY, () => this.canPlay(opts))
+
+      this.mediaId = mediaId
+    })
   },
 
   loadAndPlayMedia (mediaId) {

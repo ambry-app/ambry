@@ -1,6 +1,10 @@
-<div id="media-controls" phx-hook="mediaControls" class="bg-white bg-opacity-95 backdrop-blur-sm px-4 sm:px-10 max-w-screen-2xl 2xl:mx-auto">
+<div
+  id="media-controls"
+  phx-hook="mediaControls"
+  class="bg-white bg-opacity-95 backdrop-blur-sm px-4 sm:px-10 max-w-screen-2xl 2xl:mx-auto"
+>
   {!-- book info header w/ image --}
-  <div class="flex py-4 space-x-4">
+  <div class="flex pb-4 space-x-4">
     <img
       src={"/uploads/" <> @player_state.media.book.image_path}
       class="h-40 object-center object-cover rounded-lg shadow-md border border-gray-200"

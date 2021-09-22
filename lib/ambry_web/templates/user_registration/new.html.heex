@@ -1,24 +1,27 @@
 <div class="pt-24">
   <div class="flex flex-col justify-center space-y-8 sm:w-96 sm:m-auto">
-    <%= form_for @changeset, Routes.user_registration_path(@conn, :create), fn f -> %>
+    <h1>
+      <img class="mx-auto h-10 sm:h-12" alt="Ambry" src={Routes.static_path(@conn, "/images/logo_optimized.svg")}>
+    </h1>
+    <.form let={f} for={@changeset} action={Routes.user_registration_path(@conn, :create)}>
       <div class="flex flex-col bg-white p-10 rounded-lg shadow-lg space-y-6">
         <h1 class="font-bold text-xl text-center">Reigister a new account</h1>
 
         <div class="flex flex-col space-y-1">
-          <%= email_input f, :email, required: true, placeholder: "Email", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-blue-400 focus:shadow" %>
+          <%= email_input f, :email, required: true, placeholder: "Email", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
           <span class="text-red-500"><%= error_tag f, :email %></span>
         </div>
 
         <div class="flex flex-col space-y-1">
-          <%= password_input f, :password, required: true, placeholder: "Password", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-blue-400 focus:shadow" %>
+          <%= password_input f, :password, required: true, placeholder: "Password", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
           <span class="text-red-500"><%= error_tag f, :password %></span>
         </div>
 
         <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
           <span class="inline-block"></span>
-          <%= submit "Register", class: "bg-blue-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-blue-700 transition-colors focus:ring-2 focus:ring-blue-300" %>
+          <%= submit "Register", class: "bg-lime-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-lime-700 transition-colors focus:ring-2 focus:ring-lime-300" %>
         </div>
       </div>
-    <% end %>
+    </.form>
   </div>
 </div>
