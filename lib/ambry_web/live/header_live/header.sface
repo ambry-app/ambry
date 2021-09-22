@@ -1,10 +1,5 @@
 <header class="fixed z-50 bg-white w-full shadow-md">
-  <div
-    id="media-player"
-    phx-hook="mediaPlayer"
-    x-data="{ playing: false }"
-    {...player_state_attrs(@player_state)}
-  >
+  <div id="media-player" phx-hook="mediaPlayer" {...player_state_attrs(@player_state)}>
     <audio />
   </div>
   <div class="px-4 sm:px-10 py-2 flex items-center max-w-screen-2xl 2xl:mx-auto">
@@ -20,22 +15,25 @@
         class="hidden sm:inline-block h-8 w-52 px-4 border border-gray-200 rounded-full shadow-inner focus:outline-none focus:ring-2 focus:ring-lime-500"
       />
     </div>
-    <button class="flex min-w-max items-center" :on-click="toggle">
-      <!-- {#if !is_nil(@player_state) && !@expanded}
+    {#if !is_nil(@player_state) && !@expanded}
+      <PlayButton playing={@playing} click="play-pause"/>
+    {/if}
+    <div class="flex min-w-max items-center cursor-pointer" :on-click="toggle">
+      {#if !is_nil(@player_state) && !@expanded}
         <div class="mx-2">
           <img
             src={"/uploads/" <> @player_state.media.book.image_path}
             class="h-10 sm:h-12 object-center object-cover rounded shadow-md border border-gray-200"
           />
         </div>
-      {/if} -->
+      {/if}
       <img class="h-10 sm:h-12 mr-2 rounded-full shadow-md" src={gravatar_url(@current_user.email)}>
       {#if @expanded}
         <ChevronUp />
       {#else}
         <ChevronDown />
       {/if}
-    </button>
+    </div>
   </div>
   {#if @expanded}
     <div class="px-4 sm:px-10 h-72">

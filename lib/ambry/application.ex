@@ -15,9 +15,9 @@ defmodule Ambry.Application do
       # Start the PubSub system
       {Phoenix.PubSub, name: Ambry.PubSub},
       # Start the Endpoint (http/https)
-      AmbryWeb.Endpoint
+      AmbryWeb.Endpoint,
       # Start a worker by calling: Ambry.Worker.start_link(arg)
-      # {Ambry.Worker, arg}
+      Ambry.PlayerStateRegistry
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

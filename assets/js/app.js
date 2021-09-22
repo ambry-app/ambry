@@ -23,91 +23,34 @@ import { LiveSocket } from 'phoenix_live_view'
 import topbar from '../vendor/topbar'
 import Alpine from 'alpinejs'
 import { MediaPlayerHook } from './hooks/media_player'
+import readMore from './alpine_data/read_more'
 
-window.Alpine = Alpine
+const browserId = window.crypto
+  .getRandomValues(new Uint32Array(1))[0]
+  .toString(16)
 
-// Alpine.store('playerState', {
-//   mediaId: null,
-
-//   isPlaying (mediaId) {
-//     return this.mediaId == mediaId
-//   },
-
-//   play (mediaId) {
-//     this.mediaId = mediaId
-//   },
-
-//   pause () {
-//     this.mediaId = null
-//   }
-// })
-
-Alpine.data('readMore', () => ({
-  canReadMore: false,
-  expanded: false,
-  init () {
-    const {
-      clientWidth,
-      clientHeight,
-      scrollWidth,
-      scrollHeight
-    } = this.$el.firstElementChild
-
-    this.canReadMore = scrollHeight > clientHeight || scrollWidth > clientWidth
-  },
-  toggle () {
-    this.expanded = !this.expanded
-  }
-}))
-
-Alpine.data('playMediaButton', mediaId => ({
-  mediaId: mediaId,
-  isPlaying: false,
-
-  // hackety hack to workaround alpine.js double-attaching event listeners
-  init () {
-    this.isPlaying = window.mediaPlaying == this.mediaId
-
-    if (!this.$el.playMediaButtonInitialized) {
-      this.$el.addEventListener('click', () => {
-        this.playPause(this.mediaId)
-      })
-      this.$el.playMediaButtonInitialized = true
-    }
-  },
-
-  playPause () {
-    if (window.mediaPlayer) {
-      // if (this.$store.playerState.isPlaying(this.mediaId)) {
-      if (this.isPlaying) {
-        this.isPlaying = false
-        window.mediaPlayer.pause()
-      } else {
-        this.isPlaying = true
-        window.mediaPlayer.loadAndPlayMedia(this.mediaId)
-      }
-    }
-  }
-}))
-
-Alpine.start()
-
-let csrfToken = document
+const csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute('content')
-let liveSocket = new LiveSocket('/live', Socket, {
-  params: { _csrf_token: csrfToken },
+
+const liveSocket = new LiveSocket('/live', Socket, {
+  params: { _csrf_token: csrfToken, browser_id: browserId },
   hooks: {
     mediaPlayer: MediaPlayerHook
   },
   dom: {
     onBeforeElUpdated (from, to) {
       if (from._x_dataStack) {
-        window.Alpine.clone(from, to)
+        Alpine.clone(from, to)
       }
     }
   }
 })
+
+// Setup Alpine.js
+window.Alpine = Alpine
+Alpine.data('readMore', readMore)
+Alpine.start()
 
 // Show progress bar on live navigation and form submits
 topbar.config({ barColors: { 0: '#84CC16' }, shadowColor: 'rgba(0, 0, 0, .3)' })

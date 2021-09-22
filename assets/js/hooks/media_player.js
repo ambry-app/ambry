@@ -15,6 +15,14 @@ export const MediaPlayerHook = {
       this.reloadMedia(opts)
     })
 
+    this.handleEvent('play', () => {
+      this.play()
+    })
+
+    this.handleEvent('pause', () => {
+      this.pause()
+    })
+
     this.mediaId = mediaId
     this.player = player
     window.mediaPlayer = this
@@ -131,10 +139,6 @@ export const MediaPlayerHook = {
   reloadMedia (opts) {
     const player = this.player
     const { mediaId, mediaPath } = this.el.dataset
-
-    if (player.isReady()) {
-      player.pause()
-    }
 
     player.attachSource(mediaPath)
 

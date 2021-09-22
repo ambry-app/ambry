@@ -24,7 +24,7 @@
                 {/for}
               </p>
             </div>
-            <PlayButton media={media} />
+            <PlayButton id={media.id} media={media} user={@current_user} browser_id={assigns[:browser_id]} />
           </div>
         {/for}
       </div>
