@@ -24,6 +24,7 @@ import topbar from '../vendor/topbar'
 import Alpine from 'alpinejs'
 import { MediaPlayerHook } from './hooks/media_player'
 import { MediaControlsHook } from './hooks/media_controls'
+import { SpeedSliderHook } from './hooks/speed_slider'
 import readMore from './alpine_data/read_more'
 
 const browserId = window.crypto
@@ -38,7 +39,8 @@ const liveSocket = new LiveSocket('/live', Socket, {
   params: { _csrf_token: csrfToken, browser_id: browserId },
   hooks: {
     mediaPlayer: MediaPlayerHook,
-    mediaControls: MediaControlsHook
+    mediaControls: MediaControlsHook,
+    speedSlider: SpeedSliderHook
   },
   dom: {
     onBeforeElUpdated (from, to) {

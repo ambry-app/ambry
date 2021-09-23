@@ -1,5 +1,5 @@
 defmodule AmbryWeb.HeaderLive.Player do
-  use AmbryWeb, :component
+  use AmbryWeb, :live_component
 
   alias AmbryWeb.Components.ChevronUp
   alias Surface.Components.LiveRedirect
@@ -7,6 +7,14 @@ defmodule AmbryWeb.HeaderLive.Player do
   prop player_state, :any, required: true
   prop playing, :boolean, required: true
   prop click, :event, required: true
+  prop toggle, :event, required: true
+
+  data show_playback_speed, :boolean, default: false
+
+  @impl true
+  def handle_event("toggle-playback-speed", _params, socket) do
+    {:noreply, assign(socket, :show_playback_speed, !socket.assigns.show_playback_speed)}
+  end
 
   # Show at least one decimal place, even if it's zero.
   defp format_decimal(decimal) do

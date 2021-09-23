@@ -60,6 +60,11 @@ export const MediaPlayerHook = {
     player.seek(player.duration() * ratio)
   },
 
+  setPlaybackRate (rate) {
+    const player = this.player
+    player.setPlaybackRate(rate)
+  },
+
   // events from Dash.js
 
   canPlay (opts = {}) {
@@ -73,9 +78,9 @@ export const MediaPlayerHook = {
         this.playbackStarted()
       )
       player.on(MediaPlayer.events.PLAYBACK_PAUSED, () => this.playbackPaused())
-      // player.on(MediaPlayer.events.PLAYBACK_RATE_CHANGED, () =>
-      //   this.playbackRateChanged()
-      // )
+      player.on(MediaPlayer.events.PLAYBACK_RATE_CHANGED, () =>
+        this.playbackRateChanged()
+      )
       player.on(MediaPlayer.events.PLAYBACK_TIME_UPDATED, () =>
         this.playbackTimeUpdated()
       )
@@ -99,10 +104,10 @@ export const MediaPlayerHook = {
     this.pushEvent('playback-paused', { 'playback-time': time })
   },
 
-  // playbackRateChanged () {
-  //   const playbackRate = this.player.getPlaybackRate()
-  //   this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
-  // },
+  playbackRateChanged () {
+    const playbackRate = this.player.getPlaybackRate()
+    this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
+  },
 
   playbackTimeUpdated () {
     const time = this.player.time()

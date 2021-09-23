@@ -11,7 +11,7 @@
     />
 
     <div>
-      <h1 class="text-2xl" :on-click="toggle">
+      <h1 class="text-2xl" :on-click={@toggle}>
         <LiveRedirect
           to={Routes.book_show_path(@socket, :show, @player_state.media.book)}
           class="hover:underline"
@@ -27,7 +27,7 @@
             class="text-lime-500 hover:underline"
             data-phx-link="redirect"
             data-phx-link-state="push"
-            :on-click="toggle"
+            :on-click={@toggle}
             href={Routes.person_show_path(@socket, :show, author.person_id)}
           >{author.name}</a><span class="last:hidden">,</span>
         {/for}
@@ -40,14 +40,14 @@
             class="text-lime-500 hover:underline"
             data-phx-link="redirect"
             data-phx-link-state="push"
-            :on-click="toggle"
+            :on-click={@toggle}
             href={Routes.person_show_path(@socket, :show, narrator.person_id)}
           >{narrator.name}</a><span class="last:hidden">,</span>
         {/for}
       </p>
 
       {#for series_book <- Enum.sort_by(@player_state.media.book.series_books, & &1.series.name)}
-        <p class="text-gray-400" :on-click="toggle">
+        <p class="text-gray-400" :on-click={@toggle}>
           <LiveRedirect
             to={Routes.series_show_path(@socket, :show, series_book.series)}
             class="hover:underline"
@@ -84,7 +84,7 @@
       </svg>
     </button>
     {!-- previous chapter --}
-    <button type="button" class="hidden sm:block mx-auto">
+    <button type="button" class="hidden sm:block mx-auto" @click="mediaPlayer.seekRelative(-60)">
       <svg width="17" height="18">
         <path d="M0 0h2v18H0V0zM4 9l13-9v18L4 9z" fill="currentColor" />
       </svg>
@@ -142,7 +142,7 @@
       </svg>
     </button>
     {!-- next chapter --}
-    <button type="button" class="hidden sm:block mx-auto">
+    <button type="button" class="hidden sm:block mx-auto" @click="mediaPlayer.seekRelative(60)">
       <svg width="17" height="18" viewBox="0 0 17 18" fill="none">
         <path d="M17 0H15V18H17V0Z" fill="currentColor" />
         <path d="M13 9L0 0V18L13 9Z" fill="currentColor" />
@@ -152,11 +152,78 @@
     <button
       type="button"
       class="mx-auto border border-gray-300 rounded-md text-sm font-medium py-0.5 px-2 text-gray-500"
+      :on-click="toggle-playback-speed"
     >
       {format_decimal(@player_state.playback_rate)}x
     </button>
   </div>
-  <button class="block m-auto" :on-click="toggle">
+  <button class="block m-auto" :on-click={@toggle}>
     <ChevronUp />
   </button>
 </div>
+
+{#if @show_playback_speed}
+  <div class="fixed z-10 inset-0 overflow-y-auto">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div class="fixed inset-0 bg-gray-500 bg-opacity-75" />
+
+      {!-- This element is to trick the browser into centering the modal contents. --}
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+      {!-- Content --}
+      <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform sm:my-8 sm:align-middle sm:max-w-lg w-full">
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <h3 class="text-lg font-bold mb-2">
+            Playback Speed
+          </h3>
+          <p class="text-center font-bold pb-4">
+            {format_decimal(@player_state.playback_rate)}x
+          </p>
+          <div class="pb-4">
+            <input
+              id="speed-slider"
+              phx-hook="speedSlider"
+              type="range"
+              min="0.5"
+              max="3.0"
+              step="0.05"
+              value={format_decimal(@player_state.playback_rate)}
+              class="playback-speed-slider appearance-none w-full h-2 rounded-full bg-gray-200 outline-none"
+            />
+          </div>
+          <div class="flex space-x-4 tabular-nums">
+            <button
+              @click="mediaPlayer.setPlaybackRate(1.0)"
+              class="rounded border border-gray-200 bg-gray-50 flex-grow"
+            >1.0x</button>
+            <button
+              @click="mediaPlayer.setPlaybackRate(1.25)"
+              class="rounded border border-gray-200 bg-gray-50 flex-grow"
+            >1.25x</button>
+            <button
+              @click="mediaPlayer.setPlaybackRate(1.5)"
+              class="rounded border border-gray-200 bg-gray-50 flex-grow"
+            >1.5x</button>
+            <button
+              @click="mediaPlayer.setPlaybackRate(1.75)"
+              class="rounded border border-gray-200 bg-gray-50 flex-grow"
+            >1.75x</button>
+            <button
+              @click="mediaPlayer.setPlaybackRate(2.0)"
+              class="rounded border border-gray-200 bg-gray-50 flex-grow"
+            >2.0x</button>
+          </div>
+        </div>
+        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <button
+            type="button"
+            class="text-white font-bold w-full inline-flex justify-center rounded shadow px-5 py-2 sm:ml-3 sm:w-auto bg-lime-500 hover:bg-lime-700 focus:outline-none transition-colors focus:ring-2 focus:ring-lime-300"
+            :on-click="toggle-playback-speed"
+          >
+            Ok
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}

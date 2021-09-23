@@ -5,7 +5,7 @@ defmodule AmbryWeb.HeaderLive.Header do
   alias Ambry.PubSub
   alias AmbryWeb.Components.{ChevronDown, ChevronUp}
   alias AmbryWeb.HeaderLive.{PlayButton, Player, SearchForm}
-  alias Surface.Components.{Link, LiveRedirect}
+  alias Surface.Components.Link
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 
@@ -67,6 +67,10 @@ defmodule AmbryWeb.HeaderLive.Header do
   @impl true
   def handle_event("toggle", _params, socket) do
     {:noreply, assign(socket, :expanded, !socket.assigns.expanded)}
+  end
+
+  def handle_event("close", _params, socket) do
+    {:noreply, assign(socket, :expanded, false)}
   end
 
   def handle_event("play-pause", _params, socket) do

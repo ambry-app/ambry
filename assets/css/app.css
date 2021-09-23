@@ -9,3 +9,11 @@
 div.markdown p {
   margin-bottom: 1rem;
 }
+
+.playback-speed-slider::-webkit-slider-thumb {
+  @apply appearance-none border-none w-4 h-4 rounded-full bg-lime-500 cursor-pointer;
+}
+
+.playback-speed-slider::-moz-range-thumb {
+  @apply appearance-none border-none w-4 h-4 rounded-full bg-lime-500 cursor-pointer;
+}

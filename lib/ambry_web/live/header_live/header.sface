@@ -4,13 +4,18 @@
   </div>
   <div class="bg-white bg-opacity-95 backdrop-blur-sm px-4 sm:px-10 py-2 flex items-center max-w-screen-2xl 2xl:mx-auto">
     <div class="min-w-max">
-      <LiveRedirect to={Routes.home_home_path(@socket, :home)}>
+      <a
+        data-phx-link="redirect"
+        data-phx-link-state="push"
+        :on-click="close"
+        href={Routes.home_home_path(@socket, :home)}
+      >
         <img class="h-10 sm:h-12" src={Routes.static_path(@socket, "/images/logo_optimized.svg")}>
-      </LiveRedirect>
+      </a>
     </div>
     <div class="flex-grow ml-0 sm:ml-5 md:ml-10">
       <div class="hidden sm:block">
-        <SearchForm change="search" toggle="toggle" expanded={@expanded} query={assigns[:query]} />
+        <SearchForm change="search" close="close" query={assigns[:query]} />
       </div>
     </div>
     {#if !is_nil(@player_state) && !@expanded}
@@ -36,7 +41,7 @@
   {#if @expanded}
     <div class="flex bg-white bg-opacity-95 backdrop-blur-sm px-4 sm:px-10 pb-4 sm:pb-0">
       <div class="sm:hidden">
-        <SearchForm change="search" toggle="toggle" expanded={@expanded} query={assigns[:query]} />
+        <SearchForm change="search" close="close" query={assigns[:query]} />
       </div>
       <div class="flex-grow text-right">
         <Link
@@ -62,6 +67,12 @@
     </div>
   {/if}
   {#if @expanded && !is_nil(@player_state)}
-    <Player player_state={@player_state} playing={@playing} click="play-pause" />
+    <Player
+      id="player"
+      player_state={@player_state}
+      playing={@playing}
+      click="play-pause"
+      toggle="toggle"
+    />
   {/if}
 </header>

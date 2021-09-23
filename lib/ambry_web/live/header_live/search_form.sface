@@ -10,21 +10,12 @@
     />
   </Field>
   {#if is_binary(@query) && String.trim(@query) != ""}
-    {#if @expanded}
-      <a
-        class="hidden"
-        data-phx-link="redirect"
-        data-phx-link-state="push"
-        :on-click={@toggle}
-        href={Routes.search_results_path(@socket, :results, String.trim(@query))}
-      />
-    {#else}
-      <a
-        class="hidden"
-        data-phx-link="redirect"
-        data-phx-link-state="push"
-        href={Routes.search_results_path(@socket, :results, String.trim(@query))}
-      />
-    {/if}
+    <a
+      class="hidden"
+      data-phx-link="redirect"
+      data-phx-link-state="push"
+      :on-click={@close}
+      href={Routes.search_results_path(@socket, :results, String.trim(@query))}
+    />
   {/if}
 </Form>
