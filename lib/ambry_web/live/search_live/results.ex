@@ -14,6 +14,7 @@ defmodule AmbryWeb.SearchLive.Results do
 
   @impl true
   def mount(%{"query" => query}, _session, socket) do
+    query = String.trim(query)
     results = Search.search(query)
 
     {:ok,

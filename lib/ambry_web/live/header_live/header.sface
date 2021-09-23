@@ -10,7 +10,7 @@
     </div>
     <div class="flex-grow ml-0 sm:ml-5 md:ml-10">
       <div class="hidden sm:block">
-        <SearchForm change="search" toggle="toggle" expanded={@expanded} query={assigns[:query] || " "} />
+        <SearchForm change="search" toggle="toggle" expanded={@expanded} query={assigns[:query]} />
       </div>
     </div>
     {#if !is_nil(@player_state) && !@expanded}
@@ -36,7 +36,7 @@
   {#if @expanded}
     <div class="flex bg-white bg-opacity-95 backdrop-blur-sm px-4 sm:px-10 pb-4 sm:pb-0">
       <div class="sm:hidden">
-        <SearchForm change="search" toggle="toggle" expanded={@expanded} query={assigns[:query] || " "} />
+        <SearchForm change="search" toggle="toggle" expanded={@expanded} query={assigns[:query]} />
       </div>
       <div class="flex-grow text-right">
         <Link
