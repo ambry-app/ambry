@@ -1,9 +1,3 @@
-<div class="space-y-8">
-  <Recent
-    id="recently-played"
-    title="Continue listening"
-    load={&recently_played_books(@current_user, &1, &2)}
-  />
+<RecentMedia id="recent-media" user={@current_user} browser_id={assigns[:browser_id]} />
 
-  <Recent id="recently-added" title="Newest books" load={&recently_added_books/2} />
-</div>
+<RecentBooks id="recent-books" />

@@ -7,6 +7,8 @@ defmodule AmbryWeb.Components.BookTiles do
   alias Surface.Components.LiveRedirect
 
   prop books, :list
+  prop show_load_more, :boolean, default: false
+  prop load_more, :event
 
   @impl true
   def update(%{books: books} = assigns, socket) do
