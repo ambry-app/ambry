@@ -4,7 +4,7 @@ defmodule AmbryWeb.HeaderLive.Header do
   alias Ambry.Media
   alias Ambry.PubSub
   alias AmbryWeb.Components.{ChevronDown, ChevronUp}
-  alias AmbryWeb.HeaderLive.{PlayButton, Player}
+  alias AmbryWeb.HeaderLive.{PlayButton, Player, SearchForm}
   alias Surface.Components.{Link, LiveRedirect}
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
@@ -125,6 +125,10 @@ defmodule AmbryWeb.HeaderLive.Header do
       })
 
     {:noreply, assign(socket, :player_state, player_state)}
+  end
+
+  def handle_event("search", %{"search" => %{"query" => query}}, socket) do
+    {:noreply, assign(socket, :query, query)}
   end
 
   defp player_state_attrs(nil), do: %{}

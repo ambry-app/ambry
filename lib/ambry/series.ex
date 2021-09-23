@@ -3,6 +3,7 @@ defmodule Ambry.Series do
   Functions for dealing with Series.
   """
 
+  import Ambry.SearchUtils
   import Ecto.Query
 
   alias Ambry.Series.Series
@@ -24,11 +25,17 @@ defmodule Ambry.Series do
 
   @doc """
   Finds series that match a query string.
-  """
-  def search(query) do
-    name_query = "%#{query}%"
-    query = from s in Series, where: ilike(s.name, ^name_query), limit: 15
 
-    Repo.all(query)
+  Returns a list of tuples of the form `{jaro_distance, series}`.
+  """
+  def search(query_string, limit \\ 15) do
+    name_query = "%#{query_string}%"
+    query = from s in Series, where: ilike(s.name, ^name_query), limit: ^limit
+    series_book_query = from sb in SeriesBook, order_by: [asc: sb.book_number]
+
+    query
+    |> preload(series_books: ^{series_book_query, [book: [:authors, series_books: :series]]})
+    |> Repo.all()
+    |> sort_by_jaro(query_string, :name)
   end
 end

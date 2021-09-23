@@ -13,7 +13,7 @@
     <%= if @current_user do %>
       <%= live_render(@conn, AmbryWeb.HeaderLive.Header, layout: false) %>
     <% end %>
-    <main class="py-20 px-4 sm:px-10 max-w-screen-2xl 2xl:mx-auto">
+    <main class="pt-20 pb-10 px-4 sm:px-10 max-w-screen-2xl 2xl:mx-auto">
       <%= @inner_content %>
     </main>
   </body>

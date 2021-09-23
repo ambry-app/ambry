@@ -3,6 +3,7 @@ defmodule Ambry.Authors do
   Functions for dealing with Authors.
   """
 
+  import Ambry.SearchUtils
   import Ecto.Query
 
   alias Ambry.Books.Book
@@ -31,11 +32,16 @@ defmodule Ambry.Authors do
 
   @doc """
   Finds authors that match a query string.
-  """
-  def search(query) do
-    name_query = "%#{query}%"
-    query = from a in Author, where: ilike(a.name, ^name_query), limit: 15
 
-    Repo.all(query)
+  Returns a list of tuples of the form `{jaro_distance, author}`.
+  """
+  def search(query_string, limit \\ 15) do
+    name_query = "%#{query_string}%"
+    query = from a in Author, where: ilike(a.name, ^name_query), limit: ^limit
+
+    query
+    |> preload(:person)
+    |> Repo.all()
+    |> sort_by_jaro(query_string, :name)
   end
 end

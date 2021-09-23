@@ -1,0 +1,28 @@
+<Form
+  for={:search}
+  change={@change}
+  opts={autocomplete: "off", "x-data": "{}", "@submit.prevent": "$el.lastElementChild.click()"}
+>
+  <Field name="query">
+    <TextInput
+      opts={placeholder: "Search..."}
+      class="h-8 w-52 px-4 border border-gray-200 rounded-full shadow-inner focus:outline-none focus:ring-2 focus:ring-lime-500"
+    />
+  </Field>
+  {#if @expanded}
+    <a
+      class="hidden"
+      data-phx-link="redirect"
+      data-phx-link-state="push"
+      :on-click={@toggle}
+      href={Routes.search_results_path(@socket, :results, @query)}
+    />
+  {#else}
+    <a
+      class="hidden"
+      data-phx-link="redirect"
+      data-phx-link-state="push"
+      href={Routes.search_results_path(@socket, :results, @query)}
+    />
+  {/if}
+</Form>

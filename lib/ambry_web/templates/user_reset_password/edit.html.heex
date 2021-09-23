@@ -1,27 +1,23 @@
-<div class="pt-24">
-  <div class="flex flex-col justify-center space-y-8 sm:w-96 sm:m-auto">
-    <h1>
-      <img class="mx-auto h-10 sm:h-12" alt="Ambry" src={Routes.static_path(@conn, "/images/logo_optimized.svg")}>
-    </h1>
-    <.form let={f} for={@changeset} action={Routes.user_reset_password_path(@conn, :update, @token)}>
-      <div class="flex flex-col bg-white p-10 rounded-lg shadow-lg space-y-6">
-        <h1 class="font-bold text-xl text-center">Reset password</h1>
+<div class="flex flex-col justify-center space-y-8 sm:w-96 sm:m-auto">
+  <.logo_with_tagline conn={@conn} />
+  <.form let={f} for={@changeset} action={Routes.user_reset_password_path(@conn, :update, @token)}>
+    <div class="flex flex-col bg-white p-10 rounded-lg shadow-lg space-y-6">
+      <h1 class="font-bold text-xl text-center">Reset password</h1>
 
-        <div class="flex flex-col space-y-1">
-          <%= password_input f, :password, required: true, placeholder: "New password", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
-          <span class="text-red-500"><%= error_tag f, :password %></span>
-        </div>
-
-        <div class="flex flex-col space-y-1">
-          <%= password_input f, :password_confirmation, required: true, placeholder: "Confirm new password", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
-          <span class="text-red-500"><%= error_tag f, :password_confirmation %></span>
-        </div>
-
-        <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
-          <span class="inline-block"></span>
-          <%= submit "Reset password", class: "bg-lime-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-lime-700 transition-colors focus:ring-2 focus:ring-lime-300" %>
-        </div>
+      <div class="flex flex-col space-y-1">
+        <%= password_input f, :password, required: true, placeholder: "New password", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
+        <span class="text-red-500"><%= error_tag f, :password %></span>
       </div>
-    </.form>
-  </div>
+
+      <div class="flex flex-col space-y-1">
+        <%= password_input f, :password_confirmation, required: true, placeholder: "Confirm new password", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
+        <span class="text-red-500"><%= error_tag f, :password_confirmation %></span>
+      </div>
+
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
+        <span class="inline-block"></span>
+        <%= submit "Reset password", class: "bg-lime-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-lime-700 transition-colors focus:ring-2 focus:ring-lime-300" %>
+      </div>
+    </div>
+  </.form>
 </div>

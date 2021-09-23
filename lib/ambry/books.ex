@@ -3,6 +3,7 @@ defmodule Ambry.Books do
   Functions for dealing with Books.
   """
 
+  import Ambry.SearchUtils
   import Ecto.Query
 
   alias Ambry.Books.Book
@@ -40,12 +41,17 @@ defmodule Ambry.Books do
 
   @doc """
   Finds books that match a query string.
-  """
-  def search(query) do
-    title_query = "%#{query}%"
-    query = from b in Book, where: ilike(b.title, ^title_query), limit: 15
 
-    Repo.all(query)
+  Returns a list of tuples of the form `{jaro_distance, book}`.
+  """
+  def search(query_string, limit \\ 15) do
+    title_query = "%#{query_string}%"
+    query = from b in Book, where: ilike(b.title, ^title_query), limit: ^limit
+
+    query
+    |> preload([:authors, series_books: :series])
+    |> Repo.all()
+    |> sort_by_jaro(query_string, :title)
   end
 
   @doc """

@@ -1,0 +1,3 @@
+<h2 class="text-3xl mb-2">Series</h2>
+
+<SeriesTiles series={@series} />
