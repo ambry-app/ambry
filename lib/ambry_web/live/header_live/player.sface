@@ -6,7 +6,7 @@
   {!-- book info header w/ image --}
   <div class="flex pb-4 space-x-4">
     <img
-      src={"/uploads/" <> @player_state.media.book.image_path}
+      src={@player_state.media.book.image_path}
       class="h-40 object-center object-cover rounded-lg shadow-md border border-gray-200"
     />
 
@@ -60,8 +60,8 @@
   </div>
   {!-- progress bar --}
   <div class="pb-2 space-y-2">
-    <div id="progress-bar" class="bg-gray-200 rounded-full overflow-hidden">
-      <div class="bg-lime-500 h-2" style={"width: #{progress_percent(@player_state)}%;"} />
+    <div id="progress-bar" class="bg-gray-200 rounded-full overflow-hidden shadow-inner">
+      <div class="bg-lime-500 h-2 shadow-inner" style={"width: #{progress_percent(@player_state)}%;"} />
     </div>
     <div class="text-gray-500 flex justify-between text-sm font-medium tabular-nums">
       <div>{format_timecode(@player_state.position)}</div>
@@ -188,7 +188,7 @@
               max="3.0"
               step="0.05"
               value={format_decimal(@player_state.playback_rate)}
-              class="playback-speed-slider appearance-none w-full h-2 rounded-full bg-gray-200 outline-none"
+              class="playback-speed-slider appearance-none w-full h-2 rounded-full bg-gray-200 outline-none shadow-inner"
             />
           </div>
           <div class="flex space-x-4 tabular-nums">

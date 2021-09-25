@@ -8,4 +8,6 @@
     user={@user}
     browser_id={@browser_id}
   />
+{#else}
+  <span />
 {/if}

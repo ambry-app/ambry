@@ -1,0 +1,67 @@
+<div>
+  <h2 class="text-3xl pb-4">{@title}</h2>
+
+  <Form for={@changeset} change="validate" submit="save" opts={autocomplete: "off"}>
+    <div class="space-y-4">
+      <div>
+        <Field name={:name}>
+          <Label class="font-semibold" />
+          <div><TextInput class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" /></div>
+          <div class="text-red-600"><ErrorTag /></div>
+        </Field>
+      </div>
+
+      <div>
+        <Field name={:description}>
+          <Label class="font-semibold" />
+          <div><TextArea class="border-2 rounded px-3 py-2 w-full h-32 focus:outline-none focus:border-lime-400 focus:shadow" /></div>
+          <div class="text-red-600"><ErrorTag /></div>
+        </Field>
+      </div>
+
+      {#if @person.image_path}
+        <div>
+          <Label class="font-semibold">Current image</Label>
+          <img src={@person.image_path} class="rounded-full shadow-lg object-cover object-top h-40 w-40">
+        </div>
+      {/if}
+
+      <div>
+        <Label class="font-semibold">Upload image</Label>
+
+        <section
+          class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-500"
+          phx-drop-target={@uploads.image.ref}
+        >
+          <LiveFileInput upload={@uploads.image} />
+          {#for entry <- @uploads.image.entries}
+            <article class="upload-entry">
+              <figure>
+                {live_img_preview(entry, class: "rounded-full shadow-lg object-cover object-top h-40 w-40")}
+                <figcaption>{entry.client_name}</figcaption>
+              </figure>
+
+              <progress value={entry.progress} max="100">{entry.progress}%</progress>
+
+              <span
+                class="text-2xl cursor-pointer hover:text-red-600 transition-colors"
+                :on-click="cancel-upload"
+                :values={ref: entry.ref}
+              >&times;</span>
+
+              {#for err <- upload_errors(@uploads.image, entry)}
+                <p>{error_to_string(err)}</p>
+              {/for}
+            </article>
+          {/for}
+        </section>
+      </div>
+
+      <div class="-m-6 bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <Submit class="text-white font-bold w-full inline-flex justify-center rounded shadow px-5 py-2 sm:ml-3 sm:w-auto bg-lime-500 hover:bg-lime-700 focus:outline-none transition-colors focus:ring-2 focus:ring-lime-300">
+          Save
+        </Submit>
+      </div>
+    </div>
+  </Form>
+</div>

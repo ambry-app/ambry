@@ -7,7 +7,7 @@
         <LiveRedirect to={Routes.person_show_path(@socket, :show, author.person)}>
           <span class="block aspect-w-1 aspect-h-1">
             <img
-              src={"/uploads/" <> author.person.image_path}
+              src={author.person.image_path}
               class="w-full h-full object-top object-cover rounded-full shadow-md border border-gray-200 filter group-hover:saturate-200 group-hover:shadow-lg group-hover:-translate-y-1 transition"
             />
           </span>

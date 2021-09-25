@@ -8,7 +8,7 @@
           class="cursor-pointer relative block aspect-w-10 aspect-h-15"
         >
           <img
-            src={"/uploads/" <> player_state.media.book.image_path}
+            src={player_state.media.book.image_path}
             class="w-full h-full object-center object-cover rounded-t-lg shadow-md border border-b-0 border-gray-200 filter group-hover:saturate-200"
           />
           <span class="absolute flex">
@@ -24,7 +24,7 @@
             </span>
           </span>
         </span>
-        <div class="bg-gray-200 rounded-b-full overflow-hidden">
+        <div class="bg-gray-200 rounded-b-full overflow-hidden shadow-sm">
           <div class="bg-lime-500 h-2" style={"width: #{progress_percent(player_state)}%;"} />
         </div>
       </div>

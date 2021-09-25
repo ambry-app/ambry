@@ -1,7 +1,7 @@
 <div class="sm:flex sm:flex-row">
   <section id="photo" class="flex-none min-w-max mb-4 sm:mb-0">
     <img
-      src={"/uploads/" <> @person.image_path}
+      src={@person.image_path}
       class="mx-auto rounded-full shadow-lg object-cover object-top h-60 w-60"
     />
   </section>

@@ -28,6 +28,14 @@ defmodule AmbryWeb.Router do
     # live "/upload", UploadLive.Index, :new
   end
 
+  scope "/admin", AmbryWeb.Admin, as: :admin do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live "/people", PersonLive.Index, :index
+    live "/people/new", PersonLive.Index, :new
+    live "/people/:id/edit", PersonLive.Index, :edit
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", AmbryWeb do
   #   pipe_through :api
