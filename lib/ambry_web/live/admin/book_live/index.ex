@@ -68,7 +68,14 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     book = Books.get_book!(id)
     {:ok, _} = Books.delete_book(book)
 
-    {:noreply, maybe_update_books(socket, %{}, true)}
+    list_opts = get_list_opts(socket)
+
+    params = %{
+      "filter" => to_string(list_opts.filter),
+      "page" => to_string(list_opts.page)
+    }
+
+    {:noreply, maybe_update_books(socket, params, true)}
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do

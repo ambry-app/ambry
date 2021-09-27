@@ -44,4 +44,13 @@ defmodule Ambry.Authors do
     |> Repo.all()
     |> sort_by_jaro(query_string, :name)
   end
+
+  @doc """
+  Returns all authors for use in `Select` components.
+  """
+  def for_select do
+    query = from a in Author, select: {a.name, a.id}
+
+    Repo.all(query)
+  end
 end

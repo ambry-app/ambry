@@ -68,7 +68,14 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     person = People.get_person!(id)
     {:ok, _} = People.delete_person(person)
 
-    {:noreply, maybe_update_people(socket, %{}, true)}
+    list_opts = get_list_opts(socket)
+
+    params = %{
+      "filter" => to_string(list_opts.filter),
+      "page" => to_string(list_opts.page)
+    }
+
+    {:noreply, maybe_update_people(socket, params, true)}
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do

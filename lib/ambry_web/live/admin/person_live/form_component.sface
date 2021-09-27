@@ -114,7 +114,7 @@
         <Label class="font-semibold">Upload image</Label>
 
         <section
-          class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-500"
+          class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-400"
           phx-drop-target={@uploads.image.ref}
         >
           <LiveFileInput upload={@uploads.image} />

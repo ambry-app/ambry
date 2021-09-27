@@ -9,21 +9,19 @@ defmodule Ambry.Authors.BookAuthor do
   schema "authors_books" do
     belongs_to :author, Author
     belongs_to :book, Book
+
+    field :delete, :boolean, virtual: true
   end
 
   @doc false
+  def changeset(book_author, %{"delete" => "true"}) do
+    %{Ecto.Changeset.change(book_author, delete: true) | action: :delete}
+  end
+
   def changeset(book_author, attrs) do
     book_author
     |> cast(attrs, [:author_id])
     |> cast_assoc(:author)
-    |> validate_author()
-  end
-
-  defp validate_author(changeset) do
-    if get_field(changeset, :author) do
-      changeset
-    else
-      validate_required(changeset, :author_id)
-    end
+    |> validate_required(:author_id)
   end
 end

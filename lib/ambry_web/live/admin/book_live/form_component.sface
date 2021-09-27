@@ -27,14 +27,20 @@
         </Field>
       </div>
 
-      <!-- <div>
-        <Label class="font-semibold" text="Writing as" />
+      <div>
+        <Label class="font-semibold" text="Written by" />
         <div class="space-y-2">
-          <Inputs for={:authors}>
-            <HiddenInputs for={:author} />
+          <Inputs for={:book_authors}>
+            <HiddenInputs for={:book_author} />
+            <HiddenInput field={:book_id} />
             <div class="flex items-center">
-              <Field name={:name} class="flex-grow">
-                <TextInput class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" />
+              <Field name={:author_id} class="w-full">
+                <Select
+                  prompt=""
+                  options={authors()}
+                  class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow"
+                />
+                <div class="text-red-600"><ErrorTag /></div>
               </Field>
               <Field name={:delete}>
                 <Label text="" class="ml-2 flex">
@@ -69,48 +75,6 @@
         </a>
       </div>
 
-      <div>
-        <Label class="font-semibold" text="Narrating as" />
-        <div class="space-y-2">
-          <Inputs for={:narrators}>
-            <HiddenInputs for={:narrator} />
-            <div class="flex items-center">
-              <Field name={:name} class="flex-grow">
-                <TextInput class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" />
-              </Field>
-              <Field name={:delete}>
-                <Label text="" class="ml-2 flex">
-                  <Checkbox hidden_input={false} class="peer appearance-none" />
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                </Label>
-              </Field>
-            </div>
-            <div class="text-red-600"><ErrorTag field={:name} /></div>
-          </Inputs>
-        </div>
-        <a href="#" :on-click="add-narrator" class="pt-2 text-lime-500 hover:underline flex items-center">
-          <span>Add narrator</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fill-rule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
-              clip-rule="evenodd"
-            />
-          </svg>
-        </a>
-      </div> -->
-
       {#if @book.image_path}
         <div>
           <Label class="font-semibold">Current image</Label>
@@ -122,7 +86,7 @@
         <Label class="font-semibold">Upload image</Label>
 
         <section
-          class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-500"
+          class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-400"
           phx-drop-target={@uploads.image.ref}
         >
           <LiveFileInput upload={@uploads.image} />
