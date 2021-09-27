@@ -11,14 +11,19 @@ defmodule Ambry.Authors.Author do
     belongs_to :person, Person
 
     field :name, :string
+    field :delete, :boolean, virtual: true
 
     timestamps()
   end
 
   @doc false
+  def changeset(author, %{"delete" => "true"}) do
+    %{Ecto.Changeset.change(author, delete: true) | action: :delete}
+  end
+
   def changeset(author, attrs) do
     author
-    |> cast(attrs, [:name, :description, :image_path])
+    |> cast(attrs, [:name])
     |> validate_required([:name])
   end
 end

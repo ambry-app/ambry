@@ -45,6 +45,20 @@
 
 <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
   <div class="space-y-2 divide-y divide-gray-200">
+    {#if @people == []}
+      <span class="font-semibold text-lg">
+        {#if @list_opts.filter}
+          No results for "{@list_opts.filter}"
+        {#else}
+          No people yet. <LivePatch
+            class="text-lime-500 hover:underline"
+            to={Routes.admin_person_index_path(@socket, :new, patch_opts(@list_opts))}
+          >
+            Create one.
+          </LivePatch>
+        {/if}
+      </span>
+    {/if}
     {#for person <- @people}
       <div class="p-2 flex">
         <div class="flex-grow">

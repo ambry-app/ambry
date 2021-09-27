@@ -21,6 +21,8 @@ defmodule Ambry.People.Person do
   def changeset(person, attrs) do
     person
     |> cast(attrs, [:name, :description, :image_path])
+    |> cast_assoc(:authors)
+    |> cast_assoc(:narrators)
     |> validate_required([:name])
   end
 end

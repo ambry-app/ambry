@@ -54,7 +54,7 @@ defmodule Ambry.People do
       ** (Ecto.NoResultsError)
 
   """
-  def get_person!(id), do: Repo.get!(Person, id)
+  def get_person!(id), do: Person |> preload([:authors, :narrators]) |> Repo.get!(id)
 
   @doc """
   Creates a person.

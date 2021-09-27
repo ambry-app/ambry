@@ -1,6 +1,8 @@
 defmodule AmbryWeb.Admin.PersonLive.Index do
   use AmbryWeb, :live_view
 
+  import AmbryWeb.Admin.PaginationHelpers
+
   alias Ambry.People
   alias Ambry.People.Person
 
@@ -9,8 +11,6 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
   alias Surface.Components.{Form, LivePatch}
   alias Surface.Components.Form.{Field, TextInput}
-
-  @limit 10
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
   on_mount {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user}
@@ -37,7 +37,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Person")
-    |> assign(:person, %Person{})
+    |> assign(:person, %Person{authors: [], narrators: []})
   end
 
   defp apply_action(socket, :index, _params) do
@@ -80,57 +80,6 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   end
 
   defp list_people(opts) do
-    People.list_people(page_to_offset(opts.page), @limit, opts.filter)
-  end
-
-  defp get_list_opts(%Phoenix.LiveView.Socket{} = socket) do
-    Map.get(socket.assigns, :list_opts, %{page: 1, filter: nil})
-  end
-
-  defp get_list_opts(%{} = params) do
-    page =
-      case params |> Map.get("page", "1") |> Integer.parse() do
-        {page, _} when page >= 1 -> page
-        {_bad_page, _} -> 1
-        :error -> 1
-      end
-
-    filter =
-      case Map.get(params, "filter") do
-        nil -> nil
-        "" -> nil
-        filter -> filter
-      end
-
-    %{
-      page: page,
-      filter: filter
-    }
-  end
-
-  defp page_to_offset(page) do
-    page * @limit - @limit
-  end
-
-  defp prev_opts(list_opts) do
-    list_opts
-    |> Map.update!(:page, &(&1 - 1))
-    |> patch_opts()
-  end
-
-  defp next_opts(list_opts) do
-    list_opts
-    |> Map.update!(:page, &(&1 + 1))
-    |> patch_opts()
-  end
-
-  defp patch_opts(list_opts) do
-    list_opts
-    |> Enum.filter(fn
-      {:page, 1} -> false
-      {_key, nil} -> false
-      _else -> true
-    end)
-    |> Map.new()
+    People.list_people(page_to_offset(opts.page), limit(), opts.filter)
   end
 end

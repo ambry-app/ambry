@@ -12,14 +12,19 @@ defmodule Ambry.Narrators.Narrator do
     belongs_to :person, Person
 
     field :name, :string
+    field :delete, :boolean, virtual: true
 
     timestamps()
   end
 
   @doc false
+  def changeset(narrator, %{"delete" => "true"}) do
+    %{Ecto.Changeset.change(narrator, delete: true) | action: :delete}
+  end
+
   def changeset(narrator, attrs) do
     narrator
-    |> cast(attrs, [:name, :description, :image_path])
+    |> cast(attrs, [:name])
     |> validate_required([:name])
   end
 end
