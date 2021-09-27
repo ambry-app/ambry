@@ -10,7 +10,6 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     DateInput,
     ErrorTag,
     Field,
-    HiddenInput,
     HiddenInputs,
     Inputs,
     Label,
@@ -27,9 +26,10 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   prop action, :atom, required: true
   prop return_to, :string, required: true
 
+  @impl true
   def mount(socket) do
     socket = allow_upload(socket, :image, accept: ~w(.jpg .jpeg .png), max_entries: 1)
-    {:ok, socket}
+    {:ok, assign(socket, :authors, authors())}
   end
 
   @impl true
@@ -44,15 +44,12 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   @impl true
   def handle_event("validate", %{"book" => book_params}, socket) do
-    IO.inspect(book_params)
     book_params = clean_book_params(book_params)
 
     changeset =
       socket.assigns.book
       |> Books.change_book(book_params)
       |> Map.put(:action, :validate)
-
-    IO.inspect(changeset)
 
     {:noreply, assign(socket, :changeset, changeset)}
   end

@@ -49,7 +49,7 @@ defmodule Ambry.Authors do
   Returns all authors for use in `Select` components.
   """
   def for_select do
-    query = from a in Author, select: {a.name, a.id}
+    query = from a in Author, select: {a.name, a.id}, order_by: a.name
 
     Repo.all(query)
   end

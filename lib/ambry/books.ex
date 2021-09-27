@@ -164,4 +164,13 @@ defmodule Ambry.Books do
     |> Repo.all()
     |> sort_by_jaro(query_string, :title)
   end
+
+  @doc """
+  Returns all books for use in `Select` components.
+  """
+  def for_select do
+    query = from b in Book, select: {b.title, b.id}, order_by: b.title
+
+    Repo.all(query)
+  end
 end

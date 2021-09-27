@@ -24,6 +24,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
   prop action, :atom, required: true
   prop return_to, :string, required: true
 
+  @impl true
   def mount(socket) do
     socket = allow_upload(socket, :image, accept: ~w(.jpg .jpeg .png), max_entries: 1)
     {:ok, socket}

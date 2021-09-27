@@ -18,6 +18,7 @@ defmodule Ambry.Series.Series do
   def changeset(series, attrs) do
     series
     |> cast(attrs, [:name])
+    |> cast_assoc(:series_books)
     |> validate_required([:name])
   end
 end

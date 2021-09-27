@@ -4,7 +4,7 @@
   <Form for={@changeset} change="validate" submit="save" opts={autocomplete: "off"}>
     <div class="space-y-4">
       <div>
-        <Field name={:title}>
+        <Field name={:name}>
           <Label class="font-semibold" />
           <div><TextInput class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" /></div>
           <div class="text-red-600"><ErrorTag /></div>
@@ -12,31 +12,18 @@
       </div>
 
       <div>
-        <Field name={:published}>
-          <Label class="font-semibold" />
-          <div><DateInput class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" /></div>
-          <div class="text-red-600"><ErrorTag /></div>
-        </Field>
-      </div>
-
-      <div>
-        <Field name={:description}>
-          <Label class="font-semibold" />
-          <div><TextArea class="border-2 rounded px-3 py-2 w-full h-32 focus:outline-none focus:border-lime-400 focus:shadow" /></div>
-          <div class="text-red-600"><ErrorTag /></div>
-        </Field>
-      </div>
-
-      <div>
-        <Label class="font-semibold" text="Written by" />
+        <Label class="font-semibold" text="Books" />
         <div class="space-y-2">
-          <Inputs for={:book_authors}>
-            <HiddenInputs for={:book_author} />
+          <Inputs for={:series_books}>
+            <HiddenInputs for={:series_book} />
             <div class="flex items-center">
-              <Field name={:author_id} class="w-full">
+              <Field name={:book_number} class="w-14 mr-2 flex-none">
+                <TextInput class="border-2 rounded px-2 py-1 w-full focus:outline-none focus:border-lime-400 focus:shadow" />
+              </Field>
+              <Field name={:book_id} class="flex-grow">
                 <Select
                   prompt=""
-                  options={@authors}
+                  options={@books}
                   class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow"
                 />
               </Field>
@@ -58,11 +45,12 @@
                 </Label>
               </Field>
             </div>
-            <div class="text-red-600"><ErrorTag field={:author_id} /></div>
+            <div class="text-red-600"><ErrorTag field={:book_number} /></div>
+            <div class="text-red-600"><ErrorTag field={:book_id} /></div>
           </Inputs>
         </div>
-        <a href="#" :on-click="add-author" class="pt-2 text-lime-500 hover:underline flex items-center">
-          <span>Add author</span>
+        <a href="#" :on-click="add-book" class="pt-2 text-lime-500 hover:underline flex items-center">
+          <span>Add book</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path
               fill-rule="evenodd"
@@ -71,44 +59,6 @@
             />
           </svg>
         </a>
-      </div>
-
-      {#if @book.image_path}
-        <div>
-          <Label class="font-semibold">Current image</Label>
-          <img src={@book.image_path} class="rounded-lg shadow-md border border-gray-200 h-48">
-        </div>
-      {/if}
-
-      <div>
-        <Label class="font-semibold">Upload image</Label>
-
-        <section
-          class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-400"
-          phx-drop-target={@uploads.image.ref}
-        >
-          <LiveFileInput upload={@uploads.image} />
-          {#for entry <- @uploads.image.entries}
-            <article class="upload-entry">
-              <figure>
-                {live_img_preview(entry, class: "rounded-lg shadow-md border border-gray-200 h-48")}
-                <figcaption>{entry.client_name}</figcaption>
-              </figure>
-
-              <progress value={entry.progress} max="100">{entry.progress}%</progress>
-
-              <span
-                class="text-2xl cursor-pointer hover:text-red-600 transition-colors"
-                :on-click="cancel-upload"
-                :values={ref: entry.ref}
-              >&times;</span>
-
-              {#for err <- upload_errors(@uploads.image, entry)}
-                <p>{error_to_string(err)}</p>
-              {/for}
-            </article>
-          {/for}
-        </section>
       </div>
 
       <div class="-m-6 bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
