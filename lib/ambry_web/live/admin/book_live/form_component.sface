@@ -4,9 +4,17 @@
   <Form for={@changeset} change="validate" submit="save" opts={autocomplete: "off"}>
     <div class="space-y-4">
       <div>
-        <Field name={:name}>
+        <Field name={:title}>
           <Label class="font-semibold" />
           <div><TextInput class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" /></div>
+          <div class="text-red-600"><ErrorTag /></div>
+        </Field>
+      </div>
+
+      <div>
+        <Field name={:published}>
+          <Label class="font-semibold" />
+          <div><DateInput class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" /></div>
           <div class="text-red-600"><ErrorTag /></div>
         </Field>
       </div>
@@ -19,7 +27,7 @@
         </Field>
       </div>
 
-      <div>
+      <!-- <div>
         <Label class="font-semibold" text="Writing as" />
         <div class="space-y-2">
           <Inputs for={:authors}>
@@ -101,12 +109,12 @@
             />
           </svg>
         </a>
-      </div>
+      </div> -->
 
-      {#if @person.image_path}
+      {#if @book.image_path}
         <div>
           <Label class="font-semibold">Current image</Label>
-          <img src={@person.image_path} class="rounded-full shadow-lg object-cover object-top h-40 w-40">
+          <img src={@book.image_path} class="rounded-lg shadow-md border border-gray-200 h-48">
         </div>
       {/if}
 
@@ -121,7 +129,7 @@
           {#for entry <- @uploads.image.entries}
             <article class="upload-entry">
               <figure>
-                {live_img_preview(entry, class: "rounded-full shadow-lg object-cover object-top h-40 w-40")}
+                {live_img_preview(entry, class: "rounded-lg shadow-md border border-gray-200 h-48")}
                 <figcaption>{entry.client_name}</figcaption>
               </figure>
 

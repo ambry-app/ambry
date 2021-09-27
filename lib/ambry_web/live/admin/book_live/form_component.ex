@@ -7,6 +7,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   alias Surface.Components.Form.{
     Checkbox,
+    DateInput,
     ErrorTag,
     Field,
     HiddenInputs,
@@ -77,46 +78,47 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     {:noreply, cancel_upload(socket, :image, ref)}
   end
 
-  def handle_event("add-author", _params, socket) do
-    params =
-      socket.assigns.changeset.params
-      |> map_to_list("authors")
-      |> Map.update!("authors", fn authors_params ->
-        authors_params ++ [%{}]
-      end)
+  # def handle_event("add-author", _params, socket) do
+  #   params =
+  #     socket.assigns.changeset.params
+  #     |> map_to_list("authors")
+  #     |> Map.update!("authors", fn authors_params ->
+  #       authors_params ++ [%{}]
+  #     end)
 
-    changeset = Books.change_book(socket.assigns.book, params)
+  #   changeset = Books.change_book(socket.assigns.book, params)
 
-    {:noreply, assign(socket, :changeset, changeset)}
-  end
+  #   {:noreply, assign(socket, :changeset, changeset)}
+  # end
 
-  def handle_event("add-narrator", _params, socket) do
-    params =
-      socket.assigns.changeset.params
-      |> map_to_list("narrators")
-      |> Map.update!("narrators", fn narrators_params ->
-        narrators_params ++ [%{}]
-      end)
+  # def handle_event("add-narrator", _params, socket) do
+  #   params =
+  #     socket.assigns.changeset.params
+  #     |> map_to_list("narrators")
+  #     |> Map.update!("narrators", fn narrators_params ->
+  #       narrators_params ++ [%{}]
+  #     end)
 
-    changeset = Books.change_book(socket.assigns.book, params)
+  #   changeset = Books.change_book(socket.assigns.book, params)
 
-    {:noreply, assign(socket, :changeset, changeset)}
-  end
+  #   {:noreply, assign(socket, :changeset, changeset)}
+  # end
 
   defp clean_book_params(params) do
+    # params
+    # |> map_to_list("authors")
+    # |> Map.update!("authors", fn authors ->
+    #   Enum.reject(authors, fn author_params ->
+    #     is_nil(author_params["id"]) && author_params["delete"] == "true"
+    #   end)
+    # end)
+    # |> map_to_list("narrators")
+    # |> Map.update!("narrators", fn narrators ->
+    #   Enum.reject(narrators, fn narrator_params ->
+    #     is_nil(narrator_params["id"]) && narrator_params["delete"] == "true"
+    #   end)
+    # end)
     params
-    |> map_to_list("authors")
-    |> Map.update!("authors", fn authors ->
-      Enum.reject(authors, fn author_params ->
-        is_nil(author_params["id"]) && author_params["delete"] == "true"
-      end)
-    end)
-    |> map_to_list("narrators")
-    |> Map.update!("narrators", fn narrators ->
-      Enum.reject(narrators, fn narrator_params ->
-        is_nil(narrator_params["id"]) && narrator_params["delete"] == "true"
-      end)
-    end)
   end
 
   defp save_book(socket, :edit, book_params) do
@@ -133,6 +135,8 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   end
 
   defp save_book(socket, :new, book_params) do
+    IO.inspect(book_params)
+
     case Books.create_book(book_params) do
       {:ok, _book} ->
         {:noreply,
@@ -141,6 +145,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
          |> push_redirect(to: socket.assigns.return_to)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
+        IO.inspect(changeset)
         {:noreply, assign(socket, changeset: changeset)}
     end
   end
@@ -167,8 +172,8 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   defp init_book_param(book) do
     %{
-      "authors" => Enum.map(book.authors, &%{"id" => &1.id}),
-      "narrators" => Enum.map(book.narrators, &%{"id" => &1.id})
+      # "authors" => Enum.map(book.authors, &%{"id" => &1.id}),
+      # "narrators" => Enum.map(book.narrators, &%{"id" => &1.id})
     }
   end
 end
