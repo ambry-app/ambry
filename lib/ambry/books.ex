@@ -11,6 +11,124 @@ defmodule Ambry.Books do
   alias Ambry.Repo
 
   @doc """
+  Returns a limited list of books and whether or not there are more.
+
+  By default, it will limit to the first 10 results. Supply `offset` and `limit`
+  to change this. Also can optionally filter by the given `filter` string.
+
+  ## Examples
+
+      iex> list_books()
+      {[%Book{}, ...], true}
+
+  """
+  def list_books(offset \\ 0, limit \\ 10, filter \\ nil) do
+    over_limit = limit + 1
+
+    query =
+      from b in Book,
+        offset: ^offset,
+        limit: ^over_limit,
+        order_by: :title,
+        preload: [book_authors: [:author]]
+
+    query =
+      if filter do
+        title_query = "%#{filter}%"
+
+        from b in query, where: ilike(b.title, ^title_query)
+      else
+        query
+      end
+
+    books = Repo.all(query)
+    books_to_return = Enum.slice(books, 0, limit)
+
+    {books_to_return, books != books_to_return}
+  end
+
+  @doc """
+  Gets a single book.
+
+  Raises `Ecto.NoResultsError` if the Book does not exist.
+
+  ## Examples
+
+      iex> get_book!(123)
+      %Book{}
+
+      iex> get_book!(456)
+      ** (Ecto.NoResultsError)
+
+  """
+  def get_book!(id), do: Book |> preload(book_authors: [:author]) |> Repo.get!(id)
+
+  @doc """
+  Creates a book.
+
+  ## Examples
+
+      iex> create_book(%{field: value})
+      {:ok, %Book{}}
+
+      iex> create_book(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def create_book(attrs \\ %{}) do
+    %Book{}
+    |> Book.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates a book.
+
+  ## Examples
+
+      iex> update_book(book, %{field: new_value})
+      {:ok, %Book{}}
+
+      iex> update_book(book, %{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_book(%Book{} = book, attrs) do
+    book
+    |> Book.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a book.
+
+  ## Examples
+
+      iex> delete_book(book)
+      {:ok, %Book{}}
+
+      iex> delete_book(book)
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def delete_book(%Book{} = book) do
+    Repo.delete(book)
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking book changes.
+
+  ## Examples
+
+      iex> change_book(book)
+      %Ecto.Changeset{data: %Book{}}
+
+  """
+  def change_book(%Book{} = book, attrs \\ %{}) do
+    Book.changeset(book, attrs)
+  end
+
+  @doc """
   Gets a book and all of its media.
   """
   def get_book_with_media!(book_id) do
@@ -33,13 +151,6 @@ defmodule Ambry.Books do
   end
 
   @doc """
-  Gets a book.
-  """
-  def get_book!(book_id) do
-    Repo.get!(Book, book_id)
-  end
-
-  @doc """
   Finds books that match a query string.
 
   Returns a list of tuples of the form `{jaro_distance, book}`.
@@ -52,21 +163,5 @@ defmodule Ambry.Books do
     |> preload([:authors, series_books: :series])
     |> Repo.all()
     |> sort_by_jaro(query_string, :title)
-  end
-
-  @doc """
-  Creates a new book.
-  """
-  def create_book(params) do
-    changeset = change_book(params)
-
-    Repo.insert(changeset)
-  end
-
-  @doc """
-  Returns a changeset for a book.
-  """
-  def change_book(book \\ %Book{}, params) do
-    Book.changeset(book, params)
   end
 end

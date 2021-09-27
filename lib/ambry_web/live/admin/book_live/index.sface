@@ -1,16 +1,16 @@
-<h1 class="text-4xl mb-4">People</h1>
+<h1 class="text-4xl mb-4">Books</h1>
 
 {#if @live_action in [:new, :edit]}
   <Modal
-    id={@person.id || :new}
-    return_to={Routes.admin_person_index_path(@socket, :index, patch_opts(@list_opts))}
+    id={@book.id || :new}
+    return_to={Routes.admin_book_index_path(@socket, :index, patch_opts(@list_opts))}
   >
     <FormComponent
-      id={@person.id || :new}
+      id={@book.id || :new}
       title={@page_title}
       action={@live_action}
-      person={@person}
-      return_to={Routes.admin_person_index_path(@socket, :index, patch_opts(@list_opts))}
+      book={@book}
+      return_to={Routes.admin_book_index_path(@socket, :index, patch_opts(@list_opts))}
     />
   </Modal>
 {/if}
@@ -25,7 +25,7 @@
       />
     </Field>
   </Form>
-  <LivePatch to={Routes.admin_person_index_path(@socket, :new, patch_opts(@list_opts))}>
+  <LivePatch to={Routes.admin_book_index_path(@socket, :new, patch_opts(@list_opts))}>
     <svg
       xmlns="http://www.w3.org/2000/svg"
       class="text-lime-500 h-6 w-6"
@@ -37,7 +37,7 @@
         stroke-linecap="round"
         stroke-linejoin="round"
         stroke-width="2"
-        d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+        d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
       />
     </svg>
   </LivePatch>
@@ -45,31 +45,37 @@
 
 <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
   <div class="space-y-2 divide-y divide-gray-200">
-    {#if @people == []}
+    {#if @books == []}
       <span class="font-semibold text-lg">
         {#if @list_opts.filter}
           No results for "{@list_opts.filter}"
         {#else}
-          No people yet. <LivePatch
+          No books yet. <LivePatch
             class="text-lime-500 hover:underline"
-            to={Routes.admin_person_index_path(@socket, :new, patch_opts(@list_opts))}
+            to={Routes.admin_book_index_path(@socket, :new, patch_opts(@list_opts))}
           >
             Create one.
           </LivePatch>
         {/if}
       </span>
     {/if}
-    {#for person <- @people}
+    {#for book <- @books}
       <div class="p-2 flex">
         <div class="flex-grow pr-2">
           <LivePatch
-            to={Routes.admin_person_index_path(@socket, :edit, person, patch_opts(@list_opts))}
+            to={Routes.admin_book_index_path(@socket, :edit, book, patch_opts(@list_opts))}
             class="hover:underline inline-block w-full"
           >
-            {person.name}
+            {book.title}
+            <span class="text-gray-500 text-sm italic">
+              by
+              {#for book_author <- book.book_authors}
+                {book_author.author.name}<span class="last:hidden">,</span>
+              {/for}
+            </span>
           </LivePatch>
         </div>
-        <LivePatch to={Routes.admin_person_index_path(@socket, :edit, person, patch_opts(@list_opts))}>
+        <LivePatch to={Routes.admin_book_index_path(@socket, :edit, book, patch_opts(@list_opts))}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             class="text-lime-500 h-5 w-5"
@@ -84,7 +90,7 @@
             />
           </svg>
         </LivePatch>
-        <a data-confirm="Are you sure?" href="#" :on-click="delete" :values={id: person.id}>
+        <a data-confirm="Are you sure?" href="#" :on-click="delete" :values={id: book.id}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             class="text-red-600 h-5 w-5"
@@ -106,7 +112,7 @@
 <div class="flex text-lime-500">
   {#if @list_opts.page > 1}
     <LivePatch
-      to={Routes.admin_person_index_path(@socket, :index, prev_opts(@list_opts))}
+      to={Routes.admin_book_index_path(@socket, :index, prev_opts(@list_opts))}
       class="flex items-center hover:underline"
     >
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -122,7 +128,7 @@
   <span class="flex-grow" />
   {#if @has_more?}
     <LivePatch
-      to={Routes.admin_person_index_path(@socket, :index, next_opts(@list_opts))}
+      to={Routes.admin_book_index_path(@socket, :index, next_opts(@list_opts))}
       class="flex items-center hover:underline"
     >
       <span>Next</span>

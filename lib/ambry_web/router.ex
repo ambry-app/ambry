@@ -34,6 +34,10 @@ defmodule AmbryWeb.Router do
     live "/people", PersonLive.Index, :index
     live "/people/new", PersonLive.Index, :new
     live "/people/:id/edit", PersonLive.Index, :edit
+
+    live "/books", BookLive.Index, :index
+    live "/books/new", BookLive.Index, :new
+    live "/books/:id/edit", BookLive.Index, :edit
   end
 
   # Other scopes may use custom stacks.
