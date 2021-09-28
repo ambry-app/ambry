@@ -55,13 +55,16 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   end
 
   def handle_event("save", %{"book" => book_params}, socket) do
+    folder = Path.join([@uploads_path, "images"])
+    File.mkdir_p!(folder)
+
     uploaded_files =
       consume_uploaded_entries(socket, :image, fn %{path: path}, entry ->
         data = File.read!(path)
         hash = :crypto.hash(:md5, data) |> Base.encode16(case: :lower)
         [ext | _] = MIME.extensions(entry.client_type)
         filename = "#{hash}.#{ext}"
-        dest = Path.join([@uploads_path, "images", filename])
+        dest = Path.join([folder, filename])
         File.cp!(path, dest)
         Routes.static_path(socket, "/uploads/images/#{filename}")
       end)

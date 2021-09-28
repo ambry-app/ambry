@@ -61,8 +61,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   end
 
   def handle_event("save", %{"media" => media_params}, socket) do
-    folder = Path.join([@uploads_path, "pending_media", Ecto.UUID.generate()])
-    File.mkdir!(folder)
+    folder = Path.join([@uploads_path, "source_media", Ecto.UUID.generate()])
+    File.mkdir_p!(folder)
 
     consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
       dest = Path.join([folder, entry.client_name])
@@ -71,7 +71,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
     media_params =
       Map.merge(media_params, %{
-        "path" => folder,
+        "source_path" => folder,
         "status" => :pending
       })
 

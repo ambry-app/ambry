@@ -138,7 +138,7 @@ defmodule AmbryWeb.HeaderLive.Header do
   defp player_state_attrs(nil), do: %{}
 
   defp player_state_attrs(%Media.PlayerState{
-         media: %Media.Media{id: id, path: path},
+         media: %Media.Media{id: id, mpd_path: path},
          position: position,
          playback_rate: playback_rate
        }) do
