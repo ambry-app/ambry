@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   alias Ambry.Books
   alias Ambry.Books.Book
 
+  alias AmbryWeb.Admin.Components.AdminNav
   alias AmbryWeb.Admin.BookLive.FormComponent
   alias AmbryWeb.Components.Modal
 

@@ -37,4 +37,13 @@ defmodule Ambry.Narrators do
     |> Repo.all()
     |> sort_by_jaro(query_string, :name)
   end
+
+  @doc """
+  Returns all narrators for use in `Select` components.
+  """
+  def for_select do
+    query = from n in Narrator, select: {n.name, n.id}, order_by: n.name
+
+    Repo.all(query)
+  end
 end

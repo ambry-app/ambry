@@ -13,9 +13,9 @@ defmodule Ambry.Media.Media do
     many_to_many :narrators, Narrator, join_through: "media_narrators"
 
     field :path, :string
-    field :full_cast, :boolean
+    field :full_cast, :boolean, default: false
     field :status, Ecto.Enum, values: [:pending, :ready]
-    field :abridged, :boolean
+    field :abridged, :boolean, default: false
 
     timestamps()
   end
@@ -23,18 +23,8 @@ defmodule Ambry.Media.Media do
   @doc false
   def changeset(media, attrs) do
     media
-    |> cast(attrs, [:path, :full_cast, :status, :book_id])
-    |> cast_assoc(:book)
+    |> cast(attrs, [:path, :full_cast, :abridged, :status, :book_id])
     |> cast_assoc(:media_narrators)
-    |> validate_required([:path, :full_cast, :status])
-    |> validate_book()
-  end
-
-  defp validate_book(changeset) do
-    if get_field(changeset, :book) do
-      changeset
-    else
-      validate_required(changeset, :book_id)
-    end
+    |> validate_required([:path, :status, :book_id])
   end
 end

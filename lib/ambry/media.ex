@@ -13,28 +13,123 @@ defmodule Ambry.Media do
   @media_preload [:narrators, book: [:authors, series_books: :series]]
   @player_state_preload [media: @media_preload]
 
-  def get_media!(media_id) do
-    Repo.get!(Media, media_id)
+  @doc """
+  Returns a limited list of media and whether or not there are more.
 
-    Media
-    |> preload(^@media_preload)
-    |> Repo.get!(media_id)
+  By default, it will limit to the first 10 results. Supply `offset` and `limit`
+  to change this. Also can optionally filter by the given `filter` string.
+
+  ## Examples
+
+      iex> list_media()
+      {[%Media{}, ...], true}
+
+  """
+  def list_media(offset \\ 0, limit \\ 10, filter \\ nil) do
+    over_limit = limit + 1
+
+    query =
+      from m in Media,
+        offset: ^offset,
+        limit: ^over_limit,
+        join: b in assoc(m, :book),
+        order_by: b.title,
+        preload: [book: b, media_narrators: [:narrator]]
+
+    query =
+      if filter do
+        title_query = "%#{filter}%"
+
+        from [m, b] in query, where: ilike(b.title, ^title_query)
+      else
+        query
+      end
+
+    media = Repo.all(query)
+    media_to_return = Enum.slice(media, 0, limit)
+
+    {media_to_return, media != media_to_return}
   end
 
   @doc """
-  Returns a changeset for a book.
+  Gets a single media.
+
+  Raises `Ecto.NoResultsError` if the Media does not exist.
+
+  ## Examples
+
+      iex> get_media!(123)
+      %Media{}
+
+      iex> get_media!(456)
+      ** (Ecto.NoResultsError)
+
   """
-  def change_media(media \\ %Media{}, params) do
-    Media.changeset(media, params)
+  def get_media!(id), do: Media |> preload([:media_narrators]) |> Repo.get!(id)
+
+  @doc """
+  Creates a media.
+
+  ## Examples
+
+      iex> create_media(%{field: value})
+      {:ok, %Media{}}
+
+      iex> create_media(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def create_media(attrs \\ %{}) do
+    %Media{}
+    |> Media.changeset(attrs)
+    |> Repo.insert()
   end
 
   @doc """
-  Creates a new media.
-  """
-  def create_media(params) do
-    changeset = change_media(params)
+  Updates a media.
 
-    Repo.insert(changeset)
+  ## Examples
+
+      iex> update_media(media, %{field: new_value})
+      {:ok, %Media{}}
+
+      iex> update_media(media, %{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_media(%Media{} = media, attrs) do
+    media
+    |> Media.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a media.
+
+  ## Examples
+
+      iex> delete_media(media)
+      {:ok, %Media{}}
+
+      iex> delete_media(media)
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def delete_media(%Media{} = media) do
+    Repo.delete(media)
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking media changes.
+
+  ## Examples
+
+      iex> change_media(media)
+      %Ecto.Changeset{data: %Media{}}
+
+  """
+  def change_media(%Media{} = media, attrs \\ %{}) do
+    Media.changeset(media, attrs)
   end
 
   @doc """

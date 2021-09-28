@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   alias Ambry.People
   alias Ambry.People.Person
 
+  alias AmbryWeb.Admin.Components.AdminNav
   alias AmbryWeb.Admin.PersonLive.FormComponent
   alias AmbryWeb.Components.Modal
 

@@ -104,7 +104,7 @@
               >&times;</span>
 
               {#for err <- upload_errors(@uploads.image, entry)}
-                <p>{error_to_string(err)}</p>
+                <p class="text-red-600">{error_to_string(err)}</p>
               {/for}
             </article>
           {/for}
