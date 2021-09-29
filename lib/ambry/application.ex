@@ -7,6 +7,9 @@ defmodule Ambry.Application do
 
   @impl true
   def start(_type, _args) do
+    # ensures all migrations have been run on application start
+    migrate!()
+
     children = [
       # Start the Ecto repository
       Ambry.Repo,
@@ -38,5 +41,9 @@ defmodule Ambry.Application do
 
   defp oban_config do
     Application.fetch_env!(:ambry, Oban)
+  end
+
+  defp migrate! do
+    {:ok, _, _} = Ecto.Migrator.with_repo(Ambry.Repo, &Ecto.Migrator.run(&1, :up, all: true))
   end
 end

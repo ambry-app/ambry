@@ -4,9 +4,9 @@ defmodule Ambry.Media.Processor.MP3Concat do
   converts them to dash streaming format.
   """
 
-  alias Ambry.Media
+  import Ambry.Paths
 
-  @uploads_path Application.compile_env!(:ambry, :uploads_path)
+  alias Ambry.Media
 
   def can_run?(media) do
     exts = media.source_path |> File.ls!() |> Enum.map(&Path.extname(&1))
@@ -58,7 +58,7 @@ defmodule Ambry.Media.Processor.MP3Concat do
   end
 
   def finalize!(media, filename) do
-    media_folder = Path.join(@uploads_path, "media")
+    media_folder = Path.join(uploads_path(), "media")
     mpd_dest = Path.join([media_folder, "#{filename}.mpd"])
     mp4_dest = Path.join([media_folder, "#{filename}.mp4"])
 

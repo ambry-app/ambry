@@ -1,6 +1,8 @@
 defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   use AmbryWeb, :live_component
 
+  import Ambry.Paths
+
   alias Ambry.{Books, Narrators, Media}
   alias Ambry.Media.Processor
 
@@ -16,8 +18,6 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     Select,
     Submit
   }
-
-  @uploads_path Application.compile_env!(:ambry, :uploads_path)
 
   prop title, :string, required: true
   prop media, :any, required: true
@@ -63,7 +63,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   def handle_event("save", %{"media" => media_params}, socket) do
     folder_id = Ecto.UUID.generate()
-    folder = Path.join([@uploads_path, "source_media"])
+    folder = Path.join([uploads_path(), "source_media"])
 
     consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
       File.mkdir_p!(Path.join([folder, folder_id]))

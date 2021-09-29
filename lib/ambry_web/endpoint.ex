@@ -27,7 +27,7 @@ defmodule AmbryWeb.Endpoint do
   # Serve static user uploads
   plug Plug.Static,
     at: "/uploads",
-    from: Application.compile_env!(:ambry, :uploads_path),
+    from: {Ambry.Paths, :uploads_path, []},
     gzip: false,
     only: ~w(images media)
 

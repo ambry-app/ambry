@@ -13,8 +13,7 @@ config :ambry, Ambry.Repo,
 # debugging and code reloading.
 #
 # The watchers configuration can be used to run external
-# watchers to your application. For example, we use it
-# with esbuild to bundle .js and .css sources.
+# watchers to your application.
 config :ambry, AmbryWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
@@ -24,16 +23,8 @@ config :ambry, AmbryWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "OfkoKKapl8GDv4JajdVM6bThF+rvkTcByTQH1+GEOVoYchPYU26qigK71Pf4Su7H",
   watchers: [
-    # Start the esbuild watcher by calling Esbuild.install_and_run(:default, args)
-    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
-    npx: [
-      "tailwindcss",
-      "--input=css/app.css",
-      "--output=../priv/static/assets/app.css",
-      "--postcss",
-      "--watch",
-      cd: Path.expand("../assets", __DIR__)
-    ]
+    npm: ["run", "watch_js", cd: Path.expand("../assets", __DIR__)],
+    npm: ["run", "watch_css", cd: Path.expand("../assets", __DIR__)]
   ]
 
 # ## SSL Support
@@ -81,5 +72,3 @@ config :phoenix, :stacktrace_depth, 20
 
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
-
-config :ambry, uploads_path: Path.join(File.cwd!(), "uploads")

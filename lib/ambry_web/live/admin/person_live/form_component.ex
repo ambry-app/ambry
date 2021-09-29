@@ -1,6 +1,8 @@
 defmodule AmbryWeb.Admin.PersonLive.FormComponent do
   use AmbryWeb, :live_component
 
+  import Ambry.Paths
+
   alias Ambry.People
 
   alias Surface.Components.{Form, LiveFileInput}
@@ -16,8 +18,6 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
     TextArea,
     TextInput
   }
-
-  @uploads_path Application.compile_env!(:ambry, :uploads_path)
 
   prop title, :string, required: true
   prop person, :any, required: true
@@ -53,7 +53,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
   end
 
   def handle_event("save", %{"person" => person_params}, socket) do
-    folder = Path.join([@uploads_path, "images"])
+    folder = Path.join([uploads_path(), "images"])
     File.mkdir_p!(folder)
 
     uploaded_files =

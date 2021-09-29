@@ -36,7 +36,6 @@ defmodule Ambry.MixProject do
       {:argon2_elixir, "~> 2.0"},
       {:earmark, "~> 1.4"},
       {:ecto_sql, "~> 3.6"},
-      {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
       {:floki, ">= 0.30.0", only: :test},
       {:gettext, "~> 0.18"},
       {:jason, "~> 1.2"},
@@ -69,7 +68,7 @@ defmodule Ambry.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.deploy": ["esbuild default --minify", "phx.digest"],
+      "assets.deploy": ["cmd --cd assets npm run deploy", "phx.digest"],
       format: ["format", "surface.format"]
     ]
   end

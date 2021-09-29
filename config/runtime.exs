@@ -5,6 +5,9 @@ import Config
 # system starts, so it is typically used to load production configuration
 # and secrets from environment variables or elsewhere. Do not define
 # any compile-time configuration in here, as it won't be applied.
+
+config :ambry, uploads_path: Path.join(File.cwd!(), "uploads")
+
 # The block below contains prod specific runtime configuration.
 if config_env() == :prod do
   database_url =
@@ -32,14 +35,23 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
+  url_string =
+    System.get_env("BASE_URL") ||
+      raise """
+      environment variable BASE_URL is missing.
+      """
+
+  %{host: host, port: port} = URI.parse(url_string)
+
   config :ambry, AmbryWeb.Endpoint,
+    url: [host: host, port: port],
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
       # See the documentation on https://hexdocs.pm/plug_cowboy/Plug.Cowboy.html
       # for details about using IPv6 vs IPv4 and loopback vs public addresses.
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
-      port: String.to_integer(System.get_env("PORT") || "4000")
+      port: String.to_integer(System.get_env("PORT") || "80")
     ],
     secret_key_base: secret_key_base
 
@@ -48,7 +60,7 @@ if config_env() == :prod do
   # If you are doing OTP releases, you need to instruct Phoenix
   # to start each relevant endpoint:
   #
-  #     config :ambry, AmbryWeb.Endpoint, server: true
+  config :ambry, AmbryWeb.Endpoint, server: true
   #
   # Then you can assemble a release by calling `mix release`.
   # See `mix help release` for more information.

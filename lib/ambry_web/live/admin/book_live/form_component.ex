@@ -1,6 +1,8 @@
 defmodule AmbryWeb.Admin.BookLive.FormComponent do
   use AmbryWeb, :live_component
 
+  import Ambry.Paths
+
   alias Ambry.{Authors, Books}
 
   alias Surface.Components.{Form, LiveFileInput}
@@ -18,8 +20,6 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     TextArea,
     TextInput
   }
-
-  @uploads_path Application.compile_env!(:ambry, :uploads_path)
 
   prop title, :string, required: true
   prop book, :any, required: true
@@ -55,7 +55,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   end
 
   def handle_event("save", %{"book" => book_params}, socket) do
-    folder = Path.join([@uploads_path, "images"])
+    folder = Path.join([uploads_path(), "images"])
     File.mkdir_p!(folder)
 
     uploaded_files =
