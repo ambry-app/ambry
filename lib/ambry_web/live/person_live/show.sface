@@ -33,9 +33,9 @@
 
 {#for author <- @person.authors}
   {#if author.name != @person.name}
-    <h2 class="mt-8 mb-4 text-3xl">Written by {@person.name} as {author.name}</h2>
+    <h2 class="mt-10 mb-4 text-3xl">Written by {@person.name} as {author.name}</h2>
   {#else}
-    <h2 class="mt-8 mb-4 text-3xl">Written by {author.name}</h2>
+    <h2 class="mt-10 mb-4 text-3xl">Written by {author.name}</h2>
   {/if}
 
   <BookTiles books={author.books} />
@@ -43,9 +43,9 @@
 
 {#for narrator <- @person.narrators}
   {#if narrator.name != @person.name}
-    <h2 class="mt-8 mb-4 text-3xl">Narrated by {@person.name} as {narrator.name}</h2>
+    <h2 class="mt-10 mb-4 text-3xl">Narrated by {@person.name} as {narrator.name}</h2>
   {#else}
-    <h2 class="mt-8 mb-4 text-3xl">Narrated by {narrator.name}</h2>
+    <h2 class="mt-10 mb-4 text-3xl">Narrated by {narrator.name}</h2>
   {/if}
 
   <BookTiles books={narrator.books} />

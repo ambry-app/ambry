@@ -1,3 +1,5 @@
-<RecentMedia id="recent-media" user={@current_user} browser_id={assigns[:browser_id]} />
+<div>
+  <RecentMedia id="recent-media" user={@current_user} browser_id={assigns[:browser_id]} />
 
-<RecentBooks id="recent-books" />
+  <RecentBooks id="recent-books" />
+</div>

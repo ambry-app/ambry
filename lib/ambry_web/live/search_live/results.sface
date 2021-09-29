@@ -1,14 +1,16 @@
 <h1 class="text-4xl mb-4">Search results for "{@query}"</h1>
 
-{#for {label, items} <- @results}
-  {#case label}
-    {#match :authors}
-      <AuthorResults authors={Enum.map(items, &elem(&1, 1))} />
-    {#match :books}
-      <BookResults books={Enum.map(items, &elem(&1, 1))} />
-    {#match :narrators}
-      <NarratorResults narrators={Enum.map(items, &elem(&1, 1))} />
-    {#match :series}
-      <SeriesResults series={Enum.map(items, &elem(&1, 1))} />
-  {/case}
-{/for}
+<div class="space-y-10">
+  {#for {label, items} <- @results}
+    {#case label}
+      {#match :authors}
+        <AuthorResults authors={Enum.map(items, &elem(&1, 1))} />
+      {#match :books}
+        <BookResults books={Enum.map(items, &elem(&1, 1))} />
+      {#match :narrators}
+        <NarratorResults narrators={Enum.map(items, &elem(&1, 1))} />
+      {#match :series}
+        <SeriesResults series={Enum.map(items, &elem(&1, 1))} />
+    {/case}
+  {/for}
+</div>
