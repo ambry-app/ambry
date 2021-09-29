@@ -17,7 +17,9 @@ defmodule Ambry.Application do
       # Start the Endpoint (http/https)
       AmbryWeb.Endpoint,
       # Start a worker by calling: Ambry.Worker.start_link(arg)
-      Ambry.PlayerStateRegistry
+      Ambry.PlayerStateRegistry,
+      # Starts Oban jobs
+      {Oban, oban_config()}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
@@ -32,5 +34,9 @@ defmodule Ambry.Application do
   def config_change(changed, _new, removed) do
     AmbryWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp oban_config do
+    Application.fetch_env!(:ambry, Oban)
   end
 end

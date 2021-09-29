@@ -2,6 +2,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   use AmbryWeb, :live_component
 
   alias Ambry.{Books, Narrators, Media}
+  alias Ambry.Media.Processor
 
   alias Surface.Components.{Form, LiveFileInput}
 
@@ -61,17 +62,19 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   end
 
   def handle_event("save", %{"media" => media_params}, socket) do
-    folder = Path.join([@uploads_path, "source_media", Ecto.UUID.generate()])
-    File.mkdir_p!(folder)
+    folder_id = Ecto.UUID.generate()
+    folder = Path.join([@uploads_path, "source_media"])
 
     consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
-      dest = Path.join([folder, entry.client_name])
+      File.mkdir_p!(Path.join([folder, folder_id]))
+
+      dest = Path.join([folder, folder_id, entry.client_name])
       File.cp!(path, dest)
     end)
 
     media_params =
       Map.merge(media_params, %{
-        "source_path" => folder,
+        "source_path" => Path.join([folder, folder_id]),
         "status" => :pending
       })
 
@@ -120,7 +123,9 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   defp save_media(socket, :new, media_params) do
     case Media.create_media(media_params) do
-      {:ok, _media} ->
+      {:ok, media} ->
+        {:ok, _job} = %{media_id: media.id} |> Processor.new() |> Oban.insert()
+
         {:noreply,
          socket
          |> put_flash(:info, "Media created successfully")

@@ -32,4 +32,7 @@ config :logger, level: :warn
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
 
+# Disable Oban in tests
+config :my_app, Oban, queues: false, plugins: false
+
 config :ambry, uploads_path: Path.join(File.cwd!(), "uploads")

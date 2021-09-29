@@ -36,8 +36,10 @@
     <div class="hidden sm:block">
       <Header book={@book} />
     </div>
-    <div class="markdown mt-4">
-      {raw(Earmark.as_html!(@book.description))}
-    </div>
+    {#if @book.description}
+      <div class="markdown mt-4">
+        {raw(Earmark.as_html!(@book.description))}
+      </div>
+    {/if}
   </section>
 </div>

@@ -7,25 +7,27 @@
   </section>
   <section id="description" class="sm:ml-10">
     <h1 class="text-4xl">{@person.name}</h1>
-    <div x-data="readMore">
-      <div
-        class="markdown relative max-w-md mt-4 max-h-44 overflow-y-hidden"
-        :class="{ 'max-h-44': !expanded }"
-      >
-        {raw(Earmark.as_html!(@person.description))}
+    {#if @person.description}
+      <div x-data="readMore">
         <div
-          x-show="canReadMore && !expanded"
-          class="bg-gradient-to-b from-transparent to-white h-4 w-full absolute bottom-0"
-        />
+          class="markdown relative max-w-md mt-4 max-h-44 overflow-y-hidden"
+          :class="{ 'max-h-44': !expanded }"
+        >
+          {raw(Earmark.as_html!(@person.description))}
+          <div
+            x-show="canReadMore && !expanded"
+            class="bg-gradient-to-b from-transparent to-white h-4 w-full absolute bottom-0"
+          />
+        </div>
+        <p class="text-right" x-show="canReadMore">
+          <span
+            class="text-lime-500 cursor-pointer hover:underline"
+            @click="toggle()"
+            x-text="expanded ? 'Read less' : 'Read more'"
+          />
+        </p>
       </div>
-      <p class="text-right" x-show="canReadMore">
-        <span
-          class="text-lime-500 cursor-pointer hover:underline"
-          @click="toggle()"
-          x-text="expanded ? 'Read less' : 'Read more'"
-        />
-      </p>
-    </div>
+    {/if}
   </section>
 </div>
 
