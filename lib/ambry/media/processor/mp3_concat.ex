@@ -9,9 +9,7 @@ defmodule Ambry.Media.Processor.MP3Concat do
   alias Ambry.Media
 
   def can_run?(media) do
-    exts = media.source_path |> File.ls!() |> Enum.map(&Path.extname(&1))
-
-    length(exts) > 1 && Enum.uniq(exts) == [".mp3"]
+    media |> mp3_files() |> length() > 1
   end
 
   def run(media) do
@@ -20,13 +18,18 @@ defmodule Ambry.Media.Processor.MP3Concat do
     finalize!(media, filename)
   end
 
+  defp mp3_files(media) do
+    media.source_path
+    |> File.ls!()
+    |> Enum.filter(&(Path.extname(&1) == ".mp3"))
+  end
+
   defp concat_mp3!(media) do
     file_list_txt_path = Path.join([media.source_path, "files.txt"])
 
     file_list_txt =
-      media.source_path
-      |> File.ls!()
-      |> Enum.filter(&(Path.extname(&1) == ".mp3"))
+      media
+      |> mp3_files()
       |> Enum.sort()
       |> Enum.map(&"file '#{&1}'")
       |> Enum.join("\n")
@@ -42,7 +45,7 @@ defmodule Ambry.Media.Processor.MP3Concat do
     filename
   end
 
-  def create_mpd!(media, filename) do
+  defp create_mpd!(media, filename) do
     command = "shaka-packager"
 
     args = [
@@ -57,10 +60,12 @@ defmodule Ambry.Media.Processor.MP3Concat do
     {_output, 0} = System.cmd(command, args, cd: media.source_path, parallelism: true)
   end
 
-  def finalize!(media, filename) do
+  defp finalize!(media, filename) do
     media_folder = Path.join(uploads_path(), "media")
     mpd_dest = Path.join([media_folder, "#{filename}.mpd"])
     mp4_dest = Path.join([media_folder, "#{filename}.mp4"])
+
+    File.mkdir_p!(media_folder)
 
     File.rename!(
       Path.join(media.source_path, "#{filename}.mpd"),
