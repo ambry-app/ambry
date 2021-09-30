@@ -28,10 +28,17 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 # -----------------------------------
 FROM alpine:3.14.0 as elixir-runner
 
+ARG SHAKA_VERSION=2.6.0
+
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
   apk --update upgrade && \
-  apk add openssl ncurses-libs libstdc++
+  apk add openssl ncurses-libs libstdc++ ffmpeg curl
 
+RUN curl -L \
+  -o /usr/local/bin/shaka-packager \
+  https://github.com/google/shaka-packager/releases/download/v$SHAKA_VERSION/packager-linux-x64
+
+RUN chmod +x /usr/local/bin/shaka-packager
 
 # -----------------------------------
 # - stage: install
