@@ -1,4 +1,8 @@
 defmodule AmbryWeb.Components.ChevronUp do
+  @moduledoc """
+  Heroicons chevron-up 24x24
+  """
+
   use AmbryWeb, :component
 
   @impl true

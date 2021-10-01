@@ -1,4 +1,8 @@
 defmodule Ambry.Series.Series do
+  @moduledoc """
+  A series of books.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

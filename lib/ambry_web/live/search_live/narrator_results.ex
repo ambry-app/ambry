@@ -1,4 +1,6 @@
 defmodule AmbryWeb.SearchLive.NarratorResults do
+  @moduledoc false
+
   use AmbryWeb, :component
 
   alias Surface.Components.LiveRedirect

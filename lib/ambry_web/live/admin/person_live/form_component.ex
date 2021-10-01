@@ -1,4 +1,6 @@
 defmodule AmbryWeb.Admin.PersonLive.FormComponent do
+  @moduledoc false
+
   use AmbryWeb, :live_component
 
   import Ambry.Paths

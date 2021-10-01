@@ -1,4 +1,8 @@
 defmodule Ambry.PlayerStateRegistry do
+  @moduledoc """
+  Keeps track of what users/browsers are playing which media.
+  """
+
   use GenServer
 
   alias Ambry.PubSub

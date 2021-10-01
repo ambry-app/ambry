@@ -1,4 +1,8 @@
 defmodule AmbryWeb.Admin.Auth do
+  @moduledoc """
+  Helper functions for user authentication in admin live views.
+  """
+
   import Phoenix.LiveView, only: [push_redirect: 2]
   alias AmbryWeb.Router.Helpers, as: Routes
 

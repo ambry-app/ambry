@@ -1,4 +1,8 @@
 defmodule AmbryWeb.Admin.SeriesLive.Index do
+  @moduledoc """
+  LiveView for series admin interface.
+  """
+
   use AmbryWeb, :live_view
 
   import AmbryWeb.Admin.PaginationHelpers

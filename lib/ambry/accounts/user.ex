@@ -1,4 +1,8 @@
 defmodule Ambry.Accounts.User do
+  @moduledoc """
+  A user of the app.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

@@ -1,4 +1,8 @@
 defmodule Ambry.Accounts.UserNotifier do
+  @moduledoc """
+  Delivers various kinds of emails to users.
+  """
+
   import Swoosh.Email
 
   alias Ambry.Mailer

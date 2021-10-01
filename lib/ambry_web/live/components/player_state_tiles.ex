@@ -1,4 +1,8 @@
 defmodule AmbryWeb.Components.PlayerStateTiles do
+  @moduledoc """
+  Renders a responsive tiled grid of player states with play buttons.
+  """
+
   use AmbryWeb, :component
 
   alias AmbryWeb.BookLive.PlayButton

@@ -31,8 +31,7 @@ defmodule Ambry.Media.Processor.MP3Concat do
       media
       |> mp3_files()
       |> Enum.sort()
-      |> Enum.map(&"file '#{&1}'")
-      |> Enum.join("\n")
+      |> Enum.map_join("\n", &"file '#{&1}'")
 
     File.write!(file_list_txt_path, file_list_txt)
 

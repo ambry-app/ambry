@@ -1,4 +1,8 @@
 defmodule AmbryWeb.UserResetPasswordController do
+  @moduledoc """
+  controller for resetting a user's password.
+  """
+
   use AmbryWeb, :controller
 
   alias Ambry.Accounts

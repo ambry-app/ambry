@@ -1,4 +1,8 @@
 defmodule AmbryWeb.HeaderLive.Header do
+  @moduledoc """
+  LiveView for the header with build-in media player.
+  """
+
   use AmbryWeb, :live_view
 
   alias Ambry.Media

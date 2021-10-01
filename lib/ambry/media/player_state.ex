@@ -1,4 +1,8 @@
 defmodule Ambry.Media.PlayerState do
+  @moduledoc """
+  A user's progress and settings for a specific media.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

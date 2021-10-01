@@ -1,4 +1,8 @@
 defmodule Ambry.Media.MediaNarrator do
+  @moduledoc """
+  Join table between media and narrators.
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset

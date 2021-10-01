@@ -1,4 +1,10 @@
 defmodule Ambry.Narrators.Narrator do
+  @moduledoc """
+  A narrator reads books.
+
+  Belongs to a Person, so one person can write as multiple narrators.
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset

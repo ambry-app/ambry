@@ -1,4 +1,8 @@
 defmodule AmbryWeb.HomeLive.Home do
+  @moduledoc """
+  LiveView for the home page.
+  """
+
   use AmbryWeb, :live_view
 
   alias Ambry.PubSub

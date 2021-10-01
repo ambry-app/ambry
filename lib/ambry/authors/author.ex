@@ -1,4 +1,10 @@
 defmodule Ambry.Authors.Author do
+  @moduledoc """
+  An author writes books.
+
+  Belongs to a Person, so one person can write as multiple authors (pen names).
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset

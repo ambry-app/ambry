@@ -1,4 +1,8 @@
 defmodule AmbryWeb.UserRegistrationController do
+  @moduledoc """
+  Controller for registering new users.
+  """
+
   use AmbryWeb, :controller
 
   alias Ambry.Accounts

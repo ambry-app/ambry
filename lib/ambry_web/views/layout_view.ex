@@ -1,4 +1,6 @@
 defmodule AmbryWeb.LayoutView do
+  @moduledoc false
+
   use AmbryWeb, :view
 
   # Phoenix LiveDashboard is available only in development by default,

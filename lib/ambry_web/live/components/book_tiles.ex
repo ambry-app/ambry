@@ -1,4 +1,8 @@
 defmodule AmbryWeb.Components.BookTiles do
+  @moduledoc """
+  Renders a responsive tiled grid of book links.
+  """
+
   use AmbryWeb, :component
 
   alias Ambry.Books.Book

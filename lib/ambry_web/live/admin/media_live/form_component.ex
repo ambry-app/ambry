@@ -1,9 +1,11 @@
 defmodule AmbryWeb.Admin.MediaLive.FormComponent do
+  @moduledoc false
+
   use AmbryWeb, :live_component
 
   import Ambry.Paths
 
-  alias Ambry.{Books, Narrators, Media}
+  alias Ambry.{Books, Media, Narrators}
   alias Ambry.Media.Processor
 
   alias Surface.Components.{Form, LiveFileInput}

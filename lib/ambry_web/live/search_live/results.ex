@@ -1,4 +1,8 @@
 defmodule AmbryWeb.SearchLive.Results do
+  @moduledoc """
+  LiveView for showing search results.
+  """
+
   use AmbryWeb, :live_view
 
   alias Ambry.Search

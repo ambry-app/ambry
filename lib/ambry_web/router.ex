@@ -1,4 +1,6 @@
 defmodule AmbryWeb.Router do
+  @moduledoc false
+
   use AmbryWeb, :router
 
   import AmbryWeb.UserAuth

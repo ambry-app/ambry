@@ -6,8 +6,8 @@ defmodule Ambry.Authors do
   import Ambry.SearchUtils
   import Ecto.Query
 
-  alias Ambry.Books.Book
   alias Ambry.Authors.Author
+  alias Ambry.Books.Book
   alias Ambry.Repo
 
   @doc """

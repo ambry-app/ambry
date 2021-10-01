@@ -1,4 +1,8 @@
 defmodule AmbryWeb.UserConfirmationController do
+  @moduledoc """
+  Controller for email confirmations.
+  """
+
   use AmbryWeb, :controller
 
   alias Ambry.Accounts

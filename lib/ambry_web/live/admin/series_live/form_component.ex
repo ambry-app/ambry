@@ -1,4 +1,6 @@
 defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
+  @moduledoc false
+
   use AmbryWeb, :live_component
 
   alias Ambry.{Books, Series}

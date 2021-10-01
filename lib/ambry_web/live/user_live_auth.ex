@@ -1,4 +1,8 @@
 defmodule AmbryWeb.UserLiveAuth do
+  @moduledoc """
+  Helper functions for user authentication in live views.
+  """
+
   import Phoenix.LiveView, only: [assign_new: 3, push_redirect: 2]
   alias AmbryWeb.Router.Helpers, as: Routes
 

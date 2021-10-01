@@ -1,9 +1,11 @@
 defmodule AmbryWeb.Components.Modal do
+  @moduledoc """
+  Modal component with close button and return_to url.
+  """
+
   use AmbryWeb, :live_component
 
-  alias Surface.Components.{
-    LivePatch
-  }
+  alias Surface.Components.LivePatch
 
   prop return_to, :string, required: true
 

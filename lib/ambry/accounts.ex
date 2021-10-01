@@ -6,7 +6,7 @@ defmodule Ambry.Accounts do
   import Ecto.Query, warn: false
   alias Ambry.Repo
 
-  alias Ambry.Accounts.{User, UserToken, UserNotifier}
+  alias Ambry.Accounts.{User, UserNotifier, UserToken}
 
   ## Database getters
 

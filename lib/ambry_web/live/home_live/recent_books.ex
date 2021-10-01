@@ -1,4 +1,6 @@
 defmodule AmbryWeb.HomeLive.RecentBooks do
+  @moduledoc false
+
   use AmbryWeb, :live_component
 
   alias Ambry.Books

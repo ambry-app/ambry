@@ -1,4 +1,10 @@
 defmodule Ambry.Series.SeriesBook do
+  @moduledoc """
+  Join table between books and series.
+
+  Also stores the book number (e.g. which number book is this in the series).
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset

@@ -1,11 +1,15 @@
 defmodule Ambry.Books.Book do
+  @moduledoc """
+  A book.
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset
 
   alias Ambry.Authors.{Author, BookAuthor}
-  alias Ambry.Series.Series
   alias Ambry.Media.Media
+  alias Ambry.Series.Series
   alias Ambry.Series.SeriesBook
 
   schema "books" do

@@ -1,4 +1,8 @@
 defmodule AmbryWeb.UserSettingsController do
+  @moduledoc """
+  Controller for updating a user's settings (not currently used).
+  """
+
   use AmbryWeb, :controller
 
   alias Ambry.Accounts

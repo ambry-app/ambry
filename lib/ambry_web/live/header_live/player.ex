@@ -1,4 +1,6 @@
 defmodule AmbryWeb.HeaderLive.Player do
+  @moduledoc false
+
   use AmbryWeb, :live_component
 
   alias AmbryWeb.Components.ChevronUp

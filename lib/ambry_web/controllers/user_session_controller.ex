@@ -1,4 +1,8 @@
 defmodule AmbryWeb.UserSessionController do
+  @moduledoc """
+  Controller for logging in and out.
+  """
+
   use AmbryWeb, :controller
 
   alias Ambry.Accounts

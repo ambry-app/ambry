@@ -1,4 +1,8 @@
 defmodule AmbryWeb.Admin.PersonLive.Index do
+  @moduledoc """
+  LiveView for person admin interface.
+  """
+
   use AmbryWeb, :live_view
 
   import AmbryWeb.Admin.PaginationHelpers

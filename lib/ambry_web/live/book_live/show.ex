@@ -1,4 +1,7 @@
 defmodule AmbryWeb.BookLive.Show do
+  @moduledoc """
+  LiveView for showing book details.
+  """
   use AmbryWeb, :live_view
 
   alias Ambry.Books

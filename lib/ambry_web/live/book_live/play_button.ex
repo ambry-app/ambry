@@ -1,4 +1,6 @@
 defmodule AmbryWeb.BookLive.PlayButton do
+  @moduledoc false
+
   use AmbryWeb, :live_component
 
   alias Ambry.PubSub

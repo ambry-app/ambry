@@ -1,4 +1,6 @@
 defmodule AmbryWeb.HomeLive.RecentMedia do
+  @moduledoc false
+
   use AmbryWeb, :live_component
 
   alias Ambry.{Media, PubSub}

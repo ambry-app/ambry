@@ -1,4 +1,8 @@
 defmodule AmbryWeb.Admin.BookLive.Index do
+  @moduledoc """
+  LiveView for book admin interface.
+  """
+
   use AmbryWeb, :live_view
 
   import AmbryWeb.Admin.PaginationHelpers
@@ -6,8 +10,8 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   alias Ambry.Books
   alias Ambry.Books.Book
 
-  alias AmbryWeb.Admin.Components.AdminNav
   alias AmbryWeb.Admin.BookLive.FormComponent
+  alias AmbryWeb.Admin.Components.AdminNav
   alias AmbryWeb.Components.Modal
 
   alias Surface.Components.{Form, LivePatch}

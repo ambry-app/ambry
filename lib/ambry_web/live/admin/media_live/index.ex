@@ -1,4 +1,8 @@
 defmodule AmbryWeb.Admin.MediaLive.Index do
+  @moduledoc """
+  LiveView for media admin interface.
+  """
+
   use AmbryWeb, :live_view
 
   import AmbryWeb.Admin.PaginationHelpers

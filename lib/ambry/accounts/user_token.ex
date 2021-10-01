@@ -1,4 +1,8 @@
 defmodule Ambry.Accounts.UserToken do
+  @moduledoc """
+  Used for password resets and email confirmations.
+  """
+
   use Ecto.Schema
   import Ecto.Query
 

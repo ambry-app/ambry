@@ -1,4 +1,8 @@
 defmodule Ambry.Media.Media do
+  @moduledoc """
+  A recording of a book by a narrator.
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset

@@ -1,4 +1,8 @@
 defmodule AmbryWeb.UserAuth do
+  @moduledoc """
+  Helper functions for user authentication in a web context.
+  """
+
   import Plug.Conn
   import Phoenix.Controller
 

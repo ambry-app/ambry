@@ -1,4 +1,10 @@
 defmodule Ambry.People.Person do
+  @moduledoc """
+  A person with a bio.
+
+  Can be (multiple) authors and narrators. (Not used for users).
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset

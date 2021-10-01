@@ -1,10 +1,14 @@
 defmodule Ambry.Authors.BookAuthor do
+  @moduledoc """
+  Join table for authors to books.
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset
 
-  alias Ambry.Books.Book
   alias Ambry.Authors.Author
+  alias Ambry.Books.Book
 
   schema "authors_books" do
     belongs_to :author, Author
