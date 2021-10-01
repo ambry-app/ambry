@@ -52,4 +52,8 @@ defmodule AmbryWeb.HeaderLive.Player do
     |> Decimal.round(1)
     |> Decimal.to_string()
   end
+
+  defp time_left(%{position: position, duration: duration, playback_rate: playback_rate}) do
+    Decimal.div(Decimal.sub(duration, position), playback_rate)
+  end
 end
