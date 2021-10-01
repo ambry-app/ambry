@@ -17,6 +17,6 @@
   },
   "dependencies": {
     "alpinejs": "^3.3.3",
-    "dashjs": "^4.0.1"
+    "dashjs": "^4.1.0"
   }
 }
