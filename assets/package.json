@@ -16,7 +16,7 @@
     "tailwindcss": "^2.2.15"
   },
   "dependencies": {
-    "alpinejs": "^3.3.3",
+    "alpinejs": "^3.4.2",
     "dashjs": "^4.0.1"
   }
 }
