@@ -8,16 +8,16 @@ defmodule Ambry.Media.Processor do
   use Oban.Worker, queue: :media
 
   alias Ambry.Media
-  alias Ambry.Media.Processor.MP3Concat
+  alias Ambry.Media.Processor.{MP3, MP3Concat}
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"media_id" => id}}) do
     media = Media.get_media!(id)
 
-    if MP3Concat.can_run?(media) do
-      MP3Concat.run(media)
-    else
-      raise "no matching processor found"
+    cond do
+      MP3Concat.can_run?(media) -> MP3Concat.run(media)
+      MP3.can_run?(media) -> MP3.run(media)
+      true -> raise "no matching processor found"
     end
   end
 end
