@@ -8,7 +8,7 @@ defmodule AmbryWeb.SeriesLive.Show do
   alias Ambry.Series
   alias AmbryWeb.Components.BookTiles
 
-  @impl true
+  @impl Phoenix.LiveView
   def mount(%{"id" => series_id}, _session, socket) do
     series = Series.get_series_with_books!(series_id)
 

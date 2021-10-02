@@ -5,15 +5,14 @@ defmodule AmbryWeb.HeaderLive.Header do
 
   use AmbryWeb, :live_view
 
-  alias Ambry.Media
-  alias Ambry.PubSub
+  alias Ambry.{Media, PubSub}
   alias AmbryWeb.Components.{ChevronDown, ChevronUp}
   alias AmbryWeb.HeaderLive.{PlayButton, Player, SearchForm}
   alias Surface.Components.Link
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 
-  @impl true
+  @impl Phoenix.LiveView
   def mount(:not_mounted_at_router, _session, socket) do
     user = socket.assigns.current_user
 
@@ -41,7 +40,7 @@ defmodule AmbryWeb.HeaderLive.Header do
      |> assign(:expanded, false)}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_info({:load_and_play_media, media_id}, socket) do
     user = socket.assigns.current_user
     player_state = Media.get_or_create_player_state!(user.id, media_id)
@@ -68,7 +67,7 @@ defmodule AmbryWeb.HeaderLive.Header do
     {:noreply, push_event(socket, "pause", %{})}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("toggle", _params, socket) do
     {:noreply, assign(socket, :expanded, !socket.assigns.expanded)}
   end
@@ -85,7 +84,7 @@ defmodule AmbryWeb.HeaderLive.Header do
     end
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("duration-loaded", %{"duration" => duration}, socket) do
     {:ok, player_state} =
       Media.update_player_state(socket.assigns.player_state, %{

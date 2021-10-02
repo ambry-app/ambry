@@ -11,7 +11,7 @@ defmodule AmbryWeb.HomeLive.RecentBooks do
   data show_load_more?, :boolean, default: true
   data books, :list, default: []
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def update(assigns, socket) do
     {:ok,
      socket
@@ -19,7 +19,7 @@ defmodule AmbryWeb.HomeLive.RecentBooks do
      |> load_books()}
   end
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def handle_event("load-more", _params, socket) do
     {:noreply, load_books(socket)}
   end

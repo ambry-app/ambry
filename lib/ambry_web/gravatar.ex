@@ -36,7 +36,7 @@ defmodule AmbryWeb.Gravatar do
   defp host(uri, false), do: %URI{uri | scheme: "http", host: @domain}
 
   defp hash_email(uri, email) do
-    hash = :crypto.hash(:md5, String.downcase(email)) |> Base.encode16(case: :lower)
+    hash = Base.encode16(:crypto.hash(:md5, String.downcase(email)), case: :lower)
     %URI{uri | path: "/avatar/#{hash}"}
   end
 end

@@ -5,10 +5,8 @@ defmodule Ambry.Media do
 
   import Ecto.Query
 
-  alias Ambry.Media.Media
-  alias Ambry.Media.PlayerState
-  alias Ambry.PubSub
-  alias Ambry.Repo
+  alias Ambry.Media.{Media, PlayerState}
+  alias Ambry.{PubSub, Repo}
 
   @media_preload [:narrators, book: [:authors, series_books: :series]]
   @player_state_preload [media: @media_preload]

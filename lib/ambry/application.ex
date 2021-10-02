@@ -5,7 +5,7 @@ defmodule Ambry.Application do
 
   use Application
 
-  @impl true
+  @impl Application
   def start(_type, _args) do
     # ensures all migrations have been run on application start
     migrate!()
@@ -33,7 +33,7 @@ defmodule Ambry.Application do
 
   # Tell Phoenix to update the endpoint configuration
   # whenever the application is updated.
-  @impl true
+  @impl Application
   def config_change(changed, _new, removed) do
     AmbryWeb.Endpoint.config_change(changed, removed)
     :ok

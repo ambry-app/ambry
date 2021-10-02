@@ -7,8 +7,7 @@ defmodule Ambry.Series do
   import Ecto.Query
 
   alias Ambry.Repo
-  alias Ambry.Series.Series
-  alias Ambry.Series.SeriesBook
+  alias Ambry.Series.{Series, SeriesBook}
 
   @doc """
   Returns a limited list of series and whether or not there are more.

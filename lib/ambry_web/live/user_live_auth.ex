@@ -56,7 +56,7 @@ defmodule AmbryWeb.UserLiveAuth do
       nil ->
         {:halt, push_redirect(socket, to: Routes.user_session_path(socket, :new))}
 
-      _ ->
+      _user ->
         {:cont, socket}
     end
   end

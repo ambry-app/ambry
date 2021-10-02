@@ -1,8 +1,9 @@
 defmodule AmbryWeb.UserSettingsControllerTest do
   use AmbryWeb.ConnCase, async: true
 
-  alias Ambry.Accounts
   import Ambry.AccountsFixtures
+
+  alias Ambry.Accounts
 
   setup :register_and_log_in_user
 

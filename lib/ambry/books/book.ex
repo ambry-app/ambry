@@ -9,8 +9,7 @@ defmodule Ambry.Books.Book do
 
   alias Ambry.Authors.{Author, BookAuthor}
   alias Ambry.Media.Media
-  alias Ambry.Series.Series
-  alias Ambry.Series.SeriesBook
+  alias Ambry.Series.{Series, SeriesBook}
 
   schema "books" do
     has_many :media, Media

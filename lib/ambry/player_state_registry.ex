@@ -24,7 +24,7 @@ defmodule Ambry.PlayerStateRegistry do
 
   ## Server callbacks
 
-  @impl true
+  @impl GenServer
   def init([]) do
     :ets.new(__MODULE__, [:named_table])
 
@@ -34,7 +34,7 @@ defmodule Ambry.PlayerStateRegistry do
     {:ok, []}
   end
 
-  @impl true
+  @impl GenServer
   def handle_info({:playback_started, user_id, browser_id, media_id}, []) do
     true = :ets.insert(__MODULE__, {key(user_id, browser_id, media_id), true})
 

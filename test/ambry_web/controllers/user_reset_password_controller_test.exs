@@ -1,9 +1,9 @@
 defmodule AmbryWeb.UserResetPasswordControllerTest do
   use AmbryWeb.ConnCase, async: true
 
-  alias Ambry.Accounts
-  alias Ambry.Repo
   import Ambry.AccountsFixtures
+
+  alias Ambry.{Accounts, Repo}
 
   setup do
     %{user: user_fixture()}

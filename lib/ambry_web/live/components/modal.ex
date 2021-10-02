@@ -11,7 +11,7 @@ defmodule AmbryWeb.Components.Modal do
 
   slot default, required: true
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def handle_event("close", _params, socket) do
     {:noreply, push_patch(socket, to: socket.assigns.return_to)}
   end

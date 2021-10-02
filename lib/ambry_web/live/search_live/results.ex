@@ -16,7 +16,7 @@ defmodule AmbryWeb.SearchLive.Results do
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 
-  @impl true
+  @impl Phoenix.LiveView
   def mount(%{"query" => query}, _session, socket) do
     query = String.trim(query)
     results = Search.search(query)

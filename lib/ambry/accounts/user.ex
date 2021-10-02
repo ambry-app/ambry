@@ -110,7 +110,7 @@ defmodule Ambry.Accounts.User do
   Confirms the account by setting `confirmed_at`.
   """
   def confirm_changeset(user) do
-    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    now = NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
     change(user, confirmed_at: now)
   end
 
@@ -125,7 +125,7 @@ defmodule Ambry.Accounts.User do
     Argon2.verify_pass(password, hashed_password)
   end
 
-  def valid_password?(_, _) do
+  def valid_password?(_user, _password) do
     Argon2.no_user_verify()
     false
   end

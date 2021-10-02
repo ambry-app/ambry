@@ -3,7 +3,8 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   use AmbryWeb, :live_component
 
-  import Ambry.Paths
+  import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
+  import AmbryWeb.Admin.UploadHelpers, only: [consume_uploaded_image: 1, error_to_string: 1]
 
   alias Ambry.{Authors, Books}
 
@@ -28,13 +29,13 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   prop action, :atom, required: true
   prop return_to, :string, required: true
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def mount(socket) do
     socket = allow_upload(socket, :image, accept: ~w(.jpg .jpeg .png), max_entries: 1)
     {:ok, assign(socket, :authors, authors())}
   end
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def update(%{book: book} = assigns, socket) do
     changeset = Books.change_book(book, init_book_param(book))
 
@@ -44,7 +45,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
      |> assign(:changeset, changeset)}
   end
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def handle_event("validate", %{"book" => book_params}, socket) do
     book_params = clean_book_params(book_params)
 
@@ -57,25 +58,11 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   end
 
   def handle_event("save", %{"book" => book_params}, socket) do
-    folder = Path.join([uploads_path(), "images"])
-    File.mkdir_p!(folder)
-
-    uploaded_files =
-      consume_uploaded_entries(socket, :image, fn %{path: path}, entry ->
-        data = File.read!(path)
-        hash = :crypto.hash(:md5, data) |> Base.encode16(case: :lower)
-        [ext | _] = MIME.extensions(entry.client_type)
-        filename = "#{hash}.#{ext}"
-        dest = Path.join([folder, filename])
-        File.cp!(path, dest)
-        Routes.static_path(socket, "/uploads/images/#{filename}")
-      end)
-
     book_params =
-      case uploaded_files do
-        [file] -> Map.put(book_params, "image_path", file)
-        [] -> book_params
-        _else -> raise "too many files"
+      case consume_uploaded_image(socket) do
+        {:ok, :no_file} -> book_params
+        {:ok, path} -> Map.put(book_params, "image_path", path)
+        {:error, :too_many_files} -> raise "too many files"
       end
 
     save_book(socket, socket.assigns.action, book_params)
@@ -136,26 +123,6 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   defp authors do
     Authors.for_select()
-  end
-
-  defp error_to_string(:too_large), do: "Too large"
-  defp error_to_string(:too_many_files), do: "You have selected too many files"
-  defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
-
-  defp map_to_list(params, key) do
-    if Map.has_key?(params, key) do
-      Map.update!(params, key, fn
-        params_map when is_map(params_map) ->
-          params_map
-          |> Enum.sort_by(fn {index, _params} -> String.to_integer(index) end)
-          |> Enum.map(fn {_index, params} -> params end)
-
-        params_list when is_list(params_list) ->
-          params_list
-      end)
-    else
-      Map.put(params, key, [])
-    end
   end
 
   defp init_book_param(book) do

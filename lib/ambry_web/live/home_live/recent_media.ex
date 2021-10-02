@@ -14,7 +14,7 @@ defmodule AmbryWeb.HomeLive.RecentMedia do
   data show_load_more?, :boolean, default: true
   data player_states, :list, default: []
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def update(assigns, socket) do
     {:ok,
      socket
@@ -22,7 +22,7 @@ defmodule AmbryWeb.HomeLive.RecentMedia do
      |> load_player_states()}
   end
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def handle_event("load-more", _params, socket) do
     {:noreply, load_player_states(socket)}
   end

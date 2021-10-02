@@ -96,10 +96,7 @@ defmodule AmbryWeb do
       # Import basic rendering functionality (render, render_layout, etc)
       import Phoenix.View
 
-      import AmbryWeb.ErrorHelpers
-      import AmbryWeb.Gettext
-      import AmbryWeb.Gravatar
-      import AmbryWeb.Logo
+      import AmbryWeb.{ErrorHelpers, Gettext, Gravatar, Logo}
       alias AmbryWeb.Router.Helpers, as: Routes
     end
   end

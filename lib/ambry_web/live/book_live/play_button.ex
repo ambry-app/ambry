@@ -43,7 +43,7 @@ defmodule AmbryWeb.BookLive.PlayButton do
 
   # Event handlers
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def handle_event("play-pause", _params, socket) do
     %{
       playing: playing,

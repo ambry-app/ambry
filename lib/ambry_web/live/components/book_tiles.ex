@@ -14,7 +14,7 @@ defmodule AmbryWeb.Components.BookTiles do
   prop show_load_more, :boolean, default: false
   prop load_more, :event
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def update(%{books: books} = assigns, socket) do
     books =
       case books do

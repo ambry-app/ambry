@@ -13,7 +13,7 @@ defmodule AmbryWeb.HeaderLive.Player do
 
   data show_playback_speed, :boolean, default: false
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def handle_event("toggle-playback-speed", _params, socket) do
     {:noreply, assign(socket, :show_playback_speed, !socket.assigns.show_playback_speed)}
   end

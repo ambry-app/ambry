@@ -4,6 +4,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   use AmbryWeb, :live_component
 
   import Ambry.Paths
+  import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
+  import AmbryWeb.Admin.UploadHelpers, only: [error_to_string: 1]
 
   alias Ambry.{Books, Media, Narrators}
   alias Ambry.Media.Processor
@@ -26,7 +28,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   prop action, :atom, required: true
   prop return_to, :string, required: true
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def mount(socket) do
     socket =
       allow_upload(socket, :audio,
@@ -41,7 +43,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
      |> assign(:narrators, narrators())}
   end
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def update(%{media: media} = assigns, socket) do
     changeset = Media.change_media(media, init_media_param(media))
 
@@ -51,7 +53,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
      |> assign(:changeset, changeset)}
   end
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def handle_event("validate", %{"media" => media_params}, socket) do
     media_params = clean_media_params(media_params)
 
@@ -144,26 +146,6 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   defp narrators do
     Narrators.for_select()
-  end
-
-  defp error_to_string(:too_large), do: "Too large"
-  defp error_to_string(:too_many_files), do: "You have selected too many files"
-  defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
-
-  defp map_to_list(params, key) do
-    if Map.has_key?(params, key) do
-      Map.update!(params, key, fn
-        params_map when is_map(params_map) ->
-          params_map
-          |> Enum.sort_by(fn {index, _params} -> String.to_integer(index) end)
-          |> Enum.map(fn {_index, params} -> params end)
-
-        params_list when is_list(params_list) ->
-          params_list
-      end)
-    else
-      Map.put(params, key, [])
-    end
   end
 
   defp init_media_param(media) do

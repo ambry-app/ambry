@@ -1,9 +1,10 @@
 defmodule AmbryWeb.UserAuthTest do
   use AmbryWeb.ConnCase, async: true
 
+  import Ambry.AccountsFixtures
+
   alias Ambry.Accounts
   alias AmbryWeb.UserAuth
-  import Ambry.AccountsFixtures
 
   @remember_me_cookie "_ambry_web_user_remember_me"
 
@@ -106,7 +107,7 @@ defmodule AmbryWeb.UserAuthTest do
     end
 
     test "does not authenticate if data is missing", %{conn: conn, user: user} do
-      _ = Accounts.generate_user_session_token(user)
+      _token = Accounts.generate_user_session_token(user)
       conn = UserAuth.fetch_current_user(conn, [])
       refute get_session(conn, :user_token)
       refute conn.assigns.current_user

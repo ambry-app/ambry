@@ -3,6 +3,8 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
 
   use AmbryWeb, :live_component
 
+  import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
+
   alias Ambry.{Books, Series}
 
   alias Surface.Components.Form
@@ -26,12 +28,12 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
 
   data books, :list
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def mount(socket) do
     {:ok, assign(socket, :books, books())}
   end
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def update(%{series: series} = assigns, socket) do
     changeset = Series.change_series(series, init_series_param(series))
 
@@ -41,7 +43,7 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
      |> assign(:changeset, changeset)}
   end
 
-  @impl true
+  @impl Phoenix.LiveComponent
   def handle_event("validate", %{"series" => series_params}, socket) do
     series_params = clean_series_params(series_params)
 
@@ -108,22 +110,6 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
 
   defp books do
     Books.for_select()
-  end
-
-  defp map_to_list(params, key) do
-    if Map.has_key?(params, key) do
-      Map.update!(params, key, fn
-        params_map when is_map(params_map) ->
-          params_map
-          |> Enum.sort_by(fn {index, _params} -> String.to_integer(index) end)
-          |> Enum.map(fn {_index, params} -> params end)
-
-        params_list when is_list(params_list) ->
-          params_list
-      end)
-    else
-      Map.put(params, key, [])
-    end
   end
 
   defp init_series_param(series) do

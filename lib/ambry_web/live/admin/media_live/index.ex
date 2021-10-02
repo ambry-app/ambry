@@ -19,12 +19,12 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
   on_mount {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user}
 
-  @impl true
+  @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     {:ok, maybe_update_media(socket, params, true)}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_params(params, _url, socket) do
     {:noreply,
      socket
@@ -67,7 +67,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     end
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     media = Media.get_media!(id)
     {:ok, _} = Media.delete_media(media)

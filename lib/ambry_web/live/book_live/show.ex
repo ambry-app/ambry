@@ -4,13 +4,12 @@ defmodule AmbryWeb.BookLive.Show do
   """
   use AmbryWeb, :live_view
 
-  alias Ambry.Books
-  alias Ambry.PubSub
+  alias Ambry.{Books, PubSub}
   alias AmbryWeb.BookLive.{Header, PlayButton}
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 
-  @impl true
+  @impl Phoenix.LiveView
   def mount(%{"id" => book_id}, _session, socket) do
     book = Books.get_book_with_media!(book_id)
 
@@ -35,7 +34,7 @@ defmodule AmbryWeb.BookLive.Show do
      |> assign(:book, book)}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_info({:playback_started, media_id}, socket) do
     PlayButton.play(media_id)
     {:noreply, socket}

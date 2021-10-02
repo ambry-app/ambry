@@ -3,9 +3,9 @@ defmodule AmbryWeb.Logo do
   Helpers for inserting the Ambry logo in various ways.
   """
 
-  alias AmbryWeb.Router.Helpers, as: Routes
-
   use Phoenix.Component
+
+  alias AmbryWeb.Router.Helpers, as: Routes
 
   def logo_with_tagline(assigns) do
     ~H"""
