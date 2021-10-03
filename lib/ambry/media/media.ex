@@ -17,7 +17,7 @@ defmodule Ambry.Media.Media do
     many_to_many :narrators, Narrator, join_through: "media_narrators"
 
     field :full_cast, :boolean, default: false
-    field :status, Ecto.Enum, values: [:pending, :ready]
+    field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready]
     field :abridged, :boolean, default: false
 
     field :source_path, :string
