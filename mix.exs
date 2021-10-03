@@ -35,6 +35,7 @@ defmodule Ambry.MixProject do
     [
       {:argon2_elixir, "~> 2.0"},
       {:credo, "~> 1.6.0-rc.1", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:earmark, "~> 1.4"},
       {:ecto_sql, "~> 3.6"},
       {:floki, ">= 0.30.0", only: :test},

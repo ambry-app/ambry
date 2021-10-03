@@ -1,0 +1,91 @@
+name: Elixir CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  MIX_ENV: test
+  # NOTE: make sure these versions match in Dockerfile
+  ELIXIR_VERSION_SPEC: "1.12.3"
+  OTP_VERSION_SPEC: "24.1"
+
+jobs:
+  compile:
+    name: Compile
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1.9.0
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
+          otp-version: ${{ env.OTP_VERSION_SPEC }}
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Compile dependencies
+        run: mix deps.compile
+      - name: Compile
+        run: mix compile --warnings-as-errors
+
+  check-formatted:
+    name: Check Formatted
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1.9.0
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
+          otp-version: ${{ env.OTP_VERSION_SPEC }}
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Compile dependencies
+        run: mix deps.compile
+      - name: Check formatted
+        run: |
+          mix format --check-formatted
+          if [[ `git status --porcelain` ]]; then exit 1; fi
+
+  credo:
+    name: Credo
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1.9.0
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
+          otp-version: ${{ env.OTP_VERSION_SPEC }}
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Compile dependencies
+        run: mix deps.compile
+      - name: Compile
+        run: mix credo --strict
+
+  dialyzer:
+    name: Dialyzer
+    runs-on: ubuntu-latest
+
+    env:
+      MIX_ENV: dev
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1.9.0
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
+          otp-version: ${{ env.OTP_VERSION_SPEC }}
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Compile dependencies
+        run: mix deps.compile
+      - name: Dialyzer
+        run: mix dialyzer

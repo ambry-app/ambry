@@ -6,6 +6,8 @@
 #   docker image, with a development
 #   toolset.
 # -----------------------------------
+
+# NOTE: make sure these versions match in .github/workflows/elixir.yml
 FROM hexpm/elixir:1.12.3-erlang-24.1-alpine-3.14.0 AS elixir-builder
 
 RUN --mount=type=cache,target=~/.hex/packages/hexpm,sharing=locked \
