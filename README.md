@@ -55,3 +55,39 @@ volumes:
   pgdata:
   uploads:
 ```
+
+## Usage
+
+Once the server is running, you have to first create an account. The account registration link is hidden, so you have to manually type in the address: 
+
+-    `http(s)://your-ambry-domain/users/register`
+
+Once you have an account you can log in, but it will be empty. To create authors, narrators, books and to upload audio files, you need to visit the admin section and your user account must also be an admin user. Currently, there is no way to create an admin user. The only way to achieve this right now is to manually flip the `admin` boolean on your user account record in the `users` table of the postgres database. Once you are an admin you can visit:
+
+-    `http(s)://your-ambry-domain/admin/people`
+
+## Local development
+
+Ambry is a Phoenix LiveView application, so to run the server on your machine for local development follow stanbdard steps for phoenix applications. To be able to transcode audio files, you'll also need ffmpeg and shaka-packager available in your path.
+
+### Requirements
+
+-    A `postgresql` server running on localhost (you can customize the details in `./config/dev.exs`)
+-    Elixir 1.12.x and Erlang/OTP 24.x installed
+-    Nodejs 16.x installed
+-    ffmpeg installed
+-    [shaka-packager](https://github.com/google/shaka-packager) installed
+
+```bash
+# download hex dependencies
+mix deps.get
+
+# download javascript dependencies
+npm install --prefix assets/
+
+# create and migrate the database
+mix ecto.setup
+
+# run the server
+iex -S mix phx.server
+```
