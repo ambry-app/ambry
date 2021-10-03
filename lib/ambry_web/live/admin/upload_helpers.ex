@@ -4,9 +4,14 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   """
 
   import Ambry.Paths
+  import Phoenix.LiveView, only: [allow_upload: 3]
   import Phoenix.LiveView.Upload, only: [consume_uploaded_entries: 3]
 
   alias AmbryWeb.Router.Helpers, as: Routes
+
+  def allow_image_upload(socket) do
+    allow_upload(socket, :image, accept: ~w(.jpg .jpeg .png .webp), max_entries: 1)
+  end
 
   @doc """
   Consumes zero or one uploaded images from a socket and puts it in the uploaded

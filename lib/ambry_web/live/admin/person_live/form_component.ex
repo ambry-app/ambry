@@ -4,7 +4,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
   use AmbryWeb, :live_component
 
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
-  import AmbryWeb.Admin.UploadHelpers, only: [consume_uploaded_image: 1, error_to_string: 1]
+  import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.People
 
@@ -29,7 +29,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
-    socket = allow_upload(socket, :image, accept: ~w(.jpg .jpeg .png), max_entries: 1)
+    socket = allow_image_upload(socket)
     {:ok, socket}
   end
 
