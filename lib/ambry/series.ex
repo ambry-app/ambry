@@ -154,4 +154,13 @@ defmodule Ambry.Series do
     |> Repo.all()
     |> sort_by_jaro(query_string, :name)
   end
+
+  @doc """
+  Returns all series for use in `Select` components.
+  """
+  def for_select do
+    query = from s in Series, select: {s.name, s.id}, order_by: s.name
+
+    Repo.all(query)
+  end
 end

@@ -42,7 +42,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Book")
-    |> assign(:book, %Book{book_authors: []})
+    |> assign(:book, %Book{book_authors: [], series_books: []})
   end
 
   defp apply_action(socket, :index, _params) do

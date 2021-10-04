@@ -27,8 +27,20 @@ defmodule Ambry.Series.SeriesBook do
 
   def changeset(series_book, attrs) do
     series_book
-    |> cast(attrs, [:book_id, :book_number])
-    |> validate_required([:book_id, :book_number])
+    |> cast(attrs, [:book_id, :book_number, :series_id])
+    |> validate_required([:book_number])
     |> validate_number(:book_number, greater_than: 0)
+  end
+
+  def series_assoc_changeset(series_book, attrs) do
+    series_book
+    |> changeset(attrs)
+    |> validate_required([:book_id])
+  end
+
+  def book_assoc_changeset(series_book, attrs) do
+    series_book
+    |> changeset(attrs)
+    |> validate_required([:series_id])
   end
 end

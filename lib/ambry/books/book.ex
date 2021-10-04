@@ -30,7 +30,7 @@ defmodule Ambry.Books.Book do
   def changeset(book, attrs) do
     book
     |> cast(attrs, [:title, :published, :description, :image_path])
-    |> cast_assoc(:series_books)
+    |> cast_assoc(:series_books, with: &SeriesBook.book_assoc_changeset/2)
     |> cast_assoc(:book_authors)
     |> validate_required([:title, :published])
   end
