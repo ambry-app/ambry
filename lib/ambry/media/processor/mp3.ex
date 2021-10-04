@@ -6,7 +6,7 @@ defmodule Ambry.Media.Processor.MP3 do
   import Ambry.Media.Processor.Shared
 
   def can_run?(media) do
-    media |> mp3_files() |> length() == 1
+    media |> files(".mp3") |> length() == 1
   end
 
   def run(media) do
@@ -16,7 +16,7 @@ defmodule Ambry.Media.Processor.MP3 do
   end
 
   defp convert_mp3!(media) do
-    [mp3_file] = mp3_files(media)
+    [mp3_file] = files(media, ".mp3")
     filename = Ecto.UUID.generate()
     command = "ffmpeg"
     args = ["-i", mp3_file, "-vn", "#{filename}.mp4"]

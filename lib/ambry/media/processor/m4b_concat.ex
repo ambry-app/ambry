@@ -1,27 +1,27 @@
-defmodule Ambry.Media.Processor.MP3Concat do
+defmodule Ambry.Media.Processor.M4BConcat do
   @moduledoc """
-  A media processor that concatenates a collection of MP3 files and then
+  A media processor that concatenates a collection of M4B files and then
   converts them to dash streaming format.
   """
 
   import Ambry.Media.Processor.Shared
 
   def can_run?(media) do
-    media |> files(".mp3") |> length() > 1
+    media |> files(".m4b") |> length() > 1
   end
 
   def run(media) do
-    filename = concat_mp3!(media)
+    filename = concat_m4b!(media)
     create_mpd!(media, filename)
     finalize!(media, filename)
   end
 
-  defp concat_mp3!(media) do
+  defp concat_m4b!(media) do
     file_list_txt_path = Path.join([media.source_path, "files.txt"])
 
     file_list_txt =
       media
-      |> files(".mp3")
+      |> files(".m4b")
       |> Enum.sort()
       |> Enum.map_join("\n", &"file '#{&1}'")
 
@@ -29,7 +29,7 @@ defmodule Ambry.Media.Processor.MP3Concat do
 
     filename = Ecto.UUID.generate()
     command = "ffmpeg"
-    args = ["-f", "concat", "-safe", "0", "-i", "files.txt", "#{filename}.mp4"]
+    args = ["-f", "concat", "-safe", "0", "-i", "files.txt", "-acodec", "copy", "#{filename}.mp4"]
 
     {_output, 0} = System.cmd(command, args, cd: media.source_path, parallelism: true)
 
