@@ -7,10 +7,10 @@ defmodule Ambry.Media.Processor.Shared do
 
   alias Ambry.Media
 
-  def mp3_files(media) do
+  def files(media, ext) do
     media.source_path
     |> File.ls!()
-    |> Enum.filter(&(Path.extname(&1) == ".mp3"))
+    |> Enum.filter(&(Path.extname(&1) == ext))
   end
 
   def create_mpd!(media, filename) do
