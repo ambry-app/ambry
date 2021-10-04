@@ -61,7 +61,11 @@ defmodule Ambry.Books do
       ** (Ecto.NoResultsError)
 
   """
-  def get_book!(id), do: Book |> preload(book_authors: [:author]) |> Repo.get!(id)
+  def get_book!(id) do
+    Book
+    |> preload(book_authors: [:author], series_books: [:series])
+    |> Repo.get!(id)
+  end
 
   @doc """
   Creates a book.

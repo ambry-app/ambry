@@ -6,7 +6,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
   import AmbryWeb.Admin.UploadHelpers
 
-  alias Ambry.{Authors, Books}
+  alias Ambry.{Authors, Books, Series}
 
   alias Surface.Components.{Form, LiveFileInput}
 
@@ -29,10 +29,17 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   prop action, :atom, required: true
   prop return_to, :string, required: true
 
+  data authors, :list
+  data series, :list
+
   @impl Phoenix.LiveComponent
   def mount(socket) do
     socket = allow_image_upload(socket)
-    {:ok, assign(socket, :authors, authors())}
+
+    {:ok,
+     socket
+     |> assign(:authors, authors())
+     |> assign(:series, series())}
   end
 
   @impl Phoenix.LiveComponent
@@ -85,12 +92,31 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     {:noreply, assign(socket, :changeset, changeset)}
   end
 
+  def handle_event("add-series", _params, socket) do
+    params =
+      socket.assigns.changeset.params
+      |> map_to_list("series_books")
+      |> Map.update!("series_books", fn series_books_params ->
+        series_books_params ++ [%{}]
+      end)
+
+    changeset = Books.change_book(socket.assigns.book, params)
+
+    {:noreply, assign(socket, :changeset, changeset)}
+  end
+
   defp clean_book_params(params) do
     params
     |> map_to_list("book_authors")
     |> Map.update!("book_authors", fn book_authors ->
       Enum.reject(book_authors, fn book_author_params ->
         is_nil(book_author_params["id"]) && book_author_params["delete"] == "true"
+      end)
+    end)
+    |> map_to_list("series_books")
+    |> Map.update!("series_books", fn series_books ->
+      Enum.reject(series_books, fn series_book_params ->
+        is_nil(series_book_params["id"]) && series_book_params["delete"] == "true"
       end)
     end)
   end
@@ -125,9 +151,14 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     Authors.for_select()
   end
 
+  defp series do
+    Series.for_select()
+  end
+
   defp init_book_param(book) do
     %{
-      "book_authors" => Enum.map(book.book_authors, &%{"id" => &1.id})
+      "book_authors" => Enum.map(book.book_authors, &%{"id" => &1.id}),
+      "series_books" => Enum.map(book.series_books, &%{"id" => &1.id})
     }
   end
 end
