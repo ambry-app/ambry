@@ -3,19 +3,17 @@
 
   <Form for={@changeset} change="validate" submit="save" opts={autocomplete: "off"}>
     <div class="space-y-4">
-      <div>
-        <Field name={:book_id}>
-          <Label class="font-semibold" />
-          <div>
-            <Select
-              prompt=""
-              options={@books}
-              class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow"
-            />
-          </div>
-          <div class="text-red-600"><ErrorTag /></div>
-        </Field>
-      </div>
+      <Field name={:book_id}>
+        <Label class="font-semibold" />
+        <div>
+          <Select
+            prompt=""
+            options={@books}
+            class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow"
+          />
+        </div>
+        <div class="text-red-600"><ErrorTag /></div>
+      </Field>
 
       <div>
         <Label class="font-semibold" text="Narrated by" />
@@ -62,6 +60,16 @@
           </svg>
         </a>
       </div>
+
+      <Field name={:abridged}>
+        <Checkbox class="mr-2" />
+        <Label class="font-semibold" />
+      </Field>
+
+      <Field name={:full_cast}>
+        <Checkbox class="mr-2" />
+        <Label class="font-semibold" />
+      </Field>
 
       {#if @action == :new}
         <div>

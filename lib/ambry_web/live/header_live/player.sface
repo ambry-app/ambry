@@ -44,6 +44,9 @@
             href={Routes.person_show_path(@socket, :show, narrator.person_id)}
           >{narrator.name}</a><span class="last:hidden">,</span>
         {/for}
+        {#if @player_state.media.full_cast}
+          <span>full cast</span>
+        {/if}
       </p>
 
       {#for series_book <- Enum.sort_by(@player_state.media.book.series_books, & &1.series.name)}

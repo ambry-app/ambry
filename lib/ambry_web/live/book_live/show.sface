@@ -22,6 +22,9 @@
                     href={Routes.person_show_path(@socket, :show, narrator.person_id)}
                   >{narrator.name}</a><span class="last:hidden">,</span>
                 {/for}
+                {#if media.full_cast}
+                  <span>full cast</span>
+                {/if}
               </p>
             </div>
             <PlayButton id={media.id} media={media} user={@current_user} browser_id={assigns[:browser_id]} />

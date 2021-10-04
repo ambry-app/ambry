@@ -86,6 +86,9 @@
               {#for media_narrator <- media.media_narrators}
                 {media_narrator.narrator.name}<span class="last:hidden">,</span>
               {/for}
+              {#if media.full_cast}
+                <span>full cast</span>
+              {/if}
             </span>
           </LivePatch>
         </div>
