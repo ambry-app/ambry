@@ -1,4 +1,4 @@
-<div class="flex flex-col justify-center space-y-8 sm:w-96 sm:m-auto">
+<div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto">
   <.logo_with_tagline conn={@conn} />
   <.form let={f} for={@changeset} action={Routes.user_registration_path(@conn, :create)}>
     <div class="flex flex-col bg-white p-10 rounded-lg shadow-lg space-y-6">
