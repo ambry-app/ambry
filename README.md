@@ -1,4 +1,4 @@
-# ![ambry](https://raw.githubusercontent.com/doughsay/ambry/main/logo.svg)
+# ![ambry](https://raw.githubusercontent.com/doughsay/ambry/main/priv/static/images/logo_256x1056.svg)
 
 > Personal Audiobook Streaming
 
@@ -58,13 +58,13 @@ volumes:
 
 ## Usage
 
-Once the server is running, you have to first create an account. The account registration link is hidden, so you have to manually type in the address: 
+Once the server is running, you have to first create an account. The account registration link is hidden, so you have to manually type in the address:
 
--    `http(s)://your-ambry-domain/users/register`
+-   `http(s)://your-ambry-domain/users/register`
 
 Once you have an account you can log in, but it will be empty. To create authors, narrators, books and to upload audio files, you need to visit the admin section and your user account must also be an admin user. Currently, there is no way to create an admin user. The only way to achieve this right now is to manually flip the `admin` boolean on your user account record in the `users` table of the postgres database. Once you are an admin you can visit:
 
--    `http(s)://your-ambry-domain/admin/people`
+-   `http(s)://your-ambry-domain/admin/people`
 
 ## Local development
 
@@ -72,11 +72,11 @@ Ambry is a Phoenix LiveView application, so to run the server on your machine fo
 
 ### Requirements
 
--    A `postgresql` server running on localhost (you can customize the details in `./config/dev.exs`)
--    Elixir 1.12.x and Erlang/OTP 24.x installed
--    Nodejs 16.x installed
--    ffmpeg installed
--    [shaka-packager](https://github.com/google/shaka-packager) installed
+-   A `postgresql` server running on localhost (you can customize the details in `./config/dev.exs`)
+-   Elixir 1.12.x and Erlang/OTP 24.x installed
+-   Nodejs 16.x installed
+-   ffmpeg installed
+-   [shaka-packager](https://github.com/google/shaka-packager) installed
 
 ```bash
 # download hex dependencies
