@@ -10,7 +10,7 @@ defmodule Ambry.Media.Processor do
     max_attempts: 1
 
   alias Ambry.Media
-  alias Ambry.Media.Processor.{M4B, M4BConcat, MP3, MP3Concat}
+  alias Ambry.Media.Processor.{MP4, MP4Concat, MP3, MP3Concat}
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"media_id" => id}}) do
@@ -32,8 +32,8 @@ defmodule Ambry.Media.Processor do
     cond do
       MP3Concat.can_run?(media) -> MP3Concat.run(media)
       MP3.can_run?(media) -> MP3.run(media)
-      M4BConcat.can_run?(media) -> M4BConcat.run(media)
-      M4B.can_run?(media) -> M4B.run(media)
+      MP4Concat.can_run?(media) -> MP4Concat.run(media)
+      MP4.can_run?(media) -> MP4.run(media)
       true -> raise "no matching processor found"
     end
   end

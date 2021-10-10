@@ -7,10 +7,11 @@ defmodule Ambry.Media.Processor.Shared do
 
   alias Ambry.Media
 
-  def files(media, ext) do
+  def files(media, extensions) do
     media.source_path
     |> File.ls!()
-    |> Enum.filter(&(Path.extname(&1) == ext))
+    |> Enum.filter(&(Path.extname(&1) in extensions))
+    |> NaturalSort.sort()
   end
 
   def create_mpd!(media, filename) do

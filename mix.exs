@@ -41,6 +41,7 @@ defmodule Ambry.MixProject do
       {:floki, ">= 0.30.0", only: :test},
       {:gettext, "~> 0.18"},
       {:jason, "~> 1.2"},
+      {:natural_sort, "~> 0.3"},
       {:oban, "~> 2.9"},
       {:phoenix, "~> 1.6"},
       {:phoenix_ecto, "~> 4.4"},
