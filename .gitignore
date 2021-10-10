@@ -42,3 +42,4 @@ npm-debug.log
 # User uploads
 
 /uploads/
+branding/*.png
