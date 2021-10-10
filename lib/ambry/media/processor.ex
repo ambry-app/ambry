@@ -10,7 +10,7 @@ defmodule Ambry.Media.Processor do
     max_attempts: 1
 
   alias Ambry.Media
-  alias Ambry.Media.Processor.{MP4, MP4Concat, MP3, MP3Concat}
+  alias Ambry.Media.Processor.{MP3, MP3Concat, MP4, MP4Concat}
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"media_id" => id}}) do
