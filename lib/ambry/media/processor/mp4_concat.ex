@@ -1,28 +1,29 @@
-defmodule Ambry.Media.Processor.M4BConcat do
+defmodule Ambry.Media.Processor.MP4Concat do
   @moduledoc """
-  A media processor that concatenates a collection of M4B files and then
+  A media processor that concatenates a collection of MP4 files and then
   converts them to dash streaming format.
   """
 
   import Ambry.Media.Processor.Shared
 
+  @extensions ~w(.mp4 .m4a .m4b)
+
   def can_run?(media) do
-    media |> files(".m4b") |> length() > 1
+    media |> files(@extensions) |> length() > 1
   end
 
   def run(media) do
-    filename = concat_m4b!(media)
+    filename = concat_mp4!(media)
     create_mpd!(media, filename)
     finalize!(media, filename)
   end
 
-  defp concat_m4b!(media) do
+  defp concat_mp4!(media) do
     file_list_txt_path = Path.join([media.source_path, "files.txt"])
 
     file_list_txt =
       media
-      |> files(".m4b")
-      |> Enum.sort()
+      |> files(@extensions)
       |> Enum.map_join("\n", &"file '#{&1}'")
 
     File.write!(file_list_txt_path, file_list_txt)

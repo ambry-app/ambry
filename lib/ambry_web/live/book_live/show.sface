@@ -10,7 +10,7 @@
       <div class="rounded-lg border shadow-lg px-3 divide-y divide-gray-200">
         {#for media <- @book.media}
           <div class="flex items-center py-3">
-            <div class="flex-grow mr-8">
+            <div class="flex-grow mr-2">
               <p class="text-lg">{@book.title} ({recording_type(media)})</p>
               <p class="text-gray-400">
                 Narrated by
@@ -32,7 +32,7 @@
         {/for}
       </div>
     {#else}
-      <p class="mt-4 font-bold">Sorry, there are no recording uploaded for this book.</p>
+      <p class="mt-4 font-bold">Sorry, there are no recordings uploaded for this book.</p>
     {/if}
   </section>
   <section id="description" class="max-w-md sm:ml-10">

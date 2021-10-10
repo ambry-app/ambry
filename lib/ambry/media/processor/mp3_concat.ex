@@ -6,8 +6,10 @@ defmodule Ambry.Media.Processor.MP3Concat do
 
   import Ambry.Media.Processor.Shared
 
+  @extensions ~w(.mp3)
+
   def can_run?(media) do
-    media |> files(".mp3") |> length() > 1
+    media |> files(@extensions) |> length() > 1
   end
 
   def run(media) do
@@ -21,8 +23,7 @@ defmodule Ambry.Media.Processor.MP3Concat do
 
     file_list_txt =
       media
-      |> files(".mp3")
-      |> Enum.sort()
+      |> files(@extensions)
       |> Enum.map_join("\n", &"file '#{&1}'")
 
     File.write!(file_list_txt_path, file_list_txt)
