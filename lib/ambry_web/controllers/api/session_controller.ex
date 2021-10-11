@@ -13,7 +13,7 @@ defmodule AmbryWeb.API.SessionController do
     if user = Accounts.get_user_by_email_and_password(email, password) do
       token = Accounts.generate_user_session_token(user)
 
-      json(conn, %{token: Base.url_encode64(token)})
+      json(conn, %{data: %{token: Base.url_encode64(token)}})
     else
       conn
       |> put_status(:unauthorized)
