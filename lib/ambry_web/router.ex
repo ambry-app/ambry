@@ -15,8 +15,30 @@ defmodule AmbryWeb.Router do
     plug :fetch_current_user
   end
 
+  pipeline :uploads do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_current_user
+    plug :fetch_api_user
+    plug :require_any_authenticated_user
+
+    # Serve static user uploads
+    plug Plug.Static,
+      at: "/uploads",
+      from: {Ambry.Paths, :uploads_path, []},
+      gzip: false,
+      only: ~w(images media)
+  end
+
   pipeline :api do
     plug :accepts, ["json"]
+    plug :fetch_api_user
+  end
+
+  scope "/uploads", AmbryWeb do
+    pipe_through :uploads
+
+    get "/*path", FallbackController, :index
   end
 
   scope "/", AmbryWeb do
@@ -48,6 +70,22 @@ defmodule AmbryWeb.Router do
     live "/media", MediaLive.Index, :index
     live "/media/new", MediaLive.Index, :new
     live "/media/:id/edit", MediaLive.Index, :edit
+  end
+
+  scope "/api", AmbryWeb.API, as: :api do
+    pipe_through [:api]
+
+    post "/log_in", SessionController, :create
+  end
+
+  scope "/api", AmbryWeb.API, as: :api do
+    pipe_through [:api, :require_authenticated_api_user]
+
+    delete "/log_out", SessionController, :delete
+
+    resources "/books", BookController, only: [:index, :show]
+    resources "/people", PersonController, only: [:show]
+    resources "/series", SeriesController, only: [:show]
   end
 
   # Other scopes may use custom stacks.

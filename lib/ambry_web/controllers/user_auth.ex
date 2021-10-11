@@ -150,4 +150,59 @@ defmodule AmbryWeb.UserAuth do
   defp maybe_store_return_to(conn), do: conn
 
   defp signed_in_path(_conn), do: "/"
+
+  @doc """
+  Used for API routes that require the user to be authenticated.
+
+  If you want to enforce the user email is confirmed before
+  they use the application at all, here would be a good place.
+  """
+  def require_authenticated_api_user(conn, _opts) do
+    if conn.assigns[:api_user] do
+      conn
+    else
+      conn
+      |> put_status(:unauthorized)
+      |> json("Unauthorized")
+      |> halt()
+    end
+  end
+
+  @doc """
+  Authenticates the user by looking into the Authorization header for a bearer
+  token.
+  """
+  def fetch_api_user(conn, _opts) do
+    user_token = get_token_from_header(conn)
+    user = user_token && Accounts.get_user_by_session_token(user_token)
+
+    conn
+    |> assign(:api_user, user)
+    |> assign(:api_user_token, user_token)
+  end
+
+  defp get_token_from_header(conn) do
+    with ["Bearer " <> encoded_token] <- get_req_header(conn, "authorization"),
+         {:ok, token} <- Base.url_decode64(encoded_token) do
+      token
+    else
+      _anything -> nil
+    end
+  end
+
+  @doc """
+  Used for static file routes that require the user to be authenticated.
+
+  Works for both API requests or web requests.
+  """
+  def require_any_authenticated_user(conn, _opts) do
+    if conn.assigns[:current_user] || conn.assigns[:api_user] do
+      conn
+    else
+      conn
+      |> put_status(:unauthorized)
+      |> text("Unauthorized")
+      |> halt()
+    end
+  end
 end

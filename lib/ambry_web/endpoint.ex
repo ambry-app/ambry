@@ -26,13 +26,6 @@ defmodule AmbryWeb.Endpoint do
     gzip: false,
     only: ~w(assets fonts images favicon.ico robots.txt)
 
-  # Serve static user uploads
-  plug Plug.Static,
-    at: "/uploads",
-    from: {Ambry.Paths, :uploads_path, []},
-    gzip: false,
-    only: ~w(images media)
-
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do
