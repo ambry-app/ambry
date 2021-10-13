@@ -24,13 +24,24 @@ defmodule Ambry.Media.Media do
     field :mpd_path, :string
     field :mp4_path, :string
 
+    field :duration, :decimal
+
     timestamps()
   end
 
   @doc false
   def changeset(media, attrs) do
     media
-    |> cast(attrs, [:source_path, :mpd_path, :mp4_path, :full_cast, :abridged, :status, :book_id])
+    |> cast(attrs, [
+      :abridged,
+      :book_id,
+      :duration,
+      :full_cast,
+      :mp4_path,
+      :mpd_path,
+      :source_path,
+      :status
+    ])
     |> cast_assoc(:media_narrators)
     |> validate_required([:source_path, :status, :book_id])
     |> maybe_validate_paths()
