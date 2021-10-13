@@ -27,7 +27,7 @@ defmodule AmbryWeb.Router do
       at: "/uploads",
       from: {Ambry.Paths, :uploads_path, []},
       gzip: false,
-      only: ~w(images media)
+      only: ~w(media)
   end
 
   pipeline :api do
@@ -86,6 +86,7 @@ defmodule AmbryWeb.Router do
     resources "/books", BookController, only: [:index, :show]
     resources "/people", PersonController, only: [:show]
     resources "/series", SeriesController, only: [:show]
+    resources "/player_states", PlayerStateController, only: [:show, :update]
   end
 
   # Other scopes may use custom stacks.

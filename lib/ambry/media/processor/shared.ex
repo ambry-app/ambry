@@ -46,10 +46,22 @@ defmodule Ambry.Media.Processor.Shared do
       mp4_dest
     )
 
+    duration = get_duration(mp4_dest)
+
     Media.update_media(media, %{
       mpd_path: "/uploads/media/#{filename}.mpd",
       mp4_path: "/uploads/media/#{filename}.mp4",
+      duration: duration,
       status: :ready
     })
+  end
+
+  def get_duration(file) do
+    command = "ffprobe"
+    args = ["-i", file, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv='p=0'"]
+    {output, 0} = System.shell(Enum.join([command | args], " "))
+    {duration, "\n"} = Decimal.parse(output)
+
+    duration
   end
 end
