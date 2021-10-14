@@ -56,7 +56,7 @@ defmodule Ambry.Media.Processor.Shared do
     })
   end
 
-  def get_duration(file) do
+  defp get_duration(file) do
     command = "ffprobe"
     args = ["-i", file, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv='p=0'"]
     {output, 0} = System.shell(Enum.join([command | args], " "))
