@@ -13,8 +13,8 @@ defmodule Ambry.Media.PlayerState do
     belongs_to :media, Media
     belongs_to :user, User
 
-    field :playback_rate, :decimal, default: 1
-    field :position, :decimal, default: 0
+    field :playback_rate, :decimal, default: Decimal.new(1)
+    field :position, :decimal, default: Decimal.new(0)
     field :duration, :decimal
 
     timestamps()
