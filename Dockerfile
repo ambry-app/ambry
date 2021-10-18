@@ -8,7 +8,7 @@
 # -----------------------------------
 
 # NOTE: make sure these versions match in .github/workflows/elixir.yml
-FROM hexpm/elixir:1.12.3-erlang-24.1-alpine-3.14.0 AS elixir-builder
+FROM hexpm/elixir:1.12.3-erlang-24.1.2-alpine-3.14.2 AS elixir-builder
 
 RUN --mount=type=cache,target=~/.hex/packages/hexpm,sharing=locked \
   --mount=type=cache,target=~/.cache/rebar3,sharing=locked \
@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 # -----------------------------------
 FROM alpine:3.14.2 as elixir-runner
 
-ARG SHAKA_VERSION=2.6.0
+ARG SHAKA_VERSION=2.6.1
 
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
   apk --update upgrade && \
@@ -92,7 +92,7 @@ RUN mix compile
 # - stage: build
 # - job: assets
 # -----------------------------------
-FROM node:16.10.0-alpine3.14 AS assets
+FROM node:16.11.1-alpine3.14 AS assets
 
 WORKDIR /src/assets
 
