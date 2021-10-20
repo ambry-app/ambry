@@ -79,7 +79,7 @@ defmodule Ambry.Media do
   """
   def create_media(attrs \\ %{}) do
     %Media{}
-    |> Media.changeset(attrs)
+    |> Media.changeset(attrs, for: :create)
     |> Repo.insert()
   end
 
@@ -95,9 +95,9 @@ defmodule Ambry.Media do
       {:error, %Ecto.Changeset{}}
 
   """
-  def update_media(%Media{} = media, attrs) do
+  def update_media(%Media{} = media, attrs, for: action) do
     media
-    |> Media.changeset(attrs)
+    |> Media.changeset(attrs, for: action)
     |> Repo.update()
   end
 
@@ -122,12 +122,12 @@ defmodule Ambry.Media do
 
   ## Examples
 
-      iex> change_media(media)
+      iex> change_media(media, for: :create)
       %Ecto.Changeset{data: %Media{}}
 
   """
-  def change_media(%Media{} = media, attrs \\ %{}) do
-    Media.changeset(media, attrs)
+  def change_media(%Media{} = media, attrs \\ %{}, opts \\ [{:for, :create}]) do
+    Media.changeset(media, attrs, opts)
   end
 
   @doc """

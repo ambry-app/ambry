@@ -48,12 +48,16 @@ defmodule Ambry.Media.Processor.Shared do
 
     duration = get_duration(mp4_dest)
 
-    Media.update_media(media, %{
-      mpd_path: "/uploads/media/#{filename}.mpd",
-      mp4_path: "/uploads/media/#{filename}.mp4",
-      duration: duration,
-      status: :ready
-    })
+    Media.update_media(
+      media,
+      %{
+        mpd_path: "/uploads/media/#{filename}.mpd",
+        mp4_path: "/uploads/media/#{filename}.mp4",
+        duration: duration,
+        status: :ready
+      },
+      for: :processor_update
+    )
   end
 
   defp get_duration(file) do

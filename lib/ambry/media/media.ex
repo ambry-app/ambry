@@ -17,7 +17,7 @@ defmodule Ambry.Media.Media do
     many_to_many :narrators, Narrator, join_through: "media_narrators"
 
     field :full_cast, :boolean, default: false
-    field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready]
+    field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready], default: :pending
     field :abridged, :boolean, default: false
 
     field :source_path, :string
@@ -30,26 +30,59 @@ defmodule Ambry.Media.Media do
   end
 
   @doc false
-  def changeset(media, attrs) do
+  def changeset(media, attrs, for: :create) do
     media
     |> cast(attrs, [
       :abridged,
       :book_id,
-      :duration,
       :full_cast,
-      :mp4_path,
-      :mpd_path,
-      :source_path,
-      :status
+      :source_path
     ])
     |> cast_assoc(:media_narrators)
-    |> validate_required([:source_path, :status, :book_id])
+    |> status_based_validation()
+  end
+
+  def changeset(media, attrs, for: :update) do
+    media
+    |> cast(attrs, [
+      :abridged,
+      :book_id,
+      :full_cast
+    ])
+    |> cast_assoc(:media_narrators)
+    |> status_based_validation()
+  end
+
+  def changeset(media, attrs, for: :processor_update) do
+    media
+    |> cast(attrs, [
+      :duration,
+      :mp4_path,
+      :mpd_path,
+      :status
+    ])
+    |> status_based_validation()
+  end
+
+  defp status_based_validation(changeset) do
+    changeset
+    # always required
+    |> validate_required([
+      :book_id,
+      :full_cast,
+      :status,
+      :abridged,
+      :source_path
+    ])
     |> maybe_validate_paths()
   end
 
   defp maybe_validate_paths(changeset) do
     if get_field(changeset, :status) == :ready do
-      validate_required(changeset, [:mpd_path, :mp4_path])
+      validate_required(changeset, [
+        :mpd_path,
+        :mp4_path
+      ])
     else
       changeset
     end
