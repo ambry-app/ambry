@@ -45,7 +45,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   @impl Phoenix.LiveComponent
   def update(%{media: media} = assigns, socket) do
-    changeset = Media.change_media(media, init_media_param(media))
+    changeset =
+      Media.change_media(media, init_media_param(media), for: changeset_action(assigns.action))
 
     {:ok,
      socket
@@ -59,7 +60,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
     changeset =
       socket.assigns.media
-      |> Media.change_media(media_params)
+      |> Media.change_media(media_params, for: changeset_action(socket.assigns.action))
       |> Map.put(:action, :validate)
 
     {:noreply, assign(socket, :changeset, changeset)}
@@ -69,18 +70,23 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     folder_id = Ecto.UUID.generate()
     folder = Path.join([uploads_path(), "source_media"])
 
-    consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
-      File.mkdir_p!(Path.join([folder, folder_id]))
+    files =
+      consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
+        File.mkdir_p!(Path.join([folder, folder_id]))
 
-      dest = Path.join([folder, folder_id, entry.client_name])
-      File.cp!(path, dest)
-    end)
+        dest = Path.join([folder, folder_id, entry.client_name])
+        File.cp!(path, dest)
+      end)
 
     media_params =
-      Map.merge(media_params, %{
-        "source_path" => Path.join([folder, folder_id]),
-        "status" => :pending
-      })
+      if files != [] do
+        # only add source path if files were uploaded
+        Map.merge(media_params, %{
+          "source_path" => Path.join([folder, folder_id])
+        })
+      else
+        media_params
+      end
 
     save_media(socket, socket.assigns.action, media_params)
   end
@@ -113,7 +119,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   end
 
   defp save_media(socket, :edit, media_params) do
-    case Media.update_media(socket.assigns.media, media_params) do
+    case Media.update_media(socket.assigns.media, media_params, for: :update) do
       {:ok, _media} ->
         {:noreply,
          socket
@@ -128,6 +134,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   defp save_media(socket, :new, media_params) do
     case Media.create_media(media_params) do
       {:ok, media} ->
+        # schedule processor job only on newly created media
         {:ok, _job} = %{media_id: media.id} |> Processor.new() |> Oban.insert()
 
         {:noreply,
@@ -153,4 +160,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
       "media_narrators" => Enum.map(media.media_narrators, &%{"id" => &1.id})
     }
   end
+
+  defp changeset_action(:new), do: :create
+  defp changeset_action(:edit), do: :update
 end

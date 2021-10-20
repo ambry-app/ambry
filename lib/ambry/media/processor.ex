@@ -16,13 +16,13 @@ defmodule Ambry.Media.Processor do
   def perform(%Oban.Job{args: %{"media_id" => id}}) do
     media = Media.get_media!(id)
 
-    {:ok, media} = Media.update_media(media, %{status: :processing})
+    {:ok, media} = Media.update_media(media, %{status: :processing}, for: :processor_update)
 
     try do
       run_processor!(media)
     rescue
       exception ->
-        {:ok, _media} = Media.update_media(media, %{status: :error})
+        {:ok, _media} = Media.update_media(media, %{status: :error}, for: :processor_update)
 
         reraise exception, __STACKTRACE__
     end
