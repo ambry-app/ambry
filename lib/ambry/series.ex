@@ -59,7 +59,13 @@ defmodule Ambry.Series do
       ** (Ecto.NoResultsError)
 
   """
-  def get_series!(id), do: Series |> preload(series_books: [:book]) |> Repo.get!(id)
+  def get_series!(id) do
+    series_book_query = from sb in SeriesBook, order_by: [asc: sb.book_number]
+
+    Series
+    |> preload(series_books: ^{series_book_query, [:book]})
+    |> Repo.get!(id)
+  end
 
   @doc """
   Creates a series.
