@@ -52,7 +52,14 @@ export const MediaPlayerHook = {
 
   seekRelative (seconds) {
     const player = this.player
-    player.seek(player.time() + seconds * player.getPlaybackRate())
+    const duration = player.duration()
+
+    let position = player.time() + seconds * player.getPlaybackRate()
+
+    position = position < 0 ? 0 : position
+    position = position > duration ? duration : position
+
+    player.seek(position)
   },
 
   seekRatio (ratio) {
@@ -91,6 +98,10 @@ export const MediaPlayerHook = {
     this.pushEvent('duration-loaded', { duration: player.duration() })
 
     if (opts.play) {
+      // WARNING: mutating opts state so that the next time this callback fires
+      // it doesn't auto-play. It's only meant to auto-play the FIRST time it
+      // fires.
+      opts.play = false
       this.play()
     }
   },

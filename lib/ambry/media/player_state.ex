@@ -17,6 +17,10 @@ defmodule Ambry.Media.PlayerState do
     field :position, :decimal, default: Decimal.new(0)
     field :duration, :decimal
 
+    field :status, Ecto.Enum,
+      values: [:not_started, :in_progress, :finished],
+      default: :not_started
+
     timestamps()
   end
 
@@ -25,5 +29,24 @@ defmodule Ambry.Media.PlayerState do
     player_state
     |> cast(attrs, [:position, :duration, :playback_rate, :media_id, :user_id])
     |> validate_required([:position, :playback_rate, :media_id, :user_id])
+    |> compute_and_put_status()
+  end
+
+  defp compute_and_put_status(changeset) do
+    %{data: %{duration: duration}} = changeset
+    position = get_field(changeset, :position)
+
+    cond do
+      # 10 seconds until it counts as started
+      Decimal.lt?(position, 10) ->
+        put_change(changeset, :status, :not_started)
+
+      # 10 seconds from end it counts as finished
+      duration |> Decimal.sub(position) |> Decimal.lt?(10) ->
+        put_change(changeset, :status, :finished)
+
+      true ->
+        put_change(changeset, :status, :in_progress)
+    end
   end
 end
