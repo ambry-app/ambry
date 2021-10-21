@@ -135,7 +135,7 @@ defmodule Ambry.Media do
   """
   def get_recent_player_states(user_id, offset \\ 0, limit \\ 10) do
     PlayerState
-    |> where([ps], ps.user_id == ^user_id)
+    |> where([ps], ps.user_id == ^user_id and ps.status == :in_progress)
     |> order_by({:desc, :updated_at})
     |> offset(^offset)
     |> limit(^limit)
