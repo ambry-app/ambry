@@ -147,11 +147,18 @@ defmodule Ambry.Books do
   Lists recent books.
   """
   def get_recent_books!(offset \\ 0, limit \\ 10) do
-    query = from b in Book, order_by: [desc: b.inserted_at], offset: ^offset, limit: ^limit
+    over_limit = limit + 1
 
-    query
-    |> preload([:authors, series_books: :series])
-    |> Repo.all()
+    query = from b in Book, order_by: [desc: b.inserted_at], offset: ^offset, limit: ^over_limit
+
+    books =
+      query
+      |> preload([:authors, series_books: :series])
+      |> Repo.all()
+
+    books_to_return = Enum.slice(books, 0, limit)
+
+    {books_to_return, books != books_to_return}
   end
 
   @doc """

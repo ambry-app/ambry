@@ -5,8 +5,11 @@ defmodule AmbryWeb.API.BookView do
   alias Ambry.Series.SeriesBook
   alias AmbryWeb.API.BookView
 
-  def render("index.json", %{books: books}) do
-    %{data: render_many(books, BookView, "book_index.json")}
+  def render("index.json", %{books: books, has_more?: has_more?}) do
+    %{
+      data: render_many(books, BookView, "book_index.json"),
+      hasMore: has_more?
+    }
   end
 
   def render("show.json", %{book: book}) do

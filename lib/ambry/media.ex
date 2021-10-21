@@ -134,13 +134,20 @@ defmodule Ambry.Media do
   Gets recent player states for a given user.
   """
   def get_recent_player_states(user_id, offset \\ 0, limit \\ 10) do
-    PlayerState
-    |> where([ps], ps.user_id == ^user_id and ps.status == :in_progress)
-    |> order_by({:desc, :updated_at})
-    |> offset(^offset)
-    |> limit(^limit)
-    |> preload(^@player_state_preload)
-    |> Repo.all()
+    over_limit = limit + 1
+
+    player_states =
+      PlayerState
+      |> where([ps], ps.user_id == ^user_id and ps.status == :in_progress)
+      |> order_by({:desc, :updated_at})
+      |> offset(^offset)
+      |> limit(^over_limit)
+      |> preload(^@player_state_preload)
+      |> Repo.all()
+
+    player_states_to_return = Enum.slice(player_states, 0, limit)
+
+    {player_states_to_return, player_states != player_states_to_return}
   end
 
   @doc """

@@ -3,8 +3,11 @@ defmodule AmbryWeb.API.PlayerStateView do
 
   alias AmbryWeb.API.{BookView, PlayerStateView}
 
-  def render("index.json", %{player_states: player_states}) do
-    %{data: render_many(player_states, PlayerStateView, "player_state.json")}
+  def render("index.json", %{player_states: player_states, has_more?: has_more?}) do
+    %{
+      data: render_many(player_states, PlayerStateView, "player_state.json"),
+      hasMore: has_more?
+    }
   end
 
   def render("show.json", %{player_state: player_state}) do

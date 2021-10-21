@@ -33,7 +33,7 @@ defmodule AmbryWeb.HomeLive.RecentMedia do
     player_states = Map.get(assigns, :player_states, [])
     offset = Map.get(assigns, :offset, 0)
 
-    more_player_states = Media.get_recent_player_states(user.id, offset, @limit)
+    {more_player_states, has_more?} = Media.get_recent_player_states(user.id, offset, @limit)
 
     if browser_id do
       for player_state <- more_player_states do
@@ -43,11 +43,10 @@ defmodule AmbryWeb.HomeLive.RecentMedia do
     end
 
     player_states = player_states ++ more_player_states
-    show_load_more? = length(more_player_states) == @limit
 
     socket
     |> assign(:player_states, player_states)
     |> assign(:offset, offset + @limit)
-    |> assign(:show_load_more?, show_load_more?)
+    |> assign(:show_load_more?, has_more?)
   end
 end
