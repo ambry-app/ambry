@@ -68,6 +68,7 @@ defmodule AmbryWeb.API.BookView do
             id: media.id,
             abridged: media.abridged,
             fullCast: media.full_cast,
+            duration: Decimal.to_float(media.duration),
             narrators:
               Enum.map(media.narrators, fn narrator ->
                 %{
