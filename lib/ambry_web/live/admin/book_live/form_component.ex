@@ -7,6 +7,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.{Authors, Books, Series}
+  alias AmbryWeb.Admin.Components.SaveButton
 
   alias Surface.Components.{Form, LiveFileInput}
 
@@ -19,7 +20,6 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     Inputs,
     Label,
     Select,
-    Submit,
     TextArea,
     TextInput
   }

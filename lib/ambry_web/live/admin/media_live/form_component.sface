@@ -105,9 +105,7 @@
       {/if}
 
       <div class="-m-6 bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-        <Submit class="text-white font-bold w-full inline-flex justify-center rounded shadow px-5 py-2 sm:ml-3 sm:w-auto bg-lime-500 hover:bg-lime-700 focus:outline-none transition-colors focus:ring-2 focus:ring-lime-300">
-          Save
-        </Submit>
+        <SaveButton />
       </div>
     </div>
   </Form>
