@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
 
   alias Ambry.{Books, Series}
+  alias AmbryWeb.Admin.Components.SaveButton
 
   alias Surface.Components.Form
 
@@ -17,7 +18,6 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
     Inputs,
     Label,
     Select,
-    Submit,
     TextInput
   }
 

@@ -9,6 +9,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   alias Ambry.{Books, Media, Narrators}
   alias Ambry.Media.Processor
+  alias AmbryWeb.Admin.Components.SaveButton
 
   alias Surface.Components.{Form, LiveFileInput}
 
@@ -19,8 +20,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     HiddenInputs,
     Inputs,
     Label,
-    Select,
-    Submit
+    Select
   }
 
   prop title, :string, required: true

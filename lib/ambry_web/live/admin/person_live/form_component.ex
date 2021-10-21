@@ -7,6 +7,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
   import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.People
+  alias AmbryWeb.Admin.Components.SaveButton
 
   alias Surface.Components.{Form, LiveFileInput}
 
@@ -17,7 +18,6 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
     HiddenInputs,
     Inputs,
     Label,
-    Submit,
     TextArea,
     TextInput
   }
