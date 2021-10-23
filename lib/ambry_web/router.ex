@@ -70,6 +70,8 @@ defmodule AmbryWeb.Router do
     live "/media", MediaLive.Index, :index
     live "/media/new", MediaLive.Index, :new
     live "/media/:id/edit", MediaLive.Index, :edit
+
+    live "/audit", AuditLive.Index, :index
   end
 
   scope "/api", AmbryWeb.API, as: :api do

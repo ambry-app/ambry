@@ -52,7 +52,14 @@ defmodule Ambry.Media.Audit do
   folders).
   """
   def orphaned_files_audit do
-    existing_folders = Paths.source_media_disk_path() |> File.ls!() |> MapSet.new()
+    existing_folders =
+      Paths.source_media_disk_path()
+      |> File.ls!()
+      |> Enum.reject(fn folder ->
+        folder |> Paths.source_media_disk_path() |> File.ls!() == []
+      end)
+      |> MapSet.new()
+
     existing_files = Paths.media_disk_path() |> File.ls!() |> MapSet.new()
 
     query =

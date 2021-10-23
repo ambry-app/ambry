@@ -26,6 +26,10 @@ defmodule AmbryWeb.Admin.Components.AdminNav do
         <LiveRedirect to={Routes.admin_media_index_path(@socket, :index)} class="px-2">
           Media
         </LiveRedirect>
+
+        <LiveRedirect to={Routes.admin_audit_index_path(@socket, :index)} class="px-2">
+          Audit
+        </LiveRedirect>
       </div>
     </div>
     """
