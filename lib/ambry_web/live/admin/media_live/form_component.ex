@@ -48,6 +48,13 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     changeset =
       Media.change_media(media, init_media_param(media), for: changeset_action(assigns.action))
 
+    socket =
+      if assigns.action == :edit do
+        assign(socket, :file_stats, Media.get_media_file_details(media))
+      else
+        socket
+      end
+
     {:ok,
      socket
      |> assign(assigns)
@@ -68,7 +75,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   def handle_event("save", %{"media" => media_params}, socket) do
     folder_id = Ecto.UUID.generate()
-    folder = Path.join([uploads_path(), "source_media"])
+    folder = Path.join([uploads_folder_disk_path(), "source_media"])
 
     files =
       consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
@@ -163,4 +170,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   defp changeset_action(:new), do: :create
   defp changeset_action(:edit), do: :update
+
+  defp format_filesize(bytes) do
+    bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()
+  end
 end

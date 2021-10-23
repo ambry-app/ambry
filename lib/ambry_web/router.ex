@@ -25,7 +25,7 @@ defmodule AmbryWeb.Router do
     # Serve static user uploads
     plug Plug.Static,
       at: "/uploads",
-      from: {Ambry.Paths, :uploads_path, []},
+      from: {Ambry.Paths, :uploads_folder_disk_path, []},
       gzip: false,
       only: ~w(media)
   end
@@ -70,6 +70,8 @@ defmodule AmbryWeb.Router do
     live "/media", MediaLive.Index, :index
     live "/media/new", MediaLive.Index, :new
     live "/media/:id/edit", MediaLive.Index, :edit
+
+    live "/audit", AuditLive.Index, :index
   end
 
   scope "/api", AmbryWeb.API, as: :api do

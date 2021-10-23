@@ -5,11 +5,14 @@ defmodule Ambry.Media do
 
   import Ecto.Query
 
-  alias Ambry.Media.{Media, PlayerState}
+  alias Ambry.Media.{Audit, Media, PlayerState}
   alias Ambry.{PubSub, Repo}
 
   @media_preload [:narrators, book: [:authors, series_books: :series]]
   @player_state_preload [media: @media_preload]
+
+  defdelegate get_media_file_details(media), to: Audit
+  defdelegate orphaned_files_audit(), to: Audit
 
   @doc """
   Returns a limited list of media and whether or not there are more.

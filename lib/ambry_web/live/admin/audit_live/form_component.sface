@@ -145,7 +145,7 @@
                       {@media.source_path}
                     </div>
                     <div class="flex-shrink">
-                      <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">{error}</span>
+                      <span class="px-1 border border-red-200 rounded-md bg-red-50">{error}</span>
                     </div>
                   </div>
                 {#match source_files when is_list(source_files)}
@@ -155,7 +155,7 @@
                         {@media.source_path}
                       </div>
                       <div class="flex-shrink">
-                        <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">empty</span>
+                        <span class="px-1 border border-red-200 rounded-md bg-red-50">empty</span>
                       </div>
                     </div>
                   {/if}
@@ -167,7 +167,7 @@
                       <div class="flex-shrink">
                         {#case source_file.stat}
                           {#match error when is_atom(error)}
-                            <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">{error}</span>
+                            <span class="px-1 border border-red-200 rounded-md bg-red-50">{error}</span>
                           {#match stat when is_map(stat)}
                             <span class="px-1 border border-blue-200 rounded-md bg-blue-50 whitespace-nowrap">{format_filesize(stat.size)}</span>
                         {/case}

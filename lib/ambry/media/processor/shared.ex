@@ -30,7 +30,7 @@ defmodule Ambry.Media.Processor.Shared do
   end
 
   def finalize!(media, filename) do
-    media_folder = Path.join(uploads_path(), "media")
+    media_folder = Path.join(uploads_folder_disk_path(), "media")
     mpd_dest = Path.join([media_folder, "#{filename}.mpd"])
     mp4_dest = Path.join([media_folder, "#{filename}.mp4"])
 

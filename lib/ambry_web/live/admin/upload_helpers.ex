@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   on file operation errors.
   """
   def consume_uploaded_image(socket) do
-    folder = Path.join([uploads_path(), "images"])
+    folder = Path.join([uploads_folder_disk_path(), "images"])
     File.mkdir_p!(folder)
 
     uploaded_files =
