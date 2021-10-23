@@ -115,7 +115,7 @@
                   <span class="px-1 border border-gray-200 rounded-md bg-gray-50">mp4</span>
                 </div>
                 {#if files.mp4_file}
-                  <div class="flex-grow">
+                  <div class="flex-grow break-all pr-2">
                     {files.mp4_file.path}
                   </div>
                   <div class="flex-shrink">
@@ -139,7 +139,7 @@
                   <span class="px-1 border border-gray-200 rounded-md bg-gray-50">mpd</span>
                 </div>
                 {#if files.mpd_file}
-                  <div class="flex-grow">
+                  <div class="flex-grow break-all pr-2">
                     {files.mpd_file.path}
                   </div>
                   <div class="flex-shrink">
@@ -164,7 +164,7 @@
                     <div class="pr-2 w-28">
                       <span class="px-1 border border-gray-200 rounded-md bg-gray-50">source</span>
                     </div>
-                    <div class="flex-grow">
+                    <div class="flex-grow break-all pr-2">
                       {@media.source_path}
                     </div>
                     <div class="flex-shrink">
@@ -177,7 +177,7 @@
                       <div class="pr-2 w-28">
                         <span class="px-1 border border-gray-200 rounded-md bg-gray-50">source</span>
                       </div>
-                      <div class="flex-grow">
+                      <div class="flex-grow break-all pr-2">
                         {@media.source_path}
                       </div>
                       <div class="flex-shrink">
@@ -190,7 +190,7 @@
                       <div class="pr-2 w-28">
                         <span class="px-1 border border-gray-200 rounded-md bg-gray-50">source</span>
                       </div>
-                      <div class="flex-grow">
+                      <div class="flex-grow break-all pr-2">
                         {source_file.path}
                       </div>
                       <div class="flex-shrink">

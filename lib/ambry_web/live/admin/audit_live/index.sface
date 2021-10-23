@@ -39,7 +39,7 @@
                 <div class="flex-none w-24">
                   <span class="px-1 border border-blue-200 rounded-md bg-blue-50">{format_filesize(file.size)}</span>
                 </div>
-                <div class="pl-2">
+                <div class="flex-grow break-all pl-2">
                   {file.path}
                 </div>
               </div>
@@ -60,7 +60,7 @@
                 <div class="flex-none w-24">
                   <span class="px-1 border border-blue-200 rounded-md bg-blue-50">{format_filesize(folder.size)}</span>
                 </div>
-                <div class="pl-2">
+                <div class="flex-grow break-all pl-2">
                   {folder.path}
                 </div>
               </div>
