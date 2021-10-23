@@ -27,6 +27,8 @@ defmodule Ambry.Paths do
   @doc """
   Convert a web path to a disk path.
   """
+  def web_to_disk(nil), do: nil
+
   def web_to_disk(path) do
     # The web path always begins with "/uploads/" but that can't be part of the
     # final path.

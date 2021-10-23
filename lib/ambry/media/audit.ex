@@ -37,6 +37,8 @@ defmodule Ambry.Media.Audit do
     end
   end
 
+  defp file_stat(nil), do: nil
+
   defp file_stat(path) do
     case File.stat(path) do
       {:ok, stat} -> %{path: path, stat: stat}
