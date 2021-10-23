@@ -29,7 +29,7 @@ defmodule AmbryWeb.Endpoint do
   # Serve static user uploaded images
   plug Plug.Static,
     at: "/uploads",
-    from: {Ambry.Paths, :uploads_path, []},
+    from: {Ambry.Paths, :uploads_folder_disk_path, []},
     gzip: false,
     only: ~w(images)
 

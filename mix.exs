@@ -38,6 +38,7 @@ defmodule Ambry.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:earmark, "~> 1.4"},
       {:ecto_sql, "~> 3.6"},
+      {:file_size, "~> 3.0"},
       {:floki, ">= 0.30.0", only: :test},
       {:gettext, "~> 0.18"},
       {:jason, "~> 1.2"},
