@@ -155,6 +155,30 @@
               {/if}
             </div>
 
+            <div class="p-2 flex">
+              <div class="pr-2 w-28">
+                <span class="px-1 border border-gray-200 rounded-md bg-gray-50">hls</span>
+              </div>
+              {#if @file_stats.hls_file}
+                <div class="flex-grow break-all pr-2">
+                  {@file_stats.hls_file.path}
+                </div>
+                <div class="flex-shrink">
+                  {#case @file_stats.hls_file.stat}
+                    {#match error when is_atom(error)}
+                      <span class="px-1 border border-red-200 rounded-md bg-red-50">{error}</span>
+                    {#match stat when is_map(stat)}
+                      <span class="px-1 border border-blue-200 rounded-md bg-blue-50 whitespace-nowrap">{format_filesize(stat.size)}</span>
+                  {/case}
+                </div>
+              {#else}
+                <div class="flex-grow" />
+                <div class="flex-shrink">
+                  <span class="px-1 border border-red-200 rounded-md bg-red-50">nil</span>
+                </div>
+              {/if}
+            </div>
+
             {#case @file_stats.source_files}
               {#match error when is_atom(error)}
                 <div class="p-2 flex">

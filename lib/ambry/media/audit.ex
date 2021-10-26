@@ -15,11 +15,13 @@ defmodule Ambry.Media.Audit do
     source_files = source_file_stats(media)
     mp4_file = media.mp4_path |> Paths.web_to_disk() |> file_stat()
     mpd_file = media.mpd_path |> Paths.web_to_disk() |> file_stat()
+    hls_file = media.hls_path |> Paths.web_to_disk() |> file_stat()
 
     %{
       source_files: source_files,
       mp4_file: mp4_file,
-      mpd_file: mpd_file
+      mpd_file: mpd_file,
+      hls_file: hls_file
     }
   end
 
@@ -70,6 +72,7 @@ defmodule Ambry.Media.Audit do
           id: m.id,
           source_folder: fragment("regexp_replace(source_path, '^.*/', '')"),
           mpd_file: fragment("regexp_replace(mpd_path, '^.*/', '')"),
+          hls_file: fragment("regexp_replace(hls_path, '^.*/', '')"),
           mp4_file: fragment("regexp_replace(mp4_path, '^.*/', '')")
         }
 
@@ -117,6 +120,7 @@ defmodule Ambry.Media.Audit do
       Enum.flat_map(media, fn media ->
         source? = MapSet.member?(existing_folders, media.source_folder)
         mpd? = MapSet.member?(existing_files, media.mpd_file)
+        hls? = MapSet.member?(existing_files, media.hls_file)
         mp4? = MapSet.member?(existing_files, media.mp4_file)
 
         if source? && mpd? && mp4? do
@@ -127,6 +131,7 @@ defmodule Ambry.Media.Audit do
               id: media.id,
               source?: source?,
               mpd?: mpd?,
+              hls?: hls?,
               mp4?: mp4?
             }
           ]
@@ -147,6 +152,7 @@ defmodule Ambry.Media.Audit do
         media: Map.fetch!(broken_media_structs_by_id, broken_media.id),
         source?: broken_media.source?,
         mpd?: broken_media.mpd?,
+        hls?: broken_media.hls?,
         mp4?: broken_media.mp4?
       }
     end)

@@ -13,7 +13,7 @@ defmodule Ambry.Media.Processor.MP3 do
 
   def run(media) do
     filename = convert_mp3!(media)
-    create_mpd!(media, filename)
+    create_stream!(media, filename)
     finalize!(media, filename)
   end
 

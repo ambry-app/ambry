@@ -14,16 +14,19 @@ defmodule Ambry.Media.Processor.Shared do
     |> NaturalSort.sort()
   end
 
-  def create_mpd!(media, filename) do
+  def create_stream!(media, filename) do
     command = "shaka-packager"
 
     args = [
-      "in=#{filename}.mp4,stream=audio,out=#{filename}.mp4",
-      # "--dash_force_segment_list",
+      "in=#{filename}.mp4,stream=audio,out=#{filename}.mp4,playlist_name=#{filename}_0.m3u8",
       "--base_urls",
       "/uploads/media/",
+      "--hls_base_url",
+      "/uploads/media/",
       "--mpd_output",
-      "#{filename}.mpd"
+      "#{filename}.mpd",
+      "--hls_master_playlist_output",
+      "#{filename}.m3u8"
     ]
 
     {_output, 0} = System.cmd(command, args, cd: media.source_path, parallelism: true)
@@ -32,6 +35,8 @@ defmodule Ambry.Media.Processor.Shared do
   def finalize!(media, filename) do
     media_folder = Path.join(uploads_folder_disk_path(), "media")
     mpd_dest = Path.join([media_folder, "#{filename}.mpd"])
+    hls_playlist_dest = Path.join([media_folder, "#{filename}_0.m3u8"])
+    hls_master_dest = Path.join([media_folder, "#{filename}.m3u8"])
     mp4_dest = Path.join([media_folder, "#{filename}.mp4"])
 
     File.mkdir_p!(media_folder)
@@ -39,6 +44,16 @@ defmodule Ambry.Media.Processor.Shared do
     File.rename!(
       Path.join(media.source_path, "#{filename}.mpd"),
       mpd_dest
+    )
+
+    File.rename!(
+      Path.join(media.source_path, "#{filename}_0.m3u8"),
+      hls_playlist_dest
+    )
+
+    File.rename!(
+      Path.join(media.source_path, "#{filename}.m3u8"),
+      hls_master_dest
     )
 
     File.rename!(
@@ -52,6 +67,7 @@ defmodule Ambry.Media.Processor.Shared do
       media,
       %{
         mpd_path: "/uploads/media/#{filename}.mpd",
+        hls_path: "/uploads/media/#{filename}.m3u8",
         mp4_path: "/uploads/media/#{filename}.mp4",
         duration: duration,
         status: :ready

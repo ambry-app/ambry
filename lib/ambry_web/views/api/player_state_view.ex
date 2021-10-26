@@ -24,6 +24,7 @@ defmodule AmbryWeb.API.PlayerStateView do
         abridged: player_state.media.abridged,
         fullCast: player_state.media.full_cast,
         mpdPath: player_state.media.mpd_path,
+        hlsPath: player_state.media.hls_path,
         duration: Decimal.to_float(player_state.media.duration),
         narrators:
           Enum.map(player_state.media.narrators, fn narrator ->

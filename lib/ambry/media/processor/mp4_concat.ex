@@ -14,7 +14,7 @@ defmodule Ambry.Media.Processor.MP4Concat do
 
   def run(media) do
     filename = concat_mp4!(media)
-    create_mpd!(media, filename)
+    create_stream!(media, filename)
     finalize!(media, filename)
   end
 

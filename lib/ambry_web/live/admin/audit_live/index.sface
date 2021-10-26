@@ -85,6 +85,9 @@
                   {#if !broken_media.mpd?}
                     <span class="px-1 border border-red-200 rounded-md bg-red-50">mpd</span>
                   {/if}
+                  {#if !broken_media.hls?}
+                    <span class="px-1 border border-red-200 rounded-md bg-red-50">hls</span>
+                  {/if}
                   {#if !broken_media.source?}
                     <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">source</span>
                   {/if}

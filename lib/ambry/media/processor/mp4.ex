@@ -13,7 +13,7 @@ defmodule Ambry.Media.Processor.MP4 do
 
   def run(media) do
     filename = copy!(media)
-    create_mpd!(media, filename)
+    create_stream!(media, filename)
     finalize!(media, filename)
   end
 

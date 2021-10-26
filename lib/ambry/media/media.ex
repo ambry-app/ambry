@@ -22,6 +22,7 @@ defmodule Ambry.Media.Media do
 
     field :source_path, :string
     field :mpd_path, :string
+    field :hls_path, :string
     field :mp4_path, :string
 
     field :duration, :decimal
@@ -59,6 +60,7 @@ defmodule Ambry.Media.Media do
       :duration,
       :mp4_path,
       :mpd_path,
+      :hls_path,
       :status
     ])
     |> status_based_validation()
@@ -81,6 +83,7 @@ defmodule Ambry.Media.Media do
     if get_field(changeset, :status) == :ready do
       validate_required(changeset, [
         :mpd_path,
+        :hls_path,
         :mp4_path
       ])
     else
