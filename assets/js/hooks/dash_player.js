@@ -1,6 +1,6 @@
 import { MediaPlayer } from 'dashjs'
 
-export const MediaPlayerHook = {
+export const DashPlayerHook = {
   mounted () {
     const [audio] = this.el.getElementsByTagName('audio')
     const { mediaId, mediaPath } = this.el.dataset
@@ -94,8 +94,6 @@ export const MediaPlayerHook = {
 
       this.handlersAttached = true
     }
-
-    this.pushEvent('duration-loaded', { duration: player.duration() })
 
     if (opts.play) {
       // WARNING: mutating opts state so that the next time this callback fires

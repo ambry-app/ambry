@@ -67,7 +67,7 @@
       <div class="bg-lime-500 h-2 shadow-inner" style={"width: #{progress_percent(@player_state)}%;"} />
     </div>
     <div class="text-gray-500 flex justify-between text-sm font-medium tabular-nums">
-      <div>{format_timecode(@player_state.position)} of {format_timecode(@player_state.duration)}</div>
+      <div>{format_timecode(@player_state.position)} of {format_timecode(@player_state.media.duration)}</div>
       <div>{progress_percent(@player_state)}%</div>
       <div>{format_timecode(time_left(@player_state))}</div>
     </div>
