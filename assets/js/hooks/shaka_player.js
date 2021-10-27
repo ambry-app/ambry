@@ -1,8 +1,5 @@
 import shaka, { Player } from 'shaka-player'
-
-async function hello () {
-  return await Promise.resolve('Hello')
-}
+import os from 'platform-detect/os.mjs'
 
 // Polyfill initialization:
 
@@ -24,11 +21,11 @@ document.addEventListener('DOMContentLoaded', initPolyfills)
 export const ShakaPlayerHook = {
   async mounted () {
     const [audio] = this.el.getElementsByTagName('audio')
-    const { mediaId, mediaPath, mediaPlaybackRate } = this.el.dataset
-    const [_url, timeParam] = mediaPath.split('#')
-    const [_t, timeString] = timeParam.split('=')
-    const time = parseFloat(timeString)
     const player = new Player(audio)
+    const dataset = this.el.dataset
+    const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
+    const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
+    const time = parseFloat(mediaPosition)
 
     // last loaded ID, rate and time
     // to know when to send updates to server
@@ -83,15 +80,10 @@ export const ShakaPlayerHook = {
   },
 
   playPause () {
-    // 4: HAVE_ENOUGH_DATA - Enough data is available—and the download rate is
-    // high enough—that the media can be played through to the end without
-    // interruption.
-    if (this.audio.readyState === 4) {
-      if (this.audio.paused) {
-        this.play()
-      } else {
-        this.pause()
-      }
+    if (this.audio.paused) {
+      this.play()
+    } else {
+      this.pause()
     }
   },
 
@@ -153,8 +145,7 @@ export const ShakaPlayerHook = {
 
   reloadMedia (opts) {
     const audio = this.audio
-    const player = this.player
-    const { mediaId, mediaPath, mediaPlaybackRate } = this.el.dataset
+    const { mediaId } = this.el.dataset
 
     if (mediaId === this.mediaId) {
       if (opts.play) {
@@ -165,27 +156,41 @@ export const ShakaPlayerHook = {
       return
     }
 
-    const loadNewMedia = async () => {
-      const [_url, timeParam] = mediaPath.split('#')
-      const [_t, timeString] = timeParam.split('=')
-      const time = parseFloat(timeString)
+    if (!audio.paused) {
+      audio.addEventListener(
+        'pause',
+        () => this.loadMedia(this.el.dataset, opts),
+        { once: true }
+      )
+      this.pause()
+    } else {
+      this.loadMedia(this.el.dataset, opts)
+    }
+  },
 
-      this.mediaId = mediaId
-      this.playbackRate = mediaPlaybackRate
-      this.time = time
+  async loadMedia (dataset, opts = {}) {
+    const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
+    const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
+    const player = this.player
+    const audio = this.audio
+    const time = parseFloat(mediaPosition)
 
+    this.mediaId = mediaId
+    this.playbackRate = mediaPlaybackRate
+    this.time = time
+
+    try {
       await player.load(mediaPath, time)
       audio.playbackRate = parseFloat(mediaPlaybackRate)
+
+      console.log('Shaka: audio loaded')
+
       if (opts.play) {
         this.play()
       }
-    }
-
-    if (!audio.paused) {
-      audio.addEventListener('pause', () => loadNewMedia(), { once: true })
-      this.pause()
-    } else {
-      loadNewMedia()
+    } catch (e) {
+      this.onError(e)
+      return
     }
   },
 
