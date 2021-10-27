@@ -10,6 +10,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   alias Ambry.{Books, Media, Narrators}
   alias Ambry.Media.Processor
   alias AmbryWeb.Admin.Components.SaveButton
+  alias AmbryWeb.Admin.MediaLive.FileStatRow
 
   alias Surface.Components.{Form, LiveFileInput}
 
