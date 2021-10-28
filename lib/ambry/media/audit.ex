@@ -13,10 +13,10 @@ defmodule Ambry.Media.Audit do
   """
   def get_media_file_details(media) do
     source_files = source_file_stats(media)
-    [mp4_file] = media.mp4_path |> Paths.web_to_disk() |> file_stat()
-    [mpd_file] = media.mpd_path |> Paths.web_to_disk() |> file_stat()
-    [hls_master] = media.hls_path |> Paths.web_to_disk() |> file_stat()
-    [hls_playlist] = media |> hls_playlist_path() |> Paths.web_to_disk() |> file_stat()
+    mp4_file = media.mp4_path |> Paths.web_to_disk() |> file_stat() |> unwrap()
+    mpd_file = media.mpd_path |> Paths.web_to_disk() |> file_stat() |> unwrap()
+    hls_master = media.hls_path |> Paths.web_to_disk() |> file_stat() |> unwrap()
+    hls_playlist = media |> hls_playlist_path() |> Paths.web_to_disk() |> file_stat() |> unwrap()
 
     %{
       source_files: source_files,
@@ -26,6 +26,9 @@ defmodule Ambry.Media.Audit do
       hls_playlist: hls_playlist
     }
   end
+
+  defp unwrap(nil), do: nil
+  defp unwrap([single]), do: single
 
   defp source_file_stats(media) do
     case File.ls(media.source_path) do
@@ -151,7 +154,7 @@ defmodule Ambry.Media.Audit do
         hls_master? = MapSet.member?(existing_files, media.hls_file)
         hls_playlist? = MapSet.member?(existing_files, hls_playlist_file(media))
 
-        if source? && mpd? && mp4? do
+        if source? && mp4? && mpd? && hls_master? && hls_playlist? do
           []
         else
           [
