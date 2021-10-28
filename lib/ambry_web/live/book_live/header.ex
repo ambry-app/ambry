@@ -3,6 +3,8 @@ defmodule AmbryWeb.BookLive.Header do
 
   use AmbryWeb, :component
 
+  alias AmbryWeb.Endpoint
+
   alias Surface.Components.LiveRedirect
 
   prop book, :any

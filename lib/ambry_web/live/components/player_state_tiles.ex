@@ -6,6 +6,8 @@ defmodule AmbryWeb.Components.PlayerStateTiles do
   use AmbryWeb, :component
 
   alias AmbryWeb.BookLive.PlayButton
+  alias AmbryWeb.Endpoint
+
   alias Surface.Components.LiveRedirect
 
   prop player_states, :list

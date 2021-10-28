@@ -5,6 +5,8 @@ defmodule AmbryWeb.Components.SeriesTiles do
 
   use AmbryWeb, :component
 
+  alias AmbryWeb.Endpoint
+
   alias Surface.Components.LiveRedirect
 
   prop series, :list

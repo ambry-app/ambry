@@ -4,6 +4,7 @@ defmodule AmbryWeb.Router do
   use AmbryWeb, :router
 
   import AmbryWeb.UserAuth
+  import Phoenix.LiveDashboard.Router
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -52,7 +53,7 @@ defmodule AmbryWeb.Router do
   end
 
   scope "/admin", AmbryWeb.Admin, as: :admin do
-    pipe_through [:browser, :require_authenticated_user]
+    pipe_through [:browser, :require_authenticated_user, :require_admin]
 
     live "/people", PersonLive.Index, :index
     live "/people/new", PersonLive.Index, :new
@@ -71,6 +72,8 @@ defmodule AmbryWeb.Router do
     live "/media/:id/edit", MediaLive.Index, :edit
 
     live "/audit", AuditLive.Index, :index
+
+    live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
   end
 
   scope "/api", AmbryWeb.API, as: :api do
@@ -88,27 +91,6 @@ defmodule AmbryWeb.Router do
     resources "/people", PersonController, only: [:show]
     resources "/series", SeriesController, only: [:show]
     resources "/player_states", PlayerStateController, only: [:index, :show, :update]
-  end
-
-  # Other scopes may use custom stacks.
-  # scope "/api", AmbryWeb do
-  #   pipe_through :api
-  # end
-
-  # Enables LiveDashboard only for development
-  #
-  # If you want to use the LiveDashboard in production, you should put
-  # it behind authentication and allow only admins to access it.
-  # If your application does not have an admins-only section yet,
-  # you can use Plug.BasicAuth to set up some basic authentication
-  # as long as you are also using SSL (which you should anyway).
-  if Mix.env() in [:dev, :test] do
-    import Phoenix.LiveDashboard.Router
-
-    scope "/" do
-      pipe_through :browser
-      live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
-    end
   end
 
   # Enables the Swoosh mailbox preview in development.

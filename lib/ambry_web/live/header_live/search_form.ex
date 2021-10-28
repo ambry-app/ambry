@@ -3,6 +3,8 @@ defmodule AmbryWeb.HeaderLive.SearchForm do
 
   use AmbryWeb, :component
 
+  alias AmbryWeb.Endpoint
+
   alias Surface.Components.Form
   alias Surface.Components.Form.{Field, TextInput}
 

@@ -15,7 +15,7 @@
       data-phx-link="redirect"
       data-phx-link-state="push"
       :on-click={@close}
-      href={Routes.search_results_path(@socket, :results, String.trim(@query))}
+      href={Routes.search_results_path(Endpoint, :results, String.trim(@query))}
     />
   {/if}
 </Form>

@@ -2,7 +2,7 @@
   {#for series <- @series}
     <div class="text-center text-lg">
       <div class="group">
-        <LiveRedirect to={Routes.series_show_path(@socket, :show, series)}>
+        <LiveRedirect to={Routes.series_show_path(Endpoint, :show, series)}>
           <span class="block aspect-w-10 aspect-h-15">
             <img
               src={hd(series.series_books).book.image_path}
@@ -11,7 +11,7 @@
           </span>
         </LiveRedirect>
         <p class="group-hover:underline">
-          <LiveRedirect to={Routes.series_show_path(@socket, :show, series)}>
+          <LiveRedirect to={Routes.series_show_path(Endpoint, :show, series)}>
             {series.name}
           </LiveRedirect>
         </p>
@@ -23,7 +23,7 @@
             class="hover:underline"
             data-phx-link="redirect"
             data-phx-link-state="push"
-            href={Routes.person_show_path(@socket, :show, author.person_id)}
+            href={Routes.person_show_path(Endpoint, :show, author.person_id)}
           >{author.name}</a><span class="last:hidden">,</span>
         {/for}
       </p>

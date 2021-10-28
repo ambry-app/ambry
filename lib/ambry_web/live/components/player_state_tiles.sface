@@ -29,7 +29,7 @@
         </div>
       </div>
       <p class="hover:underline">
-        <LiveRedirect to={Routes.book_show_path(@socket, :show, player_state.media.book)}>
+        <LiveRedirect to={Routes.book_show_path(Endpoint, :show, player_state.media.book)}>
           {player_state.media.book.title}
         </LiveRedirect>
       </p>
@@ -40,7 +40,7 @@
             class="hover:underline"
             data-phx-link="redirect"
             data-phx-link-state="push"
-            href={Routes.person_show_path(@socket, :show, author.person_id)}
+            href={Routes.person_show_path(Endpoint, :show, author.person_id)}
           >{author.name}</a><span class="last:hidden">,</span>
         {/for}
       </p>
@@ -52,7 +52,7 @@
             class="hover:underline"
             data-phx-link="redirect"
             data-phx-link-state="push"
-            href={Routes.person_show_path(@socket, :show, narrator.person_id)}
+            href={Routes.person_show_path(Endpoint, :show, narrator.person_id)}
           >{narrator.name}</a><span class="last:hidden">,</span>
         {/for}
         {#if player_state.media.full_cast}
@@ -63,7 +63,7 @@
       {#for series_book <- Enum.sort_by(player_state.media.book.series_books, & &1.series.name)}
         <p class="text-sm text-gray-400">
           <LiveRedirect
-            to={Routes.series_show_path(@socket, :show, series_book.series)}
+            to={Routes.series_show_path(Endpoint, :show, series_book.series)}
             class="hover:underline"
           >
             {series_book.series.name}

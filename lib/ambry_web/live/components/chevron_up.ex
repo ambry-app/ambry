@@ -5,7 +5,7 @@ defmodule AmbryWeb.Components.ChevronUp do
 
   use AmbryWeb, :component
 
-  @impl Phoenix.LiveComponent
+  @impl Surface.Component
   def render(assigns) do
     ~F"""
     <svg
