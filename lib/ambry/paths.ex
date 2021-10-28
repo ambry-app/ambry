@@ -43,4 +43,11 @@ defmodule Ambry.Paths do
 
     Path.join([uploads_folder_disk_path(), relative])
   end
+
+  @doc """
+  Given either a relative, web, or absolute path to an HLS master file, returns
+  the equivalent HLS playlist path.
+  """
+  def hls_playlist_path(nil), do: nil
+  def hls_playlist_path(path), do: Path.rootname(path) <> "_0.m3u8"
 end

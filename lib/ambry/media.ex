@@ -3,6 +3,7 @@ defmodule Ambry.Media do
   Functions for dealing with Media.
   """
 
+  import Ambry.FileUtils
   import Ecto.Query
 
   alias Ambry.Media.{Audit, Media, PlayerState}
@@ -110,14 +111,21 @@ defmodule Ambry.Media do
   ## Examples
 
       iex> delete_media(media)
-      {:ok, %Media{}}
+      :ok
 
       iex> delete_media(media)
       {:error, %Ecto.Changeset{}}
 
   """
   def delete_media(%Media{} = media) do
-    Repo.delete(media)
+    case Repo.delete(media) do
+      {:ok, media} ->
+        delete_media_files(media)
+        :ok
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   @doc """

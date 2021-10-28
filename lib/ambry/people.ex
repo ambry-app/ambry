@@ -113,7 +113,7 @@ defmodule Ambry.People do
   """
   def delete_person(%Person{} = person) do
     case Repo.delete(change_person(person)) do
-      {:ok, _person} ->
+      {:ok, person} ->
         maybe_delete_image(person.image_path)
         :ok
 

@@ -61,9 +61,6 @@ defmodule Ambry.Media.Audit do
     existing_folders =
       Paths.source_media_disk_path()
       |> File.ls!()
-      |> Enum.reject(fn folder ->
-        folder |> Paths.source_media_disk_path() |> File.ls!() == []
-      end)
       |> MapSet.new()
 
     existing_files = Paths.media_disk_path() |> File.ls!() |> MapSet.new()
@@ -96,6 +93,7 @@ defmodule Ambry.Media.Audit do
       full_path = Paths.source_media_disk_path(folder)
 
       %{
+        id: Ecto.UUID.generate(),
         path: full_path,
         size: folder_size(full_path)
       }
@@ -111,6 +109,7 @@ defmodule Ambry.Media.Audit do
       full_path = Paths.media_disk_path(file)
 
       %{
+        id: Ecto.UUID.generate(),
         path: full_path,
         size: FileSize.from_file!(full_path)
       }
@@ -189,18 +188,11 @@ defmodule Ambry.Media.Audit do
 
   # A %Media{} struct from ecto
   defp hls_playlist_path(%Media{hls_path: hls_path}) do
-    hls_playlist_file(hls_path)
+    Paths.hls_playlist_path(hls_path)
   end
 
   # A plain map from custom query
   defp hls_playlist_file(%{hls_file: hls_file}) do
-    hls_playlist_file(hls_file)
-  end
-
-  defp hls_playlist_file(path) do
-    case path do
-      nil -> nil
-      path -> Path.rootname(path) <> "_0.m3u8"
-    end
+    Paths.hls_playlist_path(hls_file)
   end
 end
