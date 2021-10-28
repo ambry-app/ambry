@@ -1,6 +1,6 @@
 defmodule Ambry.Media.Processor.MP4 do
   @moduledoc """
-  A media processor that converts a single MP4 to dash streaming format.
+  A media processor that converts a single MP4 to dash & hls streaming format.
   """
 
   import Ambry.Media.Processor.Shared

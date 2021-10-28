@@ -1,7 +1,7 @@
 defmodule Ambry.Media.Processor.MP3Concat do
   @moduledoc """
   A media processor that concatenates a collection of MP3 files and then
-  converts them to dash streaming format.
+  converts them to dash & hls streaming format.
   """
 
   import Ambry.Media.Processor.Shared

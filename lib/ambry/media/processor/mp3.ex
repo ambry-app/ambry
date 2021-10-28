@@ -1,6 +1,6 @@
 defmodule Ambry.Media.Processor.MP3 do
   @moduledoc """
-  A media processor that converts a single MP3 to dash streaming format.
+  A media processor that converts a single MP3 to dash & hls streaming format.
   """
 
   import Ambry.Media.Processor.Shared
