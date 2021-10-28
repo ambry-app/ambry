@@ -143,6 +143,20 @@ defmodule AmbryWeb.UserAuth do
     end
   end
 
+  @doc """
+  Used for routes that require the user to be an admin.
+  """
+  def require_admin(conn, _opts) do
+    if conn.assigns.current_user.admin do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You don't have access to this page.")
+      |> redirect(to: signed_in_path(conn))
+      |> halt()
+    end
+  end
+
   defp maybe_store_return_to(%{method: "GET"} = conn) do
     put_session(conn, :user_return_to, current_path(conn))
   end

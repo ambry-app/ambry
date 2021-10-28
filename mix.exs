@@ -20,7 +20,7 @@ defmodule Ambry.MixProject do
   def application do
     [
       mod: {Ambry.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end
 
@@ -37,6 +37,7 @@ defmodule Ambry.MixProject do
       {:credo, "~> 1.6.0-rc.1", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:earmark, "~> 1.4"},
+      {:ecto_psql_extras, "~> 0.6"},
       {:ecto_sql, "~> 3.6"},
       {:file_size, "~> 3.0"},
       {:floki, ">= 0.30.0", only: :test},
@@ -47,7 +48,7 @@ defmodule Ambry.MixProject do
       {:phoenix, "~> 1.6"},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 3.0"},
-      {:phoenix_live_dashboard, "~> 0.5"},
+      {:phoenix_live_dashboard, ">= 0.5.3 and < 0.6.0"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, ">= 0.16.0 and < 0.17.0"},
       {:plug_cowboy, "~> 2.5"},

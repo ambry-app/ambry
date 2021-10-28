@@ -30,6 +30,10 @@ defmodule AmbryWeb.Admin.Components.AdminNav do
         <LiveRedirect to={Routes.admin_audit_index_path(@socket, :index)} class="px-2">
           Audit
         </LiveRedirect>
+
+        <LiveRedirect to={Routes.live_dashboard_path(@socket, :home)} class="px-2">
+          Phoenix Dashboard
+        </LiveRedirect>
       </div>
     </div>
     """
