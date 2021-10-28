@@ -71,16 +71,29 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     book = Books.get_book!(id)
-    {:ok, _} = Books.delete_book(book)
 
-    list_opts = get_list_opts(socket)
+    case Books.delete_book(book) do
+      :ok ->
+        list_opts = get_list_opts(socket)
 
-    params = %{
-      "filter" => to_string(list_opts.filter),
-      "page" => to_string(list_opts.page)
-    }
+        params = %{
+          "filter" => to_string(list_opts.filter),
+          "page" => to_string(list_opts.page)
+        }
 
-    {:noreply, maybe_update_books(socket, params, true)}
+        {:noreply,
+         socket
+         |> maybe_update_books(params, true)
+         |> put_flash(:info, "Book deleted successfully")}
+
+      {:error, :has_media} ->
+        message = """
+        Can't delete book because this book has uploaded media.
+        You must delete any uploaded media before you can delete this book.
+        """
+
+        {:noreply, put_flash(socket, :error, message)}
+    end
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do

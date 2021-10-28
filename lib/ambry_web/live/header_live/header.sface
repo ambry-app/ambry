@@ -19,7 +19,7 @@
       </div>
     </div>
     {#if !is_nil(@player_state) && !@expanded}
-      <PlayButton playing={@playing} click="play-pause" />
+      <PlayButton playing={@playing} />
     {/if}
     <div class="flex min-w-max items-center cursor-pointer" :on-click="toggle">
       {#if !is_nil(@player_state) && !@expanded}

@@ -7,6 +7,22 @@ defmodule Ambry.Media.Processor.Shared do
 
   alias Ambry.Media
 
+  def get_id(media) do
+    %{
+      mp4_path: mp4_path,
+      mpd_path: mpd_path,
+      hls_path: hls_path
+    } = media
+
+    with [path | _] when is_binary(path) <- Enum.filter([mp4_path, mpd_path, hls_path], & &1),
+         {:ok, id} <- path |> Path.basename() |> Path.rootname() |> Ecto.UUID.cast() do
+      id
+    else
+      _anything ->
+        Ecto.UUID.generate()
+    end
+  end
+
   def files(media, extensions) do
     media.source_path
     |> File.ls!()
@@ -14,45 +30,45 @@ defmodule Ambry.Media.Processor.Shared do
     |> NaturalSort.sort()
   end
 
-  def create_mpd!(media, filename) do
+  def create_stream!(media, id) do
     command = "shaka-packager"
 
     args = [
-      "in=#{filename}.mp4,stream=audio,out=#{filename}.mp4",
-      # "--dash_force_segment_list",
+      "in=#{id}.mp4,stream=audio,out=#{id}.mp4,playlist_name=#{id}_0.m3u8",
       "--base_urls",
       "/uploads/media/",
+      "--hls_base_url",
+      "/uploads/media/",
       "--mpd_output",
-      "#{filename}.mpd"
+      "#{id}.mpd",
+      "--hls_master_playlist_output",
+      "#{id}.m3u8"
     ]
 
-    {_output, 0} = System.cmd(command, args, cd: media.source_path, parallelism: true)
+    {_output, 0} = System.cmd(command, args, cd: out_path(media), parallelism: true)
   end
 
-  def finalize!(media, filename) do
+  def finalize!(media, id) do
     media_folder = Path.join(uploads_folder_disk_path(), "media")
-    mpd_dest = Path.join([media_folder, "#{filename}.mpd"])
-    mp4_dest = Path.join([media_folder, "#{filename}.mp4"])
+    mpd_dest = Path.join([media_folder, "#{id}.mpd"])
+    hls_playlist_dest = Path.join([media_folder, "#{id}_0.m3u8"])
+    hls_master_dest = Path.join([media_folder, "#{id}.m3u8"])
+    mp4_dest = Path.join([media_folder, "#{id}.mp4"])
 
     File.mkdir_p!(media_folder)
-
-    File.rename!(
-      Path.join(media.source_path, "#{filename}.mpd"),
-      mpd_dest
-    )
-
-    File.rename!(
-      Path.join(media.source_path, "#{filename}.mp4"),
-      mp4_dest
-    )
+    File.rename!(out_path(media, "#{id}.mpd"), mpd_dest)
+    File.rename!(out_path(media, "#{id}_0.m3u8"), hls_playlist_dest)
+    File.rename!(out_path(media, "#{id}.m3u8"), hls_master_dest)
+    File.rename!(out_path(media, "#{id}.mp4"), mp4_dest)
 
     duration = get_duration(mp4_dest)
 
     Media.update_media(
       media,
       %{
-        mpd_path: "/uploads/media/#{filename}.mpd",
-        mp4_path: "/uploads/media/#{filename}.mp4",
+        mpd_path: "/uploads/media/#{id}.mpd",
+        hls_path: "/uploads/media/#{id}.m3u8",
+        mp4_path: "/uploads/media/#{id}.mp4",
         duration: duration,
         status: :ready
       },
@@ -67,5 +83,13 @@ defmodule Ambry.Media.Processor.Shared do
     {duration, "\n"} = Decimal.parse(output)
 
     duration
+  end
+
+  def out_path(media, file \\ "") do
+    Path.join([media.source_path, "_out", file])
+  end
+
+  def source_path(media, file \\ "") do
+    Path.join([media.source_path, file])
   end
 end

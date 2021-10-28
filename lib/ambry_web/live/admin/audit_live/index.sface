@@ -32,6 +32,11 @@
       <div>
         <h2 class="text-2xl mb-2">Orphaned Media Files</h2>
 
+        <p>
+          It should be safe to delete these files, as they are not being used by
+          anything.
+        </p>
+
         <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
           <div class="space-y-2 divide-y divide-gray-200">
             {#for file <- @audit.orphaned_media_files}
@@ -42,6 +47,20 @@
                 <div class="flex-grow break-all pl-2">
                   {file.path}
                 </div>
+                <a data-confirm="Are you sure?" href="#" :on-click="delete-file" :values={id: file.id}>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="text-red-600 h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </a>
               </div>
             {/for}
           </div>
@@ -53,6 +72,11 @@
       <div>
         <h2 class="text-2xl mb-2">Orphaned Source Folders</h2>
 
+        <p>
+          It should be safe to delete these folders, as they are not being used
+          by anything.
+        </p>
+
         <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
           <div class="space-y-2 divide-y divide-gray-200">
             {#for folder <- @audit.orphaned_source_folders}
@@ -63,6 +87,20 @@
                 <div class="flex-grow break-all pl-2">
                   {folder.path}
                 </div>
+                <a data-confirm="Are you sure?" href="#" :on-click="delete-folder" :values={id: folder.id}>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="text-red-600 h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </a>
               </div>
             {/for}
           </div>
@@ -74,6 +112,11 @@
       <div>
         <h2 class="text-2xl mb-2">Broken Media</h2>
 
+        <p>
+          These media uploads are broken in some way. They may or may not work
+          in all cases.
+        </p>
+
         <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
           <div class="space-y-2 divide-y divide-gray-200">
             {#for broken_media <- @audit.broken_media}
@@ -84,6 +127,12 @@
                   {/if}
                   {#if !broken_media.mpd?}
                     <span class="px-1 border border-red-200 rounded-md bg-red-50">mpd</span>
+                  {/if}
+                  {#if !broken_media.hls_master?}
+                    <span class="px-1 border border-red-200 rounded-md bg-red-50">hls</span>
+                  {/if}
+                  {#if !broken_media.hls_playlist?}
+                    <span class="px-1 border border-red-200 rounded-md bg-red-50">hls_0</span>
                   {/if}
                   {#if !broken_media.source?}
                     <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">source</span>

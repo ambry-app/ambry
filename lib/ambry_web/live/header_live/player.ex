@@ -45,9 +45,7 @@ defmodule AmbryWeb.HeaderLive.Player do
 
   defp pad(number), do: :io_lib.format('~2..0B', [number])
 
-  defp progress_percent(%{duration: nil}), do: "0.0"
-
-  defp progress_percent(%{position: position, duration: duration}) do
+  defp progress_percent(%{position: position, media: %{duration: duration}}) do
     position
     |> Decimal.div(duration)
     |> Decimal.mult(100)
@@ -55,7 +53,7 @@ defmodule AmbryWeb.HeaderLive.Player do
     |> Decimal.to_string()
   end
 
-  defp time_left(%{position: position, duration: duration, playback_rate: playback_rate}) do
+  defp time_left(%{position: position, playback_rate: playback_rate, media: %{duration: duration}}) do
     Decimal.div(Decimal.sub(duration, position), playback_rate)
   end
 end

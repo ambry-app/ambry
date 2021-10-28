@@ -33,5 +33,6 @@ defmodule Ambry.Books.Book do
     |> cast_assoc(:series_books, with: &SeriesBook.book_assoc_changeset/2)
     |> cast_assoc(:book_authors)
     |> validate_required([:title, :published])
+    |> foreign_key_constraint(:media, name: "media_book_id_fkey")
   end
 end

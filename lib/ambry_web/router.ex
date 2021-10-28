@@ -49,7 +49,6 @@ defmodule AmbryWeb.Router do
     live "/series/:id", SeriesLive.Show, :show
     live "/books/:id", BookLive.Show, :show
     live "/search/:query", SearchLive.Results, :results
-    # live "/upload", UploadLive.Index, :new
   end
 
   scope "/admin", AmbryWeb.Admin, as: :admin do

@@ -15,9 +15,7 @@ defmodule AmbryWeb.Components.PlayerStateTiles do
   prop user, :any, required: true
   prop browser_id, :string, required: true
 
-  defp progress_percent(%{duration: nil}), do: "0.0"
-
-  defp progress_percent(%{position: position, duration: duration}) do
+  defp progress_percent(%{position: position, media: %{duration: duration}}) do
     position
     |> Decimal.div(duration)
     |> Decimal.mult(100)

@@ -15,7 +15,6 @@ defmodule Ambry.Media.PlayerState do
 
     field :playback_rate, :decimal, default: Decimal.new(1)
     field :position, :decimal, default: Decimal.new(0)
-    field :duration, :decimal
 
     field :status, Ecto.Enum,
       values: [:not_started, :in_progress, :finished],
@@ -27,7 +26,7 @@ defmodule Ambry.Media.PlayerState do
   @doc false
   def changeset(player_state, attrs) do
     player_state
-    |> cast(attrs, [:position, :duration, :playback_rate, :media_id, :user_id])
+    |> cast(attrs, [:position, :playback_rate, :media_id, :user_id])
     |> validate_required([:position, :playback_rate, :media_id, :user_id])
     |> compute_and_put_status()
   end

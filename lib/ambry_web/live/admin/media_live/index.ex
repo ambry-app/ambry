@@ -70,7 +70,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     media = Media.get_media!(id)
-    {:ok, _} = Media.delete_media(media)
+    :ok = Media.delete_media(media)
 
     list_opts = get_list_opts(socket)
 

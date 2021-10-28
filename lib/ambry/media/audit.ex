@@ -13,13 +13,17 @@ defmodule Ambry.Media.Audit do
   """
   def get_media_file_details(media) do
     source_files = source_file_stats(media)
-    mp4_file = media.mp4_path |> Paths.web_to_disk() |> file_stat()
-    mpd_file = media.mpd_path |> Paths.web_to_disk() |> file_stat()
+    [mp4_file] = media.mp4_path |> Paths.web_to_disk() |> file_stat()
+    [mpd_file] = media.mpd_path |> Paths.web_to_disk() |> file_stat()
+    [hls_master] = media.hls_path |> Paths.web_to_disk() |> file_stat()
+    [hls_playlist] = media |> hls_playlist_path() |> Paths.web_to_disk() |> file_stat()
 
     %{
       source_files: source_files,
       mp4_file: mp4_file,
-      mpd_file: mpd_file
+      mpd_file: mpd_file,
+      hls_master: hls_master,
+      hls_playlist: hls_playlist
     }
   end
 
@@ -28,7 +32,7 @@ defmodule Ambry.Media.Audit do
       {:ok, relative_paths} ->
         relative_paths
         |> NaturalSort.sort()
-        |> Enum.map(fn path ->
+        |> Enum.flat_map(fn path ->
           file_stat(Path.join([media.source_path, path]))
         end)
 
@@ -40,9 +44,23 @@ defmodule Ambry.Media.Audit do
   defp file_stat(nil), do: nil
 
   defp file_stat(path) do
-    case File.stat(path) do
-      {:ok, stat} -> %{path: path, stat: stat}
-      {:error, posix} -> %{path: path, stat: posix}
+    if File.dir?(path) do
+      case File.ls(path) do
+        {:ok, relative_paths} ->
+          relative_paths
+          |> NaturalSort.sort()
+          |> Enum.flat_map(fn p ->
+            file_stat(Path.join([path, p]))
+          end)
+
+        {:error, posix} ->
+          [%{path: path, stat: posix}]
+      end
+    else
+      case File.stat(path) do
+        {:ok, stat} -> [%{path: path, stat: stat}]
+        {:error, posix} -> [%{path: path, stat: posix}]
+      end
     end
   end
 
@@ -57,9 +75,6 @@ defmodule Ambry.Media.Audit do
     existing_folders =
       Paths.source_media_disk_path()
       |> File.ls!()
-      |> Enum.reject(fn folder ->
-        folder |> Paths.source_media_disk_path() |> File.ls!() == []
-      end)
       |> MapSet.new()
 
     existing_files = Paths.media_disk_path() |> File.ls!() |> MapSet.new()
@@ -70,6 +85,7 @@ defmodule Ambry.Media.Audit do
           id: m.id,
           source_folder: fragment("regexp_replace(source_path, '^.*/', '')"),
           mpd_file: fragment("regexp_replace(mpd_path, '^.*/', '')"),
+          hls_file: fragment("regexp_replace(hls_path, '^.*/', '')"),
           mp4_file: fragment("regexp_replace(mp4_path, '^.*/', '')")
         }
 
@@ -91,6 +107,7 @@ defmodule Ambry.Media.Audit do
       full_path = Paths.source_media_disk_path(folder)
 
       %{
+        id: Ecto.UUID.generate(),
         path: full_path,
         size: folder_size(full_path)
       }
@@ -99,25 +116,40 @@ defmodule Ambry.Media.Audit do
 
   # files with no references
   defp orphaned_media_files(media, existing_files) do
-    referenced_files = media |> Enum.flat_map(&[&1.mpd_file, &1.mp4_file]) |> MapSet.new()
+    referenced_files = media |> Enum.flat_map(&referenced_files/1) |> MapSet.new()
     orphaned_files = MapSet.difference(existing_files, referenced_files)
 
     Enum.map(orphaned_files, fn file ->
       full_path = Paths.media_disk_path(file)
 
       %{
+        id: Ecto.UUID.generate(),
         path: full_path,
         size: FileSize.from_file!(full_path)
       }
     end)
   end
 
+  defp referenced_files(media) do
+    Enum.filter(
+      [
+        media.mp4_file,
+        media.mpd_file,
+        media.hls_file,
+        hls_playlist_file(media)
+      ],
+      & &1
+    )
+  end
+
   defp broken_media(media, existing_folders, existing_files) do
     broken_media =
       Enum.flat_map(media, fn media ->
         source? = MapSet.member?(existing_folders, media.source_folder)
-        mpd? = MapSet.member?(existing_files, media.mpd_file)
         mp4? = MapSet.member?(existing_files, media.mp4_file)
+        mpd? = MapSet.member?(existing_files, media.mpd_file)
+        hls_master? = MapSet.member?(existing_files, media.hls_file)
+        hls_playlist? = MapSet.member?(existing_files, hls_playlist_file(media))
 
         if source? && mpd? && mp4? do
           []
@@ -126,8 +158,10 @@ defmodule Ambry.Media.Audit do
             %{
               id: media.id,
               source?: source?,
+              mp4?: mp4?,
               mpd?: mpd?,
-              mp4?: mp4?
+              hls_master?: hls_master?,
+              hls_playlist?: hls_playlist?
             }
           ]
         end
@@ -146,8 +180,10 @@ defmodule Ambry.Media.Audit do
       %{
         media: Map.fetch!(broken_media_structs_by_id, broken_media.id),
         source?: broken_media.source?,
+        mp4?: broken_media.mp4?,
         mpd?: broken_media.mpd?,
-        mp4?: broken_media.mp4?
+        hls_master?: broken_media.hls_master?,
+        hls_playlist?: broken_media.hls_playlist?
       }
     end)
   end
@@ -162,5 +198,15 @@ defmodule Ambry.Media.Audit do
     |> Enum.reduce(FileSize.from_bytes(0), fn size, acc ->
       FileSize.add(size, acc)
     end)
+  end
+
+  # A %Media{} struct from ecto
+  defp hls_playlist_path(%Media{hls_path: hls_path}) do
+    Paths.hls_playlist_path(hls_path)
+  end
+
+  # A plain map from custom query
+  defp hls_playlist_file(%{hls_file: hls_file}) do
+    Paths.hls_playlist_path(hls_file)
   end
 end

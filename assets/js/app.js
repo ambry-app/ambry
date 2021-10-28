@@ -22,7 +22,7 @@ import { Socket } from 'phoenix'
 import { LiveSocket } from 'phoenix_live_view'
 import topbar from '../vendor/topbar'
 import Alpine from 'alpinejs'
-import { MediaPlayerHook } from './hooks/media_player'
+import { ShakaPlayerHook } from './hooks/shaka_player'
 import { MediaControlsHook } from './hooks/media_controls'
 import { SpeedSliderHook } from './hooks/speed_slider'
 import readMore from './alpine_data/read_more'
@@ -38,7 +38,7 @@ const csrfToken = document
 const liveSocket = new LiveSocket('/live', Socket, {
   params: { _csrf_token: csrfToken, browser_id: browserId },
   hooks: {
-    mediaPlayer: MediaPlayerHook,
+    mediaPlayer: ShakaPlayerHook,
     mediaControls: MediaControlsHook,
     speedSlider: SpeedSliderHook
   },

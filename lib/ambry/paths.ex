@@ -25,6 +25,13 @@ defmodule Ambry.Paths do
   end
 
   @doc """
+  The path on disk where all images are.
+  """
+  def images_disk_path(path \\ "") do
+    Path.join([uploads_folder_disk_path(), "images", path])
+  end
+
+  @doc """
   Convert a web path to a disk path.
   """
   def web_to_disk(nil), do: nil
@@ -36,4 +43,11 @@ defmodule Ambry.Paths do
 
     Path.join([uploads_folder_disk_path(), relative])
   end
+
+  @doc """
+  Given either a relative, web, or absolute path to an HLS master file, returns
+  the equivalent HLS playlist path.
+  """
+  def hls_playlist_path(nil), do: nil
+  def hls_playlist_path(path), do: Path.rootname(path) <> "_0.m3u8"
 end

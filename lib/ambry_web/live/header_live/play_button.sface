@@ -1,4 +1,4 @@
-<div class="cursor-pointer" :on-click={@click}>
+<div class="cursor-pointer" onclick="mediaPlayer.playPause()">
   <svg class="w-9 sm:w-11" viewBox="0 0 50 50" fill="none">
     <circle class="text-gray-300" cx="25" cy="25" r="24" stroke="currentColor" stroke-width="1.5" />
     {#if @playing}

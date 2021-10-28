@@ -3,6 +3,7 @@ defmodule Ambry.People do
   Functions for dealing with People.
   """
 
+  import Ambry.FileUtils
   import Ecto.Query
 
   alias Ambry.Books.Book
@@ -98,14 +99,46 @@ defmodule Ambry.People do
   ## Examples
 
       iex> delete_person(person)
-      {:ok, %Person{}}
+      :ok
+
+      iex> delete_person(person)
+      {:error, {:has_authored_books, books}}
+
+      iex> delete_person(person)
+      {:error, {:has_narrated_books, books}}
 
       iex> delete_person(person)
       {:error, %Ecto.Changeset{}}
 
   """
   def delete_person(%Person{} = person) do
-    Repo.delete(person)
+    case Repo.delete(change_person(person)) do
+      {:ok, person} ->
+        maybe_delete_image(person.image_path)
+        :ok
+
+      {:error, changeset} ->
+        cond do
+          Keyword.has_key?(changeset.errors, :author) ->
+            {:error, {:has_authored_books, get_authored_books_list(person)}}
+
+          Keyword.has_key?(changeset.errors, :narrator) ->
+            {:error, {:has_narrated_books, get_narrated_books_list(person)}}
+
+          true ->
+            {:error, changeset}
+        end
+    end
+  end
+
+  defp get_authored_books_list(person) do
+    %{authors: authors} = Repo.preload(person, authors: [:books])
+    Enum.flat_map(authors, fn author -> Enum.map(author.books, & &1.title) end)
+  end
+
+  defp get_narrated_books_list(person) do
+    %{narrators: narrators} = Repo.preload(person, narrators: [:books])
+    Enum.flat_map(narrators, fn narrator -> Enum.map(narrator.books, & &1.title) end)
   end
 
   @doc """

@@ -85,15 +85,6 @@ defmodule AmbryWeb.HeaderLive.Header do
   end
 
   @impl Phoenix.LiveView
-  def handle_event("duration-loaded", %{"duration" => duration}, socket) do
-    {:ok, player_state} =
-      Media.update_player_state(socket.assigns.player_state, %{
-        duration: duration
-      })
-
-    {:noreply, assign(socket, :player_state, player_state)}
-  end
-
   def handle_event("playback-started", _params, socket) do
     %{current_user: user, player_state: %{media: media}, browser_id: browser_id} = socket.assigns
     PubSub.pub(:playback_started, user.id, browser_id, media.id)
@@ -141,13 +132,15 @@ defmodule AmbryWeb.HeaderLive.Header do
   defp player_state_attrs(nil), do: %{}
 
   defp player_state_attrs(%Media.PlayerState{
-         media: %Media.Media{id: id, mpd_path: path},
+         media: %Media.Media{id: id, mpd_path: path, hls_path: hls_path},
          position: position,
          playback_rate: playback_rate
        }) do
     %{
       "data-media-id" => id,
+      "data-media-position" => position,
       "data-media-path" => "#{path}#t=#{position}",
+      "data-media-hls-path" => "#{hls_path}#t=#{position}",
       "data-media-playback-rate" => playback_rate
     }
   end

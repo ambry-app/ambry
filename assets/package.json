@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "alpinejs": "^3.3.3",
-    "dashjs": "^4.0.1"
+    "platform-detect": "^3.0.1",
+    "shaka-player": "^3.2.1"
   }
 }
