@@ -54,7 +54,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
       if assigns.action == :edit do
         assign(socket, :file_stats, Media.get_media_file_details(media))
       else
-        socket
+        assign(socket, :file_stats, nil)
       end
 
     {:ok,
