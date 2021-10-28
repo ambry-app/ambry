@@ -104,62 +104,72 @@
         </div>
       {/if}
 
-      {#case assigns[:file_stats]}
-        {#match nil}
-          <!-- nothing here -->
-        {#match files}
-          <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
-            <div class="space-y-2 divide-y divide-gray-200">
-              <div class="p-2 flex">
-                <div class="pr-2 w-28">
-                  <span class="px-1 border border-gray-200 rounded-md bg-gray-50">mp4</span>
-                </div>
-                {#if files.mp4_file}
-                  <div class="flex-grow break-all pr-2">
-                    {files.mp4_file.path}
-                  </div>
-                  <div class="flex-shrink">
-                    {#case files.mp4_file.stat}
-                      {#match error when is_atom(error)}
-                        <span class="px-1 border border-red-200 rounded-md bg-red-50">{error}</span>
-                      {#match stat when is_map(stat)}
-                        <span class="px-1 border border-blue-200 rounded-md bg-blue-50 whitespace-nowrap">{format_filesize(stat.size)}</span>
-                    {/case}
-                  </div>
-                {#else}
-                  <div class="flex-grow" />
-                  <div class="flex-shrink">
-                    <span class="px-1 border border-red-200 rounded-md bg-red-50">nil</span>
-                  </div>
-                {/if}
+      {#if @file_stats}
+        <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
+          <div class="space-y-2 divide-y divide-gray-200">
+            <div class="p-2 flex">
+              <div class="pr-2 w-28">
+                <span class="px-1 border border-gray-200 rounded-md bg-gray-50">mp4</span>
               </div>
-
-              <div class="p-2 flex">
-                <div class="pr-2 w-28">
-                  <span class="px-1 border border-gray-200 rounded-md bg-gray-50">mpd</span>
+              {#if @file_stats.mp4_file}
+                <div class="flex-grow break-all pr-2">
+                  {@file_stats.mp4_file.path}
                 </div>
-                {#if files.mpd_file}
-                  <div class="flex-grow break-all pr-2">
-                    {files.mpd_file.path}
-                  </div>
-                  <div class="flex-shrink">
-                    {#case files.mpd_file.stat}
-                      {#match error when is_atom(error)}
-                        <span class="px-1 border border-red-200 rounded-md bg-red-50">{error}</span>
-                      {#match stat when is_map(stat)}
-                        <span class="px-1 border border-blue-200 rounded-md bg-blue-50 whitespace-nowrap">{format_filesize(stat.size)}</span>
-                    {/case}
-                  </div>
-                {#else}
-                  <div class="flex-grow" />
-                  <div class="flex-shrink">
-                    <span class="px-1 border border-red-200 rounded-md bg-red-50">nil</span>
-                  </div>
-                {/if}
-              </div>
+                <div class="flex-shrink">
+                  {#case @file_stats.mp4_file.stat}
+                    {#match error when is_atom(error)}
+                      <span class="px-1 border border-red-200 rounded-md bg-red-50">{error}</span>
+                    {#match stat when is_map(stat)}
+                      <span class="px-1 border border-blue-200 rounded-md bg-blue-50 whitespace-nowrap">{format_filesize(stat.size)}</span>
+                  {/case}
+                </div>
+              {#else}
+                <div class="flex-grow" />
+                <div class="flex-shrink">
+                  <span class="px-1 border border-red-200 rounded-md bg-red-50">nil</span>
+                </div>
+              {/if}
+            </div>
 
-              {#case files.source_files}
-                {#match error when is_atom(error)}
+            <div class="p-2 flex">
+              <div class="pr-2 w-28">
+                <span class="px-1 border border-gray-200 rounded-md bg-gray-50">mpd</span>
+              </div>
+              {#if @file_stats.mpd_file}
+                <div class="flex-grow break-all pr-2">
+                  {@file_stats.mpd_file.path}
+                </div>
+                <div class="flex-shrink">
+                  {#case @file_stats.mpd_file.stat}
+                    {#match error when is_atom(error)}
+                      <span class="px-1 border border-red-200 rounded-md bg-red-50">{error}</span>
+                    {#match stat when is_map(stat)}
+                      <span class="px-1 border border-blue-200 rounded-md bg-blue-50 whitespace-nowrap">{format_filesize(stat.size)}</span>
+                  {/case}
+                </div>
+              {#else}
+                <div class="flex-grow" />
+                <div class="flex-shrink">
+                  <span class="px-1 border border-red-200 rounded-md bg-red-50">nil</span>
+                </div>
+              {/if}
+            </div>
+
+            {#case @file_stats.source_files}
+              {#match error when is_atom(error)}
+                <div class="p-2 flex">
+                  <div class="pr-2 w-28">
+                    <span class="px-1 border border-gray-200 rounded-md bg-gray-50">source</span>
+                  </div>
+                  <div class="flex-grow break-all pr-2">
+                    {@media.source_path}
+                  </div>
+                  <div class="flex-shrink">
+                    <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">{error}</span>
+                  </div>
+                </div>
+              {#match source_files when is_list(source_files)}
+                {#if source_files == []}
                   <div class="p-2 flex">
                     <div class="pr-2 w-28">
                       <span class="px-1 border border-gray-200 rounded-md bg-gray-50">source</span>
@@ -168,45 +178,32 @@
                       {@media.source_path}
                     </div>
                     <div class="flex-shrink">
-                      <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">{error}</span>
+                      <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">empty</span>
                     </div>
                   </div>
-                {#match source_files when is_list(source_files)}
-                  {#if source_files == []}
-                    <div class="p-2 flex">
-                      <div class="pr-2 w-28">
-                        <span class="px-1 border border-gray-200 rounded-md bg-gray-50">source</span>
-                      </div>
-                      <div class="flex-grow break-all pr-2">
-                        {@media.source_path}
-                      </div>
-                      <div class="flex-shrink">
-                        <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">empty</span>
-                      </div>
+                {/if}
+                {#for source_file <- source_files}
+                  <div class="p-2 flex">
+                    <div class="pr-2 w-28">
+                      <span class="px-1 border border-gray-200 rounded-md bg-gray-50">source</span>
                     </div>
-                  {/if}
-                  {#for source_file <- source_files}
-                    <div class="p-2 flex">
-                      <div class="pr-2 w-28">
-                        <span class="px-1 border border-gray-200 rounded-md bg-gray-50">source</span>
-                      </div>
-                      <div class="flex-grow break-all pr-2">
-                        {source_file.path}
-                      </div>
-                      <div class="flex-shrink">
-                        {#case source_file.stat}
-                          {#match error when is_atom(error)}
-                            <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">{error}</span>
-                          {#match stat when is_map(stat)}
-                            <span class="px-1 border border-blue-200 rounded-md bg-blue-50 whitespace-nowrap">{format_filesize(stat.size)}</span>
-                        {/case}
-                      </div>
+                    <div class="flex-grow break-all pr-2">
+                      {source_file.path}
                     </div>
-                  {/for}
-              {/case}
-            </div>
+                    <div class="flex-shrink">
+                      {#case source_file.stat}
+                        {#match error when is_atom(error)}
+                          <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">{error}</span>
+                        {#match stat when is_map(stat)}
+                          <span class="px-1 border border-blue-200 rounded-md bg-blue-50 whitespace-nowrap">{format_filesize(stat.size)}</span>
+                      {/case}
+                    </div>
+                  </div>
+                {/for}
+            {/case}
           </div>
-      {/case}
+        </div>
+      {/if}
 
       <div class="-m-6 bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
         <SaveButton />

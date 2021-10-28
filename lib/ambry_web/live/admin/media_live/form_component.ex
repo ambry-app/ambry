@@ -28,6 +28,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   prop action, :atom, required: true
   prop return_to, :string, required: true
 
+  data file_stats, :any
+
   @impl Phoenix.LiveComponent
   def mount(socket) do
     socket =
