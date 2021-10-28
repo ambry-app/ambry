@@ -8,8 +8,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   import AmbryWeb.Admin.UploadHelpers, only: [error_to_string: 1]
 
   alias Ambry.{Books, Media, Narrators}
-  alias Ambry.Media.Processor
-  alias AmbryWeb.Admin.Components.SaveButton
+  alias Ambry.Media.ProcessorJob
+  alias AmbryWeb.Admin.Components.{Button, SaveButton}
   alias AmbryWeb.Admin.MediaLive.FileStatRow
 
   alias Surface.Components.{Form, LiveFileInput}
@@ -118,6 +118,15 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     {:noreply, assign(socket, :changeset, changeset)}
   end
 
+  def handle_event("rerun-processor", _params, socket) do
+    {:ok, _job} = %{media_id: socket.assigns.media.id} |> ProcessorJob.new() |> Oban.insert()
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Processor scheduled")
+     |> push_redirect(to: socket.assigns.return_to)}
+  end
+
   defp clean_media_params(params) do
     params
     |> map_to_list("media_narrators")
@@ -145,7 +154,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     case Media.create_media(media_params) do
       {:ok, media} ->
         # schedule processor job only on newly created media
-        {:ok, _job} = %{media_id: media.id} |> Processor.new() |> Oban.insert()
+        {:ok, _job} = %{media_id: media.id} |> ProcessorJob.new() |> Oban.insert()
 
         {:noreply,
          socket

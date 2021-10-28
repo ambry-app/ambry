@@ -1,24 +1,27 @@
 defmodule Ambry.Media.Processor do
   @moduledoc """
-  Media uploads processor Oban job.
+  Media uploads processor.
 
   Delegates to other modules depending on what kind of files were uploaded.
   """
 
-  use Oban.Worker,
-    queue: :media,
-    max_attempts: 1
+  import Ambry.Media.Processor.Shared, only: [out_path: 1]
 
   alias Ambry.Media
   alias Ambry.Media.Processor.{MP3, MP3Concat, MP4, MP4Concat}
 
-  @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"media_id" => id}}) do
-    media = Media.get_media!(id)
+  @processors [
+    MP3,
+    MP3Concat,
+    MP4,
+    MP4Concat
+  ]
 
+  def run!(media) do
     {:ok, media} = Media.update_media(media, %{status: :processing}, for: :processor_update)
 
     try do
+      ensure_out_path!(media)
       run_processor!(media)
     rescue
       exception ->
@@ -28,13 +31,21 @@ defmodule Ambry.Media.Processor do
     end
   end
 
+  defp ensure_out_path!(media) do
+    media |> out_path() |> File.mkdir_p!()
+  end
+
   defp run_processor!(media) do
-    cond do
-      MP3Concat.can_run?(media) -> MP3Concat.run(media)
-      MP3.can_run?(media) -> MP3.run(media)
-      MP4Concat.can_run?(media) -> MP4Concat.run(media)
-      MP4.can_run?(media) -> MP4.run(media)
-      true -> raise "no matching processor found"
+    case matched_processors(media) do
+      [processor] -> processor.run(media)
+      [] -> raise "No matching processor found!"
+      [_ | _] -> raise "Multiple matching processors found!"
     end
+  end
+
+  defp matched_processors(media) do
+    Enum.filter(@processors, fn processor ->
+      processor.can_run?(media)
+    end)
   end
 end

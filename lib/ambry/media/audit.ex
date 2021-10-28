@@ -13,10 +13,10 @@ defmodule Ambry.Media.Audit do
   """
   def get_media_file_details(media) do
     source_files = source_file_stats(media)
-    mp4_file = media.mp4_path |> Paths.web_to_disk() |> file_stat()
-    mpd_file = media.mpd_path |> Paths.web_to_disk() |> file_stat()
-    hls_master = media.hls_path |> Paths.web_to_disk() |> file_stat()
-    hls_playlist = media |> hls_playlist_path() |> Paths.web_to_disk() |> file_stat()
+    [mp4_file] = media.mp4_path |> Paths.web_to_disk() |> file_stat()
+    [mpd_file] = media.mpd_path |> Paths.web_to_disk() |> file_stat()
+    [hls_master] = media.hls_path |> Paths.web_to_disk() |> file_stat()
+    [hls_playlist] = media |> hls_playlist_path() |> Paths.web_to_disk() |> file_stat()
 
     %{
       source_files: source_files,
@@ -32,7 +32,7 @@ defmodule Ambry.Media.Audit do
       {:ok, relative_paths} ->
         relative_paths
         |> NaturalSort.sort()
-        |> Enum.map(fn path ->
+        |> Enum.flat_map(fn path ->
           file_stat(Path.join([media.source_path, path]))
         end)
 
@@ -44,9 +44,23 @@ defmodule Ambry.Media.Audit do
   defp file_stat(nil), do: nil
 
   defp file_stat(path) do
-    case File.stat(path) do
-      {:ok, stat} -> %{path: path, stat: stat}
-      {:error, posix} -> %{path: path, stat: posix}
+    if File.dir?(path) do
+      case File.ls(path) do
+        {:ok, relative_paths} ->
+          relative_paths
+          |> NaturalSort.sort()
+          |> Enum.flat_map(fn p ->
+            file_stat(Path.join([path, p]))
+          end)
+
+        {:error, posix} ->
+          [%{path: path, stat: posix}]
+      end
+    else
+      case File.stat(path) do
+        {:ok, stat} -> [%{path: path, stat: stat}]
+        {:error, posix} -> [%{path: path, stat: posix}]
+      end
     end
   end
 

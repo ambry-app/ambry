@@ -12,19 +12,19 @@ defmodule Ambry.Media.Processor.MP3 do
   end
 
   def run(media) do
-    filename = convert_mp3!(media)
-    create_stream!(media, filename)
-    finalize!(media, filename)
+    id = convert_mp3!(media)
+    create_stream!(media, id)
+    finalize!(media, id)
   end
 
   defp convert_mp3!(media) do
     [mp3_file] = files(media, @extensions)
-    filename = Ecto.UUID.generate()
+    id = get_id(media)
     command = "ffmpeg"
-    args = ["-i", mp3_file, "-vn", "#{filename}.mp4"]
+    args = ["-i", "../#{mp3_file}", "-vn", "#{id}.mp4"]
 
-    {_output, 0} = System.cmd(command, args, cd: media.source_path, parallelism: true)
+    {_output, 0} = System.cmd(command, args, cd: out_path(media), parallelism: true)
 
-    filename
+    id
   end
 end

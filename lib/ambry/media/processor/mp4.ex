@@ -12,20 +12,20 @@ defmodule Ambry.Media.Processor.MP4 do
   end
 
   def run(media) do
-    filename = copy!(media)
-    create_stream!(media, filename)
-    finalize!(media, filename)
+    id = copy!(media)
+    create_stream!(media, id)
+    finalize!(media, id)
   end
 
   defp copy!(media) do
-    [m4b_file] = files(media, @extensions)
-    filename = Ecto.UUID.generate()
+    [mp4_file] = files(media, @extensions)
+    id = get_id(media)
 
     File.cp!(
-      Path.join(media.source_path, m4b_file),
-      Path.join(media.source_path, "#{filename}.mp4")
+      source_path(media, mp4_file),
+      out_path(media, "#{id}.mp4")
     )
 
-    filename
+    id
   end
 end
