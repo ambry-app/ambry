@@ -5,7 +5,7 @@
     {#for narrator <- @narrators}
       <div class="text-center text-lg">
         <div class="group">
-          <LiveRedirect to={Routes.person_show_path(@socket, :show, narrator.person)}>
+          <LiveRedirect to={Routes.person_show_path(Endpoint, :show, narrator.person)}>
             <span class="block aspect-w-1 aspect-h-1">
               <img
                 src={narrator.person.image_path}
@@ -14,7 +14,7 @@
             </span>
           </LiveRedirect>
           <p class="group-hover:underline">
-            <LiveRedirect to={Routes.person_show_path(@socket, :show, narrator.person)}>
+            <LiveRedirect to={Routes.person_show_path(Endpoint, :show, narrator.person)}>
               {narrator.name}
               {#if narrator.name != narrator.person.name}
                 <br>

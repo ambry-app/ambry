@@ -1,7 +1,9 @@
 defmodule AmbryWeb.BookLive.Header do
   @moduledoc false
 
-  use AmbryWeb, :live_component
+  use AmbryWeb, :component
+
+  alias AmbryWeb.Endpoint
 
   alias Surface.Components.LiveRedirect
 

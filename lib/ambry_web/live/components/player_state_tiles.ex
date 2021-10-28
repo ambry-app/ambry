@@ -3,9 +3,11 @@ defmodule AmbryWeb.Components.PlayerStateTiles do
   Renders a responsive tiled grid of player states with play buttons.
   """
 
-  use AmbryWeb, :live_component
+  use AmbryWeb, :component
 
   alias AmbryWeb.BookLive.PlayButton
+  alias AmbryWeb.Endpoint
+
   alias Surface.Components.LiveRedirect
 
   prop player_states, :list

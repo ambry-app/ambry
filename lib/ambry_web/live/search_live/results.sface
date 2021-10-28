@@ -4,13 +4,13 @@
   {#for {label, items} <- @results}
     {#case label}
       {#match :authors}
-        <AuthorResults id="authors" authors={Enum.map(items, &elem(&1, 1))} />
+        <AuthorResults authors={Enum.map(items, &elem(&1, 1))} />
       {#match :books}
-        <BookResults id="books" books={Enum.map(items, &elem(&1, 1))} />
+        <BookResults books={Enum.map(items, &elem(&1, 1))} />
       {#match :narrators}
-        <NarratorResults id="narrators" narrators={Enum.map(items, &elem(&1, 1))} />
+        <NarratorResults narrators={Enum.map(items, &elem(&1, 1))} />
       {#match :series}
-        <SeriesResults id="series" series={Enum.map(items, &elem(&1, 1))} />
+        <SeriesResults series={Enum.map(items, &elem(&1, 1))} />
     {/case}
   {/for}
 </div>

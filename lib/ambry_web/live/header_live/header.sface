@@ -15,7 +15,7 @@
     </div>
     <div class="flex-grow ml-0 sm:ml-5 md:ml-10">
       <div class="hidden sm:block">
-        <SearchForm id="search-1" change="search" close="close" query={assigns[:query]} />
+        <SearchForm change="search" close="close" query={assigns[:query]} />
       </div>
     </div>
     {#if !is_nil(@player_state) && !@expanded}
@@ -41,7 +41,7 @@
   {#if @expanded}
     <div class="flex bg-white bg-opacity-95 backdrop-blur-sm px-4 sm:px-10 pb-4 sm:pb-0">
       <div class="sm:hidden">
-        <SearchForm id="search-2" change="search" close="close" query={assigns[:query]} />
+        <SearchForm change="search" close="close" query={assigns[:query]} />
       </div>
       <div class="flex-grow text-right">
         <Link

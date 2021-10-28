@@ -7,7 +7,7 @@
         class="text-lime-500 hover:underline"
         data-phx-link="redirect"
         data-phx-link-state="push"
-        href={Routes.person_show_path(@socket, :show, author.person_id)}
+        href={Routes.person_show_path(Endpoint, :show, author.person_id)}
       >{author.name}</a><span class="last:hidden">,</span>
     {/for}
   </p>
@@ -15,7 +15,7 @@
   {#for series_book <- Enum.sort_by(@book.series_books, & &1.series.name)}
     <p class="text-gray-400">
       <LiveRedirect
-        to={Routes.series_show_path(@socket, :show, series_book.series)}
+        to={Routes.series_show_path(Endpoint, :show, series_book.series)}
         class="hover:underline"
       >
         {series_book.series.name} #{series_book.book_number}

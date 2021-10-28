@@ -1,4 +1,4 @@
-<AdminNav id="admin-nav" />
+<AdminNav />
 
 <div class="flex items-center">
   <div class="flex-grow">
