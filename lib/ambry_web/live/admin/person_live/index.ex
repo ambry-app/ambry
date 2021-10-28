@@ -71,16 +71,39 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     person = People.get_person!(id)
-    {:ok, _} = People.delete_person(person)
 
-    list_opts = get_list_opts(socket)
+    case People.delete_person(person) do
+      :ok ->
+        list_opts = get_list_opts(socket)
 
-    params = %{
-      "filter" => to_string(list_opts.filter),
-      "page" => to_string(list_opts.page)
-    }
+        params = %{
+          "filter" => to_string(list_opts.filter),
+          "page" => to_string(list_opts.page)
+        }
 
-    {:noreply, maybe_update_people(socket, params, true)}
+        {:noreply,
+         socket
+         |> maybe_update_people(params, true)
+         |> put_flash(:info, "Person deleted successfully")}
+
+      {:error, {:has_authored_books, books}} ->
+        message = """
+        Can't delete person because they have authored the following books:
+        #{Enum.join(books, ", ")}.
+        You must delete the books before you can delete this person.
+        """
+
+        {:noreply, put_flash(socket, :error, message)}
+
+      {:error, {:has_narrated_books, books}} ->
+        message = """
+        Can't delete person because they have narrated the following books:
+        #{Enum.join(books, ", ")}.
+        You must delete the books before you can delete this person.
+        """
+
+        {:noreply, put_flash(socket, :error, message)}
+    end
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do

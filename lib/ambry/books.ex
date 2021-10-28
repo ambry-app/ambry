@@ -3,7 +3,7 @@ defmodule Ambry.Books do
   Functions for dealing with Books.
   """
 
-  import Ambry.SearchUtils
+  import Ambry.{FileUtils, SearchUtils}
   import Ecto.Query
 
   alias Ambry.Books.Book
@@ -109,14 +109,28 @@ defmodule Ambry.Books do
   ## Examples
 
       iex> delete_book(book)
-      {:ok, %Book{}}
+      :ok
 
       iex> delete_book(book)
-      {:error, %Ecto.Changeset{}}
+      {:error, :has_media}
+
+      iex> delete_book(book)
+      {:error, changeset}
 
   """
   def delete_book(%Book{} = book) do
-    Repo.delete(book)
+    case Repo.delete(change_book(book)) do
+      {:ok, book} ->
+        maybe_delete_image(book.image_path)
+        :ok
+
+      {:error, changeset} ->
+        if Keyword.has_key?(changeset.errors, :media) do
+          {:error, :has_media}
+        else
+          {:error, changeset}
+        end
+    end
   end
 
   @doc """

@@ -173,8 +173,4 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   defp changeset_action(:new), do: :create
   defp changeset_action(:edit), do: :update
-
-  defp format_filesize(bytes) do
-    bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()
-  end
 end

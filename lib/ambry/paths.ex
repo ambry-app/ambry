@@ -25,6 +25,13 @@ defmodule Ambry.Paths do
   end
 
   @doc """
+  The path on disk where all images are.
+  """
+  def images_disk_path(path \\ "") do
+    Path.join([uploads_folder_disk_path(), "images", path])
+  end
+
+  @doc """
   Convert a web path to a disk path.
   """
   def web_to_disk(nil), do: nil

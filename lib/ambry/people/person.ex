@@ -30,5 +30,7 @@ defmodule Ambry.People.Person do
     |> cast_assoc(:authors)
     |> cast_assoc(:narrators)
     |> validate_required([:name])
+    |> foreign_key_constraint(:author, name: "authors_books_author_id_fkey")
+    |> foreign_key_constraint(:narrator, name: "media_narrators_narrator_id_fkey")
   end
 end
