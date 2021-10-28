@@ -1,7 +1,7 @@
 defmodule AmbryWeb.SearchLive.SeriesResults do
   @moduledoc false
 
-  use AmbryWeb, :component
+  use AmbryWeb, :live_component
 
   alias AmbryWeb.Components.SeriesTiles
 

@@ -1,7 +1,7 @@
 defmodule AmbryWeb.HeaderLive.SearchForm do
   @moduledoc false
 
-  use AmbryWeb, :component
+  use AmbryWeb, :live_component
 
   alias Surface.Components.Form
   alias Surface.Components.Form.{Field, TextInput}

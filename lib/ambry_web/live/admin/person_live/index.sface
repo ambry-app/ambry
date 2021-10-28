@@ -1,4 +1,4 @@
-<AdminNav />
+<AdminNav id="admin-nav" />
 
 <h1 class="text-4xl mb-4">People</h1>
 

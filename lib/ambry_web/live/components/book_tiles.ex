@@ -3,7 +3,7 @@ defmodule AmbryWeb.Components.BookTiles do
   Renders a responsive tiled grid of book links.
   """
 
-  use AmbryWeb, :component
+  use AmbryWeb, :live_component
 
   alias Ambry.Books.Book
   alias Ambry.Series.SeriesBook

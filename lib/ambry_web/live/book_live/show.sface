@@ -1,7 +1,7 @@
 <div class="sm:flex sm:flex-row">
   <section id="cover" class="flex-none mb-4 sm:mb-0 sm:w-80">
     <div class="sm:hidden">
-      <Header book={@book} />
+      <Header id={"#{@book.id}-1"} book={@book} />
     </div>
     <img src={@book.image_path} class="rounded-3xl shadow-lg w-full sm:w-80">
     <p class="text-gray-500 mt-2 text-sm">Published {Calendar.strftime(@book.published, "%B %-d, %Y")}</p>
@@ -37,7 +37,7 @@
   </section>
   <section id="description" class="max-w-md sm:ml-10">
     <div class="hidden sm:block">
-      <Header book={@book} />
+      <Header id={"#{@book.id}-2"} book={@book} />
     </div>
     {#if @book.description}
       <div class="markdown mt-4">

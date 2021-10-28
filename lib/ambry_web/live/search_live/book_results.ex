@@ -1,7 +1,7 @@
 defmodule AmbryWeb.SearchLive.BookResults do
   @moduledoc false
 
-  use AmbryWeb, :component
+  use AmbryWeb, :live_component
 
   alias AmbryWeb.Components.BookTiles
 

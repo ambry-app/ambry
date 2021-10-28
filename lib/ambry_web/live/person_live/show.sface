@@ -38,7 +38,7 @@
     <h2 class="mt-10 mb-4 text-3xl">Written by {author.name}</h2>
   {/if}
 
-  <BookTiles books={author.books} />
+  <BookTiles id={author.id} books={author.books} />
 {/for}
 
 {#for narrator <- @person.narrators}
@@ -48,5 +48,5 @@
     <h2 class="mt-10 mb-4 text-3xl">Narrated by {narrator.name}</h2>
   {/if}
 
-  <BookTiles books={narrator.books} />
+  <BookTiles id={narrator.id} books={narrator.books} />
 {/for}

@@ -1,15 +1,16 @@
-{#if @player_states != []}
-  <div class="mb-10">
-    <h1 class="text-4xl mb-4">Continue listening</h1>
+<div>
+  {#if @player_states != []}
+    <div class="mb-10">
+      <h1 class="text-4xl mb-4">Continue listening</h1>
 
-    <PlayerStateTiles
-      player_states={@player_states}
-      show_load_more={@show_load_more?}
-      load_more="load-more"
-      user={@user}
-      browser_id={@browser_id}
-    />
-  </div>
-{#else}
-  <span />
-{/if}
+      <PlayerStateTiles
+        id="continue-listening"
+        player_states={@player_states}
+        show_load_more={@show_load_more?}
+        load_more="load-more"
+        user={@user}
+        browser_id={@browser_id}
+      />
+    </div>
+  {/if}
+</div>

@@ -3,7 +3,7 @@ defmodule AmbryWeb.Components.SeriesTiles do
   Renders a responsive tiled grid of series links.
   """
 
-  use AmbryWeb, :component
+  use AmbryWeb, :live_component
 
   alias Surface.Components.LiveRedirect
 

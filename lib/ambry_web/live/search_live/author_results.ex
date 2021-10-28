@@ -1,7 +1,7 @@
 defmodule AmbryWeb.SearchLive.AuthorResults do
   @moduledoc false
 
-  use AmbryWeb, :component
+  use AmbryWeb, :live_component
 
   alias Surface.Components.LiveRedirect
 

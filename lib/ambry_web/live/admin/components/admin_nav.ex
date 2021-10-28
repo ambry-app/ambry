@@ -3,7 +3,7 @@ defmodule AmbryWeb.Admin.Components.AdminNav do
   Renders the admin navigation bar.
   """
 
-  use AmbryWeb, :component
+  use AmbryWeb, :live_component
 
   alias Surface.Components.LiveRedirect
 
