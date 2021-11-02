@@ -137,7 +137,7 @@ export const ShakaPlayerHook = {
   playbackTimeUpdated () {
     const time = this.audio.currentTime
 
-    if (time && time != this.time) {
+    if (time != this.time) {
       this.pushEvent('playback-time-updated', { 'playback-time': time })
       this.time = time
     }
