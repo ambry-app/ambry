@@ -12,7 +12,7 @@
           <div class="flex items-center py-3">
             <div class="flex-grow mr-2">
               <p class="text-lg">{@book.title} ({recording_type(media)})</p>
-              <p class="text-gray-400">
+              <p class="text-gray-500">
                 Narrated by
                 {#for narrator <- media.narrators}
                   <a
@@ -25,6 +25,9 @@
                 {#if media.full_cast}
                   <span>full cast</span>
                 {/if}
+              </p>
+              <p class="text-gray-400">
+                {duration_display(media.duration)}
               </p>
             </div>
             <PlayButton id={media.id} media={media} user={@current_user} browser_id={assigns[:browser_id]} />

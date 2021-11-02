@@ -45,6 +45,22 @@ defmodule AmbryWeb.BookLive.Show do
     {:noreply, socket}
   end
 
-  def recording_type(%{abridged: true}), do: "Abridged"
-  def recording_type(%{abridged: false}), do: "Unabridged"
+  defp recording_type(%{abridged: true}), do: "Abridged"
+  defp recording_type(%{abridged: false}), do: "Unabridged"
+
+  defp duration_display(nil), do: nil
+
+  defp duration_display(duration) do
+    seconds = duration |> Decimal.round() |> Decimal.to_integer()
+
+    hours = div(seconds, 3600)
+    remainder = rem(seconds, 3600)
+    minutes = div(remainder, 60)
+
+    if hours == 0 do
+      "#{minutes} minutes"
+    else
+      "#{hours} hours and #{minutes} minutes"
+    end
+  end
 end
