@@ -6,7 +6,7 @@ defmodule AmbryWeb.HomeLive.RecentBooks do
   alias Ambry.Books
   alias AmbryWeb.Components.BookTiles
 
-  @limit 10
+  @limit 25
 
   data show_load_more?, :boolean, default: true
   data books, :list, default: []
