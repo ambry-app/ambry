@@ -7,7 +7,7 @@ defmodule AmbryWeb.API.BookController do
 
   action_fallback AmbryWeb.FallbackController
 
-  @limit 10
+  @limit 25
 
   def index(conn, params) do
     offset = offset_from_params(params, @limit)

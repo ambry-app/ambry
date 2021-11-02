@@ -3,7 +3,7 @@ defmodule AmbryWeb.Admin.PaginationHelpers do
   Helpers for building paginated / filterable lists.
   """
 
-  @limit 50
+  @limit 15
 
   def limit do
     @limit

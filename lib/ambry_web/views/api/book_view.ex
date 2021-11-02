@@ -46,7 +46,9 @@ defmodule AmbryWeb.API.BookView do
           }
         end),
       series:
-        Enum.map(book.series_books, fn series_book ->
+        book.series_books
+        |> Enum.sort_by(& &1.series.name)
+        |> Enum.map(fn series_book ->
           %{
             id: series_book.series.id,
             name: series_book.series.name,
