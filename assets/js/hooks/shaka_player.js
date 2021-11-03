@@ -87,6 +87,11 @@ export const ShakaPlayerHook = {
     }
   },
 
+  seek (position) {
+    const audio = this.audio
+    audio.currentTime = position
+  },
+
   seekRelative (seconds) {
     const audio = this.audio
     const duration = audio.duration

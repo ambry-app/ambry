@@ -21,6 +21,7 @@ defmodule AmbryWeb.BookLive.PlayButton do
 
   # Callbacks
 
+  @impl Phoenix.LiveComponent
   def update(
         %{
           media: %{id: media_id},

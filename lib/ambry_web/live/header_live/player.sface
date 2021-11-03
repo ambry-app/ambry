@@ -78,7 +78,7 @@
     {!-- player controls --}
     <div class="py-4 px-1 sm:px-3 grid grid-cols-5 sm:grid-cols-7 items-center">
       {!-- bookmarks --}
-      <button type="button" class="mx-auto">
+      <button type="button" class="mx-auto" :on-click="toggle-bookmarks">
         <svg width="24" height="24" fill="none">
           <path
             d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
@@ -231,5 +231,14 @@
         </div>
       </div>
     </div>
+  {/if}
+
+  {#if @show_bookmarks}
+    <Bookmarks
+      id="bookmarks-modal"
+      dismiss="toggle-bookmarks"
+      media_id={@player_state.media_id}
+      user_id={@player_state.user_id}
+    />
   {/if}
 </div>
