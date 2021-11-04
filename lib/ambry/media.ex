@@ -297,6 +297,26 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  Lists bookmarks paginated.
+  """
+  def list_bookmarks(user_id, media_id, offset, limit) do
+    over_limit = limit + 1
+
+    query =
+      from b in Bookmark,
+        where: b.media_id == ^media_id and b.user_id == ^user_id,
+        order_by: b.position,
+        offset: ^offset,
+        limit: ^over_limit
+
+    bookmarks = Repo.all(query)
+
+    bookmarks_to_return = Enum.slice(bookmarks, 0, limit)
+
+    {bookmarks_to_return, bookmarks != bookmarks_to_return}
+  end
+
+  @doc """
   Gets a single bookmark.
 
   Raises `Ecto.NoResultsError` if the Bookmark does not exist.
@@ -354,7 +374,7 @@ defmodule Ambry.Media do
   ## Examples
 
       iex> delete_bookmark(bookmark)
-      :ok
+      {:ok, bookmark}
 
       iex> delete_bookmark(bookmark)
       {:error, %Ecto.Changeset{}}
