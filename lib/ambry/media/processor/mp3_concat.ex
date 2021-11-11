@@ -19,14 +19,7 @@ defmodule Ambry.Media.Processor.MP3Concat do
   end
 
   defp concat_mp3!(media) do
-    file_list_txt_path = out_path(media, "files.txt")
-
-    file_list_txt =
-      media
-      |> files(@extensions)
-      |> Enum.map_join("\n", &"file '../#{&1}'")
-
-    File.write!(file_list_txt_path, file_list_txt)
+    create_concat_text_file!(media, @extensions)
 
     id = get_id(media)
     command = "ffmpeg"
