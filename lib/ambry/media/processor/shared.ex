@@ -30,6 +30,27 @@ defmodule Ambry.Media.Processor.Shared do
     |> NaturalSort.sort()
   end
 
+  def create_concat_text_file!(media, extensions) do
+    file_list_txt_path = out_path(media, "files.txt")
+
+    file_list_txt =
+      media
+      |> files(extensions)
+      |> Enum.map_join("\n", fn filename ->
+        "file #{quote_and_escape_filename("../#{filename}")}"
+      end)
+
+    File.write!(file_list_txt_path, file_list_txt)
+  end
+
+  # This quotes and escapes filenames according to what ffmpeg requires. See the
+  # docs here: https://www.ffmpeg.org/ffmpeg-utils.html#Quoting-and-escaping
+  defp quote_and_escape_filename(filename) do
+    filename
+    |> String.split("'")
+    |> Enum.map_join("\\'", &"'#{&1}'")
+  end
+
   def create_stream!(media, id) do
     command = "shaka-packager"
 
