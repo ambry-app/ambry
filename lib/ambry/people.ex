@@ -6,7 +6,6 @@ defmodule Ambry.People do
   import Ambry.FileUtils
   import Ecto.Query
 
-  alias Ambry.Books.Book
   alias Ambry.People.Person
   alias Ambry.Repo
 
@@ -160,13 +159,18 @@ defmodule Ambry.People do
   Books are listed in descending order based on publish date.
   """
   def get_person_with_books!(person_id) do
-    books_query = from b in Book, order_by: [desc: b.published]
+    query =
+      from person in Person,
+        left_join: narrators in assoc(person, :narrators),
+        left_join: narrated_books in assoc(narrators, :books),
+        left_join: authors in assoc(person, :authors),
+        left_join: authored_books in assoc(authors, :books),
+        preload: [
+          narrators: {narrators, books: {narrated_books, [:authors, series_books: :series]}},
+          authors: {authors, books: {authored_books, [:authors, series_books: :series]}}
+        ],
+        order_by: [desc: narrated_books.published, desc: authored_books.published]
 
-    Person
-    |> preload(
-      authors: [books: ^{books_query, [:authors, series_books: :series]}],
-      narrators: [books: ^{books_query, [:authors, series_books: :series]}]
-    )
-    |> Repo.get!(person_id)
+    Repo.get!(query, person_id)
   end
 end
