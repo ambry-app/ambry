@@ -14,7 +14,7 @@ defmodule AmbryWeb.API.BookmarkView do
     %{
       id: bookmark.id,
       label: bookmark.label,
-      position: bookmark.position
+      position: Decimal.to_float(bookmark.position)
     }
   end
 end
