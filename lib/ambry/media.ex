@@ -67,7 +67,7 @@ defmodule Ambry.Media do
       ** (Ecto.NoResultsError)
 
   """
-  def get_media!(id), do: Media |> preload([:media_narrators]) |> Repo.get!(id)
+  def get_media!(id), do: Media |> preload([:book, :media_narrators]) |> Repo.get!(id)
 
   @doc """
   Creates a media.

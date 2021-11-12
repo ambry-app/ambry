@@ -17,6 +17,20 @@
   </Modal>
 {/if}
 
+{#if @live_action == :chapters}
+  <Modal
+    id={@selected_media.id}
+    return_to={Routes.admin_media_index_path(@socket, :index, patch_opts(@list_opts))}
+  >
+    <ChaptersComponent
+      id={@selected_media.id}
+      title={@page_title}
+      media={@selected_media}
+      return_to={Routes.admin_media_index_path(@socket, :index, patch_opts(@list_opts))}
+    />
+  </Modal>
+{/if}
+
 <div class="flex items-center">
   <Form for={:search} submit="search" class="flex-grow">
     <Field name="query">
@@ -92,6 +106,20 @@
             </span>
           </LivePatch>
         </div>
+        <LivePatch to={Routes.admin_media_index_path(@socket, :chapters, media, patch_opts(@list_opts))}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="text-lime-500 h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </LivePatch>
         <LivePatch to={Routes.admin_media_index_path(@socket, :edit, media, patch_opts(@list_opts))}>
           <svg
             xmlns="http://www.w3.org/2000/svg"

@@ -34,9 +34,11 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
+    person = People.get_person!(id)
+
     socket
-    |> assign(:page_title, "Edit Person")
-    |> assign(:person, People.get_person!(id))
+    |> assign(:page_title, person.name)
+    |> assign(:person, person)
   end
 
   defp apply_action(socket, :new, _params) do

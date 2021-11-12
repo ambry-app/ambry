@@ -33,9 +33,11 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
+    series = Series.get_series!(id)
+
     socket
-    |> assign(:page_title, "Edit Series")
-    |> assign(:selected_series, Series.get_series!(id))
+    |> assign(:page_title, series.name)
+    |> assign(:selected_series, series)
   end
 
   defp apply_action(socket, :new, _params) do
