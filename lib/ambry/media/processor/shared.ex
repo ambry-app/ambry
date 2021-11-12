@@ -98,6 +98,10 @@ defmodule Ambry.Media.Processor.Shared do
   end
 
   defp get_duration(file) do
+    # NOTE: this can be inaccurate. To get accurate an duration, we need to
+    # decode the whole file using ffmpeg. e.g.:
+    # ffmpeg -v quiet -stats -i input.mp3 -f null -
+
     command = "ffprobe"
     args = ["-i", file, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv='p=0'"]
     {output, 0} = System.shell(Enum.join([command | args], " "))
