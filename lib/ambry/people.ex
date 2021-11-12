@@ -163,11 +163,33 @@ defmodule Ambry.People do
       from person in Person,
         left_join: narrators in assoc(person, :narrators),
         left_join: narrated_books in assoc(narrators, :books),
+        left_join: narrated_book_authors in assoc(narrated_books, :authors),
+        left_join: narrated_book_series_books in assoc(narrated_books, :series_books),
+        left_join: narrated_book_series_book_series in assoc(narrated_book_series_books, :series),
         left_join: authors in assoc(person, :authors),
         left_join: authored_books in assoc(authors, :books),
+        left_join: authored_book_authors in assoc(authored_books, :authors),
+        left_join: authored_book_series_books in assoc(authored_books, :series_books),
+        left_join: authored_book_series_book_series in assoc(authored_book_series_books, :series),
         preload: [
-          narrators: {narrators, books: {narrated_books, [:authors, series_books: :series]}},
-          authors: {authors, books: {authored_books, [:authors, series_books: :series]}}
+          narrators:
+            {narrators,
+             books:
+               {narrated_books,
+                [
+                  authors: narrated_book_authors,
+                  series_books:
+                    {narrated_book_series_books, series: narrated_book_series_book_series}
+                ]}},
+          authors:
+            {authors,
+             books:
+               {authored_books,
+                [
+                  authors: authored_book_authors,
+                  series_books:
+                    {authored_book_series_books, series: authored_book_series_book_series}
+                ]}}
         ],
         order_by: [desc: narrated_books.published, desc: authored_books.published]
 
