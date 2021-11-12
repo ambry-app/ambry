@@ -35,7 +35,7 @@ defmodule Ambry.Media.Chapters.OverdriveMP3 do
          {:ok, marker_xml} <- get_marker_xml(metadata),
          {:ok, markers} <- decode_marker_xml(marker_xml) do
       chapters = build_chapters(markers, offset)
-      get_chapters(media, rest, duration, [chapters | acc])
+      get_chapters(media, rest, Decimal.add(offset, duration), [chapters | acc])
     end
   end
 
