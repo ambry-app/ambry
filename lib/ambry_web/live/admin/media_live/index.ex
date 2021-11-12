@@ -10,7 +10,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   alias Ambry.Media
 
   alias AmbryWeb.Admin.Components.AdminNav
-  alias AmbryWeb.Admin.MediaLive.FormComponent
+  alias AmbryWeb.Admin.MediaLive.{ChaptersComponent, FormComponent}
   alias AmbryWeb.Components.Modal
 
   alias Surface.Components.{Form, LivePatch}
@@ -33,15 +33,25 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
+    media = Media.get_media!(id)
+
     socket
-    |> assign(:page_title, "Edit Media")
-    |> assign(:selected_media, Media.get_media!(id))
+    |> assign(:page_title, media.book.title)
+    |> assign(:selected_media, media)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Media")
     |> assign(:selected_media, %Media.Media{media_narrators: []})
+  end
+
+  defp apply_action(socket, :chapters, %{"id" => id}) do
+    media = Media.get_media!(id)
+
+    socket
+    |> assign(:page_title, "#{media.book.title} - Chapters")
+    |> assign(:selected_media, media)
   end
 
   defp apply_action(socket, :index, _params) do

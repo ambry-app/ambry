@@ -34,9 +34,11 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
+    book = Books.get_book!(id)
+
     socket
-    |> assign(:page_title, "Edit Book")
-    |> assign(:book, Books.get_book!(id))
+    |> assign(:page_title, book.title)
+    |> assign(:book, book)
   end
 
   defp apply_action(socket, :new, _params) do
