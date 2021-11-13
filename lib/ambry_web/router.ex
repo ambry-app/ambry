@@ -92,6 +92,8 @@ defmodule AmbryWeb.Router do
     resources "/people", PersonController, only: [:show]
     resources "/series", SeriesController, only: [:show]
     resources "/player_states", PlayerStateController, only: [:index, :show, :update]
+    resources "/bookmarks", BookmarkController, only: [:create, :update, :delete]
+    get "/bookmarks/:media_id", BookmarkController, :index
   end
 
   # Enables the Swoosh mailbox preview in development.

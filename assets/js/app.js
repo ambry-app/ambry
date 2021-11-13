@@ -25,6 +25,7 @@ import Alpine from 'alpinejs'
 import { ShakaPlayerHook } from './hooks/shaka_player'
 import { MediaControlsHook } from './hooks/media_controls'
 import { SpeedSliderHook } from './hooks/speed_slider'
+import { BookmarkButtonHook } from './hooks/bookmark_button'
 import readMore from './alpine_data/read_more'
 
 const browserId = window.crypto
@@ -40,7 +41,8 @@ const liveSocket = new LiveSocket('/live', Socket, {
   hooks: {
     mediaPlayer: ShakaPlayerHook,
     mediaControls: MediaControlsHook,
-    speedSlider: SpeedSliderHook
+    speedSlider: SpeedSliderHook,
+    bookmarkButton: BookmarkButtonHook
   },
   dom: {
     onBeforeElUpdated (from, to) {

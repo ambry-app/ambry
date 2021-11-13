@@ -4,6 +4,8 @@ defmodule AmbryWeb.BookLive.Show do
   """
   use AmbryWeb, :live_view
 
+  import AmbryWeb.TimeUtils, only: [duration_display: 1]
+
   alias Ambry.{Books, PubSub}
   alias AmbryWeb.BookLive.{Header, PlayButton}
 
@@ -47,20 +49,4 @@ defmodule AmbryWeb.BookLive.Show do
 
   defp recording_type(%{abridged: true}), do: "Abridged"
   defp recording_type(%{abridged: false}), do: "Unabridged"
-
-  defp duration_display(nil), do: nil
-
-  defp duration_display(duration) do
-    seconds = duration |> Decimal.round() |> Decimal.to_integer()
-
-    hours = div(seconds, 3600)
-    remainder = rem(seconds, 3600)
-    minutes = div(remainder, 60)
-
-    if hours == 0 do
-      "#{minutes} minutes"
-    else
-      "#{hours} hours and #{minutes} minutes"
-    end
-  end
 end
