@@ -26,15 +26,28 @@ defmodule AmbryWeb.API.PlayerStateView do
         mpdPath: player_state.media.mpd_path,
         hlsPath: player_state.media.hls_path,
         duration: Decimal.to_float(player_state.media.duration),
-        narrators:
-          Enum.map(player_state.media.narrators, fn narrator ->
-            %{
-              personId: narrator.person_id,
-              name: narrator.name
-            }
-          end),
-        book: render_one(player_state.media.book, BookView, "book_index.json")
+        narrators: narrators(player_state.media.narrators),
+        book: render_one(player_state.media.book, BookView, "book_index.json"),
+        chapters: chapters(player_state.media.chapters)
       }
     }
+  end
+
+  defp narrators(narrators) do
+    Enum.map(narrators, fn narrator ->
+      %{
+        personId: narrator.person_id,
+        name: narrator.name
+      }
+    end)
+  end
+
+  defp chapters(chapters) do
+    Enum.map(chapters, fn chapter ->
+      %{
+        title: chapter.title,
+        time: Decimal.to_float(chapter.time)
+      }
+    end)
   end
 end
