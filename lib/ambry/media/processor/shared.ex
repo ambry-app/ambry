@@ -98,16 +98,27 @@ defmodule Ambry.Media.Processor.Shared do
   end
 
   defp get_duration(file) do
-    # NOTE: this can be inaccurate. To get accurate an duration, we need to
-    # decode the whole file using ffmpeg. e.g.:
-    # ffmpeg -v quiet -stats -i input.mp3 -f null -
+    # getting the duration from the metadata is safe for the MP4 files we
+    # produce. But to get duration from unknown source files, we should not rely
+    # on the metadata reported duration.
 
     command = "ffprobe"
-    args = ["-i", file, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv='p=0'"]
-    {output, 0} = System.shell(Enum.join([command | args], " "))
-    {duration, "\n"} = Decimal.parse(output)
 
-    duration
+    args = [
+      "-i",
+      file,
+      "-print_format",
+      "json",
+      "-show_entries",
+      "format=duration",
+      "-v",
+      "quiet"
+    ]
+
+    {output, 0} = System.cmd(command, args, parallelism: true)
+    %{"format" => %{"duration" => duration_string}} = Jason.decode!(output)
+
+    Decimal.new(duration_string)
   end
 
   def out_path(media, file \\ "") do

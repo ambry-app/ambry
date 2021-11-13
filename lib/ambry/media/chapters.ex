@@ -3,9 +3,10 @@ defmodule Ambry.Media.Chapters do
   Tries to determine chapters from various kinds of media.
   """
 
-  alias Ambry.Media.Chapters.{MP4, OverdriveMP3}
+  alias Ambry.Media.Chapters.{ChapteredMP3, MP4, OverdriveMP3}
 
   @strategies [
+    ChapteredMP3,
     MP4,
     OverdriveMP3
   ]
