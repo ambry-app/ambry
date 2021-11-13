@@ -23,6 +23,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
   data show_strategies, :boolean, default: false
   data strategies, :list, default: []
   data strategy_error, :atom, default: nil
+  data running_strategy, :boolean, default: false
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -37,6 +38,30 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
      socket
      |> assign(assigns)
      |> assign(changeset: changeset)}
+  end
+
+  def update(%{chapters: chapters_response}, socket) do
+    # the parent live view has run the chapter strategy and has sent us a result
+    %{media: media} = socket.assigns
+
+    socket =
+      case chapters_response do
+        {:ok, chapters} ->
+          changeset = Media.change_media(media, %{chapters: chapters}, for: :update)
+
+          assign(socket,
+            show_strategies: false,
+            strategy_error: nil,
+            strategies: [],
+            running_strategy: false,
+            changeset: changeset
+          )
+
+        {:error, error} ->
+          assign(socket, running_strategy: false, strategy_error: error)
+      end
+
+    {:ok, socket}
   end
 
   @impl Phoenix.LiveComponent
@@ -64,27 +89,17 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
   end
 
   def handle_event("run-strategy", %{"strategy" => num}, socket) do
-    %{strategies: strategies, media: media} = socket.assigns
+    %{strategies: strategies} = socket.assigns
 
     strategy = Enum.at(strategies, String.to_integer(num))
 
-    socket =
-      case strategy.get_chapters(media) do
-        {:ok, chapters} ->
-          changeset = Media.change_media(media, %{chapters: chapters}, for: :update)
+    # run strategy async (handled in parent live view)
+    send(self(), {:run_strategy, strategy})
 
-          assign(socket,
-            show_strategies: false,
-            strategy_error: nil,
-            strategies: [],
-            changeset: changeset
-          )
-
-        {:error, error} ->
-          assign(socket, strategy_error: error)
-      end
-
-    {:noreply, socket}
+    {:noreply,
+     assign(socket,
+       running_strategy: true
+     )}
   end
 
   defp save_media(socket, media_params) do

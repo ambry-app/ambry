@@ -1,19 +1,25 @@
 <div>
   <h2 class="text-3xl pb-4">{@title}</h2>
 
-  <div class="mb-4 flex flex-wrap">
-    {#if @show_strategies}
-      {#for {strategy, index} <- Enum.with_index(@strategies)}
-        <Button click="run-strategy" values={strategy: index} label={strategy.name()} class="my-1" />
-      {/for}
-      <Button click="hide-strategies" label="Cancel" color={:red} class="my-1" />
-    {#else}
-      <Button click="show-strategies" label="Extract From Source" class="my-1" />
-    {/if}
-  </div>
+  {#if @running_strategy}
+    <p class="mb-4 font-bold text-yellow-500">
+      Extracting chapters! This might take a while, please don't close the page.
+    </p>
+  {#else}
+    <div class="mb-4 flex flex-wrap">
+      {#if @show_strategies}
+        {#for {strategy, index} <- Enum.with_index(@strategies)}
+          <Button click="run-strategy" values={strategy: index} label={strategy.name()} class="my-1" />
+        {/for}
+        <Button click="hide-strategies" label="Cancel" color={:red} class="my-1" />
+      {#else}
+        <Button click="show-strategies" label="Extract From Source" class="my-1" />
+      {/if}
+    </div>
+  {/if}
 
   {#if @strategy_error}
-    <p class="font-bold text-red-500">
+    <p class="mb-4 font-bold text-red-500">
       Error getting chapters: {@strategy_error}
     </p>
   {/if}

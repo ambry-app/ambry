@@ -3,6 +3,7 @@ defmodule Ambry.Media.Chapters.OverdriveMP3 do
   Tries to extract chapter information from a set of OverDrive MP3s.
   """
 
+  import Ambry.Media.Chapters.Utils
   import Ambry.Media.Processor.Shared
   import SweetXml
 
@@ -31,35 +32,11 @@ defmodule Ambry.Media.Chapters.OverdriveMP3 do
   defp get_chapters(media, [file | rest], offset, acc) do
     with {:ok, json} <- get_metadata_json(media, file),
          {:ok, metadata} <- decode(json),
-         {:ok, duration} <- get_duration(metadata),
+         {:ok, duration} <- get_accurate_duration(media, file),
          {:ok, marker_xml} <- get_marker_xml(metadata),
          {:ok, markers} <- decode_marker_xml(marker_xml) do
       chapters = build_chapters(markers, offset)
       get_chapters(media, rest, Decimal.add(offset, duration), [chapters | acc])
-    end
-  end
-
-  defp get_metadata_json(media, file) do
-    command = "ffprobe"
-
-    args = [
-      "-i",
-      file,
-      "-print_format",
-      "json",
-      "-show_entries",
-      "stream=codec_name:format",
-      "-v",
-      "quiet"
-    ]
-
-    case System.cmd(command, args, cd: source_path(media), parallelism: true) do
-      {output, 0} ->
-        {:ok, output}
-
-      {output, code} ->
-        Logger.warn(fn -> "MP3 metadata probe failed. Code: #{code}, Output: #{output}" end)
-        {:error, :probe_failed}
     end
   end
 
@@ -71,17 +48,6 @@ defmodule Ambry.Media.Chapters.OverdriveMP3 do
       {:error, error} ->
         Logger.warn(fn -> "ffprobe metadata json decode failed: #{inspect(error)}" end)
         {:error, :invalid_json}
-    end
-  end
-
-  defp get_duration(metadata) do
-    case metadata do
-      %{"format" => %{"duration" => duration_string}} ->
-        {:ok, Decimal.new(duration_string)}
-
-      unexpected ->
-        Logger.warn(fn -> "Missing duration in metadata: #{inspect(unexpected)}" end)
-        {:error, :missing_duration}
     end
   end
 
@@ -136,20 +102,5 @@ defmodule Ambry.Media.Chapters.OverdriveMP3 do
           |> Decimal.round(2)
       }
     end)
-  end
-
-  defp timecode_to_decimal(timecode) do
-    case String.split(timecode, ":") do
-      [minutes, seconds] ->
-        seconds_of_minutes = minutes |> Decimal.new() |> Decimal.mult(60)
-        seconds = Decimal.new(seconds)
-        Decimal.add(seconds_of_minutes, seconds)
-
-      [hours, minutes, seconds] ->
-        seconds_of_hours = hours |> Decimal.new() |> Decimal.mult(3600)
-        seconds_of_minutes = minutes |> Decimal.new() |> Decimal.mult(60)
-        seconds = Decimal.new(seconds)
-        seconds_of_hours |> Decimal.add(seconds_of_minutes) |> Decimal.add(seconds)
-    end
   end
 end
