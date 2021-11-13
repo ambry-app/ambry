@@ -78,16 +78,24 @@
     {!-- player controls --}
     <div class="py-4 px-1 sm:px-3 grid grid-cols-5 sm:grid-cols-7 items-center">
       {!-- bookmarks --}
-      <button type="button" class="mx-auto" :on-click="toggle-bookmarks">
-        <svg width="24" height="24" fill="none">
-          <path
-            d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-          />
-        </svg>
-      </button>
+      <div class="mx-auto">
+        <button type="button" :on-click="toggle-bookmarks">
+          <svg width="24" height="24" fill="none">
+            <path
+              d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+        {!-- chapters --}
+        <button type="button" :on-click="toggle-chapters">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+        </button>
+      </div>
       {!-- previous chapter --}
       <button type="button" class="hidden sm:block mx-auto" @click="mediaPlayer.seekRelative(-60)">
         <svg width="17" height="18">
@@ -168,9 +176,13 @@
   </div>
 
   {#if @show_playback_speed}
-    <div class="fixed z-10 inset-0 overflow-y-auto">
+    <div
+      :on-window-keydown="toggle-playback-speed"
+      phx-key="escape"
+      class="fixed z-10 inset-0 overflow-y-auto"
+    >
       <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75" />
+        <div :on-capture-click="toggle-playback-speed" class="fixed inset-0 bg-gray-500 bg-opacity-75" />
 
         {!-- This element is to trick the browser into centering the modal contents. --}
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
@@ -239,6 +251,13 @@
       dismiss="toggle-bookmarks"
       media_id={@player_state.media_id}
       user_id={@player_state.user_id}
+    />
+  {/if}
+
+  {#if @show_chapters}
+    <Chapters
+      dismiss="toggle-chapters"
+      chapters={@player_state.media.chapters}
     />
   {/if}
 </div>

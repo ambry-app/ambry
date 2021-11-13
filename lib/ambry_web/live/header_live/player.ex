@@ -6,7 +6,7 @@ defmodule AmbryWeb.HeaderLive.Player do
   import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
   alias AmbryWeb.Components.ChevronUp
-  alias AmbryWeb.HeaderLive.Bookmarks
+  alias AmbryWeb.HeaderLive.{Bookmarks, Chapters}
   alias Surface.Components.LiveRedirect
 
   prop player_state, :any, required: true
@@ -16,6 +16,7 @@ defmodule AmbryWeb.HeaderLive.Player do
 
   data show_playback_speed, :boolean, default: false
   data show_bookmarks, :boolean, default: false
+  data show_chapters, :boolean, default: false
 
   @impl Phoenix.LiveComponent
   def handle_event("toggle-playback-speed", _params, socket) do
@@ -24,6 +25,10 @@ defmodule AmbryWeb.HeaderLive.Player do
 
   def handle_event("toggle-bookmarks", _params, socket) do
     {:noreply, assign(socket, :show_bookmarks, !socket.assigns.show_bookmarks)}
+  end
+
+  def handle_event("toggle-chapters", _params, socket) do
+    {:noreply, assign(socket, :show_chapters, !socket.assigns.show_chapters)}
   end
 
   # Show at least one decimal place, even if it's zero.

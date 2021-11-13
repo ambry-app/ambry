@@ -10,19 +10,12 @@ defmodule AmbryWeb.HeaderLive.Bookmarks do
   alias Surface.Components.Form
   alias Surface.Components.Form.{Field, TextInput}
 
-  # alias AmbryWeb.Components.ChevronUp
-  # alias Surface.Components.LiveRedirect
-
-  # prop player_state, :any, required: true
-  # prop playing, :boolean, required: true
-  # prop click, :event, required: true
   prop dismiss, :event, required: true
   prop media_id, :integer, required: true
   prop user_id, :integer, required: true
 
   data bookmarks, :list, default: []
   data editing, :any
-  # data show_bookmarks, :boolean, default: false
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
