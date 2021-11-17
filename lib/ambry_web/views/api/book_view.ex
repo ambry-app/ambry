@@ -3,7 +3,7 @@ defmodule AmbryWeb.API.BookView do
 
   alias Ambry.Books.Book
   alias Ambry.Series.SeriesBook
-  alias AmbryWeb.API.BookView
+  alias AmbryWeb.API.{BookView, ChapterView}
 
   def render("index.json", %{books: books, has_more?: has_more?}) do
     %{
@@ -66,18 +66,21 @@ defmodule AmbryWeb.API.BookView do
       published: book.published,
       media:
         Enum.map(book.media, fn media ->
+          duration = Decimal.to_float(media.duration)
+
           %{
             id: media.id,
             abridged: media.abridged,
             fullCast: media.full_cast,
-            duration: Decimal.to_float(media.duration),
+            duration: duration,
             narrators:
               Enum.map(media.narrators, fn narrator ->
                 %{
                   personId: narrator.person_id,
                   name: narrator.name
                 }
-              end)
+              end),
+            chapters: ChapterView.chapters(media.chapters, duration)
           }
         end)
     }
