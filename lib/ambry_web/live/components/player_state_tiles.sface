@@ -2,11 +2,7 @@
   {#for player_state <- @player_states}
     <div class="text-center text-lg">
       <div class="group">
-        <span
-          :on-click="play-pause"
-          :values={media_id: player_state.media.id}
-          class="cursor-pointer relative block aspect-w-10 aspect-h-15"
-        >
+        <span class="relative block aspect-w-10 aspect-h-15">
           <img
             src={player_state.media.book.image_path}
             class="w-full h-full object-center object-cover rounded-t-lg shadow-md border border-b-0 border-gray-200 filter group-hover:saturate-200"
