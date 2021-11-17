@@ -1,7 +1,7 @@
 defmodule AmbryWeb.API.PlayerStateView do
   use AmbryWeb, :view
 
-  alias AmbryWeb.API.{BookView, PlayerStateView}
+  alias AmbryWeb.API.{BookView, ChapterView, PlayerStateView}
 
   def render("index.json", %{player_states: player_states, has_more?: has_more?}) do
     %{
@@ -15,6 +15,8 @@ defmodule AmbryWeb.API.PlayerStateView do
   end
 
   def render("player_state.json", %{player_state: player_state}) do
+    duration = Decimal.to_float(player_state.media.duration)
+
     %{
       id: player_state.media.id,
       playbackRate: Decimal.to_float(player_state.playback_rate),
@@ -25,10 +27,10 @@ defmodule AmbryWeb.API.PlayerStateView do
         fullCast: player_state.media.full_cast,
         mpdPath: player_state.media.mpd_path,
         hlsPath: player_state.media.hls_path,
-        duration: Decimal.to_float(player_state.media.duration),
+        duration: duration,
         narrators: narrators(player_state.media.narrators),
         book: render_one(player_state.media.book, BookView, "book_index.json"),
-        chapters: chapters(player_state.media.chapters)
+        chapters: ChapterView.chapters(player_state.media.chapters, duration)
       }
     }
   end
@@ -38,15 +40,6 @@ defmodule AmbryWeb.API.PlayerStateView do
       %{
         personId: narrator.person_id,
         name: narrator.name
-      }
-    end)
-  end
-
-  defp chapters(chapters) do
-    Enum.map(chapters, fn chapter ->
-      %{
-        title: chapter.title,
-        time: Decimal.to_float(chapter.time)
       }
     end)
   end

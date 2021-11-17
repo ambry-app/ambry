@@ -42,6 +42,7 @@ defmodule Ambry.MixProject do
       {:file_size, "~> 3.0"},
       {:floki, ">= 0.30.0", only: :test},
       {:gettext, "~> 0.18"},
+      {:hashids, "~> 2.0"},
       {:jason, "~> 1.2"},
       {:natural_sort, "~> 0.3"},
       {:oban, "~> 2.9"},
