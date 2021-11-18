@@ -15,8 +15,6 @@ defmodule AmbryWeb.API.PlayerStateView do
   end
 
   def render("player_state.json", %{player_state: player_state}) do
-    duration = Decimal.to_float(player_state.media.duration)
-
     %{
       id: player_state.media.id,
       playbackRate: Decimal.to_float(player_state.playback_rate),
@@ -27,10 +25,10 @@ defmodule AmbryWeb.API.PlayerStateView do
         fullCast: player_state.media.full_cast,
         mpdPath: player_state.media.mpd_path,
         hlsPath: player_state.media.hls_path,
-        duration: duration,
+        duration: Decimal.to_float(player_state.media.duration),
         narrators: narrators(player_state.media.narrators),
         book: render_one(player_state.media.book, BookView, "book_index.json"),
-        chapters: ChapterView.chapters(player_state.media.chapters, duration)
+        chapters: ChapterView.chapters(player_state.media.chapters)
       }
     }
   end

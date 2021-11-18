@@ -3,7 +3,7 @@ defmodule AmbryWeb.API.BookView do
 
   alias Ambry.Books.Book
   alias Ambry.Series.SeriesBook
-  alias AmbryWeb.API.{BookView, ChapterView}
+  alias AmbryWeb.API.BookView
 
   def render("index.json", %{books: books, has_more?: has_more?}) do
     %{
@@ -79,8 +79,7 @@ defmodule AmbryWeb.API.BookView do
                   personId: narrator.person_id,
                   name: narrator.name
                 }
-              end),
-            chapters: ChapterView.chapters(media.chapters, duration)
+              end)
           }
         end)
     }
