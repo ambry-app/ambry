@@ -5,7 +5,7 @@ defmodule AmbryWeb.API.ChapterView do
 
   alias AmbryWeb.Hashids
 
-  def chapters(chapters, duration) do
+  def chapters(chapters) do
     chapters
     |> Enum.chunk_every(2, 1)
     |> Enum.with_index()
@@ -23,7 +23,7 @@ defmodule AmbryWeb.API.ChapterView do
           id: Hashids.encode(idx),
           title: last_chapter.title,
           startTime: Decimal.to_float(last_chapter.time),
-          endTime: duration
+          endTime: nil
         }
     end)
   end
