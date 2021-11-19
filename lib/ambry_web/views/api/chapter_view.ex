@@ -14,15 +14,15 @@ defmodule AmbryWeb.API.ChapterView do
         %{
           id: Hashids.encode(idx),
           title: chapter.title,
-          startTime: Decimal.to_float(chapter.time),
-          endTime: Decimal.to_float(next.time)
+          startTime: chapter.time |> Decimal.round() |> Decimal.to_integer(),
+          endTime: next.time |> Decimal.round() |> Decimal.to_integer()
         }
 
       {[last_chapter], idx} ->
         %{
           id: Hashids.encode(idx),
           title: last_chapter.title,
-          startTime: Decimal.to_float(last_chapter.time),
+          startTime: last_chapter.time |> Decimal.round() |> Decimal.to_integer(),
           endTime: nil
         }
     end)
