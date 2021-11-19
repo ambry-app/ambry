@@ -34,7 +34,7 @@ defmodule Ambry.MixProject do
   defp deps do
     [
       {:argon2_elixir, "~> 2.0"},
-      {:credo, "~> 1.6.0-rc.1", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:earmark, "~> 1.4"},
       {:ecto_psql_extras, "~> 0.6"},
