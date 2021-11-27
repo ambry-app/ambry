@@ -127,11 +127,25 @@
         </div>
       {/if}
 
+      <Field name={:processor}>
+        {#if @action == :edit}
+          <Label class="font-semibold">
+            Re-run processor?
+          </Label>
+        {#else}
+          <Label class="font-semibold" />
+        {/if}
+        <div>
+          <Select
+            prompt={if @action == :new, do: "auto-select", else: "no"}
+            options={processors(@media, @uploads.audio.entries)}
+            class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow"
+          />
+        </div>
+      </Field>
+
       <div class="-mx-6 bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
         <SaveButton />
-        {#if @action == :edit}
-          <Button click="rerun-processor" label="Re-Run Processor" />
-        {/if}
       </div>
     </div>
   </Form>
