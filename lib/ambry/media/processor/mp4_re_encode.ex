@@ -1,16 +1,17 @@
-defmodule Ambry.Media.Processor.MP3 do
+defmodule Ambry.Media.Processor.MP4ReEncode do
   @moduledoc """
-  A media processor that converts a single MP3 to dash & hls streaming format.
+  A media processor that re-encodes and converts a single MP4 to dash & hls
+  streaming format.
   """
 
   import Ambry.Media.Processor.Shared
 
   alias Ambry.Media.Media
 
-  @extensions ~w(.mp3)
+  @extensions ~w(.mp4 .m4a .m4b)
 
   def name do
-    "Single MP3"
+    "Single MP4 Re-encode"
   end
 
   def can_run?(%Media{} = media) do
@@ -22,16 +23,16 @@ defmodule Ambry.Media.Processor.MP3 do
   end
 
   def run(media) do
-    id = convert_mp3!(media)
+    id = convert_mp4!(media)
     create_stream!(media, id)
     finalize!(media, id)
   end
 
-  defp convert_mp3!(media) do
-    [mp3_file] = files(media, @extensions)
+  defp convert_mp4!(media) do
+    [mp4_file] = files(media, @extensions)
     id = get_id(media)
     command = "ffmpeg"
-    args = ["-i", "../#{mp3_file}", "-vn", "#{id}.mp4"]
+    args = ["-i", "../#{mp4_file}", "-vn", "#{id}.mp4"]
 
     {_output, 0} = System.cmd(command, args, cd: out_path(media), parallelism: true)
 

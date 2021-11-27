@@ -26,6 +26,11 @@ defmodule Ambry.Media.Processor.Shared do
   def files(media, extensions) do
     media.source_path
     |> File.ls!()
+    |> filter_filenames(extensions)
+  end
+
+  def filter_filenames(filenames, extensions) do
+    filenames
     |> Enum.filter(&(Path.extname(&1) in extensions))
     |> NaturalSort.sort()
   end

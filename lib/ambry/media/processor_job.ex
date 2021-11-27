@@ -11,8 +11,9 @@ defmodule Ambry.Media.ProcessorJob do
   alias Ambry.Media.Processor
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"media_id" => id}}) do
+  def perform(%Oban.Job{args: %{"media_id" => id, "processor" => processor_string}}) do
+    processor = String.to_existing_atom(processor_string)
     media = Media.get_media!(id)
-    Processor.run!(media)
+    Processor.run!(media, processor)
   end
 end

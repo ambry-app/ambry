@@ -8,8 +8,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   import AmbryWeb.Admin.UploadHelpers, only: [error_to_string: 1]
 
   alias Ambry.{Books, Media, Narrators}
-  alias Ambry.Media.ProcessorJob
-  alias AmbryWeb.Admin.Components.{Button, SaveButton}
+  alias Ambry.Media.{Processor, ProcessorJob}
+  alias AmbryWeb.Admin.Components.SaveButton
   alias AmbryWeb.Admin.MediaLive.FileStatRow
 
   alias Surface.Components.{Form, LiveFileInput}
@@ -118,15 +118,6 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     {:noreply, assign(socket, :changeset, changeset)}
   end
 
-  def handle_event("rerun-processor", _params, socket) do
-    {:ok, _job} = %{media_id: socket.assigns.media.id} |> ProcessorJob.new() |> Oban.insert()
-
-    {:noreply,
-     socket
-     |> put_flash(:info, "Processor scheduled")
-     |> push_redirect(to: socket.assigns.return_to)}
-  end
-
   defp clean_media_params(params) do
     params
     |> map_to_list("media_narrators")
@@ -139,7 +130,18 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   defp save_media(socket, :edit, media_params) do
     case Media.update_media(socket.assigns.media, media_params, for: :update) do
-      {:ok, _media} ->
+      {:ok, media} ->
+        case parse_requested_processor(media_params["processor"]) do
+          :none_specified ->
+            :noop
+
+          processor ->
+            {:ok, _job} =
+              %{media_id: media.id, processor: processor}
+              |> ProcessorJob.new()
+              |> Oban.insert()
+        end
+
         {:noreply,
          socket
          |> put_flash(:info, "Media updated successfully")
@@ -151,10 +153,19 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   end
 
   defp save_media(socket, :new, media_params) do
+    processor =
+      case parse_requested_processor(media_params["processor"]) do
+        :none_specified -> :auto
+        processor -> processor
+      end
+
     case Media.create_media(media_params) do
       {:ok, media} ->
         # schedule processor job only on newly created media
-        {:ok, _job} = %{media_id: media.id} |> ProcessorJob.new() |> Oban.insert()
+        {:ok, _job} =
+          %{media_id: media.id, processor: processor}
+          |> ProcessorJob.new()
+          |> Oban.insert()
 
         {:noreply,
          socket
@@ -182,4 +193,21 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   defp changeset_action(:new), do: :create
   defp changeset_action(:edit), do: :update
+
+  defp processors(media, uploads) do
+    case {media, uploads} do
+      {_media, [_ | _] = uploads} ->
+        filenames = Enum.map(uploads, & &1.client_name)
+        filenames |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+
+      {%Media.Media{source_path: path}, _uploads} when is_binary(path) ->
+        media |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+
+      _else ->
+        []
+    end
+  end
+
+  defp parse_requested_processor(""), do: :none_specified
+  defp parse_requested_processor(string), do: String.to_existing_atom(string)
 end
