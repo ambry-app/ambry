@@ -33,7 +33,7 @@ defmodule Ambry.Media.Processor.MP3Concat do
 
     id = get_id(media)
     command = "ffmpeg"
-    args = ["-f", "concat", "-safe", "0", "-i", "files.txt", "#{id}.mp4"]
+    args = ["-f", "concat", "-safe", "0", "-vn", "-i", "files.txt", "#{id}.mp4"]
 
     {_output, 0} = System.cmd(command, args, cd: out_path(media), parallelism: true)
 

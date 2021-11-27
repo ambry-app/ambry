@@ -84,6 +84,7 @@ defmodule Ambry.Media.Chapters.Utils do
     args = [
       "-i",
       file,
+      "-vn",
       "-stats",
       "-v",
       "quiet",

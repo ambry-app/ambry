@@ -33,7 +33,19 @@ defmodule Ambry.Media.Processor.MP4Concat do
 
     id = get_id(media)
     command = "ffmpeg"
-    args = ["-f", "concat", "-safe", "0", "-i", "files.txt", "-acodec", "copy", "#{id}.mp4"]
+
+    args = [
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      "files.txt",
+      "-vn",
+      "-acodec",
+      "copy",
+      "#{id}.mp4"
+    ]
 
     {_output, 0} = System.cmd(command, args, cd: out_path(media), parallelism: true)
 
