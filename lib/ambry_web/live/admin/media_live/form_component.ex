@@ -48,7 +48,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   @impl Phoenix.LiveComponent
   def update(%{media: media} = assigns, socket) do
-    changeset = Media.change_media(media, init_media_param(media), for: changeset_action(assigns.action))
+    changeset =
+      Media.change_media(media, init_media_param(media), for: changeset_action(assigns.action))
 
     socket =
       if assigns.action == :edit do

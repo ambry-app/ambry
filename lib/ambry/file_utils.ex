@@ -20,7 +20,8 @@ defmodule Ambry.FileUtils do
   def maybe_delete_image(web_path) do
     book_count = Repo.one(from b in Book, select: count(b.id), where: b.image_path == ^web_path)
 
-    person_count = Repo.one(from p in Person, select: count(p.id), where: p.image_path == ^web_path)
+    person_count =
+      Repo.one(from p in Person, select: count(p.id), where: p.image_path == ^web_path)
 
     if book_count + person_count == 0 do
       disk_path = Paths.web_to_disk(web_path)

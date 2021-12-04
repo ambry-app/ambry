@@ -178,7 +178,8 @@ defmodule Ambry.People do
                {narrated_books,
                 [
                   authors: narrated_book_authors,
-                  series_books: {narrated_book_series_books, series: narrated_book_series_book_series}
+                  series_books:
+                    {narrated_book_series_books, series: narrated_book_series_book_series}
                 ]}},
           authors:
             {authors,
@@ -186,7 +187,8 @@ defmodule Ambry.People do
                {authored_books,
                 [
                   authors: authored_book_authors,
-                  series_books: {authored_book_series_books, series: authored_book_series_book_series}
+                  series_books:
+                    {authored_book_series_books, series: authored_book_series_book_series}
                 ]}}
         ],
         order_by: [desc: narrated_books.published, desc: authored_books.published]

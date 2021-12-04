@@ -13,7 +13,10 @@
 
       <div>
         <h1 class="text-2xl" :on-click={@toggle}>
-          <LiveRedirect to={Routes.book_show_path(@socket, :show, @player_state.media.book)} class="hover:underline">
+          <LiveRedirect
+            to={Routes.book_show_path(@socket, :show, @player_state.media.book)}
+            class="hover:underline"
+          >
             {@player_state.media.book.title}
           </LiveRedirect>
         </h1>
@@ -49,7 +52,10 @@
 
         {#for series_book <- Enum.sort_by(@player_state.media.book.series_books, & &1.series.name)}
           <p class="text-gray-400" :on-click={@toggle}>
-            <LiveRedirect to={Routes.series_show_path(@socket, :show, series_book.series)} class="hover:underline">
+            <LiveRedirect
+              to={Routes.series_show_path(@socket, :show, series_book.series)}
+              class="hover:underline"
+            >
               {series_book.series.name} #{series_book.book_number}
             </LiveRedirect>
           </p>
@@ -85,7 +91,13 @@
         </button>
         {!-- chapters --}
         <button type="button" :on-click="toggle-chapters">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -119,7 +131,11 @@
             d="M 13.802 17.095 L 13.802 26.369 L 12.266 26.369 L 12.266 18.949 L 10 19.723 L 10 18.422 L 13.605 17.095 L 13.802 17.095 Z M 23.038 20.879 L 23.038 22.478 A 8.528 8.528 0 0 1 22.972 23.575 Q 22.817 24.772 22.292 25.484 Q 21.546 26.496 20.023 26.496 A 3.612 3.612 0 0 1 19.119 26.39 A 2.415 2.415 0 0 1 17.766 25.509 A 3.237 3.237 0 0 1 17.276 24.561 Q 17 23.743 16.989 22.586 L 16.989 20.986 A 8.598 8.598 0 0 1 17.048 19.944 Q 17.199 18.713 17.735 17.997 A 2.398 2.398 0 0 1 19.191 17.083 A 3.793 3.793 0 0 1 20.01 17 A 3.751 3.751 0 0 1 20.903 17.1 A 2.384 2.384 0 0 1 22.273 17.971 A 3.152 3.152 0 0 1 22.745 18.877 Q 22.894 19.314 22.968 19.851 A 8.212 8.212 0 0 1 23.038 20.879 Z M 21.496 22.84 L 21.496 20.752 A 7.599 7.599 0 0 0 21.469 20.092 Q 21.412 19.438 21.232 19.025 A 1.705 1.705 0 0 0 21.14 18.844 A 1.16 1.16 0 0 0 20.308 18.263 A 1.69 1.69 0 0 0 20.01 18.238 A 1.561 1.561 0 0 0 19.558 18.3 A 1.142 1.142 0 0 0 18.899 18.812 A 1.949 1.949 0 0 0 18.702 19.259 Q 18.561 19.713 18.532 20.381 A 7.957 7.957 0 0 0 18.525 20.606 L 18.525 22.7 A 7.428 7.428 0 0 0 18.554 23.377 Q 18.627 24.174 18.887 24.63 A 1.246 1.246 0 0 0 19.282 25.064 Q 19.52 25.221 19.839 25.255 A 1.718 1.718 0 0 0 20.023 25.265 A 1.474 1.474 0 0 0 20.487 25.196 A 1.148 1.148 0 0 0 21.121 24.678 A 2.005 2.005 0 0 0 21.316 24.227 Q 21.483 23.685 21.496 22.84 Z"
             fill="currentColor"
           />
-          <path d="M1 22c0 8.837 7.163 16 16 16s16-7.163 16-16S25.837 6 17 6" stroke="currentColor" stroke-width="1.5" />
+          <path
+            d="M1 22c0 8.837 7.163 16 16 16s16-7.163 16-16S25.837 6 17 6"
+            stroke="currentColor"
+            stroke-width="1.5"
+          />
           <path d="M17 0L9 6l8 6V0z" fill="currentColor" />
         </svg>
       </button>
@@ -141,7 +157,11 @@
             d="M 13.802 17.095 L 13.802 26.369 L 12.266 26.369 L 12.266 18.949 L 10 19.723 L 10 18.422 L 13.605 17.095 L 13.802 17.095 Z M 23.038 20.879 L 23.038 22.478 A 8.528 8.528 0 0 1 22.972 23.575 Q 22.817 24.772 22.292 25.484 Q 21.546 26.496 20.023 26.496 A 3.612 3.612 0 0 1 19.119 26.39 A 2.415 2.415 0 0 1 17.766 25.509 A 3.237 3.237 0 0 1 17.276 24.561 Q 17 23.743 16.989 22.586 L 16.989 20.986 A 8.598 8.598 0 0 1 17.048 19.944 Q 17.199 18.713 17.735 17.997 A 2.398 2.398 0 0 1 19.191 17.083 A 3.793 3.793 0 0 1 20.01 17 A 3.751 3.751 0 0 1 20.903 17.1 A 2.384 2.384 0 0 1 22.273 17.971 A 3.152 3.152 0 0 1 22.745 18.877 Q 22.894 19.314 22.968 19.851 A 8.212 8.212 0 0 1 23.038 20.879 Z M 21.496 22.84 L 21.496 20.752 A 7.599 7.599 0 0 0 21.469 20.092 Q 21.412 19.438 21.232 19.025 A 1.705 1.705 0 0 0 21.14 18.844 A 1.16 1.16 0 0 0 20.308 18.263 A 1.69 1.69 0 0 0 20.01 18.238 A 1.561 1.561 0 0 0 19.558 18.3 A 1.142 1.142 0 0 0 18.899 18.812 A 1.949 1.949 0 0 0 18.702 19.259 Q 18.561 19.713 18.532 20.381 A 7.957 7.957 0 0 0 18.525 20.606 L 18.525 22.7 A 7.428 7.428 0 0 0 18.554 23.377 Q 18.627 24.174 18.887 24.63 A 1.246 1.246 0 0 0 19.282 25.064 Q 19.52 25.221 19.839 25.255 A 1.718 1.718 0 0 0 20.023 25.265 A 1.474 1.474 0 0 0 20.487 25.196 A 1.148 1.148 0 0 0 21.121 24.678 A 2.005 2.005 0 0 0 21.316 24.227 Q 21.483 23.685 21.496 22.84 Z"
             fill="currentColor"
           />
-          <path d="M33 22c0 8.837-7.163 16-16 16S1 30.837 1 22 8.163 6 17 6" stroke="currentColor" stroke-width="1.5" />
+          <path
+            d="M33 22c0 8.837-7.163 16-16 16S1 30.837 1 22 8.163 6 17 6"
+            stroke="currentColor"
+            stroke-width="1.5"
+          />
           <path d="M17 0l8 6-8 6V0z" fill="currentColor" />
         </svg>
       </button>
@@ -167,7 +187,11 @@
   </div>
 
   {#if @show_playback_speed}
-    <div :on-window-keydown="toggle-playback-speed" phx-key="escape" class="fixed z-10 inset-0 overflow-y-auto">
+    <div
+      :on-window-keydown="toggle-playback-speed"
+      phx-key="escape"
+      class="fixed z-10 inset-0 overflow-y-auto"
+    >
       <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div :on-capture-click="toggle-playback-speed" class="fixed inset-0 bg-gray-500 bg-opacity-75" />
 
@@ -196,11 +220,26 @@
               />
             </div>
             <div class="flex space-x-4 tabular-nums">
-              <button @click="mediaPlayer.setPlaybackRate(1.0)" class="rounded border border-gray-200 bg-gray-50 flex-grow">1.0x</button>
-              <button @click="mediaPlayer.setPlaybackRate(1.25)" class="rounded border border-gray-200 bg-gray-50 flex-grow">1.25x</button>
-              <button @click="mediaPlayer.setPlaybackRate(1.5)" class="rounded border border-gray-200 bg-gray-50 flex-grow">1.5x</button>
-              <button @click="mediaPlayer.setPlaybackRate(1.75)" class="rounded border border-gray-200 bg-gray-50 flex-grow">1.75x</button>
-              <button @click="mediaPlayer.setPlaybackRate(2.0)" class="rounded border border-gray-200 bg-gray-50 flex-grow">2.0x</button>
+              <button
+                @click="mediaPlayer.setPlaybackRate(1.0)"
+                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+              >1.0x</button>
+              <button
+                @click="mediaPlayer.setPlaybackRate(1.25)"
+                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+              >1.25x</button>
+              <button
+                @click="mediaPlayer.setPlaybackRate(1.5)"
+                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+              >1.5x</button>
+              <button
+                @click="mediaPlayer.setPlaybackRate(1.75)"
+                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+              >1.75x</button>
+              <button
+                @click="mediaPlayer.setPlaybackRate(2.0)"
+                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+              >2.0x</button>
             </div>
           </div>
           <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
