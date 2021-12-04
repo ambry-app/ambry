@@ -96,8 +96,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     socket = maybe_update_media(socket, %{"filter" => query, "page" => "1"})
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket, to: Routes.admin_media_index_path(socket, :index, patch_opts(list_opts)))}
+    {:noreply, push_patch(socket, to: Routes.admin_media_index_path(socket, :index, patch_opts(list_opts)))}
   end
 
   defp list_media(opts) do

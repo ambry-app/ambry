@@ -12,8 +12,7 @@ defmodule AmbryWeb.API.BookmarkController do
   def index(conn, %{"media_id" => media_id} = params) do
     offset = offset_from_params(params, @limit)
 
-    {bookmarks, has_more?} =
-      Media.list_bookmarks(conn.assigns.api_user.id, media_id, offset, @limit)
+    {bookmarks, has_more?} = Media.list_bookmarks(conn.assigns.api_user.id, media_id, offset, @limit)
 
     render(conn, "index.json", bookmarks: bookmarks, has_more?: has_more?)
   end

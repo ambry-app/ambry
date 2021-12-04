@@ -102,8 +102,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     socket = maybe_update_books(socket, %{"filter" => query, "page" => "1"})
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket, to: Routes.admin_book_index_path(socket, :index, patch_opts(list_opts)))}
+    {:noreply, push_patch(socket, to: Routes.admin_book_index_path(socket, :index, patch_opts(list_opts)))}
   end
 
   defp list_books(opts) do

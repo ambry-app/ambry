@@ -12,8 +12,7 @@ defmodule AmbryWeb.API.PlayerStateController do
   def index(conn, params) do
     offset = offset_from_params(params, @limit)
 
-    {player_states, has_more?} =
-      Media.get_recent_player_states(conn.assigns.api_user.id, offset, @limit)
+    {player_states, has_more?} = Media.get_recent_player_states(conn.assigns.api_user.id, offset, @limit)
 
     render(conn, "index.json", player_states: player_states, has_more?: has_more?)
   end
