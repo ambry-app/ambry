@@ -9,7 +9,7 @@ on:
 env:
   MIX_ENV: test
   # NOTE: make sure these versions match in Dockerfile
-  ELIXIR_VERSION_SPEC: "1.12.3"
+  ELIXIR_VERSION_SPEC: "1.13.0"
   OTP_VERSION_SPEC: "24.1"
 
 jobs:
@@ -47,9 +47,7 @@ jobs:
       - name: Compile dependencies
         run: mix deps.compile
       - name: Check formatted
-        run: |
-          mix format --check-formatted
-          if [[ `git status --porcelain` ]]; then exit 1; fi
+        run: mix format --check-formatted
 
   credo:
     name: Credo

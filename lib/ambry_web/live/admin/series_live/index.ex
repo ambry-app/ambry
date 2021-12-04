@@ -88,8 +88,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     socket = maybe_update_series(socket, %{"filter" => query, "page" => "1"})
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket, to: Routes.admin_series_index_path(socket, :index, patch_opts(list_opts)))}
+    {:noreply, push_patch(socket, to: Routes.admin_series_index_path(socket, :index, patch_opts(list_opts)))}
   end
 
   defp list_series(opts) do
