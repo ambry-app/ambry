@@ -92,7 +92,7 @@ RUN mix compile
 # - stage: build
 # - job: assets
 # -----------------------------------
-FROM node:16.13.0-alpine3.14 AS assets
+FROM node:16.13.1-alpine3.14 AS assets
 
 WORKDIR /src/assets
 
