@@ -7,7 +7,7 @@
     "watch_js": "NODE_PATH=../deps esbuild js/app.js --bundle --target=es2016 --outdir=../priv/static/assets --sourcemap=inline --watch"
   },
   "devDependencies": {
-    "@tailwindcss/aspect-ratio": "^0.3.0",
+    "@tailwindcss/aspect-ratio": "^0.4.0",
     "autoprefixer": "^10.3.7",
     "esbuild": "^0.14.0",
     "postcss": "^8.4.4",
