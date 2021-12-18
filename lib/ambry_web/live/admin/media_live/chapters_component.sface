@@ -34,7 +34,7 @@
                 <TextInput opts={disabled: true} />
                 <HiddenInput />
               </Field>
-              <Field name={:title} class="flex-grow">
+              <Field name={:title} class="grow">
                 <TextInput class="border-2 rounded px-2 py-1 w-full focus:outline-none focus:border-lime-400 focus:shadow" />
               </Field>
             </div>

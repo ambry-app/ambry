@@ -18,10 +18,10 @@ defmodule AmbryWeb.Admin.MediaLive.FileStatRow do
         </span>
       </div>
       {#if @file}
-        <div class="flex-grow break-all pr-2">
+        <div class="grow break-all pr-2">
           {@file.path}
         </div>
-        <div class="flex-shrink">
+        <div class="shrink">
           {#case @file.stat}
             {#match error when is_atom(error)}
               <span class={"px-1 border rounded-md " <> classes_for_error_type(@error_type)}>
@@ -34,8 +34,8 @@ defmodule AmbryWeb.Admin.MediaLive.FileStatRow do
           {/case}
         </div>
       {#else}
-        <div class="flex-grow" />
-        <div class="flex-shrink">
+        <div class="grow" />
+        <div class="shrink">
           <span class="px-1 border border-red-200 rounded-md bg-red-50">
             nil
           </span>

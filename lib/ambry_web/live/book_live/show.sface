@@ -10,7 +10,7 @@
       <div class="rounded-lg border shadow-lg px-3 divide-y divide-gray-200">
         {#for media <- @book.media}
           <div class="flex items-center py-3">
-            <div class="flex-grow mr-2">
+            <div class="grow mr-2">
               <p class="text-lg">{@book.title} ({recording_type(media)})</p>
               <p class="text-gray-500">
                 Narrated by

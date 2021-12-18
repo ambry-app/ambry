@@ -222,23 +222,23 @@
             <div class="flex space-x-4 tabular-nums">
               <button
                 @click="mediaPlayer.setPlaybackRate(1.0)"
-                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+                class="rounded border border-gray-200 bg-gray-50 grow"
               >1.0x</button>
               <button
                 @click="mediaPlayer.setPlaybackRate(1.25)"
-                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+                class="rounded border border-gray-200 bg-gray-50 grow"
               >1.25x</button>
               <button
                 @click="mediaPlayer.setPlaybackRate(1.5)"
-                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+                class="rounded border border-gray-200 bg-gray-50 grow"
               >1.5x</button>
               <button
                 @click="mediaPlayer.setPlaybackRate(1.75)"
-                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+                class="rounded border border-gray-200 bg-gray-50 grow"
               >1.75x</button>
               <button
                 @click="mediaPlayer.setPlaybackRate(2.0)"
-                class="rounded border border-gray-200 bg-gray-50 flex-grow"
+                class="rounded border border-gray-200 bg-gray-50 grow"
               >2.0x</button>
             </div>
           </div>

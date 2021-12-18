@@ -25,7 +25,7 @@
           <Inputs for={:authors}>
             <HiddenInputs for={:author} />
             <div class="flex items-center">
-              <Field name={:name} class="flex-grow">
+              <Field name={:name} class="grow">
                 <TextInput class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" />
               </Field>
               <Field name={:delete}>
@@ -67,7 +67,7 @@
           <Inputs for={:narrators}>
             <HiddenInputs for={:narrator} />
             <div class="flex items-center">
-              <Field name={:name} class="flex-grow">
+              <Field name={:name} class="grow">
                 <TextInput class="border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" />
               </Field>
               <Field name={:delete}>

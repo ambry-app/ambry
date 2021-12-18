@@ -82,7 +82,7 @@
               <Field name={:book_number} class="w-14 mr-2 flex-none">
                 <TextInput class="border-2 rounded px-2 py-1 w-full focus:outline-none focus:border-lime-400 focus:shadow" />
               </Field>
-              <Field name={:series_id} class="flex-grow">
+              <Field name={:series_id} class="grow">
                 <Select
                   prompt=""
                   options={@series}
