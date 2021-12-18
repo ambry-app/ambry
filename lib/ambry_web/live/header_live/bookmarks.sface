@@ -14,7 +14,7 @@
     <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform sm:my-8 sm:align-middle sm:max-w-lg w-full">
       <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
         <div class="flex flex-row">
-          <h3 class="flex-grow text-lg font-bold mb-2">
+          <h3 class="grow text-lg font-bold mb-2">
             Bookmarks
           </h3>
           <button id="bookmark-button" phx-hook="bookmarkButton">
@@ -57,7 +57,7 @@
                     {format_timecode(bookmark.position)}
                   </a>
                 </div>
-                <div class="flex-grow">
+                <div class="grow">
                   {#if @editing && @editing.id == bookmark.id}
                     <Form for={@editing.changeset} submit="update-bookmark">
                       <Field name={:label}>

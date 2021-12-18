@@ -13,7 +13,7 @@
     <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform sm:my-8 sm:align-middle sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl 2xl:max-w-5xl w-full">
       {!-- Close button --}
       <div class="flex px-2 text-3xl">
-        <span class="flex-grow" />
+        <span class="grow" />
         <LivePatch to={@return_to} class="hover:text-red-600 transition-colors">&times;</LivePatch>
       </div>
 

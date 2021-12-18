@@ -1,7 +1,7 @@
 <AdminNav />
 
 <div class="flex items-center">
-  <div class="flex-grow">
+  <div class="grow">
     <h1 class="text-4xl mb-4">Media Audit</h1>
   </div>
   <a href="#" :on-click="reload">
@@ -44,7 +44,7 @@
                 <div class="flex-none w-24">
                   <span class="px-1 border border-blue-200 rounded-md bg-blue-50">{format_filesize(file.size)}</span>
                 </div>
-                <div class="flex-grow break-all pl-2">
+                <div class="grow break-all pl-2">
                   {file.path}
                 </div>
                 <a data-confirm="Are you sure?" href="#" :on-click="delete-file" :values={id: file.id}>
@@ -84,7 +84,7 @@
                 <div class="flex-none w-24">
                   <span class="px-1 border border-blue-200 rounded-md bg-blue-50">{format_filesize(folder.size)}</span>
                 </div>
-                <div class="flex-grow break-all pl-2">
+                <div class="grow break-all pl-2">
                   {folder.path}
                 </div>
                 <a data-confirm="Are you sure?" href="#" :on-click="delete-folder" :values={id: folder.id}>

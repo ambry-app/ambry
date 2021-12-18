@@ -7,13 +7,13 @@
     "watch_js": "NODE_PATH=../deps esbuild js/app.js --bundle --target=es2016 --outdir=../priv/static/assets --sourcemap=inline --watch"
   },
   "devDependencies": {
-    "@tailwindcss/aspect-ratio": "^0.3.0",
+    "@tailwindcss/aspect-ratio": "^0.4.0",
     "autoprefixer": "^10.3.7",
-    "esbuild": "^0.14.0",
+    "esbuild": "^0.14.3",
     "postcss": "^8.4.4",
-    "postcss-cli": "^9.0.2",
+    "postcss-cli": "^9.1.0",
     "postcss-import": "^14.0.2",
-    "tailwindcss": "^2.2.19"
+    "tailwindcss": "^3.0.1"
   },
   "dependencies": {
     "alpinejs": "^3.3.3",

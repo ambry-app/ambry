@@ -18,7 +18,7 @@
 {/if}
 
 <div class="flex items-center">
-  <Form for={:search} submit="search" class="flex-grow">
+  <Form for={:search} submit="search" class="grow">
     <Field name="query">
       <TextInput
         opts={placeholder: "Search..."}
@@ -63,7 +63,7 @@
     {/if}
     {#for book <- @books}
       <div class="p-2 flex">
-        <div class="flex-grow pr-2">
+        <div class="grow pr-2">
           <LivePatch
             to={Routes.admin_book_index_path(@socket, :edit, book, patch_opts(@list_opts))}
             class="hover:underline inline-block w-full"
@@ -127,7 +127,7 @@
       <span>Previous</span>
     </LivePatch>
   {/if}
-  <span class="flex-grow" />
+  <span class="grow" />
   {#if @has_more?}
     <LivePatch
       to={Routes.admin_book_index_path(@socket, :index, next_opts(@list_opts))}
