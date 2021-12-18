@@ -28,7 +28,7 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 #   system image to host your
 #   application
 # -----------------------------------
-FROM alpine:3.14.2 as elixir-runner
+FROM alpine:3.15.0 as elixir-runner
 
 ARG SHAKA_VERSION=2.6.1
 
