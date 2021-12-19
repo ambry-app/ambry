@@ -96,11 +96,11 @@ FROM node:16.13.1-alpine3.14 AS assets
 
 WORKDIR /src/assets
 
-COPY assets/package.json assets/package-lock.json ./
+COPY assets/package.json assets/yarn.lock ./
 
-RUN --mount=type=cache,target=~/.npm,sharing=locked \
-  npm --prefer-offline --no-audit --progress=false \
-  --loglevel=error ci
+RUN --mount=type=cache,target=/root/.yarn \
+  YARN_CACHE_FOLDER=/root/.yarn \
+  yarn install
 
 # needs access to deps folder for phoenix/liveview libs and access to lib folder
 # for tailwind JIT purging
@@ -109,7 +109,7 @@ COPY lib/ ../lib
 
 COPY assets/ ./
 
-RUN npm run deploy
+RUN yarn deploy
 
 
 # -----------------------------------
