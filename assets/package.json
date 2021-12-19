@@ -1,4 +1,5 @@
 {
+  "license": "MIT",
   "scripts": {
     "deploy_css": "NODE_ENV=production postcss css/app.css -o ../priv/static/assets/app.css",
     "deploy_js": "NODE_PATH=../deps esbuild js/app.js --bundle --target=es2016 --outdir=../priv/static/assets",
