@@ -932,10 +932,10 @@ run-parallel@^1.1.9:
   dependencies:
     queue-microtask "^1.2.2"
 
-shaka-player@^3.2.1:
-  version "3.2.1"
-  resolved "https://registry.yarnpkg.com/shaka-player/-/shaka-player-3.2.1.tgz#bc7a3c3400eb8204c4aa2c61bc42ffa1b08b228f"
-  integrity sha512-Iq+0PWJ46TR5myT56ubnTgPFChKizr42oaju2799r44yaQVki16Enp6sCBVFYK9TobvgnKs7GFBkTkWAW31V2Q==
+shaka-player@^3.3.0:
+  version "3.3.0"
+  resolved "https://registry.yarnpkg.com/shaka-player/-/shaka-player-3.3.0.tgz#50fdd7aa551376ddb7f6b90f2df18398af26142f"
+  integrity sha512-R73sL0X7KEgMSWbCsZXFeeq/kzv7z0Fjl2sYGbPQb0skR01v7Krw8H7XbihEKlKnGEvuIZvzkPrJZ3UXl+x4WQ==
   dependencies:
     eme-encryption-scheme-polyfill "^2.0.3"
 
