@@ -9,6 +9,8 @@ defmodule AmbryWeb.UserRegistrationController do
   alias Ambry.Accounts.User
   alias AmbryWeb.UserAuth
 
+  plug :check_enabled
+
   def new(conn, _params) do
     changeset = Accounts.change_user_registration(%User{})
     render(conn, "new.html", changeset: changeset)
@@ -29,6 +31,16 @@ defmodule AmbryWeb.UserRegistrationController do
 
       {:error, %Ecto.Changeset{} = changeset} ->
         render(conn, "new.html", changeset: changeset)
+    end
+  end
+
+  defp check_enabled(conn, _opts) do
+    if Application.get_env(:ambry, :user_registration_enabled, false) do
+      conn
+    else
+      conn
+      |> redirect(to: Routes.user_session_path(conn, :new))
+      |> halt()
     end
   end
 end
