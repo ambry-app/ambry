@@ -86,4 +86,14 @@ if config_env() == :prod do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Hackney
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+
+  user_registration_enabled =
+    case System.get_env("USER_REGISTRATION_ENABLED", "no") do
+      "yes" -> true
+      "no" -> false
+      _ -> false
+    end
+
+  config :ambry,
+    user_registration_enabled: user_registration_enabled
 end

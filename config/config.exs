@@ -8,7 +8,8 @@
 import Config
 
 config :ambry,
-  ecto_repos: [Ambry.Repo]
+  ecto_repos: [Ambry.Repo],
+  user_registration_enabled: true
 
 # Configures the endpoint
 config :ambry, AmbryWeb.Endpoint,
