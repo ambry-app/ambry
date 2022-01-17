@@ -6,8 +6,8 @@ defmodule Ambry.Paths do
   @doc """
   The path on disk that uploads are saved to.
   """
-  def uploads_folder_disk_path do
-    Application.fetch_env!(:ambry, :uploads_path)
+  def uploads_folder_disk_path(path \\ "") do
+    Path.join(Application.fetch_env!(:ambry, :uploads_path), path)
   end
 
   @doc """

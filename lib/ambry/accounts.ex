@@ -89,7 +89,7 @@ defmodule Ambry.Accounts do
       %Ecto.Changeset{data: %User{}}
 
   """
-  def change_user_registration(%User{} = user, attrs \\ %{}) do
+  def change_user_registration(%User{} = user \\ %User{}, attrs \\ %{}) do
     User.registration_changeset(user, attrs, hash_password: false)
   end
 
@@ -346,5 +346,31 @@ defmodule Ambry.Accounts do
       {:ok, %{user: user}} -> {:ok, user}
       {:error, :user, changeset, _} -> {:error, changeset}
     end
+  end
+
+  @doc """
+  Promotes a user to be an admin.
+
+  ## Examples
+
+      iex> promote_user_to_admin(user)
+      {:ok, %User{admin: true}}
+  """
+  def promote_user_to_admin(user) do
+    user
+    |> User.promote_to_admin_changeset()
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns true if at least one admin user exists.
+
+  ## Examples
+
+      iex> admin_exists?()
+      true
+  """
+  def admin_exists? do
+    Repo.one!(from u in User, select: count(), where: u.admin) > 0
   end
 end
