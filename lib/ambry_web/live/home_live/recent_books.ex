@@ -6,7 +6,11 @@ defmodule AmbryWeb.HomeLive.RecentBooks do
   alias Ambry.Books
   alias AmbryWeb.Components.BookTiles
 
+  alias Surface.Components.LiveRedirect
+
   @limit 25
+
+  prop show_admin_links?, :boolean, default: false
 
   data show_load_more?, :boolean, default: true
   data books, :list, default: []
