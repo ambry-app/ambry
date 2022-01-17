@@ -6,7 +6,11 @@ import Config
 # and secrets from environment variables or elsewhere. Do not define
 # any compile-time configuration in here, as it won't be applied.
 
-config :ambry, uploads_path: Path.join(File.cwd!(), "uploads")
+uploads_path = Path.join(File.cwd!(), "uploads")
+
+config :ambry,
+  uploads_path: uploads_path,
+  first_time_setup: !File.exists?(Path.join(uploads_path, "setup.lock"))
 
 # The block below contains prod specific runtime configuration.
 if config_env() == :prod do

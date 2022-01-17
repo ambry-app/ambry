@@ -14,6 +14,7 @@ defmodule AmbryWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_user
+    plug AmbryWeb.Plugs.FirstTimeSetup
   end
 
   pipeline :uploads do
@@ -139,5 +140,11 @@ defmodule AmbryWeb.Router do
     post "/users/confirm", UserConfirmationController, :create
     get "/users/confirm/:token", UserConfirmationController, :edit
     post "/users/confirm/:token", UserConfirmationController, :update
+  end
+
+  scope "/first_time_setup", AmbryWeb.FirstTimeSetup, as: :first_time_setup do
+    pipe_through :browser
+
+    live "/", SetupLive.Index, :index
   end
 end
