@@ -1,7 +1,9 @@
 <header class="fixed z-40 w-full shadow-md">
-  <div id="media-player" phx-hook="mediaPlayer" {...player_state_attrs(@player_state)}>
-    <audio />
-  </div>
+  {#if !is_nil(@player_state)}
+    <div id="media-player" phx-hook="mediaPlayer" {...player_state_attrs(@player_state)}>
+      <audio />
+    </div>
+  {/if}
   <div class="bg-white bg-opacity-95 backdrop-blur-sm px-4 sm:px-10 py-2 flex items-center max-w-screen-2xl 2xl:mx-auto">
     <div class="min-w-max">
       <a

@@ -1,5 +1,4 @@
 <div
-  id={@id}
   :on-window-keydown="close"
   phx-key="escape"
   class="fixed z-50 inset-0 overflow-y-auto"
