@@ -6,7 +6,7 @@
 # -----------------------------------
 
 # NOTE: make sure these versions match in .github/workflows/elixir.yml
-FROM docker.io/hexpm/elixir:1.13.1-erlang-24.2-alpine-3.14.2 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.13.2-erlang-24.2-alpine-3.14.2 AS elixir-builder
 
 RUN mix do \
   local.rebar --force,\
@@ -87,7 +87,7 @@ RUN mix compile
 # - stage: build
 # - job: assets
 # -----------------------------------
-FROM docker.io/node:16.13.1-alpine3.14 AS assets
+FROM docker.io/node:16.13.2-alpine3.14 AS assets
 
 WORKDIR /src/assets
 
