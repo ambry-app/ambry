@@ -46,6 +46,20 @@ defmodule Ambry.Series do
   end
 
   @doc """
+  Returns the number of series.
+
+  ## Examples
+
+      iex> count_series()
+      1
+
+  """
+  @spec count_series :: integer()
+  def count_series do
+    Repo.one(from s in Series, select: count(s.id))
+  end
+
+  @doc """
   Gets a single series.
 
   Raises `Ecto.NoResultsError` if the Series does not exist.

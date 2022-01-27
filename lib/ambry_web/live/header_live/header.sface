@@ -46,6 +46,12 @@
         <SearchForm change="search" close="close" query={assigns[:query]} />
       </div>
       <div class="grow text-right">
+        {#if @current_user.admin}
+          <LiveRedirect to={Routes.admin_home_index_path(@socket, :index)}>
+            <span class="text-lime-500 hover:underline" :on-click="toggle">Admin</span>
+          </LiveRedirect>
+          &bull;
+        {/if}
         <Link
           class="text-lime-500 hover:underline"
           to={Routes.user_session_path(@socket, :delete)}

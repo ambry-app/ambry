@@ -41,6 +41,20 @@ defmodule Ambry.People do
   end
 
   @doc """
+  Returns the number of people (authors, narrators, etc.)
+
+  ## Examples
+
+      iex> count_people()
+      1
+
+  """
+  @spec count_people :: integer()
+  def count_people do
+    Repo.one(from p in Person, select: count(p.id))
+  end
+
+  @doc """
   Gets a single person.
 
   Raises `Ecto.NoResultsError` if the Person does not exist.

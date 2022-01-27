@@ -54,6 +54,20 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  Returns the number of uploaded media.
+
+  ## Examples
+
+      iex> count_media()
+      1
+
+  """
+  @spec count_media :: integer()
+  def count_media do
+    Repo.one(from m in Media, select: count(m.id))
+  end
+
+  @doc """
   Gets a single media.
 
   Raises `Ecto.NoResultsError` if the Media does not exist.

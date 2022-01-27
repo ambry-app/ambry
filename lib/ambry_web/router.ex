@@ -56,6 +56,8 @@ defmodule AmbryWeb.Router do
   scope "/admin", AmbryWeb.Admin, as: :admin do
     pipe_through [:browser, :require_authenticated_user, :require_admin]
 
+    live "/", HomeLive.Index, :index
+
     live "/people", PersonLive.Index, :index
     live "/people/new", PersonLive.Index, :new
     live "/people/:id/edit", PersonLive.Index, :edit
