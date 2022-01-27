@@ -1,1 +1,116 @@
-<AdminNav />
+<div class="mx-auto grid grid-cols-3 gap-8 text-lime-500 mt-10">
+  <div class="rounded-lg border shadow-lg p-4">
+    <div class="flex items-center divide-x divide-gray-200">
+      <div class="px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+        </svg>
+      </div>
+      <div class="text-3xl px-2">
+        {@people_count}
+      </div>
+      <div class="text-3xl px-2">
+        <LiveRedirect to={Routes.admin_person_index_path(@socket, :index)} class="hover:underline">
+          People
+        </LiveRedirect>
+      </div>
+    </div>
+  </div>
+
+  <div class="rounded-lg border shadow-lg p-4">
+    <div class="flex items-center divide-x divide-gray-200">
+      <div class="px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+        </svg>
+      </div>
+      <div class="text-3xl px-2">
+        {@books_count}
+      </div>
+      <div class="text-3xl px-2">
+        <LiveRedirect to={Routes.admin_book_index_path(@socket, :index)} class="hover:underline">
+          Books
+        </LiveRedirect>
+      </div>
+    </div>
+  </div>
+
+  <div class="rounded-lg border shadow-lg p-4">
+    <div class="flex items-center divide-x divide-gray-200">
+      <div class="px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+        </svg>
+      </div>
+      <div class="text-3xl px-2">
+        {@series_count}
+      </div>
+      <div class="text-3xl px-2">
+        <LiveRedirect to={Routes.admin_series_index_path(@socket, :index)} class="hover:underline">
+          Series
+        </LiveRedirect>
+      </div>
+    </div>
+  </div>
+
+  <div class="rounded-lg border shadow-lg p-4">
+    <div class="flex items-center divide-x divide-gray-200">
+      <div class="px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </div>
+      <div class="text-3xl px-2">
+        {@media_count}
+      </div>
+      <div class="text-3xl px-2">
+        <LiveRedirect to={Routes.admin_media_index_path(@socket, :index)} class="hover:underline">
+          Media
+        </LiveRedirect>
+      </div>
+    </div>
+  </div>
+
+  <div class="rounded-lg border shadow-lg p-4">
+    <div class="flex items-center divide-x divide-gray-200">
+      <div class="px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2h-1.528A6 6 0 004 9.528V4z" />
+          <path
+            fill-rule="evenodd"
+            d="M8 10a4 4 0 00-3.446 6.032l-1.261 1.26a1 1 0 101.414 1.415l1.261-1.261A4 4 0 108 10zm-2 4a2 2 0 114 0 2 2 0 01-4 0z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </div>
+      <div class="text-3xl px-2">
+        <LiveRedirect to={Routes.admin_audit_index_path(@socket, :index)} class="hover:underline">
+          Audit
+        </LiveRedirect>
+      </div>
+    </div>
+  </div>
+
+  <div class="rounded-lg border shadow-lg p-4">
+    <div class="flex items-center divide-x divide-gray-200">
+      <div class="px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm9 4a1 1 0 10-2 0v6a1 1 0 102 0V7zm-3 2a1 1 0 10-2 0v4a1 1 0 102 0V9zm-3 3a1 1 0 10-2 0v1a1 1 0 102 0v-1z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </div>
+      <div class="text-3xl px-2">
+        <LiveRedirect to={Routes.live_dashboard_path(@socket, :home)} class="hover:underline">
+          Dashboard
+        </LiveRedirect>
+      </div>
+    </div>
+  </div>
+</div>

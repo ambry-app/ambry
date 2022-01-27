@@ -48,6 +48,20 @@ defmodule Ambry.Books do
   end
 
   @doc """
+  Returns the number of books.
+
+  ## Examples
+
+      iex> count_books()
+      1
+
+  """
+  @spec count_books :: integer()
+  def count_books do
+    Repo.one(from b in Book, select: count(b.id))
+  end
+
+  @doc """
   Gets a single book.
 
   Raises `Ecto.NoResultsError` if the Book does not exist.

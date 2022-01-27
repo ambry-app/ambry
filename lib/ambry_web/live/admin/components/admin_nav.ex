@@ -12,6 +12,10 @@ defmodule AmbryWeb.Admin.Components.AdminNav do
     ~F"""
     <div class="p-2 mb-4">
       <div class="flex divide-x divide-gray-200 text-lime-500">
+        <LiveRedirect to={Routes.admin_home_index_path(Endpoint, :index)} class="px-2 hover:underline">
+          Admin Home
+        </LiveRedirect>
+
         <LiveRedirect to={Routes.admin_person_index_path(Endpoint, :index)} class="px-2 hover:underline">
           People
         </LiveRedirect>
