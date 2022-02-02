@@ -9,30 +9,8 @@ defmodule AmbryWeb.UserLiveAuth do
   @doc """
   Attaches current_user to `socket` assigns based on user_token or nil if it doesn't.
 
-  ## Examples
+  or...
 
-      # In the LiveView file
-      defmodule DemoWeb.PageLive do
-        use Phoenix.LiveView
-
-        on_mount {AmbryWeb.UserLiveAuth, :mount_current_user}
-      end
-
-  """
-  def mount_current_user(_params, %{"user_token" => user_token}, socket) do
-    socket =
-      assign_new(socket, :current_user, fn ->
-        Ambry.Accounts.get_user_by_session_token(user_token)
-      end)
-
-    {:cont, socket}
-  end
-
-  def mount_current_user(_params, _session, socket) do
-    {:cont, assign_new(socket, :current_user, fn -> nil end)}
-  end
-
-  @doc """
   Attaches current_user to `socket` assigns based on user_token if the token exists.
   Redirect to login page if not.
 
@@ -42,11 +20,32 @@ defmodule AmbryWeb.UserLiveAuth do
       defmodule DemoWeb.PageLive do
         use Phoenix.LiveView
 
-        on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
+        on_mount {AmbryWeb.UserLiveAuth, :mount_current_user}
       end
 
+      # or...
+
+      # In the LiveView file
+      defmodule DemoWeb.PageLive do
+        use Phoenix.LiveView
+
+        on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
+      end
   """
-  def ensure_mounted_current_user(_params, %{"user_token" => user_token}, socket) do
+  def on_mount(:mount_current_user, _params, %{"user_token" => user_token}, socket) do
+    socket =
+      assign_new(socket, :current_user, fn ->
+        Ambry.Accounts.get_user_by_session_token(user_token)
+      end)
+
+    {:cont, socket}
+  end
+
+  def on_mount(:mount_current_user, _params, _session, socket) do
+    {:cont, assign_new(socket, :current_user, fn -> nil end)}
+  end
+
+  def on_mount(:ensure_mounted_current_user, _params, %{"user_token" => user_token}, socket) do
     socket =
       assign_new(socket, :current_user, fn ->
         Ambry.Accounts.get_user_by_session_token(user_token)
@@ -61,7 +60,7 @@ defmodule AmbryWeb.UserLiveAuth do
     end
   end
 
-  def ensure_mounted_current_user(_params, _session, socket) do
+  def on_mount(:ensure_mounted_current_user, _params, _session, socket) do
     {:halt, push_redirect(socket, to: Routes.user_session_path(socket, :new))}
   end
 end

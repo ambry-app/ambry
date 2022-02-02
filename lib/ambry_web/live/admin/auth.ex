@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.Auth do
       end
 
   """
-  def ensure_mounted_admin_user(_params, _session, socket) do
+  def on_mount(:ensure_mounted_admin_user, _params, _session, socket) do
     case socket.assigns.current_user do
       nil ->
         {:halt, push_redirect(socket, to: Routes.user_session_path(socket, :new))}
