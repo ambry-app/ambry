@@ -1,4 +1,4 @@
-<div class="mx-auto grid grid-cols-3 gap-8 text-lime-500 mt-10">
+<div class="mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-10">
   <div class="rounded-lg border shadow-lg p-4">
     <div class="flex items-center divide-x divide-gray-200">
       <div class="px-2">
@@ -10,7 +10,7 @@
         {@people_count}
       </div>
       <div class="text-3xl px-2">
-        <LiveRedirect to={Routes.admin_person_index_path(@socket, :index)} class="hover:underline">
+        <LiveRedirect to={Routes.admin_person_index_path(@socket, :index)} class="text-lime-500 hover:underline">
           People
         </LiveRedirect>
       </div>
@@ -28,7 +28,7 @@
         {@books_count}
       </div>
       <div class="text-3xl px-2">
-        <LiveRedirect to={Routes.admin_book_index_path(@socket, :index)} class="hover:underline">
+        <LiveRedirect to={Routes.admin_book_index_path(@socket, :index)} class="text-lime-500 hover:underline">
           Books
         </LiveRedirect>
       </div>
@@ -46,7 +46,7 @@
         {@series_count}
       </div>
       <div class="text-3xl px-2">
-        <LiveRedirect to={Routes.admin_series_index_path(@socket, :index)} class="hover:underline">
+        <LiveRedirect to={Routes.admin_series_index_path(@socket, :index)} class="text-lime-500 hover:underline">
           Series
         </LiveRedirect>
       </div>
@@ -68,7 +68,7 @@
         {@media_count}
       </div>
       <div class="text-3xl px-2">
-        <LiveRedirect to={Routes.admin_media_index_path(@socket, :index)} class="hover:underline">
+        <LiveRedirect to={Routes.admin_media_index_path(@socket, :index)} class="text-lime-500 hover:underline">
           Media
         </LiveRedirect>
       </div>
@@ -88,7 +88,7 @@
         </svg>
       </div>
       <div class="text-3xl px-2">
-        <LiveRedirect to={Routes.admin_audit_index_path(@socket, :index)} class="hover:underline">
+        <LiveRedirect to={Routes.admin_audit_index_path(@socket, :index)} class="text-lime-500 hover:underline">
           Audit
         </LiveRedirect>
       </div>
@@ -107,7 +107,7 @@
         </svg>
       </div>
       <div class="text-3xl px-2">
-        <LiveRedirect to={Routes.live_dashboard_path(@socket, :home)} class="hover:underline">
+        <LiveRedirect to={Routes.live_dashboard_path(@socket, :home)} class="text-lime-500 hover:underline">
           Dashboard
         </LiveRedirect>
       </div>
