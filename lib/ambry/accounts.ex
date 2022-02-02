@@ -208,7 +208,7 @@ defmodule Ambry.Accounts do
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:error, :user, changeset, _changes_so_far} -> {:error, changeset}
     end
   end
 
@@ -344,7 +344,7 @@ defmodule Ambry.Accounts do
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:error, :user, changeset, _changes_so_far} -> {:error, changeset}
     end
   end
 
