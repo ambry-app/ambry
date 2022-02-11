@@ -84,7 +84,7 @@ defmodule Ambry.Series do
       {:error, %Ecto.Changeset{}}
 
   """
-  def create_series(attrs \\ %{}) do
+  def create_series(attrs) do
     %Series{}
     |> Series.changeset(attrs)
     |> Repo.insert()
