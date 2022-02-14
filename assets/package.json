@@ -17,7 +17,7 @@
     "tailwindcss": "^3.0.18"
   },
   "dependencies": {
-    "alpinejs": "^3.3.3",
+    "alpinejs": "^3.9.0",
     "platform-detect": "^3.0.1",
     "shaka-player": "^3.3.1"
   }
