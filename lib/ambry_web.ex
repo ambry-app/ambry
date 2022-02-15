@@ -52,6 +52,16 @@ defmodule AmbryWeb do
     end
   end
 
+  def p_live_view do
+    quote do
+      use Phoenix.LiveView,
+        layout: {AmbryWeb.LayoutView, "live.html"}
+
+      # Include shared imports and aliases for views
+      unquote(view_helpers())
+    end
+  end
+
   def component do
     quote do
       use Surface.Component
@@ -60,9 +70,25 @@ defmodule AmbryWeb do
     end
   end
 
+  def p_component do
+    quote do
+      use Phoenix.Component
+
+      unquote(view_helpers())
+    end
+  end
+
   def live_component do
     quote do
       use Surface.LiveComponent
+
+      unquote(view_helpers())
+    end
+  end
+
+  def p_live_component do
+    quote do
+      use Phoenix.LiveComponent
 
       unquote(view_helpers())
     end
@@ -89,6 +115,8 @@ defmodule AmbryWeb do
     quote do
       # Use all HTML functionality (forms, tags, etc)
       use Phoenix.HTML
+
+      use PetalComponents
 
       # Import LiveView and .heex helpers (live_render, live_patch, <.form>, etc)
       import Phoenix.LiveView.Helpers

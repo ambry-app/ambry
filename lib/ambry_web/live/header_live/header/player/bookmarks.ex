@@ -1,21 +1,19 @@
-defmodule AmbryWeb.HeaderLive.Bookmarks do
+defmodule AmbryWeb.HeaderLive.Header.Player.Bookmarks do
   @moduledoc false
 
-  use AmbryWeb, :live_component
+  use AmbryWeb, :p_live_component
 
   import AmbryWeb.TimeUtils, only: [format_timecode: 1]
+  import AmbryWeb.HeaderLive.Header.Player.Components
 
   alias Ambry.Media
 
-  alias Surface.Components.Form
-  alias Surface.Components.Form.{Field, TextInput}
+  # prop dismiss, :event, required: true
+  # prop media_id, :integer, required: true
+  # prop user_id, :integer, required: true
 
-  prop dismiss, :event, required: true
-  prop media_id, :integer, required: true
-  prop user_id, :integer, required: true
-
-  data bookmarks, :list, default: []
-  data editing, :any
+  # data bookmarks, :list, default: []
+  # data editing, :any
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do

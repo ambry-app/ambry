@@ -4,7 +4,7 @@
     phx-hook="mediaControls"
     class="bg-white bg-opacity-95 backdrop-blur-sm px-4 sm:px-10 max-w-screen-2xl 2xl:mx-auto"
   >
-    {!-- book info header w/ image --}
+    <%# book info header w/ image %>
     <div class="flex pb-4 space-x-4">
       <img
         src={@player_state.media.book.image_path}
@@ -12,109 +12,84 @@
       />
 
       <div>
-        <h1 class="text-2xl" :on-click={@toggle}>
-          <LiveRedirect
+        <h1 class="text-2xl" phx-click={@toggle}>
+          <.link
+            link_type="live_redirect"
+            label={@player_state.media.book.title}
             to={Routes.book_show_path(@socket, :show, @player_state.media.book)}
             class="hover:underline"
-          >
-            {@player_state.media.book.title}
-          </LiveRedirect>
+          />
         </h1>
 
         <p class="text-xl text-gray-500">
           by
-          {#for author <- @player_state.media.book.authors}
-            <a
+          <%= for author <- @player_state.media.book.authors do %>
+            <.link
+              link_type="live_redirect"
+              label={author.name}
+              to={Routes.person_show_path(@socket, :show, author.person_id)}
               class="text-lime-500 hover:underline"
-              data-phx-link="redirect"
-              data-phx-link-state="push"
-              :on-click={@toggle}
-              href={Routes.person_show_path(@socket, :show, author.person_id)}
-            >{author.name}</a><span class="last:hidden">,</span>
-          {/for}
+            /><span class="last:hidden">,</span>
+          <% end %>
         </p>
 
         <p class="text-lg text-gray-500">
           Narrated by
-          {#for narrator <- @player_state.media.narrators}
-            <a
+          <%= for narrator <- @player_state.media.narrators do %>
+            <.link
+              link_type="live_redirect"
+              label={narrator.name}
+              to={Routes.person_show_path(@socket, :show, narrator.person_id)}
               class="text-lime-500 hover:underline"
-              data-phx-link="redirect"
-              data-phx-link-state="push"
-              :on-click={@toggle}
-              href={Routes.person_show_path(@socket, :show, narrator.person_id)}
-            >{narrator.name}</a><span class="last:hidden">,</span>
-          {/for}
-          {#if @player_state.media.full_cast}
+            /><span class="last:hidden">,</span>
+          <% end %>
+          <%= if @player_state.media.full_cast do %>
             <span>full cast</span>
-          {/if}
+          <% end %>
         </p>
 
-        {#for series_book <- Enum.sort_by(@player_state.media.book.series_books, & &1.series.name)}
-          <p class="text-gray-400" :on-click={@toggle}>
-            <LiveRedirect
+        <%= for series_book <- Enum.sort_by(@player_state.media.book.series_books, & &1.series.name) do %>
+          <p class="text-gray-400" phx-click={@toggle}>
+            <.link
+              link_type="live_redirect"
               to={Routes.series_show_path(@socket, :show, series_book.series)}
               class="hover:underline"
             >
-              {series_book.series.name} #{series_book.book_number}
-            </LiveRedirect>
+              <%= series_book.series.name %> #<%= series_book.book_number %>
+            </.link>
           </p>
-        {/for}
+        <% end %>
       </div>
     </div>
-    {!-- progress bar --}
+    <%# progress bar %>
     <div class="pb-2 space-y-2">
       <div id="progress-bar" class="bg-gray-200 rounded-full overflow-hidden shadow-inner">
         <div class="bg-lime-500 h-2 shadow-inner" style={"width: #{progress_percent(@player_state)}%;"} />
       </div>
       <div class="text-gray-500 flex justify-between text-sm font-medium tabular-nums">
-        <div>{format_timecode(@player_state.position)} of {format_timecode(@player_state.media.duration)}</div>
-        <div>{progress_percent(@player_state)}%</div>
-        <div>{format_timecode(time_left(@player_state))}</div>
+        <div><%= format_timecode(@player_state.position) %> of <%= format_timecode(@player_state.media.duration) %></div>
+        <div><%= progress_percent(@player_state) %>%</div>
+        <div><%= format_timecode(time_left(@player_state)) %></div>
       </div>
     </div>
   </div>
   <div class="bg-gray-50 bg-opacity-95 backdrop-blur-sm max-w-screen-2xl 2xl:mx-auto 2xl:rounded-t-3xl">
-    {!-- player controls --}
+    <%# player controls %>
     <div class="py-4 px-1 sm:px-3 grid grid-cols-5 sm:grid-cols-7 items-center">
-      {!-- bookmarks --}
+      <%# bookmarks %>
       <div class="mx-auto">
-        <button type="button" :on-click="toggle-bookmarks">
-          <svg width="24" height="24" fill="none">
-            <path
-              d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-          </svg>
-        </button>
-        {!-- chapters --}
-        <button type="button" :on-click="toggle-chapters">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-            />
-          </svg>
-        </button>
+        <.bookmarks_button click={{"toggle-bookmarks", @myself}} />
+        <%# chapters %>
+        <.chapters_button click={{"toggle-chapters", @myself}} />
       </div>
-      {!-- previous chapter --}
+      <%# previous chapter %>
       <button type="button" class="hidden sm:block mx-auto" @click="mediaPlayer.seekRelative(-60)">
         <svg width="17" height="18">
           <path d="M0 0h2v18H0V0zM4 9l13-9v18L4 9z" fill="currentColor" />
         </svg>
       </button>
-      {!-- back 10 --}
-      {!--
+      <%# back 10 %>
+      <%#
         To generate text path: https://danmarshall.github.io/google-font-to-svg-path/
         font: Roboto
         size: 13
@@ -124,7 +99,7 @@
         x: 10
         y: 17
         then paste into top path below
-      --}
+      %>
       <button type="button" class="mx-auto" @click="mediaPlayer.seekRelative(-10)">
         <svg width="34" height="39" fill="none">
           <path
@@ -139,18 +114,18 @@
           <path d="M17 0L9 6l8 6V0z" fill="currentColor" />
         </svg>
       </button>
-      {!-- play/pause --}
+      <%# play/pause %>
       <button type="button" class="mx-auto" @click="mediaPlayer.playPause()">
         <svg width="50" viewBox="0 0 50 50" fill="none">
           <circle class="text-gray-300" cx="25" cy="25" r="24" stroke="currentColor" stroke-width="1.5" />
-          {#if @playing}
+          <%= if @playing do %>
             <path d="M18 16h4v18h-4V16zM28 16h4v18h-4z" fill="currentColor" />
-          {#else}
+          <% else %>
             <path d="M20 16l14 9l-14 9z" fill="currentColor" />
-          {/if}
+          <% end %>
         </svg>
       </button>
-      {!-- forward 10 --}
+      <%# forward 10 %>
       <button type="button" class="mx-auto" @click="mediaPlayer.seekRelative(10)">
         <svg width="34" height="39" fill="none">
           <path
@@ -165,107 +140,45 @@
           <path d="M17 0l8 6-8 6V0z" fill="currentColor" />
         </svg>
       </button>
-      {!-- next chapter --}
+      <%# next chapter %>
       <button type="button" class="hidden sm:block mx-auto" @click="mediaPlayer.seekRelative(60)">
         <svg width="17" height="18" viewBox="0 0 17 18" fill="none">
           <path d="M17 0H15V18H17V0Z" fill="currentColor" />
           <path d="M13 9L0 0V18L13 9Z" fill="currentColor" />
         </svg>
       </button>
-      {!-- speed --}
-      <button
-        type="button"
-        class="mx-auto border border-gray-300 rounded-md text-sm font-medium py-0.5 px-2 text-gray-500"
-        :on-click="toggle-playback-speed"
-      >
-        {format_decimal(@player_state.playback_rate)}x
-      </button>
+      <%# speed %>
+      <.playback_rate_button
+        playback_rate={@player_state.playback_rate}
+        click={{"toggle-playback-speed", @myself}}
+      />
     </div>
-    <button class="block m-auto" :on-click={@toggle}>
-      <ChevronUp />
+    <button class="block m-auto" phx-click={@toggle}>
+      <Heroicons.Outline.chevron_up />
     </button>
   </div>
 
-  {#if @show_playback_speed}
-    <div
-      :on-window-keydown="toggle-playback-speed"
-      phx-key="escape"
-      class="fixed z-10 inset-0 overflow-y-auto"
-    >
-      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div :on-capture-click="toggle-playback-speed" class="fixed inset-0 bg-gray-500 bg-opacity-75" />
+  <%= if @show_playback_rate do %>
+    <.playback_rate_modal
+      playback_rate={@player_state.playback_rate}
+      dismiss={{"toggle-playback-speed", @myself}}
+    />
+  <% end %>
 
-        {!-- This element is to trick the browser into centering the modal contents. --}
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-
-        {!-- Content --}
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform sm:my-8 sm:align-middle sm:max-w-lg w-full">
-          <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <h3 class="text-lg font-bold mb-2">
-              Playback Speed
-            </h3>
-            <p class="text-center font-bold pb-4">
-              {format_decimal(@player_state.playback_rate)}x
-            </p>
-            <div class="pb-4">
-              <input
-                id="speed-slider"
-                phx-hook="speedSlider"
-                type="range"
-                min="0.5"
-                max="3.0"
-                step="0.05"
-                value={format_decimal(@player_state.playback_rate)}
-                class="playback-speed-slider appearance-none w-full h-2 rounded-full bg-gray-200 outline-none shadow-inner"
-              />
-            </div>
-            <div class="flex space-x-4 tabular-nums">
-              <button
-                @click="mediaPlayer.setPlaybackRate(1.0)"
-                class="rounded border border-gray-200 bg-gray-50 grow"
-              >1.0x</button>
-              <button
-                @click="mediaPlayer.setPlaybackRate(1.25)"
-                class="rounded border border-gray-200 bg-gray-50 grow"
-              >1.25x</button>
-              <button
-                @click="mediaPlayer.setPlaybackRate(1.5)"
-                class="rounded border border-gray-200 bg-gray-50 grow"
-              >1.5x</button>
-              <button
-                @click="mediaPlayer.setPlaybackRate(1.75)"
-                class="rounded border border-gray-200 bg-gray-50 grow"
-              >1.75x</button>
-              <button
-                @click="mediaPlayer.setPlaybackRate(2.0)"
-                class="rounded border border-gray-200 bg-gray-50 grow"
-              >2.0x</button>
-            </div>
-          </div>
-          <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-            <button
-              type="button"
-              class="text-white font-bold w-full inline-flex justify-center rounded shadow px-5 py-2 sm:ml-3 sm:w-auto bg-lime-500 hover:bg-lime-700 focus:outline-none transition-colors focus:ring-2 focus:ring-lime-300"
-              :on-click="toggle-playback-speed"
-            >
-              Ok
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  {/if}
-
-  {#if @show_bookmarks}
-    <Bookmarks
+  <%= if @show_bookmarks do %>
+    <.live_component
+      module={Bookmarks}
       id="bookmarks-modal"
-      dismiss="toggle-bookmarks"
+      dismiss={{"toggle-bookmarks", @myself}}
       media_id={@player_state.media_id}
       user_id={@player_state.user_id}
     />
-  {/if}
+  <% end %>
 
-  {#if @show_chapters}
-    <Chapters dismiss="toggle-chapters" chapters={@player_state.media.chapters} />
-  {/if}
+  <%= if @show_chapters do %>
+    <.chapters_modal
+      chapters={@player_state.media.chapters}
+      dismiss={{"toggle-chapters", @myself}}
+    />
+  <% end %>
 </div>

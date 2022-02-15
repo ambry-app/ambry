@@ -1,15 +1,14 @@
 defmodule AmbryWeb.HeaderLive.Header do
   @moduledoc """
-  LiveView for the header with build-in media player.
+  LiveView for the header with built-in media player.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :p_live_view
+
+  import AmbryWeb.HeaderLive.Header.Components
 
   alias Ambry.{Media, PubSub}
-  alias AmbryWeb.Components.{ChevronDown, ChevronUp}
-  alias AmbryWeb.HeaderLive.{PlayButton, Player, SearchForm}
-
-  alias Surface.Components.{Link, LiveRedirect}
+  alias AmbryWeb.HeaderLive.Header.Player
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 
