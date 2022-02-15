@@ -6,16 +6,16 @@
     />
   </section>
   <section id="description" class="sm:ml-10">
-    <h1 class="text-4xl">{@person.name}</h1>
-    {#if @person.description}
+    <h1 class="text-4xl"><%= @person.name %></h1>
+    <%= if @person.description do %>
       <div x-data="readMore">
         <div
           class="markdown relative max-w-md mt-4 max-h-44 overflow-y-hidden"
           :class="{ 'max-h-44': !expanded }"
         >
-          {raw(Earmark.as_html!(@person.description))}
+          <%= raw(Earmark.as_html!(@person.description)) %>
           <div
-            x-show="canReadMore && !expanded"
+            x-show="canReadMore &amp;&amp; !expanded"
             class="bg-gradient-to-b from-transparent to-white h-4 w-full absolute bottom-0"
           />
         </div>
@@ -27,26 +27,26 @@
           />
         </p>
       </div>
-    {/if}
+    <% end %>
   </section>
 </div>
 
-{#for author <- @person.authors}
-  {#if author.name != @person.name}
-    <h2 class="mt-10 mb-4 text-3xl">Written by {@person.name} as {author.name}</h2>
-  {#else}
-    <h2 class="mt-10 mb-4 text-3xl">Written by {author.name}</h2>
-  {/if}
+<%= for author <- @person.authors do %>
+  <%= if author.name != @person.name do %>
+    <h2 class="mt-10 mb-4 text-3xl">Written by <%= @person.name %> as <%= author.name %></h2>
+  <% else %>
+    <h2 class="mt-10 mb-4 text-3xl">Written by <%= author.name %></h2>
+  <% end %>
 
-  <BookTiles books={author.books} />
-{/for}
+  <.book_tiles books={author.books} />
+<% end %>
 
-{#for narrator <- @person.narrators}
-  {#if narrator.name != @person.name}
-    <h2 class="mt-10 mb-4 text-3xl">Narrated by {@person.name} as {narrator.name}</h2>
-  {#else}
-    <h2 class="mt-10 mb-4 text-3xl">Narrated by {narrator.name}</h2>
-  {/if}
+<%= for narrator <- @person.narrators do %>
+  <%= if narrator.name != @person.name do %>
+    <h2 class="mt-10 mb-4 text-3xl">Narrated by <%= @person.name %> as <%= narrator.name %></h2>
+  <% else %>
+    <h2 class="mt-10 mb-4 text-3xl">Narrated by <%= narrator.name %></h2>
+  <% end %>
 
-  <BookTiles books={narrator.books} />
-{/for}
+  <.book_tiles books={narrator.books} />
+<% end %>

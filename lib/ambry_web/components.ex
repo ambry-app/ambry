@@ -10,11 +10,16 @@ defmodule AmbryWeb.Components do
 
   alias AmbryWeb.Endpoint
 
-  # prop books, :list
-  # prop show_load_more, :boolean
+  # prop books, :list, required: true
+  # prop show_load_more, :boolean, default: false
   # prop load_more, :event
 
   def book_tiles(assigns) do
+    assigns =
+      assigns
+      |> assign_new(:show_load_more, fn -> false end)
+      |> assign_new(:load_more, fn -> {false, false} end)
+
     {load_more, target} = assigns.load_more
 
     ~H"""

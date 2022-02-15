@@ -3,10 +3,11 @@ defmodule AmbryWeb.PersonLive.Show do
   LiveView for showing person details.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :p_live_view
+
+  import AmbryWeb.Components
 
   alias Ambry.People
-  alias AmbryWeb.Components.BookTiles
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 
