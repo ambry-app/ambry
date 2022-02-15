@@ -2,12 +2,13 @@ defmodule AmbryWeb.BookLive.Show do
   @moduledoc """
   LiveView for showing book details.
   """
-  use AmbryWeb, :live_view
 
+  use AmbryWeb, :p_live_view
+
+  import AmbryWeb.BookLive.Show.Components
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
   alias Ambry.{Books, PubSub}
-  alias AmbryWeb.BookLive.Header
   alias AmbryWeb.Components.PlayButton
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
