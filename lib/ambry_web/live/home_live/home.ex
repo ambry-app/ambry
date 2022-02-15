@@ -3,11 +3,11 @@ defmodule AmbryWeb.HomeLive.Home do
   LiveView for the home page.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :p_live_view
 
   alias Ambry.PubSub
   alias AmbryWeb.BookLive.PlayButton
-  alias AmbryWeb.HomeLive.{RecentBooks, RecentMedia}
+  alias AmbryWeb.HomeLive.Home.{RecentBooks, RecentMedia}
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 

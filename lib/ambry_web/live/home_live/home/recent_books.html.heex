@@ -1,0 +1,32 @@
+<div>
+  <%= if @books != [] do %>
+    <h1 class="text-4xl mb-4">Newest books</h1>
+
+    <.book_tiles
+      books={@books}
+      show_load_more={@show_load_more?}
+      load_more={{"load-more", @myself}}
+    />
+  <% else %>
+    <div class="mt-10">
+      <img
+        class="mx-auto h-24 w-24"
+        alt="Library"
+        src={Routes.static_path(@socket, "/images/library.svg")}
+      />
+      <p class="text-center mt-4">
+        The library is empty!
+        <%= if @show_admin_links? do %>
+          Head on over to the
+          <.link
+            link_type="live_redirect"
+            label="admin books"
+            to={Routes.admin_book_index_path(@socket, :new)}
+            class="text-lime-500 hover:underline"
+          />
+          page to add your first book.
+        <% end %>
+      </p>
+    </div>
+  <% end %>
+</div>

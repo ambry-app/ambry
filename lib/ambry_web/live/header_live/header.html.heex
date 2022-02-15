@@ -41,12 +41,11 @@
         <%= if @current_user.admin do %>
           <.link
             link_type="live_redirect"
+            label="Admin"
             to={Routes.admin_home_index_path(@socket, :index)}
             class="text-lime-500 hover:underline"
             phx-click="close"
-          >
-            Admin
-          </.link>
+          />
           &bull;
         <% end %>
         <.link to={Routes.user_session_path(@socket, :delete)} method="delete" class="text-lime-500 hover:underline">

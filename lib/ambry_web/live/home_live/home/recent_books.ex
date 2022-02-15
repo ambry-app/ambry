@@ -1,19 +1,18 @@
-defmodule AmbryWeb.HomeLive.RecentBooks do
+defmodule AmbryWeb.HomeLive.Home.RecentBooks do
   @moduledoc false
 
-  use AmbryWeb, :live_component
+  use AmbryWeb, :p_live_component
+
+  import AmbryWeb.Components
 
   alias Ambry.Books
-  alias AmbryWeb.Components.BookTiles
-
-  alias Surface.Components.LiveRedirect
 
   @limit 25
 
-  prop show_admin_links?, :boolean, default: false
+  # prop show_admin_links?, :boolean, default: false
 
-  data show_load_more?, :boolean, default: true
-  data books, :list, default: []
+  # data show_load_more?, :boolean, default: true
+  # data books, :list, default: []
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do

@@ -104,13 +104,7 @@ defmodule AmbryWeb.HeaderLive.Header.Player.Components do
           <%= for chapter <- @chapters do %>
             <div class="p-2 flex items-center">
               <a href="#" class="mr-1" onClick={"mediaPlayer.seek(#{chapter.time})"}>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fill-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
+                <Heroicons.Solid.clock class="h-5 w-5" />
               </a>
               <div class="w-20 pr-2 tabular-nums text-gray-500 italic">
                 <a href="#" onClick={"mediaPlayer.seek(#{chapter.time})"}>

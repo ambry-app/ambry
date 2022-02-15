@@ -1,18 +1,19 @@
-defmodule AmbryWeb.HomeLive.RecentMedia do
+defmodule AmbryWeb.HomeLive.Home.RecentMedia do
   @moduledoc false
 
-  use AmbryWeb, :live_component
+  use AmbryWeb, :p_live_component
+
+  import AmbryWeb.HomeLive.Home.Components
 
   alias Ambry.{Media, PubSub}
-  alias AmbryWeb.Components.PlayerStateTiles
 
   @limit 10
 
-  prop user, :any, required: true
-  prop browser_id, :string, required: true
+  # prop user, :any, required: true
+  # prop browser_id, :string, required: true
 
-  data show_load_more?, :boolean, default: true
-  data player_states, :list, default: []
+  # data show_load_more?, :boolean, default: true
+  # data player_states, :list, default: []
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do

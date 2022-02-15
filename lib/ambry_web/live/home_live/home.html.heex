@@ -1,0 +1,14 @@
+<div>
+  <.live_component
+    module={RecentMedia}
+    id="recent-media"
+    user={@current_user}
+    browser_id={assigns[:browser_id]}
+  />
+
+  <.live_component
+    module={RecentBooks}
+    id="recent-books"
+    show_admin_links?={@current_user.admin}
+  />
+</div>

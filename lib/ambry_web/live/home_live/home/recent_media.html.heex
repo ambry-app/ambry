@@ -1,15 +1,15 @@
 <div>
-  {#if @player_states != []}
+  <%= if @player_states != [] do %>
     <div class="mb-10">
       <h1 class="text-4xl mb-4">Continue listening</h1>
 
-      <PlayerStateTiles
+      <.player_state_tiles
         player_states={@player_states}
         show_load_more={@show_load_more?}
-        load_more="load-more"
+        load_more={{"load-more", @myself}}
         user={@user}
         browser_id={@browser_id}
       />
     </div>
-  {/if}
+  <% end %>
 </div>
