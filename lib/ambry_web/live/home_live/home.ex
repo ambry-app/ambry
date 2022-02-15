@@ -6,7 +6,7 @@ defmodule AmbryWeb.HomeLive.Home do
   use AmbryWeb, :p_live_view
 
   alias Ambry.PubSub
-  alias AmbryWeb.BookLive.PlayButton
+  alias AmbryWeb.Components.PlayButton
   alias AmbryWeb.HomeLive.Home.{RecentBooks, RecentMedia}
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}

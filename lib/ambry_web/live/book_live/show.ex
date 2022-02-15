@@ -7,7 +7,8 @@ defmodule AmbryWeb.BookLive.Show do
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
   alias Ambry.{Books, PubSub}
-  alias AmbryWeb.BookLive.{Header, PlayButton}
+  alias AmbryWeb.BookLive.Header
+  alias AmbryWeb.Components.PlayButton
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 

@@ -1,15 +1,15 @@
-defmodule AmbryWeb.BookLive.PlayButton do
+defmodule AmbryWeb.Components.PlayButton do
   @moduledoc false
 
-  use AmbryWeb, :live_component
+  use AmbryWeb, :p_live_component
 
   alias Ambry.PubSub
 
-  prop media, :any, required: true
-  prop user, :any, required: true
-  prop browser_id, :string, required: true
+  # prop media, :any, required: true
+  # prop user, :any, required: true
+  # prop browser_id, :string, required: true
 
-  data playing, :boolean, default: false
+  # data playing, :boolean, default: false
 
   # Public API
 

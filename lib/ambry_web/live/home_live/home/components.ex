@@ -3,7 +3,7 @@ defmodule AmbryWeb.HomeLive.Home.Components do
 
   use AmbryWeb, :p_component
 
-  alias AmbryWeb.BookLive.PlayButton
+  alias AmbryWeb.Components.PlayButton
   alias AmbryWeb.Endpoint
 
   # prop player_states, :list
