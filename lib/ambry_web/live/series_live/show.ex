@@ -3,10 +3,11 @@ defmodule AmbryWeb.SeriesLive.Show do
   LiveView for showing all books in a series.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :p_live_view
+
+  import AmbryWeb.Components
 
   alias Ambry.Series
-  alias AmbryWeb.Components.BookTiles
 
   @impl Phoenix.LiveView
   def mount(%{"id" => series_id}, _session, socket) do

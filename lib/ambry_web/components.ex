@@ -27,7 +27,7 @@ defmodule AmbryWeb.Components do
       <%= for {book, number} <- books_with_numbers(@books) do %>
         <div class="text-center text-lg">
           <%= if number do %>
-            <p>Book {number}</p>
+            <p>Book <%= number %></p>
           <% end %>
           <div class="group">
             <.link link_type="live_redirect" to={Routes.book_show_path(Endpoint, :show, book)}>
