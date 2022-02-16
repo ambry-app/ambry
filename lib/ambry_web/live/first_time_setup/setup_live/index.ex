@@ -5,19 +5,9 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive.Index do
   Helps create the first admin user when launching the server for the first time.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :p_live_view
 
   alias Ambry.Accounts
-
-  alias Surface.Components.Form
-
-  alias Surface.Components.Form.{
-    ErrorTag,
-    Field,
-    PasswordInput,
-    Submit,
-    TextInput
-  }
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
