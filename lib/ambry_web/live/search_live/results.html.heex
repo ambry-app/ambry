@@ -1,0 +1,16 @@
+<h1 class="text-4xl mb-4">Search results for "<%= @query %>"</h1>
+
+<div class="space-y-10">
+  <%= for {label, items} <- @results do %>
+    <%= case label do %>
+      <% :authors -> %>
+        <.author_results authors={Enum.map(items, &elem(&1, 1))} />
+      <% :books -> %>
+        <.book_results books={Enum.map(items, &elem(&1, 1))} />
+      <% :narrators -> %>
+        <.narrator_results narrators={Enum.map(items, &elem(&1, 1))} />
+      <% :series -> %>
+        <.series_results series={Enum.map(items, &elem(&1, 1))} />
+    <% end %>
+  <% end %>
+</div>

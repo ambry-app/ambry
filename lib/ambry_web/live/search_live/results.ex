@@ -3,16 +3,11 @@ defmodule AmbryWeb.SearchLive.Results do
   LiveView for showing search results.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :p_live_view
+
+  import AmbryWeb.SearchLive.Results.Components
 
   alias Ambry.Search
-
-  alias AmbryWeb.SearchLive.{
-    AuthorResults,
-    BookResults,
-    NarratorResults,
-    SeriesResults
-  }
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 
