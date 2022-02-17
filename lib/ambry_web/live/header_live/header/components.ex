@@ -37,7 +37,7 @@ defmodule AmbryWeb.HeaderLive.Header.Components do
 
     ~H"""
     <.form let={f} for={:search} phx-change={@change} {opts}>
-      <.search_input form={f} field={:query} placeholder="Search..." class="h-8 w-52 px-4 shadow-inner !rounded-full" />
+      <.search_input form={f} field={:query} placeholder="Search..." class="h-8 w-52 !rounded-full" />
       <%= if is_binary(@query) && String.trim(@query) != "" do %>
         <a
           class="hidden"

@@ -228,4 +228,45 @@ defmodule AmbryWeb.Components do
     <% end %>
     """
   end
+
+  def primary_link(assigns) do
+    extra_classes = assigns[:class] || ""
+    extra = assigns_to_attributes(assigns, [])
+
+    default_classes = "text-lime-500 hover:text-lime-800 hover:underline"
+
+    assigns =
+      assigns
+      |> assign(:extra, extra)
+      |> assign(
+        :class,
+        String.trim("#{default_classes} #{extra_classes}")
+      )
+
+    ~H"""
+    <.link class={@class} {@extra} />
+    """
+  end
+
+  def primary_button(assigns) do
+    extra_classes = assigns[:class] || ""
+    extra = assigns_to_attributes(assigns, [])
+
+    default_classes =
+      "bg-lime-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-lime-700 transition-colors focus:ring-2 focus:ring-lime-300"
+
+    assigns =
+      assigns
+      |> assign(:extra, extra)
+      |> assign(
+        :class,
+        String.trim("#{default_classes} #{extra_classes}")
+      )
+
+    ~H"""
+    <button class={@class} {@extra}>
+      <%= render_slot(@inner_block) %>
+    </button>
+    """
+  end
 end

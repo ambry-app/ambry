@@ -1,5 +1,6 @@
 <div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto">
   <.logo_with_tagline />
+
   <.form let={f} for={:user} action={Routes.user_session_path(@conn, :create)}>
     <div class="flex flex-col bg-white p-10 rounded-lg shadow-lg space-y-6">
       <h1 class="font-bold text-xl text-center">Sign in to your account</h1>
@@ -8,7 +9,10 @@
         Welcome to Ambry! Please sign in to your account below.
         <%= if @user_registration_enabled do %>
           If you don't yet have an account, you can
-          <%= link "register for one.", to: Routes.user_registration_path(@conn, :new), class: "inline-block text-lime-500 hover:text-lime-800 hover:underline" %>
+          <.primary_link
+            label="register for one."
+            to={Routes.user_registration_path(@conn, :new)}
+          />
         <% end %>
       </p>
 
@@ -17,21 +21,25 @@
       <% end %>
 
       <div class="flex flex-col space-y-1">
-        <%= email_input f, :email, required: true, placeholder: "Email", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
+        <.email_input form={f} field={:email} required={true} placeholder="Email" />
       </div>
 
       <div class="flex flex-col space-y-1">
-        <%= password_input f, :password, required: true, placeholder: "Password", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
+        <.password_input form={f} field={:password} required={true} placeholder="Password" />
       </div>
 
       <div class="relative">
-        <%= checkbox f, :remember_me, class: "inline-block align-middle" %>
-        <%= label f, :remember_me, "Remember me", class: "inline-block align-middle" %>
+        <.form_field type="checkbox" form={f} field={:remember_me} label="Remember me" />
       </div>
 
       <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
-        <%= link "Forgot your password?", to: Routes.user_reset_password_path(@conn, :new), class: "inline-block text-lime-500 hover:text-lime-800 hover:underline" %>
-        <%= submit "Log in", class: "bg-lime-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-lime-700 transition-colors focus:ring-2 focus:ring-lime-300" %>
+        <.primary_link
+          label="Forgot your password?"
+          to={Routes.user_reset_password_path(@conn, :new)}
+        />
+        <.primary_button>
+          Log in
+        </.primary_button>
       </div>
     </div>
   </.form>
