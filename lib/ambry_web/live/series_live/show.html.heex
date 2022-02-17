@@ -1,15 +1,7 @@
 <h1 class="text-4xl"><%= @series.name %></h1>
 
 <p class="mb-4 text-xl text-gray-500">
-  by
-  <%= for author <- @authors do %>
-    <.link
-      link_type="live_redirect"
-      label={author.name}
-      to={Routes.person_show_path(@socket, :show, author.person_id)}
-      class="text-lime-500 hover:underline"
-    /><span class="last:hidden">,</span>
-  <% end %>
+  by <.people_links people={@authors} link_class="text-lime-500" />
 </p>
 
 <.book_tiles books={@series.series_books} />

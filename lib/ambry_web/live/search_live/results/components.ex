@@ -5,8 +5,6 @@ defmodule AmbryWeb.SearchLive.Results.Components do
 
   use AmbryWeb, :p_component
 
-  import AmbryWeb.Components
-
   alias AmbryWeb.Endpoint
 
   def author_results(assigns) do
@@ -104,15 +102,7 @@ defmodule AmbryWeb.SearchLive.Results.Components do
             </p>
           </div>
           <p class="text-gray-500">
-            by
-            <%= for author <- series.series_books |> Enum.flat_map(& &1.book.authors) |> Enum.uniq() do %>
-              <.link
-                link_type="live_redirect"
-                label={author.name}
-                to={Routes.person_show_path(Endpoint, :show, author.person_id)}
-                class="hover:underline"
-              /><span class="last:hidden">,</span>
-            <% end %>
+            by <.people_links people={series.series_books |> Enum.flat_map(& &1.book.authors) |> Enum.uniq()} />
           </p>
         </div>
       <% end %>

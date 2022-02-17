@@ -3,8 +3,6 @@ defmodule AmbryWeb.HomeLive.Home.RecentBooks do
 
   use AmbryWeb, :p_live_component
 
-  import AmbryWeb.Components
-
   alias Ambry.Books
 
   @limit 25

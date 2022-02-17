@@ -3,8 +3,6 @@ defmodule AmbryWeb.HomeLive.Home.RecentMedia do
 
   use AmbryWeb, :p_live_component
 
-  import AmbryWeb.HomeLive.Home.Components
-
   alias Ambry.{Media, PubSub}
 
   @limit 10

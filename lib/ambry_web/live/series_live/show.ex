@@ -5,8 +5,6 @@ defmodule AmbryWeb.SeriesLive.Show do
 
   use AmbryWeb, :p_live_view
 
-  import AmbryWeb.Components
-
   alias Ambry.Series
 
   @impl Phoenix.LiveView

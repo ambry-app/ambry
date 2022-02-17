@@ -15,15 +15,7 @@
             <div class="grow mr-2">
               <p class="text-lg"><%= @book.title %> (<%= recording_type(media) %>)</p>
               <p class="text-gray-500">
-                Narrated by
-                <%= for narrator <- media.narrators do %>
-                  <.link
-                    link_type="live_redirect"
-                    label={narrator.name}
-                    to={Routes.person_show_path(@socket, :show, narrator.person_id)}
-                    class="text-lime-500 hover:underline"
-                  /><span class="last:hidden">,</span>
-                <% end %>
+                Narrated by <.people_links people={media.narrators} link_class="text-lime-500" />
                 <%= if media.full_cast do %>
                   <span>full cast</span>
                 <% end %>

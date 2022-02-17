@@ -5,8 +5,6 @@ defmodule AmbryWeb.PersonLive.Show do
 
   use AmbryWeb, :p_live_view
 
-  import AmbryWeb.Components
-
   alias Ambry.People
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
