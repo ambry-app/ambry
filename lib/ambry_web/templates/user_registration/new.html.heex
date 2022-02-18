@@ -5,18 +5,23 @@
       <h1 class="font-bold text-xl text-center">Reigister a new account</h1>
 
       <div class="flex flex-col space-y-1">
-        <%= email_input f, :email, required: true, placeholder: "Email", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
-        <span class="text-red-500"><%= error_tag f, :email %></span>
+        <.email_input form={f} field={:email} required={true} placeholder="Email" />
+        <.form_field_error form={f} field={:email} />
       </div>
 
       <div class="flex flex-col space-y-1">
-        <%= password_input f, :password, required: true, placeholder: "Password", class: "border-2 rounded px-3 py-2 w-full focus:outline-none focus:border-lime-400 focus:shadow" %>
-        <span class="text-red-500"><%= error_tag f, :password %></span>
+        <.password_input form={f} field={:password} required={true} placeholder="New password" />
+        <.form_field_error form={f} field={:password} />
       </div>
 
       <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
-        <%= link "Sign in", to: Routes.user_session_path(@conn, :new), class: "inline-block text-lime-500 hover:text-lime-800 hover:underline" %>
-        <%= submit "Register", class: "bg-lime-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-lime-700 transition-colors focus:ring-2 focus:ring-lime-300" %>
+        <.primary_link
+          label="Log in"
+          to={Routes.user_session_path(@conn, :new)}
+        />
+        <.primary_button>
+          Register
+        </.primary_button>
       </div>
     </div>
   </.form>
