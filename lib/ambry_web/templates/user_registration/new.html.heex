@@ -1,8 +1,8 @@
 <div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto">
   <.logo_with_tagline />
   <.form let={f} for={@changeset} action={Routes.user_registration_path(@conn, :create)}>
-    <div class="flex flex-col bg-white p-10 rounded-lg shadow-lg space-y-6">
-      <h1 class="font-bold text-xl text-center">Reigister a new account</h1>
+    <.form_card>
+      <.header2 class="text-center">Reigister a new account</.header2>
 
       <div class="flex flex-col space-y-1">
         <.email_input form={f} field={:email} required={true} placeholder="Email" />
@@ -19,10 +19,10 @@
           label="Log in"
           to={Routes.user_session_path(@conn, :new)}
         />
-        <.primary_button>
+        <.primary_button type="submit">
           Register
         </.primary_button>
       </div>
-    </div>
+    </.form_card>
   </.form>
 </div>

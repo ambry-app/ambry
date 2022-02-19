@@ -7,7 +7,7 @@ module.exports = {
     '../lib/*_web/**/*.sface',
     '../deps/petal_components/**/*.*ex'
   ],
-  darkMode: "class",
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -19,6 +19,6 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/aspect-ratio'),
-    require("@tailwindcss/forms")
+    require('@tailwindcss/forms')
   ]
 }

@@ -19,8 +19,9 @@ defmodule AmbryWeb.Components do
   def logo_with_tagline(assigns) do
     ~H"""
     <h1 class="text-center">
-      <img class="mx-auto" style="max-height: 128px;" alt="Ambry" src={Routes.static_path(Endpoint, "/images/logo_256x1056.svg")}>
-      <span class="font-semibold text-gray-500">Personal Audiobook Streaming</span>
+      <img class="mx-auto block dark:hidden" style="max-height: 128px;" alt="Ambry" src={Routes.static_path(Endpoint, "/images/logo_256x1056.svg")}>
+      <img class="mx-auto hidden dark:block" style="max-height: 128px;" alt="Ambry" src={Routes.static_path(Endpoint, "/images/logo_dark_256x1056.svg")}>
+      <span class="font-semibold text-gray-500 dark:text-gray-400">Personal Audiobook Streaming</span>
     </h1>
     """
   end
@@ -233,7 +234,8 @@ defmodule AmbryWeb.Components do
     extra_classes = assigns[:class] || ""
     extra = assigns_to_attributes(assigns, [])
 
-    default_classes = "text-lime-500 hover:text-lime-800 hover:underline"
+    default_classes =
+      "text-lime-500 dark:text-lime-400 hover:text-lime-800 dark:hover:text-lime-600 hover:underline"
 
     assigns =
       assigns
@@ -253,7 +255,20 @@ defmodule AmbryWeb.Components do
     extra = assigns_to_attributes(assigns, [])
 
     default_classes =
-      "bg-lime-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-lime-700 transition-colors focus:ring-2 focus:ring-lime-300"
+      """
+      bg-lime-500 dark:bg-lime-400
+      text-white dark:text-black
+      font-bold
+      px-5 py-2
+      rounded
+      focus:outline-none
+      shadow
+      hover:bg-lime-700 dark:hover:bg-lime-600
+      transition-colors
+      focus:ring-2
+      focus:ring-lime-300 dark:focus:ring-lime-700
+      """
+      |> PetalComponents.Helpers.convert_string_to_one_line()
 
     assigns =
       assigns
@@ -267,6 +282,35 @@ defmodule AmbryWeb.Components do
     <button class={@class} {@extra}>
       <%= render_slot(@inner_block) %>
     </button>
+    """
+  end
+
+  def header2(assigns) do
+    extra_classes = assigns[:class] || ""
+    extra = assigns_to_attributes(assigns, [])
+
+    default_classes = "text-gray-900 dark:text-gray-50"
+
+    assigns =
+      assigns
+      |> assign(:extra, extra)
+      |> assign(
+        :class,
+        String.trim("#{default_classes} #{extra_classes}")
+      )
+
+    ~H"""
+    <.h2 class={@class} {@extra}>
+      <%= render_slot(@inner_block) %>
+    </.h2>
+    """
+  end
+
+  def form_card(assigns) do
+    ~H"""
+    <div class="flex flex-col p-10 rounded-lg shadow-lg space-y-6 bg-white dark:bg-gray-900">
+      <%= render_slot(@inner_block) %>
+    </div>
     """
   end
 end

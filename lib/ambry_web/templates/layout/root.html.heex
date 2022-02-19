@@ -9,7 +9,7 @@
     <link phx-track-static rel="stylesheet" href={Routes.static_path(@conn, "/assets/app.css")}/>
     <script defer phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
   </head>
-  <body class="text-gray-700">
+  <body class="text-gray-700 bg-white dark:text-gray-300 dark:bg-black">
     <%= if @current_user do %>
       <%= live_render(@conn, AmbryWeb.HeaderLive.Header, layout: false) %>
     <% end %>

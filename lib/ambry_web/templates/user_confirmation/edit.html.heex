@@ -2,18 +2,18 @@
   <.logo_with_tagline />
 
   <.form let={_f} for={:user} action={Routes.user_confirmation_path(@conn, :update, @token)}>
-    <div class="flex flex-col bg-white p-10 rounded-lg shadow-lg space-y-6">
-      <h1 class="font-bold text-xl text-center">Confirm account</h1>
+    <.form_card>
+      <.header2 class="text-center">Confirm account</.header2>
 
       <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
         <.primary_link
           label="Log in"
           to={Routes.user_session_path(@conn, :new)}
         />
-        <.primary_button>
+        <.primary_button type="submit">
           Confirm my account
         </.primary_button>
       </div>
-    </div>
+    </.form_card>
   </.form>
 </div>
