@@ -8,12 +8,38 @@
     <%= live_title_tag assigns[:page_title] || "Personal Audiobook Streaming", suffix: " · Ambry" %>
     <link phx-track-static rel="stylesheet" href={Routes.static_path(@conn, "/assets/app.css")}/>
     <script defer phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
+    <script type="text/javascript">
+      function initTheme() {
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+      }
+
+      function forceDark() {
+        localStorage.theme = 'dark'
+        initTheme()
+      }
+
+      function forceLight() {
+        localStorage.theme = 'light'
+        initTheme()
+      }
+
+      function clearTheme() {
+        localStorage.removeItem('theme')
+        initTheme()
+      }
+
+      initTheme()
+    </script>
   </head>
   <body class="text-gray-700 bg-white dark:text-gray-300 dark:bg-black">
-    <%= if @current_user do %>
-      <%= live_render(@conn, AmbryWeb.HeaderLive.Header, layout: false) %>
-    <% end %>
-    <main class="pt-20 pb-10 px-4 sm:px-10 max-w-screen-2xl 2xl:mx-auto">
+    <%#= if @current_user do %>
+      <%#= live_render(@conn, AmbryWeb.HeaderLive.Header, layout: false) %>
+    <%# end %>
+    <main class="h-screen max-w-screen-2xl 2xl:mx-auto">
       <%= @inner_content %>
     </main>
   </body>
