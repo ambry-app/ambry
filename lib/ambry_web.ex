@@ -55,6 +55,8 @@ defmodule AmbryWeb do
   def p_live_view do
     quote do
       use Phoenix.LiveView,
+        container:
+          {:div, class: "flex-grow flex flex-col lg:flex-row overflow-hidden lg:justify-center"},
         layout: {AmbryWeb.LayoutView, "live.html"}
 
       # Include shared imports and aliases for views

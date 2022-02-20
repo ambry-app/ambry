@@ -1,96 +1,79 @@
-<div class="h-screen flex flex-col">
-  <!-- header -->
-  <div class="p-4 flex gap-8 justify-center">
-    <Heroicons.Solid.home class="w-5 h-5 cursor-pointer" />
-    <Heroicons.Solid.library class="w-5 h-5 cursor-pointer" />
-    <Heroicons.Solid.search class="w-5 h-5 cursor-pointer" />
-  </div>
+<div class="flex-1">
+  <div class="flex space-x-4 md:space-x-8 m-6 sm:m-8 lg:m-16 lg:mr-4 lg:flex-1">
+    <img
+      src={@player_state.media.book.image_path}
+      class="h-52 sm:h-64 md:h-72 lg:h-80 xl:h-96 object-center object-cover rounded-lg shadow-md"
+    />
 
-  <!-- content -->
-  <div class="flex-grow flex flex-row overflow-hidden justify-center">
-    <div class="flex-1 flex flex-col lg:flex-row">
-      <div class="flex space-x-4 md:space-x-8 m-6 sm:m-8 lg:m-16 lg:mr-4 lg:flex-1">
-        <img
-          src={@player_state.media.book.image_path}
-          class="h-52 sm:h-64 md:h-72 lg:h-80 xl:h-96 object-center object-cover rounded-lg shadow-md"
+    <div class="pt-4 md:pt-6 lg:pt-8">
+      <h1 class="font-bold text-2xl sm:text-3xl xl:text-4xl text-gray-900 dark:text-gray-100">
+        <.link
+          link_type="live_redirect"
+          label={@player_state.media.book.title}
+          to={Routes.book_show_path(@socket, :show, @player_state.media.book)}
+          class="hover:underline"
         />
+      </h1>
 
-        <div class="pt-4 md:pt-6 lg:pt-8">
-          <h1 class="font-bold text-2xl sm:text-3xl xl:text-4xl text-gray-900 dark:text-gray-100">
-            <.link
-              link_type="live_redirect"
-              label={@player_state.media.book.title}
-              to={Routes.book_show_path(@socket, :show, @player_state.media.book)}
-              class="hover:underline"
-            />
-          </h1>
+      <p class="pb-4 sm:text-lg xl:text-xl text-gray-800 dark:text-gray-200">
+        <span>by <.people_links people={@player_state.media.book.authors} /></span>
+      </p>
 
-          <p class="pb-4 sm:text-lg xl:text-xl text-gray-800 dark:text-gray-200">
-            <span>by <.people_links people={@player_state.media.book.authors} /></span>
-          </p>
-
-          <p class="pb-4 sm:text-lg text-gray-800 dark:text-gray-200">
-            <span>
-              Narrated by <.people_links people={@player_state.media.narrators} />
-              <%= if @player_state.media.full_cast do %>
-                <span>full cast</span>
-              <% end %>
-            </span>
-          </p>
-
-          <div class="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-            <.series_book_links series_books={@player_state.media.book.series_books} />
-          </div>
-        </div>
-      </div>
-
-      <div class="flex-1 overflow-y-auto mx-0 sm:mx-8 lg:mx-16 mt-10 lg:mt-16 lg:ml-4">
-        <div class="grid grid-cols-3 gap-0 sticky top-0 bg-white dark:bg-black">
-          <div class="uppercase font-medium text-center cursor-pointer pb-3 text-gray-900 dark:text-gray-100 border-b-2 border-lime-500 dark:border-lime-400">
-            Chapters
-          </div>
-
-          <div class="uppercase font-medium text-center cursor-pointer pb-3 text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-900">
-            Bookmarks
-          </div>
-
-          <div class="uppercase font-medium text-center cursor-pointer pb-3 text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-900">
-            About
-          </div>
-        </div>
-
-        <div>
-          <%= if @player_state.media.chapters == [] do %>
-            <p class="p-4 font-semibold text-gray-800 dark:text-gray-200">
-              This book has no chapters defined.
-            </p>
-          <% else %>
-            <table class="w-full">
-              <%= for chapter <- @player_state.media.chapters do %>
-                <tr class={"cursor-pointer" <> if chapter.title == "Chapter 1", do: " bg-gray-200 dark:bg-gray-900", else: ""} onClick={"mediaPlayer.seek(#{chapter.time})"}>
-                  <td class="pl-4 py-4 border-b border-gray-900 flex space-x-2">
-                    <%= if chapter.title == "Chapter 1" do %>
-                      <Heroicons.Solid.volume_up class="w-5 h-5 flex-none" />
-                    <% else %>
-                      <div class="w-5 h-5 flex-none" />
-                    <% end %>
-                    <p><%= chapter.title %></p>
-                  </td>
-
-                  <td class="pr-4 py-4 border-b border-gray-900 text-right tabular-nums">
-                    <%= format_timecode(chapter.time) %>
-                  </td>
-                </tr>
-              <% end %>
-            </table>
+      <p class="pb-4 sm:text-lg text-gray-800 dark:text-gray-200">
+        <span>
+          Narrated by <.people_links people={@player_state.media.narrators} />
+          <%= if @player_state.media.full_cast do %>
+            <span>full cast</span>
           <% end %>
-        </div>
+        </span>
+      </p>
+
+      <div class="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+        <.series_book_links series_books={@player_state.media.book.series_books} />
       </div>
     </div>
   </div>
+</div>
 
-  <!-- footer -->
-  <div class="p-4 sm:p-5 lg:p-6 bg-gray-200 dark:bg-gray-900 2xl:rounded-t-md">
-    Player Controls
+<div class="flex-grow lg:flex-1 flex flex-col overflow-hidden lg:overflow-auto mx-0 sm:mx-8 lg:mx-16 mt-4 lg:mt-16 lg:ml-4">
+  <div class="flex">
+    <div class="flex-1 uppercase font-medium text-center cursor-pointer pb-3 text-gray-900 dark:text-gray-100 border-b-2 border-lime-500 dark:border-lime-400">
+      Chapters
+    </div>
+
+    <div class="flex-1 uppercase font-medium text-center cursor-pointer pb-3 text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-900">
+      Bookmarks
+    </div>
+
+    <div class="flex-1 uppercase font-medium text-center cursor-pointer pb-3 text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-900">
+      About
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-y-auto">
+    <%= if @player_state.media.chapters == [] do %>
+      <p class="p-4 font-semibold text-gray-800 dark:text-gray-200">
+        This book has no chapters defined.
+      </p>
+    <% else %>
+      <table class="w-full">
+        <%= for chapter <- @player_state.media.chapters do %>
+          <tr class={"cursor-pointer" <> if chapter.title == "Chapter 1", do: " bg-gray-200 dark:bg-gray-900", else: ""} onClick={"mediaPlayer.seek(#{chapter.time})"}>
+            <td class="pl-4 py-4 border-b border-gray-900 flex space-x-2">
+              <%= if chapter.title == "Chapter 1" do %>
+                <Heroicons.Solid.volume_up class="w-5 h-5 flex-none" />
+              <% else %>
+                <div class="w-5 h-5 flex-none" />
+              <% end %>
+              <p><%= chapter.title %></p>
+            </td>
+
+            <td class="pr-4 py-4 border-b border-gray-900 text-right tabular-nums">
+              <%= format_timecode(chapter.time) %>
+            </td>
+          </tr>
+        <% end %>
+      </table>
+    <% end %>
   </div>
 </div>

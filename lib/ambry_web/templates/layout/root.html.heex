@@ -33,14 +33,43 @@
       }
 
       initTheme()
+
+      // fix mobile browser viewport height shenanigans.
+      // https://www.markusantonwolf.com/blog/solution-to-the-mobile-viewport-height-issue-with-tailwind-css/
+      // see tailwind.config.js for other half
+
+      function setViewHeight() {
+        const vh = window.innerHeight * 0.01
+        document.documentElement.style.setProperty('--vh', `${vh}px`)
+      }
+
+      setViewHeight()
+
+      window.addEventListener('resize', () => {
+        this.setViewHeight()
+      })
+
+      // end viewport fix
     </script>
   </head>
-  <body class="text-gray-700 bg-white dark:text-gray-300 dark:bg-black">
-    <%#= if @current_user do %>
-      <%#= live_render(@conn, AmbryWeb.HeaderLive.Header, layout: false) %>
-    <%# end %>
-    <main class="max-w-screen-2xl 2xl:mx-auto">
+  <body class="text-gray-800 bg-white dark:text-gray-200 dark:bg-black">
+
+    <%= if @current_user do %>
+      <div class="h-screen flex flex-col max-w-screen-2xl 2xl:mx-auto">
+        <div class="p-4 flex gap-8 justify-center">
+          <Heroicons.Solid.home class="w-5 h-5 cursor-pointer" />
+          <Heroicons.Solid.library class="w-5 h-5 cursor-pointer" />
+          <Heroicons.Solid.search class="w-5 h-5 cursor-pointer" />
+        </div>
+
+        <%= @inner_content %>
+
+        <div class="p-4 sm:p-5 lg:p-6 bg-gray-200 dark:bg-gray-900 2xl:rounded-t-md">
+          Player Controls
+        </div>
+      </div>
+    <% else %>
       <%= @inner_content %>
-    </main>
+    <% end %>
   </body>
 </html>
