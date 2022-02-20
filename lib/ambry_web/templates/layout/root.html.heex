@@ -39,7 +39,7 @@
     <%#= if @current_user do %>
       <%#= live_render(@conn, AmbryWeb.HeaderLive.Header, layout: false) %>
     <%# end %>
-    <main class="h-screen max-w-screen-2xl 2xl:mx-auto">
+    <main class="max-w-screen-2xl 2xl:mx-auto">
       <%= @inner_content %>
     </main>
   </body>
