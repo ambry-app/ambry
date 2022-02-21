@@ -53,13 +53,15 @@ const liveSocket = new LiveSocket('/live', Socket, {
   }
 })
 
+const dark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
 // Setup Alpine.js
 window.Alpine = Alpine
 Alpine.data('readMore', readMore)
 Alpine.start()
 
 // Show progress bar on live navigation and form submits
-topbar.config({ barColors: { 0: '#84CC16' }, shadowColor: 'rgba(0, 0, 0, .3)' })
+topbar.config({ barColors: { 0: dark ? '#A3E635' : '#84CC16' }, shadowColor: 'rgba(0, 0, 0, .3)' })
 window.addEventListener('phx:page-loading-start', info => topbar.show())
 window.addEventListener('phx:page-loading-stop', info => topbar.hide())
 

@@ -22,18 +22,18 @@
         </h1>
 
         <p class="text-xl text-gray-500" phx-click={@toggle}>
-          by <.people_links people={@player_state.media.book.authors} link_class="text-lime-500" />
+          by <Amc.people_links people={@player_state.media.book.authors} link_class="text-lime-500" />
         </p>
 
         <p class="text-lg text-gray-500" phx-click={@toggle}>
-          Narrated by <.people_links people={@player_state.media.narrators} link_class="text-lime-500" />
+          Narrated by <Amc.people_links people={@player_state.media.narrators} link_class="text-lime-500" />
           <%= if @player_state.media.full_cast do %>
             <span>full cast</span>
           <% end %>
         </p>
 
         <div class="text-gray-400" phx-click={@toggle}>
-          <.series_book_links series_books={@player_state.media.book.series_books} />
+          <Amc.series_book_links series_books={@player_state.media.book.series_books} />
         </div>
       </div>
     </div>

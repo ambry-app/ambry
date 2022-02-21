@@ -1,15 +1,15 @@
 <div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto">
-  <.logo_with_tagline />
+  <Amc.logo_with_tagline />
 
   <.form let={f} for={:user} action={Routes.user_session_path(@conn, :create)}>
-    <.form_card>
-      <.header2 class="text-center">Sign in to your account</.header2>
+    <Amc.form_card>
+      <Amc.header2 class="text-center">Sign in to your account</Amc.header2>
 
       <p>
         Welcome to Ambry! Please sign in to your account below.
         <%= if @user_registration_enabled do %>
           If you don't yet have an account, you can
-          <.primary_link
+          <Amc.primary_link
             label="register for one."
             to={Routes.user_registration_path(@conn, :new)}
           />
@@ -33,14 +33,14 @@
       </div>
 
       <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
-        <.primary_link
+        <Amc.primary_link
           label="Forgot your password?"
           to={Routes.user_reset_password_path(@conn, :new)}
         />
-        <.primary_button type="submit">
+        <Amc.primary_button type="submit">
           Log in
-        </.primary_button>
+        </Amc.primary_button>
       </div>
-    </.form_card>
+    </Amc.form_card>
   </.form>
 </div>

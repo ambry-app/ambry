@@ -2,7 +2,7 @@
   <%= if @books != [] do %>
     <h1 class="text-4xl mb-4">Newest books</h1>
 
-    <.book_tiles
+    <Amc.book_tiles
       books={@books}
       show_load_more={@show_load_more?}
       load_more={{"load-more", @myself}}

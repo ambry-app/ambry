@@ -1,8 +1,8 @@
 <div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto">
-  <.logo_with_tagline />
+  <Amc.logo_with_tagline />
   <.form let={f} for={@changeset} action={Routes.user_registration_path(@conn, :create)}>
-    <.form_card>
-      <.header2 class="text-center">Reigister a new account</.header2>
+    <Amc.form_card>
+      <Amc.header2 class="text-center">Reigister a new account</Amc.header2>
 
       <div class="flex flex-col space-y-1">
         <.email_input form={f} field={:email} required={true} placeholder="Email" />
@@ -15,14 +15,14 @@
       </div>
 
       <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
-        <.primary_link
+        <Amc.primary_link
           label="Log in"
           to={Routes.user_session_path(@conn, :new)}
         />
-        <.primary_button type="submit">
+        <Amc.primary_button type="submit">
           Register
-        </.primary_button>
+        </Amc.primary_button>
       </div>
-    </.form_card>
+    </Amc.form_card>
   </.form>
 </div>

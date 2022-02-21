@@ -1,7 +1,7 @@
 <h1 class="text-4xl"><%= @series.name %></h1>
 
 <p class="mb-4 text-xl text-gray-500">
-  by <.people_links people={@authors} link_class="text-lime-500" />
+  by <Amc.people_links people={@authors} link_class="text-lime-500" />
 </p>
 
-<.book_tiles books={@series.series_books} />
+<Amc.book_tiles books={@series.series_books} />

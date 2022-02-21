@@ -26,7 +26,7 @@ defmodule AmbryWeb.SearchLive.Results.Components do
     <div>
       <h2 class="text-3xl mb-2">Books</h2>
 
-      <.book_tiles books={@books} />
+      <Amc.book_tiles books={@books} />
     </div>
     """
   end
@@ -102,7 +102,7 @@ defmodule AmbryWeb.SearchLive.Results.Components do
             </p>
           </div>
           <p class="text-gray-500">
-            by <.people_links people={series.series_books |> Enum.flat_map(& &1.book.authors) |> Enum.uniq()} />
+            by <Amc.people_links people={series.series_books |> Enum.flat_map(& &1.book.authors) |> Enum.uniq()} />
           </p>
         </div>
       <% end %>
