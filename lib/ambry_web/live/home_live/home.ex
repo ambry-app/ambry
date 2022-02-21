@@ -9,8 +9,6 @@ defmodule AmbryWeb.HomeLive.Home do
   alias AmbryWeb.Components.PlayButton
   alias AmbryWeb.HomeLive.Home.{RecentBooks, RecentMedia}
 
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
-
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     socket =

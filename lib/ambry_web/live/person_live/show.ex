@@ -7,8 +7,6 @@ defmodule AmbryWeb.PersonLive.Show do
 
   alias Ambry.People
 
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
-
   @impl Phoenix.LiveView
   def mount(%{"id" => person_id}, _session, socket) do
     person = People.get_person_with_books!(person_id)

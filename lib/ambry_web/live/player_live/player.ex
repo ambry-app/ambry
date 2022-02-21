@@ -9,8 +9,6 @@ defmodule AmbryWeb.PlayerLive.Player do
 
   alias Ambry.Media
 
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
-
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user

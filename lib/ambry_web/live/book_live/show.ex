@@ -11,8 +11,6 @@ defmodule AmbryWeb.BookLive.Show do
   alias Ambry.{Books, PubSub}
   alias AmbryWeb.Components.PlayButton
 
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
-
   @impl Phoenix.LiveView
   def mount(%{"id" => book_id}, _session, socket) do
     book = Books.get_book_with_media!(book_id)

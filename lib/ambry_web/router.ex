@@ -46,12 +46,15 @@ defmodule AmbryWeb.Router do
   scope "/", AmbryWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    # live "/", HomeLive.Home, :home
-    live "/", PlayerLive.Player, :player
-    live "/people/:id", PersonLive.Show, :show
-    live "/series/:id", SeriesLive.Show, :show
-    live "/books/:id", BookLive.Show, :show
-    live "/search/:query", SearchLive.Results, :results
+    live_session :user,
+      on_mount: [{AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}, AmbryWeb.NavHooks] do
+      # live "/", HomeLive.Home, :home
+      live "/", PlayerLive.Player, :player
+      live "/people/:id", PersonLive.Show, :show
+      live "/series/:id", SeriesLive.Show, :show
+      live "/books/:id", BookLive.Show, :show
+      live "/search/:query", SearchLive.Results, :results
+    end
   end
 
   scope "/admin", AmbryWeb.Admin, as: :admin do

@@ -28,4 +28,18 @@
     </div>
 <% end %>
 
-<%= @inner_content %>
+<%= if @current_user do %>
+  <div class="h-screen flex flex-col max-w-screen-2xl 2xl:mx-auto">
+    <Amc.header user={@current_user} active_path={@nav_active_path} />
+
+    <div class="flex-grow flex flex-col lg:flex-row overflow-hidden lg:justify-center">
+      <%= @inner_content %>
+    </div>
+
+    <div class="p-4 sm:p-5 lg:p-6 bg-gray-200 dark:bg-gray-900 2xl:rounded-t-md">
+      Player Controls
+    </div>
+  </div>
+<% else %>
+  <%= @inner_content %>
+<% end %>

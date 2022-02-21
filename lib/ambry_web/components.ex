@@ -71,24 +71,24 @@ defmodule AmbryWeb.Components do
 
   def header(assigns) do
     ~H"""
-    <div class="p-4 flex text-gray-600 dark:text-gray-400">
+    <div class="p-4 flex text-gray-600 dark:text-gray-500">
       <div class="flex-1">
-        <.link to="/" class="flex">
+        <.link link_type="live_redirect" to="/" class="flex">
           <.ambry_icon class="mt-1 h-6 lg:h-7" />
           <.ambry_title class="mt-1 h-6 lg:h-7 hidden md:block" />
         </.link>
       </div>
       <div class="flex-1">
         <div class="flex justify-center gap-8 lg:gap-12">
-          <.link to="/" class="hover:text-gray-900 dark:hover:text-gray-100">
+          <.link link_type="live_redirect" to="/" class={nav_class(@active_path == "/")}>
             <.play_icon class="mt-1 h-6 lg:h-7 lg:hidden" />
-            <p class="hidden lg:block font-bold text-xl">Home</p>
+            <p class="hidden lg:block font-bold text-xl">Now Playing</p>
           </.link>
-          <.link to="/" class="hover:text-gray-900 dark:hover:text-gray-100">
+          <.link link_type="live_redirect" to="/" class={nav_class(@active_path == "/library")}>
             <.book_icon class="mt-1 lg:hidden w-6 h-6" />
             <p class="hidden lg:block font-bold text-xl">Library</p>
           </.link>
-          <.link to="/" class="hover:text-gray-900 dark:hover:text-gray-100 flex content-center gap-4">
+          <.link link_type="live_redirect" to="/" class={nav_class(false, "flex content-center gap-4")}>
             <.search_icon class="mt-1 w-6 h-6" />
             <p class="hidden xl:block font-bold text-xl">Search</p>
           </.link>
@@ -103,6 +103,10 @@ defmodule AmbryWeb.Components do
     </div>
     """
   end
+
+  defp nav_class(active?, extra \\ "")
+  defp nav_class(true, extra), do: "text-gray-900 dark:text-gray-100 #{extra}"
+  defp nav_class(false, extra), do: "hover:text-gray-900 dark:hover:text-gray-100 #{extra}"
 
   def logo_with_tagline(assigns) do
     ~H"""
