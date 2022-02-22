@@ -80,15 +80,15 @@ defmodule AmbryWeb.Components do
       </div>
       <div class="flex-1">
         <div class="flex justify-center gap-8 lg:gap-12">
-          <.link link_type="live_redirect" to="/" class={nav_class(@active_path == "/")}>
+          <.link link_type="live_redirect" to={Routes.player_player_path(Endpoint, :player)} class={nav_class(@active_path == "/")}>
             <.play_icon class="mt-1 h-6 lg:h-7 lg:hidden" />
             <p class="hidden lg:block font-bold text-xl">Now Playing</p>
           </.link>
-          <.link link_type="live_redirect" to="/" class={nav_class(@active_path == "/library")}>
+          <.link link_type="live_redirect" to={Routes.library_home_path(Endpoint, :home)} class={nav_class(@active_path == "/library")}>
             <.book_icon class="mt-1 lg:hidden w-6 h-6" />
             <p class="hidden lg:block font-bold text-xl">Library</p>
           </.link>
-          <.link link_type="live_redirect" to="/" class={nav_class(false, "flex content-center gap-4")}>
+          <.link to="#" class={nav_class(false, "flex content-center gap-4")}>
             <.search_icon class="mt-1 w-6 h-6" />
             <p class="hidden xl:block font-bold text-xl">Search</p>
           </.link>

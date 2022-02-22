@@ -1,13 +1,13 @@
-defmodule AmbryWeb.HomeLive.Home do
+defmodule AmbryWeb.LibraryLive.Home do
   @moduledoc """
-  LiveView for the home page.
+  LiveView for the library page.
   """
 
   use AmbryWeb, :p_live_view
 
   alias Ambry.PubSub
   alias AmbryWeb.Components.PlayButton
-  alias AmbryWeb.HomeLive.Home.{RecentBooks, RecentMedia}
+  alias AmbryWeb.LibraryLive.Home.{RecentBooks, RecentMedia}
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
