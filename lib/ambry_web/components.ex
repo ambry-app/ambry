@@ -50,22 +50,22 @@ defmodule AmbryWeb.Components do
     <div class="p-4 flex text-gray-600 dark:text-gray-500">
       <div class="flex-1">
         <.link link_type="live_redirect" to="/" class="flex">
-          <.ambry_icon class="mt-1 h-6 lg:h-7" />
+          <.ambry_icon class="mt-1 w-6 h-6 lg:w-7 lg:h-7" />
           <.ambry_title class="mt-1 h-6 lg:h-7 hidden md:block" />
         </.link>
       </div>
       <div class="flex-1">
         <div class="flex justify-center gap-8 lg:gap-12">
           <.link link_type="live_redirect" to={Routes.player_player_path(Endpoint, :player)} class={nav_class(@active_path == "/")}>
-            <FA.icon name="circle-play" class="mt-1 h-6 lg:hidden fill-current" />
+            <FA.icon name="circle-play" class="mt-1 w-6 h-6 lg:hidden fill-current" />
             <p class="hidden lg:block font-bold text-xl">Now Playing</p>
           </.link>
           <.link link_type="live_redirect" to={Routes.library_home_path(Endpoint, :home)} class={nav_class(@active_path == "/library")}>
-            <FA.icon name="book-open" class="mt-1 h-6 lg:hidden fill-current" />
+            <FA.icon name="book-open" class="mt-1 w-6 h-6 lg:hidden fill-current" />
             <p class="hidden lg:block font-bold text-xl">Library</p>
           </.link>
           <.link x-data @click.prevent="$nextTick(() => $store.search.open = true)" to="#" class={nav_class(false, "flex content-center gap-4")}>
-            <FA.icon name="magnifying-glass" class="mt-1 h-6 fill-current" />
+            <FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 fill-current" />
             <p class="hidden xl:block font-bold text-xl">Search</p>
           </.link>
         </div>
@@ -73,7 +73,9 @@ defmodule AmbryWeb.Components do
       <div class="flex-1">
         <div class="flex">
           <div class="flex-grow" />
-          <img class="mt-1 h-6 lg:h-7 rounded-full cursor-pointer" src={gravatar_url(@user.email)} />
+          <.link x-data @click.prevent="if (!$store.menu.open) { $nextTick(() => $store.menu.open = true) }" to="#">
+            <img class="mt-1 h-6 lg:w-7 lg:h-7 rounded-full" src={gravatar_url(@user.email)} />
+          </.link>
         </div>
       </div>
     </div>
@@ -82,12 +84,60 @@ defmodule AmbryWeb.Components do
       module={SearchBox}
       id="search-box"
     />
+
+    <.user_menu user={@user} />
     """
   end
 
   defp nav_class(active?, extra \\ "")
   defp nav_class(true, extra), do: "text-gray-900 dark:text-gray-100 #{extra}"
   defp nav_class(false, extra), do: "hover:text-gray-900 dark:hover:text-gray-100 #{extra}"
+
+  def user_menu(assigns) do
+    ~H"""
+    <div
+      x-data="{ show() { $store.menu.open = true }, hide() { $store.menu.open = false; $store.menu.query = '' } }"
+      @click.outside="hide()"
+      @keydown.escape.window.prevent="hide()"
+      :class="{ 'hidden': ! $store.menu.open }"
+      class="hidden absolute top-12 right-4 max-w-80"
+    >
+      <div class="w-full h-full bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm divide-y divide-gray-300 dark:divide-gray-800">
+        <div class="flex items-center p-4 gap-4">
+          <img class="w-10 h-10 rounded-full" src={gravatar_url(@user.email)} />
+          <p class="whitespace-nowrap overflow-hidden text-ellipsis"><%= @user.email %></p>
+        </div>
+        <div class="py-3">
+          <%= if @user.admin do %>
+            <.link
+              link_type="live_redirect"
+              to={Routes.admin_home_index_path(Endpoint, :index)}
+              class="flex items-center px-4 py-2 gap-4 hover:bg-gray-400 dark:hover:bg-gray-700"
+            >
+              <FA.icon name="screwdriver-wrench" class="w-5 h-5 fill-current" />
+              <p>Admin</p>
+            </.link>
+          <% end %>
+          <.link
+            to={Routes.user_settings_path(Endpoint, :edit)}
+            class="flex items-center px-4 py-2 gap-4 hover:bg-gray-400 dark:hover:bg-gray-700"
+          >
+            <FA.icon name="user-gear" class="w-5 h-5 fill-current" />
+            <p>Account Settings</p>
+          </.link>
+          <.link
+            to={Routes.user_session_path(Endpoint, :delete)}
+            method="delete"
+            class="flex items-center px-4 py-2 gap-4 hover:bg-gray-400 dark:hover:bg-gray-700"
+          >
+            <FA.icon name="arrow-right-from-bracket" class="w-5 h-5 fill-current" />
+            <p>Log out</p>
+          </.link>
+        </div>
+      </div>
+    </div>
+    """
+  end
 
   def logo_with_tagline(assigns) do
     ~H"""

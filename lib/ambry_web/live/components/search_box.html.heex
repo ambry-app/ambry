@@ -1,5 +1,5 @@
 <div
-  x-data="{ show() { $store.search.open = true }, hide() { $store.search.open = false } }"
+  x-data="{ show() { $store.search.open = true }, hide() { $store.search.open = false; $store.search.query = '' } }"
   @keydown.escape.window.prevent="hide()"
   @keydown.slash.window.prevent="show()"
   @click.outside="hide()"

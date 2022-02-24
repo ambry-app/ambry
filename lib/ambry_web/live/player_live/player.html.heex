@@ -59,9 +59,9 @@
       <table class="w-full">
         <%= for chapter <- @player_state.media.chapters do %>
           <tr class={"cursor-pointer" <> if chapter.title == "Chapter 1", do: " bg-gray-200 dark:bg-gray-900", else: ""} onClick={"mediaPlayer.seek(#{chapter.time})"}>
-            <td class="pl-4 py-4 border-b border-gray-100 dark:border-gray-900 flex space-x-2">
+            <td class="pl-4 py-4 border-b border-gray-100 dark:border-gray-900 flex items-center space-x-2">
               <%= if chapter.title == "Chapter 1" do %>
-                <Heroicons.Solid.volume_up class="w-5 h-5 flex-none" />
+                <FA.icon name="volume-high" class="w-5 h-5 fill-current flex-none" />
               <% else %>
                 <div class="w-5 h-5 flex-none" />
               <% end %>
