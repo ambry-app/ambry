@@ -2,10 +2,10 @@
   "license": "MIT",
   "scripts": {
     "deploy_css": "NODE_ENV=production postcss css/app.css -o ../priv/static/assets/app.css",
-    "deploy_js": "NODE_PATH=../deps esbuild js/app.js --bundle --target=es2016 --outdir=../priv/static/assets",
+    "deploy_js": "NODE_PATH=../deps esbuild js/app.js --bundle --target=es2017 --outdir=../priv/static/assets",
     "deploy": "npm run deploy_css && npm run deploy_js",
     "watch_css": "tailwindcss --input=css/app.css --output=../priv/static/assets/app.css --postcss --watch",
-    "watch_js": "NODE_PATH=../deps esbuild js/app.js --bundle --target=es2016 --outdir=../priv/static/assets --sourcemap=inline --watch"
+    "watch_js": "NODE_PATH=../deps esbuild js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --sourcemap=inline --watch"
   },
   "devDependencies": {
     "@tailwindcss/aspect-ratio": "^0.4.0",

@@ -20,7 +20,7 @@ defmodule AmbryWeb.LibraryLive.Home do
         socket
       end
 
-    {:ok, assign(socket, :page_title, "Personal Audiobook Streaming")}
+    {:ok, assign(socket, :page_title, "Library")}
   end
 
   @impl Phoenix.LiveView

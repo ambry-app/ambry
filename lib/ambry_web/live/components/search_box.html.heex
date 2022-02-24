@@ -1,0 +1,24 @@
+<div
+  x-data="{ show() { $store.search.open = true }, hide() { $store.search.open = false } }"
+  @keydown.escape.window.prevent="hide()"
+  @keydown.slash.window.prevent="show()"
+  @click.outside="hide()"
+  :class="{ 'hidden': ! $store.search.open }"
+  class="hidden absolute top-4 w-full sm:max-w-md md:max-w-xl lg:max-w-3xl sm:left-1/2 sm:-translate-x-1/2"
+>
+  <div class="mx-4 sm:mx-0 flex bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm">
+    <.link @click.prevent="hide()" to="#" class="ml-4 flex-none self-center">
+      <FA.icon name="arrow-left" class="w-5 h-5 fill-gray-500" />
+    </.link>
+    <.form let={f} for={:search} phx-submit="search" phx-target={@myself} class="flex-grow">
+      <%=
+        search_input(f, :query,
+          placeholder: "Search",
+          "x-effect": "$store.search.open ? $nextTick(() => $el.focus()) : null",
+          "x-model": "$store.search.query",
+          class: "w-full bg-transparent border-0 focus:outline-none focus:ring-0 focus:border-0 placeholder:font-bold placeholder:text-gray-500"
+        )
+      %>
+    </.form>
+  </div>
+</div>

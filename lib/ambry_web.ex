@@ -128,6 +128,8 @@ defmodule AmbryWeb do
 
       alias AmbryWeb.Components, as: Amc
       alias AmbryWeb.Router.Helpers, as: Routes
+
+      alias FontAwesome.LiveView, as: FA
     end
   end
 

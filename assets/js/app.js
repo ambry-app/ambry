@@ -57,7 +57,14 @@ const dark = localStorage.theme === 'dark' || (!('theme' in localStorage) && win
 
 // Setup Alpine.js
 window.Alpine = Alpine
+
 Alpine.data('readMore', readMore)
+
+Alpine.store('search', {
+  open: false,
+  query: ""
+})
+
 Alpine.start()
 
 // Show progress bar on live navigation and form submits

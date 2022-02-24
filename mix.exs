@@ -39,6 +39,7 @@ defmodule Ambry.MixProject do
       {:earmark, "~> 1.4"},
       {:ecto_psql_extras, "~> 0.6"},
       {:ecto_sql, "~> 3.6"},
+      {:ex_fontawesome, "~> 0.7"},
       {:file_size, "~> 3.0"},
       {:floki, ">= 0.30.0", only: :test},
       {:gettext, "~> 0.18"},

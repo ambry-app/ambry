@@ -8,7 +8,7 @@ defmodule AmbryWeb.Components do
   alias Ambry.Books.Book
   alias Ambry.Series.SeriesBook
 
-  alias AmbryWeb.Components.PlayButton
+  alias AmbryWeb.Components.{PlayButton, SearchBox}
   alias AmbryWeb.Endpoint
   alias AmbryWeb.Router.Helpers, as: Routes
 
@@ -45,30 +45,6 @@ defmodule AmbryWeb.Components do
     """
   end
 
-  def play_icon(assigns) do
-    ~H"""
-    <svg class={@class} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-      <path fill="currentColor" d="M512 256C512 397.4 397.4 512 256 512C114.6 512 0 397.4 0 256C0 114.6 114.6 0 256 0C397.4 0 512 114.6 512 256zM176 168V344C176 352.7 180.7 360.7 188.3 364.9C195.8 369.2 205.1 369 212.5 364.5L356.5 276.5C363.6 272.1 368 264.4 368 256C368 247.6 363.6 239.9 356.5 235.5L212.5 147.5C205.1 142.1 195.8 142.8 188.3 147.1C180.7 151.3 176 159.3 176 168V168z"/>
-    </svg>
-    """
-  end
-
-  def book_icon(assigns) do
-    ~H"""
-    <svg class={@class} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
-      <path fill="currentColor" d="M144.3 32.04C106.9 31.29 63.7 41.44 18.6 61.29c-11.42 5.026-18.6 16.67-18.6 29.15l0 357.6c0 11.55 11.99 19.55 22.45 14.65c126.3-59.14 219.8 11 223.8 14.01C249.1 478.9 252.5 480 256 480c12.4 0 16-11.38 16-15.98V80.04c0-5.203-2.531-10.08-6.781-13.08C263.3 65.58 216.7 33.35 144.3 32.04zM557.4 61.29c-45.11-19.79-88.48-29.61-125.7-29.26c-72.44 1.312-118.1 33.55-120.9 34.92C306.5 69.96 304 74.83 304 80.04v383.1C304 468.4 307.5 480 320 480c3.484 0 6.938-1.125 9.781-3.328c3.925-3.018 97.44-73.16 223.8-14c10.46 4.896 22.45-3.105 22.45-14.65l.0001-357.6C575.1 77.97 568.8 66.31 557.4 61.29z"/>
-    </svg>
-    """
-  end
-
-  def search_icon(assigns) do
-    ~H"""
-    <svg class={@class} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-      <path fill="currentColor" d="M500.3 443.7l-119.7-119.7c27.22-40.41 40.65-90.9 33.46-144.7C401.8 87.79 326.8 13.32 235.2 1.723C99.01-15.51-15.51 99.01 1.724 235.2c11.6 91.64 86.08 166.7 177.6 178.9c53.8 7.189 104.3-6.236 144.7-33.46l119.7 119.7c15.62 15.62 40.95 15.62 56.57 0C515.9 484.7 515.9 459.3 500.3 443.7zM79.1 208c0-70.58 57.42-128 128-128s128 57.42 128 128c0 70.58-57.42 128-128 128S79.1 278.6 79.1 208z"/>
-    </svg>
-    """
-  end
-
   def header(assigns) do
     ~H"""
     <div class="p-4 flex text-gray-600 dark:text-gray-500">
@@ -81,15 +57,15 @@ defmodule AmbryWeb.Components do
       <div class="flex-1">
         <div class="flex justify-center gap-8 lg:gap-12">
           <.link link_type="live_redirect" to={Routes.player_player_path(Endpoint, :player)} class={nav_class(@active_path == "/")}>
-            <.play_icon class="mt-1 h-6 lg:h-7 lg:hidden" />
+            <FA.icon name="circle-play" class="mt-1 h-6 lg:hidden fill-current" />
             <p class="hidden lg:block font-bold text-xl">Now Playing</p>
           </.link>
           <.link link_type="live_redirect" to={Routes.library_home_path(Endpoint, :home)} class={nav_class(@active_path == "/library")}>
-            <.book_icon class="mt-1 lg:hidden w-6 h-6" />
+            <FA.icon name="book-open" class="mt-1 h-6 lg:hidden fill-current" />
             <p class="hidden lg:block font-bold text-xl">Library</p>
           </.link>
-          <.link to="#" class={nav_class(false, "flex content-center gap-4")}>
-            <.search_icon class="mt-1 w-6 h-6" />
+          <.link x-data @click.prevent="$nextTick(() => $store.search.open = true)" to="#" class={nav_class(false, "flex content-center gap-4")}>
+            <FA.icon name="magnifying-glass" class="mt-1 h-6 fill-current" />
             <p class="hidden xl:block font-bold text-xl">Search</p>
           </.link>
         </div>
@@ -101,6 +77,11 @@ defmodule AmbryWeb.Components do
         </div>
       </div>
     </div>
+
+    <.live_component
+      module={SearchBox}
+      id="search-box"
+    />
     """
   end
 
