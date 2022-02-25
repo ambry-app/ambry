@@ -5,7 +5,7 @@ defmodule AmbryWeb.PlayerLive.Player do
 
   use AmbryWeb, :p_live_view
 
-  import AmbryWeb.TimeUtils, only: [format_timecode: 1]
+  import AmbryWeb.PlayerLive.Player.Components
 
   alias Ambry.Media
 

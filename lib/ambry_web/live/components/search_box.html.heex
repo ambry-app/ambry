@@ -10,7 +10,7 @@
   @keydown.escape.window.prevent="hide()"
   @keydown.slash.window.prevent="show()"
   @click.outside="hide()"
-  :class="{ 'hidden': ! $store.search.open }"
+  :class="{ 'hidden': !$store.search.open }"
   class="hidden absolute top-4 w-full sm:max-w-md md:max-w-xl lg:max-w-3xl sm:left-1/2 sm:-translate-x-1/2"
 >
   <div class="mx-4 sm:mx-0 flex bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm">
