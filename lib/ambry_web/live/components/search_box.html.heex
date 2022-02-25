@@ -1,5 +1,12 @@
 <div
-  x-data="{ show() { $store.search.open = true }, hide() { $store.search.open = false; $store.search.query = '' } }"
+  x-data="{
+    input: null,
+    clear() { $store.search.query = '' },
+    show() { $store.search.open = true },
+    hide() { $store.search.open = false; this.clear() },
+    focus() { this.input.focus() }
+  }"
+  x-init="input = document.getElementById('searchInput')"
   @keydown.escape.window.prevent="hide()"
   @keydown.slash.window.prevent="show()"
   @click.outside="hide()"
@@ -13,12 +20,16 @@
     <.form let={f} for={:search} phx-submit="search" phx-target={@myself} class="flex-grow">
       <%=
         search_input(f, :query,
+          id: "searchInput",
           placeholder: "Search",
-          "x-effect": "$store.search.open ? $nextTick(() => $el.focus()) : null",
+          "x-effect": "$store.search.open ? $nextTick(() => focus()) : null",
           "x-model": "$store.search.query",
           class: "w-full bg-transparent border-0 focus:outline-none focus:ring-0 focus:border-0 placeholder:font-bold placeholder:text-gray-500"
         )
       %>
     </.form>
+    <.link @click.prevent="clear(); focus()" to="#" class="hidden mr-4 flex-none self-center" :class="{ 'hidden': $store.search.query === '' }">
+      <FA.icon name="xmark" class="w-5 h-5 fill-gray-500" />
+    </.link>
   </div>
 </div>
