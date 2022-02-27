@@ -28,16 +28,12 @@
     </div>
 <% end %>
 
-<%= if @current_user do %>
-  <div class="h-screen flex flex-col relative">
-    <Amc.header user={@current_user} active_path={@nav_active_path} />
+<div class="h-screen flex flex-col relative">
+  <Amc.header user={@current_user} active_path={@nav_active_path} />
 
-    <div class="flex-grow flex flex-col lg:flex-row overflow-hidden lg:justify-center">
-      <%= @inner_content %>
-    </div>
-
-    <Amc.player_controls />
+  <div class="flex-grow flex flex-col lg:flex-row overflow-hidden lg:justify-center">
+    <%= @inner_content %>
   </div>
-<% else %>
-  <%= @inner_content %>
-<% end %>
+
+  <Amc.player_controls />
+</div>

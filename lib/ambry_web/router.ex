@@ -48,7 +48,7 @@ defmodule AmbryWeb.Router do
 
     live_session :user,
       on_mount: [{AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}, AmbryWeb.NavHooks] do
-      live "/", PlayerLive.Player, :player
+      live "/", NowPlayingLive.Index, :index
       live "/library", LibraryLive.Home, :home
       live "/people/:id", PersonLive.Show, :show
       live "/series/:id", SeriesLive.Show, :show

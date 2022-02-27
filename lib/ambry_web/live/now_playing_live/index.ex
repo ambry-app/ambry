@@ -1,11 +1,11 @@
-defmodule AmbryWeb.PlayerLive.Player do
+defmodule AmbryWeb.NowPlayingLive.Index do
   @moduledoc """
   LiveView for the player.
   """
 
   use AmbryWeb, :p_live_view
 
-  import AmbryWeb.PlayerLive.Player.Components
+  import AmbryWeb.NowPlayingLive.Index.Components
 
   alias Ambry.Media
 

@@ -1,13 +1,13 @@
-defmodule AmbryWeb.PlayerLive.Player.Components do
+defmodule AmbryWeb.NowPlayingLive.Index.Components do
   @moduledoc """
-  Player LiveView components.
+  NowPlaying LiveView components.
   """
 
   use AmbryWeb, :p_component
 
   import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
-  alias AmbryWeb.PlayerLive.Player.Bookmarks
+  alias AmbryWeb.NowPlayingLive.Index.Bookmarks
 
   alias AmbryWeb.Endpoint
   alias AmbryWeb.Router.Helpers, as: Routes

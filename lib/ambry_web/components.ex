@@ -56,7 +56,7 @@ defmodule AmbryWeb.Components do
       </div>
       <div class="flex-1">
         <div class="flex justify-center gap-8 lg:gap-12">
-          <.link link_type="live_redirect" to={Routes.player_player_path(Endpoint, :player)} class={nav_class(@active_path == "/")}>
+          <.link link_type="live_redirect" to={Routes.now_playing_index_path(Endpoint, :index)} class={nav_class(@active_path == "/")}>
             <span title="Now playing"><FA.icon name="circle-play" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
             <span class="hidden lg:block font-bold text-xl">Now Playing</span>
           </.link>
