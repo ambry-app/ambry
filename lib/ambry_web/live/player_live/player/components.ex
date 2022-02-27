@@ -14,7 +14,7 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
 
   def media_details(assigns) do
     ~H"""
-    <div class="flex-1 lg:basis-7/12">
+    <div class="flex-none lg:basis-7/12">
       <div class="flex space-x-4 md:space-x-8 m-8 sm:m-12 lg:m-16 lg:mr-4 lg:flex-1">
         <img
           src={@media.book.image_path}

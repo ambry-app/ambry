@@ -139,6 +139,31 @@ defmodule AmbryWeb.Components do
     """
   end
 
+  def player_controls(assigns) do
+    ~H"""
+    <div class="bg-gray-200 dark:bg-gray-900">
+      <div class="group cursor-pointer h-[32px] -mt-[16px]">
+        <div class="relative top-[15px] group-hover:top-[14px] bg-gray-300 dark:bg-gray-800">
+          <div class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400" style="width: 26.5%" />
+          <div
+            class="absolute hidden group-hover:block bg-lime-500 dark:bg-lime-400 rounded-full w-[16px] h-[16px] top-[-6px]"
+            style="left: calc(26.5% - 8px)"
+          />
+        </div>
+      </div>
+      <div class="!pt-0 p-4 flex gap-6 items-center text-gray-900 dark:text-gray-100 fill-current">
+        <span title="Back 1 minute"><FA.icon name="backward-step" class="w-4 h-4 sm:w-5 sm:h-5" title="Foo" /></span>
+        <span title="Back 10 seconds"><FA.icon name="rotate-left" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+        <span title="Play"><FA.icon name="play" class="w-6 h-6 sm:w-7 sm:h-7" /></span>
+        <span title="Forward 10 seconds"><FA.icon name="rotate-right" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+        <span title="Forward 1 minute"><FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+        <div class="flex-grow" />
+        <span title="Playback speed"><FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+      </div>
+    </div>
+    """
+  end
+
   def logo_with_tagline(assigns) do
     ~H"""
     <h1 class="text-center">
