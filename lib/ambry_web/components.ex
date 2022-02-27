@@ -57,15 +57,15 @@ defmodule AmbryWeb.Components do
       <div class="flex-1">
         <div class="flex justify-center gap-8 lg:gap-12">
           <.link link_type="live_redirect" to={Routes.player_player_path(Endpoint, :player)} class={nav_class(@active_path == "/")}>
-            <FA.icon name="circle-play" class="mt-1 w-6 h-6 lg:hidden fill-current" />
+            <span title="Now playing"><FA.icon name="circle-play" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
             <p class="hidden lg:block font-bold text-xl">Now Playing</p>
           </.link>
           <.link link_type="live_redirect" to={Routes.library_home_path(Endpoint, :home)} class={nav_class(@active_path == "/library")}>
-            <FA.icon name="book-open" class="mt-1 w-6 h-6 lg:hidden fill-current" />
+            <span title="Library"><FA.icon name="book-open" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
             <p class="hidden lg:block font-bold text-xl">Library</p>
           </.link>
           <.link x-data @click.prevent="$nextTick(() => $store.search.open = true)" to="#" class={nav_class(false, "flex content-center gap-4")}>
-            <FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 fill-current" />
+            <span title="Search"><FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 lg:w-5 lg:h-5 fill-current" /></span>
             <p class="hidden xl:block font-bold text-xl">Search</p>
           </.link>
         </div>
