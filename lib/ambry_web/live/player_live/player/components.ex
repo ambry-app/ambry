@@ -94,11 +94,10 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
 
   defp media_tab(assigns) do
     ~H"""
-    <.link
-      to="#"
-      @click.prevent={"tab = '#{@name}'"}
+    <span
+      @click={"tab = '#{@name}'"}
       class="
-        flex-1 pb-3
+        flex-1 pb-3 cursor-pointer
         uppercase font-medium text-center
         border-b border-gray-200 dark:border-gray-900
         hover:text-gray-900 dark:hover:text-gray-100
@@ -109,7 +108,7 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
       "}
     >
       <%= @label %>
-    </.link>
+    </span>
     """
   end
 

@@ -58,24 +58,26 @@ defmodule AmbryWeb.Components do
         <div class="flex justify-center gap-8 lg:gap-12">
           <.link link_type="live_redirect" to={Routes.player_player_path(Endpoint, :player)} class={nav_class(@active_path == "/")}>
             <span title="Now playing"><FA.icon name="circle-play" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
-            <p class="hidden lg:block font-bold text-xl">Now Playing</p>
+            <span class="hidden lg:block font-bold text-xl">Now Playing</span>
           </.link>
           <.link link_type="live_redirect" to={Routes.library_home_path(Endpoint, :home)} class={nav_class(@active_path == "/library")}>
             <span title="Library"><FA.icon name="book-open" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
-            <p class="hidden lg:block font-bold text-xl">Library</p>
+            <span class="hidden lg:block font-bold text-xl">Library</span>
           </.link>
-          <.link x-data @click.prevent="$nextTick(() => $store.search.open = true)" to="#" class={nav_class(false, "flex content-center gap-4")}>
+          <span x-data @click="$nextTick(() => $store.search.open = true)" class={nav_class(false, "flex content-center gap-4 cursor-pointer")}>
             <span title="Search"><FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 lg:w-5 lg:h-5 fill-current" /></span>
-            <p class="hidden xl:block font-bold text-xl">Search</p>
-          </.link>
+            <span class="hidden xl:block font-bold text-xl">Search</span>
+          </span>
         </div>
       </div>
       <div class="flex-1">
         <div class="flex">
           <div class="flex-grow" />
-          <.link x-data @click.prevent="if (!$store.menu.open) { $nextTick(() => $store.menu.open = true) }" to="#">
-            <img class="mt-1 h-6 lg:w-7 lg:h-7 rounded-full" src={gravatar_url(@user.email)} />
-          </.link>
+          <img
+            x-data @click="if (!$store.menu.open) { $nextTick(() => $store.menu.open = true) }"
+            class="mt-1 h-6 lg:w-7 lg:h-7 rounded-full cursor-pointer"
+            src={gravatar_url(@user.email)}
+          />
         </div>
       </div>
     </div>
@@ -152,13 +154,13 @@ defmodule AmbryWeb.Components do
         </div>
       </div>
       <div class="!pt-0 p-4 flex gap-6 items-center text-gray-900 dark:text-gray-100 fill-current">
-        <.link to="#" title="Back 1 minute"><FA.icon name="backward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
-        <.link to="#" title="Back 10 seconds"><FA.icon name="rotate-left" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
-        <.link to="#" title="Play"><FA.icon name="play" class="w-6 h-6 sm:w-7 sm:h-7" /></.link>
-        <.link to="#" title="Forward 10 seconds"><FA.icon name="rotate-right" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
-        <.link to="#" title="Forward 1 minute"><FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
+        <span class="cursor-pointer" title="Back 1 minute"><FA.icon name="backward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+        <span class="cursor-pointer" title="Back 10 seconds"><FA.icon name="rotate-left" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+        <span class="cursor-pointer" title="Play"><FA.icon name="play" class="w-6 h-6 sm:w-7 sm:h-7" /></span>
+        <span class="cursor-pointer" title="Forward 10 seconds"><FA.icon name="rotate-right" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+        <span class="cursor-pointer" title="Forward 1 minute"><FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
         <div class="flex-grow" />
-        <.link to="#" title="Playback speed"><FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
+        <span class="cursor-pointer" title="Playback speed"><FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
       </div>
     </div>
     """
