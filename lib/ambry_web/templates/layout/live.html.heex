@@ -29,7 +29,7 @@
 <% end %>
 
 <%= if @current_user do %>
-  <div class="h-screen flex flex-col max-w-screen-2xl 2xl:mx-auto relative">
+  <div class="h-screen flex flex-col relative">
     <Amc.header user={@current_user} active_path={@nav_active_path} />
 
     <div class="flex-grow flex flex-col lg:flex-row overflow-hidden lg:justify-center">

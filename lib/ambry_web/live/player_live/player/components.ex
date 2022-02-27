@@ -14,11 +14,11 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
 
   def media_details(assigns) do
     ~H"""
-    <div class="flex-none lg:basis-7/12">
-      <div class="flex space-x-4 md:space-x-8 m-8 sm:m-12 lg:m-16 lg:mr-4 lg:flex-1">
+    <div class="flex-none lg:basis-7/12 lg:flex lg:place-items-center lg:place-content-center">
+      <div class="flex space-x-4 md:space-x-8 m-8 sm:m-12 lg:mr-4">
         <img
           src={@media.book.image_path}
-          class="h-52 sm:h-64 md:h-72 lg:h-80 xl:h-96 object-center object-cover rounded-lg shadow-md"
+          class="h-52 sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[36rem] object-center object-cover rounded-lg shadow-md"
         />
 
         <div class="pt-4 md:pt-6 lg:pt-8">
@@ -58,7 +58,7 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
     <div
       x-data="{ tab: 'chapters' }"
       class="
-        flex-grow lg:flex-1 lg:basis-5/12 flex flex-col
+        flex-grow lg:flex-1 lg:basis-5/12 flex flex-col xl:max-w-2xl
         overflow-hidden lg:overflow-auto
         mx-0 sm:mx-8 lg:mx-16 mt-4 lg:mt-16 lg:ml-4
         text-gray-600 dark:text-gray-500
