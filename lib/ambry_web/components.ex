@@ -152,13 +152,13 @@ defmodule AmbryWeb.Components do
         </div>
       </div>
       <div class="!pt-0 p-4 flex gap-6 items-center text-gray-900 dark:text-gray-100 fill-current">
-        <span title="Back 1 minute"><FA.icon name="backward-step" class="w-4 h-4 sm:w-5 sm:h-5" title="Foo" /></span>
-        <span title="Back 10 seconds"><FA.icon name="rotate-left" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
-        <span title="Play"><FA.icon name="play" class="w-6 h-6 sm:w-7 sm:h-7" /></span>
-        <span title="Forward 10 seconds"><FA.icon name="rotate-right" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
-        <span title="Forward 1 minute"><FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+        <.link to="#" title="Back 1 minute"><FA.icon name="backward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
+        <.link to="#" title="Back 10 seconds"><FA.icon name="rotate-left" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
+        <.link to="#" title="Play"><FA.icon name="play" class="w-6 h-6 sm:w-7 sm:h-7" /></.link>
+        <.link to="#" title="Forward 10 seconds"><FA.icon name="rotate-right" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
+        <.link to="#" title="Forward 1 minute"><FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
         <div class="flex-grow" />
-        <span title="Playback speed"><FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+        <.link to="#" title="Playback speed"><FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" /></.link>
       </div>
     </div>
     """
