@@ -44,6 +44,7 @@ export const ShakaPlayerHook = {
     try {
       await player.load(mediaPath, time)
       audio.playbackRate = parseFloat(mediaPlaybackRate)
+      this.alpineSetPosition(time, audio.duration, this.playbackRate)
 
       console.log('Shaka: audio loaded')
     } catch (e) {
@@ -121,12 +122,14 @@ export const ShakaPlayerHook = {
   },
 
   playbackStarted () {
-    this.pushEvent('playback-started')
+    this.alpineSetPlaying()
+    // this.pushEvent('playback-started')
   },
 
   playbackPaused () {
     const time = this.audio.currentTime
-    this.pushEvent('playback-paused', { 'playback-time': time })
+    this.alpineSetPaused()
+    // this.pushEvent('playback-paused', { 'playback-time': time })
     this.time = time
   },
 
@@ -134,7 +137,8 @@ export const ShakaPlayerHook = {
     const playbackRate = this.audio.playbackRate
 
     if (playbackRate && playbackRate != this.playbackRate) {
-      this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
+      this.alpineSetPosition(this.audio.currentTime, this.audio.duration, playbackRate)
+      // this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
       this.playbackRate = playbackRate
     }
   },
@@ -143,7 +147,8 @@ export const ShakaPlayerHook = {
     const time = this.audio.currentTime
 
     if (time != this.time) {
-      this.pushEvent('playback-time-updated', { 'playback-time': time })
+      this.alpineSetPosition(time, this.audio.duration, this.playbackRate)
+      // this.pushEvent('playback-time-updated', { 'playback-time': time })
       this.time = time
     }
   },
@@ -200,6 +205,21 @@ export const ShakaPlayerHook = {
   },
 
   loadAndPlayMedia (mediaId) {
-    this.pushEvent('load-and-play-media', { 'media-id': mediaId })
+    // this.pushEvent('load-and-play-media', { 'media-id': mediaId })
+  },
+
+  // Alpine interop
+
+  alpineSetPlaying () {
+    Alpine.store('player').playing = true
+  },
+
+  alpineSetPaused () {
+    Alpine.store('player').playing = false
+  },
+
+  alpineSetPosition (time, duration, _playbackRate) {
+    const percentage = ((time / duration) * 100).toFixed(2)
+    Alpine.store('player').playbackPercentage = percentage
   }
 }

@@ -31,9 +31,9 @@
 <div class="h-screen flex flex-col relative">
   <Amc.header user={@current_user} active_path={@nav_active_path} />
 
-  <div class="flex-grow flex flex-col lg:flex-row overflow-hidden lg:justify-center">
+  <main class="flex-grow flex flex-col lg:flex-row overflow-hidden lg:justify-center">
     <%= @inner_content %>
-  </div>
+  </main>
 
   <Amc.player_controls />
 </div>

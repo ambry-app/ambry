@@ -54,5 +54,9 @@
   </head>
   <body class="text-gray-800 bg-white dark:text-gray-200 dark:bg-black">
     <%= @inner_content %>
+
+    <%= if @current_user do %>
+      <%= live_render(@conn, AmbryWeb.PlayerLive.Player) %>
+    <% end %>
   </body>
 </html>

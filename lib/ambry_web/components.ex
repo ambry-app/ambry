@@ -47,47 +47,49 @@ defmodule AmbryWeb.Components do
 
   def header(assigns) do
     ~H"""
-    <div class="p-4 flex text-gray-600 dark:text-gray-500">
-      <div class="flex-1">
-        <.link link_type="live_redirect" to="/" class="flex">
-          <.ambry_icon class="mt-1 w-6 h-6 lg:w-7 lg:h-7" />
-          <.ambry_title class="mt-1 h-6 lg:h-7 hidden md:block" />
-        </.link>
-      </div>
-      <div class="flex-1">
-        <div class="flex justify-center gap-8 lg:gap-12">
-          <.link link_type="live_redirect" to={Routes.now_playing_index_path(Endpoint, :index)} class={nav_class(@active_path == "/")}>
-            <span title="Now playing"><FA.icon name="circle-play" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
-            <span class="hidden lg:block font-bold text-xl">Now Playing</span>
+    <header>
+      <div class="p-4 flex text-gray-600 dark:text-gray-500">
+        <div class="flex-1">
+          <.link link_type="live_redirect" to="/" class="flex">
+            <.ambry_icon class="mt-1 w-6 h-6 lg:w-7 lg:h-7" />
+            <.ambry_title class="mt-1 h-6 lg:h-7 hidden md:block" />
           </.link>
-          <.link link_type="live_redirect" to={Routes.library_home_path(Endpoint, :home)} class={nav_class(@active_path == "/library")}>
-            <span title="Library"><FA.icon name="book-open" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
-            <span class="hidden lg:block font-bold text-xl">Library</span>
-          </.link>
-          <span x-data @click="$nextTick(() => $store.search.open = true)" class={nav_class(false, "flex content-center gap-4 cursor-pointer")}>
-            <span title="Search"><FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 lg:w-5 lg:h-5 fill-current" /></span>
-            <span class="hidden xl:block font-bold text-xl">Search</span>
-          </span>
+        </div>
+        <div class="flex-1">
+          <div class="flex justify-center gap-8 lg:gap-12">
+            <.link link_type="live_redirect" to={Routes.now_playing_index_path(Endpoint, :index)} class={nav_class(@active_path == "/")}>
+              <span title="Now playing"><FA.icon name="circle-play" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
+              <span class="hidden lg:block font-bold text-xl">Now Playing</span>
+            </.link>
+            <.link link_type="live_redirect" to={Routes.library_home_path(Endpoint, :home)} class={nav_class(@active_path == "/library")}>
+              <span title="Library"><FA.icon name="book-open" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
+              <span class="hidden lg:block font-bold text-xl">Library</span>
+            </.link>
+            <span x-data @click="$nextTick(() => $store.search.open = true)" class={nav_class(false, "flex content-center gap-4 cursor-pointer")}>
+              <span title="Search"><FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 lg:w-5 lg:h-5 fill-current" /></span>
+              <span class="hidden xl:block font-bold text-xl">Search</span>
+            </span>
+          </div>
+        </div>
+        <div class="flex-1">
+          <div class="flex">
+            <div class="flex-grow" />
+            <img
+              x-data @click="if (!$store.menu.open) { $nextTick(() => $store.menu.open = true) }"
+              class="mt-1 h-6 lg:w-7 lg:h-7 rounded-full cursor-pointer"
+              src={gravatar_url(@user.email)}
+            />
+          </div>
         </div>
       </div>
-      <div class="flex-1">
-        <div class="flex">
-          <div class="flex-grow" />
-          <img
-            x-data @click="if (!$store.menu.open) { $nextTick(() => $store.menu.open = true) }"
-            class="mt-1 h-6 lg:w-7 lg:h-7 rounded-full cursor-pointer"
-            src={gravatar_url(@user.email)}
-          />
-        </div>
-      </div>
-    </div>
 
-    <.live_component
-      module={SearchBox}
-      id="search-box"
-    />
+      <.live_component
+        module={SearchBox}
+        id="search-box"
+      />
 
-    <.user_menu user={@user} />
+      <.user_menu user={@user} />
+    </header>
     """
   end
 
@@ -143,26 +145,48 @@ defmodule AmbryWeb.Components do
 
   def player_controls(assigns) do
     ~H"""
-    <div class="bg-gray-200 dark:bg-gray-900">
+    <footer x-data class="bg-gray-200 dark:bg-gray-900">
       <div class="group cursor-pointer h-[32px] -mt-[16px]">
         <div class="relative top-[15px] group-hover:top-[14px] bg-gray-300 dark:bg-gray-800">
-          <div class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400" style="width: 26.5%" />
+          <div
+            class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400"
+            style="width: 0%"
+            :style="`width: ${$store.player.playbackPercentage}%`"
+          />
           <div
             class="absolute hidden group-hover:block bg-lime-500 dark:bg-lime-400 rounded-full w-[16px] h-[16px] top-[-6px]"
-            style="left: calc(26.5% - 8px)"
+            style="left: calc(0% - 8px)"
+            :style="`left: calc(${$store.player.playbackPercentage}% - 8px)`"
           />
         </div>
       </div>
       <div class="!pt-0 p-4 flex gap-6 items-center text-gray-900 dark:text-gray-100 fill-current">
-        <span class="cursor-pointer" title="Back 1 minute"><FA.icon name="backward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
-        <span class="cursor-pointer" title="Back 10 seconds"><FA.icon name="rotate-left" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
-        <span class="cursor-pointer" title="Play"><FA.icon name="play" class="w-6 h-6 sm:w-7 sm:h-7" /></span>
-        <span class="cursor-pointer" title="Forward 10 seconds"><FA.icon name="rotate-right" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
-        <span class="cursor-pointer" title="Forward 1 minute"><FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
-        <div class="flex-grow" />
-        <span class="cursor-pointer" title="Playback speed"><FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" /></span>
+        <span @click="mediaPlayer.seekRelative(-60)" class="cursor-pointer" title="Back 1 minute">
+          <FA.icon name="backward-step" class="w-4 h-4 sm:w-5 sm:h-5" />
+        </span>
+        <span @click="mediaPlayer.seekRelative(-10)" class="cursor-pointer" title="Back 10 seconds">
+          <FA.icon name="rotate-left" class="w-4 h-4 sm:w-5 sm:h-5" />
+        </span>
+        <span @click="mediaPlayer.playPause()" class="cursor-pointer" title="Play">
+          <span :class="{ hidden: $store.player.playing }">
+            <FA.icon name="play" class="w-6 h-6 sm:w-7 sm:h-7" />
+          </span>
+          <span class="hidden" :class="{ hidden: !$store.player.playing }">
+            <FA.icon name="pause" class="w-6 h-6 sm:w-7 sm:h-7" />
+          </span>
+        </span>
+        <span @click="mediaPlayer.seekRelative(10)" class="cursor-pointer" title="Forward 10 seconds">
+          <FA.icon name="rotate-right" class="w-4 h-4 sm:w-5 sm:h-5" />
+        </span>
+        <span @click="mediaPlayer.seekRelative(60)" class="cursor-pointer" title="Forward 1 minute">
+          <FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" />
+        </span>
+        <div class="flex-grow" x-text="$store.player.playbackPercentage" />
+        <span @click="console.log('TODO: open playback speed menu')" class="cursor-pointer" title="Playback speed">
+          <FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" />
+        </span>
       </div>
-    </div>
+    </footer>
     """
   end
 
