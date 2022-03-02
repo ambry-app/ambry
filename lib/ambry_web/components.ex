@@ -158,16 +158,17 @@ defmodule AmbryWeb.Components do
       x-data="
         {
           position: 0,
+          ratio: 0,
           percent: 0,
           time: 0,
           width: 0,
           dragging: false,
           update (x) {
             if (this.width && $store.player.duration) {
-              const ratio = x / this.width
+              this.ratio = x / this.width
               this.position = x
-              this.percent = (ratio * 100).toFixed(2)
-              this.time = ratio * $store.player.duration
+              this.percent = (this.ratio * 100).toFixed(2)
+              this.time = this.ratio * $store.player.duration
             }
           }
         }
@@ -177,14 +178,14 @@ defmodule AmbryWeb.Components do
       @resize.window="width = $el.clientWidth"
       @mousemove="update($event.layerX)"
       @mousedown="dragging = true"
-      @mouseup="dragging = false; mediaPlayer.seek(time); $store.player.playbackPercentage = percent"
+      @mouseup="dragging = false; mediaPlayer.seekRatio(ratio); $store.player.playbackPercentage = percent"
     >
       <div
         class="absolute bg-gray=200 dark:bg-gray-900 px-1 -top-4 rounded-sm hidden group-hover:block pointer-events-none tabular-nums"
         :style="position > width / 2 ? `right: ${width - position}px` : `left: ${position}px`"
         x-text="formatTimecode(time)"
       />
-      <div class="relative top-[15px] group-hover:top-[14px] bg-gray-300 dark:bg-gray-800">
+      <div class="relative top-[16px] bg-gray-300 dark:bg-gray-800">
         <div
           class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400"
           style="width: 0%"
@@ -223,7 +224,11 @@ defmodule AmbryWeb.Components do
       <span @click="mediaPlayer.seekRelative(60)" class="cursor-pointer" title="Forward 1 minute">
         <FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" />
       </span>
-      <div class="flex-grow" />
+      <div class="flex-grow text-gray-600 dark:text-gray-500 text-sm sm:text-base">
+        <span x-text="formatTimecode($store.player.time)" />
+        <span class="hidden sm:inline"> / </span>
+        <span class="hidden sm:inline" x-text="formatTimecode($store.player.duration)" />
+      </div>
       <span @click="console.log('TODO: open playback speed menu')" class="cursor-pointer" title="Playback speed">
         <FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" />
       </span>

@@ -56,15 +56,21 @@ const liveSocket = new LiveSocket('/live', Socket, {
 const dark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
 window.formatTimecode = (secs) => {
-  var sec_num = parseInt(secs, 10)
-  var hours = Math.floor(sec_num / 3600)
-  var minutes = Math.floor(sec_num / 60) % 60
-  var seconds = sec_num % 60
+  const sec_num = parseInt(secs, 10)
+  const hours = Math.floor(sec_num / 3600)
+  const minutes = Math.floor(sec_num / 60) % 60
+  const seconds = sec_num % 60
 
-  return [hours, minutes, seconds]
+  const string = [hours, minutes, seconds]
     .map(v => v < 10 ? "0" + v : v)
     .filter((v,i) => v !== "00" || i > 0)
     .join(":")
+
+  if (string.startsWith("0")) {
+    return string.slice(1)
+  } else {
+    return string
+  }
 }
 
 // Setup Alpine.js
@@ -73,7 +79,7 @@ window.Alpine = Alpine
 Alpine.data('readMore', readMore)
 Alpine.store('search', { open: false, query: "" })
 Alpine.store('menu', { open: false })
-Alpine.store('player', { playing: false, playbackPercentage: '0.00', duration: 0 })
+Alpine.store('player', { playing: false, time: 0, duration: 0, playbackPercentage: '0.00' })
 Alpine.start()
 
 // Show progress bar on live navigation and form submits
