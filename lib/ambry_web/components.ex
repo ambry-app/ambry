@@ -143,50 +143,91 @@ defmodule AmbryWeb.Components do
     """
   end
 
-  def player_controls(assigns) do
+  def footer(assigns) do
     ~H"""
-    <footer x-data class="bg-gray-200 dark:bg-gray-900">
-      <div class="group cursor-pointer h-[32px] -mt-[16px]">
-        <div class="relative top-[15px] group-hover:top-[14px] bg-gray-300 dark:bg-gray-800">
-          <div
-            class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400"
-            style="width: 0%"
-            :style="`width: ${$store.player.playbackPercentage}%`"
-          />
-          <div
-            class="absolute hidden group-hover:block bg-lime-500 dark:bg-lime-400 rounded-full w-[16px] h-[16px] top-[-6px]"
-            style="left: calc(0% - 8px)"
-            :style="`left: calc(${$store.player.playbackPercentage}% - 8px)`"
-          />
-        </div>
-      </div>
-      <div class="!pt-0 p-4 flex gap-6 items-center text-gray-900 dark:text-gray-100 fill-current">
-        <span @click="mediaPlayer.seekRelative(-60)" class="cursor-pointer" title="Back 1 minute">
-          <FA.icon name="backward-step" class="w-4 h-4 sm:w-5 sm:h-5" />
-        </span>
-        <span @click="mediaPlayer.seekRelative(-10)" class="cursor-pointer" title="Back 10 seconds">
-          <FA.icon name="rotate-left" class="w-4 h-4 sm:w-5 sm:h-5" />
-        </span>
-        <span @click="mediaPlayer.playPause()" class="cursor-pointer" title="Play">
-          <span :class="{ hidden: $store.player.playing }">
-            <FA.icon name="play" class="w-6 h-6 sm:w-7 sm:h-7" />
-          </span>
-          <span class="hidden" :class="{ hidden: !$store.player.playing }">
-            <FA.icon name="pause" class="w-6 h-6 sm:w-7 sm:h-7" />
-          </span>
-        </span>
-        <span @click="mediaPlayer.seekRelative(10)" class="cursor-pointer" title="Forward 10 seconds">
-          <FA.icon name="rotate-right" class="w-4 h-4 sm:w-5 sm:h-5" />
-        </span>
-        <span @click="mediaPlayer.seekRelative(60)" class="cursor-pointer" title="Forward 1 minute">
-          <FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" />
-        </span>
-        <div class="flex-grow" x-text="$store.player.playbackPercentage" />
-        <span @click="console.log('TODO: open playback speed menu')" class="cursor-pointer" title="Playback speed">
-          <FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" />
-        </span>
-      </div>
+    <footer class="bg-gray-200 dark:bg-gray-900">
+      <.time_bar />
+      <.player_controls />
     </footer>
+    """
+  end
+
+  defp time_bar(assigns) do
+    ~H"""
+    <div
+      x-data="
+        {
+          position: 0,
+          percent: 0,
+          time: 0,
+          width: 0,
+          dragging: false,
+          update (x) {
+            if (this.width && $store.player.duration) {
+              const ratio = x / this.width
+              this.position = x
+              this.percent = (ratio * 100).toFixed(2)
+              this.time = ratio * $store.player.duration
+            }
+          }
+        }
+      "
+      x-init="width = $el.clientWidth"
+      class="group cursor-pointer h-[32px] -mt-[16px] relative touch-none mr-[12px]"
+      @resize.window="width = $el.clientWidth"
+      @mousemove="update($event.layerX)"
+      @mousedown="dragging = true"
+      @mouseup="dragging = false; mediaPlayer.seek(time); $store.player.playbackPercentage = percent"
+    >
+      <div
+        class="absolute bg-gray=200 dark:bg-gray-900 px-1 -top-4 rounded-sm hidden group-hover:block pointer-events-none tabular-nums"
+        :style="position > width / 2 ? `right: ${width - position}px` : `left: ${position}px`"
+        x-text="formatTimecode(time)"
+      />
+      <div class="relative top-[15px] group-hover:top-[14px] bg-gray-300 dark:bg-gray-800">
+        <div
+          class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400"
+          style="width: 0%"
+          :style="`width: ${dragging ? percent : $store.player.playbackPercentage}%`"
+        />
+        <div
+          class="absolute hidden group-hover:block bg-lime-500 dark:bg-lime-400 rounded-full w-[16px] h-[16px] top-[-6px] pointer-events-none"
+          style="left: calc(0% - 8px)"
+          :style="`left: calc(${dragging ? percent : $store.player.playbackPercentage}% - 8px)`"
+        />
+      </div>
+    </div>
+    """
+  end
+
+  defp player_controls(assigns) do
+    ~H"""
+    <div x-data class="!pt-0 p-4 flex gap-6 items-center text-gray-900 dark:text-gray-100 fill-current">
+      <span @click="mediaPlayer.seekRelative(-60)" class="cursor-pointer" title="Back 1 minute">
+        <FA.icon name="backward-step" class="w-4 h-4 sm:w-5 sm:h-5" />
+      </span>
+      <span @click="mediaPlayer.seekRelative(-10)" class="cursor-pointer" title="Back 10 seconds">
+        <FA.icon name="rotate-left" class="w-4 h-4 sm:w-5 sm:h-5" />
+      </span>
+      <span @click="mediaPlayer.playPause()" class="cursor-pointer" title="Play">
+        <span :class="{ hidden: $store.player.playing }">
+          <FA.icon name="play" class="w-6 h-6 sm:w-7 sm:h-7" />
+        </span>
+        <span class="hidden" :class="{ hidden: !$store.player.playing }">
+          <FA.icon name="pause" class="w-6 h-6 sm:w-7 sm:h-7" />
+        </span>
+      </span>
+      <span @click="mediaPlayer.seekRelative(10)" class="cursor-pointer" title="Forward 10 seconds">
+        <FA.icon name="rotate-right" class="w-4 h-4 sm:w-5 sm:h-5" />
+      </span>
+      <span @click="mediaPlayer.seekRelative(60)" class="cursor-pointer" title="Forward 1 minute">
+        <FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" />
+      </span>
+      <div class="flex-grow" />
+      <span @click="console.log('TODO: open playback speed menu')" class="cursor-pointer" title="Playback speed">
+        <FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" />
+      </span>
+    </div>
     """
   end
 

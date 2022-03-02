@@ -55,13 +55,25 @@ const liveSocket = new LiveSocket('/live', Socket, {
 
 const dark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
+window.formatTimecode = (secs) => {
+  var sec_num = parseInt(secs, 10)
+  var hours = Math.floor(sec_num / 3600)
+  var minutes = Math.floor(sec_num / 60) % 60
+  var seconds = sec_num % 60
+
+  return [hours, minutes, seconds]
+    .map(v => v < 10 ? "0" + v : v)
+    .filter((v,i) => v !== "00" || i > 0)
+    .join(":")
+}
+
 // Setup Alpine.js
 window.Alpine = Alpine
 
 Alpine.data('readMore', readMore)
 Alpine.store('search', { open: false, query: "" })
 Alpine.store('menu', { open: false })
-Alpine.store('player', { playing: false, playbackPercentage: '0.00' })
+Alpine.store('player', { playing: false, playbackPercentage: '0.00', duration: 0 })
 Alpine.start()
 
 // Show progress bar on live navigation and form submits

@@ -44,7 +44,7 @@ export const ShakaPlayerHook = {
     try {
       await player.load(mediaPath, time)
       audio.playbackRate = parseFloat(mediaPlaybackRate)
-      this.alpineSetPosition(time, audio.duration, this.playbackRate)
+      this.alpineSetPositionAndDuration(time, audio.duration, this.playbackRate)
 
       console.log('Shaka: audio loaded')
     } catch (e) {
@@ -137,7 +137,7 @@ export const ShakaPlayerHook = {
     const playbackRate = this.audio.playbackRate
 
     if (playbackRate && playbackRate != this.playbackRate) {
-      this.alpineSetPosition(this.audio.currentTime, this.audio.duration, playbackRate)
+      this.alpineSetPositionAndDuration(this.audio.currentTime, this.audio.duration, playbackRate)
       // this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
       this.playbackRate = playbackRate
     }
@@ -147,7 +147,7 @@ export const ShakaPlayerHook = {
     const time = this.audio.currentTime
 
     if (time != this.time) {
-      this.alpineSetPosition(time, this.audio.duration, this.playbackRate)
+      this.alpineSetPositionAndDuration(time, this.audio.duration, this.playbackRate)
       // this.pushEvent('playback-time-updated', { 'playback-time': time })
       this.time = time
     }
@@ -218,8 +218,9 @@ export const ShakaPlayerHook = {
     Alpine.store('player').playing = false
   },
 
-  alpineSetPosition (time, duration, _playbackRate) {
+  alpineSetPositionAndDuration (time, duration, _playbackRate) {
     const percentage = ((time / duration) * 100).toFixed(2)
     Alpine.store('player').playbackPercentage = percentage
+    Alpine.store('player').duration = duration
   }
 }

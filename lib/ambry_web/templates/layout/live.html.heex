@@ -28,12 +28,12 @@
     </div>
 <% end %>
 
-<div class="h-screen flex flex-col relative">
+<div class="h-screen flex flex-col relative touch-none">
   <Amc.header user={@current_user} active_path={@nav_active_path} />
 
   <main class="flex-grow flex flex-col lg:flex-row overflow-hidden lg:justify-center">
     <%= @inner_content %>
   </main>
 
-  <Amc.player_controls />
+  <Amc.footer />
 </div>
