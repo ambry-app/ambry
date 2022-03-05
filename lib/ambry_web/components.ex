@@ -5,6 +5,8 @@ defmodule AmbryWeb.Components do
 
   use AmbryWeb, :p_component
 
+  import AmbryWeb.TimeUtils
+
   alias Ambry.Books.Book
   alias Ambry.Series.SeriesBook
 
@@ -148,8 +150,8 @@ defmodule AmbryWeb.Components do
   def footer(assigns) do
     ~H"""
     <footer class="bg-gray-200 dark:bg-gray-900">
-      <.time_bar />
-      <.player_controls />
+      <.time_bar player_state={@player_state} />
+      <.player_controls player_state={@player_state} />
     </footer>
     """
   end
@@ -205,8 +207,8 @@ defmodule AmbryWeb.Components do
         <div
           class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400"
           :class="{ 'h-[4px]': dragging }"
-          style="width: 0%"
-          :style="`width: ${dragging ? percent : $store.player.playbackPercentage}%`"
+          style={"width: #{progress_percent(@player_state)}%"}
+          :style={"$store.player.playbackPercentage ? `width: ${dragging ? percent : $store.player.playbackPercentage}%` : 'width: #{progress_percent(@player_state)}%'"}
         />
         <div
           class="absolute hidden group-hover:block bg-lime-500 dark:bg-lime-400 rounded-full w-[16px] h-[16px] top-[-6px] pointer-events-none"
@@ -217,6 +219,14 @@ defmodule AmbryWeb.Components do
       </div>
     </div>
     """
+  end
+
+  defp progress_percent(%{position: position, media: %{duration: duration}}) do
+    position
+    |> Decimal.div(duration)
+    |> Decimal.mult(100)
+    |> Decimal.round(1)
+    |> Decimal.to_string()
   end
 
   defp player_controls(assigns) do
@@ -243,9 +253,19 @@ defmodule AmbryWeb.Components do
         <FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" />
       </span>
       <div class="flex-grow text-gray-600 dark:text-gray-500 text-sm sm:text-base">
-        <span x-text="formatTimecode($store.player.time)" />
+        <.alpine_value_with_fallback
+          alpine_value="$store.player.time"
+          alpine_expression="formatTimecode($store.player.time)"
+          fallback={format_timecode(Decimal.div(@player_state.position, @player_state.playback_rate))}
+        />
         <span class="hidden sm:inline"> / </span>
-        <span class="hidden sm:inline" x-text="formatTimecode($store.player.duration)" />
+        <span class="hidden sm:inline">
+          <.alpine_value_with_fallback
+            alpine_value="$store.player.duration"
+            alpine_expression="formatTimecode($store.player.duration)"
+            fallback={format_timecode(Decimal.div(@player_state.media.duration, @player_state.playback_rate))}
+          />
+        </span>
       </div>
       <div
         x-data="{
@@ -265,7 +285,11 @@ defmodule AmbryWeb.Components do
       >
         <div @click="open = !open" class="flex gap-2 items-center cursor-pointer">
           <span class="hidden sm:block text-gray-600 dark:text-gray-500 text-sm sm:text-base">
-            <span x-text="formatDecimal($store.player.playbackRate)" />x
+            <.alpine_value_with_fallback
+              alpine_value="$store.player.playbackRate"
+              alpine_expression="formatDecimal($store.player.playbackRate)"
+              fallback={format_decimal(@player_state.playback_rate)}
+            />x
           </span>
           <FA.icon name="gauge-high" class="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
@@ -273,6 +297,18 @@ defmodule AmbryWeb.Components do
       </div>
     </div>
     """
+  end
+
+  defp alpine_value_with_fallback(assigns) do
+    ~H"""
+    <span x-text={"#{@alpine_value} ? #{@alpine_expression} : '#{@fallback}'"}><%= @fallback %></span>
+    """
+  end
+
+  defp format_decimal(decimal) do
+    rounded = Decimal.round(decimal, 1)
+
+    if Decimal.equal?(rounded, decimal), do: rounded, else: decimal
   end
 
   defp playback_rate_menu(assigns) do

@@ -88,7 +88,7 @@ window.Alpine = Alpine
 
 Alpine.data('readMore', readMore)
 Alpine.store('search', { open: false, query: "" })
-Alpine.store('player', { playing: false, time: 0, duration: 0, playbackPercentage: '0.00', playbackRate: 1.0 })
+Alpine.store('player', { playing: false, time: undefined, duration: undefined, playbackPercentage: undefined, playbackRate: undefined })
 Alpine.start()
 
 // Show progress bar on live navigation and form submits

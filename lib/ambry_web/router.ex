@@ -47,7 +47,11 @@ defmodule AmbryWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :user,
-      on_mount: [{AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}, AmbryWeb.NavHooks] do
+      on_mount: [
+        {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user},
+        AmbryWeb.NavHooks,
+        AmbryWeb.PlayerStateHooks
+      ] do
       live "/", NowPlayingLive.Index, :index
       live "/library", LibraryLive.Home, :home
       live "/people/:id", PersonLive.Show, :show

@@ -6,18 +6,11 @@ defmodule AmbryWeb.PlayerLive.Player do
   alias Ambry.Media
 
   on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
+  on_mount AmbryWeb.PlayerStateHooks
 
   @impl Phoenix.LiveView
   def mount(:not_mounted_at_router, _session, socket) do
-    user = socket.assigns.current_user
-
-    player_state =
-      case Media.get_most_recent_player_state(user.id) do
-        {:ok, player_state} -> player_state
-        :error -> nil
-      end
-
-    {:ok, assign(socket, :player_state, player_state), layout: false}
+    {:ok, socket, layout: false}
   end
 
   defp player_state_attrs(%Media.PlayerState{
