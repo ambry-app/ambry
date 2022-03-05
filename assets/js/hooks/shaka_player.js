@@ -54,18 +54,18 @@ export const ShakaPlayerHook = {
       return
     }
 
-    // server push event handlers
-    this.handleEvent('reload-media', opts => {
-      this.reloadMedia(opts)
-    })
+    // // server push event handlers
+    // this.handleEvent('reload-media', opts => {
+    //   this.reloadMedia(opts)
+    // })
 
-    this.handleEvent('play', () => {
-      this.play()
-    })
+    // this.handleEvent('play', () => {
+    //   this.play()
+    // })
 
-    this.handleEvent('pause', () => {
-      this.pause()
-    })
+    // this.handleEvent('pause', () => {
+    //   this.pause()
+    // })
 
     this.audio = audio
     this.player = player
@@ -125,11 +125,8 @@ export const ShakaPlayerHook = {
 
   playbackStarted () {
     this.alpineSetPlaying()
-    
-    this.interval = window.setInterval(() => {
-      const time = this.audio.currentTime
-      this.pushEvent('playback-time-updated', { 'playback-time': time })
-    }, 60000)
+    this.setSyncInterval()
+    this.setUnloadHandler()
   },
 
   playbackPaused () {
@@ -138,7 +135,8 @@ export const ShakaPlayerHook = {
     this.pushEvent('playback-paused', { 'playback-time': time })
     this.time = time
 
-    window.clearInterval(this.interval)
+    this.clearSyncInterval()
+    this.clearUnloadHandler()
   },
 
   playbackRateChanged () {
@@ -165,60 +163,65 @@ export const ShakaPlayerHook = {
     this.pushEvent('playback-time-updated', { 'playback-time': time })
   },
 
-  reloadMedia (opts) {
-    const audio = this.audio
-    const { mediaId } = this.el.dataset
-
-    if (mediaId === this.mediaId) {
-      if (opts.play) {
-        // no actual change was made, so let's just play
-        this.play()
-      }
-
-      return
-    }
-
-    if (!audio.paused) {
-      audio.addEventListener(
-        'pause',
-        () => this.loadMedia(this.el.dataset, opts),
-        { once: true }
-      )
-      this.pause()
-    } else {
-      this.loadMedia(this.el.dataset, opts)
-    }
+  beforeUnload (e) {
+    e.preventDefault()
+    return ""
   },
 
-  async loadMedia (dataset, opts = {}) {
-    const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
-    const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
-    const player = this.player
-    const audio = this.audio
-    const time = parseFloat(mediaPosition)
+  // reloadMedia (opts) {
+  //   const audio = this.audio
+  //   const { mediaId } = this.el.dataset
 
-    this.mediaId = mediaId
-    this.playbackRate = mediaPlaybackRate
-    this.time = time
+  //   if (mediaId === this.mediaId) {
+  //     if (opts.play) {
+  //       // no actual change was made, so let's just play
+  //       this.play()
+  //     }
 
-    try {
-      await player.load(mediaPath, time)
-      audio.playbackRate = parseFloat(mediaPlaybackRate)
+  //     return
+  //   }
 
-      console.log('Shaka: audio loaded')
+  //   if (!audio.paused) {
+  //     audio.addEventListener(
+  //       'pause',
+  //       () => this.loadMedia(this.el.dataset, opts),
+  //       { once: true }
+  //     )
+  //     this.pause()
+  //   } else {
+  //     this.loadMedia(this.el.dataset, opts)
+  //   }
+  // },
 
-      if (opts.play) {
-        this.play()
-      }
-    } catch (e) {
-      this.onError(e)
-      return
-    }
-  },
+  // async loadMedia (dataset, opts = {}) {
+  //   const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
+  //   const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
+  //   const player = this.player
+  //   const audio = this.audio
+  //   const time = parseFloat(mediaPosition)
 
-  loadAndPlayMedia (mediaId) {
-    // this.pushEvent('load-and-play-media', { 'media-id': mediaId })
-  },
+  //   this.mediaId = mediaId
+  //   this.playbackRate = mediaPlaybackRate
+  //   this.time = time
+
+  //   try {
+  //     await player.load(mediaPath, time)
+  //     audio.playbackRate = parseFloat(mediaPlaybackRate)
+
+  //     console.log('Shaka: audio loaded')
+
+  //     if (opts.play) {
+  //       this.play()
+  //     }
+  //   } catch (e) {
+  //     this.onError(e)
+  //     return
+  //   }
+  // },
+
+  // loadAndPlayMedia (mediaId) {
+  //   this.pushEvent('load-and-play-media', { 'media-id': mediaId })
+  // },
 
   // Alpine interop
 
@@ -239,5 +242,26 @@ export const ShakaPlayerHook = {
     Alpine.store('player').duration = realDuration
     Alpine.store('player').time = realTime
     Alpine.store('player').playbackRate = playbackRate
+  },
+
+  // Helpers
+
+  setSyncInterval () {
+    this.interval = window.setInterval(() => {
+      const time = this.audio.currentTime
+      this.pushEvent('playback-time-updated', { 'playback-time': time })
+    }, 60000)
+  },
+
+  clearSyncInterval () {
+    window.clearInterval(this.interval)
+  },
+
+  setUnloadHandler () {
+    window.addEventListener("beforeunload", this.beforeUnload)
+  },
+
+  clearUnloadHandler () {
+    window.removeEventListener("beforeunload", this.beforeUnload)
   }
 }
