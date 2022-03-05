@@ -33,4 +33,40 @@ defmodule AmbryWeb.PlayerLive.Player do
       "data-media-playback-rate" => playback_rate
     }
   end
+
+  @impl Phoenix.LiveView
+  def handle_event("playback-time-updated", %{"playback-time" => playback_time}, socket) do
+    IO.inspect({"playback-time-updates", playback_time})
+
+    {:ok, player_state} =
+      Media.update_player_state(socket.assigns.player_state, %{
+        position: playback_time
+      })
+
+    {:noreply, assign(socket, :player_state, player_state)}
+  end
+
+  def handle_event("playback-paused", %{"playback-time" => playback_time}, socket) do
+    {:ok, player_state} =
+      Media.update_player_state(socket.assigns.player_state, %{
+        position: playback_time
+      })
+
+    # %{current_user: user, player_state: %{media: media}, browser_id: browser_id} = socket.assigns
+    # PubSub.pub(:playback_paused, user.id, browser_id, media.id)
+
+    {:noreply,
+     socket
+     |> assign(:player_state, player_state)
+     |> assign(:playing, false)}
+  end
+
+  def handle_event("playback-rate-changed", %{"playback-rate" => playback_rate}, socket) do
+    {:ok, player_state} =
+      Media.update_player_state(socket.assigns.player_state, %{
+        playback_rate: playback_rate
+      })
+
+    {:noreply, assign(socket, :player_state, player_state)}
+  end
 end

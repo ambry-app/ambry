@@ -38,8 +38,10 @@ export const ShakaPlayerHook = {
     // audio element event handlers
     audio.addEventListener('play', () => this.playbackStarted())
     audio.addEventListener('pause', () => this.playbackPaused())
+    audio.addEventListener('ended', () => this.playbackPaused())
     audio.addEventListener('ratechange', () => this.playbackRateChanged())
     audio.addEventListener('timeupdate', () => this.playbackTimeUpdated())
+    audio.addEventListener('seeked', () => this.seeked())
 
     try {
       await player.load(mediaPath, time)
@@ -123,14 +125,20 @@ export const ShakaPlayerHook = {
 
   playbackStarted () {
     this.alpineSetPlaying()
-    // this.pushEvent('playback-started')
+    
+    this.interval = window.setInterval(() => {
+      const time = this.audio.currentTime
+      this.pushEvent('playback-time-updated', { 'playback-time': time })
+    }, 60000)
   },
 
   playbackPaused () {
     const time = this.audio.currentTime
     this.alpineSetPaused()
-    // this.pushEvent('playback-paused', { 'playback-time': time })
+    this.pushEvent('playback-paused', { 'playback-time': time })
     this.time = time
+
+    window.clearInterval(this.interval)
   },
 
   playbackRateChanged () {
@@ -138,7 +146,7 @@ export const ShakaPlayerHook = {
 
     if (playbackRate && playbackRate != this.playbackRate) {
       this.alpineSetPositionAndDuration(this.audio.currentTime, this.audio.duration, playbackRate)
-      // this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
+      this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
       this.playbackRate = playbackRate
     }
   },
@@ -148,9 +156,13 @@ export const ShakaPlayerHook = {
 
     if (time != this.time) {
       this.alpineSetPositionAndDuration(time, this.audio.duration, this.playbackRate)
-      // this.pushEvent('playback-time-updated', { 'playback-time': time })
       this.time = time
     }
+  },
+
+  seeked () {
+    const time = this.audio.currentTime
+    this.pushEvent('playback-time-updated', { 'playback-time': time })
   },
 
   reloadMedia (opts) {
