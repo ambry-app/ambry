@@ -226,5 +226,6 @@ export const ShakaPlayerHook = {
     Alpine.store('player').playbackPercentage = percentage
     Alpine.store('player').duration = realDuration
     Alpine.store('player').time = realTime
+    Alpine.store('player').playbackRate = playbackRate
   }
 }

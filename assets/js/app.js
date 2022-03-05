@@ -73,13 +73,22 @@ window.formatTimecode = (secs) => {
   }
 }
 
+window.formatDecimal = (num) => {
+  const formatted = parseFloat(num).toFixed(2)
+
+  if (/\d+\.\d0/.test(formatted)) {
+    return formatted.slice(0, -1)
+  } else {
+    return formatted
+  }
+}
+
 // Setup Alpine.js
 window.Alpine = Alpine
 
 Alpine.data('readMore', readMore)
 Alpine.store('search', { open: false, query: "" })
-Alpine.store('menu', { open: false })
-Alpine.store('player', { playing: false, time: 0, duration: 0, playbackPercentage: '0.00' })
+Alpine.store('player', { playing: false, time: 0, duration: 0, playbackPercentage: '0.00', playbackRate: 1.0 })
 Alpine.start()
 
 // Show progress bar on live navigation and form submits

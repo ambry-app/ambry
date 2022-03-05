@@ -74,11 +74,18 @@ defmodule AmbryWeb.Components do
         <div class="flex-1">
           <div class="flex">
             <div class="flex-grow" />
-            <img
-              x-data @click="if (!$store.menu.open) { $nextTick(() => $store.menu.open = true) }"
-              class="mt-1 h-6 lg:w-7 lg:h-7 rounded-full cursor-pointer"
-              src={gravatar_url(@user.email)}
-            />
+            <div
+              x-data="{ open: false }"
+              @click.outside="open = false"
+              @keydown.escape.window.prevent="open = false"
+            >
+              <img
+                @click="open = !open"
+                class="mt-1 h-6 lg:w-7 lg:h-7 rounded-full cursor-pointer"
+                src={gravatar_url(@user.email)}
+              />
+              <.user_menu user={@user} />
+            </div>
           </div>
         </div>
       </div>
@@ -87,8 +94,6 @@ defmodule AmbryWeb.Components do
         module={SearchBox}
         id="search-box"
       />
-
-      <.user_menu user={@user} />
     </header>
     """
   end
@@ -100,11 +105,8 @@ defmodule AmbryWeb.Components do
   def user_menu(assigns) do
     ~H"""
     <div
-      x-data="{ show() { $store.menu.open = true }, hide() { $store.menu.open = false; $store.menu.query = '' } }"
-      @click.outside="hide()"
-      @keydown.escape.window.prevent="hide()"
-      :class="{ 'hidden': ! $store.menu.open }"
-      class="hidden absolute top-12 right-4 max-w-80"
+      :class="{ 'hidden': !open }"
+      class="hidden absolute top-12 right-4 max-w-80 text-gray-800 dark:text-gray-200"
     >
       <div class="w-full h-full bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm divide-y divide-gray-300 dark:divide-gray-800">
         <div class="flex items-center p-4 gap-4">
@@ -165,10 +167,22 @@ defmodule AmbryWeb.Components do
           dragging: false,
           update (x) {
             if (this.width && $store.player.duration) {
-              this.ratio = x / this.width
-              this.position = x
+              this.position = Math.min(x, this.width)
+              this.ratio = this.position / this.width
               this.percent = (this.ratio * 100).toFixed(2)
               this.time = this.ratio * $store.player.duration
+            }
+          },
+          startDrag (event) {
+            if (event.buttons === 1) {
+              this.dragging = true
+            }
+          },
+          endDrag () {
+            if (this.dragging) {
+              this.dragging = false
+              mediaPlayer.seekRatio(this.ratio)
+              $store.player.playbackPercentage = this.percent
             }
           }
         }
@@ -176,23 +190,27 @@ defmodule AmbryWeb.Components do
       x-init="width = $el.clientWidth"
       class="group cursor-pointer h-[32px] -mt-[16px] relative touch-none mr-[12px]"
       @resize.window="width = $el.clientWidth"
-      @mousemove="update($event.layerX)"
-      @mousedown="dragging = true"
-      @mouseup="dragging = false; mediaPlayer.seekRatio(ratio); $store.player.playbackPercentage = percent"
+      @mousemove.window="dragging && update($event.clientX)"
+      @mousemove="!dragging && update($event.clientX)"
+      @mousedown.prevent="startDrag($event)"
+      @mouseup.window="endDrag()"
     >
       <div
-        class="absolute bg-gray=200 dark:bg-gray-900 px-1 -top-4 rounded-sm hidden group-hover:block pointer-events-none tabular-nums"
+        class="absolute bg-gray-200 dark:bg-gray-900 px-1 -top-4 rounded-sm hidden group-hover:block pointer-events-none tabular-nums"
+        :class="{ 'hidden': !dragging }"
         :style="position > width / 2 ? `right: ${width - position}px` : `left: ${position}px`"
         x-text="formatTimecode(time)"
       />
       <div class="relative top-[16px] bg-gray-300 dark:bg-gray-800">
         <div
           class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400"
+          :class="{ 'h-[4px]': dragging }"
           style="width: 0%"
           :style="`width: ${dragging ? percent : $store.player.playbackPercentage}%`"
         />
         <div
           class="absolute hidden group-hover:block bg-lime-500 dark:bg-lime-400 rounded-full w-[16px] h-[16px] top-[-6px] pointer-events-none"
+          :class="{ 'hidden': !dragging }"
           style="left: calc(0% - 8px)"
           :style="`left: calc(${dragging ? percent : $store.player.playbackPercentage}% - 8px)`"
         />
@@ -229,9 +247,74 @@ defmodule AmbryWeb.Components do
         <span class="hidden sm:inline"> / </span>
         <span class="hidden sm:inline" x-text="formatTimecode($store.player.duration)" />
       </div>
-      <span @click="console.log('TODO: open playback speed menu')" class="cursor-pointer" title="Playback speed">
-        <FA.icon name="gauge" class="w-4 h-4 sm:w-5 sm:h-5" />
-      </span>
+      <div
+        x-data="{
+          open: false,
+          close () { this.open = false },
+          inc () {
+            mediaPlayer.setPlaybackRate(Math.min($store.player.playbackRate + 0.05, 3.0))
+          },
+          dec () {
+            mediaPlayer.setPlaybackRate(Math.max($store.player.playbackRate - 0.05, 0.5))
+          }
+        }"
+        @click.outside="open = false"
+        @keydown.escape.window.prevent="open = false"
+        title="Playback speed"
+        class="flex gap-2 items-center"
+      >
+        <div @click="open = !open" class="flex gap-2 items-center cursor-pointer">
+          <span class="hidden sm:block text-gray-600 dark:text-gray-500 text-sm sm:text-base">
+            <span x-text="formatDecimal($store.player.playbackRate)" />x
+          </span>
+          <FA.icon name="gauge-high" class="w-4 h-4 sm:w-5 sm:h-5" />
+        </div>
+        <.playback_rate_menu />
+      </div>
+    </div>
+    """
+  end
+
+  defp playback_rate_menu(assigns) do
+    ~H"""
+    <div
+      :class="{ 'hidden': !open }"
+      class="hidden absolute bottom-12 right-4 max-w-80"
+    >
+      <div class="w-full h-full bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm divide-y divide-gray-300 dark:divide-gray-800">
+        <div class="p-3">
+          <p class="text-center font-bold text-lg sm:text-xl">
+            <span x-text="formatDecimal($store.player.playbackRate)" />x
+          </p>
+        </div>
+        <div>
+          <div class="flex divide-x divide-gray-300 dark:divide-gray-800">
+            <div @click="dec()" class="p-4 flex-grow cursor-pointer">
+              <FA.icon name="minus" class="w-4 h-4 sm:w-5 sm:h-5 mx-auto" />
+            </div>
+            <div @click="inc()" class="p-4 flex-grow cursor-pointer">
+              <FA.icon name="plus" class="w-4 h-4 sm:w-5 sm:h-5 mx-auto" />
+            </div>
+          </div>
+        </div>
+        <div class="flex py-3 tabular-nums sm:text-lg">
+          <span @click="mediaPlayer.setPlaybackRate('1.0'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+            1.0x
+          </span>
+          <span @click="mediaPlayer.setPlaybackRate('1.25'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+            1.25x
+          </span>
+          <span @click="mediaPlayer.setPlaybackRate('1.5'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+            1.5x
+          </span>
+          <span @click="mediaPlayer.setPlaybackRate('1.75'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+            1.75x
+          </span>
+          <span @click="mediaPlayer.setPlaybackRate('2.0'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+            2.0x
+          </span>
+        </div>
+      </div>
     </div>
     """
   end
