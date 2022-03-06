@@ -120,14 +120,16 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
       </p>
     <% else %>
       <table class="w-full">
-        <%= for chapter <- @chapters do %>
-          <tr class={"cursor-pointer" <> if chapter.title == "Helena - October 22 2007", do: " bg-gray-200 dark:bg-gray-900", else: ""}>
+        <%= for {chapter, id} <- Enum.with_index(@chapters) do %>
+          <tr
+            class={"cursor-pointer"}
+            :class={"$store.player.currentChapter === #{id} ? 'bg-gray-200 dark:bg-gray-900' : ''"}
+            @click={"mediaPlayer.seek(#{chapter.time})"}
+          >
             <td class="pl-4 py-4 border-b border-gray-100 dark:border-gray-900 flex items-center space-x-2">
-              <%= if chapter.title == "Helena - October 22 2007" do %>
-                <FA.icon name="volume-high" class="w-5 h-5 fill-current flex-none" />
-              <% else %>
-                <div class="w-5 h-5 flex-none" />
-              <% end %>
+              <div class="flex-none invisible" :class={"{invisible: $store.player.currentChapter !== #{id}}"}>
+                <FA.icon name="volume-high" class="w-5 h-5 fill-current" />
+              </div>
               <p><%= chapter.title %></p>
             </td>
 

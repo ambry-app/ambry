@@ -64,26 +64,28 @@ defmodule AmbryWeb.Router do
   scope "/admin", AmbryWeb.Admin, as: :admin do
     pipe_through [:browser, :require_authenticated_user, :require_admin]
 
-    live "/", HomeLive.Index, :index
+    live_session :admin do
+      live "/", HomeLive.Index, :index
 
-    live "/people", PersonLive.Index, :index
-    live "/people/new", PersonLive.Index, :new
-    live "/people/:id/edit", PersonLive.Index, :edit
+      live "/people", PersonLive.Index, :index
+      live "/people/new", PersonLive.Index, :new
+      live "/people/:id/edit", PersonLive.Index, :edit
 
-    live "/books", BookLive.Index, :index
-    live "/books/new", BookLive.Index, :new
-    live "/books/:id/edit", BookLive.Index, :edit
+      live "/books", BookLive.Index, :index
+      live "/books/new", BookLive.Index, :new
+      live "/books/:id/edit", BookLive.Index, :edit
 
-    live "/series", SeriesLive.Index, :index
-    live "/series/new", SeriesLive.Index, :new
-    live "/series/:id/edit", SeriesLive.Index, :edit
+      live "/series", SeriesLive.Index, :index
+      live "/series/new", SeriesLive.Index, :new
+      live "/series/:id/edit", SeriesLive.Index, :edit
 
-    live "/media", MediaLive.Index, :index
-    live "/media/new", MediaLive.Index, :new
-    live "/media/:id/edit", MediaLive.Index, :edit
-    live "/media/:id/chapters", MediaLive.Index, :chapters
+      live "/media", MediaLive.Index, :index
+      live "/media/new", MediaLive.Index, :new
+      live "/media/:id/edit", MediaLive.Index, :edit
+      live "/media/:id/chapters", MediaLive.Index, :chapters
 
-    live "/audit", AuditLive.Index, :index
+      live "/audit", AuditLive.Index, :index
+    end
 
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
   end

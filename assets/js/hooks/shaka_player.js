@@ -23,15 +23,18 @@ export const ShakaPlayerHook = {
     const [audio] = this.el.getElementsByTagName('audio')
     const player = new Player(audio)
     const dataset = this.el.dataset
-    const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
+    const { mediaId, mediaPlaybackRate, mediaPosition, mediaChapters } = dataset
     const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
     const time = parseFloat(mediaPosition)
 
-    // last loaded ID, rate and time
-    // to know when to send updates to server
     this.mediaId = mediaId
     this.playbackRate = mediaPlaybackRate
     this.time = time
+    this.chapters = JSON.parse(mediaChapters).map((chapter, i) => {
+      return {id: i, time: parseFloat(chapter.time), title: chapter.title}
+    })
+    
+    this.updateCurrentChapter(time)
 
     player.addEventListener('error', event => this.onError(event))
 
@@ -153,6 +156,7 @@ export const ShakaPlayerHook = {
     const time = this.audio.currentTime
 
     if (time != this.time) {
+      this.updateCurrentChapter(time)
       this.alpineSetPositionAndDuration(time, this.audio.duration, this.playbackRate)
       this.time = time
     }
@@ -244,6 +248,10 @@ export const ShakaPlayerHook = {
     Alpine.store('player').playbackRate = playbackRate
   },
 
+  alpineSetCurrentChapter (chapter) {
+    Alpine.store('player').currentChapter = chapter.id
+  },
+
   // Helpers
 
   setSyncInterval () {
@@ -263,5 +271,32 @@ export const ShakaPlayerHook = {
 
   clearUnloadHandler () {
     window.removeEventListener("beforeunload", this.beforeUnload)
+  },
+
+  updateCurrentChapter (time) {
+    if (this.currentChapter && time >= this.currentChapter.start && time < this.currentChapter.end) {
+      return
+    }
+
+    const chapters = this.chapters
+    let currentChapter, nextChapter
+
+    for (let i = chapters.length - 1; i >= 0; i--) {
+      if (time >= chapters[i].time) {
+        currentChapter = chapters[i]
+        nextChapter = chapters[i+1]
+        break;
+      }
+    }
+
+    if (currentChapter) {
+      this.currentChapter = {
+        id: currentChapter.id,
+        start: currentChapter.time,
+        end: nextChapter?.time || this.audio.duration
+      }
+      
+      this.alpineSetCurrentChapter(currentChapter)
+    }
   }
 }

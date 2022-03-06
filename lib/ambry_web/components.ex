@@ -301,7 +301,7 @@ defmodule AmbryWeb.Components do
 
   defp alpine_value_with_fallback(assigns) do
     ~H"""
-    <span x-text={"#{@alpine_value} ? #{@alpine_expression} : '#{@fallback}'"}><%= @fallback %></span>
+    <span x-text={"#{@alpine_value} !== undefined ? #{@alpine_expression} : '#{@fallback}'"}><%= @fallback %></span>
     """
   end
 

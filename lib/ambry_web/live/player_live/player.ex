@@ -14,7 +14,7 @@ defmodule AmbryWeb.PlayerLive.Player do
   end
 
   defp player_state_attrs(%Media.PlayerState{
-         media: %Media.Media{id: id, mpd_path: path, hls_path: hls_path},
+         media: %Media.Media{id: id, mpd_path: path, hls_path: hls_path, chapters: chapters},
          position: position,
          playback_rate: playback_rate
        }) do
@@ -23,7 +23,8 @@ defmodule AmbryWeb.PlayerLive.Player do
       "data-media-position" => position,
       "data-media-path" => "#{path}#t=#{position}",
       "data-media-hls-path" => "#{hls_path}#t=#{position}",
-      "data-media-playback-rate" => playback_rate
+      "data-media-playback-rate" => playback_rate,
+      "data-media-chapters" => Jason.encode!(chapters)
     }
   end
 
