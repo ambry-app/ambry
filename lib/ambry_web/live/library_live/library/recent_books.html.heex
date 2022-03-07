@@ -1,12 +1,14 @@
 <div>
   <%= if @books != [] do %>
-    <h1 class="text-4xl mb-4">Newest books</h1>
+    <div class="mb-10 max-w-sm mx-auto sm:max-w-none">
+      <h1 class="text-2xl mb-4 sm:text-3xl sm:mb-6 md:text-4xl md:mb-8 lg:text-5xl lg:mb-12 font-bold">Newest books</h1>
 
-    <Amc.book_tiles
-      books={@books}
-      show_load_more={@show_load_more?}
-      load_more={{"load-more", @myself}}
-    />
+      <Amc.book_tiles
+        books={@books}
+        show_load_more={@show_load_more?}
+        load_more={{"load-more", @myself}}
+      />
+    </div>
   <% else %>
     <div class="mt-10">
       <img
