@@ -59,7 +59,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
       x-data="{ tab: 'chapters' }"
       class="
         flex-grow lg:flex-1 lg:basis-5/12 flex flex-col xl:max-w-2xl
-        overflow-hidden lg:overflow-auto
+        overflow-hidden lg:overflow-y-auto
         mx-0 sm:mx-8 lg:mx-16 mt-4 lg:mt-16 lg:ml-4
         text-gray-600 dark:text-gray-500
       "

@@ -10,7 +10,9 @@ defmodule AmbryWeb.SearchLive.Results.Components do
   def author_results(assigns) do
     ~H"""
     <div>
-      <h2 class="text-3xl mb-2">Authors</h2>
+      <h1 class="text-2xl mb-4 sm:text-3xl sm:mb-6 md:text-4xl md:mb-8 lg:text-5xl lg:mb-12 font-bold">
+        Authors
+      </h1>
 
       <div class="grid gap-4 sm:gap-6 md:gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
         <%= for author <- @authors do %>
@@ -24,7 +26,9 @@ defmodule AmbryWeb.SearchLive.Results.Components do
   def book_results(assigns) do
     ~H"""
     <div>
-      <h2 class="text-3xl mb-2">Books</h2>
+      <h1 class="text-2xl mb-4 sm:text-3xl sm:mb-6 md:text-4xl md:mb-8 lg:text-5xl lg:mb-12 font-bold">
+        Books
+      </h1>
 
       <Amc.book_tiles books={@books} />
     </div>
@@ -34,7 +38,9 @@ defmodule AmbryWeb.SearchLive.Results.Components do
   def narrator_results(assigns) do
     ~H"""
     <div>
-      <h2 class="text-3xl mb-2">Narrators</h2>
+      <h1 class="text-2xl mb-4 sm:text-3xl sm:mb-6 md:text-4xl md:mb-8 lg:text-5xl lg:mb-12 font-bold">
+        Narrators
+      </h1>
 
       <div class="grid gap-4 sm:gap-6 md:gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
         <%= for narrator <- @narrators do %>
@@ -48,7 +54,9 @@ defmodule AmbryWeb.SearchLive.Results.Components do
   def series_results(assigns) do
     ~H"""
     <div>
-      <h2 class="text-3xl mb-2">Series</h2>
+      <h1 class="text-2xl mb-4 sm:text-3xl sm:mb-6 md:text-4xl md:mb-8 lg:text-5xl lg:mb-12 font-bold">
+        Series
+      </h1>
 
       <.series_tiles series={@series} />
     </div>
