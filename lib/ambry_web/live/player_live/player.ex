@@ -30,8 +30,6 @@ defmodule AmbryWeb.PlayerLive.Player do
 
   @impl Phoenix.LiveView
   def handle_event("playback-time-updated", %{"playback-time" => playback_time}, socket) do
-    IO.inspect({"playback-time-updates", playback_time})
-
     {:ok, player_state} =
       Media.update_player_state(socket.assigns.player_state, %{
         position: playback_time

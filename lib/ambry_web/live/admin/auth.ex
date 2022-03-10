@@ -27,7 +27,7 @@ defmodule AmbryWeb.Admin.Auth do
         {:halt, push_redirect(socket, to: Routes.user_session_path(socket, :new))}
 
       %User{admin: false} ->
-        {:halt, push_redirect(socket, to: Routes.home_home_path(socket, :home))}
+        {:halt, push_redirect(socket, to: Routes.now_playing_index_path(socket, :index))}
 
       %User{admin: true} ->
         {:cont, socket}

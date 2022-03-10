@@ -514,14 +514,6 @@ defmodule AmbryWeb.Components do
     """
   end
 
-  defp progress_percent(%{position: position, media: %{duration: duration}}) do
-    position
-    |> Decimal.div(duration)
-    |> Decimal.mult(100)
-    |> Decimal.round(1)
-    |> Decimal.to_string()
-  end
-
   # prop :people, :list, required: true
   # prop :underline, :boolean, default: true
   # prop :link_class, :string
@@ -594,7 +586,7 @@ defmodule AmbryWeb.Components do
     extra = assigns_to_attributes(assigns, [])
 
     default_classes =
-      """
+      PetalComponents.Helpers.convert_string_to_one_line("""
       bg-lime-500 dark:bg-lime-400
       text-white dark:text-black
       font-bold
@@ -606,8 +598,7 @@ defmodule AmbryWeb.Components do
       transition-colors
       focus:ring-2
       focus:ring-lime-300 dark:focus:ring-lime-700
-      """
-      |> PetalComponents.Helpers.convert_string_to_one_line()
+      """)
 
     assigns =
       assigns
