@@ -108,7 +108,7 @@ defmodule AmbryWeb.Components do
     ~H"""
     <div
       :class="{ 'hidden': !open }"
-      class="hidden absolute top-12 right-4 max-w-80 text-gray-800 dark:text-gray-200"
+      class="hidden absolute top-12 right-4 max-w-80 text-gray-800 dark:text-gray-200 z-50"
     >
       <div class="w-full h-full bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm divide-y divide-gray-300 dark:divide-gray-800">
         <div class="flex items-center p-4 gap-4">
@@ -315,7 +315,7 @@ defmodule AmbryWeb.Components do
     ~H"""
     <div
       :class="{ 'hidden': !open }"
-      class="hidden absolute bottom-12 right-4 max-w-80"
+      class="hidden absolute bottom-12 right-4 max-w-80 z-50"
     >
       <div class="w-full h-full bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm divide-y divide-gray-300 dark:divide-gray-800">
         <div class="p-3">
@@ -325,10 +325,10 @@ defmodule AmbryWeb.Components do
         </div>
         <div>
           <div class="flex divide-x divide-gray-300 dark:divide-gray-800">
-            <div @click="dec()" class="p-4 flex-grow cursor-pointer">
+            <div @click="dec()" class="p-4 flex-grow cursor-pointer hover:bg-gray-400 dark:hover:bg-gray-700">
               <FA.icon name="minus" class="w-4 h-4 sm:w-5 sm:h-5 mx-auto" />
             </div>
-            <div @click="inc()" class="p-4 flex-grow cursor-pointer">
+            <div @click="inc()" class="p-4 flex-grow cursor-pointer hover:bg-gray-400 dark:hover:bg-gray-700">
               <FA.icon name="plus" class="w-4 h-4 sm:w-5 sm:h-5 mx-auto" />
             </div>
           </div>
@@ -380,30 +380,35 @@ defmodule AmbryWeb.Components do
     ~H"""
     <div class="grid gap-4 sm:gap-6 md:gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
       <%= for {book, number} <- books_with_numbers(@books) do %>
-        <div class="text-center text-lg">
+        <div class="text-center">
           <%= if number do %>
-            <p>Book <%= number %></p>
+            <p class="sm:text-lg font-bold text-gray-900 dark:text-gray-100">Book <%= number %></p>
           <% end %>
           <div class="group">
             <.link link_type="live_redirect" to={Routes.book_show_path(Endpoint, :show, book)}>
               <span class="block aspect-w-10 aspect-h-15">
                 <img
                   src={book.image_path}
-                  class="w-full h-full object-center object-cover rounded-lg shadow-md border border-gray-200 filter group-hover:saturate-200 group-hover:shadow-lg group-hover:-translate-y-1 transition"
+                  class="
+                    w-full h-full
+                    object-center object-cover
+                    rounded-lg shadow-md
+                    border border-gray-200 dark:border-gray-900
+                  "
                 />
               </span>
             </.link>
-            <p class="group-hover:underline">
+            <p class="group-hover:underline sm:text-lg font-bold text-gray-900 dark:text-gray-100">
               <.link link_type="live_redirect" to={Routes.book_show_path(Endpoint, :show, book)}>
                 <%= book.title %>
               </.link>
             </p>
           </div>
-          <p class="text-gray-500">
+          <p class="text-sm sm:text-base text-gray-800 dark:text-gray-200">
             by <Amc.people_links people={book.authors} />
           </p>
 
-          <div class="text-sm text-gray-400">
+          <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
             <Amc.series_book_links series_books={book.series_books} />
           </div>
         </div>
@@ -447,13 +452,19 @@ defmodule AmbryWeb.Components do
     ~H"""
     <div class="grid gap-4 sm:gap-6 md:gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
       <%= for player_state <- @player_states do %>
-        <div class="text-center text-lg">
+        <div class="text-center">
           <div class="group">
             <span class="relative block aspect-w-10 aspect-h-15">
               <img
                 src={player_state.media.book.image_path}
-                class="w-full h-full object-center object-cover rounded-t-lg shadow-md border border-b-0 border-gray-200 filter group-hover:saturate-200"
+                class="
+                    w-full h-full
+                    object-center object-cover
+                    rounded-t-lg shadow-md
+                    border border-b-0 border-gray-200 dark:border-gray-900
+                  "
               />
+              <%# TODO: fix this %>
               <span class="absolute flex">
                 <span class="self-center mx-auto h-20 w-20 bg-white bg-opacity-80 group-hover:bg-opacity-100 backdrop-blur-sm rounded-full shadow-md flex group-hover:-translate-y-1 group-hover:shadow-lg transition">
                   <span style="height: 50px;" class="block self-center mx-auto">
@@ -468,29 +479,29 @@ defmodule AmbryWeb.Components do
                 </span>
               </span>
             </span>
-            <div class="bg-gray-200 rounded-b-full overflow-hidden shadow-sm">
-              <div class="bg-lime-500 h-2" style={"width: #{progress_percent(player_state)}%;"} />
+            <div class="bg-gray-300 dark:bg-gray-800 rounded-b-sm overflow-hidden shadow-sm border-x border-gray-200 dark:border-gray-900">
+              <div class="bg-lime-500 dark:bg-lime-400 h-1" style={"width: #{progress_percent(player_state)}%;"} />
             </div>
           </div>
-          <p class="hover:underline">
+          <p class="hover:underline sm:text-lg font-bold text-gray-900 dark:text-gray-100">
             <.link
               link_type="live_redirect"
               label={player_state.media.book.title}
               to={Routes.book_show_path(Endpoint, :show, player_state.media.book)}
             />
           </p>
-          <p class="text-gray-500">
+          <p class="text-sm sm:text-base text-gray-800 dark:text-gray-200">
             by <Amc.people_links people={player_state.media.book.authors} />
           </p>
 
-          <p class="text-gray-500 text-sm">
+          <p class="text-sm sm:text-base text-gray-800 dark:text-gray-200">
             Narrated by <Amc.people_links people={player_state.media.narrators} />
             <%= if player_state.media.full_cast do %>
               <span>full cast</span>
             <% end %>
           </p>
 
-          <div class="text-sm text-gray-400">
+          <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
             <Amc.series_book_links series_books={player_state.media.book.series_books} />
           </div>
         </div>

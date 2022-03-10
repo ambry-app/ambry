@@ -18,7 +18,12 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
       <div class="flex space-x-4 md:space-x-8 m-8 sm:m-12 lg:mr-4">
         <img
           src={@media.book.image_path}
-          class="h-52 sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[36rem] object-center object-cover rounded-lg shadow-md"
+          class="
+            h-52 sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[36rem]
+            object-center object-cover
+            rounded-lg shadow-md
+            border border-gray-200 dark:border-gray-900
+          "
         />
 
         <div class="pt-4 md:pt-6 lg:pt-8">
