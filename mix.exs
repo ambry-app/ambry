@@ -46,7 +46,7 @@ defmodule Ambry.MixProject do
       {:hashids, "~> 2.0"},
       {:jason, "~> 1.2"},
       {:natural_sort, "~> 0.3"},
-      {:oban, "~> 2.9"},
+      {:oban, "~> 2.11"},
       {:petal_components, "~> 0.10"},
       {:phoenix, "~> 1.6"},
       {:phoenix_ecto, "~> 4.4"},
