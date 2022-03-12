@@ -26,6 +26,7 @@ import { ShakaPlayerHook } from './hooks/shaka_player'
 import { MediaControlsHook } from './hooks/media_controls'
 import { SpeedSliderHook } from './hooks/speed_slider'
 import { BookmarkButtonHook } from './hooks/bookmark_button'
+import { HeaderScrollspyHook } from './hooks/header_scrollspy'
 import readMore from './alpine_data/read_more'
 
 const browserId = window.crypto
@@ -42,7 +43,8 @@ const liveSocket = new LiveSocket('/live', Socket, {
     mediaPlayer: ShakaPlayerHook,
     mediaControls: MediaControlsHook,
     speedSlider: SpeedSliderHook,
-    bookmarkButton: BookmarkButtonHook
+    bookmarkButton: BookmarkButtonHook,
+    headerScrollspy: HeaderScrollspyHook
   },
   dom: {
     onBeforeElUpdated (from, to) {
@@ -87,6 +89,7 @@ window.formatDecimal = (num) => {
 window.Alpine = Alpine
 
 Alpine.data('readMore', readMore)
+Alpine.store('header', { scrolled: false })
 Alpine.store('search', { open: false, query: "" })
 Alpine.store('player', {
   playing: false,

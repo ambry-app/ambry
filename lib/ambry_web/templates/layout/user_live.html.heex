@@ -2,7 +2,7 @@
   <Amc.header user={@current_user} active_path={@nav_active_path} />
 
   <main class="flex-grow flex flex-col overflow-hidden lg:justify-center">
-    <div class="flex-grow overflow-y-auto overflow-x-hidden">
+    <div id="main-content" class="flex-grow overflow-y-auto overflow-x-hidden" phx-hook="headerScrollspy">
       <%= @inner_content %>
     </div>
   </main>

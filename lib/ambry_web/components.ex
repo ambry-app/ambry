@@ -49,7 +49,11 @@ defmodule AmbryWeb.Components do
 
   def header(assigns) do
     ~H"""
-    <header>
+    <header
+      x-data
+      class="border-gray-100 dark:border-gray-900"
+      :class="{ 'border-b': $store.header.scrolled }"
+    >
       <div class="p-4 flex text-gray-600 dark:text-gray-500">
         <div class="flex-1">
           <.link link_type="live_redirect" to="/" class="flex">
