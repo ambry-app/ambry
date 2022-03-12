@@ -1,51 +1,69 @@
-<div class="sm:flex sm:flex-row">
-  <section id="cover" class="flex-none mb-4 sm:mb-0 sm:w-80">
-    <div class="sm:hidden">
-      <.header book={@book} />
-    </div>
-    <img src={@book.image_path} class="rounded-3xl shadow-lg w-full sm:w-80">
-    <p class="text-gray-500 mt-2 text-sm">
-      Published <%= Calendar.strftime(@book.published, "%B %-d, %Y") %>
-    </p>
-    <%= if @book.media != [] do %>
-      <h2 class="text-2xl mt-4 mb-2">Recordings</h2>
-      <div class="rounded-lg border shadow-lg px-3 divide-y divide-gray-200">
-        <%= for media <- @book.media do %>
-          <div class="flex items-center py-3">
-            <div class="grow mr-2">
-              <p class="text-lg"><%= @book.title %> (<%= recording_type(media) %>)</p>
-              <p class="text-gray-500">
-                Narrated by <Amc.people_links people={media.narrators} link_class="text-lime-500" />
-                <%= if media.full_cast do %>
-                  <span>full cast</span>
-                <% end %>
-              </p>
-              <p class="text-gray-400">
-                <%= duration_display(media.duration) %>
-              </p>
-            </div>
-            <.live_component
-              module={PlayButton}
-              id={media.id}
-              media={media}
-              user={@current_user}
-              browser_id={assigns[:browser_id]}
-            />
+<div class="flex-grow overflow-y-auto">
+  <div class="
+    p-4 md:p-6 lg:p-8
+    mx-auto max-w-md sm:max-w-none md:max-w-screen-2xl
+  ">
+    <div class="sm:flex sm:flex-row justify-center">
+      <section id="cover" class="flex-none mb-4 sm:mb-0 sm:w-80">
+        <div class="mb-8 sm:hidden">
+          <.header book={@book} />
+        </div>
+        <img
+          src={@book.image_path} class="rounded-lg shadow-md w-full sm:w-80 border border-gray-200 dark:border-gray-900"
+        >
+        <p class="text-gray-500 mt-2 text-sm">
+          Published <%= Calendar.strftime(@book.published, "%B %-d, %Y") %>
+        </p>
+        <%= if @book.media != [] do %>
+          <h2 class="text-2xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">
+            Recordings
+          </h2>
+          <div
+            class="
+              shadow-md px-3
+              text-gray-800 dark:text-gray-200
+              bg-gray-200 dark:bg-gray-900
+              rounded-sm border border-gray-300 dark:border-gray-800
+              divide-y divide-gray-300 dark:divide-gray-800
+            "
+          >
+            <%= for media <- @book.media do %>
+              <div class="flex items-center py-3">
+                <div class="grow mr-2">
+                  <p>
+                    Narrated by <Amc.people_links people={media.narrators} />
+                    <%= if media.full_cast do %>
+                      <span>full cast</span>
+                    <% end %>
+                  </p>
+                  <p class="text-gray-600 dark:text-gray-400">
+                    <%= duration_display(media.duration) %>
+                  </p>
+                </div>
+                <.live_component
+                  module={PlayButton}
+                  id={media.id}
+                  media={media}
+                  user={@current_user}
+                  browser_id={assigns[:browser_id]}
+                />
+              </div>
+            <% end %>
+          </div>
+        <% else %>
+          <p class="mt-4 font-bold">Sorry, there are no recordings uploaded for this book.</p>
+        <% end %>
+      </section>
+      <section id="description" class="max-w-md sm:ml-10">
+        <div class="hidden sm:block">
+          <.header book={@book} />
+        </div>
+        <%= if @book.description do %>
+          <div class="markdown mt-4">
+            <%= raw(Earmark.as_html!(@book.description)) %>
           </div>
         <% end %>
-      </div>
-    <% else %>
-      <p class="mt-4 font-bold">Sorry, there are no recordings uploaded for this book.</p>
-    <% end %>
-  </section>
-  <section id="description" class="max-w-md sm:ml-10">
-    <div class="hidden sm:block">
-      <.header book={@book} />
+      </section>
     </div>
-    <%= if @book.description do %>
-      <div class="markdown mt-4">
-        <%= raw(Earmark.as_html!(@book.description)) %>
-      </div>
-    <% end %>
-  </section>
+  </div>
 </div>

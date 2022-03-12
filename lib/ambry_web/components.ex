@@ -108,7 +108,7 @@ defmodule AmbryWeb.Components do
     ~H"""
     <div
       :class="{ 'hidden': !open }"
-      class="hidden absolute top-12 right-4 max-w-80 text-gray-800 dark:text-gray-200 z-50"
+      class="hidden absolute top-12 right-4 max-w-80 text-gray-800 dark:text-gray-200 z-50 shadow-md"
     >
       <div class="w-full h-full bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm divide-y divide-gray-300 dark:divide-gray-800">
         <div class="flex items-center p-4 gap-4">
@@ -315,7 +315,7 @@ defmodule AmbryWeb.Components do
     ~H"""
     <div
       :class="{ 'hidden': !open }"
-      class="hidden absolute bottom-12 right-4 max-w-80 z-50"
+      class="hidden absolute bottom-12 right-4 max-w-80 text-gray-800 dark:text-gray-200 z-50 shadow-md"
     >
       <div class="w-full h-full bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm divide-y divide-gray-300 dark:divide-gray-800">
         <div class="p-3">
