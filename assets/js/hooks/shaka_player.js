@@ -7,7 +7,7 @@ function initPolyfills () {
   shaka.polyfill.installAll()
 
   if (Player.isBrowserSupported()) {
-    console.log('Shaka: Polyfills installed.')
+    console.log('Shaka: Polyfills installed')
   } else {
     // This browser does not have the minimum set of APIs we need.
     console.error('Shaka: Browser not supported!')
@@ -20,21 +20,11 @@ document.addEventListener('DOMContentLoaded', initPolyfills)
 
 export const ShakaPlayerHook = {
   async mounted () {
+    console.log('Shaka: Mounting...')
+
     const [audio] = this.el.getElementsByTagName('audio')
     const player = new Player(audio)
     const dataset = this.el.dataset
-    const { mediaId, mediaPlaybackRate, mediaPosition, mediaChapters } = dataset
-    const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
-    const time = parseFloat(mediaPosition)
-
-    this.mediaId = mediaId
-    this.playbackRate = mediaPlaybackRate
-    this.time = time
-    this.chapters = JSON.parse(mediaChapters).map((chapter, i) => {
-      return {id: i, time: parseFloat(chapter.time), title: chapter.title}
-    })
-    
-    this.updateCurrentChapter(time)
 
     player.addEventListener('error', event => this.onError(event))
 
@@ -46,33 +36,16 @@ export const ShakaPlayerHook = {
     audio.addEventListener('timeupdate', () => this.playbackTimeUpdated())
     audio.addEventListener('seeked', () => this.seeked())
 
-    try {
-      await player.load(mediaPath, time)
-      audio.playbackRate = parseFloat(mediaPlaybackRate)
-      this.alpineSetPositionAndDuration(time, audio.duration, this.playbackRate)
-
-      console.log('Shaka: audio loaded')
-    } catch (e) {
-      this.onError(e)
-      return
-    }
-
-    // // server push event handlers
-    // this.handleEvent('reload-media', opts => {
-    //   this.reloadMedia(opts)
-    // })
-
-    // this.handleEvent('play', () => {
-    //   this.play()
-    // })
-
-    // this.handleEvent('pause', () => {
-    //   this.pause()
-    // })
+    // server push event handlers
+    this.handleEvent('reload-media', () => {
+      this.reloadMedia()
+    })
 
     this.audio = audio
     this.player = player
     window.mediaPlayer = this
+
+    this.loadMediaFromDataset(dataset)
   },
 
   // player controls
@@ -120,10 +93,14 @@ export const ShakaPlayerHook = {
     audio.playbackRate = rate
   },
 
+  loadMedia (mediaId) {
+    this.pushEvent('load-media', { 'media-id': mediaId })
+  },
+
   // event handlers
 
   onError (eventOrException) {
-    console.error('Shaka: error:', eventOrException)
+    console.error('Shaka: Error:', eventOrException)
   },
 
   playbackStarted () {
@@ -172,60 +149,54 @@ export const ShakaPlayerHook = {
     return ""
   },
 
-  // reloadMedia (opts) {
-  //   const audio = this.audio
-  //   const { mediaId } = this.el.dataset
+  reloadMedia () {
+    const audio = this.audio
+    const { mediaId } = this.el.dataset
 
-  //   if (mediaId === this.mediaId) {
-  //     if (opts.play) {
-  //       // no actual change was made, so let's just play
-  //       this.play()
-  //     }
+    if (mediaId === this.mediaId) {
+      // no change was made
+      return
+    }
 
-  //     return
-  //   }
+    if (!audio.paused) {
+      audio.addEventListener(
+        'pause',
+        () => this.loadMediaFromDataset(this.el.dataset),
+        { once: true }
+      )
+      this.pause()
+    } else {
+      this.loadMediaFromDataset(this.el.dataset)
+    }
+  },
 
-  //   if (!audio.paused) {
-  //     audio.addEventListener(
-  //       'pause',
-  //       () => this.loadMedia(this.el.dataset, opts),
-  //       { once: true }
-  //     )
-  //     this.pause()
-  //   } else {
-  //     this.loadMedia(this.el.dataset, opts)
-  //   }
-  // },
+  async loadMediaFromDataset (dataset) {
+    const { mediaId, mediaPlaybackRate, mediaPosition, mediaChapters } = dataset
+    const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
+    const player = this.player
+    const audio = this.audio
+    const time = parseFloat(mediaPosition)
 
-  // async loadMedia (dataset, opts = {}) {
-  //   const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
-  //   const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
-  //   const player = this.player
-  //   const audio = this.audio
-  //   const time = parseFloat(mediaPosition)
+    this.mediaId = mediaId
+    this.playbackRate = mediaPlaybackRate
+    this.time = time
+    this.chapters = JSON.parse(mediaChapters).map((chapter, i) => {
+      return {id: i, time: parseFloat(chapter.time), title: chapter.title}
+    })
 
-  //   this.mediaId = mediaId
-  //   this.playbackRate = mediaPlaybackRate
-  //   this.time = time
+    this.updateCurrentChapter(time)
 
-  //   try {
-  //     await player.load(mediaPath, time)
-  //     audio.playbackRate = parseFloat(mediaPlaybackRate)
+    try {
+      await player.load(mediaPath, time)
+      audio.playbackRate = parseFloat(mediaPlaybackRate)
+      this.alpineSetPositionAndDuration(time, audio.duration, this.playbackRate)
 
-  //     console.log('Shaka: audio loaded')
-
-  //     if (opts.play) {
-  //       this.play()
-  //     }
-  //   } catch (e) {
-  //     this.onError(e)
-  //     return
-  //   }
-  // },
-
-  // loadAndPlayMedia (mediaId) {
-  //   this.pushEvent('load-and-play-media', { 'media-id': mediaId })
-  // },
+      console.log('Shaka: Media loaded')
+    } catch (e) {
+      this.onError(e)
+      return
+    }
+  },
 
   // Alpine interop
 
@@ -295,7 +266,7 @@ export const ShakaPlayerHook = {
         start: currentChapter.time,
         end: nextChapter?.time || this.audio.duration
       }
-      
+
       this.alpineSetCurrentChapter(currentChapter)
     }
   }

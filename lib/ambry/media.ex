@@ -227,7 +227,7 @@ defmodule Ambry.Media do
   @doc """
   Gets or creates a player state for the given user and media.
   """
-  def get_or_create_player_state!(user_id, media_id) do
+  def get_or_create_player_state!(user_id, media_id, touch \\ false) do
     result =
       PlayerState
       |> where([ps], ps.user_id == ^user_id and ps.media_id == ^media_id)
@@ -240,7 +240,13 @@ defmodule Ambry.Media do
         Repo.preload(player_state, @player_state_preload)
 
       %PlayerState{} = player_state ->
-        player_state
+        if touch do
+          player_state
+          |> PlayerState.changeset(%{})
+          |> Repo.update!(force: true)
+        else
+          player_state
+        end
     end
   end
 

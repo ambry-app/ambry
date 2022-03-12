@@ -44,13 +44,7 @@ defmodule AmbryWeb.PlayerLive.Player do
         position: playback_time
       })
 
-    # %{current_user: user, player_state: %{media: media}, browser_id: browser_id} = socket.assigns
-    # PubSub.pub(:playback_paused, user.id, browser_id, media.id)
-
-    {:noreply,
-     socket
-     |> assign(:player_state, player_state)
-     |> assign(:playing, false)}
+    {:noreply, assign(socket, :player_state, player_state)}
   end
 
   def handle_event("playback-rate-changed", %{"playback-rate" => playback_rate}, socket) do
@@ -60,5 +54,15 @@ defmodule AmbryWeb.PlayerLive.Player do
       })
 
     {:noreply, assign(socket, :player_state, player_state)}
+  end
+
+  def handle_event("load-media", %{"media-id" => media_id}, socket) do
+    %{current_user: user} = socket.assigns
+    player_state = Media.get_or_create_player_state!(user.id, media_id, true)
+
+    {:noreply,
+     socket
+     |> assign(:player_state, player_state)
+     |> push_event("reload-media", %{})}
   end
 end
