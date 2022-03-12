@@ -1,8 +1,6 @@
 <div class="h-screen flex flex-col relative">
   <Amc.header user={@current_user} active_path={@nav_active_path} />
 
-  This is now_playing/index.html
-
   <main class="flex-grow flex flex-col lg:flex-row overflow-hidden">
     <.media_details media={@player_state.media} />
     <.media_tabs media={@player_state.media} user={@current_user} />
