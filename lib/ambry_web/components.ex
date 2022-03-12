@@ -190,7 +190,7 @@ defmodule AmbryWeb.Components do
         }
       "
       x-init="width = $el.clientWidth"
-      class="group cursor-pointer h-[32px] -mt-[16px] relative touch-none mr-[12px]"
+      class="group cursor-pointer h-[32px] -mt-[16px] relative mr-[12px]"
       @resize.window="width = $el.clientWidth"
       @mousemove.window="dragging && update($event.clientX)"
       @mousemove="!dragging && update($event.clientX)"

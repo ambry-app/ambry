@@ -18,6 +18,6 @@ defmodule AmbryWeb.NowPlayingLive.Index do
           [page_title: "Personal Audiobook Streaming"]
       end
 
-    {:ok, assign(socket, assigns)}
+    {:ok, assign(socket, assigns), layout: false}
   end
 end

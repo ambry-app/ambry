@@ -1,16 +1,20 @@
-<div class="overflow-y-auto flex-grow">
-  <div class="p-4 sm:p-10 md:p-12 lg:p-16 2xl:mx-auto space-y-16 sm:space-y-24 lg:space-y-32 max-w-md mx-auto sm:max-w-none md:max-w-screen-2xl">
-    <.live_component
-      module={RecentMedia}
-      id="recent-media"
-      user={@current_user}
-      browser_id={assigns[:browser_id]}
-    />
+<div
+  class="
+    p-4 sm:p-10 md:p-12 lg:p-16
+    space-y-16 sm:space-y-24 lg:space-y-32
+    mx-auto max-w-md sm:max-w-none md:max-w-screen-2xl
+  "
+>
+  <.live_component
+    module={RecentMedia}
+    id="recent-media"
+    user={@current_user}
+    browser_id={assigns[:browser_id]}
+  />
 
-    <.live_component
-      module={RecentBooks}
-      id="recent-books"
-      show_admin_links?={@current_user.admin}
-    />
-  </div>
+  <.live_component
+    module={RecentBooks}
+    id="recent-books"
+    show_admin_links?={@current_user.admin}
+  />
 </div>
