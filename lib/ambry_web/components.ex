@@ -10,7 +10,7 @@ defmodule AmbryWeb.Components do
   alias Ambry.Books.Book
   alias Ambry.Series.SeriesBook
 
-  alias AmbryWeb.Components.{PlayButton, SearchBox}
+  alias AmbryWeb.Components.SearchBox
   alias AmbryWeb.Endpoint
   alias AmbryWeb.Router.Helpers, as: Routes
 
