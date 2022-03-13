@@ -114,7 +114,7 @@ defmodule AmbryWeb.Components do
       :class="{ 'hidden': !open }"
       class="hidden absolute top-12 right-4 max-w-80 text-gray-800 dark:text-gray-200 z-50 shadow-md"
     >
-      <div class="w-full h-full bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm divide-y divide-gray-300 dark:divide-gray-800">
+      <div class="w-full h-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-sm divide-y divide-gray-200 dark:divide-gray-800">
         <div class="flex items-center p-4 gap-4">
           <img class="w-10 h-10 rounded-full" src={gravatar_url(@user.email)} />
           <p class="whitespace-nowrap overflow-hidden text-ellipsis"><%= @user.email %></p>
@@ -124,7 +124,7 @@ defmodule AmbryWeb.Components do
             <.link
               link_type="live_redirect"
               to={Routes.admin_home_index_path(Endpoint, :index)}
-              class="flex items-center px-4 py-2 gap-4 hover:bg-gray-400 dark:hover:bg-gray-700"
+              class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
             >
               <FA.icon name="screwdriver-wrench" class="w-5 h-5 fill-current" />
               <p>Admin</p>
@@ -132,7 +132,7 @@ defmodule AmbryWeb.Components do
           <% end %>
           <.link
             to={Routes.user_settings_path(Endpoint, :edit)}
-            class="flex items-center px-4 py-2 gap-4 hover:bg-gray-400 dark:hover:bg-gray-700"
+            class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
           >
             <FA.icon name="user-gear" class="w-5 h-5 fill-current" />
             <p>Account Settings</p>
@@ -140,7 +140,7 @@ defmodule AmbryWeb.Components do
           <.link
             to={Routes.user_session_path(Endpoint, :delete)}
             method="delete"
-            class="flex items-center px-4 py-2 gap-4 hover:bg-gray-400 dark:hover:bg-gray-700"
+            class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
           >
             <FA.icon name="arrow-right-from-bracket" class="w-5 h-5 fill-current" />
             <p>Log out</p>
@@ -153,7 +153,7 @@ defmodule AmbryWeb.Components do
 
   def footer(assigns) do
     ~H"""
-    <footer class="bg-gray-200 dark:bg-gray-900">
+    <footer class="bg-gray-100 dark:bg-gray-900">
       <.time_bar player_state={@player_state} />
       <.player_controls player_state={@player_state} />
     </footer>
@@ -202,12 +202,12 @@ defmodule AmbryWeb.Components do
       @mouseup.window="endDrag()"
     >
       <div
-        class="absolute bg-gray-200 dark:bg-gray-900 px-1 -top-4 rounded-sm hidden group-hover:block pointer-events-none tabular-nums"
+        class="absolute border bg-gray-100 border-gray-200 dark:bg-gray-900 dark:border-gray-800 px-1 -top-4 rounded-sm hidden group-hover:block pointer-events-none tabular-nums"
         :class="{ 'hidden': !dragging }"
         :style="position > width / 2 ? `right: ${width - position}px` : `left: ${position}px`"
         x-text="formatTimecode(time)"
       />
-      <div class="relative top-[16px] bg-gray-300 dark:bg-gray-800">
+      <div class="relative top-[16px] bg-gray-200 dark:bg-gray-800">
         <div
           class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400"
           :class="{ 'h-[4px]': dragging }"
@@ -321,36 +321,36 @@ defmodule AmbryWeb.Components do
       :class="{ 'hidden': !open }"
       class="hidden absolute bottom-12 right-4 max-w-80 text-gray-800 dark:text-gray-200 z-50 shadow-md"
     >
-      <div class="w-full h-full bg-gray-200 dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-sm divide-y divide-gray-300 dark:divide-gray-800">
+      <div class="w-full h-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-sm divide-y divide-gray-200 dark:divide-gray-800">
         <div class="p-3">
           <p class="text-center font-bold text-lg sm:text-xl">
             <span x-text="formatDecimal($store.player.playbackRate)" />x
           </p>
         </div>
         <div>
-          <div class="flex divide-x divide-gray-300 dark:divide-gray-800">
-            <div @click="dec()" class="p-4 flex-grow cursor-pointer hover:bg-gray-400 dark:hover:bg-gray-700">
+          <div class="flex divide-x divide-gray-200 dark:divide-gray-800">
+            <div @click="dec()" class="p-4 flex-grow cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700">
               <FA.icon name="minus" class="w-4 h-4 sm:w-5 sm:h-5 mx-auto" />
             </div>
-            <div @click="inc()" class="p-4 flex-grow cursor-pointer hover:bg-gray-400 dark:hover:bg-gray-700">
+            <div @click="inc()" class="p-4 flex-grow cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700">
               <FA.icon name="plus" class="w-4 h-4 sm:w-5 sm:h-5 mx-auto" />
             </div>
           </div>
         </div>
         <div class="flex py-3 tabular-nums sm:text-lg">
-          <span @click="mediaPlayer.setPlaybackRate('1.0'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+          <span @click="mediaPlayer.setPlaybackRate('1.0'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
             1.0x
           </span>
-          <span @click="mediaPlayer.setPlaybackRate('1.25'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+          <span @click="mediaPlayer.setPlaybackRate('1.25'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
             1.25x
           </span>
-          <span @click="mediaPlayer.setPlaybackRate('1.5'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+          <span @click="mediaPlayer.setPlaybackRate('1.5'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
             1.5x
           </span>
-          <span @click="mediaPlayer.setPlaybackRate('1.75'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+          <span @click="mediaPlayer.setPlaybackRate('1.75'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
             1.75x
           </span>
-          <span @click="mediaPlayer.setPlaybackRate('2.0'); close()" class="px-4 py-2 hover:bg-gray-400 dark:hover:bg-gray-700 cursor-pointer">
+          <span @click="mediaPlayer.setPlaybackRate('2.0'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
             2.0x
           </span>
         </div>

@@ -128,7 +128,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
         <%= for {chapter, id} <- Enum.with_index(@chapters) do %>
           <tr
             class={"cursor-pointer"}
-            :class={"$store.player.currentChapter?.id === #{id} ? 'bg-gray-200 dark:bg-gray-900' : ''"}
+            :class={"$store.player.currentChapter?.id === #{id} ? 'bg-gray-50 dark:bg-gray-900' : ''"}
             @click={"mediaPlayer.seek(#{chapter.time})"}
           >
             <td class="pl-4 py-4 border-b border-gray-100 dark:border-gray-900 flex items-center space-x-2">
