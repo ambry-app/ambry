@@ -41,8 +41,21 @@
                   <%= duration_display(media.duration) %>
                 </p>
               </div>
-              <div class="cursor-pointer" x-data @click={"mediaPlayer.loadMedia(#{media.id})"}>
-                <FA.icon name="play" class="fill-current w-6 h-6 sm:w-7 sm:h-7" />
+              <div
+                x-data={"{
+                  id: #{media.id},
+                  loaded: false
+                }"}
+                x-effect="$store.player.mediaId == id ? loaded = true : loaded = false"
+                @click={"loaded ? mediaPlayer.playPause() : mediaPlayer.loadMedia(#{media.id})"}
+                class="cursor-pointer fill-current"
+              >
+                <span :class="{ hidden: loaded && $store.player.playing }">
+                  <FA.icon name="play" class="w-7 h-7" />
+                </span>
+                <span class="hidden" :class="{ hidden: !loaded || !$store.player.playing }">
+                  <FA.icon name="pause" class="w-7 h-7" />
+                </span>
               </div>
             </div>
           <% end %>
