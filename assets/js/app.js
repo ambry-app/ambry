@@ -27,7 +27,8 @@ import { MediaControlsHook } from './hooks/media_controls'
 import { SpeedSliderHook } from './hooks/speed_slider'
 import { BookmarkButtonHook } from './hooks/bookmark_button'
 import { HeaderScrollspyHook } from './hooks/header_scrollspy'
-import readMore from './alpine_data/read_more'
+import readMore from './alpine/read_more'
+import player from './alpine/player'
 
 const browserId = window.crypto
   .getRandomValues(new Uint32Array(1))[0]
@@ -91,14 +92,7 @@ window.Alpine = Alpine
 Alpine.data('readMore', readMore)
 Alpine.store('header', { scrolled: false })
 Alpine.store('search', { open: false, query: "" })
-Alpine.store('player', {
-  playing: false,
-  time: undefined,
-  duration: undefined,
-  playbackPercentage: undefined,
-  playbackRate: undefined,
-  currentChapter: undefined
-})
+Alpine.store('player', player)
 Alpine.start()
 
 // Show progress bar on live navigation and form submits

@@ -172,11 +172,11 @@ defmodule AmbryWeb.Components do
           width: 0,
           dragging: false,
           update (x) {
-            if (this.width && $store.player.duration) {
+            if (this.width && $store.player.duration.real) {
               this.position = Math.min(x, this.width)
               this.ratio = this.position / this.width
               this.percent = (this.ratio * 100).toFixed(2)
-              this.time = this.ratio * $store.player.duration
+              this.time = this.ratio * $store.player.duration.real
             }
           },
           startDrag (event) {
@@ -188,7 +188,7 @@ defmodule AmbryWeb.Components do
             if (this.dragging) {
               this.dragging = false
               mediaPlayer.seekRatio(this.ratio)
-              $store.player.playbackPercentage = this.percent
+              $store.player.progress.percent = this.percent
             }
           }
         }
@@ -212,13 +212,13 @@ defmodule AmbryWeb.Components do
           class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400"
           :class="{ 'h-[4px]': dragging }"
           style={"width: #{progress_percent(@player_state)}%"}
-          :style={"$store.player.playbackPercentage ? `width: ${dragging ? percent : $store.player.playbackPercentage}%` : 'width: #{progress_percent(@player_state)}%'"}
+          :style={"$store.player.progress.percent ? `width: ${dragging ? percent : $store.player.progress.percent}%` : 'width: #{progress_percent(@player_state)}%'"}
         />
         <div
           class="absolute hidden group-hover:block bg-lime-500 dark:bg-lime-400 rounded-full w-[16px] h-[16px] top-[-6px] pointer-events-none"
           :class="{ 'hidden': !dragging }"
           style="left: calc(0% - 8px)"
-          :style="`left: calc(${dragging ? percent : $store.player.playbackPercentage}% - 8px)`"
+          :style="`left: calc(${dragging ? percent : $store.player.progress.percent}% - 8px)`"
         />
       </div>
     </div>
@@ -258,15 +258,15 @@ defmodule AmbryWeb.Components do
       </span>
       <div class="flex-grow text-gray-600 dark:text-gray-500 text-sm sm:text-base">
         <.alpine_value_with_fallback
-          alpine_value="$store.player.time"
-          alpine_expression="formatTimecode($store.player.time)"
+          alpine_value="$store.player.progress.real"
+          alpine_expression="formatTimecode($store.player.progress.real)"
           fallback={format_timecode(Decimal.div(@player_state.position, @player_state.playback_rate))}
         />
         <span class="hidden sm:inline"> / </span>
         <span class="hidden sm:inline">
           <.alpine_value_with_fallback
-            alpine_value="$store.player.duration"
-            alpine_expression="formatTimecode($store.player.duration)"
+            alpine_value="$store.player.duration.real"
+            alpine_expression="formatTimecode($store.player.duration.real)"
             fallback={format_timecode(Decimal.div(@player_state.media.duration, @player_state.playback_rate))}
           />
         </span>

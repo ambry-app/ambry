@@ -123,7 +123,7 @@ export const ShakaPlayerHook = {
     const playbackRate = this.audio.playbackRate
 
     if (playbackRate && playbackRate != this.playbackRate) {
-      this.alpineSetPositionAndDuration(this.audio.currentTime, this.audio.duration, playbackRate)
+      this.alpineSetPlaybackRate(playbackRate)
       this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
       this.playbackRate = playbackRate
     }
@@ -133,8 +133,7 @@ export const ShakaPlayerHook = {
     const time = this.audio.currentTime
 
     if (time != this.time) {
-      this.updateCurrentChapter(time)
-      this.alpineSetPositionAndDuration(time, this.audio.duration, this.playbackRate)
+      this.alpineSetProgress(time)
       this.time = time
     }
   },
@@ -176,20 +175,18 @@ export const ShakaPlayerHook = {
     const player = this.player
     const audio = this.audio
     const time = parseFloat(mediaPosition)
+    const chapters = JSON.parse(mediaChapters).map((chapter, i) => {
+      return {id: i, time: parseFloat(chapter.time), title: chapter.title}
+    })
 
     this.mediaId = mediaId
     this.playbackRate = mediaPlaybackRate
     this.time = time
-    this.chapters = JSON.parse(mediaChapters).map((chapter, i) => {
-      return {id: i, time: parseFloat(chapter.time), title: chapter.title}
-    })
-
-    this.updateCurrentChapter(time)
 
     try {
       await player.load(mediaPath, time)
       audio.playbackRate = parseFloat(mediaPlaybackRate)
-      this.alpineSetPositionAndDuration(time, audio.duration, this.playbackRate)
+      this.alpineLoadMedia(mediaId, time, audio.duration, this.playbackRate, chapters)
 
       console.log('Shaka: Media loaded')
     } catch (e) {
@@ -200,27 +197,24 @@ export const ShakaPlayerHook = {
 
   // Alpine interop
 
-  alpineSetPlaying () {
-    Alpine.store('player').playing = true
+  alpineLoadMedia(id, time, duration, playbackRate, chapters) {
+    Alpine.store('player').loadMedia(id, time, duration, playbackRate, chapters)
   },
 
-  alpineSetPaused () {
-    Alpine.store('player').playing = false
+  alpineSetPlaying() {
+    Alpine.store('player').setPlaying()
   },
 
-  alpineSetPositionAndDuration (time, duration, playbackRate) {
-    const realTime = time / playbackRate
-    const realDuration = duration / playbackRate
-    const percentage = ((realTime / realDuration) * 100).toFixed(2)
-
-    Alpine.store('player').playbackPercentage = percentage
-    Alpine.store('player').duration = realDuration
-    Alpine.store('player').time = realTime
-    Alpine.store('player').playbackRate = playbackRate
+  alpineSetPaused() {
+    Alpine.store('player').setPaused()
   },
 
-  alpineSetCurrentChapter (chapter) {
-    Alpine.store('player').currentChapter = chapter.id
+  alpineSetProgress(time) {
+    Alpine.store('player').setProgress(time)
+  },
+
+  alpineSetPlaybackRate(rate) {
+    Alpine.store('player').setPlaybackRate(rate)
   },
 
   // Helpers
@@ -242,32 +236,5 @@ export const ShakaPlayerHook = {
 
   clearUnloadHandler () {
     window.removeEventListener("beforeunload", this.beforeUnload)
-  },
-
-  updateCurrentChapter (time) {
-    if (this.currentChapter && time >= this.currentChapter.start && time < this.currentChapter.end) {
-      return
-    }
-
-    const chapters = this.chapters
-    let currentChapter, nextChapter
-
-    for (let i = chapters.length - 1; i >= 0; i--) {
-      if (time >= chapters[i].time) {
-        currentChapter = chapters[i]
-        nextChapter = chapters[i+1]
-        break;
-      }
-    }
-
-    if (currentChapter) {
-      this.currentChapter = {
-        id: currentChapter.id,
-        start: currentChapter.time,
-        end: nextChapter?.time || this.audio.duration
-      }
-
-      this.alpineSetCurrentChapter(currentChapter)
-    }
   }
 }
