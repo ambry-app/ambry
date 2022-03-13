@@ -38,15 +38,6 @@ defmodule AmbryWeb.PlayerLive.Player do
     {:noreply, assign(socket, :player_state, player_state)}
   end
 
-  def handle_event("playback-paused", %{"playback-time" => playback_time}, socket) do
-    {:ok, player_state} =
-      Media.update_player_state(socket.assigns.player_state, %{
-        position: playback_time
-      })
-
-    {:noreply, assign(socket, :player_state, player_state)}
-  end
-
   def handle_event("playback-rate-changed", %{"playback-rate" => playback_rate}, socket) do
     {:ok, player_state} =
       Media.update_player_state(socket.assigns.player_state, %{

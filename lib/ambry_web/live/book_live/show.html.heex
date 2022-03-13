@@ -32,9 +32,14 @@
             <div class="flex items-center py-3 space-x-2">
               <div class="grow">
                 <p>
-                  Narrated by <Amc.people_links people={media.narrators} />
-                  <%= if media.full_cast do %>
-                    <span>full cast</span>
+                  <span>
+                    Narrated by <Amc.people_links people={media.narrators} />
+                    <%= if media.full_cast do %>
+                      <span>full cast</span>
+                    <% end %>
+                  </span>
+                  <%= if media.abridged do %>
+                    <span>(Abridged)</span>
                   <% end %>
                 </p>
                 <p class="text-gray-600 dark:text-gray-400">
@@ -47,7 +52,7 @@
                   loaded: false
                 }"}
                 x-effect="$store.player.mediaId == id ? loaded = true : loaded = false"
-                @click={"loaded ? mediaPlayer.playPause() : mediaPlayer.loadMedia(#{media.id})"}
+                @click={"loaded ? mediaPlayer.playPause() : mediaPlayer.loadAndPlayMedia(#{media.id})"}
                 class="cursor-pointer fill-current"
               >
                 <span :class="{ hidden: loaded && $store.player.playing }">

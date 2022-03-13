@@ -46,7 +46,4 @@ defmodule AmbryWeb.BookLive.Show do
     PlayButton.pause(media_id)
     {:noreply, socket}
   end
-
-  defp recording_type(%{abridged: true}), do: "Abridged"
-  defp recording_type(%{abridged: false}), do: "Unabridged"
 end

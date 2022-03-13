@@ -36,11 +36,6 @@ export const ShakaPlayerHook = {
     audio.addEventListener('timeupdate', () => this.playbackTimeUpdated())
     audio.addEventListener('seeked', () => this.seeked())
 
-    // server push event handlers
-    this.handleEvent('reload-media', () => {
-      this.reloadMedia()
-    })
-
     this.audio = audio
     this.player = player
     window.mediaPlayer = this
@@ -93,8 +88,11 @@ export const ShakaPlayerHook = {
     audio.playbackRate = rate
   },
 
-  loadMedia (mediaId) {
-    this.pushEvent('load-media', { 'media-id': mediaId })
+  loadAndPlayMedia (mediaId) {
+    this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime })
+    this.pushEvent('load-media', { 'media-id': mediaId }, () => {
+      this.reloadMedia(true)
+    })
   },
 
   // event handlers
@@ -112,7 +110,7 @@ export const ShakaPlayerHook = {
   playbackPaused () {
     const time = this.audio.currentTime
     this.alpineSetPaused()
-    this.pushEvent('playback-paused', { 'playback-time': time })
+    this.pushEvent('playback-time-updated', { 'playback-time': time })
     this.time = time
 
     this.clearSyncInterval()
@@ -148,7 +146,7 @@ export const ShakaPlayerHook = {
     return ""
   },
 
-  reloadMedia () {
+  reloadMedia (autoplay = false) {
     const audio = this.audio
     const { mediaId } = this.el.dataset
 
@@ -160,16 +158,16 @@ export const ShakaPlayerHook = {
     if (!audio.paused) {
       audio.addEventListener(
         'pause',
-        () => this.loadMediaFromDataset(this.el.dataset),
+        () => this.loadMediaFromDataset(this.el.dataset, autoplay),
         { once: true }
       )
       this.pause()
     } else {
-      this.loadMediaFromDataset(this.el.dataset)
+      this.loadMediaFromDataset(this.el.dataset, autoplay)
     }
   },
 
-  async loadMediaFromDataset (dataset) {
+  async loadMediaFromDataset (dataset, autoplay = false) {
     const { mediaId, mediaPlaybackRate, mediaPosition, mediaChapters } = dataset
     const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
     const player = this.player
@@ -189,6 +187,10 @@ export const ShakaPlayerHook = {
       this.alpineLoadMedia(mediaId, time, audio.duration, this.playbackRate, chapters)
 
       console.log('Shaka: Media loaded')
+
+      if (autoplay) {
+        this.play()
+      }
     } catch (e) {
       this.onError(e)
       return
