@@ -9,6 +9,7 @@ export const HeaderScrollspyHook = {
     }
 
     this.el.addEventListener('scroll', this.callback)
+    Alpine.store('header').scrolled = false
   },
 
   destroyed () {
