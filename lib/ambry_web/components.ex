@@ -458,7 +458,7 @@ defmodule AmbryWeb.Components do
       <%= for player_state <- @player_states do %>
         <div class="text-center">
           <div class="group">
-            <span class="relative block aspect-w-10 aspect-h-15">
+            <div class="relative aspect-w-10 aspect-h-15">
               <img
                 src={player_state.media.book.image_path}
                 class="
@@ -468,21 +468,35 @@ defmodule AmbryWeb.Components do
                     border border-b-0 border-gray-200 dark:border-gray-900
                   "
               />
-              <%# TODO: fix this %>
-              <span class="absolute flex">
-                <span class="self-center mx-auto h-20 w-20 bg-white bg-opacity-80 group-hover:bg-opacity-100 backdrop-blur-sm rounded-full shadow-md flex group-hover:-translate-y-1 group-hover:shadow-lg transition">
-                  <span style="height: 50px;" class="block self-center mx-auto">
-                    <.live_component
-                      module={PlayButton}
-                      id={player_state.media.id}
-                      media={player_state.media}
-                      user={@user}
-                      browser_id={@browser_id}
-                    />
-                  </span>
-                </span>
-              </span>
-            </span>
+              <div class="absolute flex">
+                <div
+                  x-data={"{
+                    id: #{player_state.media.id},
+                    loaded: false
+                  }"}
+                  x-effect="$store.player.mediaId == id ? loaded = true : loaded = false"
+                  @click={"loaded ? mediaPlayer.playPause() : mediaPlayer.loadAndPlayMedia(#{player_state.media.id})"}
+                  class="
+                    cursor-pointer
+                    self-center mx-auto flex
+                    h-16 w-16
+                    bg-white dark:bg-black bg-opacity-80 dark:bg-opacity-80
+                    group-hover:bg-opacity-100
+                    rounded-full shadow-md transition
+                    backdrop-blur-sm
+                  "
+                >
+                  <div class="fill-current self-center mx-auto pl-1" :class="{ 'pl-1': !loaded || !$store.player.playing }">
+                    <span :class="{ hidden: loaded && $store.player.playing }">
+                      <FA.icon name="play" class="w-7 h-7" />
+                    </span>
+                    <span class="hidden" :class="{ hidden: !loaded || !$store.player.playing }">
+                      <FA.icon name="pause" class="w-7 h-7" />
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="bg-gray-300 dark:bg-gray-800 rounded-b-sm overflow-hidden shadow-sm border-x border-gray-200 dark:border-gray-900">
               <div class="bg-lime-500 dark:bg-lime-400 h-1" style={"width: #{progress_percent(player_state)}%;"} />
             </div>
