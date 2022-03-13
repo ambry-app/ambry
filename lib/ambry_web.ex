@@ -45,7 +45,7 @@ defmodule AmbryWeb do
   def live_view do
     quote do
       use Surface.LiveView,
-        layout: {AmbryWeb.LayoutView, "live.html"}
+        layout: {AmbryWeb.LayoutView, "admin_live.html"}
 
       # Include shared imports and aliases for views
       unquote(view_helpers())

@@ -1,0 +1,88 @@
+<%= case live_flash(@flash, :info) do %>
+  <% nil -> %>
+  <% message -> %>
+    <div
+      phx-click="lv:clear-flash"
+      class="z-50 fixed max-w-lg top-24 right-10 shadow-lg p-4 cursor-pointer rounded-md bg-blue-100 border border-blue-200 flex items-center"
+    >
+      <p class="grow pr-2"><%= message %></p>
+
+      <svg class="flex-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
+        <path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path>
+      </svg>
+    </div>
+<% end %>
+
+<%= case live_flash(@flash, :error) do %>
+  <% nil -> %>
+  <% message -> %>
+    <div
+      phx-click="lv:clear-flash"
+      class="z-50 fixed max-w-lg top-24 right-10 shadow-lg p-4 cursor-pointer w-full rounded-md bg-red-100 border border-red-200 flex items-center"
+    >
+      <p class="grow pr-2"><%= message %></p>
+
+      <svg class="flex-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
+        <path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path>
+      </svg>
+    </div>
+<% end %>
+
+<div class="min-h-screen lg:flex" x-data="{open: false}">
+  <nav
+    class="
+      absolute inset-0
+      transform lg:transform-none
+      lg:opacity-100 duration-100
+      lg:relative
+      z-10 w-80
+      bg-gray-50 dark:bg-gray-900
+      border-r border-gray-200 dark:border-gray-800
+      h-screen
+    "
+    :class="{'translate-x-0 ease-in opacity-100':open === true, '-translate-x-full ease-out opacity-0': open === false}"
+  >
+    <div class="p-4 flex gap-3 items-center">
+      <span
+        class="cursor-pointer lg:hidden"
+        @click="open = false"
+      >
+        <FA.icon name="bars" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
+      </span>
+      <.link link_type="live_redirect" to="/" class="flex">
+        <Amc.ambry_icon class="w-6 h-6 lg:w-7 lg:h-7" />
+        <Amc.ambry_title class="h-6 lg:h-7" />
+      </.link>
+    </div>
+    <%# TODO: nav content goes here %>
+  </nav>
+  <div class="relative z-0 lg:flex-grow">
+    <header class="p-4 flex gap-3 items-center">
+      <span
+        class="cursor-pointer lg:hidden"
+        @click="open = true"
+      >
+        <FA.icon name="bars" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
+      </span>
+      <.link link_type="live_redirect" to="/" class="flex lg:hidden">
+        <Amc.ambry_icon class="w-6 h-6 lg:w-7 lg:h-7" />
+        <Amc.ambry_title class="h-6 lg:h-7" />
+      </.link>
+      <div class="flex-grow" />
+      <div
+        x-data="{ open: false }"
+        @click.outside="open = false"
+        @keydown.escape.window.prevent="open = false"
+      >
+        <img
+          @click="open = !open"
+          class="h-6 lg:w-7 lg:h-7 rounded-full cursor-pointer"
+          src={gravatar_url(@current_user.email)}
+        />
+        <%# TODO: this needs to be an admin menu %>
+        <Amc.user_menu user={@current_user} />
+      </div>
+    </header>
+    <%= @inner_content %>
+  </div>
+</div>
