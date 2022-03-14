@@ -110,6 +110,57 @@ defmodule AmbryWeb.Components do
 
   def user_menu(assigns) do
     ~H"""
+    <.menu_wrapper user={@user}>
+      <div class="py-3">
+        <%= if @user.admin do %>
+          <.link
+            link_type="live_redirect"
+            to={Routes.admin_home_index_path(Endpoint, :index)}
+            class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
+          >
+            <FA.icon name="screwdriver-wrench" class="w-5 h-5 fill-current" />
+            <p>Admin</p>
+          </.link>
+        <% end %>
+        <.link
+          to={Routes.user_settings_path(Endpoint, :edit)}
+          class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
+        >
+          <FA.icon name="user-gear" class="w-5 h-5 fill-current" />
+          <p>Account Settings</p>
+        </.link>
+        <.link
+          to={Routes.user_session_path(Endpoint, :delete)}
+          method="delete"
+          class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
+        >
+          <FA.icon name="arrow-right-from-bracket" class="w-5 h-5 fill-current" />
+          <p>Log out</p>
+        </.link>
+      </div>
+    </.menu_wrapper>
+    """
+  end
+
+  def admin_menu(assigns) do
+    ~H"""
+    <.menu_wrapper user={@user}>
+      <div class="py-3">
+        <.link
+          to={Routes.user_session_path(Endpoint, :delete)}
+          method="delete"
+          class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
+        >
+          <FA.icon name="arrow-right-from-bracket" class="w-5 h-5 fill-current" />
+          <p>Log out</p>
+        </.link>
+      </div>
+    </.menu_wrapper>
+    """
+  end
+
+  defp menu_wrapper(assigns) do
+    ~H"""
     <div
       :class="{ 'hidden': !open }"
       class="hidden absolute top-12 right-4 max-w-80 text-gray-800 dark:text-gray-200 z-50 shadow-md"
@@ -119,33 +170,7 @@ defmodule AmbryWeb.Components do
           <img class="w-10 h-10 rounded-full" src={gravatar_url(@user.email)} />
           <p class="whitespace-nowrap overflow-hidden text-ellipsis"><%= @user.email %></p>
         </div>
-        <div class="py-3">
-          <%= if @user.admin do %>
-            <.link
-              link_type="live_redirect"
-              to={Routes.admin_home_index_path(Endpoint, :index)}
-              class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
-            >
-              <FA.icon name="screwdriver-wrench" class="w-5 h-5 fill-current" />
-              <p>Admin</p>
-            </.link>
-          <% end %>
-          <.link
-            to={Routes.user_settings_path(Endpoint, :edit)}
-            class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
-          >
-            <FA.icon name="user-gear" class="w-5 h-5 fill-current" />
-            <p>Account Settings</p>
-          </.link>
-          <.link
-            to={Routes.user_session_path(Endpoint, :delete)}
-            method="delete"
-            class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
-          >
-            <FA.icon name="arrow-right-from-bracket" class="w-5 h-5 fill-current" />
-            <p>Log out</p>
-          </.link>
-        </div>
+        <%= render_slot(@inner_block) %>
       </div>
     </div>
     """
