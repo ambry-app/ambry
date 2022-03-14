@@ -37,6 +37,10 @@ defmodule AmbryWeb.Router do
     plug :fetch_api_user
   end
 
+  pipeline :admin do
+    plug :put_root_layout, {AmbryWeb.LayoutView, "admin_root.html"}
+  end
+
   scope "/uploads", AmbryWeb do
     pipe_through :uploads
 
@@ -62,7 +66,7 @@ defmodule AmbryWeb.Router do
   end
 
   scope "/admin", AmbryWeb.Admin, as: :admin do
-    pipe_through [:browser, :require_authenticated_user, :require_admin]
+    pipe_through [:browser, :require_authenticated_user, :require_admin, :admin]
 
     live_session :admin do
       live "/", HomeLive.Index, :index
