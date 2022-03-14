@@ -21,6 +21,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
 
     {:ok,
      assign(socket, %{
+       page_title: "Home",
        people_count: people_count,
        books_count: books_count,
        series_count: series_count,
