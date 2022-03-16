@@ -17,9 +17,6 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   alias Surface.Components.{Form, LivePatch}
   alias Surface.Components.Form.{Field, TextInput}
 
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
-  on_mount {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user}
-
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     {:ok, maybe_update_books(socket, params, true)}

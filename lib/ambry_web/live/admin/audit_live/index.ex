@@ -11,9 +11,6 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
 
   alias Surface.Components.LiveRedirect
 
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
-  on_mount {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user}
-
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     {:ok, assign(socket, :page_title, "Auditing Media")}

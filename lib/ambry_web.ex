@@ -126,6 +126,7 @@ defmodule AmbryWeb do
 
       import AmbryWeb.{ErrorHelpers, Gettext, Gravatar}
 
+      alias AmbryWeb.Admin.Components, as: Adc
       alias AmbryWeb.Components, as: Amc
       alias AmbryWeb.Router.Helpers, as: Routes
 

@@ -68,7 +68,12 @@ defmodule AmbryWeb.Router do
   scope "/admin", AmbryWeb.Admin, as: :admin do
     pipe_through [:browser, :require_authenticated_user, :require_admin, :admin]
 
-    live_session :admin do
+    live_session :admin,
+      on_mount: [
+        {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user},
+        {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user},
+        AmbryWeb.Admin.NavHooks
+      ] do
       live "/", HomeLive.Index, :index
 
       live "/people", PersonLive.Index, :index
