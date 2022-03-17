@@ -6,7 +6,7 @@ defmodule Ambry.People do
   import Ambry.FileUtils
   import Ecto.Query
 
-  alias Ambry.People.Person
+  alias Ambry.People.{Person, PersonFlat}
   alias Ambry.Repo
 
   @doc """
@@ -18,18 +18,30 @@ defmodule Ambry.People do
   ## Examples
 
       iex> list_people()
-      {[%Person{}, ...], true}
+      {[%PersonFlat{}, ...], true}
 
   """
   def list_people(offset \\ 0, limit \\ 10, filter \\ nil) do
     over_limit = limit + 1
-    query = from p in Person, offset: ^offset, limit: ^over_limit, order_by: :name
+    query = from p in PersonFlat, offset: ^offset, limit: ^over_limit, order_by: :name
 
     query =
       if filter do
         name_query = "%#{filter}%"
 
-        from p in query, where: ilike(p.name, ^name_query)
+        from p in query,
+          where:
+            ilike(p.name, ^name_query) or
+              fragment(
+                "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
+                p.authors,
+                ^name_query
+              ) or
+              fragment(
+                "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
+                p.narrators,
+                ^name_query
+              )
       else
         query
       end
