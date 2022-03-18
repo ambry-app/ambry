@@ -16,7 +16,7 @@ defmodule AmbryWeb.Admin.Components do
         transform lg:transform-none
         lg:opacity-100 duration-100
         lg:relative
-        z-10 w-80
+        z-10 w-64
         bg-gray-50 dark:bg-gray-900
         border-r border-gray-200 dark:border-gray-800
         divide-y divide-gray-200 dark:divide-gray-800
@@ -110,7 +110,11 @@ defmodule AmbryWeb.Admin.Components do
 
   def header(assigns) do
     ~H"""
-    <header class="p-4 flex gap-3 items-center">
+    <header
+      x-data
+      class="p-4 flex gap-3 items-center border-gray-100 dark:border-gray-900"
+      :class="{ 'border-b': $store.header.scrolled }"
+    >
       <span
         class="cursor-pointer lg:hidden"
         @click="open = true"

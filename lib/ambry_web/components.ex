@@ -147,6 +147,14 @@ defmodule AmbryWeb.Components do
     <.menu_wrapper user={@user}>
       <div class="py-3">
         <.link
+          link_type="live_redirect"
+          to="/"
+          class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"
+        >
+          <FA.icon name="arrow-right-from-bracket" class="w-5 h-5 fill-current scale-[-1]" />
+          <p>Exit Admin</p>
+        </.link>
+        <.link
           to={Routes.user_session_path(Endpoint, :delete)}
           method="delete"
           class="flex items-center px-4 py-2 gap-4 hover:bg-gray-300 dark:hover:bg-gray-700"

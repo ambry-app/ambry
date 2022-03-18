@@ -9,10 +9,13 @@ export const HeaderScrollspyHook = {
     }
 
     this.el.addEventListener('scroll', this.callback)
+    window.addEventListener('phx:page-loading-stop', this.callback)
     Alpine.store('header').scrolled = false
   },
 
   destroyed () {
     this.el.removeEventListener('click', this.callback)
+    window.removeEventListener('phx:page-loading-stop', this.callback)
+    Alpine.store('header').scrolled = false
   }
 }

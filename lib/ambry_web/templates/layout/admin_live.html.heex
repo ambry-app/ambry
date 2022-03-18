@@ -28,10 +28,16 @@
     </div>
 <% end %>
 
-<div class="min-h-screen lg:flex" x-cloak x-data="{open: false}">
+<div class="h-screen flex overflow-hidden" x-cloak x-data="{open: false}">
   <Adc.side_nav active_path={@admin_nav_active_path} />
-  <div class="relative z-0 lg:flex-grow">
+
+  <div class="h-screen flex flex-grow flex-col relative">
     <Adc.header user={@current_user} />
-    <%= @inner_content %>
+
+    <main class="flex-grow flex flex-col overflow-hidden">
+      <div id="main-content" class="p-4 flex-grow overflow-y-auto overflow-x-hidden" phx-hook="headerScrollspy">
+        <%= @inner_content %>
+      </div>
+    </main>
   </div>
 </div>
