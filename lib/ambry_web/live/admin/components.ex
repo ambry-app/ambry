@@ -39,6 +39,14 @@ defmodule AmbryWeb.Admin.Components do
       <div class="py-3">
         <.link
           link_type="live_redirect"
+          to={Routes.admin_home_index_path(Endpoint, :index)}
+          class={nav_class(@active_path == "/admin")}
+        >
+          <FA.icon name="binoculars" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
+          <p>Overview</p>
+        </.link>
+        <.link
+          link_type="live_redirect"
           to={Routes.admin_person_index_path(Endpoint, :index)}
           class={nav_class(@active_path == "/admin/people")}
         >
