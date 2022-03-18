@@ -1,5 +1,3 @@
-<AdminNav />
-
 <div class="flex items-center">
   <div class="grow">
     <h1 class="text-4xl mb-4">Media Audit</h1>

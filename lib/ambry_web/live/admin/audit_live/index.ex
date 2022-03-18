@@ -7,8 +7,6 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
 
   alias Ambry.{FileUtils, Media}
 
-  alias AmbryWeb.Admin.Components.AdminNav
-
   alias Surface.Components.LiveRedirect
 
   @impl Phoenix.LiveView

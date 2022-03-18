@@ -1,5 +1,3 @@
-<AdminNav />
-
 <h1 class="text-4xl mb-4">People</h1>
 
 {#if @live_action in [:new, :edit]}

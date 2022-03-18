@@ -11,7 +11,6 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   alias Ambry.Books.Book
 
   alias AmbryWeb.Admin.BookLive.FormComponent
-  alias AmbryWeb.Admin.Components.AdminNav
   alias AmbryWeb.Components.Modal
 
   alias Surface.Components.{Form, LivePatch}

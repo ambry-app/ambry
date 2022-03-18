@@ -9,7 +9,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
   alias Ambry.Media
 
-  alias AmbryWeb.Admin.Components.AdminNav
   alias AmbryWeb.Admin.MediaLive.{ChaptersComponent, FormComponent}
   alias AmbryWeb.Components.Modal
 

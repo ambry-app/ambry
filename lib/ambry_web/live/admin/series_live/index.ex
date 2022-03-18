@@ -9,7 +9,6 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
   alias Ambry.Series
 
-  alias AmbryWeb.Admin.Components.AdminNav
   alias AmbryWeb.Admin.SeriesLive.FormComponent
   alias AmbryWeb.Components.Modal
 
