@@ -10,11 +10,11 @@ defmodule Ambry.People.PersonFlat do
     field :image_path, :string
 
     field :is_author, :boolean
-    field :authors, {:array, :string}
+    field :writing_as, {:array, :string}
     field :authored_books, :integer
 
     field :is_narrator, :boolean
-    field :narrators, {:array, :string}
+    field :narrating_as, {:array, :string}
     field :narrated_media, :integer
 
     timestamps()

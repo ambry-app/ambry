@@ -6,7 +6,7 @@ defmodule Ambry.Media do
   import Ambry.FileUtils
   import Ecto.Query
 
-  alias Ambry.Media.{Audit, Bookmark, Media, PlayerState}
+  alias Ambry.Media.{Audit, Bookmark, Media, MediaFlat, PlayerState}
   alias Ambry.{PubSub, Repo}
 
   @media_preload [:narrators, book: [:authors, series_books: :series]]
@@ -24,25 +24,42 @@ defmodule Ambry.Media do
   ## Examples
 
       iex> list_media()
-      {[%Media{}, ...], true}
+      {[%MediaFlat{}, ...], true}
 
   """
   def list_media(offset \\ 0, limit \\ 10, filter \\ nil) do
     over_limit = limit + 1
 
     query =
-      from m in Media,
+      from m in MediaFlat,
         offset: ^offset,
         limit: ^over_limit,
-        join: b in assoc(m, :book),
-        order_by: b.title,
-        preload: [book: b, media_narrators: [:narrator]]
+        order_by: m.book
 
     query =
       if filter do
-        title_query = "%#{filter}%"
+        filter_query = "%#{filter}%"
 
-        from [m, b] in query, where: ilike(b.title, ^title_query)
+        from m in query,
+          where:
+            ilike(m.book, ^filter_query) or ilike(m.universe, ^filter_query) or
+              fragment(
+                "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
+                m.series,
+                ^filter_query
+              ) or
+              fragment(
+                "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
+                m.authors,
+                ^filter_query,
+                ^filter_query
+              ) or
+              fragment(
+                "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
+                m.narrators,
+                ^filter_query,
+                ^filter_query
+              )
       else
         query
       end

@@ -7,13 +7,27 @@ defmodule Ambry.Repo.Migrations.AddPersonTableView do
     SELECT
       person.id,
       person.name,
-      person.image_path,
+      ARRAY(
+        SELECT
+          author.name
+        FROM
+          authors AS author
+        WHERE
+          author.person_id = person.id
+      ) AS writing_as,
+      ARRAY(
+        SELECT
+          narrator.name
+        FROM
+          narrators AS narrator
+        WHERE
+          narrator.person_id = person.id
+      ) AS narrating_as,
       COUNT(author.id) > 0 AS is_author,
-      ARRAY_REMOVE(ARRAY_AGG(DISTINCT author.name), NULL) AS authors,
       COUNT(authored_book.id) AS authored_books,
       COUNT(narrator.id) > 0 AS is_narrator,
-      ARRAY_REMOVE(ARRAY_AGG(DISTINCT narrator.name), NULL) AS narrators,
       COUNT(narrated_media.id) AS narrated_media,
+      person.image_path,
       person.inserted_at,
       person.updated_at
     FROM

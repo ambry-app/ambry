@@ -50,7 +50,7 @@ defmodule AmbryWeb.Admin.Components do
           to={Routes.admin_person_index_path(Endpoint, :index)}
           class={nav_class(@active_path == "/admin/people")}
         >
-          <FA.icon name="users" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
+          <FA.icon name="user-group" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
           <p>Authors & Narrators</p>
         </.link>
         <.link
@@ -58,7 +58,7 @@ defmodule AmbryWeb.Admin.Components do
           to={Routes.admin_book_index_path(Endpoint, :index)}
           class={nav_class(@active_path == "/admin/books")}
         >
-          <FA.icon name="book-open" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
+          <FA.icon name="book" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
           <p>Books</p>
         </.link>
         <.link
@@ -85,6 +85,15 @@ defmodule AmbryWeb.Admin.Components do
           <FA.icon name="file-waveform" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
           <p>File Audit</p>
         </.link>
+        <.link
+          link_type="live_redirect"
+          to={Routes.admin_home_index_path(Endpoint, :index)}
+          class={nav_class(@active_path == "/admin/users")}
+        >
+          <FA.icon name="users-gear" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
+          <p>Manage Users</p>
+        </.link>
+
       </div>
       <div class="py-3">
         <.link

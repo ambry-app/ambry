@@ -69,8 +69,8 @@
             {book.title}
             <span class="text-gray-500 text-sm italic">
               by
-              {#for book_author <- book.book_authors}
-                {book_author.author.name}<span class="last:hidden">,</span>
+              {#for author <- book.authors}
+                {author.name}<span class="last:hidden">,</span>
               {/for}
             </span>
           </LivePatch>

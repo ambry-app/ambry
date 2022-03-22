@@ -92,11 +92,11 @@
             to={Routes.admin_media_index_path(@socket, :edit, media, patch_opts(@list_opts))}
             class="hover:underline inline-block w-full"
           >
-            {media.book.title}
+            {media.book}
             <span class="text-gray-500 text-sm italic">
               narrated by
-              {#for media_narrator <- media.media_narrators}
-                {media_narrator.narrator.name}<span class="last:hidden">,</span>
+              {#for narrator <- media.narrators}
+                {narrator.name}<span class="last:hidden">,</span>
               {/for}
               {#if media.full_cast}
                 <span>full cast</span>

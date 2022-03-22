@@ -34,12 +34,12 @@ defmodule Ambry.People do
             ilike(p.name, ^name_query) or
               fragment(
                 "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
-                p.authors,
+                p.writing_as,
                 ^name_query
               ) or
               fragment(
                 "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
-                p.narrators,
+                p.narrating_as,
                 ^name_query
               )
       else
@@ -53,17 +53,27 @@ defmodule Ambry.People do
   end
 
   @doc """
-  Returns the number of people (authors, narrators, etc.)
+  Returns the number of people (authors & narrators).
+
+  Note that `total` will not always be `authors` + `narrators`, because people
+  are sometimes both.
 
   ## Examples
 
       iex> count_people()
-      1
+      %{authors: 3, narrators: 2, total: 4}
 
   """
   @spec count_people :: integer()
   def count_people do
-    Repo.one(from p in Person, select: count(p.id))
+    Repo.one(
+      from p in PersonFlat,
+        select: %{
+          total: count(p.id),
+          authors: count(fragment("CASE WHEN ? THEN 1 END", p.is_author)),
+          narrators: count(fragment("CASE WHEN ? THEN 1 END", p.is_narrator))
+        }
+    )
   end
 
   @doc """

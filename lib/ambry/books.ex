@@ -6,7 +6,7 @@ defmodule Ambry.Books do
   import Ambry.{FileUtils, SearchUtils}
   import Ecto.Query
 
-  alias Ambry.Books.Book
+  alias Ambry.Books.{Book, BookFlat}
   alias Ambry.Media.Media
   alias Ambry.Repo
 
@@ -19,24 +19,36 @@ defmodule Ambry.Books do
   ## Examples
 
       iex> list_books()
-      {[%Book{}, ...], true}
+      {[%BookFlat{}, ...], true}
 
   """
   def list_books(offset \\ 0, limit \\ 10, filter \\ nil) do
     over_limit = limit + 1
 
     query =
-      from b in Book,
+      from b in BookFlat,
         offset: ^offset,
         limit: ^over_limit,
-        order_by: :title,
-        preload: [book_authors: [:author]]
+        order_by: :title
 
     query =
       if filter do
-        title_query = "%#{filter}%"
+        filter_query = "%#{filter}%"
 
-        from b in query, where: ilike(b.title, ^title_query)
+        from b in query,
+          where:
+            ilike(b.title, ^filter_query) or ilike(b.universe, ^filter_query) or
+              fragment(
+                "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
+                b.series,
+                ^filter_query
+              ) or
+              fragment(
+                "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
+                b.authors,
+                ^filter_query,
+                ^filter_query
+              )
       else
         query
       end

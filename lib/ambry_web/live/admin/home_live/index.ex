@@ -11,7 +11,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    people_count = People.count_people()
+    people_count = People.count_people().total
     books_count = Books.count_books()
     series_count = Series.count_series()
     media_count = Media.count_media()
