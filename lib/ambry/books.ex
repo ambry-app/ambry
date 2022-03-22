@@ -22,38 +22,16 @@ defmodule Ambry.Books do
       {[%BookFlat{}, ...], true}
 
   """
-  def list_books(offset \\ 0, limit \\ 10, filter \\ nil) do
+  def list_books(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :title]) do
     over_limit = limit + 1
 
-    query =
-      from b in BookFlat,
-        offset: ^offset,
-        limit: ^over_limit,
-        order_by: :title
+    books =
+      offset
+      |> BookFlat.paginate(over_limit)
+      |> BookFlat.filter(filters)
+      |> BookFlat.order(order)
+      |> Repo.all()
 
-    query =
-      if filter do
-        filter_query = "%#{filter}%"
-
-        from b in query,
-          where:
-            ilike(b.title, ^filter_query) or ilike(b.universe, ^filter_query) or
-              fragment(
-                "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
-                b.series,
-                ^filter_query
-              ) or
-              fragment(
-                "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
-                b.authors,
-                ^filter_query,
-                ^filter_query
-              )
-      else
-        query
-      end
-
-    books = Repo.all(query)
     books_to_return = Enum.slice(books, 0, limit)
 
     {books_to_return, books != books_to_return}

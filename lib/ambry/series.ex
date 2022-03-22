@@ -21,33 +21,16 @@ defmodule Ambry.Series do
       {[%SeriesFlat{}, ...], true}
 
   """
-  def list_series(offset \\ 0, limit \\ 10, filter \\ nil) do
+  def list_series(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :name]) do
     over_limit = limit + 1
 
-    query =
-      from s in SeriesFlat,
-        offset: ^offset,
-        limit: ^over_limit,
-        order_by: :name
+    series =
+      offset
+      |> SeriesFlat.paginate(over_limit)
+      |> SeriesFlat.filter(filters)
+      |> SeriesFlat.order(order)
+      |> Repo.all()
 
-    query =
-      if filter do
-        name_query = "%#{filter}%"
-
-        from s in query,
-          where:
-            ilike(s.name, ^name_query) or
-              fragment(
-                "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
-                s.authors,
-                ^name_query,
-                ^name_query
-              )
-      else
-        query
-      end
-
-    series = Repo.all(query)
     series_to_return = Enum.slice(series, 0, limit)
 
     {series_to_return, series != series_to_return}

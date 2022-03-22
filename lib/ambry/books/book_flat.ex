@@ -3,7 +3,7 @@ defmodule Ambry.Books.BookFlat do
   A flattened view of books.
   """
 
-  use Ecto.Schema
+  use Ambry.FlatSchema
 
   alias Ambry.Ecto.Types.PersonName
 
@@ -16,5 +16,24 @@ defmodule Ambry.Books.BookFlat do
     field :universe, :string
 
     timestamps()
+  end
+
+  def filter(query, :search, search_string) do
+    search_string = "%#{search_string}%"
+
+    from b in query,
+      where:
+        ilike(b.title, ^search_string) or ilike(b.universe, ^search_string) or
+          fragment(
+            "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
+            b.series,
+            ^search_string
+          ) or
+          fragment(
+            "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
+            b.authors,
+            ^search_string,
+            ^search_string
+          )
   end
 end

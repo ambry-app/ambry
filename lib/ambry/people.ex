@@ -21,32 +21,16 @@ defmodule Ambry.People do
       {[%PersonFlat{}, ...], true}
 
   """
-  def list_people(offset \\ 0, limit \\ 10, filter \\ nil) do
+  def list_people(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :name]) do
     over_limit = limit + 1
-    query = from p in PersonFlat, offset: ^offset, limit: ^over_limit, order_by: :name
 
-    query =
-      if filter do
-        name_query = "%#{filter}%"
+    people =
+      offset
+      |> PersonFlat.paginate(over_limit)
+      |> PersonFlat.filter(filters)
+      |> PersonFlat.order(order)
+      |> Repo.all()
 
-        from p in query,
-          where:
-            ilike(p.name, ^name_query) or
-              fragment(
-                "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
-                p.writing_as,
-                ^name_query
-              ) or
-              fragment(
-                "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
-                p.narrating_as,
-                ^name_query
-              )
-      else
-        query
-      end
-
-    people = Repo.all(query)
     people_to_return = Enum.slice(people, 0, limit)
 
     {people_to_return, people != people_to_return}

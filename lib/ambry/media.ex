@@ -27,44 +27,16 @@ defmodule Ambry.Media do
       {[%MediaFlat{}, ...], true}
 
   """
-  def list_media(offset \\ 0, limit \\ 10, filter \\ nil) do
+  def list_media(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :book]) do
     over_limit = limit + 1
 
-    query =
-      from m in MediaFlat,
-        offset: ^offset,
-        limit: ^over_limit,
-        order_by: m.book
+    media =
+      offset
+      |> MediaFlat.paginate(over_limit)
+      |> MediaFlat.filter(filters)
+      |> MediaFlat.order(order)
+      |> Repo.all()
 
-    query =
-      if filter do
-        filter_query = "%#{filter}%"
-
-        from m in query,
-          where:
-            ilike(m.book, ^filter_query) or ilike(m.universe, ^filter_query) or
-              fragment(
-                "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
-                m.series,
-                ^filter_query
-              ) or
-              fragment(
-                "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
-                m.authors,
-                ^filter_query,
-                ^filter_query
-              ) or
-              fragment(
-                "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
-                m.narrators,
-                ^filter_query,
-                ^filter_query
-              )
-      else
-        query
-      end
-
-    media = Repo.all(query)
     media_to_return = Enum.slice(media, 0, limit)
 
     {media_to_return, media != media_to_return}
