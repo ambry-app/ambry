@@ -5,30 +5,13 @@ defmodule AmbryWeb.BookLive.Show do
 
   use AmbryWeb, :p_live_view
 
-  import AmbryWeb.BookLive.Show.Components
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
-  alias Ambry.{Books, PubSub}
-  alias AmbryWeb.Components.PlayButton
+  alias Ambry.Books
 
   @impl Phoenix.LiveView
   def mount(%{"id" => book_id}, _session, socket) do
     book = Books.get_book_with_media!(book_id)
-
-    socket =
-      if connected?(socket) do
-        user = socket.assigns.current_user
-        browser_id = socket |> get_connect_params() |> Map.fetch!("browser_id")
-
-        for media <- book.media do
-          PubSub.sub(:playback_started, user.id, browser_id, media.id)
-          PubSub.sub(:playback_paused, user.id, browser_id, media.id)
-        end
-
-        assign(socket, :browser_id, browser_id)
-      else
-        socket
-      end
 
     {:ok,
      socket
@@ -36,14 +19,20 @@ defmodule AmbryWeb.BookLive.Show do
      |> assign(:book, book)}
   end
 
-  @impl Phoenix.LiveView
-  def handle_info({:playback_started, media_id}, socket) do
-    PlayButton.play(media_id)
-    {:noreply, socket}
-  end
+  defp header(assigns) do
+    ~H"""
+    <div>
+      <h1 class="font-bold text-3xl sm:text-4xl text-gray-900 dark:text-gray-100">
+        <%= @book.title %>
+      </h1>
+      <p class="pb-4 sm:text-lg xl:text-xl text-gray-800 dark:text-gray-200">
+        <span>by <Amc.people_links people={@book.authors} /></span>
+      </p>
 
-  def handle_info({:playback_paused, media_id}, socket) do
-    PlayButton.pause(media_id)
-    {:noreply, socket}
+      <div class="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+        <Amc.series_book_links series_books={@book.series_books} />
+      </div>
+    </div>
+    """
   end
 end

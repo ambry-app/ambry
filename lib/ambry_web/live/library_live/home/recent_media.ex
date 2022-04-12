@@ -3,15 +3,9 @@ defmodule AmbryWeb.LibraryLive.Home.RecentMedia do
 
   use AmbryWeb, :p_live_component
 
-  alias Ambry.{Media, PubSub}
+  alias Ambry.Media
 
   @limit 10
-
-  # prop user, :any, required: true
-  # prop browser_id, :string, required: true
-
-  # data show_load_more?, :boolean, default: true
-  # data player_states, :list, default: []
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
@@ -28,18 +22,10 @@ defmodule AmbryWeb.LibraryLive.Home.RecentMedia do
 
   defp load_player_states(%{assigns: assigns} = socket) do
     user = assigns.user
-    browser_id = assigns.browser_id
     player_states = Map.get(assigns, :player_states, [])
     offset = Map.get(assigns, :offset, 0)
 
     {more_player_states, has_more?} = Media.get_recent_player_states(user.id, offset, @limit)
-
-    if browser_id do
-      for player_state <- more_player_states do
-        PubSub.sub(:playback_started, user.id, browser_id, player_state.media.id)
-        PubSub.sub(:playback_paused, user.id, browser_id, player_state.media.id)
-      end
-    end
 
     player_states = player_states ++ more_player_states
 

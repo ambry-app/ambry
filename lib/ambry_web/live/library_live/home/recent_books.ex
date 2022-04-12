@@ -7,11 +7,6 @@ defmodule AmbryWeb.LibraryLive.Home.RecentBooks do
 
   @limit 25
 
-  # prop show_admin_links?, :boolean, default: false
-
-  # data show_load_more?, :boolean, default: true
-  # data books, :list, default: []
-
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
     {:ok,

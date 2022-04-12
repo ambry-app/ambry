@@ -402,10 +402,6 @@ defmodule AmbryWeb.Components do
     """
   end
 
-  # prop books, :list, required: true
-  # prop show_load_more, :boolean, default: false
-  # prop load_more, :event
-
   def book_tiles(assigns) do
     assigns =
       assigns
@@ -453,7 +449,7 @@ defmodule AmbryWeb.Components do
 
       <%= if @show_load_more do %>
         <div class="text-center text-lg">
-          <div phx-click={load_more}, phx-target={target} class="group">
+          <div phx-click={load_more} phx-target={target} class="group">
             <span class="block aspect-w-10 aspect-h-15 cursor-pointer">
               <span class="load-more bg-gray-200 w-full h-full rounded-lg shadow-md border border-gray-200 group-hover:shadow-lg group-hover:-translate-y-1 transition flex">
                 <Heroicons.Outline.dots_horizontal class="self-center mx-auto h-12 w-12" />
@@ -476,12 +472,6 @@ defmodule AmbryWeb.Components do
       [%SeriesBook{} | _] = series_books -> Enum.map(series_books, &{&1.book, &1.book_number})
     end
   end
-
-  # prop player_states, :list
-  # prop show_load_more, :boolean, default: false
-  # prop load_more, :event
-  # prop user, :any, required: true
-  # prop browser_id, :string, required: true
 
   def player_state_tiles(assigns) do
     {load_more, target} = assigns.load_more
@@ -576,10 +566,6 @@ defmodule AmbryWeb.Components do
     """
   end
 
-  # prop :people, :list, required: true
-  # prop :underline, :boolean, default: true
-  # prop :link_class, :string
-
   def people_links(assigns) do
     assigns =
       assign_new(assigns, :classes, fn ->
@@ -604,8 +590,6 @@ defmodule AmbryWeb.Components do
     <% end %>
     """
   end
-
-  # prop :series_books, :list, required: true
 
   def series_book_links(assigns) do
     ~H"""
