@@ -17,6 +17,8 @@ defmodule Ambry.FlatSchema do
         end)
       end
 
+      def order(query, {field, :asc}), do: from(p in query, order_by: [asc: ^field])
+      def order(query, {field, :desc}), do: from(p in query, order_by: [desc: ^field])
       def order(query, field), do: from(p in query, order_by: ^field)
     end
   end

@@ -1,0 +1,57 @@
+<div>
+  <h2 class="text-2xl pb-4 font-bold"><%= @title %></h2>
+
+  <%= if @running_strategy do %>
+    <p class="mb-4 font-bold text-yellow-500 dark:text-yellow-400">
+      Extracting chapters! This might take a while, please don't close the page.
+    </p>
+  <% else %>
+    <div class="mb-4 flex flex-wrap gap-2">
+      <%= if @show_strategies do %>
+        <%= for {strategy, index} <- Enum.with_index(@strategies) do %>
+          <Amc.primary_button phx-click="run-strategy" phx-target={@myself} phx-value-strategy={index} color="yellow">
+            <%= strategy.name() %>
+          </Amc.primary_button>
+        <% end %>
+        <Amc.primary_button phx-click="hide-strategies" phx-target={@myself} color="red">
+          Cancel
+        </Amc.primary_button>
+      <% else %>
+        <Amc.primary_button phx-click="show-strategies" phx-target={@myself} color="yellow">
+          Extract From Source
+        </Amc.primary_button>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%= if @strategy_error do %>
+    <p class="mb-4 font-bold text-red-500">
+      Error getting chapters: <%= @strategy_error %>
+    </p>
+  <% end %>
+
+  <.form let={f} for={@changeset} phx-submit="save" phx-target={@myself}>
+    <div class="space-y-4">
+      <div>
+        <div class="space-y-2">
+          <%= for chapter_form <- inputs_for(f, :chapters) do %>
+            <div class="flex items-center">
+              <div class="w-24 mr-2 flex-none">
+                <.text_input form={chapter_form} field={:time} />
+              </div>
+              <div class="grow">
+                <.text_input form={chapter_form} field={:title} />
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    
+      <div class="bg-gray-50 dark:bg-gray-900 -m-6 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <Amc.primary_button type="submit">
+          Save
+        </Amc.primary_button>
+      </div>
+    </div>
+  </.form>
+</div>

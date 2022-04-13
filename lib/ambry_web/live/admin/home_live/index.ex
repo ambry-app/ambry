@@ -3,11 +3,9 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   LiveView for admin home screen.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :admin_live_view
 
   alias Ambry.{Books, Media, People, Series}
-
-  alias Surface.Components.LiveRedirect
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -18,7 +16,8 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
 
     {:ok,
      assign(socket, %{
-       page_title: "Home",
+       page_title: "Overview",
+       header_title: "Overview",
        people_count: people_count,
        books_count: books_count,
        series_count: series_count,

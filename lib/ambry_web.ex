@@ -62,6 +62,16 @@ defmodule AmbryWeb do
     end
   end
 
+  def admin_live_view do
+    quote do
+      use Phoenix.LiveView,
+        layout: {AmbryWeb.LayoutView, "admin_live.html"}
+
+      # Include shared imports and aliases for views
+      unquote(view_helpers())
+    end
+  end
+
   def component do
     quote do
       use Surface.Component

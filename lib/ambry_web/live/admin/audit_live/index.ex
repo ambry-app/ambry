@@ -3,15 +3,16 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
   LiveView for audit admin interface.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :admin_live_view
 
   alias Ambry.{FileUtils, Media}
 
-  alias Surface.Components.LiveRedirect
-
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :page_title, "Auditing Media")}
+    {:ok,
+     socket
+     |> assign(:header_title, "File Audit")
+     |> assign(:page_title, "File Audit")}
   end
 
   @impl Phoenix.LiveView

@@ -93,7 +93,6 @@ defmodule AmbryWeb.Admin.Components do
           <FA.icon name="users-gear" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
           <p>Manage Users</p>
         </.link>
-
       </div>
       <div class="py-3">
         <.link
@@ -106,12 +105,11 @@ defmodule AmbryWeb.Admin.Components do
         </.link>
       </div>
       <div class="py-3 absolute bottom-0 w-full">
-        <.link
-          link_type="live_redirect"
-          to="/"
-          class={nav_class()}
-        >
-          <FA.icon name="arrow-right-from-bracket" class="w-6 h-6 lg:w-7 lg:h-7 fill-current scale-[-1]" />
+        <.link link_type="live_redirect" to="/" class={nav_class()}>
+          <FA.icon
+            name="arrow-right-from-bracket"
+            class="w-6 h-6 lg:w-7 lg:h-7 fill-current scale-[-1]"
+          />
           <p>Exit Admin</p>
         </.link>
       </div>
@@ -132,17 +130,18 @@ defmodule AmbryWeb.Admin.Components do
       class="p-4 flex gap-3 items-center border-gray-100 dark:border-gray-900"
       :class="{ 'border-b': $store.header.scrolled }"
     >
-      <span
-        class="cursor-pointer lg:hidden"
-        @click="open = true"
-      >
+      <span class="cursor-pointer lg:hidden" @click="open = true">
         <FA.icon name="bars" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
       </span>
-      <.link link_type="live_redirect" to={Routes.admin_home_index_path(Endpoint, :index)} class="flex lg:hidden">
+      <.link
+        link_type="live_redirect"
+        to={Routes.admin_home_index_path(Endpoint, :index)}
+        class="flex lg:hidden"
+      >
         <Amc.ambry_icon class="w-6 h-6 lg:w-7 lg:h-7" />
-        <Amc.ambry_title class="h-6 lg:h-7" />
+        <Amc.ambry_title class="h-6 lg:h-7 hidden sm:block" />
       </.link>
-      <div class="flex-grow" />
+      <div class="flex-grow text-2xl font-bold pl-0 sm:pl-4 lg:pl-0"><%= @title %></div>
       <div
         x-data="{ open: false }"
         @click.outside="open = false"
@@ -156,6 +155,146 @@ defmodule AmbryWeb.Admin.Components do
         <Amc.admin_menu user={@user} />
       </div>
     </header>
+    """
+  end
+
+  def admin_table_header(assigns) do
+    ~H"""
+    <div class="flex items-center">
+      <.admin_table_search_form filter={@list_opts.filter} autofocus_search={@autofocus_search} />
+      <div class="flex-grow" />
+      <div class="px-2">
+        <.link link_type="live_patch" to={@new_path} class="flex items-center font-bold text-lime-500 dark:text-lime-400 hover:underline">
+          New
+          <FA.icon name="plus" class="w-4 h-4 fill-current ml-2" />
+        </.link>
+      </div>
+      <div class="px-2">
+        <.pagination_chevron active={@list_opts.page > 1} name="chevron-left" to={@prev_page} />
+      </div>
+      <div class="px-2">
+        <.pagination_chevron active={@has_more} name="chevron-right" to={@next_page} />
+      </div>
+    </div>
+    """
+  end
+
+  defp admin_table_search_form(assigns) do
+    ~H"""
+    <.form let={f} for={:search} phx-submit="search">
+      <%= search_input(f, :query,
+        id: "searchInput",
+        placeholder: "Search",
+        value: @filter,
+        class: "
+            w-full bg-transparent
+            border-0 focus:outline-none focus:ring-0 focus:border-0
+            placeholder:font-bold placeholder:text-gray-500
+            border-b border-gray-200 dark:border-gray-800
+            focus:border-b focus:border-lime-500 dark:focus:border-lime-400
+            mb-2 px-0
+          ",
+        "phx-autofocus": @autofocus_search
+      ) %>
+    </.form>
+    """
+  end
+
+  defp pagination_chevron(assigns) do
+    ~H"""
+    <%= if @active do %>
+      <.link link_type="live_patch" to={@to} class="cursor-pointer">
+        <FA.icon
+          name={@name}
+          class="
+            w-5 h-5 fill-current
+            text-gray-600 dark:text-gray-500
+            hover:text-gray-900 dark:hover:text-gray-100
+          "
+        />
+      </.link>
+    <% else %>
+      <FA.icon name={@name} class="w-5 h-5 fill-current dark:text-gray-900" />
+    <% end %>
+    """
+  end
+
+  def admin_table(assigns) do
+    default_cell_class = "p-3 text-left cursor-pointer"
+    default_header_class = "p-3 text-left"
+
+    ~H"""
+    <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md tran">
+      <%= if @rows == [] do %>
+        <div class="p-3">
+          <%= render_slot(@no_results) %>
+        </div>
+      <% else %>
+        <table class="w-full">
+          <thead>
+            <tr>
+              <%= for col <- @col do %>
+                <th class={[col[:class], default_header_class]}><%= col.label %></th>
+              <% end %>
+
+              <th class={[assigns[:actions_class], default_header_class]} />
+            </tr>
+          </thead>
+          <tbody>
+            <%= for row <- @rows do %>
+              <tr class="border-t border-gray-200 hover:bg-gray-200 dark:border-gray-800 dark:hover:bg-gray-700">
+                <%= for col <- @col do %>
+                  <td
+                    class={[col[:class], default_cell_class]}
+                    phx-click="row-click"
+                    phx-value-id={row.id}
+                  >
+                    <%= render_slot(col, row) %>
+                  </td>
+                <% end %>
+
+                <td class={[assigns[:actions_class], default_cell_class]}>
+                  <%= render_slot(@actions, row) %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    </div>
+    """
+  end
+
+  @badge_colors %{
+    "yellow" => "
+      border-yellow-200 bg-yellow-50
+      dark:border-yellow-400 dark:bg-yellow-400
+    ",
+    "blue" => "
+      border-blue-200 bg-blue-50
+      dark:border-blue-400 dark:bg-blue-400
+    ",
+    "red" => "
+      border-red-200 bg-red-50
+      dark:border-red-400 dark:bg-red-400
+    ",
+    "lime" => "
+      border-lime-200 bg-lime-50
+      dark:border-lime-400 dark:bg-lime-400
+    ",
+    "gray" => "
+      border-gray-200 bg-gray-50
+      dark:border-gray-500 dark:bg-gray-500
+    "
+  }
+
+  defp badge_color_classes(color), do: @badge_colors[color]
+
+  def admin_badge(assigns) do
+    ~H"""
+    <span class={"px-1 border rounded-md text-gray-800 whitespace-nowrap" <> badge_color_classes(@color)}>
+      <%= @label %>
+    </span>
     """
   end
 end

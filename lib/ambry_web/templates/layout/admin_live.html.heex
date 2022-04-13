@@ -32,7 +32,7 @@
   <Adc.side_nav active_path={@admin_nav_active_path} />
 
   <div class="h-screen flex flex-grow flex-col relative">
-    <Adc.header user={@current_user} />
+    <Adc.header user={@current_user} title={assigns[:header_title]} />
 
     <main class="flex-grow flex flex-col overflow-hidden">
       <div id="main-content" class="p-4 flex-grow overflow-y-auto overflow-x-hidden" phx-hook="headerScrollspy">

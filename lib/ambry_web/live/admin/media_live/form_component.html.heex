@@ -1,0 +1,132 @@
+<div>
+  <h2 class="text-2xl pb-4 font-bold"><%= @title %></h2>
+
+  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
+    <div class="space-y-4">
+      <div class="space-y-2">
+        <.form_label form={f} field={:book_id} />
+        <.select
+          form={f}
+          field={:book_id}
+          prompt=""
+          options={@books}
+        />
+        <.form_field_error form={f} field={:book_id} />
+      </div>
+
+      <div>
+        <.form_label form={f} field={:media_narrators} label="Narrated by" />
+        <div class="space-y-2">
+          <%= for media_narrator_form <- inputs_for(f, :media_narrators) do %>
+            <%= hidden_inputs_for(media_narrator_form) %>
+            <div class="flex items-center">
+              <.select
+                form={media_narrator_form}
+                field={:narrator_id}
+                prompt=""
+                options={@narrators}
+              />
+              <label class="ml-2 flex">
+                <%= checkbox media_narrator_form, :delete, [hidden_input: false, class: "peer hidden"] %>
+                <FA.icon name="trash" class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer" />
+              </label>
+            </div>
+            <.form_field_error form={media_narrator_form} field={:narrator_id} />
+          <% end %>
+          <button type="button" phx-click="add-narrator" phx-target={@myself} class="pt-2 text-lime-500 hover:underline flex items-center">
+            <span>Add narrator</span>
+            <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
+          </button>
+        </div>
+      </div>
+
+      <div class="flex">
+        <.checkbox form={f} field={:abridged} class="mr-2" />
+        <.form_label form={f} field={:abridged} />
+      </div>
+
+      <div class="flex">
+        <.checkbox form={f} field={:full_cast} class="mr-2" />
+        <.form_label form={f} field={:full_cast} />
+      </div>
+
+      <%= if @action == :new do %>
+        <div class="space-y-2">
+          <.form_label label="Upload audio" />
+
+          <section
+            class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-400"
+            phx-drop-target={@uploads.audio.ref}
+          >
+            <%= live_file_input(@uploads.audio) %>
+            <%= for entry <- @uploads.audio.entries do %>
+              <article class="upload-entry">
+                <figure>
+                  <figcaption><%= entry.client_name %></figcaption>
+                </figure>
+
+                <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+
+                <span
+                  class="text-2xl cursor-pointer hover:text-red-600 transition-colors"
+                  phx-click="cancel-upload"
+                  phx-value-ref={entry.ref}
+                  phx-target={@myself}
+                >&times;</span>
+
+                <%= for err <- upload_errors(@uploads.audio, entry) do %>
+                  <p class="text-red-600"><%= error_to_string(err) %></p>
+                <% end %>
+              </article>
+            <% end %>
+          </section>
+          <.form_field_error form={f} field={:source_path} />
+        </div>
+      <% end %>
+
+      <%= if @file_stats do %>
+        <div class="my-4 p-4 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-lg shadow-lg border">
+          <div class="space-y-2 divide-y divide-gray-200 dark:divide-gray-800">
+            <FileStatRow.render label="mp4" file={@file_stats.mp4_file} />
+            <FileStatRow.render label="mpd" file={@file_stats.mpd_file} />
+            <FileStatRow.render label="hls" file={@file_stats.hls_master} />
+            <FileStatRow.render label="hls_0" file={@file_stats.hls_playlist} />
+
+            <%= case @file_stats.source_files do %>
+              <% error when is_atom(error) -> %>
+                <FileStatRow.render label="source" file={%{path: @media.source_path, stat: error}} error_type={:warn} />
+              <% source_files when is_list(source_files) -> %>
+                <%= if source_files == [] do %>
+                  <FileStatRow.render label="source" file={%{path: @media.source_path, stat: :empty}} error_type={:warn} />
+                <% end %>
+                <%= for source_file <- source_files do %>
+                  <FileStatRow.render label="source" file={source_file} error_type={:warn} />
+                <% end %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <div class="space-y-2">
+        <%= if @action == :edit do %>
+          <.form_label form={f} field={:processor} label="Re-run processor?" />
+        <% else %>
+          <.form_label form={f} field={:processor} />
+        <% end %>
+
+        <.select
+          form={f}
+          field={:processor}
+          prompt={if @action == :new, do: "auto-select", else: "no"}
+          options={processors(@media, @uploads.audio.entries)}
+        />
+      </div>
+
+      <div class="bg-gray-50 dark:bg-gray-900 -m-6 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <Amc.primary_button type="submit">
+          Save
+        </Amc.primary_button>
+      </div>
+    </div>
+  </.form>
+</div>

@@ -13,7 +13,14 @@ defmodule Ambry.People do
   Returns a limited list of people and whether or not there are more.
 
   By default, it will limit to the first 10 results. Supply `offset` and `limit`
-  to change this. Also can optionally filter by the given `filter` string.
+  to change this. You can also optionally filter by giving a map with these
+  supported keys:
+
+    * `:search` - String: full-text search on names and aliases.
+    * `:is_author` - Boolean.
+    * `:is_narrator` - Boolean.
+
+  `order` should be a valid atom key, or a tuple like `{:name, :desc}`.
 
   ## Examples
 
@@ -21,7 +28,7 @@ defmodule Ambry.People do
       {[%PersonFlat{}, ...], true}
 
   """
-  def list_people(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :name]) do
+  def list_people(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ :name) do
     over_limit = limit + 1
 
     people =

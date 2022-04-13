@@ -632,19 +632,18 @@ defmodule AmbryWeb.Components do
     extra = assigns_to_attributes(assigns, [])
 
     default_classes =
-      PetalComponents.Helpers.convert_string_to_one_line("""
-      bg-lime-500 dark:bg-lime-400
-      text-white dark:text-black
-      font-bold
-      px-5 py-2
-      rounded
-      focus:outline-none
-      shadow
-      hover:bg-lime-700 dark:hover:bg-lime-600
-      transition-colors
-      focus:ring-2
-      focus:ring-lime-300 dark:focus:ring-lime-700
-      """)
+      PetalComponents.Helpers.convert_string_to_one_line(
+        """
+        text-white dark:text-black
+        font-bold
+        px-5 py-2
+        rounded
+        focus:outline-none
+        shadow
+        transition-colors
+        focus:ring-2
+        """ <> primary_button_color_classes(assigns[:color] || "lime")
+      )
 
     assigns =
       assigns
@@ -660,6 +659,27 @@ defmodule AmbryWeb.Components do
     </button>
     """
   end
+
+  defp primary_button_color_classes("lime"),
+    do: """
+    bg-lime-500 dark:bg-lime-400
+    hover:bg-lime-700 dark:hover:bg-lime-600
+    focus:ring-lime-300 dark:focus:ring-lime-700
+    """
+
+  defp primary_button_color_classes("yellow"),
+    do: """
+    bg-yellow-500 dark:bg-yellow-400
+    hover:bg-yellow-700 dark:hover:bg-yellow-600
+    focus:ring-yellow-300 dark:focus:ring-yellow-700
+    """
+
+  defp primary_button_color_classes("red"),
+    do: """
+    bg-red-500 dark:bg-red-400
+    hover:bg-red-700 dark:hover:bg-red-600
+    focus:ring-red-300 dark:focus:ring-red-700
+    """
 
   def header2(assigns) do
     extra_classes = assigns[:class] || ""

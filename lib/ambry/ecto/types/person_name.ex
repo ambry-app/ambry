@@ -11,12 +11,12 @@ defmodule Ambry.Ecto.Types.PersonName do
     {:ok, person_name}
   end
 
-  def cast(_), do: :error
+  def cast(_person_name), do: :error
 
   def load({name, person_name}) do
     {:ok, struct!(PersonName, name: name, person_name: person_name)}
   end
 
   def dump(%PersonName{name: name, person_name: person_name}), do: {:ok, {name, person_name}}
-  def dump(_), do: :error
+  def dump(_person_name), do: :error
 end

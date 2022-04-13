@@ -1,0 +1,93 @@
+<%= if @live_action in [:new, :edit] do %>
+  <.live_component
+    module={Amc.Modal}
+    id={@person.id || :new}
+    return_to={Routes.admin_person_index_path(@socket, :index, patch_opts(@list_opts))}
+  >
+    <.live_component
+      module={FormComponent}
+      id={@person.id || :new}
+      title={@page_title}
+      action={@live_action}
+      person={@person}
+      return_to={Routes.admin_person_index_path(@socket, :index, patch_opts(@list_opts))}
+    />
+  </.live_component>
+<% end %>
+
+<Adc.admin_table_header
+  list_opts={@list_opts}
+  has_more={@has_more?}
+  next_page={Routes.admin_person_index_path(@socket, :index, next_opts(@list_opts))}
+  prev_page={Routes.admin_person_index_path(@socket, :index, prev_opts(@list_opts))}
+  new_path={Routes.admin_person_index_path(@socket, :new, prev_opts(@list_opts))}
+  autofocus_search={@autofocus_search}
+/>
+
+<Adc.admin_table rows={@people}>
+  <:col let={person} label="Name">
+    <%= person.name %>
+  </:col>
+
+  <:col let={person} label="Author?">
+    <%= if person.is_author do %>
+      <FA.icon name="check" class="w-5 h-5 fill-current" />
+    <% else %>
+      <FA.icon name="xmark" class="w-5 h-5 fill-current" />
+    <% end %>
+  </:col>
+
+  <:col let={person} label="Narrator?">
+    <%= if person.is_narrator do %>
+      <FA.icon name="check" class="w-5 h-5 fill-current" />
+    <% else %>
+      <FA.icon name="xmark" class="w-5 h-5 fill-current" />
+    <% end %>
+  </:col>
+
+  <:col let={person} label="# Authored Books" class="hidden sm:table-cell">
+    <%= person.authored_books %>
+  </:col>
+
+  <:col let={person} label="# Narrated Media" class="hidden sm:table-cell">
+    <%= person.narrated_media %>
+  </:col>
+
+  <:col let={person} label="AKA" class="hidden md:table-cell">
+    <%= (person.writing_as ++ person.narrating_as)
+    |> Enum.filter(&(&1 != person.name))
+    |> Enum.join(", ") %>
+  </:col>
+
+  <:actions let={person}>
+    <div class="flex gap-2">
+      <div class="grow" />
+      <.link
+        link_type="live_patch"
+        to={Routes.admin_person_index_path(@socket, :edit, person, patch_opts(@list_opts))}
+      >
+        <FA.icon name="pencil" class="w-4 h-4 fill-current" />
+      </.link>
+      <span phx-click="delete" phx-value-id={person.id} data-confirm="Are you sure?">
+        <FA.icon name="trash" class="w-4 h-4 fill-current text-red-600" />
+      </span>
+    </div>
+  </:actions>
+
+  <:no_results>
+    <span class="font-semibold text-lg">
+      <%= if @list_opts.filter do %>
+        No results for "<%= @list_opts.filter %>"
+      <% else %>
+        No people yet.
+        <.link
+          link_type="live_patch"
+          class="text-lime-500 dark:text-lime-400 hover:underline"
+          to={Routes.admin_person_index_path(@socket, :new, patch_opts(@list_opts))}
+        >
+          Create one.
+        </.link>
+      <% end %>
+    </span>
+  </:no_results>
+</Adc.admin_table>

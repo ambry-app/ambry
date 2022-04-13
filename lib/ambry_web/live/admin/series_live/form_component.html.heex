@@ -1,0 +1,48 @@
+<div>
+  <h2 class="text-2xl pb-4 font-bold"><%= @title %></h2>
+
+  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
+    <div class="space-y-4">
+      <div class="space-y-2">
+        <.form_label form={f} field={:name} />
+        <.text_input form={f} field={:name} placeholder="Name" />
+        <.form_field_error form={f} field={:name} />
+      </div>
+
+      <div>
+        <.form_label form={f} field={:series_books} label="Books" />
+        <div class="space-y-2">
+          <%= for series_book_form <- inputs_for(f, :series_books) do %>
+            <%= hidden_inputs_for(series_book_form) %>
+            <div class="flex items-center">              
+              <.text_input form={series_book_form} field={:book_number} class="w-14 mr-2 flex-none" />
+              <.select
+                form={series_book_form}
+                field={:book_id}
+                prompt=""
+                options={@books}
+                class="grow"
+              />
+              <label class="ml-2 flex">
+                <%= checkbox series_book_form, :delete, [hidden_input: false, class: "peer hidden"] %>
+                <FA.icon name="trash" class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer" />
+              </label>
+            </div>
+            <.form_field_error form={series_book_form} field={:book_number} />
+            <.form_field_error form={series_book_form} field={:book_id} />
+          <% end %>
+          <button type="button" phx-click="add-book" phx-target={@myself} class="pt-2 text-lime-500 hover:underline flex items-center">
+            <span>Add book</span>
+            <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-gray-50 dark:bg-gray-900 -m-6 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <Amc.primary_button type="submit">
+          Save
+        </Amc.primary_button>
+      </div>
+    </div>
+  </.form>
+</div>

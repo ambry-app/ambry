@@ -30,16 +30,12 @@ import { HeaderScrollspyHook } from './hooks/header_scrollspy'
 import readMore from './alpine/read_more'
 import player from './alpine/player'
 
-const browserId = window.crypto
-  .getRandomValues(new Uint32Array(1))[0]
-  .toString(16)
-
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute('content')
 
 const liveSocket = new LiveSocket('/live', Socket, {
-  params: { _csrf_token: csrfToken, browser_id: browserId },
+  params: { _csrf_token: csrfToken },
   hooks: {
     mediaPlayer: ShakaPlayerHook,
     mediaControls: MediaControlsHook,
@@ -99,6 +95,15 @@ Alpine.start()
 topbar.config({ barColors: { 0: dark ? '#A3E635' : '#84CC16' }, shadowColor: 'rgba(0, 0, 0, .3)' })
 window.addEventListener('phx:page-loading-start', info => topbar.show())
 window.addEventListener('phx:page-loading-stop', info => topbar.hide())
+
+// autofocus hack:
+window.addEventListener('phx:page-loading-stop', info => {
+  const autoFocusElements = document.querySelectorAll('[phx-autofocus]')
+  const els = autoFocusElements.length
+
+  if (els >= 1) { window.setTimeout(() => autoFocusElements[0].focus(), 0) }
+  if (els > 1) { console.warn("Multiple autofocus elements found. Only focusing the first.") }
+})
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()

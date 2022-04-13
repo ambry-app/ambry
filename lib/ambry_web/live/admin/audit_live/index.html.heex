@@ -1,32 +1,18 @@
 <div class="flex items-center">
-  <div class="grow">
-    <h1 class="text-4xl mb-4">Media Audit</h1>
-  </div>
-  <a href="#" :on-click="reload">
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      class="text-lime-500 h-6 w-6"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="2"
-        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-      />
-    </svg>
-  </a>
+  <div class="grow" />
+  <button type="button" phx-click="reload" class="flex items-center font-bold text-lime-500 dark:text-lime-400 hover:underline">
+    Reload
+    <FA.icon name="rotate" class="w-4 h-4 fill-current ml-2" />
+  </button>
 </div>
 
-{#if no_problems(@audit)}
+<%= if no_problems(@audit) do %>
   <p class="py-8 font-semibold text-lg text-center">
     No problems detected! 🎉
   </p>
-{#else}
+<% else %>
   <div class="space-y-12">
-    {#if @audit.orphaned_media_files != []}
+    <%= if @audit.orphaned_media_files != [] do %>
       <div>
         <h2 class="text-2xl mb-2">Orphaned Media Files</h2>
 
@@ -37,15 +23,17 @@
 
         <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
           <div class="space-y-2 divide-y divide-gray-200">
-            {#for file <- @audit.orphaned_media_files}
+            <%= for file <- @audit.orphaned_media_files do %>
               <div class="p-2 flex">
                 <div class="flex-none w-24">
-                  <span class="px-1 border border-blue-200 rounded-md bg-blue-50">{format_filesize(file.size)}</span>
+                  <span class="px-1 border border-blue-200 rounded-md bg-blue-50">
+                    <%= format_filesize(file.size) %>
+                  </span>
                 </div>
                 <div class="grow break-all pl-2">
-                  {file.path}
+                  <%= file.path %>
                 </div>
-                <a data-confirm="Are you sure?" href="#" :on-click="delete-file" :values={id: file.id}>
+                <a data-confirm="Are you sure?" href="#" phx-click="delete-file" phx-value-id={file.id}>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     class="text-red-600 h-5 w-5"
@@ -60,13 +48,13 @@
                   </svg>
                 </a>
               </div>
-            {/for}
+            <% end %>
           </div>
         </div>
       </div>
-    {/if}
+    <% end %>
 
-    {#if @audit.orphaned_source_folders != []}
+    <%= if @audit.orphaned_source_folders != [] do %>
       <div>
         <h2 class="text-2xl mb-2">Orphaned Source Folders</h2>
 
@@ -77,15 +65,17 @@
 
         <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
           <div class="space-y-2 divide-y divide-gray-200">
-            {#for folder <- @audit.orphaned_source_folders}
+            <%= for folder <- @audit.orphaned_source_folders do %>
               <div class="p-2 flex">
                 <div class="flex-none w-24">
-                  <span class="px-1 border border-blue-200 rounded-md bg-blue-50">{format_filesize(folder.size)}</span>
+                  <span class="px-1 border border-blue-200 rounded-md bg-blue-50">
+                    <%= format_filesize(folder.size) %>
+                  </span>
                 </div>
                 <div class="grow break-all pl-2">
-                  {folder.path}
+                  <%= folder.path %>
                 </div>
-                <a data-confirm="Are you sure?" href="#" :on-click="delete-folder" :values={id: folder.id}>
+                <a data-confirm="Are you sure?" href="#" phx-click="delete-folder" phx-value-id={folder.id}>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     class="text-red-600 h-5 w-5"
@@ -100,13 +90,13 @@
                   </svg>
                 </a>
               </div>
-            {/for}
+            <% end %>
           </div>
         </div>
       </div>
-    {/if}
+    <% end %>
 
-    {#if @audit.broken_media != []}
+    <%= if @audit.broken_media != [] do %>
       <div>
         <h2 class="text-2xl mb-2">Broken Media</h2>
 
@@ -117,47 +107,48 @@
 
         <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
           <div class="space-y-2 divide-y divide-gray-200">
-            {#for broken_media <- @audit.broken_media}
+            <%= for broken_media <- @audit.broken_media do %>
               <div class="p-2 flex">
                 <div class="flex-none w-40">
-                  {#if !broken_media.mp4?}
+                  <%= if !broken_media.mp4? do %>
                     <span class="px-1 border border-red-200 rounded-md bg-red-50">mp4</span>
-                  {/if}
-                  {#if !broken_media.mpd?}
+                  <% end %>
+                  <%= if !broken_media.mpd? do %>
                     <span class="px-1 border border-red-200 rounded-md bg-red-50">mpd</span>
-                  {/if}
-                  {#if !broken_media.hls_master?}
+                  <% end %>
+                  <%= if !broken_media.hls_master? do %>
                     <span class="px-1 border border-red-200 rounded-md bg-red-50">hls</span>
-                  {/if}
-                  {#if !broken_media.hls_playlist?}
+                  <% end %>
+                  <%= if !broken_media.hls_playlist? do %>
                     <span class="px-1 border border-red-200 rounded-md bg-red-50">hls_0</span>
-                  {/if}
-                  {#if !broken_media.source?}
+                  <% end %>
+                  <%= if !broken_media.source? do %>
                     <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">source</span>
-                  {/if}
+                  <% end %>
                 </div>
                 <div class="pl-2">
-                  <LiveRedirect
+                  <.link
+                    link_type="live_redirect"
                     to={Routes.admin_media_index_path(@socket, :edit, broken_media.media)}
                     class="hover:underline inline-block w-full"
                   >
-                    {broken_media.media.book.title}
+                    <%= broken_media.media.book.title %>
                     <span class="text-gray-500 text-sm italic">
                       narrated by
-                      {#for media_narrator <- broken_media.media.media_narrators}
-                        {media_narrator.narrator.name}<span class="last:hidden">,</span>
-                      {/for}
-                      {#if broken_media.media.full_cast}
+                      <%= for media_narrator <- broken_media.media.media_narrators do %>
+                        <%= media_narrator.narrator.name %><span class="last:hidden">,</span>
+                      <% end %>
+                      <%= if broken_media.media.full_cast do %>
                         <span>full cast</span>
-                      {/if}
+                      <% end %>
                     </span>
-                  </LiveRedirect>
+                  </.link>
                 </div>
               </div>
-            {/for}
+            <% end %>
           </div>
         </div>
       </div>
-    {/if}
+    <% end %>
   </div>
-{/if}
+<% end %>
