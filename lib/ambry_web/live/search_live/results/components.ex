@@ -3,7 +3,7 @@ defmodule AmbryWeb.SearchLive.Results.Components do
   Components for the search results live page.
   """
 
-  use AmbryWeb, :p_component
+  use AmbryWeb, :component
 
   alias AmbryWeb.Endpoint
 

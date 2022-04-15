@@ -3,7 +3,7 @@ defmodule AmbryWeb.PersonLive.Show do
   LiveView for showing person details.
   """
 
-  use AmbryWeb, :p_live_view
+  use AmbryWeb, :live_view
 
   alias Ambry.People
 

@@ -1,7 +1,7 @@
 defmodule AmbryWeb.Components.SearchBox do
   @moduledoc false
 
-  use AmbryWeb, :p_live_component
+  use AmbryWeb, :live_component
 
   @impl Phoenix.LiveComponent
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do

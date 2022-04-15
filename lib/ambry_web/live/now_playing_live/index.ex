@@ -3,7 +3,7 @@ defmodule AmbryWeb.NowPlayingLive.Index do
   LiveView for the player.
   """
 
-  use AmbryWeb, :p_live_view
+  use AmbryWeb, :live_view
 
   import AmbryWeb.NowPlayingLive.Index.Components
 

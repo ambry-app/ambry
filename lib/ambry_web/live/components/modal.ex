@@ -3,7 +3,7 @@ defmodule AmbryWeb.Components.Modal do
   Modal component with close button and return_to url.
   """
 
-  use AmbryWeb, :p_live_component
+  use AmbryWeb, :live_component
 
   @impl Phoenix.LiveComponent
   def handle_event("close", _params, socket) do

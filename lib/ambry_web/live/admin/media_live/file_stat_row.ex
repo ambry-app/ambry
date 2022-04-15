@@ -3,7 +3,7 @@ defmodule AmbryWeb.Admin.MediaLive.FileStatRow do
   Renders a row for a file in the file stats table.
   """
 
-  use AmbryWeb, :p_component
+  use AmbryWeb, :component
 
   def render(assigns) do
     ~H"""

@@ -1,10 +1,10 @@
 [
-  import_deps: [:ecto, :phoenix, :surface],
-  plugins: [Surface.Formatter.Plugin],
+  import_deps: [:ecto, :phoenix],
+  plugins: [],
   inputs: [
     "*.{ex,exs}",
     "priv/*/seeds.exs",
-    "{config,lib,test}/**/*.{ex,exs,sface}"
+    "{config,lib,test}/**/*.{ex,exs}"
   ],
   subdirectories: ["priv/*/migrations"]
 ]

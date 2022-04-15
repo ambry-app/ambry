@@ -56,7 +56,6 @@ defmodule Ambry.MixProject do
       {:phoenix_live_view, "~> 0.17"},
       {:plug_cowboy, "~> 2.5"},
       {:postgrex, ">= 0.0.0"},
-      {:surface, "~> 0.7"},
       {:sweet_xml, "~> 0.7"},
       {:swoosh, "~> 1.3"},
       {:telemetry_metrics, "~> 0.6"},

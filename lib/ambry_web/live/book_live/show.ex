@@ -3,7 +3,7 @@ defmodule AmbryWeb.BookLive.Show do
   LiveView for showing book details.
   """
 
-  use AmbryWeb, :p_live_view
+  use AmbryWeb, :live_view
 
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 

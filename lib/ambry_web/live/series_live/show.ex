@@ -3,7 +3,7 @@ defmodule AmbryWeb.SeriesLive.Show do
   LiveView for showing all books in a series.
   """
 
-  use AmbryWeb, :p_live_view
+  use AmbryWeb, :live_view
 
   alias Ambry.Series
 

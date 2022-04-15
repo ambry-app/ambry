@@ -3,7 +3,7 @@ defmodule AmbryWeb.LibraryLive.Home do
   LiveView for the library page.
   """
 
-  use AmbryWeb, :p_live_view
+  use AmbryWeb, :live_view
 
   alias AmbryWeb.LibraryLive.Home.{RecentBooks, RecentMedia}
 

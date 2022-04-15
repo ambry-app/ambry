@@ -3,7 +3,7 @@ defmodule AmbryWeb.SearchLive.Results do
   LiveView for showing search results.
   """
 
-  use AmbryWeb, :p_live_view
+  use AmbryWeb, :live_view
 
   import AmbryWeb.SearchLive.Results.Components
 

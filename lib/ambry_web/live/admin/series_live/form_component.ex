@@ -1,7 +1,7 @@
 defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
   @moduledoc false
 
-  use AmbryWeb, :p_live_component
+  use AmbryWeb, :live_component
 
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
 

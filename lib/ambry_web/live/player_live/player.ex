@@ -1,7 +1,7 @@
 defmodule AmbryWeb.PlayerLive.Player do
   @moduledoc false
 
-  use AmbryWeb, :p_live_view
+  use AmbryWeb, :live_view
 
   alias Ambry.Media
 

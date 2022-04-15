@@ -1,7 +1,7 @@
 defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   @moduledoc false
 
-  use AmbryWeb, :p_live_component
+  use AmbryWeb, :live_component
 
   import Ambry.Paths
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]

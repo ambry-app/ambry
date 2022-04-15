@@ -3,7 +3,7 @@ defmodule AmbryWeb.Admin.Components do
   Shared function components used throughout the admin area.
   """
 
-  use AmbryWeb, :p_component
+  use AmbryWeb, :component
 
   alias AmbryWeb.Endpoint
   alias AmbryWeb.Router.Helpers, as: Routes

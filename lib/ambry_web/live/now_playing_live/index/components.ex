@@ -3,7 +3,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
   NowPlaying LiveView components.
   """
 
-  use AmbryWeb, :p_component
+  use AmbryWeb, :component
 
   import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 

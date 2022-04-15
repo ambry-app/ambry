@@ -3,7 +3,7 @@ defmodule AmbryWeb.Components do
   Shared function components used throughout the app.
   """
 
-  use AmbryWeb, :p_component
+  use AmbryWeb, :component
 
   import AmbryWeb.TimeUtils
 

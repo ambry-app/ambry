@@ -1,7 +1,7 @@
 defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
   @moduledoc false
 
-  use AmbryWeb, :p_live_component
+  use AmbryWeb, :live_component
 
   alias Ambry.Media
   alias Ambry.Media.Chapters

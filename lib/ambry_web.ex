@@ -44,16 +44,6 @@ defmodule AmbryWeb do
 
   def live_view do
     quote do
-      use Surface.LiveView,
-        layout: {AmbryWeb.LayoutView, "admin_live.html"}
-
-      # Include shared imports and aliases for views
-      unquote(view_helpers())
-    end
-  end
-
-  def p_live_view do
-    quote do
       use Phoenix.LiveView,
         layout: {AmbryWeb.LayoutView, "user_live.html"}
 
@@ -74,14 +64,6 @@ defmodule AmbryWeb do
 
   def component do
     quote do
-      use Surface.Component
-
-      unquote(view_helpers())
-    end
-  end
-
-  def p_component do
-    quote do
       use Phoenix.Component
 
       unquote(view_helpers())
@@ -89,14 +71,6 @@ defmodule AmbryWeb do
   end
 
   def live_component do
-    quote do
-      use Surface.LiveComponent
-
-      unquote(view_helpers())
-    end
-  end
-
-  def p_live_component do
     quote do
       use Phoenix.LiveComponent
 
