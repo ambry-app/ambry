@@ -55,7 +55,7 @@ defmodule Ambry.People do
       %{authors: 3, narrators: 2, total: 4}
 
   """
-  @spec count_people :: integer()
+  @spec count_people :: %{total: integer(), authors: integer(), narrators: integer()}
   def count_people do
     Repo.one(
       from p in PersonFlat,

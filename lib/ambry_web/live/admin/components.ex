@@ -201,8 +201,18 @@ defmodule AmbryWeb.Admin.Components do
   end
 
   def admin_table(assigns) do
-    default_cell_class = "p-3 text-left cursor-pointer"
+    assigns = assign_new(assigns, :row_click, fn -> true end)
+
+    default_cell_class =
+      if assigns.row_click, do: "p-3 text-left cursor-pointer", else: "p-3 text-left"
+
     default_header_class = "p-3 text-left"
+
+    row_class =
+      if assigns.row_click,
+        do:
+          "border-t border-gray-200 hover:bg-gray-200 dark:border-gray-800 dark:hover:bg-gray-700",
+        else: "border-t border-gray-200 dark:border-gray-800"
 
     ~H"""
     <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md tran">
@@ -218,21 +228,31 @@ defmodule AmbryWeb.Admin.Components do
                 <th class={[col[:class], default_header_class]}><%= col.label %></th>
               <% end %>
 
-              <th class={[assigns[:actions_class], default_header_class]} />
+              <%= if assigns[:actions] do %>
+                <th class={[assigns[:actions_class], default_header_class]} />
+              <% end %>
             </tr>
           </thead>
           <tbody>
             <%= for row <- @rows do %>
-              <tr class="border-t border-gray-200 hover:bg-gray-200 dark:border-gray-800 dark:hover:bg-gray-700">
+              <tr class={row_class}>
                 <%= for col <- @col do %>
-                  <td class={[col[:class], default_cell_class]} phx-click="row-click" phx-value-id={row.id}>
-                    <%= render_slot(col, row) %>
-                  </td>
+                  <%= if @row_click do %>
+                    <td class={[col[:class], default_cell_class]} phx-click="row-click" phx-value-id={row.id}>
+                      <%= render_slot(col, row) %>
+                    </td>
+                  <% else %>
+                    <td class={[col[:class], default_cell_class]}>
+                      <%= render_slot(col, row) %>
+                    </td>
+                  <% end %>
                 <% end %>
 
-                <td class={[assigns[:actions_class], default_cell_class]}>
-                  <%= render_slot(@actions, row) %>
-                </td>
+                <%= if assigns[:actions] do %>
+                  <td class={[assigns[:actions_class], default_cell_class]}>
+                    <%= render_slot(@actions, row) %>
+                  </td>
+                <% end %>
               </tr>
             <% end %>
           </tbody>
@@ -260,8 +280,8 @@ defmodule AmbryWeb.Admin.Components do
       dark:border-lime-400 dark:bg-lime-400
     ",
     "gray" => "
-      border-gray-200 bg-gray-50
-      dark:border-gray-500 dark:bg-gray-500
+      border-gray-200 bg-gray-100
+      dark:border-gray-400 dark:bg-gray-400
     "
   }
 
@@ -269,7 +289,7 @@ defmodule AmbryWeb.Admin.Components do
 
   def admin_badge(assigns) do
     ~H"""
-    <span class={"px-1 border rounded-md text-gray-800 whitespace-nowrap" <> badge_color_classes(@color)}>
+    <span class={"px-1 border rounded-md text-gray-900 whitespace-nowrap" <> badge_color_classes(@color)}>
       <%= @label %>
     </span>
     """

@@ -487,8 +487,11 @@ defmodule AmbryWeb.Components do
         <div class="text-center text-lg">
           <div phx-click={load_more} phx-target={target} class="group">
             <span class="block aspect-w-10 aspect-h-15 cursor-pointer">
-              <span class="load-more bg-gray-200 w-full h-full rounded-lg shadow-md border border-gray-200 group-hover:shadow-lg group-hover:-translate-y-1 transition flex">
-                <Heroicons.Outline.dots_horizontal class="self-center mx-auto h-12 w-12" />
+              <span class="load-more w-full h-full rounded-lg shadow-md border flex
+                bg-gray-200 dark:bg-gray-700
+                border-gray-200 dark:border-gray-700
+                ">
+                <FA.icon name="ellipsis" class="w-12 h-12 fill-current self-center mx-auto" />
               </span>
             </span>
             <p class="group-hover:underline">
@@ -588,8 +591,11 @@ defmodule AmbryWeb.Components do
         <div class="text-center text-lg">
           <div phx-click={load_more} phx-target={target} class="group">
             <span class="block aspect-w-10 aspect-h-15 cursor-pointer">
-              <span class="load-more bg-gray-200 w-full h-full rounded-lg shadow-md border border-gray-200 group-hover:shadow-lg group-hover:-translate-y-1 transition flex">
-                <Heroicons.Outline.dots_horizontal class="self-center mx-auto h-12 w-12" />
+              <span class="load-more w-full h-full rounded-lg shadow-md border flex
+                bg-gray-200 dark:bg-gray-700
+                border-gray-200 dark:border-gray-700
+                ">
+                <FA.icon name="ellipsis" class="w-12 h-12 fill-current self-center mx-auto" />
               </span>
             </span>
             <p class="group-hover:underline">

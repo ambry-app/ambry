@@ -16,141 +16,105 @@
 <% else %>
   <div class="space-y-12">
     <%= if @audit.orphaned_media_files != [] do %>
-      <div>
-        <h2 class="text-2xl mb-2">Orphaned Media Files</h2>
+      <div class="space-y-4">
+        <h2 class="text-xl font-bold mb-2">Orphaned Media Files</h2>
 
         <p>
           It should be safe to delete these files, as they are not being used by
           anything.
         </p>
 
-        <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
-          <div class="space-y-2 divide-y divide-gray-200">
-            <%= for file <- @audit.orphaned_media_files do %>
-              <div class="p-2 flex">
-                <div class="flex-none w-24">
-                  <span class="px-1 border border-blue-200 rounded-md bg-blue-50">
-                    <%= format_filesize(file.size) %>
-                  </span>
-                </div>
-                <div class="grow break-all pl-2">
-                  <%= file.path %>
-                </div>
-                <a data-confirm="Are you sure?" href="#" phx-click="delete-file" phx-value-id={file.id}>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="text-red-600 h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                </a>
-              </div>
-            <% end %>
-          </div>
-        </div>
+        <Adc.admin_table rows={@audit.orphaned_media_files} row_click={false}>
+          <:col let={file} label="Size">
+            <Adc.admin_badge label={format_filesize(file.size)} color="blue" />
+          </:col>
+          <:col let={file} label="Path">
+            <%= file.path %>
+          </:col>
+          <:actions let={file}>
+            <div class="flex gap-2">
+              <div class="grow" />
+              <button phx-click="delete-file" phx-value-id={file.id} data-confirm="Are you sure?">
+                <FA.icon name="trash" class="w-4 h-4 fill-current text-red-600" />
+              </button>
+            </div>
+          </:actions>
+        </Adc.admin_table>
       </div>
     <% end %>
 
     <%= if @audit.orphaned_source_folders != [] do %>
-      <div>
-        <h2 class="text-2xl mb-2">Orphaned Source Folders</h2>
+      <div class="space-y-4">
+        <h2 class="text-xl font-bold">Orphaned Source Folders</h2>
 
         <p>
           It should be safe to delete these folders, as they are not being used
           by anything.
         </p>
 
-        <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
-          <div class="space-y-2 divide-y divide-gray-200">
-            <%= for folder <- @audit.orphaned_source_folders do %>
-              <div class="p-2 flex">
-                <div class="flex-none w-24">
-                  <span class="px-1 border border-blue-200 rounded-md bg-blue-50">
-                    <%= format_filesize(folder.size) %>
-                  </span>
-                </div>
-                <div class="grow break-all pl-2">
-                  <%= folder.path %>
-                </div>
-                <a data-confirm="Are you sure?" href="#" phx-click="delete-folder" phx-value-id={folder.id}>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="text-red-600 h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                </a>
-              </div>
-            <% end %>
-          </div>
-        </div>
+        <Adc.admin_table rows={@audit.orphaned_source_folders} row_click={false}>
+          <:col let={folder} label="Size">
+            <Adc.admin_badge label={format_filesize(folder.size)} color="blue" />
+          </:col>
+          <:col let={folder} label="Path">
+            <%= folder.path %>
+          </:col>
+          <:actions let={folder}>
+            <div class="flex gap-2">
+              <div class="grow" />
+              <button phx-click="delete-folder" phx-value-id={folder.id} data-confirm="Are you sure?">
+                <FA.icon name="trash" class="w-4 h-4 fill-current text-red-600" />
+              </button>
+            </div>
+          </:actions>
+        </Adc.admin_table>
       </div>
     <% end %>
 
     <%= if @audit.broken_media != [] do %>
-      <div>
-        <h2 class="text-2xl mb-2">Broken Media</h2>
+      <div class="space-y-4">
+        <h2 class="text-xl font-bold mb-2">Broken Media</h2>
 
         <p>
           These media uploads are broken in some way. They may or may not work
           in all cases.
         </p>
 
-        <div class="my-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200">
-          <div class="space-y-2 divide-y divide-gray-200">
-            <%= for broken_media <- @audit.broken_media do %>
-              <div class="p-2 flex">
-                <div class="flex-none w-40">
-                  <%= if !broken_media.mp4? do %>
-                    <span class="px-1 border border-red-200 rounded-md bg-red-50">mp4</span>
-                  <% end %>
-                  <%= if !broken_media.mpd? do %>
-                    <span class="px-1 border border-red-200 rounded-md bg-red-50">mpd</span>
-                  <% end %>
-                  <%= if !broken_media.hls_master? do %>
-                    <span class="px-1 border border-red-200 rounded-md bg-red-50">hls</span>
-                  <% end %>
-                  <%= if !broken_media.hls_playlist? do %>
-                    <span class="px-1 border border-red-200 rounded-md bg-red-50">hls_0</span>
-                  <% end %>
-                  <%= if !broken_media.source? do %>
-                    <span class="px-1 border border-yellow-200 rounded-md bg-yellow-50">source</span>
-                  <% end %>
-                </div>
-                <div class="pl-2">
-                  <.link
-                    link_type="live_redirect"
-                    to={Routes.admin_media_index_path(@socket, :edit, broken_media.media)}
-                    class="hover:underline inline-block w-full"
-                  >
-                    <%= broken_media.media.book.title %>
-                    <span class="text-gray-500 text-sm italic">
-                      narrated by
-                      <%= for media_narrator <- broken_media.media.media_narrators do %>
-                        <%= media_narrator.narrator.name %><span class="last:hidden">,</span>
-                      <% end %>
-                      <%= if broken_media.media.full_cast do %>
-                        <span>full cast</span>
-                      <% end %>
-                    </span>
-                  </.link>
-                </div>
-              </div>
+        <Adc.admin_table rows={@audit.broken_media}>
+          <:col let={broken_media} label="Problems" class="space-x-2">
+            <%= if !broken_media.mp4? do %>
+              <Adc.admin_badge label="mp4" , color="red" />
             <% end %>
-          </div>
-        </div>
+            <%= if !broken_media.mpd? do %>
+              <Adc.admin_badge label="mpd" , color="red" />
+            <% end %>
+            <%= if !broken_media.hls_master? do %>
+              <Adc.admin_badge label="hls" , color="red" />
+            <% end %>
+            <%= if !broken_media.hls_playlist? do %>
+              <Adc.admin_badge label="hls_0" , color="red" />
+            <% end %>
+            <%= if !broken_media.source? do %>
+              <Adc.admin_badge label="source" , color="yellow" />
+            <% end %>
+          </:col>
+          <:col let={broken_media} label="Book">
+            <%= broken_media.media.book.title %>
+          </:col>
+          <:col let={broken_media} label="Narrators" class="hidden sm:table-cell">
+            <%= for media_narrator <- broken_media.media.media_narrators do %>
+              <%= media_narrator.narrator.name %>
+            <% end %>
+          </:col>
+          <:actions let={broken_media}>
+            <div class="flex gap-2">
+              <div class="grow" />
+              <button phx-click="row-click" phx-value-id={broken_media.id}>
+                <FA.icon name="eye" class="w-4 h-4 fill-current" />
+              </button>
+            </div>
+          </:actions>
+        </Adc.admin_table>
       </div>
     <% end %>
   </div>

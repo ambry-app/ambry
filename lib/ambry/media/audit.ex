@@ -181,6 +181,7 @@ defmodule Ambry.Media.Audit do
 
     Enum.map(broken_media, fn broken_media ->
       %{
+        id: broken_media.id,
         media: Map.fetch!(broken_media_structs_by_id, broken_media.id),
         source?: broken_media.source?,
         mp4?: broken_media.mp4?,

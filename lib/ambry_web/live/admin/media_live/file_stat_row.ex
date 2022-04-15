@@ -6,6 +6,8 @@ defmodule AmbryWeb.Admin.MediaLive.FileStatRow do
   use AmbryWeb, :component
 
   def render(assigns) do
+    assigns = assign_new(assigns, :error_type, fn -> :error end)
+
     ~H"""
     <div class="p-2 flex">
       <div class="pr-2 w-28">

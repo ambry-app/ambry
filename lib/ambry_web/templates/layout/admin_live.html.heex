@@ -1,33 +1,33 @@
-<%= case live_flash(@flash, :info) do %>
-  <% nil -> %>
-  <% message -> %>
-    <div
-      phx-click="lv:clear-flash"
-      class="z-50 fixed max-w-lg top-24 right-10 shadow-lg p-4 cursor-pointer rounded-md bg-blue-100 border border-blue-200 flex items-center"
-    >
-      <p class="grow pr-2"><%= message %></p>
-
-      <svg class="flex-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
-        <path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z">
-        </path>
-      </svg>
-    </div>
+<%= if message = live_flash(@flash, :info) do %>
+  <div
+    phx-click="lv:clear-flash"
+    class="
+    z-50 fixed max-w-lg top-4 right-14
+    shadow-lg p-4 cursor-pointer rounded-md border
+    flex items-center
+    bg-blue-100 border-blue-200
+    dark:bg-blue-700 dark:border-blue-700
+    "
+  >
+    <p class="grow pr-2"><%= message %></p>
+    <FA.icon name="xmark" class="w-5 h-5 fill-current" />
+  </div>
 <% end %>
 
-<%= case live_flash(@flash, :error) do %>
-  <% nil -> %>
-  <% message -> %>
-    <div
-      phx-click="lv:clear-flash"
-      class="z-50 fixed max-w-lg top-24 right-10 shadow-lg p-4 cursor-pointer w-full rounded-md bg-red-100 border border-red-200 flex items-center"
-    >
-      <p class="grow pr-2"><%= message %></p>
-
-      <svg class="flex-none" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
-        <path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z">
-        </path>
-      </svg>
-    </div>
+<%= if message = live_flash(@flash, :error) do %>
+  <div
+    phx-click="lv:clear-flash"
+    class="
+    z-50 fixed max-w-lg top-4 right-14
+    shadow-lg p-4 cursor-pointer rounded-md border
+    flex items-center
+    bg-red-100 border-red-200
+    dark:bg-red-700 dark:border-red-700
+    "
+  >
+    <p class="grow pr-2"><%= message %></p>
+    <FA.icon name="xmark" class="w-5 h-5 fill-current" />
+  </div>
 <% end %>
 
 <div class="h-screen flex overflow-hidden" x-cloak x-data="{open: false}">

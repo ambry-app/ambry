@@ -20,7 +20,7 @@
   has_more={@has_more?}
   next_page={Routes.admin_book_index_path(@socket, :index, next_opts(@list_opts))}
   prev_page={Routes.admin_book_index_path(@socket, :index, prev_opts(@list_opts))}
-  new_path={Routes.admin_book_index_path(@socket, :new, prev_opts(@list_opts))}
+  new_path={Routes.admin_book_index_path(@socket, :new, patch_opts(@list_opts))}
   autofocus_search={@autofocus_search}
 />
 
