@@ -14,24 +14,26 @@
         <div class="space-y-2">
           <%= for series_book_form <- inputs_for(f, :series_books) do %>
             <%= hidden_inputs_for(series_book_form) %>
-            <div class="flex items-center">              
+            <div class="flex items-center">
               <.text_input form={series_book_form} field={:book_number} class="w-14 mr-2 flex-none" />
-              <.select
-                form={series_book_form}
-                field={:book_id}
-                prompt=""
-                options={@books}
-                class="grow"
-              />
+              <.select form={series_book_form} field={:book_id} prompt="" options={@books} class="grow" />
               <label class="ml-2 flex">
-                <%= checkbox series_book_form, :delete, [hidden_input: false, class: "peer hidden"] %>
-                <FA.icon name="trash" class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer" />
+                <%= checkbox(series_book_form, :delete, hidden_input: false, class: "peer hidden") %>
+                <FA.icon
+                  name="trash"
+                  class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer"
+                />
               </label>
             </div>
             <.form_field_error form={series_book_form} field={:book_number} />
             <.form_field_error form={series_book_form} field={:book_id} />
           <% end %>
-          <button type="button" phx-click="add-book" phx-target={@myself} class="pt-2 text-lime-500 hover:underline flex items-center">
+          <button
+            type="button"
+            phx-click="add-book"
+            phx-target={@myself}
+            class="pt-2 text-lime-500 hover:underline flex items-center"
+          >
             <span>Add book</span>
             <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
           </button>

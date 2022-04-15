@@ -25,10 +25,7 @@ defmodule AmbryWeb.Admin.Components do
       :class="{'translate-x-0 ease-in opacity-100':open === true, '-translate-x-full ease-out opacity-0': open === false}"
     >
       <div class="p-4 flex gap-3 items-center">
-        <span
-          class="cursor-pointer lg:hidden"
-          @click="open = false"
-        >
+        <span class="cursor-pointer lg:hidden" @click="open = false">
           <FA.icon name="bars" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
         </span>
         <.link link_type="live_redirect" to={Routes.admin_home_index_path(Endpoint, :index)} class="flex">
@@ -95,21 +92,14 @@ defmodule AmbryWeb.Admin.Components do
         </.link>
       </div>
       <div class="py-3">
-        <.link
-          link_type="live_redirect"
-          to={Routes.live_dashboard_path(Endpoint, :home)}
-          class={nav_class()}
-        >
+        <.link link_type="live_redirect" to={Routes.live_dashboard_path(Endpoint, :home)} class={nav_class()}>
           <FA.icon name="phoenix-framework" type="brands" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
           <p>Phoenix Dashboard</p>
         </.link>
       </div>
       <div class="py-3 absolute bottom-0 w-full">
         <.link link_type="live_redirect" to="/" class={nav_class()}>
-          <FA.icon
-            name="arrow-right-from-bracket"
-            class="w-6 h-6 lg:w-7 lg:h-7 fill-current scale-[-1]"
-          />
+          <FA.icon name="arrow-right-from-bracket" class="w-6 h-6 lg:w-7 lg:h-7 fill-current scale-[-1]" />
           <p>Exit Admin</p>
         </.link>
       </div>
@@ -133,25 +123,13 @@ defmodule AmbryWeb.Admin.Components do
       <span class="cursor-pointer lg:hidden" @click="open = true">
         <FA.icon name="bars" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
       </span>
-      <.link
-        link_type="live_redirect"
-        to={Routes.admin_home_index_path(Endpoint, :index)}
-        class="flex lg:hidden"
-      >
+      <.link link_type="live_redirect" to={Routes.admin_home_index_path(Endpoint, :index)} class="flex lg:hidden">
         <Amc.ambry_icon class="w-6 h-6 lg:w-7 lg:h-7" />
         <Amc.ambry_title class="h-6 lg:h-7 hidden sm:block" />
       </.link>
       <div class="flex-grow text-2xl font-bold pl-0 sm:pl-4 lg:pl-0"><%= @title %></div>
-      <div
-        x-data="{ open: false }"
-        @click.outside="open = false"
-        @keydown.escape.window.prevent="open = false"
-      >
-        <img
-          @click="open = !open"
-          class="h-6 lg:w-7 lg:h-7 rounded-full cursor-pointer"
-          src={gravatar_url(@user.email)}
-        />
+      <div x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window.prevent="open = false">
+        <img @click="open = !open" class="h-6 lg:w-7 lg:h-7 rounded-full cursor-pointer" src={gravatar_url(@user.email)} />
         <Amc.admin_menu user={@user} />
       </div>
     </header>
@@ -164,9 +142,12 @@ defmodule AmbryWeb.Admin.Components do
       <.admin_table_search_form filter={@list_opts.filter} autofocus_search={@autofocus_search} />
       <div class="flex-grow" />
       <div class="px-2">
-        <.link link_type="live_patch" to={@new_path} class="flex items-center font-bold text-lime-500 dark:text-lime-400 hover:underline">
-          New
-          <FA.icon name="plus" class="w-4 h-4 fill-current ml-2" />
+        <.link
+          link_type="live_patch"
+          to={@new_path}
+          class="flex items-center font-bold text-lime-500 dark:text-lime-400 hover:underline"
+        >
+          New <FA.icon name="plus" class="w-4 h-4 fill-current ml-2" />
         </.link>
       </div>
       <div class="px-2">
@@ -244,11 +225,7 @@ defmodule AmbryWeb.Admin.Components do
             <%= for row <- @rows do %>
               <tr class="border-t border-gray-200 hover:bg-gray-200 dark:border-gray-800 dark:hover:bg-gray-700">
                 <%= for col <- @col do %>
-                  <td
-                    class={[col[:class], default_cell_class]}
-                    phx-click="row-click"
-                    phx-value-id={row.id}
-                  >
+                  <td class={[col[:class], default_cell_class]} phx-click="row-click" phx-value-id={row.id}>
                     <%= render_slot(col, row) %>
                   </td>
                 <% end %>

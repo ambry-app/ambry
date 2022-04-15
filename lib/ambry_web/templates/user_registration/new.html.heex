@@ -15,10 +15,7 @@
       </div>
 
       <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
-        <Amc.primary_link
-          label="Log in"
-          to={Routes.user_session_path(@conn, :new)}
-        />
+        <Amc.primary_link label="Log in" to={Routes.user_session_path(@conn, :new)} />
         <Amc.primary_button type="submit">
           Register
         </Amc.primary_button>

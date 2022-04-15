@@ -18,17 +18,21 @@
       <FA.icon name="arrow-left" class="w-5 h-5 fill-gray-500" />
     </span>
     <.form let={f} for={:search} phx-submit="search" phx-target={@myself} class="flex-grow">
-      <%=
-        search_input(f, :query,
-          id: "searchInput",
-          placeholder: "Search",
-          "x-effect": "$store.search.open ? $nextTick(() => focus()) : null",
-          "x-model": "$store.search.query",
-          class: "w-full bg-transparent border-0 focus:outline-none focus:ring-0 focus:border-0 placeholder:font-bold placeholder:text-gray-500"
-        )
-      %>
+      <%= search_input(f, :query,
+        id: "searchInput",
+        placeholder: "Search",
+        "x-effect": "$store.search.open ? $nextTick(() => focus()) : null",
+        "x-model": "$store.search.query",
+        class:
+          "w-full bg-transparent border-0 focus:outline-none focus:ring-0 focus:border-0 placeholder:font-bold placeholder:text-gray-500"
+      ) %>
     </.form>
-    <span @click="clear(); focus()" title="Clear" class="hidden mr-4 flex-none self-center cursor-pointer" :class="{ 'hidden': $store.search.query === '' }">
+    <span
+      @click="clear(); focus()"
+      title="Clear"
+      class="hidden mr-4 flex-none self-center cursor-pointer"
+      :class="{ 'hidden': $store.search.query === '' }"
+    >
       <FA.icon name="xmark" class="w-5 h-5 fill-gray-500" />
     </span>
   </div>

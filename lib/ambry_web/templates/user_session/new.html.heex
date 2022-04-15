@@ -9,10 +9,7 @@
         Welcome to Ambry! Please sign in to your account below.
         <%= if @user_registration_enabled do %>
           If you don't yet have an account, you can
-          <Amc.primary_link
-            label="register for one."
-            to={Routes.user_registration_path(@conn, :new)}
-          />
+          <Amc.primary_link label="register for one." to={Routes.user_registration_path(@conn, :new)} />
         <% end %>
       </p>
 
@@ -33,10 +30,7 @@
       </div>
 
       <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
-        <Amc.primary_link
-          label="Forgot your password?"
-          to={Routes.user_reset_password_path(@conn, :new)}
-        />
+        <Amc.primary_link label="Forgot your password?" to={Routes.user_reset_password_path(@conn, :new)} />
         <Amc.primary_button type="submit">
           Log in
         </Amc.primary_button>

@@ -27,7 +27,9 @@
         <.form let={f} for={@changeset} phx-submit="save">
           <div class="space-y-8">
             <div>
-              <p class="text-gray-500 italic m-2">Note: The email is only ever used to email password reset emails if needed, and only if emailing has been set up.</p>
+              <p class="text-gray-500 italic m-2">
+                Note: The email is only ever used to email password reset emails if needed, and only if emailing has been set up.
+              </p>
               <div>
                 <.text_input form={f} field={:email} placeholder="Email" />
               </div>
@@ -37,7 +39,9 @@
             </div>
 
             <div>
-              <p class="text-gray-500 italic m-2">Note: Your password needs to be at least 12 characters long, and contain at least one each of lower case, upper case, and special characters.</p>
+              <p class="text-gray-500 italic m-2">
+                Note: Your password needs to be at least 12 characters long, and contain at least one each of lower case, upper case, and special characters.
+              </p>
               <div>
                 <.password_input form={f} field={:password} placeholder="Password" />
               </div>

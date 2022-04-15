@@ -5,12 +5,7 @@
     <div class="space-y-4">
       <div class="space-y-2">
         <.form_label form={f} field={:book_id} />
-        <.select
-          form={f}
-          field={:book_id}
-          prompt=""
-          options={@books}
-        />
+        <.select form={f} field={:book_id} prompt="" options={@books} />
         <.form_field_error form={f} field={:book_id} />
       </div>
 
@@ -20,20 +15,23 @@
           <%= for media_narrator_form <- inputs_for(f, :media_narrators) do %>
             <%= hidden_inputs_for(media_narrator_form) %>
             <div class="flex items-center">
-              <.select
-                form={media_narrator_form}
-                field={:narrator_id}
-                prompt=""
-                options={@narrators}
-              />
+              <.select form={media_narrator_form} field={:narrator_id} prompt="" options={@narrators} />
               <label class="ml-2 flex">
-                <%= checkbox media_narrator_form, :delete, [hidden_input: false, class: "peer hidden"] %>
-                <FA.icon name="trash" class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer" />
+                <%= checkbox(media_narrator_form, :delete, hidden_input: false, class: "peer hidden") %>
+                <FA.icon
+                  name="trash"
+                  class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer"
+                />
               </label>
             </div>
             <.form_field_error form={media_narrator_form} field={:narrator_id} />
           <% end %>
-          <button type="button" phx-click="add-narrator" phx-target={@myself} class="pt-2 text-lime-500 hover:underline flex items-center">
+          <button
+            type="button"
+            phx-click="add-narrator"
+            phx-target={@myself}
+            class="pt-2 text-lime-500 hover:underline flex items-center"
+          >
             <span>Add narrator</span>
             <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
           </button>
@@ -72,7 +70,9 @@
                   phx-click="cancel-upload"
                   phx-value-ref={entry.ref}
                   phx-target={@myself}
-                >&times;</span>
+                >
+                  &times;
+                </span>
 
                 <%= for err <- upload_errors(@uploads.audio, entry) do %>
                   <p class="text-red-600"><%= error_to_string(err) %></p>
@@ -97,7 +97,11 @@
                 <FileStatRow.render label="source" file={%{path: @media.source_path, stat: error}} error_type={:warn} />
               <% source_files when is_list(source_files) -> %>
                 <%= if source_files == [] do %>
-                  <FileStatRow.render label="source" file={%{path: @media.source_path, stat: :empty}} error_type={:warn} />
+                  <FileStatRow.render
+                    label="source"
+                    file={%{path: @media.source_path, stat: :empty}}
+                    error_type={:warn}
+                  />
                 <% end %>
                 <%= for source_file <- source_files do %>
                   <FileStatRow.render label="source" file={source_file} error_type={:warn} />

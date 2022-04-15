@@ -21,8 +21,14 @@ defmodule AmbryWeb.Components do
 
     ~H"""
     <svg class={@class} version="1.1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-      <path d="m512 287.9-4e-3 112c-0.896 44.2-35.896 80.1-79.996 80.1-26.47 0-48-21.56-48-48.06v-127.84c0-26.5 21.5-48.1 48-48.1 10.83 0 20.91 2.723 30.3 6.678-12.6-103.58-100.2-182.55-206.3-182.55s-193.71 78.97-206.3 182.57c9.39-4 19.47-6.7 30.3-6.7 26.5 0 48 21.6 48 48.1v127.9c0 26.4-21.5 48-48 48-44.11 0-79.1-35.88-79.1-80.06l-0.9-111.94c0-141.2 114.8-256 256-256 140.9 0 256.5 114.56 256 255.36 0 0.2 0 0-2e-3 0.54451z" fill="currentColor"/>
-      <path d="m364 347v-138.86c0-12.782-10.366-23.143-23.143-23.143h-146.57c-25.563 0-46.286 20.723-46.286 46.286v154.29c0 25.563 20.723 46.286 46.286 46.286h154.29c8.5195 0 15.429-6.9091 15.429-14.995 0-5.6507-3.1855-10.376-7.7143-13.066v-39.227c4.725-4.6479 7.7143-10.723 7.7143-17.569zm-147.01-100.29h92.572c4.6768 0 8.1482 3.4714 8.1482 7.7143s-3.4714 7.7143-7.7143 7.7143h-93.006c-3.8089 0-7.2804-3.4714-7.2804-7.7143s3.4714-7.7143 7.2804-7.7143zm0 30.857h92.572c4.6768 0 8.1482 3.4714 8.1482 7.7143 0 4.2429-3.4714 7.7143-7.7143 7.7143h-93.006c-3.8089 0-7.2804-3.4714-7.2804-7.7143 0-4.2429 3.4714-7.7143 7.2804-7.7143zm116.15 123.43h-138.86c-8.5195 0-15.429-6.9091-15.429-15.429 0-8.5195 6.9091-15.429 15.429-15.429h138.86z" fill="currentColor"/>
+      <path
+        d="m512 287.9-4e-3 112c-0.896 44.2-35.896 80.1-79.996 80.1-26.47 0-48-21.56-48-48.06v-127.84c0-26.5 21.5-48.1 48-48.1 10.83 0 20.91 2.723 30.3 6.678-12.6-103.58-100.2-182.55-206.3-182.55s-193.71 78.97-206.3 182.57c9.39-4 19.47-6.7 30.3-6.7 26.5 0 48 21.6 48 48.1v127.9c0 26.4-21.5 48-48 48-44.11 0-79.1-35.88-79.1-80.06l-0.9-111.94c0-141.2 114.8-256 256-256 140.9 0 256.5 114.56 256 255.36 0 0.2 0 0-2e-3 0.54451z"
+        fill="currentColor"
+      />
+      <path
+        d="m364 347v-138.86c0-12.782-10.366-23.143-23.143-23.143h-146.57c-25.563 0-46.286 20.723-46.286 46.286v154.29c0 25.563 20.723 46.286 46.286 46.286h154.29c8.5195 0 15.429-6.9091 15.429-14.995 0-5.6507-3.1855-10.376-7.7143-13.066v-39.227c4.725-4.6479 7.7143-10.723 7.7143-17.569zm-147.01-100.29h92.572c4.6768 0 8.1482 3.4714 8.1482 7.7143s-3.4714 7.7143-7.7143 7.7143h-93.006c-3.8089 0-7.2804-3.4714-7.2804-7.7143s3.4714-7.7143 7.2804-7.7143zm0 30.857h92.572c4.6768 0 8.1482 3.4714 8.1482 7.7143 0 4.2429-3.4714 7.7143-7.7143 7.7143h-93.006c-3.8089 0-7.2804-3.4714-7.2804-7.7143 0-4.2429 3.4714-7.7143 7.2804-7.7143zm116.15 123.43h-138.86c-8.5195 0-15.429-6.9091-15.429-15.429 0-8.5195 6.9091-15.429 15.429-15.429h138.86z"
+        fill="currentColor"
+      />
     </svg>
     """
   end
@@ -35,12 +41,12 @@ defmodule AmbryWeb.Components do
     ~H"""
     <svg class={@class} version="1.1" viewBox="0 0 1536 512" xmlns="http://www.w3.org/2000/svg">
       <g fill="currentColor">
-        <path d="m283.08 388.31h-123.38l-24 91.692h-95.692l140-448h82.769l140.92 448h-96.615zm-103.69-75.385h83.692l-41.846-159.69z"/>
+        <path d="m283.08 388.31h-123.38l-24 91.692h-95.692l140-448h82.769l140.92 448h-96.615zm-103.69-75.385h83.692l-41.846-159.69z" />
         <g>
-          <path d="m533.4 146.87 62.92 240.93 62.691-240.93h87.859v333.13h-67.496v-90.147l6.1776-138.88-66.581 229.03h-45.76l-66.581-229.03 6.1775 138.88v90.147h-67.267v-333.13z"/>
-          <path d="m800.87 480v-333.13h102.96q52.166 0 79.165 23.338 27.227 23.109 27.227 67.953 0 25.397-11.211 43.701-11.211 18.304-30.659 26.77 22.422 6.4064 34.549 25.854 12.126 19.219 12.126 47.59 0 48.506-26.77 73.216-26.541 24.71-77.105 24.71zm67.267-144.83v89.003h43.014q18.075 0 27.456-11.211 9.3809-11.211 9.3809-31.803 0-44.845-32.49-45.989zm0-48.963h35.006q39.582 0 39.582-40.955 0-22.651-9.152-32.49t-29.744-9.8384h-35.693z"/>
-          <path d="m1164.7 358.28h-33.405v121.72h-67.267v-333.13h107.31q50.565 0 78.02 26.312 27.685 26.083 27.685 74.36 0 66.352-48.277 92.893l58.344 136.36v3.2032h-72.301zm-33.405-56.056h38.21q20.134 0 30.202-13.27 10.067-13.499 10.067-35.922 0-50.107-39.125-50.107h-39.354z"/>
-          <path d="m1412.7 296.5 50.107-149.63h73.216l-89.232 212.33v120.81h-68.182v-120.81l-89.461-212.33h73.216z"/>
+          <path d="m533.4 146.87 62.92 240.93 62.691-240.93h87.859v333.13h-67.496v-90.147l6.1776-138.88-66.581 229.03h-45.76l-66.581-229.03 6.1775 138.88v90.147h-67.267v-333.13z" />
+          <path d="m800.87 480v-333.13h102.96q52.166 0 79.165 23.338 27.227 23.109 27.227 67.953 0 25.397-11.211 43.701-11.211 18.304-30.659 26.77 22.422 6.4064 34.549 25.854 12.126 19.219 12.126 47.59 0 48.506-26.77 73.216-26.541 24.71-77.105 24.71zm67.267-144.83v89.003h43.014q18.075 0 27.456-11.211 9.3809-11.211 9.3809-31.803 0-44.845-32.49-45.989zm0-48.963h35.006q39.582 0 39.582-40.955 0-22.651-9.152-32.49t-29.744-9.8384h-35.693z" />
+          <path d="m1164.7 358.28h-33.405v121.72h-67.267v-333.13h107.31q50.565 0 78.02 26.312 27.685 26.083 27.685 74.36 0 66.352-48.277 92.893l58.344 136.36v3.2032h-72.301zm-33.405-56.056h38.21q20.134 0 30.202-13.27 10.067-13.499 10.067-35.922 0-50.107-39.125-50.107h-39.354z" />
+          <path d="m1412.7 296.5 50.107-149.63h73.216l-89.232 212.33v120.81h-68.182v-120.81l-89.461-212.33h73.216z" />
         </g>
       </g>
     </svg>
@@ -49,11 +55,7 @@ defmodule AmbryWeb.Components do
 
   def header(assigns) do
     ~H"""
-    <header
-      x-data
-      class="border-gray-100 dark:border-gray-900"
-      :class="{ 'border-b': $store.header.scrolled }"
-    >
+    <header x-data class="border-gray-100 dark:border-gray-900" :class="{ 'border-b': $store.header.scrolled }">
       <div class="p-4 flex text-gray-600 dark:text-gray-500">
         <div class="flex-1">
           <.link link_type="live_redirect" to="/" class="flex">
@@ -63,16 +65,30 @@ defmodule AmbryWeb.Components do
         </div>
         <div class="flex-1">
           <div class="flex justify-center gap-8 lg:gap-12">
-            <.link link_type="live_redirect" to={Routes.now_playing_index_path(Endpoint, :index)} class={nav_class(@active_path == "/")}>
+            <.link
+              link_type="live_redirect"
+              to={Routes.now_playing_index_path(Endpoint, :index)}
+              class={nav_class(@active_path == "/")}
+            >
               <span title="Now playing"><FA.icon name="circle-play" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
               <span class="hidden lg:block font-bold text-xl">Now Playing</span>
             </.link>
-            <.link link_type="live_redirect" to={Routes.library_home_path(Endpoint, :home)} class={nav_class(@active_path == "/library")}>
+            <.link
+              link_type="live_redirect"
+              to={Routes.library_home_path(Endpoint, :home)}
+              class={nav_class(@active_path == "/library")}
+            >
               <span title="Library"><FA.icon name="book-open" class="mt-1 w-6 h-6 lg:hidden fill-current" /></span>
               <span class="hidden lg:block font-bold text-xl">Library</span>
             </.link>
-            <span x-data @click="$nextTick(() => $store.search.open = true)" class={nav_class(false, "flex content-center gap-4 cursor-pointer")}>
-              <span title="Search"><FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 lg:w-5 lg:h-5 fill-current" /></span>
+            <span
+              x-data
+              @click="$nextTick(() => $store.search.open = true)"
+              class={nav_class(false, "flex content-center gap-4 cursor-pointer")}
+            >
+              <span title="Search">
+                <FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 lg:w-5 lg:h-5 fill-current" />
+              </span>
               <span class="hidden xl:block font-bold text-xl">Search</span>
             </span>
           </div>
@@ -80,11 +96,7 @@ defmodule AmbryWeb.Components do
         <div class="flex-1">
           <div class="flex">
             <div class="flex-grow" />
-            <div
-              x-data="{ open: false }"
-              @click.outside="open = false"
-              @keydown.escape.window.prevent="open = false"
-            >
+            <div x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window.prevent="open = false">
               <img
                 @click="open = !open"
                 class="mt-1 h-6 lg:w-7 lg:h-7 rounded-full cursor-pointer"
@@ -96,10 +108,7 @@ defmodule AmbryWeb.Components do
         </div>
       </div>
 
-      <.live_component
-        module={SearchBox}
-        id="search-box"
-      />
+      <.live_component module={SearchBox} id="search-box" />
     </header>
     """
   end
@@ -245,7 +254,9 @@ defmodule AmbryWeb.Components do
           class="h-[2px] group-hover:h-[4px] bg-lime-500 dark:bg-lime-400"
           :class="{ 'h-[4px]': dragging }"
           style={"width: #{progress_percent(@player_state)}%"}
-          :style={"$store.player.progress.percent ? `width: ${dragging ? percent : $store.player.progress.percent}%` : 'width: #{progress_percent(@player_state)}%'"}
+          :style={
+            "$store.player.progress.percent ? `width: ${dragging ? percent : $store.player.progress.percent}%` : 'width: #{progress_percent(@player_state)}%'"
+          }
         />
         <div
           class="absolute hidden group-hover:block bg-lime-500 dark:bg-lime-400 rounded-full w-[16px] h-[16px] top-[-6px] pointer-events-none"
@@ -295,7 +306,7 @@ defmodule AmbryWeb.Components do
           alpine_expression="formatTimecode($store.player.progress.real)"
           fallback={format_timecode(Decimal.div(@player_state.position, @player_state.playback_rate))}
         />
-        <span class="hidden sm:inline"> / </span>
+        <span class="hidden sm:inline">/</span>
         <span class="hidden sm:inline">
           <.alpine_value_with_fallback
             alpine_value="$store.player.duration.real"
@@ -371,19 +382,34 @@ defmodule AmbryWeb.Components do
           </div>
         </div>
         <div class="flex py-3 tabular-nums sm:text-lg">
-          <span @click="mediaPlayer.setPlaybackRate('1.0'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+          <span
+            @click="mediaPlayer.setPlaybackRate('1.0'); close()"
+            class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer"
+          >
             1.0x
           </span>
-          <span @click="mediaPlayer.setPlaybackRate('1.25'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+          <span
+            @click="mediaPlayer.setPlaybackRate('1.25'); close()"
+            class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer"
+          >
             1.25x
           </span>
-          <span @click="mediaPlayer.setPlaybackRate('1.5'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+          <span
+            @click="mediaPlayer.setPlaybackRate('1.5'); close()"
+            class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer"
+          >
             1.5x
           </span>
-          <span @click="mediaPlayer.setPlaybackRate('1.75'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+          <span
+            @click="mediaPlayer.setPlaybackRate('1.75'); close()"
+            class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer"
+          >
             1.75x
           </span>
-          <span @click="mediaPlayer.setPlaybackRate('2.0'); close()" class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer">
+          <span
+            @click="mediaPlayer.setPlaybackRate('2.0'); close()"
+            class="px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700 cursor-pointer"
+          >
             2.0x
           </span>
         </div>
@@ -395,8 +421,18 @@ defmodule AmbryWeb.Components do
   def logo_with_tagline(assigns) do
     ~H"""
     <h1 class="text-center">
-      <img class="mx-auto block dark:hidden" style="max-height: 128px;" alt="Ambry" src={Routes.static_path(Endpoint, "/images/logo_256x1056.svg")}>
-      <img class="mx-auto hidden dark:block" style="max-height: 128px;" alt="Ambry" src={Routes.static_path(Endpoint, "/images/logo_dark_256x1056.svg")}>
+      <img
+        class="mx-auto block dark:hidden"
+        style="max-height: 128px;"
+        alt="Ambry"
+        src={Routes.static_path(Endpoint, "/images/logo_256x1056.svg")}
+      />
+      <img
+        class="mx-auto hidden dark:block"
+        style="max-height: 128px;"
+        alt="Ambry"
+        src={Routes.static_path(Endpoint, "/images/logo_dark_256x1056.svg")}
+      />
       <span class="font-semibold text-gray-500 dark:text-gray-400">Personal Audiobook Streaming</span>
     </h1>
     """

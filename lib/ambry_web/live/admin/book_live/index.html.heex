@@ -28,7 +28,6 @@
   <:col let={book} label="Title">
     <%= book.title %>
   </:col>
-
   <:col let={book} label="Authors" class="hidden sm:table-cell">
     <%= for author <- book.authors do %>
       <%= author.name %>
@@ -38,25 +37,19 @@
       <br />
     <% end %>
   </:col>
-
   <:col let={book} label="Series" class="hidden md:table-cell">
     <%= for series <- book.series do %>
       <%= series %>
       <br />
     <% end %>
   </:col>
-
   <:col let={book} label="Published">
     <%= book.published %>
   </:col>
-
   <:actions let={book}>
     <div class="flex gap-2">
       <div class="grow" />
-      <.link
-        link_type="live_patch"
-        to={Routes.admin_book_index_path(@socket, :edit, book, patch_opts(@list_opts))}
-      >
+      <.link link_type="live_patch" to={Routes.admin_book_index_path(@socket, :edit, book, patch_opts(@list_opts))}>
         <FA.icon name="pencil" class="w-4 h-4 fill-current" />
       </.link>
       <span phx-click="delete" phx-value-id={book.id} data-confirm="Are you sure?">
@@ -64,7 +57,6 @@
       </span>
     </div>
   </:actions>
-
   <:no_results>
     <span class="font-semibold text-lg">
       <%= if @list_opts.filter do %>

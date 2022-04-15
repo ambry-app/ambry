@@ -28,7 +28,6 @@
   <:col let={person} label="Name">
     <%= person.name %>
   </:col>
-
   <:col let={person} label="Author?">
     <%= if person.is_author do %>
       <FA.icon name="check" class="w-5 h-5 fill-current" />
@@ -36,7 +35,6 @@
       <FA.icon name="xmark" class="w-5 h-5 fill-current" />
     <% end %>
   </:col>
-
   <:col let={person} label="Narrator?">
     <%= if person.is_narrator do %>
       <FA.icon name="check" class="w-5 h-5 fill-current" />
@@ -44,28 +42,21 @@
       <FA.icon name="xmark" class="w-5 h-5 fill-current" />
     <% end %>
   </:col>
-
   <:col let={person} label="# Authored Books" class="hidden sm:table-cell">
     <%= person.authored_books %>
   </:col>
-
   <:col let={person} label="# Narrated Media" class="hidden sm:table-cell">
     <%= person.narrated_media %>
   </:col>
-
   <:col let={person} label="AKA" class="hidden md:table-cell">
     <%= (person.writing_as ++ person.narrating_as)
     |> Enum.filter(&(&1 != person.name))
     |> Enum.join(", ") %>
   </:col>
-
   <:actions let={person}>
     <div class="flex gap-2">
       <div class="grow" />
-      <.link
-        link_type="live_patch"
-        to={Routes.admin_person_index_path(@socket, :edit, person, patch_opts(@list_opts))}
-      >
+      <.link link_type="live_patch" to={Routes.admin_person_index_path(@socket, :edit, person, patch_opts(@list_opts))}>
         <FA.icon name="pencil" class="w-4 h-4 fill-current" />
       </.link>
       <span phx-click="delete" phx-value-id={person.id} data-confirm="Are you sure?">
@@ -73,7 +64,6 @@
       </span>
     </div>
   </:actions>
-
   <:no_results>
     <span class="font-semibold text-lg">
       <%= if @list_opts.filter do %>

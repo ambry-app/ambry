@@ -23,13 +23,21 @@
             <div class="flex items-center">
               <.text_input form={author_form} field={:name} placeholder="Name" />
               <label class="ml-2 flex">
-                <%= checkbox author_form, :delete, [hidden_input: false, class: "peer hidden"] %>
-                <FA.icon name="trash" class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer" />
+                <%= checkbox(author_form, :delete, hidden_input: false, class: "peer hidden") %>
+                <FA.icon
+                  name="trash"
+                  class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer"
+                />
               </label>
             </div>
             <.form_field_error form={author_form} field={:name} />
           <% end %>
-          <button type="button" phx-click="add-author" phx-target={@myself} class="pt-2 text-lime-500 hover:underline flex items-center">
+          <button
+            type="button"
+            phx-click="add-author"
+            phx-target={@myself}
+            class="pt-2 text-lime-500 hover:underline flex items-center"
+          >
             <span>Add author</span>
             <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
           </button>
@@ -44,13 +52,21 @@
             <div class="flex items-center">
               <.text_input form={narrator_form} field={:name} placeholder="Name" />
               <label class="ml-2 flex">
-                <%= checkbox narrator_form, :delete, [hidden_input: false, class: "peer hidden"] %>
-                <FA.icon name="trash" class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer" />
+                <%= checkbox(narrator_form, :delete, hidden_input: false, class: "peer hidden") %>
+                <FA.icon
+                  name="trash"
+                  class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer"
+                />
               </label>
             </div>
             <.form_field_error form={narrator_form} field={:name} />
           <% end %>
-          <button type="button" phx-click="add-narrator" phx-target={@myself} class="pt-2 text-lime-500 hover:underline flex items-center">
+          <button
+            type="button"
+            phx-click="add-narrator"
+            phx-target={@myself}
+            class="pt-2 text-lime-500 hover:underline flex items-center"
+          >
             <span>Add narrator</span>
             <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
           </button>
@@ -60,7 +76,7 @@
       <%= if @person.image_path do %>
         <div>
           <.form_label label="Current image" />
-          <img src={@person.image_path} class="rounded-full shadow-lg object-cover object-top h-40 w-40">
+          <img src={@person.image_path} class="rounded-full shadow-lg object-cover object-top h-40 w-40" />
         </div>
       <% end %>
 
@@ -86,7 +102,9 @@
                 phx-click="cancel-upload"
                 phx-value-ref={entry.ref}
                 phx-target={@myself}
-              >&times;</span>
+              >
+                &times;
+              </span>
 
               <%= for err <- upload_errors(@uploads.image, entry) do %>
                 <p class="text-red-600"><%= error_to_string(err) %></p>

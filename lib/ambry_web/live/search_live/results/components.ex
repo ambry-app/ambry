@@ -79,8 +79,7 @@ defmodule AmbryWeb.SearchLive.Results.Components do
           <.link link_type="live_redirect" to={Routes.person_show_path(Endpoint, :show, @person)}>
             <%= @name %>
             <%= if @name != @person.name do %>
-              <br>
-              (<%= @person.name %>)
+              <br /> (<%= @person.name %>)
             <% end %>
           </.link>
         </p>

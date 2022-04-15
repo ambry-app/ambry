@@ -81,12 +81,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
         </div>
 
         <div class="hidden" :class="{ hidden: tab !== 'bookmarks' }">
-          <.live_component
-            id="bookmarks"
-            module={Bookmarks}
-            media={@media}
-            user={@user}
-          />
+          <.live_component id="bookmarks" module={Bookmarks} media={@media} user={@user} />
         </div>
 
         <div class="hidden" :class="{ hidden: tab !== 'about' }">
@@ -127,7 +122,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
       <table class="w-full">
         <%= for {chapter, id} <- Enum.with_index(@chapters) do %>
           <tr
-            class={"cursor-pointer"}
+            class="cursor-pointer"
             :class={"$store.player.currentChapter?.id === #{id} ? 'bg-gray-50 dark:bg-gray-900' : ''"}
             @click={"mediaPlayer.seek(#{chapter.time})"}
           >
