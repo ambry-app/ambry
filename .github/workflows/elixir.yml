@@ -9,8 +9,8 @@ on:
 env:
   MIX_ENV: test
   # NOTE: make sure these versions match in Dockerfile
-  ELIXIR_VERSION_SPEC: "1.13.3"
-  OTP_VERSION_SPEC: "24.2.2"
+  ELIXIR_VERSION_SPEC: "1.13.4"
+  OTP_VERSION_SPEC: "24.3.3"
 
 jobs:
   compile:
