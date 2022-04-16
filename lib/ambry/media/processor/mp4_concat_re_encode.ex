@@ -1,7 +1,7 @@
-defmodule Ambry.Media.Processor.MP4Concat do
+defmodule Ambry.Media.Processor.MP4ConcatReEncode do
   @moduledoc """
-  A media processor that concatenates a collection of MP4 files and then
-  converts them to dash & hls streaming format.
+  A media processor that concatenates a collection of MP4 files, re-encodes
+  them, and then converts them to dash & hls streaming format.
   """
 
   import Ambry.Media.Processor.Shared
@@ -11,7 +11,7 @@ defmodule Ambry.Media.Processor.MP4Concat do
   @extensions ~w(.mp4 .m4a .m4b)
 
   def name do
-    "MP4 Concat As-is"
+    "MP4 Concat Re-encode"
   end
 
   def can_run?(%Media{} = media) do
@@ -42,8 +42,6 @@ defmodule Ambry.Media.Processor.MP4Concat do
       "-i",
       "files.txt",
       "-vn",
-      "-acodec",
-      "copy",
       "#{id}.mp4"
     ]
 

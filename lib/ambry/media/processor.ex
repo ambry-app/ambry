@@ -8,13 +8,14 @@ defmodule Ambry.Media.Processor do
   import Ambry.Media.Processor.Shared, only: [out_path: 1]
 
   alias Ambry.Media
-  alias Ambry.Media.Processor.{MP3, MP3Concat, MP4, MP4Concat, MP4ReEncode}
+  alias Ambry.Media.Processor.{MP3, MP3Concat, MP4, MP4Concat, MP4ConcatReEncode, MP4ReEncode}
 
   @processors [
     MP3,
     MP3Concat,
     MP4,
     MP4Concat,
+    MP4ConcatReEncode,
     MP4ReEncode
   ]
 
