@@ -1,6 +1,7 @@
-# ![ambry](https://raw.githubusercontent.com/doughsay/ambry/main/priv/static/images/logo_256x1056.svg)
-
-> Personal Audiobook Streaming
+<p align="center">
+  <img width="501" height="112" src="branding/logo_light.png#gh-light-mode-only">
+  <img width="501" height="112" src="branding/logo_dark.png#gh-dark-mode-only">
+</p>
 
 ## Intro
 
@@ -18,10 +19,10 @@ You need to provide a `postgresql` database and configure the image to find it.
 
 You need to provide a few required environment variables to get started:
 
--   `DATABASE_URL` - A postgresql URL. e.g. `postgresql://username:password@host/database_name`
--   `SECRET_KEY_BASE` - A secret key string of at least 64 bytes.
--   `BASE_URL` - The url at which you will be serving Ambry. e.g. `https://ambry.mydomain.com`
--   `PORT` - The port you wish the server to listen on. e.g. `80`
+- `DATABASE_URL` - A postgresql URL. e.g. `postgresql://username:password@host/database_name`
+- `SECRET_KEY_BASE` - A secret key string of at least 64 bytes.
+- `BASE_URL` - The url at which you will be serving Ambry. e.g. `https://ambry.mydomain.com`
+- `PORT` - The port you wish the server to listen on. e.g. `80`
 
 Below is an example `docker-compose.yml` file that could be used to run ambry
 and the required postgresql database:
@@ -60,11 +61,11 @@ volumes:
 
 Once the server is running, you have to first create an account. The account registration link is hidden, so you have to manually type in the address:
 
--   `http(s)://your-ambry-domain/users/register`
+- `http(s)://your-ambry-domain/users/register`
 
 Once you have an account you can log in, but it will be empty. To create authors, narrators, books and to upload audio files, you need to visit the admin section and your user account must also be an admin user. Currently, there is no way to create an admin user. The only way to achieve this right now is to manually flip the `admin` boolean on your user account record in the `users` table of the postgres database. Once you are an admin you can visit:
 
--   `http(s)://your-ambry-domain/admin/people`
+- `http(s)://your-ambry-domain/admin/people`
 
 ## Local development
 
@@ -72,11 +73,11 @@ Ambry is a Phoenix LiveView application, so to run the server on your machine fo
 
 ### Requirements
 
--   A `postgresql` server running on localhost (you can customize the details in `./config/dev.exs`)
--   Elixir 1.12.x and Erlang/OTP 24.x installed
--   Nodejs 16.x installed
--   ffmpeg installed
--   [shaka-packager](https://github.com/google/shaka-packager) installed
+- A `postgresql` server running on localhost (you can customize the details in `./config/dev.exs`)
+- Elixir 1.12.x and Erlang/OTP 24.x installed
+- Nodejs 16.x installed
+- ffmpeg installed
+- [shaka-packager](https://github.com/google/shaka-packager) installed
 
 ```bash
 # download hex dependencies
