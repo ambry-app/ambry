@@ -11,7 +11,7 @@ defmodule Ambry.Media.Chapters.MP4 do
   @extensions ~w(.mp4 .m4a .m4b)
 
   def name do
-    "Single MP4 ffprobe"
+    "Single MP4"
   end
 
   def available?(media) do
