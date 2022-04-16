@@ -1,0 +1,24 @@
+<div phx-window-keydown="close" phx-key="escape" phx-target={@myself} class="fixed z-50 inset-0 overflow-y-auto">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 bg-gray-500/75 dark:bg-gray-800/75" />
+
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+    <div
+      phx-click-away="close"
+      phx-target={@myself}
+      class="inline-block align-bottom bg-white dark:bg-black rounded-lg text-left overflow-hidden shadow-xl transform sm:my-8 sm:align-middle sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl 2xl:max-w-5xl w-full"
+    >
+      <div class="flex px-2 text-3xl">
+        <span class="grow" />
+        <.link link_type="live_patch" to={@return_to} class="hover:text-red-600 transition-colors">
+          &times;
+        </.link>
+      </div>
+
+      <div class="bg-white dark:bg-black px-4 p-0 sm:px-6">
+        <%= render_slot(@inner_block) %>
+      </div>
+    </div>
+  </div>
+</div>

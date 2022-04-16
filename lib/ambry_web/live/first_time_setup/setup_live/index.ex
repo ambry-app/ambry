@@ -5,25 +5,15 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive.Index do
   Helps create the first admin user when launching the server for the first time.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :guest_live_view
 
   alias Ambry.Accounts
-
-  alias Surface.Components.Form
-
-  alias Surface.Components.Form.{
-    ErrorTag,
-    Field,
-    PasswordInput,
-    Submit,
-    TextInput
-  }
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     cond do
       !Application.get_env(:ambry, :first_time_setup, false) ->
-        {:ok, push_redirect(socket, to: Routes.home_home_path(socket, :home))}
+        {:ok, push_redirect(socket, to: Routes.now_playing_index_path(socket, :index))}
 
       Accounts.admin_exists?() ->
         {:ok, assign(socket, :state, :admin_exists)}

@@ -3,20 +3,16 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
   LiveView for audit admin interface.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :admin_live_view
 
   alias Ambry.{FileUtils, Media}
 
-  alias AmbryWeb.Admin.Components.AdminNav
-
-  alias Surface.Components.LiveRedirect
-
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
-  on_mount {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user}
-
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :page_title, "Auditing Media")}
+    {:ok,
+     socket
+     |> assign(:header_title, "File Audit")
+     |> assign(:page_title, "File Audit")}
   end
 
   @impl Phoenix.LiveView
@@ -76,6 +72,13 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
       {:error, posix, path} ->
         {:noreply, put_flash(socket, :error, "Unable to delete file/folder (#{posix}): #{path}")}
     end
+  end
+
+  def handle_event("row-click", %{"id" => media_id}, socket) do
+    {:noreply,
+     push_redirect(socket,
+       to: Routes.admin_media_index_path(socket, :edit, media_id)
+     )}
   end
 
   defp format_filesize(size) do

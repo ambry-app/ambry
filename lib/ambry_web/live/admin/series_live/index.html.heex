@@ -1,0 +1,70 @@
+<%= if @live_action in [:new, :edit] do %>
+  <.live_component
+    module={Amc.Modal}
+    id={@selected_series.id || :new}
+    return_to={Routes.admin_series_index_path(@socket, :index, patch_opts(@list_opts))}
+  >
+    <.live_component
+      module={FormComponent}
+      id={@selected_series.id || :new}
+      title={@page_title}
+      action={@live_action}
+      series={@selected_series}
+      return_to={Routes.admin_series_index_path(@socket, :index, patch_opts(@list_opts))}
+    />
+  </.live_component>
+<% end %>
+
+<Adc.admin_table_header
+  list_opts={@list_opts}
+  has_more={@has_more?}
+  next_page={Routes.admin_series_index_path(@socket, :index, next_opts(@list_opts))}
+  prev_page={Routes.admin_series_index_path(@socket, :index, prev_opts(@list_opts))}
+  new_path={Routes.admin_series_index_path(@socket, :new, patch_opts(@list_opts))}
+  autofocus_search={@autofocus_search}
+/>
+
+<Adc.admin_table rows={@series}>
+  <:col let={series} label="Name">
+    <%= series.name %>
+  </:col>
+  <:col let={series} label="Authors" class="hidden sm:table-cell">
+    <%= for author <- series.authors do %>
+      <%= author.name %>
+      <%= if author.name != author.person_name do %>
+        (<%= author.person_name %>)
+      <% end %>
+      <br />
+    <% end %>
+  </:col>
+  <:col let={series} label="# Books">
+    <%= series.books %>
+  </:col>
+  <:actions let={series}>
+    <div class="flex gap-2">
+      <div class="grow" />
+      <.link link_type="live_patch" to={Routes.admin_series_index_path(@socket, :edit, series, patch_opts(@list_opts))}>
+        <FA.icon name="pencil" class="w-4 h-4 fill-current" />
+      </.link>
+      <span phx-click="delete" phx-value-id={series.id} data-confirm="Are you sure?">
+        <FA.icon name="trash" class="w-4 h-4 fill-current text-red-600" />
+      </span>
+    </div>
+  </:actions>
+  <:no_results>
+    <span class="font-semibold text-lg">
+      <%= if @list_opts.filter do %>
+        No results for "<%= @list_opts.filter %>"
+      <% else %>
+        No series yet.
+        <.link
+          link_type="live_patch"
+          class="text-lime-500 dark:text-lime-400 hover:underline"
+          to={Routes.admin_series_index_path(@socket, :new, patch_opts(@list_opts))}
+        >
+          Create one.
+        </.link>
+      <% end %>
+    </span>
+  </:no_results>
+</Adc.admin_table>

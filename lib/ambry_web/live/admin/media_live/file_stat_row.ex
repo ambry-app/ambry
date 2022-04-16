@@ -5,48 +5,38 @@ defmodule AmbryWeb.Admin.MediaLive.FileStatRow do
 
   use AmbryWeb, :component
 
-  prop label, :string, required: true
-  prop file, :any, required: true
-  prop error_type, :atom, default: :error
-
   def render(assigns) do
-    ~F"""
+    assigns = assign_new(assigns, :error_type, fn -> :error end)
+
+    ~H"""
     <div class="p-2 flex">
       <div class="pr-2 w-28">
-        <span class="px-1 border border-gray-200 rounded-md bg-gray-50">
-          {@label}
-        </span>
+        <Adc.admin_badge label={@label} color="gray" />
       </div>
-      {#if @file}
+      <%= if @file do %>
         <div class="grow break-all pr-2">
-          {@file.path}
+          <%= @file.path %>
         </div>
         <div class="shrink">
-          {#case @file.stat}
-            {#match error when is_atom(error)}
-              <span class={"px-1 border rounded-md " <> classes_for_error_type(@error_type)}>
-                {error}
-              </span>
-            {#match stat when is_map(stat)}
-              <span class="px-1 border border-blue-200 rounded-md bg-blue-50 whitespace-nowrap">
-                {format_filesize(stat.size)}
-              </span>
-          {/case}
+          <%= case @file.stat do %>
+            <% error when is_atom(error) -> %>
+              <Adc.admin_badge label={error} color={color_for_error_type(@error_type)} />
+            <% stat when is_map(stat) -> %>
+              <Adc.admin_badge label={format_filesize(stat.size)} color="blue" />
+          <% end %>
         </div>
-      {#else}
+      <% else %>
         <div class="grow" />
         <div class="shrink">
-          <span class="px-1 border border-red-200 rounded-md bg-red-50">
-            nil
-          </span>
+          <Adc.admin_badge label="nil" color="red" />
         </div>
-      {/if}
+      <% end %>
     </div>
     """
   end
 
-  defp classes_for_error_type(:error), do: "border-red-200 bg-red-50"
-  defp classes_for_error_type(:warn), do: "border-yellow-200 bg-yellow-50"
+  defp color_for_error_type(:error), do: "red"
+  defp color_for_error_type(:warn), do: "yellow"
 
   defp format_filesize(bytes) do
     bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()

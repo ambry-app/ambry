@@ -6,52 +6,65 @@ defmodule Ambry.People do
   import Ambry.FileUtils
   import Ecto.Query
 
-  alias Ambry.People.Person
+  alias Ambry.People.{Person, PersonFlat}
   alias Ambry.Repo
 
   @doc """
   Returns a limited list of people and whether or not there are more.
 
   By default, it will limit to the first 10 results. Supply `offset` and `limit`
-  to change this. Also can optionally filter by the given `filter` string.
+  to change this. You can also optionally filter by giving a map with these
+  supported keys:
+
+    * `:search` - String: full-text search on names and aliases.
+    * `:is_author` - Boolean.
+    * `:is_narrator` - Boolean.
+
+  `order` should be a valid atom key, or a tuple like `{:name, :desc}`.
 
   ## Examples
 
       iex> list_people()
-      {[%Person{}, ...], true}
+      {[%PersonFlat{}, ...], true}
 
   """
-  def list_people(offset \\ 0, limit \\ 10, filter \\ nil) do
+  def list_people(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ :name) do
     over_limit = limit + 1
-    query = from p in Person, offset: ^offset, limit: ^over_limit, order_by: :name
 
-    query =
-      if filter do
-        name_query = "%#{filter}%"
+    people =
+      offset
+      |> PersonFlat.paginate(over_limit)
+      |> PersonFlat.filter(filters)
+      |> PersonFlat.order(order)
+      |> Repo.all()
 
-        from p in query, where: ilike(p.name, ^name_query)
-      else
-        query
-      end
-
-    people = Repo.all(query)
     people_to_return = Enum.slice(people, 0, limit)
 
     {people_to_return, people != people_to_return}
   end
 
   @doc """
-  Returns the number of people (authors, narrators, etc.)
+  Returns the number of people (authors & narrators).
+
+  Note that `total` will not always be `authors` + `narrators`, because people
+  are sometimes both.
 
   ## Examples
 
       iex> count_people()
-      1
+      %{authors: 3, narrators: 2, total: 4}
 
   """
-  @spec count_people :: integer()
+  @spec count_people :: %{total: integer(), authors: integer(), narrators: integer()}
   def count_people do
-    Repo.one(from p in Person, select: count(p.id))
+    Repo.one(
+      from p in PersonFlat,
+        select: %{
+          total: count(p.id),
+          authors: count(fragment("CASE WHEN ? THEN 1 END", p.is_author)),
+          narrators: count(fragment("CASE WHEN ? THEN 1 END", p.is_narrator))
+        }
+    )
   end
 
   @doc """

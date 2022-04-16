@@ -1,0 +1,80 @@
+<div class="
+    p-4 md:p-6 lg:p-8
+    mx-auto max-w-md sm:max-w-none md:max-w-screen-2xl
+  ">
+  <div class="sm:flex sm:flex-row justify-center">
+    <section id="cover" class="flex-none mb-4 sm:mb-0 sm:w-80">
+      <div class="mb-8 sm:hidden">
+        <.header book={@book} />
+      </div>
+      <img
+        src={@book.image_path}
+        class="rounded-lg shadow-md w-full sm:w-80 border border-gray-200 dark:border-gray-900"
+      />
+      <p class="text-gray-500 mt-2 text-sm">
+        Published <%= Calendar.strftime(@book.published, "%B %-d, %Y") %>
+      </p>
+      <%= if @book.media != [] do %>
+        <h2 class="text-2xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">
+          Recordings
+        </h2>
+        <div class="
+            shadow-md px-3
+            text-gray-800 dark:text-gray-200
+            bg-gray-50 dark:bg-gray-900
+            rounded-sm border border-gray-200 dark:border-gray-800
+            divide-y divide-gray-300 dark:divide-gray-800
+          ">
+          <%= for media <- @book.media do %>
+            <div class="flex items-center py-3 space-x-2">
+              <div class="grow">
+                <p>
+                  <span>
+                    Narrated by <Amc.people_links people={media.narrators} />
+                    <%= if media.full_cast do %>
+                      <span>full cast</span>
+                    <% end %>
+                  </span>
+                  <%= if media.abridged do %>
+                    <span>(Abridged)</span>
+                  <% end %>
+                </p>
+                <p class="text-gray-600 dark:text-gray-400">
+                  <%= duration_display(media.duration) %>
+                </p>
+              </div>
+              <div
+                x-data={"{
+                  id: #{media.id},
+                  loaded: false
+                }"}
+                x-effect="$store.player.mediaId == id ? loaded = true : loaded = false"
+                @click={"loaded ? mediaPlayer.playPause() : mediaPlayer.loadAndPlayMedia(#{media.id})"}
+                class="cursor-pointer fill-current"
+              >
+                <span :class="{ hidden: loaded && $store.player.playing }">
+                  <FA.icon name="play" class="w-7 h-7" />
+                </span>
+                <span class="hidden" :class="{ hidden: !loaded || !$store.player.playing }">
+                  <FA.icon name="pause" class="w-7 h-7" />
+                </span>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="mt-4 font-bold">Sorry, there are no recordings uploaded for this book.</p>
+      <% end %>
+    </section>
+    <section id="description" class="max-w-md sm:ml-10">
+      <div class="hidden sm:block">
+        <.header book={@book} />
+      </div>
+      <%= if @book.description do %>
+        <div class="markdown mt-4">
+          <%= raw(Earmark.as_html!(@book.description)) %>
+        </div>
+      <% end %>
+    </section>
+  </div>
+</div>

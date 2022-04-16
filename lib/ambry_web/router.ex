@@ -37,6 +37,10 @@ defmodule AmbryWeb.Router do
     plug :fetch_api_user
   end
 
+  pipeline :admin do
+    plug :put_root_layout, {AmbryWeb.LayoutView, "admin_root.html"}
+  end
+
   scope "/uploads", AmbryWeb do
     pipe_through :uploads
 
@@ -46,36 +50,51 @@ defmodule AmbryWeb.Router do
   scope "/", AmbryWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    live "/", HomeLive.Home, :home
-    live "/people/:id", PersonLive.Show, :show
-    live "/series/:id", SeriesLive.Show, :show
-    live "/books/:id", BookLive.Show, :show
-    live "/search/:query", SearchLive.Results, :results
+    live_session :user,
+      on_mount: [
+        {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user},
+        AmbryWeb.NavHooks,
+        AmbryWeb.PlayerStateHooks
+      ] do
+      live "/", NowPlayingLive.Index, :index
+      live "/library", LibraryLive.Home, :home
+      live "/people/:id", PersonLive.Show, :show
+      live "/series/:id", SeriesLive.Show, :show
+      live "/books/:id", BookLive.Show, :show
+      live "/search/:query", SearchLive.Results, :results
+    end
   end
 
   scope "/admin", AmbryWeb.Admin, as: :admin do
-    pipe_through [:browser, :require_authenticated_user, :require_admin]
+    pipe_through [:browser, :require_authenticated_user, :require_admin, :admin]
 
-    live "/", HomeLive.Index, :index
+    live_session :admin,
+      on_mount: [
+        {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user},
+        {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user},
+        AmbryWeb.Admin.NavHooks
+      ] do
+      live "/", HomeLive.Index, :index
 
-    live "/people", PersonLive.Index, :index
-    live "/people/new", PersonLive.Index, :new
-    live "/people/:id/edit", PersonLive.Index, :edit
+      live "/people", PersonLive.Index, :index
+      live "/people/new", PersonLive.Index, :new
+      live "/people/:id/edit", PersonLive.Index, :edit
 
-    live "/books", BookLive.Index, :index
-    live "/books/new", BookLive.Index, :new
-    live "/books/:id/edit", BookLive.Index, :edit
+      live "/books", BookLive.Index, :index
+      live "/books/new", BookLive.Index, :new
+      live "/books/:id/edit", BookLive.Index, :edit
 
-    live "/series", SeriesLive.Index, :index
-    live "/series/new", SeriesLive.Index, :new
-    live "/series/:id/edit", SeriesLive.Index, :edit
+      live "/series", SeriesLive.Index, :index
+      live "/series/new", SeriesLive.Index, :new
+      live "/series/:id/edit", SeriesLive.Index, :edit
 
-    live "/media", MediaLive.Index, :index
-    live "/media/new", MediaLive.Index, :new
-    live "/media/:id/edit", MediaLive.Index, :edit
-    live "/media/:id/chapters", MediaLive.Index, :chapters
+      live "/media", MediaLive.Index, :index
+      live "/media/new", MediaLive.Index, :new
+      live "/media/:id/edit", MediaLive.Index, :edit
+      live "/media/:id/chapters", MediaLive.Index, :chapters
 
-    live "/audit", AuditLive.Index, :index
+      live "/audit", AuditLive.Index, :index
+    end
 
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
   end

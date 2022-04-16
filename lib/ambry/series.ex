@@ -7,7 +7,7 @@ defmodule Ambry.Series do
   import Ecto.Query
 
   alias Ambry.Repo
-  alias Ambry.Series.{Series, SeriesBook}
+  alias Ambry.Series.{Series, SeriesBook, SeriesFlat}
 
   @doc """
   Returns a limited list of series and whether or not there are more.
@@ -18,28 +18,19 @@ defmodule Ambry.Series do
   ## Examples
 
       iex> list_series()
-      {[%Series{}, ...], true}
+      {[%SeriesFlat{}, ...], true}
 
   """
-  def list_series(offset \\ 0, limit \\ 10, filter \\ nil) do
+  def list_series(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :name]) do
     over_limit = limit + 1
 
-    query =
-      from s in Series,
-        offset: ^offset,
-        limit: ^over_limit,
-        order_by: :name
+    series =
+      offset
+      |> SeriesFlat.paginate(over_limit)
+      |> SeriesFlat.filter(filters)
+      |> SeriesFlat.order(order)
+      |> Repo.all()
 
-    query =
-      if filter do
-        name_query = "%#{filter}%"
-
-        from s in query, where: ilike(s.name, ^name_query)
-      else
-        query
-      end
-
-    series = Repo.all(query)
     series_to_return = Enum.slice(series, 0, limit)
 
     {series_to_return, series != series_to_return}

@@ -9,27 +9,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   alias Ambry.{Books, Media, Narrators}
   alias Ambry.Media.{Processor, ProcessorJob}
-  alias AmbryWeb.Admin.Components.SaveButton
   alias AmbryWeb.Admin.MediaLive.FileStatRow
-
-  alias Surface.Components.{Form, LiveFileInput}
-
-  alias Surface.Components.Form.{
-    Checkbox,
-    ErrorTag,
-    Field,
-    HiddenInputs,
-    Inputs,
-    Label,
-    Select
-  }
-
-  prop title, :string, required: true
-  prop media, :any, required: true
-  prop action, :atom, required: true
-  prop return_to, :string, required: true
-
-  data file_stats, :any
 
   @impl Phoenix.LiveComponent
   def mount(socket) do

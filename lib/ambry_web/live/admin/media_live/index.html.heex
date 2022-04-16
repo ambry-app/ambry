@@ -1,0 +1,124 @@
+<%= if @live_action in [:new, :edit] do %>
+  <.live_component
+    module={Amc.Modal}
+    id={@selected_media.id || :new}
+    return_to={Routes.admin_media_index_path(@socket, :index, patch_opts(@list_opts))}
+  >
+    <.live_component
+      module={FormComponent}
+      id={@selected_media.id || :new}
+      title={@page_title}
+      action={@live_action}
+      media={@selected_media}
+      return_to={Routes.admin_media_index_path(@socket, :index, patch_opts(@list_opts))}
+    />
+  </.live_component>
+<% end %>
+
+<%= if @live_action == :chapters do %>
+  <.live_component
+    module={Amc.Modal}
+    id={@selected_media.id}
+    return_to={Routes.admin_media_index_path(@socket, :index, patch_opts(@list_opts))}
+  >
+    <.live_component
+      module={ChaptersComponent}
+      id={@selected_media.id}
+      title={@page_title}
+      media={@selected_media}
+      return_to={Routes.admin_media_index_path(@socket, :index, patch_opts(@list_opts))}
+    />
+  </.live_component>
+<% end %>
+
+<Adc.admin_table_header
+  list_opts={@list_opts}
+  has_more={@has_more?}
+  next_page={Routes.admin_media_index_path(@socket, :index, next_opts(@list_opts))}
+  prev_page={Routes.admin_media_index_path(@socket, :index, prev_opts(@list_opts))}
+  new_path={Routes.admin_media_index_path(@socket, :new, patch_opts(@list_opts))}
+  autofocus_search={@autofocus_search}
+/>
+
+<Adc.admin_table rows={@media}>
+  <:col let={media} label="Status">
+    <Adc.admin_badge color={status_color(media.status)} label={media.status} />
+  </:col>
+  <:col let={media} label="Book">
+    <%= media.book %>
+  </:col>
+  <:col let={media} label="Series" class="hidden md:table-cell">
+    <%= for series <- media.series do %>
+      <%= series %>
+      <br />
+    <% end %>
+  </:col>
+  <:col let={media} label="Authors" class="hidden sm:table-cell">
+    <%= for author <- media.authors do %>
+      <%= author.name %>
+      <%= if author.name != author.person_name do %>
+        (<%= author.person_name %>)
+      <% end %>
+      <br />
+    <% end %>
+  </:col>
+  <:col let={media} label="Narrators" class="hidden sm:table-cell">
+    <%= for narrator <- media.narrators do %>
+      <%= narrator.name %>
+      <%= if narrator.name != narrator.person_name do %>
+        (<%= narrator.person_name %>)
+      <% end %>
+      <br />
+    <% end %>
+  </:col>
+  <:col let={media} label="Duration">
+    <%= format_timecode(media.duration) %>
+  </:col>
+  <:col let={media} label="Features" class="hidden lg:table-cell">
+    <%= if media.abridged do %>
+      <Adc.admin_badge color="yellow" label="abridged" />
+      <br />
+    <% end %>
+    <%= if media.full_cast do %>
+      <Adc.admin_badge color="blue" label="full-cast" />
+      <br />
+    <% end %>
+    <%= if media.has_chapters do %>
+      <Adc.admin_badge color="lime" label="chapters" />
+      <br />
+    <% end %>
+  </:col>
+  <:actions let={media}>
+    <div class="flex gap-2">
+      <div class="grow" />
+      <.link
+        link_type="live_patch"
+        to={Routes.admin_media_index_path(@socket, :chapters, media, patch_opts(@list_opts))}
+      >
+        <FA.icon name="book-bookmark" class="w-4 h-4 fill-current" />
+      </.link>
+      <.link link_type="live_patch" to={Routes.admin_media_index_path(@socket, :edit, media, patch_opts(@list_opts))}>
+        <FA.icon name="pencil" class="w-4 h-4 fill-current" />
+      </.link>
+      <span phx-click="delete" phx-value-id={media.id} data-confirm="Are you sure?">
+        <FA.icon name="trash" class="w-4 h-4 fill-current text-red-600" />
+      </span>
+    </div>
+  </:actions>
+  <:no_results>
+    <span class="font-semibold text-lg">
+      <%= if @list_opts.filter do %>
+        No results for "<%= @list_opts.filter %>"
+      <% else %>
+        No media yet.
+        <.link
+          link_type="live_patch"
+          class="text-lime-500 dark:text-lime-400 hover:underline"
+          to={Routes.admin_media_index_path(@socket, :new, patch_opts(@list_opts))}
+        >
+          Create one.
+        </.link>
+      <% end %>
+    </span>
+  </:no_results>
+</Adc.admin_table>

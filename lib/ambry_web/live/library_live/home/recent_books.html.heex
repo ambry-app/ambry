@@ -1,0 +1,27 @@
+<div>
+  <%= if @books != [] do %>
+    <div class="">
+      <h1 class="text-3xl mb-6 md:text-4xl md:mb-8 lg:text-5xl lg:mb-12 font-bold">
+        Newest books
+      </h1>
+
+      <Amc.book_tiles books={@books} show_load_more={@show_load_more?} load_more={{"load-more", @myself}} />
+    </div>
+  <% else %>
+    <div class="mt-10">
+      <FA.icon name="book-open" class="w-24 h-24 fill-current mx-auto" />
+      <p class="text-center mt-4">
+        The library is empty!
+        <%= if @show_admin_links? do %>
+          Head on over to the
+          <.link
+            link_type="live_redirect"
+            label="admin books"
+            to={Routes.admin_book_index_path(@socket, :new)}
+            class="text-lime-500 hover:underline"
+          /> page to add your first book.
+        <% end %>
+      </p>
+    </div>
+  <% end %>
+</div>

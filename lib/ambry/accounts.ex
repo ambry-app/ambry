@@ -11,6 +11,20 @@ defmodule Ambry.Accounts do
   ## Database getters
 
   @doc """
+  Returns the number of users.
+
+  ## Examples
+
+      iex> count_users()
+      1
+
+  """
+  @spec count_users :: integer()
+  def count_users do
+    Repo.one(from u in User, select: count(u.id))
+  end
+
+  @doc """
   Gets a user by email.
 
   ## Examples

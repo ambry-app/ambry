@@ -7,30 +7,6 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.{Authors, Books, Series}
-  alias AmbryWeb.Admin.Components.SaveButton
-
-  alias Surface.Components.{Form, LiveFileInput}
-
-  alias Surface.Components.Form.{
-    Checkbox,
-    DateInput,
-    ErrorTag,
-    Field,
-    HiddenInputs,
-    Inputs,
-    Label,
-    Select,
-    TextArea,
-    TextInput
-  }
-
-  prop title, :string, required: true
-  prop book, :any, required: true
-  prop action, :atom, required: true
-  prop return_to, :string, required: true
-
-  data authors, :list
-  data series, :list
 
   @impl Phoenix.LiveComponent
   def mount(socket) do

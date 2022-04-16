@@ -1,20 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8"/>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <%= csrf_meta_tag() %>
-    <%= live_title_tag assigns[:page_title] || "Personal Audiobook Streaming", suffix: " · Ambry" %>
-    <link phx-track-static rel="stylesheet" href={Routes.static_path(@conn, "/assets/app.css")}/>
-    <script defer phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}></script>
+    <%= live_title_tag(assigns[:page_title] || "Personal Audiobook Streaming", suffix: " · Ambry") %>
+    <link phx-track-static rel="stylesheet" href={Routes.static_path(@conn, "/assets/app.css")} />
+    <script defer phx-track-static type="text/javascript" src={Routes.static_path(@conn, "/assets/app.js")}>
+    </script>
+    <script type="text/javascript">
+      function initTheme() {
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+      }
+
+      function forceDark() {
+        localStorage.theme = 'dark'
+        initTheme()
+      }
+
+      function forceLight() {
+        localStorage.theme = 'light'
+        initTheme()
+      }
+
+      function clearTheme() {
+        localStorage.removeItem('theme')
+        initTheme()
+      }
+
+      initTheme()
+
+      // fix mobile browser viewport height shenanigans.
+      // https://www.markusantonwolf.com/blog/solution-to-the-mobile-viewport-height-issue-with-tailwind-css/
+      // see tailwind.config.js for other half
+
+      function setViewHeight() {
+        const vh = window.innerHeight * 0.01
+        document.documentElement.style.setProperty('--vh', `${vh}px`)
+      }
+
+      setViewHeight()
+
+      window.addEventListener('resize', () => {
+        this.setViewHeight()
+      })
+
+      // end viewport fix
+    </script>
   </head>
-  <body class="text-gray-700">
+  <body class="
+      bg-white dark:bg-black
+      text-gray-800 dark:text-gray-200
+    ">
+    <%= @inner_content %>
+
     <%= if @current_user do %>
-      <%= live_render(@conn, AmbryWeb.HeaderLive.Header, layout: false) %>
+      <%= live_render(@conn, AmbryWeb.PlayerLive.Player) %>
     <% end %>
-    <main class="pt-20 pb-10 px-4 sm:px-10 max-w-screen-2xl 2xl:mx-auto">
-      <%= @inner_content %>
-    </main>
   </body>
 </html>

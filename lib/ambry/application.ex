@@ -20,7 +20,6 @@ defmodule Ambry.Application do
       # Start the Endpoint (http/https)
       AmbryWeb.Endpoint,
       # Start a worker by calling: Ambry.Worker.start_link(arg)
-      Ambry.PlayerStateRegistry,
       # Starts Oban jobs
       {Oban, oban_config()}
     ]

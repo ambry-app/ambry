@@ -5,16 +5,9 @@ defmodule AmbryWeb.SearchLive.Results do
 
   use AmbryWeb, :live_view
 
+  import AmbryWeb.SearchLive.Results.Components
+
   alias Ambry.Search
-
-  alias AmbryWeb.SearchLive.{
-    AuthorResults,
-    BookResults,
-    NarratorResults,
-    SeriesResults
-  }
-
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
 
   @impl Phoenix.LiveView
   def mount(%{"query" => query}, _session, socket) do

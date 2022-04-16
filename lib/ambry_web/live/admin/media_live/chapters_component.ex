@@ -5,25 +5,6 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
 
   alias Ambry.Media
   alias Ambry.Media.Chapters
-  alias AmbryWeb.Admin.Components.{Button, SaveButton}
-
-  alias Surface.Components.Form
-
-  alias Surface.Components.Form.{
-    Field,
-    HiddenInput,
-    Inputs,
-    TextInput
-  }
-
-  prop title, :string, required: true
-  prop media, :any, required: true
-  prop return_to, :string, required: true
-
-  data show_strategies, :boolean, default: false
-  data strategies, :list, default: []
-  data strategy_error, :atom, default: nil
-  data running_strategy, :boolean, default: false
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -37,6 +18,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
     {:ok,
      socket
      |> assign(assigns)
+     |> default_assigns()
      |> assign(changeset: changeset)}
   end
 
@@ -113,5 +95,14 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}
     end
+  end
+
+  defp default_assigns(socket) do
+    assign(socket,
+      show_strategies: false,
+      strategy_error: nil,
+      strategies: [],
+      running_strategy: false
+    )
   end
 end

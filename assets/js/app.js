@@ -23,26 +23,19 @@ import { LiveSocket } from 'phoenix_live_view'
 import topbar from '../vendor/topbar'
 import Alpine from 'alpinejs'
 import { ShakaPlayerHook } from './hooks/shaka_player'
-import { MediaControlsHook } from './hooks/media_controls'
-import { SpeedSliderHook } from './hooks/speed_slider'
-import { BookmarkButtonHook } from './hooks/bookmark_button'
-import readMore from './alpine_data/read_more'
-
-const browserId = window.crypto
-  .getRandomValues(new Uint32Array(1))[0]
-  .toString(16)
+import { HeaderScrollspyHook } from './hooks/header_scrollspy'
+import readMore from './alpine/read_more'
+import player from './alpine/player'
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute('content')
 
 const liveSocket = new LiveSocket('/live', Socket, {
-  params: { _csrf_token: csrfToken, browser_id: browserId },
+  params: { _csrf_token: csrfToken },
   hooks: {
     mediaPlayer: ShakaPlayerHook,
-    mediaControls: MediaControlsHook,
-    speedSlider: SpeedSliderHook,
-    bookmarkButton: BookmarkButtonHook
+    headerScrollspy: HeaderScrollspyHook
   },
   dom: {
     onBeforeElUpdated (from, to) {
@@ -53,15 +46,58 @@ const liveSocket = new LiveSocket('/live', Socket, {
   }
 })
 
+const dark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+window.formatTimecode = (secs) => {
+  const sec_num = parseInt(secs, 10)
+  const hours = Math.floor(sec_num / 3600)
+  const minutes = Math.floor(sec_num / 60) % 60
+  const seconds = sec_num % 60
+
+  const string = [hours, minutes, seconds]
+    .map(v => v < 10 ? "0" + v : v)
+    .filter((v,i) => v !== "00" || i > 0)
+    .join(":")
+
+  if (string.startsWith("0")) {
+    return string.slice(1)
+  } else {
+    return string
+  }
+}
+
+window.formatDecimal = (num) => {
+  const formatted = parseFloat(num).toFixed(2)
+
+  if (/\d+\.\d0/.test(formatted)) {
+    return formatted.slice(0, -1)
+  } else {
+    return formatted
+  }
+}
+
 // Setup Alpine.js
 window.Alpine = Alpine
+
 Alpine.data('readMore', readMore)
+Alpine.store('header', { scrolled: false })
+Alpine.store('search', { open: false, query: "" })
+Alpine.store('player', player)
 Alpine.start()
 
 // Show progress bar on live navigation and form submits
-topbar.config({ barColors: { 0: '#84CC16' }, shadowColor: 'rgba(0, 0, 0, .3)' })
+topbar.config({ barColors: { 0: dark ? '#A3E635' : '#84CC16' }, shadowColor: 'rgba(0, 0, 0, .3)' })
 window.addEventListener('phx:page-loading-start', info => topbar.show())
 window.addEventListener('phx:page-loading-stop', info => topbar.hide())
+
+// autofocus hack:
+window.addEventListener('phx:page-loading-stop', info => {
+  const autoFocusElements = document.querySelectorAll('[phx-autofocus]')
+  const els = autoFocusElements.length
+
+  if (els >= 1) { window.setTimeout(() => autoFocusElements[0].focus(), 0) }
+  if (els > 1) { console.warn("Multiple autofocus elements found. Only focusing the first.") }
+})
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()

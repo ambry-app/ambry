@@ -6,27 +6,6 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
 
   alias Ambry.{Books, Series}
-  alias AmbryWeb.Admin.Components.SaveButton
-
-  alias Surface.Components.Form
-
-  alias Surface.Components.Form.{
-    Checkbox,
-    ErrorTag,
-    Field,
-    HiddenInputs,
-    Inputs,
-    Label,
-    Select,
-    TextInput
-  }
-
-  prop title, :string, required: true
-  prop series, :any, required: true
-  prop action, :atom, required: true
-  prop return_to, :string, required: true
-
-  data books, :list
 
   @impl Phoenix.LiveComponent
   def mount(socket) do

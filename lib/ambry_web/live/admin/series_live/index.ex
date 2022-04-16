@@ -3,25 +3,24 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   LiveView for series admin interface.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.PaginationHelpers
 
   alias Ambry.Series
 
-  alias AmbryWeb.Admin.Components.AdminNav
   alias AmbryWeb.Admin.SeriesLive.FormComponent
-  alias AmbryWeb.Components.Modal
 
-  alias Surface.Components.{Form, LivePatch}
-  alias Surface.Components.Form.{Field, TextInput}
-
-  on_mount {AmbryWeb.UserLiveAuth, :ensure_mounted_current_user}
-  on_mount {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user}
+  @valid_sort_fields [
+    :name
+  ]
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
-    {:ok, maybe_update_series(socket, params, true)}
+    {:ok,
+     socket
+     |> assign(:header_title, "Series")
+     |> maybe_update_series(params, true)}
   end
 
   @impl Phoenix.LiveView
@@ -38,18 +37,21 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     socket
     |> assign(:page_title, series.name)
     |> assign(:selected_series, series)
+    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Series")
     |> assign(:selected_series, %Series.Series{series_books: []})
+    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :index, _params) do
     socket
-    |> assign(:page_title, "Listing Series")
+    |> assign(:page_title, "Series")
     |> assign(:selected_series, nil)
+    |> assign_new(:autofocus_search, fn -> false end)
   end
 
   defp maybe_update_series(socket, params, force \\ false) do
@@ -85,14 +87,36 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    socket = maybe_update_series(socket, %{"filter" => query, "page" => "1"})
+    socket =
+      socket
+      |> maybe_update_series(%{"filter" => query, "page" => "1"})
+      |> assign(:autofocus_search, true)
+
     list_opts = get_list_opts(socket)
 
     {:noreply,
-     push_patch(socket, to: Routes.admin_series_index_path(socket, :index, patch_opts(list_opts)))}
+     push_patch(socket,
+       to: Routes.admin_series_index_path(socket, :index, patch_opts(list_opts))
+     )}
+  end
+
+  def handle_event("row-click", %{"id" => id}, socket) do
+    list_opts = get_list_opts(socket)
+
+    {:noreply,
+     push_patch(socket,
+       to: Routes.admin_series_index_path(socket, :edit, id, patch_opts(list_opts))
+     )}
   end
 
   defp list_series(opts) do
-    Series.list_series(page_to_offset(opts.page), limit(), opts.filter)
+    filters = if opts.filter, do: %{search: opts.filter}, else: %{}
+
+    Series.list_series(
+      page_to_offset(opts.page),
+      limit(),
+      filters,
+      sort_to_order(opts.sort, @valid_sort_fields)
+    )
   end
 end

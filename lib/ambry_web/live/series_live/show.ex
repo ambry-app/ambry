@@ -6,7 +6,6 @@ defmodule AmbryWeb.SeriesLive.Show do
   use AmbryWeb, :live_view
 
   alias Ambry.Series
-  alias AmbryWeb.Components.BookTiles
 
   @impl Phoenix.LiveView
   def mount(%{"id" => series_id}, _session, socket) do

@@ -6,8 +6,8 @@ defmodule Ambry.Media do
   import Ambry.FileUtils
   import Ecto.Query
 
-  alias Ambry.Media.{Audit, Bookmark, Media, PlayerState}
-  alias Ambry.{PubSub, Repo}
+  alias Ambry.Media.{Audit, Bookmark, Media, MediaFlat, PlayerState}
+  alias Ambry.Repo
 
   @media_preload [:narrators, book: [:authors, series_books: :series]]
   @player_state_preload [media: @media_preload]
@@ -24,30 +24,19 @@ defmodule Ambry.Media do
   ## Examples
 
       iex> list_media()
-      {[%Media{}, ...], true}
+      {[%MediaFlat{}, ...], true}
 
   """
-  def list_media(offset \\ 0, limit \\ 10, filter \\ nil) do
+  def list_media(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :book]) do
     over_limit = limit + 1
 
-    query =
-      from m in Media,
-        offset: ^offset,
-        limit: ^over_limit,
-        join: b in assoc(m, :book),
-        order_by: b.title,
-        preload: [book: b, media_narrators: [:narrator]]
+    media =
+      offset
+      |> MediaFlat.paginate(over_limit)
+      |> MediaFlat.filter(filters)
+      |> MediaFlat.order(order)
+      |> Repo.all()
 
-    query =
-      if filter do
-        title_query = "%#{filter}%"
-
-        from [m, b] in query, where: ilike(b.title, ^title_query)
-      else
-        query
-      end
-
-    media = Repo.all(query)
     media_to_return = Enum.slice(media, 0, limit)
 
     {media_to_return, media != media_to_return}
@@ -197,8 +186,7 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Creates or touches a player state for the given user and media, then
-  broadcasts a message about it.
+  Creates or touches a player state for the given user and media.
   """
   def load_and_play_media!(user_id, media_id) do
     result =
@@ -206,28 +194,22 @@ defmodule Ambry.Media do
       |> where([ps], ps.user_id == ^user_id and ps.media_id == ^media_id)
       |> Repo.one()
 
-    player_state =
-      case result do
-        nil ->
-          {:ok, player_state} = create_player_state(%{user_id: user_id, media_id: media_id})
-          player_state
+    case result do
+      nil ->
+        {:ok, player_state} = create_player_state(%{user_id: user_id, media_id: media_id})
+        player_state
 
-        %PlayerState{} = player_state ->
-          player_state
-          |> PlayerState.changeset(%{})
-          |> Repo.update!(force: true)
-      end
-
-    PubSub.broadcast(
-      "users:#{user_id}:load-and-play-media",
-      {:load_and_play_media, player_state.id}
-    )
+      %PlayerState{} = player_state ->
+        player_state
+        |> PlayerState.changeset(%{})
+        |> Repo.update!(force: true)
+    end
   end
 
   @doc """
   Gets or creates a player state for the given user and media.
   """
-  def get_or_create_player_state!(user_id, media_id) do
+  def get_or_create_player_state!(user_id, media_id, touch \\ false) do
     result =
       PlayerState
       |> where([ps], ps.user_id == ^user_id and ps.media_id == ^media_id)
@@ -240,7 +222,13 @@ defmodule Ambry.Media do
         Repo.preload(player_state, @player_state_preload)
 
       %PlayerState{} = player_state ->
-        player_state
+        if touch do
+          player_state
+          |> PlayerState.changeset(%{})
+          |> Repo.update!(force: true)
+        else
+          player_state
+        end
     end
   end
 

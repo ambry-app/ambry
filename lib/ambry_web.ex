@@ -42,10 +42,30 @@ defmodule AmbryWeb do
     end
   end
 
+  def guest_live_view do
+    quote do
+      use Phoenix.LiveView,
+        layout: {AmbryWeb.LayoutView, "guest_live.html"}
+
+      # Include shared imports and aliases for views
+      unquote(view_helpers())
+    end
+  end
+
   def live_view do
     quote do
-      use Surface.LiveView,
-        layout: {AmbryWeb.LayoutView, "live.html"}
+      use Phoenix.LiveView,
+        layout: {AmbryWeb.LayoutView, "user_live.html"}
+
+      # Include shared imports and aliases for views
+      unquote(view_helpers())
+    end
+  end
+
+  def admin_live_view do
+    quote do
+      use Phoenix.LiveView,
+        layout: {AmbryWeb.LayoutView, "admin_live.html"}
 
       # Include shared imports and aliases for views
       unquote(view_helpers())
@@ -54,7 +74,7 @@ defmodule AmbryWeb do
 
   def component do
     quote do
-      use Surface.Component
+      use Phoenix.Component
 
       unquote(view_helpers())
     end
@@ -62,7 +82,7 @@ defmodule AmbryWeb do
 
   def live_component do
     quote do
-      use Surface.LiveComponent
+      use Phoenix.LiveComponent
 
       unquote(view_helpers())
     end
@@ -90,14 +110,21 @@ defmodule AmbryWeb do
       # Use all HTML functionality (forms, tags, etc)
       use Phoenix.HTML
 
+      use PetalComponents
+
       # Import LiveView and .heex helpers (live_render, live_patch, <.form>, etc)
       import Phoenix.LiveView.Helpers
 
       # Import basic rendering functionality (render, render_layout, etc)
       import Phoenix.View
 
-      import AmbryWeb.{ErrorHelpers, Gettext, Gravatar, Logo}
+      import AmbryWeb.{ErrorHelpers, Gettext, Gravatar}
+
+      alias AmbryWeb.Admin.Components, as: Adc
+      alias AmbryWeb.Components, as: Amc
       alias AmbryWeb.Router.Helpers, as: Routes
+
+      alias FontAwesome.LiveView, as: FA
     end
   end
 
