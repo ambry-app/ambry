@@ -195,7 +195,11 @@ defmodule AmbryWeb.Components do
 
   def footer(assigns) do
     ~H"""
-    <footer class="bg-gray-100 dark:bg-gray-900">
+    <footer
+      x-data
+      class={"bg-gray-100 dark:bg-gray-900" <> if @player_state, do: "", else: " hidden"}
+      x-effect="$store.player.mediaId ? $el.classList.remove('hidden') : null"
+    >
       <.time_bar player_state={@player_state} />
       <.player_controls player_state={@player_state} />
     </footer>
@@ -269,6 +273,8 @@ defmodule AmbryWeb.Components do
     """
   end
 
+  defp progress_percent(nil), do: "0.0"
+
   defp progress_percent(%{position: position, media: %{duration: duration}}) do
     position
     |> Decimal.div(duration)
@@ -304,14 +310,14 @@ defmodule AmbryWeb.Components do
         <.alpine_value_with_fallback
           alpine_value="$store.player.progress.real"
           alpine_expression="formatTimecode($store.player.progress.real)"
-          fallback={format_timecode(Decimal.div(@player_state.position, @player_state.playback_rate))}
+          fallback={player_state_progress(@player_state)}
         />
         <span class="hidden sm:inline">/</span>
         <span class="hidden sm:inline">
           <.alpine_value_with_fallback
             alpine_value="$store.player.duration.real"
             alpine_expression="formatTimecode($store.player.duration.real)"
-            fallback={format_timecode(Decimal.div(@player_state.media.duration, @player_state.playback_rate))}
+            fallback={player_state_duration(@player_state)}
           />
         </span>
       </div>
@@ -336,7 +342,7 @@ defmodule AmbryWeb.Components do
             <.alpine_value_with_fallback
               alpine_value="$store.player.playbackRate"
               alpine_expression="formatDecimal($store.player.playbackRate)"
-              fallback={format_decimal(@player_state.playback_rate)}
+              fallback={player_state_playback_rate(@player_state)}
             />x
           </span>
           <FA.icon name="gauge-high" class="w-4 h-4 sm:w-5 sm:h-5" />
@@ -347,16 +353,34 @@ defmodule AmbryWeb.Components do
     """
   end
 
-  defp alpine_value_with_fallback(assigns) do
-    ~H"""
-    <span x-text={"#{@alpine_value} !== undefined ? #{@alpine_expression} : '#{@fallback}'"}><%= @fallback %></span>
-    """
+  defp player_state_progress(nil), do: "--:--"
+
+  defp player_state_progress(%{playback_rate: playback_rate, position: position}) do
+    format_timecode(Decimal.div(position, playback_rate))
+  end
+
+  defp player_state_duration(nil), do: "--:--"
+
+  defp player_state_duration(%{playback_rate: playback_rate, media: %{duration: duration}}) do
+    format_timecode(Decimal.div(duration, playback_rate))
+  end
+
+  defp player_state_playback_rate(nil), do: "1.0"
+
+  defp player_state_playback_rate(%{playback_rate: playback_rate}) do
+    format_decimal(playback_rate)
   end
 
   defp format_decimal(decimal) do
     rounded = Decimal.round(decimal, 1)
 
     if Decimal.equal?(rounded, decimal), do: rounded, else: decimal
+  end
+
+  defp alpine_value_with_fallback(assigns) do
+    ~H"""
+    <span x-text={"#{@alpine_value} !== undefined ? #{@alpine_expression} : '#{@fallback}'"}><%= @fallback %></span>
+    """
   end
 
   defp playback_rate_menu(assigns) do
@@ -420,21 +444,16 @@ defmodule AmbryWeb.Components do
 
   def logo_with_tagline(assigns) do
     ~H"""
-    <h1 class="text-center">
-      <img
-        class="mx-auto block dark:hidden"
-        style="max-height: 128px;"
-        alt="Ambry"
-        src={Routes.static_path(Endpoint, "/images/logo_256x1056.svg")}
-      />
-      <img
-        class="mx-auto hidden dark:block"
-        style="max-height: 128px;"
-        alt="Ambry"
-        src={Routes.static_path(Endpoint, "/images/logo_dark_256x1056.svg")}
-      />
-      <span class="font-semibold text-gray-500 dark:text-gray-400">Personal Audiobook Streaming</span>
-    </h1>
+    <div class="flex flex-col items-center">
+      <h1 class="flex">
+        <.ambry_icon class="w-12 h-12" />
+        <.ambry_title class="h-12" />
+      </h1>
+
+      <p class="font-semibold text-gray-500 dark:text-gray-400">
+        Personal Audiobook Streaming
+      </p>
+    </div>
     """
   end
 

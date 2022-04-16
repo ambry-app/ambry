@@ -42,6 +42,16 @@ defmodule AmbryWeb do
     end
   end
 
+  def guest_live_view do
+    quote do
+      use Phoenix.LiveView,
+        layout: {AmbryWeb.LayoutView, "guest_live.html"}
+
+      # Include shared imports and aliases for views
+      unquote(view_helpers())
+    end
+  end
+
   def live_view do
     quote do
       use Phoenix.LiveView,

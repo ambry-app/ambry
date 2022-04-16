@@ -9,7 +9,7 @@
     </div>
   <% else %>
     <div class="mt-10">
-      <img class="mx-auto h-24 w-24" alt="Library" src={Routes.static_path(@socket, "/images/library.svg")} />
+      <FA.icon name="book-open" class="w-24 h-24 fill-current mx-auto" />
       <p class="text-center mt-4">
         The library is empty!
         <%= if @show_admin_links? do %>

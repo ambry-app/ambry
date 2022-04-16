@@ -1,1 +1,62 @@
+<div class="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-4">
+  <.overview_card
+    link={Routes.admin_person_index_path(@socket, :index)}
+    icon_name="user-group"
+    stats={
+      [
+        %{title: "Authors", stat: @people_count.authors},
+        %{title: "Narrators", stat: @people_count.narrators}
+      ]
+    }
+  />
 
+  <.overview_card
+    link={Routes.admin_book_index_path(@socket, :index)}
+    icon_name="book"
+    stats={
+      [
+        %{title: "Books", stat: @books_count}
+      ]
+    }
+  />
+
+  <.overview_card
+    link={Routes.admin_series_index_path(@socket, :index)}
+    icon_name="book-journal-whills"
+    stats={
+      [
+        %{title: "Series", stat: @series_count}
+      ]
+    }
+  />
+
+  <.overview_card
+    link={Routes.admin_media_index_path(@socket, :index)}
+    icon_name="file-audio"
+    stats={
+      [
+        %{title: "Media", stat: @media_count}
+      ]
+    }
+  />
+
+  <.overview_card
+    link={Routes.admin_audit_index_path(@socket, :index)}
+    icon_name="file-waveform"
+    stats={
+      [
+        %{title: "Files", stat: @files_count}
+      ]
+    }
+  />
+
+  <.overview_card
+    link={Routes.admin_home_index_path(@socket, :index)}
+    icon_name="users-gear"
+    stats={
+      [
+        %{title: "Users", stat: @users_count}
+      ]
+    }
+  />
+</div>

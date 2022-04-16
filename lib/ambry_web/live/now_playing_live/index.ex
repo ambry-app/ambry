@@ -11,7 +11,7 @@ defmodule AmbryWeb.NowPlayingLive.Index do
   def mount(_params, _session, socket) do
     assigns =
       case socket.assigns do
-        %{player_state: player_state} ->
+        %{player_state: player_state} when is_map(player_state) ->
           [page_title: player_state.media.book.title]
 
         _else ->

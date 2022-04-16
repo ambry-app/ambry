@@ -1,5 +1,3 @@
-<%= if !is_nil(@player_state) do %>
-  <div id="media-player" phx-hook="mediaPlayer" {player_state_attrs(@player_state)}>
-    <audio />
-  </div>
-<% end %>
+<div id="media-player" phx-hook="mediaPlayer" {player_state_attrs(@player_state)}>
+  <audio />
+</div>

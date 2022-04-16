@@ -68,6 +68,13 @@ defmodule Ambry.Media.Audit do
   end
 
   @doc """
+  Returns the number of files in the media uploads folder.
+  """
+  def count_files do
+    Paths.media_disk_path() |> File.ls!() |> Enum.count()
+  end
+
+  @doc """
   Audit the filesystem to see if there are any large media files not referenced
   by any media objects.
 

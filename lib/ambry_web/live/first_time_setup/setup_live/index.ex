@@ -5,7 +5,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive.Index do
   Helps create the first admin user when launching the server for the first time.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :guest_live_view
 
   alias Ambry.Accounts
 

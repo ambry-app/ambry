@@ -8,13 +8,11 @@ export default {
   currentChapter: undefined,
 
   loadMedia(id, actualTime, actualDuration, playbackRate, chapters) {
-    const realDuration = actualDuration / playbackRate
-
     this.mediaId = id
-    this.duration = {real: realDuration, actual: actualDuration}
     this.playbackRate = playbackRate
     this.chapters = chapters
 
+    this.setDuration(actualDuration)
     this.setProgress(actualTime)
   },
 
@@ -24,6 +22,12 @@ export default {
 
   setPaused() {
     this.playing = false
+  },
+
+  setDuration(actualDuration) {
+    const realDuration = actualDuration / this.playbackRate
+
+    this.duration = {real: realDuration, actual: actualDuration}
   },
 
   setProgress(actualTime) {
@@ -38,6 +42,7 @@ export default {
   setPlaybackRate(playbackRate) {
     this.playbackRate = playbackRate
 
+    this.setDuration(this.duration.actual)
     this.setProgress(this.progress.actual)
   },
 

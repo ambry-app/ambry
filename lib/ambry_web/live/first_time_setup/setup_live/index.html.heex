@@ -1,67 +1,60 @@
-<div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto">
+<div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto p-4">
   <Amc.logo_with_tagline />
 
-  <div class="flex flex-col bg-white p-10 rounded-lg shadow-lg space-y-6">
+  <Amc.form_card>
     <%= case @state do %>
       <% :admin_exists -> %>
         <p>
           You're all set! We now need to restart the server for the changes to take effect.
-          You can try clicking the button below, but depending on how you're running the server, you may need to restart it manually.
+          You can try clicking the button below, but depending on how you're running the server,
+          you may need to restart it manually.
         </p>
 
-        <button
-          phx-click="restart"
-          class="bg-lime-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-lime-700 transition-colors focus:ring-2 focus:ring-lime-300"
-        >
+        <Amc.primary_button type="button" phx-click="restart">
           Restart
-        </button>
+        </Amc.primary_button>
       <% :restarting -> %>
         <p>
           Restarting server...
         </p>
       <% :create_user -> %>
         <p>
-          Welcome to Ambry! To get started, let's create the admin user account that will be managing this server.
+          Welcome to Ambry! To get started, let's create the admin user account that will be
+          managing this server.
         </p>
 
         <.form let={f} for={@changeset} phx-submit="save">
           <div class="space-y-8">
-            <div>
-              <p class="text-gray-500 italic m-2">
-                Note: The email is only ever used to email password reset emails if needed, and only if emailing has been set up.
+            <div class="space-y-2">
+              <p class="text-gray-500 dark:text-gray-400 italic m-2 border-l-4 border-gray-400 dark:border-gray-500 pl-4 ml-0">
+                <strong>Note:</strong> The email is only ever used to email password reset emails if needed, and
+                only if emailing has been set up.
               </p>
               <div>
                 <.text_input form={f} field={:email} placeholder="Email" />
               </div>
-              <div class="text-red-600">
-                <.form_field_error form={f} field={:email} />
-              </div>
+              <.form_field_error form={f} field={:email} />
             </div>
 
-            <div>
-              <p class="text-gray-500 italic m-2">
-                Note: Your password needs to be at least 12 characters long, and contain at least one each of lower case, upper case, and special characters.
+            <div class="space-y-2">
+              <p class="text-gray-500 dark:text-gray-400 italic m-2 border-l-4 border-gray-400 dark:border-gray-500 pl-4 ml-0">
+                <strong>Note:</strong> Your password needs to be at least 12 characters long, and contain at least
+                one each of lower case, upper case, and special characters.
               </p>
               <div>
                 <.password_input form={f} field={:password} placeholder="Password" />
               </div>
-              <div class="text-red-600">
-                <.form_field_error form={f} field={:password} />
-              </div>
+              <.form_field_error form={f} field={:password} />
             </div>
 
             <div class="flex flex-col-reverse sm:flex-row sm:justify-between items-center">
               <span class="inline-block" />
-              <button
-                type="submit"
-                phx-disable-with="Please wait..."
-                class="bg-lime-500 text-white font-bold px-5 py-2 rounded focus:outline-none shadow hover:bg-lime-700 transition-colors focus:ring-2 focus:ring-lime-300"
-              >
+              <Amc.primary_button type="submit" phx-disable-with="Please wait...">
                 Register
-              </button>
+              </Amc.primary_button>
             </div>
           </div>
         </.form>
     <% end %>
-  </div>
+  </Amc.form_card>
 </div>

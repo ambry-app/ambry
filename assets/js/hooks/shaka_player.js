@@ -89,7 +89,10 @@ export const ShakaPlayerHook = {
   },
 
   loadAndPlayMedia (mediaId) {
-    this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime })
+    if (this.loaded) {
+      this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime })
+    }
+
     this.pushEvent('load-media', { 'media-id': mediaId }, () => {
       this.reloadMedia(true)
     })
@@ -168,6 +171,12 @@ export const ShakaPlayerHook = {
   },
 
   async loadMediaFromDataset (dataset, autoplay = false) {
+    if (dataset.mediaUnloaded === "") {
+      console.log('Shaka: No media to load')
+      this.loaded = false
+      return
+    }
+
     const { mediaId, mediaPlaybackRate, mediaPosition, mediaChapters } = dataset
     const mediaPath = os.ios ? dataset.mediaHlsPath : dataset.mediaPath
     const player = this.player
@@ -180,6 +189,7 @@ export const ShakaPlayerHook = {
     this.mediaId = mediaId
     this.playbackRate = mediaPlaybackRate
     this.time = time
+    this.loaded = true
 
     try {
       await player.load(mediaPath, time)

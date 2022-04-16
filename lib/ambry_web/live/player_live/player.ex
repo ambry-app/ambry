@@ -13,6 +13,8 @@ defmodule AmbryWeb.PlayerLive.Player do
     {:ok, socket, layout: false}
   end
 
+  defp player_state_attrs(nil), do: %{"data-media-unloaded" => true}
+
   defp player_state_attrs(%Media.PlayerState{
          media: %Media.Media{id: id, mpd_path: path, hls_path: hls_path, chapters: chapters},
          position: position,
