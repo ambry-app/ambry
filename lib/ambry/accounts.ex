@@ -6,9 +6,43 @@ defmodule Ambry.Accounts do
   import Ecto.Query, warn: false
   alias Ambry.Repo
 
-  alias Ambry.Accounts.{User, UserNotifier, UserToken}
+  alias Ambry.Accounts.{User, UserFlat, UserNotifier, UserToken}
 
   ## Database getters
+
+  @doc """
+  Returns a limited list of users and whether or not there are more.
+
+  By default, it will limit to the first 10 results. Supply `offset` and `limit`
+  to change this. You can also optionally filter by giving a map with these
+  supported keys:
+
+    * `:search` - String: full-text search on names and aliases.
+    * `:admin` - Boolean.
+    * `:confirmed` - Boolean.
+
+  `order` should be a valid atom key, or a tuple like `{:email, :desc}`.
+
+  ## Examples
+
+      iex> list_users()
+      {[%UserFlat{}, ...], true}
+
+  """
+  def list_users(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ :email) do
+    over_limit = limit + 1
+
+    users =
+      offset
+      |> UserFlat.paginate(over_limit)
+      |> UserFlat.filter(filters)
+      |> UserFlat.order(order)
+      |> Repo.all()
+
+    users_to_return = Enum.slice(users, 0, limit)
+
+    {users_to_return, users != users_to_return}
+  end
 
   @doc """
   Returns the number of users.
@@ -377,6 +411,20 @@ defmodule Ambry.Accounts do
   end
 
   @doc """
+  Demote a user from being an admin.
+
+  ## Examples
+
+      iex> demote_user_from_admin(user)
+      {:ok, %User{admin: false}}
+  """
+  def demote_user_from_admin(user) do
+    user
+    |> User.demote_from_admin_changeset()
+    |> Repo.update()
+  end
+
+  @doc """
   Returns true if at least one admin user exists.
 
   ## Examples
@@ -386,5 +434,19 @@ defmodule Ambry.Accounts do
   """
   def admin_exists? do
     Repo.one!(from u in User, select: count(), where: u.admin) > 0
+  end
+
+  @doc """
+  Deletes a user.
+
+  ## Examples
+
+      iex> delete_user(user)
+      :ok
+  """
+  def delete_user(%User{} = user) do
+    {:ok, _user} = Repo.delete(user)
+
+    :ok
   end
 end

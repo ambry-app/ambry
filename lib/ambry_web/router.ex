@@ -93,6 +93,8 @@ defmodule AmbryWeb.Router do
       live "/media/:id/edit", MediaLive.Index, :edit
       live "/media/:id/chapters", MediaLive.Index, :chapters
 
+      live "/users", UserLive.Index, :index
+
       live "/audit", AuditLive.Index, :index
     end
 

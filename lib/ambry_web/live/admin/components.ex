@@ -84,7 +84,7 @@ defmodule AmbryWeb.Admin.Components do
         </.link>
         <.link
           link_type="live_redirect"
-          to={Routes.admin_home_index_path(Endpoint, :index)}
+          to={Routes.admin_user_index_path(Endpoint, :index)}
           class={nav_class(@active_path == "/admin/users")}
         >
           <FA.icon name="users-gear" class="w-6 h-6 lg:w-7 lg:h-7 fill-current" />
@@ -141,15 +141,17 @@ defmodule AmbryWeb.Admin.Components do
     <div class="flex items-center">
       <.admin_table_search_form filter={@list_opts.filter} autofocus_search={@autofocus_search} />
       <div class="flex-grow" />
-      <div class="px-2">
-        <.link
-          link_type="live_patch"
-          to={@new_path}
-          class="flex items-center font-bold text-lime-500 dark:text-lime-400 hover:underline"
-        >
-          New <FA.icon name="plus" class="w-4 h-4 fill-current ml-2" />
-        </.link>
-      </div>
+      <%= if @new_path do %>
+        <div class="px-2">
+          <.link
+            link_type="live_patch"
+            to={@new_path}
+            class="flex items-center font-bold text-lime-500 dark:text-lime-400 hover:underline"
+          >
+            New <FA.icon name="plus" class="w-4 h-4 fill-current ml-2" />
+          </.link>
+        </div>
+      <% end %>
       <div class="px-2">
         <.pagination_chevron active={@list_opts.page > 1} name="chevron-left" to={@prev_page} />
       </div>
