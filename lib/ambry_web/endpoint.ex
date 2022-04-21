@@ -24,7 +24,8 @@ defmodule AmbryWeb.Endpoint do
     at: "/",
     from: :ambry,
     gzip: false,
-    only: ~w(assets fonts images favicon.ico robots.txt)
+    only:
+      ~w(assets fonts images favicon.svg favicon.png favicon-32x32.png favicon-96x96.png robots.txt)
 
   # Serve static user uploaded images
   plug Plug.Static,
