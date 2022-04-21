@@ -149,4 +149,11 @@ defmodule Ambry.Accounts.User do
   def promote_to_admin_changeset(user) do
     change(user, admin: true)
   end
+
+  @doc """
+  Demote the account from being an admin.
+  """
+  def demote_from_admin_changeset(user) do
+    change(user, admin: false)
+  end
 end
