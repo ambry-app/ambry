@@ -46,6 +46,9 @@
   <:col let={book} label="Published">
     <%= book.published %>
   </:col>
+  <:col let={book} label="# Media" class="hidden md:table-cell">
+    <%= book.media %>
+  </:col>
   <:actions let={book}>
     <div class="flex gap-2">
       <div class="grow" />

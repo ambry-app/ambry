@@ -14,6 +14,7 @@ defmodule Ambry.Books.BookFlat do
     field :authors, {:array, PersonName}
     field :series, {:array, :string}
     field :universe, :string
+    field :media, :integer
 
     timestamps()
   end
