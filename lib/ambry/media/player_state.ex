@@ -37,12 +37,12 @@ defmodule Ambry.Media.PlayerState do
         position = get_field(changeset, :position)
 
         cond do
-          # 10 seconds until it counts as started
-          Decimal.lt?(position, 10) ->
+          # 1 minute until it counts as started
+          Decimal.lt?(position, 60) ->
             put_change(changeset, :status, :not_started)
 
-          # 10 seconds from end it counts as finished
-          duration |> Decimal.sub(position) |> Decimal.lt?(10) ->
+          # 2 minutes from end it counts as finished
+          duration |> Decimal.sub(position) |> Decimal.lt?(120) ->
             put_change(changeset, :status, :finished)
 
           # otherwise it's in progress
