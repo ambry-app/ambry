@@ -7,7 +7,6 @@ module.exports = {
     '../lib/*_web/**/*.sface',
     '../deps/petal_components/**/*.*ex'
   ],
-  darkMode: 'class',
   theme: {
     extend: {
       colors: {
