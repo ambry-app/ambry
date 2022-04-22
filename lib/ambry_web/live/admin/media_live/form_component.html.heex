@@ -52,6 +52,10 @@
         <div class="space-y-2">
           <.form_label label="Upload audio" />
 
+          <p class="text-sm text-gray-500">
+            Supported formats: mp3, mp4, m4a, m4b
+          </p>
+
           <section
             class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-400"
             phx-drop-target={@uploads.audio.ref}
@@ -85,6 +89,8 @@
       <% end %>
 
       <%= if @file_stats do %>
+        <.form_label label="Files" />
+
         <div class="my-4 p-4 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-lg shadow-lg border">
           <div class="space-y-2 divide-y divide-gray-200 dark:divide-gray-800">
             <FileStatRow.render label="mp4" file={@file_stats.mp4_file} />
@@ -92,20 +98,43 @@
             <FileStatRow.render label="hls" file={@file_stats.hls_master} />
             <FileStatRow.render label="hls_0" file={@file_stats.hls_playlist} />
 
-            <%= case @file_stats.source_files do %>
-              <% error when is_atom(error) -> %>
-                <FileStatRow.render label="source" file={%{path: @media.source_path, stat: error}} error_type={:warn} />
-              <% source_files when is_list(source_files) -> %>
-                <%= if source_files == [] do %>
-                  <FileStatRow.render
-                    label="source"
-                    file={%{path: @media.source_path, stat: :empty}}
-                    error_type={:warn}
-                  />
-                <% end %>
-                <%= for source_file <- source_files do %>
-                  <FileStatRow.render label="source" file={source_file} error_type={:warn} />
-                <% end %>
+            <%= if @source_files_expanded do %>
+              <%= case @file_stats.source_files do %>
+                <% error when is_atom(error) -> %>
+                  <FileStatRow.render label="source" file={%{path: @media.source_path, stat: error}} error_type={:warn} />
+                <% source_files when is_list(source_files) -> %>
+                  <%= if source_files == [] do %>
+                    <FileStatRow.render
+                      label="source"
+                      file={%{path: @media.source_path, stat: :empty}}
+                      error_type={:warn}
+                    />
+                  <% end %>
+                  <%= for source_file <- source_files do %>
+                    <FileStatRow.render label="source" file={source_file} error_type={:warn} />
+                  <% end %>
+              <% end %>
+              <div>
+                <button
+                  type="button"
+                  phx-click="collapse"
+                  phx-target={@myself}
+                  class="pt-2 text-lime-500 hover:underline flex items-center"
+                >
+                  collapse sources <FA.icon name="chevron-up" class="w-4 h-4 fill-current ml-1" />
+                </button>
+              </div>
+            <% else %>
+              <div>
+                <button
+                  type="button"
+                  phx-click="expand"
+                  phx-target={@myself}
+                  class="pt-2 text-lime-500 hover:underline flex items-center"
+                >
+                  expand sources <FA.icon name="chevron-down" class="w-4 h-4 fill-current ml-1" />
+                </button>
+              </div>
             <% end %>
           </div>
         </div>
@@ -114,8 +143,14 @@
       <div class="space-y-2">
         <%= if @action == :edit do %>
           <.form_label form={f} field={:processor} label="Re-run processor?" />
+          <p class="text-sm text-gray-500">
+            This will re-process the source files and replace the streamable output files.
+          </p>
         <% else %>
           <.form_label form={f} field={:processor} />
+          <p class="text-sm text-gray-500">
+            The uploaded source files will be processed using the selected processor and converted into streamable output files.
+          </p>
         <% end %>
 
         <.select

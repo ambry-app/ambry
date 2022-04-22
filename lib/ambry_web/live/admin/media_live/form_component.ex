@@ -41,7 +41,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:changeset, changeset)}
+     |> assign(:changeset, changeset)
+     |> assign(:source_files_expanded, false)}
   end
 
   @impl Phoenix.LiveComponent
@@ -96,6 +97,14 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     changeset = Media.change_media(socket.assigns.media, params)
 
     {:noreply, assign(socket, :changeset, changeset)}
+  end
+
+  def handle_event("expand", _params, socket) do
+    {:noreply, assign(socket, :source_files_expanded, true)}
+  end
+
+  def handle_event("collapse", _params, socket) do
+    {:noreply, assign(socket, :source_files_expanded, false)}
   end
 
   defp clean_media_params(params) do
