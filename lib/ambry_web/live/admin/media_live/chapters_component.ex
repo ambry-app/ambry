@@ -84,6 +84,20 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
      )}
   end
 
+  def handle_event("delete-chapter", %{"idx" => idx}, socket) do
+    index = String.to_integer(idx)
+    chapters = Ecto.Changeset.fetch_field!(socket.assigns.changeset, :chapters)
+
+    chapters =
+      chapters
+      |> List.delete_at(index)
+      |> Enum.map(fn chapter -> %{"time" => to_string(chapter.time), "title" => chapter.title} end)
+
+    changeset = Media.change_media(socket.assigns.media, %{chapters: chapters}, for: :update)
+
+    {:noreply, assign(socket, changeset: changeset)}
+  end
+
   defp save_media(socket, media_params) do
     case Media.update_media(socket.assigns.media, media_params, for: :update) do
       {:ok, _media} ->
