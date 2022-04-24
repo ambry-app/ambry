@@ -71,7 +71,6 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
     media_params =
       if files != [] do
-        # only add source path if files were uploaded
         Map.merge(media_params, %{
           "source_path" => Path.join([folder, folder_id])
         })
@@ -150,7 +149,6 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
     case Media.create_media(media_params) do
       {:ok, media} ->
-        # schedule processor job only on newly created media
         {:ok, _job} =
           %{media_id: media.id, processor: processor}
           |> ProcessorJob.new()
@@ -185,6 +183,10 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   defp processors(media, uploads) do
     case {media, uploads} do
+      {%Media.Media{source_path: path}, [_ | _] = uploads} when is_binary(path) ->
+        filenames = Enum.map(uploads, & &1.client_name)
+        {media, filenames} |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+
       {_media, [_ | _] = uploads} ->
         filenames = Enum.map(uploads, & &1.client_name)
         filenames |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})

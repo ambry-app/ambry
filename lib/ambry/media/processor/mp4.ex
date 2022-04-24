@@ -13,8 +13,12 @@ defmodule Ambry.Media.Processor.MP4 do
     "Single MP4 As-is"
   end
 
+  def can_run?({media, filenames}) do
+    can_run?(Media.files(media, @extensions) ++ filenames)
+  end
+
   def can_run?(%Media{} = media) do
-    media |> files(@extensions) |> length() == 1
+    media |> Media.files(@extensions) |> can_run?()
   end
 
   def can_run?(filenames) when is_list(filenames) do
@@ -28,12 +32,12 @@ defmodule Ambry.Media.Processor.MP4 do
   end
 
   defp copy!(media) do
-    [mp4_file] = files(media, @extensions)
-    id = get_id(media)
+    [mp4_file] = Media.files(media, @extensions)
+    id = Media.output_id(media)
 
     File.cp!(
-      source_path(media, mp4_file),
-      out_path(media, "#{id}.mp4")
+      Media.source_path(media, mp4_file),
+      Media.out_path(media, "#{id}.mp4")
     )
 
     id

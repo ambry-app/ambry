@@ -8,8 +8,8 @@ defmodule Ambry.Media.Media do
   import Ecto.Changeset
 
   alias Ambry.Books.Book
+  alias Ambry.Media.{Media, MediaNarrator, Processor}
   alias Ambry.Media.Media.Chapter
-  alias Ambry.Media.MediaNarrator
   alias Ambry.Narrators.Narrator
 
   schema "media" do
@@ -95,6 +95,36 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  def source_id(%__MODULE__{source_path: nil}), do: Ecto.UUID.generate()
-  def source_id(%__MODULE__{source_path: source_path}), do: Path.basename(source_path)
+  def source_id(%Media{source_path: nil}), do: Ecto.UUID.generate()
+  def source_id(%Media{source_path: source_path}), do: Path.basename(source_path)
+
+  def source_path(%Media{source_path: source_path}, file \\ "") when is_binary(source_path) do
+    Path.join([source_path, file])
+  end
+
+  def output_id(media) do
+    %{
+      mp4_path: mp4_path,
+      mpd_path: mpd_path,
+      hls_path: hls_path
+    } = media
+
+    with [path | _] when is_binary(path) <- Enum.filter([mp4_path, mpd_path, hls_path], & &1),
+         {:ok, id} <- path |> Path.basename() |> Path.rootname() |> Ecto.UUID.cast() do
+      id
+    else
+      _anything ->
+        Ecto.UUID.generate()
+    end
+  end
+
+  def out_path(%Media{source_path: source_path}, file \\ "") when is_binary(source_path) do
+    Path.join([source_path, "_out", file])
+  end
+
+  def files(%Media{source_path: source_path}, extensions) when is_binary(source_path) do
+    source_path
+    |> File.ls!()
+    |> Processor.Shared.filter_filenames(extensions)
+  end
 end

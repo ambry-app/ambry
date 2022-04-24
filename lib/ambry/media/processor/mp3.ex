@@ -13,8 +13,12 @@ defmodule Ambry.Media.Processor.MP3 do
     "Single MP3"
   end
 
+  def can_run?({media, filenames}) do
+    can_run?(Media.files(media, @extensions) ++ filenames)
+  end
+
   def can_run?(%Media{} = media) do
-    media |> files(@extensions) |> length() == 1
+    media |> Media.files(@extensions) |> can_run?()
   end
 
   def can_run?(filenames) when is_list(filenames) do
@@ -28,12 +32,12 @@ defmodule Ambry.Media.Processor.MP3 do
   end
 
   defp convert_mp3!(media) do
-    [mp3_file] = files(media, @extensions)
-    id = get_id(media)
+    [mp3_file] = Media.files(media, @extensions)
+    id = Media.output_id(media)
     command = "ffmpeg"
     args = ["-i", "../#{mp3_file}", "-vn", "#{id}.mp4"]
 
-    {_output, 0} = System.cmd(command, args, cd: out_path(media), parallelism: true)
+    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
 
     id
   end

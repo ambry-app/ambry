@@ -4,7 +4,8 @@ defmodule Ambry.Media.Chapters.MP4 do
   """
 
   import Ambry.Media.Chapters.Utils
-  import Ambry.Media.Processor.Shared
+
+  alias Ambry.Media.Media
 
   require Logger
 
@@ -15,29 +16,15 @@ defmodule Ambry.Media.Chapters.MP4 do
   end
 
   def available?(media) do
-    media |> files(@extensions) |> length() == 1
+    media |> Media.files(@extensions) |> length() == 1
   end
 
   def get_chapters(media) do
-    with {:ok, json} <- run_probe(media),
+    [mp4_file] = Media.files(media, @extensions)
+
+    with {:ok, json} <- mp4_chapter_probe(media, mp4_file),
          {:ok, chapters} <- decode(json) do
       adapt_ffmpeg_chapters(chapters)
-    end
-  end
-
-  defp run_probe(media) do
-    [mp4_file] = files(media, @extensions)
-
-    command = "ffprobe"
-    args = ["-i", mp4_file, "-print_format", "json", "-show_chapters", "-loglevel", "error"]
-
-    case System.cmd(command, args, cd: source_path(media), parallelism: true) do
-      {output, 0} ->
-        {:ok, output}
-
-      {output, code} ->
-        Logger.warn(fn -> "MP4 chapter probe failed. Code: #{code}, Output: #{output}" end)
-        {:error, :probe_failed}
     end
   end
 

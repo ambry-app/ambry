@@ -3,7 +3,7 @@ defmodule Ambry.Media.Chapters.Utils do
   Utility functions for chapter strategies.
   """
 
-  import Ambry.Media.Processor.Shared
+  alias Ambry.Media.Media
 
   require Logger
 
@@ -65,7 +65,7 @@ defmodule Ambry.Media.Chapters.Utils do
       "quiet"
     ]
 
-    case System.cmd(command, args, cd: source_path(media), parallelism: true) do
+    case System.cmd(command, args, cd: Media.source_path(media), parallelism: true) do
       {output, 0} ->
         {:ok, output}
 
@@ -96,7 +96,7 @@ defmodule Ambry.Media.Chapters.Utils do
     try do
       {output, 0} =
         System.cmd(command, args,
-          cd: source_path(media),
+          cd: Media.source_path(media),
           parallelism: true,
           stderr_to_stdout: true
         )
@@ -136,6 +136,20 @@ defmodule Ambry.Media.Chapters.Utils do
         seconds_of_minutes = minutes |> Decimal.new() |> Decimal.mult(60)
         seconds = Decimal.new(seconds)
         seconds_of_hours |> Decimal.add(seconds_of_minutes) |> Decimal.add(seconds)
+    end
+  end
+
+  def mp4_chapter_probe(media, mp4_file) do
+    command = "ffprobe"
+    args = ["-i", mp4_file, "-print_format", "json", "-show_chapters", "-loglevel", "error"]
+
+    case System.cmd(command, args, cd: Media.source_path(media), parallelism: true) do
+      {output, 0} ->
+        {:ok, output}
+
+      {output, code} ->
+        Logger.warn(fn -> "MP4 chapter probe failed. Code: #{code}, Output: #{output}" end)
+        {:error, :probe_failed}
     end
   end
 end

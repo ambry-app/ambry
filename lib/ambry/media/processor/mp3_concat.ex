@@ -14,8 +14,12 @@ defmodule Ambry.Media.Processor.MP3Concat do
     "MP3 Concat"
   end
 
+  def can_run?({media, filenames}) do
+    can_run?(Media.files(media, @extensions) ++ filenames)
+  end
+
   def can_run?(%Media{} = media) do
-    media |> files(@extensions) |> length() > 1
+    media |> Media.files(@extensions) |> can_run?()
   end
 
   def can_run?(filenames) when is_list(filenames) do
@@ -31,11 +35,11 @@ defmodule Ambry.Media.Processor.MP3Concat do
   defp concat_mp3!(media) do
     create_concat_text_file!(media, @extensions)
 
-    id = get_id(media)
+    id = Media.output_id(media)
     command = "ffmpeg"
     args = ["-f", "concat", "-safe", "0", "-vn", "-i", "files.txt", "#{id}.mp4"]
 
-    {_output, 0} = System.cmd(command, args, cd: out_path(media), parallelism: true)
+    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
 
     id
   end
