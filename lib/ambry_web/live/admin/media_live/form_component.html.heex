@@ -48,45 +48,53 @@
         <.form_label form={f} field={:full_cast} />
       </div>
 
-      <%= if @action == :new do %>
-        <div class="space-y-2">
+
+      <div class="space-y-2">
+        <%= if @action == :new do %>
           <.form_label label="Upload audio" />
+        <% else %>
+          <.form_label label="Upload additional audio" />
 
           <p class="text-sm text-gray-500">
-            Supported formats: mp3, mp4, m4a, m4b
+            Adding additional files does not replace any existing files. Re-run the processor after
+            adding new files to replace the streamable output files.
           </p>
+        <% end %>
 
-          <section
-            class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-400"
-            phx-drop-target={@uploads.audio.ref}
-          >
-            <%= live_file_input(@uploads.audio) %>
-            <%= for entry <- @uploads.audio.entries do %>
-              <article class="upload-entry">
-                <figure>
-                  <figcaption><%= entry.client_name %></figcaption>
-                </figure>
+        <p class="text-sm text-gray-500">
+          Supported formats: mp3, mp4, m4a, m4b
+        </p>
 
-                <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+        <section
+          class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-400"
+          phx-drop-target={@uploads.audio.ref}
+        >
+          <%= live_file_input(@uploads.audio) %>
+          <%= for entry <- @uploads.audio.entries do %>
+            <article class="upload-entry">
+              <figure>
+                <figcaption><%= entry.client_name %></figcaption>
+              </figure>
 
-                <span
-                  class="text-2xl cursor-pointer hover:text-red-600 transition-colors"
-                  phx-click="cancel-upload"
-                  phx-value-ref={entry.ref}
-                  phx-target={@myself}
-                >
-                  &times;
-                </span>
+              <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
 
-                <%= for err <- upload_errors(@uploads.audio, entry) do %>
-                  <p class="text-red-600"><%= error_to_string(err) %></p>
-                <% end %>
-              </article>
-            <% end %>
-          </section>
-          <.form_field_error form={f} field={:source_path} />
-        </div>
-      <% end %>
+              <span
+                class="text-2xl cursor-pointer hover:text-red-600 transition-colors"
+                phx-click="cancel-upload"
+                phx-value-ref={entry.ref}
+                phx-target={@myself}
+              >
+                &times;
+              </span>
+
+              <%= for err <- upload_errors(@uploads.audio, entry) do %>
+                <p class="text-red-600"><%= error_to_string(err) %></p>
+              <% end %>
+            </article>
+          <% end %>
+        </section>
+        <.form_field_error form={f} field={:source_path} />
+      </div>
 
       <%= if @file_stats do %>
         <.form_label label="Files" />

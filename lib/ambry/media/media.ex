@@ -94,4 +94,7 @@ defmodule Ambry.Media.Media do
       changeset
     end
   end
+
+  def source_id(%__MODULE__{source_path: nil}), do: Ecto.UUID.generate()
+  def source_id(%__MODULE__{source_path: source_path}), do: Path.basename(source_path)
 end

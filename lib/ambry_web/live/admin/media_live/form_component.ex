@@ -58,7 +58,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   end
 
   def handle_event("save", %{"media" => media_params}, socket) do
-    folder_id = Ecto.UUID.generate()
+    folder_id = Media.Media.source_id(socket.assigns.media)
     folder = Path.join([uploads_folder_disk_path(), "source_media"])
 
     files =
