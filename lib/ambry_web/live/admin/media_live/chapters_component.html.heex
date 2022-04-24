@@ -42,6 +42,12 @@
               <div class="grow">
                 <.text_input form={chapter_form} field={:title} />
               </div>
+              <div class="ml-2 flex" phx-click="delete-chapter" phx-value-idx={chapter_form.index} phx-target={@myself}>
+                <FA.icon
+                  name="trash"
+                  class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer"
+                />
+              </div>
             </div>
           <% end %>
         </div>
