@@ -14,8 +14,12 @@ defmodule Ambry.Media.Processor.MP4ReEncode do
     "Single MP4 Re-encode"
   end
 
+  def can_run?({media, filenames}) do
+    can_run?(Media.files(media, @extensions) ++ filenames)
+  end
+
   def can_run?(%Media{} = media) do
-    media |> files(@extensions) |> length() == 1
+    media |> Media.files(@extensions) |> can_run?()
   end
 
   def can_run?(filenames) when is_list(filenames) do
@@ -29,12 +33,12 @@ defmodule Ambry.Media.Processor.MP4ReEncode do
   end
 
   defp convert_mp4!(media) do
-    [mp4_file] = files(media, @extensions)
-    id = get_id(media)
+    [mp4_file] = Media.files(media, @extensions)
+    id = Media.output_id(media)
     command = "ffmpeg"
     args = ["-i", "../#{mp4_file}", "-vn", "#{id}.mp4"]
 
-    {_output, 0} = System.cmd(command, args, cd: out_path(media), parallelism: true)
+    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
 
     id
   end

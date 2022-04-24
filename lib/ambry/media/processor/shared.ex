@@ -5,29 +5,8 @@ defmodule Ambry.Media.Processor.Shared do
 
   import Ambry.Paths
 
-  alias Ambry.Media
-
-  def get_id(media) do
-    %{
-      mp4_path: mp4_path,
-      mpd_path: mpd_path,
-      hls_path: hls_path
-    } = media
-
-    with [path | _] when is_binary(path) <- Enum.filter([mp4_path, mpd_path, hls_path], & &1),
-         {:ok, id} <- path |> Path.basename() |> Path.rootname() |> Ecto.UUID.cast() do
-      id
-    else
-      _anything ->
-        Ecto.UUID.generate()
-    end
-  end
-
-  def files(media, extensions) do
-    media.source_path
-    |> File.ls!()
-    |> filter_filenames(extensions)
-  end
+  alias Ambry.Media, as: MediaContext
+  alias Ambry.Media.Media
 
   def filter_filenames(filenames, extensions) do
     filenames
@@ -36,11 +15,11 @@ defmodule Ambry.Media.Processor.Shared do
   end
 
   def create_concat_text_file!(media, extensions) do
-    file_list_txt_path = out_path(media, "files.txt")
+    file_list_txt_path = Media.out_path(media, "files.txt")
 
     file_list_txt =
       media
-      |> files(extensions)
+      |> Media.files(extensions)
       |> Enum.map_join("\n", fn filename ->
         "file #{quote_and_escape_filename("../#{filename}")}"
       end)
@@ -71,7 +50,7 @@ defmodule Ambry.Media.Processor.Shared do
       "#{id}.m3u8"
     ]
 
-    {_output, 0} = System.cmd(command, args, cd: out_path(media), parallelism: true)
+    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
   end
 
   def finalize!(media, id) do
@@ -82,14 +61,14 @@ defmodule Ambry.Media.Processor.Shared do
     mp4_dest = Path.join([media_folder, "#{id}.mp4"])
 
     File.mkdir_p!(media_folder)
-    File.rename!(out_path(media, "#{id}.mpd"), mpd_dest)
-    File.rename!(out_path(media, "#{id}_0.m3u8"), hls_playlist_dest)
-    File.rename!(out_path(media, "#{id}.m3u8"), hls_master_dest)
-    File.rename!(out_path(media, "#{id}.mp4"), mp4_dest)
+    File.rename!(Media.out_path(media, "#{id}.mpd"), mpd_dest)
+    File.rename!(Media.out_path(media, "#{id}_0.m3u8"), hls_playlist_dest)
+    File.rename!(Media.out_path(media, "#{id}.m3u8"), hls_master_dest)
+    File.rename!(Media.out_path(media, "#{id}.mp4"), mp4_dest)
 
     duration = get_duration(mp4_dest)
 
-    Media.update_media(
+    MediaContext.update_media(
       media,
       %{
         mpd_path: "/uploads/media/#{id}.mpd",
@@ -124,13 +103,5 @@ defmodule Ambry.Media.Processor.Shared do
     %{"format" => %{"duration" => duration_string}} = Jason.decode!(output)
 
     Decimal.new(duration_string)
-  end
-
-  def out_path(media, file \\ "") do
-    Path.join([media.source_path, "_out", file])
-  end
-
-  def source_path(media, file \\ "") do
-    Path.join([media.source_path, file])
   end
 end

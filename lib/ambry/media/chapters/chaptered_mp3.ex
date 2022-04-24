@@ -4,7 +4,8 @@ defmodule Ambry.Media.Chapters.ChapteredMP3 do
   """
 
   import Ambry.Media.Chapters.Utils
-  import Ambry.Media.Processor.Shared
+
+  alias Ambry.Media.Media
 
   require Logger
 
@@ -15,11 +16,11 @@ defmodule Ambry.Media.Chapters.ChapteredMP3 do
   end
 
   def available?(media) do
-    media |> files(@extensions) |> length() > 1
+    media |> Media.files(@extensions) |> length() > 1
   end
 
   def get_chapters(media) do
-    mp3_files = files(media, @extensions)
+    mp3_files = Media.files(media, @extensions)
 
     get_chapters(media, mp3_files)
   end

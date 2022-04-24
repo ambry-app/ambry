@@ -41,7 +41,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:changeset, changeset)}
+     |> assign(:changeset, changeset)
+     |> assign(:source_files_expanded, false)}
   end
 
   @impl Phoenix.LiveComponent
@@ -57,7 +58,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   end
 
   def handle_event("save", %{"media" => media_params}, socket) do
-    folder_id = Ecto.UUID.generate()
+    folder_id = Media.Media.source_id(socket.assigns.media)
     folder = Path.join([uploads_folder_disk_path(), "source_media"])
 
     files =
@@ -70,7 +71,6 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
     media_params =
       if files != [] do
-        # only add source path if files were uploaded
         Map.merge(media_params, %{
           "source_path" => Path.join([folder, folder_id])
         })
@@ -96,6 +96,14 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     changeset = Media.change_media(socket.assigns.media, params)
 
     {:noreply, assign(socket, :changeset, changeset)}
+  end
+
+  def handle_event("expand", _params, socket) do
+    {:noreply, assign(socket, :source_files_expanded, true)}
+  end
+
+  def handle_event("collapse", _params, socket) do
+    {:noreply, assign(socket, :source_files_expanded, false)}
   end
 
   defp clean_media_params(params) do
@@ -141,7 +149,6 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
     case Media.create_media(media_params) do
       {:ok, media} ->
-        # schedule processor job only on newly created media
         {:ok, _job} =
           %{media_id: media.id, processor: processor}
           |> ProcessorJob.new()
@@ -174,19 +181,22 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   defp changeset_action(:new), do: :create
   defp changeset_action(:edit), do: :update
 
-  defp processors(media, uploads) do
-    case {media, uploads} do
-      {_media, [_ | _] = uploads} ->
-        filenames = Enum.map(uploads, & &1.client_name)
-        filenames |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
-
-      {%Media.Media{source_path: path}, _uploads} when is_binary(path) ->
-        media |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
-
-      _else ->
-        []
-    end
+  defp processors(%Media.Media{source_path: path} = media, [_ | _] = uploads)
+       when is_binary(path) do
+    filenames = Enum.map(uploads, & &1.client_name)
+    {media, filenames} |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
   end
+
+  defp processors(_media, [_ | _] = uploads) do
+    filenames = Enum.map(uploads, & &1.client_name)
+    filenames |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+  end
+
+  defp processors(%Media.Media{source_path: path} = media, _uploads) when is_binary(path) do
+    media |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+  end
+
+  defp processors(_media, _uploads), do: []
 
   defp parse_requested_processor(""), do: :none_specified
   defp parse_requested_processor(string), do: String.to_existing_atom(string)
