@@ -181,23 +181,22 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   defp changeset_action(:new), do: :create
   defp changeset_action(:edit), do: :update
 
-  defp processors(media, uploads) do
-    case {media, uploads} do
-      {%Media.Media{source_path: path}, [_ | _] = uploads} when is_binary(path) ->
-        filenames = Enum.map(uploads, & &1.client_name)
-        {media, filenames} |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
-
-      {_media, [_ | _] = uploads} ->
-        filenames = Enum.map(uploads, & &1.client_name)
-        filenames |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
-
-      {%Media.Media{source_path: path}, _uploads} when is_binary(path) ->
-        media |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
-
-      _else ->
-        []
-    end
+  defp processors(%Media.Media{source_path: path} = media, [_ | _] = uploads)
+       when is_binary(path) do
+    filenames = Enum.map(uploads, & &1.client_name)
+    {media, filenames} |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
   end
+
+  defp processors(_media, [_ | _] = uploads) do
+    filenames = Enum.map(uploads, & &1.client_name)
+    filenames |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+  end
+
+  defp processors(%Media.Media{source_path: path} = media, _uploads) when is_binary(path) do
+    media |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+  end
+
+  defp processors(_media, _uploads), do: []
 
   defp parse_requested_processor(""), do: :none_specified
   defp parse_requested_processor(string), do: String.to_existing_atom(string)
