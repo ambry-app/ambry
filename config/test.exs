@@ -32,5 +32,6 @@ config :logger, level: :warn
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
 
-# Disable Oban in tests
-config :my_app, Oban, queues: false, plugins: false
+# allows Oban to bypass all database interaction and run jobs immediately in the
+# process that enqueued them.
+config :ambry, Oban, testing: :inline
