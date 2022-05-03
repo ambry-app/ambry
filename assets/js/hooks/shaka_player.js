@@ -95,6 +95,7 @@ export const ShakaPlayerHook = {
 
     this.pushEvent('load-media', { 'media-id': mediaId }, () => {
       this.reloadMedia(true)
+      if (window.goHome) { window.goHome() }
     })
   },
 

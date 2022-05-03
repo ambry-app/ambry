@@ -551,6 +551,7 @@ defmodule AmbryWeb.Components do
               />
               <div class="absolute flex">
                 <div
+                  id={"resume-media-#{player_state.media.id}"}
                   x-data={"{
                     id: #{player_state.media.id},
                     loaded: false
@@ -566,6 +567,7 @@ defmodule AmbryWeb.Components do
                     rounded-full shadow-md transition
                     backdrop-blur-sm
                   "
+                  phx-hook="goHome"
                 >
                   <div class="fill-current self-center mx-auto pl-1" :class="{ 'pl-1': !loaded || !$store.player.playing }">
                     <span :class="{ hidden: loaded && $store.player.playing }">

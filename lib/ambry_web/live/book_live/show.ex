@@ -35,4 +35,9 @@ defmodule AmbryWeb.BookLive.Show do
     </div>
     """
   end
+
+  @impl Phoenix.LiveView
+  def handle_event("go-home", _params, socket) do
+    {:noreply, push_redirect(socket, to: "/")}
+  end
 end
