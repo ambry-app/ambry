@@ -8,6 +8,7 @@ defmodule AmbryWeb.Components do
   import AmbryWeb.TimeUtils
 
   alias Ambry.Books.Book
+  alias Ambry.Media.Media
   alias Ambry.Series.SeriesBook
 
   alias AmbryWeb.Components.SearchBox
@@ -306,7 +307,7 @@ defmodule AmbryWeb.Components do
       <span @click="mediaPlayer.seekRelative(60)" class="cursor-pointer" title="Forward 1 minute">
         <FA.icon name="forward-step" class="w-4 h-4 sm:w-5 sm:h-5" />
       </span>
-      <div class="flex-grow text-gray-600 dark:text-gray-500 text-sm sm:text-base">
+      <div class="text-gray-600 dark:text-gray-500 text-sm sm:text-base whitespace-nowrap tabular-nums">
         <.alpine_value_with_fallback
           alpine_value="$store.player.progress.real"
           alpine_expression="formatTimecode($store.player.progress.real)"
@@ -319,6 +320,11 @@ defmodule AmbryWeb.Components do
             alpine_expression="formatTimecode($store.player.duration.real)"
             fallback={player_state_duration(@player_state)}
           />
+        </span>
+      </div>
+      <div class="flex-grow text-ellipsis whitespace-nowrap overflow-hidden">
+        <span class="text-gray-800 dark:text-gray-300 text-sm sm:text-base">
+          <%= player_state_description(@player_state) %>
         </span>
       </div>
       <div
@@ -369,6 +375,12 @@ defmodule AmbryWeb.Components do
 
   defp player_state_playback_rate(%{playback_rate: playback_rate}) do
     format_decimal(playback_rate)
+  end
+
+  defp player_state_description(nil), do: ""
+
+  defp player_state_description(%{media: media}) do
+    Media.description(media)
   end
 
   defp format_decimal(decimal) do

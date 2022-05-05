@@ -6,6 +6,7 @@ defmodule Ambry.Media do
   import Ambry.FileUtils
   import Ecto.Query
 
+  alias Ambry.Accounts
   alias Ambry.Media.{Audit, Bookmark, Media, MediaFlat, PlayerState}
   alias Ambry.Repo
 
@@ -70,7 +71,7 @@ defmodule Ambry.Media do
       ** (Ecto.NoResultsError)
 
   """
-  def get_media!(id), do: Media |> preload([:book, :media_narrators]) |> Repo.get!(id)
+  def get_media!(id), do: Media |> preload(^@media_preload) |> Repo.get!(id)
 
   @doc """
   Creates a media.
@@ -165,51 +166,9 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Gets the most recent player state for a given user, if any.
-  """
-  def get_most_recent_player_state(user_id) do
-    result =
-      PlayerState
-      |> where([ps], ps.user_id == ^user_id)
-      |> order_by({:desc, :updated_at})
-      |> limit(1)
-      |> preload(^@player_state_preload)
-      |> Repo.one()
-
-    case result do
-      nil ->
-        :error
-
-      %PlayerState{} = player_state ->
-        {:ok, player_state}
-    end
-  end
-
-  @doc """
-  Creates or touches a player state for the given user and media.
-  """
-  def load_and_play_media!(user_id, media_id) do
-    result =
-      PlayerState
-      |> where([ps], ps.user_id == ^user_id and ps.media_id == ^media_id)
-      |> Repo.one()
-
-    case result do
-      nil ->
-        {:ok, player_state} = create_player_state(%{user_id: user_id, media_id: media_id})
-        player_state
-
-      %PlayerState{} = player_state ->
-        player_state
-        |> PlayerState.changeset(%{})
-        |> Repo.update!(force: true)
-    end
-  end
-
-  @doc """
   Gets or creates a player state for the given user and media.
   """
-  def get_or_create_player_state!(user_id, media_id, touch \\ false) do
+  def get_or_create_player_state!(user_id, media_id) do
     result =
       PlayerState
       |> where([ps], ps.user_id == ^user_id and ps.media_id == ^media_id)
@@ -222,14 +181,19 @@ defmodule Ambry.Media do
         Repo.preload(player_state, @player_state_preload)
 
       %PlayerState{} = player_state ->
-        if touch do
-          player_state
-          |> PlayerState.changeset(%{})
-          |> Repo.update!(force: true)
-        else
-          player_state
-        end
+        player_state
     end
+  end
+
+  @doc """
+  Gets or creates a player state for the given user and media, and marks it as
+  the user's loaded player state.
+  """
+  def load_player_state!(user, media_id) do
+    player_state = get_or_create_player_state!(user.id, media_id)
+    {:ok, _user} = Accounts.update_user_loaded_player_state(user, player_state.id)
+
+    player_state
   end
 
   @doc """
