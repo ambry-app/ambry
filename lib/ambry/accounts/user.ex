@@ -5,9 +5,9 @@ defmodule Ambry.Accounts.User do
 
   use Ecto.Schema
 
-  alias Ambry.Media.PlayerState
-
   import Ecto.Changeset
+
+  alias Ambry.Media.PlayerState
 
   schema "users" do
     belongs_to :loaded_player_state, PlayerState

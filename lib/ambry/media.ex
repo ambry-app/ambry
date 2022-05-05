@@ -6,9 +6,8 @@ defmodule Ambry.Media do
   import Ambry.FileUtils
   import Ecto.Query
 
-  alias Ambry.Accounts
+  alias Ambry.{Accounts, Repo}
   alias Ambry.Media.{Audit, Bookmark, Media, MediaFlat, PlayerState}
-  alias Ambry.Repo
 
   @media_preload [:narrators, book: [:authors, series_books: :series]]
   @player_state_preload [media: @media_preload]
