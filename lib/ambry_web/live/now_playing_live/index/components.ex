@@ -125,6 +125,11 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
             class="cursor-pointer"
             :class={"$store.player.currentChapter?.id === #{id} ? 'bg-gray-50 dark:bg-gray-900' : ''"}
             @click={"mediaPlayer.seek(#{chapter.time})"}
+            x-effect={"
+            if ($store.player.currentChapter?.id === #{id}) {
+              $el.scrollIntoView({block: 'center'})
+            }
+            "}
           >
             <td class="pl-4 py-4 border-b border-gray-100 dark:border-gray-900 flex items-center space-x-2">
               <div class="flex-none invisible" :class={"{invisible: $store.player.currentChapter?.id !== #{id}}"}>

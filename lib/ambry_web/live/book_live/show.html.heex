@@ -44,6 +44,7 @@
                 </p>
               </div>
               <div
+                id={"play-media-#{media.id}"}
                 x-data={"{
                   id: #{media.id},
                   loaded: false
@@ -51,6 +52,7 @@
                 x-effect="$store.player.mediaId == id ? loaded = true : loaded = false"
                 @click={"loaded ? mediaPlayer.playPause() : mediaPlayer.loadAndPlayMedia(#{media.id})"}
                 class="cursor-pointer fill-current"
+                phx-hook="goHome"
               >
                 <span :class="{ hidden: loaded && $store.player.playing }">
                   <FA.icon name="play" class="w-7 h-7" />

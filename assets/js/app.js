@@ -24,6 +24,7 @@ import topbar from '../vendor/topbar'
 import Alpine from 'alpinejs'
 import { ShakaPlayerHook } from './hooks/shaka_player'
 import { HeaderScrollspyHook } from './hooks/header_scrollspy'
+import { GoHomeHook } from './hooks/go_home'
 import readMore from './alpine/read_more'
 import player from './alpine/player'
 
@@ -35,7 +36,8 @@ const liveSocket = new LiveSocket('/live', Socket, {
   params: { _csrf_token: csrfToken },
   hooks: {
     mediaPlayer: ShakaPlayerHook,
-    headerScrollspy: HeaderScrollspyHook
+    headerScrollspy: HeaderScrollspyHook,
+    goHome: GoHomeHook
   },
   dom: {
     onBeforeElUpdated (from, to) {

@@ -260,6 +260,20 @@ defmodule Ambry.Accounts do
     end
   end
 
+  @doc """
+  Updates the user's loaded player state.
+
+  ## Examples
+
+      iex> update_user_loaded_player_state(user, 1)
+      {:ok, %User{}}
+  """
+  def update_user_loaded_player_state(user, player_state_id) do
+    changeset = User.loaded_player_state_changeset(user, player_state_id)
+
+    Repo.update(changeset)
+  end
+
   ## Session
 
   @doc """

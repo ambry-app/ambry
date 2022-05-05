@@ -35,4 +35,10 @@ defmodule Ambry.Books.Book do
     |> validate_required([:title, :published])
     |> foreign_key_constraint(:media, name: "media_book_id_fkey")
   end
+
+  def description(book) do
+    authors = Enum.map_join(book.authors, ", ", & &1.name)
+
+    "#{book.title} · by #{authors}"
+  end
 end

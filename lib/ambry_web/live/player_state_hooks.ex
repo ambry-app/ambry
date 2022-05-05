@@ -11,9 +11,9 @@ defmodule AmbryWeb.PlayerStateHooks do
     user = socket.assigns.current_user
 
     player_state =
-      case Media.get_most_recent_player_state(user.id) do
-        {:ok, player_state} -> player_state
-        :error -> nil
+      case user.loaded_player_state_id do
+        nil -> nil
+        id -> Media.get_player_state!(id)
       end
 
     {:cont, assign(socket, :player_state, player_state)}

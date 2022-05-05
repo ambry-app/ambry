@@ -15,7 +15,7 @@ defmodule AmbryWeb.BookLive.Show do
 
     {:ok,
      socket
-     |> assign(:page_title, book.title)
+     |> assign(:page_title, Books.Book.description(book))
      |> assign(:book, book)}
   end
 
@@ -34,5 +34,10 @@ defmodule AmbryWeb.BookLive.Show do
       </div>
     </div>
     """
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("go-home", _params, socket) do
+    {:noreply, push_redirect(socket, to: "/")}
   end
 end

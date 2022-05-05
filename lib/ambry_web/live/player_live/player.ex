@@ -51,7 +51,7 @@ defmodule AmbryWeb.PlayerLive.Player do
 
   def handle_event("load-media", %{"media-id" => media_id}, socket) do
     %{current_user: user} = socket.assigns
-    player_state = Media.get_or_create_player_state!(user.id, media_id, true)
+    player_state = Media.load_player_state!(user, media_id)
 
     {:noreply,
      socket

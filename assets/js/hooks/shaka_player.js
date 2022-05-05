@@ -89,12 +89,9 @@ export const ShakaPlayerHook = {
   },
 
   loadAndPlayMedia (mediaId) {
-    if (this.loaded) {
-      this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime })
-    }
-
     this.pushEvent('load-media', { 'media-id': mediaId }, () => {
       this.reloadMedia(true)
+      if (window.goHome) { window.goHome() }
     })
   },
 
