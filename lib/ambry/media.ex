@@ -6,7 +6,7 @@ defmodule Ambry.Media do
   import Ambry.FileUtils
   import Ecto.Query
 
-  alias Ambry.{Accounts, Books, Repo}
+  alias Ambry.{Accounts, Books, PubSub, Repo}
   alias Ambry.Media.{Audit, Bookmark, Media, MediaFlat, PlayerState}
 
   @media_preload [:narrators, book: [:authors, series_books: :series]]
@@ -88,6 +88,7 @@ defmodule Ambry.Media do
     %Media{}
     |> Media.changeset(attrs, for: :create)
     |> Repo.insert()
+    |> tap(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -106,6 +107,7 @@ defmodule Ambry.Media do
     media
     |> Media.changeset(attrs, for: action)
     |> Repo.update()
+    |> tap(&PubSub.broadcast_update/1)
   end
 
   @doc """
@@ -124,6 +126,7 @@ defmodule Ambry.Media do
     case Repo.delete(media) do
       {:ok, media} ->
         delete_media_files(media)
+        PubSub.broadcast_delete(media)
         :ok
     end
   end
@@ -228,6 +231,7 @@ defmodule Ambry.Media do
     %PlayerState{}
     |> PlayerState.changeset(attrs)
     |> Repo.insert()
+    |> tap(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -246,6 +250,7 @@ defmodule Ambry.Media do
     player_state
     |> PlayerState.changeset(attrs)
     |> Repo.update()
+    |> tap(&PubSub.broadcast_update/1)
   end
 
   @doc """
@@ -310,6 +315,7 @@ defmodule Ambry.Media do
     %Bookmark{}
     |> Bookmark.changeset(attrs)
     |> Repo.insert()
+    |> tap(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -328,6 +334,7 @@ defmodule Ambry.Media do
     bookmark
     |> Bookmark.changeset(attrs)
     |> Repo.update()
+    |> tap(&PubSub.broadcast_update/1)
   end
 
   @doc """
@@ -343,7 +350,9 @@ defmodule Ambry.Media do
 
   """
   def delete_bookmark(%Bookmark{} = bookmark) do
-    Repo.delete(bookmark)
+    bookmark
+    |> Repo.delete()
+    |> tap(&PubSub.broadcast_delete/1)
   end
 
   @doc """
