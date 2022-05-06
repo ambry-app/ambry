@@ -8,7 +8,7 @@ defmodule Ambry.Books do
 
   alias Ambry.Books.{Book, BookFlat}
   alias Ambry.Media.Media
-  alias Ambry.Repo
+  alias Ambry.{PubSub, Repo}
 
   @book_direct_assoc_preloads [book_authors: [:author], series_books: [:series]]
 
@@ -89,6 +89,7 @@ defmodule Ambry.Books do
     %Book{}
     |> change_book(attrs)
     |> Repo.insert()
+    |> tap(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -108,6 +109,7 @@ defmodule Ambry.Books do
     |> Repo.preload(@book_direct_assoc_preloads)
     |> change_book(attrs)
     |> Repo.update()
+    |> tap(&PubSub.broadcast_update/1)
   end
 
   @doc """
@@ -129,6 +131,7 @@ defmodule Ambry.Books do
     case Repo.delete(change_book(book)) do
       {:ok, book} ->
         maybe_delete_image(book.image_path)
+        PubSub.broadcast_delete(book)
         :ok
 
       {:error, changeset} ->

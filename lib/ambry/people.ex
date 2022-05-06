@@ -7,7 +7,7 @@ defmodule Ambry.People do
   import Ecto.Query
 
   alias Ambry.People.{Person, PersonFlat}
-  alias Ambry.Repo
+  alias Ambry.{PubSub, Repo}
 
   @person_direct_assoc_preloads [:authors, :narrators]
 
@@ -101,6 +101,7 @@ defmodule Ambry.People do
     %Person{}
     |> Person.changeset(attrs)
     |> Repo.insert()
+    |> tap(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -120,6 +121,7 @@ defmodule Ambry.People do
     |> Repo.preload(@person_direct_assoc_preloads)
     |> Person.changeset(attrs)
     |> Repo.update()
+    |> tap(&PubSub.broadcast_update/1)
   end
 
   @doc """
@@ -144,6 +146,7 @@ defmodule Ambry.People do
     case Repo.delete(change_person(person)) do
       {:ok, person} ->
         maybe_delete_image(person.image_path)
+        PubSub.broadcast_delete(person)
         :ok
 
       {:error, changeset} ->

@@ -6,7 +6,7 @@ defmodule Ambry.Series do
   import Ambry.SearchUtils
   import Ecto.Query
 
-  alias Ambry.Repo
+  alias Ambry.{PubSub, Repo}
   alias Ambry.Series.{Series, SeriesBook, SeriesFlat}
 
   @doc """
@@ -84,6 +84,7 @@ defmodule Ambry.Series do
     %Series{}
     |> Series.changeset(attrs)
     |> Repo.insert()
+    |> tap(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -101,6 +102,7 @@ defmodule Ambry.Series do
     series
     |> Series.changeset(attrs)
     |> Repo.update()
+    |> tap(&PubSub.broadcast_update/1)
   end
 
   @doc """
@@ -115,7 +117,9 @@ defmodule Ambry.Series do
       {:error, %Ecto.Changeset{}}
   """
   def delete_series(%Series{} = series) do
-    Repo.delete(series)
+    series
+    |> Repo.delete()
+    |> tap(&PubSub.broadcast_delete/1)
   end
 
   @doc """
