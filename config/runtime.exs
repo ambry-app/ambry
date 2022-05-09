@@ -6,7 +6,20 @@ import Config
 # and secrets from environment variables or elsewhere. Do not define
 # any compile-time configuration in here, as it won't be applied.
 
-uploads_path = Path.join(File.cwd!(), "uploads")
+uploads_path =
+  if config_env() == :test do
+    tmp_dir = System.tmp_dir!()
+
+    # setup upload folders and setup lock for test env
+    [tmp_dir, "images"] |> Path.join() |> File.mkdir_p!()
+    [tmp_dir, "media"] |> Path.join() |> File.mkdir_p!()
+    [tmp_dir, "source_media"] |> Path.join() |> File.mkdir_p!()
+    [tmp_dir, "setup.lock"] |> Path.join() |> File.touch!()
+
+    tmp_dir
+  else
+    Path.join(File.cwd!(), "uploads")
+  end
 
 config :ambry,
   uploads_path: uploads_path,

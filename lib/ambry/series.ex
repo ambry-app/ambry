@@ -19,7 +19,6 @@ defmodule Ambry.Series do
 
       iex> list_series()
       {[%SeriesFlat{}, ...], true}
-
   """
   def list_series(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :name]) do
     over_limit = limit + 1
@@ -43,7 +42,6 @@ defmodule Ambry.Series do
 
       iex> count_series()
       1
-
   """
   @spec count_series :: integer()
   def count_series do
@@ -62,7 +60,6 @@ defmodule Ambry.Series do
 
       iex> get_series!(456)
       ** (Ecto.NoResultsError)
-
   """
   def get_series!(id) do
     series_book_query = from sb in SeriesBook, order_by: [asc: sb.book_number]
@@ -82,7 +79,6 @@ defmodule Ambry.Series do
 
       iex> create_series(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
-
   """
   def create_series(attrs) do
     %Series{}
@@ -100,7 +96,6 @@ defmodule Ambry.Series do
 
       iex> update_series(series, %{field: bad_value})
       {:error, %Ecto.Changeset{}}
-
   """
   def update_series(%Series{} = series, attrs) do
     series
@@ -118,7 +113,6 @@ defmodule Ambry.Series do
 
       iex> delete_series(series)
       {:error, %Ecto.Changeset{}}
-
   """
   def delete_series(%Series{} = series) do
     Repo.delete(series)
@@ -131,7 +125,6 @@ defmodule Ambry.Series do
 
       iex> change_series(series)
       %Ecto.Changeset{data: %Series{}}
-
   """
   def change_series(%Series{} = series, attrs \\ %{}) do
     Series.changeset(series, attrs)

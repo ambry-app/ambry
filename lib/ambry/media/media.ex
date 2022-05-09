@@ -12,6 +12,8 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.Media.Chapter
   alias Ambry.Narrators.Narrator
 
+  @statuses [:pending, :processing, :error, :ready]
+
   schema "media" do
     belongs_to :book, Book
     has_many :media_narrators, MediaNarrator
@@ -20,7 +22,7 @@ defmodule Ambry.Media.Media do
     embeds_many :chapters, Chapter, on_replace: :delete
 
     field :full_cast, :boolean, default: false
-    field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready], default: :pending
+    field :status, Ecto.Enum, values: @statuses, default: :pending
     field :abridged, :boolean, default: false
 
     field :source_path, :string
@@ -32,6 +34,8 @@ defmodule Ambry.Media.Media do
 
     timestamps()
   end
+
+  def statuses, do: @statuses
 
   @doc false
   def changeset(media, attrs, for: :create) do

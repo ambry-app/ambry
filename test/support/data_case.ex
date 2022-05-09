@@ -24,7 +24,7 @@ defmodule Ambry.DataCase do
 
       import Ecto
       import Ecto.{Changeset, Query}
-      import Ambry.DataCase
+      import Ambry.{DataCase, Factory}
     end
   end
 
