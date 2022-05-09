@@ -10,6 +10,8 @@ defmodule Ambry.Books do
   alias Ambry.Media.Media
   alias Ambry.Repo
 
+  @book_direct_assoc_preloads [book_authors: [:author], series_books: [:series]]
+
   @doc """
   Returns a limited list of books and whether or not there are more.
 
@@ -67,7 +69,7 @@ defmodule Ambry.Books do
   """
   def get_book!(id) do
     Book
-    |> preload(book_authors: [:author], series_books: [:series])
+    |> preload(^@book_direct_assoc_preloads)
     |> Repo.get!(id)
   end
 
@@ -85,7 +87,7 @@ defmodule Ambry.Books do
   """
   def create_book(attrs \\ %{}) do
     %Book{}
-    |> Book.changeset(attrs)
+    |> change_book(attrs)
     |> Repo.insert()
   end
 
@@ -103,7 +105,8 @@ defmodule Ambry.Books do
   """
   def update_book(%Book{} = book, attrs) do
     book
-    |> Book.changeset(attrs)
+    |> Repo.preload(@book_direct_assoc_preloads)
+    |> change_book(attrs)
     |> Repo.update()
   end
 

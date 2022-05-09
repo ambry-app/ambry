@@ -18,14 +18,18 @@ defmodule Ambry.Authors.BookAuthor do
   end
 
   @doc false
-  def changeset(book_author, %{"delete" => "true"}) do
-    %{Ecto.Changeset.change(book_author, delete: true) | action: :delete}
-  end
-
   def changeset(book_author, attrs) do
     book_author
-    |> cast(attrs, [:author_id])
-    |> cast_assoc(:author)
+    |> cast(attrs, [:author_id, :delete])
     |> validate_required(:author_id)
+    |> maybe_apply_delete()
+  end
+
+  defp maybe_apply_delete(changeset) do
+    if Ecto.Changeset.get_change(changeset, :delete, false) do
+      %{changeset | action: :delete}
+    else
+      changeset
+    end
   end
 end

@@ -10,7 +10,14 @@ defmodule Ambry.MixProject do
       compilers: [:gettext] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -40,6 +47,9 @@ defmodule Ambry.MixProject do
       {:ecto_psql_extras, "~> 0.6"},
       {:ecto_sql, "~> 3.6"},
       {:ex_fontawesome, "~> 0.7"},
+      {:ex_machina, "~> 2.7.0"},
+      {:excoveralls, "~> 0.10", only: :test},
+      {:faker, "~> 0.17", only: :test},
       {:familiar, "~> 0.1"},
       {:file_size, "~> 3.0"},
       {:floki, ">= 0.30.0", only: :test},

@@ -36,12 +36,8 @@ defmodule Ambry.Paths do
   """
   def web_to_disk(nil), do: nil
 
-  def web_to_disk(path) do
-    # The web path always begins with "/uploads/" but that can't be part of the
-    # final path.
-    relative = String.slice(path, 9..-1)
-
-    Path.join([uploads_folder_disk_path(), relative])
+  def web_to_disk("/uploads/" <> rest) do
+    Path.join([uploads_folder_disk_path(), rest])
   end
 
   @doc """

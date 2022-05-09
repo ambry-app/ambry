@@ -9,6 +9,8 @@ defmodule Ambry.People do
   alias Ambry.People.{Person, PersonFlat}
   alias Ambry.Repo
 
+  @person_direct_assoc_preloads [:authors, :narrators]
+
   @doc """
   Returns a limited list of people and whether or not there are more.
 
@@ -81,7 +83,7 @@ defmodule Ambry.People do
       ** (Ecto.NoResultsError)
 
   """
-  def get_person!(id), do: Person |> preload([:authors, :narrators]) |> Repo.get!(id)
+  def get_person!(id), do: Person |> preload(^@person_direct_assoc_preloads) |> Repo.get!(id)
 
   @doc """
   Creates a person.
@@ -115,6 +117,7 @@ defmodule Ambry.People do
   """
   def update_person(%Person{} = person, attrs) do
     person
+    |> Repo.preload(@person_direct_assoc_preloads)
     |> Person.changeset(attrs)
     |> Repo.update()
   end
@@ -150,9 +153,6 @@ defmodule Ambry.People do
 
           Keyword.has_key?(changeset.errors, :narrator) ->
             {:error, {:has_narrated_books, get_narrated_books_list(person)}}
-
-          true ->
-            {:error, changeset}
         end
     end
   end

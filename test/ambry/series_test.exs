@@ -1,15 +1,11 @@
 defmodule Ambry.SeriesTest do
   use Ambry.DataCase
 
-  import Ambry.{BooksFixtures, SeriesFixtures}
-
   alias Ambry.Series
 
   describe "list_series/0" do
     test "returns the first 10 series sorted by name" do
-      Enum.each(1..11, fn _ ->
-        series_fixture()
-      end)
+      insert_list(11, :series)
 
       {returned_series, has_more?} = Series.list_series()
 
@@ -20,9 +16,7 @@ defmodule Ambry.SeriesTest do
 
   describe "list_series/1" do
     test "accepts an offset" do
-      Enum.each(1..11, fn _ ->
-        series_fixture()
-      end)
+      insert_list(11, :series)
 
       {returned_series, has_more?} = Series.list_series(10)
 
@@ -33,9 +27,7 @@ defmodule Ambry.SeriesTest do
 
   describe "list_series/2" do
     test "accepts a limit" do
-      Enum.each(1..6, fn _ ->
-        series_fixture()
-      end)
+      insert_list(6, :series)
 
       {returned_series, has_more?} = Series.list_series(0, 5)
 
@@ -45,16 +37,45 @@ defmodule Ambry.SeriesTest do
   end
 
   describe "list_series/3" do
-    test "accepts a filter that searches by name" do
-      [_, _, %{id: id, name: name}, _, _] =
-        Enum.map(1..5, fn _ ->
-          series_fixture()
-        end)
+    test "accepts a 'search' filter that searches by series name" do
+      [_, _, %{id: id, name: name}, _, _] = insert_list(5, :series)
 
-      {[matched], has_more?} = Series.list_series(0, 10, name)
+      {[matched], has_more?} = Series.list_series(0, 10, %{search: name})
 
       refute has_more?
       assert matched.id == id
+    end
+  end
+
+  describe "list_series/4" do
+    test "allows sorting results by any field on the schema" do
+      %{id: series1_id} = insert(:series, name: "Apple")
+      %{id: series2_id} = insert(:series, name: "Banana")
+      %{id: series3_id} = insert(:series, name: "Carrot")
+
+      {series, false} = Series.list_series(0, 10, %{}, :name)
+
+      assert [
+               %{id: ^series1_id},
+               %{id: ^series2_id},
+               %{id: ^series3_id}
+             ] = series
+
+      {series, false} = Series.list_series(0, 10, %{}, {:desc, :name})
+
+      assert [
+               %{id: ^series3_id},
+               %{id: ^series2_id},
+               %{id: ^series1_id}
+             ] = series
+    end
+  end
+
+  describe "count_series/0" do
+    test "returns the number of series in the database" do
+      insert_list(3, :series)
+
+      assert 3 = Series.count_series()
     end
   end
 
@@ -66,8 +87,8 @@ defmodule Ambry.SeriesTest do
     end
 
     test "returns the series with the given id" do
-      %{id: id} = series = series_fixture()
-      assert %Series.Series{id: ^id} = Series.get_series!(series.id)
+      %{id: id} = insert(:series)
+      assert %Series.Series{id: ^id} = Series.get_series!(id)
     end
   end
 
@@ -88,29 +109,44 @@ defmodule Ambry.SeriesTest do
              } = errors_on(changeset)
     end
 
-    test "creates a series with a name" do
-      name = unique_series_name()
-      {:ok, series} = Series.create_series(valid_series_attributes(name: name))
+    test "creates a series when given valid attributes" do
+      %{name: name} = params = params_for(:series)
 
-      assert series.name == name
+      assert {:ok, series} = Series.create_series(params)
+
+      assert %{name: ^name} = series
     end
 
-    test "creates a series with book associations" do
-      %{id: book_id} = book_fixture()
+    test "can create a series with nested book associations" do
+      %{id: book_id} = insert(:book, series_books: [])
 
-      {:ok, series} =
-        Series.create_series(
-          valid_series_attributes(series_books: [%{book_id: book_id, book_number: 1}])
-        )
+      %{name: name} = series_params = params_for(:series)
 
-      assert [%{book_id: ^book_id}] = series.series_books
+      %{book_number: book_number} =
+        series_book_params = params_for(:series_book, book_id: book_id)
+
+      params = Map.put(series_params, :series_books, [series_book_params])
+
+      assert {:ok, series} = Series.create_series(params)
+
+      book_number_decimal = Decimal.new(book_number)
+
+      assert %{
+               name: ^name,
+               series_books: [
+                 %{
+                   book_number: ^book_number_decimal,
+                   book_id: ^book_id
+                 }
+               ]
+             } = series
     end
   end
 
   describe "update_series/2" do
     test "updates a series name" do
-      series = series_fixture()
-      new_name = "New Series Name"
+      series = insert(:series)
+      %{name: new_name} = params_for(:series)
 
       {:ok, updated_series} = Series.update_series(series, %{name: new_name})
 
@@ -120,7 +156,7 @@ defmodule Ambry.SeriesTest do
 
   describe "delete_series/1" do
     test "deletes a series" do
-      series = series_fixture()
+      series = insert(:series)
 
       {:ok, _deleted_series} = Series.delete_series(series)
 
@@ -132,7 +168,7 @@ defmodule Ambry.SeriesTest do
 
   describe "change_series/1" do
     test "returns an unchanged changeset for a series" do
-      series = series_fixture()
+      series = insert(:series)
 
       changeset = Series.change_series(series)
 
@@ -142,20 +178,21 @@ defmodule Ambry.SeriesTest do
 
   describe "change_series/2" do
     test "returns a changeset for a series" do
-      series = series_fixture()
+      series = insert(:series)
+      %{name: new_name} = params_for(:series)
 
-      changeset = Series.change_series(series, %{name: "New Name"})
+      changeset = Series.change_series(series, %{name: new_name})
 
       assert %Ecto.Changeset{valid?: true} = changeset
+      assert new_name == Ecto.Changeset.get_change(changeset, :name)
     end
   end
 
   describe "get_series_with_books!/1" do
     test "gets a series and all of its books" do
-      %{id: book_id} = book_fixture()
-      %{id: id} = series_fixture(series_books: [%{book_id: book_id, book_number: 1}])
+      %{id: book_id, series_books: [%{series_id: series_id} | _other_series]} = insert(:book)
 
-      series = Series.get_series_with_books!(id)
+      series = Series.get_series_with_books!(series_id)
 
       assert %Series.Series{
                series_books: [
@@ -167,27 +204,19 @@ defmodule Ambry.SeriesTest do
 
   describe "search/1" do
     test "searches for series by name" do
-      Enum.each(1..3, fn _ ->
-        series_fixture()
-      end)
+      [%{name: name} | _] = insert_list(3, :series)
 
-      list = Series.search("Series")
+      list = Series.search(name)
 
-      assert [
-               {_, %Series.Series{}},
-               {_, %Series.Series{}},
-               {_, %Series.Series{}}
-             ] = list
+      assert [{_, %Series.Series{}}] = list
     end
   end
 
   describe "search/2" do
     test "accepts a limit" do
-      Enum.each(1..3, fn _ ->
-        series_fixture()
-      end)
+      insert_list(3, :series, name: "Foo Bar Baz")
 
-      list = Series.search("Series", 2)
+      list = Series.search("Foo", 2)
 
       assert [
                {_, %Series.Series{}},
@@ -198,9 +227,7 @@ defmodule Ambry.SeriesTest do
 
   describe "for_select/0" do
     test "returns all series names and ids only" do
-      Enum.each(1..3, fn _ ->
-        series_fixture()
-      end)
+      insert_list(3, :series)
 
       list = Series.for_select()
 

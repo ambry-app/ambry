@@ -10,13 +10,6 @@ defmodule Ambry.Authors do
   alias Ambry.Repo
 
   @doc """
-  Gets an author.
-  """
-  def get_author!(author_id) do
-    Repo.get!(Author, author_id)
-  end
-
-  @doc """
   Finds authors that match a query string.
 
   Returns a list of tuples of the form `{jaro_distance, author}`.
