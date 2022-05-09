@@ -31,6 +31,24 @@ jobs:
       - name: Compile
         run: mix compile --warnings-as-errors
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1.11
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
+          otp-version: ${{ env.OTP_VERSION_SPEC }}
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Compile dependencies
+        run: mix deps.compile
+      - name: Test
+        run: mix test
+
   check-formatted:
     name: Check Formatted
     runs-on: ubuntu-latest
