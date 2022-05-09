@@ -35,6 +35,19 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - uses: actions/checkout@v3
       - name: Set up Elixir
@@ -46,6 +59,8 @@ jobs:
         run: mix deps.get
       - name: Compile dependencies
         run: mix deps.compile
+      - name: Setup database
+        run: mix ecto.setup
       - name: Test
         run: mix test
 
