@@ -131,7 +131,7 @@ defmodule Ambry.Factory do
         "Trilogy"
       ])
 
-    ["The", name, suffix] |> Enum.join(" ")
+    Enum.join(["The", name, suffix], " ")
   end
 
   def series_book_factory do
