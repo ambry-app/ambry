@@ -17,7 +17,7 @@ defmodule AmbryWeb.API.SessionController do
     else
       conn
       |> put_status(:unauthorized)
-      |> json("Incorrect")
+      |> json(%{error: "unauthorized"})
     end
   end
 

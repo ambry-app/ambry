@@ -7,14 +7,14 @@ defmodule AmbryWeb.NowPlayingLive.Index do
 
   import AmbryWeb.NowPlayingLive.Index.Components
 
-  alias Ambry.Media.Media
+  alias Ambry.Media
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     assigns =
       case socket.assigns do
         %{player_state: player_state} when is_map(player_state) ->
-          [page_title: Media.description(player_state.media)]
+          [page_title: Media.get_media_description(player_state.media)]
 
         _else ->
           [page_title: "Personal Audiobook Streaming"]

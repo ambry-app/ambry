@@ -18,13 +18,18 @@ defmodule Ambry.Media.MediaNarrator do
   end
 
   @doc false
-  def changeset(media_narrator, %{"delete" => "true"}) do
-    %{Ecto.Changeset.change(media_narrator, delete: true) | action: :delete}
-  end
-
   def changeset(media_narrator, attrs) do
     media_narrator
-    |> cast(attrs, [:narrator_id])
+    |> cast(attrs, [:narrator_id, :delete])
     |> validate_required(:narrator_id)
+    |> maybe_apply_delete()
+  end
+
+  defp maybe_apply_delete(changeset) do
+    if Ecto.Changeset.get_change(changeset, :delete, false) do
+      %{changeset | action: :delete}
+    else
+      changeset
+    end
   end
 end

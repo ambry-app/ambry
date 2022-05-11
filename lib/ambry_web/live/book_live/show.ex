@@ -15,7 +15,7 @@ defmodule AmbryWeb.BookLive.Show do
 
     {:ok,
      socket
-     |> assign(:page_title, Books.Book.description(book))
+     |> assign(:page_title, Books.get_book_description(book))
      |> assign(:book, book)}
   end
 

@@ -21,16 +21,13 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   on file operation errors.
   """
   def consume_uploaded_image(socket) do
-    folder = Path.join([uploads_folder_disk_path(), "images"])
-    File.mkdir_p!(folder)
-
     uploaded_files =
       consume_uploaded_entries(socket, :image, fn %{path: path}, entry ->
         data = File.read!(path)
         hash = Base.encode16(:crypto.hash(:md5, data), case: :lower)
         [ext | _] = MIME.extensions(entry.client_type)
         filename = "#{hash}.#{ext}"
-        dest = Path.join([folder, filename])
+        dest = images_disk_path(filename)
         File.cp!(path, dest)
         Routes.static_path(socket, "/uploads/images/#{filename}")
       end)

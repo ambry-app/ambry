@@ -23,7 +23,7 @@ defmodule AmbryWeb.LibraryLive.Home.RecentBooks do
   defp load_books(%{assigns: assigns} = socket) do
     books = Map.get(assigns, :books, [])
     offset = Map.get(assigns, :offset, 0)
-    {more_books, has_more?} = Books.get_recent_books!(offset, @limit)
+    {more_books, has_more?} = Books.get_recent_books(offset, @limit)
     books = books ++ more_books
 
     socket

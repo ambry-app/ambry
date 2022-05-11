@@ -6,7 +6,7 @@ defmodule Ambry.Factory do
   alias Ambry.Accounts.User
   alias Ambry.Authors.{Author, BookAuthor}
   alias Ambry.Books.Book
-  alias Ambry.Media.{Media, MediaNarrator, PlayerState}
+  alias Ambry.Media.{Bookmark, Media, MediaNarrator, PlayerState}
   alias Ambry.Narrators.Narrator
   alias Ambry.People.Person
   alias Ambry.Series.{Series, SeriesBook}
@@ -42,8 +42,7 @@ defmodule Ambry.Factory do
   def person_factory do
     image_path = "/uploads/images/" <> Faker.File.file_name(:image)
 
-    disk_path = Ambry.Paths.web_to_disk(image_path)
-    File.touch!(disk_path)
+    create_fake_file(image_path)
 
     %Person{
       name: Faker.Person.name(),
@@ -87,8 +86,7 @@ defmodule Ambry.Factory do
   def book_factory do
     image_path = "/uploads/images/" <> Faker.File.file_name(:image)
 
-    disk_path = Ambry.Paths.web_to_disk(image_path)
-    File.touch!(disk_path)
+    create_fake_file(image_path)
 
     %Book{
       title: book_title(),
@@ -146,11 +144,20 @@ defmodule Ambry.Factory do
   def media_factory do
     ExMachina.Sequence.reset([:chapter_time, :chapter_number])
 
+    source_path = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
+
     chapters = build_list(Faker.random_between(10, 40), :chapter)
     %{time: time} = List.last(chapters)
     duration = Decimal.new(time + 300)
 
     media_id = Ecto.UUID.generate()
+
+    mpd_path = "/uploads/media/#{media_id}.mpd"
+    hls_path = "/uploads/media/#{media_id}.m3u8"
+    mp4_path = "/uploads/media/#{media_id}.mp4"
+
+    File.mkdir_p!(source_path)
+    create_fake_files([mpd_path, hls_path, Ambry.Paths.hls_playlist_path(hls_path), mp4_path])
 
     %Media{
       book: build(:book),
@@ -159,10 +166,10 @@ defmodule Ambry.Factory do
       full_cast: Enum.random([true, false]),
       status: Enum.random(Media.statuses()),
       abridged: Enum.random([true, false]),
-      source_path: "/source_media/#{Ecto.UUID.generate()}",
-      mpd_path: "/media/#{media_id}.mpd",
-      hls_path: "/media/#{media_id}.m3u8",
-      mp4_path: "/media/#{media_id}.mp4",
+      source_path: source_path,
+      mpd_path: mpd_path,
+      hls_path: hls_path,
+      mp4_path: mp4_path,
       duration: duration
     }
   end
@@ -183,5 +190,23 @@ defmodule Ambry.Factory do
       position: Decimal.new(0),
       status: :not_started
     }
+  end
+
+  # Bookmarks
+
+  def bookmark_factory do
+    %Bookmark{
+      position: (Faker.random_uniform() * 1000) |> Decimal.from_float() |> Decimal.round(1),
+      label: Faker.Lorem.word()
+    }
+  end
+
+  # Fake file handling
+
+  defp create_fake_files(list), do: Enum.each(list, &create_fake_file/1)
+
+  defp create_fake_file(web_path) do
+    disk_path = Ambry.Paths.web_to_disk(web_path)
+    File.touch!(disk_path)
   end
 end

@@ -333,6 +333,10 @@ defmodule Ambry.AccountsTest do
       assert Repo.get!(User, user.id).email == user.email
       assert Repo.get_by(UserToken, user_id: user.id)
     end
+
+    test "returns an error if given an invalid token", %{user: user} do
+      assert :error = Accounts.update_user_email(user, "===")
+    end
   end
 
   describe "change_user_password/2" do
@@ -526,6 +530,10 @@ defmodule Ambry.AccountsTest do
       assert Accounts.confirm_user(token) == :error
       refute Repo.get!(User, user.id).confirmed_at
       assert Repo.get_by(UserToken, user_id: user.id)
+    end
+
+    test "returns an error if given an invalid token" do
+      assert :error = Accounts.confirm_user("===")
     end
   end
 

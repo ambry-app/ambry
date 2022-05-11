@@ -8,18 +8,15 @@ import Config
 
 uploads_path =
   if config_env() == :test do
-    tmp_dir = System.tmp_dir!()
-
-    # setup upload folders and setup lock for test env
-    [tmp_dir, "images"] |> Path.join() |> File.mkdir_p!()
-    [tmp_dir, "media"] |> Path.join() |> File.mkdir_p!()
-    [tmp_dir, "source_media"] |> Path.join() |> File.mkdir_p!()
-    [tmp_dir, "setup.lock"] |> Path.join() |> File.touch!()
-
-    tmp_dir
+    Path.join(System.tmp_dir!(), "ambry_test_files")
   else
-    Path.join(File.cwd!(), "uploads")
+    System.get_env("UPLOADS_PATH") || Path.join(File.cwd!(), "uploads")
   end
+
+# Ensure folders exist
+[uploads_path, "images"] |> Path.join() |> File.mkdir_p!()
+[uploads_path, "media"] |> Path.join() |> File.mkdir_p!()
+[uploads_path, "source_media"] |> Path.join() |> File.mkdir_p!()
 
 config :ambry,
   uploads_path: uploads_path,

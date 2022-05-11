@@ -99,12 +99,6 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  def description(%Media{book: book, narrators: narrators}) do
-    narrators = Enum.map_join(narrators, ", ", & &1.name)
-
-    "#{Book.description(book)} · narrated by #{narrators}"
-  end
-
   def source_id(%Media{source_path: nil}), do: Ecto.UUID.generate()
   def source_id(%Media{source_path: source_path}), do: Path.basename(source_path)
 

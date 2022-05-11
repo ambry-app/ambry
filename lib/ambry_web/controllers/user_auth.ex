@@ -176,7 +176,7 @@ defmodule AmbryWeb.UserAuth do
     else
       conn
       |> put_status(:unauthorized)
-      |> json("Unauthorized")
+      |> json(%{error: "unauthorized"})
       |> halt()
     end
   end
@@ -214,7 +214,7 @@ defmodule AmbryWeb.UserAuth do
     else
       conn
       |> put_status(:unauthorized)
-      |> text("Unauthorized")
+      |> text(%{error: "unauthorized"})
       |> halt()
     end
   end

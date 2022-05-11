@@ -167,7 +167,7 @@ defmodule Ambry.Books do
   @doc """
   Lists recent books.
   """
-  def get_recent_books!(offset \\ 0, limit \\ 10) do
+  def get_recent_books(offset \\ 0, limit \\ 10) do
     over_limit = limit + 1
 
     query = from b in Book, order_by: [desc: b.inserted_at], offset: ^offset, limit: ^over_limit
@@ -204,5 +204,15 @@ defmodule Ambry.Books do
     query = from b in Book, select: {b.title, b.id}, order_by: b.title
 
     Repo.all(query)
+  end
+
+  @doc """
+  Returns a description of a book containing its title and author names.
+  """
+  def get_book_description(%Book{} = book) do
+    book = Repo.preload(book, :authors)
+    authors = Enum.map_join(book.authors, ", ", & &1.name)
+
+    "#{book.title} · by #{authors}"
   end
 end
