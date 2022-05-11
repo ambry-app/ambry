@@ -8,7 +8,7 @@ defmodule AmbryWeb.Components do
   import AmbryWeb.TimeUtils
 
   alias Ambry.Books.Book
-  alias Ambry.Media.Media
+  alias Ambry.Media
   alias Ambry.Series.SeriesBook
 
   alias AmbryWeb.Components.SearchBox
@@ -380,7 +380,7 @@ defmodule AmbryWeb.Components do
   defp player_state_description(nil), do: ""
 
   defp player_state_description(%{media: media}) do
-    Media.description(media)
+    Media.get_media_description(media)
   end
 
   defp format_decimal(decimal) do

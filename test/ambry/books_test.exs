@@ -323,33 +323,33 @@ defmodule Ambry.BooksTest do
     end
   end
 
-  describe "get_recent_books!/0" do
+  describe "get_recent_books/0" do
     test "returns the first 10 books sorted by inserted_at" do
       insert_list(11, :book)
 
-      {returned_books, has_more?} = Books.get_recent_books!()
+      {returned_books, has_more?} = Books.get_recent_books()
 
       assert has_more?
       assert length(returned_books) == 10
     end
   end
 
-  describe "get_recent_books!/1" do
+  describe "get_recent_books/1" do
     test "accepts an offset" do
       insert_list(11, :book)
 
-      {returned_books, has_more?} = Books.get_recent_books!(10)
+      {returned_books, has_more?} = Books.get_recent_books(10)
 
       refute has_more?
       assert length(returned_books) == 1
     end
   end
 
-  describe "get_recent_books!/2" do
+  describe "get_recent_books/2" do
     test "accepts a limit" do
       insert_list(6, :book)
 
-      {returned_books, has_more?} = Books.get_recent_books!(0, 5)
+      {returned_books, has_more?} = Books.get_recent_books(0, 5)
 
       assert has_more?
       assert length(returned_books) == 5
@@ -390,6 +390,18 @@ defmodule Ambry.BooksTest do
                {_, _},
                {_, _}
              ] = list
+    end
+  end
+
+  describe "get_book_description/1" do
+    test "returns a string describing the book" do
+      book = insert(:book)
+      %{title: title, book_authors: [%{author: %{name: author_name}} | _]} = book
+
+      description = Books.get_book_description(book)
+
+      assert description =~ title
+      assert description =~ author_name
     end
   end
 end

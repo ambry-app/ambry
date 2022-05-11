@@ -47,6 +47,20 @@ defmodule Ambry.PeopleTest do
       refute has_more?
       assert matched.id == id
     end
+
+    test "accepts an 'is_author' filter" do
+      %{person: %{id: id}} = insert(:author)
+
+      {[%{id: ^id}], false} = People.list_people(0, 10, %{is_author: true})
+      {[], false} = People.list_people(0, 10, %{is_author: false})
+    end
+
+    test "accepts an 'is_narrator' filter" do
+      %{person: %{id: id}} = insert(:narrator)
+
+      {[%{id: ^id}], false} = People.list_people(0, 10, %{is_narrator: true})
+      {[], false} = People.list_people(0, 10, %{is_narrator: false})
+    end
   end
 
   describe "list_people/4" do
@@ -212,7 +226,7 @@ defmodule Ambry.PeopleTest do
 
   describe "delete_person/1" do
     test "deletes a person" do
-      person = insert(:person)
+      person = insert(:person, image_path: nil)
 
       :ok = People.delete_person(person)
 

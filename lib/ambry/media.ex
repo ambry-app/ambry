@@ -6,7 +6,7 @@ defmodule Ambry.Media do
   import Ambry.FileUtils
   import Ecto.Query
 
-  alias Ambry.{Accounts, Repo}
+  alias Ambry.{Accounts, Books, Repo}
   alias Ambry.Media.{Audit, Bookmark, Media, MediaFlat, PlayerState}
 
   @media_preload [:narrators, book: [:authors, series_books: :series]]
@@ -95,10 +95,10 @@ defmodule Ambry.Media do
 
   ## Examples
 
-      iex> update_media(media, %{field: new_value})
+      iex> update_media(media, %{field: new_value}, for: :update)
       {:ok, %Media{}}
 
-      iex> update_media(media, %{field: bad_value})
+      iex> update_media(media, %{field: bad_value}, for: :update)
       {:error, %Ecto.Changeset{}}
 
   """
@@ -125,9 +125,6 @@ defmodule Ambry.Media do
       {:ok, media} ->
         delete_media_files(media)
         :ok
-
-      {:error, changeset} ->
-        {:error, changeset}
     end
   end
 
@@ -227,7 +224,7 @@ defmodule Ambry.Media do
       {:error, %Ecto.Changeset{}}
 
   """
-  def create_player_state(attrs \\ %{}) do
+  def create_player_state(attrs) do
     %PlayerState{}
     |> PlayerState.changeset(attrs)
     |> Repo.insert()
@@ -309,7 +306,7 @@ defmodule Ambry.Media do
       {:error, %Ecto.Changeset{}}
 
   """
-  def create_bookmark(attrs \\ %{}) do
+  def create_bookmark(attrs) do
     %Bookmark{}
     |> Bookmark.changeset(attrs)
     |> Repo.insert()
@@ -360,5 +357,15 @@ defmodule Ambry.Media do
   """
   def change_bookmark(%Bookmark{} = bookmark, attrs \\ %{}) do
     Bookmark.changeset(bookmark, attrs)
+  end
+
+  @doc """
+  Returns a description of a media containing the book's title, narrator names, and author names.
+  """
+  def get_media_description(%Media{} = media) do
+    %{book: book, narrators: narrators} = Repo.preload(media, [:book, :narrators])
+    narrators = Enum.map_join(narrators, ", ", & &1.name)
+
+    "#{Books.get_book_description(book)} · narrated by #{narrators}"
   end
 end

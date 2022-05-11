@@ -54,13 +54,11 @@ defmodule Ambry.Media.Processor.Shared do
   end
 
   def finalize!(media, id) do
-    media_folder = Path.join(uploads_folder_disk_path(), "media")
-    mpd_dest = Path.join([media_folder, "#{id}.mpd"])
-    hls_playlist_dest = Path.join([media_folder, "#{id}_0.m3u8"])
-    hls_master_dest = Path.join([media_folder, "#{id}.m3u8"])
-    mp4_dest = Path.join([media_folder, "#{id}.mp4"])
+    mpd_dest = media_disk_path("#{id}.mpd")
+    hls_playlist_dest = media_disk_path("#{id}_0.m3u8")
+    hls_master_dest = media_disk_path("#{id}.m3u8")
+    mp4_dest = media_disk_path("#{id}.mp4")
 
-    File.mkdir_p!(media_folder)
     File.rename!(Media.out_path(media, "#{id}.mpd"), mpd_dest)
     File.rename!(Media.out_path(media, "#{id}_0.m3u8"), hls_playlist_dest)
     File.rename!(Media.out_path(media, "#{id}.m3u8"), hls_master_dest)

@@ -12,7 +12,7 @@ defmodule AmbryWeb.API.BookController do
   def index(conn, params) do
     offset = offset_from_params(params, @limit)
 
-    {books, has_more?} = Books.get_recent_books!(offset, @limit)
+    {books, has_more?} = Books.get_recent_books(offset, @limit)
     render(conn, "index.json", books: books, has_more?: has_more?)
   end
 

@@ -59,7 +59,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   def handle_event("save", %{"media" => media_params}, socket) do
     folder_id = Media.Media.source_id(socket.assigns.media)
-    folder = Path.join([uploads_folder_disk_path(), "source_media"])
+    folder = source_media_disk_path()
 
     files =
       consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
