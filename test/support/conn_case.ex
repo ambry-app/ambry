@@ -72,7 +72,7 @@ defmodule AmbryWeb.ConnCase do
     encoded_token = Base.url_encode64(token)
     conn = Plug.Conn.put_req_header(conn, "authorization", "Bearer #{encoded_token}")
 
-    %{conn: conn, user: user}
+    %{conn: conn, user: user, token: token}
   end
 
   def remove_user_api_token(conn) do

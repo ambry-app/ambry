@@ -64,10 +64,12 @@ defmodule Ambry.FileUtils do
   def try_delete_file(disk_path) do
     case File.rm(disk_path) do
       :ok ->
+        # IO.puts("successfully delete file #{disk_path}")
         Logger.info(fn -> "Deleted file: #{disk_path}" end)
         :ok
 
       {:error, posix} ->
+        # IO.puts("failed to delete file #{disk_path}")
         Logger.warn(fn -> "Couldn't delete file (#{posix}): #{disk_path}" end)
         {:error, posix}
     end
@@ -83,6 +85,8 @@ defmodule Ambry.FileUtils do
   def try_delete_folder(disk_path) do
     case File.rm_rf(disk_path) do
       {:ok, files_and_dirs} ->
+        # IO.puts("successfully delete folder #{disk_path}")
+
         Enum.each(files_and_dirs, fn path ->
           Logger.info(fn -> "Deleted file/folder: #{path}" end)
         end)
@@ -90,6 +94,7 @@ defmodule Ambry.FileUtils do
         :ok
 
       {:error, posix, path} ->
+        # IO.puts("failed to delete folder #{disk_path}")
         Logger.warn(fn -> "Couldn't delete file/folder (#{posix}): #{path}" end)
         {:error, posix, path}
     end

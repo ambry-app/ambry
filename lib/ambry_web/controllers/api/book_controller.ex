@@ -5,8 +5,6 @@ defmodule AmbryWeb.API.BookController do
 
   alias Ambry.Books
 
-  action_fallback AmbryWeb.FallbackController
-
   @limit 25
 
   def index(conn, params) do

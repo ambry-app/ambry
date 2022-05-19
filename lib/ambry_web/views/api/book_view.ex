@@ -58,8 +58,6 @@ defmodule AmbryWeb.API.BookView do
     }
   end
 
-  defp book_details(%SeriesBook{book: book}), do: book_details(book)
-
   defp book_details(%Book{} = book) do
     %{
       description: book.description,
@@ -86,7 +84,4 @@ defmodule AmbryWeb.API.BookView do
   end
 
   defp authors(%Book{authors: authors}) when is_list(authors), do: authors
-
-  defp authors(%Book{book_authors: book_authors}) when is_list(book_authors),
-    do: Enum.map(book_authors, & &1.author)
 end

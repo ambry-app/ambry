@@ -375,6 +375,7 @@ defmodule Ambry.MediaTest do
 
     test "deletes the media files from disk used by a media" do
       media = insert(:media)
+      create_fake_files!(media)
 
       assert File.dir?(media.source_path)
       assert media.mp4_path |> Paths.web_to_disk() |> File.exists?()
@@ -393,6 +394,7 @@ defmodule Ambry.MediaTest do
 
     test "warns if the media files from disk used by a media do not exist" do
       media = insert(:media)
+      create_fake_files!(media)
 
       media.mp4_path |> Paths.web_to_disk() |> File.rm!()
 

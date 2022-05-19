@@ -237,6 +237,7 @@ defmodule Ambry.PeopleTest do
 
     test "deletes the image file from disk used by a person" do
       person = insert(:person)
+      create_fake_files!(person)
 
       assert File.exists?(Ambry.Paths.web_to_disk(person.image_path))
 
@@ -247,6 +248,7 @@ defmodule Ambry.PeopleTest do
 
     test "does not delete the image file from disk if the same image is used by multiple people" do
       person = insert(:person)
+      create_fake_files!(person)
       person2 = insert(:person, image_path: person.image_path)
 
       assert File.exists?(Ambry.Paths.web_to_disk(person.image_path))
@@ -262,8 +264,6 @@ defmodule Ambry.PeopleTest do
 
     test "warns if the image file from disk used by a person does not exist" do
       person = insert(:person)
-
-      File.rm!(Ambry.Paths.web_to_disk(person.image_path))
 
       fun = fn ->
         :ok = People.delete_person(person)

@@ -5,50 +5,42 @@ defmodule Ambry.Media.AuditTest do
 
   describe "get_media_file_details/1" do
     test "returns source file details" do
-      media = insert(:media, mpd_path: nil, mp4_path: nil, hls_path: nil)
+      %{source_path: source_path} =
+        media = insert(:media, mpd_path: nil, mp4_path: nil, hls_path: nil)
 
-      # put a fake file in the source folder
-      File.touch!(Path.join([media.source_path, "foo.mp3"]))
-
-      assert audit = Audit.get_media_file_details(media)
-
-      assert %{
-               source_files: [
-                 %{
-                   path: mp3_file_path,
-                   stat: %File.Stat{}
-                 }
-               ]
-             } = audit
-
-      assert "foo.mp3" = Path.basename(mp3_file_path)
-    end
-
-    test "returns details from sub-folders of the source folder" do
-      media = insert(:media, mpd_path: nil, mp4_path: nil, hls_path: nil)
-
-      # put some fake files into the source folder
-      File.mkdir!(Path.join([media.source_path, "foo"]))
-      File.touch!(Path.join([media.source_path, "foo", "bar.txt"]))
+      create_fake_source_files!(source_path)
 
       assert audit = Audit.get_media_file_details(media)
 
       assert %{
                source_files: [
                  %{
-                   path: txt_file_path,
+                   path: bar_mp3_path,
+                   stat: %File.Stat{}
+                 },
+                 %{
+                   path: baz_mp3_path,
+                   stat: %File.Stat{}
+                 },
+                 %{
+                   path: foo_mp3_path,
+                   stat: %File.Stat{}
+                 },
+                 %{
+                   path: out_files_txt_path,
                    stat: %File.Stat{}
                  }
                ]
              } = audit
 
-      assert "bar.txt" = Path.basename(txt_file_path)
+      assert "foo.mp3" = Path.basename(foo_mp3_path)
+      assert "bar.mp3" = Path.basename(bar_mp3_path)
+      assert "baz.mp3" = Path.basename(baz_mp3_path)
+      assert "files.txt" = Path.basename(out_files_txt_path)
     end
 
     test "when source folder is missing" do
       media = insert(:media, mpd_path: nil, mp4_path: nil, hls_path: nil)
-
-      File.rm_rf!(media.source_path)
 
       assert audit = Audit.get_media_file_details(media)
 
@@ -57,6 +49,7 @@ defmodule Ambry.Media.AuditTest do
 
     test "returns media file details" do
       media = insert(:media)
+      create_fake_files!(media)
 
       assert audit = Audit.get_media_file_details(media)
 
@@ -90,8 +83,20 @@ defmodule Ambry.Media.AuditTest do
       media1 = insert(:media)
       media2 = insert(:media)
 
-      File.mkdir!(Ambry.Paths.source_media_disk_path(Ecto.UUID.generate()))
+      create_fake_files!(media1)
+      create_fake_files!(media2)
+
+      # an orphaned source folder with a file in it
+      orphaned_source_path = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
+      create_fake_source_files!(orphaned_source_path)
+
+      # an orphaned mp4 file
+      File.touch!(Ambry.Paths.web_to_disk("/uploads/media/#{Ecto.UUID.generate()}.mp4"))
+
+      # a missing mp4 file
       File.rm_rf!(Ambry.Paths.web_to_disk(media1.mp4_path))
+
+      # a missing source folder
       File.rm_rf!(media2.source_path)
 
       assert %{

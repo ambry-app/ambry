@@ -5,8 +5,6 @@ defmodule AmbryWeb.API.BookmarkController do
 
   alias Ambry.Media
 
-  action_fallback AmbryWeb.FallbackController
-
   @limit 100
 
   def index(conn, %{"media_id" => media_id} = params) do

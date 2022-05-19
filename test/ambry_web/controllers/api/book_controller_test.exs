@@ -34,13 +34,23 @@ defmodule AmbryWeb.Api.BookControllerTest do
       assert %{"error" => "unauthorized"} = json_response(conn, 401)
     end
 
-    test "returns a list of books", %{conn: conn} do
+    test "returns the requested book", %{conn: conn} do
       %{id: book_id} = insert(:book)
 
       conn = get(conn, "/api/books/#{book_id}")
 
       assert %{
                "data" => %{"id" => ^book_id}
+             } = json_response(conn, 200)
+    end
+
+    test "contains a list of media for the given book", %{conn: conn} do
+      %{book: %{id: book_id}} = insert(:media, status: :ready)
+
+      conn = get(conn, "/api/books/#{book_id}")
+
+      assert %{
+               "data" => %{"id" => ^book_id, "media" => [%{}]}
              } = json_response(conn, 200)
     end
   end

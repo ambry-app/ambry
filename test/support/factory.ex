@@ -40,14 +40,10 @@ defmodule Ambry.Factory do
   # People
 
   def person_factory do
-    image_path = "/uploads/images/" <> Faker.File.file_name(:image)
-
-    create_fake_file(image_path)
-
     %Person{
       name: Faker.Person.name(),
       description: Faker.Lorem.paragraph(),
-      image_path: image_path
+      image_path: "/uploads/images/" <> Faker.File.file_name(:image)
     }
   end
 
@@ -84,15 +80,11 @@ defmodule Ambry.Factory do
   # Books
 
   def book_factory do
-    image_path = "/uploads/images/" <> Faker.File.file_name(:image)
-
-    create_fake_file(image_path)
-
     %Book{
       title: book_title(),
       published: Faker.Date.backward(15_466),
       description: Faker.Lorem.paragraph(),
-      image_path: image_path,
+      image_path: "/uploads/images/" <> Faker.File.file_name(:image),
       book_authors: build_list(Faker.random_between(1, 2), :book_author),
       series_books: build_list(Faker.random_between(1, 2), :series_book)
     }
@@ -144,20 +136,10 @@ defmodule Ambry.Factory do
   def media_factory do
     ExMachina.Sequence.reset([:chapter_time, :chapter_number])
 
-    source_path = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
-
     chapters = build_list(Faker.random_between(10, 40), :chapter)
     %{time: time} = List.last(chapters)
-    duration = Decimal.new(time + 300)
 
     media_id = Ecto.UUID.generate()
-
-    mpd_path = "/uploads/media/#{media_id}.mpd"
-    hls_path = "/uploads/media/#{media_id}.m3u8"
-    mp4_path = "/uploads/media/#{media_id}.mp4"
-
-    File.mkdir_p!(source_path)
-    create_fake_files([mpd_path, hls_path, Ambry.Paths.hls_playlist_path(hls_path), mp4_path])
 
     %Media{
       book: build(:book),
@@ -166,11 +148,11 @@ defmodule Ambry.Factory do
       full_cast: Enum.random([true, false]),
       status: Enum.random(Media.statuses()),
       abridged: Enum.random([true, false]),
-      source_path: source_path,
-      mpd_path: mpd_path,
-      hls_path: hls_path,
-      mp4_path: mp4_path,
-      duration: duration
+      source_path: Ambry.Paths.source_media_disk_path(Ecto.UUID.generate()),
+      mpd_path: "/uploads/media/#{media_id}.mpd",
+      hls_path: "/uploads/media/#{media_id}.m3u8",
+      mp4_path: "/uploads/media/#{media_id}.mp4",
+      duration: Decimal.new(time + 300)
     }
   end
 
@@ -203,10 +185,39 @@ defmodule Ambry.Factory do
 
   # Fake file handling
 
+  def create_fake_files!(%Person{image_path: web_path}), do: create_fake_file(web_path)
+  def create_fake_files!(%Book{image_path: web_path}), do: create_fake_file(web_path)
+
+  def create_fake_files!(%Media{
+        source_path: source_path,
+        mpd_path: mpd_path,
+        hls_path: hls_path,
+        mp4_path: mp4_path
+      }) do
+    create_fake_source_files!(source_path)
+    create_fake_files([mpd_path, hls_path, Ambry.Paths.hls_playlist_path(hls_path), mp4_path])
+  end
+
   defp create_fake_files(list), do: Enum.each(list, &create_fake_file/1)
 
   defp create_fake_file(web_path) do
     disk_path = Ambry.Paths.web_to_disk(web_path)
+    create_file_if_not_exists!(disk_path)
+  end
+
+  def create_fake_source_files!(source_path) do
+    File.mkdir_p!(Path.join([source_path, "_out"]))
+
+    create_file_if_not_exists!(Path.join([source_path, "_out", "files.txt"]))
+
+    Enum.each(["foo.mp3", "bar.mp3", "baz.mp3"], fn file ->
+      [source_path, file] |> Path.join() |> create_file_if_not_exists!()
+    end)
+  end
+
+  defp create_file_if_not_exists!(disk_path) do
+    false = File.exists?(disk_path)
+    # IO.puts("creating fake file #{disk_path}")
     File.touch!(disk_path)
   end
 end

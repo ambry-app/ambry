@@ -84,10 +84,7 @@ defmodule Ambry.Media.MediaTest do
   describe "files/2" do
     test "returns a list of files with given extension from the media source path" do
       media = build(:media)
-
-      media |> Media.source_path("foo.mp3") |> File.touch!()
-      media |> Media.source_path("bar.mp3") |> File.touch!()
-      media |> Media.source_path("baz.mp3") |> File.touch!()
+      create_fake_files!(media)
 
       files = Media.files(media, [".mp3"])
 
