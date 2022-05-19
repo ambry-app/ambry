@@ -3,10 +3,6 @@ defmodule AmbryWeb.API.PersonView do
 
   alias AmbryWeb.API.{BookView, PersonView}
 
-  def render("index.json", %{people: people}) do
-    %{data: render_many(people, PersonView, "person.json")}
-  end
-
   def render("show.json", %{person: person}) do
     %{data: render_one(person, PersonView, "person.json")}
   end

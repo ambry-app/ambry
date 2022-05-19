@@ -235,7 +235,7 @@ defmodule Ambry.BooksTest do
 
   describe "delete_book/1" do
     test "deletes a book" do
-      book = insert(:book)
+      book = insert(:book, image_path: nil)
 
       :ok = Books.delete_book(book)
 
@@ -246,6 +246,7 @@ defmodule Ambry.BooksTest do
 
     test "deletes the image file from disk used by a book" do
       book = insert(:book)
+      create_fake_files!(book)
 
       assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
 
@@ -256,6 +257,7 @@ defmodule Ambry.BooksTest do
 
     test "does not delete the image file from disk if the same image is used by multiple books" do
       book = insert(:book)
+      create_fake_files!(book)
       book2 = insert(:book, image_path: book.image_path)
 
       assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
@@ -271,8 +273,6 @@ defmodule Ambry.BooksTest do
 
     test "warns if the image file from disk used by a book does not exist" do
       book = insert(:book)
-
-      File.rm!(Ambry.Paths.web_to_disk(book.image_path))
 
       fun = fn ->
         :ok = Books.delete_book(book)
