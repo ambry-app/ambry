@@ -62,7 +62,7 @@ jobs:
       - name: Setup database
         run: mix ecto.setup
       - name: Test
-        run: mix test
+        run: mix coveralls
 
   check-formatted:
     name: Check Formatted
