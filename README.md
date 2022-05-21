@@ -1,6 +1,6 @@
 <p align="center">
-  <img width="501" height="112" src="branding/logo_light.png#gh-light-mode-only">
-  <img width="501" height="112" src="branding/logo_dark.png#gh-dark-mode-only">
+  <img src="branding/logo_light.png#gh-light-mode-only">
+  <img src="branding/logo_dark.png#gh-dark-mode-only">
 </p>
 
 ## Intro
