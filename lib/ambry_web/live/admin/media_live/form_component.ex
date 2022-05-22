@@ -67,6 +67,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
         dest = Path.join([folder, folder_id, entry.client_name])
         File.cp!(path, dest)
+
+        {:ok, dest}
       end)
 
     media_params =

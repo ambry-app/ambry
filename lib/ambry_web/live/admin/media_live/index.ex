@@ -8,7 +8,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   import AmbryWeb.Admin.PaginationHelpers
   import AmbryWeb.TimeUtils
 
-  alias Ambry.Media
+  alias Ambry.{Media, PubSub}
 
   alias AmbryWeb.Admin.MediaLive.{ChaptersComponent, FormComponent}
 
@@ -18,6 +18,10 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
+    if connected?(socket) do
+      :ok = PubSub.subscribe("media:*")
+    end
+
     {:ok,
      socket
      |> assign(:header_title, "Media")
@@ -81,11 +85,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     end
   end
 
-  @impl Phoenix.LiveView
-  def handle_event("delete", %{"id" => id}, socket) do
-    media = Media.get_media!(id)
-    :ok = Media.delete_media(media)
-
+  defp refresh_media(socket) do
     list_opts = get_list_opts(socket)
 
     params = %{
@@ -93,7 +93,15 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
       "page" => to_string(list_opts.page)
     }
 
-    {:noreply, maybe_update_media(socket, params, true)}
+    maybe_update_media(socket, params, true)
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("delete", %{"id" => id}, socket) do
+    media = Media.get_media!(id)
+    :ok = Media.delete_media(media)
+
+    {:noreply, refresh_media(socket)}
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
@@ -149,6 +157,8 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
     {:noreply, socket}
   end
+
+  def handle_info({:media, _action, _id}, socket), do: {:noreply, refresh_media(socket)}
 
   defp status_color(:pending), do: "yellow"
   defp status_color(:processing), do: "blue"
