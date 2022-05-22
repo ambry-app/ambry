@@ -7,7 +7,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
   import AmbryWeb.Admin.PaginationHelpers
 
-  alias Ambry.Series
+  alias Ambry.{PubSub, Series}
 
   alias AmbryWeb.Admin.SeriesLive.FormComponent
 
@@ -17,6 +17,10 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
+    if connected?(socket) do
+      :ok = PubSub.subscribe("series:*")
+    end
+
     {:ok,
      socket
      |> assign(:header_title, "Series")
@@ -71,11 +75,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     end
   end
 
-  @impl Phoenix.LiveView
-  def handle_event("delete", %{"id" => id}, socket) do
-    series = Series.get_series!(id)
-    {:ok, _} = Series.delete_series(series)
-
+  defp refresh_series(socket) do
     list_opts = get_list_opts(socket)
 
     params = %{
@@ -83,7 +83,18 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
       "page" => to_string(list_opts.page)
     }
 
-    {:noreply, maybe_update_series(socket, params, true)}
+    maybe_update_series(socket, params, true)
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("delete", %{"id" => id}, socket) do
+    series = Series.get_series!(id)
+    {:ok, _} = Series.delete_series(series)
+
+    {:noreply,
+     socket
+     |> refresh_series()
+     |> put_flash(:info, "Series deleted successfully")}
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
@@ -119,4 +130,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
       sort_to_order(opts.sort, @valid_sort_fields)
     )
   end
+
+  @impl Phoenix.LiveView
+  def handle_info({:series, _action, _id}, socket), do: {:noreply, refresh_series(socket)}
 end

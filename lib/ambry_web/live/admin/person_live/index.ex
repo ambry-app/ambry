@@ -7,7 +7,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
   import AmbryWeb.Admin.PaginationHelpers
 
-  alias Ambry.People
+  alias Ambry.{People, PubSub}
   alias Ambry.People.Person
 
   alias AmbryWeb.Admin.PersonLive.FormComponent
@@ -22,6 +22,10 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
+    if connected?(socket) do
+      :ok = PubSub.subscribe("person:*")
+    end
+
     {:ok,
      socket
      |> assign(:header_title, "Authors & Narrators")
@@ -76,22 +80,26 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     end
   end
 
+  defp refresh_people(socket) do
+    list_opts = get_list_opts(socket)
+
+    params = %{
+      "filter" => to_string(list_opts.filter),
+      "page" => to_string(list_opts.page)
+    }
+
+    maybe_update_people(socket, params, true)
+  end
+
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     person = People.get_person!(id)
 
     case People.delete_person(person) do
       :ok ->
-        list_opts = get_list_opts(socket)
-
-        params = %{
-          "filter" => to_string(list_opts.filter),
-          "page" => to_string(list_opts.page)
-        }
-
         {:noreply,
          socket
-         |> maybe_update_people(params, true)
+         |> refresh_people()
          |> put_flash(:info, "Person deleted successfully")}
 
       {:error, {:has_authored_books, books}} ->
@@ -145,4 +153,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
       sort_to_order(opts.sort, @valid_sort_fields)
     )
   end
+
+  @impl Phoenix.LiveView
+  def handle_info({:person, _action, _id}, socket), do: {:noreply, refresh_people(socket)}
 end

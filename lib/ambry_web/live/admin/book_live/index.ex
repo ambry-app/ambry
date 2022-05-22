@@ -7,7 +7,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
 
   import AmbryWeb.Admin.PaginationHelpers
 
-  alias Ambry.Books
+  alias Ambry.{Books, PubSub}
   alias Ambry.Books.Book
 
   alias AmbryWeb.Admin.BookLive.FormComponent
@@ -18,6 +18,10 @@ defmodule AmbryWeb.Admin.BookLive.Index do
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
+    if connected?(socket) do
+      :ok = PubSub.subscribe("book:*")
+    end
+
     {:ok,
      socket
      |> assign(:header_title, "Books")
@@ -72,22 +76,26 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     end
   end
 
+  defp refresh_books(socket) do
+    list_opts = get_list_opts(socket)
+
+    params = %{
+      "filter" => to_string(list_opts.filter),
+      "page" => to_string(list_opts.page)
+    }
+
+    maybe_update_books(socket, params, true)
+  end
+
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     book = Books.get_book!(id)
 
     case Books.delete_book(book) do
       :ok ->
-        list_opts = get_list_opts(socket)
-
-        params = %{
-          "filter" => to_string(list_opts.filter),
-          "page" => to_string(list_opts.page)
-        }
-
         {:noreply,
          socket
-         |> maybe_update_books(params, true)
+         |> refresh_books()
          |> put_flash(:info, "Book deleted successfully")}
 
       {:error, :has_media} ->
@@ -131,4 +139,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
       sort_to_order(opts.sort, @valid_sort_fields)
     )
   end
+
+  @impl Phoenix.LiveView
+  def handle_info({:book, _action, _id}, socket), do: {:noreply, refresh_books(socket)}
 end

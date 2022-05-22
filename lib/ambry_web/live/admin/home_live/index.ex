@@ -5,10 +5,24 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
 
   use AmbryWeb, :admin_live_view
 
-  alias Ambry.{Accounts, Books, Media, People, Series}
+  alias Ambry.{Accounts, Books, Media, People, PubSub, Series}
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      :ok = PubSub.subscribe("person:*")
+      :ok = PubSub.subscribe("book:*")
+      :ok = PubSub.subscribe("series:*")
+      :ok = PubSub.subscribe("media:*")
+    end
+
+    {:ok, count_things(socket)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_info({_model, _action, _id}, socket), do: {:noreply, count_things(socket)}
+
+  defp count_things(socket) do
     people_count = People.count_people()
     books_count = Books.count_books()
     series_count = Series.count_series()
@@ -16,17 +30,16 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
     files_count = Media.Audit.count_files()
     users_count = Accounts.count_users()
 
-    {:ok,
-     assign(socket, %{
-       page_title: "Overview",
-       header_title: "Overview",
-       people_count: people_count,
-       books_count: books_count,
-       series_count: series_count,
-       media_count: media_count,
-       files_count: files_count,
-       users_count: users_count
-     })}
+    assign(socket, %{
+      page_title: "Overview",
+      header_title: "Overview",
+      people_count: people_count,
+      books_count: books_count,
+      series_count: series_count,
+      media_count: media_count,
+      files_count: files_count,
+      users_count: users_count
+    })
   end
 
   defp overview_card(assigns) do

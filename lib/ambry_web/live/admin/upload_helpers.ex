@@ -29,7 +29,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
         filename = "#{hash}.#{ext}"
         dest = images_disk_path(filename)
         File.cp!(path, dest)
-        Routes.static_path(socket, "/uploads/images/#{filename}")
+
+        {:ok, Routes.static_path(socket, "/uploads/images/#{filename}")}
       end)
 
     case uploaded_files do

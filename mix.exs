@@ -31,7 +31,7 @@ defmodule Ambry.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(env) when env in [:dev, :test], do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
   # Specifies your project dependencies.
@@ -46,9 +46,9 @@ defmodule Ambry.MixProject do
       {:ecto_psql_extras, "~> 0.6"},
       {:ecto_sql, "~> 3.6"},
       {:ex_fontawesome, "~> 0.7"},
-      {:ex_machina, "~> 2.7.0"},
+      {:ex_machina, "~> 2.7.0", only: [:dev, :test]},
       {:excoveralls, "~> 0.10", only: :test},
-      {:faker, "~> 0.17", only: :test},
+      {:faker, "~> 0.17", only: [:dev, :test]},
       {:familiar, "~> 0.1"},
       {:file_size, "~> 3.0"},
       {:floki, ">= 0.30.0", only: :test},
