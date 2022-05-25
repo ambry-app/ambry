@@ -90,5 +90,22 @@ defmodule Ambry.Media.MediaTest do
 
       assert ["bar.mp3", "baz.mp3", "foo.mp3"] = files
     end
+
+    test "returns full paths too" do
+      media = build(:media)
+      create_fake_files!(media)
+
+      files = Media.files(media, [".mp3"], full?: true)
+
+      assert length(files) == 3
+    end
+
+    test "if the media's source path does not exist, returns an empty list" do
+      media = build(:media)
+
+      files = Media.files(media, [".mp3"])
+
+      assert [] = files
+    end
   end
 end
