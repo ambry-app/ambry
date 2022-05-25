@@ -217,7 +217,6 @@ defmodule Ambry.Factory do
 
   defp create_file_if_not_exists!(disk_path) do
     false = File.exists?(disk_path)
-    # IO.puts("creating fake file #{disk_path}")
     File.touch!(disk_path)
   end
 end

@@ -56,8 +56,10 @@ defmodule Ambry.Media.Audit do
             file_stat(Path.join([path, p]))
           end)
 
+        # coveralls-ignore-start
         {:error, posix} ->
           [%{path: path, stat: posix}]
+          # coveralls-ignore-stop
       end
     else
       case File.stat(path) do
