@@ -217,7 +217,7 @@ defmodule AmbryWeb.Admin.Components do
         else: "border-t border-gray-200 dark:border-gray-800"
 
     ~H"""
-    <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md tran">
+    <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-md">
       <%= if @rows == [] do %>
         <div class="p-3">
           <%= render_slot(@no_results) %>

@@ -126,9 +126,22 @@ defmodule Ambry.Media.Media do
     Path.join([source_path, "_out", file])
   end
 
-  def files(%Media{source_path: source_path}, extensions) when is_binary(source_path) do
-    source_path
-    |> File.ls!()
-    |> Processor.Shared.filter_filenames(extensions)
+  def files(%Media{source_path: source_path}, extensions, opts \\ [])
+      when is_binary(source_path) do
+    full? = Keyword.get(opts, :full?, false)
+
+    case File.ls(source_path) do
+      {:ok, paths} ->
+        paths = Processor.Shared.filter_filenames(paths, extensions)
+
+        if full? do
+          Enum.map(paths, &Path.join(source_path, &1))
+        else
+          paths
+        end
+
+      {:error, _posix} ->
+        []
+    end
   end
 end

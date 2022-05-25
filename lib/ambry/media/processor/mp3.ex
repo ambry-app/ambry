@@ -6,6 +6,7 @@ defmodule Ambry.Media.Processor.MP3 do
   import Ambry.Media.Processor.Shared
 
   alias Ambry.Media.Media
+  alias Ambry.Media.Processor.ProgressTracker
 
   @extensions ~w(.mp3)
 
@@ -33,9 +34,24 @@ defmodule Ambry.Media.Processor.MP3 do
 
   defp convert_mp3!(media) do
     [mp3_file] = Media.files(media, @extensions)
+
     id = Media.output_id(media)
+    progress_file_path = "#{id}.progress"
+
+    {:ok, _progress_tracker} = ProgressTracker.start_link(media, progress_file_path, @extensions)
+
     command = "ffmpeg"
-    args = ["-i", "../#{mp3_file}", "-vn", "#{id}.mp4"]
+
+    args = [
+      "-loglevel",
+      "quiet",
+      "-vn",
+      "-i",
+      "../#{mp3_file}",
+      "-progress",
+      progress_file_path,
+      "#{id}.mp4"
+    ]
 
     {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
 

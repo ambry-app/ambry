@@ -7,6 +7,7 @@ defmodule Ambry.Media.Processor.MP4ConcatReEncode do
   import Ambry.Media.Processor.Shared
 
   alias Ambry.Media.Media
+  alias Ambry.Media.Processor.ProgressTracker
 
   @extensions ~w(.mp4 .m4a .m4b)
 
@@ -36,16 +37,24 @@ defmodule Ambry.Media.Processor.MP4ConcatReEncode do
     create_concat_text_file!(media, @extensions)
 
     id = Media.output_id(media)
+    progress_file_path = "#{id}.progress"
+
+    {:ok, _progress_tracker} = ProgressTracker.start_link(media, progress_file_path, @extensions)
+
     command = "ffmpeg"
 
     args = [
+      "-loglevel",
+      "quiet",
       "-f",
       "concat",
       "-safe",
       "0",
+      "-vn",
       "-i",
       "files.txt",
-      "-vn",
+      "-progress",
+      progress_file_path,
       "#{id}.mp4"
     ]
 
