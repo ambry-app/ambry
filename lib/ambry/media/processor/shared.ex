@@ -7,6 +7,7 @@ defmodule Ambry.Media.Processor.Shared do
 
   alias Ambry.Media, as: MediaContext
   alias Ambry.Media.Media
+  alias Ambry.Media.Processor.ProgressTracker
 
   def filter_filenames(filenames, extensions) do
     filenames
@@ -33,6 +34,36 @@ defmodule Ambry.Media.Processor.Shared do
     filename
     |> String.split("'")
     |> Enum.map_join("\\'", &"'#{&1}'")
+  end
+
+  def concat_files!(media, extensions) do
+    create_concat_text_file!(media, extensions)
+
+    id = Media.output_id(media)
+    progress_file_path = "#{id}.progress"
+
+    {:ok, _progress_tracker} = ProgressTracker.start_link(media, progress_file_path, extensions)
+
+    command = "ffmpeg"
+
+    args = [
+      "-loglevel",
+      "quiet",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-vn",
+      "-i",
+      "files.txt",
+      "-progress",
+      progress_file_path,
+      "#{id}.mp4"
+    ]
+
+    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
+
+    id
   end
 
   def create_stream!(media, id) do
