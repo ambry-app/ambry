@@ -7,6 +7,7 @@ defmodule Ambry.Media.Processor.MP3Concat do
   import Ambry.Media.Processor.Shared
 
   alias Ambry.Media.Media
+  alias Ambry.Media.Processor.ProgressTracker
 
   @extensions ~w(.mp3)
 
@@ -36,8 +37,26 @@ defmodule Ambry.Media.Processor.MP3Concat do
     create_concat_text_file!(media, @extensions)
 
     id = Media.output_id(media)
+    progress_file_path = "#{id}.progress"
+
+    {:ok, _progress_tracker} = ProgressTracker.start_link(media, progress_file_path, @extensions)
+
     command = "ffmpeg"
-    args = ["-f", "concat", "-safe", "0", "-vn", "-i", "files.txt", "#{id}.mp4"]
+
+    args = [
+      "-loglevel",
+      "quiet",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-vn",
+      "-i",
+      "files.txt",
+      "-progress",
+      progress_file_path,
+      "#{id}.mp4"
+    ]
 
     {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
 

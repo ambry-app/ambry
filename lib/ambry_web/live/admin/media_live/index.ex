@@ -25,6 +25,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:ok,
      socket
      |> assign(:header_title, "Media")
+     |> set_in_progress_media()
      |> maybe_update_media(params, true)}
   end
 
@@ -93,7 +94,30 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
       "page" => to_string(list_opts.page)
     }
 
-    maybe_update_media(socket, params, true)
+    socket
+    |> maybe_update_media(params, true)
+    |> set_in_progress_media()
+  end
+
+  defp set_in_progress_media(socket) do
+    known_processing_media = Map.get(socket.assigns, :processing_media, [])
+    progress_map = Map.get(socket.assigns, :processing_media_progress_map, %{})
+
+    {current_processing_media, _has_more?} =
+      Media.list_media(0, 999, %{status: :processing}, desc: :inserted_at)
+
+    to_add = Enum.map(current_processing_media -- known_processing_media, & &1.id)
+    to_remove = Enum.map(known_processing_media -- current_processing_media, & &1.id)
+
+    progress_map = Map.drop(progress_map, to_remove)
+
+    Enum.each(to_add, &(:ok = PubSub.subscribe("media-progress:#{&1}")))
+    Enum.each(to_remove, &(:ok = PubSub.unsubscribe("media-progress:#{&1}")))
+
+    assign(socket, %{
+      processing_media: current_processing_media,
+      processing_media_progress_map: progress_map
+    })
   end
 
   @impl Phoenix.LiveView
@@ -158,10 +182,28 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:noreply, socket}
   end
 
+  def handle_info({:media, :progress, {media_id, progress}}, socket) do
+    progress_map =
+      socket.assigns
+      |> Map.get(:processing_media_progress_map, %{})
+      |> Map.put(media_id, progress)
+
+    {:noreply, assign(socket, :processing_media_progress_map, progress_map)}
+  end
+
   def handle_info({:media, _action, _id}, socket), do: {:noreply, refresh_media(socket)}
 
   defp status_color(:pending), do: "yellow"
   defp status_color(:processing), do: "blue"
   defp status_color(:error), do: "red"
   defp status_color(:ready), do: "lime"
+
+  defp progress_percent(nil), do: "0.0"
+
+  defp progress_percent(%Decimal{} = progress) do
+    progress
+    |> Decimal.mult(100)
+    |> Decimal.round(1)
+    |> Decimal.to_string()
+  end
 end

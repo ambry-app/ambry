@@ -31,6 +31,24 @@
   </.live_component>
 <% end %>
 
+<%= if @processing_media != [] do %>
+  <Adc.admin_table rows={@processing_media}>
+    <:col let={media} label="Processing Media">
+      <div>
+        <%= media.book %>
+        by
+        <%= Enum.map_join(media.authors, ", ", & &1.name) %>
+      </div>
+      <div class="mt-2 w-full bg-gray-200 dark:bg-gray-800">
+        <div
+        class="h-[2px] bg-lime-500 dark:bg-lime-400"
+        style={"width: #{progress_percent(@processing_media_progress_map[media.id])}%"}
+      />
+      </div>
+    </:col>
+  </Adc.admin_table>
+<% end %>
+
 <Adc.admin_table_header
   list_opts={@list_opts}
   has_more={@has_more?}

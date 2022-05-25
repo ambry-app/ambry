@@ -47,7 +47,8 @@ defmodule Ambry.Media.Processor.Shared do
       "--mpd_output",
       "#{id}.mpd",
       "--hls_master_playlist_output",
-      "#{id}.m3u8"
+      "#{id}.m3u8",
+      "-quiet"
     ]
 
     {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
@@ -64,7 +65,7 @@ defmodule Ambry.Media.Processor.Shared do
     File.rename!(Media.out_path(media, "#{id}.m3u8"), hls_master_dest)
     File.rename!(Media.out_path(media, "#{id}.mp4"), mp4_dest)
 
-    duration = get_duration(mp4_dest)
+    duration = get_inaccurate_duration(mp4_dest)
 
     MediaContext.update_media(
       media,
@@ -79,7 +80,7 @@ defmodule Ambry.Media.Processor.Shared do
     )
   end
 
-  defp get_duration(file) do
+  def get_inaccurate_duration(file) do
     # getting the duration from the metadata is safe for the MP4 files we
     # produce. But to get duration from unknown source files, we should not rely
     # on the metadata reported duration.

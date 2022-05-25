@@ -3,6 +3,7 @@ defmodule Ambry.PubSub do
   Helper functions for publishing and subscribing to Ambry events.
   """
 
+  alias Ambry.Media.Media
   alias Phoenix.PubSub
 
   require Logger
@@ -10,7 +11,18 @@ defmodule Ambry.PubSub do
   @doc """
   Subscribe to a topic.
   """
-  def subscribe(topic), do: PubSub.subscribe(__MODULE__, topic)
+  def subscribe(topic) do
+    Logger.debug(fn -> "#{__MODULE__} #{inspect(self())} subscribed to #{topic}" end)
+    PubSub.subscribe(__MODULE__, topic)
+  end
+
+  @doc """
+  Unsubscribe from a topic.
+  """
+  def unsubscribe(topic) do
+    Logger.debug(fn -> "#{__MODULE__} #{inspect(self())} unsubscribed from #{topic}" end)
+    PubSub.unsubscribe(__MODULE__, topic)
+  end
 
   @doc """
   Broadcasts a "created" event for a struct.
@@ -27,6 +39,16 @@ defmodule Ambry.PubSub do
   """
   def broadcast_delete(value), do: broadcast(value, :deleted)
 
+  @doc """
+  Broadcasts a "progress" event for a media.
+  """
+  def broadcast_progress(%Media{} = media, progress) do
+    topic = "media-progress:#{media.id}"
+    message = {:media, :progress, {media.id, progress}}
+
+    broadcast_all([topic], message)
+  end
+
   defp broadcast({:ok, value}, action), do: broadcast(value, action)
 
   defp broadcast(%mod{id: id}, action) do
@@ -42,7 +64,7 @@ defmodule Ambry.PubSub do
   defp broadcast_all([topic | rest], message) do
     case PubSub.broadcast(__MODULE__, topic, message) do
       :ok ->
-        Logger.info(fn -> "#{__MODULE__} Published to #{topic} - #{inspect(message)}" end)
+        Logger.debug(fn -> "#{__MODULE__} Published to #{topic} - #{inspect(message)}" end)
         broadcast_all(rest, message)
 
       {:error, reason} ->
