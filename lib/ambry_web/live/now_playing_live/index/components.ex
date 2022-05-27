@@ -115,7 +115,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
   def chapters(assigns) do
     ~H"""
     <%= if @chapters == [] do %>
-      <p class="p-4 font-semibold text-gray-800 dark:text-gray-200">
+      <p class="p-4 text-center font-semibold text-gray-800 dark:text-gray-200">
         This book has no chapters defined.
       </p>
     <% else %>

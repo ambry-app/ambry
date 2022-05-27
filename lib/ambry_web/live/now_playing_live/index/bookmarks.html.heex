@@ -1,3 +1,86 @@
-<p class="p-4 font-semibold text-gray-800 dark:text-gray-200">
-  You have no bookmarks.
-</p>
+<div>
+  <div class="flex">
+    <div class="flex-grow" />
+    <span
+      class="pt-4 flex items-center cursor-pointer font-bold text-lime-500 dark:text-lime-400 hover:underline"
+      phx-click="add-bookmark"
+      phx-target={@myself}
+      x-bind:phx-value-time="$store.player.progress.actual"
+    >
+      New <FA.icon name="plus" class="w-4 h-4 fill-current ml-2" />
+    </span>
+  </div>
+
+  <%= if @bookmarks == [] do %>
+    <p class="p-4 text-center font-semibold text-gray-800 dark:text-gray-200">
+      You have no bookmarks.
+    </p>
+  <% else %>
+    <table class="w-full">
+      <%= for bookmark <- @bookmarks do %>
+        <%= if @selected_bookmark && @selected_bookmark.id == bookmark.id do %>
+          <tr>
+            <td class="pl-4 py-2 border-b border-gray-100 dark:border-gray-900">
+              <.form let={f} for={@changeset} phx-submit="save-bookmark" phx-target={@myself}>
+                <div class="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    class="flex-none text-gray-500 hover:text-gray-50"
+                    phx-click="cancel-edit-bookmark"
+                    phx-target={@myself}
+                  >
+                    <FA.icon name="xmark" class="w-5 h-5 fill-current" />
+                  </button>
+                  <.text_input form={f} field={:label} placeholder="Label" />
+                  <button type="sutmit" class="text-gray-500 hover:text-lime-400">
+                    <FA.icon name="check" class="w-5 h-5 fill-current" />
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="delete-bookmark"
+                    phx-target={@myself}
+                    class="text-gray-500 hover:text-red-500"
+                  >
+                    <FA.icon name="trash" class="w-5 h-5 fill-current" />
+                  </button>
+                </div>
+              </.form>
+            </td>
+
+            <td class="pr-4 py-4 border-b border-gray-100 dark:border-gray-900 text-right tabular-nums">
+              <%= format_timecode(bookmark.position) %>
+            </td>
+          </tr>
+        <% else %>
+          <tr class="cursor-pointer group" x-on:click={"mediaPlayer.seek(#{bookmark.position})"}>
+            <td class="pl-4 py-4 border-b border-gray-100 dark:border-gray-900">
+              <div class="flex items-center space-x-2">
+                <div
+                  id={"bookmark-#{bookmark.id}"}
+                  class="flex-none invisible group-hover:visible text-gray-500 hover:text-lime-400"
+                  phx-hook="captureClick"
+                  phx-target={@myself}
+                  phx-event="edit-bookmark"
+                  phx-value-id={bookmark.id}
+                >
+                  <FA.icon name="pencil" class="w-4 h-4 fill-current" />
+                </div>
+                <p>
+                  <%= if bookmark.label do %>
+                    <%= bookmark.label %>
+                  <% else %>
+                    (unlabeled)
+                  <% end %>
+                </p>
+              </div>
+            </td>
+
+            <td class="pr-4 py-4 border-b border-gray-100 dark:border-gray-900 text-right tabular-nums">
+              <%= format_timecode(bookmark.position) %>
+            </td>
+          </tr>
+        <% end %>
+      <% end %>
+    </table>
+  <% end %>
+</div>
