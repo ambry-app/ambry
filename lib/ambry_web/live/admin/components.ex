@@ -21,6 +21,7 @@ defmodule AmbryWeb.Admin.Components do
         border-r border-gray-200 dark:border-gray-800
         divide-y divide-gray-200 dark:divide-gray-800
         h-screen
+        flex-shrink-0
       "
       :class="{'translate-x-0 ease-in opacity-100':open === true, '-translate-x-full ease-out opacity-0': open === false}"
     >

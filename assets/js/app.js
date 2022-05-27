@@ -25,6 +25,7 @@ import Alpine from 'alpinejs'
 import { ShakaPlayerHook } from './hooks/shaka_player'
 import { HeaderScrollspyHook } from './hooks/header_scrollspy'
 import { GoHomeHook } from './hooks/go_home'
+import { CaptureClick } from './hooks/capture_click'
 import readMore from './alpine/read_more'
 import player from './alpine/player'
 
@@ -37,7 +38,8 @@ const liveSocket = new LiveSocket('/live', Socket, {
   hooks: {
     mediaPlayer: ShakaPlayerHook,
     headerScrollspy: HeaderScrollspyHook,
-    goHome: GoHomeHook
+    goHome: GoHomeHook,
+    captureClick: CaptureClick
   },
   dom: {
     onBeforeElUpdated (from, to) {
