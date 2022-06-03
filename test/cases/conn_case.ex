@@ -23,7 +23,7 @@ defmodule AmbryWeb.ConnCase do
     quote do
       # Import conveniences for testing with connections
       import Plug.Conn
-      import Phoenix.ConnTest
+      import Phoenix.{ConnTest, LiveViewTest}
       import Ambry.Factory
       import AmbryWeb.ConnCase
 
@@ -77,5 +77,9 @@ defmodule AmbryWeb.ConnCase do
 
   def remove_user_api_token(conn) do
     Plug.Conn.put_req_header(conn, "authorization", "")
+  end
+
+  def escape(string) do
+    string |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
   end
 end
