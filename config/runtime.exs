@@ -20,7 +20,8 @@ uploads_path =
 
 config :ambry,
   uploads_path: uploads_path,
-  first_time_setup: !File.exists?(Path.join(uploads_path, "setup.lock"))
+  first_time_setup:
+    !(File.exists?(Path.join(uploads_path, "setup.lock")) || config_env() == :test)
 
 # The block below contains prod specific runtime configuration.
 if config_env() == :prod do
