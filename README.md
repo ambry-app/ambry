@@ -32,6 +32,7 @@ version: "3"
 services:
   postgres:
     image: postgres:alpine
+    container_name: postgres
     environment:
       - POSTGRES_HOST_AUTH_METHOD=trust
     volumes:
@@ -40,6 +41,7 @@ services:
 
   ambry:
     image: ghcr.io/doughsay/ambry:latest
+    container_name: ambry
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres/postgres
       - SECRET_KEY_BASE=FpmsgoGanxtwT6/M9/LbP2vFQP70dVqz2G/lC23lzOo2cmGkl82lW18Q01Av3RGV
@@ -63,14 +65,35 @@ volumes:
 
 The following environment variables are used for configuration:
 
-| Variable                    | Description                                                                              | Default | Required? |
-| --------------------------- | ---------------------------------------------------------------------------------------- | ------- | --------- |
-| `BASE_URL`                  | The url at which you will be serving Ambry. e.g. `https://ambry.mydomain.com`            | N/A     | Yes       |
-| `DATABASE_URL`              | A postgresql URL. e.g. `postgresql://username:password@host/database_name`               | N/A     | Yes       |
-| `SECRET_KEY_BASE`           | A secret key string of at least 64 bytes, used for signing secrets like session cookies. | N/A     | Yes       |
-| `PORT`                      | The port you wish the server to listen on.                                               | `80`    | No        |
-| `POOL_SIZE`                 | The number of postgresql database connections to open.                                   | `10`    | No        |
-| `USER_REGISTRATION_ENABLED` | Wether or not users are allowed to register themselves with the server.                  | `no`    | No        |
+| Variable                    | Description                                                                              | Default          | Required? |
+| --------------------------- | ---------------------------------------------------------------------------------------- | ---------------- | --------- |
+| `BASE_URL`                  | The url at which you will be serving Ambry. e.g. `https://ambry.mydomain.com`            | N/A              | Yes       |
+| `DATABASE_URL`              | A postgresql URL. e.g. `postgresql://username:password@host/database_name`               | N/A              | Yes       |
+| `SECRET_KEY_BASE`           | A secret key string of at least 64 bytes, used for signing secrets like session cookies. | N/A              | Yes       |
+| `PORT`                      | The port you wish the server to listen on.                                               | `80`             | No        |
+| `POOL_SIZE`                 | The number of postgresql database connections to open.                                   | `10`             | No        |
+| `USER_REGISTRATION_ENABLED` | Wether or not users are allowed to register themselves with the server.                  | `no`             | No        |
+| `MAIL_PROVIDER`             | Valid values: mailjet                                                                    | not-set          | No        |
+| `MAIL_FROM_ADDRESS`         | The email address that transactional emails are sent from                                | `noreply@<HOST>` | No        |
+
+Based on which mail provider you choose, you will need to supply provider
+specific configuration:
+
+#### Mailjet
+
+| Variable          | Description                               |
+| ----------------- | ----------------------------------------- |
+| `MAILJET_API_KEY` | The API key provided to you by Mailjet    |
+| `MAILJET_SECRET`  | The API secret provided to you by Mailjet |
+
+The mail provider is only used for sending registration emails and forgotten
+password emails. If you don't need or want this functionality, you can just
+leave the `MAIL_PROVIDER` variable unset.
+
+Setting up a fully working email provider requires a domain name that you
+control that you can configure correctly with your chosen provider. Currently
+the only provider that's working with Ambry is Mailjet, but if there's interest
+in others, they can be very easily added.
 
 ### First Time Setup
 
