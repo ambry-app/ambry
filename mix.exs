@@ -52,6 +52,7 @@ defmodule Ambry.MixProject do
       {:faker, "~> 0.17", only: [:dev, :test]},
       {:familiar, "~> 0.1"},
       {:file_size, "~> 3.0"},
+      {:finch, "~> 0.12"},
       {:floki, ">= 0.30.0", only: :test},
       {:gettext, "~> 0.18"},
       {:hashids, "~> 2.0"},

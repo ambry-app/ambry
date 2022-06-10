@@ -9,10 +9,12 @@ defmodule Ambry.Accounts.UserNotifier do
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do
+    from_address = Application.get_env(:ambry, :from_address, "ambry@example.com")
+
     email =
       new()
       |> to(recipient)
-      |> from({"MyApp", "contact@example.com"})
+      |> from({"Ambry", from_address})
       |> subject(subject)
       |> text_body(body)
 

@@ -19,9 +19,10 @@ defmodule Ambry.Application do
       {Phoenix.PubSub, name: Ambry.PubSub},
       # Start the Endpoint (http/https)
       AmbryWeb.Endpoint,
-      # Start a worker by calling: Ambry.Worker.start_link(arg)
       # Starts Oban jobs
-      {Oban, oban_config()}
+      {Oban, oban_config()},
+      # HTTP Client for Swoosh API based providers (not used for SMTP providers)
+      {Finch, name: Swoosh.Finch}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

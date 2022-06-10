@@ -10,7 +10,7 @@ uploads_path =
   if config_env() == :test do
     Path.join(System.tmp_dir!(), "ambry_test_files")
   else
-    System.get_env("UPLOADS_PATH") || Path.join(File.cwd!(), "uploads")
+    System.get_env("UPLOADS_PATH", Path.join(File.cwd!(), "uploads"))
   end
 
 # Ensure folders exist
@@ -36,7 +36,7 @@ if config_env() == :prod do
     # ssl: true,
     # socket_options: [:inet6],
     url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+    pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
@@ -66,7 +66,7 @@ if config_env() == :prod do
       # See the documentation on https://hexdocs.pm/plug_cowboy/Plug.Cowboy.html
       # for details about using IPv6 vs IPv4 and loopback vs public addresses.
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
-      port: String.to_integer(System.get_env("PORT") || "80")
+      port: String.to_integer(System.get_env("PORT", "80"))
     ],
     secret_key_base: secret_key_base
 
@@ -80,23 +80,26 @@ if config_env() == :prod do
   # Then you can assemble a release by calling `mix release`.
   # See `mix help release` for more information.
 
+  config :ambry, :from_address, System.get_env("MAIL_FROM_ADDRESS", "noreply@#{host}")
+
   # ## Configuring the mailer
   #
-  # In production you need to configure the mailer to use a different adapter.
-  # Also, you may need to configure the Swoosh API client of your choice if you
-  # are not using SMTP. Here is an example of the configuration:
-  #
-  #     config :ambry, Ambry.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # For this example you need include a HTTP client required by Swoosh API client.
-  # Swoosh supports Hackney and Finch out of the box:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Hackney
-  #
-  # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+  case System.get_env("MAIL_PROVIDER") do
+    nil ->
+      # no mail provider configured
+      :noop
+
+    provider ->
+      config :swoosh, :api_client, Swoosh.ApiClient.Finch
+
+      case provider do
+        "mailjet" ->
+          config :ambry, Ambry.Mailer,
+            adapter: Swoosh.Adapters.Mailjet,
+            api_key: System.fetch_env!("MAILJET_API_KEY"),
+            secret: System.fetch_env!("MAILJET_SECRET")
+      end
+  end
 
   user_registration_enabled =
     case System.get_env("USER_REGISTRATION_ENABLED", "no") do
