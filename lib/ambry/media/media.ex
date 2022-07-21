@@ -8,7 +8,7 @@ defmodule Ambry.Media.Media do
   import Ecto.Changeset
 
   alias Ambry.Books.Book
-  alias Ambry.Media.{Media, MediaNarrator, Processor}
+  alias Ambry.Media.{Media, MediaNarrator, PlayerState, Processor}
   alias Ambry.Media.Media.Chapter
   alias Ambry.Narrators.Narrator
 
@@ -17,6 +17,7 @@ defmodule Ambry.Media.Media do
   schema "media" do
     belongs_to :book, Book
     has_many :media_narrators, MediaNarrator
+    has_many :player_states, PlayerState
     many_to_many :narrators, Narrator, join_through: "media_narrators"
 
     embeds_many :chapters, Chapter, on_replace: :delete

@@ -11,6 +11,7 @@ defmodule Ambry.Accounts.User do
 
   schema "users" do
     belongs_to :loaded_player_state, PlayerState
+    has_many :player_states, PlayerState
 
     field :email, :string
     field :password, :string, virtual: true, redact: true
