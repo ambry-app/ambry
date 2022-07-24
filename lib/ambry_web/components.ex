@@ -707,18 +707,8 @@ defmodule AmbryWeb.Components do
     extra = assigns_to_attributes(assigns, [])
 
     default_classes =
-      PetalComponents.Helpers.convert_string_to_one_line(
-        """
-        text-white dark:text-black
-        font-bold
-        px-5 py-2
-        rounded
-        focus:outline-none
-        shadow
-        transition-colors
-        focus:ring-2
-        """ <> primary_button_color_classes(assigns[:color] || "lime")
-      )
+      "text-white dark:text-black font-bold px-5 py-2 rounded focus:outline-none shadow transition-colors focus:ring-2" <>
+        primary_button_color_classes(assigns[:color] || "lime")
 
     assigns =
       assigns
