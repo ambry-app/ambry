@@ -85,7 +85,7 @@ defmodule AmbryWeb.Components do
             <span
               x-data
               @click="$nextTick(() => $store.search.open = true)"
-              class={nav_class(false, "flex content-center gap-4 cursor-pointer")}
+              class={nav_class(String.starts_with?(@active_path, "/search"), "flex content-center gap-4 cursor-pointer")}
             >
               <span title="Search">
                 <FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 lg:w-5 lg:h-5 fill-current" />
