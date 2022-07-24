@@ -85,7 +85,7 @@ defmodule AmbryWeb.Components do
             <span
               x-data
               @click="$nextTick(() => $store.search.open = true)"
-              class={nav_class(false, "flex content-center gap-4 cursor-pointer")}
+              class={nav_class(String.starts_with?(@active_path, "/search"), "flex content-center gap-4 cursor-pointer")}
             >
               <span title="Search">
                 <FA.icon name="magnifying-glass" class="mt-1 w-6 h-6 lg:w-5 lg:h-5 fill-current" />
@@ -707,18 +707,8 @@ defmodule AmbryWeb.Components do
     extra = assigns_to_attributes(assigns, [])
 
     default_classes =
-      PetalComponents.Helpers.convert_string_to_one_line(
-        """
-        text-white dark:text-black
-        font-bold
-        px-5 py-2
-        rounded
-        focus:outline-none
-        shadow
-        transition-colors
-        focus:ring-2
-        """ <> primary_button_color_classes(assigns[:color] || "lime")
-      )
+      "text-white dark:text-black font-bold px-5 py-2 rounded focus:outline-none shadow transition-colors focus:ring-2" <>
+        primary_button_color_classes(assigns[:color] || "lime")
 
     assigns =
       assigns

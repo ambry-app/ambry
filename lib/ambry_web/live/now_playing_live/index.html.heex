@@ -7,15 +7,12 @@
       <.media_tabs media={@player_state.media} user={@current_user} />
     <% else %>
       <p class="text-lg max-w-sm mx-auto mt-56 p-2 text-center">
-        Welcome to Ambry! You don't have a book opened, head on over to the
-        <.link
+        Welcome to Ambry! You don't have a book opened, head on over to the <.link
           link_type="live_redirect"
           to={Routes.library_home_path(@socket, :home)}
           class="text-lime-500 dark:text-lime-400 hover:underline"
-        >
-          library
-        </.link>
-        to choose something to listen to.
+          phx-no-format
+        >library</.link> to choose something to listen to.
       </p>
     <% end %>
   </main>
