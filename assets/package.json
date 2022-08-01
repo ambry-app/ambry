@@ -11,7 +11,7 @@
     "@tailwindcss/aspect-ratio": "^0.4.0",
     "@tailwindcss/forms": "^0.5.2",
     "autoprefixer": "^10.4.6",
-    "esbuild": "^0.14.49",
+    "esbuild": "^0.14.51",
     "postcss": "^8.4.14",
     "postcss-cli": "^10.0.0",
     "postcss-import": "^14.0.2",
