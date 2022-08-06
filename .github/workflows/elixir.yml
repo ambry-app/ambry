@@ -109,6 +109,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Set mix file hash
+        id: set_vars
+        run: |
+          mix_hash="${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}"
+          echo "::set-output name=mix_hash::$mix_hash"
+      - name: Cache PLT files
+        id: cache-plt
+        uses: actions/cache@v3
+        with:
+          path: |
+            _build/dev/*.plt
+            _build/dev/*.plt.hash
+          key: plt-cache-${{ steps.set_vars.outputs.mix_hash }}
+          restore-keys: |
+            plt-cache-
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.11
         with:
