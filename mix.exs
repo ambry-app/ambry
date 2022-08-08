@@ -16,6 +16,9 @@ defmodule Ambry.MixProject do
         coveralls: :test,
         "coveralls.html": :test,
         "coveralls.lcov": :test
+      ],
+      dialyzer: [
+        plt_add_apps: [:mix]
       ]
     ]
   end
@@ -40,8 +43,12 @@ defmodule Ambry.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:absinthe, "~> 1.7"},
+      {:absinthe_plug, "~> 1.5"},
+      {:absinthe_relay, "~> 1.5"},
       {:argon2_elixir, "~> 3.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:dataloader, "~> 1.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:earmark, "~> 1.4"},
       {:ecto_psql_extras, "~> 0.6"},

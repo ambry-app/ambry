@@ -1,6 +1,6 @@
 [
-  import_deps: [:ecto, :phoenix],
-  plugins: [Phoenix.LiveView.HTMLFormatter],
+  import_deps: [:absinthe, :ecto, :phoenix],
+  plugins: [Phoenix.LiveView.HTMLFormatter, Ambry.GraphQLSigilFormatter],
   inputs: [
     "*.{ex,exs,heex}",
     "priv/*/seeds.exs",

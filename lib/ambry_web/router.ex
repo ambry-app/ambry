@@ -3,7 +3,9 @@ defmodule AmbryWeb.Router do
 
   use AmbryWeb, :router
 
+  import AmbrySchema.PlugHelpers
   import AmbryWeb.UserAuth
+
   import Phoenix.LiveDashboard.Router
 
   pipeline :browser do
@@ -35,6 +37,12 @@ defmodule AmbryWeb.Router do
   pipeline :api do
     plug :accepts, ["json"]
     plug :fetch_api_user
+  end
+
+  pipeline :gql do
+    plug :accepts, ["json", "graphql"]
+    plug :fetch_api_user
+    plug :put_absinthe_context
   end
 
   pipeline :admin do
@@ -120,6 +128,12 @@ defmodule AmbryWeb.Router do
     get "/bookmarks/:media_id", BookmarkController, :index
   end
 
+  scope "/gql" do
+    pipe_through [:gql]
+
+    forward "/", Absinthe.Plug.GraphiQL, schema: AmbrySchema, interface: :playground
+  end
+
   # Enables the Swoosh mailbox preview in development.
   #
   # Note that preview only shows emails that were sent by the same
@@ -129,6 +143,7 @@ defmodule AmbryWeb.Router do
       pipe_through :browser
 
       forward "/mailbox", Plug.Swoosh.MailboxPreview
+      forward "/voyager", AmbryWeb.Plugs.Voyager
     end
   end
 
