@@ -60,6 +60,7 @@ defmodule AmbrySchema.Resolvers do
   def list_player_states(args, %{context: %{current_user: %User{} = user}}) do
     user
     |> Ecto.assoc(:player_states)
+    |> where(status: :in_progress)
     |> order_by({:desc, :updated_at})
     |> Connection.from_query(&Ambry.Repo.all/1, args)
   end
