@@ -9,8 +9,10 @@ defmodule AmbrySchema.Media do
   alias AmbrySchema.Resolvers
 
   object :chapter do
-    field :time, non_null(:decimal)
-    field :title, non_null(:string)
+    field :id, non_null(:id)
+    field :title, :string
+    field :start_time, non_null(:decimal)
+    field :end_time, :decimal
   end
 
   node object(:media) do
@@ -20,7 +22,7 @@ defmodule AmbrySchema.Media do
     field :mpd_path, :string
     field :hls_path, :string
 
-    field :chapters, non_null(list_of(non_null(:chapter)))
+    field :chapters, non_null(list_of(non_null(:chapter))), resolve: &Resolvers.chapters/3
 
     field :book, non_null(:book), resolve: dataloader(Resolvers)
 

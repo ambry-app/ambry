@@ -16,6 +16,8 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.People.Person
   alias Ambry.Series.{Series, SeriesBook}
 
+  alias AmbryWeb.Hashids
+
   def create_session(%{email: email, password: password}, _resolution) do
     if user = Accounts.get_user_by_email_and_password(email, password) do
       token = Accounts.generate_user_session_token(user)
@@ -70,6 +72,30 @@ defmodule AmbrySchema.Resolvers do
     |> Ecto.assoc(:series_books)
     |> order_by({:asc, :book_number})
     |> Connection.from_query(&Ambry.Repo.all/1, args)
+  end
+
+  def chapters(%Media{chapters: chapters}, _args, _resolution) do
+    {:ok,
+     chapters
+     |> Enum.chunk_every(2, 1)
+     |> Enum.with_index()
+     |> Enum.map(fn
+       {[chapter, next], idx} ->
+         %{
+           id: Hashids.encode(idx),
+           title: chapter.title,
+           start_time: chapter.time,
+           end_time: next.time
+         }
+
+       {[last_chapter], idx} ->
+         %{
+           id: Hashids.encode(idx),
+           title: last_chapter.title,
+           start_time: last_chapter.time,
+           end_time: nil
+         }
+     end)}
   end
 
   def node(%{type: :author, id: id}, _resolution), do: {:ok, Repo.get(Author, id)}
