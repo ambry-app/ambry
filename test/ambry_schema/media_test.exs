@@ -18,8 +18,10 @@ defmodule AmbrySchema.MediaTest do
           mpdPath
           hlsPath
           chapters {
-            time
+            id
             title
+            startTime
+            endTime
           }
           book {
             __typename
@@ -68,7 +70,13 @@ defmodule AmbrySchema.MediaTest do
                    "mpdPath" => ^mpd_path,
                    "hlsPath" => ^hls_path,
                    "chapters" => [
-                     %{"time" => "0", "title" => "Chapter 1"} | _
+                     %{
+                       "id" => "gY",
+                       "startTime" => "0",
+                       "endTime" => "" <> _,
+                       "title" => "Chapter 1"
+                     }
+                     | _
                    ],
                    "book" => %{"__typename" => "Book"},
                    "narrators" => [%{"__typename" => "Narrator"} | _],
