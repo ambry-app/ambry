@@ -84,18 +84,24 @@ defmodule AmbrySchema.Resolvers do
          %{
            id: Hashids.encode(idx),
            title: chapter.title,
-           start_time: chapter.time,
-           end_time: next.time
+           start_time: chapter.time |> Decimal.round(2) |> Decimal.to_float(),
+           end_time: next.time |> Decimal.round(2) |> Decimal.to_float()
          }
 
        {[last_chapter], idx} ->
          %{
            id: Hashids.encode(idx),
            title: last_chapter.title,
-           start_time: last_chapter.time,
+           start_time: last_chapter.time |> Decimal.round(2) |> Decimal.to_float(),
            end_time: nil
          }
      end)}
+  end
+
+  def resolve_decimal(key) do
+    fn %{^key => value}, _args, _resolution ->
+      {:ok, Decimal.to_float(value)}
+    end
   end
 
   def node(%{type: :author, id: id}, _resolution), do: {:ok, Repo.get(Author, id)}
