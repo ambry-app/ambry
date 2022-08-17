@@ -11,14 +11,14 @@ defmodule AmbrySchema.Media do
   object :chapter do
     field :id, non_null(:id)
     field :title, :string
-    field :start_time, non_null(:decimal)
-    field :end_time, :decimal
+    field :start_time, non_null(:float)
+    field :end_time, :float
   end
 
   node object(:media) do
     field :full_cast, non_null(:boolean)
     field :abridged, non_null(:boolean)
-    field :duration, :decimal
+    field :duration, :float, resolve: Resolvers.resolve_decimal(:duration)
     field :mpd_path, :string
     field :hls_path, :string
 
@@ -42,8 +42,8 @@ defmodule AmbrySchema.Media do
   end
 
   node object(:player_state) do
-    field :playback_rate, non_null(:decimal)
-    field :position, non_null(:decimal)
+    field :playback_rate, non_null(:float), resolve: Resolvers.resolve_decimal(:playback_rate)
+    field :position, non_null(:float), resolve: Resolvers.resolve_decimal(:position)
     field :status, non_null(:player_state_status)
 
     field :media, non_null(:media), resolve: dataloader(Resolvers)
