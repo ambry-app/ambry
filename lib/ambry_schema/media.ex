@@ -62,4 +62,20 @@ defmodule AmbrySchema.Media do
       resolve &Resolvers.list_player_states/2
     end
   end
+
+  object :media_mutations do
+    payload field :update_player_state do
+      input do
+        field :media_id, non_null(:id)
+        field :position, :float
+        field :playback_rate, :float
+      end
+
+      output do
+        field :player_state, non_null(:player_state)
+      end
+
+      resolve &Resolvers.update_player_state/2
+    end
+  end
 end

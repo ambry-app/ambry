@@ -1,6 +1,7 @@
 defmodule AmbrySchema.Resolvers do
   @moduledoc false
 
+  import Absinthe.Relay.Node, only: [from_global_id: 2]
   import Absinthe.Resolution.Helpers, only: [batch: 3]
   import Ecto.Query
 
@@ -65,6 +66,17 @@ defmodule AmbrySchema.Resolvers do
     |> where(status: :in_progress)
     |> order_by({:desc, :updated_at})
     |> Connection.from_query(&Ambry.Repo.all/1, args)
+  end
+
+  def update_player_state(%{media_id: media_id} = args, %{
+        context: %{current_user: %User{} = user}
+      }) do
+    with {:ok, %{id: media_id, type: :media}} <- from_global_id(media_id, AmbrySchema),
+         player_state = Ambry.Media.get_or_create_player_state!(user.id, media_id),
+         attrs = Map.delete(args, :media_id),
+         {:ok, player_state} <- Ambry.Media.update_player_state(player_state, attrs) do
+      {:ok, %{player_state: player_state}}
+    end
   end
 
   def list_series_books(%Series{} = series, args, _resolution) do

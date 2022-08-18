@@ -23,6 +23,7 @@ defmodule AmbrySchema do
 
   mutation do
     import_fields :session_mutations
+    import_fields :media_mutations
   end
 
   @impl Absinthe.Schema
