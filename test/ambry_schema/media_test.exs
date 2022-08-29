@@ -58,7 +58,7 @@ defmodule AmbrySchema.MediaTest do
           "variables" => %{id: gid}
         })
 
-      duration_match = Decimal.to_string(duration)
+      duration_match = Decimal.to_float(duration)
 
       assert %{
                "data" => %{
@@ -72,8 +72,8 @@ defmodule AmbrySchema.MediaTest do
                    "chapters" => [
                      %{
                        "id" => "gY",
-                       "startTime" => "0",
-                       "endTime" => "" <> _,
+                       "startTime" => 0.0,
+                       "endTime" => _,
                        "title" => "Chapter 1"
                      }
                      | _
@@ -125,8 +125,8 @@ defmodule AmbrySchema.MediaTest do
           "variables" => %{id: gid}
         })
 
-      playback_rate_match = Decimal.to_string(playback_rate)
-      position_match = Decimal.to_string(position)
+      playback_rate_match = Decimal.to_float(playback_rate)
+      position_match = Decimal.to_float(position)
       status_match = status |> Atom.to_string() |> String.upcase()
 
       assert %{
