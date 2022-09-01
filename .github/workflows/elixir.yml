@@ -9,7 +9,7 @@ on:
 env:
   MIX_ENV: test
   # NOTE: make sure these versions match in Containerfile and .tool-versions
-  ELIXIR_VERSION_SPEC: "1.14.0-rc.1"
+  ELIXIR_VERSION_SPEC: "1.14.0"
   OTP_VERSION_SPEC: "25.0.4"
 
 jobs:
