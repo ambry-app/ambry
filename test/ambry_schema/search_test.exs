@@ -1,0 +1,349 @@
+defmodule AmbrySchema.SearchTest do
+  use AmbryWeb.ConnCase
+
+  import Ambry.GraphQLSigil
+  import Absinthe.Relay.Node, only: [to_global_id: 2]
+
+  setup :register_and_put_user_api_token
+
+  describe "search connections" do
+    @query ~G"""
+    query Search($query: String!) {
+      search(query: $query, first: 50) {
+        edges {
+          node {
+            id
+          }
+        }
+      }
+    }
+    """
+
+    test "returns an unauthorized error if missing api token", %{conn: conn} do
+      conn = remove_user_api_token(conn)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: "foo"}
+        })
+
+      assert %{
+               "data" => %{"search" => nil},
+               "errors" => [
+                 %{
+                   "locations" => [%{"column" => 3, "line" => 2}],
+                   "message" => "unauthorized",
+                   "path" => ["search"]
+                 }
+               ]
+             } = json_response(conn, 200)
+    end
+
+    test "returns media by book title", %{conn: conn} do
+      %{id: id, book: %{title: book_title}} = media = insert(:media)
+      index!(media)
+      gid = to_global_id("Media", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: book_title}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns media by series name", %{conn: conn} do
+      %{id: id, book: %{series_books: [%{series: %{name: series_name}} | _rest]}} =
+        media = insert(:media)
+
+      index!(media)
+      gid = to_global_id("Media", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: series_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns media by book author name", %{conn: conn} do
+      %{id: id, book: %{book_authors: [%{author: %{name: author_name}} | _rest]}} =
+        media = insert(:media)
+
+      index!(media)
+      gid = to_global_id("Media", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: author_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns media by book author person name", %{conn: conn} do
+      %{id: id, book: %{book_authors: [%{author: %{person: %{name: person_name}}} | _rest]}} =
+        media = insert(:media)
+
+      index!(media)
+      gid = to_global_id("Media", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: person_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns media by narrator name", %{conn: conn} do
+      %{id: id, media_narrators: [%{narrator: %{name: narrator_name}} | _rest]} =
+        media = insert(:media)
+
+      index!(media)
+      gid = to_global_id("Media", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: narrator_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns media by narrator person name", %{conn: conn} do
+      %{id: id, media_narrators: [%{narrator: %{person: %{name: person_name}}} | _rest]} =
+        media = insert(:media)
+
+      index!(media)
+      gid = to_global_id("Media", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: person_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns person by name", %{conn: conn} do
+      %{id: id, name: person_name} = person = insert(:person)
+      index!(person)
+      gid = to_global_id("Person", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: person_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns person by author name", %{conn: conn} do
+      %{name: author_name, person: %{id: id} = person} = insert(:author)
+      index!(person)
+      gid = to_global_id("Person", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: author_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns person by narrator name", %{conn: conn} do
+      %{name: narrator_name, person: %{id: id} = person} = insert(:narrator)
+      index!(person)
+      gid = to_global_id("Person", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: narrator_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns series by name", %{conn: conn} do
+      %{series_books: [%{series: %{id: id, name: series_name} = series} | _rest]} = insert(:book)
+      index!(series)
+      gid = to_global_id("Series", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: series_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns series by author name", %{conn: conn} do
+      %{
+        series_books: [%{series: %{id: id} = series} | _rest1],
+        book_authors: [%{author: %{name: author_name}} | _rest2]
+      } = insert(:book)
+
+      index!(series)
+      gid = to_global_id("Series", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: author_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+
+    test "returns series by author person name", %{conn: conn} do
+      %{
+        series_books: [%{series: %{id: id} = series} | _rest1],
+        book_authors: [%{author: %{person: %{name: person_name}}} | _rest2]
+      } = insert(:book)
+
+      index!(series)
+      gid = to_global_id("Series", id)
+
+      conn =
+        post(conn, "/gql", %{
+          "query" => @query,
+          "variables" => %{query: person_name}
+        })
+
+      assert %{
+               "data" => %{
+                 "search" => %{
+                   "edges" => [
+                     %{
+                       "node" => %{"id" => ^gid}
+                     }
+                   ]
+                 }
+               }
+             } = json_response(conn, 200)
+    end
+  end
+end

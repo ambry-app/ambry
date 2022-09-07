@@ -19,6 +19,7 @@ uploads_path =
 [uploads_path, "source_media"] |> Path.join() |> File.mkdir_p!()
 
 config :ambry,
+  config_env: config_env(),
   uploads_path: uploads_path,
   first_time_setup:
     !(File.exists?(Path.join(uploads_path, "setup.lock")) || config_env() == :test)

@@ -3,7 +3,7 @@ defmodule Ambry.Books do
   Functions for dealing with Books.
   """
 
-  import Ambry.{FileUtils, SearchUtils}
+  import Ambry.{FileUtils, SearchUtils, Utils}
   import Ecto.Query
 
   alias Ambry.Books.{Book, BookFlat}
@@ -89,7 +89,7 @@ defmodule Ambry.Books do
     %Book{}
     |> change_book(attrs)
     |> Repo.insert()
-    |> tap(&PubSub.broadcast_create/1)
+    |> tap_ok(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -109,7 +109,7 @@ defmodule Ambry.Books do
     |> Repo.preload(@book_direct_assoc_preloads)
     |> change_book(attrs)
     |> Repo.update()
-    |> tap(&PubSub.broadcast_update/1)
+    |> tap_ok(&PubSub.broadcast_update/1)
   end
 
   @doc """

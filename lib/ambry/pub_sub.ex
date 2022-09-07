@@ -4,6 +4,7 @@ defmodule Ambry.PubSub do
   """
 
   alias Ambry.Media.Media
+  alias Ambry.PubSub.Message
   alias Phoenix.PubSub
 
   require Logger
@@ -27,37 +28,37 @@ defmodule Ambry.PubSub do
   @doc """
   Broadcasts a "created" event for a struct.
   """
-  def broadcast_create(value), do: broadcast(value, :created)
+  def broadcast_create(value, meta \\ %{}), do: broadcast(value, :created, meta)
 
   @doc """
   Broadcasts an "updated" event for a struct.
   """
-  def broadcast_update(value), do: broadcast(value, :updated)
+  def broadcast_update(value, meta \\ %{}), do: broadcast(value, :updated, meta)
 
   @doc """
   Broadcasts a "deleted" event for a struct.
   """
-  def broadcast_delete(value), do: broadcast(value, :deleted)
+  def broadcast_delete(value, meta \\ %{}), do: broadcast(value, :deleted, meta)
 
   @doc """
   Broadcasts a "progress" event for a media.
   """
   def broadcast_progress(%Media{} = media, progress) do
     topic = "media-progress:#{media.id}"
-    message = {:media, :progress, {media.id, progress}}
+    message = %Message{type: :media, action: :progress, id: media.id, meta: %{progress: progress}}
 
     broadcast_all([topic], message)
   end
 
-  defp broadcast({:ok, value}, action), do: broadcast(value, action)
+  defp broadcast(%mod{id: id}, action, meta) do
+    {topics, type} = topics_and_type(mod, id)
+    message = %Message{type: type, action: action, id: id, meta: meta}
 
-  defp broadcast(%mod{id: id}, action) do
-    {topics, name} = topics_and_name(mod, id)
-
-    broadcast_all(topics, {name, action, id})
+    broadcast_all(topics, message)
   end
 
-  defp broadcast(_else, _action), do: :noop
+  defp broadcast(not_a_struct, _action, _meta),
+    do: raise("PubSub broadcast expected a struct, got #{inspect(not_a_struct)}")
 
   defp broadcast_all([], _message), do: :ok
 
@@ -73,10 +74,10 @@ defmodule Ambry.PubSub do
     end
   end
 
-  defp topics_and_name(module, id) do
+  defp topics_and_type(module, id) do
     [last | _] = module |> Module.split() |> Enum.reverse()
-    name = last |> Macro.underscore() |> String.to_atom()
+    type = last |> Macro.underscore() |> String.to_atom()
 
-    {["#{name}:#{id}", "#{name}:*"], name}
+    {["#{type}:#{id}", "#{type}:*"], type}
   end
 end

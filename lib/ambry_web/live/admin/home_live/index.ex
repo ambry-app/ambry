@@ -20,7 +20,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   end
 
   @impl Phoenix.LiveView
-  def handle_info({_model, _action, _id}, socket), do: {:noreply, count_things(socket)}
+  def handle_info(%PubSub.Message{}, socket), do: {:noreply, count_things(socket)}
 
   defp count_things(socket) do
     people_count = People.count_people()

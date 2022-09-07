@@ -13,12 +13,14 @@ defmodule AmbrySchema do
   import_types AmbrySchema.Books
   import_types AmbrySchema.Media
   import_types AmbrySchema.Sessions
+  import_types AmbrySchema.Search
 
   query do
     import_fields :node_query
     import_fields :account_queries
     import_fields :book_queries
     import_fields :media_queries
+    import_fields :search_queries
   end
 
   mutation do

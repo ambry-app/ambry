@@ -5,12 +5,23 @@ defmodule Ambry.Application do
 
   use Application
 
+  alias Ambry.Search
+
   @impl Application
   def start(_type, _args) do
     # ensures all migrations have been run on application start
     migrate!()
 
-    children = [
+    config_env = Application.get_env(:ambry, :config_env)
+
+    # See https://hexdocs.pm/elixir/Supervisor.html
+    # for other strategies and supported options
+    opts = [strategy: :one_for_one, name: Ambry.Supervisor]
+    Supervisor.start_link(children(config_env), opts)
+  end
+
+  defp shared_children do
+    [
       # Start the Ecto repository
       Ambry.Repo,
       # Start the Telemetry supervisor
@@ -24,11 +35,18 @@ defmodule Ambry.Application do
       # HTTP Client for Swoosh API based providers (not used for SMTP providers)
       {Finch, name: Swoosh.Finch}
     ]
+  end
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: Ambry.Supervisor]
-    Supervisor.start_link(children, opts)
+  def children(:test), do: shared_children()
+
+  def children(_env) do
+    shared_children() ++
+      [
+        # Start the Search Index Manager
+        {Search.IndexManager, []},
+        # Search index refresher/warmer
+        {Task, &Search.Index.refresh_entire_index/0}
+      ]
   end
 
   # Tell Phoenix to update the endpoint configuration

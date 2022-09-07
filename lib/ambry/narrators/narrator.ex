@@ -29,6 +29,11 @@ defmodule Ambry.Narrators.Narrator do
     |> cast(attrs, [:name, :delete])
     |> validate_required([:name])
     |> maybe_apply_delete()
+    |> foreign_key_constraint(:delete,
+      name: "media_narrators_narrator_id_fkey",
+      message:
+        "This narrator is in use by one or more media. You must first remove them as a narrator from any associated media."
+    )
   end
 
   defp maybe_apply_delete(changeset) do

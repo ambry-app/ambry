@@ -3,7 +3,7 @@ defmodule Ambry.People do
   Functions for dealing with People.
   """
 
-  import Ambry.FileUtils
+  import Ambry.{FileUtils, Utils}
   import Ecto.Query
 
   alias Ambry.People.{Person, PersonFlat}
@@ -101,7 +101,7 @@ defmodule Ambry.People do
     %Person{}
     |> Person.changeset(attrs)
     |> Repo.insert()
-    |> tap(&PubSub.broadcast_create/1)
+    |> tap_ok(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -121,7 +121,7 @@ defmodule Ambry.People do
     |> Repo.preload(@person_direct_assoc_preloads)
     |> Person.changeset(attrs)
     |> Repo.update()
-    |> tap(&PubSub.broadcast_update/1)
+    |> tap_ok(&PubSub.broadcast_update/1)
   end
 
   @doc """

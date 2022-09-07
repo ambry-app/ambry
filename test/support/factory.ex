@@ -9,6 +9,7 @@ defmodule Ambry.Factory do
   alias Ambry.Media.{Bookmark, Media, MediaNarrator, PlayerState}
   alias Ambry.Narrators.Narrator
   alias Ambry.People.Person
+  alias Ambry.Search.Index
   alias Ambry.Series.{Series, SeriesBook}
 
   # Users
@@ -219,4 +220,10 @@ defmodule Ambry.Factory do
     false = File.exists?(disk_path)
     File.touch!(disk_path)
   end
+
+  # Search indexing
+
+  def index!(%Media{id: id}), do: Index.index(:media, id)
+  def index!(%Person{id: id}), do: Index.index(:person, id)
+  def index!(%Series{id: id}), do: Index.index(:series, id)
 end
