@@ -6,10 +6,15 @@ defmodule AmbrySchema.Search do
 
   alias AmbrySchema.Resolvers
 
-  connection(node_type: :node)
+  interface :search_result do
+    field :id, non_null(:id)
+    resolve_type &Resolvers.type/2
+  end
+
+  connection(node_type: :search_result)
 
   object :search_queries do
-    connection field :search, node_type: :node do
+    connection field :search, node_type: :search_result do
       arg :query, non_null(:string)
 
       middleware AmbrySchema.AuthMiddleware

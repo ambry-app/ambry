@@ -40,10 +40,10 @@ defmodule AmbrySchema.SearchTest do
              } = json_response(conn, 200)
     end
 
-    test "returns media by book title", %{conn: conn} do
-      %{id: id, book: %{title: book_title}} = media = insert(:media)
-      index!(media)
-      gid = to_global_id("Media", id)
+    test "returns book by title", %{conn: conn} do
+      %{id: id, title: book_title} = book = insert(:book)
+      insert_index!(book)
+      gid = to_global_id("Book", id)
 
       conn =
         post(conn, "/gql", %{
@@ -64,12 +64,10 @@ defmodule AmbrySchema.SearchTest do
              } = json_response(conn, 200)
     end
 
-    test "returns media by series name", %{conn: conn} do
-      %{id: id, book: %{series_books: [%{series: %{name: series_name}} | _rest]}} =
-        media = insert(:media)
-
-      index!(media)
-      gid = to_global_id("Media", id)
+    test "returns book by series name", %{conn: conn} do
+      %{id: id, series_books: [%{series: %{name: series_name}} | _rest]} = book = insert(:book)
+      insert_index!(book)
+      gid = to_global_id("Book", id)
 
       conn =
         post(conn, "/gql", %{
@@ -90,12 +88,10 @@ defmodule AmbrySchema.SearchTest do
              } = json_response(conn, 200)
     end
 
-    test "returns media by book author name", %{conn: conn} do
-      %{id: id, book: %{book_authors: [%{author: %{name: author_name}} | _rest]}} =
-        media = insert(:media)
-
-      index!(media)
-      gid = to_global_id("Media", id)
+    test "returns book by author name", %{conn: conn} do
+      %{id: id, book_authors: [%{author: %{name: author_name}} | _rest]} = book = insert(:book)
+      insert_index!(book)
+      gid = to_global_id("Book", id)
 
       conn =
         post(conn, "/gql", %{
@@ -116,12 +112,12 @@ defmodule AmbrySchema.SearchTest do
              } = json_response(conn, 200)
     end
 
-    test "returns media by book author person name", %{conn: conn} do
-      %{id: id, book: %{book_authors: [%{author: %{person: %{name: person_name}}} | _rest]}} =
-        media = insert(:media)
+    test "returns book by author person name", %{conn: conn} do
+      %{id: id, book_authors: [%{author: %{person: %{name: person_name}}} | _rest]} =
+        book = insert(:book)
 
-      index!(media)
-      gid = to_global_id("Media", id)
+      insert_index!(book)
+      gid = to_global_id("Book", id)
 
       conn =
         post(conn, "/gql", %{
@@ -142,12 +138,12 @@ defmodule AmbrySchema.SearchTest do
              } = json_response(conn, 200)
     end
 
-    test "returns media by narrator name", %{conn: conn} do
-      %{id: id, media_narrators: [%{narrator: %{name: narrator_name}} | _rest]} =
-        media = insert(:media)
+    test "returns book by media narrator name", %{conn: conn} do
+      %{book: %{id: id} = book, media_narrators: [%{narrator: %{name: narrator_name}} | _rest]} =
+        insert(:media)
 
-      index!(media)
-      gid = to_global_id("Media", id)
+      insert_index!(book)
+      gid = to_global_id("Book", id)
 
       conn =
         post(conn, "/gql", %{
@@ -168,12 +164,14 @@ defmodule AmbrySchema.SearchTest do
              } = json_response(conn, 200)
     end
 
-    test "returns media by narrator person name", %{conn: conn} do
-      %{id: id, media_narrators: [%{narrator: %{person: %{name: person_name}}} | _rest]} =
-        media = insert(:media)
+    test "returns book by media narrator person name", %{conn: conn} do
+      %{
+        book: %{id: id} = book,
+        media_narrators: [%{narrator: %{person: %{name: person_name}}} | _rest]
+      } = insert(:media)
 
-      index!(media)
-      gid = to_global_id("Media", id)
+      insert_index!(book)
+      gid = to_global_id("Book", id)
 
       conn =
         post(conn, "/gql", %{
@@ -196,7 +194,7 @@ defmodule AmbrySchema.SearchTest do
 
     test "returns person by name", %{conn: conn} do
       %{id: id, name: person_name} = person = insert(:person)
-      index!(person)
+      insert_index!(person)
       gid = to_global_id("Person", id)
 
       conn =
@@ -220,7 +218,7 @@ defmodule AmbrySchema.SearchTest do
 
     test "returns person by author name", %{conn: conn} do
       %{name: author_name, person: %{id: id} = person} = insert(:author)
-      index!(person)
+      insert_index!(person)
       gid = to_global_id("Person", id)
 
       conn =
@@ -244,7 +242,7 @@ defmodule AmbrySchema.SearchTest do
 
     test "returns person by narrator name", %{conn: conn} do
       %{name: narrator_name, person: %{id: id} = person} = insert(:narrator)
-      index!(person)
+      insert_index!(person)
       gid = to_global_id("Person", id)
 
       conn =
@@ -267,9 +265,13 @@ defmodule AmbrySchema.SearchTest do
     end
 
     test "returns series by name", %{conn: conn} do
-      %{series_books: [%{series: %{id: id, name: series_name} = series} | _rest]} = insert(:book)
-      index!(series)
+      %{id: book_id, series_books: [%{series: %{id: id, name: series_name} = series} | _rest]} =
+        insert(:book)
+
+      # NOTE: this also indexes the book
+      insert_index!(series)
       gid = to_global_id("Series", id)
+      book_gid = to_global_id("Book", book_id)
 
       conn =
         post(conn, "/gql", %{
@@ -283,6 +285,9 @@ defmodule AmbrySchema.SearchTest do
                    "edges" => [
                      %{
                        "node" => %{"id" => ^gid}
+                     },
+                     %{
+                       "node" => %{"id" => ^book_gid}
                      }
                    ]
                  }
@@ -292,12 +297,15 @@ defmodule AmbrySchema.SearchTest do
 
     test "returns series by author name", %{conn: conn} do
       %{
+        id: book_id,
         series_books: [%{series: %{id: id} = series} | _rest1],
         book_authors: [%{author: %{name: author_name}} | _rest2]
       } = insert(:book)
 
-      index!(series)
+      # NOTE: this also indexes the book
+      insert_index!(series)
       gid = to_global_id("Series", id)
+      book_gid = to_global_id("Book", book_id)
 
       conn =
         post(conn, "/gql", %{
@@ -311,6 +319,9 @@ defmodule AmbrySchema.SearchTest do
                    "edges" => [
                      %{
                        "node" => %{"id" => ^gid}
+                     },
+                     %{
+                       "node" => %{"id" => ^book_gid}
                      }
                    ]
                  }
@@ -320,12 +331,15 @@ defmodule AmbrySchema.SearchTest do
 
     test "returns series by author person name", %{conn: conn} do
       %{
+        id: book_id,
         series_books: [%{series: %{id: id} = series} | _rest1],
         book_authors: [%{author: %{person: %{name: person_name}}} | _rest2]
       } = insert(:book)
 
-      index!(series)
+      # NOTE: this also indexes the book
+      insert_index!(series)
       gid = to_global_id("Series", id)
+      book_gid = to_global_id("Book", book_id)
 
       conn =
         post(conn, "/gql", %{
@@ -339,6 +353,9 @@ defmodule AmbrySchema.SearchTest do
                    "edges" => [
                      %{
                        "node" => %{"id" => ^gid}
+                     },
+                     %{
+                       "node" => %{"id" => ^book_gid}
                      }
                    ]
                  }

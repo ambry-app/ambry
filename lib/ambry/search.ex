@@ -7,7 +7,7 @@ defmodule Ambry.Search do
 
   alias Ambry.{Authors, Books, Narrators, Series}
 
-  alias Ambry.Media.Media
+  alias Ambry.Books.Book
   alias Ambry.People.Person
   alias Ambry.Repo
   alias Ambry.Search.Record
@@ -45,9 +45,48 @@ defmodule Ambry.Search do
   # New search implementation (used by graphql)
 
   def query(query_string) do
-    from r in Record,
-      where: fragment("? @@ plainto_tsquery(?)", r.search_vector, ^query_string),
-      order_by: fragment("ts_rank_cd(?, plainto_tsquery(?)) DESC", r.search_vector, ^query_string)
+    like = "%#{query_string}%"
+
+    from record in Record,
+      where:
+        fragment("? @@ plainto_tsquery(?)", record.search_vector, ^query_string) or
+          ilike(record.primary, ^like) or ilike(record.secondary, ^like) or
+          ilike(record.tertiary, ^like),
+      order_by: [
+        {:desc,
+         fragment("ts_rank_cd(?, plainto_tsquery(?))", record.search_vector, ^query_string)},
+        {:desc,
+         fragment(
+           """
+           CASE
+             WHEN ? ILIKE ? THEN 1
+             WHEN ? ILIKE ? THEN 0.4
+             WHEN ? ILIKE ? THEN 0.2
+             ELSE 0
+           END
+           """,
+           record.primary,
+           ^like,
+           record.secondary,
+           ^like,
+           record.tertiary,
+           ^like
+         )},
+        {:desc,
+         fragment(
+           """
+           COALESCE(similarity(?, ?), 0) +
+           COALESCE(similarity(?, ?), 0) +
+           COALESCE(similarity(?, ?), 0)
+           """,
+           record.primary,
+           ^query_string,
+           record.secondary,
+           ^query_string,
+           record.tertiary,
+           ^query_string
+         )}
+      ]
   end
 
   def all(query) do
@@ -56,30 +95,30 @@ defmodule Ambry.Search do
       |> Repo.all()
       |> Enum.map(& &1.reference)
 
-    {media_ids, person_ids, series_ids} = partition_references(references)
+    {book_ids, person_ids, series_ids} = partition_references(references)
 
-    media = fetch_media(media_ids)
+    books = fetch_books(book_ids)
     people = fetch_people(person_ids)
     series = fetch_series(series_ids)
 
-    recombine(references, media, people, series)
+    recombine(references, books, people, series)
   end
 
   defp partition_references(references) do
     Enum.reduce(references, {[], [], []}, &do_partition/2)
   end
 
-  defp do_partition(%{type: :media, id: id}, {media, people, series}),
-    do: {[id | media], people, series}
+  defp do_partition(%{type: :book, id: id}, {books, people, series}),
+    do: {[id | books], people, series}
 
-  defp do_partition(%{type: :person, id: id}, {media, people, series}),
-    do: {media, [id | people], series}
+  defp do_partition(%{type: :person, id: id}, {books, people, series}),
+    do: {books, [id | people], series}
 
-  defp do_partition(%{type: :series, id: id}, {media, people, series}),
-    do: {media, people, [id | series]}
+  defp do_partition(%{type: :series, id: id}, {books, people, series}),
+    do: {books, people, [id | series]}
 
-  defp fetch_media(ids) do
-    query = from(m in Media, where: m.id in ^ids)
+  defp fetch_books(ids) do
+    query = from(b in Book, where: b.id in ^ids)
     query |> Repo.all() |> Map.new(&{&1.id, &1})
   end
 
@@ -93,10 +132,10 @@ defmodule Ambry.Search do
     query |> Repo.all() |> Map.new(&{&1.id, &1})
   end
 
-  defp recombine(references, media, people, series) do
+  defp recombine(references, books, people, series) do
     Enum.map(references, fn reference ->
       case reference do
-        %{type: :media, id: id} -> Map.fetch!(media, id)
+        %{type: :book, id: id} -> Map.fetch!(books, id)
         %{type: :person, id: id} -> Map.fetch!(people, id)
         %{type: :series, id: id} -> Map.fetch!(series, id)
       end
