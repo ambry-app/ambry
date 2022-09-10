@@ -132,5 +132,5 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   end
 
   @impl Phoenix.LiveView
-  def handle_info({:series, _action, _id}, socket), do: {:noreply, refresh_series(socket)}
+  def handle_info(%PubSub.Message{type: :series}, socket), do: {:noreply, refresh_series(socket)}
 end

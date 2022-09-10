@@ -15,6 +15,7 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Media.{Media, PlayerState}
   alias Ambry.Narrators.Narrator
   alias Ambry.People.Person
+  alias Ambry.{Repo, Search}
   alias Ambry.Series.{Series, SeriesBook}
 
   alias AmbryWeb.Hashids
@@ -42,14 +43,14 @@ defmodule AmbrySchema.Resolvers do
   def list_books(args, _resolution) do
     Book
     |> order_by({:desc, :inserted_at})
-    |> Connection.from_query(&Ambry.Repo.all/1, args)
+    |> Connection.from_query(&Repo.all/1, args)
   end
 
   def list_authored_books(%Author{} = author, args, _resolution) do
     author
     |> Ecto.assoc(:books)
     |> order_by({:desc, :published})
-    |> Connection.from_query(&Ambry.Repo.all/1, args)
+    |> Connection.from_query(&Repo.all/1, args)
   end
 
   def list_narrated_media(%Narrator{} = narrator, args, _resolution) do
@@ -57,7 +58,7 @@ defmodule AmbrySchema.Resolvers do
     |> Ecto.assoc(:media)
     |> join(:inner, [m], b in assoc(m, :book))
     |> order_by([_, _, b], desc: b.published)
-    |> Connection.from_query(&Ambry.Repo.all/1, args)
+    |> Connection.from_query(&Repo.all/1, args)
   end
 
   def list_player_states(args, %{context: %{current_user: %User{} = user}}) do
@@ -65,7 +66,13 @@ defmodule AmbrySchema.Resolvers do
     |> Ecto.assoc(:player_states)
     |> where(status: :in_progress)
     |> order_by({:desc, :updated_at})
-    |> Connection.from_query(&Ambry.Repo.all/1, args)
+    |> Connection.from_query(&Repo.all/1, args)
+  end
+
+  def search(%{query: query_string} = args, _resolution) do
+    query_string
+    |> Search.query()
+    |> Connection.from_query(&Search.all/1, args)
   end
 
   def update_player_state(%{media_id: media_id} = args, %{
@@ -83,7 +90,7 @@ defmodule AmbrySchema.Resolvers do
     series
     |> Ecto.assoc(:series_books)
     |> order_by({:asc, :book_number})
-    |> Connection.from_query(&Ambry.Repo.all/1, args)
+    |> Connection.from_query(&Repo.all/1, args)
   end
 
   def chapters(%Media{chapters: chapters}, _args, _resolution) do
@@ -159,7 +166,7 @@ defmodule AmbrySchema.Resolvers do
 
   # Dataloader
 
-  def data, do: Dataloader.Ecto.new(Ambry.Repo, query: &query/2)
+  def data, do: Dataloader.Ecto.new(Repo, query: &query/2)
 
   def query(queryable, %{order: order}), do: from(q in queryable, order_by: ^order)
   def query(queryable, _params), do: queryable

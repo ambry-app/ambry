@@ -3,7 +3,7 @@ defmodule Ambry.Series do
   Functions for dealing with Series.
   """
 
-  import Ambry.SearchUtils
+  import Ambry.{SearchUtils, Utils}
   import Ecto.Query
 
   alias Ambry.{PubSub, Repo}
@@ -84,7 +84,7 @@ defmodule Ambry.Series do
     %Series{}
     |> Series.changeset(attrs)
     |> Repo.insert()
-    |> tap(&PubSub.broadcast_create/1)
+    |> tap_ok(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -102,7 +102,7 @@ defmodule Ambry.Series do
     series
     |> Series.changeset(attrs)
     |> Repo.update()
-    |> tap(&PubSub.broadcast_update/1)
+    |> tap_ok(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -119,7 +119,7 @@ defmodule Ambry.Series do
   def delete_series(%Series{} = series) do
     series
     |> Repo.delete()
-    |> tap(&PubSub.broadcast_delete/1)
+    |> tap_ok(&PubSub.broadcast_delete/1)
   end
 
   @doc """

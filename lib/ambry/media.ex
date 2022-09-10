@@ -3,7 +3,7 @@ defmodule Ambry.Media do
   Functions for dealing with Media.
   """
 
-  import Ambry.FileUtils
+  import Ambry.{FileUtils, Utils}
   import Ecto.Query
 
   alias Ambry.{Accounts, Books, PubSub, Repo}
@@ -88,7 +88,7 @@ defmodule Ambry.Media do
     %Media{}
     |> Media.changeset(attrs, for: :create)
     |> Repo.insert()
-    |> tap(&PubSub.broadcast_create/1)
+    |> tap_ok(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -107,7 +107,7 @@ defmodule Ambry.Media do
     media
     |> Media.changeset(attrs, for: action)
     |> Repo.update()
-    |> tap(&PubSub.broadcast_update/1)
+    |> tap_ok(&PubSub.broadcast_update/1)
   end
 
   @doc """
@@ -231,7 +231,7 @@ defmodule Ambry.Media do
     %PlayerState{}
     |> PlayerState.changeset(attrs)
     |> Repo.insert()
-    |> tap(&PubSub.broadcast_create/1)
+    |> tap_ok(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -250,7 +250,7 @@ defmodule Ambry.Media do
     player_state
     |> PlayerState.changeset(attrs)
     |> Repo.update()
-    |> tap(&PubSub.broadcast_update/1)
+    |> tap_ok(&PubSub.broadcast_update/1)
   end
 
   @doc """
@@ -315,7 +315,7 @@ defmodule Ambry.Media do
     %Bookmark{}
     |> Bookmark.changeset(attrs)
     |> Repo.insert()
-    |> tap(&PubSub.broadcast_create/1)
+    |> tap_ok(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -334,7 +334,7 @@ defmodule Ambry.Media do
     bookmark
     |> Bookmark.changeset(attrs)
     |> Repo.update()
-    |> tap(&PubSub.broadcast_update/1)
+    |> tap_ok(&PubSub.broadcast_update/1)
   end
 
   @doc """
@@ -352,7 +352,7 @@ defmodule Ambry.Media do
   def delete_bookmark(%Bookmark{} = bookmark) do
     bookmark
     |> Repo.delete()
-    |> tap(&PubSub.broadcast_delete/1)
+    |> tap_ok(&PubSub.broadcast_delete/1)
   end
 
   @doc """

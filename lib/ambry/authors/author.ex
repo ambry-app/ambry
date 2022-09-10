@@ -28,6 +28,11 @@ defmodule Ambry.Authors.Author do
     |> cast(attrs, [:name, :delete])
     |> validate_required([:name])
     |> maybe_apply_delete()
+    |> foreign_key_constraint(:delete,
+      name: "authors_books_author_id_fkey",
+      message:
+        "This author is in use by one or more books. You must first remove them as an author from any associated books."
+    )
   end
 
   defp maybe_apply_delete(changeset) do

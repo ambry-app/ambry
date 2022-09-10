@@ -182,7 +182,9 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:noreply, socket}
   end
 
-  def handle_info({:media, :progress, {media_id, progress}}, socket) do
+  def handle_info(%PubSub.Message{type: :media, action: :progress} = message, socket) do
+    %{id: media_id, meta: %{progress: progress}} = message
+
     progress_map =
       socket.assigns
       |> Map.get(:processing_media_progress_map, %{})
@@ -191,7 +193,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:noreply, assign(socket, :processing_media_progress_map, progress_map)}
   end
 
-  def handle_info({:media, _action, _id}, socket), do: {:noreply, refresh_media(socket)}
+  def handle_info(%PubSub.Message{type: :media}, socket), do: {:noreply, refresh_media(socket)}
 
   defp status_color(:pending), do: "yellow"
   defp status_color(:processing), do: "blue"

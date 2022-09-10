@@ -155,5 +155,5 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   end
 
   @impl Phoenix.LiveView
-  def handle_info({:person, _action, _id}, socket), do: {:noreply, refresh_people(socket)}
+  def handle_info(%PubSub.Message{type: :person}, socket), do: {:noreply, refresh_people(socket)}
 end

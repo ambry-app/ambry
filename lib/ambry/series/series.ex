@@ -10,8 +10,9 @@ defmodule Ambry.Series.Series do
   alias Ambry.Series.SeriesBook
 
   schema "series" do
-    has_many :series_books, SeriesBook
     many_to_many :books, Book, join_through: "books_series"
+    has_many :series_books, SeriesBook
+    has_many :authors, through: [:books, :authors]
 
     field :name, :string
 

@@ -141,5 +141,5 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   end
 
   @impl Phoenix.LiveView
-  def handle_info({:book, _action, _id}, socket), do: {:noreply, refresh_books(socket)}
+  def handle_info(%PubSub.Message{type: :book}, socket), do: {:noreply, refresh_books(socket)}
 end

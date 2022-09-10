@@ -18,6 +18,7 @@ defmodule Ambry.Media.Media do
     belongs_to :book, Book
     has_many :media_narrators, MediaNarrator
     has_many :player_states, PlayerState
+    has_many :authors, through: [:book, :authors]
     many_to_many :narrators, Narrator, join_through: "media_narrators"
 
     embeds_many :chapters, Chapter, on_replace: :delete
