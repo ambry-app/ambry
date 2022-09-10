@@ -25,11 +25,10 @@ defmodule Ambry.Search.IndexManager do
   end
 
   @impl GenServer
-  def handle_info(%PubSub.Message{type: type, action: :created} = message, state)
-      when type in [:media, :person, :series] do
-    %{id: id} = message
+  def handle_info(%PubSub.Message{action: :created} = message, state) do
+    %{type: type, id: id} = message
 
-    :ok = Index.index(type, id)
+    :ok = Index.insert(type, id)
 
     {:noreply, state}
   end
@@ -37,11 +36,7 @@ defmodule Ambry.Search.IndexManager do
   def handle_info(%PubSub.Message{action: :updated} = message, state) do
     %{type: type, id: id} = message
 
-    if type in [:media, :person, :series] do
-      :ok = Index.index(type, id)
-    end
-
-    :ok = Index.reindex_dependents(type, id)
+    :ok = Index.update(type, id)
 
     {:noreply, state}
   end

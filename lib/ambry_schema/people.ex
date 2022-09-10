@@ -21,6 +21,8 @@ defmodule AmbrySchema.People do
 
     field :inserted_at, non_null(:naive_datetime)
     field :updated_at, non_null(:naive_datetime)
+
+    interface :search_result
   end
 
   node object(:author) do

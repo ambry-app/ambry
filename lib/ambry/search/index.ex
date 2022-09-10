@@ -8,99 +8,212 @@ defmodule Ambry.Search.Index do
   alias Ambry.{Reference, Repo}
 
   alias Ambry.Authors.Author
+  alias Ambry.Books.Book
   alias Ambry.Media.Media
   alias Ambry.Narrators.Narrator
   alias Ambry.People.Person
   alias Ambry.Search.Record
   alias Ambry.Series.Series
 
-  def index(type, id) when not is_list(id), do: index(type, [id])
+  # Insert
 
-  def index(:media, media_ids) do
-    query =
-      from media in Media,
-        where: media.id in ^media_ids,
-        preload: [narrators: [:person], book: [:series, authors: [:person]]]
+  def insert(:book, book_id) do
+    index(:book, [book_id])
+  end
 
-    records =
-      for media <- Repo.all(query) do
-        primary_dependency = Reference.new(media.book)
+  def insert(:media, media_id) do
+    book_id =
+      Repo.one!(
+        from media in Media,
+          where: media.id == ^media_id,
+          select: media.book_id
+      )
 
-        {secondary_names, secondary_dependencies} =
-          names(media.book.series ++ media.book.authors ++ media.narrators)
+    index(:book, [book_id])
+  end
 
-        {tertiary_names, tertiary_dependencies} =
-          person_names(media.book.authors ++ media.narrators)
+  def insert(:person, person_id) do
+    index(:person, [person_id])
+  end
 
-        dependencies =
-          Enum.uniq([primary_dependency | secondary_dependencies ++ tertiary_dependencies])
+  def insert(:series, series_id) do
+    series = Series |> Repo.get!(series_id) |> Repo.preload([:books])
+    book_ids = Enum.map(series.books, & &1.id)
 
-        %{
-          reference: Reference.new(media),
-          dependencies: dependencies,
-          primary: media.book.title,
-          secondary: join(secondary_names),
-          tertiary: join(tertiary_names)
-        }
-      end
+    index(:series, [series_id])
+    index(:book, book_ids)
+  end
 
-    insert_records(records)
+  # Update
+
+  def update(:book, book_id) do
+    index(:book, [book_id])
+  end
+
+  def update(:media, media_id) do
+    reindex_dependents(:media, media_id)
+    insert(:media, media_id)
+  end
+
+  def update(:person, person_id) do
+    reindex_dependents(:person, person_id)
+    index(:person, [person_id])
+  end
+
+  def update(:series, series_id) do
+    reindex_dependents(:series, series_id)
+    index(:series, [series_id])
+  end
+
+  # Delete
+
+  def delete(type, id) do
+    reference = %Reference{type: type, id: id}
+
+    Repo.delete_all(
+      from record in Record,
+        where: record.reference == type(^reference, Ambry.Ecto.Types.Reference)
+    )
+
+    reindex_dependents(type, id)
 
     :ok
   end
 
-  def index(:person, person_ids) do
-    query =
-      from person in Person,
-        where: person.id in ^person_ids,
-        preload: [:authors, :narrators]
+  # Nuke it
 
-    records =
-      for person <- Repo.all(query) do
-        person_name = person.name
-        author_names = Enum.map(person.authors, & &1.name)
-        narrator_names = Enum.map(person.narrators, & &1.name)
+  # WARNING: drops and rebuilds the entire index, possibly really heavy
+  def refresh_entire_index do
+    Repo.delete_all(Record)
 
-        %{
-          reference: Reference.new(person),
-          dependencies: [],
-          primary: join(author_names ++ narrator_names),
-          secondary:
-            if(person_name not in author_names and person_name not in narrator_names,
-              do: person_name
-            )
-        }
-      end
+    book_ids = Repo.all(from book in Book, select: book.id)
+    :ok = index(:book, book_ids)
 
-    insert_records(records)
+    person_ids = Repo.all(from person in Person, select: person.id)
+    :ok = index(:person, person_ids)
+
+    series_ids = Repo.all(from series in Series, select: series.id)
+    :ok = index(:series, series_ids)
 
     :ok
   end
 
-  def index(:series, series_ids) do
-    query =
-      from series in Series,
-        where: series.id in ^series_ids,
-        preload: [authors: [:person]]
+  # Private Impl
 
-    records =
-      for series <- Repo.all(query) do
-        {secondary_names, secondary_dependencies} = names(series.authors)
-        {tertiary_names, tertiary_dependencies} = person_names(series.authors)
-        dependencies = Enum.uniq(secondary_dependencies ++ tertiary_dependencies)
+  defp index(:book, book_ids) do
+    books =
+      Repo.all(
+        from book in Book,
+          where: book.id in ^book_ids,
+          preload: [:series, authors: [:person], media: [narrators: [:person]]]
+      )
 
-        %{
-          reference: Reference.new(series),
-          dependencies: dependencies,
-          primary: series.name,
-          secondary: join(secondary_names),
-          tertiary: join(tertiary_names)
-        }
-      end
-
-    insert_records(records)
+    books
+    |> Enum.map(&book_record/1)
+    |> insert_records()
 
     :ok
+  end
+
+  defp index(:media, media_ids) do
+    books_ids =
+      Repo.all(
+        from media in Media,
+          where: media.id in ^media_ids,
+          select: media.book_id
+      )
+
+    index(:book, books_ids)
+  end
+
+  defp index(:person, person_ids) do
+    people =
+      Repo.all(
+        from person in Person,
+          where: person.id in ^person_ids,
+          preload: [:authors, :narrators]
+      )
+
+    people
+    |> Enum.map(&person_record/1)
+    |> insert_records()
+
+    :ok
+  end
+
+  defp index(:series, series_ids) do
+    series =
+      Repo.all(
+        from series in Series,
+          where: series.id in ^series_ids,
+          preload: [authors: [:person]]
+      )
+
+    series
+    |> Enum.map(&series_record/1)
+    |> insert_records()
+
+    :ok
+  end
+
+  defp book_record(book) do
+    narrators = Enum.flat_map(book.media, & &1.narrators)
+
+    {secondary_names, secondary_dependencies} = names(book.series ++ book.authors ++ narrators)
+
+    {tertiary_names, tertiary_dependencies} = person_names(book.authors ++ narrators)
+
+    media_dependencies = Enum.map(book.media, &Reference.new/1)
+
+    dependencies =
+      Enum.uniq(secondary_dependencies ++ tertiary_dependencies ++ media_dependencies)
+
+    %{
+      reference: Reference.new(book),
+      dependencies: dependencies,
+      primary: book.title,
+      secondary: join(secondary_names),
+      tertiary: join(tertiary_names)
+    }
+  end
+
+  defp person_record(person) do
+    person_name = person.name
+    author_names = Enum.map(person.authors, & &1.name)
+    narrator_names = Enum.map(person.narrators, & &1.name)
+
+    {primary, secondary} =
+      case join(author_names ++ narrator_names) do
+        nil ->
+          {person_name, nil}
+
+        names ->
+          {names,
+           if(person_name not in author_names and person_name not in narrator_names,
+             do: person_name
+           )}
+      end
+
+    %{
+      reference: Reference.new(person),
+      dependencies: [],
+      primary: primary,
+      secondary: secondary
+    }
+  end
+
+  defp series_record(series) do
+    {secondary_names, secondary_dependencies} = names(series.authors)
+    {tertiary_names, tertiary_dependencies} = person_names(series.authors)
+    dependencies = Enum.uniq(secondary_dependencies ++ tertiary_dependencies)
+
+    %{
+      reference: Reference.new(series),
+      dependencies: dependencies,
+      primary: series.name,
+      secondary: join(secondary_names),
+      tertiary: join(tertiary_names)
+    }
   end
 
   defp names(structs) do
@@ -132,7 +245,7 @@ defmodule Ambry.Search.Index do
     )
   end
 
-  def reindex_dependents(type, id) do
+  defp reindex_dependents(type, id) do
     reference = %Reference{type: type, id: id}
 
     records =
@@ -149,33 +262,6 @@ defmodule Ambry.Search.Index do
     for {type, records} <- Enum.group_by(records, & &1.reference.type) do
       index(type, Enum.map(records, & &1.reference.id))
     end
-
-    :ok
-  end
-
-  def delete(type, id) do
-    reference = %Reference{type: type, id: id}
-
-    Repo.delete_all(
-      from record in Record,
-        where: record.reference == type(^reference, Ambry.Ecto.Types.Reference)
-    )
-
-    :ok
-  end
-
-  # WARNING: drops and rebuilds the entire index, possibly really heavy
-  def refresh_entire_index do
-    Repo.delete_all(Record)
-
-    media_ids = Repo.all(from media in Media, select: media.id)
-    :ok = index(:media, media_ids)
-
-    person_ids = Repo.all(from person in Person, select: person.id)
-    :ok = index(:person, person_ids)
-
-    series_ids = Repo.all(from series in Series, select: series.id)
-    :ok = index(:series, series_ids)
 
     :ok
   end

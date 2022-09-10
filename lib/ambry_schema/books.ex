@@ -24,6 +24,8 @@ defmodule AmbrySchema.Books do
 
     field :inserted_at, non_null(:naive_datetime)
     field :updated_at, non_null(:naive_datetime)
+
+    interface :search_result
   end
 
   node object(:book) do
@@ -42,6 +44,8 @@ defmodule AmbrySchema.Books do
 
     field :inserted_at, non_null(:naive_datetime)
     field :updated_at, non_null(:naive_datetime)
+
+    interface :search_result
   end
 
   connection(node_type: :book)
