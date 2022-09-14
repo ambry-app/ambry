@@ -69,10 +69,16 @@ defmodule AmbrySchema.Resolvers do
     |> Connection.from_query(&Repo.all/1, args)
   end
 
-  def search(%{query: query_string} = args, _resolution) do
-    query_string
-    |> Search.query()
-    |> Connection.from_query(&Search.all/1, args)
+  def search(%{query: query} = args, _resolution) do
+    query_string = String.trim(query)
+
+    if String.length(query_string) < 3 do
+      {:error, "query must be at least 3 characters"}
+    else
+      query_string
+      |> Search.query()
+      |> Connection.from_query(&Search.all/1, args)
+    end
   end
 
   def update_player_state(%{media_id: media_id} = args, %{

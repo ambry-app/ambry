@@ -10,7 +10,7 @@ defmodule Ambry.Search.IndexTest do
     test "indexes a new book" do
       %{book: %{title: book_title} = book} = insert(:media)
 
-      assert :ok = Index.insert(:book, book.id)
+      assert :ok = Index.insert!(:book, book.id)
 
       assert %{
                primary: ^book_title
@@ -21,7 +21,7 @@ defmodule Ambry.Search.IndexTest do
   describe "insert(:media, id)" do
     test "updates the index of the associated book" do
       book = insert(:book)
-      Index.insert(:book, book.id)
+      Index.insert!(:book, book.id)
       initial_book_record = fetch_record(book)
 
       media = insert(:media, book: book)
@@ -32,7 +32,7 @@ defmodule Ambry.Search.IndexTest do
                ref in initial_book_record.dependencies
              end)
 
-      assert :ok = Index.insert(:media, media.id)
+      assert :ok = Index.insert!(:media, media.id)
       updated_book_record = fetch_record(book)
 
       # now the narrators are part of the book index record
@@ -46,7 +46,7 @@ defmodule Ambry.Search.IndexTest do
     test "indexes a new person" do
       %{name: person_name} = person = insert(:person)
 
-      assert :ok = Index.insert(:person, person.id)
+      assert :ok = Index.insert!(:person, person.id)
 
       assert %{
                primary: ^person_name
@@ -57,7 +57,7 @@ defmodule Ambry.Search.IndexTest do
   describe "insert(:series, id)" do
     test "indexes a new series and updates the index of all referenced books" do
       [book1, book2] = books = insert_pair(:book, series_books: [])
-      Enum.each(books, &Index.insert(:book, &1.id))
+      Enum.each(books, &Index.insert!(:book, &1.id))
       initial_book_records = Enum.map(books, &fetch_record/1)
 
       # The books were indexed without any series
@@ -75,7 +75,7 @@ defmodule Ambry.Search.IndexTest do
 
       series_ref = Reference.new(series)
 
-      assert :ok = Index.insert(:series, series.id)
+      assert :ok = Index.insert!(:series, series.id)
 
       updated_book_records = Enum.map(books, &fetch_record/1)
 
@@ -84,13 +84,21 @@ defmodule Ambry.Search.IndexTest do
                series_ref in record.dependencies
              end)
     end
+
+    test "does not index a new series if it has no books" do
+      series = insert(:series, series_books: [])
+
+      assert :ok = Index.insert!(:series, series.id)
+
+      assert nil == fetch_record(series)
+    end
   end
 
   describe "update(:book, id)" do
     test "updates the index of a book" do
       %{book: %{title: book_title} = book} = insert(:media)
 
-      assert :ok = Index.insert(:book, book.id)
+      assert :ok = Index.insert!(:book, book.id)
 
       assert %{
                primary: ^book_title
@@ -99,7 +107,7 @@ defmodule Ambry.Search.IndexTest do
       new_book_title = "New Book Title"
       {:ok, _book} = Ambry.Books.update_book(book, %{title: new_book_title})
 
-      assert :ok = Index.update(:book, book.id)
+      assert :ok = Index.update!(:book, book.id)
 
       assert %{
                primary: ^new_book_title
@@ -111,8 +119,8 @@ defmodule Ambry.Search.IndexTest do
     test "updates the index of all books involved in the operation" do
       %{book: book_one, media_narrators: [%{narrator: narrator} | _rest]} = media = insert(:media)
       book_two = insert(:book)
-      Index.insert(:book, book_one.id)
-      Index.insert(:book, book_two.id)
+      Index.insert!(:book, book_one.id)
+      Index.insert!(:book, book_two.id)
 
       narrator_ref = Reference.new(narrator.person)
       media_ref = Reference.new(media)
@@ -127,7 +135,7 @@ defmodule Ambry.Search.IndexTest do
       refute narrator_ref in book_two_record.dependencies
 
       {:ok, _book_two} = Ambry.Media.update_media(media, %{book_id: book_two.id}, for: :update)
-      assert :ok = Index.update(:media, media.id)
+      assert :ok = Index.update!(:media, media.id)
 
       book_one_record = fetch_record(book_one)
       book_two_record = fetch_record(book_two)
@@ -156,9 +164,9 @@ defmodule Ambry.Search.IndexTest do
       book_one = insert(:book, book_authors: [%{author_id: author.id}])
       %{book: book_two} = insert(:media, media_narrators: [%{narrator_id: narrator.id}])
 
-      Index.insert(:person, person.id)
-      Index.insert(:book, book_one.id)
-      Index.insert(:book, book_two.id)
+      Index.insert!(:person, person.id)
+      Index.insert!(:book, book_one.id)
+      Index.insert!(:book, book_two.id)
 
       person_record = fetch_record(person)
       book_one_record = fetch_record(book_one)
@@ -183,7 +191,7 @@ defmodule Ambry.Search.IndexTest do
           narrators: [%{id: narrator.id, name: "NarratorName"}]
         })
 
-      assert :ok = Index.update(:person, person.id)
+      assert :ok = Index.update!(:person, person.id)
 
       person_record = fetch_record(person)
       book_one_record = fetch_record(book_one)
@@ -209,10 +217,42 @@ defmodule Ambry.Search.IndexTest do
     end
   end
 
+  describe "update(:series, id)" do
+    test "deletes the record if all books are removed" do
+      [book1, book2] = books = insert_pair(:book, series_books: [])
+      Enum.each(books, &Index.insert!(:book, &1.id))
+
+      %{name: series_name, series_books: [%{id: series_book_id1}, %{id: series_book_id2}]} =
+        series =
+        insert(:series,
+          series_books: [
+            %{book_id: book1.id, book_number: 1},
+            %{book_id: book2.id, book_number: 2}
+          ]
+        )
+
+      assert :ok = Index.insert!(:series, series.id)
+
+      assert %{primary: ^series_name} = fetch_record(series)
+
+      {:ok, _updated_series} =
+        Ambry.Series.update_series(series, %{
+          series_books: [
+            %{id: series_book_id1, delete: true},
+            %{id: series_book_id2, delete: true}
+          ]
+        })
+
+      assert :ok = Index.update!(:series, series.id)
+
+      assert nil == fetch_record(series)
+    end
+  end
+
   defp fetch_record(struct) do
     reference = Reference.new(struct)
 
-    Repo.one!(
+    Repo.one(
       from record in Record,
         where: record.reference == type(^reference, Ambry.Ecto.Types.Reference)
     )

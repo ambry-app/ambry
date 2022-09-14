@@ -28,7 +28,7 @@ defmodule Ambry.Search.IndexManager do
   def handle_info(%PubSub.Message{action: :created} = message, state) do
     %{type: type, id: id} = message
 
-    :ok = Index.insert(type, id)
+    Index.insert!(type, id)
 
     {:noreply, state}
   end
@@ -36,7 +36,7 @@ defmodule Ambry.Search.IndexManager do
   def handle_info(%PubSub.Message{action: :updated} = message, state) do
     %{type: type, id: id} = message
 
-    :ok = Index.update(type, id)
+    Index.update!(type, id)
 
     {:noreply, state}
   end
@@ -44,7 +44,7 @@ defmodule Ambry.Search.IndexManager do
   def handle_info(%PubSub.Message{action: :deleted} = message, state) do
     %{type: type, id: id} = message
 
-    :ok = Index.delete(type, id)
+    Index.delete!(type, id)
 
     {:noreply, state}
   end
