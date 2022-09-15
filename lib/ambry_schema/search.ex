@@ -15,7 +15,7 @@ defmodule AmbrySchema.Search do
 
   object :search_queries do
     connection field :search, node_type: :search_result do
-      arg :query, non_null(:string)
+      arg :query, non_null(:string), description: "Must be at least 3 characters"
 
       middleware AmbrySchema.AuthMiddleware
 

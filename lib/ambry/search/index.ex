@@ -17,11 +17,11 @@ defmodule Ambry.Search.Index do
 
   # Insert
 
-  def insert(:book, book_id) do
-    index(:book, [book_id])
+  def insert!(:book, book_id) do
+    index!(:book, [book_id])
   end
 
-  def insert(:media, media_id) do
+  def insert!(:media, media_id) do
     book_id =
       Repo.one!(
         from media in Media,
@@ -29,78 +29,75 @@ defmodule Ambry.Search.Index do
           select: media.book_id
       )
 
-    index(:book, [book_id])
+    index!(:book, [book_id])
   end
 
-  def insert(:person, person_id) do
-    index(:person, [person_id])
+  def insert!(:person, person_id) do
+    index!(:person, [person_id])
   end
 
-  def insert(:series, series_id) do
+  def insert!(:series, series_id) do
     series = Series |> Repo.get!(series_id) |> Repo.preload([:books])
     book_ids = Enum.map(series.books, & &1.id)
 
-    index(:series, [series_id])
-    index(:book, book_ids)
+    index!(:series, [series_id])
+    index!(:book, book_ids)
   end
 
   # Update
 
-  def update(:book, book_id) do
-    index(:book, [book_id])
+  def update!(:book, book_id) do
+    index!(:book, [book_id])
   end
 
-  def update(:media, media_id) do
-    reindex_dependents(:media, media_id)
-    insert(:media, media_id)
+  def update!(:media, media_id) do
+    reindex_dependents!(:media, media_id)
+    insert!(:media, media_id)
   end
 
-  def update(:person, person_id) do
-    reindex_dependents(:person, person_id)
-    index(:person, [person_id])
+  def update!(:person, person_id) do
+    reindex_dependents!(:person, person_id)
+    index!(:person, [person_id])
   end
 
-  def update(:series, series_id) do
-    reindex_dependents(:series, series_id)
-    index(:series, [series_id])
+  def update!(:series, series_id) do
+    reindex_dependents!(:series, series_id)
+    index!(:series, [series_id])
   end
 
   # Delete
 
-  def delete(type, id) do
+  def delete!(type, id) do
     reference = %Reference{type: type, id: id}
 
-    Repo.delete_all(
-      from record in Record,
-        where: record.reference == type(^reference, Ambry.Ecto.Types.Reference)
-    )
+    {_count, nil} =
+      Repo.delete_all(
+        from record in Record,
+          where: record.reference == type(^reference, Ambry.Ecto.Types.Reference)
+      )
 
-    reindex_dependents(type, id)
-
-    :ok
+    reindex_dependents!(type, id)
   end
 
   # Nuke it
 
   # WARNING: drops and rebuilds the entire index, possibly really heavy
-  def refresh_entire_index do
+  def refresh_entire_index! do
     Repo.delete_all(Record)
 
     book_ids = Repo.all(from book in Book, select: book.id)
-    :ok = index(:book, book_ids)
+    index!(:book, book_ids)
 
     person_ids = Repo.all(from person in Person, select: person.id)
-    :ok = index(:person, person_ids)
+    index!(:person, person_ids)
 
     series_ids = Repo.all(from series in Series, select: series.id)
-    :ok = index(:series, series_ids)
-
-    :ok
+    index!(:series, series_ids)
   end
 
   # Private Impl
 
-  defp index(:book, book_ids) do
+  defp index!(:book, book_ids) do
     books =
       Repo.all(
         from book in Book,
@@ -110,12 +107,10 @@ defmodule Ambry.Search.Index do
 
     books
     |> Enum.map(&book_record/1)
-    |> insert_records()
-
-    :ok
+    |> insert_records!()
   end
 
-  defp index(:media, media_ids) do
+  defp index!(:media, media_ids) do
     books_ids =
       Repo.all(
         from media in Media,
@@ -123,10 +118,10 @@ defmodule Ambry.Search.Index do
           select: media.book_id
       )
 
-    index(:book, books_ids)
+    index!(:book, books_ids)
   end
 
-  defp index(:person, person_ids) do
+  defp index!(:person, person_ids) do
     people =
       Repo.all(
         from person in Person,
@@ -136,22 +131,26 @@ defmodule Ambry.Search.Index do
 
     people
     |> Enum.map(&person_record/1)
-    |> insert_records()
-
-    :ok
+    |> insert_records!()
   end
 
-  defp index(:series, series_ids) do
+  defp index!(:series, series_ids) do
     series =
       Repo.all(
         from series in Series,
           where: series.id in ^series_ids,
-          preload: [authors: [:person]]
+          preload: [:series_books, authors: [:person]]
       )
 
-    series
+    {series_to_insert, series_to_delete} = Enum.split_with(series, &(length(&1.series_books) > 0))
+
+    series_to_insert
     |> Enum.map(&series_record/1)
-    |> insert_records()
+    |> insert_records!()
+
+    Enum.each(series_to_delete, fn series ->
+      delete!(:series, series.id)
+    end)
 
     :ok
   end
@@ -238,14 +237,17 @@ defmodule Ambry.Search.Index do
   defp join([]), do: nil
   defp join(items), do: Enum.join(items, " ")
 
-  defp insert_records(records) do
-    Repo.insert_all(Record, records,
-      on_conflict: {:replace_all_except, [:reference]},
-      conflict_target: [:reference]
-    )
+  defp insert_records!(records) do
+    {_count, nil} =
+      Repo.insert_all(Record, records,
+        on_conflict: {:replace_all_except, [:reference]},
+        conflict_target: [:reference]
+      )
+
+    :ok
   end
 
-  defp reindex_dependents(type, id) do
+  defp reindex_dependents!(type, id) do
     reference = %Reference{type: type, id: id}
 
     records =
@@ -260,7 +262,7 @@ defmodule Ambry.Search.Index do
       )
 
     for {type, records} <- Enum.group_by(records, & &1.reference.type) do
-      index(type, Enum.map(records, & &1.reference.id))
+      index!(type, Enum.map(records, & &1.reference.id))
     end
 
     :ok
