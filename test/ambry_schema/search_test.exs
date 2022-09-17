@@ -282,17 +282,18 @@ defmodule AmbrySchema.SearchTest do
       assert %{
                "data" => %{
                  "search" => %{
-                   "edges" => [
-                     %{
-                       "node" => %{"id" => ^gid}
-                     },
-                     %{
-                       "node" => %{"id" => ^book_gid}
-                     }
-                   ]
+                   "edges" => edges
                  }
                }
              } = json_response(conn, 200)
+
+      # The order is not easily determined with randomly generated book
+      # titles and series names
+
+      returned_ids = edges |> Enum.map(& &1["node"]["id"]) |> Enum.sort()
+      expected_ids = Enum.sort([gid, book_gid])
+
+      assert returned_ids == expected_ids
     end
 
     test "returns series by author name", %{conn: conn} do
@@ -316,17 +317,18 @@ defmodule AmbrySchema.SearchTest do
       assert %{
                "data" => %{
                  "search" => %{
-                   "edges" => [
-                     %{
-                       "node" => %{"id" => ^gid}
-                     },
-                     %{
-                       "node" => %{"id" => ^book_gid}
-                     }
-                   ]
+                   "edges" => edges
                  }
                }
              } = json_response(conn, 200)
+
+      # The order is not easily determined with randomly generated book
+      # titles and series names
+
+      returned_ids = edges |> Enum.map(& &1["node"]["id"]) |> Enum.sort()
+      expected_ids = Enum.sort([gid, book_gid])
+
+      assert returned_ids == expected_ids
     end
 
     test "returns series by author person name", %{conn: conn} do
@@ -350,17 +352,18 @@ defmodule AmbrySchema.SearchTest do
       assert %{
                "data" => %{
                  "search" => %{
-                   "edges" => [
-                     %{
-                       "node" => %{"id" => ^gid}
-                     },
-                     %{
-                       "node" => %{"id" => ^book_gid}
-                     }
-                   ]
+                   "edges" => edges
                  }
                }
              } = json_response(conn, 200)
+
+      # The order is not easily determined with randomly generated book
+      # titles and series names
+
+      returned_ids = edges |> Enum.map(& &1["node"]["id"]) |> Enum.sort()
+      expected_ids = Enum.sort([gid, book_gid])
+
+      assert returned_ids == expected_ids
     end
   end
 end
