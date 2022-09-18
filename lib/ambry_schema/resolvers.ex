@@ -174,6 +174,11 @@ defmodule AmbrySchema.Resolvers do
 
   def data, do: Dataloader.Ecto.new(Repo, query: &query/2)
 
-  def query(queryable, %{order: order}), do: from(q in queryable, order_by: ^order)
-  def query(queryable, _params), do: queryable
+  def query(queryable, params), do: queryable |> query_for() |> apply_params(params)
+
+  defp query_for(Media), do: from(m in Media, where: m.status == :ready)
+  defp query_for(queryable), do: queryable
+
+  defp apply_params(query, %{order: order}), do: from(q in query, order_by: ^order)
+  defp apply_params(query, _params), do: query
 end

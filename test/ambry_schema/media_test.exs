@@ -39,7 +39,8 @@ defmodule AmbrySchema.MediaTest do
     }
     """
     test "resolves Media fields", %{conn: conn, user: user} do
-      %{media: media} = insert(:player_state, user_id: user.id, status: :in_progress)
+      media = insert(:media, status: :ready)
+      insert(:player_state, user_id: user.id, media: media, status: :in_progress)
 
       %{
         id: id,
@@ -108,7 +109,8 @@ defmodule AmbrySchema.MediaTest do
     }
     """
     test "resolves PlayerState fields", %{conn: conn, user: user} do
-      player_state = insert(:player_state, user_id: user.id, status: :in_progress)
+      media = insert(:media, status: :ready)
+      player_state = insert(:player_state, user_id: user.id, media: media, status: :in_progress)
 
       %{
         id: id,

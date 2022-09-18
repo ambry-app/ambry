@@ -114,7 +114,7 @@ defmodule AmbrySchema.BooksTest do
     }
     """
     test "resolves Book fields", %{conn: conn} do
-      %{book: book} = insert(:media)
+      %{book: book} = insert(:media, status: :ready)
 
       %{
         id: id,
