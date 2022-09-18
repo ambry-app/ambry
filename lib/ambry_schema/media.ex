@@ -64,6 +64,22 @@ defmodule AmbrySchema.Media do
   end
 
   object :media_mutations do
+    payload field :load_player_state do
+      description """
+      Initializes a new player state or returns an existing player state for a given Media.
+      """
+
+      input do
+        field :media_id, non_null(:id)
+      end
+
+      output do
+        field :player_state, non_null(:player_state)
+      end
+
+      resolve &Resolvers.load_player_state/2
+    end
+
     payload field :update_player_state do
       input do
         field :media_id, non_null(:id)
