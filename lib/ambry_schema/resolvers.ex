@@ -81,6 +81,15 @@ defmodule AmbrySchema.Resolvers do
     end
   end
 
+  def load_player_state(%{media_id: media_id}, %{
+        context: %{current_user: %User{} = user}
+      }) do
+    with {:ok, %{id: media_id, type: :media}} <- from_global_id(media_id, AmbrySchema) do
+      player_state = Ambry.Media.get_or_create_player_state!(user.id, media_id)
+      {:ok, %{player_state: player_state}}
+    end
+  end
+
   def update_player_state(%{media_id: media_id} = args, %{
         context: %{current_user: %User{} = user}
       }) do
