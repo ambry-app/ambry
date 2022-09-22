@@ -57,10 +57,10 @@ if config_env() == :prod do
       environment variable BASE_URL is missing.
       """
 
-  %{host: host, port: port} = URI.parse(url_string)
+  {:ok, %{host: host, port: port, scheme: scheme, path: path}} = URI.new(url_string)
 
   config :ambry, AmbryWeb.Endpoint,
-    url: [host: host, port: port],
+    url: [host: host, port: port, scheme: scheme, path: path],
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
