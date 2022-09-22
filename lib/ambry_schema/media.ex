@@ -21,6 +21,7 @@ defmodule AmbrySchema.Media do
     field :duration, :float, resolve: Resolvers.resolve_decimal(:duration)
     field :mpd_path, :string
     field :hls_path, :string
+    field :mp4_path, :string
 
     field :chapters, non_null(list_of(non_null(:chapter))), resolve: &Resolvers.chapters/3
 
