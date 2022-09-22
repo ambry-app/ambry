@@ -10,7 +10,7 @@
   "devDependencies": {
     "@tailwindcss/aspect-ratio": "^0.4.2",
     "@tailwindcss/forms": "^0.5.3",
-    "autoprefixer": "^10.4.9",
+    "autoprefixer": "^10.4.11",
     "esbuild": "^0.15.7",
     "postcss": "^8.4.16",
     "postcss-cli": "^10.0.0",
