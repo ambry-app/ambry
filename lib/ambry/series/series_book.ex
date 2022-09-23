@@ -25,7 +25,7 @@ defmodule Ambry.Series.SeriesBook do
     series_book
     |> cast(attrs, [:book_id, :book_number, :series_id, :delete])
     |> validate_required([:book_number])
-    |> validate_number(:book_number, greater_than: 0)
+    |> validate_number(:book_number, greater_than_or_equal_to: 0)
     |> maybe_apply_delete()
   end
 
