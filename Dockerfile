@@ -7,7 +7,7 @@
 
 # NOTE: make sure these versions match in .github/workflows/elixir.yml and .tool-versions
 # NOTE: make sure the alpine version matches down below
-FROM docker.io/hexpm/elixir:1.14.0-erlang-25.0.4-alpine-3.16.1 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.14.0-erlang-25.1-alpine-3.16.2 AS elixir-builder
 
 RUN mix do \
   local.rebar --force,\
@@ -24,7 +24,7 @@ RUN apk --update upgrade && \
 #   system image to host your
 #   application
 # -----------------------------------
-FROM docker.io/alpine:3.16.1 as elixir-runner
+FROM docker.io/alpine:3.16.2 as elixir-runner
 
 ARG SHAKA_VERSION=2.6.1
 
