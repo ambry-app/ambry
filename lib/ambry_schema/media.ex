@@ -78,6 +78,8 @@ defmodule AmbrySchema.Media do
         field :player_state, non_null(:player_state)
       end
 
+      middleware AmbrySchema.AuthMiddleware
+
       resolve &Resolvers.load_player_state/2
     end
 
@@ -91,6 +93,8 @@ defmodule AmbrySchema.Media do
       output do
         field :player_state, non_null(:player_state)
       end
+
+      middleware AmbrySchema.AuthMiddleware
 
       resolve &Resolvers.update_player_state/2
     end
