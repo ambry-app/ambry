@@ -1,11 +1,11 @@
-<div>
+<div id="recent-books">
   <%= if @books != [] do %>
     <div class="">
       <h1 class="text-3xl mb-6 md:text-4xl md:mb-8 lg:text-5xl lg:mb-12 font-bold">
         Newest books
       </h1>
 
-      <Amc.book_tiles books={@books} show_load_more={@show_load_more?} load_more={{"load-more", @myself}} />
+      <Amc.book_tiles books={@books} show_load_more={@show_load_more?} infinite_scroll={{"load-more", "#recent-books"}} />
     </div>
   <% else %>
     <div class="mt-10">

@@ -26,6 +26,7 @@ import { ShakaPlayerHook } from './hooks/shaka_player'
 import { HeaderScrollspyHook } from './hooks/header_scrollspy'
 import { GoHomeHook } from './hooks/go_home'
 import { CaptureClick } from './hooks/capture_click'
+import { InfiniteScroll } from './hooks/infinite_scroll'
 import readMore from './alpine/read_more'
 import player from './alpine/player'
 
@@ -39,7 +40,8 @@ const liveSocket = new LiveSocket('/live', Socket, {
     mediaPlayer: ShakaPlayerHook,
     headerScrollspy: HeaderScrollspyHook,
     goHome: GoHomeHook,
-    captureClick: CaptureClick
+    captureClick: CaptureClick,
+    infiniteScroll: InfiniteScroll
   },
   dom: {
     onBeforeElUpdated (from, to) {

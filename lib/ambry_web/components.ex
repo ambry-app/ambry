@@ -474,8 +474,10 @@ defmodule AmbryWeb.Components do
       assigns
       |> assign_new(:show_load_more, fn -> false end)
       |> assign_new(:load_more, fn -> {false, false} end)
+      |> assign_new(:infinite_scroll, fn -> {false, false} end)
 
     {load_more, target} = assigns.load_more
+    {infinite_scroll_load_more, infinite_scroll_target} = assigns.infinite_scroll
 
     ~H"""
     <div class="grid gap-4 sm:gap-6 md:gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
@@ -514,7 +516,11 @@ defmodule AmbryWeb.Components do
         </div>
       <% end %>
 
-      <%= if @show_load_more do %>
+      <%= if infinite_scroll_load_more do %>
+        <div id="infinite-scroll-marker" phx-hook="infiniteScroll" data-page={0} data-target={infinite_scroll_target}></div>
+      <% end %>
+
+      <%= if @show_load_more && infinite_scroll_load_more == false do %>
         <div class="text-center text-lg">
           <div phx-click={load_more} phx-target={target} class="group">
             <span class="block aspect-w-10 aspect-h-15 cursor-pointer">
