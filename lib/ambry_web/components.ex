@@ -474,11 +474,10 @@ defmodule AmbryWeb.Components do
       assigns
       |> assign_new(:show_load_more, fn -> false end)
       |> assign_new(:load_more, fn -> {false, false} end)
-      |> assign_new(:infinite_scroll, fn -> {false, false} end)
+      |> assign_new(:infinite_scroll_target, fn -> false end)
       |> assign_new(:current_page, fn -> 0 end)
 
     {load_more, target} = assigns.load_more
-    {infinite_scroll_load_more, infinite_scroll_target} = assigns.infinite_scroll
 
     ~H"""
     <div class="grid gap-4 sm:gap-6 md:gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
@@ -517,26 +516,26 @@ defmodule AmbryWeb.Components do
         </div>
       <% end %>
 
-      <%= if infinite_scroll_load_more do %>
-        <div id="infinite-scroll-marker" phx-hook="infiniteScroll" data-page={@current_page} data-target={infinite_scroll_target}></div>
-      <% end %>
-
-      <%= if @show_load_more && infinite_scroll_load_more == false do %>
-        <div class="text-center text-lg">
-          <div phx-click={load_more} phx-target={target} class="group">
-            <span class="block aspect-w-10 aspect-h-15 cursor-pointer">
-              <span class="load-more w-full h-full rounded-lg shadow-md border flex
-                bg-gray-200 dark:bg-gray-700
-                border-gray-200 dark:border-gray-700
-                ">
-                <FA.icon name="ellipsis" class="w-12 h-12 fill-current self-center mx-auto" />
+      <%= if @show_load_more do %>
+        <%= if @infinite_scroll_target do %>
+          <div id="infinite-scroll-marker" phx-hook="infiniteScroll" data-page={@current_page} data-target={@infinite_scroll_target}></div>
+        <% else %>
+          <div class="text-center text-lg">
+            <div phx-click={load_more} phx-target={target} class="group">
+              <span class="block aspect-w-10 aspect-h-15 cursor-pointer">
+                <span class="load-more w-full h-full rounded-lg shadow-md border flex
+                  bg-gray-200 dark:bg-gray-700
+                  border-gray-200 dark:border-gray-700
+                  ">
+                  <FA.icon name="ellipsis" class="w-12 h-12 fill-current self-center mx-auto" />
+                </span>
               </span>
-            </span>
-            <p class="group-hover:underline">
-              Load more
-            </p>
+              <p class="group-hover:underline">
+                Load more
+              </p>
+            </div>
           </div>
-        </div>
+        <% end %>
       <% end %>
     </div>
     """
