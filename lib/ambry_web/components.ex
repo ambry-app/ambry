@@ -474,6 +474,8 @@ defmodule AmbryWeb.Components do
       assigns
       |> assign_new(:show_load_more, fn -> false end)
       |> assign_new(:load_more, fn -> {false, false} end)
+      |> assign_new(:infinite_scroll_target, fn -> false end)
+      |> assign_new(:current_page, fn -> 0 end)
 
     {load_more, target} = assigns.load_more
 
@@ -515,21 +517,31 @@ defmodule AmbryWeb.Components do
       <% end %>
 
       <%= if @show_load_more do %>
-        <div class="text-center text-lg">
-          <div phx-click={load_more} phx-target={target} class="group">
-            <span class="block aspect-w-10 aspect-h-15 cursor-pointer">
-              <span class="load-more w-full h-full rounded-lg shadow-md border flex
-                bg-gray-200 dark:bg-gray-700
-                border-gray-200 dark:border-gray-700
-                ">
-                <FA.icon name="ellipsis" class="w-12 h-12 fill-current self-center mx-auto" />
-              </span>
-            </span>
-            <p class="group-hover:underline">
-              Load more
-            </p>
+        <%= if @infinite_scroll_target do %>
+          <div
+            id="infinite-scroll-marker"
+            phx-hook="infiniteScroll"
+            data-page={@current_page}
+            data-target={@infinite_scroll_target}
+          >
           </div>
-        </div>
+        <% else %>
+          <div class="text-center text-lg">
+            <div phx-click={load_more} phx-target={target} class="group">
+              <span class="block aspect-w-10 aspect-h-15 cursor-pointer">
+                <span class="load-more w-full h-full rounded-lg shadow-md border flex
+                  bg-gray-200 dark:bg-gray-700
+                  border-gray-200 dark:border-gray-700
+                  ">
+                  <FA.icon name="ellipsis" class="w-12 h-12 fill-current self-center mx-auto" />
+                </span>
+              </span>
+              <p class="group-hover:underline">
+                Load more
+              </p>
+            </div>
+          </div>
+        <% end %>
       <% end %>
     </div>
     """
