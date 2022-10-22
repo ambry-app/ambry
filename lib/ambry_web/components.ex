@@ -518,7 +518,13 @@ defmodule AmbryWeb.Components do
 
       <%= if @show_load_more do %>
         <%= if @infinite_scroll_target do %>
-          <div id="infinite-scroll-marker" phx-hook="infiniteScroll" data-page={@current_page} data-target={@infinite_scroll_target}></div>
+          <div
+            id="infinite-scroll-marker"
+            phx-hook="infiniteScroll"
+            data-page={@current_page}
+            data-target={@infinite_scroll_target}
+          >
+          </div>
         <% else %>
           <div class="text-center text-lg">
             <div phx-click={load_more} phx-target={target} class="group">

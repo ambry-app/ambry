@@ -5,7 +5,12 @@
         Newest books
       </h1>
 
-      <Amc.book_tiles books={@books} show_load_more={@show_load_more?} current_page={@current_page} infinite_scroll_target="#recent-books" />
+      <Amc.book_tiles
+        books={@books}
+        show_load_more={@show_load_more?}
+        current_page={@current_page}
+        infinite_scroll_target="#recent-books"
+      />
     </div>
   <% else %>
     <div class="mt-10">
