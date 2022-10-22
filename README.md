@@ -21,7 +21,7 @@ registry](https://github.com/features/packages):
 The only external requirement is a [PostgreSQL](https://www.postgresql.org/)
 database.
 
-### Compose Example
+### Compose example
 
 Here is an example [Docker Compose](https://docs.docker.com/compose/) file that
 could be used to run Ambry and the required PostgreSQL database:
@@ -95,7 +95,7 @@ control that you can configure correctly with your chosen provider. Currently
 the only provider that's working with Ambry is Mailjet, but if there's interest
 in others, they can be very easily added.
 
-### First Time Setup
+### First time setup
 
 The first time Ambry is booted up, it will walk you through setting up your
 initial admin user account. Just visit the URL at which you're hosting Ambry to
@@ -142,3 +142,18 @@ mix ecto.setup
 # run the server
 iex -S mix phx.server
 ```
+
+### Seeds & example files
+
+To add some example books and media to your local database, you can run:
+
+```bash
+mix seed
+```
+
+This will populate the database with some example books & media, and download &
+extract the example books & media files into your local `uploads/` folder.
+
+> **NOTE**: The example files omit the source files for a smaller download-size,
+> so visiting the admin audit page (<http://localhost:4000/admin/audit>) will show
+> them all as missing their sources.
