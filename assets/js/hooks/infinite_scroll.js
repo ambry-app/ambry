@@ -1,6 +1,6 @@
 export const InfiniteScroll = {
   target() {return this.el.dataset.target;},
-  page() {return this.el.dataset.page;},
+  page() { return Number(this.el.dataset.page)},
   
   loadMore(entries) {
     const target = entries[0];

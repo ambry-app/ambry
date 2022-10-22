@@ -475,6 +475,7 @@ defmodule AmbryWeb.Components do
       |> assign_new(:show_load_more, fn -> false end)
       |> assign_new(:load_more, fn -> {false, false} end)
       |> assign_new(:infinite_scroll, fn -> {false, false} end)
+      |> assign_new(:current_page, fn -> 0 end)
 
     {load_more, target} = assigns.load_more
     {infinite_scroll_load_more, infinite_scroll_target} = assigns.infinite_scroll
@@ -517,7 +518,7 @@ defmodule AmbryWeb.Components do
       <% end %>
 
       <%= if infinite_scroll_load_more do %>
-        <div id="infinite-scroll-marker" phx-hook="infiniteScroll" data-page={0} data-target={infinite_scroll_target}></div>
+        <div id="infinite-scroll-marker" phx-hook="infiniteScroll" data-page={@current_page} data-target={infinite_scroll_target}></div>
       <% end %>
 
       <%= if @show_load_more && infinite_scroll_load_more == false do %>
