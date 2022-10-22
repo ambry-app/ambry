@@ -91,8 +91,11 @@ defmodule Ambry.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup"],
-      "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
+      "ecto.setup": ["ecto.create", "ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
+      "ecto.seed": ["run priv/repo/seeds.exs"],
+      "seed.download": ["cmd ./script/download_seed_files.sh"],
+      seed: ["ecto.seed", "seed.download"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.deploy": ["cmd --cd assets npm run deploy", "phx.digest"]
     ]
