@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   ambry:
-    image: ghcr.io/doughsay/ambry:latest
+    image: ghcr.io/ambry-app/ambry:latest
     container_name: ambry
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres/postgres
