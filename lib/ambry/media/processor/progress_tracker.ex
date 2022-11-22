@@ -70,15 +70,21 @@ defmodule Ambry.Media.Processor.ProgressTracker do
     do:
       Enum.find_value(progress, fn
         {"out_time", out_time} ->
-          out_time
-          |> Time.from_iso8601!()
-          |> Time.to_seconds_after_midnight()
-          |> elem(0)
-          |> Decimal.new()
+          timestamp_to_seconds(out_time)
 
         _else ->
           false
       end)
+
+  @timestamp_regex ~r/([0-9]{2}):([0-9]{2}):([0-9]{2}(?:\.[0-9]+)?)/
+  defp timestamp_to_seconds(timestamp) do
+    [_, hours, minutes, seconds] = Regex.run(@timestamp_regex, timestamp)
+
+    seconds
+    |> Decimal.new()
+    |> Decimal.add(minutes |> Decimal.new() |> Decimal.mult(60))
+    |> Decimal.add(hours |> Decimal.new() |> Decimal.mult(3600))
+  end
 
   defp get_action(progress),
     do:
