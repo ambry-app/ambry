@@ -13,11 +13,11 @@ defmodule Ambry.Media.Processor.ProgressTracker do
 
   # Client
 
-  def start_link(media, file, extensions) do
+  def start(media, file, extensions) do
     file_path = Media.out_path(media, file)
     File.touch!(file_path)
 
-    GenServer.start_link(__MODULE__, %{media: media, file_path: file_path, extensions: extensions})
+    GenServer.start(__MODULE__, %{media: media, file_path: file_path, extensions: extensions})
   end
 
   # Server (callbacks)

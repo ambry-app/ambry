@@ -38,7 +38,7 @@ defmodule Ambry.Media.Processor.MP3 do
     id = Media.output_id(media)
     progress_file_path = "#{id}.progress"
 
-    {:ok, _progress_tracker} = ProgressTracker.start_link(media, progress_file_path, @extensions)
+    {:ok, _progress_tracker} = ProgressTracker.start(media, progress_file_path, @extensions)
 
     command = "ffmpeg"
 
