@@ -7,7 +7,7 @@
 
 # NOTE: make sure these versions match in .github/workflows/elixir.yml and .tool-versions
 # NOTE: make sure the alpine version matches down below
-FROM docker.io/hexpm/elixir:1.14.0-erlang-25.1-alpine-3.16.2 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.14.2-erlang-25.1-alpine-3.16.2 AS elixir-builder
 
 RUN mix do \
   local.rebar --force,\
