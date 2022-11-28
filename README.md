@@ -72,7 +72,7 @@ The following environment variables are used for configuration:
 | `SECRET_KEY_BASE`           | A secret key string of at least 64 bytes, used for signing secrets like session cookies. | N/A              | Yes       |
 | `PORT`                      | The port you wish the server to listen on.                                               | `80`             | No        |
 | `POOL_SIZE`                 | The number of postgresql database connections to open.                                   | `10`             | No        |
-| `USER_REGISTRATION_ENABLED` | Wether or not users are allowed to register themselves with the server.                  | `no`             | No        |
+| `USER_REGISTRATION_ENABLED` | Whether or not users are allowed to register themselves with the server.                  | `no`             | No        |
 | `MAIL_PROVIDER`             | Valid values: mailjet                                                                    | not-set          | No        |
 | `MAIL_FROM_ADDRESS`         | The email address that transactional emails are sent from                                | `noreply@<HOST>` | No        |
 
