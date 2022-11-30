@@ -13,7 +13,7 @@
     "autoprefixer": "^10.4.13",
     "esbuild": "^0.15.16",
     "postcss": "^8.4.19",
-    "postcss-cli": "^10.0.0",
+    "postcss-cli": "^10.1.0",
     "postcss-import": "^15.0.0",
     "tailwindcss": "^3.2.4"
   },
