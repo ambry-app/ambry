@@ -12,6 +12,26 @@
     </script>
   </head>
   <body class="bg-white antialiased">
+    <ul>
+      <%= if @current_user do %>
+        <li>
+          <%= @current_user.email %>
+        </li>
+        <li>
+          <.link href={~p"/users/settings"}>Settings</.link>
+        </li>
+        <li>
+          <.link href={~p"/users/log_out"} method="delete">Log out</.link>
+        </li>
+      <% else %>
+        <li>
+          <.link href={~p"/users/register"}>Register</.link>
+        </li>
+        <li>
+          <.link href={~p"/users/log_in"}>Log in</.link>
+        </li>
+      <% end %>
+    </ul>
     <%= @inner_content %>
   </body>
 </html>
