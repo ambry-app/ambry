@@ -12,12 +12,32 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: "#FD4F00",
+        brand: {
+          DEFAULT: "#84cc16",
+          dark: "#a3e635"
+        },
       }
     },
+    // fix mobile browser viewport height shenanigans.
+    // https://www.markusantonwolf.com/blog/solution-to-the-mobile-viewport-height-issue-with-tailwind-css/
+    // see root.html.heex for other half
+    height: theme => ({
+      auto: 'auto',
+      ...theme('spacing'),
+      full: '100%',
+      screen: 'calc(var(--vh) * 100)',
+    }),
+    minHeight: theme => ({
+      '0': '0',
+      ...theme('spacing'),
+      full: '100%',
+      screen: 'calc(var(--vh) * 100)',
+    })
+    // end viewport fix
   },
   plugins: [
     require("@tailwindcss/forms"),
+    require('@tailwindcss/aspect-ratio'),
     plugin(({addVariant}) => addVariant("phx-no-feedback", [".phx-no-feedback&", ".phx-no-feedback &"])),
     plugin(({addVariant}) => addVariant("phx-click-loading", [".phx-click-loading&", ".phx-click-loading &"])),
     plugin(({addVariant}) => addVariant("phx-submit-loading", [".phx-submit-loading&", ".phx-submit-loading &"])),

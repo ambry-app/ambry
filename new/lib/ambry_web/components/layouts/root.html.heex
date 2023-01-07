@@ -2,36 +2,66 @@
 <html lang="en" style="scrollbar-gutter: stable;">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title suffix=" · Phoenix Framework">
-      <%= assigns[:page_title] || "Ambry" %>
+    <link rel="icon" type="image/svg+xml" href={~p"/favicon.svg"} />
+    <link rel="icon" type="image/png" href={~p"/favicon.png"} sizes="16x16" />
+    <link rel="icon" type="image/png" href={~p"/favicon-32x32.png"} sizes="32x32" />
+    <link rel="icon" type="image/png" href={~p"/favicon-96x96.png"} sizes="96x96" />
+    <.live_title suffix=" · Ambry">
+      <%= assigns[:page_title] || "Personal Audiobook Streaming" %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
+    <script type="text/javascript">
+      function initTheme() {
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+      }
+
+      function forceDark() {
+        localStorage.theme = 'dark'
+        initTheme()
+      }
+
+      function forceLight() {
+        localStorage.theme = 'light'
+        initTheme()
+      }
+
+      function clearTheme() {
+        localStorage.removeItem('theme')
+        initTheme()
+      }
+
+      initTheme()
+
+      // fix mobile browser viewport height shenanigans.
+      // https://www.markusantonwolf.com/blog/solution-to-the-mobile-viewport-height-issue-with-tailwind-css/
+      // see tailwind.config.js for other half
+
+      function setViewHeight() {
+        const vh = window.innerHeight * 0.01
+        document.documentElement.style.setProperty('--vh', `${vh}px`)
+      }
+
+      setViewHeight()
+
+      window.addEventListener('resize', () => {
+        this.setViewHeight()
+      })
+
+      // end viewport fix
+    </script>
   </head>
-  <body class="bg-white antialiased">
-    <ul>
-      <%= if @current_user do %>
-        <li>
-          <%= @current_user.email %>
-        </li>
-        <li>
-          <.link href={~p"/users/settings"}>Settings</.link>
-        </li>
-        <li>
-          <.link href={~p"/users/log_out"} method="delete">Log out</.link>
-        </li>
-      <% else %>
-        <li>
-          <.link href={~p"/users/register"}>Register</.link>
-        </li>
-        <li>
-          <.link href={~p"/users/log_in"}>Log in</.link>
-        </li>
-      <% end %>
-    </ul>
+  <body class="bg-white dark:bg-black text-gray-800 dark:text-gray-200 antialiased">
     <%= @inner_content %>
   </body>
 </html>
