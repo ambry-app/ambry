@@ -24,7 +24,7 @@ RUN apk --update upgrade && \
 #   system image to host your
 #   application
 # -----------------------------------
-FROM docker.io/alpine:3.17.0 as elixir-runner
+FROM docker.io/alpine:3.17.1 as elixir-runner
 
 ARG SHAKA_VERSION=2.6.1
 
