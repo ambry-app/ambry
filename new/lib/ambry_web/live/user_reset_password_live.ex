@@ -5,37 +5,45 @@ defmodule AmbryWeb.UserResetPasswordLive do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center">Reset Password</.header>
+    <div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto p-4">
+      <.logo_with_tagline />
 
-      <.simple_form
-        :let={f}
-        for={@changeset}
-        id="reset_password_form"
-        phx-submit="reset_password"
-        phx-change="validate"
-      >
-        <.error :if={@changeset.action == :insert}>
-          Oops, something went wrong! Please check the errors below.
-        </.error>
+      <.auth_form_card>
+        <.header class="text-center">Reset Password</.header>
 
-        <.input field={{f, :password}} type="password" label="New password" required />
-        <.input
-          field={{f, :password_confirmation}}
-          type="password"
-          label="Confirm new password"
-          required
-        />
-        <:actions>
-          <.button phx-disable-with="Resetting..." class="w-full">Reset Password</.button>
-        </:actions>
-      </.simple_form>
+        <.simple_form
+          :let={f}
+          for={@changeset}
+          id="reset_password_form"
+          phx-submit="reset_password"
+          phx-change="validate"
+        >
+          <.error :if={@changeset.action == :insert}>
+            Oops, something went wrong! Please check the errors below.
+          </.error>
 
-      <p class="text-center mt-4">
-        <.link href={~p"/users/register"}>Register</.link>
-        |
-        <.link href={~p"/users/log_in"}>Log in</.link>
-      </p>
+          <.input field={{f, :password}} type="password" placeholder="New password" required />
+          <.input
+            field={{f, :password_confirmation}}
+            type="password"
+            placeholder="Confirm new password"
+            required
+          />
+          <:actions>
+            <.button phx-disable-with="Resetting..." class="w-full">Reset Password</.button>
+          </:actions>
+        </.simple_form>
+
+        <p class="text-center mt-4">
+          <.brand_link navigate={~p"/users/register"}>
+            Register
+          </.brand_link>
+          |
+          <.brand_link navigate={~p"/users/log_in"}>
+            Log in
+          </.brand_link>
+        </p>
+      </.auth_form_card>
     </div>
     """
   end

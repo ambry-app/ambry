@@ -17,17 +17,6 @@ defmodule AmbryWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/", AmbryWeb do
-    pipe_through :browser
-
-    get "/", PageController, :home
-  end
-
-  # Other scopes may use custom stacks.
-  # scope "/api", AmbryWeb do
-  #   pipe_through :api
-  # end
-
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:ambry, :dev_routes) do
     # If you want to use the LiveDashboard in production, you should put
@@ -63,6 +52,8 @@ defmodule AmbryWeb.Router do
 
   scope "/", AmbryWeb do
     pipe_through [:browser, :require_authenticated_user]
+
+    get "/", PageController, :home
 
     live_session :require_authenticated_user,
       on_mount: [{AmbryWeb.UserAuth, :ensure_authenticated}] do

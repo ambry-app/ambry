@@ -5,20 +5,37 @@ defmodule AmbryWeb.UserConfirmationInstructionsLive do
 
   def render(assigns) do
     ~H"""
-    <.header>Resend confirmation instructions</.header>
+    <div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto p-4">
+      <.logo_with_tagline />
 
-    <.simple_form :let={f} for={:user} id="resend_confirmation_form" phx-submit="send_instructions">
-      <.input field={{f, :email}} type="email" label="Email" required />
-      <:actions>
-        <.button phx-disable-with="Sending...">Resend confirmation instructions</.button>
-      </:actions>
-    </.simple_form>
+      <.auth_form_card>
+        <.header>Resend confirmation instructions</.header>
 
-    <p>
-      <.link href={~p"/users/register"}>Register</.link>
-      |
-      <.link href={~p"/users/log_in"}>Log in</.link>
-    </p>
+        <.simple_form
+          :let={f}
+          for={:user}
+          id="resend_confirmation_form"
+          phx-submit="send_instructions"
+        >
+          <.input field={{f, :email}} type="email" placeholder="Email" required />
+          <:actions>
+            <.button phx-disable-with="Sending..." class="w-full">
+              Resend confirmation instructions
+            </.button>
+          </:actions>
+        </.simple_form>
+
+        <p class="text-center mt-4">
+          <.brand_link navigate={~p"/users/register"}>
+            Register
+          </.brand_link>
+          |
+          <.brand_link navigate={~p"/users/log_in"}>
+            Log in
+          </.brand_link>
+        </p>
+      </.auth_form_card>
+    </div>
     """
   end
 

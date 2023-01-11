@@ -6,40 +6,44 @@ defmodule AmbryWeb.UserRegistrationLive do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center">
-        Register for an account
-        <:subtitle>
-          Already registered?
-          <.link navigate={~p"/users/log_in"} class="font-semibold text-brand hover:underline">
-            Sign in
-          </.link>
-          to your account now.
-        </:subtitle>
-      </.header>
+    <div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto p-4">
+      <.logo_with_tagline />
 
-      <.simple_form
-        :let={f}
-        id="registration_form"
-        for={@changeset}
-        phx-submit="save"
-        phx-change="validate"
-        phx-trigger-action={@trigger_submit}
-        action={~p"/users/log_in?_action=registered"}
-        method="post"
-        as={:user}
-      >
-        <.error :if={@changeset.action == :insert}>
-          Oops, something went wrong! Please check the errors below.
-        </.error>
+      <.auth_form_card>
+        <.header class="text-center">
+          Register for an account
+          <:subtitle>
+            Already registered?
+            <.brand_link navigate={~p"/users/log_in"}>
+              Sign in
+            </.brand_link>
+            to your account now.
+          </:subtitle>
+        </.header>
 
-        <.input field={{f, :email}} type="email" label="Email" required />
-        <.input field={{f, :password}} type="password" label="Password" required />
+        <.simple_form
+          :let={f}
+          id="registration_form"
+          for={@changeset}
+          phx-submit="save"
+          phx-change="validate"
+          phx-trigger-action={@trigger_submit}
+          action={~p"/users/log_in?_action=registered"}
+          method="post"
+          as={:user}
+        >
+          <.error :if={@changeset.action == :insert}>
+            Oops, something went wrong! Please check the errors below.
+          </.error>
 
-        <:actions>
-          <.button phx-disable-with="Creating account..." class="w-full">Create an account</.button>
-        </:actions>
-      </.simple_form>
+          <.input field={{f, :email}} type="email" placeholder="Email" required />
+          <.input field={{f, :password}} type="password" placeholder="Password" required />
+
+          <:actions>
+            <.button phx-disable-with="Creating account..." class="w-full">Create an account</.button>
+          </:actions>
+        </.simple_form>
+      </.auth_form_card>
     </div>
     """
   end
