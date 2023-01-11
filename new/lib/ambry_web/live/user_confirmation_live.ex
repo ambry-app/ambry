@@ -5,30 +5,26 @@ defmodule AmbryWeb.UserConfirmationLive do
 
   def render(%{live_action: :edit} = assigns) do
     ~H"""
-    <div class="flex flex-col justify-center space-y-8 sm:max-w-xl sm:m-auto p-4">
-      <.logo_with_tagline />
+    <.auth_form_card>
+      <.header class="text-center">Confirm Account</.header>
 
-      <.auth_form_card>
-        <.header class="text-center">Confirm Account</.header>
+      <.simple_form :let={f} for={:user} id="confirmation_form" phx-submit="confirm_account">
+        <.input field={{f, :token}} type="hidden" value={@token} />
+        <:actions>
+          <.button phx-disable-with="Confirming..." class="w-full">Confirm my account</.button>
+        </:actions>
+      </.simple_form>
 
-        <.simple_form :let={f} for={:user} id="confirmation_form" phx-submit="confirm_account">
-          <.input field={{f, :token}} type="hidden" value={@token} />
-          <:actions>
-            <.button phx-disable-with="Confirming..." class="w-full">Confirm my account</.button>
-          </:actions>
-        </.simple_form>
-
-        <p class="text-center mt-4">
-          <.brand_link navigate={~p"/users/register"}>
-            Register
-          </.brand_link>
-          |
-          <.brand_link navigate={~p"/users/log_in"}>
-            Log in
-          </.brand_link>
-        </p>
-      </.auth_form_card>
-    </div>
+      <p class="text-center mt-4">
+        <.brand_link navigate={~p"/users/register"}>
+          Register
+        </.brand_link>
+        |
+        <.brand_link navigate={~p"/users/log_in"}>
+          Log in
+        </.brand_link>
+      </p>
+    </.auth_form_card>
     """
   end
 
