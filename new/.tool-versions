@@ -1,0 +1,5 @@
+# NOTE: make sure these versions match in Containerfile and .github/workflows/elixir.yml
+
+elixir 1.14.2-otp-25
+erlang 25.1.2
+nodejs lts
