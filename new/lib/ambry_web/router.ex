@@ -17,7 +17,7 @@ defmodule AmbryWeb.Router do
 
   pipeline :gql do
     plug :accepts, ["json", "graphql"]
-    # plug :fetch_api_user
+    plug :fetch_api_user
     plug :put_absinthe_context
   end
 
