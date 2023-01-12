@@ -12,14 +12,7 @@ defmodule AmbryWeb.BookLive.FormComponent do
         <:subtitle>Use this form to manage book records in your database.</:subtitle>
       </.header>
 
-      <.simple_form
-        :let={f}
-        for={@changeset}
-        id="book-form"
-        phx-target={@myself}
-        phx-change="validate"
-        phx-submit="save"
-      >
+      <.simple_form :let={f} for={@changeset} id="book-form" phx-target={@myself} phx-change="validate" phx-submit="save">
         <.input field={{f, :title}} type="text" label="Title" />
         <:actions>
           <.button phx-disable-with="Saving...">Save Book</.button>

@@ -17,14 +17,7 @@ defmodule AmbryWeb.UserLoginLive do
         </:subtitle>
       </.header>
 
-      <.simple_form
-        :let={f}
-        id="login_form"
-        for={:user}
-        action={~p"/users/log_in"}
-        as={:user}
-        phx-update="ignore"
-      >
+      <.simple_form :let={f} id="login_form" for={:user} action={~p"/users/log_in"} as={:user} phx-update="ignore">
         <.input field={{f, :email}} type="email" placeholder="Email" required />
         <.input field={{f, :password}} type="password" placeholder="Password" required />
 

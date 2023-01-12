@@ -1,4 +1,7 @@
 defmodule AmbryWeb.UserAuth do
+  @moduledoc """
+  Helper functions for user authentication in a web context.
+  """
   use AmbryWeb, :verified_routes
 
   import Plug.Conn
@@ -81,7 +84,7 @@ defmodule AmbryWeb.UserAuth do
     conn
     |> renew_session()
     |> delete_resp_cookie(@remember_me_cookie)
-    |> redirect(to: "/")
+    |> redirect(to: ~p"/")
   end
 
   @doc """
@@ -105,6 +108,28 @@ defmodule AmbryWeb.UserAuth do
       else
         {nil, conn}
       end
+    end
+  end
+
+  @doc """
+  Authenticates the user by looking into the Authorization header for a bearer
+  token.
+  """
+  def fetch_api_user(conn, _opts) do
+    user_token = get_token_from_header(conn)
+    user = user_token && Accounts.get_user_by_session_token(user_token)
+
+    conn
+    |> assign(:api_user, user)
+    |> assign(:api_user_token, user_token)
+  end
+
+  defp get_token_from_header(conn) do
+    with ["Bearer " <> encoded_token] <- get_req_header(conn, "authorization"),
+         {:ok, token} <- Base.url_decode64(encoded_token) do
+      token
+    else
+      _anything -> nil
     end
   end
 
@@ -208,9 +233,38 @@ defmodule AmbryWeb.UserAuth do
       conn
     else
       conn
-      |> put_flash(:error, "You must log in to access this page.")
       |> maybe_store_return_to()
       |> redirect(to: ~p"/users/log_in")
+      |> halt()
+    end
+  end
+
+  @doc """
+  Used for routes that require the user to be an admin.
+  """
+  def require_admin(conn, _opts) do
+    if conn.assigns.current_user.admin do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You don't have access to this page.")
+      |> redirect(to: signed_in_path(conn))
+      |> halt()
+    end
+  end
+
+  @doc """
+  Used for static file routes that require the user to be authenticated.
+
+  Works for both API requests or web requests.
+  """
+  def require_any_authenticated_user(conn, _opts) do
+    if conn.assigns[:current_user] || conn.assigns[:api_user] do
+      conn
+    else
+      conn
+      |> put_status(:unauthorized)
+      |> text("Unauthorized")
       |> halt()
     end
   end

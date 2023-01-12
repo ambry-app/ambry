@@ -22,12 +22,7 @@
   </:action>
 </.table>
 
-<.modal
-  :if={@live_action in [:new, :edit]}
-  id="book-modal"
-  show
-  on_cancel={JS.navigate(~p"/books")}
->
+<.modal :if={@live_action in [:new, :edit]} id="book-modal" show on_cancel={JS.navigate(~p"/books")}>
   <.live_component
     module={AmbryWeb.BookLive.FormComponent}
     id={@book.id || :new}

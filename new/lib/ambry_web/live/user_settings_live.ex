@@ -7,13 +7,7 @@ defmodule AmbryWeb.UserSettingsLive do
     ~H"""
     <.header>Change Email</.header>
 
-    <.simple_form
-      :let={f}
-      id="email_form"
-      for={@email_changeset}
-      phx-submit="update_email"
-      phx-change="validate_email"
-    >
+    <.simple_form :let={f} id="email_form" for={@email_changeset} phx-submit="update_email" phx-change="validate_email">
       <.error :if={@email_changeset.action == :insert}>
         Oops, something went wrong! Please check the errors below.
       </.error>

@@ -1,6 +1,7 @@
 defmodule AmbryWeb.Router do
   use AmbryWeb, :router
 
+  import AmbrySchema.PlugHelpers
   import AmbryWeb.UserAuth
 
   pipeline :browser do
@@ -11,10 +12,19 @@ defmodule AmbryWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_user
+    # plug AmbryWeb.Plugs.FirstTimeSetup
   end
 
-  pipeline :api do
-    plug :accepts, ["json"]
+  pipeline :gql do
+    plug :accepts, ["json", "graphql"]
+    # plug :fetch_api_user
+    plug :put_absinthe_context
+  end
+
+  scope "/gql" do
+    pipe_through [:gql]
+
+    forward "/", Absinthe.Plug.GraphiQL, schema: AmbrySchema, interface: :playground
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
