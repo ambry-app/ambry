@@ -32,3 +32,6 @@ ambry-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# User uploads
+
+/uploads/
