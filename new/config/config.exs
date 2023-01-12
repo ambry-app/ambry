@@ -13,6 +13,7 @@ config :ambry,
 
 # Configures the endpoint
 config :ambry, AmbryWeb.Endpoint,
+  adapter: Bandit.PhoenixAdapter,
   url: [host: "localhost"],
   render_errors: [
     formats: [html: AmbryWeb.ErrorHTML, json: AmbryWeb.ErrorJSON],
