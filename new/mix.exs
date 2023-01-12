@@ -33,27 +33,29 @@ defmodule Ambry.MixProject do
   defp deps do
     [
       {:argon2_elixir, "~> 3.0"},
-      {:phoenix, "~> 1.7.0-rc.1", override: true},
-      {:phoenix_ecto, "~> 4.4"},
       {:ecto_sql, "~> 3.6"},
-      {:postgrex, ">= 0.0.0"},
-      {:phoenix_html, "~> 3.0"},
-      {:phoenix_live_reload, "~> 1.2", only: :dev},
-      # TODO: switch back to published version once this fix is released:
-      # https://github.com/phoenixframework/phoenix_live_view/pull/2387
-      {:phoenix_live_view, github: "phoenixframework/phoenix_live_view", override: true},
-      {:heroicons, "~> 0.5"},
-      {:floki, ">= 0.30.0", only: :test},
-      {:phoenix_live_dashboard, "~> 0.7.2"},
       {:esbuild, "~> 0.5", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.1.8", runtime: Mix.env() == :dev},
-      {:swoosh, "~> 1.3"},
+      {:familiar, "~> 0.1"},
       {:finch, "~> 0.13"},
-      {:telemetry_metrics, "~> 0.6"},
-      {:telemetry_poller, "~> 1.0"},
+      {:floki, ">= 0.30.0", only: :test},
       {:gettext, "~> 0.20"},
+      {:heroicons, "~> 0.5"},
       {:jason, "~> 1.2"},
-      {:plug_cowboy, "~> 2.5"}
+      {:oban, "~> 2.11"},
+      {:phoenix_ecto, "~> 4.4"},
+      {:phoenix_html, "~> 3.0"},
+      {:phoenix_live_dashboard, "~> 0.7.2"},
+      {:phoenix_live_reload, "~> 1.2", only: :dev},
+      # https://github.com/phoenixframework/phoenix_live_view/pull/2387
+      # TODO: switch back to published version once this fix is released:
+      {:phoenix_live_view, github: "phoenixframework/phoenix_live_view", override: true},
+      {:phoenix, "~> 1.7.0-rc.1", override: true},
+      {:plug_cowboy, "~> 2.5"},
+      {:postgrex, ">= 0.0.0"},
+      {:swoosh, "~> 1.3"},
+      {:tailwind, "~> 0.1.8", runtime: Mix.env() == :dev},
+      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_poller, "~> 1.0"}
     ]
   end
 
