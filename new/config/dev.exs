@@ -19,11 +19,11 @@ config :ambry, Ambry.Repo,
 config :ambry, AmbryWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: 4000],
+  http: [ip: {0, 0, 0, 0}, port: 4000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "gzLcXgMavC90DZWRKcojJbsZvjEoIklY0Bt8XYimM/GI7mYpWkmIgNUycUTvEAcm",
+  secret_key_base: "OfkoKKapl8GDv4JajdVM6bThF+rvkTcByTQH1+GEOVoYchPYU26qigK71Pf4Su7H",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}

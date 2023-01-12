@@ -6,9 +6,57 @@ defmodule Ambry.Accounts do
   import Ecto.Query, warn: false
   alias Ambry.Repo
 
-  alias Ambry.Accounts.{User, UserToken, UserNotifier}
+  alias Ambry.Accounts.{User, UserFlat, UserNotifier, UserToken}
 
   ## Database getters
+
+  @doc """
+  Returns a limited list of users and whether or not there are more.
+
+  By default, it will limit to the first 10 results. Supply `offset` and `limit`
+  to change this. You can also optionally filter by giving a map with these
+  supported keys:
+
+    * `:search` - String: full-text search on names and aliases.
+    * `:admin` - Boolean.
+    * `:confirmed` - Boolean.
+
+  `order` should be a valid atom key, or a tuple like `{:email, :desc}`.
+
+  ## Examples
+
+      iex> list_users()
+      {[%UserFlat{}, ...], true}
+
+  """
+  def list_users(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ :email) do
+    over_limit = limit + 1
+
+    users =
+      offset
+      |> UserFlat.paginate(over_limit)
+      |> UserFlat.filter(filters)
+      |> UserFlat.order(order)
+      |> Repo.all()
+
+    users_to_return = Enum.slice(users, 0, limit)
+
+    {users_to_return, users != users_to_return}
+  end
+
+  @doc """
+  Returns the number of users.
+
+  ## Examples
+
+      iex> count_users()
+      1
+
+  """
+  @spec count_users :: integer()
+  def count_users do
+    Repo.one(from u in User, select: count(u.id))
+  end
 
   @doc """
   Gets a user by email.
@@ -89,8 +137,8 @@ defmodule Ambry.Accounts do
       %Ecto.Changeset{data: %User{}}
 
   """
-  def change_user_registration(%User{} = user, attrs \\ %{}) do
-    User.registration_changeset(user, attrs, hash_password: false, validate_email: false)
+  def change_user_registration(%User{} = user \\ %User{}, attrs \\ %{}) do
+    User.registration_changeset(user, attrs, hash_password: false)
   end
 
   ## Settings
@@ -105,7 +153,7 @@ defmodule Ambry.Accounts do
 
   """
   def change_user_email(user, attrs \\ %{}) do
-    User.email_changeset(user, attrs, validate_email: false)
+    User.email_changeset(user, attrs)
   end
 
   @doc """
@@ -142,31 +190,28 @@ defmodule Ambry.Accounts do
          {:ok, _} <- Repo.transaction(user_email_multi(user, email, context)) do
       :ok
     else
-      _ -> :error
+      _error -> :error
     end
   end
 
   defp user_email_multi(user, email, context) do
-    changeset =
-      user
-      |> User.email_changeset(%{email: email})
-      |> User.confirm_changeset()
+    changeset = user |> User.email_changeset(%{email: email}) |> User.confirm_changeset()
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, changeset)
     |> Ecto.Multi.delete_all(:tokens, UserToken.user_and_contexts_query(user, [context]))
   end
 
-  @doc ~S"""
+  @doc """
   Delivers the update email instructions to the given user.
 
   ## Examples
 
-      iex> deliver_user_update_email_instructions(user, current_email, &url(~p"/users/settings/confirm_email/#{&1})")
+      iex> deliver_update_email_instructions(user, current_email, &Routes.user_update_email_url(conn, :edit, &1))
       {:ok, %{to: ..., body: ...}}
 
   """
-  def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
+  def deliver_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
       when is_function(update_email_url_fun, 1) do
     {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
 
@@ -211,8 +256,22 @@ defmodule Ambry.Accounts do
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:error, :user, changeset, _changes_so_far} -> {:error, changeset}
     end
+  end
+
+  @doc """
+  Updates the user's loaded player state.
+
+  ## Examples
+
+      iex> update_user_loaded_player_state(user, 1)
+      {:ok, %User{}}
+  """
+  def update_user_loaded_player_state(user, player_state_id) do
+    changeset = User.loaded_player_state_changeset(user, player_state_id)
+
+    Repo.update(changeset)
   end
 
   ## Session
@@ -237,22 +296,22 @@ defmodule Ambry.Accounts do
   @doc """
   Deletes the signed token with the given context.
   """
-  def delete_user_session_token(token) do
+  def delete_session_token(token) do
     Repo.delete_all(UserToken.token_and_context_query(token, "session"))
     :ok
   end
 
   ## Confirmation
 
-  @doc ~S"""
+  @doc """
   Delivers the confirmation email instructions to the given user.
 
   ## Examples
 
-      iex> deliver_user_confirmation_instructions(user, &url(~p"/users/confirm/#{&1}"))
+      iex> deliver_user_confirmation_instructions(user, &Routes.user_confirmation_url(conn, :edit, &1))
       {:ok, %{to: ..., body: ...}}
 
-      iex> deliver_user_confirmation_instructions(confirmed_user, &url(~p"/users/confirm/#{&1}"))
+      iex> deliver_user_confirmation_instructions(confirmed_user, &Routes.user_confirmation_url(conn, :edit, &1))
       {:error, :already_confirmed}
 
   """
@@ -279,7 +338,7 @@ defmodule Ambry.Accounts do
          {:ok, %{user: user}} <- Repo.transaction(confirm_user_multi(user)) do
       {:ok, user}
     else
-      _ -> :error
+      _error -> :error
     end
   end
 
@@ -291,12 +350,12 @@ defmodule Ambry.Accounts do
 
   ## Reset password
 
-  @doc ~S"""
+  @doc """
   Delivers the reset password email to the given user.
 
   ## Examples
 
-      iex> deliver_user_reset_password_instructions(user, &url(~p"/users/reset_password/#{&1}"))
+      iex> deliver_user_reset_password_instructions(user, &Routes.user_reset_password_url(conn, :edit, &1))
       {:ok, %{to: ..., body: ...}}
 
   """
@@ -324,7 +383,7 @@ defmodule Ambry.Accounts do
          %User{} = user <- Repo.one(query) do
       user
     else
-      _ -> nil
+      _error -> nil
     end
   end
 
@@ -347,7 +406,61 @@ defmodule Ambry.Accounts do
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:error, :user, changeset, _changes_so_far} -> {:error, changeset}
     end
+  end
+
+  @doc """
+  Promotes a user to be an admin.
+
+  ## Examples
+
+      iex> promote_user_to_admin(user)
+      {:ok, %User{admin: true}}
+  """
+  def promote_user_to_admin(user) do
+    user
+    |> User.promote_to_admin_changeset()
+    |> Repo.update()
+  end
+
+  @doc """
+  Demote a user from being an admin.
+
+  ## Examples
+
+      iex> demote_user_from_admin(user)
+      {:ok, %User{admin: false}}
+  """
+  def demote_user_from_admin(user) do
+    user
+    |> User.demote_from_admin_changeset()
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns true if at least one admin user exists.
+
+  ## Examples
+
+      iex> admin_exists?()
+      true
+  """
+  def admin_exists? do
+    Repo.one!(from u in User, select: count(), where: u.admin) > 0
+  end
+
+  @doc """
+  Deletes a user.
+
+  ## Examples
+
+      iex> delete_user(user)
+      :ok
+  """
+  def delete_user(%User{} = user) do
+    {:ok, _user} = Repo.delete(user)
+
+    :ok
   end
 end

@@ -19,7 +19,7 @@ config :ambry, AmbryWeb.Endpoint,
     layout: false
   ],
   pubsub_server: Ambry.PubSub,
-  live_view: [signing_salt: "y+KG7x3E"]
+  live_view: [signing_salt: "GndRpmmp"]
 
 # Configures the mailer
 #
@@ -59,6 +59,20 @@ config :logger, :console,
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
+
+# Add audiobook mime types
+config :mime, :types, %{
+  "audio/mp4a-latm" => ["m4a", "m4b"]
+}
+
+# Configure Oban
+config :ambry, Oban,
+  repo: Ambry.Repo,
+  plugins: [Oban.Plugins.Pruner],
+  # Keep number of media workers low to not starve the host of resources
+  queues: [media: 4]
+
+config :ex_fontawesome, type: "solid"
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

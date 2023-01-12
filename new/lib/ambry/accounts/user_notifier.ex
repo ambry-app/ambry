@@ -1,14 +1,20 @@
 defmodule Ambry.Accounts.UserNotifier do
+  @moduledoc """
+  Delivers various kinds of emails to users.
+  """
+
   import Swoosh.Email
 
   alias Ambry.Mailer
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do
+    from_address = Application.get_env(:ambry, :from_address, "ambry@example.com")
+
     email =
       new()
       |> to(recipient)
-      |> from({"Ambry", "contact@example.com"})
+      |> from({"Ambry", from_address})
       |> subject(subject)
       |> text_body(body)
 

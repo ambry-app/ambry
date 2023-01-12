@@ -20,7 +20,7 @@ config :ambry, Ambry.Repo,
 # you can enable the server option below.
 config :ambry, AmbryWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
-  secret_key_base: "XZbXyW/gaRDc+xwaWgBFbyE5cBk7q49SnAo4JLDKQPJz6jnT+i61LX3gCzCZIG/E",
+  secret_key_base: "+51PLj+Ps1WTQA07qymnblv+HTHse1oXrBZ8Y+O2XlpelIA5QnHb4rWGZ7/xGj3e",
   server: false
 
 # In test we don't send emails.
@@ -34,3 +34,7 @@ config :logger, level: :warning
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
+
+# allows Oban to bypass all database interaction and run jobs immediately in the
+# process that enqueued them.
+config :ambry, Oban, testing: :inline
