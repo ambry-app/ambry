@@ -5,7 +5,8 @@ defmodule AmbryWeb.LibraryLive.Home.RecentMedia do
 
   alias Ambry.Media
 
-  # assuming this will load "all" recent books for most users
+  # assuming this will load "all" recent books for most users, and hopefully
+  # most users don't start and abandon that many books
   @limit 100
 
   @impl Phoenix.LiveComponent

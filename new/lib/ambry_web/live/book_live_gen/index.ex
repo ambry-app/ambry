@@ -1,4 +1,4 @@
-defmodule AmbryWeb.BookLive.Index do
+defmodule AmbryWeb.BookLiveGen.Index do
   use AmbryWeb, :live_view
 
   alias Ambry.Books

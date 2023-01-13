@@ -86,6 +86,7 @@ defmodule AmbryWeb.Router do
     live_session :require_authenticated_user,
       on_mount: [{AmbryWeb.UserAuth, :ensure_authenticated}] do
       live "/library", LibraryLive.Home, :home
+      live "/people/:id", PersonLive.Show, :show
 
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email

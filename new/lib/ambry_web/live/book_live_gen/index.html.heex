@@ -24,7 +24,7 @@
 
 <.modal :if={@live_action in [:new, :edit]} id="book-modal" show on_cancel={JS.navigate(~p"/books")}>
   <.live_component
-    module={AmbryWeb.BookLive.FormComponent}
+    module={AmbryWeb.BookLiveGen.FormComponent}
     id={@book.id || :new}
     title={@page_title}
     action={@live_action}

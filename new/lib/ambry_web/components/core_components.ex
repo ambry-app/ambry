@@ -310,7 +310,7 @@ defmodule AmbryWeb.CoreComponents do
       <select
         id={@id}
         name={@name}
-        class="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 sm:text-sm"
+        class="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 sm:text-sm"
         multiple={@multiple}
         {@rest}
       >
@@ -663,7 +663,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def note(assigns) do
     ~H"""
-    <p class="m-2 ml-0 border-l-4 border-gray-400 pl-4 italic text-gray-500 dark:border-gray-500 dark:text-gray-400">
+    <p class="m-2 ml-0 border-l-4 border-zinc-400 pl-4 italic text-zinc-500 dark:border-zinc-500 dark:text-zinc-400">
       <strong>Note:</strong> <%= render_slot(@inner_block) %>
     </p>
     """
@@ -687,28 +687,28 @@ defmodule AmbryWeb.CoreComponents do
       <%= for {book, number} <- books_with_numbers(@books) do %>
         <div class="text-center">
           <%= if number do %>
-            <p class="font-bold text-gray-900 dark:text-gray-100 sm:text-lg">Book <%= number %></p>
+            <p class="font-bold text-zinc-900 dark:text-zinc-100 sm:text-lg">Book <%= number %></p>
           <% end %>
           <div class="group">
             <.link navigate={~p"/books/#{book}"}>
               <span class="aspect-w-10 aspect-h-15 block">
                 <img
                   src={book.image_path}
-                  class="h-full w-full rounded-lg border border-gray-200 object-cover object-center shadow-md dark:border-gray-900"
+                  class="h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
                 />
               </span>
             </.link>
-            <p class="font-bold text-gray-900 group-hover:underline dark:text-gray-100 sm:text-lg">
+            <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
               <.link navigate={~p"/books/#{book}"}>
                 <%= book.title %>
               </.link>
             </p>
           </div>
-          <p class="text-sm text-gray-800 dark:text-gray-200 sm:text-base">
+          <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
             by <.people_links people={book.authors} />
           </p>
 
-          <div class="text-xs text-gray-600 dark:text-gray-400 sm:text-sm">
+          <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
             <.series_book_links series_books={book.series_books} />
           </div>
         </div>
@@ -727,7 +727,7 @@ defmodule AmbryWeb.CoreComponents do
           <div class="text-center text-lg">
             <div phx-click={load_more} phx-target={target} class="group">
               <span class="aspect-w-10 aspect-h-15 block cursor-pointer">
-                <span class="load-more flex h-full w-full rounded-lg border border-gray-200 bg-gray-200 shadow-md dark:border-gray-700 dark:bg-gray-700">
+                <span class="load-more flex h-full w-full rounded-lg border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                   <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
                 </span>
               </span>
@@ -761,7 +761,7 @@ defmodule AmbryWeb.CoreComponents do
             <div class="aspect-w-10 aspect-h-15 relative">
               <img
                 src={player_state.media.book.image_path}
-                class="h-full w-full rounded-t-lg border border-b-0 border-gray-200 object-cover object-center shadow-md dark:border-gray-900"
+                class="h-full w-full rounded-t-lg border border-b-0 border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
               />
               <div class="absolute flex">
                 <%!-- <div
@@ -786,27 +786,27 @@ defmodule AmbryWeb.CoreComponents do
                 </div> --%>
               </div>
             </div>
-            <div class="overflow-hidden rounded-b-sm border-x border-gray-200 bg-gray-300 shadow-sm dark:border-gray-900 dark:bg-gray-800">
-              <div class="h-1 bg-lime-500 dark:bg-lime-400" style={"width: #{progress_percent(player_state)}%;"} />
+            <div class="overflow-hidden rounded-b-sm border-x border-zinc-200 bg-zinc-300 shadow-sm dark:border-zinc-900 dark:bg-zinc-800">
+              <div class="bg-brand h-1 dark:bg-brand-dark" style={"width: #{progress_percent(player_state)}%;"} />
             </div>
           </div>
-          <p class="font-bold text-gray-900 hover:underline dark:text-gray-100 sm:text-lg">
+          <p class="font-bold text-zinc-900 hover:underline dark:text-zinc-100 sm:text-lg">
             <.link navigate={~p"/books/#{player_state.media.book}"}>
               <%= player_state.media.book.title %>
             </.link>
           </p>
-          <p class="text-sm text-gray-800 dark:text-gray-200 sm:text-base">
+          <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
             by <.people_links people={player_state.media.book.authors} />
           </p>
 
-          <p class="text-sm text-gray-800 dark:text-gray-200 sm:text-base">
+          <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
             Narrated by <.people_links people={player_state.media.narrators} />
             <%= if player_state.media.full_cast do %>
               <span>full cast</span>
             <% end %>
           </p>
 
-          <div class="text-xs text-gray-600 dark:text-gray-400 sm:text-sm">
+          <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
             <.series_book_links series_books={player_state.media.book.series_books} />
           </div>
         </div>
@@ -816,7 +816,7 @@ defmodule AmbryWeb.CoreComponents do
         <div class="text-center text-lg">
           <div phx-click={load_more} phx-target={target} class="group">
             <span class="aspect-w-10 aspect-h-15 block cursor-pointer">
-              <span class="load-more flex h-full w-full rounded-lg border border-gray-200 bg-gray-200 shadow-md dark:border-gray-700 dark:bg-gray-700">
+              <span class="load-more flex h-full w-full rounded-lg border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                 <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
               </span>
             </span>
@@ -858,7 +858,7 @@ defmodule AmbryWeb.CoreComponents do
 
     ~H"""
     <%= for person_ish <- @people do %>
-      <.link navigate={~p"/person/#{person_ish}"} class={@classes} phx-no-format>
+      <.link navigate={~p"/people/#{person_ish}"} class={@classes} phx-no-format>
         <%= person_ish.name %>
       </.link><span
         class="last:hidden"

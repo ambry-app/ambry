@@ -1,4 +1,4 @@
-defmodule AmbryWeb.BookLive.FormComponent do
+defmodule AmbryWeb.BookLiveGen.FormComponent do
   use AmbryWeb, :live_component
 
   alias Ambry.Books
