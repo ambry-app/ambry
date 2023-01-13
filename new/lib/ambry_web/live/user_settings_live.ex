@@ -3,6 +3,7 @@ defmodule AmbryWeb.UserSettingsLive do
 
   alias Ambry.Accounts
 
+  @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
     <.header>Change Email</.header>
@@ -64,6 +65,7 @@ defmodule AmbryWeb.UserSettingsLive do
     """
   end
 
+  @impl Phoenix.LiveView
   def mount(%{"token" => token}, _session, socket) do
     socket =
       case Accounts.update_user_email(socket.assigns.current_user, token) do
@@ -92,6 +94,7 @@ defmodule AmbryWeb.UserSettingsLive do
     {:ok, socket}
   end
 
+  @impl Phoenix.LiveView
   def handle_event("validate_email", params, socket) do
     %{"current_password" => password, "user" => user_params} = params
     email_changeset = Accounts.change_user_email(socket.assigns.current_user, user_params)

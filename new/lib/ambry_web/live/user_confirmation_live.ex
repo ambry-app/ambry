@@ -3,6 +3,7 @@ defmodule AmbryWeb.UserConfirmationLive do
 
   alias Ambry.Accounts
 
+  @impl Phoenix.LiveView
   def render(%{live_action: :edit} = assigns) do
     ~H"""
     <.auth_form_card>
@@ -28,10 +29,12 @@ defmodule AmbryWeb.UserConfirmationLive do
     """
   end
 
+  @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     {:ok, assign(socket, token: params["token"]), temporary_assigns: [token: nil]}
   end
 
+  @impl Phoenix.LiveView
   # Do not log in the user after confirmation to avoid a
   # leaked token giving the user access to the account.
   def handle_event("confirm_account", %{"user" => %{"token" => token}}, socket) do

@@ -3,6 +3,7 @@ defmodule AmbryWeb.UserResetPasswordLive do
 
   alias Ambry.Accounts
 
+  @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
     <.auth_form_card>
@@ -33,6 +34,7 @@ defmodule AmbryWeb.UserResetPasswordLive do
     """
   end
 
+  @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     socket = assign_user_and_token(socket, params)
 
@@ -48,6 +50,7 @@ defmodule AmbryWeb.UserResetPasswordLive do
     {:ok, socket, temporary_assigns: [changeset: nil]}
   end
 
+  @impl Phoenix.LiveView
   # Do not log in the user after reset password to avoid a
   # leaked token giving the user access to the account.
   def handle_event("reset_password", %{"user" => user_params}, socket) do

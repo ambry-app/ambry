@@ -91,6 +91,9 @@ defmodule AmbryWeb do
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
 
+      # FontAwesome icons
+      alias FontAwesome.LiveView, as: FA
+
       # Routes generation with the ~p sigil
       unquote(verified_routes())
     end

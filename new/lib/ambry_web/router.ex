@@ -12,7 +12,7 @@ defmodule AmbryWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_user
-    # plug AmbryWeb.Plugs.FirstTimeSetup
+    plug AmbryWeb.Plugs.FirstTimeSetup
   end
 
   pipeline :gql do
@@ -90,6 +90,14 @@ defmodule AmbryWeb.Router do
       layout: {AmbryWeb.Layouts, :auth} do
       live "/users/confirm/:token", UserConfirmationLive, :edit
       live "/users/confirm", UserConfirmationInstructionsLive, :new
+    end
+  end
+
+  scope "/first_time_setup", AmbryWeb.FirstTimeSetup do
+    pipe_through [:browser]
+
+    live_session :setup, layout: {AmbryWeb.Layouts, :auth} do
+      live "/", SetupLive.Index, :index
     end
   end
 end

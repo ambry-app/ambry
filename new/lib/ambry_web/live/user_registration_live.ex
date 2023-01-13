@@ -4,6 +4,7 @@ defmodule AmbryWeb.UserRegistrationLive do
   alias Ambry.Accounts
   alias Ambry.Accounts.User
 
+  @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
     <.auth_form_card>
@@ -44,12 +45,14 @@ defmodule AmbryWeb.UserRegistrationLive do
     """
   end
 
+  @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     changeset = Accounts.change_user_registration(%User{})
     socket = assign(socket, changeset: changeset, trigger_submit: false)
     {:ok, socket, temporary_assigns: [changeset: nil]}
   end
 
+  @impl Phoenix.LiveView
   def handle_event("save", %{"user" => user_params}, socket) do
     case Accounts.register_user(user_params) do
       {:ok, user} ->

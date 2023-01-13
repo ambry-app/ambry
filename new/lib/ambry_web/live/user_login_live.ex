@@ -1,6 +1,7 @@
 defmodule AmbryWeb.UserLoginLive do
   use AmbryWeb, :live_view
 
+  @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
     <.auth_form_card>
@@ -37,6 +38,7 @@ defmodule AmbryWeb.UserLoginLive do
     """
   end
 
+  @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     email = live_flash(socket.assigns.flash, :email)
     user_registration_enabled = Application.get_env(:ambry, :user_registration_enabled, false)

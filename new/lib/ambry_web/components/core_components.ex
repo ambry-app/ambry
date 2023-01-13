@@ -650,6 +650,19 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  @doc """
+  A block-quote style note.
+  """
+  slot :inner_block, required: true
+
+  def note(assigns) do
+    ~H"""
+    <p class="text-gray-500 dark:text-gray-400 italic m-2 border-l-4 border-gray-400 dark:border-gray-500 pl-4 ml-0">
+      <strong>Note:</strong> <%= render_slot(@inner_block) %>
+    </p>
+    """
+  end
+
   ## JS Commands
 
   def show(js \\ %JS{}, selector) do
