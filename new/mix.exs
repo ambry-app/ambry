@@ -81,7 +81,7 @@ defmodule Ambry.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:sweet_xml, "~> 0.7"},
       {:swoosh, "~> 1.3"},
-      {:tailwind_formatter, "~> 0.3.1", only: :dev, runtime: false},
+      {:tailwind_formatter, "~> 0.3.1", only: [:dev, :test], runtime: false},
       {:tailwind, "~> 0.1", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"}

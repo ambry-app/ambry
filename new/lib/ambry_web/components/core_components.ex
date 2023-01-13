@@ -10,8 +10,14 @@ defmodule AmbryWeb.CoreComponents do
   [heroicons_elixir](https://github.com/mveytsman/heroicons_elixir) project.
   """
   use Phoenix.Component
+  use AmbryWeb, :verified_routes
 
+  alias FontAwesome.LiveView, as: FA
   alias Phoenix.LiveView.JS
+
+  alias Ambry.Books.Book
+  alias Ambry.Series.SeriesBook
+
   import AmbryWeb.Gettext
 
   @doc """
@@ -660,6 +666,233 @@ defmodule AmbryWeb.CoreComponents do
     <p class="m-2 ml-0 border-l-4 border-gray-400 pl-4 italic text-gray-500 dark:border-gray-500 dark:text-gray-400">
       <strong>Note:</strong> <%= render_slot(@inner_block) %>
     </p>
+    """
+  end
+
+  @doc """
+  Renders a list of books as a responsive grid of image tiles.
+  """
+  def book_tiles(assigns) do
+    assigns =
+      assigns
+      |> assign_new(:show_load_more, fn -> false end)
+      |> assign_new(:load_more, fn -> {false, false} end)
+      |> assign_new(:infinite_scroll_target, fn -> false end)
+      |> assign_new(:current_page, fn -> 0 end)
+
+    {load_more, target} = assigns.load_more
+
+    ~H"""
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+      <%= for {book, number} <- books_with_numbers(@books) do %>
+        <div class="text-center">
+          <%= if number do %>
+            <p class="font-bold text-gray-900 dark:text-gray-100 sm:text-lg">Book <%= number %></p>
+          <% end %>
+          <div class="group">
+            <.link navigate={~p"/books/#{book}"}>
+              <span class="aspect-w-10 aspect-h-15 block">
+                <img
+                  src={book.image_path}
+                  class="h-full w-full rounded-lg border border-gray-200 object-cover object-center shadow-md dark:border-gray-900"
+                />
+              </span>
+            </.link>
+            <p class="font-bold text-gray-900 group-hover:underline dark:text-gray-100 sm:text-lg">
+              <.link navigate={~p"/books/#{book}"}>
+                <%= book.title %>
+              </.link>
+            </p>
+          </div>
+          <p class="text-sm text-gray-800 dark:text-gray-200 sm:text-base">
+            by <.people_links people={book.authors} />
+          </p>
+
+          <div class="text-xs text-gray-600 dark:text-gray-400 sm:text-sm">
+            <.series_book_links series_books={book.series_books} />
+          </div>
+        </div>
+      <% end %>
+
+      <%= if @show_load_more do %>
+        <%= if @infinite_scroll_target do %>
+          <div
+            id="infinite-scroll-marker"
+            phx-hook="infiniteScroll"
+            data-page={@current_page}
+            data-target={@infinite_scroll_target}
+          >
+          </div>
+        <% else %>
+          <div class="text-center text-lg">
+            <div phx-click={load_more} phx-target={target} class="group">
+              <span class="aspect-w-10 aspect-h-15 block cursor-pointer">
+                <span class="load-more flex h-full w-full rounded-lg border border-gray-200 bg-gray-200 shadow-md dark:border-gray-700 dark:bg-gray-700">
+                  <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
+                </span>
+              </span>
+              <p class="group-hover:underline">
+                Load more
+              </p>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp books_with_numbers(books_assign) do
+    case books_assign do
+      [] -> []
+      [%Book{} | _] = books -> Enum.map(books, &{&1, nil})
+      [%SeriesBook{} | _] = series_books -> Enum.map(series_books, &{&1.book, &1.book_number})
+    end
+  end
+
+  def player_state_tiles(assigns) do
+    {load_more, target} = assigns.load_more
+
+    ~H"""
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+      <%= for player_state <- @player_states do %>
+        <div class="text-center">
+          <div class="group">
+            <div class="aspect-w-10 aspect-h-15 relative">
+              <img
+                src={player_state.media.book.image_path}
+                class="h-full w-full rounded-t-lg border border-b-0 border-gray-200 object-cover object-center shadow-md dark:border-gray-900"
+              />
+              <div class="absolute flex">
+                <%!-- <div
+                  id={"resume-media-#{player_state.media.id}"}
+                  x-data={"{
+                    id: #{player_state.media.id},
+                    loaded: false
+                  }"}
+                  x-effect="$store.player.mediaId == id ? loaded = true : loaded = false"
+                  @click={"loaded ? mediaPlayer.playPause() : mediaPlayer.loadAndPlayMedia(#{player_state.media.id})"}
+                  class="mx-auto flex h-16 w-16 cursor-pointer self-center rounded-full bg-white bg-opacity-80 shadow-md backdrop-blur-sm transition group-hover:bg-opacity-100 dark:bg-black dark:bg-opacity-80"
+                  phx-hook="goHome"
+                >
+                  <div class="mx-auto self-center fill-current pl-1" :class="{ 'pl-1': !loaded || !$store.player.playing }">
+                    <span :class="{ hidden: loaded && $store.player.playing }">
+                      <FA.icon name="play" class="h-7 w-7" />
+                    </span>
+                    <span class="hidden" :class="{ hidden: !loaded || !$store.player.playing }">
+                      <FA.icon name="pause" class="h-7 w-7" />
+                    </span>
+                  </div>
+                </div> --%>
+              </div>
+            </div>
+            <div class="overflow-hidden rounded-b-sm border-x border-gray-200 bg-gray-300 shadow-sm dark:border-gray-900 dark:bg-gray-800">
+              <div class="h-1 bg-lime-500 dark:bg-lime-400" style={"width: #{progress_percent(player_state)}%;"} />
+            </div>
+          </div>
+          <p class="font-bold text-gray-900 hover:underline dark:text-gray-100 sm:text-lg">
+            <.link navigate={~p"/books/#{player_state.media.book}"}>
+              <%= player_state.media.book.title %>
+            </.link>
+          </p>
+          <p class="text-sm text-gray-800 dark:text-gray-200 sm:text-base">
+            by <.people_links people={player_state.media.book.authors} />
+          </p>
+
+          <p class="text-sm text-gray-800 dark:text-gray-200 sm:text-base">
+            Narrated by <.people_links people={player_state.media.narrators} />
+            <%= if player_state.media.full_cast do %>
+              <span>full cast</span>
+            <% end %>
+          </p>
+
+          <div class="text-xs text-gray-600 dark:text-gray-400 sm:text-sm">
+            <.series_book_links series_books={player_state.media.book.series_books} />
+          </div>
+        </div>
+      <% end %>
+
+      <%= if @show_load_more do %>
+        <div class="text-center text-lg">
+          <div phx-click={load_more} phx-target={target} class="group">
+            <span class="aspect-w-10 aspect-h-15 block cursor-pointer">
+              <span class="load-more flex h-full w-full rounded-lg border border-gray-200 bg-gray-200 shadow-md dark:border-gray-700 dark:bg-gray-700">
+                <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
+              </span>
+            </span>
+            <p class="group-hover:underline">
+              Load more
+            </p>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp progress_percent(nil), do: "0.0"
+
+  defp progress_percent(%{position: position, media: %{duration: duration}}) do
+    position
+    |> Decimal.div(duration)
+    |> Decimal.mult(100)
+    |> Decimal.round(1)
+    |> Decimal.to_string()
+  end
+
+  @doc """
+  Renders a list of links to people (like authors or narrators) separated by commas.
+  """
+  def people_links(assigns) do
+    assigns =
+      assign_new(assigns, :classes, fn ->
+        underline_class =
+          if Map.get(assigns, :underline, true) do
+            "hover:underline"
+          end
+
+        link_class = assigns[:link_class]
+
+        [underline_class, link_class] |> Enum.join(" ") |> String.trim()
+      end)
+
+    ~H"""
+    <%= for person_ish <- @people do %>
+      <.link navigate={~p"/person/#{person_ish}"} class={@classes} phx-no-format>
+        <%= person_ish.name %>
+      </.link><span
+        class="last:hidden"
+        phx-no-format
+      >,</span>
+    <% end %>
+    """
+  end
+
+  @doc """
+  Renders a list of links to series, each in its own p tag.
+  """
+  def series_book_links(assigns) do
+    ~H"""
+    <%= for series_book <- Enum.sort_by(@series_books, & &1.series.name) do %>
+      <p>
+        <.link navigate={~p"/series/#{series_book.series}"} class="hover:underline">
+          <%= series_book.series.name %> #<%= series_book.book_number %>
+        </.link>
+      </p>
+    <% end %>
+    """
+  end
+
+  @doc """
+  A section header
+  """
+  slot :inner_block, required: true
+
+  def section_header(assigns) do
+    ~H"""
+    <h1 class="mb-6 text-3xl font-bold text-zinc-100 md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
+      <%= render_slot(@inner_block) %>
+    </h1>
     """
   end
 

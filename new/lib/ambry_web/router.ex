@@ -15,10 +15,29 @@ defmodule AmbryWeb.Router do
     plug AmbryWeb.Plugs.FirstTimeSetup
   end
 
+  pipeline :uploads do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_current_user
+    plug :fetch_api_user
+    plug :require_any_authenticated_user
+  end
+
   pipeline :gql do
     plug :accepts, ["json", "graphql"]
     plug :fetch_api_user
     plug :put_absinthe_context
+  end
+
+  scope "/uploads" do
+    pipe_through [:uploads]
+
+    # Serve static user uploaded media
+    forward "/", Plug.Static,
+      at: "/",
+      from: {Ambry.Paths, :uploads_folder_disk_path, []},
+      gzip: false,
+      only: ~w(media)
   end
 
   scope "/gql" do
@@ -64,10 +83,10 @@ defmodule AmbryWeb.Router do
   scope "/", AmbryWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    get "/", PageController, :home
-
     live_session :require_authenticated_user,
       on_mount: [{AmbryWeb.UserAuth, :ensure_authenticated}] do
+      live "/library", LibraryLive.Home, :home
+
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
 
