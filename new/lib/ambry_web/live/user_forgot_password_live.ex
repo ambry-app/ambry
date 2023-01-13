@@ -20,7 +20,7 @@ defmodule AmbryWeb.UserForgotPasswordLive do
           </.button>
         </:actions>
       </.simple_form>
-      <p class="text-center mt-4">
+      <p class="mt-4 text-center">
         <.brand_link navigate={~p"/users/register"}>
           Register
         </.brand_link>

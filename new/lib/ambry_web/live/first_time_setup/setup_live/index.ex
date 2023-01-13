@@ -16,7 +16,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive.Index do
       <.header>
         First Time Setup
         <:subtitle>
-          Welcome to <span class="font-semibold text-brand dark:text-brand-dark">Ambry</span>!
+          Welcome to <span class="text-brand font-semibold dark:text-brand-dark">Ambry</span>!
           To get started, let's create the admin user account that will be managing this server.
         </:subtitle>
       </.header>
@@ -66,7 +66,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive.Index do
   defp restart_button(%{state: :admin_exists} = assigns) do
     ~H"""
     <.button class="w-full" phx-click="restart">
-      Restart <FA.icon name="rotate" class="inline w-4 h-4 ml-2" aria-hidden="true" />
+      Restart <FA.icon name="rotate" class="ml-2 inline h-4 w-4" aria-hidden="true" />
     </.button>
     """
   end
@@ -74,7 +74,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive.Index do
   defp restart_button(%{state: :restarting} = assigns) do
     ~H"""
     <.button class="w-full" disabled>
-      Restarting... <FA.icon name="rotate" class="animate-spin inline w-4 h-4 ml-2" aria-hidden="true" />
+      Restarting... <FA.icon name="rotate" class="ml-2 inline h-4 w-4 animate-spin" aria-hidden="true" />
     </.button>
     """
   end
