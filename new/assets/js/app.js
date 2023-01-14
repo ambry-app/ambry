@@ -23,6 +23,7 @@ import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import { ReadMore } from "./hooks/readMore"
 import { SearchBox } from "./hooks/searchBox"
+import { HeaderScrollspy } from "./hooks/headerScrollspy"
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket(
@@ -33,6 +34,7 @@ let liveSocket = new LiveSocket(
     hooks: {
       readMore: ReadMore,
       searchBox: SearchBox,
+      headerScrollspy: HeaderScrollspy,
     },
   }
 )

@@ -2,7 +2,7 @@
   <.nav_header user={@current_user} active_path={@nav_active_path} />
 
   <main class="flex flex-grow flex-col overflow-hidden lg:justify-center">
-    <div id="main-content" class="flex-grow overflow-y-auto overflow-x-hidden" phx-hook-fake="headerScrollspy">
+    <div id="main-content" class="flex-grow overflow-y-auto overflow-x-hidden" phx-hook="headerScrollspy">
       <%= @inner_content %>
     </div>
   </main>

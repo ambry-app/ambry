@@ -916,11 +916,10 @@ defmodule AmbryWeb.CoreComponents do
   """
   def nav_header(assigns) do
     ~H"""
-    <%!-- Add border-b on scroll-spy --%>
-    <header class="border-zinc-100 dark:border-zinc-900">
+    <header id="nav-header" class="border-zinc-100 dark:border-zinc-900">
       <div class="flex p-4 text-zinc-600 dark:text-zinc-500">
         <div class="flex-1">
-          <.link navigate={~p"/"} class="inline-flex">
+          <.link navigate={~p"/"} class="flex">
             <.ambry_icon class="mt-1 h-6 w-6 lg:h-7 lg:w-7" />
             <.ambry_title class="mt-1 hidden h-6 md:block lg:h-7" />
           </.link>
