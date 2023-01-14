@@ -5,61 +5,59 @@ defmodule AmbryWeb.SearchLive.Results.Components do
 
   use AmbryWeb, :html
 
-  alias AmbryWeb.Endpoint
-
   def author_results(assigns) do
     ~H"""
-    <div>
-      <h1 class="mb-4 text-2xl font-bold sm:mb-6 sm:text-3xl md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
+    <section>
+      <.section_header>
         Authors
-      </h1>
+      </.section_header>
 
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+      <.grid>
         <%= for author <- @authors do %>
           <.person_tile name={author.name} person={author.person} />
         <% end %>
-      </div>
-    </div>
+      </.grid>
+    </section>
     """
   end
 
   def book_results(assigns) do
     ~H"""
-    <div>
-      <h1 class="mb-4 text-2xl font-bold sm:mb-6 sm:text-3xl md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
+    <section>
+      <.section_header>
         Books
-      </h1>
+      </.section_header>
 
       <.book_tiles books={@books} />
-    </div>
+    </section>
     """
   end
 
   def narrator_results(assigns) do
     ~H"""
-    <div>
-      <h1 class="mb-4 text-2xl font-bold sm:mb-6 sm:text-3xl md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
+    <section>
+      <.section_header>
         Narrators
-      </h1>
+      </.section_header>
 
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+      <.grid>
         <%= for narrator <- @narrators do %>
           <.person_tile name={narrator.name} person={narrator.person} />
         <% end %>
-      </div>
-    </div>
+      </.grid>
+    </section>
     """
   end
 
   def series_results(assigns) do
     ~H"""
-    <div>
-      <h1 class="mb-4 text-2xl font-bold sm:mb-6 sm:text-3xl md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
+    <section>
+      <.section_header>
         Series
-      </h1>
+      </.section_header>
 
       <.series_tiles series={@series} />
-    </div>
+    </section>
     """
   end
 
@@ -90,14 +88,12 @@ defmodule AmbryWeb.SearchLive.Results.Components do
 
   defp series_tiles(assigns) do
     ~H"""
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+    <.grid>
       <%= for series <- @series do %>
         <div class="text-center">
           <div class="group">
             <.link navigate={~p"/series/#{series}"}>
-              <span class="aspect-w-10 aspect-h-15 relative block">
-                <.series_images series_books={series.series_books} />
-              </span>
+              <.series_tile series_books={series.series_books} />
             </.link>
             <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
               <.link navigate={~p"/series/#{series}"}>
@@ -110,7 +106,15 @@ defmodule AmbryWeb.SearchLive.Results.Components do
           </p>
         </div>
       <% end %>
-    </div>
+    </.grid>
+    """
+  end
+
+  defp series_tile(assigns) do
+    ~H"""
+    <span class="aspect-w-10 aspect-h-15 relative block">
+      <.series_images series_books={@series_books} />
+    </span>
     """
   end
 

@@ -686,7 +686,7 @@ defmodule AmbryWeb.CoreComponents do
     {load_more, target} = assigns.load_more
 
     ~H"""
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+    <.grid>
       <%= for {book, number} <- books_with_numbers(@books) do %>
         <div class="text-center">
           <%= if number do %>
@@ -741,7 +741,7 @@ defmodule AmbryWeb.CoreComponents do
           </div>
         <% end %>
       <% end %>
-    </div>
+    </.grid>
     """
   end
 
@@ -757,7 +757,7 @@ defmodule AmbryWeb.CoreComponents do
     {load_more, target} = assigns.load_more
 
     ~H"""
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+    <.grid>
       <%= for player_state <- @player_states do %>
         <div class="text-center">
           <div class="group">
@@ -829,7 +829,7 @@ defmodule AmbryWeb.CoreComponents do
           </div>
         </div>
       <% end %>
-    </div>
+    </.grid>
     """
   end
 
@@ -896,6 +896,19 @@ defmodule AmbryWeb.CoreComponents do
     <h1 class="mb-6 text-3xl font-bold text-zinc-100 md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
       <%= render_slot(@inner_block) %>
     </h1>
+    """
+  end
+
+  @doc """
+  A flexible grid of things
+  """
+  slot :inner_block, required: true
+
+  def grid(assigns) do
+    ~H"""
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+      <%= render_slot(@inner_block) %>
+    </div>
     """
   end
 
