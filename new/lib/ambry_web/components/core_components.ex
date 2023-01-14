@@ -18,6 +18,8 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Books.Book
   alias Ambry.Series.SeriesBook
 
+  alias AmbryWeb.Components.SearchBox
+
   import AmbryWeb.Gettext
   import AmbryWeb.Gravatar
 
@@ -921,24 +923,23 @@ defmodule AmbryWeb.CoreComponents do
               <span title="Library"><FA.icon name="book-open" class="mt-1 h-6 w-6 fill-current lg:hidden" /></span>
               <span class="hidden text-xl font-bold lg:block">Library</span>
             </.link>
-            <%!-- <span
-              x-data
-              @click="$nextTick(() => $store.search.open = true)"
+            <span
+              phx-click={show_search()}
               class={nav_class(String.starts_with?(@active_path, "/search"), "flex content-center gap-4 cursor-pointer")}
             >
               <span title="Search">
                 <FA.icon name="magnifying-glass" class="mt-1 h-6 w-6 fill-current lg:h-5 lg:w-5" />
               </span>
               <span class="hidden text-xl font-bold xl:block">Search</span>
-            </span> --%>
+            </span>
           </div>
         </div>
         <div class="flex-1">
           <div class="flex">
             <div class="flex-grow" />
-            <div phx-click-away={hide_user_menu()} phx-window-keydown={hide_user_menu()} phx-key="escape">
+            <div phx-click-away={hide_menu("user-menu")} phx-window-keydown={hide_menu("user-menu")} phx-key="escape">
               <img
-                phx-click={toggle_user_menu()}
+                phx-click={toggle_menu("user-menu")}
                 class="mt-1 h-6 cursor-pointer rounded-full lg:h-7 lg:w-7"
                 src={gravatar_url(@user.email)}
               />
@@ -948,7 +949,7 @@ defmodule AmbryWeb.CoreComponents do
         </div>
       </div>
 
-      <%!-- <.live_component module={SearchBox} id="search-box" /> --%>
+      <.live_component module={SearchBox} id="search-box" />
     </header>
     """
   end
@@ -998,7 +999,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def user_menu(assigns) do
     ~H"""
-    <.menu_wrapper user={@user}>
+    <.menu_wrapper id="user-menu" user={@user}>
       <div class="py-3">
         <%= if @user.admin do %>
           <.link navigate={~p"/admin"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
@@ -1028,7 +1029,7 @@ defmodule AmbryWeb.CoreComponents do
 
   defp menu_wrapper(assigns) do
     ~H"""
-    <div id="menu-wrapper" class="max-w-80 absolute top-12 right-4 z-50 hidden text-zinc-800 shadow-md dark:text-zinc-200">
+    <div id={@id} class="max-w-80 absolute top-12 right-4 z-50 hidden text-zinc-800 shadow-md dark:text-zinc-200">
       <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
         <div class="flex items-center gap-4 p-4">
           <img class="h-10 w-10 rounded-full" src={gravatar_url(@user.email)} />
@@ -1045,10 +1046,7 @@ defmodule AmbryWeb.CoreComponents do
   def show(js \\ %JS{}, selector) do
     JS.show(js,
       to: selector,
-      transition:
-        {"transition-all transform ease-out duration-300",
-         "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
-         "opacity-100 translate-y-0 sm:scale-100"}
+      transition: transition_in()
     )
   end
 
@@ -1056,10 +1054,7 @@ defmodule AmbryWeb.CoreComponents do
     JS.hide(js,
       to: selector,
       time: 200,
-      transition:
-        {"transition-all transform ease-in duration-200",
-         "opacity-100 translate-y-0 sm:scale-100",
-         "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"}
+      transition: transition_out()
     )
   end
 
@@ -1087,19 +1082,50 @@ defmodule AmbryWeb.CoreComponents do
     |> JS.pop_focus()
   end
 
-  defp show_user_menu(js \\ %JS{}) do
-    js
-    |> JS.show(to: "#menu-wrapper")
+  defp toggle_menu(js \\ %JS{}, id) do
+    JS.toggle(js,
+      to: "##{id}",
+      time: 100,
+      in: transition_in(),
+      out: transition_out()
+    )
   end
 
-  defp toggle_user_menu(js \\ %JS{}) do
-    js
-    |> JS.toggle(to: "#menu-wrapper")
+  defp hide_menu(js \\ %JS{}, id) do
+    JS.hide(js,
+      to: "##{id}",
+      time: 100,
+      transition: transition_out()
+    )
   end
 
-  defp hide_user_menu(js \\ %JS{}) do
+  def show_search(js \\ %JS{}) do
     js
-    |> JS.hide(to: "#menu-wrapper")
+    |> JS.show(
+      to: "#search-box",
+      time: 100,
+      transition: transition_in()
+    )
+    |> JS.focus(to: "#search-input")
+  end
+
+  def hide_search(js \\ %JS{}) do
+    JS.hide(js,
+      to: "#search-box",
+      time: 100,
+      transition: transition_out()
+    )
+  end
+
+  defp transition_in do
+    {"transition-all transform ease-out duration-300",
+     "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
+     "opacity-100 translate-y-0 sm:scale-100"}
+  end
+
+  defp transition_out do
+    {"transition-all transform ease-in duration-200", "opacity-100 translate-y-0 sm:scale-100",
+     "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"}
   end
 
   @doc """
