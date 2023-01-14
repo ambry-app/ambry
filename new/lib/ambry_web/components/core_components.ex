@@ -559,9 +559,8 @@ defmodule AmbryWeb.CoreComponents do
         @class
       ]}
       {@rest}
-    >
-      <%= render_slot(@inner_block) %>
-    </.link>
+      phx-no-format
+    ><%= render_slot(@inner_block) %></.link>
     """
   end
 

@@ -89,6 +89,7 @@ defmodule AmbryWeb.Router do
       # some reason the initial render will be without a layout. Probably an LV
       # bug right now.
       layout: {AmbryWeb.Layouts, :app} do
+      live "/", NowPlayingLive.Index, :index
       live "/library", LibraryLive.Home, :home
       live "/people/:id", PersonLive.Show, :show
       live "/series/:id", SeriesLive.Show, :show
