@@ -908,7 +908,7 @@ defmodule AmbryWeb.CoreComponents do
     <header class="border-zinc-100 dark:border-zinc-900">
       <div class="flex p-4 text-zinc-600 dark:text-zinc-500">
         <div class="flex-1">
-          <.link navigate={~p"/"} class="flex">
+          <.link navigate={~p"/"} class="inline-flex">
             <.ambry_icon class="mt-1 h-6 w-6 lg:h-7 lg:w-7" />
             <.ambry_title class="mt-1 hidden h-6 md:block lg:h-7" />
           </.link>
@@ -949,7 +949,7 @@ defmodule AmbryWeb.CoreComponents do
         </div>
       </div>
 
-      <.live_component module={SearchBox} id="search-box" />
+      <.live_component module={SearchBox} id="search-box" path={@active_path} />
     </header>
     """
   end
@@ -1107,14 +1107,17 @@ defmodule AmbryWeb.CoreComponents do
       transition: transition_in()
     )
     |> JS.focus(to: "#search-input")
+    |> JS.dispatch("ambry:search-box-shown", to: "#search-box")
   end
 
   def hide_search(js \\ %JS{}) do
-    JS.hide(js,
+    js
+    |> JS.hide(
       to: "#search-box",
       time: 100,
       transition: transition_out()
     )
+    |> JS.dispatch("ambry:search-box-hidden", to: "#search-box")
   end
 
   defp transition_in do

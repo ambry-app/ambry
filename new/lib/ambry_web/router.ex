@@ -91,6 +91,7 @@ defmodule AmbryWeb.Router do
       layout: {AmbryWeb.Layouts, :app} do
       live "/library", LibraryLive.Home, :home
       live "/people/:id", PersonLive.Show, :show
+      live "/search/:query", SearchLive.Results, :results
 
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email

@@ -22,6 +22,7 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import { ReadMore } from "./hooks/readMore"
+import { SearchBox } from "./hooks/searchBox"
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket(
@@ -31,6 +32,7 @@ let liveSocket = new LiveSocket(
     params: {_csrf_token: csrfToken},
     hooks: {
       readMore: ReadMore,
+      searchBox: SearchBox,
     },
   }
 )
@@ -39,6 +41,19 @@ let liveSocket = new LiveSocket(
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", info => topbar.delayedShow(200))
 window.addEventListener("phx:page-loading-stop", info => topbar.hide())
+
+// autofocus hack:
+window.addEventListener('phx:page-loading-stop', info => {
+  const autoFocusElements = document.querySelectorAll('[phx-autofocus]')
+  const els = autoFocusElements.length
+
+  if (els >= 1) { window.setTimeout(() => {
+    const el = autoFocusElements[0]
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  }, 0) }
+  if (els > 1) { console.warn("Multiple autofocus elements found. Only focusing the first.") }
+})
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()
