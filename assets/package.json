@@ -20,6 +20,6 @@
   "dependencies": {
     "alpinejs": "^3.10.5",
     "platform-detect": "^3.0.1",
-    "shaka-player": "^4.3.2"
+    "shaka-player": "^4.3.3"
   }
 }
