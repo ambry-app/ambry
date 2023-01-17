@@ -1,4 +1,4 @@
-export const ReadMore = {
+export const ReadMoreHook = {
   mounted () {
     const descriptionEl = this.el.firstElementChild
     const {

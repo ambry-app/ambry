@@ -21,9 +21,10 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
-import { ReadMore } from "./hooks/readMore"
-import { SearchBox } from "./hooks/searchBox"
-import { HeaderScrollspy } from "./hooks/headerScrollspy"
+import { ReadMoreHook } from "./hooks/readMore"
+import { SearchBoxHook } from "./hooks/searchBox"
+import { HeaderScrollspyHook } from "./hooks/headerScrollspy"
+import { ShakaPlayerHook } from "./hooks/shakaPlayer"
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket(
@@ -32,9 +33,10 @@ let liveSocket = new LiveSocket(
   {
     params: {_csrf_token: csrfToken},
     hooks: {
-      readMore: ReadMore,
-      searchBox: SearchBox,
-      headerScrollspy: HeaderScrollspy,
+      readMore: ReadMoreHook,
+      searchBox: SearchBoxHook,
+      headerScrollspy: HeaderScrollspyHook,
+      mediaPlayer: ShakaPlayerHook
     },
   }
 )

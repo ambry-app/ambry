@@ -1,4 +1,4 @@
-export const HeaderScrollspy = {
+export const HeaderScrollspyHook = {
   mounted () {
     this.navHeader = document.getElementById('nav-header')
 

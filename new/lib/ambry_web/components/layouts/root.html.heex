@@ -79,6 +79,17 @@
       Attempting to reconnect <Heroicons.arrow_path class="ml-1 inline h-3 w-3 animate-spin" />
     </.flash>
 
-    <%= @inner_content %>
+    <%= if @current_user do %>
+      <%!-- "app" root --%>
+      <div class="relative flex h-screen flex-col">
+        <%= @inner_content %>
+
+        <%!-- footer goes here --%>
+        <%= live_render(@conn, AmbryWeb.PlayerLive.Player) %>
+      </div>
+    <% else %>
+      <%!-- "auth" root --%>
+      <%= @inner_content %>
+    <% end %>
   </body>
 </html>

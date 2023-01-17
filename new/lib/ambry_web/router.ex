@@ -84,7 +84,11 @@ defmodule AmbryWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
-      on_mount: [{AmbryWeb.UserAuth, :ensure_authenticated}, AmbryWeb.NavHooks],
+      on_mount: [
+        {AmbryWeb.UserAuth, :ensure_authenticated},
+        AmbryWeb.NavHooks,
+        AmbryWeb.PlayerStateHooks
+      ],
       # NOTE: this shouldn't be needed because `:app` is the default, but for
       # some reason the initial render will be without a layout. Probably an LV
       # bug right now.

@@ -1,4 +1,4 @@
-export const SearchBox = {
+export const SearchBoxHook = {
   mounted () {
     const searchInput = document.getElementById('search-input')
     const clearSearch = document.getElementById('clear-search')
