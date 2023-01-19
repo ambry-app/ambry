@@ -860,7 +860,7 @@ defmodule AmbryWeb.CoreComponents do
 
     ~H"""
     <%= for person_ish <- @people do %>
-      <.link navigate={~p"/people/#{person_ish}"} class={@classes} phx-no-format>
+      <.link navigate={~p"/people/#{person_ish.person_id}"} class={@classes} phx-no-format>
         <%= person_ish.name %>
       </.link><span
         class="last:hidden"
