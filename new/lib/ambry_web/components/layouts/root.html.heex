@@ -21,31 +21,6 @@
     >
     </script>
     <script type="text/javascript">
-      function initTheme() {
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark')
-        } else {
-          document.documentElement.classList.remove('dark')
-        }
-      }
-
-      function forceDark() {
-        localStorage.theme = 'dark'
-        initTheme()
-      }
-
-      function forceLight() {
-        localStorage.theme = 'light'
-        initTheme()
-      }
-
-      function clearTheme() {
-        localStorage.removeItem('theme')
-        initTheme()
-      }
-
-      initTheme()
-
       // fix mobile browser viewport height shenanigans.
       // https://www.markusantonwolf.com/blog/solution-to-the-mobile-viewport-height-issue-with-tailwind-css/
       // see tailwind.config.js for other half
@@ -76,19 +51,18 @@
       phx-disconnected={show("#disconnected")}
       phx-connected={hide("#disconnected")}
     >
-      Attempting to reconnect <Heroicons.arrow_path class="ml-1 inline h-3 w-3 animate-spin" />
+      Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" aria-hidden="true" />
     </.flash>
 
     <%= if @current_user do %>
-      <%!-- "app" root --%>
-      <div class="relative flex h-screen flex-col">
+      <%!-- Root layout for the app --%>
+      <div class="flex h-screen flex-col">
         <%= @inner_content %>
 
-        <%!-- footer goes here --%>
-        <%= live_render(@conn, AmbryWeb.PlayerLive.Player) %>
+        <%= live_render(@conn, AmbryWeb.PlayerLive.Player, container: {:section, [class: ""]}) %>
       </div>
     <% else %>
-      <%!-- "auth" root --%>
+      <%!-- Root layout for auth pages --%>
       <%= @inner_content %>
     <% end %>
   </body>

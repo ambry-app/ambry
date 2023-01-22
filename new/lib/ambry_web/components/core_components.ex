@@ -57,7 +57,7 @@ defmodule AmbryWeb.CoreComponents do
   def modal(assigns) do
     ~H"""
     <div id={@id} phx-mounted={@show && show_modal(@id)} phx-remove={hide_modal(@id)} class="relative z-50 hidden">
-      <div id={"#{@id}-bg"} class="fixed inset-0 bg-zinc-50/90 transition-opacity" aria-hidden="true" />
+      <div id={"#{@id}-bg"} class="bg-zinc-50/90 fixed inset-0 transition-opacity" aria-hidden="true" />
       <div
         class="fixed inset-0 overflow-y-auto"
         aria-labelledby={"#{@id}-title"}
@@ -74,7 +74,7 @@ defmodule AmbryWeb.CoreComponents do
               phx-window-keydown={hide_modal(@on_cancel, @id)}
               phx-key="escape"
               phx-click-away={hide_modal(@on_cancel, @id)}
-              class="hidden relative rounded-2xl bg-white p-14 shadow-lg shadow-zinc-700/10 ring-1 ring-zinc-700/10 transition"
+              class="shadow-zinc-700/10 ring-zinc-700/10 relative hidden rounded-2xl bg-white p-14 shadow-lg ring-1 transition"
             >
               <div class="absolute top-6 right-5">
                 <button
@@ -156,12 +156,12 @@ defmodule AmbryWeb.CoreComponents do
       ]}
       {@rest}
     >
-      <p :if={@title} class="flex items-center gap-1.5 text-[0.8125rem] font-semibold leading-6">
+      <p :if={@title} class="text-[0.8125rem] flex items-center gap-1.5 font-semibold leading-6">
         <Heroicons.information_circle :if={@kind == :info} mini class="h-4 w-4" />
         <Heroicons.exclamation_circle :if={@kind == :error} mini class="h-4 w-4" />
         <%= @title %>
       </p>
-      <p class="mt-2 text-[0.8125rem] leading-5"><%= msg %></p>
+      <p class="text-[0.8125rem] mt-2 leading-5"><%= msg %></p>
       <button :if={@close} type="button" class="group absolute top-2 right-1 p-2" aria-label={gettext("close")}>
         <Heroicons.x_mark solid class="h-5 w-5 stroke-current opacity-40 group-hover:opacity-70" />
       </button>
@@ -456,7 +456,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div id={@id} class="overflow-y-auto px-4 sm:overflow-visible sm:px-0">
       <table class="w-[40rem] mt-11 sm:w-full">
-        <thead class="text-left text-[0.8125rem] leading-6 text-zinc-500">
+        <thead class="text-[0.8125rem] text-left leading-6 text-zinc-500">
           <tr>
             <th :for={col <- @col} class="p-0 pr-6 pb-4 font-normal"><%= col[:label] %></th>
             <th class="relative p-0 pb-4"><span class="sr-only"><%= gettext("Actions") %></span></th>
@@ -515,7 +515,7 @@ defmodule AmbryWeb.CoreComponents do
     <div class="mt-14">
       <dl class="-my-4 divide-y divide-zinc-100">
         <div :for={item <- @item} class="flex gap-4 py-4 sm:gap-8">
-          <dt class="w-1/4 flex-none text-[0.8125rem] leading-6 text-zinc-500"><%= item.title %></dt>
+          <dt class="text-[0.8125rem] w-1/4 flex-none leading-6 text-zinc-500"><%= item.title %></dt>
           <dd class="text-sm leading-6 text-zinc-700"><%= render_slot(item) %></dd>
         </div>
       </dl>

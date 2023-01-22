@@ -50,7 +50,7 @@ defmodule AmbryWeb.NowPlayingLive.Index do
 
   defp media_details(assigns) do
     ~H"""
-    <div class="flex-none lg:basis-7/12 lg:flex lg:place-items-center lg:place-content-center">
+    <div class="flex-none lg:flex lg:basis-7/12 lg:place-content-center lg:place-items-center">
       <div class="m-8 flex space-x-4 sm:m-12 md:space-x-8 lg:mr-4">
         <img
           src={@media.book.image_path}
@@ -89,12 +89,7 @@ defmodule AmbryWeb.NowPlayingLive.Index do
 
   defp media_tabs(assigns) do
     ~H"""
-    <div class="
-        flex-grow lg:flex-1 lg:basis-5/12 flex flex-col xl:max-w-2xl
-        overflow-hidden lg:overflow-y-auto
-        mx-0 sm:mx-8 lg:mx-16 mt-4 lg:mt-16 lg:ml-4
-        text-zinc-600 dark:text-zinc-500
-      ">
+    <div class="mx-0 mt-4 flex flex-grow flex-col overflow-hidden text-zinc-600 dark:text-zinc-500 sm:mx-8 lg:mx-16 lg:mt-16 lg:ml-4 lg:flex-1 lg:basis-5/12 lg:overflow-y-auto xl:max-w-2xl">
       <div class="flex">
         <.media_tab id="chapters" label="Chapters" active={true} />
         <.media_tab id="bookmarks" label="Bookmarks" />

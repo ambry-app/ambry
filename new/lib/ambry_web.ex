@@ -53,7 +53,16 @@ defmodule AmbryWeb do
   def live_view do
     quote do
       use Phoenix.LiveView,
-        layout: {AmbryWeb.Layouts, :app}
+        layout: {AmbryWeb.Layouts, :app},
+        container: {:section, class: "flex flex-grow flex-col overflow-hidden"}
+
+      unquote(html_helpers())
+    end
+  end
+
+  def auth_live_view do
+    quote do
+      use Phoenix.LiveView, layout: {AmbryWeb.Layouts, :auth}
 
       unquote(html_helpers())
     end

@@ -1,5 +1,5 @@
 defmodule AmbryWeb.UserRegistrationLive do
-  use AmbryWeb, :live_view
+  use AmbryWeb, :auth_live_view
 
   alias Ambry.Accounts
   alias Ambry.Accounts.User

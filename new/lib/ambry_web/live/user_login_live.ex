@@ -1,5 +1,5 @@
 defmodule AmbryWeb.UserLoginLive do
-  use AmbryWeb, :live_view
+  use AmbryWeb, :auth_live_view
 
   @impl Phoenix.LiveView
   def render(assigns) do

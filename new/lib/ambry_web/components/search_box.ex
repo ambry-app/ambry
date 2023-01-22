@@ -26,8 +26,7 @@ defmodule AmbryWeb.Components.SearchBox do
             id: "search-input",
             value: @query,
             placeholder: "Search",
-            class:
-              "w-full border-0 bg-transparent placeholder:font-bold placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0",
+            class: "w-full border-0 bg-transparent placeholder:font-bold placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0",
             "phx-autofocus": @is_open
           ) %>
         </.form>
