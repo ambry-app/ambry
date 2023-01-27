@@ -1,5 +1,9 @@
-<.nav_header user={@current_user} active_path={@nav_active_path} />
+<.flashes flash={@flash} />
 
-<main id="main-content" class="overflow-y-auto overflow-x-hidden lg:justify-center" phx-hook="headerScrollspy">
-  <%= @inner_content %>
-</main>
+<div class="flex h-full flex-col">
+  <.nav_header user={@current_user} active_path={@nav_active_path} />
+
+  <main id="main-content" class="grow overflow-y-auto overflow-x-hidden lg:justify-center" phx-hook="headerScrollspy">
+    <%= @inner_content %>
+  </main>
+</div>

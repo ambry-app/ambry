@@ -17,7 +17,7 @@ defmodule AmbryWeb.NowPlayingLive.Index do
     ~H"""
     <.nav_header user={@current_user} active_path={@nav_active_path} />
 
-    <main class="flex flex-grow flex-col overflow-hidden lg:flex-row">
+    <main class="flex grow flex-col overflow-hidden lg:flex-row">
       <%= if @player_state do %>
         <.media_details media={@player_state.media} />
         <.media_tabs media={@player_state.media} user={@current_user} />
@@ -89,7 +89,7 @@ defmodule AmbryWeb.NowPlayingLive.Index do
 
   defp media_tabs(assigns) do
     ~H"""
-    <div class="mx-0 mt-4 flex flex-grow flex-col overflow-hidden text-zinc-600 dark:text-zinc-500 sm:mx-8 lg:mx-16 lg:mt-16 lg:ml-4 lg:flex-1 lg:basis-5/12 lg:overflow-y-auto xl:max-w-2xl">
+    <div class="mx-0 mt-4 flex grow flex-col overflow-hidden text-zinc-600 dark:text-zinc-500 sm:mx-8 lg:mx-16 lg:mt-16 lg:ml-4 lg:flex-1 lg:basis-5/12 lg:overflow-y-auto xl:max-w-2xl">
       <div class="flex">
         <.media_tab id="chapters" label="Chapters" active={true} />
         <.media_tab id="bookmarks" label="Bookmarks" />

@@ -170,6 +170,33 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
+  Renders all the flash notices.
+
+  ## Examples
+
+      <.flashes flash={@flash} />
+  """
+  attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
+
+  def flashes(assigns) do
+    ~H"""
+    <.flash kind={:info} title="Success!" flash={@flash} />
+    <.flash kind={:error} title="Error!" flash={@flash} />
+    <.flash
+      id="disconnected"
+      kind={:error}
+      title="We've lost connection to the server"
+      close={false}
+      autoshow={false}
+      phx-disconnected={show("#disconnected")}
+      phx-connected={hide("#disconnected")}
+    >
+      Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" aria-hidden="true" />
+    </.flash>
+    """
+  end
+
+  @doc """
   Renders a simple form.
 
   ## Examples
@@ -947,7 +974,7 @@ defmodule AmbryWeb.CoreComponents do
         </div>
         <div class="flex-1">
           <div class="flex">
-            <div class="flex-grow" />
+            <div class="grow" />
             <div phx-click-away={hide_menu("user-menu")} phx-window-keydown={hide_menu("user-menu")} phx-key="escape">
               <img
                 phx-click={toggle_menu("user-menu")}

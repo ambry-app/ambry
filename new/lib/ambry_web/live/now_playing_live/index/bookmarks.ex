@@ -12,7 +12,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Bookmarks do
     ~H"""
     <div>
       <div class="flex">
-        <div class="flex-grow" />
+        <div class="grow" />
         <span
           class="text-brand flex cursor-pointer items-center pt-4 font-bold hover:underline dark:text-brand-dark"
           phx-click="add-bookmark"

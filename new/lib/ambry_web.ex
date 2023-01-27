@@ -54,7 +54,7 @@ defmodule AmbryWeb do
     quote do
       use Phoenix.LiveView,
         layout: {AmbryWeb.Layouts, :app},
-        container: {:section, class: "flex flex-grow flex-col overflow-hidden"}
+        container: {:div, class: "contents"}
 
       unquote(html_helpers())
     end

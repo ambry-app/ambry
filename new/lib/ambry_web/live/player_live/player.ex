@@ -95,7 +95,7 @@ defmodule AmbryWeb.PlayerLive.Player do
           />
         </span>
       </div>
-      <div class="flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
+      <div class="grow overflow-hidden text-ellipsis whitespace-nowrap">
         <span class="text-sm text-zinc-800 dark:text-zinc-300 sm:text-base">
           <%= player_state_description(@player_state) %>
         </span>
@@ -182,10 +182,10 @@ defmodule AmbryWeb.PlayerLive.Player do
         </div>
         <div>
           <div class="flex divide-x divide-zinc-200 dark:divide-zinc-800">
-            <div @click="dec()" class="flex-grow cursor-pointer p-4 hover:bg-zinc-300 dark:hover:bg-zinc-700">
+            <div @click="dec()" class="grow cursor-pointer p-4 hover:bg-zinc-300 dark:hover:bg-zinc-700">
               <FA.icon name="minus" class="mx-auto h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <div @click="inc()" class="flex-grow cursor-pointer p-4 hover:bg-zinc-300 dark:hover:bg-zinc-700">
+            <div @click="inc()" class="grow cursor-pointer p-4 hover:bg-zinc-300 dark:hover:bg-zinc-700">
               <FA.icon name="plus" class="mx-auto h-4 w-4 sm:h-5 sm:w-5" />
             </div>
           </div>
