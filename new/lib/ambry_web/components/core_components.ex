@@ -20,6 +20,8 @@ defmodule AmbryWeb.CoreComponents do
 
   alias AmbryWeb.Components.SearchBox
 
+  import Phoenix.HTML, only: [raw: 1]
+
   import AmbryWeb.Gettext
   import AmbryWeb.Gravatar
 
@@ -1076,6 +1078,17 @@ defmodule AmbryWeb.CoreComponents do
         <%= render_slot(@inner_block) %>
       </div>
     </div>
+    """
+  end
+
+  attr :content, :string, required: true
+  attr :class, :string, default: nil
+
+  def markdown(assigns) do
+    ~H"""
+    <article class={["prose prose-zinc dark:prose-invert", @class]}>
+      <%= raw(Earmark.as_html!(@content)) %>
+    </article>
     """
   end
 

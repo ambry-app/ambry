@@ -77,11 +77,7 @@ defmodule AmbryWeb.BookLive.Show do
           <div class="hidden sm:block">
             <.book_header book={@book} />
           </div>
-          <%= if @book.description do %>
-            <div class="markdown mt-4">
-              <%= raw(Earmark.as_html!(@book.description)) %>
-            </div>
-          <% end %>
+          <.markdown :if={@book.description} content={@book.description} class="mt-4" />
         </section>
       </div>
     </div>
@@ -96,6 +92,11 @@ defmodule AmbryWeb.BookLive.Show do
      socket
      |> assign(:page_title, Books.get_book_description(book))
      |> assign(:book, book)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("go-home", _params, socket) do
+    {:noreply, push_redirect(socket, to: "/")}
   end
 
   defp book_header(assigns) do
@@ -113,10 +114,5 @@ defmodule AmbryWeb.BookLive.Show do
       </div>
     </div>
     """
-  end
-
-  @impl Phoenix.LiveView
-  def handle_event("go-home", _params, socket) do
-    {:noreply, push_redirect(socket, to: "/")}
   end
 end

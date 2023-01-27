@@ -13,18 +13,7 @@ defmodule AmbryWeb.SearchLive.Results do
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-md space-y-16 p-4 sm:max-w-none sm:space-y-24 sm:p-10 md:max-w-screen-2xl md:p-12 lg:space-y-32 lg:p-16">
-      <%= for {label, items} <- @results do %>
-        <%= case label do %>
-          <% :authors -> %>
-            <.author_results authors={Enum.map(items, &elem(&1, 1))} />
-          <% :books -> %>
-            <.book_results books={Enum.map(items, &elem(&1, 1))} />
-          <% :narrators -> %>
-            <.narrator_results narrators={Enum.map(items, &elem(&1, 1))} />
-          <% :series -> %>
-            <.series_results series={Enum.map(items, &elem(&1, 1))} />
-        <% end %>
-      <% end %>
+      <.results :for={{type, items} <- @results} type={type} items={Enum.map(items, &elem(&1, 1))} />
     </div>
     """
   end
