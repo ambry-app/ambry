@@ -30,6 +30,7 @@ export const ShakaPlayerHook = {
     const player = new Player(audio)
     const dataset = this.el.dataset
 
+    // shaka event handlers
     player.addEventListener('error', event => this.onError(event))
 
     // audio element event handlers
@@ -39,57 +40,51 @@ export const ShakaPlayerHook = {
     audio.addEventListener('ratechange', () => this.playbackRateChanged())
     audio.addEventListener('seeked', () => this.seeked())
 
+    // LiveView event handlers
+    this.el.addEventListener('ambry:toggle-playback',() => this.playPause())
+    this.el.addEventListener('ambry:seek-relative',(event) => this.seekRelative(event.detail.value))
+
     this.audio = audio
     this.player = player
     window.mediaPlayer = this
 
     this.loadMediaFromDataset(dataset)
-
-    this.el.addEventListener('ambry:toggle-playback',() => this.playPause())
-    this.el.addEventListener('ambry:seek-relative',(event) => this.seekRelative(event.detail.value))
   },
 
   // player controls
 
-  play () {
-    this.audio.play()
-  },
-
-  pause () {
-    this.audio.pause()
-  },
-
   playPause () {
-    if (this.audio.paused) {
+    if (this.isPaused()) {
       this.play()
     } else {
       this.pause()
     }
   },
 
-  seek (position) {
-    this.audio.currentTime = position
+  seek (time) {
+    this.setCurrentTime(time)
   },
 
   seekRelative (seconds) {
-    const audio = this.audio
-    const duration = audio.duration
+    const duration = this.getDuration()
 
-    let position = audio.currentTime + seconds * audio.playbackRate
+    let newTime = this.time + seconds * this.playbackRate
 
-    position = position < 0 ? 0 : position
-    position = position > duration ? duration : position
+    newTime = newTime < 0 ? 0 : newTime
+    newTime = newTime > duration ? duration : newTime
 
-    audio.currentTime = position
+    this.time = newTime
+    this.setCurrentTime(this.time)
+
+    // pre-emptive server update for better UI experience
+    this.pushEvent('playback-time-updated', { 'playback-time': newTime })
   },
 
   seekRatio (ratio) {
-    const audio = this.audio
-    audio.currentTime = audio.duration * ratio
-  },
+    const duration = this.getDuration()
+    const newTime = duration * ratio
 
-  setPlaybackRate (rate) {
-    this.audio.playbackRate = rate
+    this.setCurrentTime(newTime)
   },
 
   loadAndPlayMedia (mediaId) {
@@ -117,11 +112,11 @@ export const ShakaPlayerHook = {
     this.clearUpdateInterval()
     this.clearUnloadHandler()
 
-    this.pushEvent('playback-paused', { 'playback-time': this.audio.currentTime })
+    this.pushEvent('playback-paused', { 'playback-time': this.getCurrentTime() })
   },
 
   playbackRateChanged () {
-    const playbackRate = this.audio.playbackRate
+    const playbackRate = this.getPlaybackRate()
 
     if (playbackRate && playbackRate != this.playbackRate) {
       this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
@@ -130,7 +125,8 @@ export const ShakaPlayerHook = {
   },
 
   seeked () {
-    this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime, persist: true })
+    this.time = this.getCurrentTime()
+    this.pushEvent('playback-time-updated', { 'playback-time': this.time, persist: true })
   },
 
   beforeUnload (e) {
@@ -139,7 +135,6 @@ export const ShakaPlayerHook = {
   },
 
   reloadMedia (autoplay = false) {
-    const audio = this.audio
     const { mediaId } = this.el.dataset
 
     if (mediaId === this.mediaId) {
@@ -147,8 +142,8 @@ export const ShakaPlayerHook = {
       return
     }
 
-    if (!audio.paused) {
-      audio.addEventListener(
+    if (!this.isPaused()) {
+      this.audio.addEventListener(
         'pause',
         () => this.loadMediaFromDataset(this.el.dataset, autoplay),
         { once: true }
@@ -169,7 +164,6 @@ export const ShakaPlayerHook = {
     const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
     const mediaPath = dataset.mediaPath
     const player = this.player
-    const audio = this.audio
     const time = parseFloat(mediaPosition)
 
     this.mediaId = mediaId
@@ -178,7 +172,7 @@ export const ShakaPlayerHook = {
 
     try {
       await player.load(mediaPath, time)
-      audio.playbackRate = parseFloat(mediaPlaybackRate)
+      this.setPlaybackRate(parseFloat(mediaPlaybackRate))
 
       console.log('Shaka: Media loaded')
 
@@ -191,11 +185,45 @@ export const ShakaPlayerHook = {
     }
   },
 
+  // Audio element interface
+
+  play () {
+    this.audio.play()
+  },
+
+  pause () {
+    this.audio.pause()
+  },
+
+  setCurrentTime (time) {
+    this.audio.currentTime = time
+  },
+
+  getCurrentTime () {
+    return this.audio.currentTime
+  },
+
+  setPlaybackRate (rate) {
+    this.audio.playbackRate = rate
+  },
+
+  getPlaybackRate () {
+    return this.audio.playbackRate
+  },
+
+  getDuration () {
+    return this.audio.duration
+  },
+
+  isPaused () {
+    return this.audio.paused
+  },
+
   // Helpers
 
   setPersistInterval () {
     this.interval = window.setInterval(() => {
-      this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime, persist: true })
+      this.pushEvent('playback-time-updated', { 'playback-time': this.getCurrentTime(), persist: true })
     }, 60000)
   },
 
@@ -205,7 +233,7 @@ export const ShakaPlayerHook = {
 
   setUpdateInterval () {
     this.interval = window.setInterval(() => {
-      this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime })
+      this.pushEvent('playback-time-updated', { 'playback-time': this.getCurrentTime() })
     }, 1000 / this.playbackRate)
   },
 
