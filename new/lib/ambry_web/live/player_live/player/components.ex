@@ -36,7 +36,7 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
 
   def time_bar(assigns) do
     ~H"""
-    <div class="group absolute -top-4 h-8 w-full cursor-pointer">
+    <div id="time-bar" class="group absolute -top-4 h-8 w-full cursor-pointer" phx-hook="timeBar">
       <!-- TODO: time text label -->
       <%!-- <div
         class="pointer-events-none absolute -top-4 hidden rounded-sm border border-zinc-200 bg-zinc-100 px-1 tabular-nums group-hover:block dark:border-zinc-800 dark:bg-zinc-900"
