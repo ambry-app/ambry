@@ -7,6 +7,8 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
 
   import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
+  alias Phoenix.LiveView.JS
+
   alias Ambry.Media
 
   def media_player(assigns) do
@@ -69,40 +71,16 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
   def player_controls(assigns) do
     ~H"""
     <div x-data class="flex items-center gap-6 fill-current p-4 text-zinc-900 dark:text-zinc-100">
-      <span @click="mediaPlayer.seekRelative(-60)" class="cursor-pointer" title="Back 1 minute">
-        <FA.icon name="backward-step" class="h-4 w-4 sm:h-5 sm:w-5" />
-      </span>
-      <span @click="mediaPlayer.seekRelative(-10)" class="cursor-pointer" title="Back 10 seconds">
-        <FA.icon name="rotate-left" class="h-4 w-4 sm:h-5 sm:w-5" />
-      </span>
-      <span @click="mediaPlayer.playPause()" class="cursor-pointer" title="Play">
-        <span x-class="{ hidden: $store.player.playing }">
-          <FA.icon name="play" class="h-6 w-6 sm:h-7 sm:w-7" />
-        </span>
-        <span class="hidden" x-class="{ hidden: !$store.player.playing }">
-          <FA.icon name="pause" class="h-6 w-6 sm:h-7 sm:w-7" />
-        </span>
-      </span>
-      <span @click="mediaPlayer.seekRelative(10)" class="cursor-pointer" title="Forward 10 seconds">
-        <FA.icon name="rotate-right" class="h-4 w-4 sm:h-5 sm:w-5" />
-      </span>
-      <span @click="mediaPlayer.seekRelative(60)" class="cursor-pointer" title="Forward 1 minute">
-        <FA.icon name="forward-step" class="h-4 w-4 sm:h-5 sm:w-5" />
-      </span>
+      <.player_button action={seek_relative(-60)} title="Back 1 minute" icon="backward-step" />
+      <.player_button action={seek_relative(-10)} title="Back 10 seconds" icon="rotate-left" />
+      <.play_pause_button state={@state} />
+      <.player_button action={seek_relative(10)} title="Forward 10 seconds" icon="rotate-right" />
+      <.player_button action={seek_relative(60)} title="Forward 1 minute" icon="forward-step" />
+
       <div class="whitespace-nowrap text-sm tabular-nums text-zinc-600 dark:text-zinc-500 sm:text-base">
-        <.alpine_value_with_fallback
-          alpine_value="$store.player.progress.real"
-          alpine_expression="formatTimecode($store.player.progress.real)"
-          fallback={player_state_progress(@player_state)}
-        />
+        <span><%= player_state_progress(@player_state) %></span>
         <span class="hidden sm:inline">/</span>
-        <span class="hidden sm:inline">
-          <.alpine_value_with_fallback
-            alpine_value="$store.player.duration.real"
-            alpine_expression="formatTimecode($store.player.duration.real)"
-            fallback={player_state_duration(@player_state)}
-          />
-        </span>
+        <span><%= player_state_duration(@player_state) %></span>
       </div>
       <div class="grow overflow-hidden text-ellipsis whitespace-nowrap">
         <span class="text-sm text-zinc-800 dark:text-zinc-300 sm:text-base">
@@ -141,6 +119,19 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
     """
   end
 
+  attr :action, JS, required: true
+  attr :title, :string, required: true
+  attr :icon, :string, required: true
+  attr :class, :string, default: "h-4 w-4 sm:h-5 sm:w-5"
+
+  defp player_button(assigns) do
+    ~H"""
+    <span phx-click={@action} class="cursor-pointer" title={@title}>
+      <FA.icon name={@icon} class={@class} />
+    </span>
+    """
+  end
+
   defp player_state_progress(nil), do: "--:--"
 
   defp player_state_progress(%{playback_rate: playback_rate, position: position}) do
@@ -176,6 +167,26 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
     <span x-text={"#{@alpine_value} !== undefined ? #{@alpine_expression} : '#{@fallback}'"}><%= @fallback %></span>
     """
   end
+
+  attr :state, :atom, required: true
+
+  defp play_pause_button(assigns) do
+    ~H"""
+    <span phx-click={toggle_playback()} class="cursor-pointer">
+      <span :if={@state == :paused} title="Play">
+        <FA.icon name="play" class="h-6 w-6 sm:h-7 sm:w-7" />
+      </span>
+      <span :if={@state == :playing} title="Pause">
+        <FA.icon name="pause" class="h-6 w-6 sm:h-7 sm:w-7" />
+      </span>
+    </span>
+    """
+  end
+
+  defp toggle_playback(), do: JS.dispatch("ambry:toggle-playback", to: "#media-player")
+
+  defp seek_relative(value),
+    do: JS.dispatch("ambry:seek-relative", to: "#media-player", detail: %{value: value})
 
   defp playback_rate_menu(assigns) do
     ~H"""

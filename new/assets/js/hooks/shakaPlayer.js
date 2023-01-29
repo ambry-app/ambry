@@ -17,6 +17,9 @@ document.addEventListener('DOMContentLoaded', initPolyfills)
 
 // Shaka player hook:
 
+// TODO: we should clean up all event listeners if the hook ever unmounts.
+// This (I think) isn't currently possible, but a feature to "unload the current
+// media" might eventually be implemented, in which case it will be necessary.
 export const ShakaPlayerHook = {
   async mounted () {
     console.log('Shaka: Mounting...')
@@ -34,7 +37,6 @@ export const ShakaPlayerHook = {
     audio.addEventListener('pause', () => this.playbackPaused())
     audio.addEventListener('ended', () => this.playbackPaused())
     audio.addEventListener('ratechange', () => this.playbackRateChanged())
-    audio.addEventListener('timeupdate', () => this.playbackTimeUpdated())
     audio.addEventListener('seeked', () => this.seeked())
 
     this.audio = audio
@@ -42,6 +44,9 @@ export const ShakaPlayerHook = {
     window.mediaPlayer = this
 
     this.loadMediaFromDataset(dataset)
+
+    this.el.addEventListener('ambry:toggle-playback',() => this.playPause())
+    this.el.addEventListener('ambry:seek-relative',(event) => this.seekRelative(event.detail.value))
   },
 
   // player controls
@@ -63,8 +68,7 @@ export const ShakaPlayerHook = {
   },
 
   seek (position) {
-    const audio = this.audio
-    audio.currentTime = position
+    this.audio.currentTime = position
   },
 
   seekRelative (seconds) {
@@ -85,14 +89,12 @@ export const ShakaPlayerHook = {
   },
 
   setPlaybackRate (rate) {
-    const audio = this.audio
-    audio.playbackRate = rate
+    this.audio.playbackRate = rate
   },
 
   loadAndPlayMedia (mediaId) {
     this.pushEvent('load-media', { 'media-id': mediaId }, () => {
       this.reloadMedia(true)
-      // if (window.goHome) { window.goHome() }
     })
   },
 
@@ -103,43 +105,32 @@ export const ShakaPlayerHook = {
   },
 
   playbackStarted () {
-    // this.alpineSetPlaying()
-    this.setSyncInterval()
+    this.setPersistInterval()
+    this.setUpdateInterval()
     this.setUnloadHandler()
+
+    this.pushEvent('playback-started')
   },
 
   playbackPaused () {
-    const time = this.audio.currentTime
-    // this.alpineSetPaused()
-    this.pushEvent('playback-time-updated', { 'playback-time': time })
-    this.time = time
-
-    this.clearSyncInterval()
+    this.clearPersistInterval()
+    this.clearUpdateInterval()
     this.clearUnloadHandler()
+
+    this.pushEvent('playback-paused', { 'playback-time': this.audio.currentTime })
   },
 
   playbackRateChanged () {
     const playbackRate = this.audio.playbackRate
 
     if (playbackRate && playbackRate != this.playbackRate) {
-      // this.alpineSetPlaybackRate(playbackRate)
       this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
       this.playbackRate = playbackRate
     }
   },
 
-  playbackTimeUpdated () {
-    const time = this.audio.currentTime
-
-    if (time != this.time) {
-      // this.alpineSetProgress(time)
-      this.time = time
-    }
-  },
-
   seeked () {
-    const time = this.audio.currentTime
-    this.pushEvent('playback-time-updated', { 'playback-time': time })
+    this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime, persist: true })
   },
 
   beforeUnload (e) {
@@ -183,13 +174,11 @@ export const ShakaPlayerHook = {
 
     this.mediaId = mediaId
     this.playbackRate = mediaPlaybackRate
-    this.time = time
     this.loaded = true
 
     try {
       await player.load(mediaPath, time)
       audio.playbackRate = parseFloat(mediaPlaybackRate)
-      // this.alpineLoadMedia(mediaId, time, audio.duration, this.playbackRate, chapters)
 
       console.log('Shaka: Media loaded')
 
@@ -202,38 +191,25 @@ export const ShakaPlayerHook = {
     }
   },
 
-  // Alpine interop
-
-  // alpineLoadMedia(id, time, duration, playbackRate, chapters) {
-  //   Alpine.store('player').loadMedia(id, time, duration, playbackRate, chapters)
-  // },
-
-  // alpineSetPlaying() {
-  //   Alpine.store('player').setPlaying()
-  // },
-
-  // alpineSetPaused() {
-  //   Alpine.store('player').setPaused()
-  // },
-
-  // alpineSetProgress(time) {
-  //   Alpine.store('player').setProgress(time)
-  // },
-
-  // alpineSetPlaybackRate(rate) {
-  //   Alpine.store('player').setPlaybackRate(rate)
-  // },
-
   // Helpers
 
-  setSyncInterval () {
+  setPersistInterval () {
     this.interval = window.setInterval(() => {
-      const time = this.audio.currentTime
-      this.pushEvent('playback-time-updated', { 'playback-time': time })
+      this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime, persist: true })
     }, 60000)
   },
 
-  clearSyncInterval () {
+  clearPersistInterval () {
+    window.clearInterval(this.interval)
+  },
+
+  setUpdateInterval () {
+    this.interval = window.setInterval(() => {
+      this.pushEvent('playback-time-updated', { 'playback-time': this.audio.currentTime })
+    }, 1000 / this.playbackRate)
+  },
+
+  clearUpdateInterval () {
     window.clearInterval(this.interval)
   },
 

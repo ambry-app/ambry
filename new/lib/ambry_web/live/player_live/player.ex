@@ -15,7 +15,7 @@ defmodule AmbryWeb.PlayerLive.Player do
     ~H"""
     <footer :if={@player_state} class="relative bg-zinc-100 dark:bg-zinc-900">
       <.time_bar player_state={@player_state} />
-      <.player_controls player_state={@player_state} />
+      <.player_controls state={@state} player_state={@player_state} />
       <.media_player player_state={@player_state} />
     </footer>
     """
@@ -23,24 +23,40 @@ defmodule AmbryWeb.PlayerLive.Player do
 
   @impl Phoenix.LiveView
   def mount(:not_mounted_at_router, _session, socket) do
+    socket = assign(socket, state: :paused)
     {:ok, socket, layout: false}
   end
 
   @impl Phoenix.LiveView
-  def handle_event("playback-time-updated", %{"playback-time" => playback_time}, socket) do
-    {:ok, player_state} =
-      Media.update_player_state(socket.assigns.player_state, %{
-        position: playback_time
-      })
+  def handle_event("playback-started", _params, socket) do
+    {:noreply, assign(socket, :state, :playing)}
+  end
+
+  def handle_event("playback-paused", %{"playback-time" => playback_time}, socket) do
+    player_state = update_player_state!(socket.assigns.player_state, %{position: playback_time})
+
+    {:noreply, assign(socket, player_state: player_state, state: :paused)}
+  end
+
+  def handle_event("playback-rate-changed", %{"playback-rate" => playback_rate}, socket) do
+    player_state =
+      update_player_state!(socket.assigns.player_state, %{playback_rate: playback_rate})
+
+    {:noreply, assign(socket, player_state: player_state)}
+  end
+
+  def handle_event(
+        "playback-time-updated",
+        %{"playback-time" => playback_time, "persist" => true},
+        socket
+      ) do
+    player_state = update_player_state!(socket.assigns.player_state, %{position: playback_time})
 
     {:noreply, assign(socket, :player_state, player_state)}
   end
 
-  def handle_event("playback-rate-changed", %{"playback-rate" => playback_rate}, socket) do
-    {:ok, player_state} =
-      Media.update_player_state(socket.assigns.player_state, %{
-        playback_rate: playback_rate
-      })
+  def handle_event("playback-time-updated", %{"playback-time" => playback_time}, socket) do
+    player_state = %{socket.assigns.player_state | position: Decimal.from_float(playback_time)}
 
     {:noreply, assign(socket, :player_state, player_state)}
   end
@@ -53,5 +69,10 @@ defmodule AmbryWeb.PlayerLive.Player do
      socket
      |> assign(:player_state, player_state)
      |> push_event("reload-media", %{})}
+  end
+
+  defp update_player_state!(player_state, attrs) do
+    {:ok, player_state} = Media.update_player_state(player_state, attrs)
+    player_state
   end
 end
