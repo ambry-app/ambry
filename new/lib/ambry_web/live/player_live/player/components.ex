@@ -39,14 +39,20 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
   # on the handle
   def time_bar(assigns) do
     ~H"""
-    <div id="time-bar" class="group absolute -top-4 h-8 w-full cursor-pointer" phx-hook="timeBar">
-      <!-- TODO: time text label -->
-      <%!-- <div
+    <div
+      id="time-bar"
+      class="group absolute -top-4 h-8 w-full cursor-pointer"
+      phx-hook="timeBar"
+      data-duration={@player_state.media.duration}
+    >
+      <div
+        id="time-code"
+        phx-update="ignore"
         class="pointer-events-none absolute -top-4 hidden rounded-sm border border-zinc-200 bg-zinc-100 px-1 tabular-nums group-hover:block dark:border-zinc-800 dark:bg-zinc-900"
         x-class="{ 'hidden': !dragging }"
         x-style="position > width / 2 ? `right: ${width - position}px` : `left: ${position}px`"
         x-text="formatTimecode(time)"
-      /> --%>
+      />
       <div class="mr-[12px] relative top-4 bg-zinc-200 dark:bg-zinc-800">
         <div
           class="h-[2px] bg-brand group-hover:h-[4px] dark:bg-brand-dark"

@@ -1,11 +1,18 @@
 export const TimeBarHook = {
   mounted () {
+    const {duration} = this.el.dataset
+
+    this.duration = duration
     this.dragging = false
     this.wrapper = this.el
-    this.timeBar = this.wrapper.firstElementChild
+    this.timeCode = this.wrapper.firstElementChild
+    this.timeBar = this.wrapper.lastElementChild
     this.progressBar = this.timeBar.firstElementChild
     this.handle = this.timeBar.lastElementChild
+    this.fullWidth = this.wrapper.clientWidth
     this.width = this.timeBar.clientWidth
+
+    console.log(this.timeCode)
 
     this.progressBarHoverStyles = this.getHoverStyles(this.progressBar)
     this.handleHoverStyles = this.getHoverStyles(this.handle)
@@ -33,8 +40,19 @@ export const TimeBarHook = {
   },
 
   updateUI () {
-    this.progressBar.style.width = `${this.percent}%`
-    this.handle.style.left = `calc(${this.percent}% - 8px)`
+    if (this.isDragging()) {
+      this.progressBar.style.width = `${this.percent}%`
+      this.handle.style.left = `calc(${this.percent}% - 8px)`
+    }
+
+    this.timeCode.innerText = this.formatTimecode(this.ratio * this.duration)
+    if (this.position > this.width / 2) {
+      this.timeCode.style.left = "auto"
+      this.timeCode.style.right = `${this.fullWidth - this.position}px`
+    } else {
+      this.timeCode.style.left = `${this.position}px`
+      this.timeCode.style.right = "auto"
+    }
   },
 
   mousedown (event) {
@@ -49,10 +67,7 @@ export const TimeBarHook = {
 
   mousemove (event) {
     this.updateState(event)
-
-    if (this.isDragging()) {
-      this.updateUI()
-    }
+    this.updateUI()
   },
 
   mouseup (event) {
@@ -88,6 +103,24 @@ export const TimeBarHook = {
     return Array.from(el.classList)
       .filter((c) => c.startsWith('group-hover:'))
       .map((c) => c.replace('group-hover:', ''))
+  },
+
+  formatTimecode (secs) {
+    const sec_num = parseInt(secs, 10)
+    const hours = Math.floor(sec_num / 3600)
+    const minutes = Math.floor(sec_num / 60) % 60
+    const seconds = sec_num % 60
+
+    const string = [hours, minutes, seconds]
+      .map(v => v < 10 ? "0" + v : v)
+      .filter((v,i) => v !== "00" || i > 0)
+      .join(":")
+
+    if (string.startsWith("0")) {
+      return string.slice(1)
+    } else {
+      return string
+    }
   },
 
   destroyed () {
