@@ -18,12 +18,9 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Books.Book
   alias Ambry.Series.SeriesBook
 
-  alias AmbryWeb.Components.SearchBox
-
   import Phoenix.HTML, only: [raw: 1]
 
   import AmbryWeb.Gettext
-  import AmbryWeb.Gravatar
 
   @doc """
   Renders a modal.
@@ -168,33 +165,6 @@ defmodule AmbryWeb.CoreComponents do
         <Heroicons.x_mark solid class="h-5 w-5 stroke-current opacity-40 group-hover:opacity-70" />
       </button>
     </div>
-    """
-  end
-
-  @doc """
-  Renders all the flash notices.
-
-  ## Examples
-
-      <.flashes flash={@flash} />
-  """
-  attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
-
-  def flashes(assigns) do
-    ~H"""
-    <.flash kind={:info} title="Success!" flash={@flash} />
-    <.flash kind={:error} title="Error!" flash={@flash} />
-    <.flash
-      id="disconnected"
-      kind={:error}
-      title="We've lost connection to the server"
-      close={false}
-      autoshow={false}
-      phx-disconnected={show("#disconnected")}
-      phx-connected={hide("#disconnected")}
-    >
-      Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" aria-hidden="true" />
-    </.flash>
     """
   end
 
@@ -940,147 +910,6 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  @doc """
-  Main app navigation header
-  """
-  def nav_header(assigns) do
-    ~H"""
-    <header id="nav-header" class="border-zinc-100 dark:border-zinc-900">
-      <div class="flex p-4 text-zinc-600 dark:text-zinc-500">
-        <div class="flex-1">
-          <.link navigate={~p"/"} class="flex">
-            <.ambry_icon class="mt-1 h-6 w-6 lg:h-7 lg:w-7" />
-            <.ambry_title class="mt-1 hidden h-6 md:block lg:h-7" />
-          </.link>
-        </div>
-        <div class="flex-1">
-          <div class="flex justify-center gap-8 lg:gap-12">
-            <.link navigate={~p"/"} class={nav_class(@active_path == "/")}>
-              <span title="Now playing"><FA.icon name="circle-play" class="mt-1 h-6 w-6 fill-current lg:hidden" /></span>
-              <span class="hidden text-xl font-bold lg:block">Now Playing</span>
-            </.link>
-            <.link navigate={~p"/library"} class={nav_class(@active_path == "/library")}>
-              <span title="Library"><FA.icon name="book-open" class="mt-1 h-6 w-6 fill-current lg:hidden" /></span>
-              <span class="hidden text-xl font-bold lg:block">Library</span>
-            </.link>
-            <span
-              phx-click={show_search()}
-              class={nav_class(String.starts_with?(@active_path, "/search"), "flex content-center gap-4 cursor-pointer")}
-            >
-              <span title="Search">
-                <FA.icon name="magnifying-glass" class="mt-1 h-6 w-6 fill-current lg:h-5 lg:w-5" />
-              </span>
-              <span class="hidden text-xl font-bold xl:block">Search</span>
-            </span>
-          </div>
-        </div>
-        <div class="flex-1">
-          <div class="flex">
-            <div class="grow" />
-            <div phx-click-away={hide_menu("user-menu")} phx-window-keydown={hide_menu("user-menu")} phx-key="escape">
-              <img
-                phx-click={toggle_menu("user-menu")}
-                class="mt-1 h-6 cursor-pointer rounded-full lg:h-7 lg:w-7"
-                src={gravatar_url(@user.email)}
-              />
-              <.user_menu user={@user} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <.live_component module={SearchBox} id="search-box" path={@active_path} />
-    </header>
-    """
-  end
-
-  def ambry_icon(assigns) do
-    extra_classes = assigns[:class] || ""
-    default_classes = "text-brand dark:text-brand-dark"
-    assigns = assign(assigns, :class, String.trim("#{default_classes} #{extra_classes}"))
-
-    ~H"""
-    <svg class={@class} version="1.1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="m512 287.9-4e-3 112c-0.896 44.2-35.896 80.1-79.996 80.1-26.47 0-48-21.56-48-48.06v-127.84c0-26.5 21.5-48.1 48-48.1 10.83 0 20.91 2.723 30.3 6.678-12.6-103.58-100.2-182.55-206.3-182.55s-193.71 78.97-206.3 182.57c9.39-4 19.47-6.7 30.3-6.7 26.5 0 48 21.6 48 48.1v127.9c0 26.4-21.5 48-48 48-44.11 0-79.1-35.88-79.1-80.06l-0.9-111.94c0-141.2 114.8-256 256-256 140.9 0 256.5 114.56 256 255.36 0 0.2 0 0-2e-3 0.54451z"
-        fill="currentColor"
-      />
-      <path
-        d="m364 347v-138.86c0-12.782-10.366-23.143-23.143-23.143h-146.57c-25.563 0-46.286 20.723-46.286 46.286v154.29c0 25.563 20.723 46.286 46.286 46.286h154.29c8.5195 0 15.429-6.9091 15.429-14.995 0-5.6507-3.1855-10.376-7.7143-13.066v-39.227c4.725-4.6479 7.7143-10.723 7.7143-17.569zm-147.01-100.29h92.572c4.6768 0 8.1482 3.4714 8.1482 7.7143s-3.4714 7.7143-7.7143 7.7143h-93.006c-3.8089 0-7.2804-3.4714-7.2804-7.7143s3.4714-7.7143 7.2804-7.7143zm0 30.857h92.572c4.6768 0 8.1482 3.4714 8.1482 7.7143 0 4.2429-3.4714 7.7143-7.7143 7.7143h-93.006c-3.8089 0-7.2804-3.4714-7.2804-7.7143 0-4.2429 3.4714-7.7143 7.2804-7.7143zm116.15 123.43h-138.86c-8.5195 0-15.429-6.9091-15.429-15.429 0-8.5195 6.9091-15.429 15.429-15.429h138.86z"
-        fill="currentColor"
-      />
-    </svg>
-    """
-  end
-
-  def ambry_title(assigns) do
-    extra_classes = assigns[:class] || ""
-    default_classes = "text-zinc-900 dark:text-zinc-100"
-    assigns = assign(assigns, :class, String.trim("#{default_classes} #{extra_classes}"))
-
-    ~H"""
-    <svg class={@class} version="1.1" viewBox="0 0 1536 512" xmlns="http://www.w3.org/2000/svg">
-      <g fill="currentColor">
-        <path d="m283.08 388.31h-123.38l-24 91.692h-95.692l140-448h82.769l140.92 448h-96.615zm-103.69-75.385h83.692l-41.846-159.69z" />
-        <g>
-          <path d="m533.4 146.87 62.92 240.93 62.691-240.93h87.859v333.13h-67.496v-90.147l6.1776-138.88-66.581 229.03h-45.76l-66.581-229.03 6.1775 138.88v90.147h-67.267v-333.13z" />
-          <path d="m800.87 480v-333.13h102.96q52.166 0 79.165 23.338 27.227 23.109 27.227 67.953 0 25.397-11.211 43.701-11.211 18.304-30.659 26.77 22.422 6.4064 34.549 25.854 12.126 19.219 12.126 47.59 0 48.506-26.77 73.216-26.541 24.71-77.105 24.71zm67.267-144.83v89.003h43.014q18.075 0 27.456-11.211 9.3809-11.211 9.3809-31.803 0-44.845-32.49-45.989zm0-48.963h35.006q39.582 0 39.582-40.955 0-22.651-9.152-32.49t-29.744-9.8384h-35.693z" />
-          <path d="m1164.7 358.28h-33.405v121.72h-67.267v-333.13h107.31q50.565 0 78.02 26.312 27.685 26.083 27.685 74.36 0 66.352-48.277 92.893l58.344 136.36v3.2032h-72.301zm-33.405-56.056h38.21q20.134 0 30.202-13.27 10.067-13.499 10.067-35.922 0-50.107-39.125-50.107h-39.354z" />
-          <path d="m1412.7 296.5 50.107-149.63h73.216l-89.232 212.33v120.81h-68.182v-120.81l-89.461-212.33h73.216z" />
-        </g>
-      </g>
-    </svg>
-    """
-  end
-
-  defp nav_class(active?, extra \\ "")
-  defp nav_class(true, extra), do: "text-zinc-900 dark:text-zinc-100 #{extra}"
-  defp nav_class(false, extra), do: "hover:text-zinc-900 dark:hover:text-zinc-100 #{extra}"
-
-  def user_menu(assigns) do
-    ~H"""
-    <.menu_wrapper id="user-menu" user={@user}>
-      <div class="py-3">
-        <%= if @user.admin do %>
-          <.link navigate={~p"/admin"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
-            <FA.icon name="screwdriver-wrench" class="h-5 w-5 fill-current" />
-            <p>Admin</p>
-          </.link>
-        <% end %>
-        <.link
-          navigate={~p"/users/settings"}
-          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
-        >
-          <FA.icon name="user-gear" class="h-5 w-5 fill-current" />
-          <p>Account Settings</p>
-        </.link>
-        <.link
-          href={~p"/users/log_out"}
-          method="delete"
-          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
-        >
-          <FA.icon name="arrow-right-from-bracket" class="h-5 w-5 fill-current" />
-          <p>Log out</p>
-        </.link>
-      </div>
-    </.menu_wrapper>
-    """
-  end
-
-  defp menu_wrapper(assigns) do
-    ~H"""
-    <div id={@id} class="max-w-80 absolute top-12 right-4 z-50 hidden text-zinc-800 shadow-md dark:text-zinc-200">
-      <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-        <div class="flex items-center gap-4 p-4">
-          <img class="h-10 w-10 rounded-full" src={gravatar_url(@user.email)} />
-          <p class="overflow-hidden text-ellipsis whitespace-nowrap"><%= @user.email %></p>
-        </div>
-        <%= render_slot(@inner_block) %>
-      </div>
-    </div>
-    """
-  end
-
   attr :content, :string, required: true
   attr :class, :string, default: nil
 
@@ -1133,51 +962,13 @@ defmodule AmbryWeb.CoreComponents do
     |> JS.pop_focus()
   end
 
-  defp toggle_menu(js \\ %JS{}, id) do
-    JS.toggle(js,
-      to: "##{id}",
-      time: 100,
-      in: transition_in(),
-      out: transition_out()
-    )
-  end
-
-  defp hide_menu(js \\ %JS{}, id) do
-    JS.hide(js,
-      to: "##{id}",
-      time: 100,
-      transition: transition_out()
-    )
-  end
-
-  def show_search(js \\ %JS{}) do
-    js
-    |> JS.show(
-      to: "#search-box",
-      time: 100,
-      transition: transition_in()
-    )
-    |> JS.focus(to: "#search-input")
-    |> JS.dispatch("ambry:search-box-shown", to: "#search-box")
-  end
-
-  def hide_search(js \\ %JS{}) do
-    js
-    |> JS.hide(
-      to: "#search-box",
-      time: 100,
-      transition: transition_out()
-    )
-    |> JS.dispatch("ambry:search-box-hidden", to: "#search-box")
-  end
-
-  defp transition_in do
+  def transition_in do
     {"transition-all transform ease-out duration-300",
      "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
      "opacity-100 translate-y-0 sm:scale-100"}
   end
 
-  defp transition_out do
+  def transition_out do
     {"transition-all transform ease-in duration-200", "opacity-100 translate-y-0 sm:scale-100",
      "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"}
   end

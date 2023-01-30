@@ -12,13 +12,13 @@ defmodule AmbryWeb.Components.SearchBox do
         "absolute top-4 w-full sm:max-w-md md:max-w-xl lg:max-w-3xl sm:left-1/2 sm:-translate-x-1/2",
         if(!@is_open, do: "hidden")
       ]}
-      phx-click-away={hide_search()}
-      phx-window-keydown={hide_search()}
+      phx-click-away={@hide_search}
+      phx-window-keydown={@hide_search}
       phx-key="escape"
       phx-hook="searchBox"
     >
       <div class="mx-4 flex rounded-sm border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 sm:mx-0">
-        <span phx-click={hide_search()} title="Back" class="ml-4 flex-none cursor-pointer self-center">
+        <span phx-click={@hide_search} title="Back" class="ml-4 flex-none cursor-pointer self-center">
           <FA.icon name="arrow-left" class="h-5 w-5 fill-zinc-500" />
         </span>
         <.form :let={f} for={:search} phx-submit="search" phx-target={@myself} class="grow">

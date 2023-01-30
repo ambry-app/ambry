@@ -28,7 +28,18 @@ defmodule Ambry.Media.PlayerState do
     player_state
     |> cast(attrs, [:position, :playback_rate, :media_id, :user_id])
     |> validate_required([:position, :playback_rate, :media_id, :user_id])
+    |> validate_playback_rate()
     |> compute_and_put_status()
+  end
+
+  defp validate_playback_rate(changeset) do
+    validate_change(changeset, :playback_rate, fn :playback_rate, rate ->
+      if Decimal.eq?(rate, 0) do
+        [playback_rate: "cannot be zero"]
+      else
+        []
+      end
+    end)
   end
 
   defp compute_and_put_status(changeset) do

@@ -41,8 +41,11 @@ export const ShakaPlayerHook = {
     audio.addEventListener('seeked', () => this.seeked())
 
     // LiveView event handlers
-    this.el.addEventListener('ambry:toggle-playback',() => this.playPause())
-    this.el.addEventListener('ambry:seek-relative',(event) => this.seekRelative(event.detail.value))
+    this.el.addEventListener('ambry:toggle-playback', () => this.playPause())
+    this.el.addEventListener('ambry:seek-relative', (event) => this.seekRelative(new Decimal(event.detail.value)))
+    this.el.addEventListener('ambry:set-playback-rate', (event) => this.setPlaybackRate(new Decimal(event.detail.value)))
+    this.el.addEventListener('ambry:increment-playback-rate', () => this.incrementPlaybackRate())
+    this.el.addEventListener('ambry:decrement-playback-rate', () => this.decrementPlaybackRate())
 
     this.audio = audio
     this.player = player
@@ -61,17 +64,17 @@ export const ShakaPlayerHook = {
     }
   },
 
-  seek (time) {
-    this.setCurrentTime(time)
-  },
+  // seek (time) {
+  //   this.setCurrentTime(time)
+  // },
 
   seekRelative (seconds) {
     const duration = this.getDuration()
+    const delta = seconds.mul(this.playbackRate)
+    let newTime = this.time.add(delta)
 
-    let newTime = this.time + seconds * this.playbackRate
-
-    newTime = newTime < 0 ? 0 : newTime
-    newTime = newTime > duration ? duration : newTime
+    newTime = newTime.lt(0) ? new Decimal(0) : newTime
+    newTime = newTime.gt(duration) ? duration : newTime
 
     this.time = newTime
     this.setCurrentTime(this.time)
@@ -82,9 +85,23 @@ export const ShakaPlayerHook = {
 
   seekRatio (ratio) {
     const duration = this.getDuration()
-    const newTime = duration * ratio
+    const newTime = duration.mul(ratio)
 
     this.setCurrentTime(newTime)
+  },
+
+  incrementPlaybackRate () {
+    const rate = this.getPlaybackRate()
+    const newRate = rate.add('0.05')
+
+    this.setPlaybackRate(newRate.gt(3) ? new Decimal(3) : newRate)
+  },
+
+  decrementPlaybackRate () {
+    const rate = this.getPlaybackRate()
+    const newRate = rate.sub('0.05')
+
+    this.setPlaybackRate(newRate.lt('0.5') ? new Decimal('0.5') : newRate)
   },
 
   loadAndPlayMedia (mediaId) {
@@ -118,7 +135,7 @@ export const ShakaPlayerHook = {
   playbackRateChanged () {
     const playbackRate = this.getPlaybackRate()
 
-    if (playbackRate && playbackRate != this.playbackRate) {
+    if (!playbackRate.eq(0) && !this.playbackRate.eq(playbackRate)) {
       this.pushEvent('playback-rate-changed', { 'playback-rate': playbackRate })
       this.playbackRate = playbackRate
     }
@@ -164,15 +181,15 @@ export const ShakaPlayerHook = {
     const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
     const mediaPath = dataset.mediaPath
     const player = this.player
-    const time = parseFloat(mediaPosition)
 
     this.mediaId = mediaId
-    this.playbackRate = mediaPlaybackRate
+    this.time = new Decimal(mediaPosition)
+    this.playbackRate = new Decimal(mediaPlaybackRate)
     this.loaded = true
 
     try {
-      await player.load(mediaPath, time)
-      this.setPlaybackRate(parseFloat(mediaPlaybackRate))
+      await player.load(mediaPath, this.time.toNumber())
+      this.setPlaybackRate(this.playbackRate)
 
       console.log('Shaka: Media loaded')
 
@@ -196,23 +213,23 @@ export const ShakaPlayerHook = {
   },
 
   setCurrentTime (time) {
-    this.audio.currentTime = time
+    this.audio.currentTime = time.toNumber()
   },
 
   getCurrentTime () {
-    return this.audio.currentTime
+    return new Decimal(this.audio.currentTime)
   },
 
   setPlaybackRate (rate) {
-    this.audio.playbackRate = rate
+    this.audio.playbackRate = rate.toNumber()
   },
 
   getPlaybackRate () {
-    return this.audio.playbackRate
+    return new Decimal(this.audio.playbackRate)
   },
 
   getDuration () {
-    return this.audio.duration
+    return new Decimal(this.audio.duration)
   },
 
   isPaused () {
