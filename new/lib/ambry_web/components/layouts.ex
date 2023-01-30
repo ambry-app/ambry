@@ -228,9 +228,6 @@ defmodule AmbryWeb.Layouts do
         id="time-code"
         phx-update="ignore"
         class="pointer-events-none absolute -top-4 hidden rounded-sm border border-zinc-200 bg-zinc-100 px-1 tabular-nums group-hover:block dark:border-zinc-800 dark:bg-zinc-900"
-        x-class="{ 'hidden': !dragging }"
-        x-style="position > width / 2 ? `right: ${width - position}px` : `left: ${position}px`"
-        x-text="formatTimecode(time)"
       />
       <div class="mr-[12px] relative top-4 bg-zinc-200 dark:bg-zinc-800">
         <div
@@ -276,18 +273,6 @@ defmodule AmbryWeb.Layouts do
         </span>
       </div>
       <div
-        x-data="{
-          open: false,
-          close () { this.open = false },
-          inc () {
-            mediaPlayer.setPlaybackRate(Math.min($store.player.playbackRate + 0.05, 3.0))
-          },
-          dec () {
-            mediaPlayer.setPlaybackRate(Math.max($store.player.playbackRate - 0.05, 0.5))
-          }
-        }"
-        @click.outside="open = false"
-        @keydown.escape.window.prevent="open = false"
         title="Playback speed"
         class="flex items-center gap-2"
         phx-click-away={hide_menu("playback-rate-menu")}
