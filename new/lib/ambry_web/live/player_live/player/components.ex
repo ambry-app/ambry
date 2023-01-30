@@ -34,6 +34,9 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
     }
   end
 
+  # these comments are here for the tailwind JIT:
+  # when hovering we need class="h-[4px]" on the progress bar and class="!block"
+  # on the handle
   def time_bar(assigns) do
     ~H"""
     <div id="time-bar" class="group absolute -top-4 h-8 w-full cursor-pointer" phx-hook="timeBar">
@@ -50,7 +53,7 @@ defmodule AmbryWeb.PlayerLive.Player.Components do
           style={"width: #{progress_percent(@player_state)}%"}
         />
         <div
-          class="top-[-6px] bg-brand pointer-events-none absolute hidden h-4 w-4 rounded-full group-hover:block dark:bg-brand-dark"
+          class="top-[-6px] bg-brand pointer-events-none absolute hidden h-4 w-4 rounded-full group-hover:!block dark:bg-brand-dark"
           style={"left: calc(#{progress_percent(@player_state)}% - 8px)"}
         />
       </div>

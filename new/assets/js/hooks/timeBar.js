@@ -7,6 +7,9 @@ export const TimeBarHook = {
     this.handle = this.timeBar.lastElementChild
     this.width = this.timeBar.clientWidth
 
+    this.progressBarHoverStyles = this.getHoverStyles(this.progressBar)
+    this.handleHoverStyles = this.getHoverStyles(this.handle)
+
     this.attach(this.wrapper, "mousedown")
     this.attach(window, "mousemove")
     this.attach(window, "mouseup")
@@ -21,6 +24,14 @@ export const TimeBarHook = {
     this.listeners.push([target, event, callback])
   },
 
+  updateState (event) {
+    const x = event.clientX
+
+    this.position = Math.min(x, this.width)
+    this.ratio = this.position / this.width
+    this.percent = (this.ratio * 100).toFixed(2)
+  },
+
   updateUI () {
     this.progressBar.style.width = `${this.percent}%`
     this.handle.style.left = `calc(${this.percent}% - 8px)`
@@ -28,18 +39,16 @@ export const TimeBarHook = {
 
   mousedown (event) {
     if (event.buttons === 1) {
+      this.updateState(event)
       this.startDragging()
+      this.updateUI()
     }
 
     event.preventDefault()
   },
 
   mousemove (event) {
-    const x = event.clientX
-
-    this.position = Math.min(x, this.width)
-    this.ratio = this.position / this.width
-    this.percent = (this.ratio * 100).toFixed(2)
+    this.updateState(event)
 
     if (this.isDragging()) {
       this.updateUI()
@@ -60,15 +69,25 @@ export const TimeBarHook = {
   startDragging () {
     this.dragging = true
     this.wrapper.setAttribute('phx-update', 'ignore')
+    this.progressBar.classList.add(...this.progressBarHoverStyles)
+    this.handle.classList.add(...this.handleHoverStyles)
   },
 
   endDragging () {
     this.dragging = false
     this.wrapper.removeAttribute('phx-update')
+    this.progressBar.classList.remove(...this.progressBarHoverStyles)
+    this.handle.classList.remove(...this.handleHoverStyles)
   },
 
   isDragging () {
     return this.dragging
+  },
+
+  getHoverStyles (el) {
+    return Array.from(el.classList)
+      .filter((c) => c.startsWith('group-hover:'))
+      .map((c) => c.replace('group-hover:', ''))
   },
 
   destroyed () {
