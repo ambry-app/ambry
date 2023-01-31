@@ -20,6 +20,7 @@ export const TimeBarHook = {
     this.attach(this.wrapper, "mousedown")
     this.attach(window, "mousemove")
     this.attach(window, "mouseup")
+    this.attach(document.body, "mouseleave")
     this.attach(window, "resize")
   },
 
@@ -37,6 +38,18 @@ export const TimeBarHook = {
     this.position = Math.min(x, this.width)
     this.ratio = this.position / this.width
     this.percent = (this.ratio * 100).toFixed(2)
+  },
+
+  snapshotState () {
+    const {position, ratio, percent} = this
+    this.snapshot = {position, ratio, percent}
+  },
+
+  resetToSnapshot () {
+    const {position, ratio, percent} = this.snapshot
+    this.position = position
+    this.ratio = ratio
+    this.percent = percent
   },
 
   updateUI () {
@@ -57,6 +70,7 @@ export const TimeBarHook = {
 
   mousedown (event) {
     if (event.buttons === 1) {
+      this.snapshotState()
       this.updateState(event)
       this.startDragging()
       this.updateUI()
@@ -74,6 +88,14 @@ export const TimeBarHook = {
     if (this.isDragging()) {
       this.endDragging()
       mediaPlayer.seekRatio(this.ratio)
+    }
+  },
+
+  mouseleave (event) {
+    if (this.isDragging()) {
+      this.resetToSnapshot()
+      this.updateUI()
+      this.endDragging()
     }
   },
 
