@@ -59,11 +59,16 @@ export const TimeBarHook = {
     }
 
     this.timeCode.innerText = this.formatTimecode(this.ratio * this.duration)
+    const timeCodeHalfWidth = this.timeCode.clientWidth / 2
     if (this.position > this.width / 2) {
+      const shiftStrength = (((this.percent - 50) * -1) / 50) + 1
+      const timeCodePosition = this.fullWidth - this.position - shiftStrength * timeCodeHalfWidth
       this.timeCode.style.left = "auto"
-      this.timeCode.style.right = `${this.fullWidth - this.position}px`
+      this.timeCode.style.right = `${timeCodePosition}px`
     } else {
-      this.timeCode.style.left = `${this.position}px`
+      const shiftStrength = this.percent / 50
+      const timeCodePosition = this.position - shiftStrength * timeCodeHalfWidth
+      this.timeCode.style.left = `${timeCodePosition}px`
       this.timeCode.style.right = "auto"
     }
   },
@@ -100,6 +105,7 @@ export const TimeBarHook = {
   },
 
   resize (event) {
+    this.fullWidth = this.wrapper.clientWidth
     this.width = this.timeBar.clientWidth
   },
 
