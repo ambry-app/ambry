@@ -5,6 +5,7 @@ defmodule Ambry.PubSub do
 
   alias Ambry.Media.Media
   alias Ambry.PubSub.Message
+  alias Ambry.PubSub.Publishable
   alias Phoenix.PubSub
 
   require Logger
@@ -50,9 +51,9 @@ defmodule Ambry.PubSub do
     broadcast_all([topic], message)
   end
 
-  defp broadcast(%mod{id: id}, action, meta) do
-    {topics, type} = topics_and_type(mod, id)
-    message = %Message{type: type, action: action, id: id, meta: meta}
+  defp broadcast(%mod{id: id} = data, action, meta) do
+    message = %Message{type: type(mod), action: action, id: id, meta: meta}
+    topics = Publishable.topics(data)
 
     broadcast_all(topics, message)
   end
@@ -74,10 +75,8 @@ defmodule Ambry.PubSub do
     end
   end
 
-  defp topics_and_type(module, id) do
+  def type(module) do
     [last | _] = module |> Module.split() |> Enum.reverse()
-    type = last |> Macro.underscore() |> String.to_atom()
-
-    {["#{type}:#{id}", "#{type}:*"], type}
+    last |> Macro.underscore() |> String.to_atom()
   end
 end

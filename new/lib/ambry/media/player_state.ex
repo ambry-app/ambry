@@ -65,4 +65,13 @@ defmodule Ambry.Media.PlayerState do
         changeset
     end
   end
+
+  defimpl Ambry.PubSub.Publishable do
+    def topics(player_state) do
+      [
+        "#{player_state.user_id}:player_state:#{player_state.id}",
+        "#{player_state.user_id}:player_state:*"
+      ]
+    end
+  end
 end

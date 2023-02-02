@@ -5,6 +5,8 @@ defmodule AmbryWeb.LibraryLive.Home do
 
   use AmbryWeb, :live_view
 
+  alias Ambry.PubSub
+
   alias AmbryWeb.LibraryLive.Home.{RecentBooks, RecentMedia}
 
   @impl Phoenix.LiveView
@@ -20,6 +22,16 @@ defmodule AmbryWeb.LibraryLive.Home do
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      PubSub.subscribe("#{socket.assigns.current_user.id}:player_state:*")
+    end
+
     {:ok, assign(socket, :page_title, "Library")}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_info(%PubSub.Message{type: :player_state} = _message, socket) do
+    # TODO: cause recent media to reload somehow
+    {:noreply, socket}
   end
 end
