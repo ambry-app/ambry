@@ -56,7 +56,7 @@ defmodule AmbryWeb.BookLive.Show do
                     <%= if playing?(@player, media) do %>
                       <FA.icon name="pause" class="h-7 w-7" />
                     <% else %>
-                      <FA.icon name="play" class="h-7 w-7" />
+                      <FA.icon name="play" class="h-7 w-7 pl-1" />
                     <% end %>
                   </div>
                 </div>

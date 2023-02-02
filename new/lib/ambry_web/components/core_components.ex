@@ -16,7 +16,11 @@ defmodule AmbryWeb.CoreComponents do
   alias Phoenix.LiveView.JS
 
   alias Ambry.Books.Book
+  alias Ambry.Media.Media
+  alias Ambry.Media.PlayerState
   alias Ambry.Series.SeriesBook
+
+  alias AmbryWeb.Player
 
   import Phoenix.HTML, only: [raw: 1]
 
@@ -682,6 +686,7 @@ defmodule AmbryWeb.CoreComponents do
       |> assign_new(:current_page, fn -> 0 end)
 
     {load_more, target} = assigns.load_more
+    assigns = assign(assigns, load_more: load_more, target: target)
 
     ~H"""
     <.grid>
@@ -726,7 +731,7 @@ defmodule AmbryWeb.CoreComponents do
           </div>
         <% else %>
           <div class="text-center text-lg">
-            <div phx-click={load_more} phx-target={target} class="group">
+            <div phx-click={@load_more} phx-target={@target} class="group">
               <span class="aspect-w-10 aspect-h-15 block cursor-pointer">
                 <span class="load-more flex h-full w-full rounded-lg border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                   <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
@@ -753,6 +758,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def player_state_tiles(assigns) do
     {load_more, target} = assigns.load_more
+    assigns = assign(assigns, load_more: load_more, target: target)
 
     ~H"""
     <.grid>
@@ -765,30 +771,22 @@ defmodule AmbryWeb.CoreComponents do
                 class="h-full w-full rounded-t-lg border border-b-0 border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
               />
               <div class="absolute flex">
-                <%!-- <div
-                  id={"resume-media-#{player_state.media.id}"}
-                  x-data={"{
-                    id: #{player_state.media.id},
-                    loaded: false
-                  }"}
-                  x-effect="$store.player.mediaId == id ? loaded = true : loaded = false"
-                  @click={"loaded ? mediaPlayer.playPause() : mediaPlayer.loadAndPlayMedia(#{player_state.media.id})"}
+                <div
+                  phx-click={media_click_action(@player, player_state.media)}
                   class="mx-auto flex h-16 w-16 cursor-pointer self-center rounded-full bg-white bg-opacity-80 shadow-md backdrop-blur-sm transition group-hover:bg-opacity-100 dark:bg-black dark:bg-opacity-80"
-                  phx-hook="goHome"
                 >
-                  <div class="mx-auto self-center fill-current pl-1" :class="{ 'pl-1': !loaded || !$store.player.playing }">
-                    <span :class="{ hidden: loaded && $store.player.playing }">
-                      <FA.icon name="play" class="h-7 w-7" />
-                    </span>
-                    <span class="hidden" :class="{ hidden: !loaded || !$store.player.playing }">
+                  <div class="mx-auto self-center fill-current">
+                    <%= if playing?(@player, player_state.media) do %>
                       <FA.icon name="pause" class="h-7 w-7" />
-                    </span>
+                    <% else %>
+                      <FA.icon name="play" class="h-7 w-7 pl-1" />
+                    <% end %>
                   </div>
-                </div> --%>
+                </div>
               </div>
             </div>
             <div class="overflow-hidden rounded-b-sm border-x border-zinc-200 bg-zinc-300 shadow-sm dark:border-zinc-900 dark:bg-zinc-800">
-              <div class="bg-brand h-1 dark:bg-brand-dark" style={"width: #{progress_percent(player_state)}%;"} />
+              <div class="bg-brand h-1 dark:bg-brand-dark" style={"width: #{progress_percent(@player, player_state)}%;"} />
             </div>
           </div>
           <p class="font-bold text-zinc-900 hover:underline dark:text-zinc-100 sm:text-lg">
@@ -815,7 +813,7 @@ defmodule AmbryWeb.CoreComponents do
 
       <%= if @show_load_more do %>
         <div class="text-center text-lg">
-          <div phx-click={load_more} phx-target={target} class="group">
+          <div phx-click={@load_more} phx-target={@target} class="group">
             <span class="aspect-w-10 aspect-h-15 block cursor-pointer">
               <span class="load-more flex h-full w-full rounded-lg border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                 <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
@@ -831,9 +829,36 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  defp progress_percent(nil), do: "0.0"
+  defp media_click_action(player, media) do
+    if loaded?(player, media) do
+      JS.dispatch("ambry:toggle-playback", to: "#media-player")
+    else
+      JS.dispatch("ambry:load-and-play-media",
+        to: "#media-player",
+        detail: %{id: media.id}
+      )
+    end
+  end
 
-  defp progress_percent(%{position: position, media: %{duration: duration}}) do
+  defp loaded?(%Player{player_state: %{media_id: media_id}}, %Media{id: media_id}), do: true
+  defp loaded?(_player, _media), do: false
+
+  defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{
+         id: media_id
+       }),
+       do: true
+
+  defp playing?(_player, _media), do: false
+
+  defp progress_percent(%Player{player_state: %{id: id} = ps}, %PlayerState{id: id}) do
+    progress_percent(ps)
+  end
+
+  defp progress_percent(_player, ps) do
+    progress_percent(ps)
+  end
+
+  defp progress_percent(%PlayerState{position: position, media: %{duration: duration}}) do
     position
     |> Decimal.div(duration)
     |> Decimal.mult(100)

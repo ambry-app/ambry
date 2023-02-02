@@ -24,6 +24,7 @@ defmodule AmbryWeb.LibraryLive.Home.RecentMedia do
             show_load_more={@show_load_more?}
             load_more={{"load-more", @myself}}
             user={@user}
+            player={@player}
           />
         </div>
       <% end %>

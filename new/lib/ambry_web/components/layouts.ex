@@ -339,7 +339,7 @@ defmodule AmbryWeb.Layouts do
     ~H"""
     <span phx-click={toggle_playback()} class="cursor-pointer">
       <span :if={@playback_state == :paused} title="Play">
-        <FA.icon name="play" class="h-6 w-6 sm:h-7 sm:w-7" />
+        <FA.icon name="play" class="h-6 w-6 pl-1 sm:h-7 sm:w-7" />
       </span>
       <span :if={@playback_state == :playing} title="Pause">
         <FA.icon name="pause" class="h-6 w-6 sm:h-7 sm:w-7" />
