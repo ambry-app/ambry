@@ -1,8 +1,6 @@
 defmodule AmbryWeb.Layouts do
   use AmbryWeb, :html
 
-  alias Phoenix.LiveView.JS
-
   alias Ambry.Media
 
   alias AmbryWeb.Components.SearchBox
@@ -182,10 +180,10 @@ defmodule AmbryWeb.Layouts do
 
   def footer(assigns) do
     ~H"""
-    <footer :if={@player_state} class="relative bg-zinc-100 dark:bg-zinc-900">
-      <.time_bar player_state={@player_state} />
-      <.player_controls playback_state={@playback_state} player_state={@player_state} />
-      <.media_player player_state={@player_state} />
+    <footer :if={@player.player_state} class="relative bg-zinc-100 dark:bg-zinc-900">
+      <.time_bar player_state={@player.player_state} />
+      <.player_controls playback_state={@player.playback_state} player_state={@player.player_state} />
+      <.media_player player_state={@player.player_state} />
     </footer>
     """
   end
@@ -201,7 +199,7 @@ defmodule AmbryWeb.Layouts do
   defp player_state_attrs(nil), do: %{"data-media-unloaded" => true}
 
   defp player_state_attrs(%Media.PlayerState{
-         media: %Media.Media{id: id, mpd_path: path},
+         media: %Media.Media{id: id, mpd_path: path, chapters: chapters},
          position: position,
          playback_rate: playback_rate
        }) do
@@ -209,7 +207,8 @@ defmodule AmbryWeb.Layouts do
       "data-media-id" => id,
       "data-media-position" => position,
       "data-media-path" => "#{path}#t=#{position}",
-      "data-media-playback-rate" => playback_rate
+      "data-media-playback-rate" => playback_rate,
+      "data-media-chapters" => chapters |> Enum.map(&Map.get(&1, :time)) |> Jason.encode!()
     }
   end
 
@@ -334,7 +333,7 @@ defmodule AmbryWeb.Layouts do
     if Decimal.equal?(rounded, decimal), do: rounded, else: decimal
   end
 
-  attr :state, :atom, required: true
+  attr :playback_state, :atom, required: true
 
   defp play_pause_button(assigns) do
     ~H"""

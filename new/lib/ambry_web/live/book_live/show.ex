@@ -8,6 +8,10 @@ defmodule AmbryWeb.BookLive.Show do
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
   alias Ambry.Books
+  alias Ambry.Media.Media
+  alias Ambry.PubSub
+
+  alias AmbryWeb.Player
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -48,24 +52,13 @@ defmodule AmbryWeb.BookLive.Show do
                       <%= duration_display(media.duration) %>
                     </p>
                   </div>
-                  <%!-- <div
-                    id={"play-media-#{media.id}"}
-                    x-data={"{
-                      id: #{media.id},
-                      loaded: false
-                    }"}
-                    x-effect="$store.player.mediaId == id ? loaded = true : loaded = false"
-                    @click={"loaded ? mediaPlayer.playPause() : mediaPlayer.loadAndPlayMedia(#{media.id})"}
-                    class="cursor-pointer fill-current"
-                    phx-hook="goHome"
-                  >
-                    <span :class="{ hidden: loaded && $store.player.playing }">
-                      <FA.icon name="play" class="h-7 w-7" />
-                    </span>
-                    <span class="hidden" :class="{ hidden: !loaded || !$store.player.playing }">
+                  <div class="cursor-pointer fill-current" phx-click={media_click_action(@player, media)}>
+                    <%= if playing?(@player, media) do %>
                       <FA.icon name="pause" class="h-7 w-7" />
-                    </span>
-                  </div> --%>
+                    <% else %>
+                      <FA.icon name="play" class="h-7 w-7" />
+                    <% end %>
+                  </div>
                 </div>
               <% end %>
             </div>
@@ -88,15 +81,21 @@ defmodule AmbryWeb.BookLive.Show do
   def mount(%{"id" => book_id}, _session, socket) do
     book = Books.get_book_with_media!(book_id)
 
+    if connected?(socket) do
+      Player.subscribe_socket!(socket)
+    end
+
     {:ok,
-     socket
-     |> assign(:page_title, Books.get_book_description(book))
-     |> assign(:book, book)}
+     assign(socket,
+       page_title: Books.get_book_description(book),
+       book: book,
+       player: Player.get_for_socket(socket)
+     )}
   end
 
   @impl Phoenix.LiveView
-  def handle_event("go-home", _params, socket) do
-    {:noreply, push_redirect(socket, to: "/")}
+  def handle_info(%PubSub.Message{type: :player, action: :updated} = _message, socket) do
+    {:noreply, assign(socket, player: Player.get_for_socket(socket))}
   end
 
   defp book_header(assigns) do
@@ -115,4 +114,25 @@ defmodule AmbryWeb.BookLive.Show do
     </div>
     """
   end
+
+  defp media_click_action(player, media) do
+    if loaded?(player, media) do
+      JS.dispatch("ambry:toggle-playback", to: "#media-player")
+    else
+      JS.dispatch("ambry:load-and-play-media",
+        to: "#media-player",
+        detail: %{id: media.id}
+      )
+    end
+  end
+
+  defp loaded?(%Player{player_state: %{media_id: media_id}}, %Media{id: media_id}), do: true
+  defp loaded?(_player, _media), do: false
+
+  defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{
+         id: media_id
+       }),
+       do: true
+
+  defp playing?(_player, _media), do: false
 end

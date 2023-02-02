@@ -42,10 +42,12 @@ export const ShakaPlayerHook = {
 
     // LiveView event handlers
     this.el.addEventListener('ambry:toggle-playback', () => this.playPause())
+    this.el.addEventListener('ambry:seek', (event) => this.seek(new Decimal(event.detail.value)))
     this.el.addEventListener('ambry:seek-relative', (event) => this.seekRelative(new Decimal(event.detail.value)))
     this.el.addEventListener('ambry:set-playback-rate', (event) => this.setPlaybackRate(new Decimal(event.detail.value)))
     this.el.addEventListener('ambry:increment-playback-rate', () => this.incrementPlaybackRate())
     this.el.addEventListener('ambry:decrement-playback-rate', () => this.decrementPlaybackRate())
+    this.el.addEventListener('ambry:load-and-play-media', (event) => this.loadAndPlayMedia(event.detail.id))
 
     this.audio = audio
     this.player = player
@@ -64,9 +66,10 @@ export const ShakaPlayerHook = {
     }
   },
 
-  // seek (time) {
-  //   this.setCurrentTime(time)
-  // },
+  seek (time) {
+    this.time = time
+    this.setCurrentTime(this.time)
+  },
 
   seekRelative (seconds) {
     const duration = this.getDuration()
@@ -178,14 +181,17 @@ export const ShakaPlayerHook = {
       return
     }
 
-    const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
+    const { mediaId, mediaPlaybackRate, mediaPosition, mediaChapters } = dataset
     const mediaPath = dataset.mediaPath
     const player = this.player
 
     this.mediaId = mediaId
     this.time = new Decimal(mediaPosition)
     this.playbackRate = new Decimal(mediaPlaybackRate)
+    this.chapters = JSON.parse(mediaChapters).map((time, i) => ({id: i, time: new Decimal(time)}))
     this.loaded = true
+
+    console.log(this.chapters)
 
     try {
       await player.load(mediaPath, this.time.toNumber())

@@ -127,6 +127,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
               $el.scrollIntoView({block: 'center'})
             }
             "}
+            phx-click={JS.dispatch("ambry:seek", to: "#media-player", detail: %{value: chapter.time})}
           >
             <td class="flex items-center space-x-2 border-b border-zinc-100 py-4 pl-4 dark:border-zinc-900">
               <div class="invisible flex-none" x-class={"{invisible: $store.player.currentChapter?.id !== #{id}}"}>

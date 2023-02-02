@@ -3,11 +3,11 @@ defmodule AmbryWeb.PlayerStateHooks do
   LiveView lifecycle hooks for the persistent player.
   """
 
-  import Phoenix.Component, only: [assign: 3]
+  import Phoenix.Component, only: [assign: 2]
 
   alias Ambry.Media
 
-  def on_mount(:default, _params, _session, socket) do
+  def on_mount(:default, _params, session, socket) do
     user = socket.assigns.current_user
 
     player_state =
@@ -16,6 +16,6 @@ defmodule AmbryWeb.PlayerStateHooks do
         id -> Media.get_player_state!(id)
       end
 
-    {:cont, assign(socket, :player_state, player_state)}
+    {:cont, assign(socket, player_state: player_state, live_socket_id: session["live_socket_id"])}
   end
 end
