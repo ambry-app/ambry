@@ -245,23 +245,23 @@ export const ShakaPlayerHook = {
   // Helpers
 
   setPersistInterval () {
-    this.interval = window.setInterval(() => {
+    this.persistInterval = window.setInterval(() => {
       this.pushEvent('playback-time-updated', { 'playback-time': this.getCurrentTime(), persist: true })
     }, 60000)
   },
 
   clearPersistInterval () {
-    window.clearInterval(this.interval)
+    window.clearInterval(this.persistInterval)
   },
 
   setUpdateInterval () {
-    this.interval = window.setInterval(() => {
+    this.updateInterval = window.setInterval(() => {
       this.pushEvent('playback-time-updated', { 'playback-time': this.getCurrentTime() })
     }, 1000 / this.playbackRate)
   },
 
   clearUpdateInterval () {
-    window.clearInterval(this.interval)
+    window.clearInterval(this.updateInterval)
   },
 
   setUnloadHandler () {
