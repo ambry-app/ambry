@@ -268,7 +268,10 @@ defmodule AmbryWeb.Layouts do
       </div>
       <div class="grow overflow-hidden text-ellipsis whitespace-nowrap">
         <span class="text-sm text-zinc-800 dark:text-zinc-300 sm:text-base">
-          <%= player_state_description(@player_state) %>
+          <.link navigate={~p"/books/#{@player_state.media.book}"} class="hover:underline" phx-no-format>
+          <%= @player_state.media.book.title %></.link> ·
+          <span>by <.people_links people={@player_state.media.book.authors} /></span>
+          · narrated by <span><.people_links people={@player_state.media.narrators} /></span>
         </span>
       </div>
       <div
@@ -319,12 +322,6 @@ defmodule AmbryWeb.Layouts do
 
   defp player_state_playback_rate(%{playback_rate: playback_rate}) do
     format_decimal(playback_rate)
-  end
-
-  defp player_state_description(nil), do: ""
-
-  defp player_state_description(%{media: media}) do
-    Media.get_media_description(media)
   end
 
   defp format_decimal(decimal) do
