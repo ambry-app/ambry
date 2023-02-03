@@ -123,6 +123,7 @@ defmodule AmbryWeb.BookLive.Show do
         to: "#media-player",
         detail: %{id: media.id}
       )
+      |> JS.navigate(~p"/")
     end
   end
 

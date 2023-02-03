@@ -9,6 +9,9 @@ defmodule AmbryWeb.NowPlayingLive.Index do
   import AmbryWeb.Layouts, only: [nav_header: 1, flashes: 1]
 
   alias Ambry.Media
+  alias Ambry.PubSub
+
+  alias AmbryWeb.Player
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -45,6 +48,17 @@ defmodule AmbryWeb.NowPlayingLive.Index do
           [page_title: "Personal Audiobook Streaming"]
       end
 
+    if connected?(socket) do
+      Player.subscribe_socket!(socket)
+    end
+
     {:ok, assign(socket, assigns), layout: false}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_info(%PubSub.Message{type: :player, action: :updated} = _message, socket) do
+    player = Player.get_for_socket(socket)
+
+    {:noreply, assign(socket, player_state: player.player_state)}
   end
 end
