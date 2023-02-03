@@ -11,6 +11,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
   alias Ambry.Media
 
   alias AmbryWeb.NowPlayingLive.Index.Bookmarks
+  alias AmbryWeb.Player
 
   attr :media, Media.Media, required: true
 
@@ -50,7 +51,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
     """
   end
 
-  attr :media, Media.Media, required: true
+  attr :player, Player, required: true
   attr :user, User, required: true
 
   def media_tabs(assigns) do
@@ -64,15 +65,19 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
 
       <div class="flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
         <div id="chapters-body" class="media-tab-body">
-          <.chapters chapters={@media.chapters} />
+          <.chapters player={@player} />
         </div>
 
         <div id="bookmarks-body" class="media-tab-body hidden">
-          <.live_component id="bookmarks" module={Bookmarks} media={@media} user={@user} />
+          <.live_component id="bookmarks" module={Bookmarks} media={@player.player_state.media} user={@user} />
         </div>
 
         <div id="about-body" class="media-tab-body hidden">
-          <.markdown :if={@media.book.description} content={@media.book.description} class="p-4" />
+          <.markdown
+            :if={@player.player_state.media.book.description}
+            content={@player.player_state.media.book.description}
+            class="p-4"
+          />
         </div>
       </div>
     </div>
@@ -107,21 +112,19 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
     |> JS.remove_class("hidden", to: "##{id}-body")
   end
 
-  attr :chapters, :list, required: true
+  attr :player, Player, required: true
 
   defp chapters(assigns) do
     ~H"""
-    <%= if @chapters == [] do %>
+    <%= if @player.player_state.media.chapters == [] do %>
       <p class="p-4 text-center font-semibold text-zinc-800 dark:text-zinc-200">
         This book has no chapters defined.
       </p>
     <% else %>
       <table class="w-full">
-        <%= for {chapter, id} <- Enum.with_index(@chapters) do %>
+        <%= for {chapter, id} <- Enum.with_index(@player.player_state.media.chapters) do %>
           <tr
-            class="cursor-pointer"
-            x-class={"$store.player.currentChapter?.id === #{id} ? 'bg-zinc-50 dark:bg-zinc-900' : ''"}
-            @click={"mediaPlayer.seek(#{chapter.time})"}
+            class={["cursor-pointer", if(@player.current_chapter_index == id, do: "bg-zinc-50 dark:bg-zinc-900")]}
             x-effect={"
             if ($store.player.currentChapter?.id === #{id}) {
               $el.scrollIntoView({block: 'center'})
@@ -130,7 +133,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
             phx-click={JS.dispatch("ambry:seek", to: "#media-player", detail: %{value: chapter.time})}
           >
             <td class="flex items-center space-x-2 border-b border-zinc-100 py-4 pl-4 dark:border-zinc-900">
-              <div class="invisible flex-none" x-class={"{invisible: $store.player.currentChapter?.id !== #{id}}"}>
+              <div class={["flex-none", if(@player.current_chapter_index != id, do: "invisible")]}>
                 <FA.icon name="volume-high" class="h-5 w-5 fill-current" />
               </div>
               <p><%= chapter.title %></p>

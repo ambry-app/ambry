@@ -5,18 +5,15 @@ defmodule AmbryWeb.PlayerStateHooks do
 
   import Phoenix.Component, only: [assign: 2]
 
-  alias Ambry.Accounts
-  alias Ambry.Media
+  alias AmbryWeb.Player
 
-  def on_mount(:default, _params, session, socket) do
-    user = Accounts.get_user!(socket.assigns.current_user.id)
+  require Logger
 
-    player_state =
-      case user.loaded_player_state_id do
-        nil -> nil
-        id -> Media.get_player_state!(id)
-      end
+  def on_mount(:default, _params, _session, socket) do
+    %{assigns: %{current_user: user}, private: private} = socket
 
-    {:cont, assign(socket, player_state: player_state, live_socket_id: session["live_socket_id"])}
+    player = Player.get(user, private[:connect_params]["player_id"])
+
+    {:cont, assign(socket, player: player)}
   end
 end

@@ -3,26 +3,59 @@ defmodule AmbryWeb.Player do
   TODO: docs
   """
 
+  alias Ambry.Accounts
+  alias Ambry.Accounts.User
   alias Ambry.Media
   alias Ambry.PubSub
 
   alias AmbryWeb.Player.Tracker
 
-  defstruct [:id, :player_state, :playback_state]
+  defstruct [:connected?, :id, :user, :player_state, :playback_state, :current_chapter_index]
 
-  def new_from_socket(%{assigns: %{player_state: player_state}} = socket) do
-    %__MODULE__{id: id(socket), player_state: player_state, playback_state: :paused}
+  def get(%User{} = user, nil) do
+    new(user)
   end
 
-  def get_for_socket(socket) do
-    Tracker.get(id(socket))
+  def get(%User{} = user, player_id) do
+    case Tracker.fetch(player_id) do
+      :error -> new(user, player_id)
+      {:ok, player} -> player
+    end
   end
 
-  def subscribe_socket!(socket) do
-    :ok = PubSub.subscribe("player:#{id(socket)}")
+  def connect!(player) do
+    player = %{player | connected?: true}
+    Tracker.track!(player)
+    player
   end
 
-  def track!(player, user), do: Tracker.track!(player, user)
+  defp new(user, player_id \\ nil) do
+    {player_state, playback_state} =
+      case user.loaded_player_state_id do
+        nil -> {nil, :unloaded}
+        player_state_id -> {Media.get_player_state!(player_state_id), :paused}
+      end
+
+    %__MODULE__{
+      connected?: false,
+      id: player_id,
+      user: user,
+      player_state: player_state,
+      playback_state: playback_state
+    }
+    |> update_current_chapter()
+  end
+
+  def subscribe!(%__MODULE__{id: id}) when is_binary(id) do
+    :ok = PubSub.subscribe("player:#{id}")
+  end
+
+  def reload!(%__MODULE__{id: id}) when is_binary(id) do
+    case Tracker.fetch(id) do
+      :error -> raise "Tried to reload unknown player: #{inspect(id)}"
+      {:ok, player} -> player
+    end
+  end
 
   def playback_started(player) do
     update_tracker!(%{player | playback_state: :playing})
@@ -39,16 +72,25 @@ defmodule AmbryWeb.Player do
   end
 
   def playback_time_updated(player, position, persist: true) do
-    player |> update_player_state!(%{position: position}) |> update_tracker!()
+    player
+    |> update_player_state!(%{position: position})
+    |> update_current_chapter()
+    |> update_tracker!()
   end
 
   def playback_time_updated(player, position) do
-    update_tracker!(put_in(player.player_state.position, position))
+    player.player_state.position
+    |> put_in(position)
+    |> update_current_chapter()
+    |> update_tracker!()
   end
 
   def load_media(player, user, media_id) do
     player_state = Media.load_player_state!(user, media_id)
-    player = %{player | player_state: player_state}
+    user = Accounts.get_user!(user.id)
+
+    player = %{player | player_state: player_state, user: user}
+
     update_tracker!(player)
   end
 
@@ -63,5 +105,19 @@ defmodule AmbryWeb.Player do
     player
   end
 
-  defp id(socket), do: socket.assigns.live_socket_id
+  defp update_current_chapter(%{player_state: nil} = player), do: player
+
+  defp update_current_chapter(player) do
+    %{player_state: %{position: position, media: %{chapters: chapters}}} = player
+
+    chapter_index =
+      chapters
+      |> Enum.with_index()
+      |> Enum.reverse()
+      |> Enum.find_value(fn {chapter, idx} ->
+        if Decimal.eq?(position, chapter.time) or Decimal.gt?(position, chapter.time), do: idx
+      end)
+
+    %{player | current_chapter_index: chapter_index}
+  end
 end

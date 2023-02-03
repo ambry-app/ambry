@@ -32,7 +32,7 @@ let liveSocket = new LiveSocket(
   "/live",
   Socket,
   {
-    params: {_csrf_token: csrfToken},
+    params: {_csrf_token: csrfToken, player_id: crypto.randomUUID()},
     hooks: {
       readMore: ReadMoreHook,
       searchBox: SearchBoxHook,

@@ -257,7 +257,7 @@ export const ShakaPlayerHook = {
   setUpdateInterval () {
     this.updateInterval = window.setInterval(() => {
       this.pushEvent('playback-time-updated', { 'playback-time': this.getCurrentTime() })
-    }, 1000 / this.playbackRate)
+    }, 1000)
   },
 
   clearUpdateInterval () {

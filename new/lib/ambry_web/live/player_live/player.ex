@@ -13,19 +13,20 @@ defmodule AmbryWeb.PlayerLive.Player do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <.footer player={@player} />
+    <.footer :if={@player.player_state} player={@player} />
     """
   end
 
   @impl Phoenix.LiveView
   def mount(:not_mounted_at_router, _session, socket) do
-    player = Player.new_from_socket(socket)
+    socket =
+      if connected?(socket) do
+        assign(socket, player: Player.connect!(socket.assigns.player))
+      else
+        socket
+      end
 
-    if connected?(socket) do
-      Player.track!(player, socket.assigns.current_user)
-    end
-
-    {:ok, assign(socket, player: player), layout: false}
+    {:ok, socket, layout: false}
   end
 
   @impl Phoenix.LiveView

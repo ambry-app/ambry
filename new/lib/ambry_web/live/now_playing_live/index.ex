@@ -22,9 +22,9 @@ defmodule AmbryWeb.NowPlayingLive.Index do
       <.nav_header user={@current_user} active_path={@nav_active_path} />
 
       <main class="flex grow flex-col overflow-hidden lg:flex-row">
-        <%= if @player_state do %>
-          <.media_details media={@player_state.media} />
-          <.media_tabs media={@player_state.media} user={@current_user} />
+        <%= if @player.player_state do %>
+          <.media_details media={@player.player_state.media} />
+          <.media_tabs user={@current_user} player={@player} />
         <% else %>
           <p class="mx-auto mt-56 max-w-sm p-2 text-center text-lg">
             Welcome to Ambry! You don't have a book opened, head on over to the
@@ -40,19 +40,18 @@ defmodule AmbryWeb.NowPlayingLive.Index do
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     assigns =
-      case Player.get_for_socket(socket) do
+      case socket.assigns.player.player_state do
         nil ->
           [page_title: "Personal Audiobook Streaming"]
 
-        player ->
+        player_state ->
           [
-            page_title: Media.get_media_description(player.player_state.media),
-            player_state: player.player_state
+            page_title: Media.get_media_description(player_state.media)
           ]
       end
 
     if connected?(socket) do
-      Player.subscribe_socket!(socket)
+      Player.subscribe!(socket.assigns.player)
     end
 
     {:ok, assign(socket, assigns), layout: false}
@@ -60,8 +59,6 @@ defmodule AmbryWeb.NowPlayingLive.Index do
 
   @impl Phoenix.LiveView
   def handle_info(%PubSub.Message{type: :player, action: :updated} = _message, socket) do
-    player = Player.get_for_socket(socket)
-
-    {:noreply, assign(socket, player_state: player.player_state)}
+    {:noreply, assign(socket, player: Player.reload!(socket.assigns.player))}
   end
 end

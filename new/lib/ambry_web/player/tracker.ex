@@ -7,7 +7,7 @@ defmodule AmbryWeb.Player.Tracker do
 
   @topic "ambry:player_sessions"
 
-  def track!(%{id: id} = player, user) do
+  def track!(%{id: id} = player) when is_binary(id) do
     {:ok, _ref} =
       Presence.track(
         self(),
@@ -15,13 +15,12 @@ defmodule AmbryWeb.Player.Tracker do
         id,
         %{
           online_at: inspect(System.system_time(:second)),
-          user: user,
           player: player
         }
       )
   end
 
-  def update!(%{id: id} = player) do
+  def update!(%{id: id} = player) when is_binary(id) do
     {:ok, _ref} =
       Presence.update(
         self(),
@@ -35,10 +34,10 @@ defmodule AmbryWeb.Player.Tracker do
     Presence.list(@topic)
   end
 
-  def get(id) do
+  def fetch(id) when is_binary(id) do
     case Presence.get_by_key(@topic, id) do
-      [] -> nil
-      %{metas: [%{player: player}]} -> player
+      [] -> :error
+      %{metas: [%{player: player}]} -> {:ok, player}
     end
   end
 end
