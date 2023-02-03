@@ -26,6 +26,7 @@ import { SearchBoxHook } from "./hooks/searchBox"
 import { HeaderScrollspyHook } from "./hooks/headerScrollspy"
 import { ShakaPlayerHook } from "./hooks/shakaPlayer"
 import { TimeBarHook } from "./hooks/timeBar"
+import { ScrollIntoViewHook } from "./hooks/scrollIntoView"
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket(
@@ -38,7 +39,8 @@ let liveSocket = new LiveSocket(
       searchBox: SearchBoxHook,
       headerScrollspy: HeaderScrollspyHook,
       mediaPlayer: ShakaPlayerHook,
-      timeBar: TimeBarHook
+      timeBar: TimeBarHook,
+      scrollIntoView: ScrollIntoViewHook
     },
   }
 )

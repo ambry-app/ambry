@@ -181,17 +181,14 @@ export const ShakaPlayerHook = {
       return
     }
 
-    const { mediaId, mediaPlaybackRate, mediaPosition, mediaChapters } = dataset
+    const { mediaId, mediaPlaybackRate, mediaPosition } = dataset
     const mediaPath = dataset.mediaPath
     const player = this.player
 
     this.mediaId = mediaId
     this.time = new Decimal(mediaPosition)
     this.playbackRate = new Decimal(mediaPlaybackRate)
-    this.chapters = JSON.parse(mediaChapters).map((time, i) => ({id: i, time: new Decimal(time)}))
     this.loaded = true
-
-    console.log(this.chapters)
 
     try {
       await player.load(mediaPath, this.time.toNumber())

@@ -199,7 +199,7 @@ defmodule AmbryWeb.Layouts do
   defp player_state_attrs(nil), do: %{"data-media-unloaded" => true}
 
   defp player_state_attrs(%Media.PlayerState{
-         media: %Media.Media{id: id, mpd_path: path, chapters: chapters},
+         media: %Media.Media{id: id, mpd_path: path},
          position: position,
          playback_rate: playback_rate
        }) do
@@ -207,8 +207,7 @@ defmodule AmbryWeb.Layouts do
       "data-media-id" => id,
       "data-media-position" => position,
       "data-media-path" => "#{path}#t=#{position}",
-      "data-media-playback-rate" => playback_rate,
-      "data-media-chapters" => chapters |> Enum.map(&Map.get(&1, :time)) |> Jason.encode!()
+      "data-media-playback-rate" => playback_rate
     }
   end
 

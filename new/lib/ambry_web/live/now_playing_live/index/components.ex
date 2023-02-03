@@ -121,9 +121,10 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
         This book has no chapters defined.
       </p>
     <% else %>
-      <table class="w-full">
+      <table id="chapters-table" phx-hook="scrollIntoView" class="w-full">
         <%= for {chapter, id} <- Enum.with_index(@player.player_state.media.chapters) do %>
           <tr
+            data-active={if @player.current_chapter_index == id, do: "true"}
             class={["cursor-pointer", if(@player.current_chapter_index == id, do: "bg-zinc-50 dark:bg-zinc-900")]}
             x-effect={"
             if ($store.player.currentChapter?.id === #{id}) {
