@@ -40,12 +40,15 @@ defmodule AmbryWeb.NowPlayingLive.Index do
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     assigns =
-      case socket.assigns do
-        %{player_state: player_state} when is_map(player_state) ->
-          [page_title: Media.get_media_description(player_state.media)]
-
-        _else ->
+      case Player.get_for_socket(socket) do
+        nil ->
           [page_title: "Personal Audiobook Streaming"]
+
+        player ->
+          [
+            page_title: Media.get_media_description(player.player_state.media),
+            player_state: player.player_state
+          ]
       end
 
     if connected?(socket) do
