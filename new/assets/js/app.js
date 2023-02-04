@@ -28,12 +28,14 @@ import { ShakaPlayerHook } from "./hooks/shakaPlayer"
 import { TimeBarHook } from "./hooks/timeBar"
 import { ScrollIntoViewHook } from "./hooks/scrollIntoView"
 
+const playerId = Math.random().toString(36).substring(2,)
+
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket(
   "/live",
   Socket,
   {
-    params: {_csrf_token: csrfToken, player_id: crypto.randomUUID()},
+    params: {_csrf_token: csrfToken, player_id: playerId},
     hooks: {
       readMore: ReadMoreHook,
       searchBox: SearchBoxHook,

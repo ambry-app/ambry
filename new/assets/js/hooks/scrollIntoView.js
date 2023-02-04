@@ -1,7 +1,6 @@
 export const ScrollIntoViewHook = {
   mounted () {
     const chapterRows = Array.from(this.el.firstElementChild.children)
-    const activeRow = chapterRows.find((row) => row.dataset.active)
     const observerConfig = { attributes: true }
     const observer = new MutationObserver((mutationList, observer) => {
       for (const mutation of mutationList) {
@@ -17,7 +16,10 @@ export const ScrollIntoViewHook = {
       observer.observe(row, observerConfig)
     })
 
-    this.scrollIntoView(activeRow)
+    const activeRow = chapterRows.find((row) => row.dataset.active)
+    if (activeRow) {
+      this.scrollIntoView(activeRow)
+    }
   },
 
   scrollIntoView(el) {
