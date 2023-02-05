@@ -43,7 +43,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Bookmarks do
                       >
                         <FA.icon name="xmark" class="h-5 w-5 fill-current" />
                       </button>
-                      <.input field={{f, :label}} placeholder="Label" />
+                      <.input field={{f, :label}} placeholder="Label" class="!mt-0" />
                       <button type="submit" class="text-zinc-500 hover:text-brand-dark">
                         <FA.icon name="check" class="h-5 w-5 fill-current" />
                       </button>
