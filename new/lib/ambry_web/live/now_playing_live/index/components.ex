@@ -72,7 +72,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
         </div>
 
         <div id="bookmarks-body" class="media-tab-body hidden">
-          <.live_component id="bookmarks" module={Bookmarks} media={@player.player_state.media} user={@user} />
+          <.live_component id="bookmarks" module={Bookmarks} player_state={@player.player_state} user={@user} />
         </div>
 
         <div id="about-body" class={["media-tab-body", if(start_on_chapters?(@player.player_state.media), do: "hidden")]}>

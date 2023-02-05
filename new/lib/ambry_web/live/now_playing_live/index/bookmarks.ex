@@ -17,7 +17,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Bookmarks do
           class="text-brand flex cursor-pointer items-center pt-4 font-bold hover:underline dark:text-brand-dark"
           phx-click="add-bookmark"
           phx-target={@myself}
-          x-bind:phx-value-time="$store.player.progress.actual"
+          phx-value-time={@player_state.position}
         >
           New <FA.icon name="plus" class="ml-2 h-4 w-4 fill-current" />
         </span>
@@ -43,8 +43,8 @@ defmodule AmbryWeb.NowPlayingLive.Index.Bookmarks do
                       >
                         <FA.icon name="xmark" class="h-5 w-5 fill-current" />
                       </button>
-                      <%!-- <.text_input form={f} field={:label} placeholder="Label" /> --%>
-                      <button type="sutmit" class="text-zinc-500 hover:text-brand-dark">
+                      <.input field={{f, :label}} placeholder="Label" />
+                      <button type="submit" class="text-zinc-500 hover:text-brand-dark">
                         <FA.icon name="check" class="h-5 w-5 fill-current" />
                       </button>
                       <button
@@ -64,15 +64,17 @@ defmodule AmbryWeb.NowPlayingLive.Index.Bookmarks do
                 </td>
               </tr>
             <% else %>
-              <tr class="group cursor-pointer" x-on:click={"mediaPlayer.seek(#{bookmark.position})"}>
+              <tr
+                class="group cursor-pointer"
+                phx-click={JS.dispatch("ambry:seek", to: "#media-player", detail: %{value: bookmark.position})}
+              >
                 <td class="border-b border-zinc-100 py-4 pl-4 dark:border-zinc-900">
                   <div class="flex items-center space-x-2">
                     <div
                       id={"bookmark-#{bookmark.id}"}
                       class="invisible flex-none text-zinc-500 hover:text-brand-dark group-hover:visible"
-                      phx-hook="captureClick"
+                      phx-click="edit-bookmark"
                       phx-target={@myself}
-                      phx-event="edit-bookmark"
                       phx-value-id={bookmark.id}
                     >
                       <FA.icon name="pencil" class="h-4 w-4 fill-current" />
@@ -110,7 +112,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Bookmarks do
 
   @impl Phoenix.LiveComponent
   def handle_event("add-bookmark", %{"time" => time}, socket) do
-    %{media: media, user: user} = socket.assigns
+    %{player_state: %{media: media}, user: user} = socket.assigns
 
     params = %{
       position: time,
@@ -153,7 +155,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Bookmarks do
   end
 
   defp get_bookmarks(socket) do
-    %{media: media, user: user} = socket.assigns
+    %{player_state: %{media: media}, user: user} = socket.assigns
 
     assign(socket, :bookmarks, Media.list_bookmarks(user.id, media.id))
   end
