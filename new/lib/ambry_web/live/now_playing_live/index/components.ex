@@ -58,13 +58,16 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
     ~H"""
     <div class="mx-0 mt-4 flex grow flex-col overflow-hidden text-zinc-600 dark:text-zinc-500 sm:mx-8 lg:mx-16 lg:mt-16 lg:ml-4 lg:flex-1 lg:basis-5/12 lg:overflow-y-auto xl:max-w-2xl">
       <div class="flex">
-        <.media_tab id="chapters" label="Chapters" active={true} />
+        <.media_tab id="chapters" label="Chapters" active={start_on_chapters?(@player.player_state.media)} />
         <.media_tab id="bookmarks" label="Bookmarks" />
-        <.media_tab id="about" label="About" />
+        <.media_tab id="about" label="About" active={!start_on_chapters?(@player.player_state.media)} />
       </div>
 
       <div class="flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
-        <div id="chapters-body" class="media-tab-body">
+        <div
+          id="chapters-body"
+          class={["media-tab-body", if(!start_on_chapters?(@player.player_state.media), do: "hidden")]}
+        >
           <.chapters player={@player} />
         </div>
 
@@ -72,7 +75,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
           <.live_component id="bookmarks" module={Bookmarks} media={@player.player_state.media} user={@user} />
         </div>
 
-        <div id="about-body" class="media-tab-body hidden">
+        <div id="about-body" class={["media-tab-body", if(start_on_chapters?(@player.player_state.media), do: "hidden")]}>
           <.markdown
             :if={@player.player_state.media.book.description}
             content={@player.player_state.media.book.description}
@@ -83,6 +86,9 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
     </div>
     """
   end
+
+  defp start_on_chapters?(%{chapters: []}), do: false
+  defp start_on_chapters?(_media), do: true
 
   attr :id, :string, required: true
   attr :label, :string, required: true
