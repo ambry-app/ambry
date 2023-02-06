@@ -1,12 +1,14 @@
 defmodule AmbryWeb.Layouts do
+  @moduledoc false
+
   use AmbryWeb, :html
+
+  import AmbryWeb.Gravatar
+  import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
   alias Ambry.Media
 
   alias AmbryWeb.Components.SearchBox
-
-  import AmbryWeb.Gravatar
-  import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
   embed_templates "layouts/*"
 
@@ -435,15 +437,15 @@ defmodule AmbryWeb.Layouts do
     |> JS.dispatch("ambry:search-box-hidden", to: "#search-box")
   end
 
-  defp toggle_playback(), do: JS.dispatch("ambry:toggle-playback", to: "#media-player")
+  defp toggle_playback, do: JS.dispatch("ambry:toggle-playback", to: "#media-player")
 
   defp seek_relative(value),
     do: JS.dispatch("ambry:seek-relative", to: "#media-player", detail: %{value: value})
 
-  defp decrement_playback_rate(),
+  defp decrement_playback_rate,
     do: JS.dispatch("ambry:decrement-playback-rate", to: "#media-player")
 
-  defp increment_playback_rate(),
+  defp increment_playback_rate,
     do: JS.dispatch("ambry:increment-playback-rate", to: "#media-player")
 
   defp set_playback_rate(value),

@@ -43,7 +43,7 @@ defmodule AmbryWeb.UserResetPasswordLive do
         %{user: user} ->
           assign(socket, :changeset, Accounts.change_user_password(user))
 
-        _ ->
+        _assigns ->
           socket
       end
 

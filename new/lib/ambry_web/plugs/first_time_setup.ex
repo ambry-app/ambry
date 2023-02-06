@@ -2,9 +2,9 @@ defmodule AmbryWeb.Plugs.FirstTimeSetup do
   @moduledoc """
   Redirects to first-time-setup page if Ambry has not yet been set up.
   """
-  use AmbryWeb, :verified_routes
-
   @behaviour Plug
+
+  use AmbryWeb, :verified_routes
 
   import Phoenix.Controller, only: [redirect: 2]
 

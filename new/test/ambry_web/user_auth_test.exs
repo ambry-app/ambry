@@ -1,10 +1,13 @@
 defmodule AmbryWeb.UserAuthTest do
   use AmbryWeb.ConnCase, async: true
 
-  alias Phoenix.LiveView
-  alias Ambry.Accounts
-  alias AmbryWeb.UserAuth
   import Ambry.AccountsFixtures
+
+  alias Phoenix.LiveView
+
+  alias Ambry.Accounts
+
+  alias AmbryWeb.UserAuth
 
   @remember_me_cookie "_ambry_web_user_remember_me"
 
@@ -110,7 +113,7 @@ defmodule AmbryWeb.UserAuthTest do
     end
 
     test "does not authenticate if data is missing", %{conn: conn, user: user} do
-      _ = Accounts.generate_user_session_token(user)
+      _token = Accounts.generate_user_session_token(user)
       conn = UserAuth.fetch_current_user(conn, [])
       refute get_session(conn, :user_token)
       refute conn.assigns.current_user
@@ -139,7 +142,7 @@ defmodule AmbryWeb.UserAuthTest do
     end
 
     test "assigns nil to current_user assign if there isn't a user_token", %{conn: conn} do
-      session = conn |> get_session()
+      session = get_session(conn)
 
       {:cont, updated_socket} =
         UserAuth.on_mount(:mount_current_user, %{}, session, %LiveView.Socket{})
@@ -173,7 +176,7 @@ defmodule AmbryWeb.UserAuthTest do
     end
 
     test "redirects to login page if there isn't a user_token ", %{conn: conn} do
-      session = conn |> get_session()
+      session = get_session(conn)
 
       socket = %LiveView.Socket{
         endpoint: AmbryWeb.Endpoint,
@@ -200,7 +203,7 @@ defmodule AmbryWeb.UserAuthTest do
     end
 
     test "Don't redirect is there is no authenticated user", %{conn: conn} do
-      session = conn |> get_session()
+      session = get_session(conn)
 
       assert {:cont, _updated_socket} =
                UserAuth.on_mount(

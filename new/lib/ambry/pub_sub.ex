@@ -4,8 +4,8 @@ defmodule Ambry.PubSub do
   """
 
   alias Ambry.Media.Media
-  alias Ambry.PubSub.Message
-  alias Ambry.PubSub.Publishable
+  alias Ambry.PubSub.{Message, Publishable}
+
   alias Phoenix.PubSub
 
   require Logger

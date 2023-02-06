@@ -1,12 +1,13 @@
 defmodule AmbryWeb.Player do
   @moduledoc """
-  TODO: docs
+  Tracks player state and playback state for a connected browser session.
+
+  Uses Phoenix Presence and PubSub to keep everything in sync.
   """
 
   alias Ambry.Accounts
   alias Ambry.Accounts.User
-  alias Ambry.Media
-  alias Ambry.PubSub
+  alias Ambry.{Media, PubSub}
 
   alias AmbryWeb.Player.Tracker
 
@@ -36,14 +37,13 @@ defmodule AmbryWeb.Player do
         player_state_id -> {Media.get_player_state!(player_state_id), :paused}
       end
 
-    %__MODULE__{
+    update_current_chapter(%__MODULE__{
       connected?: false,
       id: player_id,
       user: user,
       player_state: player_state,
       playback_state: playback_state
-    }
-    |> update_current_chapter()
+    })
   end
 
   def subscribe!(%__MODULE__{id: id}) when is_binary(id) do

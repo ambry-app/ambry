@@ -12,19 +12,19 @@ defmodule AmbryWeb.CoreComponents do
   use Phoenix.Component
   use AmbryWeb, :verified_routes
 
-  alias FontAwesome.LiveView, as: FA
-  alias Phoenix.LiveView.JS
-
-  alias Ambry.Books.Book
-  alias Ambry.Media.Media
-  alias Ambry.Media.PlayerState
-  alias Ambry.Series.SeriesBook
-
-  alias AmbryWeb.Player
-
   import Phoenix.HTML, only: [raw: 1]
 
   import AmbryWeb.Gettext
+
+  alias FontAwesome.LiveView, as: FA
+  alias Phoenix.HTML.Form
+  alias Phoenix.LiveView.JS
+
+  alias Ambry.Books.Book
+  alias Ambry.Media.{Media, PlayerState}
+  alias Ambry.Series.SeriesBook
+
+  alias AmbryWeb.Player
 
   @doc """
   Renders a modal.
@@ -277,11 +277,11 @@ defmodule AmbryWeb.CoreComponents do
     assigns
     |> assign(field: nil)
     |> assign_new(:name, fn ->
-      name = Phoenix.HTML.Form.input_name(f, field)
+      name = Form.input_name(f, field)
       if assigns.multiple, do: name <> "[]", else: name
     end)
-    |> assign_new(:id, fn -> Phoenix.HTML.Form.input_id(f, field) end)
-    |> assign_new(:value, fn -> Phoenix.HTML.Form.input_value(f, field) end)
+    |> assign_new(:id, fn -> Form.input_id(f, field) end)
+    |> assign_new(:value, fn -> Form.input_value(f, field) end)
     |> assign_new(:errors, fn -> translate_errors(f.errors || [], field) end)
     |> input()
   end
@@ -840,10 +840,8 @@ defmodule AmbryWeb.CoreComponents do
     if loaded?(player, media) do
       JS.dispatch("ambry:toggle-playback", to: "#media-player")
     else
-      JS.dispatch("ambry:load-and-play-media",
-        to: "#media-player",
-        detail: %{id: media.id}
-      )
+      "ambry:load-and-play-media"
+      |> JS.dispatch(to: "#media-player", detail: %{id: media.id})
       |> JS.navigate(~p"/")
     end
   end

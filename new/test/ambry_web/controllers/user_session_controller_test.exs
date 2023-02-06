@@ -56,8 +56,7 @@ defmodule AmbryWeb.UserSessionControllerTest do
 
     test "login following registration", %{conn: conn, user: user} do
       conn =
-        conn
-        |> post(~p"/users/log_in", %{
+        post(conn, ~p"/users/log_in", %{
           "_action" => "registered",
           "user" => %{
             "email" => user.email,
@@ -71,8 +70,7 @@ defmodule AmbryWeb.UserSessionControllerTest do
 
     test "login following password update", %{conn: conn, user: user} do
       conn =
-        conn
-        |> post(~p"/users/log_in", %{
+        post(conn, ~p"/users/log_in", %{
           "_action" => "password_updated",
           "user" => %{
             "email" => user.email,

@@ -2,10 +2,10 @@ defmodule AmbryWeb.UserConfirmationInstructionsLiveTest do
   use AmbryWeb.ConnCase
 
   import Phoenix.LiveViewTest
+
   import Ambry.AccountsFixtures
 
-  alias Ambry.Accounts
-  alias Ambry.Repo
+  alias Ambry.{Accounts, Repo}
 
   setup do
     %{user: user_fixture()}

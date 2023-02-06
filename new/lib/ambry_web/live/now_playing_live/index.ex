@@ -8,8 +8,7 @@ defmodule AmbryWeb.NowPlayingLive.Index do
   import AmbryWeb.NowPlayingLive.Index.Components
   import AmbryWeb.Layouts, only: [nav_header: 1, flashes: 1]
 
-  alias Ambry.Media
-  alias Ambry.PubSub
+  alias Ambry.{Media, PubSub}
 
   alias AmbryWeb.Player
 

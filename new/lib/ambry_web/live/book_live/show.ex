@@ -7,9 +7,8 @@ defmodule AmbryWeb.BookLive.Show do
 
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
-  alias Ambry.Books
+  alias Ambry.{Books, PubSub}
   alias Ambry.Media.Media
-  alias Ambry.PubSub
 
   alias AmbryWeb.Player
 
@@ -118,10 +117,8 @@ defmodule AmbryWeb.BookLive.Show do
     if loaded?(player, media) do
       JS.dispatch("ambry:toggle-playback", to: "#media-player")
     else
-      JS.dispatch("ambry:load-and-play-media",
-        to: "#media-player",
-        detail: %{id: media.id}
-      )
+      "ambry:load-and-play-media"
+      |> JS.dispatch(to: "#media-player", detail: %{id: media.id})
       |> JS.navigate(~p"/")
     end
   end

@@ -1,7 +1,5 @@
 defmodule AmbryWeb.Player.Tracker do
-  @moduledoc """
-  TODO: docs
-  """
+  @moduledoc false
 
   alias AmbryWeb.Presence
 

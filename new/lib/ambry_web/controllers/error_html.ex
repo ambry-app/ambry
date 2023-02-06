@@ -1,4 +1,6 @@
 defmodule AmbryWeb.ErrorHTML do
+  @moduledoc false
+
   use AmbryWeb, :html
 
   # If you want to customize your error pages,

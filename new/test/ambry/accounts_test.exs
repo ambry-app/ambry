@@ -1,9 +1,9 @@
 defmodule Ambry.AccountsTest do
   use Ambry.DataCase
 
-  alias Ambry.Accounts
-
   import Ambry.AccountsFixtures
+
+  alias Ambry.Accounts
   alias Ambry.Accounts.{User, UserToken}
 
   describe "get_user_by_email/1" do
@@ -299,7 +299,7 @@ defmodule Ambry.AccountsTest do
     end
 
     test "deletes all tokens for the given user", %{user: user} do
-      _ = Accounts.generate_user_session_token(user)
+      _token = Accounts.generate_user_session_token(user)
 
       {:ok, _} =
         Accounts.update_user_password(user, valid_user_password(), %{
@@ -494,7 +494,7 @@ defmodule Ambry.AccountsTest do
     end
 
     test "deletes all tokens for the given user", %{user: user} do
-      _ = Accounts.generate_user_session_token(user)
+      _token = Accounts.generate_user_session_token(user)
       {:ok, _} = Accounts.reset_user_password(user, %{password: "new valid password"})
       refute Repo.get_by(UserToken, user_id: user.id)
     end

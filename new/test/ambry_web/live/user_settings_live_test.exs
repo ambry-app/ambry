@@ -1,9 +1,11 @@
 defmodule AmbryWeb.UserSettingsLiveTest do
   use AmbryWeb.ConnCase
 
-  alias Ambry.Accounts
   import Phoenix.LiveViewTest
+
   import Ambry.AccountsFixtures
+
+  alias Ambry.Accounts
 
   describe "Settings page" do
     test "renders settings page", %{conn: conn} do
