@@ -1,10 +1,106 @@
 defmodule Ambry.AccountsTest do
   use Ambry.DataCase
 
-  import Ambry.AccountsFixtures
-
   alias Ambry.Accounts
   alias Ambry.Accounts.{User, UserToken}
+
+  describe "list_users/0" do
+    test "returns the first 10 users sorted by name" do
+      insert_list(11, :user)
+
+      {returned_users, has_more?} = Accounts.list_users()
+
+      assert has_more?
+      assert length(returned_users) == 10
+    end
+  end
+
+  describe "list_users/1" do
+    test "accepts an offset" do
+      insert_list(11, :user)
+
+      {returned_users, has_more?} = Accounts.list_users(10)
+
+      refute has_more?
+      assert length(returned_users) == 1
+    end
+  end
+
+  describe "list_users/2" do
+    test "accepts a limit" do
+      insert_list(6, :user)
+
+      {returned_users, has_more?} = Accounts.list_users(0, 5)
+
+      assert has_more?
+      assert length(returned_users) == 5
+    end
+  end
+
+  describe "list_users/3" do
+    test "accepts a 'search' filter that searches by user email" do
+      [_, _, %{id: id, email: email}, _, _] = insert_list(5, :user)
+
+      {[matched], has_more?} = Accounts.list_users(0, 10, %{search: email})
+
+      refute has_more?
+      assert matched.id == id
+    end
+
+    test "accepts an 'admin' filter that allows returning only admins or non-admins" do
+      insert_list(4, :user)
+      %{id: admin_id} = insert(:admin)
+
+      assert {[%{id: ^admin_id}], false} = Accounts.list_users(0, 10, %{admin: true})
+
+      {regular_users, false} = Accounts.list_users(0, 10, %{admin: false})
+
+      assert length(regular_users) == 4
+    end
+
+    test "accepts a 'confirmed' filter that allows returning only confirmed or non-confirmed users" do
+      insert_list(4, :user)
+      %{id: confirmed_user_id} = insert(:confirmed_user)
+
+      assert {[%{id: ^confirmed_user_id}], false} = Accounts.list_users(0, 10, %{confirmed: true})
+
+      {unconfirmed_users, false} = Accounts.list_users(0, 10, %{confirmed: false})
+
+      assert length(unconfirmed_users) == 4
+    end
+  end
+
+  describe "list_users/4" do
+    test "allows sorting results by any field on the schema" do
+      %{id: user1_id} = insert(:user, email: "a@example.com")
+      %{id: user2_id} = insert(:user, email: "b@example.com")
+      %{id: user3_id} = insert(:user, email: "c@example.com")
+
+      {users, false} = Accounts.list_users(0, 10, %{}, :email)
+
+      assert [
+               %{id: ^user1_id},
+               %{id: ^user2_id},
+               %{id: ^user3_id}
+             ] = users
+
+      {users, false} = Accounts.list_users(0, 10, %{}, {:desc, :email})
+
+      assert [
+               %{id: ^user3_id},
+               %{id: ^user2_id},
+               %{id: ^user1_id}
+             ] = users
+    end
+  end
+
+  describe "count_users/0" do
+    test "returns the number of users in the database" do
+      insert_list(3, :user)
+
+      assert 3 = Accounts.count_users()
+    end
+  end
 
   describe "get_user_by_email/1" do
     test "does not return the user if the email does not exist" do
@@ -12,8 +108,8 @@ defmodule Ambry.AccountsTest do
     end
 
     test "returns the user if the email exists" do
-      %{id: id} = user = user_fixture()
-      assert %User{id: ^id} = Accounts.get_user_by_email(user.email)
+      %{id: id, email: email} = insert(:user)
+      assert %User{id: ^id} = Accounts.get_user_by_email(email)
     end
   end
 
@@ -23,15 +119,14 @@ defmodule Ambry.AccountsTest do
     end
 
     test "does not return the user if the password is not valid" do
-      user = user_fixture()
-      refute Accounts.get_user_by_email_and_password(user.email, "invalid")
+      %{email: email} = :user |> build() |> with_password() |> insert()
+      refute Accounts.get_user_by_email_and_password(email, "invalid")
     end
 
     test "returns the user if the email and password are valid" do
-      %{id: id} = user = user_fixture()
+      %{id: id, email: email} = :user |> build() |> with_password() |> insert()
 
-      assert %User{id: ^id} =
-               Accounts.get_user_by_email_and_password(user.email, valid_user_password())
+      assert %User{id: ^id} = Accounts.get_user_by_email_and_password(email, valid_password())
     end
   end
 
@@ -43,8 +138,8 @@ defmodule Ambry.AccountsTest do
     end
 
     test "returns the user with the given id" do
-      %{id: id} = user = user_fixture()
-      assert %User{id: ^id} = Accounts.get_user!(user.id)
+      %{id: id} = insert(:user)
+      assert %User{id: ^id} = Accounts.get_user!(id)
     end
   end
 
@@ -63,7 +158,11 @@ defmodule Ambry.AccountsTest do
 
       assert %{
                email: ["must have the @ sign and no spaces"],
-               password: ["should be at least 12 character(s)"]
+               password: [
+                 "at least one digit or punctuation character",
+                 "at least one upper case character",
+                 "should be at least 12 character(s)"
+               ]
              } = errors_on(changeset)
     end
 
@@ -75,7 +174,7 @@ defmodule Ambry.AccountsTest do
     end
 
     test "validates email uniqueness" do
-      %{email: email} = user_fixture()
+      %{email: email} = insert(:user)
       {:error, changeset} = Accounts.register_user(%{email: email})
       assert "has already been taken" in errors_on(changeset).email
 
@@ -85,8 +184,8 @@ defmodule Ambry.AccountsTest do
     end
 
     test "registers users with a hashed password" do
-      email = unique_user_email()
-      {:ok, user} = Accounts.register_user(valid_user_attributes(email: email))
+      %{email: email} = params = params_for(:user, password: valid_password())
+      {:ok, user} = Accounts.register_user(params)
       assert user.email == email
       assert is_binary(user.hashed_password)
       assert is_nil(user.confirmed_at)
@@ -101,14 +200,9 @@ defmodule Ambry.AccountsTest do
     end
 
     test "allows fields to be set" do
-      email = unique_user_email()
-      password = valid_user_password()
+      %{email: email, password: password} = params = params_for(:user, password: valid_password())
 
-      changeset =
-        Accounts.change_user_registration(
-          %User{},
-          valid_user_attributes(email: email, password: password)
-        )
+      changeset = Accounts.change_user_registration(%User{}, params)
 
       assert changeset.valid?
       assert get_change(changeset, :email) == email
@@ -126,17 +220,17 @@ defmodule Ambry.AccountsTest do
 
   describe "apply_user_email/3" do
     setup do
-      %{user: user_fixture()}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "requires email to change", %{user: user} do
-      {:error, changeset} = Accounts.apply_user_email(user, valid_user_password(), %{})
+      {:error, changeset} = Accounts.apply_user_email(user, valid_password(), %{})
       assert %{email: ["did not change"]} = errors_on(changeset)
     end
 
     test "validates email", %{user: user} do
       {:error, changeset} =
-        Accounts.apply_user_email(user, valid_user_password(), %{email: "not valid"})
+        Accounts.apply_user_email(user, valid_password(), %{email: "not valid"})
 
       assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
     end
@@ -144,31 +238,30 @@ defmodule Ambry.AccountsTest do
     test "validates maximum value for email for security", %{user: user} do
       too_long = String.duplicate("db", 100)
 
-      {:error, changeset} =
-        Accounts.apply_user_email(user, valid_user_password(), %{email: too_long})
+      {:error, changeset} = Accounts.apply_user_email(user, valid_password(), %{email: too_long})
 
       assert "should be at most 160 character(s)" in errors_on(changeset).email
     end
 
     test "validates email uniqueness", %{user: user} do
-      %{email: email} = user_fixture()
-      password = valid_user_password()
+      %{email: email} = insert(:user)
 
-      {:error, changeset} = Accounts.apply_user_email(user, password, %{email: email})
+      {:error, changeset} = Accounts.apply_user_email(user, valid_password(), %{email: email})
 
       assert "has already been taken" in errors_on(changeset).email
     end
 
     test "validates current password", %{user: user} do
-      {:error, changeset} =
-        Accounts.apply_user_email(user, "invalid", %{email: unique_user_email()})
+      %{email: email} = params_for(:user)
+
+      {:error, changeset} = Accounts.apply_user_email(user, "invalid", %{email: email})
 
       assert %{current_password: ["is not valid"]} = errors_on(changeset)
     end
 
     test "applies the email without persisting it", %{user: user} do
-      email = unique_user_email()
-      {:ok, user} = Accounts.apply_user_email(user, valid_user_password(), %{email: email})
+      %{email: email} = params_for(:user)
+      {:ok, user} = Accounts.apply_user_email(user, valid_password(), %{email: email})
       assert user.email == email
       assert Accounts.get_user!(user.id).email != email
     end
@@ -176,7 +269,7 @@ defmodule Ambry.AccountsTest do
 
   describe "deliver_user_update_email_instructions/3" do
     setup do
-      %{user: user_fixture()}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "sends token through notification", %{user: user} do
@@ -195,8 +288,8 @@ defmodule Ambry.AccountsTest do
 
   describe "update_user_email/2" do
     setup do
-      user = user_fixture()
-      email = unique_user_email()
+      user = :user |> build() |> with_password() |> insert()
+      %{email: email} = params_for(:user)
 
       token =
         extract_user_token(fn url ->
@@ -245,29 +338,33 @@ defmodule Ambry.AccountsTest do
     test "allows fields to be set" do
       changeset =
         Accounts.change_user_password(%User{}, %{
-          "password" => "new valid password"
+          "password" => valid_new_password()
         })
 
       assert changeset.valid?
-      assert get_change(changeset, :password) == "new valid password"
+      assert get_change(changeset, :password) == valid_new_password()
       assert is_nil(get_change(changeset, :hashed_password))
     end
   end
 
   describe "update_user_password/3" do
     setup do
-      %{user: user_fixture()}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "validates password", %{user: user} do
       {:error, changeset} =
-        Accounts.update_user_password(user, valid_user_password(), %{
+        Accounts.update_user_password(user, valid_password(), %{
           password: "not valid",
           password_confirmation: "another"
         })
 
       assert %{
-               password: ["should be at least 12 character(s)"],
+               password: [
+                 "at least one digit or punctuation character",
+                 "at least one upper case character",
+                 "should be at least 12 character(s)"
+               ],
                password_confirmation: ["does not match password"]
              } = errors_on(changeset)
     end
@@ -276,43 +373,54 @@ defmodule Ambry.AccountsTest do
       too_long = String.duplicate("db", 100)
 
       {:error, changeset} =
-        Accounts.update_user_password(user, valid_user_password(), %{password: too_long})
+        Accounts.update_user_password(user, valid_password(), %{password: too_long})
 
       assert "should be at most 72 character(s)" in errors_on(changeset).password
     end
 
     test "validates current password", %{user: user} do
       {:error, changeset} =
-        Accounts.update_user_password(user, "invalid", %{password: valid_user_password()})
+        Accounts.update_user_password(user, "invalid", %{password: valid_password()})
 
       assert %{current_password: ["is not valid"]} = errors_on(changeset)
     end
 
     test "updates the password", %{user: user} do
       {:ok, user} =
-        Accounts.update_user_password(user, valid_user_password(), %{
-          password: "new valid password"
+        Accounts.update_user_password(user, valid_password(), %{
+          password: valid_new_password()
         })
 
       assert is_nil(user.password)
-      assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
+      assert Accounts.get_user_by_email_and_password(user.email, valid_new_password())
     end
 
     test "deletes all tokens for the given user", %{user: user} do
       _token = Accounts.generate_user_session_token(user)
 
       {:ok, _} =
-        Accounts.update_user_password(user, valid_user_password(), %{
-          password: "new valid password"
+        Accounts.update_user_password(user, valid_password(), %{
+          password: valid_new_password()
         })
 
       refute Repo.get_by(UserToken, user_id: user.id)
     end
   end
 
+  describe "update_user_loaded_player_state/2" do
+    test "updates a users currently loaded player state" do
+      user = insert(:user)
+      player_state = insert(:player_state, user_id: user.id)
+
+      {:ok, user} = Accounts.update_user_loaded_player_state(user, player_state.id)
+
+      assert user.loaded_player_state_id == player_state.id
+    end
+  end
+
   describe "generate_user_session_token/1" do
     setup do
-      %{user: user_fixture()}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "generates a token", %{user: user} do
@@ -320,11 +428,13 @@ defmodule Ambry.AccountsTest do
       assert user_token = Repo.get_by(UserToken, token: token)
       assert user_token.context == "session"
 
+      user2 = :user |> build() |> with_password() |> insert()
+
       # Creating the same token for another user should fail
       assert_raise Ecto.ConstraintError, fn ->
         Repo.insert!(%UserToken{
           token: user_token.token,
-          user_id: user_fixture().id,
+          user_id: user2.id,
           context: "session"
         })
       end
@@ -333,7 +443,7 @@ defmodule Ambry.AccountsTest do
 
   describe "get_user_by_session_token/1" do
     setup do
-      user = user_fixture()
+      user = :user |> build() |> with_password() |> insert()
       token = Accounts.generate_user_session_token(user)
       %{user: user, token: token}
     end
@@ -355,7 +465,7 @@ defmodule Ambry.AccountsTest do
 
   describe "delete_user_session_token/1" do
     test "deletes the token" do
-      user = user_fixture()
+      user = :user |> build() |> with_password() |> insert()
       token = Accounts.generate_user_session_token(user)
       assert Accounts.delete_user_session_token(token) == :ok
       refute Accounts.get_user_by_session_token(token)
@@ -364,7 +474,7 @@ defmodule Ambry.AccountsTest do
 
   describe "deliver_user_confirmation_instructions/2" do
     setup do
-      %{user: user_fixture()}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "sends token through notification", %{user: user} do
@@ -383,7 +493,7 @@ defmodule Ambry.AccountsTest do
 
   describe "confirm_user/1" do
     setup do
-      user = user_fixture()
+      user = :user |> build() |> with_password() |> insert()
 
       token =
         extract_user_token(fn url ->
@@ -417,7 +527,7 @@ defmodule Ambry.AccountsTest do
 
   describe "deliver_user_reset_password_instructions/2" do
     setup do
-      %{user: user_fixture()}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "sends token through notification", %{user: user} do
@@ -436,7 +546,7 @@ defmodule Ambry.AccountsTest do
 
   describe "get_user_by_reset_password_token/1" do
     setup do
-      user = user_fixture()
+      user = :user |> build() |> with_password() |> insert()
 
       token =
         extract_user_token(fn url ->
@@ -465,7 +575,7 @@ defmodule Ambry.AccountsTest do
 
   describe "reset_user_password/2" do
     setup do
-      %{user: user_fixture()}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "validates password", %{user: user} do
@@ -476,7 +586,11 @@ defmodule Ambry.AccountsTest do
         })
 
       assert %{
-               password: ["should be at least 12 character(s)"],
+               password: [
+                 "at least one digit or punctuation character",
+                 "at least one upper case character",
+                 "should be at least 12 character(s)"
+               ],
                password_confirmation: ["does not match password"]
              } = errors_on(changeset)
     end
@@ -488,15 +602,61 @@ defmodule Ambry.AccountsTest do
     end
 
     test "updates the password", %{user: user} do
-      {:ok, updated_user} = Accounts.reset_user_password(user, %{password: "new valid password"})
+      {:ok, updated_user} = Accounts.reset_user_password(user, %{password: valid_new_password()})
       assert is_nil(updated_user.password)
-      assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
+      assert Accounts.get_user_by_email_and_password(user.email, valid_new_password())
     end
 
     test "deletes all tokens for the given user", %{user: user} do
       _token = Accounts.generate_user_session_token(user)
-      {:ok, _} = Accounts.reset_user_password(user, %{password: "new valid password"})
+      {:ok, _} = Accounts.reset_user_password(user, %{password: valid_new_password()})
       refute Repo.get_by(UserToken, user_id: user.id)
+    end
+  end
+
+  describe "promote_user_to_admin/1" do
+    test "turns a regular user into an admin" do
+      user = insert(:user)
+
+      refute user.admin
+
+      {:ok, user} = Accounts.promote_user_to_admin(user)
+
+      assert user.admin
+    end
+  end
+
+  describe "demote_user_from_admin/1" do
+    test "turns a n admin into a regular user" do
+      user = insert(:admin)
+
+      assert user.admin
+
+      {:ok, user} = Accounts.demote_user_from_admin(user)
+
+      refute user.admin
+    end
+  end
+
+  describe "admin_exists?/0" do
+    test "returns a boolean indicating if any admin user exists" do
+      refute Accounts.admin_exists?()
+
+      insert(:admin)
+
+      assert Accounts.admin_exists?()
+    end
+  end
+
+  describe "delete_user/1" do
+    test "deletes a user" do
+      user = insert(:user)
+
+      assert :ok = Accounts.delete_user(user)
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Accounts.get_user!(user.id)
+      end
     end
   end
 
@@ -504,5 +664,13 @@ defmodule Ambry.AccountsTest do
     test "does not include password" do
       refute inspect(%User{password: "123456"}) =~ "password: \"123456\""
     end
+  end
+
+  # Helpers
+
+  defp extract_user_token(fun) do
+    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
+    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
+    token
   end
 end
