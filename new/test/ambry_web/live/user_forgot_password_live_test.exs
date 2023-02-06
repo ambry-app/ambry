@@ -3,8 +3,6 @@ defmodule AmbryWeb.UserForgotPasswordLiveTest do
 
   import Phoenix.LiveViewTest
 
-  import Ambry.AccountsFixtures
-
   alias Ambry.{Accounts, Repo}
 
   describe "Forgot password page" do
@@ -12,14 +10,16 @@ defmodule AmbryWeb.UserForgotPasswordLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/users/reset_password")
 
       assert html =~ "Forgot your password?"
-      assert html =~ "Register</a>"
-      assert html =~ "Log in</a>"
+      assert html =~ "Register"
+      assert html =~ "Log in"
     end
 
     test "redirects if already logged in", %{conn: conn} do
+      user = insert(:user)
+
       result =
         conn
-        |> log_in_user(user_fixture())
+        |> log_in_user(user)
         |> live(~p"/users/reset_password")
         |> follow_redirect(conn, ~p"/")
 
@@ -29,7 +29,7 @@ defmodule AmbryWeb.UserForgotPasswordLiveTest do
 
   describe "Reset link" do
     setup do
-      %{user: user_fixture()}
+      %{user: insert(:user)}
     end
 
     test "sends a new reset password token", %{conn: conn, user: user} do
@@ -39,7 +39,7 @@ defmodule AmbryWeb.UserForgotPasswordLiveTest do
         lv
         |> form("#reset_password_form", user: %{"email" => user.email})
         |> render_submit()
-        |> follow_redirect(conn, "/")
+        |> follow_redirect(conn, ~p"/users/log_in")
 
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "If your email is in our system"
 
@@ -54,7 +54,7 @@ defmodule AmbryWeb.UserForgotPasswordLiveTest do
         lv
         |> form("#reset_password_form", user: %{"email" => "unknown@example.com"})
         |> render_submit()
-        |> follow_redirect(conn, "/")
+        |> follow_redirect(conn, ~p"/users/log_in")
 
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "If your email is in our system"
       assert Repo.all(Accounts.UserToken) == []

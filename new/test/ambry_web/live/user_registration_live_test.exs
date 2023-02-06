@@ -2,20 +2,21 @@ defmodule AmbryWeb.UserRegistrationLiveTest do
   use AmbryWeb.ConnCase
 
   import Phoenix.LiveViewTest
-  import Ambry.AccountsFixtures
 
   describe "Registration page" do
     test "renders registration page", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/users/register")
 
       assert html =~ "Register"
-      assert html =~ "Log in"
+      assert html =~ "Sign in"
     end
 
     test "redirects if already logged in", %{conn: conn} do
+      user = insert(:user)
+
       result =
         conn
-        |> log_in_user(user_fixture())
+        |> log_in_user(user)
         |> live(~p"/users/register")
         |> follow_redirect(conn, "/")
 
@@ -40,8 +41,8 @@ defmodule AmbryWeb.UserRegistrationLiveTest do
     test "creates account and logs the user in", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/register")
 
-      email = unique_user_email()
-      form = form(lv, "#registration_form", user: valid_user_attributes(email: email))
+      %{email: email} = params_for(:user)
+      form = form(lv, "#registration_form", user: %{email: email, password: valid_password()})
       render_submit(form)
       conn = follow_trigger_action(form, conn)
 
@@ -58,7 +59,7 @@ defmodule AmbryWeb.UserRegistrationLiveTest do
     test "renders errors for duplicated email", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/register")
 
-      user = user_fixture(%{email: "test@email.com"})
+      user = insert(:user, email: "test@email.com")
 
       lv
       |> form("#registration_form",
@@ -74,11 +75,11 @@ defmodule AmbryWeb.UserRegistrationLiveTest do
 
       {:ok, _login_live, login_html} =
         lv
-        |> element(~s|main a:fl-contains("Sign in")|)
+        |> element(~s|a:fl-contains("Sign in")|)
         |> render_click()
         |> follow_redirect(conn, ~p"/users/log_in")
 
-      assert login_html =~ "Log in"
+      assert login_html =~ "Sign in"
     end
   end
 end

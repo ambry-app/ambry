@@ -1,8 +1,6 @@
 defmodule AmbryWeb.UserAuthTest do
   use AmbryWeb.ConnCase, async: true
 
-  import Ambry.AccountsFixtures
-
   alias Phoenix.LiveView
 
   alias Ambry.Accounts
@@ -17,7 +15,9 @@ defmodule AmbryWeb.UserAuthTest do
       |> Map.replace!(:secret_key_base, AmbryWeb.Endpoint.config(:secret_key_base))
       |> init_test_session(%{})
 
-    %{user: user_fixture(), conn: conn}
+    user = :user |> build() |> with_password() |> insert()
+
+    %{user: user, conn: conn}
   end
 
   describe "log_in_user/3" do
@@ -236,8 +236,8 @@ defmodule AmbryWeb.UserAuthTest do
 
       assert redirected_to(conn) == ~p"/users/log_in"
 
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
-               "You must log in to access this page."
+      # no flash is displayed
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) == nil
     end
 
     test "stores the path to redirect to on GET", %{conn: conn} do

@@ -3,15 +3,15 @@ defmodule AmbryWeb.UserSettingsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  import Ambry.AccountsFixtures
-
   alias Ambry.Accounts
 
   describe "Settings page" do
     test "renders settings page", %{conn: conn} do
+      user = insert(:user)
+
       {:ok, _lv, html} =
         conn
-        |> log_in_user(user_fixture())
+        |> log_in_user(user)
         |> live(~p"/users/settings")
 
       assert html =~ "Change Email"
@@ -21,21 +21,19 @@ defmodule AmbryWeb.UserSettingsLiveTest do
     test "redirects if user is not logged in", %{conn: conn} do
       assert {:error, redirect} = live(conn, ~p"/users/settings")
 
-      assert {:redirect, %{to: path, flash: flash}} = redirect
+      assert {:redirect, %{to: path}} = redirect
       assert path == ~p"/users/log_in"
-      assert %{"error" => "You must log in to access this page."} = flash
     end
   end
 
   describe "update email form" do
     setup %{conn: conn} do
-      password = valid_user_password()
-      user = user_fixture(%{password: password})
-      %{conn: log_in_user(conn, user), user: user, password: password}
+      user = :user |> build() |> with_password() |> insert()
+      %{conn: log_in_user(conn, user), user: user, password: valid_password()}
     end
 
     test "updates the user email", %{conn: conn, password: password, user: user} do
-      new_email = unique_user_email()
+      %{email: new_email} = params_for(:user)
 
       {:ok, lv, _html} = live(conn, ~p"/users/settings")
 
@@ -86,13 +84,12 @@ defmodule AmbryWeb.UserSettingsLiveTest do
 
   describe "update password form" do
     setup %{conn: conn} do
-      password = valid_user_password()
-      user = user_fixture(%{password: password})
-      %{conn: log_in_user(conn, user), user: user, password: password}
+      user = :user |> build() |> with_password() |> insert()
+      %{conn: log_in_user(conn, user), user: user, password: valid_password()}
     end
 
     test "updates the user password", %{conn: conn, user: user, password: password} do
-      new_password = valid_user_password()
+      new_password = valid_new_password()
 
       {:ok, lv, _html} = live(conn, ~p"/users/settings")
 
@@ -162,8 +159,8 @@ defmodule AmbryWeb.UserSettingsLiveTest do
 
   describe "confirm email" do
     setup %{conn: conn} do
-      user = user_fixture()
-      email = unique_user_email()
+      user = insert(:user)
+      %{email: email} = params_for(:user)
 
       token =
         extract_user_token(fn url ->
@@ -203,10 +200,16 @@ defmodule AmbryWeb.UserSettingsLiveTest do
     test "redirects if user is not logged in", %{token: token} do
       conn = build_conn()
       {:error, redirect} = live(conn, ~p"/users/settings/confirm_email/#{token}")
-      assert {:redirect, %{to: path, flash: flash}} = redirect
+      assert {:redirect, %{to: path}} = redirect
       assert path == ~p"/users/log_in"
-      assert %{"error" => message} = flash
-      assert message == "You must log in to access this page."
     end
+  end
+
+  # Helpers
+
+  defp extract_user_token(fun) do
+    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
+    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
+    token
   end
 end

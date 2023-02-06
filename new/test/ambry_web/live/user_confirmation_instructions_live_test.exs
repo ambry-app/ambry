@@ -3,12 +3,10 @@ defmodule AmbryWeb.UserConfirmationInstructionsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  import Ambry.AccountsFixtures
-
   alias Ambry.{Accounts, Repo}
 
   setup do
-    %{user: user_fixture()}
+    %{user: insert(:user)}
   end
 
   describe "Resend confirmation" do

@@ -2,21 +2,22 @@ defmodule AmbryWeb.UserLoginLiveTest do
   use AmbryWeb.ConnCase
 
   import Phoenix.LiveViewTest
-  import Ambry.AccountsFixtures
 
   describe "Log in page" do
     test "renders log in page", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/users/log_in")
 
-      assert html =~ "Log in"
-      assert html =~ "Register"
+      assert html =~ "Sign in"
+      assert html =~ "register for one"
       assert html =~ "Forgot your password?"
     end
 
     test "redirects if already logged in", %{conn: conn} do
+      user = insert(:user)
+
       result =
         conn
-        |> log_in_user(user_fixture())
+        |> log_in_user(user)
         |> live(~p"/users/log_in")
         |> follow_redirect(conn, "/")
 
@@ -26,8 +27,8 @@ defmodule AmbryWeb.UserLoginLiveTest do
 
   describe "user login" do
     test "redirects if user login with valid credentials", %{conn: conn} do
-      password = "123456789abcd"
-      user = user_fixture(%{password: password})
+      password = valid_password()
+      user = :user |> build() |> with_password() |> insert()
 
       {:ok, lv, _html} = live(conn, ~p"/users/log_in")
 
@@ -63,7 +64,7 @@ defmodule AmbryWeb.UserLoginLiveTest do
 
       {:ok, _login_live, login_html} =
         lv
-        |> element(~s|a:fl-contains("Sign up")|)
+        |> element(~s|a:fl-contains("register for one")|)
         |> render_click()
         |> follow_redirect(conn, ~p"/users/register")
 
@@ -75,13 +76,13 @@ defmodule AmbryWeb.UserLoginLiveTest do
     } do
       {:ok, lv, _html} = live(conn, ~p"/users/log_in")
 
-      {:ok, conn} =
+      {:ok, _forgot_password_live, forgot_password_html} =
         lv
         |> element(~s{a:fl-contains('Forgot your password?')})
         |> render_click()
         |> follow_redirect(conn, ~p"/users/reset_password")
 
-      assert conn.resp_body =~ "Forgot your password?"
+      assert forgot_password_html =~ "Forgot your password?"
     end
   end
 end

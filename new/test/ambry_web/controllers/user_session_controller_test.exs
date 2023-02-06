@@ -1,17 +1,15 @@
 defmodule AmbryWeb.UserSessionControllerTest do
   use AmbryWeb.ConnCase, async: true
 
-  import Ambry.AccountsFixtures
-
   setup do
-    %{user: user_fixture()}
+    %{user: :user |> build() |> with_password() |> insert()}
   end
 
   describe "POST /users/log_in" do
     test "logs the user in", %{conn: conn, user: user} do
       conn =
         post(conn, ~p"/users/log_in", %{
-          "user" => %{"email" => user.email, "password" => valid_user_password()}
+          "user" => %{"email" => user.email, "password" => valid_password()}
         })
 
       assert get_session(conn, :user_token)
@@ -21,8 +19,8 @@ defmodule AmbryWeb.UserSessionControllerTest do
       conn = get(conn, ~p"/")
       response = html_response(conn, 200)
       assert response =~ user.email
-      assert response =~ "Settings</a>"
-      assert response =~ "Log out</a>"
+      assert response =~ "Account Settings"
+      assert response =~ "Log out"
     end
 
     test "logs the user in with remember me", %{conn: conn, user: user} do
@@ -30,7 +28,7 @@ defmodule AmbryWeb.UserSessionControllerTest do
         post(conn, ~p"/users/log_in", %{
           "user" => %{
             "email" => user.email,
-            "password" => valid_user_password(),
+            "password" => valid_password(),
             "remember_me" => "true"
           }
         })
@@ -46,7 +44,7 @@ defmodule AmbryWeb.UserSessionControllerTest do
         |> post(~p"/users/log_in", %{
           "user" => %{
             "email" => user.email,
-            "password" => valid_user_password()
+            "password" => valid_password()
           }
         })
 
@@ -60,7 +58,7 @@ defmodule AmbryWeb.UserSessionControllerTest do
           "_action" => "registered",
           "user" => %{
             "email" => user.email,
-            "password" => valid_user_password()
+            "password" => valid_password()
           }
         })
 
@@ -74,7 +72,7 @@ defmodule AmbryWeb.UserSessionControllerTest do
           "_action" => "password_updated",
           "user" => %{
             "email" => user.email,
-            "password" => valid_user_password()
+            "password" => valid_password()
           }
         })
 

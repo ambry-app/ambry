@@ -2,12 +2,11 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
   use AmbryWeb.ConnCase
 
   import Phoenix.LiveViewTest
-  import Ambry.AccountsFixtures
 
   alias Ambry.Accounts
 
   setup do
-    user = user_fixture()
+    user = :user |> build() |> with_password() |> insert()
 
     token =
       extract_user_token(fn url ->
@@ -56,8 +55,8 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
         lv
         |> form("#reset_password_form",
           user: %{
-            "password" => "new valid password",
-            "password_confirmation" => "new valid password"
+            "password" => valid_new_password(),
+            "password_confirmation" => valid_new_password()
           }
         )
         |> render_submit()
@@ -65,7 +64,7 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
 
       refute get_session(conn, :user_token)
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Password reset successfully"
-      assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
+      assert Accounts.get_user_by_email_and_password(user.email, valid_new_password())
     end
 
     test "does not reset password on invalid data", %{conn: conn, token: token} do
@@ -91,13 +90,13 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
     test "redirects to login page when the Log in button is clicked", %{conn: conn, token: token} do
       {:ok, lv, _html} = live(conn, ~p"/users/reset_password/#{token}")
 
-      {:ok, conn} =
+      {:ok, _lv, html} =
         lv
-        |> element(~s|main a:fl-contains("Log in")|)
+        |> element(~s|a:fl-contains("Log in")|)
         |> render_click()
         |> follow_redirect(conn, ~p"/users/log_in")
 
-      assert conn.resp_body =~ "Log in"
+      assert html =~ "Sign in"
     end
 
     test "redirects to password reset page when the Register button is clicked", %{
@@ -106,13 +105,21 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
     } do
       {:ok, lv, _html} = live(conn, ~p"/users/reset_password/#{token}")
 
-      {:ok, conn} =
+      {:ok, _lv, html} =
         lv
-        |> element(~s|main a:fl-contains("Register")|)
+        |> element(~s|a:fl-contains("Register")|)
         |> render_click()
         |> follow_redirect(conn, ~p"/users/register")
 
-      assert conn.resp_body =~ "Register"
+      assert html =~ "Register"
     end
+  end
+
+  # Helpers
+
+  defp extract_user_token(fun) do
+    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
+    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
+    token
   end
 end
