@@ -64,4 +64,21 @@ defmodule AmbryWeb.ConnCase do
     |> Phoenix.ConnTest.init_test_session(%{})
     |> Plug.Conn.put_session(:user_token, token)
   end
+
+  def register_and_put_user_api_token(%{conn: conn}) do
+    user = Ambry.Factory.insert(:user)
+    token = Ambry.Accounts.generate_user_session_token(user)
+    encoded_token = Base.url_encode64(token)
+    conn = Plug.Conn.put_req_header(conn, "authorization", "Bearer #{encoded_token}")
+
+    %{conn: conn, user: user, token: token}
+  end
+
+  def remove_user_api_token(conn) do
+    Plug.Conn.put_req_header(conn, "authorization", "")
+  end
+
+  def escape(string) do
+    string |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+  end
 end

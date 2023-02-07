@@ -60,6 +60,7 @@ defmodule AmbryWeb.Router do
 
       live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
+      forward "/voyager", AmbryWeb.Plugs.Voyager
     end
   end
 
@@ -88,12 +89,12 @@ defmodule AmbryWeb.Router do
         AmbryWeb.NavHooks,
         AmbryWeb.PlayerStateHooks
       ] do
-      live "/", NowPlayingLive.Index, :index
-      live "/library", LibraryLive.Home, :home
-      live "/people/:id", PersonLive.Show, :show
-      live "/series/:id", SeriesLive.Show, :show
-      live "/books/:id", BookLive.Show, :show
-      live "/search/:query", SearchLive.Results, :results
+      live "/", NowPlayingLive, :index
+      live "/library", LibraryLive, :home
+      live "/people/:id", PersonLive, :show
+      live "/series/:id", SeriesLive, :show
+      live "/books/:id", BookLive, :show
+      live "/search/:query", SearchLive, :results
 
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
@@ -123,7 +124,7 @@ defmodule AmbryWeb.Router do
     pipe_through [:browser]
 
     live_session :setup, layout: {AmbryWeb.Layouts, :auth} do
-      live "/", SetupLive.Index, :index
+      live "/", SetupLive, :index
     end
   end
 end

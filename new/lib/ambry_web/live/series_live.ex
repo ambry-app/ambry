@@ -1,4 +1,4 @@
-defmodule AmbryWeb.SeriesLive.Show do
+defmodule AmbryWeb.SeriesLive do
   @moduledoc """
   LiveView for showing all books in a series.
   """

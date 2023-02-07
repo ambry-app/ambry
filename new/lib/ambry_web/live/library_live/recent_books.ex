@@ -1,4 +1,4 @@
-defmodule AmbryWeb.LibraryLive.Home.RecentBooks do
+defmodule AmbryWeb.LibraryLive.RecentBooks do
   @moduledoc false
 
   use AmbryWeb, :live_component

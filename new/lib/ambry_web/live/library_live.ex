@@ -1,4 +1,4 @@
-defmodule AmbryWeb.LibraryLive.Home do
+defmodule AmbryWeb.LibraryLive do
   @moduledoc """
   LiveView for the library page.
   """
@@ -7,7 +7,7 @@ defmodule AmbryWeb.LibraryLive.Home do
 
   alias Ambry.PubSub
 
-  alias AmbryWeb.LibraryLive.Home.{RecentBooks, RecentMedia}
+  alias AmbryWeb.LibraryLive.{RecentBooks, RecentMedia}
   alias AmbryWeb.Player
 
   @impl Phoenix.LiveView

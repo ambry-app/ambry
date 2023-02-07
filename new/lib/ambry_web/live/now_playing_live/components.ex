@@ -1,4 +1,4 @@
-defmodule AmbryWeb.NowPlayingLive.Index.Components do
+defmodule AmbryWeb.NowPlayingLive.Components do
   @moduledoc """
   Components for the "now playing" live page.
   """
@@ -10,7 +10,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
   alias Ambry.Accounts.User
   alias Ambry.Media
 
-  alias AmbryWeb.NowPlayingLive.Index.Bookmarks
+  alias AmbryWeb.NowPlayingLive.Bookmarks
   alias AmbryWeb.Player
 
   attr :media, Media.Media, required: true
@@ -116,6 +116,7 @@ defmodule AmbryWeb.NowPlayingLive.Index.Components do
     |> JS.set_attribute({"class", media_tab_classes(true)}, to: "##{id}")
     |> JS.add_class("hidden", to: ".media-tab-body")
     |> JS.remove_class("hidden", to: "##{id}-body")
+    |> JS.dispatch("ambry:scroll-to-active-chapter", to: "#chapters-table")
   end
 
   attr :player, Player, required: true

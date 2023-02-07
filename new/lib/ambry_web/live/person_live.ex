@@ -1,4 +1,4 @@
-defmodule AmbryWeb.PersonLive.Show do
+defmodule AmbryWeb.PersonLive do
   @moduledoc """
   LiveView for showing person details.
   """

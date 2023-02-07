@@ -1,4 +1,4 @@
-defmodule AmbryWeb.LibraryLive.Home.RecentMedia do
+defmodule AmbryWeb.LibraryLive.RecentMedia do
   @moduledoc false
 
   use AmbryWeb, :live_component

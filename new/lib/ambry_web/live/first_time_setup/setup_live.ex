@@ -1,4 +1,4 @@
-defmodule AmbryWeb.FirstTimeSetup.SetupLive.Index do
+defmodule AmbryWeb.FirstTimeSetup.SetupLive do
   @moduledoc """
   First time setup experience live-view.
 

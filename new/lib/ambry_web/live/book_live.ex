@@ -1,4 +1,4 @@
-defmodule AmbryWeb.BookLive.Show do
+defmodule AmbryWeb.BookLive do
   @moduledoc """
   LiveView for showing book details.
   """

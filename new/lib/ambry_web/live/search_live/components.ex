@@ -1,4 +1,4 @@
-defmodule AmbryWeb.SearchLive.Results.Components do
+defmodule AmbryWeb.SearchLive.Components do
   @moduledoc """
   Components for the search results live page.
   """

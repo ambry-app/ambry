@@ -1,11 +1,11 @@
-defmodule AmbryWeb.SearchLive.Results do
+defmodule AmbryWeb.SearchLive do
   @moduledoc """
   LiveView for showing search results.
   """
 
   use AmbryWeb, :live_view
 
-  import AmbryWeb.SearchLive.Results.Components
+  import AmbryWeb.SearchLive.Components
 
   alias Ambry.Search
 

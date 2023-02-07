@@ -12,8 +12,6 @@ export const TimeBarHook = {
     this.fullWidth = this.wrapper.clientWidth
     this.width = this.timeBar.clientWidth
 
-    console.log(this.timeCode)
-
     this.progressBarHoverStyles = this.getHoverStyles(this.progressBar)
     this.handleHoverStyles = this.getHoverStyles(this.handle)
 

@@ -1,4 +1,4 @@
-defmodule AmbryWeb.NowPlayingLive.Index.Bookmarks do
+defmodule AmbryWeb.NowPlayingLive.Bookmarks do
   @moduledoc false
 
   use AmbryWeb, :live_component

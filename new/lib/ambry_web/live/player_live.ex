@@ -1,4 +1,4 @@
-defmodule AmbryWeb.PlayerLive.Player do
+defmodule AmbryWeb.PlayerLive do
   @moduledoc false
 
   use AmbryWeb, :live_view
