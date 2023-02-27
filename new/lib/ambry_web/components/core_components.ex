@@ -14,7 +14,7 @@ defmodule AmbryWeb.CoreComponents do
 
   import Phoenix.HTML, only: [raw: 1]
 
-  import AmbryWeb.Gettext
+  import AmbryWeb.{Gettext, Gravatar}
 
   alias FontAwesome.LiveView, as: FA
   alias Phoenix.HTML.Form
@@ -169,6 +169,33 @@ defmodule AmbryWeb.CoreComponents do
         <Heroicons.x_mark solid class="h-5 w-5 stroke-current opacity-40 group-hover:opacity-70" />
       </button>
     </div>
+    """
+  end
+
+  @doc """
+  Renders all the flash notices.
+
+  ## Examples
+
+      <.flashes flash={@flash} />
+  """
+  attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
+
+  def flashes(assigns) do
+    ~H"""
+    <.flash kind={:info} title="Success!" flash={@flash} />
+    <.flash kind={:error} title="Error!" flash={@flash} />
+    <.flash
+      id="disconnected"
+      kind={:error}
+      title="We've lost connection to the server"
+      close={false}
+      autoshow={false}
+      phx-disconnected={show("#disconnected")}
+      phx-connected={hide("#disconnected")}
+    >
+      Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" aria-hidden="true" />
+    </.flash>
     """
   end
 
@@ -599,7 +626,7 @@ defmodule AmbryWeb.CoreComponents do
     <div class="flex flex-col items-center">
       <div class="flex">
         <.logo class="h-12 w-12" />
-        <.tagline class="h-12" />
+        <.title class="h-12" />
       </div>
 
       <p class="font-semibold text-zinc-500 dark:text-zinc-400">
@@ -639,15 +666,17 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
-  Renders the Ambry tagline SVG.
+  Renders the Ambry title SVG.
+
+  This is the text "Ambry" that appears next to the logo.
 
   ## Examples
 
-      <.tagline class="h-12" />
+      <.title class="h-12" />
   """
   attr :class, :string, default: nil
 
-  def tagline(assigns) do
+  def title(assigns) do
     ~H"""
     <svg
       class={["text-zinc-900 dark:text-zinc-100", @class]}
@@ -951,6 +980,20 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  def menu_wrapper(assigns) do
+    ~H"""
+    <div id={@id} class="max-w-80 absolute top-12 right-4 z-50 hidden text-zinc-800 shadow-md dark:text-zinc-200">
+      <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="flex items-center gap-4 p-4">
+          <img class="h-10 w-10 rounded-full" src={gravatar_url(@user.email)} />
+          <p class="overflow-hidden text-ellipsis whitespace-nowrap"><%= @user.email %></p>
+        </div>
+        <%= render_slot(@inner_block) %>
+      </div>
+    </div>
+    """
+  end
+
   ## JS Commands
 
   def show(js \\ %JS{}, selector) do
@@ -990,6 +1033,23 @@ defmodule AmbryWeb.CoreComponents do
     |> JS.hide(to: "##{id}", transition: {"block", "block", "hidden"})
     |> JS.remove_class("overflow-hidden", to: "body")
     |> JS.pop_focus()
+  end
+
+  def toggle_menu(js \\ %JS{}, id) do
+    JS.toggle(js,
+      to: "##{id}",
+      time: 100,
+      in: transition_in(),
+      out: transition_out()
+    )
+  end
+
+  def hide_menu(js \\ %JS{}, id) do
+    JS.hide(js,
+      to: "##{id}",
+      time: 100,
+      transition: transition_out()
+    )
   end
 
   def transition_in do

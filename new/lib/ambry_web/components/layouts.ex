@@ -13,33 +13,6 @@ defmodule AmbryWeb.Layouts do
   embed_templates "layouts/*"
 
   @doc """
-  Renders all the flash notices.
-
-  ## Examples
-
-      <.flashes flash={@flash} />
-  """
-  attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
-
-  def flashes(assigns) do
-    ~H"""
-    <.flash kind={:info} title="Success!" flash={@flash} />
-    <.flash kind={:error} title="Error!" flash={@flash} />
-    <.flash
-      id="disconnected"
-      kind={:error}
-      title="We've lost connection to the server"
-      close={false}
-      autoshow={false}
-      phx-disconnected={show("#disconnected")}
-      phx-connected={hide("#disconnected")}
-    >
-      Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" aria-hidden="true" />
-    </.flash>
-    """
-  end
-
-  @doc """
   Main app navigation header
   """
   def nav_header(assigns) do
@@ -138,10 +111,11 @@ defmodule AmbryWeb.Layouts do
 
   defp user_menu(assigns) do
     ~H"""
-    <.user_menu_wrapper id="user-menu" user={@user}>
+    <.menu_wrapper id="user-menu" user={@user}>
       <div class="py-3">
         <%= if @user.admin do %>
-          <.link navigate={~p"/admin"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
+          <%!-- FIXME: --%>
+          <.link navigate="/admin" class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
             <FA.icon name="screwdriver-wrench" class="h-5 w-5 fill-current" />
             <p>Admin</p>
           </.link>
@@ -162,21 +136,7 @@ defmodule AmbryWeb.Layouts do
           <p>Log out</p>
         </.link>
       </div>
-    </.user_menu_wrapper>
-    """
-  end
-
-  defp user_menu_wrapper(assigns) do
-    ~H"""
-    <div id={@id} class="max-w-80 absolute top-12 right-4 z-50 hidden text-zinc-800 shadow-md dark:text-zinc-200">
-      <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-        <div class="flex items-center gap-4 p-4">
-          <img class="h-10 w-10 rounded-full" src={gravatar_url(@user.email)} />
-          <p class="overflow-hidden text-ellipsis whitespace-nowrap"><%= @user.email %></p>
-        </div>
-        <%= render_slot(@inner_block) %>
-      </div>
-    </div>
+    </.menu_wrapper>
     """
   end
 
@@ -398,23 +358,6 @@ defmodule AmbryWeb.Layouts do
   end
 
   ## JS Commands
-
-  defp toggle_menu(js \\ %JS{}, id) do
-    JS.toggle(js,
-      to: "##{id}",
-      time: 100,
-      in: transition_in(),
-      out: transition_out()
-    )
-  end
-
-  defp hide_menu(js \\ %JS{}, id) do
-    JS.hide(js,
-      to: "##{id}",
-      time: 100,
-      transition: transition_out()
-    )
-  end
 
   defp show_search(js \\ %JS{}) do
     js

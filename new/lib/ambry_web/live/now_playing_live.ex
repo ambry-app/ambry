@@ -6,7 +6,7 @@ defmodule AmbryWeb.NowPlayingLive do
   use AmbryWeb, :live_view
 
   import AmbryWeb.NowPlayingLive.Components
-  import AmbryWeb.Layouts, only: [nav_header: 1, flashes: 1]
+  import AmbryWeb.Layouts, only: [nav_header: 1]
 
   alias Ambry.{Media, PubSub}
 

@@ -46,6 +46,10 @@ defmodule AmbryWeb.Router do
     forward "/", Absinthe.Plug.GraphiQL, schema: AmbrySchema, interface: :playground
   end
 
+  pipeline :admin do
+    plug :put_root_layout, {AmbryWeb.Admin.Layouts, :root}
+  end
+
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:ambry, :dev_routes) do
     # If you want to use the LiveDashboard in production, you should put
@@ -126,5 +130,41 @@ defmodule AmbryWeb.Router do
     live_session :setup, layout: {AmbryWeb.Layouts, :auth} do
       live "/", SetupLive, :index
     end
+  end
+
+  scope "/admin", AmbryWeb.Admin, as: :admin do
+    pipe_through [:browser, :require_authenticated_user, :require_admin, :admin]
+
+    live_session :admin,
+      on_mount: [
+        {AmbryWeb.UserAuth, :ensure_authenticated},
+        {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user},
+        AmbryWeb.Admin.NavHooks
+      ] do
+      live "/", HomeLive.Index, :index
+
+      # live "/people", PersonLive.Index, :index
+      # live "/people/new", PersonLive.Index, :new
+      # live "/people/:id/edit", PersonLive.Index, :edit
+
+      # live "/books", BookLive.Index, :index
+      # live "/books/new", BookLive.Index, :new
+      # live "/books/:id/edit", BookLive.Index, :edit
+
+      # live "/series", SeriesLive.Index, :index
+      # live "/series/new", SeriesLive.Index, :new
+      # live "/series/:id/edit", SeriesLive.Index, :edit
+
+      # live "/media", MediaLive.Index, :index
+      # live "/media/new", MediaLive.Index, :new
+      # live "/media/:id/edit", MediaLive.Index, :edit
+      # live "/media/:id/chapters", MediaLive.Index, :chapters
+
+      # live "/users", UserLive.Index, :index
+
+      # live "/audit", AuditLive.Index, :index
+    end
+
+    # live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
   end
 end
