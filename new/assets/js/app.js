@@ -54,19 +54,6 @@ topbar.config({barColors: {0: dark ? '#A3E635' : '#84CC16'}, shadowColor: "rgba(
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
-// autofocus hack:
-window.addEventListener('phx:page-loading-stop', info => {
-  const autoFocusElements = document.querySelectorAll('[phx-autofocus]')
-  const els = autoFocusElements.length
-
-  if (els >= 1) { window.setTimeout(() => {
-    const el = autoFocusElements[0]
-    el.focus()
-    el.setSelectionRange(el.value.length, el.value.length)
-  }, 0) }
-  if (els > 1) { console.warn("Multiple autofocus elements found. Only focusing the first.") }
-})
-
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 

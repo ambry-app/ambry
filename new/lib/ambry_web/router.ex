@@ -102,13 +102,6 @@ defmodule AmbryWeb.Router do
 
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
-
-      # live "/books", BookLive.Index, :index
-      # live "/books/new", BookLive.Index, :new
-      # live "/books/:id/edit", BookLive.Index, :edit
-
-      # live "/books/:id", BookLive.Show, :show
-      # live "/books/:id/show/edit", BookLive.Show, :edit
     end
   end
 
@@ -143,9 +136,9 @@ defmodule AmbryWeb.Router do
       ] do
       live "/", HomeLive.Index, :index
 
-      # live "/people", PersonLive.Index, :index
-      # live "/people/new", PersonLive.Index, :new
-      # live "/people/:id/edit", PersonLive.Index, :edit
+      live "/people", PersonLive.Index, :index
+      live "/people/new", PersonLive.Index, :new
+      live "/people/:id/edit", PersonLive.Index, :edit
 
       # live "/books", BookLive.Index, :index
       # live "/books/new", BookLive.Index, :new

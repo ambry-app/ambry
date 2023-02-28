@@ -1,0 +1,78 @@
+<%!-- <%= if @live_action in [:new, :edit] do %>
+  <.live_component module={Amc.Modal} id={@person.id || :new} return_to={~p"/admin/people?#{patch_opts(@list_opts)}"}>
+    <.live_component
+      module={FormComponent}
+      id={@person.id || :new}
+      title={@page_title}
+      action={@live_action}
+      person={@person}
+      return_to={~p"/admin/people?#{patch_opts(@list_opts)}"}
+    />
+  </.live_component>
+<% end %> --%>
+
+<.admin_table_header
+  list_opts={@list_opts}
+  has_more={@has_more?}
+  next_page={~p"/admin/people?#{next_opts(@list_opts)}"}
+  prev_page={~p"/admin/people?#{prev_opts(@list_opts)}"}
+  new_path={~p"/admin/people/new?#{patch_opts(@list_opts)}"}
+  autofocus_search={@autofocus_search}
+/>
+
+<.admin_table rows={@people}>
+  <:col :let={person} label="Name">
+    <%= person.name %>
+  </:col>
+  <:col :let={person} label="Author?">
+    <%= if person.is_author do %>
+      <FA.icon name="check" class="h-5 w-5 fill-current" />
+    <% else %>
+      <FA.icon name="xmark" class="h-5 w-5 fill-current" />
+    <% end %>
+  </:col>
+  <:col :let={person} label="Narrator?">
+    <%= if person.is_narrator do %>
+      <FA.icon name="check" class="h-5 w-5 fill-current" />
+    <% else %>
+      <FA.icon name="xmark" class="h-5 w-5 fill-current" />
+    <% end %>
+  </:col>
+  <:col :let={person} label="# Authored Books" class="hidden sm:table-cell">
+    <%= person.authored_books %>
+  </:col>
+  <:col :let={person} label="# Narrated Media" class="hidden sm:table-cell">
+    <%= person.narrated_media %>
+  </:col>
+  <:col :let={person} label="AKA" class="hidden md:table-cell">
+    <%= (person.writing_as ++ person.narrating_as)
+    |> Enum.filter(&(&1 != person.name))
+    |> Enum.join(", ") %>
+  </:col>
+  <:actions :let={person}>
+    <div class="flex gap-2">
+      <div class="grow" />
+      <.link patch={~p"/admin/people/#{person}/edit?#{patch_opts(@list_opts)}"}>
+        <FA.icon name="pencil" class="h-4 w-4 fill-current" />
+      </.link>
+      <span phx-click="delete" phx-value-id={person.id} data-confirm="Are you sure?">
+        <FA.icon name="trash" class="h-4 w-4 fill-current text-red-600" />
+      </span>
+    </div>
+  </:actions>
+  <:no_results>
+    <span class="text-lg font-semibold">
+      <%= if @list_opts.filter do %>
+        No results for "<%= @list_opts.filter %>"
+      <% else %>
+        No people yet.
+        <.link
+          class="text-lime-500 hover:underline dark:text-lime-400"
+          patch={~p"/admin/people/new?#{patch_opts(@list_opts)}"}
+        >
+          Create one.
+        </.link>
+      <% end %>
+    </span>
+  </:no_results>
+</.admin_table>
