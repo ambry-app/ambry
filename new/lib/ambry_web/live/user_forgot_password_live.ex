@@ -7,13 +7,13 @@ defmodule AmbryWeb.UserForgotPasswordLive do
   def render(assigns) do
     ~H"""
     <.auth_form_card>
-      <.header class="text-center">
+      <.header>
         Forgot your password?
         <:subtitle>We'll send a password reset link to your inbox</:subtitle>
       </.header>
 
-      <.simple_form :let={f} id="reset_password_form" for={:user} phx-submit="send_email">
-        <.input field={{f, :email}} type="email" placeholder="Email" required />
+      <.simple_form for={@form} id="reset_password_form" phx-submit="send_email">
+        <.input field={@form[:email]} type="email" placeholder="Email" required />
         <:actions>
           <.button phx-disable-with="Sending..." class="w-full">
             Send password reset instructions
@@ -21,13 +21,9 @@ defmodule AmbryWeb.UserForgotPasswordLive do
         </:actions>
       </.simple_form>
       <p class="mt-4 text-center">
-        <.brand_link navigate={~p"/users/register"}>
-          Register
-        </.brand_link>
+        <.brand_link navigate={~p"/users/register"}>Register</.brand_link>
         |
-        <.brand_link navigate={~p"/users/log_in"}>
-          Log in
-        </.brand_link>
+        <.brand_link navigate={~p"/users/log_in"}>Log in</.brand_link>
       </p>
     </.auth_form_card>
     """
@@ -35,7 +31,7 @@ defmodule AmbryWeb.UserForgotPasswordLive do
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    {:ok, socket}
+    {:ok, assign(socket, form: to_form(%{}, as: "user"))}
   end
 
   @impl Phoenix.LiveView

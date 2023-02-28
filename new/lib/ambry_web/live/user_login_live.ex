@@ -18,12 +18,12 @@ defmodule AmbryWeb.UserLoginLive do
         </:subtitle>
       </.header>
 
-      <.simple_form :let={f} id="login_form" for={:user} action={~p"/users/log_in"} as={:user} phx-update="ignore">
-        <.input field={{f, :email}} type="email" placeholder="Email" required />
-        <.input field={{f, :password}} type="password" placeholder="Password" required />
+      <.simple_form for={@form} id="login_form" action={~p"/users/log_in"} phx-update="ignore">
+        <.input field={@form[:email]} type="email" placeholder="Email" required />
+        <.input field={@form[:password]} type="password" placeholder="Password" required />
 
-        <:actions :let={f}>
-          <.input field={{f, :remember_me}} type="checkbox" label="Remember me" />
+        <:actions>
+          <.input field={@form[:remember_me]} type="checkbox" label="Keep me logged in" />
           <.link navigate={~p"/users/reset_password"} class="text-sm font-semibold">
             Forgot your password?
           </.link>
@@ -42,8 +42,9 @@ defmodule AmbryWeb.UserLoginLive do
   def mount(_params, _session, socket) do
     email = live_flash(socket.assigns.flash, :email)
     user_registration_enabled = Application.get_env(:ambry, :user_registration_enabled, false)
+    form = to_form(%{email: email}, as: "user")
 
-    {:ok, assign(socket, email: email, user_registration_enabled: user_registration_enabled),
-     temporary_assigns: [email: nil]}
+    {:ok, assign(socket, form: form, user_registration_enabled: user_registration_enabled),
+     temporary_assigns: [form: form]}
   end
 end

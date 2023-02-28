@@ -47,10 +47,12 @@ let liveSocket = new LiveSocket(
   }
 )
 
+const dark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
 // Show progress bar on live navigation and form submits
-topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
-window.addEventListener("phx:page-loading-start", info => topbar.delayedShow(200))
-window.addEventListener("phx:page-loading-stop", info => topbar.hide())
+topbar.config({barColors: {0: dark ? '#A3E635' : '#84CC16'}, shadowColor: "rgba(0, 0, 0, .3)"})
+window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
+window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // autofocus hack:
 window.addEventListener('phx:page-loading-stop', info => {

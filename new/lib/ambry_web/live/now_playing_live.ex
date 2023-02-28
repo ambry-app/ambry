@@ -15,7 +15,7 @@ defmodule AmbryWeb.NowPlayingLive do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <.flashes flash={@flash} />
+    <.flash_group flash={@flash} />
 
     <div class="flex h-full flex-col">
       <.nav_header user={@current_user} active_path={@nav_active_path} />

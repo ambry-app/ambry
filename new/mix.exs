@@ -70,13 +70,13 @@ defmodule Ambry.MixProject do
       {:natural_sort, "~> 0.3"},
       {:oban, "~> 2.11"},
       {:phoenix_ecto, "~> 4.4"},
-      {:phoenix_html, "~> 3.0"},
-      {:phoenix_live_dashboard, "~> 0.7"},
+      {:phoenix_html, "~> 3.3"},
+      {:phoenix_live_dashboard, "~> 0.7.2"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       # TODO: switch back to published version once this fix is released:
       # https://github.com/phoenixframework/phoenix_live_view/pull/2387
-      {:phoenix_live_view, github: "phoenixframework/phoenix_live_view", override: true},
-      {:phoenix, "~> 1.7.0-rc.1", override: true},
+      {:phoenix_live_view, "~> 0.18.16"},
+      {:phoenix, "~> 1.7.0"},
       {:plug_cowboy, "~> 2.5"},
       {:postgrex, ">= 0.0.0"},
       {:sweet_xml, "~> 0.7"},
@@ -96,7 +96,7 @@ defmodule Ambry.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "ecto.setup", "assets.setup"],
+      setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "seed"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       "ecto.seed": ["run priv/repo/seeds.exs"],
@@ -104,6 +104,7 @@ defmodule Ambry.MixProject do
       seed: ["ecto.seed", "seed.download"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+      "assets.build": ["tailwind default", "esbuild default"],
       "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"]
     ]
   end

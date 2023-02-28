@@ -17,7 +17,6 @@ defmodule AmbryWeb.CoreComponents do
   import AmbryWeb.{Gettext, Gravatar}
 
   alias FontAwesome.LiveView, as: FA
-  alias Phoenix.HTML.Form
   alias Phoenix.LiveView.JS
 
   alias Ambry.Books.Book
@@ -173,15 +172,15 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
-  Renders all the flash notices.
+  Shows the flash group with standard titles and content.
 
   ## Examples
 
-      <.flashes flash={@flash} />
+      <.flash_group flash={@flash} />
   """
-  attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
+  attr :flash, :map, required: true, doc: "the map of flash messages"
 
-  def flashes(assigns) do
+  def flash_group(assigns) do
     ~H"""
     <.flash kind={:info} title="Success!" flash={@flash} />
     <.flash kind={:error} title="Error!" flash={@flash} />
@@ -204,15 +203,15 @@ defmodule AmbryWeb.CoreComponents do
 
   ## Examples
 
-      <.simple_form :let={f} for={:user} phx-change="validate" phx-submit="save">
-        <.input field={{f, :email}} label="Email"/>
-        <.input field={{f, :username}} label="Username" />
+      <.simple_form for={@form} phx-change="validate" phx-submit="save">
+        <.input field={@form[:email]} label="Email"/>
+        <.input field={@form[:username]} label="Username" />
         <:actions>
           <.button>Save</.button>
         </:actions>
       </.simple_form>
   """
-  attr :for, :any, default: nil, doc: "the datastructure for the form"
+  attr :for, :any, required: true, doc: "the datastructure for the form"
   attr :as, :any, default: nil, doc: "the server side parameter to collect all input under"
 
   attr :rest, :global,
@@ -276,21 +275,23 @@ defmodule AmbryWeb.CoreComponents do
 
   ## Examples
 
-      <.input field={{f, :email}} type="email" />
+      <.input field={@form[:email]} type="email" />
       <.input name="my-input" errors={["oh no!"]} />
   """
-  attr :id, :any
+  attr :id, :any, default: nil
   attr :name, :any
   attr :label, :string, default: nil
+  attr :value, :any
 
   attr :type, :string,
     default: "text",
     values: ~w(checkbox color date datetime-local email file hidden month number password
                range radio search select tel text textarea time url week)
 
-  attr :value, :any
-  attr :field, :any, doc: "a %Phoenix.HTML.Form{}/field name tuple, for example: {f, :email}"
-  attr :errors, :list
+  attr :field, Phoenix.HTML.FormField,
+    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+
+  attr :errors, :list, default: []
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
@@ -300,41 +301,41 @@ defmodule AmbryWeb.CoreComponents do
   attr :class, :string, default: nil, doc: "class overrides"
   slot :inner_block
 
-  def input(%{field: {f, field}} = assigns) do
+  def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
     assigns
-    |> assign(field: nil)
-    |> assign_new(:name, fn ->
-      name = Form.input_name(f, field)
-      if assigns.multiple, do: name <> "[]", else: name
-    end)
-    |> assign_new(:id, fn -> Form.input_id(f, field) end)
-    |> assign_new(:value, fn -> Form.input_value(f, field) end)
-    |> assign_new(:errors, fn -> translate_errors(f.errors || [], field) end)
+    |> assign(field: nil, id: assigns.id || field.id)
+    |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
+    |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
+    |> assign_new(:value, fn -> field.value end)
     |> input()
   end
 
-  def input(%{type: "checkbox"} = assigns) do
-    assigns = assign_new(assigns, :checked, fn -> input_equals?(assigns.value, "true") end)
+  def input(%{type: "checkbox", value: value} = assigns) do
+    assigns =
+      assign_new(assigns, :checked, fn -> Phoenix.HTML.Form.normalize_value("checkbox", value) end)
 
     ~H"""
-    <label phx-feedback-for={@name} class="flex items-center gap-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-      <input type="hidden" name={@name} value="false" />
-      <input
-        type="checkbox"
-        id={@id || @name}
-        name={@name}
-        value="true"
-        checked={@checked}
-        class={[
-          "rounded",
-          "bg-white border-zinc-300 text-zinc-900 focus:ring-zinc-900",
-          "dark:bg-zinc-900 dark:border-zinc-700 dark:text-black dark:focus:ring-zinc-900",
-          @class
-        ]}
-        {@rest}
-      />
-      <%= @label %>
-    </label>
+    <div phx-feedback-for={@name}>
+      <label class="flex items-center gap-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+        <input type="hidden" name={@name} value="false" />
+        <input
+          type="checkbox"
+          id={@id || @name}
+          name={@name}
+          value="true"
+          checked={@checked}
+          class={[
+            "rounded",
+            "bg-white border-zinc-300 text-zinc-900 focus:ring-zinc-900",
+            "dark:bg-zinc-900 dark:border-zinc-700 dark:text-black dark:focus:ring-zinc-900",
+            @class
+          ]}
+          {@rest}
+        />
+        <%= @label %>
+      </label>
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
     """
   end
 
@@ -367,16 +368,26 @@ defmodule AmbryWeb.CoreComponents do
       <textarea
         id={@id || @name}
         name={@name}
-        class={[
-          input_border(@errors),
-          "mt-2 block min-h-[6rem] w-full rounded-lg border-zinc-300 py-[7px] px-[11px]",
-          "text-zinc-900 focus:border-zinc-400 focus:outline-none focus:ring-4 focus:ring-zinc-800/5 sm:text-sm sm:leading-6",
-          "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
-          @class
-        ]}
+        class={
+          [
+            "mt-2 block min-h-[6rem] w-full rounded-lg py-[7px] px-[11px]",
+            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
+            "bg-white text-zinc-900",
+            "dark:bg-zinc-800 dark:text-zinc-300",
+            "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
+            "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
+            "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
+            "phx-no-feedback:dark:border-zinc-600 phx-no-feedback:dark:focus:border-zinc-400 phx-no-feedback:dark:focus:ring-zinc-200/5"
+          ] ++
+            if @errors == [],
+              do: [],
+              else: [
+                "border-rose-400 focus:border-rose-400 focus:ring-rose-400/10",
+                "dark:border-red-400 dark:focus:border-red-400 dark:focus:ring-red-400/10"
+              ]
+        }
         {@rest}
-      >
-    <%= @value %></textarea>
+      ><%= Phoenix.HTML.Form.normalize_value("textarea", @value) %></textarea>
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
     """
@@ -390,31 +401,31 @@ defmodule AmbryWeb.CoreComponents do
         type={@type}
         name={@name}
         id={@id || @name}
-        value={@value}
-        class={[
-          input_border(@errors),
-          "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-300",
-          "mt-2 block w-full rounded-lg py-[7px] px-[11px]",
-          "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
-          "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
-          "dark:phx-no-feedback:border-zinc-600 dark:phx-no-feedback:focus:border-zinc-400 dark:phx-no-feedback:focus:ring-zinc-200/5",
-          @class
-        ]}
+        value={Phoenix.HTML.Form.normalize_value(@type, @value)}
+        class={
+          [
+            "mt-2 block w-full rounded-lg py-[7px] px-[11px]",
+            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
+            "bg-white text-zinc-900",
+            "dark:bg-zinc-800 dark:text-zinc-300",
+            "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
+            "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
+            "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
+            "phx-no-feedback:dark:border-zinc-600 phx-no-feedback:dark:focus:border-zinc-400 phx-no-feedback:dark:focus:ring-zinc-200/5"
+          ] ++
+            if @errors == [],
+              do: [],
+              else: [
+                "border-rose-400 focus:border-rose-400 focus:ring-rose-400/10",
+                "dark:border-red-400 dark:focus:border-red-400 dark:focus:ring-red-400/10"
+              ]
+        }
         {@rest}
       />
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
     """
   end
-
-  defp input_border([] = _errors),
-    do: [
-      "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
-      "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5"
-    ]
-
-  defp input_border([_ | _] = _errors),
-    do: "border-rose-400 focus:border-rose-400 focus:ring-rose-400/10"
 
   @doc """
   Renders a label.
@@ -437,8 +448,8 @@ defmodule AmbryWeb.CoreComponents do
 
   def error(assigns) do
     ~H"""
-    <p class="mt-3 flex gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden">
-      <Heroicons.exclamation_circle mini class="mt-0.5 h-5 w-5 flex-none fill-red-500" />
+    <p class="mt-3 flex gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden dark:text-red-500">
+      <FA.icon name="circle-exclamation" class="mt-1 h-4 w-4 flex-none fill-red-500" />
       <%= render_slot(@inner_block) %>
     </p>
     """
@@ -480,8 +491,13 @@ defmodule AmbryWeb.CoreComponents do
       </.table>
   """
   attr :id, :string, required: true
-  attr :row_click, :any, default: nil
   attr :rows, :list, required: true
+  attr :row_id, :any, default: nil, doc: "the function for generating the row id"
+  attr :row_click, :any, default: nil, doc: "the function for handling phx-click on each row"
+
+  attr :row_item, :any,
+    default: &Function.identity/1,
+    doc: "the function for mapping each row before calling the :col and :action slots"
 
   slot :col, required: true do
     attr :label, :string
@@ -490,8 +506,13 @@ defmodule AmbryWeb.CoreComponents do
   slot :action, doc: "the slot for showing user actions in the last table column"
 
   def table(assigns) do
+    assigns =
+      with %{rows: %Phoenix.LiveView.LiveStream{}} <- assigns do
+        assign(assigns, row_id: assigns.row_id || fn {id, _item} -> id end)
+      end
+
     ~H"""
-    <div id={@id} class="overflow-y-auto px-4 sm:overflow-visible sm:px-0">
+    <div class="overflow-y-auto px-4 sm:overflow-visible sm:px-0">
       <table class="w-[40rem] mt-11 sm:w-full">
         <thead class="text-[0.8125rem] text-left leading-6 text-zinc-500">
           <tr>
@@ -499,30 +520,32 @@ defmodule AmbryWeb.CoreComponents do
             <th class="relative p-0 pb-4"><span class="sr-only"><%= gettext("Actions") %></span></th>
           </tr>
         </thead>
-        <tbody class="relative divide-y divide-zinc-100 border-t border-zinc-200 text-sm leading-6 text-zinc-700">
-          <tr :for={row <- @rows} id={"#{@id}-#{Phoenix.Param.to_param(row)}"} class="group relative hover:bg-zinc-50">
+        <tbody
+          id={@id}
+          phx-update={match?(%Phoenix.LiveView.LiveStream{}, @rows) && "stream"}
+          class="relative divide-y divide-zinc-100 border-t border-zinc-200 text-sm leading-6 text-zinc-700"
+        >
+          <tr :for={row <- @rows} id={@row_id && @row_id.(row)} class="group hover:bg-zinc-50">
             <td
               :for={{col, i} <- Enum.with_index(@col)}
               phx-click={@row_click && @row_click.(row)}
-              class={["p-0", @row_click && "hover:cursor-pointer"]}
+              class={["relative p-0", @row_click && "hover:cursor-pointer"]}
             >
-              <div :if={i == 0}>
-                <span class="absolute top-0 -left-4 h-full w-4 group-hover:bg-zinc-50 sm:rounded-l-xl" />
-                <span class="absolute top-0 -right-4 h-full w-4 group-hover:bg-zinc-50 sm:rounded-r-xl" />
-              </div>
               <div class="block py-4 pr-6">
+                <span class="absolute -inset-y-px right-0 -left-4 group-hover:bg-zinc-50 sm:rounded-l-xl" />
                 <span class={["relative", i == 0 && "font-semibold text-zinc-900"]}>
-                  <%= render_slot(col, row) %>
+                  <%= render_slot(col, @row_item.(row)) %>
                 </span>
               </div>
             </td>
-            <td :if={@action != []} class="w-14 p-0">
+            <td :if={@action != []} class="relative w-14 p-0">
               <div class="relative whitespace-nowrap py-4 text-right text-sm font-medium">
+                <span class="absolute -inset-y-px -right-4 left-0 group-hover:bg-zinc-50 sm:rounded-r-xl" />
                 <span
                   :for={action <- @action}
                   class="relative ml-4 font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
                 >
-                  <%= render_slot(action, row) %>
+                  <%= render_slot(action, @row_item.(row)) %>
                 </span>
               </div>
             </td>
@@ -1096,9 +1119,5 @@ defmodule AmbryWeb.CoreComponents do
   """
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
-  end
-
-  defp input_equals?(val1, val2) do
-    Phoenix.HTML.html_escape(val1) == Phoenix.HTML.html_escape(val2)
   end
 end

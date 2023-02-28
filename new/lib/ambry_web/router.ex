@@ -8,7 +8,7 @@ defmodule AmbryWeb.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, {AmbryWeb.Layouts, :root}
+    plug :put_root_layout, html: {AmbryWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_user
@@ -47,7 +47,7 @@ defmodule AmbryWeb.Router do
   end
 
   pipeline :admin do
-    plug :put_root_layout, {AmbryWeb.Admin.Layouts, :root}
+    plug :put_root_layout, html: {AmbryWeb.Admin.Layouts, :root}
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

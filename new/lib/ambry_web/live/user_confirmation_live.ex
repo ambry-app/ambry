@@ -7,23 +7,19 @@ defmodule AmbryWeb.UserConfirmationLive do
   def render(%{live_action: :edit} = assigns) do
     ~H"""
     <.auth_form_card>
-      <.header class="text-center">Confirm Account</.header>
+      <.header>Confirm Account</.header>
 
-      <.simple_form :let={f} for={:user} id="confirmation_form" phx-submit="confirm_account">
-        <.input field={{f, :token}} type="hidden" value={@token} />
+      <.simple_form for={@form} id="confirmation_form" phx-submit="confirm_account">
+        <.input field={@form[:token]} type="hidden" />
         <:actions>
           <.button phx-disable-with="Confirming..." class="w-full">Confirm my account</.button>
         </:actions>
       </.simple_form>
 
       <p class="mt-4 text-center">
-        <.brand_link navigate={~p"/users/register"}>
-          Register
-        </.brand_link>
+        <.brand_link navigate={~p"/users/register"}>Register</.brand_link>
         |
-        <.brand_link navigate={~p"/users/log_in"}>
-          Log in
-        </.brand_link>
+        <.brand_link navigate={~p"/users/log_in"}>Log in</.brand_link>
       </p>
     </.auth_form_card>
     """
