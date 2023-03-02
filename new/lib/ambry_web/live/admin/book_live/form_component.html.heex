@@ -1,15 +1,22 @@
 <div>
   <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
-    <.input field={@form[:name]} label="Name" />
+    <.input field={@form[:title]} label="Title" />
+    <.input field={@form[:published]} label="Published" type="date" />
     <.input field={@form[:description]} label="Description" type="textarea" phx-hook="maintainAttrs" data-attrs="style" />
 
     <div>
-      <.label>Writing as</.label>
-      <.inputs_for :let={author_form} field={@form[:authors]}>
+      <.label>Writing by</.label>
+      <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
         <div class="flex">
-          <.input field={author_form[:name]} placeholder="Name" container_class="grow" />
+          <.input
+            field={book_author_form[:author_id]}
+            type="select"
+            prompt=""
+            options={@authors}
+            container_class="grow"
+          />
           <label class="ml-2 flex">
-            <.input type="checkbox" field={author_form[:delete]} hidden_input={false} class="peer hidden" />
+            <.input type="checkbox" field={book_author_form[:delete]} hidden_input={false} class="peer hidden" />
             <FA.icon
               name="trash"
               class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
@@ -29,12 +36,19 @@
     </div>
 
     <div>
-      <.label>Narrating as</.label>
-      <.inputs_for :let={narrator_form} field={@form[:narrators]}>
+      <.label>Series</.label>
+      <.inputs_for :let={series_book_form} field={@form[:series_books]}>
         <div class="flex">
-          <.input field={narrator_form[:name]} placeholder="Name" container_class="grow" />
+          <.input field={series_book_form[:book_number]} container_class="mr-2 w-14 flex-none" />
+          <.input
+            field={series_book_form[:series_id]}
+            type="select"
+            prompt=""
+            options={@authors}
+            container_class="grow"
+          />
           <label class="ml-2 flex">
-            <.input type="checkbox" field={narrator_form[:delete]} hidden_input={false} class="peer hidden" />
+            <.input type="checkbox" field={series_book_form[:delete]} hidden_input={false} class="peer hidden" />
             <FA.icon
               name="trash"
               class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
@@ -44,18 +58,18 @@
       </.inputs_for>
       <button
         type="button"
-        phx-click="add-narrator"
+        phx-click="add-series"
         phx-target={@myself}
         class="flex items-center pt-2 text-lime-500 hover:underline"
       >
-        <span>Add narrator</span>
+        <span>Add series</span>
         <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
       </button>
     </div>
 
-    <div :if={@person.image_path}>
+    <div :if={@book.image_path}>
       <.label>Current image</.label>
-      <img src={@person.image_path} class="mt-2 h-40 w-40 rounded-full object-cover object-top shadow-lg" />
+      <img src={@book.image_path} class="mt-2 h-48 rounded-lg border border-gray-200 shadow-md dark:border-gray-900" />
     </div>
 
     <div>
@@ -69,7 +83,10 @@
         <%= for entry <- @uploads.image.entries do %>
           <article class="upload-entry">
             <figure>
-              <.live_img_preview entry={entry} class="h-40 w-40 rounded-full object-cover object-top shadow-lg" />
+              <.live_img_preview
+                entry={entry}
+                class="h-48 rounded-lg border border-gray-200 shadow-md dark:border-gray-900"
+              />
               <figcaption><%= entry.client_name %></figcaption>
             </figure>
 

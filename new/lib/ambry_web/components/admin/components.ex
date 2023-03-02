@@ -6,7 +6,7 @@ defmodule AmbryWeb.Admin.Components do
   def admin_table_header(assigns) do
     ~H"""
     <div class="flex items-center">
-      <.admin_table_search_form filter={@list_opts.filter} autofocus_search={@autofocus_search} />
+      <.admin_table_search_form filter={@list_opts.filter} />
       <div class="flex-grow" />
       <%= if @new_path do %>
         <div class="px-2">

@@ -5,8 +5,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
   use AmbryWeb, :live_view
 
-  import AmbryWeb.Admin.Components
-  import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.{Components, PaginationHelpers}
 
   alias Ambry.{People, PubSub}
   alias Ambry.People.Person
@@ -47,21 +46,18 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     socket
     |> assign(:page_title, person.name)
     |> assign(:person, person)
-    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Person")
     |> assign(:person, %Person{authors: [], narrators: []})
-    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Authors & Narrators")
     |> assign(:person, nil)
-    |> assign_new(:autofocus_search, fn -> false end)
   end
 
   defp maybe_update_people(socket, params, force \\ false) do
@@ -124,11 +120,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    socket =
-      socket
-      |> maybe_update_people(%{"filter" => query, "page" => "1"})
-      |> assign(:autofocus_search, true)
-
+    socket = maybe_update_people(socket, %{"filter" => query, "page" => "1"})
     list_opts = get_list_opts(socket)
 
     {:noreply, push_patch(socket, to: ~p"/admin/people?#{patch_opts(list_opts)}")}
@@ -137,10 +129,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   def handle_event("row-click", %{"id" => id}, socket) do
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket,
-       to: ~p"/admin/people/#{id}/edit?#{patch_opts(list_opts)}"
-     )}
+    {:noreply, push_patch(socket, to: ~p"/admin/people/#{id}/edit?#{patch_opts(list_opts)}")}
   end
 
   defp list_people(opts) do

@@ -59,7 +59,7 @@ defmodule AmbryWeb.CoreComponents do
   def modal(assigns) do
     ~H"""
     <div id={@id} phx-mounted={@show && show_modal(@id)} phx-remove={hide_modal(@id)} class="relative z-50 hidden">
-      <div id={"#{@id}-bg"} class="bg-zinc-50/90 fixed inset-0 transition-opacity" aria-hidden="true" />
+      <div id={"#{@id}-bg"} class="bg-zinc-50/90 fixed inset-0 transition-opacity dark:bg-zinc-900/90" aria-hidden="true" />
       <div
         class="fixed inset-0 overflow-y-auto"
         aria-labelledby={"#{@id}-title"}
@@ -69,14 +69,14 @@ defmodule AmbryWeb.CoreComponents do
         tabindex="0"
       >
         <div class="flex min-h-full items-center justify-center">
-          <div class="w-full max-w-3xl p-4 sm:p-6 lg:py-8">
+          <div class="w-full p-4 sm:max-w-lg sm:p-6 md:max-w-xl lg:max-w-2xl lg:py-8 xl:max-w-3xl 2xl:max-w-5xl">
             <.focus_wrap
               id={"#{@id}-container"}
               phx-mounted={@show && show_modal(@id)}
               phx-window-keydown={hide_modal(@on_cancel, @id)}
               phx-key="escape"
               phx-click-away={hide_modal(@on_cancel, @id)}
-              class="shadow-zinc-700/10 ring-zinc-700/10 relative hidden rounded-2xl bg-white p-14 shadow-lg ring-1 transition"
+              class="shadow-zinc-700/10 ring-zinc-700/10 relative hidden rounded-2xl bg-white p-6 shadow-lg ring-1 transition dark:ring-zinc-900/10 dark:bg-black dark:shadow-none"
             >
               <div class="absolute top-6 right-5">
                 <button
@@ -85,12 +85,12 @@ defmodule AmbryWeb.CoreComponents do
                   class="-m-3 flex-none p-3 opacity-20 hover:opacity-40"
                   aria-label={gettext("close")}
                 >
-                  <Heroicons.x_mark solid class="h-5 w-5 stroke-current" />
+                  <FA.icon name="xmark" class="h-5 w-5 fill-current" />
                 </button>
               </div>
               <div id={"#{@id}-content"}>
-                <header :if={@title != []}>
-                  <h1 id={"#{@id}-title"} class="text-lg font-semibold leading-8 text-zinc-800">
+                <header :if={@title != []} class="pb-4">
+                  <h1 id={"#{@id}-title"} class="text-2xl font-bold leading-8">
                     <%= render_slot(@title) %>
                   </h1>
                   <p :if={@subtitle != []} id={"#{@id}-description"} class="mt-2 text-sm leading-6 text-zinc-600">
@@ -299,6 +299,8 @@ defmodule AmbryWeb.CoreComponents do
   attr :rest, :global, include: ~w(autocomplete cols disabled form max maxlength min minlength
                                    pattern placeholder readonly required rows size step)
   attr :class, :string, default: nil, doc: "class overrides"
+  attr :container_class, :string, default: nil, doc: "extra classes for the container div"
+  attr :hidden_input, :boolean, default: true
   slot :inner_block
 
   def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
@@ -315,9 +317,9 @@ defmodule AmbryWeb.CoreComponents do
       assign_new(assigns, :checked, fn -> Phoenix.HTML.Form.normalize_value("checkbox", value) end)
 
     ~H"""
-    <div phx-feedback-for={@name}>
+    <div phx-feedback-for={@name} class={[@container_class]}>
       <label class="flex items-center gap-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-        <input type="hidden" name={@name} value="false" />
+        <input :if={@hidden_input} type="hidden" name={@name} value="false" />
         <input
           type="checkbox"
           id={@id || @name}
@@ -341,15 +343,17 @@ defmodule AmbryWeb.CoreComponents do
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div phx-feedback-for={@name}>
+    <div phx-feedback-for={@name} class={[@container_class]}>
       <.label for={@id}><%= @label %></.label>
       <select
         id={@id}
         name={@name}
-        class={[
-          "mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 sm:text-sm",
-          @class
-        ]}
+        class={
+          [
+            "mt-2 block w-full rounded-lg border px-3 py-2 shadow-sm",
+            "focus:outline-none focus:ring-4 sm:text-sm"
+          ] ++ input_color_classes(@errors)
+        }
         multiple={@multiple}
         {@rest}
       >
@@ -363,7 +367,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div phx-feedback-for={@name}>
+    <div phx-feedback-for={@name} class={[@container_class]}>
       <.label for={@id}><%= @label %></.label>
       <textarea
         id={@id || @name}
@@ -371,20 +375,8 @@ defmodule AmbryWeb.CoreComponents do
         class={
           [
             "mt-2 block min-h-[6rem] w-full rounded-lg py-[7px] px-[11px]",
-            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
-            "bg-white text-zinc-900",
-            "dark:bg-zinc-800 dark:text-zinc-300",
-            "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
-            "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
-            "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
-            "phx-no-feedback:dark:border-zinc-600 phx-no-feedback:dark:focus:border-zinc-400 phx-no-feedback:dark:focus:ring-zinc-200/5"
-          ] ++
-            if @errors == [],
-              do: [],
-              else: [
-                "border-rose-400 focus:border-rose-400 focus:ring-rose-400/10",
-                "dark:border-red-400 dark:focus:border-red-400 dark:focus:ring-red-400/10"
-              ]
+            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
+          ] ++ input_color_classes(@errors)
         }
         {@rest}
       ><%= Phoenix.HTML.Form.normalize_value("textarea", @value) %></textarea>
@@ -395,7 +387,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def input(assigns) do
     ~H"""
-    <div phx-feedback-for={@name}>
+    <div phx-feedback-for={@name} class={[@container_class]}>
       <.label for={@id}><%= @label %></.label>
       <input
         type={@type}
@@ -405,26 +397,31 @@ defmodule AmbryWeb.CoreComponents do
         class={
           [
             "mt-2 block w-full rounded-lg py-[7px] px-[11px]",
-            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
-            "bg-white text-zinc-900",
-            "dark:bg-zinc-800 dark:text-zinc-300",
-            "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
-            "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
-            "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
-            "phx-no-feedback:dark:border-zinc-600 phx-no-feedback:dark:focus:border-zinc-400 phx-no-feedback:dark:focus:ring-zinc-200/5"
-          ] ++
-            if @errors == [],
-              do: [],
-              else: [
-                "border-rose-400 focus:border-rose-400 focus:ring-rose-400/10",
-                "dark:border-red-400 dark:focus:border-red-400 dark:focus:ring-red-400/10"
-              ]
+            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
+          ] ++ input_color_classes(@errors)
         }
         {@rest}
       />
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
     """
+  end
+
+  defp input_color_classes(errors) do
+    [
+      "bg-white text-zinc-900",
+      "dark:bg-zinc-800 dark:text-zinc-300",
+      "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
+      "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
+      "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
+      "phx-no-feedback:dark:border-zinc-600 phx-no-feedback:dark:focus:border-zinc-400 phx-no-feedback:dark:focus:ring-zinc-200/5"
+    ] ++
+      if errors == [],
+        do: [],
+        else: [
+          "border-rose-400 focus:border-rose-400 focus:ring-rose-400/10",
+          "dark:border-red-400 dark:focus:border-red-400 dark:focus:ring-red-400/10"
+        ]
   end
 
   @doc """

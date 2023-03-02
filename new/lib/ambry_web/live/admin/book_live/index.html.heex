@@ -1,0 +1,72 @@
+<.modal
+  :if={@live_action in [:new, :edit]}
+  id="book-modal"
+  show
+  on_cancel={JS.navigate(~p"/admin/books?#{patch_opts(@list_opts)}")}
+>
+  <.live_component
+    module={FormComponent}
+    id={@book.id || :new}
+    action={@live_action}
+    book={@book}
+    patch={~p"/admin/books?#{patch_opts(@list_opts)}"}
+  />
+</.modal>
+
+<.admin_table_header
+  list_opts={@list_opts}
+  has_more={@has_more?}
+  next_page={~p"/admin/books?#{next_opts(@list_opts)}"}
+  prev_page={~p"/admin/books?#{prev_opts(@list_opts)}"}
+  new_path={~p"/admin/books/new?#{patch_opts(@list_opts)}"}
+/>
+
+<.admin_table rows={@books}>
+  <:col :let={book} label="Title">
+    <%= book.title %>
+  </:col>
+  <:col :let={book} label="Authors" class="hidden sm:table-cell">
+    <%= for author <- book.authors do %>
+      <%= author.name %>
+      <%= if author.name != author.person_name do %>
+        (<%= author.person_name %>)
+      <% end %>
+      <br />
+    <% end %>
+  </:col>
+  <:col :let={book} label="Series" class="hidden md:table-cell">
+    <%= for series <- book.series do %>
+      <%= series %>
+      <br />
+    <% end %>
+  </:col>
+  <:col :let={book} label="Published">
+    <%= book.published %>
+  </:col>
+  <:col :let={book} label="# Media" class="hidden md:table-cell">
+    <%= book.media %>
+  </:col>
+  <:actions :let={book}>
+    <div class="flex gap-2">
+      <div class="grow" />
+      <.link patch={~p"/admin/books/#{book}/edit?#{patch_opts(@list_opts)}"}>
+        <FA.icon name="pencil" class="h-4 w-4 fill-current" />
+      </.link>
+      <span phx-click="delete" phx-value-id={book.id} data-confirm="Are you sure?">
+        <FA.icon name="trash" class="h-4 w-4 fill-current text-red-600" />
+      </span>
+    </div>
+  </:actions>
+  <:no_results>
+    <span class="text-lg font-semibold">
+      <%= if @list_opts.filter do %>
+        No results for "<%= @list_opts.filter %>"
+      <% else %>
+        No books yet.
+        <.brand_link patch={~p"/admin/books/new?#{patch_opts(@list_opts)}"}>
+          Create one.
+        </.brand_link>
+      <% end %>
+    </span>
+  </:no_results>
+</.admin_table>
