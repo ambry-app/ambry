@@ -26,8 +26,9 @@ defmodule AmbryWeb.UserConfirmationLive do
   end
 
   @impl Phoenix.LiveView
-  def mount(params, _session, socket) do
-    {:ok, assign(socket, token: params["token"]), temporary_assigns: [token: nil]}
+  def mount(%{"token" => token}, _session, socket) do
+    form = to_form(%{"token" => token}, as: "user")
+    {:ok, assign(socket, form: form), temporary_assigns: [form: nil]}
   end
 
   @impl Phoenix.LiveView

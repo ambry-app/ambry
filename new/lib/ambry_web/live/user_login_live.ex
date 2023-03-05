@@ -42,7 +42,7 @@ defmodule AmbryWeb.UserLoginLive do
   def mount(_params, _session, socket) do
     email = live_flash(socket.assigns.flash, :email)
     user_registration_enabled = Application.get_env(:ambry, :user_registration_enabled, false)
-    form = to_form(%{email: email}, as: "user")
+    form = to_form(%{"email" => email}, as: "user")
 
     {:ok, assign(socket, form: form, user_registration_enabled: user_registration_enabled),
      temporary_assigns: [form: form]}

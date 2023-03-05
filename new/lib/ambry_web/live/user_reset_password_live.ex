@@ -39,7 +39,7 @@ defmodule AmbryWeb.UserResetPasswordLive do
         %{user: user} ->
           Accounts.change_user_password(user)
 
-        _ ->
+        _assigns ->
           %{}
       end
 

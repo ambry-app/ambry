@@ -69,6 +69,13 @@ defmodule AmbryWeb.Admin.Components do
           "border-t border-zinc-200 hover:bg-zinc-200 dark:border-zinc-800 dark:hover:bg-zinc-700",
         else: "border-t border-zinc-200 dark:border-zinc-800"
 
+    assigns =
+      assign(assigns,
+        default_cell_class: default_cell_class,
+        default_header_class: default_header_class,
+        row_class: row_class
+      )
+
     ~H"""
     <div class="rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
       <%= if @rows == [] do %>
@@ -80,31 +87,31 @@ defmodule AmbryWeb.Admin.Components do
           <thead>
             <tr>
               <%= for col <- @col do %>
-                <th class={[col[:class], default_header_class]}><%= col.label %></th>
+                <th class={[col[:class], @default_header_class]}><%= col.label %></th>
               <% end %>
 
               <%= if assigns[:actions] do %>
-                <th class={[assigns[:actions_class], default_header_class]} />
+                <th class={[assigns[:actions_class], @default_header_class]} />
               <% end %>
             </tr>
           </thead>
           <tbody>
             <%= for row <- @rows do %>
-              <tr class={row_class}>
+              <tr class={@row_class}>
                 <%= for col <- @col do %>
                   <%= if @row_click do %>
-                    <td class={[col[:class], default_cell_class]} phx-click="row-click" phx-value-id={row.id}>
+                    <td class={[col[:class], @default_cell_class]} phx-click="row-click" phx-value-id={row.id}>
                       <%= render_slot(col, row) %>
                     </td>
                   <% else %>
-                    <td class={[col[:class], default_cell_class]}>
+                    <td class={[col[:class], @default_cell_class]}>
                       <%= render_slot(col, row) %>
                     </td>
                   <% end %>
                 <% end %>
 
                 <%= if assigns[:actions] do %>
-                  <td class={[assigns[:actions_class], default_cell_class]}>
+                  <td class={[assigns[:actions_class], @default_cell_class]}>
                     <%= render_slot(@actions, row) %>
                   </td>
                 <% end %>

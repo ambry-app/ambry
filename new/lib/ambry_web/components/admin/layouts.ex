@@ -128,13 +128,13 @@ defmodule AmbryWeb.Admin.Layouts do
   @side_bar_open_classes "translate-x-0 ease-in opacity-100"
   @side_bar_closed_classes "-translate-x-full ease-out opacity-0"
 
-  defp close_sidebar() do
+  defp close_sidebar do
     %JS{}
     |> JS.remove_class(@side_bar_open_classes, to: "#side-bar")
     |> JS.add_class(@side_bar_closed_classes, to: "#side-bar")
   end
 
-  defp open_sidebar() do
+  defp open_sidebar do
     %JS{}
     |> JS.remove_class(@side_bar_closed_classes, to: "#side-bar")
     |> JS.add_class(@side_bar_open_classes, to: "#side-bar")

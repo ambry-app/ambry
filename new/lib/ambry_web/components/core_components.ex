@@ -16,6 +16,8 @@ defmodule AmbryWeb.CoreComponents do
 
   import AmbryWeb.{Gettext, Gravatar}
 
+  alias Phoenix.HTML.{Form, FormField}
+
   alias FontAwesome.LiveView, as: FA
   alias Phoenix.LiveView.JS
 
@@ -301,7 +303,7 @@ defmodule AmbryWeb.CoreComponents do
     values: ~w(checkbox color date datetime-local email file hidden month number password
                range radio search select tel text textarea time url week)
 
-  attr :field, Phoenix.HTML.FormField,
+  attr :field, FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
 
   attr :errors, :list, default: []
@@ -316,7 +318,7 @@ defmodule AmbryWeb.CoreComponents do
   attr :hidden_input, :boolean, default: true
   slot :inner_block
 
-  def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
+  def input(%{field: %FormField{} = field} = assigns) do
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
     |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
@@ -326,8 +328,7 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   def input(%{type: "checkbox", value: value} = assigns) do
-    assigns =
-      assign_new(assigns, :checked, fn -> Phoenix.HTML.Form.normalize_value("checkbox", value) end)
+    assigns = assign_new(assigns, :checked, fn -> Form.normalize_value("checkbox", value) end)
 
     ~H"""
     <div phx-feedback-for={@name} class={[@container_class]}>
@@ -371,7 +372,7 @@ defmodule AmbryWeb.CoreComponents do
         {@rest}
       >
         <option :if={@prompt} value=""><%= @prompt %></option>
-        <%= Phoenix.HTML.Form.options_for_select(@options, @value) %>
+        <%= Form.options_for_select(@options, @value) %>
       </select>
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
@@ -392,7 +393,7 @@ defmodule AmbryWeb.CoreComponents do
           ] ++ input_color_classes(@errors) ++ [@class]
         }
         {@rest}
-      ><%= Phoenix.HTML.Form.normalize_value("textarea", @value) %></textarea>
+      ><%= Form.normalize_value("textarea", @value) %></textarea>
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
     """
@@ -406,7 +407,7 @@ defmodule AmbryWeb.CoreComponents do
         type={@type}
         name={@name}
         id={@id || @name}
-        value={Phoenix.HTML.Form.normalize_value(@type, @value)}
+        value={Form.normalize_value(@type, @value)}
         class={
           [
             "mt-2 block w-full rounded-lg py-[7px] px-[11px]",

@@ -186,19 +186,19 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   defp processors(%Media.Media{source_path: path} = media, [_ | _] = uploads)
        when is_binary(path) do
     filenames = Enum.map(uploads, & &1.client_name)
-    {media, filenames} |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1}) |> dbg()
+    {media, filenames} |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
   end
 
   defp processors(_media, [_ | _] = uploads) do
     filenames = Enum.map(uploads, & &1.client_name)
-    filenames |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1}) |> dbg()
+    filenames |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
   end
 
   defp processors(%Media.Media{source_path: path} = media, _uploads) when is_binary(path) do
-    media |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1}) |> dbg()
+    media |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
   end
 
-  defp processors(_media, _uploads), do: [] |> dbg()
+  defp processors(_media, _uploads), do: []
 
   defp parse_requested_processor(""), do: :none_specified
   defp parse_requested_processor(string), do: String.to_existing_atom(string)
