@@ -33,7 +33,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
             <%= if @selected_bookmark && @selected_bookmark.id == bookmark.id do %>
               <tr>
                 <td class="border-b border-zinc-100 py-2 pl-4 dark:border-zinc-900">
-                  <.form :let={f} for={@changeset} phx-submit="save-bookmark" phx-target={@myself}>
+                  <.form for={@form} phx-submit="save-bookmark" phx-target={@myself}>
                     <div class="flex items-center space-x-2">
                       <button
                         type="button"
@@ -43,7 +43,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
                       >
                         <FA.icon name="xmark" class="h-5 w-5 fill-current" />
                       </button>
-                      <.input field={{f, :label}} placeholder="Label" class="!mt-0" />
+                      <.input field={@form[:label]} placeholder="Label" class="!mt-0" />
                       <button type="submit" class="text-zinc-500 hover:text-brand-dark">
                         <FA.icon name="check" class="h-5 w-5 fill-current" />
                       </button>
@@ -127,13 +127,13 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
 
   def handle_event("edit-bookmark", %{"id" => id}, socket) do
     bookmark = Media.get_bookmark!(id)
-    changeset = Media.change_bookmark(bookmark)
+    form = bookmark |> Media.change_bookmark() |> to_form()
 
-    {:noreply, assign(socket, %{selected_bookmark: bookmark, changeset: changeset})}
+    {:noreply, assign(socket, %{selected_bookmark: bookmark, form: form})}
   end
 
   def handle_event("cancel-edit-bookmark", _params, socket) do
-    {:noreply, assign(socket, %{selected_bookmark: nil, changeset: nil})}
+    {:noreply, assign(socket, %{selected_bookmark: nil, form: nil})}
   end
 
   def handle_event("save-bookmark", %{"bookmark" => params}, socket) do
@@ -142,7 +142,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
     {:noreply,
      socket
      |> get_bookmarks()
-     |> assign(%{selected_bookmark: nil, changeset: nil})}
+     |> assign(%{selected_bookmark: nil, form: nil})}
   end
 
   def handle_event("delete-bookmark", _params, socket) do
@@ -151,7 +151,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
     {:noreply,
      socket
      |> get_bookmarks()
-     |> assign(%{selected_bookmark: nil, changeset: nil})}
+     |> assign(%{selected_bookmark: nil, form: nil})}
   end
 
   defp get_bookmarks(socket) do

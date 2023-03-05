@@ -365,7 +365,7 @@ defmodule AmbryWeb.CoreComponents do
           [
             "mt-2 block w-full rounded-lg border px-3 py-2 shadow-sm",
             "focus:outline-none focus:ring-4 sm:text-sm"
-          ] ++ input_color_classes(@errors)
+          ] ++ input_color_classes(@errors) ++ [@class]
         }
         multiple={@multiple}
         {@rest}
@@ -389,7 +389,7 @@ defmodule AmbryWeb.CoreComponents do
           [
             "mt-2 block min-h-[6rem] w-full rounded-lg py-[7px] px-[11px]",
             "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
-          ] ++ input_color_classes(@errors)
+          ] ++ input_color_classes(@errors) ++ [@class]
         }
         {@rest}
       ><%= Phoenix.HTML.Form.normalize_value("textarea", @value) %></textarea>
@@ -411,7 +411,7 @@ defmodule AmbryWeb.CoreComponents do
           [
             "mt-2 block w-full rounded-lg py-[7px] px-[11px]",
             "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
-          ] ++ input_color_classes(@errors)
+          ] ++ input_color_classes(@errors) ++ [@class]
         }
         {@rest}
       />

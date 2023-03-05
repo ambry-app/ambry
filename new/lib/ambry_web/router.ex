@@ -1,6 +1,8 @@
 defmodule AmbryWeb.Router do
   use AmbryWeb, :router
 
+  import Phoenix.LiveDashboard.Router
+
   import AmbrySchema.PlugHelpers
   import AmbryWeb.UserAuth
 
@@ -50,7 +52,7 @@ defmodule AmbryWeb.Router do
     plug :put_root_layout, html: {AmbryWeb.Admin.Layouts, :root}
   end
 
-  # Enable LiveDashboard and Swoosh mailbox preview in development
+  # Enable GraphQL Voyager and Swoosh mailbox preview in development
   if Application.compile_env(:ambry, :dev_routes) do
     # If you want to use the LiveDashboard in production, you should put
     # it behind authentication and allow only admins to access it.
@@ -62,7 +64,6 @@ defmodule AmbryWeb.Router do
     scope "/dev" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
       forward "/voyager", AmbryWeb.Plugs.Voyager
     end
@@ -158,6 +159,6 @@ defmodule AmbryWeb.Router do
       live "/audit", AuditLive.Index, :index
     end
 
-    # live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
+    live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
   end
 end
