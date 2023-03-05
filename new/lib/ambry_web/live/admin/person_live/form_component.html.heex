@@ -66,29 +66,27 @@
         phx-drop-target={@uploads.image.ref}
       >
         <.live_file_input upload={@uploads.image} />
-        <%= for entry <- @uploads.image.entries do %>
-          <article class="upload-entry">
-            <figure>
-              <.live_img_preview entry={entry} class="h-40 w-40 rounded-full object-cover object-top shadow-lg" />
-              <figcaption><%= entry.client_name %></figcaption>
-            </figure>
+        <article :for={entry <- @uploads.image.entries} class="upload-entry">
+          <figure>
+            <.live_img_preview entry={entry} class="h-40 w-40 rounded-full object-cover object-top shadow-lg" />
+            <figcaption><%= entry.client_name %></figcaption>
+          </figure>
 
-            <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+          <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
 
-            <span
-              class="cursor-pointer text-2xl transition-colors hover:text-red-600"
-              phx-click="cancel-upload"
-              phx-value-ref={entry.ref}
-              phx-target={@myself}
-            >
-              &times;
-            </span>
+          <span
+            class="cursor-pointer text-2xl transition-colors hover:text-red-600"
+            phx-click="cancel-upload"
+            phx-value-ref={entry.ref}
+            phx-target={@myself}
+          >
+            &times;
+          </span>
 
-            <%= for err <- upload_errors(@uploads.image, entry) do %>
-              <p class="text-red-600"><%= error_to_string(err) %></p>
-            <% end %>
-          </article>
-        <% end %>
+          <p :for={err <- upload_errors(@uploads.image, entry)} class="text-red-600">
+            <%= error_to_string(err) %>
+          </p>
+        </article>
       </section>
     </div>
 

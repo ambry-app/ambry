@@ -69,7 +69,7 @@ defmodule AmbryWeb.CoreComponents do
         tabindex="0"
       >
         <div class="flex min-h-full items-center justify-center">
-          <div class="w-full p-4 sm:max-w-lg sm:p-6 md:max-w-xl lg:max-w-2xl lg:py-8 xl:max-w-3xl 2xl:max-w-5xl">
+          <div class="w-full p-4 sm:max-w-3xl sm:p-6 lg:py-8">
             <.focus_wrap
               id={"#{@id}-container"}
               phx-mounted={@show && show_modal(@id)}
@@ -244,6 +244,7 @@ defmodule AmbryWeb.CoreComponents do
   """
   attr :type, :string, default: nil
   attr :class, :string, default: nil
+  attr :color, :atom, default: :brand
   attr :rest, :global, include: ~w(disabled form name value)
 
   slot :inner_block, required: true
@@ -255,8 +256,8 @@ defmodule AmbryWeb.CoreComponents do
       class={[
         "phx-submit-loading:opacity-75 rounded-lg py-2 px-3",
         "text-sm font-semibold leading-6",
-        "bg-zinc-900 hover:bg-zinc-700 dark:bg-brand-dark dark:hover:bg-lime-600",
         "text-white active:text-white/80 dark:text-zinc-900 dark:active:text-zinc-800",
+        button_color_classes(@color),
         @class
       ]}
       {@rest}
@@ -264,6 +265,18 @@ defmodule AmbryWeb.CoreComponents do
       <%= render_slot(@inner_block) %>
     </button>
     """
+  end
+
+  defp button_color_classes(:brand) do
+    "bg-zinc-900 hover:bg-zinc-700 dark:bg-brand-dark dark:hover:bg-lime-600"
+  end
+
+  defp button_color_classes(:yellow) do
+    "bg-yellow-500 hover:bg-yellow-700 dark:bg-yellow-400 dark:hover:bg-yellow-600"
+  end
+
+  defp button_color_classes(:red) do
+    "bg-red-500 hover:bg-red-700 dark:bg-red-400 dark:hover:bg-red-600"
   end
 
   @doc """
@@ -721,11 +734,17 @@ defmodule AmbryWeb.CoreComponents do
   A block-quote style note.
   """
   slot :inner_block, required: true
+  slot :label
 
   def note(assigns) do
     ~H"""
-    <p class="m-2 ml-0 border-l-4 border-zinc-400 pl-4 italic text-zinc-500 dark:border-zinc-500 dark:text-zinc-400">
-      <strong>Note:</strong> <%= render_slot(@inner_block) %>
+    <p class="mt-2 border-l-4 border-zinc-400 pl-4 italic text-zinc-500 dark:border-zinc-500 dark:text-zinc-400">
+      <%= if @label != [] do %>
+        <strong><%= render_slot(@label) %>:</strong>
+      <% else %>
+        <strong>Note:</strong>
+      <% end %>
+      <%= render_slot(@inner_block) %>
     </p>
     """
   end

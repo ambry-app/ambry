@@ -17,6 +17,8 @@ defmodule Ambry.Media.Media.Chapter do
   end
 
   def changeset(chapter, attrs) do
-    cast(chapter, attrs, [:time, :title])
+    chapter
+    |> cast(attrs, [:time, :title])
+    |> validate_required([:time, :title])
   end
 end

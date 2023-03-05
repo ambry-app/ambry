@@ -5,7 +5,7 @@
     <.input field={@form[:description]} label="Description" type="textarea" phx-hook="maintainAttrs" data-attrs="style" />
 
     <div>
-      <.label>Writing by</.label>
+      <.label>Written by</.label>
       <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
         <div class="flex">
           <.input
@@ -80,32 +80,31 @@
         phx-drop-target={@uploads.image.ref}
       >
         <.live_file_input upload={@uploads.image} />
-        <%= for entry <- @uploads.image.entries do %>
-          <article class="upload-entry">
-            <figure>
-              <.live_img_preview
-                entry={entry}
-                class="h-48 rounded-lg border border-gray-200 shadow-md dark:border-gray-900"
-              />
-              <figcaption><%= entry.client_name %></figcaption>
-            </figure>
 
-            <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+        <article :for={entry <- @uploads.image.entries} class="upload-entry">
+          <figure>
+            <.live_img_preview
+              entry={entry}
+              class="h-48 rounded-lg border border-gray-200 shadow-md dark:border-gray-900"
+            />
+            <figcaption><%= entry.client_name %></figcaption>
+          </figure>
 
-            <span
-              class="cursor-pointer text-2xl transition-colors hover:text-red-600"
-              phx-click="cancel-upload"
-              phx-value-ref={entry.ref}
-              phx-target={@myself}
-            >
-              &times;
-            </span>
+          <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
 
-            <%= for err <- upload_errors(@uploads.image, entry) do %>
-              <p class="text-red-600"><%= error_to_string(err) %></p>
-            <% end %>
-          </article>
-        <% end %>
+          <span
+            class="cursor-pointer text-2xl transition-colors hover:text-red-600"
+            phx-click="cancel-upload"
+            phx-value-ref={entry.ref}
+            phx-target={@myself}
+          >
+            &times;
+          </span>
+
+          <p :for={err <- upload_errors(@uploads.image, entry)} class="text-red-600">
+            <%= error_to_string(err) %>
+          </p>
+        </article>
       </section>
     </div>
 

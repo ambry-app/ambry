@@ -144,14 +144,14 @@ defmodule AmbryWeb.Router do
       live "/books/new", BookLive.Index, :new
       live "/books/:id/edit", BookLive.Index, :edit
 
-      # live "/series", SeriesLive.Index, :index
-      # live "/series/new", SeriesLive.Index, :new
-      # live "/series/:id/edit", SeriesLive.Index, :edit
+      live "/series", SeriesLive.Index, :index
+      live "/series/new", SeriesLive.Index, :new
+      live "/series/:id/edit", SeriesLive.Index, :edit
 
-      # live "/media", MediaLive.Index, :index
-      # live "/media/new", MediaLive.Index, :new
-      # live "/media/:id/edit", MediaLive.Index, :edit
-      # live "/media/:id/chapters", MediaLive.Index, :chapters
+      live "/media", MediaLive.Index, :index
+      live "/media/new", MediaLive.Index, :new
+      live "/media/:id/edit", MediaLive.Index, :edit
+      live "/media/:id/chapters", MediaLive.Index, :chapters
 
       # live "/users", UserLive.Index, :index
 

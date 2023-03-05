@@ -1,0 +1,53 @@
+<div class="space-y-2">
+  <%= if @running_strategy do %>
+    <p class="font-bold text-yellow-500 dark:text-yellow-400">
+      Extracting chapters! This might take a while, please don't close the page.
+    </p>
+  <% else %>
+    <div class="flex flex-wrap gap-2">
+      <%= if @show_strategies do %>
+        <%= for {strategy, index} <- Enum.with_index(@strategies) do %>
+          <.button phx-click="run-strategy" phx-target={@myself} phx-value-strategy={index} color={:yellow}>
+            <%= strategy.name() %>
+          </.button>
+        <% end %>
+        <.button phx-click="hide-strategies" phx-target={@myself} color={:red}>
+          Cancel
+        </.button>
+      <% else %>
+        <.button phx-click="show-strategies" phx-target={@myself} color={:yellow}>
+          Extract From Source
+        </.button>
+      <% end %>
+    </div>
+  <% end %>
+
+  <.error :if={@strategy_error}>
+    Error getting chapters: <%= @strategy_error %>
+  </.error>
+
+  <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
+    <div class="space-y-2">
+      <.inputs_for :let={chapter_form} field={@form[:chapters]}>
+        <div class="flex items-center">
+          <div class="mr-2 w-24 flex-none">
+            <.input field={chapter_form[:time]} />
+          </div>
+          <div class="grow">
+            <.input field={chapter_form[:title]} />
+          </div>
+          <div class="ml-2 flex" phx-click="delete-chapter" phx-value-idx={chapter_form.index} phx-target={@myself}>
+            <FA.icon
+              name="trash"
+              class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
+            />
+          </div>
+        </div>
+      </.inputs_for>
+    </div>
+
+    <:actions>
+      <.button>Save</.button>
+    </:actions>
+  </.simple_form>
+</div>
