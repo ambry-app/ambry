@@ -153,9 +153,9 @@ defmodule AmbryWeb.Router do
       live "/media/:id/edit", MediaLive.Index, :edit
       live "/media/:id/chapters", MediaLive.Index, :chapters
 
-      # live "/users", UserLive.Index, :index
+      live "/users", UserLive.Index, :index
 
-      # live "/audit", AuditLive.Index, :index
+      live "/audit", AuditLive.Index, :index
     end
 
     # live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
