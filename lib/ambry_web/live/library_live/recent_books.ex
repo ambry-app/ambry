@@ -29,8 +29,8 @@ defmodule AmbryWeb.LibraryLive.RecentBooks do
           <p class="mt-4 text-center">
             The library is empty!
             <%= if @show_admin_links? do %>
-              Head on over to the <%!-- FIXME: --%>
-              <.brand_link navigate="/admin/books/new">
+              Head on over to the
+              <.brand_link navigate={~p"/admin/books/new"}>
                 admin books
               </.brand_link>
               page to add your first book.

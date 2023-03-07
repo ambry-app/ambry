@@ -62,7 +62,7 @@ defmodule AmbryWeb.Admin.Layouts do
         </.link>
       </div>
       <div class="absolute bottom-0 w-full py-3">
-        <.link navigate="/" class={nav_class()}>
+        <.link navigate={~p"/"} class={nav_class()}>
           <FA.icon name="arrow-right-from-bracket" class="scale-[-1] h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>Exit Admin</p>
         </.link>
@@ -108,7 +108,7 @@ defmodule AmbryWeb.Admin.Layouts do
     ~H"""
     <.menu_wrapper id="admin-user-menu" user={@user}>
       <div class="py-3">
-        <.link navigate="/" class="flex items-center gap-4 px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700">
+        <.link navigate={~p"/"} class="flex items-center gap-4 px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700">
           <FA.icon name="arrow-right-from-bracket" class="scale-[-1] h-5 w-5 fill-current" />
           <p>Exit Admin</p>
         </.link>

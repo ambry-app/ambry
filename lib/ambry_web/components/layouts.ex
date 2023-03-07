@@ -114,8 +114,7 @@ defmodule AmbryWeb.Layouts do
     <.menu_wrapper id="user-menu" user={@user}>
       <div class="py-3">
         <%= if @user.admin do %>
-          <%!-- FIXME: --%>
-          <.link navigate="/admin" class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
+          <.link navigate={~p"/admin"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
             <FA.icon name="screwdriver-wrench" class="h-5 w-5 fill-current" />
             <p>Admin</p>
           </.link>
