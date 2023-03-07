@@ -75,6 +75,8 @@ FROM elixir-runner AS release-image
 ARG APP_REVISION=latest
 ARG MIX_ENV=prod
 
+ENV PHX_SERVER=true
+
 USER nobody
 
 COPY --from=elixir-builder --chown=nobody:nogroup /app /app
