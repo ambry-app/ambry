@@ -3,6 +3,8 @@ defmodule AmbryWeb.Admin.Components do
 
   use AmbryWeb, :html
 
+  alias Phoenix.HTML.{Form, FormField}
+
   def admin_table_header(assigns) do
     ~H"""
     <div class="flex items-center">
@@ -171,12 +173,12 @@ defmodule AmbryWeb.Admin.Components do
 
   attr :class, :string, default: nil, doc: "class overrides"
 
-  def delete_checkbox(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
+  def delete_checkbox(%{field: %FormField{} = field} = assigns) do
     assigns =
       assigns
       |> assign(field: nil, id: field.id)
       |> assign(:name, field.name)
-      |> assign(:checked, Phoenix.HTML.Form.normalize_value("checkbox", field.value))
+      |> assign(:checked, Form.normalize_value("checkbox", field.value))
 
     ~H"""
     <label class={["flex", @class]}>
