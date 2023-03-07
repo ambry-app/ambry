@@ -8,13 +8,7 @@
       <.inputs_for :let={author_form} field={@form[:authors]}>
         <div class="flex">
           <.input field={author_form[:name]} placeholder="Name" container_class="grow" />
-          <label class="ml-2 flex">
-            <.input type="checkbox" field={author_form[:delete]} hidden_input={false} class="peer hidden" />
-            <FA.icon
-              name="trash"
-              class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
-            />
-          </label>
+          <.delete_checkbox field={author_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
       <button
@@ -33,13 +27,7 @@
       <.inputs_for :let={narrator_form} field={@form[:narrators]}>
         <div class="flex">
           <.input field={narrator_form[:name]} placeholder="Name" container_class="grow" />
-          <label class="ml-2 flex">
-            <.input type="checkbox" field={narrator_form[:delete]} hidden_input={false} class="peer hidden" />
-            <FA.icon
-              name="trash"
-              class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
-            />
-          </label>
+          <.delete_checkbox field={narrator_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
       <button

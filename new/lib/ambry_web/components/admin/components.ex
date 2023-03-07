@@ -156,4 +156,36 @@ defmodule AmbryWeb.Admin.Components do
     </span>
     """
   end
+
+  @doc """
+  Renders a fancy checkbox disguised as a trash-can icon.
+
+  Requires a `%Phoenix.HTML.FormField{}`.
+
+  ## Examples
+
+      <.delete_checkbox field={@form[:delete]} />
+  """
+  attr :field, FormField,
+    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+
+  attr :class, :string, default: nil, doc: "class overrides"
+
+  def delete_checkbox(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
+    assigns =
+      assigns
+      |> assign(field: nil, id: field.id)
+      |> assign(:name, field.name)
+      |> assign(:checked, Phoenix.HTML.Form.normalize_value("checkbox", field.value))
+
+    ~H"""
+    <label class={["flex", @class]}>
+      <input type="checkbox" id={@id} name={@name} value="true" checked={@checked} class="peer hidden" />
+      <FA.icon
+        name="trash"
+        class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
+      />
+    </label>
+    """
+  end
 end

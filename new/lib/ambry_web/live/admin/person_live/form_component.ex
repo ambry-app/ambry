@@ -3,8 +3,8 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
 
   use AmbryWeb, :live_component
 
+  import AmbryWeb.Admin.{Components, UploadHelpers}
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
-  import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.People
 

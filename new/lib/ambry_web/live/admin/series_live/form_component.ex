@@ -3,6 +3,7 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
 
   use AmbryWeb, :live_component
 
+  import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
 
   alias Ambry.{Books, Series}

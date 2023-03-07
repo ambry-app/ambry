@@ -8,13 +8,7 @@
         <div class="flex">
           <.input field={series_book_form[:book_number]} container_class="mr-2 w-14 flex-none" />
           <.input field={series_book_form[:book_id]} type="select" prompt="" options={@books} container_class="grow" />
-          <label class="ml-2 flex">
-            <.input type="checkbox" field={series_book_form[:delete]} hidden_input={false} class="peer hidden" />
-            <FA.icon
-              name="trash"
-              class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
-            />
-          </label>
+          <.delete_checkbox field={series_book_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
       <button

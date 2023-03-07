@@ -13,13 +13,7 @@
             options={@narrators}
             container_class="grow"
           />
-          <label class="ml-2 flex">
-            <.input type="checkbox" field={media_narrator_form[:delete]} hidden_input={false} class="peer hidden" />
-            <FA.icon
-              name="trash"
-              class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
-            />
-          </label>
+          <.delete_checkbox field={media_narrator_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
       <button
@@ -147,59 +141,3 @@
     </:actions>
   </.simple_form>
 </div>
-
-<%!-- <div>
-
-  <.form :let={f} for={@changeset} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
-    <div class="space-y-4">
-
-      <div class="space-y-2">
-        <%= if @action == :new do %>
-          <.form_label label="Upload audio" />
-        <% else %>
-          <.form_label label="Upload additional audio" />
-
-          <p class="text-sm text-zinc-500">
-            Adding additional files does not replace any existing files. Re-run the processor after
-            adding new files to replace the streamable output files.
-          </p>
-        <% end %>
-
-        <p class="text-sm text-zinc-500">
-          Supported formats: mp3, mp4, m4a, m4b
-        </p>
-
-        <section
-          class="w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
-          phx-drop-target={@uploads.audio.ref}
-        >
-          <%= live_file_input(@uploads.audio) %>
-          <%= for entry <- @uploads.audio.entries do %>
-            <article class="upload-entry">
-              <figure>
-                <figcaption><%= entry.client_name %></figcaption>
-              </figure>
-
-              <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
-
-              <span
-                class="cursor-pointer text-2xl transition-colors hover:text-red-600"
-                phx-click="cancel-upload"
-                phx-value-ref={entry.ref}
-                phx-target={@myself}
-              >
-                &times;
-              </span>
-
-              <%= for err <- upload_errors(@uploads.audio, entry) do %>
-                <p class="text-red-600"><%= error_to_string(err) %></p>
-              <% end %>
-            </article>
-          <% end %>
-        </section>
-        <.form_field_error form={f} field={:source_path} />
-      </div>
-
-    </div>
-  </.form>
-</div> --%>
