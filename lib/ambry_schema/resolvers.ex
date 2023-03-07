@@ -32,7 +32,7 @@ defmodule AmbrySchema.Resolvers do
 
   def delete_session(_args, %{context: context}) do
     user_token = context[:current_user_token]
-    user_token && Accounts.delete_session_token(user_token)
+    user_token && Accounts.delete_user_session_token(user_token)
 
     {:ok, %{deleted: true}}
   end

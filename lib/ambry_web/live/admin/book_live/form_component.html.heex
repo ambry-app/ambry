@@ -1,134 +1,103 @@
 <div>
-  <h2 class="text-2xl pb-4 font-bold"><%= @title %></h2>
+  <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
+    <.input field={@form[:title]} label="Title" />
+    <.input field={@form[:published]} label="Published" type="date" />
+    <.input field={@form[:description]} label="Description" type="textarea" phx-hook="maintainAttrs" data-attrs="style" />
 
-  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
-    <div class="space-y-4">
-      <div class="space-y-2">
-        <.form_label form={f} field={:title} />
-        <.text_input form={f} field={:title} placeholder="Title" />
-        <.form_field_error form={f} field={:title} />
-      </div>
-
-      <div class="space-y-2">
-        <.form_label form={f} field={:published} />
-        <.date_input form={f} field={:published} />
-        <.form_field_error form={f} field={:published} />
-      </div>
-
-      <div class="space-y-2">
-        <.form_label form={f} field={:description} />
-        <.textarea form={f} field={:description} placeholder="Description" />
-        <.form_field_error form={f} field={:description} />
-      </div>
-
-      <div>
-        <.form_label form={f} field={:authors} label="Written by" />
-        <div class="space-y-2">
-          <%= for book_author_form <- inputs_for(f, :book_authors) do %>
-            <%= hidden_inputs_for(book_author_form) %>
-            <div class="flex items-center">
-              <.select form={book_author_form} field={:author_id} prompt="" options={@authors} />
-              <label class="ml-2 flex">
-                <%= checkbox(book_author_form, :delete, hidden_input: false, class: "peer hidden") %>
-                <FA.icon
-                  name="trash"
-                  class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer"
-                />
-              </label>
-            </div>
-            <.form_field_error form={book_author_form} field={:author_id} />
-          <% end %>
-          <button
-            type="button"
-            phx-click="add-author"
-            phx-target={@myself}
-            class="pt-2 text-lime-500 hover:underline flex items-center"
-          >
-            <span>Add author</span>
-            <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
-          </button>
+    <div>
+      <.label>Written by</.label>
+      <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
+        <div class="flex">
+          <.input
+            field={book_author_form[:author_id]}
+            type="select"
+            prompt=""
+            options={@authors}
+            container_class="grow"
+          />
+          <.delete_checkbox field={book_author_form[:delete]} class="ml-2" />
         </div>
-      </div>
-
-      <div>
-        <.form_label form={f} field={:series_books} label="Series" />
-        <div class="space-y-2">
-          <%= for series_book_form <- inputs_for(f, :series_books) do %>
-            <%= hidden_inputs_for(series_book_form) %>
-            <div class="flex items-center">
-              <.text_input form={series_book_form} field={:book_number} class="w-14 mr-2 flex-none" />
-              <.select form={series_book_form} field={:series_id} prompt="" options={@series} class="grow" />
-              <label class="ml-2 flex">
-                <%= checkbox(series_book_form, :delete, hidden_input: false, class: "peer hidden") %>
-                <FA.icon
-                  name="trash"
-                  class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer"
-                />
-              </label>
-            </div>
-            <.form_field_error form={series_book_form} field={:book_number} />
-            <.form_field_error form={series_book_form} field={:series_id} />
-          <% end %>
-          <button
-            type="button"
-            phx-click="add-series"
-            phx-target={@myself}
-            class="pt-2 text-lime-500 hover:underline flex items-center"
-          >
-            <span>Add series</span>
-            <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
-          </button>
-        </div>
-      </div>
-
-      <%= if @book.image_path do %>
-        <div>
-          <.form_label label="Current image" />
-          <img src={@book.image_path} class="rounded-lg shadow-md border border-gray-200 dark:border-gray-900 h-48" />
-        </div>
-      <% end %>
-
-      <div>
-        <.form_label label="Upload image" />
-
-        <section
-          class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-400"
-          phx-drop-target={@uploads.image.ref}
-        >
-          <%= live_file_input(@uploads.image) %>
-          <%= for entry <- @uploads.image.entries do %>
-            <article class="upload-entry">
-              <figure>
-                <%= live_img_preview(entry,
-                  class: "rounded-lg shadow-md border border-gray-200 dark:border-gray-900 h-48"
-                ) %>
-                <figcaption><%= entry.client_name %></figcaption>
-              </figure>
-
-              <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
-
-              <span
-                class="text-2xl cursor-pointer hover:text-red-600 transition-colors"
-                phx-click="cancel-upload"
-                phx-value-ref={entry.ref}
-                phx-target={@myself}
-              >
-                &times;
-              </span>
-
-              <%= for err <- upload_errors(@uploads.image, entry) do %>
-                <p class="text-red-600"><%= error_to_string(err) %></p>
-              <% end %>
-            </article>
-          <% end %>
-        </section>
-      </div>
-
-      <div class="bg-gray-50 dark:bg-gray-900 -m-6 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-        <Amc.primary_button type="submit">
-          Save
-        </Amc.primary_button>
-      </div>
+      </.inputs_for>
+      <button
+        type="button"
+        phx-click="add-author"
+        phx-target={@myself}
+        class="flex items-center pt-2 text-lime-500 hover:underline"
+      >
+        <span>Add author</span>
+        <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
+      </button>
     </div>
-  </.form>
+
+    <div>
+      <.label>Series</.label>
+      <.inputs_for :let={series_book_form} field={@form[:series_books]}>
+        <div class="flex">
+          <.input field={series_book_form[:book_number]} container_class="mr-2 w-14 flex-none" />
+          <.input
+            field={series_book_form[:series_id]}
+            type="select"
+            prompt=""
+            options={@authors}
+            container_class="grow"
+          />
+          <.delete_checkbox field={series_book_form[:delete]} class="ml-2" />
+        </div>
+      </.inputs_for>
+      <button
+        type="button"
+        phx-click="add-series"
+        phx-target={@myself}
+        class="flex items-center pt-2 text-lime-500 hover:underline"
+      >
+        <span>Add series</span>
+        <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
+      </button>
+    </div>
+
+    <div :if={@book.image_path}>
+      <.label>Current image</.label>
+      <img src={@book.image_path} class="mt-2 h-48 rounded-lg border border-gray-200 shadow-md dark:border-gray-900" />
+    </div>
+
+    <div>
+      <.label>Upload image</.label>
+
+      <section
+        class="mt-2 w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
+        phx-drop-target={@uploads.image.ref}
+      >
+        <.live_file_input upload={@uploads.image} />
+
+        <article :for={entry <- @uploads.image.entries} class="upload-entry">
+          <figure>
+            <.live_img_preview
+              entry={entry}
+              class="h-48 rounded-lg border border-gray-200 shadow-md dark:border-gray-900"
+            />
+            <figcaption><%= entry.client_name %></figcaption>
+          </figure>
+
+          <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+
+          <span
+            class="cursor-pointer text-2xl transition-colors hover:text-red-600"
+            phx-click="cancel-upload"
+            phx-value-ref={entry.ref}
+            phx-target={@myself}
+          >
+            &times;
+          </span>
+
+          <p :for={err <- upload_errors(@uploads.image, entry)} class="text-red-600">
+            <%= error_to_string(err) %>
+          </p>
+        </article>
+      </section>
+    </div>
+
+    <:actions>
+      <.button>Save</.button>
+    </:actions>
+  </.simple_form>
 </div>

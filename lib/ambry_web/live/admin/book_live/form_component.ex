@@ -3,8 +3,8 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   use AmbryWeb, :live_component
 
+  import AmbryWeb.Admin.{Components, UploadHelpers}
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
-  import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.{Authors, Books, Series}
 
@@ -25,7 +25,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:changeset, changeset)}
+     |> assign_form(changeset)}
   end
 
   @impl Phoenix.LiveComponent
@@ -37,7 +37,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
       |> Books.change_book(book_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("save", %{"book" => book_params}, socket) do
@@ -57,7 +57,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   def handle_event("add-author", _params, socket) do
     params =
-      socket.assigns.changeset.params
+      socket.assigns.form.source.params
       |> map_to_list("book_authors")
       |> Map.update!("book_authors", fn book_authors_params ->
         book_authors_params ++ [%{}]
@@ -65,12 +65,12 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
     changeset = Books.change_book(socket.assigns.book, params)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("add-series", _params, socket) do
     params =
-      socket.assigns.changeset.params
+      socket.assigns.form.source.params
       |> map_to_list("series_books")
       |> Map.update!("series_books", fn series_books_params ->
         series_books_params ++ [%{}]
@@ -78,7 +78,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
     changeset = Books.change_book(socket.assigns.book, params)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   defp clean_book_params(params) do
@@ -103,10 +103,10 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Book updated successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+        {:noreply, assign_form(socket, changeset)}
     end
   end
 
@@ -116,10 +116,10 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Book created successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, changeset: changeset)}
+        {:noreply, assign_form(socket, changeset)}
     end
   end
 
@@ -136,5 +136,9 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
       "book_authors" => Enum.map(book.book_authors, &%{"id" => &1.id}),
       "series_books" => Enum.map(book.series_books, &%{"id" => &1.id})
     }
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    assign(socket, :form, to_form(changeset))
   end
 end

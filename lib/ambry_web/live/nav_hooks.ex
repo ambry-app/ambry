@@ -3,7 +3,8 @@ defmodule AmbryWeb.NavHooks do
   LiveView lifecycle hooks to help render the nav.
   """
 
-  import Phoenix.LiveView
+  import Phoenix.LiveView, only: [attach_hook: 4]
+  import Phoenix.Component, only: [assign: 2]
 
   def on_mount(:default, params, _session, socket) do
     case params do

@@ -28,6 +28,8 @@ defmodule Ambry.Application do
       AmbryWeb.Telemetry,
       # Start the PubSub system
       {Phoenix.PubSub, name: Ambry.PubSub},
+      # Presence
+      AmbryWeb.Presence,
       # Start the Endpoint (http/https)
       AmbryWeb.Endpoint,
       # Starts Oban jobs

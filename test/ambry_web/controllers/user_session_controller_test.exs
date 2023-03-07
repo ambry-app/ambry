@@ -1,98 +1,109 @@
-# defmodule AmbryWeb.UserSessionControllerTest do
-#   use AmbryWeb.ConnCase, async: true
+defmodule AmbryWeb.UserSessionControllerTest do
+  use AmbryWeb.ConnCase, async: true
 
-#   import Ambry.AccountsFixtures
+  setup do
+    %{user: :user |> build() |> with_password() |> insert()}
+  end
 
-#   setup do
-#     %{user: user_fixture()}
-#   end
+  describe "POST /users/log_in" do
+    test "logs the user in", %{conn: conn, user: user} do
+      conn =
+        post(conn, ~p"/users/log_in", %{
+          "user" => %{"email" => user.email, "password" => valid_password()}
+        })
 
-#   describe "GET /users/log_in" do
-#     test "renders log in page", %{conn: conn} do
-#       conn = get(conn, Routes.user_session_path(conn, :new))
-#       response = html_response(conn, 200)
-#       assert response =~ "<h1>Log in</h1>"
-#       assert response =~ "Register</a>"
-#       assert response =~ "Forgot your password?</a>"
-#     end
+      assert get_session(conn, :user_token)
+      assert redirected_to(conn) == ~p"/"
 
-#     test "redirects if already logged in", %{conn: conn, user: user} do
-#       conn = conn |> log_in_user(user) |> get(Routes.user_session_path(conn, :new))
-#       assert redirected_to(conn) == "/"
-#     end
-#   end
+      # Now do a logged in request and assert on the menu
+      conn = get(conn, ~p"/")
+      response = html_response(conn, 200)
+      assert response =~ user.email
+      assert response =~ ~p"/users/settings"
+      assert response =~ ~p"/users/log_out"
+    end
 
-#   describe "POST /users/log_in" do
-#     test "logs the user in", %{conn: conn, user: user} do
-#       conn =
-#         post(conn, Routes.user_session_path(conn, :create), %{
-#           "user" => %{"email" => user.email, "password" => valid_user_password()}
-#         })
+    test "logs the user in with remember me", %{conn: conn, user: user} do
+      conn =
+        post(conn, ~p"/users/log_in", %{
+          "user" => %{
+            "email" => user.email,
+            "password" => valid_password(),
+            "remember_me" => "true"
+          }
+        })
 
-#       assert get_session(conn, :user_token)
-#       assert redirected_to(conn) =~ "/"
+      assert conn.resp_cookies["_ambry_web_user_remember_me"]
+      assert redirected_to(conn) == ~p"/"
+    end
 
-#       # Now do a logged in request and assert on the menu
-#       conn = get(conn, "/")
-#       response = html_response(conn, 200)
-#       assert response =~ user.email
-#       assert response =~ "Settings</a>"
-#       assert response =~ "Log out</a>"
-#     end
+    test "logs the user in with return to", %{conn: conn, user: user} do
+      conn =
+        conn
+        |> init_test_session(user_return_to: "/foo/bar")
+        |> post(~p"/users/log_in", %{
+          "user" => %{
+            "email" => user.email,
+            "password" => valid_password()
+          }
+        })
 
-#     test "logs the user in with remember me", %{conn: conn, user: user} do
-#       conn =
-#         post(conn, Routes.user_session_path(conn, :create), %{
-#           "user" => %{
-#             "email" => user.email,
-#             "password" => valid_user_password(),
-#             "remember_me" => "true"
-#           }
-#         })
+      assert redirected_to(conn) == "/foo/bar"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Welcome back!"
+    end
 
-#       assert conn.resp_cookies["_ambry_web_user_remember_me"]
-#       assert redirected_to(conn) =~ "/"
-#     end
+    test "login following registration", %{conn: conn, user: user} do
+      conn =
+        post(conn, ~p"/users/log_in", %{
+          "_action" => "registered",
+          "user" => %{
+            "email" => user.email,
+            "password" => valid_password()
+          }
+        })
 
-#     test "logs the user in with return to", %{conn: conn, user: user} do
-#       conn =
-#         conn
-#         |> init_test_session(user_return_to: "/foo/bar")
-#         |> post(Routes.user_session_path(conn, :create), %{
-#           "user" => %{
-#             "email" => user.email,
-#             "password" => valid_user_password()
-#           }
-#         })
+      assert redirected_to(conn) == ~p"/"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Account created successfully"
+    end
 
-#       assert redirected_to(conn) == "/foo/bar"
-#     end
+    test "login following password update", %{conn: conn, user: user} do
+      conn =
+        post(conn, ~p"/users/log_in", %{
+          "_action" => "password_updated",
+          "user" => %{
+            "email" => user.email,
+            "password" => valid_password()
+          }
+        })
 
-#     test "emits error message with invalid credentials", %{conn: conn, user: user} do
-#       conn =
-#         post(conn, Routes.user_session_path(conn, :create), %{
-#           "user" => %{"email" => user.email, "password" => "invalid_password"}
-#         })
+      assert redirected_to(conn) == ~p"/users/settings"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Password updated successfully"
+    end
 
-#       response = html_response(conn, 200)
-#       assert response =~ "<h1>Log in</h1>"
-#       assert response =~ "Invalid email or password"
-#     end
-#   end
+    test "redirects to login page with invalid credentials", %{conn: conn} do
+      conn =
+        post(conn, ~p"/users/log_in", %{
+          "user" => %{"email" => "invalid@email.com", "password" => "invalid_password"}
+        })
 
-#   describe "DELETE /users/log_out" do
-#     test "logs the user out", %{conn: conn, user: user} do
-#       conn = conn |> log_in_user(user) |> delete(Routes.user_session_path(conn, :delete))
-#       assert redirected_to(conn) == "/"
-#       refute get_session(conn, :user_token)
-#       assert get_flash(conn, :info) =~ "Logged out successfully"
-#     end
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
+      assert redirected_to(conn) == ~p"/users/log_in"
+    end
+  end
 
-#     test "succeeds even if the user is not logged in", %{conn: conn} do
-#       conn = delete(conn, Routes.user_session_path(conn, :delete))
-#       assert redirected_to(conn) == "/"
-#       refute get_session(conn, :user_token)
-#       assert get_flash(conn, :info) =~ "Logged out successfully"
-#     end
-#   end
-# end
+  describe "DELETE /users/log_out" do
+    test "logs the user out", %{conn: conn, user: user} do
+      conn = conn |> log_in_user(user) |> delete(~p"/users/log_out")
+      assert redirected_to(conn) == ~p"/"
+      refute get_session(conn, :user_token)
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Logged out successfully"
+    end
+
+    test "succeeds even if the user is not logged in", %{conn: conn} do
+      conn = delete(conn, ~p"/users/log_out")
+      assert redirected_to(conn) == ~p"/"
+      refute get_session(conn, :user_token)
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Logged out successfully"
+    end
+  end
+end

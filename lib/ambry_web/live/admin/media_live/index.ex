@@ -3,9 +3,9 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   LiveView for media admin interface.
   """
 
-  use AmbryWeb, :admin_live_view
+  use AmbryWeb, :live_view
 
-  import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.{Components, PaginationHelpers}
   import AmbryWeb.TimeUtils
 
   alias Ambry.{Media, PubSub}
@@ -26,7 +26,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
      socket
      |> assign(:header_title, "Media")
      |> set_in_progress_media()
-     |> maybe_update_media(params, true)}
+     |> maybe_update_media(params, true), layout: {AmbryWeb.Admin.Layouts, :app}}
   end
 
   @impl Phoenix.LiveView
@@ -43,14 +43,12 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     socket
     |> assign(:page_title, media.book.title)
     |> assign(:selected_media, media)
-    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Media")
     |> assign(:selected_media, %Media.Media{media_narrators: []})
-    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :chapters, %{"id" => id}) do
@@ -59,14 +57,12 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     socket
     |> assign(:page_title, "#{media.book.title} - Chapters")
     |> assign(:selected_media, media)
-    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Media")
     |> assign(:selected_media, nil)
-    |> assign_new(:autofocus_search, fn -> false end)
   end
 
   defp maybe_update_media(socket, params, force \\ false) do
@@ -129,24 +125,16 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    socket =
-      socket
-      |> maybe_update_media(%{"filter" => query, "page" => "1"})
-      |> assign(:autofocus_search, true)
-
+    socket = maybe_update_media(socket, %{"filter" => query, "page" => "1"})
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket, to: Routes.admin_media_index_path(socket, :index, patch_opts(list_opts)))}
+    {:noreply, push_patch(socket, to: ~p"/admin/media?#{patch_opts(list_opts)}")}
   end
 
   def handle_event("row-click", %{"id" => id}, socket) do
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket,
-       to: Routes.admin_media_index_path(socket, :edit, id, patch_opts(list_opts))
-     )}
+    {:noreply, push_patch(socket, to: ~p"/admin/media/#{id}/edit?#{patch_opts(list_opts)}")}
   end
 
   defp list_media(opts) do

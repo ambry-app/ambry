@@ -1,97 +1,30 @@
 defmodule AmbryWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
-  as controllers, views, channels and so on.
+  as controllers, components, channels, and so on.
 
   This can be used in your application as:
 
       use AmbryWeb, :controller
-      use AmbryWeb, :view
+      use AmbryWeb, :html
 
-  The definitions below will be executed for every view,
-  controller, etc, so keep them short and clean, focused
+  The definitions below will be executed for every controller,
+  component, etc, so keep them short and clean, focused
   on imports, uses and aliases.
 
   Do NOT define functions inside the quoted expressions
-  below. Instead, define any helper function in modules
-  and import those modules here.
+  below. Instead, define additional modules and import
+  those modules here.
   """
 
-  def controller do
-    quote do
-      use Phoenix.Controller, namespace: AmbryWeb
-
-      import Plug.Conn
-      import AmbryWeb.Gettext
-      alias AmbryWeb.Router.Helpers, as: Routes
-    end
-  end
-
-  def view do
-    quote do
-      use Phoenix.View,
-        root: "lib/ambry_web/templates",
-        namespace: AmbryWeb
-
-      # Import convenience functions from controllers
-      import Phoenix.Controller,
-        only: [get_flash: 1, get_flash: 2, view_module: 1, view_template: 1]
-
-      # Include shared imports and aliases for views
-      unquote(view_helpers())
-    end
-  end
-
-  def guest_live_view do
-    quote do
-      use Phoenix.LiveView,
-        layout: {AmbryWeb.LayoutView, "guest_live.html"}
-
-      # Include shared imports and aliases for views
-      unquote(view_helpers())
-    end
-  end
-
-  def live_view do
-    quote do
-      use Phoenix.LiveView,
-        layout: {AmbryWeb.LayoutView, "user_live.html"}
-
-      # Include shared imports and aliases for views
-      unquote(view_helpers())
-    end
-  end
-
-  def admin_live_view do
-    quote do
-      use Phoenix.LiveView,
-        layout: {AmbryWeb.LayoutView, "admin_live.html"}
-
-      # Include shared imports and aliases for views
-      unquote(view_helpers())
-    end
-  end
-
-  def component do
-    quote do
-      use Phoenix.Component
-
-      unquote(view_helpers())
-    end
-  end
-
-  def live_component do
-    quote do
-      use Phoenix.LiveComponent
-
-      unquote(view_helpers())
-    end
-  end
+  def static_paths,
+    do: ~w(assets favicon.svg favicon.png favicon-32x32.png favicon-96x96.png robots.txt)
 
   def router do
     quote do
-      use Phoenix.Router
+      use Phoenix.Router, helpers: false
 
+      # Import common connection and controller functions to use in pipelines
       import Plug.Conn
       import Phoenix.Controller
       import Phoenix.LiveView.Router
@@ -101,30 +34,86 @@ defmodule AmbryWeb do
   def channel do
     quote do
       use Phoenix.Channel
-      import AmbryWeb.Gettext
     end
   end
 
-  defp view_helpers do
+  def controller do
     quote do
-      # Use all HTML functionality (forms, tags, etc)
-      use Phoenix.HTML
+      use Phoenix.Controller,
+        formats: [:html, :json],
+        layouts: [html: AmbryWeb.Layouts]
 
-      use PetalComponents
+      import Plug.Conn
+      import AmbryWeb.Gettext
 
-      # Import LiveView and .heex helpers (live_render, live_patch, <.form>, etc)
-      import Phoenix.LiveView.Helpers
+      unquote(verified_routes())
+    end
+  end
 
-      # Import basic rendering functionality (render, render_layout, etc)
-      import Phoenix.View
+  def live_view do
+    quote do
+      use Phoenix.LiveView,
+        layout: {AmbryWeb.Layouts, :app},
+        container: {:div, class: "contents"}
 
-      import AmbryWeb.{ErrorHelpers, Gettext, Gravatar}
+      unquote(html_helpers())
+    end
+  end
 
-      alias AmbryWeb.Admin.Components, as: Adc
-      alias AmbryWeb.Components, as: Amc
-      alias AmbryWeb.Router.Helpers, as: Routes
+  def auth_live_view do
+    quote do
+      use Phoenix.LiveView, layout: {AmbryWeb.Layouts, :auth}
 
+      unquote(html_helpers())
+    end
+  end
+
+  def live_component do
+    quote do
+      use Phoenix.LiveComponent
+
+      unquote(html_helpers())
+    end
+  end
+
+  def html do
+    quote do
+      use Phoenix.Component
+
+      # Import convenience functions from controllers
+      import Phoenix.Controller,
+        only: [get_csrf_token: 0, view_module: 1, view_template: 1]
+
+      # Include general helpers for rendering HTML
+      unquote(html_helpers())
+    end
+  end
+
+  defp html_helpers do
+    quote do
+      # HTML escaping functionality
+      import Phoenix.HTML
+      # Core UI components and translation
+      import AmbryWeb.CoreComponents
+      import AmbryWeb.Gettext
+
+      # Shortcut for generating JS commands
+      alias Phoenix.LiveView.JS
+
+      # FontAwesome icons
       alias FontAwesome.LiveView, as: FA
+
+      # Routes generation with the ~p sigil
+      unquote(verified_routes())
+    end
+  end
+
+  def verified_routes do
+    quote do
+      use Phoenix.VerifiedRoutes,
+        endpoint: AmbryWeb.Endpoint,
+        router: AmbryWeb.Router,
+        statics: AmbryWeb.static_paths()
     end
   end
 

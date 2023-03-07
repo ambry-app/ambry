@@ -3,9 +3,9 @@ defmodule AmbryWeb.Admin.UserLive.Index do
   LiveView for user admin interface.
   """
 
-  use AmbryWeb, :admin_live_view
+  use AmbryWeb, :live_view
 
-  import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.{Components, PaginationHelpers}
 
   alias Ambry.Accounts
 
@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.UserLive.Index do
     {:ok,
      socket
      |> assign(:header_title, "Users")
-     |> maybe_update_users(params, true)}
+     |> maybe_update_users(params, true), layout: {AmbryWeb.Admin.Layouts, :app}}
   end
 
   @impl Phoenix.LiveView
@@ -127,8 +127,7 @@ defmodule AmbryWeb.Admin.UserLive.Index do
 
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket, to: Routes.admin_user_index_path(socket, :index, patch_opts(list_opts)))}
+    {:noreply, push_patch(socket, to: ~p"/admin/users?#{patch_opts(list_opts)}")}
   end
 
   defp list_users(opts) do

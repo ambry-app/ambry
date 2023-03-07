@@ -3,7 +3,9 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
   LiveView for audit admin interface.
   """
 
-  use AmbryWeb, :admin_live_view
+  use AmbryWeb, :live_view
+
+  import AmbryWeb.Admin.Components
 
   alias Ambry.{FileUtils, Media}
 
@@ -12,7 +14,7 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
     {:ok,
      socket
      |> assign(:header_title, "File Audit")
-     |> assign(:page_title, "File Audit")}
+     |> assign(:page_title, "File Audit"), layout: {AmbryWeb.Admin.Layouts, :app}}
   end
 
   @impl Phoenix.LiveView
@@ -75,10 +77,7 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
   end
 
   def handle_event("row-click", %{"id" => media_id}, socket) do
-    {:noreply,
-     push_redirect(socket,
-       to: Routes.admin_media_index_path(socket, :edit, media_id)
-     )}
+    {:noreply, push_redirect(socket, to: ~p"/admin/media/#{media_id}/edit")}
   end
 
   defp format_filesize(size) do

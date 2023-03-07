@@ -3,9 +3,9 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   LiveView for person admin interface.
   """
 
-  use AmbryWeb, :admin_live_view
+  use AmbryWeb, :live_view
 
-  import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.{Components, PaginationHelpers}
 
   alias Ambry.{People, PubSub}
   alias Ambry.People.Person
@@ -29,7 +29,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     {:ok,
      socket
      |> assign(:header_title, "Authors & Narrators")
-     |> maybe_update_people(params, true)}
+     |> maybe_update_people(params, true), layout: {AmbryWeb.Admin.Layouts, :app}}
   end
 
   @impl Phoenix.LiveView
@@ -46,21 +46,18 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     socket
     |> assign(:page_title, person.name)
     |> assign(:person, person)
-    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Person")
     |> assign(:person, %Person{authors: [], narrators: []})
-    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Authors & Narrators")
     |> assign(:person, nil)
-    |> assign_new(:autofocus_search, fn -> false end)
   end
 
   defp maybe_update_people(socket, params, force \\ false) do
@@ -123,24 +120,16 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    socket =
-      socket
-      |> maybe_update_people(%{"filter" => query, "page" => "1"})
-      |> assign(:autofocus_search, true)
-
+    socket = maybe_update_people(socket, %{"filter" => query, "page" => "1"})
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket, to: Routes.admin_person_index_path(socket, :index, patch_opts(list_opts)))}
+    {:noreply, push_patch(socket, to: ~p"/admin/people?#{patch_opts(list_opts)}")}
   end
 
   def handle_event("row-click", %{"id" => id}, socket) do
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket,
-       to: Routes.admin_person_index_path(socket, :edit, id, patch_opts(list_opts))
-     )}
+    {:noreply, push_patch(socket, to: ~p"/admin/people/#{id}/edit?#{patch_opts(list_opts)}")}
   end
 
   defp list_people(opts) do

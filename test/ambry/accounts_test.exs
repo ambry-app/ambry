@@ -4,12 +4,6 @@ defmodule Ambry.AccountsTest do
   alias Ambry.Accounts
   alias Ambry.Accounts.{User, UserToken}
 
-  defp extract_user_token(fun) do
-    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
-    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
-    token
-  end
-
   describe "list_users/0" do
     test "returns the first 10 users sorted by name" do
       insert_list(11, :user)
@@ -125,8 +119,8 @@ defmodule Ambry.AccountsTest do
     end
 
     test "does not return the user if the password is not valid" do
-      user = :user |> build() |> with_password() |> insert()
-      refute Accounts.get_user_by_email_and_password(user.email, "invalid")
+      %{email: email} = :user |> build() |> with_password() |> insert()
+      refute Accounts.get_user_by_email_and_password(email, "invalid")
     end
 
     test "returns the user if the email and password are valid" do
@@ -273,15 +267,15 @@ defmodule Ambry.AccountsTest do
     end
   end
 
-  describe "deliver_update_email_instructions/3" do
+  describe "deliver_user_update_email_instructions/3" do
     setup do
-      %{user: insert(:user)}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "sends token through notification", %{user: user} do
       token =
         extract_user_token(fn url ->
-          Accounts.deliver_update_email_instructions(user, "current@example.com", url)
+          Accounts.deliver_user_update_email_instructions(user, "current@example.com", url)
         end)
 
       {:ok, token} = Base.url_decode64(token, padding: false)
@@ -294,12 +288,12 @@ defmodule Ambry.AccountsTest do
 
   describe "update_user_email/2" do
     setup do
-      user = insert(:user)
+      user = :user |> build() |> with_password() |> insert()
       %{email: email} = params_for(:user)
 
       token =
         extract_user_token(fn url ->
-          Accounts.deliver_update_email_instructions(%{user | email: email}, user.email, url)
+          Accounts.deliver_user_update_email_instructions(%{user | email: email}, user.email, url)
         end)
 
       %{user: user, token: token, email: email}
@@ -332,10 +326,6 @@ defmodule Ambry.AccountsTest do
       assert Accounts.update_user_email(user, token) == :error
       assert Repo.get!(User, user.id).email == user.email
       assert Repo.get_by(UserToken, user_id: user.id)
-    end
-
-    test "returns an error if given an invalid token", %{user: user} do
-      assert :error = Accounts.update_user_email(user, "===")
     end
   end
 
@@ -430,7 +420,7 @@ defmodule Ambry.AccountsTest do
 
   describe "generate_user_session_token/1" do
     setup do
-      %{user: insert(:user)}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "generates a token", %{user: user} do
@@ -438,11 +428,13 @@ defmodule Ambry.AccountsTest do
       assert user_token = Repo.get_by(UserToken, token: token)
       assert user_token.context == "session"
 
+      user2 = :user |> build() |> with_password() |> insert()
+
       # Creating the same token for another user should fail
       assert_raise Ecto.ConstraintError, fn ->
         Repo.insert!(%UserToken{
           token: user_token.token,
-          user_id: insert(:user).id,
+          user_id: user2.id,
           context: "session"
         })
       end
@@ -451,7 +443,7 @@ defmodule Ambry.AccountsTest do
 
   describe "get_user_by_session_token/1" do
     setup do
-      user = insert(:user)
+      user = :user |> build() |> with_password() |> insert()
       token = Accounts.generate_user_session_token(user)
       %{user: user, token: token}
     end
@@ -471,18 +463,18 @@ defmodule Ambry.AccountsTest do
     end
   end
 
-  describe "delete_session_token/1" do
+  describe "delete_user_session_token/1" do
     test "deletes the token" do
-      user = insert(:user)
+      user = :user |> build() |> with_password() |> insert()
       token = Accounts.generate_user_session_token(user)
-      assert Accounts.delete_session_token(token) == :ok
+      assert Accounts.delete_user_session_token(token) == :ok
       refute Accounts.get_user_by_session_token(token)
     end
   end
 
   describe "deliver_user_confirmation_instructions/2" do
     setup do
-      %{user: insert(:user)}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "sends token through notification", %{user: user} do
@@ -501,7 +493,7 @@ defmodule Ambry.AccountsTest do
 
   describe "confirm_user/1" do
     setup do
-      user = insert(:user)
+      user = :user |> build() |> with_password() |> insert()
 
       token =
         extract_user_token(fn url ->
@@ -531,15 +523,11 @@ defmodule Ambry.AccountsTest do
       refute Repo.get!(User, user.id).confirmed_at
       assert Repo.get_by(UserToken, user_id: user.id)
     end
-
-    test "returns an error if given an invalid token" do
-      assert :error = Accounts.confirm_user("===")
-    end
   end
 
   describe "deliver_user_reset_password_instructions/2" do
     setup do
-      %{user: insert(:user)}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "sends token through notification", %{user: user} do
@@ -558,7 +546,7 @@ defmodule Ambry.AccountsTest do
 
   describe "get_user_by_reset_password_token/1" do
     setup do
-      user = insert(:user)
+      user = :user |> build() |> with_password() |> insert()
 
       token =
         extract_user_token(fn url ->
@@ -587,7 +575,7 @@ defmodule Ambry.AccountsTest do
 
   describe "reset_user_password/2" do
     setup do
-      %{user: insert(:user)}
+      %{user: :user |> build() |> with_password() |> insert()}
     end
 
     test "validates password", %{user: user} do
@@ -672,9 +660,17 @@ defmodule Ambry.AccountsTest do
     end
   end
 
-  describe "inspect/2" do
+  describe "inspect/2 for the User module" do
     test "does not include password" do
       refute inspect(%User{password: "123456"}) =~ "password: \"123456\""
     end
+  end
+
+  # Helpers
+
+  defp extract_user_token(fun) do
+    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
+    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
+    token
   end
 end

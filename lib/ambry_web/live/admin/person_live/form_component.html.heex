@@ -1,126 +1,85 @@
 <div>
-  <h2 class="text-2xl pb-4 font-bold"><%= @title %></h2>
+  <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
+    <.input field={@form[:name]} label="Name" />
+    <.input field={@form[:description]} label="Description" type="textarea" phx-hook="maintainAttrs" data-attrs="style" />
 
-  <.form let={f} for={@changeset} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
-    <div class="space-y-4">
-      <div class="space-y-2">
-        <.form_label form={f} field={:name} />
-        <.text_input form={f} field={:name} placeholder="Name" />
-        <.form_field_error form={f} field={:name} />
-      </div>
-
-      <div class="space-y-2">
-        <.form_label form={f} field={:description} />
-        <.textarea form={f} field={:description} placeholder="Description" />
-        <.form_field_error form={f} field={:description} />
-      </div>
-
-      <div>
-        <.form_label form={f} field={:authors} label="Writing as" />
-        <div class="space-y-2">
-          <%= for author_form <- inputs_for(f, :authors) do %>
-            <%= hidden_inputs_for(author_form) %>
-            <div class="flex items-center">
-              <.text_input form={author_form} field={:name} placeholder="Name" />
-              <label class="ml-2 flex">
-                <%= checkbox(author_form, :delete, hidden_input: false, class: "peer hidden") %>
-                <FA.icon
-                  name="trash"
-                  class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer"
-                />
-              </label>
-            </div>
-            <.form_field_error form={author_form} field={:name} />
-            <.form_field_error form={author_form} field={:delete} />
-          <% end %>
-          <button
-            type="button"
-            phx-click="add-author"
-            phx-target={@myself}
-            class="pt-2 text-lime-500 hover:underline flex items-center"
-          >
-            <span>Add author</span>
-            <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
-          </button>
+    <div>
+      <.label>Writing as</.label>
+      <.inputs_for :let={author_form} field={@form[:authors]}>
+        <div class="flex">
+          <.input field={author_form[:name]} placeholder="Name" container_class="grow" />
+          <.delete_checkbox field={author_form[:delete]} class="ml-2" />
         </div>
-      </div>
-
-      <div>
-        <.form_label form={f} field={:narrators} label="Narrating as" />
-        <div class="space-y-2">
-          <%= for narrator_form <- inputs_for(f, :narrators) do %>
-            <%= hidden_inputs_for(narrator_form) %>
-            <div class="flex items-center">
-              <.text_input form={narrator_form} field={:name} placeholder="Name" />
-              <label class="ml-2 flex">
-                <%= checkbox(narrator_form, :delete, hidden_input: false, class: "peer hidden") %>
-                <FA.icon
-                  name="trash"
-                  class="w-4 h-4 fill-current peer-checked:text-red-600 hover:text-red-600 transition-colors cursor-pointer"
-                />
-              </label>
-            </div>
-            <.form_field_error form={narrator_form} field={:name} />
-            <.form_field_error form={narrator_form} field={:delete} />
-          <% end %>
-          <button
-            type="button"
-            phx-click="add-narrator"
-            phx-target={@myself}
-            class="pt-2 text-lime-500 hover:underline flex items-center"
-          >
-            <span>Add narrator</span>
-            <FA.icon name="plus" class="w-4 h-4 fill-current ml-1" />
-          </button>
-        </div>
-      </div>
-
-      <%= if @person.image_path do %>
-        <div>
-          <.form_label label="Current image" />
-          <img src={@person.image_path} class="rounded-full shadow-lg object-cover object-top h-40 w-40" />
-        </div>
-      <% end %>
-
-      <div>
-        <.form_label label="Upload image" />
-
-        <section
-          class="space-y-4 p-4 w-full border-2 rounded-lg border-dashed border-lime-400"
-          phx-drop-target={@uploads.image.ref}
-        >
-          <%= live_file_input(@uploads.image) %>
-          <%= for entry <- @uploads.image.entries do %>
-            <article class="upload-entry">
-              <figure>
-                <%= live_img_preview(entry, class: "rounded-full shadow-lg object-cover object-top h-40 w-40") %>
-                <figcaption><%= entry.client_name %></figcaption>
-              </figure>
-
-              <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
-
-              <span
-                class="text-2xl cursor-pointer hover:text-red-600 transition-colors"
-                phx-click="cancel-upload"
-                phx-value-ref={entry.ref}
-                phx-target={@myself}
-              >
-                &times;
-              </span>
-
-              <%= for err <- upload_errors(@uploads.image, entry) do %>
-                <p class="text-red-600"><%= error_to_string(err) %></p>
-              <% end %>
-            </article>
-          <% end %>
-        </section>
-      </div>
-
-      <div class="bg-gray-50 dark:bg-gray-900 -m-6 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-        <Amc.primary_button type="submit">
-          Save
-        </Amc.primary_button>
-      </div>
+      </.inputs_for>
+      <button
+        type="button"
+        phx-click="add-author"
+        phx-target={@myself}
+        class="flex items-center pt-2 text-lime-500 hover:underline"
+      >
+        <span>Add author</span>
+        <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
+      </button>
     </div>
-  </.form>
+
+    <div>
+      <.label>Narrating as</.label>
+      <.inputs_for :let={narrator_form} field={@form[:narrators]}>
+        <div class="flex">
+          <.input field={narrator_form[:name]} placeholder="Name" container_class="grow" />
+          <.delete_checkbox field={narrator_form[:delete]} class="ml-2" />
+        </div>
+      </.inputs_for>
+      <button
+        type="button"
+        phx-click="add-narrator"
+        phx-target={@myself}
+        class="flex items-center pt-2 text-lime-500 hover:underline"
+      >
+        <span>Add narrator</span>
+        <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
+      </button>
+    </div>
+
+    <div :if={@person.image_path}>
+      <.label>Current image</.label>
+      <img src={@person.image_path} class="mt-2 h-40 w-40 rounded-full object-cover object-top shadow-lg" />
+    </div>
+
+    <div>
+      <.label>Upload image</.label>
+
+      <section
+        class="mt-2 w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
+        phx-drop-target={@uploads.image.ref}
+      >
+        <.live_file_input upload={@uploads.image} />
+        <article :for={entry <- @uploads.image.entries} class="upload-entry">
+          <figure>
+            <.live_img_preview entry={entry} class="h-40 w-40 rounded-full object-cover object-top shadow-lg" />
+            <figcaption><%= entry.client_name %></figcaption>
+          </figure>
+
+          <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+
+          <span
+            class="cursor-pointer text-2xl transition-colors hover:text-red-600"
+            phx-click="cancel-upload"
+            phx-value-ref={entry.ref}
+            phx-target={@myself}
+          >
+            &times;
+          </span>
+
+          <p :for={err <- upload_errors(@uploads.image, entry)} class="text-red-600">
+            <%= error_to_string(err) %>
+          </p>
+        </article>
+      </section>
+    </div>
+
+    <:actions>
+      <.button>Save</.button>
+    </:actions>
+  </.simple_form>
 </div>

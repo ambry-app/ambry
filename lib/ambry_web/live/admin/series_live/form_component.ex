@@ -3,6 +3,7 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
 
   use AmbryWeb, :live_component
 
+  import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
 
   alias Ambry.{Books, Series}
@@ -19,7 +20,7 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:changeset, changeset)}
+     |> assign_form(changeset)}
   end
 
   @impl Phoenix.LiveComponent
@@ -31,7 +32,7 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
       |> Series.change_series(series_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("save", %{"series" => series_params}, socket) do
@@ -40,7 +41,7 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
 
   def handle_event("add-book", _params, socket) do
     params =
-      socket.assigns.changeset.params
+      socket.assigns.form.source.params
       |> map_to_list("series_books")
       |> Map.update!("series_books", fn series_books_params ->
         series_books_params ++ [%{}]
@@ -48,7 +49,7 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
 
     changeset = Series.change_series(socket.assigns.series, params)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   defp clean_series_params(params) do
@@ -67,10 +68,10 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Series updated successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+        {:noreply, assign_form(socket, changeset)}
     end
   end
 
@@ -80,7 +81,7 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Series created successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}
@@ -95,5 +96,9 @@ defmodule AmbryWeb.Admin.SeriesLive.FormComponent do
     %{
       "series_books" => Enum.map(series.series_books, &%{"id" => &1.id})
     }
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    assign(socket, :form, to_form(changeset))
   end
 end
