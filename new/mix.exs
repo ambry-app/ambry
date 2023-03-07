@@ -17,7 +17,7 @@ defmodule Ambry.MixProject do
         "coveralls.lcov": :test
       ],
       dialyzer: [
-        plt_add_apps: [:mix]
+        plt_add_apps: [:mix, :ex_unit]
       ]
     ]
   end
