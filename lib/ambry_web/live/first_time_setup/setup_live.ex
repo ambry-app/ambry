@@ -21,20 +21,20 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
         </:subtitle>
       </.header>
 
-      <.simple_form :let={f} for={@changeset} phx-submit="save">
+      <.simple_form for={@form} phx-submit="save">
         <.note>
           The email is only ever used to email password reset emails if needed, and
           only if emailing has been set up.
         </.note>
 
-        <.input field={{f, :email}} type="email" placeholder="Email" required />
+        <.input field={@form[:email]} type="email" placeholder="Email" required />
 
         <.note>
           Your password needs to be at least 12 characters long, and contain at least
           one each of lower case, upper case, and special characters.
         </.note>
 
-        <.input field={{f, :password}} type="password" placeholder="Password" required />
+        <.input field={@form[:password]} type="password" placeholder="Password" required />
 
         <:actions>
           <.button phx-disable-with="Please wait..." class="w-full">
@@ -90,10 +90,9 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
 
       :else ->
         {:ok,
-         assign(socket, %{
-           state: :create_user,
-           changeset: Accounts.change_user_registration()
-         })}
+         socket
+         |> assign(state: :create_user)
+         |> assign_form(Accounts.change_user_registration())}
     end
   end
 
@@ -118,7 +117,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
        |> assign(:state, :admin_exists)}
     else
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+        {:noreply, assign_form(socket, changeset)}
     end
   end
 
@@ -126,5 +125,9 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
     System.restart()
 
     {:noreply, assign(socket, :state, :restarting)}
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    assign(socket, :form, to_form(changeset))
   end
 end

@@ -5,7 +5,7 @@ config :ambry, Ambry.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
-  database: "ambry_new_dev",
+  database: "ambry_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
