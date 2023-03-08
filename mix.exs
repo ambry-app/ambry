@@ -10,6 +10,7 @@ defmodule Ambry.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      npm_deps: npm_deps(),
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         coveralls: :test,
@@ -68,6 +69,7 @@ defmodule Ambry.MixProject do
       {:heroicons, "~> 0.5"},
       {:jason, "~> 1.2"},
       {:natural_sort, "~> 0.3"},
+      {:npm_deps, "~> 0.3.1", runtime: false},
       {:oban, "~> 2.11"},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 3.3"},
@@ -88,6 +90,15 @@ defmodule Ambry.MixProject do
     ]
   end
 
+  def npm_deps do
+    [
+      {:"decimal.js", "10.4.3"},
+      {:"platform-detect", "3.0.1"},
+      {:"shaka-player", "4.3.5"},
+      {:topbar, "2.0.1"}
+    ]
+  end
+
   # Aliases are shortcuts or tasks specific to the current project.
   # For example, to install project dependencies and perform other setup tasks, run:
   #
@@ -97,6 +108,7 @@ defmodule Ambry.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
+      "deps.get": ["deps.get", "npm_deps.get"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "seed"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       "ecto.seed": ["run priv/repo/seeds.exs"],
@@ -105,7 +117,12 @@ defmodule Ambry.MixProject do
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["tailwind default", "esbuild default"],
-      "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"],
+      "assets.deploy": [
+        "npm_deps.get",
+        "tailwind default --minify",
+        "esbuild default --minify",
+        "phx.digest"
+      ],
       check: [
         "format --check-formatted",
         "compile --force --warnings-as-errors",

@@ -1,6 +1,6 @@
 export const TimeBarHook = {
-  mounted () {
-    const {duration} = this.el.dataset
+  mounted() {
+    const { duration } = this.el.dataset
 
     this.duration = duration
     this.dragging = false
@@ -30,7 +30,7 @@ export const TimeBarHook = {
     this.listeners.push([target, event, callback])
   },
 
-  updateState (event) {
+  updateState(event) {
     const x = event.clientX
 
     this.position = Math.min(x, this.width)
@@ -38,19 +38,19 @@ export const TimeBarHook = {
     this.percent = (this.ratio * 100).toFixed(2)
   },
 
-  snapshotState () {
-    const {position, ratio, percent} = this
-    this.snapshot = {position, ratio, percent}
+  snapshotState() {
+    const { position, ratio, percent } = this
+    this.snapshot = { position, ratio, percent }
   },
 
-  resetToSnapshot () {
-    const {position, ratio, percent} = this.snapshot
+  resetToSnapshot() {
+    const { position, ratio, percent } = this.snapshot
     this.position = position
     this.ratio = ratio
     this.percent = percent
   },
 
-  updateUI () {
+  updateUI() {
     if (this.isDragging()) {
       this.progressBar.style.width = `${this.percent}%`
       this.handle.style.left = `calc(${this.percent}% - 8px)`
@@ -59,7 +59,7 @@ export const TimeBarHook = {
     this.timeCode.innerText = this.formatTimecode(this.ratio * this.duration)
     const timeCodeHalfWidth = this.timeCode.clientWidth / 2
     if (this.position > this.width / 2) {
-      const shiftStrength = (((this.percent - 50) * -1) / 50) + 1
+      const shiftStrength = ((this.percent - 50) * -1) / 50 + 1
       const timeCodePosition = this.fullWidth - this.position - shiftStrength * timeCodeHalfWidth
       this.timeCode.style.left = "auto"
       this.timeCode.style.right = `${timeCodePosition}px`
@@ -71,7 +71,7 @@ export const TimeBarHook = {
     }
   },
 
-  mousedown (event) {
+  mousedown(event) {
     if (event.buttons === 1) {
       this.snapshotState()
       this.updateState(event)
@@ -82,19 +82,19 @@ export const TimeBarHook = {
     event.preventDefault()
   },
 
-  mousemove (event) {
+  mousemove(event) {
     this.updateState(event)
     this.updateUI()
   },
 
-  mouseup (event) {
+  mouseup(event) {
     if (this.isDragging()) {
       this.endDragging()
       mediaPlayer.seekRatio(this.ratio)
     }
   },
 
-  mouseleave (event) {
+  mouseleave(event) {
     if (this.isDragging()) {
       this.resetToSnapshot()
       this.updateUI()
@@ -102,44 +102,44 @@ export const TimeBarHook = {
     }
   },
 
-  resize (event) {
+  resize(event) {
     this.fullWidth = this.wrapper.clientWidth
     this.width = this.timeBar.clientWidth
   },
 
-  startDragging () {
+  startDragging() {
     this.dragging = true
-    this.wrapper.setAttribute('phx-update', 'ignore')
+    this.wrapper.setAttribute("phx-update", "ignore")
     this.progressBar.classList.add(...this.progressBarHoverStyles)
     this.handle.classList.add(...this.handleHoverStyles)
   },
 
-  endDragging () {
+  endDragging() {
     this.dragging = false
-    this.wrapper.removeAttribute('phx-update')
+    this.wrapper.removeAttribute("phx-update")
     this.progressBar.classList.remove(...this.progressBarHoverStyles)
     this.handle.classList.remove(...this.handleHoverStyles)
   },
 
-  isDragging () {
+  isDragging() {
     return this.dragging
   },
 
-  getHoverStyles (el) {
+  getHoverStyles(el) {
     return Array.from(el.classList)
-      .filter((c) => c.startsWith('group-hover:'))
-      .map((c) => c.replace('group-hover:', ''))
+      .filter((c) => c.startsWith("group-hover:"))
+      .map((c) => c.replace("group-hover:", ""))
   },
 
-  formatTimecode (secs) {
+  formatTimecode(secs) {
     const sec_num = parseInt(secs, 10)
     const hours = Math.floor(sec_num / 3600)
     const minutes = Math.floor(sec_num / 60) % 60
     const seconds = sec_num % 60
 
     const string = [hours, minutes, seconds]
-      .map(v => v < 10 ? "0" + v : v)
-      .filter((v,i) => v !== "00" || i > 0)
+      .map((v) => (v < 10 ? "0" + v : v))
+      .filter((v, i) => v !== "00" || i > 0)
       .join(":")
 
     if (string.startsWith("0")) {
@@ -149,10 +149,10 @@ export const TimeBarHook = {
     }
   },
 
-  destroyed () {
+  destroyed() {
     this.listeners.forEach((listener) => {
       const [target, event, callback] = listener
       target.removeEventListener(event, callback)
     })
-  }
+  },
 }

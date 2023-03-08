@@ -141,9 +141,13 @@ defmodule AmbryWeb.Layouts do
 
   def footer(assigns) do
     ~H"""
-    <footer :if={@player.player_state} class="relative bg-zinc-100 dark:bg-zinc-900">
-      <.time_bar player_state={@player.player_state} />
-      <.player_controls playback_state={@player.playback_state} player_state={@player.player_state} />
+    <footer class="relative bg-zinc-100 dark:bg-zinc-900">
+      <.time_bar :if={@player.player_state} player_state={@player.player_state} />
+      <.player_controls
+        :if={@player.player_state}
+        playback_state={@player.playback_state}
+        player_state={@player.player_state}
+      />
       <.media_player player_state={@player.player_state} />
     </footer>
     """
@@ -151,7 +155,7 @@ defmodule AmbryWeb.Layouts do
 
   defp media_player(assigns) do
     ~H"""
-    <div id="media-player" phx-hook="mediaPlayer" {player_state_attrs(@player_state)}>
+    <div id="media-player" phx-hook="media-player" {player_state_attrs(@player_state)}>
       <audio />
     </div>
     """
@@ -160,7 +164,7 @@ defmodule AmbryWeb.Layouts do
   defp player_state_attrs(nil), do: %{"data-media-unloaded" => true}
 
   defp player_state_attrs(%Media.PlayerState{
-         media: %Media.Media{id: id, mpd_path: path},
+         media: %Media.Media{id: id, mpd_path: path, hls_path: hls_path},
          position: position,
          playback_rate: playback_rate
        }) do
@@ -168,6 +172,7 @@ defmodule AmbryWeb.Layouts do
       "data-media-id" => id,
       "data-media-position" => position,
       "data-media-path" => "#{path}#t=#{position}",
+      "data-media-hls-path" => "#{hls_path}#t=#{position}",
       "data-media-playback-rate" => playback_rate
     }
   end
@@ -180,7 +185,7 @@ defmodule AmbryWeb.Layouts do
     <div
       id="time-bar"
       class="group absolute -top-4 h-8 w-full cursor-pointer"
-      phx-hook="timeBar"
+      phx-hook="time-bar"
       data-duration={@player_state.media.duration}
     >
       <div

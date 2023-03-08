@@ -2,7 +2,13 @@
   <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
     <.input field={@form[:title]} label="Title" />
     <.input field={@form[:published]} label="Published" type="date" />
-    <.input field={@form[:description]} label="Description" type="textarea" phx-hook="maintainAttrs" data-attrs="style" />
+    <.input
+      field={@form[:description]}
+      label="Description"
+      type="textarea"
+      phx-hook="maintain-attrs"
+      data-attrs="style"
+    />
 
     <div>
       <.label>Written by</.label>

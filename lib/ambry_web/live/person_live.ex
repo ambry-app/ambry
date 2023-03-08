@@ -25,7 +25,7 @@ defmodule AmbryWeb.PersonLive do
           <div
             :if={@person.description}
             id="readMore"
-            phx-hook="readMore"
+            phx-hook="read-more"
             data-read-more-label="Read more"
             data-read-less-label="Read less"
             data-read-more-classes="max-h-44 sm:max-h-56"

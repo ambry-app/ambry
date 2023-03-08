@@ -13,7 +13,7 @@ defmodule AmbryWeb.PlayerLive do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <.footer :if={@player.player_state} player={@player} />
+    <.footer player={@player} />
     """
   end
 

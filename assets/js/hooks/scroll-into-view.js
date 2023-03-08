@@ -1,10 +1,10 @@
 export const ScrollIntoViewHook = {
-  mounted () {
+  mounted() {
     const chapterRows = Array.from(this.el.firstElementChild.children)
     const observerConfig = { attributes: true }
     const observer = new MutationObserver((mutationList, observer) => {
       for (const mutation of mutationList) {
-        if (mutation.attributeName === 'data-active' && mutation.target.dataset.active) {
+        if (mutation.attributeName === "data-active" && mutation.target.dataset.active) {
           this.scrollIntoView(mutation.target)
         }
       }
@@ -19,7 +19,7 @@ export const ScrollIntoViewHook = {
 
     this.scrollToActive()
 
-    this.attach(this.el, 'ambry:scroll-to-active-chapter', 'scrollToActive')
+    this.attach(this.el, "ambry:scroll-to-active-chapter", "scrollToActive")
   },
 
   attach(target, event, callbackName) {
@@ -31,19 +31,17 @@ export const ScrollIntoViewHook = {
   },
 
   scrollIntoView(el) {
-    el.scrollIntoView({block: 'center'})
+    el.scrollIntoView({ block: "center" })
   },
 
   scrollToActive() {
-
     const activeRow = this.chapterRows.find((row) => row.dataset.active)
-    console.log('got it!', activeRow)
+    console.log("got it!", activeRow)
 
     if (activeRow) {
       requestAnimationFrame(() => {
         this.scrollIntoView(activeRow)
       })
-
     }
   },
 
@@ -54,5 +52,5 @@ export const ScrollIntoViewHook = {
       const [target, event, callback] = listener
       target.removeEventListener(event, callback)
     })
-  }
+  },
 }

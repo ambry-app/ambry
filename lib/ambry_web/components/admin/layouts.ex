@@ -79,11 +79,7 @@ defmodule AmbryWeb.Admin.Layouts do
 
   def dashboard_header(assigns) do
     ~H"""
-    <header
-      x-data
-      class="flex items-center gap-3 border-zinc-100 p-4 dark:border-zinc-900"
-      x-class="{ 'border-b': $store.header.scrolled }"
-    >
+    <header id="nav-header" class="flex items-center gap-3 border-zinc-100 p-4 dark:border-zinc-900">
       <span class="cursor-pointer lg:hidden" phx-click={open_sidebar()}>
         <FA.icon name="bars" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
       </span>

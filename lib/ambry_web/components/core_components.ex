@@ -800,7 +800,7 @@ defmodule AmbryWeb.CoreComponents do
         <%= if @infinite_scroll_target do %>
           <div
             id="infinite-scroll-marker"
-            phx-hook="infiniteScroll"
+            phx-hook="infinite-scroll"
             data-page={@current_page}
             data-target={@infinite_scroll_target}
           >
