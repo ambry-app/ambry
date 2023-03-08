@@ -5,9 +5,6 @@ defmodule AmbryWeb.CoreComponents do
   The components in this module use Tailwind CSS, a utility-first CSS framework.
   See the [Tailwind CSS documentation](https://tailwindcss.com) to learn how to
   customize the generated components in this module.
-
-  Icons are provided by [heroicons](https://heroicons.com), using the
-  [heroicons_elixir](https://github.com/mveytsman/heroicons_elixir) project.
   """
   use Phoenix.Component
   use AmbryWeb, :verified_routes
@@ -151,26 +148,36 @@ defmodule AmbryWeb.CoreComponents do
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
       phx-mounted={@autoshow && show("##{@id}")}
-      phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
+      phx-click={dismiss_flash(@kind, @id)}
+      phx-click-away={dismiss_flash(@kind, @id)}
+      phx-window-keydown={dismiss_flash(@kind, @id)}
+      phx-key="escape"
       role="alert"
       class={[
-        "fixed hidden top-2 right-2 w-80 sm:w-96 z-50 rounded-lg p-3 shadow-md shadow-zinc-900/5 ring-1",
-        @kind == :info && "bg-emerald-50 text-emerald-800 ring-emerald-500 fill-cyan-900",
-        @kind == :error && "bg-rose-50 p-3 text-rose-900 shadow-md ring-rose-500 fill-rose-900"
+        "fixed hidden top-2 right-2 w-80 sm:w-96 z-50 rounded-lg p-3 shadow-md ring-1",
+        "text-zinc-900 fill-zinc-900 shadow-zinc-900/5",
+        @kind == :info && "bg-lime-50 ring-lime-200 dark:ring-lime-400 dark:bg-lime-400",
+        @kind == :error && "bg-red-50 ring-red-200 dark:ring-red-400 dark:bg-red-400"
       ]}
       {@rest}
     >
       <p :if={@title} class="text-[0.8125rem] flex items-center gap-1.5 font-semibold leading-6">
-        <Heroicons.information_circle :if={@kind == :info} mini class="h-4 w-4" />
-        <Heroicons.exclamation_circle :if={@kind == :error} mini class="h-4 w-4" />
+        <FA.icon :if={@kind == :info} name="circle-info" class="h-4 w-4" />
+        <FA.icon :if={@kind == :error} name="circle-exclamation" class="h-4 w-4" />
         <%= @title %>
       </p>
       <p class="text-[0.8125rem] mt-2 leading-5"><%= msg %></p>
       <button :if={@close} type="button" class="group absolute top-2 right-1 p-2" aria-label={gettext("close")}>
-        <Heroicons.x_mark solid class="h-5 w-5 stroke-current opacity-40 group-hover:opacity-70" />
+        <FA.icon name="xmark" class="h-5 w-5 opacity-20 hover:opacity-40" />
       </button>
     </div>
     """
+  end
+
+  defp dismiss_flash(kind, id) do
+    "lv:clear-flash"
+    |> JS.push(value: %{key: kind})
+    |> hide("##{id}")
   end
 
   @doc """
@@ -608,7 +615,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div class="mt-16">
       <.link navigate={@navigate} class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700">
-        <Heroicons.arrow_left solid class="inline h-3 w-3 stroke-current" />
+        <FA.icon name="arrow-left" class="inline h-3 w-3 stroke-current" />
         <%= render_slot(@inner_block) %>
       </.link>
     </div>
@@ -990,7 +997,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def section_header(assigns) do
     ~H"""
-    <h1 class="mb-6 text-3xl font-bold text-zinc-100 md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
+    <h1 class="mb-6 text-3xl font-bold text-zinc-900 dark:text-zinc-100 md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
       <%= render_slot(@inner_block) %>
     </h1>
     """

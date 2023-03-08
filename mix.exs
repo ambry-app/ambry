@@ -65,8 +65,6 @@ defmodule Ambry.MixProject do
       {:floki, ">= 0.30.0", only: :test},
       {:gettext, "~> 0.20"},
       {:hashids, "~> 2.0"},
-      # TODO: remove me
-      {:heroicons, "~> 0.5"},
       {:jason, "~> 1.2"},
       {:natural_sort, "~> 0.3"},
       {:npm_deps, "~> 0.3.1", runtime: false},
@@ -75,8 +73,6 @@ defmodule Ambry.MixProject do
       {:phoenix_html, "~> 3.3"},
       {:phoenix_live_dashboard, "~> 0.7.2"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      # TODO: switch back to published version once this fix is released:
-      # https://github.com/phoenixframework/phoenix_live_view/pull/2387
       {:phoenix_live_view, "~> 0.18.16"},
       {:phoenix, "~> 1.7.0"},
       {:plug_cowboy, "~> 2.5"},

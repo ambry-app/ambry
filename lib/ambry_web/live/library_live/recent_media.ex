@@ -15,9 +15,7 @@ defmodule AmbryWeb.LibraryLive.RecentMedia do
     <div>
       <%= if @player_states != [] do %>
         <div class="mb-16 sm:mb-24 lg:mb-32">
-          <.section_header>
-            Continue listening
-          </.section_header>
+          <.section_header>Continue listening</.section_header>
 
           <.player_state_tiles
             player_states={@player_states}
