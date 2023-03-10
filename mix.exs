@@ -105,7 +105,7 @@ defmodule Ambry.MixProject do
     [
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
       "deps.get": ["deps.get", "npm_deps.get"],
-      "ecto.setup": ["ecto.create", "ecto.migrate", "seed"],
+      "ecto.setup": ["ecto.create", "ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       "ecto.seed": ["run priv/repo/seeds.exs"],
       "seed.download": ["cmd ./script/download_seed_files.sh"],
