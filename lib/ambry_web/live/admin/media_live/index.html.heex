@@ -55,7 +55,7 @@
 
 <.admin_table rows={@media}>
   <:col :let={media} label="Status">
-    <.admin_badge color={status_color(media.status)} label={media.status} />
+    <.badge color={status_color(media.status)}><%= media.status %></.badge>
   </:col>
   <:col :let={media} label="Book">
     <%= media.book %>
@@ -89,15 +89,15 @@
   </:col>
   <:col :let={media} label="Features" class="hidden lg:table-cell">
     <%= if media.abridged do %>
-      <.admin_badge color="yellow" label="abridged" />
+      <.badge color={:yellow}>abridged</.badge>
       <br />
     <% end %>
     <%= if media.full_cast do %>
-      <.admin_badge color="blue" label="full-cast" />
+      <.badge color={:blue}>full-cast</.badge>
       <br />
     <% end %>
     <%= if media.has_chapters do %>
-      <.admin_badge color="lime" label="chapters" />
+      <.badge color={:brand}>chapters</.badge>
       <br />
     <% end %>
   </:col>

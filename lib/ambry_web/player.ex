@@ -50,6 +50,10 @@ defmodule AmbryWeb.Player do
     :ok = PubSub.subscribe("player:#{id}")
   end
 
+  # NOTE: This might not be a great idea, we should see if we can make this not
+  # blow up in tests instead.
+  def subscribe!(%__MODULE__{id: nil}), do: :ok
+
   def reload!(%__MODULE__{id: id}) when is_binary(id) do
     case Tracker.fetch(id) do
       :error -> raise "Tried to reload unknown player: #{inspect(id)}"

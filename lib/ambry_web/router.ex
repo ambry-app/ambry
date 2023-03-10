@@ -23,6 +23,13 @@ defmodule AmbryWeb.Router do
     plug :fetch_current_user
     plug :fetch_api_user
     plug :require_any_authenticated_user
+
+    # Serve static user uploaded media
+    plug Plug.Static,
+      at: "/uploads",
+      from: {Ambry.Paths, :uploads_folder_disk_path, []},
+      gzip: false,
+      only: ~w(media)
   end
 
   pipeline :gql do
@@ -34,12 +41,7 @@ defmodule AmbryWeb.Router do
   scope "/uploads" do
     pipe_through [:uploads]
 
-    # Serve static user uploaded media
-    forward "/", Plug.Static,
-      at: "/",
-      from: {Ambry.Paths, :uploads_folder_disk_path, []},
-      gzip: false,
-      only: ~w(media)
+    get "/*path", AmbryWeb.FallbackController, :index
   end
 
   scope "/gql" do

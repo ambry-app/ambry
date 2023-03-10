@@ -203,15 +203,15 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   defp parse_requested_processor(""), do: :none_specified
   defp parse_requested_processor(string), do: String.to_existing_atom(string)
 
-  #####
+  attr :file, :any, required: true
+  attr :label, :string, required: true
+  attr :error_type, :atom, default: :error
 
   defp file_stat_row(assigns) do
-    assigns = assign_new(assigns, :error_type, fn -> :error end)
-
     ~H"""
     <div class="flex p-2">
       <div class="w-28 pr-2">
-        <.admin_badge label={@label} color="gray" />
+        <.badge color={:gray}><%= @label %></.badge>
       </div>
       <%= if @file do %>
         <div class="grow break-all pr-2">
@@ -220,23 +220,23 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
         <div class="shrink">
           <%= case @file.stat do %>
             <% error when is_atom(error) -> %>
-              <.admin_badge label={error} color={color_for_error_type(@error_type)} />
+              <.badge color={color_for_error_type(@error_type)}><%= error %></.badge>
             <% stat when is_map(stat) -> %>
-              <.admin_badge label={format_filesize(stat.size)} color="blue" />
+              <.badge color={:blue}><%= format_filesize(stat.size) %></.badge>
           <% end %>
         </div>
       <% else %>
         <div class="grow" />
         <div class="shrink">
-          <.admin_badge label="nil" color="red" />
+          <.badge color={:red}>nil</.badge>
         </div>
       <% end %>
     </div>
     """
   end
 
-  defp color_for_error_type(:error), do: "red"
-  defp color_for_error_type(:warn), do: "yellow"
+  defp color_for_error_type(:error), do: :red
+  defp color_for_error_type(:warn), do: :yellow
 
   defp format_filesize(bytes) do
     bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()

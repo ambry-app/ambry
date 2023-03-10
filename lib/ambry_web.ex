@@ -68,6 +68,16 @@ defmodule AmbryWeb do
     end
   end
 
+  def admin_live_view do
+    quote do
+      use Phoenix.LiveView, layout: {AmbryWeb.Admin.Layouts, :app}
+
+      import AmbryWeb.Admin.Components
+
+      unquote(html_helpers())
+    end
+  end
+
   def live_component do
     quote do
       use Phoenix.LiveComponent

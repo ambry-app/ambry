@@ -7,7 +7,7 @@ defmodule AmbryWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_ambry_key",
-    signing_salt: "DwRUjiDC",
+    signing_salt: "yFIX3cvA",
     same_site: "Lax"
   ]
 
@@ -47,7 +47,7 @@ defmodule AmbryWeb.Endpoint do
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
   plug Plug.Parsers,
-    parsers: [:urlencoded, :multipart, :json],
+    parsers: [:urlencoded, :multipart, :json, Absinthe.Plug.Parser],
     pass: ["*/*"],
     json_decoder: Phoenix.json_library()
 

@@ -3,9 +3,9 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   LiveView for media admin interface.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :admin_live_view
 
-  import AmbryWeb.Admin.{Components, PaginationHelpers}
+  import AmbryWeb.Admin.PaginationHelpers
   import AmbryWeb.TimeUtils
 
   alias Ambry.{Media, PubSub}
@@ -183,10 +183,10 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
   def handle_info(%PubSub.Message{type: :media}, socket), do: {:noreply, refresh_media(socket)}
 
-  defp status_color(:pending), do: "yellow"
-  defp status_color(:processing), do: "blue"
-  defp status_color(:error), do: "red"
-  defp status_color(:ready), do: "lime"
+  defp status_color(:pending), do: :yellow
+  defp status_color(:processing), do: :blue
+  defp status_color(:error), do: :red
+  defp status_color(:ready), do: :brand
 
   defp progress_percent(nil), do: "0.0"
 

@@ -3,9 +3,9 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   LiveView for book admin interface.
   """
 
-  use AmbryWeb, :live_view
+  use AmbryWeb, :admin_live_view
 
-  import AmbryWeb.Admin.{Components, PaginationHelpers}
+  import AmbryWeb.Admin.PaginationHelpers
 
   alias Ambry.{Books, PubSub}
   alias Ambry.Books.Book

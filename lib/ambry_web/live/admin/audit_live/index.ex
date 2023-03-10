@@ -3,9 +3,7 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
   LiveView for audit admin interface.
   """
 
-  use AmbryWeb, :live_view
-
-  import AmbryWeb.Admin.Components
+  use AmbryWeb, :admin_live_view
 
   alias Ambry.{FileUtils, Media}
 

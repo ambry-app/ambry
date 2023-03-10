@@ -126,38 +126,31 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  @badge_colors %{
-    "yellow" => "
-      border-yellow-200 bg-yellow-50
-      dark:border-yellow-400 dark:bg-yellow-400
-    ",
-    "blue" => "
-      border-blue-200 bg-blue-50
-      dark:border-blue-400 dark:bg-blue-400
-    ",
-    "red" => "
-      border-red-200 bg-red-50
-      dark:border-red-400 dark:bg-red-400
-    ",
-    "lime" => "
-      border-lime-200 bg-lime-50
-      dark:border-lime-400 dark:bg-lime-400
-    ",
-    "gray" => "
-      border-zinc-200 bg-zinc-100
-      dark:border-zinc-400 dark:bg-zinc-400
-    "
-  }
+  @doc """
+  Renders a colored badge with a label in it.
 
-  defp badge_color_classes(color), do: @badge_colors[color]
+  ## Examples
 
-  def admin_badge(assigns) do
+      <.badge color={:red}>Foo</.badge>
+  """
+  attr :color, :atom, doc: "one of yellow, blue, red, brand, or gray"
+  slot :inner_block, required: true
+
+  def badge(assigns) do
     ~H"""
-    <span class={["whitespace-nowrap rounded-md border px-1 text-zinc-900", badge_color_classes(@color)]}>
-      <%= @label %>
+    <span class={["whitespace-nowrap rounded-md border px-1 text-zinc-900", badge_color(@color)]}>
+      <%= render_slot(@inner_block) %>
     </span>
     """
   end
+
+  defp badge_color(:yellow),
+    do: "border-yellow-200 bg-yellow-50 dark:border-yellow-400 dark:bg-yellow-400"
+
+  defp badge_color(:blue), do: "border-blue-200 bg-blue-50 dark:border-blue-400 dark:bg-blue-400"
+  defp badge_color(:red), do: "border-red-200 bg-red-50 dark:border-red-400 dark:bg-red-400"
+  defp badge_color(:brand), do: "border-lime-200 bg-lime-50 dark:border-lime-400 dark:bg-lime-400"
+  defp badge_color(:gray), do: "border-zinc-200 bg-zinc-100 dark:border-zinc-400 dark:bg-zinc-400"
 
   @doc """
   Renders a fancy checkbox disguised as a trash-can icon.
