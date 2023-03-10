@@ -3,11 +3,11 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   Helpers for handling file uploads.
   """
 
+  use AmbryWeb, :verified_routes
+
   import Ambry.Paths
   import Phoenix.LiveView, only: [allow_upload: 3]
   import Phoenix.LiveView.Upload, only: [consume_uploaded_entries: 3]
-
-  alias AmbryWeb.Router.Helpers, as: Routes
 
   def allow_image_upload(socket) do
     allow_upload(socket, :image, accept: ~w(.jpg .jpeg .png .webp), max_entries: 1)
@@ -30,7 +30,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
         dest = images_disk_path(filename)
         File.cp!(path, dest)
 
-        {:ok, Routes.static_path(socket, "/uploads/images/#{filename}")}
+        {:ok, ~p"/uploads/images/#{filename}"}
       end)
 
     case uploaded_files do

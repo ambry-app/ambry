@@ -1,0 +1,9 @@
+<.flash_group flash={@flash} />
+
+<div class="flex h-full flex-col">
+  <.nav_header user={@current_user} active_path={@nav_active_path} />
+
+  <main id="main-content" class="grow overflow-y-auto overflow-x-hidden lg:justify-center" phx-hook="header-scrollspy">
+    <%= @inner_content %>
+  </main>
+</div>

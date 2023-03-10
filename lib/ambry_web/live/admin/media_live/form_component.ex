@@ -4,12 +4,12 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   use AmbryWeb, :live_component
 
   import Ambry.Paths
+  import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
   import AmbryWeb.Admin.UploadHelpers, only: [error_to_string: 1]
 
   alias Ambry.{Books, Media, Narrators}
   alias Ambry.Media.{Processor, ProcessorJob}
-  alias AmbryWeb.Admin.MediaLive.FileStatRow
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -41,8 +41,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:changeset, changeset)
-     |> assign(:source_files_expanded, false)}
+     |> assign(:source_files_expanded, false)
+     |> assign_form(changeset)}
   end
 
   @impl Phoenix.LiveComponent
@@ -54,7 +54,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
       |> Media.change_media(media_params, for: changeset_action(socket.assigns.action))
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("save", %{"media" => media_params}, socket) do
@@ -89,7 +89,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   def handle_event("add-narrator", _params, socket) do
     params =
-      socket.assigns.changeset.params
+      socket.assigns.form.source.params
       |> map_to_list("media_narrators")
       |> Map.update!("media_narrators", fn media_narrators_params ->
         media_narrators_params ++ [%{}]
@@ -97,7 +97,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
     changeset = Media.change_media(socket.assigns.media, params)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("expand", _params, socket) do
@@ -138,7 +138,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
          |> push_redirect(to: socket.assigns.return_to)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+        {:noreply, assign_form(socket, changeset)}
     end
   end
 
@@ -162,7 +162,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
          |> push_redirect(to: socket.assigns.return_to)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, changeset: changeset)}
+        {:noreply, assign_form(socket, changeset)}
     end
   end
 
@@ -202,4 +202,47 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   defp parse_requested_processor(""), do: :none_specified
   defp parse_requested_processor(string), do: String.to_existing_atom(string)
+
+  attr :file, :any, required: true
+  attr :label, :string, required: true
+  attr :error_type, :atom, default: :error
+
+  defp file_stat_row(assigns) do
+    ~H"""
+    <div class="flex p-2">
+      <div class="w-28 pr-2">
+        <.badge color={:gray}><%= @label %></.badge>
+      </div>
+      <%= if @file do %>
+        <div class="grow break-all pr-2">
+          <%= @file.path %>
+        </div>
+        <div class="shrink">
+          <%= case @file.stat do %>
+            <% error when is_atom(error) -> %>
+              <.badge color={color_for_error_type(@error_type)}><%= error %></.badge>
+            <% stat when is_map(stat) -> %>
+              <.badge color={:blue}><%= format_filesize(stat.size) %></.badge>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="grow" />
+        <div class="shrink">
+          <.badge color={:red}>nil</.badge>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp color_for_error_type(:error), do: :red
+  defp color_for_error_type(:warn), do: :yellow
+
+  defp format_filesize(bytes) do
+    bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    assign(socket, :form, to_form(changeset))
+  end
 end

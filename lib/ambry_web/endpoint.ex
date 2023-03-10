@@ -1,9 +1,5 @@
 defmodule AmbryWeb.Endpoint do
-  @moduledoc false
-
   use Phoenix.Endpoint, otp_app: :ambry
-
-  require Application
 
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
@@ -11,7 +7,8 @@ defmodule AmbryWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_ambry_key",
-    signing_salt: "yFIX3cvA"
+    signing_salt: "yFIX3cvA",
+    same_site: "Lax"
   ]
 
   socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
@@ -24,8 +21,7 @@ defmodule AmbryWeb.Endpoint do
     at: "/",
     from: :ambry,
     gzip: false,
-    only:
-      ~w(assets fonts images favicon.svg favicon.png favicon-32x32.png favicon-96x96.png robots.txt)
+    only: AmbryWeb.static_paths()
 
   # Serve static user uploaded images
   plug Plug.Static,

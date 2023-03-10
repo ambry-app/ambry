@@ -2,9 +2,9 @@ defmodule AmbryWeb.Admin.Auth do
   @moduledoc """
   Helper functions for user authentication in admin live views.
   """
+  use AmbryWeb, :verified_routes
 
   import Phoenix.LiveView, only: [push_redirect: 2]
-  alias AmbryWeb.Router.Helpers, as: Routes
 
   alias Ambry.Accounts.User
 
@@ -24,10 +24,10 @@ defmodule AmbryWeb.Admin.Auth do
   def on_mount(:ensure_mounted_admin_user, _params, _session, socket) do
     case socket.assigns.current_user do
       nil ->
-        {:halt, push_redirect(socket, to: Routes.user_session_path(socket, :new))}
+        {:halt, push_redirect(socket, to: ~p"/users/log_in")}
 
       %User{admin: false} ->
-        {:halt, push_redirect(socket, to: Routes.now_playing_index_path(socket, :index))}
+        {:halt, push_redirect(socket, to: ~p"/")}
 
       %User{admin: true} ->
         {:cont, socket}

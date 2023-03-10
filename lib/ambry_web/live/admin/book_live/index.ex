@@ -42,21 +42,18 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     socket
     |> assign(:page_title, book.title)
     |> assign(:book, book)
-    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Book")
     |> assign(:book, %Book{book_authors: [], series_books: []})
-    |> assign(:autofocus_search, false)
   end
 
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Books")
     |> assign(:book, nil)
-    |> assign_new(:autofocus_search, fn -> false end)
   end
 
   defp maybe_update_books(socket, params, force \\ false) do
@@ -109,24 +106,16 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    socket =
-      socket
-      |> maybe_update_books(%{"filter" => query, "page" => "1"})
-      |> assign(:autofocus_search, true)
-
+    socket = maybe_update_books(socket, %{"filter" => query, "page" => "1"})
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket, to: Routes.admin_book_index_path(socket, :index, patch_opts(list_opts)))}
+    {:noreply, push_patch(socket, to: ~p"/admin/books?#{patch_opts(list_opts)}")}
   end
 
   def handle_event("row-click", %{"id" => id}, socket) do
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket,
-       to: Routes.admin_book_index_path(socket, :edit, id, patch_opts(list_opts))
-     )}
+    {:noreply, push_patch(socket, to: ~p"/admin/books/#{id}/edit?#{patch_opts(list_opts)}")}
   end
 
   defp list_books(opts) do

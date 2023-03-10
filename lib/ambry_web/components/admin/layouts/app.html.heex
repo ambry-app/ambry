@@ -1,0 +1,15 @@
+<.flash_group flash={@flash} />
+
+<div class="flex h-screen overflow-hidden">
+  <.side_nav active_path={@admin_nav_active_path} />
+
+  <div class="relative flex h-screen flex-grow flex-col">
+    <.dashboard_header user={@current_user} title={assigns[:header_title]} />
+
+    <main class="flex flex-grow flex-col overflow-hidden">
+      <div id="main-content" class="flex-grow overflow-y-auto overflow-x-hidden p-4" phx-hook="header-scrollspy">
+        <%= @inner_content %>
+      </div>
+    </main>
+  </div>
+</div>

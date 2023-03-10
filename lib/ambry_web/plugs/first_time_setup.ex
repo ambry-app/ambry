@@ -2,12 +2,11 @@ defmodule AmbryWeb.Plugs.FirstTimeSetup do
   @moduledoc """
   Redirects to first-time-setup page if Ambry has not yet been set up.
   """
-
   @behaviour Plug
 
-  import Phoenix.Controller, only: [redirect: 2]
+  use AmbryWeb, :verified_routes
 
-  alias AmbryWeb.Router.Helpers, as: Routes
+  import Phoenix.Controller, only: [redirect: 2]
 
   alias Plug.Conn
 
@@ -23,7 +22,7 @@ defmodule AmbryWeb.Plugs.FirstTimeSetup do
 
     if first_time_setup? and not setup_path? do
       conn
-      |> redirect(to: Routes.first_time_setup_setup_index_path(conn, :index))
+      |> redirect(to: ~p"/first_time_setup")
       |> Conn.halt()
     else
       conn

@@ -11,8 +11,8 @@ config :argon2_elixir, t_cost: 1, m_cost: 8
 config :ambry, Ambry.Repo,
   username: "postgres",
   password: "postgres",
-  database: "ambry_test#{System.get_env("MIX_TEST_PARTITION")}",
   hostname: "localhost",
+  database: "ambry_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10
 
@@ -26,8 +26,11 @@ config :ambry, AmbryWeb.Endpoint,
 # In test we don't send emails.
 config :ambry, Ambry.Mailer, adapter: Swoosh.Adapters.Test
 
+# Disable swoosh api client as it is only required for production adapters.
+config :swoosh, :api_client, false
+
 # Print only warnings and errors during test
-config :logger, level: :warn
+config :logger, level: :warning
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime

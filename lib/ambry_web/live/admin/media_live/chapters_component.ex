@@ -19,7 +19,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
      socket
      |> assign(assigns)
      |> default_assigns()
-     |> assign(changeset: changeset)}
+     |> assign_form(changeset)}
   end
 
   def update(%{chapters: chapters_response}, socket) do
@@ -31,13 +31,14 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
         {:ok, chapters} ->
           changeset = Media.change_media(media, %{chapters: chapters}, for: :update)
 
-          assign(socket,
+          socket
+          |> assign(
             show_strategies: false,
             strategy_error: nil,
             strategies: [],
-            running_strategy: false,
-            changeset: changeset
+            running_strategy: false
           )
+          |> assign_form(changeset)
 
         {:error, error} ->
           assign(socket, running_strategy: false, strategy_error: error)
@@ -47,6 +48,15 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
   end
 
   @impl Phoenix.LiveComponent
+  def handle_event("validate", %{"media" => media_params}, socket) do
+    changeset =
+      socket.assigns.media
+      |> Media.change_media(media_params, for: :update)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign_form(socket, changeset)}
+  end
+
   def handle_event("save", %{"media" => media_params}, socket) do
     save_media(socket, media_params)
   end
@@ -86,7 +96,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
 
   def handle_event("delete-chapter", %{"idx" => idx}, socket) do
     index = String.to_integer(idx)
-    chapters = Ecto.Changeset.fetch_field!(socket.assigns.changeset, :chapters)
+    chapters = Ecto.Changeset.fetch_field!(socket.assigns.form.source, :chapters)
 
     chapters =
       chapters
@@ -95,7 +105,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
 
     changeset = Media.change_media(socket.assigns.media, %{chapters: chapters}, for: :update)
 
-    {:noreply, assign(socket, changeset: changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   defp save_media(socket, media_params) do
@@ -107,7 +117,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
          |> push_redirect(to: socket.assigns.return_to)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, changeset: changeset)}
+        {:noreply, assign_form(socket, changeset)}
     end
   end
 
@@ -118,5 +128,9 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
       strategies: [],
       running_strategy: false
     )
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    assign(socket, :form, to_form(changeset))
   end
 end

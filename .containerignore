@@ -1,7 +1,6 @@
 _build/
 .elixir_ls/
 deps/
-node_modules/
 .git/
 *.log
 uploads/

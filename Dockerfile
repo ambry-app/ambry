@@ -1,13 +1,16 @@
-# -----------------------------------
-# Base Image #1: Elixir Builder
-# - This is used for building later
-#   docker image, with a development
-#   toolset.
-# -----------------------------------
+# ---------------------------
+# Base Image - elixir-builder
+# ---------------------------
 
 # NOTE: make sure these versions match in .github/workflows/elixir.yml and .tool-versions
 # NOTE: make sure the alpine version matches down below
-FROM docker.io/hexpm/elixir:1.14.3-erlang-25.1.2-alpine-3.17.0 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.14.3-erlang-25.3-alpine-3.17.2 AS elixir-builder
+
+ARG MIX_ENV=prod
+
+WORKDIR /src
+
+# system updates
 
 RUN mix do \
   local.rebar --force,\
@@ -16,14 +19,39 @@ RUN mix do \
 RUN apk --update upgrade && \
   apk add build-base git
 
+# fetch deps
 
-# -----------------------------------
-# Base Image #2: Elixir Runner
-# - Elixir Application Runner
-#   This is used as a simple operating
-#   system image to host your
-#   application
-# -----------------------------------
+COPY config /src/config
+COPY mix.exs mix.lock /src/
+
+RUN mix deps.get --only $MIX_ENV
+
+# compile deps
+
+RUN mix deps.compile
+
+# compile apps
+
+COPY lib/ ./lib
+COPY priv/ ./priv
+
+RUN mix compile
+
+# deploy assets
+
+COPY assets/ ./assets
+
+RUN mix assets.deploy
+
+# build release
+
+RUN mix release --path /app --quiet
+
+
+
+# --------------------------
+# Base Image - elixir-runner
+# --------------------------
 FROM docker.io/alpine:3.17.2 as elixir-runner
 
 ARG SHAKA_VERSION=2.6.1
@@ -38,116 +66,20 @@ RUN curl -L \
 RUN chmod +x /usr/local/bin/shaka-packager
 
 
-# -----------------------------------
-# - stage: install
-# - job: dependencies
-# -----------------------------------
-FROM elixir-builder AS deps
 
-ARG MIX_ENV=prod
-
-WORKDIR /src
-
-COPY config /src/config
-COPY mix.exs mix.lock /src/
-
-RUN mix deps.get --only $MIX_ENV
-
-
-# -----------------------------------
-# - stage: build
-# - job: compile_deps
-# -----------------------------------
-FROM deps AS compile_deps
-
-WORKDIR /src
-
-ARG MIX_ENV=prod
-
-RUN apk add build-base
-RUN mix deps.compile
-
-
-# -----------------------------------
-# - stage: build
-# - job: compile_app
-# -----------------------------------
-FROM compile_deps AS compile_app
-
-WORKDIR /src
-
-ARG MIX_ENV=prod
-
-COPY lib/ ./lib
-COPY priv/ ./priv
-
-RUN mix compile
-
-
-# -----------------------------------
-# - stage: build
-# - job: assets
-# -----------------------------------
-FROM docker.io/node:lts-alpine3.17 AS assets
-
-WORKDIR /src/assets
-
-COPY assets/package.json assets/yarn.lock ./
-
-RUN yarn install
-
-# needs access to deps folder for phoenix/liveview libs and access to lib folder
-# for tailwind JIT purging
-COPY --from=deps /src/deps ../deps
-COPY lib/ ../lib
-
-COPY assets/ ./
-
-RUN yarn deploy
-
-
-# -----------------------------------
-# - stage: build
-# - job: digest
-# -----------------------------------
-FROM compile_deps AS digest
-
-WORKDIR /src
-
-ARG MIX_ENV=prod
-
-COPY --from=assets /src/priv ./priv
-
-RUN mix phx.digest
-
-
-# -----------------------------------
-# - stage: release
-# - job: mix_release
-# -----------------------------------
-FROM compile_app AS mix_release
-
-WORKDIR /src
-
-ARG MIX_ENV=prod
-
-COPY --from=digest /src/priv/static ./priv/static
-
-RUN mix release --path /app --quiet
-
-
-# -----------------------------------
-# - stage: release
-# - job: release_image
-# -----------------------------------
-FROM elixir-runner AS release_image
+# -------------
+# Release image
+# -------------
+FROM elixir-runner AS release-image
 
 ARG APP_REVISION=latest
 ARG MIX_ENV=prod
 
+ENV PHX_SERVER=true
+
 USER nobody
 
-COPY --from=mix_release --chown=nobody:nogroup /app /app
+COPY --from=elixir-builder --chown=nobody:nogroup /app /app
 
 RUN mkdir -p /app/uploads
 VOLUME /app/uploads

@@ -1,14 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
-[x-cloak] {
-  display: none;
-}
-
-div.markdown p {
-  margin-bottom: 1rem;
-}
+/* This file is for your main application CSS */
 
 .load-more {
   background-color: #e4e4e7;

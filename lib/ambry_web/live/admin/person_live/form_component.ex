@@ -3,8 +3,8 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
 
   use AmbryWeb, :live_component
 
+  import AmbryWeb.Admin.{Components, UploadHelpers}
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
-  import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.People
 
@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:changeset, changeset)}
+     |> assign_form(changeset)}
   end
 
   @impl Phoenix.LiveComponent
@@ -33,7 +33,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
       |> People.change_person(person_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("save", %{"person" => person_params}, socket) do
@@ -53,7 +53,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
 
   def handle_event("add-author", _params, socket) do
     params =
-      socket.assigns.changeset.params
+      socket.assigns.form.source.params
       |> map_to_list("authors")
       |> Map.update!("authors", fn authors_params ->
         authors_params ++ [%{}]
@@ -61,12 +61,12 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
 
     changeset = People.change_person(socket.assigns.person, params)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("add-narrator", _params, socket) do
     params =
-      socket.assigns.changeset.params
+      socket.assigns.form.source.params
       |> map_to_list("narrators")
       |> Map.update!("narrators", fn narrators_params ->
         narrators_params ++ [%{}]
@@ -74,7 +74,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
 
     changeset = People.change_person(socket.assigns.person, params)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign_form(socket, changeset)}
   end
 
   defp clean_person_params(params) do
@@ -99,10 +99,10 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Person updated successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+        {:noreply, assign_form(socket, changeset)}
     end
   end
 
@@ -112,10 +112,10 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Person created successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, changeset: changeset)}
+        {:noreply, assign_form(socket, changeset)}
     end
   end
 
@@ -124,5 +124,9 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
       "authors" => Enum.map(person.authors, &%{"id" => &1.id}),
       "narrators" => Enum.map(person.narrators, &%{"id" => &1.id})
     }
+  end
+
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    assign(socket, :form, to_form(changeset))
   end
 end

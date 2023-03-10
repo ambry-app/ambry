@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" style="scrollbar-gutter: stable;">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <link rel="icon" type="image/svg+xml" href={~p"/favicon.svg"} />
+    <link rel="icon" type="image/png" href={~p"/favicon.png"} sizes="16x16" />
+    <link rel="icon" type="image/png" href={~p"/favicon-32x32.png"} sizes="32x32" />
+    <link rel="icon" type="image/png" href={~p"/favicon-96x96.png"} sizes="96x96" />
+    <.live_title suffix=" · Ambry">
+      <%= assigns[:page_title] || "Personal Audiobook Streaming" %>
+    </.live_title>
+    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+    </script>
+    <script type="text/javascript">
+      // fix mobile browser viewport height shenanigans.
+      // https://www.markusantonwolf.com/blog/solution-to-the-mobile-viewport-height-issue-with-tailwind-css/
+      // see tailwind.config.js for other half
+
+      function setViewHeight() {
+        const vh = window.innerHeight * 0.01
+        document.documentElement.style.setProperty('--vh', `${vh}px`)
+      }
+
+      setViewHeight()
+
+      window.addEventListener('resize', () => {
+        this.setViewHeight()
+      })
+
+      // end viewport fix
+    </script>
+  </head>
+  <body class="bg-white text-zinc-800 antialiased selection:bg-brand selection:text-white dark:bg-black dark:text-zinc-200 dark:selection:bg-brand-dark dark:selection:text-black">
+    <%= if @current_user do %>
+      <%!-- Root layout for the app --%>
+      <div class="flex h-screen flex-col">
+        <div class="grow overflow-hidden">
+          <%= @inner_content %>
+        </div>
+
+        <%= live_render(@conn, AmbryWeb.PlayerLive) %>
+      </div>
+    <% else %>
+      <%!-- Root layout for auth pages --%>
+      <%= @inner_content %>
+    <% end %>
+  </body>
+</html>

@@ -127,8 +127,7 @@ defmodule AmbryWeb.Admin.UserLive.Index do
 
     list_opts = get_list_opts(socket)
 
-    {:noreply,
-     push_patch(socket, to: Routes.admin_user_index_path(socket, :index, patch_opts(list_opts)))}
+    {:noreply, push_patch(socket, to: ~p"/admin/users?#{patch_opts(list_opts)}")}
   end
 
   defp list_users(opts) do
