@@ -83,7 +83,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
   def mount(_params, _session, socket) do
     cond do
       !Application.get_env(:ambry, :first_time_setup, false) ->
-        {:ok, push_redirect(socket, to: ~p"/")}
+        {:ok, push_navigate(socket, to: ~p"/")}
 
       Accounts.admin_exists?() ->
         {:ok, assign(socket, :state, :admin_exists)}

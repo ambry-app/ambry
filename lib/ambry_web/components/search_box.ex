@@ -60,7 +60,7 @@ defmodule AmbryWeb.Components.SearchBox do
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
     case String.trim(query) do
       "" -> {:noreply, socket}
-      query -> {:noreply, push_redirect(socket, to: ~p"/search/#{query}")}
+      query -> {:noreply, push_navigate(socket, to: ~p"/search/#{query}")}
     end
   end
 end

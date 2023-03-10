@@ -75,7 +75,7 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
   end
 
   def handle_event("row-click", %{"id" => media_id}, socket) do
-    {:noreply, push_redirect(socket, to: ~p"/admin/media/#{media_id}/edit")}
+    {:noreply, push_navigate(socket, to: ~p"/admin/media/#{media_id}/edit")}
   end
 
   defp format_filesize(size) do

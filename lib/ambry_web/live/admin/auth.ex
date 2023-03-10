@@ -4,7 +4,7 @@ defmodule AmbryWeb.Admin.Auth do
   """
   use AmbryWeb, :verified_routes
 
-  import Phoenix.LiveView, only: [push_redirect: 2]
+  import Phoenix.LiveView, only: [push_navigate: 2]
 
   alias Ambry.Accounts.User
 
@@ -24,10 +24,10 @@ defmodule AmbryWeb.Admin.Auth do
   def on_mount(:ensure_mounted_admin_user, _params, _session, socket) do
     case socket.assigns.current_user do
       nil ->
-        {:halt, push_redirect(socket, to: ~p"/users/log_in")}
+        {:halt, push_navigate(socket, to: ~p"/users/log_in")}
 
       %User{admin: false} ->
-        {:halt, push_redirect(socket, to: ~p"/")}
+        {:halt, push_navigate(socket, to: ~p"/")}
 
       %User{admin: true} ->
         {:cont, socket}

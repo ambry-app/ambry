@@ -40,13 +40,7 @@
       <.inputs_for :let={series_book_form} field={@form[:series_books]}>
         <div class="flex">
           <.input field={series_book_form[:book_number]} container_class="mr-2 w-14 flex-none" />
-          <.input
-            field={series_book_form[:series_id]}
-            type="select"
-            prompt=""
-            options={@authors}
-            container_class="grow"
-          />
+          <.input field={series_book_form[:series_id]} type="select" prompt="" options={@series} container_class="grow" />
           <.delete_checkbox field={series_book_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
