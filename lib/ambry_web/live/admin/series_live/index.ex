@@ -24,7 +24,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     {:ok,
      socket
      |> assign(:header_title, "Series")
-     |> maybe_update_series(params, true), layout: {AmbryWeb.Admin.Layouts, :app}}
+     |> maybe_update_series(params, true)}
   end
 
   @impl Phoenix.LiveView

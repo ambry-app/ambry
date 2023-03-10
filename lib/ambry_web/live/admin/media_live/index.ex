@@ -26,7 +26,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
      socket
      |> assign(:header_title, "Media")
      |> set_in_progress_media()
-     |> maybe_update_media(params, true), layout: {AmbryWeb.Admin.Layouts, :app}}
+     |> maybe_update_media(params, true)}
   end
 
   @impl Phoenix.LiveView

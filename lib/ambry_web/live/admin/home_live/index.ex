@@ -18,7 +18,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
       :ok = PubSub.subscribe("media:*")
     end
 
-    {:ok, count_things(socket), layout: {AmbryWeb.Admin.Layouts, :app}}
+    {:ok, count_things(socket)}
   end
 
   @impl Phoenix.LiveView

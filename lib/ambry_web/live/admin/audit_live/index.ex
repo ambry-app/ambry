@@ -12,7 +12,7 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
     {:ok,
      socket
      |> assign(:header_title, "File Audit")
-     |> assign(:page_title, "File Audit"), layout: {AmbryWeb.Admin.Layouts, :app}}
+     |> assign(:page_title, "File Audit")}
   end
 
   @impl Phoenix.LiveView

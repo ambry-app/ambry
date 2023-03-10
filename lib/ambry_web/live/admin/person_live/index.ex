@@ -29,7 +29,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     {:ok,
      socket
      |> assign(:header_title, "Authors & Narrators")
-     |> maybe_update_people(params, true), layout: {AmbryWeb.Admin.Layouts, :app}}
+     |> maybe_update_people(params, true)}
   end
 
   @impl Phoenix.LiveView

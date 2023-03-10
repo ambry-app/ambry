@@ -25,7 +25,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     {:ok,
      socket
      |> assign(:header_title, "Books")
-     |> maybe_update_books(params, true), layout: {AmbryWeb.Admin.Layouts, :app}}
+     |> maybe_update_books(params, true)}
   end
 
   @impl Phoenix.LiveView

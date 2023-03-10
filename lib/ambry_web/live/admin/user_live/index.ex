@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.UserLive.Index do
     {:ok,
      socket
      |> assign(:header_title, "Users")
-     |> maybe_update_users(params, true), layout: {AmbryWeb.Admin.Layouts, :app}}
+     |> maybe_update_users(params, true)}
   end
 
   @impl Phoenix.LiveView
