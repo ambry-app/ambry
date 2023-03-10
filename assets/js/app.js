@@ -28,6 +28,7 @@ import { ShakaPlayerHook } from "./hooks/shaka-player"
 import { TimeBarHook } from "./hooks/time-bar"
 import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
 import { MainTainAttrsHook } from "./hooks/maintain-attrs"
+import { InfiniteScrollHook } from "./hooks/infinite-scroll"
 
 const playerId = Math.random().toString(36).substring(2)
 
@@ -43,6 +44,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "time-bar": TimeBarHook,
     "scroll-into-view": ScrollIntoViewHook,
     "maintain-attrs": MainTainAttrsHook,
+    "infinite-scroll": InfiniteScrollHook,
   },
 })
 
