@@ -23,6 +23,7 @@ defmodule Ambry.Authors.BookAuthor do
     |> cast(attrs, [:author_id, :delete])
     |> validate_required(:author_id)
     |> maybe_apply_delete()
+    |> unique_constraint([:author_id, :book_id])
   end
 
   defp maybe_apply_delete(changeset) do

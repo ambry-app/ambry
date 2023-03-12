@@ -1,5 +1,7 @@
 <div>
   <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
+    <.datalist id="books" options={@books} />
+
     <.input field={@form[:name]} label="Name" />
 
     <div>
@@ -7,7 +9,13 @@
       <.inputs_for :let={series_book_form} field={@form[:series_books]}>
         <div class="flex">
           <.input field={series_book_form[:book_number]} container_class="mr-2 w-14 flex-none" />
-          <.input field={series_book_form[:book_id]} type="select" prompt="" options={@books} container_class="grow" />
+          <.input
+            field={series_book_form[:book_id]}
+            type="autocomplete"
+            options={@books}
+            list="books"
+            container_class="grow"
+          />
           <.delete_checkbox field={series_book_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>

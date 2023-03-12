@@ -22,6 +22,7 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Media.{Media, PlayerState}
   alias Ambry.Series.SeriesBook
 
+  alias AmbryWeb.Components.Autocomplete
   alias AmbryWeb.Player
 
   @doc """
@@ -308,7 +309,7 @@ defmodule AmbryWeb.CoreComponents do
   attr :type, :string,
     default: "text",
     values: ~w(checkbox color date datetime-local email file hidden month number password
-               range radio search select tel text textarea time url week)
+               range radio search select tel text textarea time url week autocomplete)
 
   attr :field, FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
@@ -319,7 +320,7 @@ defmodule AmbryWeb.CoreComponents do
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
   attr :rest, :global, include: ~w(autocomplete cols disabled form max maxlength min minlength
-                                   pattern placeholder readonly required rows size step)
+                                   pattern placeholder readonly required rows size step list)
   attr :class, :string, default: nil, doc: "class overrides"
   attr :container_class, :string, default: nil, doc: "extra classes for the container div"
   attr :hidden_input, :boolean, default: true
@@ -406,6 +407,29 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  def input(%{type: "autocomplete"} = assigns) do
+    ~H"""
+    <div phx-feedback-for={@name} class={[@container_class]}>
+      <.label for={@id}><%= @label %></.label>
+      <.live_component
+        module={Autocomplete}
+        id={@id}
+        name={@name}
+        options={@options}
+        value={@value}
+        class={
+          [
+            "mt-2 block w-full rounded-lg border px-3 py-2 shadow-sm",
+            "focus:outline-none focus:ring-4 sm:text-sm"
+          ] ++ input_color_classes(@errors) ++ [@class]
+        }
+        {@rest}
+      />
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
+    """
+  end
+
   def input(assigns) do
     ~H"""
     <div phx-feedback-for={@name} class={[@container_class]}>
@@ -470,6 +494,20 @@ defmodule AmbryWeb.CoreComponents do
       <FA.icon name="circle-exclamation" class="mt-1 h-4 w-4 flex-none fill-red-500" />
       <%= render_slot(@inner_block) %>
     </p>
+    """
+  end
+
+  @doc """
+  Generates a datalist for the given options.
+  """
+  attr :id, :string, required: true
+  attr :options, :list, required: true
+
+  def datalist(assigns) do
+    ~H"""
+    <datalist id={@id}>
+      <option :for={option <- @options} value={elem(option, 0)} />
+    </datalist>
     """
   end
 
