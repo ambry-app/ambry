@@ -22,8 +22,8 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Media.{Media, PlayerState}
   alias Ambry.Series.SeriesBook
 
-  alias AmbryWeb.Player
   alias AmbryWeb.Components.Autocomplete
+  alias AmbryWeb.Player
 
   @doc """
   Renders a modal.
