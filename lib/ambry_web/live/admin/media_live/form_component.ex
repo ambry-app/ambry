@@ -135,7 +135,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Media updated successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
@@ -159,7 +159,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Media created successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_patch(to: socket.assigns.patch)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
