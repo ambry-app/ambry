@@ -1,6 +1,9 @@
 <div>
   <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
-    <.input field={@form[:book_id]} type="select" label="Book" prompt="" options={@books} />
+    <.datalist id="books" options={@books} />
+    <.datalist id="narrators" options={@narrators} />
+
+    <.input field={@form[:book_id]} type="autocomplete" options={@books} list="books" />
 
     <div>
       <.label>Narrated by</.label>
@@ -8,9 +11,9 @@
         <div class="flex">
           <.input
             field={media_narrator_form[:narrator_id]}
-            type="select"
-            prompt=""
+            type="autocomplete"
             options={@narrators}
+            list="narrators"
             container_class="grow"
           />
           <.delete_checkbox field={media_narrator_form[:delete]} class="ml-2" />
