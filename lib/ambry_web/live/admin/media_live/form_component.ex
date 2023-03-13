@@ -15,7 +15,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   def mount(socket) do
     socket =
       allow_upload(socket, :audio,
-        accept: ~w(.mp3 .mp4 .m4a .m4b),
+        accept: ~w(.mp3 .mp4 .m4a .m4b .opus),
         max_entries: 200,
         max_file_size: 1_500_000_000
       )
