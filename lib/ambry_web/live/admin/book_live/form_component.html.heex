@@ -66,7 +66,7 @@
 
     <div :if={@book.image_path}>
       <.label>Current image</.label>
-      <img src={@book.image_path} class="mt-2 h-48 rounded-lg border border-gray-200 shadow-md dark:border-gray-900" />
+      <img src={@book.image_path} class="mt-2 h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900" />
     </div>
 
     <div>
@@ -82,7 +82,7 @@
           <figure>
             <.live_img_preview
               entry={entry}
-              class="h-48 rounded-lg border border-gray-200 shadow-md dark:border-gray-900"
+              class="h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900"
             />
             <figcaption><%= entry.client_name %></figcaption>
           </figure>

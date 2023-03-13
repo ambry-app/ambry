@@ -104,14 +104,14 @@ defmodule AmbryWeb.Admin.Layouts do
     ~H"""
     <.menu_wrapper id="admin-user-menu" user={@user}>
       <div class="py-3">
-        <.link navigate={~p"/"} class="flex items-center gap-4 px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700">
+        <.link navigate={~p"/"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
           <FA.icon name="arrow-right-from-bracket" class="scale-[-1] h-5 w-5 fill-current" />
           <p>Exit Admin</p>
         </.link>
         <.link
           href={~p"/users/log_out"}
           method="delete"
-          class="flex items-center gap-4 px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-700"
+          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
         >
           <FA.icon name="arrow-right-from-bracket" class="h-5 w-5 fill-current" />
           <p>Log out</p>
