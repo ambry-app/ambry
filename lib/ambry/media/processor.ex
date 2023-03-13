@@ -6,7 +6,16 @@ defmodule Ambry.Media.Processor do
   """
 
   alias Ambry.Media
-  alias Ambry.Media.Processor.{MP3, MP3Concat, MP4, MP4Concat, MP4ConcatReEncode, MP4ReEncode}
+
+  alias Ambry.Media.Processor.{
+    MP3,
+    MP3Concat,
+    MP4,
+    MP4Concat,
+    MP4ConcatReEncode,
+    MP4ReEncode,
+    OpusConcat
+  }
 
   @processors [
     MP3,
@@ -14,7 +23,8 @@ defmodule Ambry.Media.Processor do
     MP4,
     MP4Concat,
     MP4ConcatReEncode,
-    MP4ReEncode
+    MP4ReEncode,
+    OpusConcat
   ]
 
   def run!(media, processor \\ :auto) do
