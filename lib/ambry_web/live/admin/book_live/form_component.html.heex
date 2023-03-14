@@ -1,8 +1,39 @@
 <div>
-  <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
-    <.datalist id="authors" options={@authors} />
-    <.datalist id="series" options={@series} />
+  <.flash kind={:error} title="Error!" flash={@flash} />
 
+  <p id="toggle-import-link" class="-mb-6 text-right">
+    <.brand_link phx-click={toggle_import()}>Import from Audnexus</.brand_link>
+  </p>
+
+  <div
+    id="import-form"
+    class="mb-4 hidden rounded-md border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-900"
+  >
+    <.simple_form for={@audnexus_form} phx-submit="import-book" phx-target={@myself}>
+      <div class="flex items-end">
+        <.input
+          field={@audnexus_form[:asin]}
+          label="Import Author from Audnexus"
+          placeholder="ASIN"
+          container_class="mr-2 grow"
+        />
+        <.button class="flex-none">Import</.button>
+      </div>
+    </.simple_form>
+
+    <.note class="mt-2">
+      Requires the ASIN of the audiobook. This will overwrite all values in the form.
+    </.note>
+
+    <p class="mt-2">
+      <.link phx-click={toggle_import()} class="text-red-600 dark:text-red-500">Close</.link>
+    </p>
+  </div>
+
+  <.datalist id="authors" options={@authors} />
+  <.datalist id="series" options={@series} />
+
+  <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
     <.input field={@form[:title]} label="Title" />
     <.input field={@form[:published]} label="Published" type="date" />
     <.input
@@ -27,15 +58,10 @@
           <.delete_checkbox field={book_author_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
-      <button
-        type="button"
-        phx-click="add-author"
-        phx-target={@myself}
-        class="flex items-center pt-2 text-lime-500 hover:underline"
-      >
+      <.brand_link phx-click="add-author" phx-target={@myself} class="flex items-center pt-2">
         <span>Add author</span>
         <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
-      </button>
+      </.brand_link>
     </div>
 
     <div>
@@ -53,15 +79,10 @@
           <.delete_checkbox field={series_book_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
-      <button
-        type="button"
-        phx-click="add-series"
-        phx-target={@myself}
-        class="flex items-center pt-2 text-lime-500 hover:underline"
-      >
+      <.brand_link phx-click="add-series" phx-target={@myself} class="flex items-center pt-2">
         <span>Add series</span>
         <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
-      </button>
+      </.brand_link>
     </div>
 
     <div :if={@book.image_path}>
@@ -69,11 +90,21 @@
       <img src={@book.image_path} class="mt-2 h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900" />
     </div>
 
+    <.input field={@form[:image_import_url]} label="Import image from URL" />
+
+    <div :if={valid_image_url?(@form[:image_import_url].value)}>
+      <.label>Import image preview</.label>
+      <img
+        src={@form[:image_import_url].value}
+        class="mt-2 h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900"
+      />
+    </div>
+
     <div>
       <.label>Upload image</.label>
 
       <section
-        class="mt-2 w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
+        class="border-brand mt-2 w-full space-y-4 rounded-lg border-2 border-dashed p-4 dark:border-brand-dark"
         phx-drop-target={@uploads.image.ref}
       >
         <.live_file_input upload={@uploads.image} />
@@ -90,7 +121,7 @@
           <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
 
           <span
-            class="cursor-pointer text-2xl transition-colors hover:text-red-600"
+            class="cursor-pointer text-2xl transition-colors hover:text-red-600 dark:hover:text-red-500"
             phx-click="cancel-upload"
             phx-value-ref={entry.ref}
             phx-target={@myself}
@@ -98,10 +129,13 @@
             &times;
           </span>
 
-          <p :for={err <- upload_errors(@uploads.image, entry)} class="text-red-600">
+          <p :for={err <- upload_errors(@uploads.image, entry)} class="text-red-600 dark:text-red-500">
             <%= error_to_string(err) %>
           </p>
         </article>
+        <p :for={err <- upload_errors(@uploads.image)} class="text-red-600 dark:text-red-500">
+          <%= error_to_string(err) %>
+        </p>
       </section>
     </div>
 
