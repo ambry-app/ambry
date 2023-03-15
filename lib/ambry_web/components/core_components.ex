@@ -779,12 +779,13 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   A block-quote style note.
   """
+  attr :class, :string, default: nil
   slot :inner_block, required: true
   slot :label
 
   def note(assigns) do
     ~H"""
-    <p class="mt-2 border-l-4 border-zinc-400 pl-4 italic text-zinc-500 dark:border-zinc-500 dark:text-zinc-400">
+    <p class={["mt-2 border-l-4 border-zinc-400 pl-4 italic text-zinc-500 dark:border-zinc-500 dark:text-zinc-400", @class]}>
       <%= if @label != [] do %>
         <strong><%= render_slot(@label) %>:</strong>
       <% else %>

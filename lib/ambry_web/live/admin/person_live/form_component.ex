@@ -6,11 +6,13 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
   import AmbryWeb.Admin.{Components, UploadHelpers}
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
 
+  alias Phoenix.LiveView.JS
+
   alias Ambry.People
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
-    socket = allow_image_upload(socket)
+    socket = allow_image_upload(socket, :image)
     {:ok, socket}
   end
 
@@ -21,7 +23,8 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign_form(changeset)}
+     |> assign_form(changeset)
+     |> assign_audnexus_form()}
   end
 
   @impl Phoenix.LiveComponent
@@ -34,17 +37,6 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
       |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
-  end
-
-  def handle_event("save", %{"person" => person_params}, socket) do
-    person_params =
-      case consume_uploaded_image(socket) do
-        {:ok, :no_file} -> person_params
-        {:ok, path} -> Map.put(person_params, "image_path", path)
-        {:error, :too_many_files} -> raise "too many files"
-      end
-
-    save_person(socket, socket.assigns.action, person_params)
   end
 
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
@@ -75,6 +67,66 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
     changeset = People.change_person(socket.assigns.person, params)
 
     {:noreply, assign_form(socket, changeset)}
+  end
+
+  def handle_event("import-author", %{"query" => ""}, socket), do: {:noreply, socket}
+
+  def handle_event("import-author", %{"query" => query}, socket) do
+    with {:ok, [%{"asin" => asin} | _rest]} <- Audnexus.Author.search(query),
+         {:ok, author_details} <- Audnexus.Author.get(asin) do
+      changeset = audnexus_person_changeset(socket.assigns.person, author_details)
+
+      {:noreply, socket |> assign_form(changeset) |> assign_audnexus_form(query)}
+    else
+      {:ok, []} ->
+        {:noreply, put_flash(socket, :error, "No authors found by that name")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Error getting results from Audnexus")}
+    end
+  end
+
+  def handle_event("save", %{"person" => person_params}, socket) do
+    with {:ok, person_params} <- handle_upload(socket, person_params, :image),
+         {:ok, person_params} <- handle_import(person_params["image_import_url"], person_params) do
+      save_person(socket, socket.assigns.action, person_params)
+    else
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to import image")}
+    end
+  end
+
+  defp handle_upload(socket, person_params, name) do
+    case consume_uploaded_image(socket, name) do
+      {:ok, :no_file} -> {:ok, person_params}
+      {:ok, path} -> {:ok, Map.put(person_params, "image_path", path)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp handle_import(url, person_params) do
+    case handle_image_import(url) do
+      {:ok, :no_image_url} -> {:ok, person_params}
+      {:ok, path} -> {:ok, Map.put(person_params, "image_path", path)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp audnexus_person_changeset(person, author_details) do
+    params =
+      person
+      |> init_person_param()
+      |> Map.merge(%{
+        "name" => author_details["name"],
+        "description" => author_details["description"],
+        "image_import_url" => author_details["image"]
+      })
+      |> Map.update!("authors", fn
+        [] -> [%{"name" => author_details["name"]}]
+        authors -> authors
+      end)
+
+    People.change_person(person, params)
   end
 
   defp clean_person_params(params) do
@@ -126,7 +178,17 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
     }
   end
 
+  defp toggle_import do
+    %JS{}
+    |> JS.toggle(to: "#toggle-import-link")
+    |> JS.toggle(to: "#import-form")
+  end
+
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
+  end
+
+  defp assign_audnexus_form(socket, query \\ "") do
+    assign(socket, :audnexus_form, to_form(%{"query" => query}))
   end
 end

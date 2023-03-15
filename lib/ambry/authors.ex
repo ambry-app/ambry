@@ -32,4 +32,12 @@ defmodule Ambry.Authors do
 
     Repo.all(query)
   end
+
+  def find_by_names(names) do
+    query = from a in Author, where: a.name in ^names
+
+    query
+    |> Repo.all()
+    |> Map.new(&{&1.name, &1})
+  end
 end
