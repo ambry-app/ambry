@@ -54,7 +54,7 @@ defmodule Ambry.MixProject do
       {:earmark, "~> 1.4"},
       {:ecto_psql_extras, "~> 0.6"},
       {:ecto_sql, "~> 3.6"},
-      {:esbuild, "~> 0.5", runtime: Mix.env() == :dev},
+      {:esbuild, "~> 0.7", runtime: Mix.env() == :dev},
       {:ex_fontawesome, "~> 0.7"},
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:excoveralls, "~> 0.10", only: :test},
@@ -81,7 +81,7 @@ defmodule Ambry.MixProject do
       {:sweet_xml, "~> 0.7"},
       {:swoosh, "~> 1.3"},
       {:tailwind_formatter, "~> 0.3.1", only: [:dev, :test], runtime: false},
-      {:tailwind, "~> 0.1", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"}
     ]
