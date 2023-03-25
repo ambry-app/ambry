@@ -31,34 +31,31 @@ defmodule AmbryWeb.CoreComponents do
   ## Examples
 
       <.modal id="confirm-modal">
-        Are you sure?
-        <:confirm>OK</:confirm>
-        <:cancel>Cancel</:cancel>
+        This is a modal.
       </.modal>
 
-  JS commands may be passed to the `:on_cancel` and `on_confirm` attributes
-  for the caller to react to each button press, for example:
+  JS commands may be passed to the `:on_cancel` to configure
+  the closing/cancel event, for example:
 
-      <.modal id="confirm" on_confirm={JS.push("delete")} on_cancel={JS.navigate(~p"/posts")}>
-        Are you sure you?
-        <:confirm>OK</:confirm>
-        <:cancel>Cancel</:cancel>
+      <.modal id="confirm" on_cancel={JS.navigate(~p"/posts")}>
+        This is another modal.
       </.modal>
   """
   attr :id, :string, required: true
   attr :show, :boolean, default: false
   attr :on_cancel, JS, default: %JS{}
-  attr :on_confirm, JS, default: %JS{}
 
   slot :inner_block, required: true
-  slot :title
-  slot :subtitle
-  slot :confirm
-  slot :cancel
 
   def modal(assigns) do
     ~H"""
-    <div id={@id} phx-mounted={@show && show_modal(@id)} phx-remove={hide_modal(@id)} class="relative z-50 hidden">
+    <div
+      id={@id}
+      phx-mounted={@show && show_modal(@id)}
+      phx-remove={hide_modal(@id)}
+      data-cancel={JS.exec(@on_cancel, "phx-remove")}
+      class="relative z-50 hidden"
+    >
       <div id={"#{@id}-bg"} class="bg-zinc-50/90 fixed inset-0 transition-opacity dark:bg-zinc-900/90" aria-hidden="true" />
       <div
         class="fixed inset-0 overflow-y-auto"
@@ -72,15 +69,14 @@ defmodule AmbryWeb.CoreComponents do
           <div class="w-full p-4 sm:max-w-3xl sm:p-6 lg:py-8">
             <.focus_wrap
               id={"#{@id}-container"}
-              phx-mounted={@show && show_modal(@id)}
-              phx-window-keydown={hide_modal(@on_cancel, @id)}
+              phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
               phx-key="escape"
-              phx-click-away={hide_modal(@on_cancel, @id)}
+              phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
               class="shadow-zinc-700/10 ring-zinc-700/10 relative hidden rounded-2xl bg-white p-6 shadow-lg ring-1 transition dark:ring-zinc-900/10 dark:bg-black dark:shadow-none"
             >
               <div class="absolute top-6 right-5">
                 <button
-                  phx-click={hide_modal(@on_cancel, @id)}
+                  phx-click={JS.exec("data-cancel", to: "##{@id}")}
                   type="button"
                   class="-m-3 flex-none p-3 opacity-20 hover:opacity-40"
                   aria-label={gettext("close")}
@@ -89,33 +85,7 @@ defmodule AmbryWeb.CoreComponents do
                 </button>
               </div>
               <div id={"#{@id}-content"}>
-                <header :if={@title != []} class="pb-4">
-                  <h1 id={"#{@id}-title"} class="text-2xl font-bold leading-8">
-                    <%= render_slot(@title) %>
-                  </h1>
-                  <p :if={@subtitle != []} id={"#{@id}-description"} class="mt-2 text-sm leading-6 text-zinc-600">
-                    <%= render_slot(@subtitle) %>
-                  </p>
-                </header>
                 <%= render_slot(@inner_block) %>
-                <div :if={@confirm != [] or @cancel != []} class="mb-4 ml-6 flex items-center gap-5">
-                  <.button
-                    :for={confirm <- @confirm}
-                    id={"#{@id}-confirm"}
-                    phx-click={@on_confirm}
-                    phx-disable-with
-                    class="px-3 py-2"
-                  >
-                    <%= render_slot(confirm) %>
-                  </.button>
-                  <.link
-                    :for={cancel <- @cancel}
-                    phx-click={hide_modal(@on_cancel, @id)}
-                    class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
-                  >
-                    <%= render_slot(cancel) %>
-                  </.link>
-                </div>
               </div>
             </.focus_wrap>
           </div>
@@ -137,8 +107,6 @@ defmodule AmbryWeb.CoreComponents do
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
   attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
-  attr :autoshow, :boolean, default: true, doc: "whether to auto show the flash on mount"
-  attr :close, :boolean, default: true, doc: "whether the flash can be closed"
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
   slot :inner_block, doc: "the optional inner block that renders the flash message"
@@ -148,27 +116,27 @@ defmodule AmbryWeb.CoreComponents do
     <div
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
-      phx-mounted={@autoshow && show("##{@id}")}
-      phx-click={dismiss_flash(@kind, @id)}
-      phx-click-away={dismiss_flash(@kind, @id)}
-      phx-window-keydown={dismiss_flash(@kind, @id)}
+      data-dismiss={dismiss_flash(@kind, @id)}
+      phx-click={JS.exec("data-dismiss")}
+      phx-click-away={JS.exec("data-dismiss")}
+      phx-window-keydown={JS.exec("data-dismiss")}
       phx-key="escape"
       role="alert"
       class={[
-        "fixed hidden top-2 right-2 w-80 sm:w-96 z-50 rounded-lg p-3 shadow-md ring-1",
+        "fixed top-2 right-2 w-80 sm:w-96 z-50 rounded-lg p-3 shadow-md ring-1",
         "text-zinc-900 fill-zinc-900 shadow-zinc-900/5",
         @kind == :info && "bg-lime-50 ring-lime-200 dark:ring-lime-400 dark:bg-lime-400",
         @kind == :error && "bg-red-50 ring-red-200 dark:ring-red-400 dark:bg-red-400"
       ]}
       {@rest}
     >
-      <p :if={@title} class="text-[0.8125rem] flex items-center gap-1.5 font-semibold leading-6">
+      <p :if={@title} class="flex items-center gap-1.5 text-sm font-semibold leading-6">
         <FA.icon :if={@kind == :info} name="circle-info" class="h-4 w-4" />
         <FA.icon :if={@kind == :error} name="circle-exclamation" class="h-4 w-4" />
         <%= @title %>
       </p>
-      <p class="text-[0.8125rem] mt-2 leading-5"><%= msg %></p>
-      <button :if={@close} type="button" class="group absolute top-2 right-1 p-2" aria-label={gettext("close")}>
+      <p class="mt-2 text-sm leading-5"><%= msg %></p>
+      <button type="button" class="group absolute top-1 right-1 p-2" aria-label={gettext("close")}>
         <FA.icon name="xmark" class="h-5 w-5 opacity-20 hover:opacity-40" />
       </button>
     </div>
@@ -198,10 +166,9 @@ defmodule AmbryWeb.CoreComponents do
       id="disconnected"
       kind={:error}
       title="We've lost connection to the server"
-      close={false}
-      autoshow={false}
       phx-disconnected={show("#disconnected")}
       phx-connected={hide("#disconnected")}
+      hidden
     >
       Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" aria-hidden="true" />
     </.flash>
@@ -319,11 +286,14 @@ defmodule AmbryWeb.CoreComponents do
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
-  attr :rest, :global, include: ~w(autocomplete cols disabled form max maxlength min minlength
-                                   pattern placeholder readonly required rows size step list)
   attr :class, :string, default: nil, doc: "class overrides"
   attr :container_class, :string, default: nil, doc: "extra classes for the container div"
   attr :hidden_input, :boolean, default: true
+
+  attr :rest, :global,
+    include: ~w(autocomplete cols disabled form list max maxlength min minlength
+                pattern placeholder readonly required rows size step)
+
   slot :inner_block
 
   def input(%{field: %FormField{} = field} = assigns) do
@@ -344,7 +314,7 @@ defmodule AmbryWeb.CoreComponents do
         <input :if={@hidden_input} type="hidden" name={@name} value="false" />
         <input
           type="checkbox"
-          id={@id || @name}
+          id={@id}
           name={@name}
           value="true"
           checked={@checked}
@@ -392,7 +362,7 @@ defmodule AmbryWeb.CoreComponents do
     <div phx-feedback-for={@name} class={[@container_class]}>
       <.label for={@id}><%= @label %></.label>
       <textarea
-        id={@id || @name}
+        id={@id}
         name={@name}
         class={
           [
@@ -430,6 +400,7 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
     <div phx-feedback-for={@name} class={[@container_class]}>
@@ -437,7 +408,7 @@ defmodule AmbryWeb.CoreComponents do
       <input
         type={@type}
         name={@name}
-        id={@id || @name}
+        id={@id}
         value={Form.normalize_value(@type, @value)}
         class={
           [
@@ -570,7 +541,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div class="overflow-y-auto px-4 sm:overflow-visible sm:px-0">
       <table class="w-[40rem] mt-11 sm:w-full">
-        <thead class="text-[0.8125rem] text-left leading-6 text-zinc-500">
+        <thead class="text-left text-sm leading-6 text-zinc-500">
           <tr>
             <th :for={col <- @col} class="p-0 pr-6 pb-4 font-normal"><%= col[:label] %></th>
             <th class="relative p-0 pb-4"><span class="sr-only"><%= gettext("Actions") %></span></th>
@@ -630,9 +601,9 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div class="mt-14">
       <dl class="-my-4 divide-y divide-zinc-100">
-        <div :for={item <- @item} class="flex gap-4 py-4 sm:gap-8">
-          <dt class="text-[0.8125rem] w-1/4 flex-none leading-6 text-zinc-500"><%= item.title %></dt>
-          <dd class="text-sm leading-6 text-zinc-700"><%= render_slot(item) %></dd>
+        <div :for={item <- @item} class="flex gap-4 py-4 text-sm leading-6 sm:gap-8">
+          <dt class="w-1/4 flex-none text-zinc-500"><%= item.title %></dt>
+          <dd class="text-zinc-700"><%= render_slot(item) %></dd>
         </div>
       </dl>
     </div>
@@ -1156,20 +1127,13 @@ defmodule AmbryWeb.CoreComponents do
     # When using gettext, we typically pass the strings we want
     # to translate as a static argument:
     #
-    #     # Translate "is invalid" in the "errors" domain
-    #     dgettext("errors", "is invalid")
-    #
     #     # Translate the number of files with plural rules
     #     dngettext("errors", "1 file", "%{count} files", count)
     #
-    # Because the error messages we show in our forms and APIs
-    # are defined inside Ecto, we need to translate them dynamically.
-    # This requires us to call the Gettext module passing our gettext
-    # backend as first argument.
-    #
-    # Note we use the "errors" domain, which means translations
-    # should be written to the errors.po file. The :count option is
-    # set by Ecto and indicates we should also apply plural rules.
+    # However the error messages in our forms and APIs are generated
+    # dynamically, so we need to translate them by calling Gettext
+    # with our gettext backend as first argument. Translations are
+    # available in the errors.po file (as we use the "errors" domain).
     if count = opts[:count] do
       Gettext.dngettext(AmbryWeb.Gettext, "errors", msg, msg, count, opts)
     else
