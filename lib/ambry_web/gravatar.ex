@@ -26,7 +26,7 @@ defmodule AmbryWeb.Gravatar do
     |> host(secure)
     |> hash_email(email)
     |> parse_options(opts)
-    |> to_string
+    |> to_string()
   end
 
   defp parse_options(uri, []), do: %URI{uri | query: nil}
