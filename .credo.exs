@@ -131,6 +131,7 @@
           {Credo.Check.Refactor.Nesting, [max_nesting: 3]},
           {Credo.Check.Refactor.UnlessWithElse, []},
           {Credo.Check.Refactor.WithClauses, []},
+          {Credo.Check.Refactor.FilterCount, []},
           {Credo.Check.Refactor.FilterFilter, []},
           {Credo.Check.Refactor.RejectReject, []},
           {Credo.Check.Refactor.RedundantWithClauseResult, []},
@@ -140,9 +141,11 @@
           #
           {Credo.Check.Warning.ApplicationConfigInModuleAttribute, []},
           {Credo.Check.Warning.BoolOperationOnSameValues, []},
+          {Credo.Check.Warning.Dbg, []},
           {Credo.Check.Warning.ExpensiveEmptyEnumCheck, []},
           {Credo.Check.Warning.IExPry, []},
           {Credo.Check.Warning.IoInspect, []},
+          {Credo.Check.Warning.MissedMetadataKeyInLoggerConfig, []},
           {Credo.Check.Warning.OperationOnSameValues, []},
           {Credo.Check.Warning.OperationWithConstantResult, []},
           {Credo.Check.Warning.RaiseInsideRescue, []},
@@ -163,7 +166,9 @@
            files: %{excluded: ["lib/ambry_web.ex"]}},
           {Credo.Check.Consistency.UnusedVariableNames, []},
           {Credo.Check.Design.DuplicatedCode, []},
+          {Credo.Check.Design.SkipTestWithoutComment, []},
           {Credo.Check.Readability.ImplTrue, []},
+          {Credo.Check.Readability.OneArityFunctionInPipe, []},
           {Credo.Check.Readability.SeparateAliasRequire, []},
           {Credo.Check.Readability.SingleFunctionToBlockPipe, []},
           {Credo.Check.Readability.SinglePipe, []},
@@ -177,25 +182,30 @@
           {Credo.Check.Refactor.NegatedIsNil, []},
           {Credo.Check.Refactor.PipeChainStart, []},
           {Credo.Check.Refactor.RejectFilter, []},
-          {Credo.Check.Warning.UnsafeToAtom, []}
+          {Credo.Check.Warning.MapGetUnsafePass, []},
+          {Credo.Check.Warning.MixEnv, []}
         ],
         disabled: [
+          #
+          # Checks scheduled for next check update (opt-in for now, just replace `false` with `[]`)
+
           #
           # Controversial and experimental checks (opt-in, just move the check to `:enabled`
           #   and be sure to use `mix credo --strict` to see low priority checks)
           #
-          {Credo.Check.Design.SkipTestWithoutComment, []},
           {Credo.Check.Readability.AliasAs, []},
           {Credo.Check.Readability.BlockPipe, []},
           {Credo.Check.Readability.MultiAlias, []},
+          {Credo.Check.Readability.NestedFunctionCalls, []},
           {Credo.Check.Readability.Specs, []},
+          {Credo.Check.Readability.OnePipePerLine, []},
           {Credo.Check.Refactor.AppendSingleItem, []},
           {Credo.Check.Refactor.ModuleDependencies, []},
+          {Credo.Check.Refactor.PassAsyncInTestCases, []},
           {Credo.Check.Refactor.VariableRebinding, []},
           {Credo.Check.Warning.LazyLogging, []},
           {Credo.Check.Warning.LeakyEnvironment, []},
-          {Credo.Check.Warning.MapGetUnsafePass, []},
-          {Credo.Check.Warning.MixEnv, []}
+          {Credo.Check.Warning.UnsafeToAtom, []}
 
           # {Credo.Check.Refactor.MapInto, []},
 
