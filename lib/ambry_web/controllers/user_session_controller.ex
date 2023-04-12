@@ -1,8 +1,8 @@
 defmodule AmbryWeb.UserSessionController do
   use AmbryWeb, :controller
 
-  alias Ambry.Accounts
   alias AmbryWeb.UserAuth
+  alias Ambry.Accounts
 
   def create(conn, %{"_action" => "registered"} = params) do
     create(conn, params, "Account created successfully!")
