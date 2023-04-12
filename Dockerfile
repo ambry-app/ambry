@@ -25,6 +25,7 @@ COPY config /src/config
 COPY mix.exs mix.lock /src/
 
 RUN mix deps.get --only $MIX_ENV
+RUN mix npm_deps.get
 
 # compile deps
 
