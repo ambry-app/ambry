@@ -8,8 +8,8 @@ defmodule Ambry.Search do
   alias Ambry.{Authors, Books, Narrators, Series}
 
   alias Ambry.Books.Book
-  alias Ambry.People.Person
   alias Ambry.Repo
+  alias Ambry.People.Person
   alias Ambry.Search.Record
   alias Ambry.Series.Series, as: SeriesSchema
 

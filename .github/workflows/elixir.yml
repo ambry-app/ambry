@@ -102,7 +102,11 @@ jobs:
       - name: Compile dependencies
         run: mix deps.compile
       - name: Run credo
-        run: mix credo --strict
+        run: mix credo --strict --format=sarif > credo.sarif
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: credo.sarif
 
   dialyzer:
     name: Dialyzer
