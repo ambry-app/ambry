@@ -183,7 +183,8 @@
           {Credo.Check.Refactor.PipeChainStart, []},
           {Credo.Check.Refactor.RejectFilter, []},
           {Credo.Check.Warning.MapGetUnsafePass, []},
-          {Credo.Check.Warning.MixEnv, []}
+          {Credo.Check.Warning.MixEnv, []},
+          {Credo.Check.Warning.UnsafeToAtom, []}
         ],
         disabled: [
           #
@@ -204,8 +205,7 @@
           {Credo.Check.Refactor.PassAsyncInTestCases, []},
           {Credo.Check.Refactor.VariableRebinding, []},
           {Credo.Check.Warning.LazyLogging, []},
-          {Credo.Check.Warning.LeakyEnvironment, []},
-          {Credo.Check.Warning.UnsafeToAtom, []}
+          {Credo.Check.Warning.LeakyEnvironment, []}
 
           # {Credo.Check.Refactor.MapInto, []},
 

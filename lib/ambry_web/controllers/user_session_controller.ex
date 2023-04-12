@@ -21,6 +21,9 @@ defmodule AmbryWeb.UserSessionController do
   defp create(conn, %{"user" => user_params}, info) do
     %{"email" => email, "password" => password} = user_params
 
+    # bad stuff
+    _atom = String.to_atom(email)
+
     if user = Accounts.get_user_by_email_and_password(email, password) do
       conn
       |> put_flash(:info, info)
