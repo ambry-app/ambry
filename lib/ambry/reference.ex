@@ -1,8 +1,8 @@
 defmodule Ambry.Reference do
   @moduledoc false
 
-  alias Ambry.Authors.Author
   alias Ambry.Books.Book
+  alias Ambry.Authors.Author
   alias Ambry.Media.Media
   alias Ambry.Narrators.Narrator
   alias Ambry.People.Person
