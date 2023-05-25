@@ -1,3 +1,6 @@
+import os from "platform-detect/os.mjs"
+import browser from "platform-detect/browser.mjs"
+
 export const TimeBarHook = {
   mounted() {
     const { duration } = this.el.dataset
@@ -15,15 +18,23 @@ export const TimeBarHook = {
     this.progressBarHoverStyles = this.getHoverStyles(this.progressBar)
     this.handleHoverStyles = this.getHoverStyles(this.handle)
 
-    this.attach(this.wrapper, "mousedown")
-    this.attach(window, "mousemove")
-    this.attach(window, "mouseup")
+    if (os.ios && browser.safari) {
+      this.attach(this.wrapper, "mousedown", "touchstart")
+      this.attach(window, "mousemove", "touchmove")
+      this.attach(window, "mouseup", "touchend")
+    } else {
+      this.attach(this.wrapper, "mousedown")
+      this.attach(window, "mousemove")
+      this.attach(window, "mouseup")
+    }
+
     this.attach(document.body, "mouseleave")
     this.attach(window, "resize")
   },
 
-  attach(target, event) {
-    const callback = (e) => this[event](e)
+  attach(target, callbackName, eventName = null) {
+    const event = eventName || callbackName
+    const callback = (e) => this[callbackName](e)
     target.addEventListener(event, callback)
 
     this.listeners = this.listeners || []
@@ -31,7 +42,7 @@ export const TimeBarHook = {
   },
 
   updateState(event) {
-    const x = event.clientX
+    const x = os.ios && browser.safari ? event.pageX : event.clientX
 
     this.position = Math.min(x, this.width)
     this.ratio = this.position / this.width
@@ -72,7 +83,7 @@ export const TimeBarHook = {
   },
 
   mousedown(event) {
-    if (event.buttons === 1) {
+    if (event.type === "touchstart" || event.buttons === 1) {
       this.snapshotState()
       this.updateState(event)
       this.startDragging()
