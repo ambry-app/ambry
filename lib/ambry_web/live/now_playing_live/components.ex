@@ -17,14 +17,18 @@ defmodule AmbryWeb.NowPlayingLive.Components do
 
   def media_details(assigns) do
     ~H"""
-    <div class="flex-none lg:flex lg:basis-7/12 lg:place-content-center lg:place-items-center">
-      <div class="m-8 flex space-x-4 sm:m-12 md:space-x-8 lg:mr-4">
-        <img
-          src={@media.book.image_path}
-          class="h-52 rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[36rem]"
-        />
+    <div class="mt-4 mr-4 ml-4 flex-none sm:mt-8 sm:mr-8 sm:ml-8 lg:mt-16 lg:mr-0 lg:ml-16 lg:flex lg:basis-7/12">
+      <div class="flex space-x-4 md:space-x-8">
+        <div class="w-2/5">
+          <div class="aspect-1">
+            <img
+              src={@media.book.image_path}
+              class="h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
+            />
+          </div>
+        </div>
 
-        <div class="pt-4 md:pt-6 lg:pt-8">
+        <div class="w-3/5">
           <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-3xl xl:text-4xl">
             <.link navigate={~p"/books/#{@media.book}"} class="hover:underline"><%= @media.book.title %></.link>
           </h1>
