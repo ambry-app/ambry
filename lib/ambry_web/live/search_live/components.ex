@@ -67,7 +67,7 @@ defmodule AmbryWeb.SearchLive.Components do
     <div class="text-center">
       <div class="group">
         <.link navigate={~p"/people/#{@person}"}>
-          <span class="aspect-1 block">
+          <span class="block aspect-1">
             <img
               src={@person.image_path}
               class="h-full w-full rounded-full border border-zinc-200 object-cover object-top shadow-md dark:border-zinc-900"
@@ -111,7 +111,7 @@ defmodule AmbryWeb.SearchLive.Components do
 
   defp series_tile(assigns) do
     ~H"""
-    <span class="aspect-1 relative block">
+    <span class="relative block aspect-1">
       <.series_images series_books={@series_books} />
     </span>
     """

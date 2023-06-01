@@ -790,7 +790,7 @@ defmodule AmbryWeb.CoreComponents do
           <% end %>
           <div class="group">
             <.link navigate={~p"/books/#{book}"}>
-              <span class="aspect-1 block">
+              <span class="block aspect-1">
                 <img
                   src={book.image_path}
                   class="h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
@@ -825,7 +825,7 @@ defmodule AmbryWeb.CoreComponents do
         <% else %>
           <div class="text-center text-lg">
             <div phx-click={@load_more} phx-target={@target} class="group">
-              <span class="aspect-1 block cursor-pointer">
+              <span class="block aspect-1 cursor-pointer">
                 <span class="load-more flex h-full w-full rounded-lg border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                   <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
                 </span>
@@ -907,7 +907,7 @@ defmodule AmbryWeb.CoreComponents do
       <%= if @show_load_more do %>
         <div class="text-center text-lg">
           <div phx-click={@load_more} phx-target={@target} class="group">
-            <span class="aspect-1 block cursor-pointer">
+            <span class="block aspect-1 cursor-pointer">
               <span class="load-more flex h-full w-full rounded-lg border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                 <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
               </span>
