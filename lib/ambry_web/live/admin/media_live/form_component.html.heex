@@ -3,7 +3,25 @@
     <.datalist id="books" options={@books} />
     <.datalist id="narrators" options={@narrators} />
 
-    <.input field={@form[:book_id]} type="autocomplete" options={@books} list="books" />
+    <.input field={@form[:book_id]} type="autocomplete" label="Book" options={@books} list="books" />
+
+    <div>
+      <.label for={@form[:published].id}>Published</.label>
+
+      <.note>
+        This is meant to be audiobook recording date, not print publication date.
+      </.note>
+      <div class="flex flex-row items-center gap-2">
+        <.input field={@form[:published]} type="date" container_class="flex-grow" />
+        <.label for={@form[:published_format].id}>Display format</.label>
+        <.input
+          field={@form[:published_format]}
+          type="select"
+          container_class="flex-grow"
+          options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+        />
+      </div>
+    </div>
 
     <div>
       <.label>Narrated by</.label>

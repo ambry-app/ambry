@@ -32,6 +32,9 @@ defmodule AmbrySchema.Media do
 
     field :player_state, :player_state, resolve: &Resolvers.player_state_batch/3
 
+    field :published, :date
+    field :published_format, non_null(:date_format)
+
     field :inserted_at, non_null(:naive_datetime)
     field :updated_at, non_null(:naive_datetime)
   end

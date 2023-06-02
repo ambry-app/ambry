@@ -35,7 +35,25 @@
 
   <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
     <.input field={@form[:title]} label="Title" />
-    <.input field={@form[:published]} label="Published" type="date" />
+
+    <div>
+      <.label for={@form[:published].id}>Published</.label>
+
+      <.note>
+        This is meant to be print publication date, not audiobook recording date.
+      </.note>
+      <div class="flex flex-row items-center gap-2">
+        <.input field={@form[:published]} type="date" container_class="flex-grow" />
+        <.label for={@form[:published_format].id}>Display format</.label>
+        <.input
+          field={@form[:published_format]}
+          type="select"
+          container_class="flex-grow"
+          options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+        />
+      </div>
+    </div>
+
     <.input
       field={@form[:description]}
       label="Description"

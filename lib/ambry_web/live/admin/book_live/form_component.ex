@@ -111,7 +111,6 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   end
 
   defp audnexus_book_changeset(book, book_details) do
-    published = audnexus_published(book_details)
     matching_authors = audnexus_matching_authors(book_details)
     series_book_params = audnexus_series_book_params(book_details)
 
@@ -121,8 +120,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
       |> Map.merge(%{
         "title" => book_details["title"],
         "description" => book_details["summary"],
-        "image_import_url" => book_details["image"],
-        "published" => published
+        "image_import_url" => book_details["image"]
       })
       |> Map.update!("book_authors", fn
         [] ->
@@ -142,13 +140,6 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
       end)
 
     Books.change_book(book, params)
-  end
-
-  defp audnexus_published(book_details) do
-    case DateTime.from_iso8601(book_details["releaseDate"]) do
-      {:ok, datetime, 0} -> datetime |> DateTime.to_date() |> to_string()
-      _term -> nil
-    end
   end
 
   defp audnexus_matching_authors(book_details) do

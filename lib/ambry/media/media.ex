@@ -34,6 +34,9 @@ defmodule Ambry.Media.Media do
 
     field :duration, :decimal
 
+    field :published, :date
+    field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
+
     timestamps()
   end
 
@@ -46,7 +49,9 @@ defmodule Ambry.Media.Media do
       :abridged,
       :book_id,
       :full_cast,
-      :source_path
+      :source_path,
+      :published,
+      :published_format
     ])
     |> cast_assoc(:media_narrators)
     |> status_based_validation()
@@ -57,7 +62,9 @@ defmodule Ambry.Media.Media do
     |> cast(attrs, [
       :abridged,
       :book_id,
-      :full_cast
+      :full_cast,
+      :published,
+      :published_format
     ])
     |> cast_assoc(:media_narrators)
     |> cast_embed(:chapters)

@@ -47,7 +47,7 @@
     <% end %>
   </:col>
   <:col :let={book} label="Published">
-    <%= book.published %>
+    <%= format_published(book) %>
   </:col>
   <:col :let={book} label="# Media" class="hidden md:table-cell">
     <%= book.media %>

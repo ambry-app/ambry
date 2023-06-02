@@ -20,6 +20,7 @@ defmodule Ambry.Books.Book do
 
     field :title, :string
     field :published, :date
+    field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
     field :description, :string
     field :image_path, :string
 
@@ -29,7 +30,7 @@ defmodule Ambry.Books.Book do
   @doc false
   def changeset(book, attrs) do
     book
-    |> cast(attrs, [:title, :published, :description, :image_path])
+    |> cast(attrs, [:title, :published, :published_format, :description, :image_path])
     |> cast_assoc(:series_books, with: &SeriesBook.book_assoc_changeset/2)
     |> cast_assoc(:book_authors)
     |> validate_required([:title, :published])

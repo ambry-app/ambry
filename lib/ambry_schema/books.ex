@@ -8,6 +8,12 @@ defmodule AmbrySchema.Books do
 
   alias AmbrySchema.Resolvers
 
+  enum :date_format do
+    value :full
+    value :year_month
+    value :year
+  end
+
   node object(:series_book) do
     field :book_number, non_null(:decimal)
 
@@ -32,6 +38,7 @@ defmodule AmbrySchema.Books do
     field :title, non_null(:string)
     field :description, :string
     field :published, non_null(:date)
+    field :published_format, non_null(:date_format)
     field :image_path, :string
 
     field :authors, non_null(list_of(non_null(:author))),

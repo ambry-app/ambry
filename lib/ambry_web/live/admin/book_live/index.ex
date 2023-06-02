@@ -131,4 +131,13 @@ defmodule AmbryWeb.Admin.BookLive.Index do
 
   @impl Phoenix.LiveView
   def handle_info(%PubSub.Message{type: :book}, socket), do: {:noreply, refresh_books(socket)}
+
+  defp format_published(%{published_format: :full, published: date}),
+    do: Calendar.strftime(date, "%Y-%m-%d")
+
+  defp format_published(%{published_format: :year_month, published: date}),
+    do: Calendar.strftime(date, "%Y-%m")
+
+  defp format_published(%{published_format: :year, published: date}),
+    do: Calendar.strftime(date, "%Y")
 end
