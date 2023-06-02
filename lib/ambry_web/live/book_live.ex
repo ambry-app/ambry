@@ -21,10 +21,12 @@ defmodule AmbryWeb.BookLive do
           <div class="mb-8 sm:hidden">
             <.book_header book={@book} />
           </div>
-          <img
-            src={@book.image_path}
-            class="w-full rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900 sm:w-80"
-          />
+          <div class="aspect-1">
+            <img
+              src={@book.image_path}
+              class="h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:w-80"
+            />
+          </div>
           <p class="mt-2 text-sm text-zinc-500">
             Published <%= Calendar.strftime(@book.published, "%B %-d, %Y") %>
           </p>

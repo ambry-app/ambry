@@ -21,10 +21,9 @@ defmodule AmbryWeb.NowPlayingLive.Components do
       <div class="m-8 flex space-x-4 sm:m-12 md:space-x-8 lg:mr-4">
         <img
           src={@media.book.image_path}
-          class="h-52 rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[36rem]"
+          class="aspect-1 h-32 rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[36rem]"
         />
-
-        <div class="pt-4 md:pt-6 lg:pt-8">
+        <div class="sm:pt-4 md:pt-6 lg:pt-8">
           <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-3xl xl:text-4xl">
             <.link navigate={~p"/books/#{@media.book}"} class="hover:underline"><%= @media.book.title %></.link>
           </h1>
