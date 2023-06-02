@@ -18,6 +18,8 @@ defmodule Ambry.Media.MediaFlat do
     field :universe, :string
     field :authors, {:array, PersonName}
     field :narrators, {:array, PersonName}
+    field :published, :date
+    field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
 
     timestamps()
   end

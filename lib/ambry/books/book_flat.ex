@@ -10,6 +10,7 @@ defmodule Ambry.Books.BookFlat do
   schema "books_flat" do
     field :title, :string
     field :published, :date
+    field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
     field :image_path, :string
     field :authors, {:array, PersonName}
     field :series, {:array, :string}

@@ -336,7 +336,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "select"} = assigns) do
     ~H"""
     <div phx-feedback-for={@name} class={[@container_class]}>
-      <.label for={@id}><%= @label %></.label>
+      <.label :if={@label} for={@id}><%= @label %></.label>
       <select
         id={@id}
         name={@name}
@@ -360,7 +360,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "textarea"} = assigns) do
     ~H"""
     <div phx-feedback-for={@name} class={[@container_class]}>
-      <.label for={@id}><%= @label %></.label>
+      <.label :if={@label} for={@id}><%= @label %></.label>
       <textarea
         id={@id}
         name={@name}
@@ -380,7 +380,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "autocomplete"} = assigns) do
     ~H"""
     <div phx-feedback-for={@name} class={[@container_class]}>
-      <.label for={@id}><%= @label %></.label>
+      <.label :if={@label} for={@id}><%= @label %></.label>
       <.live_component
         module={Autocomplete}
         id={@id}
@@ -404,7 +404,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(assigns) do
     ~H"""
     <div phx-feedback-for={@name} class={[@container_class]}>
-      <.label for={@id}><%= @label %></.label>
+      <.label :if={@label} for={@id}><%= @label %></.label>
       <input
         type={@type}
         name={@name}
@@ -461,7 +461,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def error(assigns) do
     ~H"""
-    <p class="mt-3 flex gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden dark:text-red-500">
+    <p class="mt-2 flex gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden dark:text-red-500">
       <FA.icon name="circle-exclamation" class="mt-1 h-4 w-4 flex-none fill-red-500" />
       <%= render_slot(@inner_block) %>
     </p>

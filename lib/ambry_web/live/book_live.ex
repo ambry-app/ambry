@@ -28,7 +28,7 @@ defmodule AmbryWeb.BookLive do
             />
           </div>
           <p class="mt-2 text-sm text-zinc-500">
-            Published <%= Calendar.strftime(@book.published, "%B %-d, %Y") %>
+            Published <%= format_published(@book) %>
           </p>
           <%= if @book.media != [] do %>
             <h2 class="mt-4 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
@@ -51,6 +51,9 @@ defmodule AmbryWeb.BookLive do
                     </p>
                     <p class="text-zinc-600 dark:text-zinc-400">
                       <%= duration_display(media.duration) %>
+                    </p>
+                    <p :if={media.published} class="mt-2 text-sm text-zinc-500">
+                      Published <%= format_published(media) %>
                     </p>
                   </div>
                   <div class="cursor-pointer fill-current" phx-click={media_click_action(@player, media)}>
@@ -134,4 +137,13 @@ defmodule AmbryWeb.BookLive do
        do: true
 
   defp playing?(_player, _media), do: false
+
+  defp format_published(%{published_format: :full, published: date}),
+    do: Calendar.strftime(date, "%B %-d, %Y")
+
+  defp format_published(%{published_format: :year_month, published: date}),
+    do: Calendar.strftime(date, "%B %Y")
+
+  defp format_published(%{published_format: :year, published: date}),
+    do: Calendar.strftime(date, "%Y")
 end
