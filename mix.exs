@@ -75,7 +75,6 @@ defmodule Ambry.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 0.18.16"},
       {:phoenix, "~> 1.7.0"},
-      {:plug_cowboy, "~> 2.5"},
       {:postgrex, ">= 0.0.0"},
       {:req, "~> 0.3"},
       {:sweet_xml, "~> 0.7"},
