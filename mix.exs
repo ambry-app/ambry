@@ -112,7 +112,11 @@ defmodule Ambry.MixProject do
       "seed.download": ["cmd ./script/download_seed_files.sh"],
       seed: ["ecto.seed", "seed.download"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.setup": ["tailwind.install --if-missing", "npm_deps.get", "esbuild.install --if-missing"],
+      "assets.setup": [
+        "tailwind.install --if-missing",
+        "npm_deps.get",
+        "esbuild.install --if-missing"
+      ],
       "assets.build": ["tailwind default", "esbuild default"],
       "assets.deploy": [
         "npm_deps.get",
