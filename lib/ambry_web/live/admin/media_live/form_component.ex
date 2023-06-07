@@ -6,7 +6,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   import Ambry.Paths
   import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
-  import AmbryWeb.Admin.UploadHelpers, only: [error_to_string: 1]
+  import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.{Books, Media, Narrators}
   alias Ambry.Media.{Processor, ProcessorJob}
@@ -15,16 +15,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   def mount(socket) do
     socket =
       socket
-      |> allow_upload(:audio,
-        accept: ~w(.mp3 .mp4 .m4a .m4b .opus),
-        max_entries: 200,
-        max_file_size: 1_500_000_000
-      )
-      |> allow_upload(:supplemental,
-        accept: :any,
-        max_entries: 10,
-        max_file_size: 50
-      )
+      |> allow_audio_upload(:audio)
+      |> allow_supplemental_file_upload(:supplemental)
 
     {:ok,
      socket
@@ -66,7 +58,6 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   def handle_event("save", %{"media" => media_params}, socket) do
     folder_id = Media.Media.source_id(socket.assigns.media)
     source_folder = source_media_disk_path(folder_id)
-    supplemental_folder = supplemental_files_disk_path(folder_id)
 
     audio_files =
       consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
@@ -78,10 +69,26 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
         {:ok, dest}
       end)
 
+    {:ok, supplemental_files} = consume_uploaded_supplemental_files(socket, :supplemental)
+
     media_params =
       if audio_files != [] do
         Map.merge(media_params, %{
           "source_path" => source_folder
+        })
+      else
+        media_params
+      end
+
+    media_params =
+      if supplemental_files != [] do
+        Map.merge(media_params, %{
+          "supplemental_files" =>
+            supplemental_files ++
+              Enum.map(
+                socket.assigns.media.supplemental_files,
+                &%{filename: &1.filename, path: &1.path}
+              )
         })
       else
         media_params

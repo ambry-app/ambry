@@ -7,6 +7,7 @@ defmodule Ambry.Media.Media do
 
   import Ecto.Changeset
 
+  alias Ambry.SupplementalFile
   alias Ambry.Books.Book
   alias Ambry.Media.{Media, MediaNarrator, PlayerState, Processor}
   alias Ambry.Media.Media.Chapter
@@ -22,6 +23,7 @@ defmodule Ambry.Media.Media do
     many_to_many :narrators, Narrator, join_through: "media_narrators"
 
     embeds_many :chapters, Chapter, on_replace: :delete
+    embeds_many :supplemental_files, SupplementalFile, on_replace: :delete
 
     field :full_cast, :boolean, default: false
     field :status, Ecto.Enum, values: @statuses, default: :pending
@@ -68,6 +70,7 @@ defmodule Ambry.Media.Media do
     ])
     |> cast_assoc(:media_narrators)
     |> cast_embed(:chapters)
+    |> cast_embed(:supplemental_files)
     |> status_based_validation()
   end
 
