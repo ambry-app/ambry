@@ -29,6 +29,7 @@ uploads_path =
 
 # Ensure folders exist
 [uploads_path, "images"] |> Path.join() |> File.mkdir_p!()
+[uploads_path, "supplemental"] |> Path.join() |> File.mkdir_p!()
 [uploads_path, "media"] |> Path.join() |> File.mkdir_p!()
 [uploads_path, "source_media"] |> Path.join() |> File.mkdir_p!()
 

@@ -14,10 +14,16 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   @impl Phoenix.LiveComponent
   def mount(socket) do
     socket =
-      allow_upload(socket, :audio,
+      socket
+      |> allow_upload(:audio,
         accept: ~w(.mp3 .mp4 .m4a .m4b .opus),
         max_entries: 200,
         max_file_size: 1_500_000_000
+      )
+      |> allow_upload(:supplemental,
+        accept: :any,
+        max_entries: 10,
+        max_file_size: 50
       )
 
     {:ok,
@@ -59,22 +65,23 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   def handle_event("save", %{"media" => media_params}, socket) do
     folder_id = Media.Media.source_id(socket.assigns.media)
-    folder = source_media_disk_path()
+    source_folder = source_media_disk_path(folder_id)
+    supplemental_folder = supplemental_files_disk_path(folder_id)
 
-    files =
+    audio_files =
       consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
-        File.mkdir_p!(Path.join([folder, folder_id]))
+        File.mkdir_p!(source_folder)
 
-        dest = Path.join([folder, folder_id, entry.client_name])
+        dest = Path.join([source_folder, entry.client_name])
         File.cp!(path, dest)
 
         {:ok, dest}
       end)
 
     media_params =
-      if files != [] do
+      if audio_files != [] do
         Map.merge(media_params, %{
-          "source_path" => Path.join([folder, folder_id])
+          "source_path" => source_folder
         })
       else
         media_params

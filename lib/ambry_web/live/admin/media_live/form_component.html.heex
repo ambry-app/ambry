@@ -95,6 +95,37 @@
       </section>
     </div>
 
+    <div class="space-y-2">
+      <.label>Upload supplemental files</.label>
+
+      <section
+        class="mt-2 w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
+        phx-drop-target={@uploads.supplemental.ref}
+      >
+        <.live_file_input upload={@uploads.supplemental} />
+        <article :for={entry <- @uploads.supplemental.entries} class="upload-entry">
+          <figure>
+            <figcaption><%= entry.client_name %></figcaption>
+          </figure>
+
+          <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+
+          <span
+            class="cursor-pointer text-2xl transition-colors hover:text-red-600"
+            phx-click="cancel-upload"
+            phx-value-ref={entry.ref}
+            phx-target={@myself}
+          >
+            &times;
+          </span>
+
+          <p :for={err <- upload_errors(@uploads.supplemental, entry)} class="text-red-600">
+            <%= error_to_string(err) %>
+          </p>
+        </article>
+      </section>
+    </div>
+
     <div :if={@file_stats}>
       <.label>Files</.label>
 
