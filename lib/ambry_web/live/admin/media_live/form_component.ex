@@ -4,9 +4,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   use AmbryWeb, :live_component
 
   import Ambry.Paths
-  import AmbryWeb.Admin.Components
-  import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
-  import AmbryWeb.Admin.UploadHelpers
+  import AmbryWeb.Admin.{Components, UploadHelpers}
+  import AmbryWeb.Admin.ParamHelpers
 
   alias Ambry.{Books, Media, Narrators}
   alias Ambry.Media.{Processor, ProcessorJob}
@@ -69,7 +68,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
         {:ok, dest}
       end)
 
-    {:ok, supplemental_files} = consume_uploaded_supplemental_files(socket, :supplemental)
+    uploaded_supplemental_files_params =
+      consume_uploaded_supplemental_files(socket, :supplemental)
 
     media_params =
       if audio_files != [] do
@@ -81,18 +81,11 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
       end
 
     media_params =
-      if supplemental_files != [] do
-        Map.merge(media_params, %{
-          "supplemental_files" =>
-            supplemental_files ++
-              Enum.map(
-                socket.assigns.media.supplemental_files,
-                &%{filename: &1.filename, path: &1.path}
-              )
-        })
-      else
-        media_params
-      end
+      media_params
+      |> Map.put_new("supplemental_files", [])
+      |> Map.update!("supplemental_files", fn files_params ->
+        map_to_list(files_params) ++ uploaded_supplemental_files_params
+      end)
 
     save_media(socket, socket.assigns.action, media_params)
   end

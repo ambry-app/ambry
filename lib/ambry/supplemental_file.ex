@@ -7,8 +7,6 @@ defmodule Ambry.SupplementalFile do
 
   import Ecto.Changeset
 
-  @primary_key false
-
   @derive {Jason.Encoder, only: [:filename, :path]}
 
   embedded_schema do

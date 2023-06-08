@@ -7,11 +7,11 @@ defmodule Ambry.Media.Media do
 
   import Ecto.Changeset
 
-  alias Ambry.SupplementalFile
   alias Ambry.Books.Book
   alias Ambry.Media.{Media, MediaNarrator, PlayerState, Processor}
   alias Ambry.Media.Media.Chapter
   alias Ambry.Narrators.Narrator
+  alias Ambry.SupplementalFile
 
   @statuses [:pending, :processing, :error, :ready]
 
@@ -56,6 +56,7 @@ defmodule Ambry.Media.Media do
       :published_format
     ])
     |> cast_assoc(:media_narrators)
+    |> cast_embed(:supplemental_files)
     |> status_based_validation()
   end
 
@@ -70,7 +71,10 @@ defmodule Ambry.Media.Media do
     ])
     |> cast_assoc(:media_narrators)
     |> cast_embed(:chapters)
-    |> cast_embed(:supplemental_files)
+    |> cast_embed(:supplemental_files,
+      sort_param: :supplemental_files_sort,
+      drop_param: :supplemental_files_drop
+    )
     |> status_based_validation()
   end
 

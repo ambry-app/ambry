@@ -95,41 +95,22 @@
       </section>
     </div>
 
-    <div class="space-y-2">
-      <.label>Upload supplemental files</.label>
-
-      <section
-        class="mt-2 w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
-        phx-drop-target={@uploads.supplemental.ref}
-      >
-        <.live_file_input upload={@uploads.supplemental} />
-        <article :for={entry <- @uploads.supplemental.entries} class="upload-entry">
-          <figure>
-            <figcaption><%= entry.client_name %></figcaption>
-          </figure>
-
-          <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
-
-          <span
-            class="cursor-pointer text-2xl transition-colors hover:text-red-600"
-            phx-click="cancel-upload"
-            phx-value-ref={entry.ref}
-            phx-target={@myself}
-          >
-            &times;
-          </span>
-
-          <p :for={err <- upload_errors(@uploads.supplemental, entry)} class="text-red-600">
-            <%= error_to_string(err) %>
-          </p>
-        </article>
-      </section>
-    </div>
-
     <div :if={@file_stats}>
-      <.label>Files</.label>
+      <div class="flex items-center gap-2">
+        <.label>Audio files</.label>
+        <button
+          type="button"
+          class="flex grow items-center text-lime-500 hover:underline"
+          phx-click={JS.toggle(to: ".files-list-toggle")}
+        >
+          <span class="files-list-toggle">show</span>
+          <span class="files-list-toggle hidden">hide</span>
+          <FA.icon name="chevron-down" class="files-list-toggle ml-1 h-4 w-4 fill-current" />
+          <FA.icon name="chevron-up" class="files-list-toggle ml-1 hidden h-4 w-4 fill-current" />
+        </button>
+      </div>
 
-      <div class="mt-2 rounded-lg border border-zinc-200 bg-zinc-50 p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="files-list-toggle mt-2 hidden rounded-lg border border-zinc-200 bg-zinc-50 p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
         <div class="space-y-2 divide-y divide-zinc-200 dark:divide-zinc-800">
           <.file_stat_row label="mp4" file={@file_stats.mp4_file} />
           <.file_stat_row label="mpd" file={@file_stats.mpd_file} />
@@ -174,18 +155,70 @@
       </div>
     </div>
 
+    <div class="space-y-2">
+      <.label>Upload supplemental files</.label>
+
+      <section
+        class="mt-2 w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
+        phx-drop-target={@uploads.supplemental.ref}
+      >
+        <.live_file_input upload={@uploads.supplemental} />
+        <article :for={entry <- @uploads.supplemental.entries} class="upload-entry">
+          <figure>
+            <figcaption><%= entry.client_name %></figcaption>
+          </figure>
+
+          <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+
+          <span
+            class="cursor-pointer text-2xl transition-colors hover:text-red-600"
+            phx-click="cancel-upload"
+            phx-value-ref={entry.ref}
+            phx-target={@myself}
+          >
+            &times;
+          </span>
+
+          <p :for={err <- upload_errors(@uploads.supplemental, entry)} class="text-red-600">
+            <%= error_to_string(err) %>
+          </p>
+        </article>
+      </section>
+    </div>
+
+    <div :if={@action == :edit && @form[:supplemental_files].value != []}>
+      <.label>Supplemental files</.label>
+
+      <.note>The filename is for display, it can be changed without breaking the download.</.note>
+
+      <.inputs_for :let={supplemental_file_form} field={@form[:supplemental_files]}>
+        <input type="hidden" name="media[supplemental_files_sort][]" value={supplemental_file_form.index} />
+        <.input field={supplemental_file_form[:id]} type="hidden" />
+
+        <div class="flex gap-2">
+          <.input field={supplemental_file_form[:filename]} container_class="grow" />
+          <.new_delete_checkbox name="media[supplemental_files_drop][]" value={supplemental_file_form.index} />
+        </div>
+      </.inputs_for>
+
+      <input type="hidden" name="media[supplemental_files_drop][]" />
+    </div>
+
     <div>
-      <.input
-        type="select"
-        field={@form[:processor]}
-        label={if @action == :new, do: "Processor", else: "Re-run processor?"}
-        prompt={if @action == :new, do: "auto-select", else: "no"}
-        options={processors(@media, @uploads.audio.entries)}
-      />
+      <.label for={@form[:processor].name}>
+        <%= if @action == :new, do: "Processor", else: "Re-run processor?" %>
+      </.label>
 
       <.note :if={@action == :edit}>
         This will re-process the source files and replace the streamable output files.
       </.note>
+
+      <.input
+        type="select"
+        field={@form[:processor]}
+        prompt={if @action == :new, do: "auto-select", else: "no"}
+        options={processors(@media, @uploads.audio.entries)}
+      />
     </div>
 
     <:actions>

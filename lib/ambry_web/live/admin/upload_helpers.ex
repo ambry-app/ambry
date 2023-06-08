@@ -55,25 +55,19 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   end
 
   @doc """
-  Consumes zero or more uploaded files from a socket and puts it in the
+  Consumes zero or more uploaded files from a socket and puts them in the
   supplemental files folder.
 
-  Returns `{:ok, [%{filename: "foo.pdf", path: path}] | :no_files}`; raises on
-  file operation errors.
+  Returns `[%{filename: "foo.pdf", path: path}]`; raises on file operation
+  errors.
   """
   def consume_uploaded_supplemental_files(socket, name) do
-    uploaded_files =
-      consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
-        filename =
-          save_file_to_disk!(entry.client_type, File.read!(path), &supplemental_files_disk_path/1)
+    consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
+      filename =
+        save_file_to_disk!(entry.client_type, File.read!(path), &supplemental_files_disk_path/1)
 
-        {:ok, %{filename: entry.client_name, path: ~p"/uploads/supplemental/#{filename}"}}
-      end)
-
-    case uploaded_files do
-      [] -> {:ok, :no_file}
-      files -> {:ok, files}
-    end
+      {:ok, %{filename: entry.client_name, path: ~p"/uploads/supplemental/#{filename}"}}
+    end)
   end
 
   defp save_file_to_disk!(mime, data, path_fun) do
