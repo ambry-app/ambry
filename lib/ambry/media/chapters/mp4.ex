@@ -12,14 +12,16 @@ defmodule Ambry.Media.Chapters.MP4 do
   @extensions ~w(.mp4 .m4a .m4b)
 
   def name do
-    "Single MP4"
+    "Extract from M4B metadata"
   end
 
   def available?(media) do
     media |> Media.files(@extensions) |> length() == 1
   end
 
-  def get_chapters(media) do
+  def inputs, do: []
+
+  def get_chapters(media, _params) do
     [mp4_file] = Media.files(media, @extensions)
 
     with {:ok, json} <- mp4_chapter_probe(media, mp4_file),
