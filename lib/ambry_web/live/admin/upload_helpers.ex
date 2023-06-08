@@ -66,7 +66,12 @@ defmodule AmbryWeb.Admin.UploadHelpers do
       filename =
         save_file_to_disk!(entry.client_type, File.read!(path), &supplemental_files_disk_path/1)
 
-      {:ok, %{filename: entry.client_name, path: ~p"/uploads/supplemental/#{filename}"}}
+      {:ok,
+       %{
+         filename: entry.client_name,
+         mime: entry.client_type,
+         path: ~p"/uploads/supplemental/#{filename}"
+       }}
     end)
   end
 

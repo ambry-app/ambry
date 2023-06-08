@@ -11,7 +11,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
   alias Ambry.Media
 
   alias AmbryWeb.NowPlayingLive.Bookmarks
-  alias AmbryWeb.Player
+  alias AmbryWeb.{Hashids, Player}
 
   attr :media, Media.Media, required: true
 
@@ -80,6 +80,16 @@ defmodule AmbryWeb.NowPlayingLive.Components do
             content={@player.player_state.media.book.description}
             class="p-4"
           />
+          <div class="flex flex-col">
+            <.brand_link
+              :for={file <- @player.player_state.media.supplemental_files}
+              href={file_href(file, @player.player_state.media)}
+              target="_blank"
+              class="ml-4"
+            >
+              <%= format_file_name(file) %>
+            </.brand_link>
+          </div>
         </div>
       </div>
     </div>
@@ -88,6 +98,11 @@ defmodule AmbryWeb.NowPlayingLive.Components do
 
   defp start_on_chapters?(%{chapters: []}), do: false
   defp start_on_chapters?(_media), do: true
+
+  defp format_file_name(file), do: file.label || file.filename
+
+  defp file_href(file, media),
+    do: ~p"/download/media/#{Hashids.encode(media.id)}/#{file.id}/#{file.filename}"
 
   attr :id, :string, required: true
   attr :label, :string, required: true

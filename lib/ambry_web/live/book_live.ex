@@ -10,7 +10,7 @@ defmodule AmbryWeb.BookLive do
   alias Ambry.{Books, PubSub}
   alias Ambry.Media.Media
 
-  alias AmbryWeb.Player
+  alias AmbryWeb.{Hashids, Player}
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -37,7 +37,7 @@ defmodule AmbryWeb.BookLive do
             <div class="divide-y divide-zinc-300 rounded-sm border border-zinc-200 bg-zinc-50 px-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
               <%= for media <- @book.media do %>
                 <div class="flex items-center space-x-2 py-3">
-                  <div class="grow">
+                  <div class="grow space-y-2">
                     <p>
                       <span>
                         Narrated by <.people_links people={media.narrators} />
@@ -48,13 +48,20 @@ defmodule AmbryWeb.BookLive do
                       <%= if media.abridged do %>
                         <span>(Abridged)</span>
                       <% end %>
+                      <span class="inline-block text-zinc-600 dark:text-zinc-400">
+                        <%= duration_display(media.duration) %>
+                      </span>
                     </p>
-                    <p class="text-zinc-600 dark:text-zinc-400">
-                      <%= duration_display(media.duration) %>
-                    </p>
-                    <p :if={media.published} class="mt-2 text-sm text-zinc-500">
+
+                    <p :if={media.published} class="text-sm text-zinc-500">
                       Published <%= format_published(media) %>
                     </p>
+
+                    <div :if={media.supplemental_files != []} class="flex flex-col">
+                      <.brand_link :for={file <- media.supplemental_files} href={file_href(file, media)} target="_blank">
+                        <%= format_file_name(file) %>
+                      </.brand_link>
+                    </div>
                   </div>
                   <div class="cursor-pointer fill-current" phx-click={media_click_action(@player, media)}>
                     <%= if playing?(@player, media) do %>
@@ -146,4 +153,9 @@ defmodule AmbryWeb.BookLive do
 
   defp format_published(%{published_format: :year, published: date}),
     do: Calendar.strftime(date, "%Y")
+
+  defp format_file_name(file), do: file.label || file.filename
+
+  defp file_href(file, media),
+    do: ~p"/download/media/#{Hashids.encode(media.id)}/#{file.id}/#{file.filename}"
 end

@@ -89,6 +89,8 @@ defmodule AmbryWeb.Router do
   scope "/", AmbryWeb do
     pipe_through [:browser, :require_authenticated_user]
 
+    get "/download/media/:media_id/:file_id/*rest", DownloadController, :download_media
+
     live_session :require_authenticated_user,
       on_mount: [
         {AmbryWeb.UserAuth, :ensure_authenticated},

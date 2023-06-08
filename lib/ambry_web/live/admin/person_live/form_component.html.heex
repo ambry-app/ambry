@@ -7,7 +7,7 @@
 
   <div
     id="import-form"
-    class="mb-4 hidden rounded-md border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-900"
+    class="mb-4 hidden space-y-2 rounded-md border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-900"
   >
     <.simple_form for={@audnexus_form} phx-submit="import-author" phx-target={@myself}>
       <div class="flex items-end">
@@ -21,11 +21,11 @@
       </div>
     </.simple_form>
 
-    <.note class="mt-2">
+    <.note>
       This only works for authors, not narrators. This will overwrite all values in the form.
     </.note>
 
-    <p class="mt-2">
+    <p>
       <.link phx-click={toggle_import()} class="text-red-600 dark:text-red-500">Close</.link>
     </p>
   </div>
@@ -40,29 +40,29 @@
       data-attrs="style"
     />
 
-    <div>
+    <div class="space-y-2">
       <.label>Writing as</.label>
       <.inputs_for :let={author_form} field={@form[:authors]}>
-        <div class="flex">
+        <div class="flex items-center">
           <.input field={author_form[:name]} placeholder="Name" container_class="grow" />
           <.delete_checkbox field={author_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
-      <.brand_link phx-click="add-author" phx-target={@myself} class="flex items-center pt-2">
+      <.brand_link phx-click="add-author" phx-target={@myself} class="flex items-center">
         <span>Add author</span>
         <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
       </.brand_link>
     </div>
 
-    <div>
+    <div class="space-y-2">
       <.label>Narrating as</.label>
       <.inputs_for :let={narrator_form} field={@form[:narrators]}>
-        <div class="flex">
+        <div class="flex items-center">
           <.input field={narrator_form[:name]} placeholder="Name" container_class="grow" />
           <.delete_checkbox field={narrator_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
-      <.brand_link phx-click="add-narrator" phx-target={@myself} class="flex items-center pt-2">
+      <.brand_link phx-click="add-narrator" phx-target={@myself} class="flex items-center">
         <span>Add narrator</span>
         <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
       </.brand_link>
@@ -73,7 +73,7 @@
       <img src={@person.image_path} class="mt-2 h-40 w-40 rounded-full object-cover object-top shadow-lg" />
     </div>
 
-    <.input field={@form[:image_import_url]} label="Import image from URL" />
+    <.input field={@form[:image_import_url]} placeholder="https://some-image.com/url" label="Import image from URL" />
 
     <div :if={valid_image_url?(@form[:image_import_url].value)}>
       <.label>Import image preview</.label>

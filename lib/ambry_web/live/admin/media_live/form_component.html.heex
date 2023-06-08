@@ -5,12 +5,13 @@
 
     <.input field={@form[:book_id]} type="autocomplete" label="Book" options={@books} list="books" />
 
-    <div>
+    <div class="space-y-2">
       <.label for={@form[:published].id}>Published</.label>
 
       <.note>
         This is meant to be audiobook recording date, not print publication date.
       </.note>
+
       <div class="flex flex-row items-center gap-2">
         <.input field={@form[:published]} type="date" container_class="flex-grow" />
         <.label for={@form[:published_format].id}>Display format</.label>
@@ -23,10 +24,10 @@
       </div>
     </div>
 
-    <div>
+    <div class="space-y-2">
       <.label>Narrated by</.label>
       <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
-        <div class="flex">
+        <div class="flex items-center">
           <.input
             field={media_narrator_form[:narrator_id]}
             type="autocomplete"
@@ -41,7 +42,7 @@
         type="button"
         phx-click="add-narrator"
         phx-target={@myself}
-        class="flex items-center pt-2 text-lime-500 hover:underline"
+        class="flex items-center text-lime-500 hover:underline"
       >
         <span>Add narrator</span>
         <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
@@ -186,17 +187,18 @@
       </section>
     </div>
 
-    <div :if={@action == :edit && @form[:supplemental_files].value != []}>
+    <div :if={@action == :edit && @form[:supplemental_files].value != []} class="space-y-2">
       <.label>Supplemental files</.label>
-
-      <.note>The filename is for display, it can be changed without breaking the download.</.note>
 
       <.inputs_for :let={supplemental_file_form} field={@form[:supplemental_files]}>
         <input type="hidden" name="media[supplemental_files_sort][]" value={supplemental_file_form.index} />
         <.input field={supplemental_file_form[:id]} type="hidden" />
 
-        <div class="flex gap-2">
-          <.input field={supplemental_file_form[:filename]} container_class="grow" />
+        <div class="flex items-center gap-2">
+          <.label for={supplemental_file_form[:label].name}>Label</.label>
+          <.input field={supplemental_file_form[:label]} placeholder="Label" container_class="grow" />
+          <.label for={supplemental_file_form[:filename].name}>Filename</.label>
+          <.input field={supplemental_file_form[:filename]} placeholder="filename.ext" container_class="grow" />
           <.new_delete_checkbox name="media[supplemental_files_drop][]" value={supplemental_file_form.index} />
         </div>
       </.inputs_for>
@@ -204,7 +206,7 @@
       <input type="hidden" name="media[supplemental_files_drop][]" />
     </div>
 
-    <div>
+    <div class="space-y-2">
       <.label for={@form[:processor].name}>
         <%= if @action == :new, do: "Processor", else: "Re-run processor?" %>
       </.label>

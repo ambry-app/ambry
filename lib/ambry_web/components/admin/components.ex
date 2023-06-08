@@ -178,7 +178,7 @@ defmodule AmbryWeb.Admin.Components do
       <input type="checkbox" id={@id} name={@name} value="true" checked={@checked} class="peer hidden" />
       <FA.icon
         name="trash"
-        class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
+        class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
       />
     </label>
     """
@@ -192,7 +192,7 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <label class={["flex", @class]}>
       <input type="checkbox" name={@name} value={@value} class="hidden" />
-      <FA.icon name="trash" class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600" />
+      <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600" />
     </label>
     """
   end

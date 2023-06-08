@@ -36,12 +36,13 @@
   <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} autocomplete="off">
     <.input field={@form[:title]} label="Title" />
 
-    <div>
+    <div class="space-y-2">
       <.label for={@form[:published].id}>Published</.label>
 
       <.note>
         This is meant to be print publication date, not audiobook recording date.
       </.note>
+
       <div class="flex flex-row items-center gap-2">
         <.input field={@form[:published]} type="date" container_class="flex-grow" />
         <.label for={@form[:published_format].id}>Display format</.label>
@@ -62,10 +63,10 @@
       data-attrs="style"
     />
 
-    <div>
+    <div class="space-y-2">
       <.label>Written by</.label>
       <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
-        <div class="flex">
+        <div class="flex items-center">
           <.input
             field={book_author_form[:author_id]}
             type="autocomplete"
@@ -76,17 +77,17 @@
           <.delete_checkbox field={book_author_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
-      <.brand_link phx-click="add-author" phx-target={@myself} class="flex items-center pt-2">
+      <.brand_link phx-click="add-author" phx-target={@myself} class="flex items-center">
         <span>Add author</span>
         <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
       </.brand_link>
     </div>
 
-    <div>
+    <div class="space-y-2">
       <.label>Series</.label>
       <.inputs_for :let={series_book_form} field={@form[:series_books]}>
-        <div class="flex">
-          <.input field={series_book_form[:book_number]} container_class="mr-2 w-14 flex-none" />
+        <div class="flex items-center">
+          <.input field={series_book_form[:book_number]} placeholder="no." container_class="mr-2 w-14 flex-none" />
           <.input
             field={series_book_form[:series_id]}
             type="autocomplete"
@@ -97,7 +98,7 @@
           <.delete_checkbox field={series_book_form[:delete]} class="ml-2" />
         </div>
       </.inputs_for>
-      <.brand_link phx-click="add-series" phx-target={@myself} class="flex items-center pt-2">
+      <.brand_link phx-click="add-series" phx-target={@myself} class="flex items-center">
         <span>Add series</span>
         <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />
       </.brand_link>
@@ -108,7 +109,7 @@
       <img src={@book.image_path} class="mt-2 h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900" />
     </div>
 
-    <.input field={@form[:image_import_url]} label="Import image from URL" />
+    <.input field={@form[:image_import_url]} placeholder="https://some-image.com/url" label="Import image from URL" />
 
     <div :if={valid_image_url?(@form[:image_import_url].value)}>
       <.label>Import image preview</.label>
