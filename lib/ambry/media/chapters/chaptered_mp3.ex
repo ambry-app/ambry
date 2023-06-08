@@ -12,30 +12,32 @@ defmodule Ambry.Media.Chapters.ChapteredMP3 do
   @extensions ~w(.mp3)
 
   def name do
-    "Chaptered MP3s"
+    "Each MP3 is a chapter"
   end
 
   def available?(media) do
     media |> Media.files(@extensions) |> length() > 1
   end
 
-  def get_chapters(media) do
+  def inputs, do: []
+
+  def get_chapters(media, _params) do
     mp3_files = Media.files(media, @extensions)
 
-    get_chapters(media, mp3_files)
+    do_get_chapters(media, mp3_files)
   end
 
-  defp get_chapters(media, files, offset \\ Decimal.new(0), acc \\ [])
+  defp do_get_chapters(media, files, offset \\ Decimal.new(0), acc \\ [])
 
-  defp get_chapters(_media, [], _offset, acc), do: {:ok, Enum.reverse(acc)}
+  defp do_get_chapters(_media, [], _offset, acc), do: {:ok, Enum.reverse(acc)}
 
-  defp get_chapters(media, [file | rest], offset, acc) do
+  defp do_get_chapters(media, [file | rest], offset, acc) do
     with {:ok, json} <- get_metadata_json(media, file),
          {:ok, metadata} <- decode(json),
          {:ok, duration} <- get_accurate_duration(media, file),
          {:ok, title} <- get_title(metadata) do
       chapter = build_chapter(title, offset)
-      get_chapters(media, rest, Decimal.add(offset, duration), [chapter | acc])
+      do_get_chapters(media, rest, Decimal.add(offset, duration), [chapter | acc])
     end
   end
 

@@ -150,14 +150,15 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
   # handle chapter extraction strategy from chapters component
   @impl Phoenix.LiveView
-  def handle_info({:run_strategy, strategy}, socket) do
+  def handle_info({:run_strategy, strategy, params}, socket) do
     %{selected_media: media} = socket.assigns
 
-    case strategy.get_chapters(media) do
+    case strategy.get_chapters(media, params) do
       {:ok, chapters} ->
         send_update(ChaptersComponent,
           id: media.id,
-          chapters: {:ok, chapters}
+          chapters: {:ok, chapters},
+          import_mode: params["import_mode"]
         )
 
       {:error, error} ->

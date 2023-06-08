@@ -74,18 +74,19 @@ defmodule AmbryWeb.NowPlayingLive.Components do
           <.live_component id="bookmarks" module={Bookmarks} player_state={@player.player_state} user={@user} />
         </div>
 
-        <div id="about-body" class={["media-tab-body", if(start_on_chapters?(@player.player_state.media), do: "hidden")]}>
+        <div
+          id="about-body"
+          class={["media-tab-body p-4 space-y-2", if(start_on_chapters?(@player.player_state.media), do: "hidden")]}
+        >
           <.markdown
             :if={@player.player_state.media.book.description}
             content={@player.player_state.media.book.description}
-            class="p-4"
           />
           <div class="flex flex-col">
             <.brand_link
               :for={file <- @player.player_state.media.supplemental_files}
               href={file_href(file, @player.player_state.media)}
               target="_blank"
-              class="ml-4"
             >
               <%= format_file_name(file) %>
             </.brand_link>
