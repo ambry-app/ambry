@@ -18,6 +18,13 @@ defmodule Ambry.Paths do
   end
 
   @doc """
+  The path on disk where all supplemental file folders are.
+  """
+  def supplemental_files_disk_path(path \\ "") do
+    Path.join([uploads_folder_disk_path(), "supplemental", path])
+  end
+
+  @doc """
   The path on disk where all media files are.
   """
   def media_disk_path(path \\ "") do

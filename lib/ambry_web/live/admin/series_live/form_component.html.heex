@@ -4,11 +4,11 @@
 
     <.input field={@form[:name]} label="Name" />
 
-    <div>
+    <div class="space-y-2">
       <.label>Books</.label>
       <.inputs_for :let={series_book_form} field={@form[:series_books]}>
-        <div class="flex">
-          <.input field={series_book_form[:book_number]} container_class="mr-2 w-14 flex-none" />
+        <div class="flex items-center">
+          <.input field={series_book_form[:book_number]} placeholder="no." container_class="mr-2 w-14 flex-none" />
           <.input
             field={series_book_form[:book_id]}
             type="autocomplete"
@@ -23,7 +23,7 @@
         type="button"
         phx-click="add-book"
         phx-target={@myself}
-        class="flex items-center pt-2 text-lime-500 hover:underline"
+        class="flex items-center text-lime-500 hover:underline"
       >
         <span>Add book</span>
         <FA.icon name="plus" class="ml-1 h-4 w-4 fill-current" />

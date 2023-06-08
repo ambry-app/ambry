@@ -335,14 +335,14 @@ defmodule AmbryWeb.CoreComponents do
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div phx-feedback-for={@name} class={[@container_class]}>
+    <div phx-feedback-for={@name} class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}><%= @label %></.label>
       <select
         id={@id}
         name={@name}
         class={
           [
-            "mt-2 block w-full rounded-lg border px-3 py-2 shadow-sm",
+            "block w-full rounded-lg border px-3 py-2 shadow-sm",
             "focus:outline-none focus:ring-4 sm:text-sm"
           ] ++ input_color_classes(@errors) ++ [@class]
         }
@@ -359,14 +359,14 @@ defmodule AmbryWeb.CoreComponents do
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div phx-feedback-for={@name} class={[@container_class]}>
+    <div phx-feedback-for={@name} class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}><%= @label %></.label>
       <textarea
         id={@id}
         name={@name}
         class={
           [
-            "mt-2 block min-h-[6rem] w-full rounded-lg py-[7px] px-[11px]",
+            "block min-h-[6rem] w-full rounded-lg py-[7px] px-[11px]",
             "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
           ] ++ input_color_classes(@errors) ++ [@class]
         }
@@ -379,7 +379,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def input(%{type: "autocomplete"} = assigns) do
     ~H"""
-    <div phx-feedback-for={@name} class={[@container_class]}>
+    <div phx-feedback-for={@name} class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}><%= @label %></.label>
       <.live_component
         module={Autocomplete}
@@ -389,7 +389,7 @@ defmodule AmbryWeb.CoreComponents do
         value={@value}
         class={
           [
-            "mt-2 block w-full rounded-lg border px-3 py-2 shadow-sm",
+            "block w-full rounded-lg border px-3 py-2 shadow-sm",
             "focus:outline-none focus:ring-4 sm:text-sm"
           ] ++ input_color_classes(@errors) ++ [@class]
         }
@@ -403,7 +403,7 @@ defmodule AmbryWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div phx-feedback-for={@name} class={[@container_class]}>
+    <div phx-feedback-for={@name} class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}><%= @label %></.label>
       <input
         type={@type}
@@ -412,7 +412,7 @@ defmodule AmbryWeb.CoreComponents do
         value={Form.normalize_value(@type, @value)}
         class={
           [
-            "mt-2 block w-full rounded-lg py-[7px] px-[11px]",
+            "block w-full rounded-lg py-[7px] px-[11px]",
             "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
           ] ++ input_color_classes(@errors) ++ [@class]
         }
@@ -444,11 +444,12 @@ defmodule AmbryWeb.CoreComponents do
   Renders a label.
   """
   attr :for, :string, default: nil
+  attr :class, :string, default: nil, doc: "class overrides"
   slot :inner_block, required: true
 
   def label(assigns) do
     ~H"""
-    <label for={@for} class="block text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200">
+    <label for={@for} class={["block text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200", @class]}>
       <%= render_slot(@inner_block) %>
     </label>
     """
@@ -461,8 +462,8 @@ defmodule AmbryWeb.CoreComponents do
 
   def error(assigns) do
     ~H"""
-    <p class="mt-2 flex gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden dark:text-red-500">
-      <FA.icon name="circle-exclamation" class="mt-1 h-4 w-4 flex-none fill-red-500" />
+    <p class="flex items-center gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden dark:text-red-500">
+      <FA.icon name="circle-exclamation" class="h-4 w-4 flex-none fill-red-500" />
       <%= render_slot(@inner_block) %>
     </p>
     """
@@ -756,7 +757,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def note(assigns) do
     ~H"""
-    <p class={["mt-2 border-l-4 border-zinc-400 pl-4 italic text-zinc-500 dark:border-zinc-500 dark:text-zinc-400", @class]}>
+    <p class={["border-l-4 border-zinc-400 pl-4 italic text-zinc-500 dark:border-zinc-500 dark:text-zinc-400", @class]}>
       <%= if @label != [] do %>
         <strong><%= render_slot(@label) %>:</strong>
       <% else %>

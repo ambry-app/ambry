@@ -16,6 +16,22 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     allow_upload(socket, name, accept: @accepted_extensions, max_entries: 1)
   end
 
+  def allow_audio_upload(socket, name) do
+    allow_upload(socket, name,
+      accept: ~w(.mp3 .mp4 .m4a .m4b .opus),
+      max_entries: 200,
+      max_file_size: 1_500_000_000
+    )
+  end
+
+  def allow_supplemental_file_upload(socket, name) do
+    allow_upload(socket, name,
+      accept: :any,
+      max_entries: 10,
+      max_file_size: 52_428_800
+    )
+  end
+
   @doc """
   Consumes zero or one uploaded images from a socket and puts it in the uploaded
   images folder.
@@ -26,7 +42,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   def consume_uploaded_image(socket, name) do
     uploaded_files =
       consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
-        filename = save_image_to_disk!(entry.client_type, File.read!(path))
+        filename = save_file_to_disk!(entry.client_type, File.read!(path), &images_disk_path/1)
 
         {:ok, ~p"/uploads/images/#{filename}"}
       end)
@@ -38,11 +54,32 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     end
   end
 
-  defp save_image_to_disk!(mime, data) do
+  @doc """
+  Consumes zero or more uploaded files from a socket and puts them in the
+  supplemental files folder.
+
+  Returns `[%{filename: "foo.pdf", path: path}]`; raises on file operation
+  errors.
+  """
+  def consume_uploaded_supplemental_files(socket, name) do
+    consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
+      filename =
+        save_file_to_disk!(entry.client_type, File.read!(path), &supplemental_files_disk_path/1)
+
+      {:ok,
+       %{
+         filename: entry.client_name,
+         mime: entry.client_type,
+         path: ~p"/uploads/supplemental/#{filename}"
+       }}
+    end)
+  end
+
+  defp save_file_to_disk!(mime, data, path_fun) do
     hash = Base.encode16(:crypto.hash(:md5, data), case: :lower)
     [ext | _] = MIME.extensions(mime)
     filename = "#{hash}.#{ext}"
-    dest = images_disk_path(filename)
+    dest = path_fun.(filename)
     File.write!(dest, data)
 
     filename
@@ -65,7 +102,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   defp do_image_import(url) do
     with {:ok, response} <- Req.get(url),
          [mime | _rest] <- Req.Response.get_header(response, "content-type") do
-      filename = save_image_to_disk!(mime, response.body)
+      filename = save_file_to_disk!(mime, response.body, &images_disk_path/1)
 
       {:ok, ~p"/uploads/images/#{filename}"}
     else

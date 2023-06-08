@@ -4,9 +4,8 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   use AmbryWeb, :live_component
 
   import Ambry.Paths
-  import AmbryWeb.Admin.Components
-  import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
-  import AmbryWeb.Admin.UploadHelpers, only: [error_to_string: 1]
+  import AmbryWeb.Admin.{Components, UploadHelpers}
+  import AmbryWeb.Admin.ParamHelpers
 
   alias Ambry.{Books, Media, Narrators}
   alias Ambry.Media.{Processor, ProcessorJob}
@@ -14,11 +13,9 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   @impl Phoenix.LiveComponent
   def mount(socket) do
     socket =
-      allow_upload(socket, :audio,
-        accept: ~w(.mp3 .mp4 .m4a .m4b .opus),
-        max_entries: 200,
-        max_file_size: 1_500_000_000
-      )
+      socket
+      |> allow_audio_upload(:audio)
+      |> allow_supplemental_file_upload(:supplemental)
 
     {:ok,
      socket
@@ -59,26 +56,36 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   def handle_event("save", %{"media" => media_params}, socket) do
     folder_id = Media.Media.source_id(socket.assigns.media)
-    folder = source_media_disk_path()
+    source_folder = source_media_disk_path(folder_id)
 
-    files =
+    audio_files =
       consume_uploaded_entries(socket, :audio, fn %{path: path}, entry ->
-        File.mkdir_p!(Path.join([folder, folder_id]))
+        File.mkdir_p!(source_folder)
 
-        dest = Path.join([folder, folder_id, entry.client_name])
+        dest = Path.join([source_folder, entry.client_name])
         File.cp!(path, dest)
 
         {:ok, dest}
       end)
 
+    uploaded_supplemental_files_params =
+      consume_uploaded_supplemental_files(socket, :supplemental)
+
     media_params =
-      if files != [] do
+      if audio_files != [] do
         Map.merge(media_params, %{
-          "source_path" => Path.join([folder, folder_id])
+          "source_path" => source_folder
         })
       else
         media_params
       end
+
+    media_params =
+      media_params
+      |> Map.put_new("supplemental_files", [])
+      |> Map.update!("supplemental_files", fn files_params ->
+        map_to_list(files_params) ++ uploaded_supplemental_files_params
+      end)
 
     save_media(socket, socket.assigns.action, media_params)
   end

@@ -178,8 +178,21 @@ defmodule AmbryWeb.Admin.Components do
       <input type="checkbox" id={@id} name={@name} value="true" checked={@checked} class="peer hidden" />
       <FA.icon
         name="trash"
-        class="mt-4 h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
+        class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
       />
+    </label>
+    """
+  end
+
+  attr :name, :string, required: true
+  attr :value, :integer, required: true
+  attr :class, :string, default: nil, doc: "class overrides"
+
+  def new_delete_checkbox(assigns) do
+    ~H"""
+    <label class={["flex", @class]}>
+      <input type="checkbox" name={@name} value={@value} class="hidden" />
+      <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600" />
     </label>
     """
   end

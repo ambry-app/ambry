@@ -11,6 +11,7 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.{Media, MediaNarrator, PlayerState, Processor}
   alias Ambry.Media.Media.Chapter
   alias Ambry.Narrators.Narrator
+  alias Ambry.SupplementalFile
 
   @statuses [:pending, :processing, :error, :ready]
 
@@ -22,6 +23,7 @@ defmodule Ambry.Media.Media do
     many_to_many :narrators, Narrator, join_through: "media_narrators"
 
     embeds_many :chapters, Chapter, on_replace: :delete
+    embeds_many :supplemental_files, SupplementalFile, on_replace: :delete
 
     field :full_cast, :boolean, default: false
     field :status, Ecto.Enum, values: @statuses, default: :pending
@@ -37,6 +39,8 @@ defmodule Ambry.Media.Media do
     field :published, :date
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
 
+    field :notes, :string
+
     timestamps()
   end
 
@@ -51,9 +55,11 @@ defmodule Ambry.Media.Media do
       :full_cast,
       :source_path,
       :published,
-      :published_format
+      :published_format,
+      :notes
     ])
     |> cast_assoc(:media_narrators)
+    |> cast_embed(:supplemental_files)
     |> status_based_validation()
   end
 
@@ -64,10 +70,15 @@ defmodule Ambry.Media.Media do
       :book_id,
       :full_cast,
       :published,
-      :published_format
+      :published_format,
+      :notes
     ])
     |> cast_assoc(:media_narrators)
     |> cast_embed(:chapters)
+    |> cast_embed(:supplemental_files,
+      sort_param: :supplemental_files_sort,
+      drop_param: :supplemental_files_drop
+    )
     |> status_based_validation()
   end
 
