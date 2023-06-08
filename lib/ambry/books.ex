@@ -160,7 +160,7 @@ defmodule Ambry.Books do
   Gets a book and all of its media.
   """
   def get_book_with_media!(book_id) do
-    media_query = from m in Media, where: [status: :ready]
+    media_query = from m in Media, where: [status: :ready], order_by: {:desc, :inserted_at}
 
     Book
     |> preload([:authors, media: ^{media_query, [:narrators]}, series_books: :series])

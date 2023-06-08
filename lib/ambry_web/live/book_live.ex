@@ -35,7 +35,7 @@ defmodule AmbryWeb.BookLive do
               Recordings
             </h2>
             <div class="divide-y divide-zinc-300 rounded-sm border border-zinc-200 bg-zinc-50 px-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
-              <%= for media <- @book.media do %>
+              <div :for={media <- @book.media} class="divide-y divide-dotted divide-zinc-300 dark:divide-zinc-800">
                 <div class="flex items-center space-x-2 py-3">
                   <div class="grow space-y-2">
                     <p>
@@ -52,16 +52,6 @@ defmodule AmbryWeb.BookLive do
                         <%= duration_display(media.duration) %>
                       </span>
                     </p>
-
-                    <p :if={media.published} class="text-sm text-zinc-500">
-                      Published <%= format_published(media) %>
-                    </p>
-
-                    <div :if={media.supplemental_files != []} class="flex flex-col">
-                      <.brand_link :for={file <- media.supplemental_files} href={file_href(file, media)} target="_blank">
-                        <%= format_file_name(file) %>
-                      </.brand_link>
-                    </div>
                   </div>
                   <div class="cursor-pointer fill-current" phx-click={media_click_action(@player, media)}>
                     <%= if playing?(@player, media) do %>
@@ -71,7 +61,22 @@ defmodule AmbryWeb.BookLive do
                     <% end %>
                   </div>
                 </div>
-              <% end %>
+                <div :if={media.published || media.notes || media.supplemental_files != []} class="space-y-2 py-3">
+                  <p :if={media.published} class="text-sm text-zinc-500">
+                    Published <%= format_published(media) %>
+                  </p>
+
+                  <p :if={media.notes} class="text-sm text-zinc-500">
+                    <%= media.notes %>
+                  </p>
+
+                  <div :if={media.supplemental_files != []} class="flex flex-col">
+                    <.brand_link :for={file <- media.supplemental_files} href={file_href(file, media)} target="_blank">
+                      <%= format_file_name(file) %>
+                    </.brand_link>
+                  </div>
+                </div>
+              </div>
             </div>
           <% else %>
             <p class="mt-4 font-bold">Sorry, there are no recordings uploaded for this book.</p>

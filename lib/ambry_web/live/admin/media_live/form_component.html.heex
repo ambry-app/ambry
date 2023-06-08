@@ -52,6 +52,8 @@
     <.input field={@form[:abridged]} label="Abridged" type="checkbox" />
     <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
 
+    <.input field={@form[:notes]} label="Notes" type="textarea" phx-hook="maintain-attrs" data-attrs="style" />
+
     <div class="space-y-2">
       <%= if @action == :new do %>
         <.label>Upload audio</.label>

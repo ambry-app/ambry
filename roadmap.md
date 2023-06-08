@@ -1,7 +1,7 @@
 * media supplemental files
 * media notes
-* audnexus chapter import
 * media studio/publisher
+* audnexus chapter import
 * use the audible API (instead of Audnexus?)
   * search by title
   * get chapters
