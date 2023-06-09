@@ -32,6 +32,14 @@ defmodule AmbryWeb.Router do
       only: ~w(media)
   end
 
+  pipeline :downloads do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_current_user
+    plug :fetch_api_user
+    plug :require_any_authenticated_user
+  end
+
   pipeline :gql do
     plug :accepts, ["json", "graphql"]
     plug :fetch_api_user
@@ -39,13 +47,19 @@ defmodule AmbryWeb.Router do
   end
 
   scope "/uploads" do
-    pipe_through [:uploads]
+    pipe_through :uploads
 
     get "/*path", AmbryWeb.FallbackController, :index
   end
 
+  scope "/" do
+    pipe_through :downloads
+
+    get "/download/media/:media_id/:file_id/*rest", AmbryWeb.DownloadController, :download_media
+  end
+
   scope "/gql" do
-    pipe_through [:gql]
+    pipe_through :gql
 
     forward "/", Absinthe.Plug.GraphiQL, schema: AmbrySchema, interface: :playground
   end
@@ -70,6 +84,20 @@ defmodule AmbryWeb.Router do
     end
   end
 
+  ## Preview routes
+
+  pipeline :preview do
+    plug :put_root_layout, html: {AmbryWeb.Preview.Layouts, :root}
+    plug :put_layout, html: {AmbryWeb.Preview.Layouts, :app}
+    plug :redirect_if_user_is_authenticated
+  end
+
+  scope "/preview", AmbryWeb.Preview do
+    pipe_through [:browser, :preview]
+
+    get "/books/:id", BookController, :show
+  end
+
   ## Authentication routes
 
   scope "/", AmbryWeb do
@@ -88,8 +116,6 @@ defmodule AmbryWeb.Router do
 
   scope "/", AmbryWeb do
     pipe_through [:browser, :require_authenticated_user]
-
-    get "/download/media/:media_id/:file_id/*rest", DownloadController, :download_media
 
     live_session :require_authenticated_user,
       on_mount: [
@@ -110,7 +136,7 @@ defmodule AmbryWeb.Router do
   end
 
   scope "/", AmbryWeb do
-    pipe_through [:browser]
+    pipe_through :browser
 
     delete "/users/log_out", UserSessionController, :delete
 
@@ -122,7 +148,7 @@ defmodule AmbryWeb.Router do
   end
 
   scope "/first_time_setup", AmbryWeb.FirstTimeSetup do
-    pipe_through [:browser]
+    pipe_through :browser
 
     live_session :setup, layout: {AmbryWeb.Layouts, :auth} do
       live "/", SetupLive, :index

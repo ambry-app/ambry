@@ -1,0 +1,28 @@
+<div class="mx-auto max-w-md p-4 sm:max-w-none md:max-w-screen-2xl md:p-6 lg:p-8">
+  <div class="justify-center sm:flex sm:flex-row">
+    <section id="cover" class="mb-4 flex-none sm:mb-0 sm:w-80">
+      <div class="mb-8 sm:hidden">
+        <.book_header book={@book} />
+      </div>
+      <div class="aspect-1">
+        <img
+          src={@book.image_path}
+          class="h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:w-80"
+        />
+      </div>
+      <p class="mt-2 text-sm text-zinc-500">
+        Published <%= format_published(@book) %>
+      </p>
+      <div class="mt-4 rounded-sm border border-zinc-200 bg-zinc-50 p-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
+        <.brand_link href={~p"/users/log_in"}>Sign in</.brand_link>
+        to Ambry to listen to this audiobook!
+      </div>
+    </section>
+    <section id="description" class="max-w-md sm:ml-10">
+      <div class="hidden sm:block">
+        <.book_header book={@book} />
+      </div>
+      <.markdown :if={@book.description} content={@book.description} class="mt-4" />
+    </section>
+  </div>
+</div>
