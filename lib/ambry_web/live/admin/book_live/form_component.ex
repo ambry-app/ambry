@@ -71,16 +71,11 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("import-book", %{"asin" => ""}, socket), do: {:noreply, socket}
-
-  def handle_event("import-book", %{"asin" => asin}, socket) do
-    case Audnexus.Book.get(asin) do
-      {:ok, book_details} ->
-        changeset = audnexus_book_changeset(socket.assigns.book, book_details)
-        {:noreply, socket |> assign_form(changeset) |> assign_audnexus_form(asin)}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Error getting results from Audnexus")}
+  def handle_event("import-book", params, socket) do
+    case params do
+      %{"asin" => "", "title" => ""} -> {:noreply, socket}
+      %{"asin" => "", "title" => title} -> import_from_title(title, socket)
+      %{"asin" => asin} -> import_from_asin(asin, socket)
     end
   end
 
@@ -91,6 +86,28 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     else
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Failed to import image")}
+    end
+  end
+
+  def import_from_asin(asin, socket) do
+    case Audnexus.Book.get(asin) do
+      {:ok, book_details} ->
+        changeset = audnexus_book_changeset(socket.assigns.book, book_details)
+        {:noreply, socket |> assign_form(changeset) |> assign_audnexus_form(%{"asin" => asin})}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Error getting results from Audnexus")}
+    end
+  end
+
+  def import_from_title(title, socket) do
+    with {:ok, asin} <- Audible.Product.search(title),
+         {:ok, book_details} <- Audnexus.Book.get(asin) do
+      changeset = audnexus_book_changeset(socket.assigns.book, book_details)
+      {:noreply, socket |> assign_form(changeset) |> assign_audnexus_form(%{"title" => title})}
+    else
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Error getting results from Audnexus")}
     end
   end
 
@@ -234,7 +251,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     assign(socket, :form, to_form(changeset))
   end
 
-  defp assign_audnexus_form(socket, asin \\ "") do
-    assign(socket, :audnexus_form, to_form(%{"asin" => asin}))
+  defp assign_audnexus_form(socket, params \\ %{}) do
+    assign(socket, :audnexus_form, to_form(params))
   end
 end

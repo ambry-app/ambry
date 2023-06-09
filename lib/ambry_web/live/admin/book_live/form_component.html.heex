@@ -10,19 +10,31 @@
     class="mb-4 hidden rounded-md border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-900"
   >
     <.simple_form for={@audnexus_form} phx-submit="import-book" phx-target={@myself}>
-      <div class="flex items-end">
-        <.input
-          field={@audnexus_form[:asin]}
-          label="Import Author from Audnexus"
-          placeholder="ASIN"
-          container_class="mr-2 grow"
-        />
-        <.button class="flex-none">Import</.button>
+      <div class="space-y-2">
+        <.label>Import Book from Audnexus</.label>
+        <div class="flex items-center gap-2">
+          <.brand_link class="text-xs" phx-click={JS.show(to: "#search-by-title") |> JS.hide(to: "#search-by-asin")}>
+            Search by Title
+          </.brand_link>
+          &bull;
+          <.brand_link class="text-xs" phx-click={JS.show(to: "#search-by-asin") |> JS.hide(to: "#search-by-title")}>
+            Search by ASIN
+          </.brand_link>
+        </div>
+        <div class="flex items-center gap-2">
+          <div id="search-by-asin" class="hidden grow">
+            <.input field={@audnexus_form[:asin]} placeholder="ASIN" />
+          </div>
+          <div id="search-by-title" class="grow">
+            <.input field={@audnexus_form[:title]} placeholder="Title" />
+          </div>
+          <.button class="flex-none">Import</.button>
+        </div>
       </div>
     </.simple_form>
 
     <.note class="mt-2">
-      Requires the ASIN of the audiobook. This will overwrite all values in the form.
+      This will overwrite all values in the form.
     </.note>
 
     <p class="mt-2">
