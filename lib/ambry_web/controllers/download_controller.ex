@@ -18,7 +18,12 @@ defmodule AmbryWeb.DownloadController do
         disposition: :inline
       )
     else
-      _else -> text(conn, "hi")
+      _else ->
+        conn
+        |> put_status(:not_found)
+        |> put_layout(false)
+        |> put_view(AmbryWeb.ErrorHTML)
+        |> render(:"404")
     end
   end
 end

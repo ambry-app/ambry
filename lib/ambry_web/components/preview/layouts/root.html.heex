@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="icon" type="image/svg+xml" href={~p"/favicon.svg"} />
+    <link rel="icon" type="image/png" href={~p"/favicon.png"} sizes="16x16" />
+    <link rel="icon" type="image/png" href={~p"/favicon-32x32.png"} sizes="32x32" />
+    <link rel="icon" type="image/png" href={~p"/favicon-96x96.png"} sizes="96x96" />
+    <title><%= @page_title %> · Ambry</title>
+    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+
+    <meta property="og:site_name" content="Ambry" />
+    <meta :for={{key, value} <- assigns[:og]} property={"og:#{key}"} content={value} />
+  </head>
+  <body class="bg-white text-zinc-800 antialiased selection:bg-brand selection:text-white dark:bg-black dark:text-zinc-200 dark:selection:bg-brand-dark dark:selection:text-black">
+    <%= @inner_content %>
+  </body>
+</html>

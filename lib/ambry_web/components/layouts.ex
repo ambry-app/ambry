@@ -66,7 +66,7 @@ defmodule AmbryWeb.Layouts do
     """
   end
 
-  defp ambry_icon(assigns) do
+  def ambry_icon(assigns) do
     extra_classes = assigns[:class] || ""
     default_classes = "text-brand dark:text-brand-dark"
     assigns = assign(assigns, :class, String.trim("#{default_classes} #{extra_classes}"))
@@ -85,7 +85,7 @@ defmodule AmbryWeb.Layouts do
     """
   end
 
-  defp ambry_title(assigns) do
+  def ambry_title(assigns) do
     extra_classes = assigns[:class] || ""
     default_classes = "text-zinc-900 dark:text-zinc-100"
     assigns = assign(assigns, :class, String.trim("#{default_classes} #{extra_classes}"))

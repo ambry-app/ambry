@@ -230,8 +230,7 @@ defmodule AmbryWeb.UserAuth do
     else
       conn
       |> maybe_store_return_to()
-      |> redirect(to: ~p"/users/log_in")
-      |> halt()
+      |> unauthenticated_redirect()
     end
   end
 
@@ -277,5 +276,23 @@ defmodule AmbryWeb.UserAuth do
 
   defp maybe_store_return_to(conn), do: conn
 
+  defp signed_in_path(%{path_info: ["preview" | _rest]} = conn),
+    do: conn |> current_path() |> String.replace("/preview", "")
+
   defp signed_in_path(_conn), do: ~p"/"
+
+  @preview_paths ["books"]
+
+  defp unauthenticated_redirect(%{path_info: [root | _rest]} = conn)
+       when root in @preview_paths do
+    conn
+    |> redirect(to: "/preview#{current_path(conn)}")
+    |> halt()
+  end
+
+  defp unauthenticated_redirect(conn) do
+    conn
+    |> redirect(to: ~p"/users/log_in")
+    |> halt()
+  end
 end

@@ -4,7 +4,7 @@ defmodule AmbryWeb.FallbackController do
   """
   use AmbryWeb, :controller
 
-  def call(conn, _anything) do
+  def call(conn, _params) do
     conn
     |> put_status(:not_found)
     |> put_view(AmbryWeb.ErrorHTML)
