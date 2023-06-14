@@ -377,6 +377,6 @@ defmodule Ambry.Media do
     %{book: book, narrators: narrators} = Repo.preload(media, [:book, :narrators])
     narrators = Enum.map_join(narrators, ", ", & &1.name)
 
-    "#{Books.get_book_description(book)} · narrated by #{narrators}"
+    "#{Books.get_book_description(book)} • narrated by #{narrators}"
   end
 end
