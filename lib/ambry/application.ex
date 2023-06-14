@@ -47,7 +47,10 @@ defmodule Ambry.Application do
         # Start the Search Index Manager
         {Search.IndexManager, []},
         # Search index refresher/warmer
-        {Task, &Search.Index.refresh_entire_index!/0}
+        {Task, &Search.Index.refresh_entire_index!/0},
+        # Headless browser for scraping GoodReads
+        Marionette.Supervisor,
+        GoodReads.Browser
       ]
   end
 
