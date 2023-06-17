@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", initPolyfills)
 // media" might eventually be implemented, in which case it will be necessary.
 export const ShakaPlayerHook = {
   async mounted() {
-    console.log("Shaka: Mounting...!!")
+    console.log("Shaka: Mounting...")
 
     const [audio] = this.el.getElementsByTagName("audio")
     const player = new Player(audio)

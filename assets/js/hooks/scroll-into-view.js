@@ -36,7 +36,6 @@ export const ScrollIntoViewHook = {
 
   scrollToActive() {
     const activeRow = this.chapterRows.find((row) => row.dataset.active)
-    console.log("got it!", activeRow)
 
     if (activeRow) {
       requestAnimationFrame(() => {
