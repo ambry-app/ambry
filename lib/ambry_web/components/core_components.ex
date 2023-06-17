@@ -163,14 +163,25 @@ defmodule AmbryWeb.CoreComponents do
     <.flash kind={:info} title="Success!" flash={@flash} />
     <.flash kind={:error} title="Error!" flash={@flash} />
     <.flash
-      id="disconnected"
+      id="client-error"
       kind={:error}
       title="We've lost connection to the server"
-      phx-disconnected={show("#disconnected")}
-      phx-connected={hide("#disconnected")}
+      phx-disconnected={show(".phx-client-error #client-error")}
+      phx-connected={hide("#client-error")}
       hidden
     >
-      Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" aria-hidden="true" />
+      Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" />
+    </.flash>
+
+    <.flash
+      id="server-error"
+      kind={:error}
+      title="Something went wrong!"
+      phx-disconnected={show(".phx-server-error #server-error")}
+      phx-connected={hide("#server-error")}
+      hidden
+    >
+      Hang in there while we get back on track <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" />
     </.flash>
     """
   end
