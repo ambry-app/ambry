@@ -1,30 +1,31 @@
 defmodule GoodReads.Books.Search do
-  @moduledoc false
+  @moduledoc """
+  GoodReads book search results
+  """
 
-  alias GoodReads.Browser
+  alias GoodReads.{Browser, Image}
 
-  @series_regex ~r/^.*?(?:\(([^()]+?),?\s+#([-0-9.]+)\))?$/
-  @space ~r/\s+/
+  defstruct [:query, :results]
 
   defmodule Book do
-    defstruct [:id, :title, :authors, :series, :most_reviewed_edition_id]
+    defstruct [:id, :title, :contributors, :thumbnail]
   end
 
   defmodule Contributor do
     defstruct [:id, :name, :type]
   end
 
-  defmodule Series do
-    defstruct [:name, :number]
+  defmodule Thumbnail do
+    defstruct [:src, :data_url]
   end
 
-  def search(query) do
-    query = URI.encode_query(%{utf8: "✓", query: query})
+  def search(query_string) do
+    query = URI.encode_query(%{utf8: "✓", query: query_string})
     path = "/search" |> URI.new!() |> URI.append_query(query) |> URI.to_string()
 
     with {:ok, page_html} = Browser.get_page_html(path),
          {:ok, document} <- Floki.parse_document(page_html) do
-      parse_books(document)
+      {:ok, %__MODULE__{query: query_string, results: parse_books(document)}}
     else
       {:ok, response} -> {:error, response}
       {:error, reason} -> {:error, reason}
@@ -41,28 +42,16 @@ defmodule GoodReads.Books.Search do
     %Book{
       id: "work:" <> parse_work_id(book_html),
       title: parse_book_title(book_html),
-      authors: parse_authors(book_html),
-      series: parse_series(book_html),
-      most_reviewed_edition_id: "edition:" <> parse_id(book_html, "bookTitle")
+      contributors: parse_contributors(book_html),
+      thumbnail: parse_thumbnail(book_html)
     }
   end
 
   defp parse_book_title(book_html) do
-    [title] = book_html |> Floki.find("td:first-child a") |> Floki.attribute("title")
-    clean_string(title)
+    book_html |> Floki.find("a.bookTitle span[itemprop='name']") |> Floki.text() |> clean_string()
   end
 
-  defp parse_series(book_html) do
-    title_with_maybe_series =
-      book_html |> Floki.find("a.bookTitle span[itemprop='name']") |> Floki.text()
-
-    case Regex.run(@series_regex, title_with_maybe_series) do
-      [_match] -> nil
-      [_match, series, number] -> %Series{name: clean_string(series), number: number}
-    end
-  end
-
-  defp parse_authors(book_html) do
+  defp parse_contributors(book_html) do
     book_html
     |> Floki.find("div.authorName__container")
     |> Enum.map(&parse_author/1)
@@ -94,12 +83,18 @@ defmodule GoodReads.Books.Search do
     uri.path |> Path.basename()
   end
 
+  defp parse_thumbnail(book_html) do
+    [src] = book_html |> Floki.find("img.bookCover") |> Floki.attribute("src")
+    Image.fetch_from_source(src)
+  end
+
   defp parse_work_id(book_html) do
     [url] = book_html |> Floki.find("a[href^='/work/editions/']") |> Floki.attribute("href")
     uri = URI.parse(url)
     uri.path |> Path.basename()
   end
 
+  @space ~r/\s+/
   defp clean_string(string) do
     @space
     |> Regex.replace(string, " ")

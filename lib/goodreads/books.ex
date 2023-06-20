@@ -3,7 +3,7 @@ defmodule GoodReads.Books do
   GoodReads web-scraping API for books
   """
 
-  alias GoodReads.Books.{Details, Edition, Search}
+  alias GoodReads.Books.{Editions, EditionDetails, Search}
 
   @doc """
   Returns book search results for a given query
@@ -11,53 +11,47 @@ defmodule GoodReads.Books do
   ## Examples
 
       iex> search("lord of the rings")
-      [
-        %GoodReads.Books.Search.Book{
-          id: "1540236-the-hobbit",
-          title: "The Hobbit",
-          authors: [
-            %GoodReads.Books.Search.Contributor{
-              id: "656983.J_R_R_Tolkien",
-              name: "J.R.R. Tolkien",
-              type: "author"
-            }
-          ],
-          series: %GoodReads.Books.Search.Series{
-            name: "The Lord of the Rings",
-            number: "0"
-          },
-          most_reviewed_edition_id: "5907.The_Hobbit"
-        },
-        %GoodReads.Books.Search.Book{
-          id: "3204327-the-lord-of-the-rings-the-fellowship-of-the-ring",
-          title: "The Fellowship of the Ring",
-          authors: [
-            %GoodReads.Books.Search.Contributor{
-              id: "656983.J_R_R_Tolkien",
-              name: "J.R.R. Tolkien",
-              type: "author"
-            }
-          ],
-          series: %GoodReads.Books.Search.Series{
-            name: "The Lord of the Rings",
-            number: "1"
-          },
-          most_reviewed_edition_id: "61215351-the-fellowship-of-the-ring"
-        },
-        ...
-      ]
+      {:ok,
+       %GoodReads.Books.Search{
+         query: "lord of the rings",
+         results: [
+           %GoodReads.Books.Search.Book{
+             id: "work:1540236-the-hobbit",
+             title: "The Hobbit (The Lord of the Rings, #0)",
+             contributors: [
+               %GoodReads.Books.Search.Contributor{
+                 id: "author:656983.J_R_R_Tolkien",
+                 name: "J.R.R. Tolkien",
+                 type: "author"
+               }
+             ]
+           },
+           %GoodReads.Books.Search.Book{
+             id: "work:3204327-the-lord-of-the-rings-the-fellowship-of-the-ring",
+             title: "The Fellowship of the Ring (The Lord of the Rings, #1)",
+             contributors: [
+               %GoodReads.Books.Search.Contributor{
+                 id: "author:656983.J_R_R_Tolkien",
+                 name: "J.R.R. Tolkien",
+                 type: "author"
+               }
+             ]
+           },
+           ...
+         ]
+       }
   """
   defdelegate search(query), to: Search
 
   ###
 
   @doc """
-  Returns details for a given book
+  Returns list of editions for a given book
   """
-  defdelegate details(id), to: Details
+  defdelegate editions(work_id), to: Editions
 
   @doc """
-  Returns details for a given edition
+  Returns the details for a given edition of a book
   """
-  defdelegate edition(edition_id), to: Edition
+  defdelegate edition_details(edition_id), to: EditionDetails
 end
