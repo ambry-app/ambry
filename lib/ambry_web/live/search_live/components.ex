@@ -118,7 +118,7 @@ defmodule AmbryWeb.SearchLive.Components do
   end
 
   defp series_images(%{series_books: [series_book]} = assigns) do
-    assigns = assign(assigns, :books, series_book.book)
+    assigns = assign(assigns, :book, series_book.book)
 
     ~H"""
     <img
