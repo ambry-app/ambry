@@ -1,7 +1,7 @@
 defmodule GoodReads.Books.Editions do
   @moduledoc false
 
-  alias GoodReads.{Image, Browser}
+  alias GoodReads.{Browser, Image, PublishedDate}
 
   defstruct [:id, :title, :primary_author, :first_published, :editions]
 
@@ -14,13 +14,15 @@ defmodule GoodReads.Books.Editions do
       :id,
       :title,
       :published,
+      :publisher,
       :format,
       :contributors,
-      :isbn,
-      :isbn10,
-      :asin,
       :language,
       :thumbnail
+      # Possible future improvements:
+      # :isbn
+      # :isbn10
+      # :asin
     ]
   end
 
@@ -70,29 +72,10 @@ defmodule GoodReads.Books.Editions do
 
     case published_text do
       "" -> nil
-      "First published " <> date_string -> parse_date(date_string)
+      "First published " <> date_string -> date_string |> clean_string() |> PublishedDate.new()
       _else -> nil
     end
   end
-
-  @date_regex ~r/^(.*?) ([0-9]+).*? ([0-9]+)$/
-  defp parse_date(date_string) do
-    [_match, month, day, year] = Regex.run(@date_regex, date_string)
-    Date.new!(String.to_integer(year), parse_month(month), String.to_integer(day))
-  end
-
-  defp parse_month("January"), do: 1
-  defp parse_month("February"), do: 2
-  defp parse_month("March"), do: 3
-  defp parse_month("April"), do: 4
-  defp parse_month("May"), do: 5
-  defp parse_month("June"), do: 6
-  defp parse_month("July"), do: 7
-  defp parse_month("August"), do: 8
-  defp parse_month("September"), do: 9
-  defp parse_month("October"), do: 10
-  defp parse_month("November"), do: 11
-  defp parse_month("December"), do: 12
 
   defp parse_editions(html) do
     html
@@ -102,21 +85,20 @@ defmodule GoodReads.Books.Editions do
 
   defp parse_edition(edition_html) do
     case Floki.find(edition_html, "div.editionData > div.dataRow") do
-      [title_html, publisher_html, format_html, _action] ->
-        _extra_data_rows = Floki.find(edition_html, "div.editionData div.moreDetails div.dataRow")
+      [title_html, published_html, format_html, _action] ->
+        extra_data_rows = Floki.find(edition_html, "div.editionData div.moreDetails div.dataRow")
+
+        {published, publisher} = parse_published(published_html)
 
         [
           %Edition{
-            id: parse_edition_id(edition_html),
+            id: "edition:" <> parse_id(edition_html, "bookTitle"),
             title: parse_edition_title(title_html),
-            published: parse_published(publisher_html),
+            published: published,
+            publisher: publisher,
             format: parse_format(format_html),
-            # TODO:
-            contributors: nil,
-            isbn: nil,
-            isbn10: nil,
-            asin: nil,
-            language: nil,
+            contributors: parse_authors(extra_data_rows),
+            language: parse_language(extra_data_rows),
             thumbnail: parse_thumbnail(edition_html)
           }
         ]
@@ -128,22 +110,86 @@ defmodule GoodReads.Books.Editions do
     end
   end
 
-  defp parse_edition_id(edition_html) do
-    [url] = edition_html |> Floki.find("a.bookTitle") |> Floki.attribute("href")
-    uri = URI.parse(url)
-    "edition:" <> (uri.path |> Path.basename())
-  end
-
   defp parse_edition_title(title_html) do
     title_html |> Floki.find("a.bookTitle") |> Floki.text() |> clean_string()
   end
 
-  defp parse_published(publisher_html), do: publisher_html |> Floki.text() |> clean_string()
+  @published_regex ~r/^Published (.*?) by (.*?)$/
+  defp parse_published(published_html) do
+    string = published_html |> Floki.text() |> clean_string()
+
+    case Regex.run(@published_regex, string) do
+      [_match, date_string, publisher_string] ->
+        {PublishedDate.new(date_string), publisher_string}
+
+      _else ->
+        {nil, nil}
+    end
+  end
+
   defp parse_format(format_html), do: format_html |> Floki.text() |> clean_string()
 
   defp parse_thumbnail(edition_html) do
     [src] = edition_html |> Floki.find("div.leftAlignedImage img") |> Floki.attribute("src")
     Image.fetch_from_source(src)
+  end
+
+  defp parse_authors(data_rows) do
+    authors_row =
+      Enum.find(data_rows, fn row -> Floki.find(row, ".dataTitle:fl-contains('Author')") != [] end)
+
+    case authors_row do
+      nil ->
+        []
+
+      row ->
+        row
+        |> Floki.find(".dataValue span[itemprop='author'] .authorName__container")
+        |> Enum.map(&parse_author/1)
+    end
+  end
+
+  defp parse_author(author_html) do
+    %Contributor{
+      id: "author:" <> parse_id(author_html, "authorName"),
+      name: parse_author_name(author_html),
+      type: parse_author_type(author_html)
+    }
+  end
+
+  defp parse_author_name(author_html) do
+    author_html |> Floki.find("span[itemprop='name']") |> Floki.text() |> clean_string()
+  end
+
+  defp parse_author_type(author_html) do
+    case author_html |> Floki.find("span.greyText") |> Floki.text() |> clean_string() do
+      "" -> "author"
+      "(Goodreads Author)" -> "author"
+      "(Goodreads Author)" <> string -> clean_author_type_string(string)
+      string -> clean_author_type_string(string)
+    end
+  end
+
+  defp clean_author_type_string(string) do
+    string |> String.slice(1..-2) |> String.downcase()
+  end
+
+  defp parse_language(data_rows) do
+    language_row =
+      Enum.find(data_rows, fn row ->
+        Floki.find(row, ".dataTitle:fl-contains('Edition language')") != []
+      end)
+
+    case language_row do
+      nil -> nil
+      row -> row |> Floki.find(".dataValue") |> Floki.text() |> clean_string()
+    end
+  end
+
+  defp parse_id(html, class) do
+    [url] = html |> Floki.find("a.#{class}") |> Floki.attribute("href")
+    uri = URI.parse(url)
+    uri.path |> Path.basename()
   end
 
   @space ~r/\s+/

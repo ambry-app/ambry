@@ -1,12 +1,35 @@
 defmodule GoodReads.Books.EditionDetails do
   @moduledoc false
 
-  alias GoodReads.{Image, Browser}
+  alias GoodReads.{Browser, Image, PublishedDate}
 
-  defstruct [:id, :title, :authors, :series, :description, :cover_image]
+  defstruct [
+    :id,
+    :title,
+    :authors,
+    :series,
+    :description,
+    :cover_image,
+    :format,
+    :published,
+    :publisher,
+    :language
+  ]
+
+  defmodule Contributor do
+    defstruct [:id, :name, :type]
+  end
+
+  defmodule Series do
+    defstruct [:id, :name, :number]
+  end
 
   def edition_details("edition:" <> id = full_id) do
-    with {:ok, page_html} = Browser.get_page_html("/book/show/#{id}"),
+    with {:ok, page_html} =
+           Browser.get_page_html("/book/show/#{id}",
+             click: "button[aria-label='Book details and editions']",
+             wait_for: "div.EditionDetails"
+           ),
          {:ok, document} <- Floki.parse_document(page_html) do
       {:ok, parse_edition_details(full_id, document)}
     else
@@ -16,55 +39,50 @@ defmodule GoodReads.Books.EditionDetails do
   end
 
   defp parse_edition_details(id, html) do
-    %__MODULE__{
+    attrs = %{
       id: id,
       title: parse_book_title(html),
-      # TODO:
-      authors: [],
-      series: [],
-      # FIXME: parse edition published details, not "first publishes" (this is
-      # already available from the editions scrape)
-      # first_published: parse_first_published(html),
+      authors: parse_authors(html),
       description: parse_description(html),
-      cover_image: parse_cover_image(html)
+      cover_image: parse_cover_image(html),
+      series: []
     }
+
+    work_details_rows = Floki.find(html, "div.WorkDetails div.DescListItem")
+    edition_details_rows = Floki.find(html, "div.EditionDetails div.DescListItem")
+
+    attrs = Enum.reduce(work_details_rows ++ edition_details_rows, attrs, &add_details/2)
+
+    struct!(__MODULE__, attrs)
   end
 
   defp parse_book_title(html) do
     html |> Floki.find("h1[data-testid='bookTitle']") |> Floki.text()
   end
 
-  # defp parse_first_published(html) do
-  #   published_text =
-  #     html
-  #     |> Floki.find("div.FeaturedDetails p[data-testid='publicationInfo']")
-  #     |> Floki.text()
+  defp parse_authors(html) do
+    html
+    |> Floki.find(".ContributorLinksList .ContributorLink")
+    |> Enum.map(&parse_author/1)
+  end
 
-  #   case published_text do
-  #     "" -> nil
-  #     "First published " <> date_string -> parse_date(date_string)
-  #     _else -> nil
-  #   end
-  # end
+  defp parse_author(html) do
+    name = html |> Floki.find("span[data-testid='name']") |> Floki.text() |> clean_string()
+    role = html |> Floki.find("span[data-testid='role']") |> Floki.text() |> clean_string()
+    type = clean_author_type_string(role)
 
-  # @date_regex ~r/^(.*?) ([0-9]+), ([0-9]+)$/
-  # defp parse_date(date_string) do
-  #   [_match, month, day, year] = Regex.run(@date_regex, date_string)
-  #   Date.new!(String.to_integer(year), parse_month(month), String.to_integer(day))
-  # end
+    %Contributor{
+      id: parse_id(html, "ContributorLink"),
+      name: name,
+      type: type
+    }
+  end
 
-  # defp parse_month("January"), do: 1
-  # defp parse_month("February"), do: 2
-  # defp parse_month("March"), do: 3
-  # defp parse_month("April"), do: 4
-  # defp parse_month("May"), do: 5
-  # defp parse_month("June"), do: 6
-  # defp parse_month("July"), do: 7
-  # defp parse_month("August"), do: 8
-  # defp parse_month("September"), do: 9
-  # defp parse_month("October"), do: 10
-  # defp parse_month("November"), do: 11
-  # defp parse_month("December"), do: 12
+  defp clean_author_type_string(""), do: "author"
+
+  defp clean_author_type_string(string) do
+    string |> String.slice(1..-2) |> String.downcase()
+  end
 
   defp parse_description(html) do
     html
@@ -73,22 +91,35 @@ defmodule GoodReads.Books.EditionDetails do
     |> Floki.children()
     |> Floki.traverse_and_update(&description_to_markdown/1)
     |> Floki.raw_html()
-    |> clean_string()
+    |> clean_html()
   end
 
   defp description_to_markdown(node) do
     case node do
-      {"b", [], children} -> format_children(children, "**")
-      {"i", [], children} -> format_children(children, "_")
+      {e, [], children} when e in ~w(b strong) -> format_children(children, "**")
+      {e, [], children} when e in ~w(i em) -> format_children(children, "_")
+      {"p", [], children} -> format_children(children, "\n")
       {"br", [], []} -> "\n"
-      other -> inspect(other)
+      {_e, _attrs, children} -> format_children(children)
     end
   end
 
-  defp format_children(children, wrapping),
-    do: children |> Enum.join("") |> wrap(wrapping)
+  defp format_children(children, wrapping \\ nil),
+    do: children |> Enum.join("") |> String.trim() |> wrap(wrapping)
 
+  defp wrap(string, nil), do: string
   defp wrap(string, wrapping), do: "#{wrapping}#{string}#{wrapping}"
+
+  defp clean_html(string) do
+    string
+    |> String.replace("\u00a0", "")
+    |> String.replace("\u201C", "\"")
+    |> String.replace("\u201D", "\"")
+    |> String.replace("\u2018", "'")
+    |> String.replace("\u2019", "'")
+    |> String.replace("&#39;", "'")
+    |> String.trim()
+  end
 
   defp parse_cover_image(html) do
     [src] = html |> Floki.find("div.BookPage__bookCover img") |> Floki.attribute("src")
@@ -96,13 +127,84 @@ defmodule GoodReads.Books.EditionDetails do
     Image.fetch_from_source(src)
   end
 
+  defp add_details(row, attrs) do
+    key = row |> Floki.find("dt") |> Floki.text() |> clean_string()
+    value = row |> Floki.find("dd") |> Floki.text() |> clean_string()
+
+    case key do
+      "Format" ->
+        Map.put(attrs, :format, value)
+
+      "Published" ->
+        {published, publisher} = parse_published(value)
+
+        Map.merge(attrs, %{
+          published: published,
+          publisher: publisher
+        })
+
+      "Language" ->
+        Map.put(attrs, :language, value)
+
+      "Series" ->
+        Map.put(attrs, :series, parse_series(row))
+
+      _else ->
+        attrs
+    end
+  end
+
+  @published_regex ~r/^(.*?) by (.*?)$/
+  defp parse_published(published_string) do
+    case Regex.run(@published_regex, published_string) do
+      [_match, date_string, publisher_string] ->
+        {PublishedDate.new(date_string), publisher_string}
+
+      _else ->
+        {nil, nil}
+    end
+  end
+
+  defp parse_series(html) do
+    [series_link | rest] =
+      html
+      |> Floki.find("div[data-testid='contentContainer']")
+      |> List.first()
+      |> Floki.children()
+
+    Enum.scan(rest, series_part(series_link), fn next_part, previous_part ->
+      case series_part(next_part) do
+        number when is_binary(number) -> %{previous_part | number: number}
+        series -> series
+      end
+    end)
+  end
+
+  defp series_part({"a", _attrs, _children} = link) do
+    [url] = Floki.attribute(link, "href")
+    uri = URI.parse(url)
+    id = uri.path |> Path.basename()
+    name = link |> Floki.text() |> clean_string()
+
+    %Series{id: "series:" <> id, name: name}
+  end
+
+  @series_number_regex ~r/\(#([0-9.]+)\)/
+  defp series_part(string) when is_binary(string) do
+    [_match, number] = Regex.run(@series_number_regex, string)
+    number
+  end
+
+  defp parse_id(html, class) do
+    [url] = html |> Floki.find("a.#{class}") |> Floki.attribute("href")
+    uri = URI.parse(url)
+    uri.path |> Path.basename()
+  end
+
+  @space ~r/\s+/
   defp clean_string(string) do
-    string
-    |> String.replace("\u00a0", "")
-    |> String.replace("\u201C", "\"")
-    |> String.replace("\u201D", "\"")
-    |> String.replace("\u2018", "'")
-    |> String.replace("\u2019", "'")
+    @space
+    |> Regex.replace(string, " ")
     |> String.trim()
   end
 end
