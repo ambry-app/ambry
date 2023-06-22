@@ -6,6 +6,8 @@ defmodule GoodReads.Browser do
   requests can't interfere with each other.
   """
 
+  # TODO: this thing needs to be less brittle and possibly not GoodReads specific
+
   use GenServer
 
   require Logger
@@ -25,8 +27,8 @@ defmodule GoodReads.Browser do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
-  def get_page_html(path) do
-    GenServer.call(__MODULE__, {:get_page_html, path}, @timeout)
+  def get_page_html(path, actions \\ []) do
+    GenServer.call(__MODULE__, {:get_page_html, path, actions}, @timeout)
   end
 
   @impl GenServer
@@ -35,17 +37,31 @@ defmodule GoodReads.Browser do
   end
 
   @impl GenServer
-  def handle_call({:get_page_html, path}, _from, state) do
+  def handle_call({:get_page_html, path, actions}, _from, state) do
     url = "#{@url}#{path}"
     Logger.debug(fn -> "[GoodReads.Browser] requesting #{url}" end)
 
     response =
       case Marionette.Socket.order("Navigate", %{url: url}) do
-        %{error: nil} -> get_fully_loaded_page_source()
-        %{error: error} -> {:error, inspect(error)}
+        %{error: nil} ->
+          process_page(actions)
+
+        %{error: error} ->
+          {:error, inspect(error)}
       end
 
     {:reply, response, state}
+  end
+
+  defp process_page(actions) do
+    # FIXME: rewrite `get_fully_loaded_page_source` to instead use a
+    # `{:wait_for_no, selector}` action instead of getting and parsing the
+    # entire page source every time.
+    with {:ok, _html} <- get_fully_loaded_page_source(),
+         :ok <- maybe_close_login_popup(),
+         :ok <- perform_actions(actions) do
+      get_fully_loaded_page_source()
+    end
   end
 
   defp get_fully_loaded_page_source(attempt \\ 0)
@@ -67,4 +83,61 @@ defmodule GoodReads.Browser do
       {:error, error} -> {:error, error}
     end
   end
+
+  defp maybe_close_login_popup do
+    case Marionette.Socket.order("FindElement", %{
+           using: "css selector",
+           value: "button[aria-label='Close']"
+         }) do
+      %{error: nil, result: %{"value" => response}} ->
+        [element_id] = Map.values(response)
+        try_click(element_id)
+
+      _else ->
+        :ok
+    end
+  end
+
+  defp try_click(element_id, attempt \\ 0)
+  defp try_click(_element_id, @max_attempts), do: {:error, :click_failed}
+
+  defp try_click(element_id, attempt) do
+    case Marionette.Socket.order("ElementClick", %{id: element_id}) do
+      %{error: %{"error" => "element not interactable"}} ->
+        Process.sleep(@sleep_interval)
+        try_click(element_id, attempt + 1)
+
+      %{error: nil} ->
+        :ok
+    end
+  end
+
+  defp perform_actions([]), do: :ok
+
+  defp perform_actions([{:click, selector} | rest]) do
+    %{error: nil, result: %{"value" => response}} =
+      Marionette.Socket.order("FindElement", %{using: "css selector", value: selector})
+
+    [element_id] = Map.values(response)
+
+    :ok = try_click(element_id)
+
+    perform_actions(rest)
+  end
+
+  defp perform_actions([{:wait_for, _selector} | rest]) do
+    # TODO:
+    perform_actions(rest)
+  end
 end
+
+# when no element is found:
+# %Marionette.Wire.Response{
+#   message_id: 4195576971,
+#   error: %{
+#     "error" => "no such element",
+#     "message" => "Unable to locate element: button[aria-label='Close']",
+#     "stacktrace" => "RemoteError@chrome://remote/content/shared/RemoteError.sys.mjs:8:8\nWebDriverError@chrome://remote/content/shared/webdriver/Errors.sys.mjs:183:5\nNoSuchElementError@chrome://remote/content/shared/webdriver/Errors.sys.mjs:395:5\nelement.find/</<@chrome://remote/content/marionette/element.sys.mjs:134:16\n"
+#   },
+#   result: nil
+# }
