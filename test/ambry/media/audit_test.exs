@@ -15,6 +15,10 @@ defmodule Ambry.Media.AuditTest do
       assert %{
                source_files: [
                  %{
+                   path: out_files_txt_path,
+                   stat: %File.Stat{}
+                 },
+                 %{
                    path: bar_mp3_path,
                    stat: %File.Stat{}
                  },
@@ -24,10 +28,6 @@ defmodule Ambry.Media.AuditTest do
                  },
                  %{
                    path: foo_mp3_path,
-                   stat: %File.Stat{}
-                 },
-                 %{
-                   path: out_files_txt_path,
                    stat: %File.Stat{}
                  }
                ]

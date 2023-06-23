@@ -34,7 +34,7 @@ defmodule Ambry.Media.Audit do
     case File.ls(media.source_path) do
       {:ok, relative_paths} ->
         relative_paths
-        |> NaturalSort.sort()
+        |> Enum.sort(NaturalOrder)
         |> Enum.flat_map(fn path ->
           file_stat(Path.join([media.source_path, path]))
         end)
@@ -51,7 +51,7 @@ defmodule Ambry.Media.Audit do
       case File.ls(path) do
         {:ok, relative_paths} ->
           relative_paths
-          |> NaturalSort.sort()
+          |> Enum.sort(NaturalOrder)
           |> Enum.flat_map(fn p ->
             file_stat(Path.join([path, p]))
           end)

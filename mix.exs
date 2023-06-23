@@ -66,7 +66,7 @@ defmodule Ambry.MixProject do
       {:gettext, "~> 0.20"},
       {:hashids, "~> 2.0"},
       {:jason, "~> 1.2"},
-      {:natural_sort, "~> 0.3"},
+      {:natural_order, "~> 0.3"},
       {:npm_deps, "~> 0.3.1", runtime: false},
       {:oban, "~> 2.11"},
       {:phoenix_ecto, "~> 4.4"},

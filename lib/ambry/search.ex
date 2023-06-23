@@ -44,6 +44,12 @@ defmodule Ambry.Search do
 
   # New search implementation (used by graphql)
 
+  def new_search(query_string) do
+    query_string
+    |> query()
+    |> all()
+  end
+
   def query(query_string) do
     like = "%#{query_string}%"
 
