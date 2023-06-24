@@ -7,8 +7,6 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
 
   alias Ambry.{Books, Uploads}
 
-  @initial_params %{"book" => %{"image_type" => "upload"}}
-
   @impl Phoenix.LiveView
   def mount(%{"id" => id}, _session, socket) do
     upload = Uploads.get_upload!(id)
@@ -17,19 +15,16 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
     initial_params =
       cond do
         !is_nil(upload.book_id) ->
-          Map.merge(@initial_params, %{"book_id" => to_string(upload.book_id)})
+          %{"book_id" => to_string(upload.book_id)}
 
         is_binary(upload.title) ->
           case Ambry.Search.new_search(upload.title) do
-            [%Books.Book{} = book | _rest] ->
-              Map.merge(@initial_params, %{"book_id" => to_string(book.id)})
-
-            _else ->
-              @initial_params
+            [%Books.Book{} = book | _rest] -> %{"book_id" => to_string(book.id)}
+            _else -> %{}
           end
 
         true ->
-          @initial_params
+          %{}
       end
 
     existing_book? = Map.has_key?(initial_params, "book_id") || !is_nil(upload.book_id)
@@ -122,9 +117,9 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
       </div>
     </.modal>
 
-    <.simple_form for={@form} phx-change="validate" phx-submit="save">
-      <.datalist id="books" options={@books} />
+    <.datalist id="books" options={@books} />
 
+    <.simple_form for={@form} phx-change="validate" phx-submit="save">
       <div class="space-y-6">
         <.input field={@form[:title]} label="Book title" />
 
@@ -227,7 +222,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                       {"Import from API", "data_import"}
                     ]}
                   />
-                  <div :if={book_form[:image_type].value == "upload"}>
+                  <div :if={book_form[:image_type].value == "upload" || is_nil(book_form[:image_type].value)}>
                     <section
                       class="border-brand mt-2 w-full space-y-4 rounded-lg border-2 border-dashed p-4 dark:border-brand-dark"
                       phx-drop-target={@uploads.book_cover_image.ref}
@@ -637,9 +632,9 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
               edition.format |> String.downcase() |> String.contains?("audio")
             end)
 
-          socket = goodreads_edition_details_async(socket, selected_edition.id)
-
-          update(socket, :goodreads, fn goodreads_assigns ->
+          socket
+          |> goodreads_edition_details_async(selected_edition.id)
+          |> update(:goodreads, fn goodreads_assigns ->
             %{
               goodreads_assigns
               | editions_loading: false,
@@ -647,6 +642,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 selected_edition: selected_edition
             }
           end)
+          |> autofill_form(editions)
 
         {:error, _reason} ->
           update(socket, :goodreads, fn goodreads_assigns ->
@@ -665,13 +661,15 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
     socket =
       case response do
         {:ok, edition_details} ->
-          update(socket, :goodreads, fn goodreads_assigns ->
+          socket
+          |> update(:goodreads, fn goodreads_assigns ->
             %{
               goodreads_assigns
               | edition_details_loading: false,
                 edition_details: edition_details
             }
           end)
+          |> autofill_form(edition_details)
 
         {:error, _reason} ->
           update(socket, :goodreads, fn goodreads_assigns ->
@@ -756,5 +754,37 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
           edition_details: nil
       }
     end)
+  end
+
+  defp autofill_form(socket, %GoodReads.Books.Editions{} = editions) do
+    params = socket.assigns.form.params
+
+    book_params =
+      params
+      |> Map.get("book", %{})
+      |> Map.put_new("published", editions.first_published.date)
+      |> Map.put_new("published_format", editions.first_published.display_format)
+
+    assign_form(
+      socket,
+      Uploads.change_upload(socket.assigns.upload, Map.put(params, "book", book_params))
+    )
+  end
+
+  defp autofill_form(socket, %GoodReads.Books.EditionDetails{} = details) do
+    params = socket.assigns.form.params
+
+    book_params =
+      params
+      |> Map.get("book", %{})
+      |> Map.put_new("image_type", "data_import")
+      |> Map.put_new("image_import_data", details.cover_image.data_url)
+      |> Map.put_new("title", details.title)
+      |> Map.put_new("description", details.description)
+
+    assign_form(
+      socket,
+      Uploads.change_upload(socket.assigns.upload, Map.put(params, "book", book_params))
+    )
   end
 end
