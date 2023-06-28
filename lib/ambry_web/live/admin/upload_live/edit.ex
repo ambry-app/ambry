@@ -51,13 +51,22 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
           selected_edition: nil,
           edition_details_loading: false,
           edition_details: nil
+        },
+        audible: %{
+          search_form: to_form(%{"query" => upload.title}, as: :audible_search),
+          search_loading: false,
+          error: nil,
+          search: nil,
+          selected_book: nil
         }
       )
       |> assign_form(Uploads.change_upload(upload, initial_params))
 
     socket =
       if connected?(socket) && !existing_book? && upload.title do
-        goodreads_search_async(socket, upload.title)
+        socket
+        |> goodreads_search_async(upload.title)
+        |> audible_search_async(upload.title)
       else
         socket
       end
@@ -68,13 +77,10 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <.simple_form
-      id={@goodreads.search_form.id}
-      for={@goodreads.search_form}
-      phx-change="goodreads-search-change"
-      phx-submit="goodreads-search-submit"
-    >
+    <.simple_form id={@goodreads.search_form.id} for={@goodreads.search_form} phx-submit="goodreads-search-submit">
     </.simple_form>
+
+    <.simple_form id={@audible.search_form.id} for={@audible.search_form} phx-submit="audible-search-submit"></.simple_form>
 
     <.modal id="goodreads-selector-modal">
       <div class="grid grid-cols-2 gap-4">
@@ -112,6 +118,27 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
             >
               <.book_card book={edition} />
             </div>
+          </div>
+        </div>
+      </div>
+    </.modal>
+
+    <.modal id="audible-selector-modal">
+      <div>
+        <div :if={@audible.search} class="space-y-2">
+          <.label>Results for "<%= @audible.search_form[:query].value %>"</.label>
+          <div
+            :for={book <- @audible.search}
+            class={[
+              "cursor-pointer rounded-md p-2 hover:bg-zinc-900",
+              if(@audible.selected_book.asin == book.asin, do: "bg-zinc-900")
+            ]}
+            phx-click={
+              hide_modal("audible-selector-modal")
+              |> JS.push("audible-select-book", value: %{"book-asin" => book.asin})
+            }
+          >
+            <.book_card book={book} />
           </div>
         </div>
       </div>
@@ -207,7 +234,37 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Header --%>
-                <p>Audible Header</p>
+                <div class="space-y-6">
+                  <div class="space-y-2">
+                    <.label for={@audible.search_form[:query].id}>
+                      Import from Audible
+                    </.label>
+                    <div class="flex w-full gap-2">
+                      <.input
+                        form={@audible.search_form.id}
+                        field={@audible.search_form[:query]}
+                        disabled={@audible.search_loading}
+                        container_class="grow"
+                      />
+                      <.button form={@audible.search_form.id} disabled={@audible.search_loading}>
+                        Search
+                      </.button>
+                    </div>
+                    <.brand_link
+                      :if={@audible.search && !@audible.search_loading}
+                      phx-click={show_modal("audible-selector-modal")}
+                      class="!font-normal block text-sm"
+                    >
+                      Change book
+                    </.brand_link>
+                    <.error :if={@audible.error}>
+                      <%= @audible.error %>
+                    </.error>
+                    <.loading :if={@audible.search_loading}>
+                      Fetching data from Audible...
+                    </.loading>
+                  </div>
+                </div>
 
                 <%!-- Image --%>
                 <div class="space-y-2">
@@ -218,8 +275,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                     field={book_form[:image_type]}
                     options={[
                       {"Upload file", "upload"},
-                      {"Import image from URL", "url_import"},
-                      {"Import from API", "data_import"}
+                      {"Import image from URL", "url_import"}
                     ]}
                   />
                   <div :if={book_form[:image_type].value == "upload" || is_nil(book_form[:image_type].value)}>
@@ -262,19 +318,36 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
 
                     <div :if={valid_image_url?(book_form[:image_import_url].value)}>
                       <img
+                        id="image-preview-url"
                         src={book_form[:image_import_url].value}
                         class="mt-2 h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900"
+                      />
+                      <p
+                        id="image-preview-size"
+                        class="text-xs text-zinc-700"
+                        phx-hook="image-size"
+                        data-target="image-preview-url"
+                        phx-update="ignore"
                       />
                     </div>
                   </div>
                   <div :if={book_form[:image_type].value == "data_import"} class="space-y-2">
                     <.input type="hidden" field={book_form[:image_import_data]} />
 
-                    <img
-                      :if={book_form[:image_import_data].value}
-                      src={book_form[:image_import_data].value}
-                      class="mt-2 h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900"
-                    />
+                    <div :if={book_form[:image_import_data].value}>
+                      <img
+                        id="image-preview-data"
+                        src={book_form[:image_import_data].value}
+                        class="mt-2 h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900"
+                      />
+                      <p
+                        id="image-preview-size"
+                        class="text-xs text-zinc-700"
+                        phx-hook="image-size"
+                        data-target="image-preview-data"
+                        phx-update="ignore"
+                      />
+                    </div>
                     <.note :if={!book_form[:image_import_data].value}>
                       Click "Use this image" from either the GoodReads or Audible search results
                       on the right to import the cover image from there.
@@ -286,19 +359,29 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 <div>
                   <div :if={@goodreads.edition_details} class="space-y-2">
                     <.label>Image</.label>
-                    <img
-                      src={@goodreads.edition_details.cover_image.data_url}
-                      class="h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900"
-                    />
+                    <div>
+                      <img
+                        id="goodreads-image-preview"
+                        src={@goodreads.edition_details.cover_image.src}
+                        class="h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900"
+                      />
+                      <p
+                        id="goodreads-image-preview-size"
+                        class="text-xs text-zinc-700"
+                        phx-hook="image-size"
+                        data-target="goodreads-image-preview"
+                        phx-update="ignore"
+                      />
+                    </div>
                     <.brand_link
                       phx-click={
                         JS.push("set-book-field",
-                          value: %{"field" => "image_type", "value" => "data_import"}
+                          value: %{"field" => "image_type", "value" => "url_import"}
                         )
                         |> JS.push("set-book-field",
                           value: %{
-                            "field" => "image_import_data",
-                            "value" => @goodreads.edition_details.cover_image.data_url
+                            "field" => "image_import_url",
+                            "value" => @goodreads.edition_details.cover_image.src
                           }
                         )
                       }
@@ -310,7 +393,41 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Image --%>
-                <p>Audible Image</p>
+                <div>
+                  <div :if={@audible.selected_book} class="space-y-2">
+                    <.label>Image</.label>
+                    <div>
+                      <img
+                        id="audible-image-preview"
+                        src={@audible.selected_book.cover_image.src}
+                        class="h-48 rounded-lg border border-zinc-200 shadow-md dark:border-zinc-900"
+                      />
+                      <p
+                        id="audible-image-preview-size"
+                        class="text-xs text-zinc-700"
+                        phx-hook="image-size"
+                        data-target="audible-image-preview"
+                        phx-update="ignore"
+                      />
+                    </div>
+                    <.brand_link
+                      phx-click={
+                        JS.push("set-book-field",
+                          value: %{"field" => "image_type", "value" => "url_import"}
+                        )
+                        |> JS.push("set-book-field",
+                          value: %{
+                            "field" => "image_import_url",
+                            "value" => @audible.selected_book.cover_image.src
+                          }
+                        )
+                      }
+                      class="!font-normal block text-sm"
+                    >
+                      Use this image
+                    </.brand_link>
+                  </div>
+                </div>
 
                 <%!-- Title --%>
                 <div class="space-y-2">
@@ -336,7 +453,22 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Title --%>
-                <p>Audible Title</p>
+                <div>
+                  <div :if={@audible.selected_book} class="space-y-2">
+                    <.label>Title</.label>
+                    <div class="text-lg font-bold">
+                      <%= @audible.selected_book.title %>
+                    </div>
+                    <.brand_link
+                      phx-click={
+                        JS.push("set-book-field", value: %{"field" => "title", "value" => @audible.selected_book.title})
+                      }
+                      class="!font-normal block text-sm"
+                    >
+                      Use this title
+                    </.brand_link>
+                  </div>
+                </div>
 
                 <%!-- Published --%>
                 <div class="space-y-2">
@@ -385,7 +517,10 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Published --%>
-                <p>Audible Published</p>
+                <div class="space-y-2">
+                  <.label>First published</.label>
+                  <.note>Audible doesn't have this data.</.note>
+                </div>
 
                 <%!-- Description --%>
                 <div class="space-y-2">
@@ -421,7 +556,25 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Description --%>
-                <p>Audible Description</p>
+                <div>
+                  <div :if={@audible.selected_book} class="space-y-2">
+                    <.label>Description</.label>
+                    <.markdown
+                      content={@audible.selected_book.description}
+                      class="max-h-64 overflow-y-auto rounded-lg border border-zinc-800 p-2"
+                    />
+                    <.brand_link
+                      phx-click={
+                        JS.push("set-book-field",
+                          value: %{"field" => "description", "value" => @audible.selected_book.description}
+                        )
+                      }
+                      class="!font-normal block text-sm"
+                    >
+                      Use this description
+                    </.brand_link>
+                  </div>
+                </div>
               </div>
             </.inputs_for>
           </div>
@@ -486,6 +639,41 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
     """
   end
 
+  defp book_card(%{book: %Audible.Products.Product{}} = assigns) do
+    ~H"""
+    <div class="flex gap-2 text-sm">
+      <img src={@book.cover_image.src} class="h-24 w-24" />
+      <div>
+        <p class="font-bold"><%= @book.title %></p>
+        <p :if={@book.authors != []} class="text-zinc-400">
+          by
+          <span :for={author <- @book.authors} class="group">
+            <span><%= author.name %></span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.narrators != []} class="text-zinc-400">
+          Narrated by
+          <span :for={narrator <- @book.narrators} class="group">
+            <span><%= narrator.name %></span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.published && @book.publisher} class="text-xs text-zinc-400">
+          Published <%= display_date(@book.published) %> by <%= @book.publisher %>
+        </p>
+        <p class="text-xs text-zinc-400"><%= @book.format %></p>
+        <div :for={action <- @actions}>
+          <%= render_slot(action) %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp display_date(%Date{} = date),
+    do: Calendar.strftime(date, "%B %-d, %Y")
+
   defp display_date(%GoodReads.PublishedDate{display_format: :full, date: date}),
     do: Calendar.strftime(date, "%B %-d, %Y")
 
@@ -542,16 +730,11 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
     {:noreply, assign(socket, existing_book: !socket.assigns.existing_book)}
   end
 
-  def handle_event(
-        "goodreads-search-change",
-        %{"goodreads_search" => goodreads_search_params},
-        socket
-      ) do
-    {:noreply,
-     update(socket, :goodreads, fn goodreads_assigns ->
-       %{goodreads_assigns | search_form: to_form(goodreads_search_params, as: :goodreads_search)}
-     end)}
+  def handle_event("cancel-book-cover-image-upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :book_cover_image, ref)}
   end
+
+  # GoodReads
 
   def handle_event(
         "goodreads-search-submit",
@@ -588,9 +771,33 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
      end)}
   end
 
-  def handle_event("cancel-book-cover-image-upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :book_cover_image, ref)}
+  # Audible
+
+  def handle_event(
+        "audible-search-submit",
+        %{"audible_search" => audible_search_params},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> update(:audible, fn audible_assigns ->
+       %{audible_assigns | search_form: to_form(audible_search_params, as: :audible_search)}
+     end)
+     |> audible_search_async(audible_search_params["query"])}
   end
+
+  def handle_event("audible-select-book", %{"book-asin" => book_asin}, socket) do
+    book = socket.assigns.audible.search |> Enum.find(&(&1.asin == book_asin))
+
+    {:noreply,
+     update(socket, :audible, fn audible_assigns ->
+       %{audible_assigns | selected_book: book}
+     end)}
+  end
+
+  ###
+
+  # GoodReads
 
   @impl Phoenix.LiveView
   def handle_info({_task_ref, {:goodreads_search, response}}, socket) do
@@ -684,6 +891,40 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
     {:noreply, socket}
   end
 
+  # Audible
+
+  def handle_info({_task_ref, {:audible_search, response}}, socket) do
+    socket =
+      case response do
+        {:ok, results} ->
+          selected_book = List.first(results)
+
+          socket
+          |> update(:audible, fn audible_assigns ->
+            %{
+              audible_assigns
+              | search_loading: false,
+                search: results,
+                selected_book: selected_book
+            }
+          end)
+          |> autofill_form(selected_book)
+
+        {:error, _reason} ->
+          update(socket, :audible, fn audible_assigns ->
+            %{
+              audible_assigns
+              | search_loading: false,
+                error: "Search failed"
+            }
+          end)
+      end
+
+    {:noreply, socket}
+  end
+
+  ###
+
   def handle_info({:DOWN, _task_ref, _, _, _}, socket) do
     {:noreply, socket}
   end
@@ -691,6 +932,8 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
   end
+
+  # GoodReads
 
   defp goodreads_search_async(socket, query) do
     query =
@@ -756,6 +999,37 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
     end)
   end
 
+  # Audible
+
+  defp audible_search_async(socket, query) do
+    query =
+      query
+      |> to_string()
+      |> String.trim()
+      |> String.downcase()
+
+    if query != "" do
+      Task.async(fn ->
+        response = Ambry.Metadata.Audible.search(query)
+        {:audible_search, response}
+      end)
+
+      update(socket, :audible, fn audible_assigns ->
+        %{
+          audible_assigns
+          | search_loading: true,
+            error: nil,
+            search: nil,
+            selected_book: nil
+        }
+      end)
+    else
+      socket
+    end
+  end
+
+  ###
+
   defp autofill_form(socket, %GoodReads.Books.Editions{} = editions) do
     params = socket.assigns.form.params
 
@@ -777,10 +1051,23 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
     book_params =
       params
       |> Map.get("book", %{})
-      |> Map.put_new("image_type", "data_import")
-      |> Map.put_new("image_import_data", details.cover_image.data_url)
       |> Map.put_new("title", details.title)
       |> Map.put_new("description", details.description)
+
+    assign_form(
+      socket,
+      Uploads.change_upload(socket.assigns.upload, Map.put(params, "book", book_params))
+    )
+  end
+
+  defp autofill_form(socket, %Audible.Products.Product{} = product) do
+    params = socket.assigns.form.params
+
+    book_params =
+      params
+      |> Map.get("book", %{})
+      |> Map.put_new("image_type", "url_import")
+      |> Map.put_new("image_import_url", product.cover_image.src)
 
     assign_form(
       socket,
