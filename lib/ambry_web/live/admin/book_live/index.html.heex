@@ -31,7 +31,7 @@
   <:col :let={book} label="Title">
     <%= book.title %>
   </:col>
-  <:col :let={book} label="Authors" class="hidden sm:table-cell">
+  <:col :let={book} label="Authors">
     <%= for author <- book.authors do %>
       <%= author.name %>
       <%= if author.name != author.person_name do %>
@@ -46,10 +46,10 @@
       <br />
     <% end %>
   </:col>
-  <:col :let={book} label="Published">
+  <:col :let={book} label="First published" class="hidden md:table-cell">
     <%= format_published(book) %>
   </:col>
-  <:col :let={book} label="# Media" class="hidden md:table-cell">
+  <:col :let={book} label="# Media" class="hidden sm:table-cell">
     <%= book.media %>
   </:col>
   <:actions :let={book}>

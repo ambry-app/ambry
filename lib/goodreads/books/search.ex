@@ -23,12 +23,9 @@ defmodule GoodReads.Books.Search do
     query = URI.encode_query(%{utf8: "✓", query: query_string})
     path = "/search" |> URI.new!() |> URI.append_query(query) |> URI.to_string()
 
-    with {:ok, page_html} = Browser.get_page_html(path),
+    with {:ok, page_html} <- Browser.get_page_html(path),
          {:ok, document} <- Floki.parse_document(page_html) do
       {:ok, %__MODULE__{query: query_string, results: parse_books(document)}}
-    else
-      {:ok, response} -> {:error, response}
-      {:error, reason} -> {:error, reason}
     end
   end
 

@@ -25,16 +25,13 @@ defmodule GoodReads.Books.EditionDetails do
   end
 
   def edition_details("edition:" <> id = full_id) do
-    with {:ok, page_html} =
+    with {:ok, page_html} <-
            Browser.get_page_html("/book/show/#{id}",
              click: "button[aria-label='Book details and editions']",
              wait_for: "div.EditionDetails"
            ),
          {:ok, document} <- Floki.parse_document(page_html) do
       {:ok, parse_edition_details(full_id, document)}
-    else
-      {:ok, response} -> {:error, response}
-      {:error, reason} -> {:error, reason}
     end
   end
 

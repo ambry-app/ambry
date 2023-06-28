@@ -340,7 +340,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
 
                 <%!-- Published --%>
                 <div class="space-y-2">
-                  <.label for={book_form[:published].id}>Published</.label>
+                  <.label for={book_form[:published].id}>First published</.label>
 
                   <.note>
                     This is meant to be print publication date, not audiobook recording date.
@@ -361,7 +361,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 <%!-- GR Published --%>
                 <div>
                   <div :if={@goodreads.editions} class="space-y-2">
-                    <.label>Published</.label>
+                    <.label>First published</.label>
                     <div class="text-lg">
                       <%= display_date(@goodreads.editions.first_published) %>
                     </div>
