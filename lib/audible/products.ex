@@ -99,7 +99,7 @@ defmodule Audible.Products do
     }
   end
 
-  defp parse_authors(nil), do: nil
+  defp parse_authors(nil), do: []
 
   defp parse_authors(authors) do
     Enum.map(authors, fn author ->
@@ -110,7 +110,7 @@ defmodule Audible.Products do
     end)
   end
 
-  defp parse_narrators(nil), do: nil
+  defp parse_narrators(nil), do: []
 
   defp parse_narrators(narrators) do
     Enum.map(narrators, fn narrator ->
