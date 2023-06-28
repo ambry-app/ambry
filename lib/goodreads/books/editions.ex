@@ -30,16 +30,13 @@ defmodule GoodReads.Books.Editions do
     query = URI.encode_query(%{utf8: "✓", per_page: 100})
     path = "/work/editions/#{id}" |> URI.new!() |> URI.append_query(query) |> URI.to_string()
 
-    with {:ok, page_html} = Browser.get_page_html(path),
+    with {:ok, page_html} <- Browser.get_page_html(path),
          {:ok, document} <- Floki.parse_document(page_html) do
       {:ok, parse_page(full_id, document)}
-    else
-      {:ok, response} -> {:error, response}
-      {:error, reason} -> {:error, reason}
     end
   end
 
-  def parse_page(id, html) do
+  defp parse_page(id, html) do
     %__MODULE__{
       id: id,
       title: parse_book_title(html),

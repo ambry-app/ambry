@@ -29,7 +29,7 @@ defmodule AmbryWeb.BookLive do
             />
           </div>
           <p class="mt-2 text-sm text-zinc-500">
-            Published <%= format_published(@book) %>
+            First published <%= format_published(@book) %>
           </p>
           <%= if @book.media != [] do %>
             <h2 class="mt-4 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
