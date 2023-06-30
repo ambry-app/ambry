@@ -44,11 +44,14 @@ defmodule Ambry.Metadata.GoodReads do
         {:error, reason}
 
       {:ok, result} ->
-        %Cache{}
-        |> Cache.changeset(%{key: key_fun.(arg), value: :erlang.term_to_binary(result)})
-        |> Repo.insert!()
-
+        upsert_cache_entry!(key_fun.(arg), :erlang.term_to_binary(result))
         {:ok, result}
     end
+  end
+
+  defp upsert_cache_entry!(key, value) do
+    %Cache{}
+    |> Cache.changeset(%{key: key, value: value})
+    |> Repo.insert!(on_conflict: [set: [value: value]], conflict_target: :key)
   end
 end
