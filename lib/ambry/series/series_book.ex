@@ -47,7 +47,9 @@ defmodule Ambry.Series.SeriesBook do
   def book_assoc_changeset(series_book, attrs) do
     series_book
     |> changeset(attrs)
-    |> validate_required([:series_id])
+    |> cast_assoc(:series)
+    # FIXME:
+    # |> validate_required([:series_id])
     |> unique_constraint(:series_id, name: "books_series_book_id_series_id_index")
   end
 end
