@@ -26,6 +26,7 @@ defmodule Ambry.Authors.Author do
   def changeset(author, attrs) do
     author
     |> cast(attrs, [:name, :delete])
+    |> cast_assoc(:person)
     |> validate_required([:name])
     |> maybe_apply_delete()
     |> foreign_key_constraint(:delete,

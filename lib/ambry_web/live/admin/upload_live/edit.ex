@@ -576,6 +576,15 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                   </div>
                 </div>
               </div>
+
+              <.inputs_for :let={book_authors_form} field={book_form[:book_authors]}>
+                <.inputs_for :let={author_form} field={book_authors_form[:author]}>
+                  <.input field={author_form[:name]} label="Author Name" />
+                  <.inputs_for :let={person_form} field={author_form[:person]}>
+                    <.input field={person_form[:name]} label="Person Name" />
+                  </.inputs_for>
+                </.inputs_for>
+              </.inputs_for>
             </.inputs_for>
           </div>
         </fieldset>
@@ -1053,11 +1062,23 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
       |> Map.get("book", %{})
       |> Map.put_new("title", details.title)
       |> Map.put_new("description", details.description)
+      |> Map.put(
+        "book_authors",
+        Enum.map(details.authors, fn author ->
+          %{
+            "author" => %{
+              "name" => author.name,
+              "person" => %{"name" => author.name}
+            }
+          }
+        end)
+      )
 
-    assign_form(
-      socket,
-      Uploads.change_upload(socket.assigns.upload, Map.put(params, "book", book_params))
-    )
+    changeset = Uploads.change_upload(socket.assigns.upload, Map.put(params, "book", book_params))
+
+    IO.inspect(changeset)
+
+    assign_form(socket, changeset)
   end
 
   defp autofill_form(socket, %Audible.Products.Product{} = product) do

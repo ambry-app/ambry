@@ -21,7 +21,9 @@ defmodule Ambry.Authors.BookAuthor do
   def changeset(book_author, attrs) do
     book_author
     |> cast(attrs, [:author_id, :delete])
-    |> validate_required(:author_id)
+    |> cast_assoc(:author)
+    # FIXME:
+    # |> validate_required(:author_id)
     |> maybe_apply_delete()
     |> unique_constraint([:author_id, :book_id])
   end

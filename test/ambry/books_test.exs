@@ -138,6 +138,39 @@ defmodule Ambry.BooksTest do
 
       assert %{title: ^title, series_books: [%{series_id: ^series_id}]} = book
     end
+
+    test "can create everything about a book using deeply nested params" do
+      params = %{
+        title: "Book Title",
+        published: "2023-01-01",
+        book_authors: [
+          %{
+            author: %{
+              name: "Author Name",
+              person: %{
+                name: "Person Name"
+              }
+            }
+          }
+        ],
+        series_books: [
+          %{
+            book_number: "2.1",
+            series: %{
+              name: "Series Name"
+            }
+          }
+        ]
+      }
+
+      assert {:ok, book} = Books.create_book(params)
+
+      assert %{
+               title: "Book Title",
+               book_authors: [%{author: %{name: "Author Name", person: %{name: "Person Name"}}}],
+               series_books: [%{series: %{name: "Series Name"}}]
+             } = book
+    end
   end
 
   describe "update_book/2" do
