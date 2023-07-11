@@ -1,7 +1,8 @@
-defmodule GoodReads.Books.EditionDetails do
+defmodule AmbryScraping.GoodReads.Books.EditionDetails do
   @moduledoc false
 
-  alias GoodReads.{Browser, Image, PublishedDate}
+  alias AmbryScraping.GoodReads.{Browser, PublishedDate}
+  alias AmbryScraping.{HTMLToMD, Image}
 
   defstruct [
     :id,
@@ -17,10 +18,12 @@ defmodule GoodReads.Books.EditionDetails do
   ]
 
   defmodule Contributor do
+    @moduledoc false
     defstruct [:id, :name, :type]
   end
 
   defmodule Series do
+    @moduledoc false
     defstruct [:id, :name, :number]
   end
 
@@ -69,7 +72,7 @@ defmodule GoodReads.Books.EditionDetails do
     type = clean_author_type_string(role)
 
     %Contributor{
-      id: parse_id(html, "ContributorLink"),
+      id: "author:" <> parse_id(html, "ContributorLink"),
       name: name,
       type: type
     }
@@ -86,36 +89,7 @@ defmodule GoodReads.Books.EditionDetails do
     |> Floki.find("div[data-testid='description'] span.Formatted")
     |> List.first()
     |> Floki.children()
-    |> Floki.traverse_and_update(&description_to_markdown/1)
-    |> Floki.raw_html()
-    |> clean_html()
-  end
-
-  defp description_to_markdown(node) do
-    case node do
-      {e, [], children} when e in ~w(b strong) -> format_children(children, "**")
-      {e, [], children} when e in ~w(i em) -> format_children(children, "_")
-      {"p", [], children} -> format_children(children, "\n")
-      {"br", [], []} -> "\n"
-      {_e, _attrs, children} -> format_children(children)
-    end
-  end
-
-  defp format_children(children, wrapping \\ nil),
-    do: children |> Enum.join("") |> String.trim() |> wrap(wrapping)
-
-  defp wrap(string, nil), do: string
-  defp wrap(string, wrapping), do: "#{wrapping}#{string}#{wrapping}"
-
-  defp clean_html(string) do
-    string
-    |> String.replace("\u00a0", "")
-    |> String.replace("\u201C", "\"")
-    |> String.replace("\u201D", "\"")
-    |> String.replace("\u2018", "'")
-    |> String.replace("\u2019", "'")
-    |> String.replace("&#39;", "'")
-    |> String.trim()
+    |> HTMLToMD.html_to_md()
   end
 
   defp parse_cover_image(html) do
@@ -180,7 +154,7 @@ defmodule GoodReads.Books.EditionDetails do
   defp series_part({"a", _attrs, _children} = link) do
     [url] = Floki.attribute(link, "href")
     uri = URI.parse(url)
-    id = uri.path |> Path.basename()
+    id = Path.basename(uri.path)
     name = link |> Floki.text() |> clean_string()
 
     %Series{id: "series:" <> id, name: name}
@@ -195,7 +169,7 @@ defmodule GoodReads.Books.EditionDetails do
   defp parse_id(html, class) do
     [url] = html |> Floki.find("a.#{class}") |> Floki.attribute("href")
     uri = URI.parse(url)
-    uri.path |> Path.basename()
+    Path.basename(uri.path)
   end
 
   @space ~r/\s+/

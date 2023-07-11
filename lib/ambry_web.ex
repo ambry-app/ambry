@@ -104,7 +104,6 @@ defmodule AmbryWeb do
       # Core UI components and translation
       import AmbryWeb.CoreComponents
       import AmbryWeb.Gettext
-      import Phoenix.HTML
 
       # Shortcut for generating JS commands
       alias FontAwesome.LiveView, as: FA

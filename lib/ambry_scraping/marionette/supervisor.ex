@@ -1,13 +1,15 @@
-defmodule Marionette.Supervisor do
+defmodule AmbryScraping.Marionette.Supervisor do
   @moduledoc false
 
   use Supervisor
+
+  alias AmbryScraping.Marionette
 
   def start_link(init_arg) do
     Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
 
-  @impl true
+  @impl Supervisor
   def init(_init_arg) do
     {mktemp_out, 0} = System.cmd("mktemp", ["-d"])
     tmp_dir = String.trim(mktemp_out)
@@ -26,7 +28,9 @@ defmodule Marionette.Supervisor do
          ]
        ]},
       # Socket for sending commands to the browser
-      Marionette.Socket
+      Marionette.Socket,
+      # Higher-level interface for serializing commands to the browser
+      Marionette.Browser
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)

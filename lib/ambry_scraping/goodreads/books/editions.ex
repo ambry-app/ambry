@@ -1,15 +1,18 @@
-defmodule GoodReads.Books.Editions do
+defmodule AmbryScraping.GoodReads.Books.Editions do
   @moduledoc false
 
-  alias GoodReads.{Browser, Image, PublishedDate}
+  alias AmbryScraping.GoodReads.{Browser, PublishedDate}
+  alias AmbryScraping.Image
 
   defstruct [:id, :title, :primary_author, :first_published, :editions]
 
   defmodule Contributor do
+    @moduledoc false
     defstruct [:id, :name, :type]
   end
 
   defmodule Edition do
+    @moduledoc false
     defstruct [
       :id,
       :title,
@@ -55,7 +58,7 @@ defmodule GoodReads.Books.Editions do
 
     [url] = html |> Floki.find("div.workEditions h2 a") |> Floki.attribute("href")
     uri = URI.parse(url)
-    id = "author:" <> (uri.path |> Path.basename())
+    id = "author:" <> Path.basename(uri.path)
 
     %Contributor{
       id: id,
@@ -186,7 +189,7 @@ defmodule GoodReads.Books.Editions do
   defp parse_id(html, class) do
     [url] = html |> Floki.find("a.#{class}") |> Floki.attribute("href")
     uri = URI.parse(url)
-    uri.path |> Path.basename()
+    Path.basename(uri.path)
   end
 
   @space ~r/\s+/
