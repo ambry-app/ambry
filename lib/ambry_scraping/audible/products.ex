@@ -1,9 +1,9 @@
-defmodule Audible.Products do
+defmodule AmbryScraping.Audible.Products do
   @moduledoc """
   Audible JSON API for products
   """
 
-  alias Audible.Image
+  alias AmbryScraping.{HTMLToMD, Image}
 
   @url "https://api.audible.com/1.0"
   @response_groups ~w(
@@ -27,6 +27,7 @@ defmodule Audible.Products do
   )
 
   defmodule Product do
+    @moduledoc false
     defstruct [
       :asin,
       :title,
@@ -43,14 +44,17 @@ defmodule Audible.Products do
   end
 
   defmodule Author do
+    @moduledoc false
     defstruct [:asin, :name]
   end
 
   defmodule Narrator do
+    @moduledoc false
     defstruct [:name]
   end
 
   defmodule Series do
+    @moduledoc false
     defstruct [:asin, :sequence, :title]
   end
 
@@ -134,41 +138,7 @@ defmodule Audible.Products do
 
   defp parse_description(nil), do: nil
 
-  defp parse_description(html) do
-    html
-    |> Floki.parse_document!()
-    |> Floki.traverse_and_update(&description_to_markdown/1)
-    |> Floki.raw_html()
-    |> clean_html()
-  end
-
-  defp description_to_markdown(node) do
-    case node do
-      {e, [], children} when e in ~w(b strong) -> format_children(children, "**")
-      {e, [], children} when e in ~w(i em) -> format_children(children, "_")
-      {"p", [], children} -> format_children(children, "\n")
-      {"br", [], []} -> "\n"
-      {_e, _attrs, children} -> format_children(children)
-    end
-  end
-
-  defp format_children(children, wrapping \\ nil),
-    do: children |> Enum.join("") |> String.trim() |> wrap(wrapping)
-
-  defp wrap(string, nil), do: string
-  defp wrap(string, wrapping), do: " #{wrapping}#{string}#{wrapping} "
-
-  defp clean_html(string) do
-    string
-    |> String.replace("\u00a0", "")
-    |> String.replace("\u201C", "\"")
-    |> String.replace("\u201D", "\"")
-    |> String.replace("\u2018", "'")
-    |> String.replace("\u2019", "'")
-    |> String.replace("&#39;", "'")
-    |> String.replace("&quot;", "\"")
-    |> String.trim()
-  end
+  defp parse_description(html), do: HTMLToMD.html_to_md(html)
 
   defp parse_image(%{"900" => url}) when is_binary(url) do
     src = String.replace(url, "._SL900_", "")

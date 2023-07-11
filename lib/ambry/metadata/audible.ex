@@ -10,20 +10,24 @@ defmodule Ambry.Metadata.Audible do
   alias Ambry.Metadata.Audible.Cache
   alias Ambry.Repo
 
-  alias Audible.Products
+  alias AmbryScraping.Audible.{Authors, Products}
 
   def search(query, refresh \\ false)
   def search(query, true), do: clear_get_and_cache(query, &Products.search/1, &search_key/1)
   def search(query, false), do: cache_get(query, &Products.search/1, &search_key/1)
 
+  def author(asin, refresh \\ false)
+  def author(asin, true), do: clear_get_and_cache(asin, &Authors.details/1)
+  def author(asin, false), do: cache_get(asin, &Authors.details/1)
+
   defp search_key(query_string), do: "search:#{query_string}"
 
-  defp clear_get_and_cache(arg, fetch_fun, key_fun) do
+  defp clear_get_and_cache(arg, fetch_fun, key_fun \\ &Function.identity/1) do
     Repo.delete_all(from c in Cache, where: [key: ^key_fun.(arg)])
     get_and_cache(arg, fetch_fun, key_fun)
   end
 
-  defp cache_get(arg, fetch_fun, key_fun) do
+  defp cache_get(arg, fetch_fun, key_fun \\ &Function.identity/1) do
     case Repo.get(Cache, key_fun.(arg)) do
       nil -> get_and_cache(arg, fetch_fun, key_fun)
       cache -> {:ok, :erlang.binary_to_term(cache.value)}

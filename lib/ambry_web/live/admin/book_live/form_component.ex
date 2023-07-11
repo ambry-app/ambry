@@ -3,10 +3,11 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   use AmbryWeb, :live_component
 
-  import AmbryWeb.Admin.{Components, HTMLToMD, UploadHelpers}
+  import AmbryWeb.Admin.{Components, UploadHelpers}
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
 
   alias Ambry.{Authors, Books, Series}
+  alias AmbryScraping.{Audible, Audnexus, HTMLToMD}
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -136,7 +137,7 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
       |> init_book_param()
       |> Map.merge(%{
         "title" => book_details["title"],
-        "description" => parse_description(book_details["summary"]),
+        "description" => HTMLToMD.html_to_md(book_details["summary"]),
         "image_import_url" => book_details["image"]
       })
       |> Map.update!("book_authors", fn
@@ -157,13 +158,6 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
       end)
 
     Books.change_book(book, params)
-  end
-
-  defp parse_description(html_string) do
-    case html_to_md(html_string) do
-      {:ok, description} -> description
-      :error -> html_string
-    end
   end
 
   defp audnexus_matching_authors(book_details) do

@@ -10,7 +10,7 @@ defmodule Ambry.Metadata.GoodReads do
   alias Ambry.Metadata.GoodReads.Cache
   alias Ambry.Repo
 
-  alias GoodReads.Books
+  alias AmbryScraping.GoodReads.{Authors, Books}
 
   def search(query, refresh \\ false)
   def search(query, true), do: clear_get_and_cache(query, &Books.search/1, &search_key/1)
@@ -25,6 +25,10 @@ defmodule Ambry.Metadata.GoodReads do
   def edition_details(id, refresh \\ false)
   def edition_details(id, true), do: clear_get_and_cache(id, &Books.edition_details/1)
   def edition_details(id, false), do: cache_get(id, &Books.edition_details/1)
+
+  def author(id, refresh \\ false)
+  def author(id, true), do: clear_get_and_cache(id, &Authors.details/1)
+  def author(id, false), do: cache_get(id, &Authors.details/1)
 
   defp clear_get_and_cache(arg, fetch_fun, key_fun \\ &Function.identity/1) do
     Repo.delete_all(from c in Cache, where: [key: ^key_fun.(arg)])

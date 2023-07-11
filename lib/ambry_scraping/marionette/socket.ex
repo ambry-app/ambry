@@ -1,4 +1,4 @@
-defmodule Marionette.Socket do
+defmodule AmbryScraping.Marionette.Socket do
   @moduledoc """
   TCP socket client for Marionette.
 
@@ -9,11 +9,10 @@ defmodule Marionette.Socket do
 
   use GenServer
 
-  require Logger
+  alias AmbryScraping.Marionette.Wire
+  alias AmbryScraping.Marionette.Wire.{Command, Response}
 
-  alias Marionette.Wire
-  alias Marionette.Wire.Command
-  alias Marionette.Wire.Response
+  require Logger
 
   @buffer %{data: nil, expect: 0, current: 0}
   @sock_opts [:binary, active: false]

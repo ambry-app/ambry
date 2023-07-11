@@ -104,8 +104,7 @@ defmodule AmbryWeb do
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components and translation
-      import AmbryWeb.CoreComponents
-      import AmbryWeb.Gettext
+      import AmbryWeb.{CoreComponents, Gettext}
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS

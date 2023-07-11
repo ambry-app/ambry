@@ -3,10 +3,10 @@ defmodule Ambry.Metadata.FFProbe do
   Extract metadata from files using ffprobe
   """
 
-  require Logger
-
-  alias Ambry.Uploads.File
   alias Ambry.Paths
+  alias Ambry.Uploads.File
+
+  require Logger
 
   def get_metadata(%File{} = file) do
     disk_path = Paths.web_to_disk(file.path)

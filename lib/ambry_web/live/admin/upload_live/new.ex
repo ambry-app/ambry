@@ -5,8 +5,8 @@ defmodule AmbryWeb.Admin.UploadLive.New do
 
   import AmbryWeb.Admin.UploadHelpers
 
-  alias Ambry.{Paths, Uploads}
   alias Ambry.Metadata.FFProbe
+  alias Ambry.{Paths, Uploads}
   alias Ambry.Uploads.Upload
 
   @impl Phoenix.LiveView
@@ -106,7 +106,9 @@ defmodule AmbryWeb.Admin.UploadLive.New do
          }}
       end)
 
-    {:ok, upload} = Uploads.create_upload(Map.merge(upload_params, %{"files" => files_params}))
+    {:ok, upload} =
+      Uploads.create_upload(Map.merge(upload_params, %{"source_files" => files_params}))
+
     {:ok, upload} = Uploads.add_metadata(upload, FFProbe)
     # TODO: infer title here if none was given and update the upload with it
 

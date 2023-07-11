@@ -66,6 +66,7 @@ defmodule Ambry.MixProject do
       {:gettext, "~> 0.20"},
       {:hashids, "~> 2.0"},
       {:jason, "~> 1.2"},
+      {:lexical_credo, "~> 0.1.0", only: [:dev, :test]},
       {:natural_order, "~> 0.3"},
       {:npm_deps, "~> 0.3.1", runtime: false},
       {:oban, "~> 2.11"},

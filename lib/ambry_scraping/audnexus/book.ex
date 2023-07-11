@@ -1,6 +1,8 @@
-defmodule Audnexus.Book do
+defmodule AmbryScraping.Audnexus.Book do
   @moduledoc """
   Audnexus Books API.
+
+  FIXME: deprecated
   """
 
   @url "https://api.audnex.us/books"

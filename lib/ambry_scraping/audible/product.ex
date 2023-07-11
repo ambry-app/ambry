@@ -1,4 +1,4 @@
-defmodule Audible.Product do
+defmodule AmbryScraping.Audible.Product do
   @moduledoc """
   Audible Products API.
 

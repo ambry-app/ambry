@@ -1,6 +1,7 @@
 defmodule Ambry.Uploads do
   @moduledoc false
 
+  alias Ambry.Metadata.GoodReads
   alias Ambry.Repo
   alias Ambry.Uploads.Upload
 
@@ -33,13 +34,14 @@ defmodule Ambry.Uploads do
   def get_upload!(id) do
     Upload
     |> Repo.get!(id)
-    |> Repo.preload(:book)
+    # FIXME:
+    |> Repo.preload([:upload_narrators, book: [book_authors: [:author], series_books: [:series]]])
   end
 
   # TODO: docs
   def add_metadata(%Upload{} = upload, metadata_module) do
     files_params =
-      Enum.map(upload.files, fn file ->
+      Enum.map(upload.source_files, fn file ->
         case metadata_module.get_metadata(file) do
           {:ok, metadata} ->
             %{
@@ -57,27 +59,25 @@ defmodule Ambry.Uploads do
       end)
 
     upload
-    |> Upload.changeset(%{files: files_params})
+    |> Upload.changeset(%{source_files: files_params})
     |> Repo.update()
   end
 
   def gr(upload) do
-    {:ok, search} = Ambry.Metadata.GoodReads.search(upload.title)
-    best_match = search.results |> List.first()
-    {:ok, editions} = Ambry.Metadata.GoodReads.editions(best_match.id)
-    most_popular_edition = editions.editions |> List.first()
+    {:ok, search} = GoodReads.search(upload.title)
+    best_match = List.first(search.results)
+    {:ok, editions} = GoodReads.editions(best_match.id)
+    most_popular_edition = List.first(editions.editions)
 
     most_popular_audio_edition =
-      editions.editions
-      |> Enum.find(fn edition ->
+      Enum.find(editions.editions, fn edition ->
         edition.format |> String.downcase() |> String.contains?("audio")
       end)
 
-    {:ok, most_popular_edition_details} =
-      Ambry.Metadata.GoodReads.edition_details(most_popular_edition.id)
+    {:ok, most_popular_edition_details} = GoodReads.edition_details(most_popular_edition.id)
 
     {:ok, most_popular_audio_edition_details} =
-      Ambry.Metadata.GoodReads.edition_details(most_popular_audio_edition.id)
+      GoodReads.edition_details(most_popular_audio_edition.id)
 
     {
       most_popular_edition_details,

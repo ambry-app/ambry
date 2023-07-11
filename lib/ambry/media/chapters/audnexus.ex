@@ -3,6 +3,8 @@ defmodule Ambry.Media.Chapters.Audnexus do
   Imports chapter data from the Audnexus API.
   """
 
+  alias AmbryScraping.Audnexus
+
   require Logger
 
   def name do

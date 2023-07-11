@@ -9,6 +9,7 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
   alias Phoenix.LiveView.JS
 
   alias Ambry.People
+  alias AmbryScraping.Audnexus
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
