@@ -5,7 +5,7 @@ export const ImageSizeHook = {
     const image = document.getElementById(targetId)
 
     const updateSize = () => {
-      const size = `${image.naturalWidth}x${image.naturalHeight}`
+      const size = `${image.naturalWidth}×${image.naturalHeight}`
       this.el.innerText = size
     }
 

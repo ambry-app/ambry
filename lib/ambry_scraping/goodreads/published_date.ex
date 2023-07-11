@@ -1,4 +1,5 @@
-defmodule GoodReads.PublishedDate do
+defmodule AmbryScraping.GoodReads.PublishedDate do
+  @moduledoc false
   defstruct [:date, :display_format]
 
   def new(date_string) do

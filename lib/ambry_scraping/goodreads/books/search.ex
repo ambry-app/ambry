@@ -1,21 +1,25 @@
-defmodule GoodReads.Books.Search do
+defmodule AmbryScraping.GoodReads.Books.Search do
   @moduledoc """
   GoodReads book search results
   """
 
-  alias GoodReads.{Browser, Image}
+  alias AmbryScraping.GoodReads.Browser
+  alias AmbryScraping.Image
 
   defstruct [:query, :results]
 
   defmodule Book do
+    @moduledoc false
     defstruct [:id, :title, :contributors, :thumbnail]
   end
 
   defmodule Contributor do
+    @moduledoc false
     defstruct [:id, :name, :type]
   end
 
   defmodule Thumbnail do
+    @moduledoc false
     defstruct [:src, :data_url]
   end
 
@@ -77,7 +81,7 @@ defmodule GoodReads.Books.Search do
   defp parse_id(html, class) do
     [url] = html |> Floki.find("a.#{class}[itemprop='url']") |> Floki.attribute("href")
     uri = URI.parse(url)
-    uri.path |> Path.basename()
+    Path.basename(uri.path)
   end
 
   defp parse_thumbnail(book_html) do
@@ -88,7 +92,7 @@ defmodule GoodReads.Books.Search do
   defp parse_work_id(book_html) do
     [url] = book_html |> Floki.find("a[href^='/work/editions/']") |> Floki.attribute("href")
     uri = URI.parse(url)
-    uri.path |> Path.basename()
+    Path.basename(uri.path)
   end
 
   @space ~r/\s+/

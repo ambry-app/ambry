@@ -1,4 +1,4 @@
-defmodule GoodReads.Image do
+defmodule AmbryScraping.Image do
   @moduledoc false
 
   defstruct [:src, :data_url]

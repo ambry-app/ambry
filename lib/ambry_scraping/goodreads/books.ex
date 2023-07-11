@@ -1,9 +1,9 @@
-defmodule GoodReads.Books do
+defmodule AmbryScraping.GoodReads.Books do
   @moduledoc """
   GoodReads web-scraping API for books
   """
 
-  alias GoodReads.Books.{Editions, EditionDetails, Search}
+  alias AmbryScraping.GoodReads.Books.{EditionDetails, Editions, Search}
 
   @doc """
   Returns book search results for a given query
@@ -12,25 +12,25 @@ defmodule GoodReads.Books do
 
       iex> search("lord of the rings")
       {:ok,
-       %GoodReads.Books.Search{
+       %AmbryScraping.GoodReads.Books.Search{
          query: "lord of the rings",
          results: [
-           %GoodReads.Books.Search.Book{
+           %AmbryScraping.GoodReads.Books.Search.Book{
              id: "work:1540236-the-hobbit",
              title: "The Hobbit (The Lord of the Rings, #0)",
              contributors: [
-               %GoodReads.Books.Search.Contributor{
+               %AmbryScraping.GoodReads.Books.Search.Contributor{
                  id: "author:656983.J_R_R_Tolkien",
                  name: "J.R.R. Tolkien",
                  type: "author"
                }
              ]
            },
-           %GoodReads.Books.Search.Book{
+           %AmbryScraping.GoodReads.Books.Search.Book{
              id: "work:3204327-the-lord-of-the-rings-the-fellowship-of-the-ring",
              title: "The Fellowship of the Ring (The Lord of the Rings, #1)",
              contributors: [
-               %GoodReads.Books.Search.Contributor{
+               %AmbryScraping.GoodReads.Books.Search.Contributor{
                  id: "author:656983.J_R_R_Tolkien",
                  name: "J.R.R. Tolkien",
                  type: "author"

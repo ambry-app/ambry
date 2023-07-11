@@ -1,6 +1,8 @@
-defmodule Audnexus.Author do
+defmodule AmbryScraping.Audnexus.Author do
   @moduledoc """
   Audnexus Authors API.
+
+  FIXME: deprecated
   """
 
   @url "https://api.audnex.us/authors"
