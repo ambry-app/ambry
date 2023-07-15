@@ -120,21 +120,16 @@ ffmpeg and shaka-packager available in your path.
     can customize the details in `./config/dev.exs`)
 -   [Elixir](https://elixir-lang.org/) and [Erlang/OTP](https://www.erlang.org/)
     installed
--   [Node.js](https://nodejs.org/) LTS (and [Yarn](https://yarnpkg.com/))
-    installed
 -   [FFmpeg](https://ffmpeg.org/) installed
 -   [shaka-packager](https://github.com/google/shaka-packager) installed
 
-For Elixir/Erlang/Nodejs you can easily install all the right versions using
+For Elixir/Erlang you can easily install all the right versions using
 [asdf](https://asdf-vm.com/) by running `asdf install` from within the root
 directory. The versions are defined in `.tool-versions`.
 
 ```bash
-# download hex dependencies
-mix deps.get
-
-# download javascript dependencies
-( cd assets && yarn )
+# download hex and npm dependencies
+mix deps.get_all
 
 # create and migrate the database
 mix ecto.setup
