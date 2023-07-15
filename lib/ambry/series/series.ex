@@ -11,7 +11,7 @@ defmodule Ambry.Series.Series do
 
   schema "series" do
     many_to_many :books, Book, join_through: "books_series"
-    has_many :series_books, SeriesBook
+    has_many :series_books, SeriesBook, preload_order: [asc: :book_number]
     has_many :authors, through: [:books, :authors]
 
     field :name, :string

@@ -13,7 +13,9 @@ defmodule AmbryWeb.SearchLive do
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-md space-y-16 p-4 sm:max-w-none sm:space-y-24 sm:p-10 md:max-w-screen-2xl md:p-12 lg:space-y-32 lg:p-16">
-      <.results :for={{type, items} <- @results} type={type} items={Enum.map(items, &elem(&1, 1))} />
+      <.grid>
+        <.result_tile :for={result <- @results} result={result} />
+      </.grid>
     </div>
     """
   end

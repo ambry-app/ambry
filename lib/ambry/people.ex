@@ -11,6 +11,8 @@ defmodule Ambry.People do
 
   @person_direct_assoc_preloads [:authors, :narrators]
 
+  def standard_preloads, do: @person_direct_assoc_preloads
+
   @doc """
   Returns a limited list of people and whether or not there are more.
 
