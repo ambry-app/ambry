@@ -96,20 +96,22 @@ defmodule Ambry.Search do
   defp do_partition(%{type: :series, id: id}, {books, people, series}),
     do: {books, people, [id | series]}
 
-  defp fetch_books(ids, preload) do
-    query = from b in Book, where: b.id in ^ids, preload: ^preload
-    query |> Repo.all() |> Map.new(&{&1.id, &1})
+  defp fetch_books(ids, preload), do: fetch(from(b in Book, where: b.id in ^ids), preload)
+
+  defp fetch_people(ids, preload), do: fetch(from(p in Person, where: p.id in ^ids), preload)
+
+  defp fetch_series(ids, preload),
+    do: fetch(from(s in SeriesSchema, where: s.id in ^ids), preload)
+
+  defp fetch(query, preload) do
+    query
+    |> maybe_add_preload(preload)
+    |> Repo.all()
+    |> Map.new(&{&1.id, &1})
   end
 
-  defp fetch_people(ids, preload) do
-    query = from p in Person, where: p.id in ^ids, preload: ^preload
-    query |> Repo.all() |> Map.new(&{&1.id, &1})
-  end
-
-  defp fetch_series(ids, preload) do
-    query = from s in SeriesSchema, where: s.id in ^ids, preload: ^preload
-    query |> Repo.all() |> Map.new(&{&1.id, &1})
-  end
+  defp maybe_add_preload(query, nil), do: query
+  defp maybe_add_preload(query, preload), do: from(q in query, preload: ^preload)
 
   defp recombine(references, books, people, series) do
     Enum.map(references, fn reference ->
