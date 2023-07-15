@@ -32,7 +32,7 @@ defmodule Ambry.Metadata.FFProbe do
         parse_output(output)
 
       {output, code} ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "[Ambry.Metadata.FFProbe] ffprobe failed - code: #{code}, output: #{output}"
         end)
 
@@ -46,7 +46,7 @@ defmodule Ambry.Metadata.FFProbe do
         {:ok, metadata}
 
       {:error, reason} ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "[Ambry.Metadata.FFProbe] ffprobe failed - reason: #{inspect(reason)}"
         end)
 

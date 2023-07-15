@@ -4,7 +4,8 @@ defmodule AmbryScraping.Audible.Authors do
   """
 
   alias AmbryScraping.Audible.Browser
-  alias AmbryScraping.{HTMLToMD, Image}
+  alias AmbryScraping.HTMLToMD
+  alias AmbryScraping.Image
 
   defmodule Author do
     @moduledoc false

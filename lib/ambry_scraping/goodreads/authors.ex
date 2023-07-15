@@ -4,7 +4,8 @@ defmodule AmbryScraping.GoodReads.Authors do
   """
 
   alias AmbryScraping.GoodReads.Browser
-  alias AmbryScraping.{HTMLToMD, Image}
+  alias AmbryScraping.HTMLToMD
+  alias AmbryScraping.Image
 
   defmodule Author do
     @moduledoc false

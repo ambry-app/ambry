@@ -11,7 +11,8 @@ defmodule Ambry.Uploads.Upload do
   alias Ambry.Media.Media.Chapter
   alias Ambry.Narrators.Narrator
   alias Ambry.SupplementalFile
-  alias Ambry.Uploads.{File, UploadNarrator}
+  alias Ambry.Uploads.File
+  alias Ambry.Uploads.UploadNarrator
 
   @statuses [:pending, :processing, :error, :ready]
 
