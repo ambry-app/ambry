@@ -61,10 +61,19 @@ defmodule AmbryWeb.Layouts do
         </div>
       </div>
 
-      <.live_component module={SearchBox} id="search-box" path={@active_path} hide_search={hide_search()} />
+      <.live_component
+        id="search-box"
+        module={SearchBox}
+        query={assigns[:query]}
+        is_open={search_open?(@active_path)}
+        hide_search={hide_search()}
+      />
     </header>
     """
   end
+
+  defp search_open?("/search/" <> _query), do: true
+  defp search_open?(_path), do: false
 
   def ambry_icon(assigns) do
     extra_classes = assigns[:class] || ""

@@ -46,17 +46,6 @@ defmodule AmbryWeb.Components.SearchBox do
   end
 
   @impl Phoenix.LiveComponent
-  def update(assigns, socket) do
-    assigns =
-      case assigns do
-        %{path: "/search/" <> query} -> Map.merge(assigns, %{query: query, is_open: true})
-        _else -> Map.merge(assigns, %{query: nil, is_open: false})
-      end
-
-    {:ok, assign(socket, assigns)}
-  end
-
-  @impl Phoenix.LiveComponent
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
     case String.trim(query) do
       "" -> {:noreply, socket}
