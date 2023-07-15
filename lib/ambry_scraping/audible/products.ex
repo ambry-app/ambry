@@ -3,7 +3,8 @@ defmodule AmbryScraping.Audible.Products do
   Audible JSON API for products
   """
 
-  alias AmbryScraping.{HTMLToMD, Image}
+  alias AmbryScraping.HTMLToMD
+  alias AmbryScraping.Image
 
   @url "https://api.audible.com/1.0"
   @response_groups ~w(

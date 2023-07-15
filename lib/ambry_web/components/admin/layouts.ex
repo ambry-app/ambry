@@ -73,7 +73,6 @@ defmodule AmbryWeb.Admin.Layouts do
 
   defp nav_class(active? \\ false)
   defp nav_class(true), do: "flex items-center px-4 py-2 gap-4 bg-zinc-300 dark:bg-zinc-700"
-
   defp nav_class(false), do: "flex items-center px-4 py-2 gap-4 hover:bg-zinc-300 dark:hover:bg-zinc-700"
 
   def dashboard_header(assigns) do

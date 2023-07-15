@@ -9,8 +9,8 @@ defmodule Ambry.Metadata.Audible do
 
   alias Ambry.Metadata.Audible.Cache
   alias Ambry.Repo
-
-  alias AmbryScraping.Audible.{Authors, Products}
+  alias AmbryScraping.Audible.Authors
+  alias AmbryScraping.Audible.Products
 
   def search(query, refresh \\ false)
   def search(query, true), do: clear_get_and_cache(query, &Products.search/1, &search_key/1)

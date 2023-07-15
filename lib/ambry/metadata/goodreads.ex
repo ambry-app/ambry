@@ -9,8 +9,8 @@ defmodule Ambry.Metadata.GoodReads do
 
   alias Ambry.Metadata.GoodReads.Cache
   alias Ambry.Repo
-
-  alias AmbryScraping.GoodReads.{Authors, Books}
+  alias AmbryScraping.GoodReads.Authors
+  alias AmbryScraping.GoodReads.Books
 
   def search(query, refresh \\ false)
   def search(query, true), do: clear_get_and_cache(query, &Books.search/1, &search_key/1)

@@ -52,8 +52,7 @@ defmodule Ambry.Uploads do
           {:error, reason} ->
             %{
               id: file.id,
-              metadata:
-                Map.put(file.metadata, inspect(metadata_module), %{"error" => inspect(reason)})
+              metadata: Map.put(file.metadata, inspect(metadata_module), %{"error" => inspect(reason)})
             }
         end
       end)
@@ -76,8 +75,7 @@ defmodule Ambry.Uploads do
 
     {:ok, most_popular_edition_details} = GoodReads.edition_details(most_popular_edition.id)
 
-    {:ok, most_popular_audio_edition_details} =
-      GoodReads.edition_details(most_popular_audio_edition.id)
+    {:ok, most_popular_audio_edition_details} = GoodReads.edition_details(most_popular_audio_edition.id)
 
     {
       most_popular_edition_details,
