@@ -1,4 +1,5 @@
 defmodule AmbryWeb.UserLoginLive do
+  @moduledoc false
   use AmbryWeb, :auth_live_view
 
   @impl Phoenix.LiveView

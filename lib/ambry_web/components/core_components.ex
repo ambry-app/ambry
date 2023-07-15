@@ -9,21 +9,20 @@ defmodule AmbryWeb.CoreComponents do
   use Phoenix.Component
   use AmbryWeb, :verified_routes
 
+  import AmbryWeb.Gettext
+  import AmbryWeb.Gravatar
   import Phoenix.HTML, only: [raw: 1]
 
-  import AmbryWeb.{Gettext, Gravatar}
-
-  alias Phoenix.HTML.{Form, FormField}
-
-  alias FontAwesome.LiveView, as: FA
-  alias Phoenix.LiveView.JS
-
   alias Ambry.Books.Book
-  alias Ambry.Media.{Media, PlayerState}
+  alias Ambry.Media.Media
+  alias Ambry.Media.PlayerState
   alias Ambry.Series.SeriesBook
-
   alias AmbryWeb.Components.Autocomplete
   alias AmbryWeb.Player
+  alias FontAwesome.LiveView, as: FA
+  alias Phoenix.HTML.Form
+  alias Phoenix.HTML.FormField
+  alias Phoenix.LiveView.JS
 
   @doc """
   Renders a modal.
@@ -289,8 +288,7 @@ defmodule AmbryWeb.CoreComponents do
     values: ~w(checkbox color date datetime-local email file hidden month number password
                range radio search select tel text textarea time url week autocomplete)
 
-  attr :field, FormField,
-    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+  attr :field, FormField, doc: "a form field struct retrieved from the form, for example: @form[:email]"
 
   attr :errors, :list, default: []
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
@@ -301,8 +299,7 @@ defmodule AmbryWeb.CoreComponents do
   attr :container_class, :string, default: nil, doc: "extra classes for the container div"
   attr :hidden_input, :boolean, default: true
 
-  attr :rest, :global,
-    include: ~w(autocomplete cols disabled form list max maxlength min minlength
+  attr :rest, :global, include: ~w(autocomplete cols disabled form list max maxlength min minlength
                 pattern placeholder readonly required rows size step)
 
   slot :inner_block
@@ -947,10 +944,7 @@ defmodule AmbryWeb.CoreComponents do
   defp loaded?(%Player{player_state: %{media_id: media_id}}, %Media{id: media_id}), do: true
   defp loaded?(_player, _media), do: false
 
-  defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{
-         id: media_id
-       }),
-       do: true
+  defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{id: media_id}), do: true
 
   defp playing?(_player, _media), do: false
 
@@ -1122,8 +1116,7 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   def transition_in do
-    {"transition-all transform ease-out duration-300",
-     "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
+    {"transition-all transform ease-out duration-300", "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
      "opacity-100 translate-y-0 sm:scale-100"}
   end
 

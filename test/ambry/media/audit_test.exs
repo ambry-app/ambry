@@ -5,8 +5,7 @@ defmodule Ambry.Media.AuditTest do
 
   describe "get_media_file_details/1" do
     test "returns source file details" do
-      %{source_path: source_path} =
-        media = insert(:media, mpd_path: nil, mp4_path: nil, hls_path: nil)
+      %{source_path: source_path} = media = insert(:media, mpd_path: nil, mp4_path: nil, hls_path: nil)
 
       create_fake_source_files!(source_path)
 

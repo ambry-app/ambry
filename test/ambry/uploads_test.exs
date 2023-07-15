@@ -3,7 +3,7 @@ defmodule Ambry.UploadsTest do
 
   alias Ambry.Uploads
 
-  describe "create_upload/1" do
+  describ "create_upload/1" do
     test "can create everything about an upload using deeply nested params" do
       params = %{
         title: "Upload Title",
@@ -56,7 +56,8 @@ defmodule Ambry.UploadsTest do
       #   id: upload.id
       # }
 
-      Uploads.Upload.changeset(upload, %{})
+      upload
+      |> Uploads.Upload.changeset(%{})
       |> Ecto.Changeset.put_assoc(:book, new_book)
       |> Ambry.Repo.update!()
       |> dbg()

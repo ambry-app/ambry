@@ -3,13 +3,13 @@ defmodule AmbryWeb.Admin.PersonLive.FormComponent do
 
   use AmbryWeb, :live_component
 
-  import AmbryWeb.Admin.{Components, UploadHelpers}
+  import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
-
-  alias Phoenix.LiveView.JS
+  import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.People
   alias AmbryScraping.Audnexus
+  alias Phoenix.LiveView.JS
 
   @impl Phoenix.LiveComponent
   def mount(socket) do

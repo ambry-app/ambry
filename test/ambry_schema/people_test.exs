@@ -1,8 +1,8 @@
 defmodule AmbrySchema.PeopleTest do
   use AmbryWeb.ConnCase
 
-  import Ambry.GraphQLSigil
   import Absinthe.Relay.Node, only: [to_global_id: 2]
+  import Ambry.GraphQLSigil
 
   setup :register_and_put_user_api_token
 

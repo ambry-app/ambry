@@ -82,8 +82,7 @@
           # You can customize the priority of any check
           # Priority values are: `low, normal, high, higher`
           #
-          {Credo.Check.Design.AliasUsage,
-           [priority: :low, if_nested_deeper_than: 2, if_called_more_often_than: 0]},
+          {Credo.Check.Design.AliasUsage, [priority: :low, if_nested_deeper_than: 2, if_called_more_often_than: 0]},
           # You can also customize the exit_status of each check.
           # If you don't want TODO comments to cause `mix credo` to fail, just
           # set this value to 0 (zero).
@@ -162,8 +161,7 @@
           {Credo.Check.Warning.UnsafeExec, []},
 
           # moved from "controversial/experimental"
-          {Credo.Check.Consistency.MultiAliasImportRequireUse,
-           files: %{excluded: ["lib/ambry_web.ex"]}},
+          {Credo.Check.Consistency.MultiAliasImportRequireUse, files: %{excluded: ["lib/ambry_web.ex"]}},
           {Credo.Check.Consistency.UnusedVariableNames, []},
           {Credo.Check.Design.DuplicatedCode, []},
           {Credo.Check.Design.SkipTestWithoutComment, []},

@@ -47,7 +47,7 @@ defmodule Ambry.Media.Chapters.ChapteredMP3 do
         {:ok, metadata}
 
       {:error, error} ->
-        Logger.warn(fn -> "ffprobe metadata json decode failed: #{inspect(error)}" end)
+        Logger.warning(fn -> "ffprobe metadata json decode failed: #{inspect(error)}" end)
         {:error, :invalid_json}
     end
   end
@@ -61,7 +61,7 @@ defmodule Ambry.Media.Chapters.ChapteredMP3 do
         {:ok, Path.rootname(filename)}
 
       unexpected ->
-        Logger.warn(fn -> "No usable title found: #{inspect(unexpected)}" end)
+        Logger.warning(fn -> "No usable title found: #{inspect(unexpected)}" end)
         {:error, :no_chapter_titles}
     end
   end

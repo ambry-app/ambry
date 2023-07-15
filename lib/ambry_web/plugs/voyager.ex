@@ -4,6 +4,7 @@ defmodule AmbryWeb.Plugs.Voyager do
   @behaviour Plug
 
   import Plug.Conn
+
   alias Plug.Conn
 
   @voyager_html_path Path.join(:code.priv_dir(:ambry), "static/voyager.html")

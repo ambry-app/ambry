@@ -4,6 +4,7 @@ defmodule Ambry.Series.Series do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Ambry.Books.Book

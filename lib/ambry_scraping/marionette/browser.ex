@@ -59,7 +59,7 @@ defmodule AmbryScraping.Marionette.Browser do
         perform_actions(rest)
 
       error ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "[Marionette.Browser] action {:wait_for_no, #{selector}} failed: #{inspect(error)}"
         end)
 
@@ -76,14 +76,14 @@ defmodule AmbryScraping.Marionette.Browser do
         perform_actions(rest)
 
       {:ok, [_element | _rest]} ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "[Marionette.Browser] action {:maybe_click, #{selector}} failed: found more than one element"
         end)
 
         {:error, :maybe_click_failed}
 
       error ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "[Marionette.Browser] action {:maybe_click, #{selector}} failed: #{inspect(error)}"
         end)
 
@@ -97,21 +97,21 @@ defmodule AmbryScraping.Marionette.Browser do
       perform_actions(rest)
     else
       {:ok, []} ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "[Marionette.Browser] action {:click, #{selector}} failed: found no such element"
         end)
 
         {:error, :click_failed}
 
       {:ok, [_element | _rest]} ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "[Marionette.Browser] action {:click, #{selector}} failed: found more than one element"
         end)
 
         {:error, :click_failed}
 
       error ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "[Marionette.Browser] action {:click, #{selector}} failed: #{inspect(error)}"
         end)
 
@@ -125,7 +125,7 @@ defmodule AmbryScraping.Marionette.Browser do
         perform_actions(rest)
 
       error ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "[Marionette.Browser] action {:wait_for, #{selector}} failed: #{inspect(error)}"
         end)
 
@@ -188,7 +188,7 @@ defmodule AmbryScraping.Marionette.Browser do
         :ok
 
       error ->
-        Logger.warn(fn -> "[Marionette.Browser] Navigate failed: #{inspect(error)}" end)
+        Logger.warning(fn -> "[Marionette.Browser] Navigate failed: #{inspect(error)}" end)
         {:error, :navigate_failed}
     end
   end
@@ -199,7 +199,7 @@ defmodule AmbryScraping.Marionette.Browser do
         {:ok, html}
 
       error ->
-        Logger.warn(fn -> "[Marionette.Browser] GetPageSource failed: #{inspect(error)}" end)
+        Logger.warning(fn -> "[Marionette.Browser] GetPageSource failed: #{inspect(error)}" end)
         {:error, :get_page_source_failed}
     end
   end
@@ -213,7 +213,7 @@ defmodule AmbryScraping.Marionette.Browser do
         {:ok, []}
 
       error ->
-        Logger.warn(fn -> "[Marionette.Browser] FindElement failed: #{inspect(error)}" end)
+        Logger.warning(fn -> "[Marionette.Browser] FindElement failed: #{inspect(error)}" end)
         {:error, :find_elements_failed}
     end
   end
@@ -227,7 +227,7 @@ defmodule AmbryScraping.Marionette.Browser do
         :ok
 
       error ->
-        Logger.warn(fn -> "[Marionette.Browser] Click failed: #{inspect(error)}" end)
+        Logger.warning(fn -> "[Marionette.Browser] Click failed: #{inspect(error)}" end)
         {:error, :click_failed}
     end
   end

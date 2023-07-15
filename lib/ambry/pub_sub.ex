@@ -4,8 +4,8 @@ defmodule Ambry.PubSub do
   """
 
   alias Ambry.Media.Media
-  alias Ambry.PubSub.{Message, Publishable}
-
+  alias Ambry.PubSub.Message
+  alias Ambry.PubSub.Publishable
   alias Phoenix.PubSub
 
   require Logger
@@ -70,7 +70,7 @@ defmodule Ambry.PubSub do
         broadcast_all(rest, message)
 
       {:error, reason} ->
-        Logger.warn(fn -> "#{__MODULE__} Failed publish to #{topic} - #{inspect(reason)}" end)
+        Logger.warning(fn -> "#{__MODULE__} Failed publish to #{topic} - #{inspect(reason)}" end)
         {:error, reason}
     end
   end

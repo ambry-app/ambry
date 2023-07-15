@@ -3,7 +3,8 @@ defmodule AmbryWeb.UserConfirmationLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias Ambry.{Accounts, Repo}
+  alias Ambry.Accounts
+  alias Ambry.Repo
 
   setup do
     %{user: insert(:user)}

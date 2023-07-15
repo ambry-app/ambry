@@ -1,8 +1,8 @@
 defmodule AmbrySchema.MediaTest do
   use AmbryWeb.ConnCase
 
-  import Ambry.GraphQLSigil
   import Absinthe.Relay.Node, only: [to_global_id: 2, from_global_id: 2]
+  import Ambry.GraphQLSigil
 
   setup :register_and_put_user_api_token
 
@@ -226,8 +226,7 @@ defmodule AmbrySchema.MediaTest do
       {:ok, %{id: player_state_id_string}} = from_global_id(player_state_gid, AmbrySchema)
       player_state_id = String.to_integer(player_state_id_string)
 
-      assert %{player_states: [%{id: ^player_state_id}]} =
-               Ambry.Repo.preload(media, [:player_states])
+      assert %{player_states: [%{id: ^player_state_id}]} = Ambry.Repo.preload(media, [:player_states])
     end
 
     test "returns the existing player state for the given media", %{
@@ -305,8 +304,7 @@ defmodule AmbrySchema.MediaTest do
       {:ok, %{id: player_state_id_string}} = from_global_id(player_state_gid, AmbrySchema)
       player_state_id = String.to_integer(player_state_id_string)
 
-      assert %{player_states: [%{id: ^player_state_id}]} =
-               Ambry.Repo.preload(media, [:player_states])
+      assert %{player_states: [%{id: ^player_state_id}]} = Ambry.Repo.preload(media, [:player_states])
     end
 
     test "updates the existing player state for the given media", %{

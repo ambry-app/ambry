@@ -5,12 +5,14 @@ defmodule Ambry.Search do
 
   import Ecto.Query
 
-  alias Ambry.{Authors, Books, Narrators, Series}
-
+  alias Ambry.Authors
+  alias Ambry.Books
   alias Ambry.Books.Book
+  alias Ambry.Narrators
   alias Ambry.People.Person
   alias Ambry.Repo
   alias Ambry.Search.Record
+  alias Ambry.Series
   alias Ambry.Series.Series, as: SeriesSchema
 
   # Old search implementation (used in web app)
@@ -59,8 +61,7 @@ defmodule Ambry.Search do
           ilike(record.primary, ^like) or ilike(record.secondary, ^like) or
           ilike(record.tertiary, ^like),
       order_by: [
-        {:desc,
-         fragment("ts_rank_cd(?, plainto_tsquery(?))", record.search_vector, ^query_string)},
+        {:desc, fragment("ts_rank_cd(?, plainto_tsquery(?))", record.search_vector, ^query_string)},
         {:desc,
          fragment(
            """
@@ -114,14 +115,11 @@ defmodule Ambry.Search do
     Enum.reduce(references, {[], [], []}, &do_partition/2)
   end
 
-  defp do_partition(%{type: :book, id: id}, {books, people, series}),
-    do: {[id | books], people, series}
+  defp do_partition(%{type: :book, id: id}, {books, people, series}), do: {[id | books], people, series}
 
-  defp do_partition(%{type: :person, id: id}, {books, people, series}),
-    do: {books, [id | people], series}
+  defp do_partition(%{type: :person, id: id}, {books, people, series}), do: {books, [id | people], series}
 
-  defp do_partition(%{type: :series, id: id}, {books, people, series}),
-    do: {books, people, [id | series]}
+  defp do_partition(%{type: :series, id: id}, {books, people, series}), do: {books, people, [id | series]}
 
   defp fetch_books(ids) do
     query = from(b in Book, where: b.id in ^ids)

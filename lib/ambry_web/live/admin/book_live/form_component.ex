@@ -3,11 +3,16 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   use AmbryWeb, :live_component
 
-  import AmbryWeb.Admin.{Components, UploadHelpers}
+  import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
+  import AmbryWeb.Admin.UploadHelpers
 
-  alias Ambry.{Authors, Books, Series}
-  alias AmbryScraping.{Audible, Audnexus, HTMLToMD}
+  alias Ambry.Authors
+  alias Ambry.Books
+  alias Ambry.Series
+  alias AmbryScraping.Audible
+  alias AmbryScraping.Audnexus
+  alias AmbryScraping.HTMLToMD
 
   @impl Phoenix.LiveComponent
   def mount(socket) do

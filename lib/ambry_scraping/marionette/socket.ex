@@ -10,7 +10,8 @@ defmodule AmbryScraping.Marionette.Socket do
   use GenServer
 
   alias AmbryScraping.Marionette.Wire
-  alias AmbryScraping.Marionette.Wire.{Command, Response}
+  alias AmbryScraping.Marionette.Wire.Command
+  alias AmbryScraping.Marionette.Wire.Response
 
   require Logger
 
@@ -28,7 +29,7 @@ defmodule AmbryScraping.Marionette.Socket do
     # FIXME: wait for socket
     Process.sleep(2000)
 
-    {:ok, socket} = :gen_tcp.connect('localhost', 2828, @sock_opts)
+    {:ok, socket} = :gen_tcp.connect(~c"localhost", 2828, @sock_opts)
 
     # Create a new session
     {_, new_session} = Wire.encode!(%Command{name: "NewSession"})
@@ -98,10 +99,7 @@ defmodule AmbryScraping.Marionette.Socket do
     end
   end
 
-  def handle_info(
-        {:tcp, _, response},
-        %{buffer: %{data: data, expect: expect, current: current}} = state
-      ) do
+  def handle_info({:tcp, _, response}, %{buffer: %{data: data, expect: expect, current: current}} = state) do
     case current + byte_size(response) do
       current when current < expect ->
         {:noreply,
@@ -120,7 +118,7 @@ defmodule AmbryScraping.Marionette.Socket do
   end
 
   def handle_info({:tcp_closed, _port}, state) do
-    Logger.warn(fn -> "[Marionette] TCP connection closed" end)
+    Logger.warning(fn -> "[Marionette] TCP connection closed" end)
     {:stop, :tcp_closed, state}
   end
 

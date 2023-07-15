@@ -78,6 +78,7 @@ defmodule Ambry.MixProject do
       {:phoenix, "~> 1.7.0"},
       {:postgrex, ">= 0.0.0"},
       {:req, "~> 0.3"},
+      {:styler, "~> 0.7", only: [:dev, :test], runtime: false},
       {:sweet_xml, "~> 0.7"},
       {:swoosh, "~> 1.3"},
       {:tailwind_formatter, "~> 0.3.1", only: [:dev, :test], runtime: false},

@@ -7,7 +7,6 @@ defmodule Ambry.Search.IndexManager do
   use GenServer
 
   alias Ambry.PubSub
-
   alias Ambry.Search.Index
 
   def start_link(_opts) do

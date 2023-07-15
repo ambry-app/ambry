@@ -3,7 +3,9 @@ defmodule AmbryScraping.GoodReads.Books do
   GoodReads web-scraping API for books
   """
 
-  alias AmbryScraping.GoodReads.Books.{EditionDetails, Editions, Search}
+  alias AmbryScraping.GoodReads.Books.EditionDetails
+  alias AmbryScraping.GoodReads.Books.Editions
+  alias AmbryScraping.GoodReads.Books.Search
 
   @doc """
   Returns book search results for a given query

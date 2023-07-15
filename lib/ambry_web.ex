@@ -17,17 +17,15 @@ defmodule AmbryWeb do
   those modules here.
   """
 
-  def static_paths,
-    do: ~w(assets favicon.svg favicon.png favicon-32x32.png favicon-96x96.png robots.txt)
+  def static_paths, do: ~w(assets favicon.svg favicon.png favicon-32x32.png favicon-96x96.png robots.txt)
 
   def router do
     quote do
       use Phoenix.Router, helpers: false
 
-      # Import common connection and controller functions to use in pipelines
-      import Plug.Conn
       import Phoenix.Controller
       import Phoenix.LiveView.Router
+      import Plug.Conn
     end
   end
 
@@ -43,8 +41,8 @@ defmodule AmbryWeb do
         formats: [:html, :json],
         layouts: [html: AmbryWeb.Layouts]
 
-      import Plug.Conn
       import AmbryWeb.Gettext
+      import Plug.Conn
 
       unquote(verified_routes())
     end
@@ -90,29 +88,21 @@ defmodule AmbryWeb do
     quote do
       use Phoenix.Component
 
-      # Import convenience functions from controllers
-      import Phoenix.Controller,
-        only: [get_csrf_token: 0, view_module: 1, view_template: 1]
+      import Phoenix.Controller, only: [get_csrf_token: 0, view_module: 1, view_template: 1]
 
-      # Include general helpers for rendering HTML
       unquote(html_helpers())
     end
   end
 
   defp html_helpers do
     quote do
-      # HTML escaping functionality
+      import AmbryWeb.CoreComponents
+      import AmbryWeb.Gettext
       import Phoenix.HTML
-      # Core UI components and translation
-      import AmbryWeb.{CoreComponents, Gettext}
 
-      # Shortcut for generating JS commands
+      alias FontAwesome.LiveView, as: FA
       alias Phoenix.LiveView.JS
 
-      # FontAwesome icons
-      alias FontAwesome.LiveView, as: FA
-
-      # Routes generation with the ~p sigil
       unquote(verified_routes())
     end
   end

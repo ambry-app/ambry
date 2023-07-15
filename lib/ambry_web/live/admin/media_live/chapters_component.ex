@@ -95,8 +95,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
         strategy_params = Map.delete(params, "strategy")
         send(self(), {:run_strategy, strategy, strategy_params})
 
-        {:noreply,
-         assign(socket, running_strategy: true, strategy_form: nil, selected_strategy: nil)}
+        {:noreply, assign(socket, running_strategy: true, strategy_form: nil, selected_strategy: nil)}
     end
   end
 
@@ -165,13 +164,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersComponent do
     end
   end
 
-  defp handle_chapter_import(socket, chapters, import_mode)
-       when import_mode in ["full", "", nil] do
+  defp handle_chapter_import(socket, chapters, import_mode) when import_mode in ["full", "", nil] do
     finalize_chapter_import(socket, chapters)
   end
 
-  defp handle_chapter_import(socket, new_chapters, import_mode)
-       when import_mode in ["time_only", "title_only"] do
+  defp handle_chapter_import(socket, new_chapters, import_mode) when import_mode in ["time_only", "title_only"] do
     media = socket.assigns.media
     existing_chapters = media.chapters
 

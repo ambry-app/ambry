@@ -7,10 +7,11 @@ defmodule AmbryWeb.BookLive do
 
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
-  alias Ambry.{Books, PubSub}
+  alias Ambry.Books
   alias Ambry.Media.Media
-
-  alias AmbryWeb.{Hashids, Player}
+  alias Ambry.PubSub
+  alias AmbryWeb.Hashids
+  alias AmbryWeb.Player
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -143,24 +144,17 @@ defmodule AmbryWeb.BookLive do
   defp loaded?(%Player{player_state: %{media_id: media_id}}, %Media{id: media_id}), do: true
   defp loaded?(_player, _media), do: false
 
-  defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{
-         id: media_id
-       }),
-       do: true
+  defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{id: media_id}), do: true
 
   defp playing?(_player, _media), do: false
 
-  defp format_published(%{published_format: :full, published: date}),
-    do: Calendar.strftime(date, "%B %-d, %Y")
+  defp format_published(%{published_format: :full, published: date}), do: Calendar.strftime(date, "%B %-d, %Y")
 
-  defp format_published(%{published_format: :year_month, published: date}),
-    do: Calendar.strftime(date, "%B %Y")
+  defp format_published(%{published_format: :year_month, published: date}), do: Calendar.strftime(date, "%B %Y")
 
-  defp format_published(%{published_format: :year, published: date}),
-    do: Calendar.strftime(date, "%Y")
+  defp format_published(%{published_format: :year, published: date}), do: Calendar.strftime(date, "%Y")
 
   defp format_file_name(file), do: file.label || file.filename
 
-  defp file_href(file, media),
-    do: ~p"/download/media/#{Hashids.encode(media.id)}/#{file.id}/#{file.filename}"
+  defp file_href(file, media), do: ~p"/download/media/#{Hashids.encode(media.id)}/#{file.id}/#{file.filename}"
 end

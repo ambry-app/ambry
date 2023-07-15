@@ -5,10 +5,12 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
 
   import AmbryWeb.Admin.UploadHelpers
 
-  alias Ambry.{Books, Uploads}
   alias Ambry.Authors.Author
+  alias Ambry.Books
   alias Ambry.Narrators.Narrator
-  alias AmbryScraping.{Audible, GoodReads}
+  alias Ambry.Uploads
+  alias AmbryScraping.Audible
+  alias AmbryScraping.GoodReads
 
   @impl Phoenix.LiveView
   def mount(%{"id" => id}, _session, socket) do
@@ -1077,8 +1079,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
     """
   end
 
-  defp display_date(%Date{} = date),
-    do: Calendar.strftime(date, "%B %-d, %Y")
+  defp display_date(%Date{} = date), do: Calendar.strftime(date, "%B %-d, %Y")
 
   defp display_date(%GoodReads.PublishedDate{display_format: :full, date: date}),
     do: Calendar.strftime(date, "%B %-d, %Y")
@@ -1086,8 +1087,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
   defp display_date(%GoodReads.PublishedDate{display_format: :year_month, date: date}),
     do: Calendar.strftime(date, "%B %Y")
 
-  defp display_date(%GoodReads.PublishedDate{display_format: :year, date: date}),
-    do: Calendar.strftime(date, "%Y")
+  defp display_date(%GoodReads.PublishedDate{display_format: :year, date: date}), do: Calendar.strftime(date, "%Y")
 
   slot :inner_block, required: true
 
@@ -1160,11 +1160,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
 
   # GoodReads
 
-  def handle_event(
-        "goodreads-search-submit",
-        %{"goodreads_search" => goodreads_search_params},
-        socket
-      ) do
+  def handle_event("goodreads-search-submit", %{"goodreads_search" => goodreads_search_params}, socket) do
     {:noreply,
      socket
      |> update(:goodreads, fn goodreads_assigns ->
@@ -1211,11 +1207,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
 
   # Audible
 
-  def handle_event(
-        "audible-search-submit",
-        %{"audible_search" => audible_search_params},
-        socket
-      ) do
+  def handle_event("audible-search-submit", %{"audible_search" => audible_search_params}, socket) do
     {:noreply,
      socket
      |> update(:audible, fn audible_assigns ->

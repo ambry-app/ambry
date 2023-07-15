@@ -1,8 +1,10 @@
 defmodule AmbryScraping.GoodReads.Books.EditionDetails do
   @moduledoc false
 
-  alias AmbryScraping.GoodReads.{Browser, PublishedDate}
-  alias AmbryScraping.{HTMLToMD, Image}
+  alias AmbryScraping.GoodReads.Browser
+  alias AmbryScraping.GoodReads.PublishedDate
+  alias AmbryScraping.HTMLToMD
+  alias AmbryScraping.Image
 
   defstruct [
     :id,

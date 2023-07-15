@@ -116,8 +116,7 @@ defmodule Ambry.BooksTest do
     test "can create nested book authors" do
       %{id: author_id} = insert(:author)
 
-      %{title: title} =
-        params = params_for(:book, series_books: [], book_authors: [%{author_id: author_id}])
+      %{title: title} = params = params_for(:book, series_books: [], book_authors: [%{author_id: author_id}])
 
       assert {:ok, book} = Books.create_book(params)
 

@@ -3,11 +3,15 @@ defmodule Ambry.Series do
   Functions for dealing with Series.
   """
 
-  import Ambry.{SearchUtils, Utils}
+  import Ambry.SearchUtils
+  import Ambry.Utils
   import Ecto.Query
 
-  alias Ambry.{PubSub, Repo}
-  alias Ambry.Series.{Series, SeriesBook, SeriesFlat}
+  alias Ambry.PubSub
+  alias Ambry.Repo
+  alias Ambry.Series.Series
+  alias Ambry.Series.SeriesBook
+  alias Ambry.Series.SeriesFlat
 
   @doc """
   Returns a limited list of series and whether or not there are more.

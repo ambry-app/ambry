@@ -6,7 +6,8 @@ defmodule Ambry.Media.Audit do
   import Ecto.Query
 
   alias Ambry.Media.Media
-  alias Ambry.{Paths, Repo}
+  alias Ambry.Paths
+  alias Ambry.Repo
 
   @doc """
   Get details about the files on disk related to the given media.

@@ -3,11 +3,19 @@ defmodule Ambry.Media do
   Functions for dealing with Media.
   """
 
-  import Ambry.{FileUtils, Utils}
+  import Ambry.FileUtils
+  import Ambry.Utils
   import Ecto.Query
 
-  alias Ambry.{Accounts, Books, PubSub, Repo}
-  alias Ambry.Media.{Audit, Bookmark, Media, MediaFlat, PlayerState}
+  alias Ambry.Accounts
+  alias Ambry.Books
+  alias Ambry.Media.Audit
+  alias Ambry.Media.Bookmark
+  alias Ambry.Media.Media
+  alias Ambry.Media.MediaFlat
+  alias Ambry.Media.PlayerState
+  alias Ambry.PubSub
+  alias Ambry.Repo
 
   @media_preload [:narrators, book: [:authors, series_books: :series]]
   @player_state_preload [media: @media_preload]

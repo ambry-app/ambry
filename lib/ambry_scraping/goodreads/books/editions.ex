@@ -1,7 +1,8 @@
 defmodule AmbryScraping.GoodReads.Books.Editions do
   @moduledoc false
 
-  alias AmbryScraping.GoodReads.{Browser, PublishedDate}
+  alias AmbryScraping.GoodReads.Browser
+  alias AmbryScraping.GoodReads.PublishedDate
   alias AmbryScraping.Image
 
   defstruct [:id, :title, :primary_author, :first_published, :editions]
@@ -135,8 +136,7 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
   end
 
   defp parse_authors(data_rows) do
-    authors_row =
-      Enum.find(data_rows, fn row -> Floki.find(row, ".dataTitle:fl-contains('Author')") != [] end)
+    authors_row = Enum.find(data_rows, fn row -> Floki.find(row, ".dataTitle:fl-contains('Author')") != [] end)
 
     case authors_row do
       nil ->

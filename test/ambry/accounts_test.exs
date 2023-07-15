@@ -2,7 +2,8 @@ defmodule Ambry.AccountsTest do
   use Ambry.DataCase
 
   alias Ambry.Accounts
-  alias Ambry.Accounts.{User, UserToken}
+  alias Ambry.Accounts.User
+  alias Ambry.Accounts.UserToken
 
   describe "list_users/0" do
     test "returns the first 10 users sorted by name" do
@@ -229,8 +230,7 @@ defmodule Ambry.AccountsTest do
     end
 
     test "validates email", %{user: user} do
-      {:error, changeset} =
-        Accounts.apply_user_email(user, valid_password(), %{email: "not valid"})
+      {:error, changeset} = Accounts.apply_user_email(user, valid_password(), %{email: "not valid"})
 
       assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
     end
@@ -372,15 +372,13 @@ defmodule Ambry.AccountsTest do
     test "validates maximum values for password for security", %{user: user} do
       too_long = String.duplicate("db", 100)
 
-      {:error, changeset} =
-        Accounts.update_user_password(user, valid_password(), %{password: too_long})
+      {:error, changeset} = Accounts.update_user_password(user, valid_password(), %{password: too_long})
 
       assert "should be at most 72 character(s)" in errors_on(changeset).password
     end
 
     test "validates current password", %{user: user} do
-      {:error, changeset} =
-        Accounts.update_user_password(user, "invalid", %{password: valid_password()})
+      {:error, changeset} = Accounts.update_user_password(user, "invalid", %{password: valid_password()})
 
       assert %{current_password: ["is not valid"]} = errors_on(changeset)
     end

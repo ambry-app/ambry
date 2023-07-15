@@ -36,7 +36,7 @@ defmodule Ambry.Media.Chapters.MP4 do
         {:ok, chapters}
 
       {:error, error} ->
-        Logger.warn(fn -> "ffmpeg chapter json decode failed: #{inspect(error)}" end)
+        Logger.warning(fn -> "ffmpeg chapter json decode failed: #{inspect(error)}" end)
         {:error, :invalid_json}
     end
   end

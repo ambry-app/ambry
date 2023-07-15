@@ -4,6 +4,7 @@ defmodule Ambry.Media.Bookmark do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Ambry.Accounts.User

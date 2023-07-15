@@ -7,8 +7,8 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
   import AmbryWeb.Admin.PaginationHelpers
 
-  alias Ambry.{PubSub, Series}
-
+  alias Ambry.PubSub
+  alias Ambry.Series
   alias AmbryWeb.Admin.SeriesLive.FormComponent
 
   @valid_sort_fields [
