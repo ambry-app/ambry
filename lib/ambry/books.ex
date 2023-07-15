@@ -3,14 +3,16 @@ defmodule Ambry.Books do
   Functions for dealing with Books.
   """
 
-  import Ambry.{FileUtils, SearchUtils, Utils}
+  import Ambry.{FileUtils, Utils}
   import Ecto.Query
 
   alias Ambry.Books.{Book, BookFlat}
   alias Ambry.Media.Media
   alias Ambry.{PubSub, Repo}
 
-  @book_direct_assoc_preloads [book_authors: [:author], series_books: [:series]]
+  @book_direct_assoc_preloads [:authors, book_authors: [:author], series_books: [:series]]
+
+  def standard_preloads, do: @book_direct_assoc_preloads
 
   @doc """
   Returns a limited list of books and whether or not there are more.
@@ -183,21 +185,6 @@ defmodule Ambry.Books do
     books_to_return = Enum.slice(books, 0, limit)
 
     {books_to_return, books != books_to_return}
-  end
-
-  @doc """
-  Finds books that match a query string.
-
-  Returns a list of tuples of the form `{jaro_distance, book}`.
-  """
-  def search(query_string, limit \\ 15) do
-    title_query = "%#{query_string}%"
-    query = from b in Book, where: ilike(b.title, ^title_query), limit: ^limit
-
-    query
-    |> preload([:authors, series_books: :series])
-    |> Repo.all()
-    |> sort_by_jaro(query_string, :title)
   end
 
   @doc """

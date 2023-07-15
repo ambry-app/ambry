@@ -356,29 +356,6 @@ defmodule Ambry.BooksTest do
     end
   end
 
-  describe "search/1" do
-    test "searches for book by title" do
-      [%{title: title} | _] = insert_list(3, :book)
-
-      list = Books.search(title)
-
-      assert [{_, %Books.Book{}}] = list
-    end
-  end
-
-  describe "search/2" do
-    test "accepts a limit" do
-      insert_list(3, :book, title: "Foo Bar Baz")
-
-      list = Books.search("Foo", 2)
-
-      assert [
-               {_, %Books.Book{}},
-               {_, %Books.Book{}}
-             ] = list
-    end
-  end
-
   describe "for_select/0" do
     test "returns all book titles and ids only" do
       insert_list(3, :book)

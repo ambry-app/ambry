@@ -5,60 +5,25 @@ defmodule AmbryWeb.SearchLive.Components do
 
   use AmbryWeb, :html
 
-  def results(%{type: :authors} = assigns), do: ~H"<.author_results authors={@items} />"
-  def results(%{type: :books} = assigns), do: ~H"<.book_results books={@items} />"
-  def results(%{type: :narrators} = assigns), do: ~H"<.narrator_results narrators={@items} />"
-  def results(%{type: :series} = assigns), do: ~H"<.series_results series={@items} />"
+  alias Ambry.Books.Book
+  alias Ambry.People.Person
+  alias Ambry.Series.Series
 
-  def author_results(assigns) do
+  def result_tile(%{result: %Book{}} = assigns) do
     ~H"""
-    <section>
-      <.section_header>
-        Authors
-      </.section_header>
-
-      <.grid>
-        <.person_tile :for={author <- @authors} name={author.name} person={author.person} />
-      </.grid>
-    </section>
+    <.book_tile book={@result} />
     """
   end
 
-  def book_results(assigns) do
+  def result_tile(%{result: %Person{}} = assigns) do
     ~H"""
-    <section>
-      <.section_header>
-        Books
-      </.section_header>
-
-      <.book_tiles books={@books} />
-    </section>
+    <.person_tile person={@result} />
     """
   end
 
-  def narrator_results(assigns) do
+  def result_tile(%{result: %Series{}} = assigns) do
     ~H"""
-    <section>
-      <.section_header>
-        Narrators
-      </.section_header>
-
-      <.grid>
-        <.person_tile :for={narrator <- @narrators} name={narrator.name} person={narrator.person} />
-      </.grid>
-    </section>
-    """
-  end
-
-  def series_results(assigns) do
-    ~H"""
-    <section>
-      <.section_header>
-        Series
-      </.section_header>
-
-      <.series_tiles series={@series} />
-    </section>
+    <.series_tile series={@result} />
     """
   end
 
@@ -76,44 +41,56 @@ defmodule AmbryWeb.SearchLive.Components do
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/people/#{@person}"}>
-            <%= @name %>
-            <%= if @name != @person.name do %>
-              <br /> (<%= @person.name %>)
-            <% end %>
+            <%= @person.name %>
           </.link>
+        </p>
+        <p :if={@person.authors != []} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+          Author
+          <%= case aliases(@person, :authors) do %>
+            <% "" -> %>
+            <% aliases -> %>
+              <span>(<%= aliases %>)</span>
+          <% end %>
+        </p>
+        <p :if={@person.narrators != []} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+          Narrator
+          <%= case aliases(@person, :narrators) do %>
+            <% "" -> %>
+            <% aliases -> %>
+              <span>(<%= aliases %>)</span>
+          <% end %>
         </p>
       </div>
     </div>
     """
   end
 
-  defp series_tiles(assigns) do
-    ~H"""
-    <.grid>
-      <div :for={series <- @series} class="text-center">
-        <div class="group">
-          <.link navigate={~p"/series/#{series}"}>
-            <.series_tile series_books={series.series_books} />
-          </.link>
-          <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
-            <.link navigate={~p"/series/#{series}"}>
-              <%= series.name %>
-            </.link>
-          </p>
-        </div>
-        <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
-          by <.people_links people={series.series_books |> Enum.flat_map(& &1.book.authors) |> Enum.uniq()} />
-        </p>
-      </div>
-    </.grid>
-    """
+  defp aliases(person, key) do
+    person
+    |> Map.get(key, [])
+    |> Enum.reject(&(&1.name == person.name))
+    |> Enum.map_join(", ", & &1.name)
   end
 
   defp series_tile(assigns) do
     ~H"""
-    <span class="relative block aspect-1">
-      <.series_images series_books={@series_books} />
-    </span>
+    <div class="text-center">
+      <div class="group">
+        <.link navigate={~p"/series/#{@series}"}>
+          <span class="relative block aspect-1">
+            <.series_images series_books={@series.series_books} />
+          </span>
+        </.link>
+        <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+          <.link navigate={~p"/series/#{@series}"}>
+            <%= @series.name %>
+          </.link>
+        </p>
+      </div>
+      <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        by <.people_links people={@series.series_books |> Enum.flat_map(& &1.book.authors) |> Enum.uniq()} />
+      </p>
+    </div>
     """
   end
 

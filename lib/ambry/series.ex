@@ -3,11 +3,15 @@ defmodule Ambry.Series do
   Functions for dealing with Series.
   """
 
-  import Ambry.{SearchUtils, Utils}
+  import Ambry.Utils
   import Ecto.Query
 
   alias Ambry.{PubSub, Repo}
-  alias Ambry.Series.{Series, SeriesBook, SeriesFlat}
+  alias Ambry.Series.{Series, SeriesFlat}
+
+  @series_direct_assoc_preloads [series_books: [book: [:authors]]]
+
+  def standard_preloads, do: @series_direct_assoc_preloads
 
   @doc """
   Returns a limited list of series and whether or not there are more.
@@ -62,10 +66,8 @@ defmodule Ambry.Series do
       ** (Ecto.NoResultsError)
   """
   def get_series!(id) do
-    series_book_query = from sb in SeriesBook, order_by: [asc: sb.book_number]
-
     Series
-    |> preload(series_books: ^{series_book_query, [:book]})
+    |> preload(^@series_direct_assoc_preloads)
     |> Repo.get!(id)
   end
 
@@ -140,27 +142,9 @@ defmodule Ambry.Series do
   Books are listed in ascending order based on series book number.
   """
   def get_series_with_books!(series_id) do
-    series_book_query = from sb in SeriesBook, order_by: [asc: sb.book_number]
-
     Series
-    |> preload(series_books: ^{series_book_query, [book: [:authors, series_books: :series]]})
+    |> preload(series_books: [book: [:authors, series_books: :series]])
     |> Repo.get!(series_id)
-  end
-
-  @doc """
-  Finds series that match a query string.
-
-  Returns a list of tuples of the form `{jaro_distance, series}`.
-  """
-  def search(query_string, limit \\ 15) do
-    name_query = "%#{query_string}%"
-    query = from s in Series, where: ilike(s.name, ^name_query), limit: ^limit
-    series_book_query = from sb in SeriesBook, order_by: [asc: sb.book_number]
-
-    query
-    |> preload(series_books: ^{series_book_query, [book: [:authors, series_books: :series]]})
-    |> Repo.all()
-    |> sort_by_jaro(query_string, :name)
   end
 
   @doc """

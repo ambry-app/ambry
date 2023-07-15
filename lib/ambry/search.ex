@@ -5,7 +5,7 @@ defmodule Ambry.Search do
 
   import Ecto.Query
 
-  alias Ambry.{Authors, Books, Narrators, Series}
+  alias Ambry.{Books, People, Series}
 
   alias Ambry.Books.Book
   alias Ambry.People.Person
@@ -13,36 +13,15 @@ defmodule Ambry.Search do
   alias Ambry.Search.Record
   alias Ambry.Series.Series, as: SeriesSchema
 
-  # Old search implementation (used in web app)
-
-  def search(query) do
-    authors = Authors.search(query, 10)
-    books = Books.search(query, 10)
-    narrators = Narrators.search(query, 10)
-    series = Series.search(query, 10)
-
-    [
-      {:authors, authors},
-      {:books, books},
-      {:narrators, narrators},
-      {:series, series}
-    ]
-    |> Enum.reject(&(elem(&1, 1) == []))
-    |> Enum.sort_by(
-      fn {_label, items} ->
-        items
-        |> Enum.map(&elem(&1, 0))
-        |> average()
-      end,
-      :desc
+  def search(query_string) do
+    query_string
+    |> query()
+    |> all(
+      books_preload: Books.standard_preloads(),
+      series_preload: Series.standard_preloads(),
+      people_preload: People.standard_preloads()
     )
   end
-
-  defp average(floats) do
-    Enum.sum(floats) / length(floats)
-  end
-
-  # New search implementation (used by graphql)
 
   def query(query_string) do
     like = "%#{query_string}%"
@@ -89,7 +68,7 @@ defmodule Ambry.Search do
       ]
   end
 
-  def all(query) do
+  def all(query, opts \\ []) do
     references =
       query
       |> Repo.all()
@@ -97,9 +76,9 @@ defmodule Ambry.Search do
 
     {book_ids, person_ids, series_ids} = partition_references(references)
 
-    books = fetch_books(book_ids)
-    people = fetch_people(person_ids)
-    series = fetch_series(series_ids)
+    books = fetch_books(book_ids, opts[:books_preload])
+    people = fetch_people(person_ids, opts[:people_preload])
+    series = fetch_series(series_ids, opts[:series_preload])
 
     recombine(references, books, people, series)
   end
@@ -117,20 +96,22 @@ defmodule Ambry.Search do
   defp do_partition(%{type: :series, id: id}, {books, people, series}),
     do: {books, people, [id | series]}
 
-  defp fetch_books(ids) do
-    query = from(b in Book, where: b.id in ^ids)
-    query |> Repo.all() |> Map.new(&{&1.id, &1})
+  defp fetch_books(ids, preload), do: fetch(from(b in Book, where: b.id in ^ids), preload)
+
+  defp fetch_people(ids, preload), do: fetch(from(p in Person, where: p.id in ^ids), preload)
+
+  defp fetch_series(ids, preload),
+    do: fetch(from(s in SeriesSchema, where: s.id in ^ids), preload)
+
+  defp fetch(query, preload) do
+    query
+    |> maybe_add_preload(preload)
+    |> Repo.all()
+    |> Map.new(&{&1.id, &1})
   end
 
-  defp fetch_people(ids) do
-    query = from(p in Person, where: p.id in ^ids)
-    query |> Repo.all() |> Map.new(&{&1.id, &1})
-  end
-
-  defp fetch_series(ids) do
-    query = from(s in SeriesSchema, where: s.id in ^ids)
-    query |> Repo.all() |> Map.new(&{&1.id, &1})
-  end
+  defp maybe_add_preload(query, nil), do: query
+  defp maybe_add_preload(query, preload), do: from(q in query, preload: ^preload)
 
   defp recombine(references, books, people, series) do
     Enum.map(references, fn reference ->

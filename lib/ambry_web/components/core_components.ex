@@ -796,33 +796,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <.grid>
       <%= for {book, number} <- books_with_numbers(@books) do %>
-        <div class="text-center">
-          <%= if number do %>
-            <p class="font-bold text-zinc-900 dark:text-zinc-100 sm:text-lg">Book <%= number %></p>
-          <% end %>
-          <div class="group">
-            <.link navigate={~p"/books/#{book}"}>
-              <span class="block aspect-1">
-                <img
-                  src={book.image_path}
-                  class="h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
-                />
-              </span>
-            </.link>
-            <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
-              <.link navigate={~p"/books/#{book}"}>
-                <%= book.title %>
-              </.link>
-            </p>
-          </div>
-          <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
-            by <.people_links people={book.authors} />
-          </p>
-
-          <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
-            <.series_book_links series_books={book.series_books} />
-          </div>
-        </div>
+        <.book_tile book={book} number={number} />
       <% end %>
 
       <%= if @show_load_more do %>
@@ -850,6 +824,41 @@ defmodule AmbryWeb.CoreComponents do
         <% end %>
       <% end %>
     </.grid>
+    """
+  end
+
+  attr :book, Book, required: true
+  attr :number, Decimal, default: nil
+
+  def book_tile(assigns) do
+    ~H"""
+    <div class="text-center">
+      <%= if @number do %>
+        <p class="font-bold text-zinc-900 dark:text-zinc-100 sm:text-lg">Book <%= @number %></p>
+      <% end %>
+      <div class="group">
+        <.link navigate={~p"/books/#{@book}"}>
+          <span class="block aspect-1">
+            <img
+              src={@book.image_path}
+              class="h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
+            />
+          </span>
+        </.link>
+        <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+          <.link navigate={~p"/books/#{@book}"}>
+            <%= @book.title %>
+          </.link>
+        </p>
+      </div>
+      <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        by <.people_links people={@book.authors} />
+      </p>
+
+      <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+        <.series_book_links series_books={@book.series_books} />
+      </div>
+    </div>
     """
   end
 

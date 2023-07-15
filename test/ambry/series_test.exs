@@ -202,29 +202,6 @@ defmodule Ambry.SeriesTest do
     end
   end
 
-  describe "search/1" do
-    test "searches for series by name" do
-      [%{name: name} | _] = insert_list(3, :series)
-
-      list = Series.search(name)
-
-      assert [{_, %Series.Series{}}] = list
-    end
-  end
-
-  describe "search/2" do
-    test "accepts a limit" do
-      insert_list(3, :series, name: "Foo Bar Baz")
-
-      list = Series.search("Foo", 2)
-
-      assert [
-               {_, %Series.Series{}},
-               {_, %Series.Series{}}
-             ] = list
-    end
-  end
-
   describe "for_select/0" do
     test "returns all series names and ids only" do
       insert_list(3, :series)
