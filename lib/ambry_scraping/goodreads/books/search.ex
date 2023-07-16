@@ -74,6 +74,7 @@ defmodule AmbryScraping.GoodReads.Books.Search do
     case author_html |> Floki.find("span.greyText") |> Floki.text() do
       "" -> "author"
       "(Goodreads Author)" -> "author"
+      "(Goodreads Author)(" <> rest -> rest |> String.slice(0..-2) |> String.downcase()
       string -> string |> String.slice(1..-2) |> String.downcase()
     end
   end
