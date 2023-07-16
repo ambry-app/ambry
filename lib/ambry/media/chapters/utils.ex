@@ -16,7 +16,7 @@ defmodule Ambry.Media.Chapters.Utils do
         {:error, :no_chapters}
 
       unexpected ->
-        Logger.warn(fn -> "Unexpected chapters format: #{inspect(unexpected)}" end)
+        Logger.warning(fn -> "Unexpected chapters format: #{inspect(unexpected)}" end)
         {:error, :unexpected_format}
     end
   end
@@ -43,7 +43,7 @@ defmodule Ambry.Media.Chapters.Utils do
         ])
 
       unexpected ->
-        Logger.warn(fn -> "Unexpected chapter format: #{inspect(unexpected)}" end)
+        Logger.warning(fn -> "Unexpected chapter format: #{inspect(unexpected)}" end)
         {:error, :unexpected_format}
     end
   end
@@ -70,7 +70,7 @@ defmodule Ambry.Media.Chapters.Utils do
         {:ok, output}
 
       {output, code} ->
-        Logger.warn(fn -> "ffmpeg metadata probe failed. Code: #{code}, Output: #{output}" end)
+        Logger.warning(fn -> "ffmpeg metadata probe failed. Code: #{code}, Output: #{output}" end)
         {:error, :probe_failed}
     end
   end
@@ -114,7 +114,7 @@ defmodule Ambry.Media.Chapters.Utils do
       {:ok, timecode_to_decimal(timecode)}
     rescue
       error in RuntimeError ->
-        Logger.warn(fn -> "Couldn't get duration:" end)
+        Logger.warning(fn -> "Couldn't get duration:" end)
         Logger.error(Exception.format(:error, error, __STACKTRACE__))
 
         {:error, :no_duration}
@@ -148,7 +148,7 @@ defmodule Ambry.Media.Chapters.Utils do
         {:ok, output}
 
       {output, code} ->
-        Logger.warn(fn -> "MP4 chapter probe failed. Code: #{code}, Output: #{output}" end)
+        Logger.warning(fn -> "MP4 chapter probe failed. Code: #{code}, Output: #{output}" end)
         {:error, :probe_failed}
     end
   end

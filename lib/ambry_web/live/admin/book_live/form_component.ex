@@ -3,10 +3,14 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
 
   use AmbryWeb, :live_component
 
-  import AmbryWeb.Admin.{Components, HTMLToMD, UploadHelpers}
+  import AmbryWeb.Admin.Components
+  import AmbryWeb.Admin.HTMLToMD
   import AmbryWeb.Admin.ParamHelpers, only: [map_to_list: 2]
+  import AmbryWeb.Admin.UploadHelpers
 
-  alias Ambry.{Authors, Books, Series}
+  alias Ambry.Authors
+  alias Ambry.Books
+  alias Ambry.Series
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -127,37 +131,39 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     end
   end
 
-  defp audnexus_book_changeset(book, book_details) do
-    matching_authors = audnexus_matching_authors(book_details)
-    series_book_params = audnexus_series_book_params(book_details)
-
+  defp audnexus_book_changeset(book, audnexus_book_details) do
     params =
       book
       |> init_book_param()
       |> Map.merge(%{
-        "title" => book_details["title"],
-        "description" => parse_description(book_details["summary"]),
-        "image_import_url" => book_details["image"]
+        "title" => audnexus_book_details["title"],
+        "description" => parse_description(audnexus_book_details["summary"]),
+        "image_import_url" => audnexus_book_details["image"]
       })
-      |> Map.update!("book_authors", fn
-        [] ->
-          Enum.flat_map(book_details["authors"], fn %{"name" => name} ->
-            case matching_authors[name] do
-              %Authors.Author{} = author -> [%{"author_id" => author.id}]
-              nil -> []
-            end
-          end)
-
-        authors ->
-          authors
-      end)
-      |> Map.update!("series_books", fn
-        [] -> List.wrap(series_book_params)
-        series_books -> series_books
-      end)
+      |> Map.update!("book_authors", &audnexus_book_authors_params(&1, audnexus_book_details))
+      |> Map.update!("series_books", &audnexus_series_books_params(&1, audnexus_book_details))
 
     Books.change_book(book, params)
   end
+
+  defp audnexus_book_authors_params([], audnexus_book_details) do
+    matching_authors = audnexus_matching_authors(audnexus_book_details)
+
+    Enum.flat_map(audnexus_book_details["authors"], fn %{"name" => name} ->
+      case matching_authors[name] do
+        %Authors.Author{} = author -> [%{"author_id" => author.id}]
+        nil -> []
+      end
+    end)
+  end
+
+  defp audnexus_book_authors_params(existing_authors, _audnexus_book_details), do: existing_authors
+
+  defp audnexus_series_books_params([], audnexus_book_details) do
+    audnexus_book_details |> audnexus_series_book_params() |> List.wrap()
+  end
+
+  defp audnexus_series_books_params(existing_series_books, _audnexus_book_details), do: existing_series_books
 
   defp parse_description(html_string) do
     case html_to_md(html_string) do

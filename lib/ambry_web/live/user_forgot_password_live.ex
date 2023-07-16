@@ -1,4 +1,5 @@
 defmodule AmbryWeb.UserForgotPasswordLive do
+  @moduledoc false
   use AmbryWeb, :auth_live_view
 
   alias Ambry.Accounts
@@ -43,8 +44,7 @@ defmodule AmbryWeb.UserForgotPasswordLive do
       )
     end
 
-    info =
-      "If your email is in our system, you will receive instructions to reset your password shortly."
+    info = "If your email is in our system, you will receive instructions to reset your password shortly."
 
     {:noreply,
      socket

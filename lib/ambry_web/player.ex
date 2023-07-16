@@ -7,8 +7,8 @@ defmodule AmbryWeb.Player do
 
   alias Ambry.Accounts
   alias Ambry.Accounts.User
-  alias Ambry.{Media, PubSub}
-
+  alias Ambry.Media
+  alias Ambry.PubSub
   alias AmbryWeb.Player.Tracker
 
   defstruct [:connected?, :id, :user, :player_state, :playback_state, :current_chapter_index]

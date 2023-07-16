@@ -6,8 +6,8 @@ defmodule AmbryWeb.LibraryLive do
   use AmbryWeb, :live_view
 
   alias Ambry.PubSub
-
-  alias AmbryWeb.LibraryLive.{RecentBooks, RecentMedia}
+  alias AmbryWeb.LibraryLive.RecentBooks
+  alias AmbryWeb.LibraryLive.RecentMedia
   alias AmbryWeb.Player
 
   @impl Phoenix.LiveView

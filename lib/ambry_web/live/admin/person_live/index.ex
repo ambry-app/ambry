@@ -7,9 +7,9 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
   import AmbryWeb.Admin.PaginationHelpers
 
-  alias Ambry.{People, PubSub}
+  alias Ambry.People
   alias Ambry.People.Person
-
+  alias Ambry.PubSub
   alias AmbryWeb.Admin.PersonLive.FormComponent
 
   @valid_sort_fields [

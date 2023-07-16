@@ -5,13 +5,13 @@ defmodule Ambry.Search.Index do
 
   import Ecto.Query
 
-  alias Ambry.{Reference, Repo}
-
   alias Ambry.Authors.Author
   alias Ambry.Books.Book
   alias Ambry.Media.Media
   alias Ambry.Narrators.Narrator
   alias Ambry.People.Person
+  alias Ambry.Reference
+  alias Ambry.Repo
   alias Ambry.Search.Record
   alias Ambry.Series.Series
 
@@ -164,8 +164,7 @@ defmodule Ambry.Search.Index do
 
     media_dependencies = Enum.map(book.media, &Reference.new/1)
 
-    dependencies =
-      Enum.uniq(secondary_dependencies ++ tertiary_dependencies ++ media_dependencies)
+    dependencies = Enum.uniq(secondary_dependencies ++ tertiary_dependencies ++ media_dependencies)
 
     %{
       reference: Reference.new(book),

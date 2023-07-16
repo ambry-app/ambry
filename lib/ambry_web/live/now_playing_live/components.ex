@@ -9,9 +9,9 @@ defmodule AmbryWeb.NowPlayingLive.Components do
 
   alias Ambry.Accounts.User
   alias Ambry.Media
-
+  alias AmbryWeb.Hashids
   alias AmbryWeb.NowPlayingLive.Bookmarks
-  alias AmbryWeb.{Hashids, Player}
+  alias AmbryWeb.Player
 
   attr :media, Media.Media, required: true
 
@@ -102,8 +102,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
 
   defp format_file_name(file), do: file.label || file.filename
 
-  defp file_href(file, media),
-    do: ~p"/download/media/#{Hashids.encode(media.id)}/#{file.id}/#{file.filename}"
+  defp file_href(file, media), do: ~p"/download/media/#{Hashids.encode(media.id)}/#{file.id}/#{file.filename}"
 
   attr :id, :string, required: true
   attr :label, :string, required: true

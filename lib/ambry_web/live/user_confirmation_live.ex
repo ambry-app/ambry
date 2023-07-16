@@ -1,4 +1,5 @@
 defmodule AmbryWeb.UserConfirmationLive do
+  @moduledoc false
   use AmbryWeb, :auth_live_view
 
   alias Ambry.Accounts

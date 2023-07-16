@@ -30,8 +30,7 @@ defmodule Ambry.Media.Chapters.OverdriveMP3 do
 
   defp do_get_chapters(media, files, offset \\ Decimal.new(0), acc \\ [])
 
-  defp do_get_chapters(_media, [], _offset, acc),
-    do: {:ok, acc |> Enum.reverse() |> List.flatten()}
+  defp do_get_chapters(_media, [], _offset, acc), do: {:ok, acc |> Enum.reverse() |> List.flatten()}
 
   defp do_get_chapters(media, [file | rest], offset, acc) do
     with {:ok, json} <- get_metadata_json(media, file),
@@ -50,7 +49,7 @@ defmodule Ambry.Media.Chapters.OverdriveMP3 do
         {:ok, metadata}
 
       {:error, error} ->
-        Logger.warn(fn -> "ffprobe metadata json decode failed: #{inspect(error)}" end)
+        Logger.warning(fn -> "ffprobe metadata json decode failed: #{inspect(error)}" end)
         {:error, :invalid_json}
     end
   end
@@ -61,7 +60,7 @@ defmodule Ambry.Media.Chapters.OverdriveMP3 do
         {:ok, xml}
 
       unexpected ->
-        Logger.warn(fn -> "No OverDrive MediaMarkers in metadata: #{inspect(unexpected)}" end)
+        Logger.warning(fn -> "No OverDrive MediaMarkers in metadata: #{inspect(unexpected)}" end)
         {:error, :no_overdrive_markers}
     end
   end
@@ -78,7 +77,7 @@ defmodule Ambry.Media.Chapters.OverdriveMP3 do
     if markers != [] && Enum.all?(markers, &validate_marker/1) do
       {:ok, markers}
     else
-      Logger.warn(fn -> "Unexpected OverDrive MediaMarkers format: #{marker_xml}" end)
+      Logger.warning(fn -> "Unexpected OverDrive MediaMarkers format: #{marker_xml}" end)
       {:error, :unexpected_xml}
     end
   end

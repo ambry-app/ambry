@@ -66,7 +66,6 @@ defmodule Ambry.Application do
   end
 
   defp migrate! do
-    {:ok, _fun_return, _apps} =
-      Ecto.Migrator.with_repo(Ambry.Repo, &Ecto.Migrator.run(&1, :up, all: true))
+    {:ok, _fun_return, _apps} = Ecto.Migrator.with_repo(Ambry.Repo, &Ecto.Migrator.run(&1, :up, all: true))
   end
 end

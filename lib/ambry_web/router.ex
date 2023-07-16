@@ -1,10 +1,9 @@
 defmodule AmbryWeb.Router do
   use AmbryWeb, :router
 
-  import Phoenix.LiveDashboard.Router
-
   import AmbrySchema.PlugHelpers
   import AmbryWeb.UserAuth
+  import Phoenix.LiveDashboard.Router
 
   pipeline :browser do
     plug :accepts, ["html"]

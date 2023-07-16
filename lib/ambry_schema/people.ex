@@ -13,8 +13,7 @@ defmodule AmbrySchema.People do
     field :description, :string
     field :image_path, :string
 
-    field :authors, non_null(list_of(non_null(:author))),
-      resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
+    field :authors, non_null(list_of(non_null(:author))), resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
 
     field :narrators, non_null(list_of(non_null(:narrator))),
       resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})

@@ -22,7 +22,7 @@ defmodule AmbryWeb.TimeUtils do
   defp format(0, minutes, seconds), do: "#{minutes}:#{pad(seconds)}"
   defp format(hours, minutes, seconds), do: "#{hours}:#{pad(minutes)}:#{pad(seconds)}"
 
-  defp pad(number), do: :io_lib.format('~2..0B', [number])
+  defp pad(number), do: :io_lib.format(~c"~2..0B", [number])
 
   @doc """
   Formats a decimal number of seconds into a human readable string.

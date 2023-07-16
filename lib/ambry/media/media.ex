@@ -8,8 +8,11 @@ defmodule Ambry.Media.Media do
   import Ecto.Changeset
 
   alias Ambry.Books.Book
-  alias Ambry.Media.{Media, MediaNarrator, PlayerState, Processor}
+  alias Ambry.Media.Media
   alias Ambry.Media.Media.Chapter
+  alias Ambry.Media.MediaNarrator
+  alias Ambry.Media.PlayerState
+  alias Ambry.Media.Processor
   alias Ambry.Narrators.Narrator
   alias Ambry.SupplementalFile
 
@@ -146,8 +149,7 @@ defmodule Ambry.Media.Media do
     Path.join([source_path, "_out", file])
   end
 
-  def files(%Media{source_path: source_path}, extensions, opts \\ [])
-      when is_binary(source_path) do
+  def files(%Media{source_path: source_path}, extensions, opts \\ []) when is_binary(source_path) do
     full? = Keyword.get(opts, :full?, false)
 
     case File.ls(source_path) do

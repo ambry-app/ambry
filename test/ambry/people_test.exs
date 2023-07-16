@@ -188,8 +188,7 @@ defmodule Ambry.PeopleTest do
     test "deletes nested authors" do
       %{id: author_id, person: person} = insert(:author)
 
-      {:ok, updated_person} =
-        People.update_person(person, %{authors: [%{id: author_id, delete: true}]})
+      {:ok, updated_person} = People.update_person(person, %{authors: [%{id: author_id, delete: true}]})
 
       assert %{authors: []} = updated_person
     end
@@ -197,8 +196,7 @@ defmodule Ambry.PeopleTest do
     test "cannot delete a nested author if they have authored a book" do
       %{book_authors: [%{author: %{id: author_id, person: person}} | _]} = insert(:book)
 
-      {:error, changeset} =
-        People.update_person(person, %{authors: [%{id: author_id, delete: true}]})
+      {:error, changeset} = People.update_person(person, %{authors: [%{id: author_id, delete: true}]})
 
       assert %{
                authors: [
@@ -234,8 +232,7 @@ defmodule Ambry.PeopleTest do
     test "deletes nested narrators" do
       %{id: narrator_id, person: person} = insert(:narrator)
 
-      {:ok, updated_person} =
-        People.update_person(person, %{narrators: [%{id: narrator_id, delete: true}]})
+      {:ok, updated_person} = People.update_person(person, %{narrators: [%{id: narrator_id, delete: true}]})
 
       assert %{narrators: []} = updated_person
     end
@@ -243,8 +240,7 @@ defmodule Ambry.PeopleTest do
     test "cannot delete a nested narrator if they have narrated media" do
       %{media_narrators: [%{narrator: %{id: narrator_id, person: person}} | _]} = insert(:media)
 
-      {:error, changeset} =
-        People.update_person(person, %{narrators: [%{id: narrator_id, delete: true}]})
+      {:error, changeset} = People.update_person(person, %{narrators: [%{id: narrator_id, delete: true}]})
 
       assert %{
                narrators: [
@@ -313,8 +309,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "cannot delete a person if they have narrated media" do
-      %{book: %{title: book_title}, media_narrators: [%{narrator: %{person: person}} | _]} =
-        insert(:media)
+      %{book: %{title: book_title}, media_narrators: [%{narrator: %{person: person}} | _]} = insert(:media)
 
       {:error, {:has_narrated_books, [^book_title]}} = People.delete_person(person)
     end

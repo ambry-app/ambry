@@ -7,7 +7,12 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
 
   # import AmbryWeb.Admin.Components
 
-  alias Ambry.{Accounts, Books, Media, People, PubSub, Series}
+  alias Ambry.Accounts
+  alias Ambry.Books
+  alias Ambry.Media
+  alias Ambry.People
+  alias Ambry.PubSub
+  alias Ambry.Series
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do

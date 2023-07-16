@@ -22,15 +22,13 @@ defmodule Ambry.Ecto.Types.PersonNameTest do
 
   describe "load/1" do
     test "loads a tuple from the database into a PersonName struct" do
-      assert {:ok, %PersonName{name: "Foo", person_name: "Bar"}} =
-               PersonNameType.load({"Foo", "Bar"})
+      assert {:ok, %PersonName{name: "Foo", person_name: "Bar"}} = PersonNameType.load({"Foo", "Bar"})
     end
   end
 
   describe "dump/1" do
     test "dumps a PersonName struct to the database as a tuple" do
-      assert {:ok, {"Foo", "Bar"}} =
-               PersonNameType.dump(%PersonName{name: "Foo", person_name: "Bar"})
+      assert {:ok, {"Foo", "Bar"}} = PersonNameType.dump(%PersonName{name: "Foo", person_name: "Bar"})
     end
 
     test "error for anything else" do

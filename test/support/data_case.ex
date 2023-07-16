@@ -20,12 +20,13 @@ defmodule Ambry.DataCase do
 
   using do
     quote do
-      alias Ambry.Repo
-
+      import Ambry.DataCase
+      import Ambry.Factory
       import Ecto
-      import Ecto.{Changeset, Query}
+      import Ecto.Changeset
+      import Ecto.Query
 
-      import Ambry.{DataCase, Factory}
+      alias Ambry.Repo
     end
   end
 

@@ -3,8 +3,6 @@
 #
 #     mix ecto.seed
 
-alias Ambry.Repo
-
 alias Ambry.Authors.Author
 alias Ambry.Authors.BookAuthor
 alias Ambry.Books.Book
@@ -12,6 +10,7 @@ alias Ambry.Media.Media
 alias Ambry.Media.MediaNarrator
 alias Ambry.Narrators.Narrator
 alias Ambry.People.Person
+alias Ambry.Repo
 
 cwd = File.cwd!()
 

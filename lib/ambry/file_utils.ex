@@ -6,8 +6,9 @@ defmodule Ambry.FileUtils do
   import Ecto.Query
 
   alias Ambry.Books.Book
-  alias Ambry.{Paths, Repo}
+  alias Ambry.Paths
   alias Ambry.People.Person
+  alias Ambry.Repo
 
   require Logger
 
@@ -20,15 +21,14 @@ defmodule Ambry.FileUtils do
   def maybe_delete_image(web_path) do
     book_count = Repo.one(from b in Book, select: count(b.id), where: b.image_path == ^web_path)
 
-    person_count =
-      Repo.one(from p in Person, select: count(p.id), where: p.image_path == ^web_path)
+    person_count = Repo.one(from p in Person, select: count(p.id), where: p.image_path == ^web_path)
 
     if book_count + person_count == 0 do
       disk_path = Paths.web_to_disk(web_path)
 
       try_delete_file(disk_path)
     else
-      Logger.warn(fn -> "Not deleting file because it's still in use: #{web_path}" end)
+      Logger.warning(fn -> "Not deleting file because it's still in use: #{web_path}" end)
       {:error, :still_in_use}
     end
   end
@@ -68,7 +68,7 @@ defmodule Ambry.FileUtils do
         :ok
 
       {:error, posix} ->
-        Logger.warn(fn -> "Couldn't delete file (#{posix}): #{disk_path}" end)
+        Logger.warning(fn -> "Couldn't delete file (#{posix}): #{disk_path}" end)
         {:error, posix}
     end
   end
@@ -82,16 +82,14 @@ defmodule Ambry.FileUtils do
 
   def try_delete_folder(disk_path) do
     case File.rm_rf(disk_path) do
-      {:ok, files_and_dirs} ->
-        Enum.each(files_and_dirs, fn path ->
-          Logger.info(fn -> "Deleted file/folder: #{path}" end)
-        end)
+      {:ok, paths} ->
+        for path <- paths, do: Logger.info(fn -> "Deleted file/folder: #{path}" end)
 
         :ok
 
       {:error, posix, path} ->
         # coveralls-ignore-start
-        Logger.warn(fn -> "Couldn't delete file/folder (#{posix}): #{path}" end)
+        Logger.warning(fn -> "Couldn't delete file/folder (#{posix}): #{path}" end)
         {:error, posix, path}
         # coveralls-ignore-stop
     end

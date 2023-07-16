@@ -42,13 +42,8 @@ defmodule AmbryWeb.PlayerLive do
     {:noreply, update(socket, :player, &Player.playback_rate_changed(&1, playback_rate))}
   end
 
-  def handle_event(
-        "playback-time-updated",
-        %{"playback-time" => playback_time, "persist" => true},
-        socket
-      ) do
-    {:noreply,
-     update(socket, :player, &Player.playback_time_updated(&1, playback_time, persist: true))}
+  def handle_event("playback-time-updated", %{"playback-time" => playback_time, "persist" => true}, socket) do
+    {:noreply, update(socket, :player, &Player.playback_time_updated(&1, playback_time, persist: true))}
   end
 
   def handle_event("playback-time-updated", %{"playback-time" => playback_time}, socket) do

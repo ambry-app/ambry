@@ -20,17 +20,15 @@ defmodule AmbryWeb.ConnCase do
   using do
     quote do
       # The default endpoint for testing
-      @endpoint AmbryWeb.Endpoint
-
       use AmbryWeb, :verified_routes
 
       # Import conveniences for testing with connections
-      import Plug.Conn
-      import Phoenix.ConnTest
-
       import Ambry.Factory
-
       import AmbryWeb.ConnCase
+      import Phoenix.ConnTest
+      import Plug.Conn
+
+      @endpoint AmbryWeb.Endpoint
     end
   end
 
