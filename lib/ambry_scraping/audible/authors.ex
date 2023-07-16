@@ -57,4 +57,37 @@ defmodule AmbryScraping.Audible.Authors do
         nil
     end
   end
+
+  def search(name) do
+    query = URI.encode_query(%{keywords: name})
+    path = "/search" |> URI.new!() |> URI.append_query(query) |> URI.to_string()
+    downcased_name = String.downcase(name)
+
+    with {:ok, search_results_html} <- Browser.get_page_html(path),
+         {:ok, search_results_document} <- Floki.parse_document(search_results_html) do
+      search_results_document
+      |> Floki.find("li.authorLabel a")
+      |> Enum.map(fn link ->
+        name = Floki.text(link)
+
+        [url] = Floki.attribute(link, "href")
+        uri = URI.parse(url)
+        asin = Path.basename(uri.path)
+
+        %{
+          asin: asin,
+          name: name
+        }
+      end)
+      |> Enum.uniq_by(& &1.asin)
+      |> Enum.flat_map(fn author ->
+        case String.jaro_distance(downcased_name, String.downcase(author.name)) do
+          x when x >= 0.8 -> [{author, x}]
+          _else -> []
+        end
+      end)
+      |> Enum.sort_by(fn {_author, score} -> score end, :desc)
+      |> Enum.map(&elem(&1, 0))
+    end
+  end
 end

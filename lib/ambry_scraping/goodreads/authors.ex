@@ -3,6 +3,7 @@ defmodule AmbryScraping.GoodReads.Authors do
   GoodReads web-scraping API for authors
   """
 
+  alias AmbryScraping.GoodReads.Books
   alias AmbryScraping.GoodReads.Browser
   alias AmbryScraping.HTMLToMD
   alias AmbryScraping.Image
@@ -54,6 +55,24 @@ defmodule AmbryScraping.GoodReads.Authors do
 
       _else ->
         nil
+    end
+  end
+
+  def search(name) do
+    with {:ok, %{results: results}} <- Books.search(name) do
+      downcased_name = String.downcase(name)
+
+      results
+      |> Enum.flat_map(& &1.contributors)
+      |> Enum.uniq_by(& &1.id)
+      |> Enum.flat_map(fn contributor ->
+        case String.jaro_distance(downcased_name, String.downcase(contributor.name)) do
+          x when x >= 0.8 -> [{contributor, x}]
+          _else -> []
+        end
+      end)
+      |> Enum.sort_by(fn {_contributor, score} -> score end, :desc)
+      |> Enum.map(&elem(&1, 0))
     end
   end
 end
