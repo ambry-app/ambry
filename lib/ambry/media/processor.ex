@@ -6,16 +6,13 @@ defmodule Ambry.Media.Processor do
   """
 
   alias Ambry.Media
-
-  alias Ambry.Media.Processor.{
-    MP3,
-    MP3Concat,
-    MP4,
-    MP4Concat,
-    MP4ConcatReEncode,
-    MP4ReEncode,
-    OpusConcat
-  }
+  alias Ambry.Media.Processor.MP3
+  alias Ambry.Media.Processor.MP3Concat
+  alias Ambry.Media.Processor.MP4
+  alias Ambry.Media.Processor.MP4Concat
+  alias Ambry.Media.Processor.MP4ConcatReEncode
+  alias Ambry.Media.Processor.MP4ReEncode
+  alias Ambry.Media.Processor.OpusConcat
 
   @processors [
     MP3,

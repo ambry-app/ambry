@@ -63,8 +63,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   """
   def consume_uploaded_supplemental_files(socket, name) do
     consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
-      filename =
-        save_file_to_disk!(entry.client_type, File.read!(path), &supplemental_files_disk_path/1)
+      filename = save_file_to_disk!(entry.client_type, File.read!(path), &supplemental_files_disk_path/1)
 
       {:ok,
        %{

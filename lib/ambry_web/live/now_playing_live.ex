@@ -5,11 +5,11 @@ defmodule AmbryWeb.NowPlayingLive do
 
   use AmbryWeb, :live_view
 
-  import AmbryWeb.NowPlayingLive.Components
   import AmbryWeb.Layouts, only: [nav_header: 1]
+  import AmbryWeb.NowPlayingLive.Components
 
-  alias Ambry.{Media, PubSub}
-
+  alias Ambry.Media
+  alias Ambry.PubSub
   alias AmbryWeb.Player
 
   @impl Phoenix.LiveView

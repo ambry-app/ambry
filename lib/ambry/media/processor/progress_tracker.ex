@@ -69,11 +69,8 @@ defmodule Ambry.Media.Processor.ProgressTracker do
   defp get_current_time(progress),
     do:
       Enum.find_value(progress, fn
-        {"out_time", out_time} ->
-          timestamp_to_seconds(out_time)
-
-        _else ->
-          false
+        {"out_time", out_time} -> timestamp_to_seconds(out_time)
+        _else -> false
       end)
 
   @timestamp_regex ~r/([0-9]{2}):([0-9]{2}):([0-9]{2}(?:\.[0-9]+)?)/

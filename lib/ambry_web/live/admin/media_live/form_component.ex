@@ -4,11 +4,15 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   use AmbryWeb, :live_component
 
   import Ambry.Paths
-  import AmbryWeb.Admin.{Components, UploadHelpers}
+  import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.ParamHelpers
+  import AmbryWeb.Admin.UploadHelpers
 
-  alias Ambry.{Books, Media, Narrators}
-  alias Ambry.Media.{Processor, ProcessorJob}
+  alias Ambry.Books
+  alias Ambry.Media
+  alias Ambry.Media.Processor
+  alias Ambry.Media.ProcessorJob
+  alias Ambry.Narrators
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -25,8 +29,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
 
   @impl Phoenix.LiveComponent
   def update(%{media: media} = assigns, socket) do
-    changeset =
-      Media.change_media(media, init_media_param(media), for: changeset_action(assigns.action))
+    changeset = Media.change_media(media, init_media_param(media), for: changeset_action(assigns.action))
 
     socket =
       if assigns.action == :edit do
@@ -68,8 +71,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
         {:ok, dest}
       end)
 
-    uploaded_supplemental_files_params =
-      consume_uploaded_supplemental_files(socket, :supplemental)
+    uploaded_supplemental_files_params = consume_uploaded_supplemental_files(socket, :supplemental)
 
     media_params =
       if audio_files != [] do
@@ -190,8 +192,7 @@ defmodule AmbryWeb.Admin.MediaLive.FormComponent do
   defp changeset_action(:new), do: :create
   defp changeset_action(:edit), do: :update
 
-  defp processors(%Media.Media{source_path: path} = media, [_ | _] = uploads)
-       when is_binary(path) do
+  defp processors(%Media.Media{source_path: path} = media, [_ | _] = uploads) when is_binary(path) do
     filenames = Enum.map(uploads, & &1.client_name)
     {media, filenames} |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
   end

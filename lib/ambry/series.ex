@@ -6,8 +6,10 @@ defmodule Ambry.Series do
   import Ambry.Utils
   import Ecto.Query
 
-  alias Ambry.{PubSub, Repo}
-  alias Ambry.Series.{Series, SeriesFlat}
+  alias Ambry.PubSub
+  alias Ambry.Repo
+  alias Ambry.Series.Series
+  alias Ambry.Series.SeriesFlat
 
   @series_direct_assoc_preloads [series_books: [book: [:authors]]]
 

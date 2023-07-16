@@ -8,9 +8,10 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   import AmbryWeb.Admin.PaginationHelpers
   import AmbryWeb.TimeUtils
 
-  alias Ambry.{Media, PubSub}
-
-  alias AmbryWeb.Admin.MediaLive.{ChaptersComponent, FormComponent}
+  alias Ambry.Media
+  alias Ambry.PubSub
+  alias AmbryWeb.Admin.MediaLive.ChaptersComponent
+  alias AmbryWeb.Admin.MediaLive.FormComponent
 
   @valid_sort_fields [
     :book
@@ -99,8 +100,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     known_processing_media = Map.get(socket.assigns, :processing_media, [])
     progress_map = Map.get(socket.assigns, :processing_media_progress_map, %{})
 
-    {current_processing_media, _has_more?} =
-      Media.list_media(0, 999, %{status: :processing}, desc: :inserted_at)
+    {current_processing_media, _has_more?} = Media.list_media(0, 999, %{status: :processing}, desc: :inserted_at)
 
     to_add = Enum.map(current_processing_media -- known_processing_media, & &1.id)
     to_remove = Enum.map(known_processing_media -- current_processing_media, & &1.id)

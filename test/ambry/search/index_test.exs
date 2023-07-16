@@ -3,8 +3,10 @@ defmodule Ambry.Search.IndexTest do
 
   use Ambry.DataCase
 
-  alias Ambry.{Reference, Repo}
-  alias Ambry.Search.{Index, Record}
+  alias Ambry.Reference
+  alias Ambry.Repo
+  alias Ambry.Search.Index
+  alias Ambry.Search.Record
 
   describe "insert(:book, id)" do
     test "indexes a new book" do

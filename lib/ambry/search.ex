@@ -5,12 +5,13 @@ defmodule Ambry.Search do
 
   import Ecto.Query
 
-  alias Ambry.{Books, People, Series}
-
+  alias Ambry.Books
   alias Ambry.Books.Book
+  alias Ambry.People
   alias Ambry.People.Person
   alias Ambry.Repo
   alias Ambry.Search.Record
+  alias Ambry.Series
   alias Ambry.Series.Series, as: SeriesSchema
 
   def search(query_string) do
@@ -32,8 +33,7 @@ defmodule Ambry.Search do
           ilike(record.primary, ^like) or ilike(record.secondary, ^like) or
           ilike(record.tertiary, ^like),
       order_by: [
-        {:desc,
-         fragment("ts_rank_cd(?, plainto_tsquery(?))", record.search_vector, ^query_string)},
+        {:desc, fragment("ts_rank_cd(?, plainto_tsquery(?))", record.search_vector, ^query_string)},
         {:desc,
          fragment(
            """
@@ -87,21 +87,17 @@ defmodule Ambry.Search do
     Enum.reduce(references, {[], [], []}, &do_partition/2)
   end
 
-  defp do_partition(%{type: :book, id: id}, {books, people, series}),
-    do: {[id | books], people, series}
+  defp do_partition(%{type: :book, id: id}, {books, people, series}), do: {[id | books], people, series}
 
-  defp do_partition(%{type: :person, id: id}, {books, people, series}),
-    do: {books, [id | people], series}
+  defp do_partition(%{type: :person, id: id}, {books, people, series}), do: {books, [id | people], series}
 
-  defp do_partition(%{type: :series, id: id}, {books, people, series}),
-    do: {books, people, [id | series]}
+  defp do_partition(%{type: :series, id: id}, {books, people, series}), do: {books, people, [id | series]}
 
   defp fetch_books(ids, preload), do: fetch(from(b in Book, where: b.id in ^ids), preload)
 
   defp fetch_people(ids, preload), do: fetch(from(p in Person, where: p.id in ^ids), preload)
 
-  defp fetch_series(ids, preload),
-    do: fetch(from(s in SeriesSchema, where: s.id in ^ids), preload)
+  defp fetch_series(ids, preload), do: fetch(from(s in SeriesSchema, where: s.id in ^ids), preload)
 
   defp fetch(query, preload) do
     query

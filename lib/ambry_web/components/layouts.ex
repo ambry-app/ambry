@@ -7,7 +7,6 @@ defmodule AmbryWeb.Layouts do
   import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
   alias Ambry.Media
-
   alias AmbryWeb.Components.SearchBox
 
   embed_templates "layouts/*"
@@ -395,15 +394,11 @@ defmodule AmbryWeb.Layouts do
 
   defp toggle_playback, do: JS.dispatch("ambry:toggle-playback", to: "#media-player")
 
-  defp seek_relative(value),
-    do: JS.dispatch("ambry:seek-relative", to: "#media-player", detail: %{value: value})
+  defp seek_relative(value), do: JS.dispatch("ambry:seek-relative", to: "#media-player", detail: %{value: value})
 
-  defp decrement_playback_rate,
-    do: JS.dispatch("ambry:decrement-playback-rate", to: "#media-player")
+  defp decrement_playback_rate, do: JS.dispatch("ambry:decrement-playback-rate", to: "#media-player")
 
-  defp increment_playback_rate,
-    do: JS.dispatch("ambry:increment-playback-rate", to: "#media-player")
+  defp increment_playback_rate, do: JS.dispatch("ambry:increment-playback-rate", to: "#media-player")
 
-  defp set_playback_rate(value),
-    do: JS.dispatch("ambry:set-playback-rate", to: "#media-player", detail: %{value: value})
+  defp set_playback_rate(value), do: JS.dispatch("ambry:set-playback-rate", to: "#media-player", detail: %{value: value})
 end

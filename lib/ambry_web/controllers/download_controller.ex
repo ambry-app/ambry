@@ -1,8 +1,8 @@
 defmodule AmbryWeb.DownloadController do
   use AmbryWeb, :controller
 
-  alias Ambry.{Media, SupplementalFile}
-
+  alias Ambry.Media
+  alias Ambry.SupplementalFile
   alias AmbryWeb.Hashids
 
   def download_media(conn, params) do

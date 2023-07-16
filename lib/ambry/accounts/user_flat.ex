@@ -24,6 +24,5 @@ defmodule Ambry.Accounts.UserFlat do
 
   def filter(query, :admin, admin?), do: from(p in query, where: [admin: ^admin?])
 
-  def filter(query, :confirmed, confirmed?),
-    do: from(p in query, where: [confirmed: ^confirmed?])
+  def filter(query, :confirmed, confirmed?), do: from(p in query, where: [confirmed: ^confirmed?])
 end

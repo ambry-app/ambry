@@ -41,8 +41,7 @@ defmodule AmbryWeb.Components.Autocomplete do
   def handle_event("update-value", %{"autocomplete" => params}, socket) do
     input = params[socket.assigns.id]
 
-    value =
-      Enum.find_value(socket.assigns.options, "", fn {label, value} -> label == input && value end)
+    value = Enum.find_value(socket.assigns.options, "", fn {label, value} -> label == input && value end)
 
     {:noreply, assign(socket, value: value)}
   end

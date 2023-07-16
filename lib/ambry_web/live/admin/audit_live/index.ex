@@ -5,7 +5,8 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
 
   use AmbryWeb, :admin_live_view
 
-  alias Ambry.{FileUtils, Media}
+  alias Ambry.FileUtils
+  alias Ambry.Media
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do

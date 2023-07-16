@@ -3,7 +3,8 @@ defmodule AmbryWeb.UserForgotPasswordLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias Ambry.{Accounts, Repo}
+  alias Ambry.Accounts
+  alias Ambry.Repo
 
   describe "Forgot password page" do
     test "renders email page", %{conn: conn} do

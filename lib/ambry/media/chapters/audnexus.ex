@@ -23,7 +23,7 @@ defmodule Ambry.Media.Chapters.Audnexus do
         {:ok, process_chapters(chapters)}
 
       {:ok, response} ->
-        Logger.warn(fn -> "Unexpected response received from Audnexus: #{inspect(response)}" end)
+        Logger.warning(fn -> "Unexpected response received from Audnexus: #{inspect(response)}" end)
         {:error, "Unexpected response received from Audnexus"}
 
       {:error, %Req.Response{status: status}} ->

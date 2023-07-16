@@ -1,11 +1,9 @@
 defmodule AmbryWeb.UserAuthTest do
   use AmbryWeb.ConnCase, async: true
 
-  alias Phoenix.LiveView
-
   alias Ambry.Accounts
-
   alias AmbryWeb.UserAuth
+  alias Phoenix.LiveView
 
   @remember_me_cookie "_ambry_web_user_remember_me"
 
@@ -94,8 +92,7 @@ defmodule AmbryWeb.UserAuthTest do
     end
 
     test "authenticates user from cookies", %{conn: conn, user: user} do
-      logged_in_conn =
-        conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
+      logged_in_conn = conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
 
       user_token = logged_in_conn.cookies[@remember_me_cookie]
       %{value: signed_token} = logged_in_conn.resp_cookies[@remember_me_cookie]
@@ -125,8 +122,7 @@ defmodule AmbryWeb.UserAuthTest do
       user_token = Accounts.generate_user_session_token(user)
       session = conn |> put_session(:user_token, user_token) |> get_session()
 
-      {:cont, updated_socket} =
-        UserAuth.on_mount(:mount_current_user, %{}, session, %LiveView.Socket{})
+      {:cont, updated_socket} = UserAuth.on_mount(:mount_current_user, %{}, session, %LiveView.Socket{})
 
       assert updated_socket.assigns.current_user.id == user.id
     end
@@ -135,8 +131,7 @@ defmodule AmbryWeb.UserAuthTest do
       user_token = "invalid_token"
       session = conn |> put_session(:user_token, user_token) |> get_session()
 
-      {:cont, updated_socket} =
-        UserAuth.on_mount(:mount_current_user, %{}, session, %LiveView.Socket{})
+      {:cont, updated_socket} = UserAuth.on_mount(:mount_current_user, %{}, session, %LiveView.Socket{})
 
       assert updated_socket.assigns.current_user == nil
     end
@@ -144,8 +139,7 @@ defmodule AmbryWeb.UserAuthTest do
     test "assigns nil to current_user assign if there isn't a user_token", %{conn: conn} do
       session = get_session(conn)
 
-      {:cont, updated_socket} =
-        UserAuth.on_mount(:mount_current_user, %{}, session, %LiveView.Socket{})
+      {:cont, updated_socket} = UserAuth.on_mount(:mount_current_user, %{}, session, %LiveView.Socket{})
 
       assert updated_socket.assigns.current_user == nil
     end
@@ -156,8 +150,7 @@ defmodule AmbryWeb.UserAuthTest do
       user_token = Accounts.generate_user_session_token(user)
       session = conn |> put_session(:user_token, user_token) |> get_session()
 
-      {:cont, updated_socket} =
-        UserAuth.on_mount(:ensure_authenticated, %{}, session, %LiveView.Socket{})
+      {:cont, updated_socket} = UserAuth.on_mount(:ensure_authenticated, %{}, session, %LiveView.Socket{})
 
       assert updated_socket.assigns.current_user.id == user.id
     end

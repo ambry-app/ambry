@@ -3,12 +3,15 @@ defmodule Ambry.Books do
   Functions for dealing with Books.
   """
 
-  import Ambry.{FileUtils, Utils}
+  import Ambry.FileUtils
+  import Ambry.Utils
   import Ecto.Query
 
-  alias Ambry.Books.{Book, BookFlat}
+  alias Ambry.Books.Book
+  alias Ambry.Books.BookFlat
   alias Ambry.Media.Media
-  alias Ambry.{PubSub, Repo}
+  alias Ambry.PubSub
+  alias Ambry.Repo
 
   @book_direct_assoc_preloads [:authors, book_authors: [:author], series_books: [:series]]
 
