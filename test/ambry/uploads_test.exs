@@ -3,7 +3,7 @@ defmodule Ambry.UploadsTest do
 
   alias Ambry.Uploads
 
-  describ "create_upload/1" do
+  describe "create_upload/1" do
     test "can create everything about an upload using deeply nested params" do
       params = %{
         title: "Upload Title",
