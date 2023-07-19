@@ -482,7 +482,7 @@ defmodule AmbryWeb.CoreComponents do
         <div :if={@upload.entries != []} class="flex flex-wrap gap-4">
           <article :for={entry <- @upload.entries} class="inline-block">
             <figure>
-              <.live_img_preview :if={image?(entry.client_type)} entry={entry} class={@image_preview_class} />
+              <.live_image_preview_with_size :if={image?(entry.client_type)} entry={entry} class={@image_preview_class} />
               <figcaption><%= entry.client_name %></figcaption>
             </figure>
 
@@ -532,7 +532,7 @@ defmodule AmbryWeb.CoreComponents do
         class={if @show_preview, do: "rounded-b-none"}
       />
       <div :if={@show_preview} class="rounded-b-lg border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
-        <img src={@field.value} class={@image_preview_class} />
+        <.image_with_size id={@field.id} src={@field.value} class={@image_preview_class} />
       </div>
     </div>
     """
@@ -615,6 +615,47 @@ defmodule AmbryWeb.CoreComponents do
       <FA.icon name="rotate" class="h-4 w-4 flex-none animate-spin fill-zinc-800 dark:fill-zinc-200" />
       <%= render_slot(@inner_block) %>
     </p>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :src, :string, required: true
+  attr :class, :string, default: nil
+
+  def image_with_size(assigns) do
+    ~H"""
+    <div>
+      <div class="inline-block">
+        <img id={"#{@id}-preview"} src={@src} class={@class} />
+        <p
+          id={"#{@id}-size"}
+          class="text-center text-xs text-zinc-700"
+          phx-hook="image-size"
+          data-target={"#{@id}-preview"}
+          phx-update="ignore"
+        />
+      </div>
+    </div>
+    """
+  end
+
+  attr :entry, Phoenix.LiveView.UploadEntry, required: true
+  attr :class, :string, default: nil
+
+  def live_image_preview_with_size(assigns) do
+    ~H"""
+    <div>
+      <div class="inline-block">
+        <.live_img_preview entry={@entry} class={@class} />
+        <p
+          id={"size-preview-#{@entry.ref}"}
+          class="text-center text-xs text-zinc-700"
+          phx-hook="image-size"
+          data-target={"phx-preview-#{@entry.ref}"}
+          phx-update="ignore"
+        />
+      </div>
+    </div>
     """
   end
 

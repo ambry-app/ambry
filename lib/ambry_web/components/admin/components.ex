@@ -189,4 +189,24 @@ defmodule AmbryWeb.Admin.Components do
     </label>
     """
   end
+
+  attr :field, FormField, required: true
+  attr :label, :string, required: true
+  slot :inner_block, required: true
+
+  def import_form_row(assigns) do
+    ~H"""
+    <div class="flex gap-4 rounded-md p-3 hover:bg-zinc-950">
+      <div class="py-1">
+        <.input type="checkbox" field={@field} />
+      </div>
+      <label for={@field.id} class="grow cursor-pointer space-y-2">
+        <span class="text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200">
+          <%= @label %>
+        </span>
+        <%= render_slot(@inner_block) %>
+      </label>
+    </div>
+    """
+  end
 end
