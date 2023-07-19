@@ -1089,17 +1089,6 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
 
   defp display_date(%GoodReads.PublishedDate{display_format: :year, date: date}), do: Calendar.strftime(date, "%Y")
 
-  slot :inner_block, required: true
-
-  defp loading(assigns) do
-    ~H"""
-    <p class="flex items-center gap-3 text-sm font-semibold leading-6">
-      <FA.icon name="rotate" class="h-4 w-4 flex-none animate-spin fill-zinc-800 dark:fill-zinc-200" />
-      <%= render_slot(@inner_block) %>
-    </p>
-    """
-  end
-
   @impl Phoenix.LiveView
   def handle_event("validate", %{"upload" => upload_params}, socket) do
     changeset =
@@ -1491,7 +1480,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
 
     if query != "" do
       Task.async(fn ->
-        response = Ambry.Metadata.GoodReads.search(query)
+        response = Ambry.Metadata.GoodReads.search_books(query)
         {:goodreads_search, response}
       end)
 
@@ -1609,7 +1598,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
 
     if query != "" do
       Task.async(fn ->
-        response = Ambry.Metadata.Audible.search(query)
+        response = Ambry.Metadata.Audible.search_books(query)
         {:audible_search, response}
       end)
 

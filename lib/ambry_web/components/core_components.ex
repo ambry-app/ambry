@@ -53,7 +53,7 @@ defmodule AmbryWeb.CoreComponents do
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
       data-cancel={JS.exec(@on_cancel, "phx-remove")}
-      class="relative z-50 hidden"
+      class="relative z-40 hidden"
     >
       <div id={"#{@id}-bg"} class="bg-zinc-50/90 fixed inset-0 transition-opacity dark:bg-zinc-900/90" aria-hidden="true" />
       <div
@@ -205,13 +205,15 @@ defmodule AmbryWeb.CoreComponents do
     include: ~w(autocomplete name rel action enctype method novalidate target),
     doc: "the arbitrary HTML attributes to apply to the form tag"
 
+  attr :container_class, :string, default: nil, doc: "extra classes for the container div"
+
   slot :inner_block, required: true
   slot :actions, doc: "the slot for form actions, such as a submit button"
 
   def simple_form(assigns) do
     ~H"""
     <.form :let={f} for={@for} as={@as} {@rest}>
-      <div class="space-y-6">
+      <div class={["space-y-6", @container_class]}>
         <%= render_slot(@inner_block, f) %>
         <div :for={action <- @actions} class="mt-2 flex items-center justify-between gap-6">
           <%= render_slot(action, f) %>
@@ -266,6 +268,10 @@ defmodule AmbryWeb.CoreComponents do
     "bg-red-500 hover:bg-red-700 dark:bg-red-400 dark:hover:bg-red-600"
   end
 
+  defp button_color_classes(:zinc) do
+    "bg-zinc-600 hover:bg-zinc-800 dark:bg-zinc-400 dark:hover:bg-zinc-600"
+  end
+
   @doc """
   Renders an input with label and error messages.
 
@@ -291,6 +297,7 @@ defmodule AmbryWeb.CoreComponents do
   attr :field, FormField, doc: "a form field struct retrieved from the form, for example: @form[:email]"
 
   attr :errors, :list, default: []
+  attr :show_errors, :boolean, default: true, doc: "disables the rendering of errors if false"
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
@@ -318,7 +325,7 @@ defmodule AmbryWeb.CoreComponents do
 
     ~H"""
     <div phx-feedback-for={@name} class={[@container_class]}>
-      <label class="flex items-center gap-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+      <.label class="flex items-center gap-4">
         <input :if={@hidden_input} type="hidden" name={@name} value="false" />
         <input
           type="checkbox"
@@ -329,14 +336,14 @@ defmodule AmbryWeb.CoreComponents do
           class={[
             "rounded",
             "bg-white border-zinc-300 text-zinc-900 focus:ring-zinc-900",
-            "dark:bg-zinc-900 dark:border-zinc-700 dark:text-black dark:focus:ring-zinc-900",
+            "dark:bg-zinc-800 dark:border-none dark:text-zinc-800 dark:focus:ring-zinc-900",
             @class
           ]}
           {@rest}
         />
         <%= @label %>
-      </label>
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      </.label>
+      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
     </div>
     """
   end
@@ -360,7 +367,7 @@ defmodule AmbryWeb.CoreComponents do
         <option :if={@prompt} value=""><%= @prompt %></option>
         <%= Form.options_for_select(@options, @value) %>
       </select>
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
     </div>
     """
   end
@@ -374,13 +381,13 @@ defmodule AmbryWeb.CoreComponents do
         name={@name}
         class={
           [
-            "block min-h-[6rem] w-full rounded-lg py-[7px] px-[11px]",
+            "block min-h-48 w-full rounded-lg py-[7px] px-[11px]",
             "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
           ] ++ input_color_classes(@errors) ++ [@class]
         }
         {@rest}
       ><%= Form.normalize_value("textarea", @value) %></textarea>
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
     </div>
     """
   end
@@ -403,7 +410,7 @@ defmodule AmbryWeb.CoreComponents do
         }
         {@rest}
       />
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
     </div>
     """
   end
@@ -426,14 +433,137 @@ defmodule AmbryWeb.CoreComponents do
         }
         {@rest}
       />
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
     </div>
     """
   end
 
+  @doc """
+  For if you want to have more control over where form field errors are rendered.
+  """
+  attr :field, FormField, doc: "a form field struct retrieved from the form, for example: @form[:email]"
+
+  def field_errors(%{field: %FormField{} = field} = assigns) do
+    assigns = assign(assigns, :errors, Enum.map(field.errors, &translate_error(&1)))
+
+    ~H"""
+    <.error :for={msg <- @errors}><%= msg %></.error>
+    """
+  end
+
+  attr :upload, :any, required: true
+  attr :label, :string, default: nil
+  attr :class, :string, default: nil, doc: "class overrides"
+  attr :errors, :list, default: []
+  attr :image_preview_class, :string, default: nil
+
+  def file_input(assigns) do
+    ~H"""
+    <div>
+      <div class="space-y-2">
+        <.label :if={@label}><%= @label %></.label>
+        <.live_file_input
+          upload={@upload}
+          class={
+            [
+              "block w-full rounded-lg rounded-b-none py-[7px] px-[11px] border !text-zinc-500",
+              "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
+              "!p-0 file:border-0 file:rounded-none file:p-[11px] file:cursor-pointer",
+              "file:bg-zinc-600 file:text-zinc-100 hover:file:bg-zinc-500"
+            ] ++ input_color_classes(@errors) ++ [@class]
+          }
+        />
+      </div>
+      <div
+        class="space-y-4 rounded-b-lg border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4"
+        phx-drop-target={@upload.ref}
+      >
+        <FA.icon :if={@upload.entries == []} name="upload" class="mx-auto my-4 block h-8 w-8 fill-current" />
+        <div :if={@upload.entries != []} class="flex flex-wrap gap-4">
+          <article :for={entry <- @upload.entries} class="inline-block">
+            <figure>
+              <.live_img_preview :if={image?(entry.client_type)} entry={entry} class={@image_preview_class} />
+              <figcaption><%= entry.client_name %></figcaption>
+            </figure>
+
+            <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+
+            <span
+              class="cursor-pointer text-2xl transition-colors hover:text-red-600 dark:hover:text-red-500"
+              phx-click="cancel-upload"
+              phx-value-ref={entry.ref}
+            >
+              &times;
+            </span>
+
+            <p :for={err <- upload_errors(@upload, entry)} class="text-red-600 dark:text-red-500">
+              <%= upload_error_to_string(err) %>
+            </p>
+          </article>
+        </div>
+        <p :for={err <- upload_errors(@upload)} class="text-red-600 dark:text-red-500">
+          <%= upload_error_to_string(err) %>
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  defp upload_error_to_string(:too_large), do: "File is too large"
+  defp upload_error_to_string(:too_many_files), do: "Too many files"
+  defp upload_error_to_string(:not_accepted), do: "Unacceptable file type"
+
+  defp image?("image/" <> _rest), do: true
+  defp image?(_mime), do: false
+
+  attr :label, :string, default: nil
+  attr :field, FormField, required: true
+  attr :image_preview_class, :string, default: nil
+
+  def image_import_input(assigns) do
+    assigns = assign(assigns, :show_preview, valid_image_url?(assigns.field.value))
+
+    ~H"""
+    <div>
+      <.input
+        field={@field}
+        label={@label}
+        placeholder="https://some-image.com/url"
+        class={if @show_preview, do: "rounded-b-none"}
+      />
+      <div :if={@show_preview} class="rounded-b-lg border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
+        <img src={@field.value} class={@image_preview_class} />
+      </div>
+    </div>
+    """
+  end
+
+  defp valid_image_url?(string) when is_binary(string) do
+    case URI.new(string) do
+      {:ok, %{scheme: scheme} = uri} when is_binary(scheme) ->
+        image?(MIME.from_path(string)) or valid_image?(uri)
+
+      _term ->
+        false
+    end
+  end
+
+  defp valid_image_url?(_term), do: false
+
+  defp valid_image?(uri) do
+    case Req.head(uri) do
+      {:ok, response} ->
+        [mime | _rest] = Req.Response.get_header(response, "content-type")
+        image?(mime)
+
+      _else ->
+        false
+    end
+  end
+
   defp input_color_classes(errors) do
     [
-      "bg-white text-zinc-900",
+      "bg-white text-zinc-900 placeholder:text-zinc-500",
       "dark:bg-zinc-800 dark:text-zinc-300",
       "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
       "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
@@ -472,6 +602,17 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <p class="flex items-center gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden dark:text-red-500">
       <FA.icon name="circle-exclamation" class="h-4 w-4 flex-none fill-red-500" />
+      <%= render_slot(@inner_block) %>
+    </p>
+    """
+  end
+
+  slot :inner_block, required: true
+
+  def loading(assigns) do
+    ~H"""
+    <p class="flex items-center gap-3 text-sm font-semibold leading-6">
+      <FA.icon name="rotate" class="h-4 w-4 flex-none animate-spin fill-zinc-800 dark:fill-zinc-200" />
       <%= render_slot(@inner_block) %>
     </p>
     """
