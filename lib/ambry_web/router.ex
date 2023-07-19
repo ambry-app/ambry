@@ -165,9 +165,9 @@ defmodule AmbryWeb.Router do
       ] do
       live "/", HomeLive.Index, :index
 
-      live "/people", PersonLive.Index, :index
-      live "/people/new", PersonLive.Index, :new
-      live "/people/:id/edit", PersonLive.Index, :edit
+      live "/people", PersonLive.Index
+      live "/people/new", PersonLive.Form, :new
+      live "/people/:id/edit", PersonLive.Form, :edit
 
       live "/books", BookLive.Index, :index
       live "/books/new", BookLive.Index, :new

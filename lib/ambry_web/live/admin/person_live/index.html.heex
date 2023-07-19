@@ -1,30 +1,9 @@
-<.modal
-  :if={@live_action in [:new, :edit]}
-  id="person-modal"
-  show
-  on_cancel={JS.navigate(~p"/admin/people?#{patch_opts(@list_opts)}")}
->
-  <header class="pb-4">
-    <h1 class="text-2xl font-bold leading-8">
-      <%= @page_title %>
-    </h1>
-  </header>
-
-  <.live_component
-    module={FormComponent}
-    id={@person.id || :new}
-    action={@live_action}
-    person={@person}
-    patch={~p"/admin/people?#{patch_opts(@list_opts)}"}
-  />
-</.modal>
-
 <.admin_table_header
   list_opts={@list_opts}
   has_more={@has_more?}
   next_page={~p"/admin/people?#{next_opts(@list_opts)}"}
   prev_page={~p"/admin/people?#{prev_opts(@list_opts)}"}
-  new_path={~p"/admin/people/new?#{patch_opts(@list_opts)}"}
+  new_path={~p"/admin/people/new"}
 />
 
 <.admin_table rows={@people}>
@@ -59,7 +38,7 @@
   <:actions :let={person}>
     <div class="flex gap-2">
       <div class="grow" />
-      <.link patch={~p"/admin/people/#{person}/edit?#{patch_opts(@list_opts)}"}>
+      <.link navigate={~p"/admin/people/#{person}/edit"}>
         <FA.icon name="pencil" class="h-4 w-4 fill-current" />
       </.link>
       <span phx-click="delete" phx-value-id={person.id} data-confirm="Are you sure?">
@@ -73,7 +52,7 @@
         No results for "<%= @list_opts.filter %>"
       <% else %>
         No people yet.
-        <.brand_link patch={~p"/admin/people/new?#{patch_opts(@list_opts)}"}>
+        <.brand_link navigate={~p"/admin/people/new"}>
           Create one.
         </.brand_link>
       <% end %>

@@ -9,19 +9,24 @@ defmodule AmbryScraping.Audible.Authors do
 
   defmodule Author do
     @moduledoc false
-    defstruct [:asin, :name, :description, :image]
+    defstruct [:id, :name, :description, :image]
   end
 
-  def details(asin) do
-    with {:ok, author_html} <- Browser.get_page_html("/author/#{asin}"),
+  defmodule SearchResult do
+    @moduledoc false
+    defstruct [:id, :name]
+  end
+
+  def details(id) do
+    with {:ok, author_html} <- Browser.get_page_html("/author/#{id}"),
          {:ok, author_document} <- Floki.parse_document(author_html) do
-      {:ok, parse_author_details(asin, author_document)}
+      {:ok, parse_author_details(id, author_document)}
     end
   end
 
-  defp parse_author_details(asin, author_document) do
+  defp parse_author_details(id, author_document) do
     %Author{
-      asin: asin,
+      id: id,
       name: parse_name(author_document),
       description: parse_description(author_document),
       image: parse_image(author_document)
@@ -61,33 +66,30 @@ defmodule AmbryScraping.Audible.Authors do
   def search(name) do
     query = URI.encode_query(%{keywords: name})
     path = "/search" |> URI.new!() |> URI.append_query(query) |> URI.to_string()
-    downcased_name = String.downcase(name)
+    downcased_query_words = name |> String.downcase() |> String.split(" ", trim: true)
 
     with {:ok, search_results_html} <- Browser.get_page_html(path),
          {:ok, search_results_document} <- Floki.parse_document(search_results_html) do
-      search_results_document
-      |> Floki.find("li.authorLabel a")
-      |> Enum.map(fn link ->
-        name = Floki.text(link)
+      {:ok,
+       search_results_document
+       |> Floki.find("li.authorLabel a")
+       |> Enum.map(fn link ->
+         name = Floki.text(link)
 
-        [url] = Floki.attribute(link, "href")
-        uri = URI.parse(url)
-        asin = Path.basename(uri.path)
+         [url] = Floki.attribute(link, "href")
+         uri = URI.parse(url)
+         id = Path.basename(uri.path)
 
-        %{
-          asin: asin,
-          name: name
-        }
-      end)
-      |> Enum.uniq_by(& &1.asin)
-      |> Enum.flat_map(fn author ->
-        case String.jaro_distance(downcased_name, String.downcase(author.name)) do
-          x when x >= 0.8 -> [{author, x}]
-          _else -> []
-        end
-      end)
-      |> Enum.sort_by(fn {_author, score} -> score end, :desc)
-      |> Enum.map(&elem(&1, 0))
+         %SearchResult{
+           id: id,
+           name: name
+         }
+       end)
+       |> Enum.uniq_by(& &1.id)
+       |> Enum.filter(fn author ->
+         downcased_name = String.downcase(author.name)
+         Enum.any?(downcased_query_words, &String.contains?(downcased_name, &1))
+       end)}
     end
   end
 end

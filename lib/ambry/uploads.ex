@@ -63,7 +63,7 @@ defmodule Ambry.Uploads do
   end
 
   def gr(upload) do
-    {:ok, search} = GoodReads.search(upload.title)
+    {:ok, search} = GoodReads.search_books(upload.title)
     best_match = List.first(search.results)
     {:ok, editions} = GoodReads.editions(best_match.id)
     most_popular_edition = List.first(editions.editions)

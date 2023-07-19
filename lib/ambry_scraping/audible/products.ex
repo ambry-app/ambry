@@ -30,7 +30,7 @@ defmodule AmbryScraping.Audible.Products do
   defmodule Product do
     @moduledoc false
     defstruct [
-      :asin,
+      :id,
       :title,
       :authors,
       :narrators,
@@ -46,7 +46,7 @@ defmodule AmbryScraping.Audible.Products do
 
   defmodule Author do
     @moduledoc false
-    defstruct [:asin, :name]
+    defstruct [:id, :name]
   end
 
   defmodule Narrator do
@@ -56,7 +56,7 @@ defmodule AmbryScraping.Audible.Products do
 
   defmodule Series do
     @moduledoc false
-    defstruct [:asin, :sequence, :title]
+    defstruct [:id, :sequence, :title]
   end
 
   @doc """
@@ -90,7 +90,7 @@ defmodule AmbryScraping.Audible.Products do
 
   defp parse_product(product) do
     %Product{
-      asin: product["asin"],
+      id: product["asin"],
       title: product["title"],
       authors: parse_authors(product["authors"]),
       narrators: parse_narrators(product["narrators"]),
@@ -109,7 +109,7 @@ defmodule AmbryScraping.Audible.Products do
   defp parse_authors(authors) do
     Enum.map(authors, fn author ->
       %Author{
-        asin: author["asin"],
+        id: author["asin"],
         name: author["name"]
       }
     end)
@@ -130,7 +130,7 @@ defmodule AmbryScraping.Audible.Products do
   defp parse_series(series) do
     Enum.map(series, fn series ->
       %Series{
-        asin: series["asin"],
+        id: series["asin"],
         sequence: series["sequence"],
         title: series["title"]
       }

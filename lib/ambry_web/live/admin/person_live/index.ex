@@ -8,9 +8,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   import AmbryWeb.Admin.PaginationHelpers
 
   alias Ambry.People
-  alias Ambry.People.Person
   alias Ambry.PubSub
-  alias AmbryWeb.Admin.PersonLive.FormComponent
 
   @valid_sort_fields [
     :name,
@@ -37,27 +35,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     {:noreply,
      socket
      |> maybe_update_people(params)
-     |> apply_action(socket.assigns.live_action, params)}
-  end
-
-  defp apply_action(socket, :edit, %{"id" => id}) do
-    person = People.get_person!(id)
-
-    socket
-    |> assign(:page_title, person.name)
-    |> assign(:person, person)
-  end
-
-  defp apply_action(socket, :new, _params) do
-    socket
-    |> assign(:page_title, "New Person")
-    |> assign(:person, %Person{authors: [], narrators: []})
-  end
-
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "Authors & Narrators")
-    |> assign(:person, nil)
+     |> assign(:page_title, "Authors & Narrators")}
   end
 
   defp maybe_update_people(socket, params, force \\ false) do
@@ -97,7 +75,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
         {:noreply,
          socket
          |> refresh_people()
-         |> put_flash(:info, "Person deleted successfully")}
+         |> put_flash(:info, "Deleted #{person.name}")}
 
       {:error, {:has_authored_books, books}} ->
         message = """
@@ -127,9 +105,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   end
 
   def handle_event("row-click", %{"id" => id}, socket) do
-    list_opts = get_list_opts(socket)
-
-    {:noreply, push_patch(socket, to: ~p"/admin/people/#{id}/edit?#{patch_opts(list_opts)}")}
+    {:noreply, push_navigate(socket, to: ~p"/admin/people/#{id}/edit")}
   end
 
   defp list_people(opts) do

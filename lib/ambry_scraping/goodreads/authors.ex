@@ -18,18 +18,21 @@ defmodule AmbryScraping.GoodReads.Authors do
          {:ok, photos_html} <- Browser.get_page_html("/photo/author/#{id}"),
          {:ok, author_document} <- Floki.parse_document(author_html),
          {:ok, photos_document} <- Floki.parse_document(photos_html) do
-      {:ok, parse_author_details(full_id, author_document, photos_document)}
+      parse_author_details(full_id, author_document, photos_document)
     end
   end
 
   defp parse_author_details(full_id, author_document, photos_document) do
-    %Author{
+    maybe_error(%Author{
       id: full_id,
       name: parse_name(author_document),
       description: parse_description(author_document),
       image: parse_image(photos_document)
-    }
+    })
   end
+
+  defp maybe_error(%{name: "", description: nil, image: nil}), do: {:error, :not_found}
+  defp maybe_error(author), do: {:ok, author}
 
   defp parse_name(document) do
     document |> Floki.find("h1.authorName") |> Floki.text()
@@ -58,21 +61,18 @@ defmodule AmbryScraping.GoodReads.Authors do
     end
   end
 
-  def search(name) do
-    with {:ok, %{results: results}} <- Books.search(name) do
-      downcased_name = String.downcase(name)
+  def search(query) do
+    with {:ok, %{results: results}} <- Books.search(query) do
+      downcased_query_words = query |> String.downcase() |> String.split(" ", trim: true)
 
-      results
-      |> Enum.flat_map(& &1.contributors)
-      |> Enum.uniq_by(& &1.id)
-      |> Enum.flat_map(fn contributor ->
-        case String.jaro_distance(downcased_name, String.downcase(contributor.name)) do
-          x when x >= 0.8 -> [{contributor, x}]
-          _else -> []
-        end
-      end)
-      |> Enum.sort_by(fn {_contributor, score} -> score end, :desc)
-      |> Enum.map(&elem(&1, 0))
+      {:ok,
+       results
+       |> Enum.flat_map(& &1.contributors)
+       |> Enum.uniq_by(& &1.id)
+       |> Enum.filter(fn contributor ->
+         downcased_name = String.downcase(contributor.name)
+         Enum.any?(downcased_query_words, &String.contains?(downcased_name, &1))
+       end)}
     end
   end
 end

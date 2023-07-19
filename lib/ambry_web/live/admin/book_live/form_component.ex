@@ -10,7 +10,6 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
   alias Ambry.Authors
   alias Ambry.Books
   alias Ambry.Series
-  alias AmbryScraping.Audible
   alias AmbryScraping.Audnexus
   alias AmbryScraping.HTMLToMD
 
@@ -106,15 +105,16 @@ defmodule AmbryWeb.Admin.BookLive.FormComponent do
     end
   end
 
-  def import_from_title(title, socket) do
-    with {:ok, asin} <- Audible.Product.search(title),
-         {:ok, book_details} <- Audnexus.Book.get(asin) do
-      changeset = audnexus_book_changeset(socket.assigns.book, book_details)
-      {:noreply, socket |> assign_form(changeset) |> assign_audnexus_form(%{"title" => title})}
-    else
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Error getting results from Audnexus")}
-    end
+  def import_from_title(_title, socket) do
+    {:noreply, socket}
+    # with {:ok, asin} <- Audible.Product.search(title),
+    #      {:ok, book_details} <- Audnexus.Book.get(asin) do
+    #   changeset = audnexus_book_changeset(socket.assigns.book, book_details)
+    #   {:noreply, socket |> assign_form(changeset) |> assign_audnexus_form(%{"title" => title})}
+    # else
+    #   {:error, _reason} ->
+    #     {:noreply, put_flash(socket, :error, "Error getting results from Audnexus")}
+    # end
   end
 
   defp handle_upload(socket, book_params, name) do

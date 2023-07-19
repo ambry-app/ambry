@@ -12,11 +12,11 @@ defmodule Ambry.Metadata.GoodReads do
   alias AmbryScraping.GoodReads.Authors
   alias AmbryScraping.GoodReads.Books
 
-  def search(query, refresh \\ false)
-  def search(query, true), do: clear_get_and_cache(query, &Books.search/1, &search_key/1)
-  def search(query, false), do: cache_get(query, &Books.search/1, &search_key/1)
+  def search_books(query, refresh \\ false)
+  def search_books(query, true), do: clear_get_and_cache(query, &Books.search/1, &search_books_key/1)
+  def search_books(query, false), do: cache_get(query, &Books.search/1, &search_books_key/1)
 
-  defp search_key(query_string), do: "search:#{query_string}"
+  defp search_books_key(query_string), do: "search_books:#{query_string}"
 
   def editions(id, refresh \\ false)
   def editions(id, true), do: clear_get_and_cache(id, &Books.editions/1)
@@ -25,6 +25,12 @@ defmodule Ambry.Metadata.GoodReads do
   def edition_details(id, refresh \\ false)
   def edition_details(id, true), do: clear_get_and_cache(id, &Books.edition_details/1)
   def edition_details(id, false), do: cache_get(id, &Books.edition_details/1)
+
+  def search_authors(query, refresh \\ false)
+  def search_authors(query, true), do: clear_get_and_cache(query, &Authors.search/1, &search_authors_key/1)
+  def search_authors(query, false), do: cache_get(query, &Authors.search/1, &search_authors_key/1)
+
+  defp search_authors_key(query_string), do: "search_authors:#{query_string}"
 
   def author(id, refresh \\ false)
   def author(id, true), do: clear_get_and_cache(id, &Authors.details/1)

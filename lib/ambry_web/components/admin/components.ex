@@ -13,7 +13,7 @@ defmodule AmbryWeb.Admin.Components do
       <div class="flex-grow" />
       <%= if @new_path do %>
         <div class="px-2">
-          <.link patch={@new_path} class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400">
+          <.link navigate={@new_path} class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400">
             New <FA.icon name="plus" class="ml-2 h-4 w-4 fill-current" />
           </.link>
         </div>
