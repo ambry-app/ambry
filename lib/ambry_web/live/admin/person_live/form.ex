@@ -9,14 +9,14 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People
   alias Ambry.People.Person
 
+  embed_templates("form/*")
+
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    socket =
-      socket
-      |> allow_image_upload(:image)
-      |> assign(import: nil)
-
-    {:ok, socket}
+    {:ok,
+     socket
+     |> allow_image_upload(:image)
+     |> assign(import: nil)}
   end
 
   @impl Phoenix.LiveView
@@ -29,12 +29,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     changeset = People.change_person(person, %{})
 
     socket
+    |> assign_form(changeset)
     |> assign(
       page_title: person.name,
       header_title: person.name,
       person: person
     )
-    |> assign_form(changeset)
   end
 
   defp apply_action(socket, :new, _params) do
@@ -42,12 +42,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     changeset = People.change_person(person, %{"image_type" => "upload"})
 
     socket
+    |> assign_form(changeset)
     |> assign(
       page_title: "New Person",
       header_title: "New Person",
       person: person
     )
-    |> assign_form(changeset)
   end
 
   @impl Phoenix.LiveView
@@ -156,34 +156,28 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   def handle_info({_tas_ref, {_import_type, :search, {:error, _reason}}}, socket) do
-    socket =
-      socket
-      |> update(:import, fn import_assigns ->
-        %{import_assigns | search_loading: false}
-      end)
-      |> put_flash(:error, "search failed")
-
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> put_flash(:error, "search failed")
+     |> update(:import, fn import_assigns ->
+       %{import_assigns | search_loading: false}
+     end)}
   end
 
   def handle_info({_tas_ref, {_import_type, :details, {:ok, result}}}, socket) do
-    socket =
-      update(socket, :import, fn import_assigns ->
-        %{import_assigns | details_loading: false, details: result}
-      end)
-
-    {:noreply, socket}
+    {:noreply,
+     update(socket, :import, fn import_assigns ->
+       %{import_assigns | details_loading: false, details: result}
+     end)}
   end
 
   def handle_info({_tas_ref, {_import_type, :details, {:error, _reason}}}, socket) do
-    socket =
-      socket
-      |> update(:import, fn import_assigns ->
-        %{import_assigns | details_loading: false}
-      end)
-      |> put_flash(:error, "fetch failed")
-
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> put_flash(:error, "fetch failed")
+     |> update(:import, fn import_assigns ->
+       %{import_assigns | details_loading: false}
+     end)}
   end
 
   def handle_info({:DOWN, _task_ref, :process, _pid, :normal}, socket) do
