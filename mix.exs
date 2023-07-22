@@ -67,7 +67,7 @@ defmodule Ambry.MixProject do
       {:hashids, "~> 2.0"},
       {:jason, "~> 1.2"},
       {:lexical_credo, "~> 0.1", only: [:dev, :test]},
-      {:natural_sort, "~> 0.3"},
+      {:natural_order, "~> 0.3"},
       {:npm_deps, "~> 0.3.1", runtime: false},
       {:oban, "~> 2.11"},
       {:phoenix_ecto, "~> 4.4"},

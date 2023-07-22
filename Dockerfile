@@ -4,7 +4,7 @@
 
 # NOTE: make sure these versions match in .github/workflows/elixir.yml and .tool-versions
 # NOTE: make sure the alpine version matches down below
-FROM docker.io/hexpm/elixir:1.14.5-erlang-25.3.2.2-alpine-3.18.2 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.15.4-erlang-26.0.2-alpine-3.18.2 AS elixir-builder
 
 ARG MIX_ENV=prod
 
@@ -25,7 +25,6 @@ COPY config /src/config
 COPY mix.exs mix.lock /src/
 
 RUN mix deps.get --only $MIX_ENV
-RUN mix npm_deps.get
 
 # compile deps
 
