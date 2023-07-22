@@ -1,30 +1,9 @@
-<.modal
-  :if={@live_action in [:new, :edit]}
-  id="series-modal"
-  show
-  on_cancel={JS.navigate(~p"/admin/series?#{patch_opts(@list_opts)}")}
->
-  <header class="pb-4">
-    <h1 class="text-2xl font-bold leading-8">
-      <%= @page_title %>
-    </h1>
-  </header>
-
-  <.live_component
-    module={FormComponent}
-    id={@selected_series.id || :new}
-    action={@live_action}
-    series={@selected_series}
-    patch={~p"/admin/series?#{patch_opts(@list_opts)}"}
-  />
-</.modal>
-
 <.admin_table_header
   list_opts={@list_opts}
   has_more={@has_more?}
   next_page={~p"/admin/series?#{next_opts(@list_opts)}"}
   prev_page={~p"/admin/series?#{prev_opts(@list_opts)}"}
-  new_path={~p"/admin/series/new?#{patch_opts(@list_opts)}"}
+  new_path={~p"/admin/series/new"}
 />
 
 <.admin_table rows={@series}>
@@ -46,7 +25,7 @@
   <:actions :let={series}>
     <div class="flex gap-2">
       <div class="grow" />
-      <.link patch={~p"/admin/series/#{series}/edit?#{patch_opts(@list_opts)}"}>
+      <.link navigate={~p"/admin/series/#{series}/edit"}>
         <FA.icon name="pencil" class="h-4 w-4 fill-current" />
       </.link>
       <span phx-click="delete" phx-value-id={series.id} data-confirm="Are you sure?">
@@ -60,7 +39,7 @@
         No results for "<%= @list_opts.filter %>"
       <% else %>
         No series yet.
-        <.brand_link patch={~p"/admin/series/new?#{patch_opts(@list_opts)}"}>
+        <.brand_link navigate={~p"/admin/series/new"}>
           Create one.
         </.brand_link>
       <% end %>

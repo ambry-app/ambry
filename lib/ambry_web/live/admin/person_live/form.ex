@@ -8,6 +8,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.Metadata.GoodReads
   alias Ambry.People
   alias Ambry.People.Person
+  alias Ecto.Changeset
 
   embed_templates("form/*")
 
@@ -32,7 +33,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     |> assign_form(changeset)
     |> assign(
       page_title: person.name,
-      header_title: person.name,
       person: person
     )
   end
@@ -44,8 +44,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     socket
     |> assign_form(changeset)
     |> assign(
-      page_title: "New Person",
-      header_title: "New Person",
+      page_title: "New Author or Narrator",
       person: person
     )
   end
@@ -77,18 +76,19 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
       {:noreply, assign_form(socket, changeset)}
     else
       socket = async_import_search(socket, String.to_existing_atom(import_type), person_params["name"])
+
       {:noreply, socket}
     end
   end
 
   def handle_event("submit", %{"person" => person_params}, socket) do
     with {:ok, _person} <-
-           socket.assigns.person |> People.change_person(person_params) |> Ecto.Changeset.apply_action(:insert),
+           socket.assigns.person |> People.change_person(person_params) |> Changeset.apply_action(:insert),
          {:ok, person_params} <- handle_upload(socket, person_params, :image),
          {:ok, person_params} <- handle_import(person_params["image_import_url"], person_params) do
       save_person(socket, socket.assigns.live_action, person_params)
     else
-      {:error, %Ecto.Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}
+      {:error, %Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}
       {:error, :failed_upload} -> {:noreply, put_flash(socket, :error, "Failed to upload image")}
       {:error, :failed_import} -> {:noreply, put_flash(socket, :error, "Failed to import image")}
     end
@@ -214,7 +214,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
          |> put_flash(:info, "Updated #{person.name}")
          |> push_navigate(to: ~p"/admin/people")}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+      {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
     end
   end
@@ -227,12 +227,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
          |> put_flash(:info, "Created #{person.name}")
          |> push_navigate(to: ~p"/admin/people")}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+      {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
     end
   end
 
-  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+  defp assign_form(socket, %Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
   end
 

@@ -173,9 +173,9 @@ defmodule AmbryWeb.Router do
       live "/books/new", BookLive.Index, :new
       live "/books/:id/edit", BookLive.Index, :edit
 
-      live "/series", SeriesLive.Index, :index
-      live "/series/new", SeriesLive.Index, :new
-      live "/series/:id/edit", SeriesLive.Index, :edit
+      live "/series", SeriesLive.Index
+      live "/series/new", SeriesLive.Form, :new
+      live "/series/:id/edit", SeriesLive.Form, :edit
 
       live "/media", MediaLive.Index, :index
       live "/media/new", MediaLive.Index, :new
