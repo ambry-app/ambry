@@ -26,16 +26,13 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
     {:ok,
      socket
-     |> assign(:header_title, "Authors & Narrators")
+     |> assign(page_title: "Authors & Narrators")
      |> maybe_update_people(params, true)}
   end
 
   @impl Phoenix.LiveView
   def handle_params(params, _url, socket) do
-    {:noreply,
-     socket
-     |> maybe_update_people(params)
-     |> assign(:page_title, "Authors & Narrators")}
+    {:noreply, maybe_update_people(socket, params)}
   end
 
   defp maybe_update_people(socket, params, force \\ false) do

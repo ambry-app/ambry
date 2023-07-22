@@ -177,15 +177,39 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  attr :name, :string, required: true
-  attr :value, :integer, required: true
+  attr :drop_param, :atom, required: true
+  attr :parent_form, Form, required: true
+  attr :form, Form, required: true
   attr :class, :string, default: nil, doc: "class overrides"
 
-  def new_delete_checkbox(assigns) do
+  def delete_button(assigns) do
     ~H"""
     <label class={["flex", @class]}>
-      <input type="checkbox" name={@name} value={@value} class="hidden" />
+      <input type="checkbox" name={@parent_form[@drop_param].name <> "[]"} value={@form.index} class="hidden" />
       <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600" />
+    </label>
+    """
+  end
+
+  attr :sort_param, :atom, required: true
+  attr :parent_form, Form, required: true
+  attr :form, Form, required: true
+
+  def sort_input(assigns) do
+    ~H"""
+    <input type="hidden" name={@parent_form[@sort_param].name <> "[]"} value={@form.index} />
+    """
+  end
+
+  attr :sort_param, :atom, required: true
+  attr :form, Form, required: true
+  attr :label, :string, required: true
+
+  def add_button(assigns) do
+    ~H"""
+    <label class="text-brand flex cursor-pointer items-center gap-1 hover:underline dark:text-brand-dark">
+      <input type="checkbox" name={@form[@sort_param].name <> "[]"} class="hidden" /> <%= @label %>
+      <FA.icon name="plus" class="h-4 w-4 fill-current" />
     </label>
     """
   end

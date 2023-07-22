@@ -201,7 +201,7 @@
           <.input field={supplemental_file_form[:label]} placeholder="Label" container_class="grow" />
           <.label for={supplemental_file_form[:filename].name}>Filename</.label>
           <.input field={supplemental_file_form[:filename]} placeholder="filename.ext" container_class="grow" />
-          <.new_delete_checkbox name="media[supplemental_files_drop][]" value={supplemental_file_form.index} />
+          <.delete_button name="media[supplemental_files_drop][]" value={supplemental_file_form.index} />
         </div>
       </.inputs_for>
 

@@ -9,7 +9,6 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
   alias Ambry.PubSub
   alias Ambry.Series
-  alias AmbryWeb.Admin.SeriesLive.FormComponent
 
   @valid_sort_fields [
     :name
@@ -23,36 +22,13 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
     {:ok,
      socket
-     |> assign(:header_title, "Series")
+     |> assign(page_title: "Series")
      |> maybe_update_series(params, true)}
   end
 
   @impl Phoenix.LiveView
   def handle_params(params, _url, socket) do
-    {:noreply,
-     socket
-     |> maybe_update_series(params)
-     |> apply_action(socket.assigns.live_action, params)}
-  end
-
-  defp apply_action(socket, :edit, %{"id" => id}) do
-    series = Series.get_series!(id)
-
-    socket
-    |> assign(:page_title, series.name)
-    |> assign(:selected_series, series)
-  end
-
-  defp apply_action(socket, :new, _params) do
-    socket
-    |> assign(:page_title, "New Series")
-    |> assign(:selected_series, %Series.Series{series_books: []})
-  end
-
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "Series")
-    |> assign(:selected_series, nil)
+    {:noreply, maybe_update_series(socket, params)}
   end
 
   defp maybe_update_series(socket, params, force \\ false) do
@@ -102,9 +78,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   end
 
   def handle_event("row-click", %{"id" => id}, socket) do
-    list_opts = get_list_opts(socket)
-
-    {:noreply, push_patch(socket, to: ~p"/admin/series/#{id}/edit?#{patch_opts(list_opts)}")}
+    {:noreply, push_navigate(socket, to: ~p"/admin/series/#{id}/edit")}
   end
 
   defp list_series(opts) do
