@@ -6,8 +6,6 @@ defmodule AmbryScraping.GoodReads.Books.Search do
   alias AmbryScraping.GoodReads.Browser
   alias AmbryScraping.Image
 
-  defstruct [:query, :results]
-
   defmodule Book do
     @moduledoc false
     defstruct [:id, :title, :contributors, :thumbnail]
@@ -29,7 +27,7 @@ defmodule AmbryScraping.GoodReads.Books.Search do
 
     with {:ok, page_html} <- Browser.get_page_html(path),
          {:ok, document} <- Floki.parse_document(page_html) do
-      {:ok, %__MODULE__{query: query_string, results: parse_books(document)}}
+      {:ok, parse_books(document)}
     end
   end
 
