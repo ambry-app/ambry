@@ -12,7 +12,7 @@ defmodule Ambry.Media.Processor.Shared do
   def filter_filenames(filenames, extensions) do
     filenames
     |> Enum.filter(&(Path.extname(&1) in extensions))
-    |> NaturalSort.sort()
+    |> Enum.sort(NaturalOrder)
   end
 
   def create_concat_text_file!(media, extensions) do

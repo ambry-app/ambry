@@ -35,7 +35,7 @@ defmodule Ambry.Media.Audit do
     case File.ls(media.source_path) do
       {:ok, relative_paths} ->
         relative_paths
-        |> NaturalSort.sort()
+        |> Enum.sort(NaturalOrder)
         |> Enum.flat_map(fn path ->
           file_stat(Path.join([media.source_path, path]))
         end)
@@ -52,7 +52,7 @@ defmodule Ambry.Media.Audit do
       case File.ls(path) do
         {:ok, relative_paths} ->
           relative_paths
-          |> NaturalSort.sort()
+          |> Enum.sort(NaturalOrder)
           |> Enum.flat_map(fn p ->
             file_stat(Path.join([path, p]))
           end)
@@ -93,7 +93,7 @@ defmodule Ambry.Media.Audit do
     existing_files = Paths.media_disk_path() |> File.ls!() |> MapSet.new()
 
     query =
-      from m in Media,
+      from(m in Media,
         select: %{
           id: m.id,
           source_folder: fragment("regexp_replace(source_path, '^.*/', '')"),
@@ -101,6 +101,7 @@ defmodule Ambry.Media.Audit do
           hls_file: fragment("regexp_replace(hls_path, '^.*/', '')"),
           mp4_file: fragment("regexp_replace(mp4_path, '^.*/', '')")
         }
+      )
 
     media = Repo.all(query)
 
@@ -183,9 +184,10 @@ defmodule Ambry.Media.Audit do
     broken_media_ids = Enum.map(broken_media, & &1.id)
 
     query =
-      from m in Media,
+      from(m in Media,
         preload: [:book, media_narrators: [:narrator]],
         where: m.id in ^broken_media_ids
+      )
 
     broken_media_structs_by_id = query |> Repo.all() |> Map.new(&{&1.id, &1})
 
