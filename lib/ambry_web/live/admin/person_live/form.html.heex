@@ -1,5 +1,5 @@
 <.modal :if={@import} id="import-modal" show on_cancel={JS.push("cancel-import")}>
-  <.import_form import={@import} />
+  <.live_component id="import-form" module={ImportForm} type={@import.type} query={@import.query} person={@person} />
 </.modal>
 
 <div class="max-w-3xl">

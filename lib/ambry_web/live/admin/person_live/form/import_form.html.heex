@@ -1,49 +1,49 @@
 <div class="space-y-4">
-  <.simple_form for={@import.search_form} phx-submit="import-search">
+  <.simple_form for={@search_form} phx-submit="search" phx-target={@myself}>
     <div class="flex items-end gap-2">
-      <.input field={@import.search_form[:query]} label="Search" container_class="grow" />
+      <.input field={@search_form[:query]} label="Search" container_class="grow" />
       <.button>Search</.button>
     </div>
   </.simple_form>
 
-  <%= if @import.search_loading do %>
+  <%= if @search_loading do %>
     <.loading>Searching authors...</.loading>
   <% end %>
 
-  <%= if !@import.search_loading && length(@import.results) > 1 do %>
-    <.simple_form for={@import.details_form} phx-change="import-details" phx-submit="import-details">
+  <%= if !@search_loading && length(@results) > 1 do %>
+    <.simple_form for={@select_author_form} phx-change="select-author" phx-submit="select-author" phx-target={@myself}>
       <.input
         type="select"
-        label="Select result"
-        field={@import.details_form[:author_id]}
-        options={Enum.map(@import.results, &{&1.name, &1.id})}
+        label="Select author"
+        field={@select_author_form[:author_id]}
+        options={Enum.map(@results, &{&1.name, &1.id})}
       />
     </.simple_form>
   <% end %>
 
-  <%= if @import.details_loading do %>
+  <%= if @details_loading do %>
     <.loading>Fetching author details...</.loading>
   <% end %>
 
-  <div :for={%{} = author <- [@import.details]}>
-    <.simple_form for={@import.form} phx-submit="import" container_class="!space-y-0">
-      <.import_form_row :if={author.name != ""} field={@import.form[:use_name]} label="Name">
+  <div :for={%{} = author <- [@details]}>
+    <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
+      <.import_form_row :if={author.name != ""} field={@form[:use_name]} label="Name">
         <div class="py-[7px] px-[11px] rounded-lg border border-zinc-600 bg-zinc-800 text-zinc-300">
           <%= author.name %>
         </div>
       </.import_form_row>
 
-      <.import_form_row :if={author.description} field={@import.form[:use_description]} label="Description">
+      <.import_form_row :if={author.description} field={@form[:use_description]} label="Description">
         <.markdown
           content={author.description}
           class="max-h-64 max-w-max overflow-y-auto rounded-lg border border-zinc-600 bg-zinc-800 p-2"
         />
       </.import_form_row>
 
-      <.import_form_row :if={author.image} field={@import.form[:use_image]} label="Image">
+      <.import_form_row :if={author.image} field={@form[:use_image]} label="Image">
         <.image_with_size
           :if={author.image}
-          id={@import.form[:use_image].id}
+          id={@form[:use_image].id}
           src={author.image.src}
           class="h-40 w-40 rounded-full object-cover object-top"
         />

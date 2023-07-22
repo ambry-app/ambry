@@ -4,13 +4,10 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
   import AmbryWeb.Admin.UploadHelpers
 
-  alias Ambry.Metadata.Audible
-  alias Ambry.Metadata.GoodReads
   alias Ambry.People
   alias Ambry.People.Person
+  alias AmbryWeb.Admin.PersonLive.Form.ImportForm
   alias Ecto.Changeset
-
-  embed_templates("form/*")
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -75,7 +72,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     if Keyword.has_key?(changeset.errors, :name) do
       {:noreply, assign_form(socket, changeset)}
     else
-      socket = async_import_search(socket, String.to_existing_atom(import_type), person_params["name"])
+      socket = assign(socket, import: %{type: String.to_existing_atom(import_type), query: person_params["name"]})
 
       {:noreply, socket}
     end
@@ -98,86 +95,21 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:noreply, cancel_upload(socket, :image, ref)}
   end
 
-  def handle_event("import-search", %{"import_search" => %{"query" => query}}, socket) do
-    socket = async_import_search(socket, socket.assigns.import.type, query)
-    {:noreply, socket}
-  end
-
-  def handle_event("import-details", %{"import_details" => %{"author_id" => author_id}}, socket) do
-    socket = async_import_details(socket, socket.assigns.import.type, author_id)
-    {:noreply, socket}
-  end
-
-  def handle_event("import", %{"import" => import_params}, socket) do
-    author = socket.assigns.import.details
-    existing_params = socket.assigns.form.params
-
-    new_params =
-      Enum.reduce(import_params, existing_params, fn
-        {"use_name", "true"}, acc ->
-          Map.put(acc, "name", author.name)
-
-        {"use_description", "true"}, acc ->
-          Map.put(acc, "description", author.description)
-
-        {"use_image", "true"}, acc ->
-          Map.merge(acc, %{"image_type" => "url_import", "image_import_url" => author.image.src})
-
-        _else, acc ->
-          acc
-      end)
-
-    changeset = People.change_person(socket.assigns.person, new_params)
-
-    {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
-  end
-
   def handle_event("cancel-import", _params, socket) do
     {:noreply, assign(socket, import: nil)}
   end
 
   @impl Phoenix.LiveView
-  def handle_info({_tas_ref, {import_type, :search, {:ok, results}}}, socket) do
-    socket =
-      update(socket, :import, fn import_assigns ->
-        %{import_assigns | search_loading: false, results: results}
-      end)
+  def handle_info({:import, params}, socket) do
+    new_params = Map.merge(socket.assigns.form.params, params)
+    changeset = People.change_person(socket.assigns.person, new_params)
+    {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
+  end
 
-    socket =
-      case results do
-        [] ->
-          socket
-
-        [first_result | _rest] ->
-          async_import_details(socket, import_type, first_result.id)
-      end
-
+  # Forwards `handle_info` messages from `Task`s to live component
+  def handle_info({_task_ref, {{:for, component, id}, payload}}, socket) do
+    send_update(component, id: id, info: payload)
     {:noreply, socket}
-  end
-
-  def handle_info({_tas_ref, {_import_type, :search, {:error, _reason}}}, socket) do
-    {:noreply,
-     socket
-     |> put_flash(:error, "search failed")
-     |> update(:import, fn import_assigns ->
-       %{import_assigns | search_loading: false}
-     end)}
-  end
-
-  def handle_info({_tas_ref, {_import_type, :details, {:ok, result}}}, socket) do
-    {:noreply,
-     update(socket, :import, fn import_assigns ->
-       %{import_assigns | details_loading: false, details: result}
-     end)}
-  end
-
-  def handle_info({_tas_ref, {_import_type, :details, {:error, _reason}}}, socket) do
-    {:noreply,
-     socket
-     |> put_flash(:error, "fetch failed")
-     |> update(:import, fn import_assigns ->
-       %{import_assigns | details_loading: false}
-     end)}
   end
 
   def handle_info({:DOWN, _task_ref, :process, _pid, :normal}, socket) do
@@ -234,61 +166,5 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
   defp assign_form(socket, %Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
-  end
-
-  defp async_import_search(socket, :goodreads, query),
-    do: do_async_import_search(socket, :goodreads, query, &GoodReads.search_authors/1)
-
-  defp async_import_search(socket, :audible, query),
-    do: do_async_import_search(socket, :audible, query, &Audible.search_authors/1)
-
-  defp do_async_import_search(socket, import_type, query, query_fun) do
-    Task.async(fn ->
-      response = query_fun.(query |> String.trim() |> String.downcase())
-      {import_type, :search, response}
-    end)
-
-    assign(socket,
-      import: %{
-        type: import_type,
-        search_form: to_form(%{"query" => query}, as: :import_search),
-        search_loading: true,
-        results: nil,
-        details_form: to_form(%{}, as: :import_details),
-        details_loading: false,
-        details: nil,
-        form: to_form(init_import_form_params(socket.assigns.person), as: :import)
-      }
-    )
-  end
-
-  defp async_import_details(socket, :goodreads, author_id),
-    do: do_async_import_details(socket, :goodreads, author_id, &GoodReads.author/1)
-
-  defp async_import_details(socket, :audible, author_id),
-    do: do_async_import_details(socket, :audible, author_id, &Audible.author/1)
-
-  defp do_async_import_details(socket, import_type, author_id, details_fun) do
-    Task.async(fn ->
-      response = details_fun.(author_id)
-      {import_type, :details, response}
-    end)
-
-    update(socket, :import, fn import_assigns ->
-      %{
-        import_assigns
-        | details_form: to_form(%{"author_id" => author_id}, as: :import_details),
-          details_loading: true,
-          details: nil
-      }
-    end)
-  end
-
-  defp init_import_form_params(person) do
-    Map.new([:name, :description, :image], fn
-      :name -> {"use_name", is_nil(person.name)}
-      :description -> {"use_description", is_nil(person.description)}
-      :image -> {"use_image", is_nil(person.image_path)}
-    end)
   end
 end
