@@ -81,8 +81,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   def handle_event("submit", %{"person" => person_params}, socket) do
     with {:ok, _person} <-
            socket.assigns.person |> People.change_person(person_params) |> Changeset.apply_action(:insert),
-         {:ok, person_params} <- handle_upload(socket, person_params, :image),
-         {:ok, person_params} <- handle_import(person_params["image_import_url"], person_params) do
+         {:ok, person_params} <- handle_image_upload(socket, person_params, :image),
+         {:ok, person_params} <- handle_image_import(person_params["image_import_url"], person_params) do
       save_person(socket, socket.assigns.live_action, person_params)
     else
       {:error, %Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}
@@ -100,8 +100,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   @impl Phoenix.LiveView
-  def handle_info({:import, params}, socket) do
-    new_params = Map.merge(socket.assigns.form.params, params)
+  def handle_info({:import, %{"person" => person_params}}, socket) do
+    new_params = Map.merge(socket.assigns.form.params, person_params)
     changeset = People.change_person(socket.assigns.person, new_params)
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
   end
@@ -122,7 +122,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     end)
   end
 
-  defp handle_upload(socket, person_params, name) do
+  defp handle_image_upload(socket, person_params, name) do
     case consume_uploaded_image(socket, name) do
       {:ok, :no_file} -> {:ok, person_params}
       {:ok, path} -> {:ok, Map.put(person_params, "image_path", path)}
@@ -130,7 +130,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     end
   end
 
-  defp handle_import(url, person_params) do
+  defp handle_image_import(url, person_params) do
     case handle_image_import(url) do
       {:ok, :no_image_url} -> {:ok, person_params}
       {:ok, path} -> {:ok, Map.put(person_params, "image_path", path)}

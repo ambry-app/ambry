@@ -61,7 +61,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
           acc
       end)
 
-    send(self(), {:import, params})
+    send(self(), {:import, %{"person" => params}})
 
     {:noreply, socket}
   end
