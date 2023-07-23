@@ -15,8 +15,8 @@ defmodule Ambry.Books.Book do
 
   schema "books" do
     has_many :media, Media
-    has_many :series_books, SeriesBook
-    has_many :book_authors, BookAuthor
+    has_many :series_books, SeriesBook, on_replace: :delete
+    has_many :book_authors, BookAuthor, on_replace: :delete
     many_to_many :series, Series, join_through: "books_series"
     many_to_many :authors, Author, join_through: "authors_books"
 
@@ -33,8 +33,15 @@ defmodule Ambry.Books.Book do
   def changeset(book, attrs) do
     book
     |> cast(attrs, [:title, :published, :published_format, :description, :image_path])
-    |> cast_assoc(:series_books, with: &SeriesBook.book_assoc_changeset/2)
-    |> cast_assoc(:book_authors)
+    |> cast_assoc(:series_books,
+      with: &SeriesBook.book_assoc_changeset/2,
+      sort_param: :series_books_sort,
+      drop_param: :series_books_drop
+    )
+    |> cast_assoc(:book_authors,
+      sort_param: :book_authors_sort,
+      drop_param: :book_authors_drop
+    )
     |> validate_required([:title, :published])
     |> foreign_key_constraint(:media, name: "media_book_id_fkey")
   end
