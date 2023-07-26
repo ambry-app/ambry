@@ -11,19 +11,21 @@ defmodule AmbryWeb.PersonLive do
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-md space-y-16 p-4 sm:max-w-none sm:space-y-24 md:max-w-screen-2xl md:p-6 lg:space-y-32 lg:p-8">
-      <div class="justify-center sm:flex sm:flex-row">
-        <section id="photo" class="mb-4 min-w-max flex-none sm:mb-0">
+      <div
+        :if={@person.image_path || @person.description}
+        class="justify-center sm:flex sm:flex-row sm:space-x-10 md:space-x-12 lg:space-x-16"
+      >
+        <section :if={@person.image_path} id="photo" class="mb-4 min-w-max flex-none sm:mb-0">
           <img
             src={@person.image_path}
             class="mx-auto h-52 w-52 rounded-full object-cover object-top shadow-lg sm:h-64 sm:w-64 md:h-72 md:w-72 lg:h-80 lg:w-80"
           />
         </section>
-        <section id="description" class="sm:ml-10 md:ml-12 lg:ml-16">
+        <section :if={@person.description} id="description" class="sm:ml-10 md:ml-12 lg:ml-16">
           <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
             <%= @person.name %>
           </h1>
           <div
-            :if={@person.description}
             id="readMore"
             phx-hook="read-more"
             data-read-more-label="Read more"
