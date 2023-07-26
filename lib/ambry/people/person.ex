@@ -27,8 +27,14 @@ defmodule Ambry.People.Person do
   def changeset(person, attrs) do
     person
     |> cast(attrs, [:name, :description, :image_path])
-    |> cast_assoc(:authors)
-    |> cast_assoc(:narrators)
+    |> cast_assoc(:authors,
+      sort_param: :authors_sort,
+      drop_param: :authors_drop
+    )
+    |> cast_assoc(:narrators,
+      sort_param: :narrators_sort,
+      drop_param: :narrators_drop
+    )
     |> validate_required([:name])
     |> foreign_key_constraint(:author, name: "authors_books_author_id_fkey")
     |> foreign_key_constraint(:narrator, name: "media_narrators_narrator_id_fkey")

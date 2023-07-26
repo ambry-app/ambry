@@ -41,6 +41,34 @@
       </div>
     </div>
 
+    <div class="space-y-2">
+      <.label>Writing as</.label>
+      <.inputs_for :let={author_form} field={@form[:authors]}>
+        <.sort_input parent_form={@form} form={author_form} sort_param={:authors_sort} />
+
+        <div class="flex items-start gap-2">
+          <.input field={author_form[:name]} container_class="grow" />
+          <.delete_button parent_form={@form} form={author_form} drop_param={:authors_drop} class="pt-[10px]" />
+        </div>
+      </.inputs_for>
+
+      <.add_button form={@form} sort_param={:authors_sort} label="Add author" />
+    </div>
+
+    <div class="space-y-2">
+      <.label>Narrating as</.label>
+      <.inputs_for :let={narrator_form} field={@form[:narrators]}>
+        <.sort_input parent_form={@form} form={narrator_form} sort_param={:narrators_sort} />
+
+        <div class="flex items-start gap-2">
+          <.input field={narrator_form[:name]} container_class="grow" />
+          <.delete_button parent_form={@form} form={narrator_form} drop_param={:narrators_drop} class="pt-[10px]" />
+        </div>
+      </.inputs_for>
+
+      <.add_button form={@form} sort_param={:narrators_sort} label="Add narrator" />
+    </div>
+
     <div :if={@person.image_path} class="space-y-2">
       <.label>Current image</.label>
       <.image_with_size
