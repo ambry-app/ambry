@@ -26,8 +26,7 @@ defmodule Ambry.Search do
 
   def find_first(query_string, type) do
     query_string
-    |> query()
-    |> all()
+    |> search()
     |> Enum.find(fn
       %^type{} -> true
       _else -> false

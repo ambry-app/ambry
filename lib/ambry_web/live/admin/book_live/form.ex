@@ -107,8 +107,16 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   @impl Phoenix.LiveView
   def handle_info({:import, %{"book" => book_params}}, socket) do
+    # authors and/or series could have been created, reload the data-lists
+    socket =
+      assign(socket,
+        authors: Ambry.Authors.for_select(),
+        series: Ambry.Series.for_select()
+      )
+
     new_params = Map.merge(socket.assigns.form.params, book_params)
     changeset = Books.change_book(socket.assigns.book, new_params)
+
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
   end
 
@@ -176,188 +184,4 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp import_form(:goodreads), do: GoodreadsImportForm
   defp import_form(:audible), do: AudibleImportForm
-
-  # defp async_import_search(socket, :goodreads, query),
-  #   do: do_async_import_search(socket, :goodreads, query, &GoodReads.search_books/1)
-
-  # defp async_import_search(socket, :audible, query),
-  #   do: do_async_import_search(socket, :audible, query, &Audible.search_books/1)
-
-  # defp do_async_import_search(socket, import_type, query, query_fun) do
-  #   Task.async(fn ->
-  #     response = query_fun.(query |> String.trim() |> String.downcase())
-  #     {import_type, :search, response}
-  #   end)
-
-  #   assign(socket,
-  #     import: %{
-  #       type: import_type,
-  #       search_form: to_form(%{"query" => query}, as: :import_search),
-  #       search_loading: true,
-  #       results: nil,
-  #       selected_book: nil
-  #       # editions_loading: false,
-  #       # editions: nil,
-  #       # details_loading: false,
-  #       # details: nil,
-  #       # form: to_form(init_import_form_params(socket.assigns.book), as: :import)
-  #     }
-  #   )
-  # end
-
-  # defp async_import_editions(socket, :goodreads, book_id) do
-  #   Task.async(fn ->
-  #     response = GoodReads.editions(book_id)
-  #     {:goodreads, :editions, response}
-  #   end)
-
-  #   update(socket, :import, fn import_assigns ->
-  #     %{
-  #       import_assigns
-  #       | editions_loading: true,
-  #         editions: nil
-  #     }
-  #   end)
-  # end
-
-  # defp async_import_details(socket, :goodreads, edition_id) do
-  #   Task.async(fn ->
-  #     response = GoodReads.edition_details(edition_id)
-  #     {:goodreads, :details, response}
-  #   end)
-
-  #   update(socket, :import, fn import_assigns ->
-  #     %{
-  #       import_assigns
-  #       | details_loading: true,
-  #         details: nil
-  #     }
-  #   end)
-  # end
-
-  # # defp async_import_details(socket, :goodreads, author_id),
-  # #   do: do_async_import_details(socket, :goodreads, author_id, &GoodReads.author/1)
-
-  # # defp async_import_details(socket, :audible, author_id),
-  # #   do: do_async_import_details(socket, :audible, author_id, &Audible.author/1)
-
-  # # defp do_async_import_details(socket, import_type, author_id, details_fun) do
-  # #   Task.async(fn ->
-  # #     response = details_fun.(author_id)
-  # #     {import_type, :details, response}
-  # #   end)
-
-  # #   update(socket, :import, fn import_assigns ->
-  # #     %{
-  # #       import_assigns
-  # #       | details_form: to_form(%{"author_id" => author_id}, as: :import_details),
-  # #         details_loading: true,
-  # #         details: nil
-  # #     }
-  # #   end)
-  # # end
-
-  # defp init_import_form_params(book) do
-  #   Map.new([:title, :description, :image], fn
-  #     :title -> {"use_title", is_nil(book.title)}
-  #     :description -> {"use_description", is_nil(book.description)}
-  #     :image -> {"use_image", is_nil(book.image_path)}
-  #   end)
-  # end
-
-  ## components
-
-  # attr :book, :any, required: true
-  # slot :actions
-
-  # defp book_card(%{book: %AmbryScraping.GoodReads.Books.Search.Book{}} = assigns) do
-  #   ~H"""
-  #   <div class="flex gap-2 text-sm">
-  #     <img src={@book.thumbnail.data_url} class="object-contain object-top" />
-  #     <div>
-  #       <p class="font-bold"><%= @book.title %></p>
-  #       <p class="text-zinc-400">
-  #         by
-  #         <span :for={contributor <- @book.contributors} class="group">
-  #           <span><%= contributor.name %></span>
-  #           <span class="text-xs text-zinc-600">(<%= contributor.type %>)</span>
-  #           <br class="group-last:hidden" />
-  #         </span>
-  #       </p>
-  #       <div :for={action <- @actions}>
-  #         <%= render_slot(action) %>
-  #       </div>
-  #     </div>
-  #   </div>
-  #   """
-  # end
-
-  # defp book_card(%{book: %AmbryScraping.GoodReads.Books.Editions.Edition{}} = assigns) do
-  #   ~H"""
-  #   <div class="flex gap-2 text-sm">
-  #     <img src={@book.thumbnail.data_url} class="object-contain object-top" />
-  #     <div>
-  #       <p class="font-bold"><%= @book.title %></p>
-  #       <p class="text-zinc-400">
-  #         by
-  #         <span :for={contributor <- @book.contributors} class="group">
-  #           <span><%= contributor.name %></span>
-  #           <span class="text-xs text-zinc-600">(<%= contributor.type %>)</span>
-  #           <br class="group-last:hidden" />
-  #         </span>
-  #       </p>
-  #       <p :if={@book.published && @book.publisher} class="text-xs text-zinc-400">
-  #         Published <%= display_date(@book.published) %> by <%= @book.publisher %>
-  #       </p>
-  #       <p class="text-xs text-zinc-400"><%= @book.format %></p>
-  #       <div :for={action <- @actions}>
-  #         <%= render_slot(action) %>
-  #       </div>
-  #     </div>
-  #   </div>
-  #   """
-  # end
-
-  # defp book_card(%{book: %AmbryScraping.Audible.Products.Product{}} = assigns) do
-  #   ~H"""
-  #   <div class="flex gap-2 text-sm">
-  #     <img src={@book.cover_image.src} class="h-24 w-24" />
-  #     <div>
-  #       <p class="font-bold"><%= @book.title %></p>
-  #       <p :if={@book.authors != []} class="text-zinc-400">
-  #         by
-  #         <span :for={author <- @book.authors} class="group">
-  #           <span><%= author.name %></span>
-  #           <br class="group-last:hidden" />
-  #         </span>
-  #       </p>
-  #       <p :if={@book.narrators != []} class="text-zinc-400">
-  #         Narrated by
-  #         <span :for={narrator <- @book.narrators} class="group">
-  #           <span><%= narrator.name %></span>
-  #           <br class="group-last:hidden" />
-  #         </span>
-  #       </p>
-  #       <p :if={@book.published && @book.publisher} class="text-xs text-zinc-400">
-  #         Published <%= display_date(@book.published) %> by <%= @book.publisher %>
-  #       </p>
-  #       <p class="text-xs text-zinc-400"><%= @book.format %></p>
-  #       <div :for={action <- @actions}>
-  #         <%= render_slot(action) %>
-  #       </div>
-  #     </div>
-  #   </div>
-  #   """
-  # end
-
-  # defp display_date(%Date{} = date), do: Calendar.strftime(date, "%B %-d, %Y")
-
-  # defp display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :full, date: date}),
-  #   do: Calendar.strftime(date, "%B %-d, %Y")
-
-  # defp display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year_month, date: date}),
-  #   do: Calendar.strftime(date, "%B %Y")
-
-  # defp display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year, date: date}),
-  #   do: Calendar.strftime(date, "%Y")
 end

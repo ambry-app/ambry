@@ -92,30 +92,18 @@
 
         <div class="flex items-start gap-2">
           <.input
-            field={series_book_form[:series_type]}
-            type="select"
-            options={[{"Existing", "existing"}, {"New", "new"}]}
-            container_class="w-24"
-          />
-          <.input
             field={series_book_form[:book_number]}
             placeholder="no."
             container_class="w-14 flex-none"
             show_errors={false}
           />
           <.input
-            :if={series_book_form[:series_type].value == "existing" || is_nil(series_book_form[:series_type].value)}
             field={series_book_form[:series_id]}
             type="autocomplete"
             options={@series}
             list="series"
             container_class="grow"
           />
-          <div :if={series_book_form[:series_type].value == "new"} class="grow">
-            <.inputs_for :let={series_form} field={series_book_form[:series]}>
-              <.input field={series_form[:name]} />
-            </.inputs_for>
-          </div>
           <.delete_button parent_form={@form} form={series_book_form} drop_param={:series_books_drop} class="pt-[10px]" />
         </div>
       </.inputs_for>

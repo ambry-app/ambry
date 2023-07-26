@@ -77,8 +77,18 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
     [imported_authors, existing_authors]
     |> Enum.zip()
     |> Enum.flat_map(fn
-      {_imported, nil} -> []
-      {_imported, existing} -> [%{"author_id" => existing.id}]
+      {imported, nil} ->
+        {:ok, %{authors: [author]}} =
+          Ambry.People.create_person(%{name: imported.name, authors: [%{name: imported.name}]})
+
+        [%{"author_id" => author.id}]
+
+      {_imported, %{authors: []} = existing} ->
+        {:ok, %{authors: [author]}} = Ambry.People.update_person(existing, %{authors: [%{name: existing.name}]})
+        [%{"author_id" => author.id}]
+
+      {_imported, %{authors: [author | _rest]}} ->
+        [%{"author_id" => author.id}]
     end)
   end
 
@@ -87,10 +97,11 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
     |> Enum.zip()
     |> Enum.map(fn
       {imported, nil} ->
-        %{"series_type" => "new", "book_number" => imported.sequence, "series" => %{"name" => imported.title}}
+        {:ok, series} = Ambry.Series.create_series(%{name: imported.title})
+        %{"book_number" => imported.sequence, "series_id" => series.id}
 
       {imported, existing} ->
-        %{"series_type" => "existing", "book_number" => imported.sequence, "series_id" => existing.id}
+        %{"book_number" => imported.sequence, "series_id" => existing.id}
     end)
   end
 
