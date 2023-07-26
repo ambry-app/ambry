@@ -101,7 +101,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
             <div
               :for={book <- @goodreads.search.results}
               class={[
-                "cursor-pointer rounded-md p-2 hover:bg-zinc-900",
+                "cursor-pointer rounded-sm p-2 hover:bg-zinc-900",
                 if(@goodreads.selected_book.id == book.id, do: "bg-zinc-900")
               ]}
               phx-click={JS.push("goodreads-select-book", value: %{"book-id" => book.id})}
@@ -119,7 +119,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
             <div
               :for={edition <- @goodreads.editions.editions}
               class={[
-                "cursor-pointer rounded-md p-2 hover:bg-zinc-900",
+                "cursor-pointer rounded-sm p-2 hover:bg-zinc-900",
                 if(@goodreads.selected_edition.id == edition.id, do: "bg-zinc-900")
               ]}
               phx-click={
@@ -141,7 +141,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
           <div
             :for={book <- @audible.search}
             class={[
-              "cursor-pointer rounded-md p-2 hover:bg-zinc-900",
+              "cursor-pointer rounded-sm p-2 hover:bg-zinc-900",
               if(@audible.selected_book.asin == book.asin, do: "bg-zinc-900")
             ]}
             phx-click={
@@ -168,7 +168,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
           </ul>
         </div>
 
-        <fieldset class="space-y-2 rounded-md border-2 border-zinc-800 px-4 pb-4">
+        <fieldset class="space-y-2 rounded-sm border-2 border-zinc-800 px-4 pb-4">
           <legend class="px-2 text-sm">
             <span class="flex flex-row">
               <span
@@ -285,12 +285,12 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Title --%>
-                <div class="space-y-2 rounded-md bg-zinc-950 p-3">
+                <div class="space-y-2 rounded-sm bg-zinc-950 p-3">
                   <.input field={book_form[:title]} label="Title" />
                 </div>
 
                 <%!-- GR Title --%>
-                <div class="rounded-md bg-zinc-950 p-3">
+                <div class="rounded-sm bg-zinc-950 p-3">
                   <div :if={@goodreads.edition_details} class="space-y-2">
                     <.label>Title</.label>
                     <div class="py-[7px] px-[11px] rounded-lg border border-zinc-600 bg-zinc-800 text-zinc-300">
@@ -308,7 +308,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Title --%>
-                <div class="rounded-md bg-zinc-950 p-3">
+                <div class="rounded-sm bg-zinc-950 p-3">
                   <div :if={@audible.selected_book} class="space-y-2">
                     <.label>Title</.label>
                     <div class="py-[7px] px-[11px] rounded-lg border border-zinc-600 bg-zinc-800 text-zinc-300">
@@ -326,7 +326,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Image --%>
-                <div class="space-y-2 rounded-md p-3">
+                <div class="space-y-2 rounded-sm p-3">
                   <.label for={book_form[:image_type].id}>Image</.label>
                   <.note>For best results, use a square image.</.note>
                   <.input
@@ -415,7 +415,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- GR Image --%>
-                <div class="rounded-md p-3">
+                <div class="rounded-sm p-3">
                   <div :if={@goodreads.edition_details} class="space-y-2">
                     <.label>Image</.label>
                     <div>
@@ -452,7 +452,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Image --%>
-                <div class="rounded-md p-3">
+                <div class="rounded-sm p-3">
                   <div :if={@audible.selected_book} class="space-y-2">
                     <.label>Image</.label>
                     <div>
@@ -489,7 +489,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Published --%>
-                <div class="space-y-2 rounded-md bg-zinc-950 p-3">
+                <div class="space-y-2 rounded-sm bg-zinc-950 p-3">
                   <.label for={book_form[:published].id}>First published</.label>
 
                   <div class="flex flex-row items-center gap-2">
@@ -509,7 +509,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- GR Published --%>
-                <div class="rounded-md bg-zinc-950 p-3">
+                <div class="rounded-sm bg-zinc-950 p-3">
                   <div :if={@goodreads.editions} class="space-y-2">
                     <.label>First published</.label>
                     <div class="py-[7px] px-[11px] rounded-lg border border-zinc-600 bg-zinc-800 text-zinc-300">
@@ -535,13 +535,13 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Published --%>
-                <div class="space-y-2 rounded-md bg-zinc-950 p-3">
+                <div class="space-y-2 rounded-sm bg-zinc-950 p-3">
                   <.label>First published</.label>
                   <.note>Audible doesn't have this data.</.note>
                 </div>
 
                 <%!-- Description --%>
-                <div class="space-y-2 rounded-md p-3">
+                <div class="space-y-2 rounded-sm p-3">
                   <.input
                     type="textarea"
                     field={book_form[:description]}
@@ -553,7 +553,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- GR Description --%>
-                <div class="rounded-md p-3">
+                <div class="rounded-sm p-3">
                   <div :if={@goodreads.edition_details} class="space-y-2">
                     <.label>Description</.label>
                     <.markdown
@@ -574,7 +574,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Description --%>
-                <div class="rounded-md p-3">
+                <div class="rounded-sm p-3">
                   <div :if={@audible.selected_book} class="space-y-2">
                     <.label>Description</.label>
                     <.markdown
@@ -595,7 +595,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Authors --%>
-                <div class="space-y-4 rounded-md bg-zinc-950 p-3">
+                <div class="space-y-4 rounded-sm bg-zinc-950 p-3">
                   <.inputs_for :let={book_authors_form} field={book_form[:book_authors]}>
                     <div>
                       <.label>Author #<%= book_authors_form.index + 1 %></.label>
@@ -710,7 +710,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- GR Authors --%>
-                <div class="rounded-md bg-zinc-950 p-3">
+                <div class="rounded-sm bg-zinc-950 p-3">
                   <div :if={@goodreads.author_details != []} class="space-y-2">
                     <.label>
                       <%= case @goodreads.author_details do %>
@@ -753,7 +753,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
                 </div>
 
                 <%!-- Audible Authors --%>
-                <div class="rounded-md bg-zinc-950 p-3">
+                <div class="rounded-sm bg-zinc-950 p-3">
                   <div :if={@audible.author_details != []} class="space-y-2">
                     <.label>
                       <%= case @audible.author_details do %>
@@ -799,12 +799,12 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
           </div>
         </fieldset>
 
-        <fieldset class="space-y-2 rounded-md border-2 border-zinc-800 px-4 pb-4">
+        <fieldset class="space-y-2 rounded-sm border-2 border-zinc-800 px-4 pb-4">
           <legend class="px-2 text-sm font-bold">Audiobook</legend>
 
           <div class="grid grid-cols-3 gap-3">
             <%!-- Narrators --%>
-            <div class="space-y-2 rounded-md p-3">
+            <div class="space-y-2 rounded-sm p-3">
               <.inputs_for :let={upload_narrators_form} field={@form[:upload_narrators]}>
                 <div>
                   <.label>Narrator #<%= upload_narrators_form.index + 1 %></.label>
@@ -916,7 +916,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
             </div>
 
             <%!-- GR Narrators --%>
-            <div class="rounded-md p-3">
+            <div class="rounded-sm p-3">
               <div :if={@goodreads.narrator_details != []} class="space-y-2">
                 <.label>
                   <%= case @goodreads.narrator_details do %>
@@ -959,7 +959,7 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
             </div>
 
             <%!-- Audible Narrators --%>
-            <div class="rounded-md p-3">
+            <div class="rounded-sm p-3">
               <div :if={@audible.selected_book} class="space-y-2">
                 <.label>
                   <%= case @audible.selected_book.narrators do %>
@@ -1100,7 +1100,6 @@ defmodule AmbryWeb.Admin.UploadLive.Edit do
   end
 
   def handle_event("save", %{"upload" => upload_params}, socket) do
-    dbg(upload_params)
     {:ok, upload} = Uploads.update_upload(socket.assigns.upload, upload_params)
 
     socket =

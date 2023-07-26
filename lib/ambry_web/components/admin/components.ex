@@ -76,7 +76,7 @@ defmodule AmbryWeb.Admin.Components do
       )
 
     ~H"""
-    <div class="rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
+    <div class="rounded-sm border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
       <%= if @rows == [] do %>
         <div class="p-3">
           <%= render_slot(@no_results) %>
@@ -135,7 +135,7 @@ defmodule AmbryWeb.Admin.Components do
 
   def badge(assigns) do
     ~H"""
-    <span class={["whitespace-nowrap rounded-md border px-1 text-zinc-900", badge_color(@color)]}>
+    <span class={["whitespace-nowrap rounded-sm border px-1 text-zinc-900", badge_color(@color)]}>
       <%= render_slot(@inner_block) %>
     </span>
     """
@@ -220,7 +220,7 @@ defmodule AmbryWeb.Admin.Components do
 
   def import_form_row(assigns) do
     ~H"""
-    <div class="flex gap-4 rounded-md p-3 hover:bg-zinc-950">
+    <div class="flex gap-4 rounded-sm p-3 hover:bg-zinc-950">
       <div class="py-1">
         <.input type="checkbox" field={@field} />
       </div>

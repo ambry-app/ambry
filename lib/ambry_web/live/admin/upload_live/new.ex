@@ -44,7 +44,7 @@ defmodule AmbryWeb.Admin.UploadLive.New do
         </.note>
 
         <section
-          class="mt-2 w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
+          class="mt-2 w-full space-y-4 rounded-sm border-2 border-dashed border-lime-400 p-4"
           phx-drop-target={@uploads.audio_files.ref}
         >
           <.live_file_input upload={@uploads.audio_files} />

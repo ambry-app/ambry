@@ -5,6 +5,9 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
   import AmbryWeb.Admin.Components
 
   alias Ambry.Metadata.Audible
+  alias Ambry.People.Person
+  alias Ambry.Search
+  alias Ambry.Series.Series
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -38,7 +41,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
 
   def handle_event("select-book", %{"select_book" => %{"book_id" => book_id}}, socket) do
     book = Enum.find(socket.assigns.results, &(&1.id == book_id))
-    {:noreply, assign(socket, details: book)}
+    {:noreply, select_result(socket, book)}
   end
 
   def handle_event("import", %{"import" => import_params}, socket) do
@@ -52,6 +55,12 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
         {"use_description", "true"}, acc ->
           Map.put(acc, "description", book.description)
 
+        {"use_authors", "true"}, acc ->
+          Map.put(acc, "book_authors", build_authors_params(book.authors, socket.assigns.matching_authors))
+
+        {"use_series", "true"}, acc ->
+          Map.put(acc, "series_books", build_series_params(book.series, socket.assigns.matching_series))
+
         {"use_cover_image", "true"}, acc ->
           Map.merge(acc, %{"image_type" => "url_import", "image_import_url" => book.cover_image.src})
 
@@ -64,13 +73,34 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
     {:noreply, socket}
   end
 
+  defp build_authors_params(imported_authors, existing_authors) do
+    [imported_authors, existing_authors]
+    |> Enum.zip()
+    |> Enum.flat_map(fn
+      {_imported, nil} -> []
+      {_imported, existing} -> [%{"author_id" => existing.id}]
+    end)
+  end
+
+  defp build_series_params(imported_series, existing_series) do
+    [imported_series, existing_series]
+    |> Enum.zip()
+    |> Enum.map(fn
+      {imported, nil} ->
+        %{"series_type" => "new", "book_number" => imported.sequence, "series" => %{"name" => imported.title}}
+
+      {imported, existing} ->
+        %{"series_type" => "existing", "book_number" => imported.sequence, "series_id" => existing.id}
+    end)
+  end
+
   defp handle_forwarded_info({:search, {:ok, results}}, socket) do
     socket = assign(socket, search_loading: false, results: results)
 
     socket =
       case results do
         [] -> socket
-        [first_result | _rest] -> assign(socket, details: first_result)
+        [first_result | _rest] -> select_result(socket, first_result)
       end
 
     socket
@@ -99,10 +129,26 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
   end
 
   defp init_import_form_params(book) do
-    Map.new([:title, :description, :image], fn
+    Map.new([:title, :description, :authors, :series, :image], fn
       :title -> {"use_title", is_nil(book.title)}
       :description -> {"use_description", is_nil(book.description)}
+      :authors -> {"use_authors", book.book_authors == []}
+      :series -> {"use_series", book.series_books == []}
       :image -> {"use_cover_image", is_nil(book.image_path)}
     end)
+  end
+
+  defp select_result(socket, result) do
+    matching_authors =
+      Enum.map(result.authors, fn author ->
+        Search.find_first(author.name, Person)
+      end)
+
+    matching_series =
+      Enum.map(result.series, fn series ->
+        Search.find_first(series.title, Series)
+      end)
+
+    assign(socket, details: result, matching_authors: matching_authors, matching_series: matching_series)
   end
 end

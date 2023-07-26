@@ -58,7 +58,7 @@
           id="description-preview"
           phx-hook="scroll-match"
           data-target="description-input"
-          class="absolute top-8 right-0 bottom-0 left-0 overflow-auto rounded-md border border-zinc-300 dark:border-zinc-800"
+          class="absolute top-8 right-0 bottom-0 left-0 overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800"
         >
           <.markdown content={@form[:description].value || ""} class="p-2" />
         </div>
@@ -67,18 +67,18 @@
 
     <div class="space-y-2">
       <.label>Authors</.label>
-      <.inputs_for :let={author_form} field={@form[:book_authors]}>
-        <.sort_input parent_form={@form} form={author_form} sort_param={:book_authors_sort} />
+      <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
+        <.sort_input parent_form={@form} form={book_author_form} sort_param={:book_authors_sort} />
 
         <div class="flex items-start gap-2">
           <.input
-            field={author_form[:author_id]}
+            field={book_author_form[:author_id]}
             type="autocomplete"
             options={@authors}
             list="authors"
             container_class="grow"
           />
-          <.delete_button parent_form={@form} form={author_form} drop_param={:book_authors_drop} class="pt-[10px]" />
+          <.delete_button parent_form={@form} form={book_author_form} drop_param={:book_authors_drop} class="pt-[10px]" />
         </div>
       </.inputs_for>
 
@@ -92,28 +92,40 @@
 
         <div class="flex items-start gap-2">
           <.input
+            field={series_book_form[:series_type]}
+            type="select"
+            options={[{"Existing", "existing"}, {"New", "new"}]}
+            container_class="w-24"
+          />
+          <.input
             field={series_book_form[:book_number]}
             placeholder="no."
             container_class="w-14 flex-none"
             show_errors={false}
           />
           <.input
+            :if={series_book_form[:series_type].value == "existing" || is_nil(series_book_form[:series_type].value)}
             field={series_book_form[:series_id]}
             type="autocomplete"
             options={@series}
             list="series"
             container_class="grow"
           />
+          <div :if={series_book_form[:series_type].value == "new"} class="grow">
+            <.inputs_for :let={series_form} field={series_book_form[:series]}>
+              <.input field={series_form[:name]} />
+            </.inputs_for>
+          </div>
           <.delete_button parent_form={@form} form={series_book_form} drop_param={:series_books_drop} class="pt-[10px]" />
         </div>
       </.inputs_for>
 
-      <.add_button form={@form} sort_param={:series_books_sort} label="Add book" />
+      <.add_button form={@form} sort_param={:series_books_sort} label="Add series" />
     </div>
 
     <div :if={@book.image_path} class="space-y-2">
       <.label>Current image</.label>
-      <.image_with_size id={"image-#{@book.id}"} src={@book.image_path} class="h-48 w-48 rounded-lg" />
+      <.image_with_size id={"image-#{@book.id}"} src={@book.image_path} class="h-48 w-48 rounded-sm" />
     </div>
 
     <.input
@@ -131,14 +143,14 @@
       :if={@form[:image_type].value == "upload"}
       upload={@uploads.image}
       label="Upload image"
-      image_preview_class="h-48 w-48 rounded-lg"
+      image_preview_class="h-48 w-48 rounded-sm"
     />
 
     <.image_import_input
       :if={@form[:image_type].value == "url_import"}
       field={@form[:image_import_url]}
       label="Import image from URL"
-      image_preview_class="h-48 w-48 rounded-lg"
+      image_preview_class="h-48 w-48 rounded-sm"
     />
 
     <:actions>

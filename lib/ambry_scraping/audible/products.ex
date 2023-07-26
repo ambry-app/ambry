@@ -81,7 +81,11 @@ defmodule AmbryScraping.Audible.Products do
   end
 
   defp parse_response(%{"products" => products}) do
-    {:ok, Enum.map(products, &parse_product/1)}
+    {:ok,
+     products
+     |> Enum.map(&parse_product/1)
+     # TODO: make language filtering configurable
+     |> Enum.filter(&(&1.language == "english"))}
   end
 
   defp parse_response(_body) do
@@ -125,7 +129,7 @@ defmodule AmbryScraping.Audible.Products do
     end)
   end
 
-  defp parse_series(nil), do: nil
+  defp parse_series(nil), do: []
 
   defp parse_series(series) do
     Enum.map(series, fn series ->

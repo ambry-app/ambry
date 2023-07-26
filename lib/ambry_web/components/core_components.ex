@@ -55,7 +55,11 @@ defmodule AmbryWeb.CoreComponents do
       data-cancel={JS.exec(@on_cancel, "phx-remove")}
       class="relative z-40 hidden"
     >
-      <div id={"#{@id}-bg"} class="bg-zinc-50/90 fixed inset-0 transition-opacity dark:bg-zinc-900/90" aria-hidden="true" />
+      <div
+        id={"#{@id}-bg"}
+        class="border-brand fixed inset-0 border-l-4 bg-white transition-opacity dark:border-brand-dark dark:bg-black"
+        aria-hidden="true"
+      />
       <div
         class="fixed inset-0 overflow-y-auto"
         aria-labelledby={"#{@id}-title"}
@@ -64,31 +68,26 @@ defmodule AmbryWeb.CoreComponents do
         aria-modal="true"
         tabindex="0"
       >
-        <div class="flex min-h-full items-center justify-center">
-          <div class="w-full p-4 sm:max-w-3xl sm:p-6 lg:py-8">
-            <.focus_wrap
-              id={"#{@id}-container"}
-              phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
-              phx-key="escape"
-              phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
-              class="shadow-zinc-700/10 ring-zinc-700/10 relative hidden rounded-2xl bg-white p-6 shadow-lg ring-1 transition dark:ring-zinc-900/10 dark:bg-black dark:shadow-none"
+        <.focus_wrap
+          id={"#{@id}-container"}
+          phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
+          phx-key="escape"
+          class="relative p-6 transition"
+        >
+          <div class="absolute top-6 right-5">
+            <button
+              phx-click={JS.exec("data-cancel", to: "##{@id}")}
+              type="button"
+              class="-m-3 flex-none p-3 opacity-20 hover:opacity-40"
+              aria-label={gettext("close")}
             >
-              <div class="absolute top-6 right-5">
-                <button
-                  phx-click={JS.exec("data-cancel", to: "##{@id}")}
-                  type="button"
-                  class="-m-3 flex-none p-3 opacity-20 hover:opacity-40"
-                  aria-label={gettext("close")}
-                >
-                  <FA.icon name="xmark" class="h-5 w-5 fill-current" />
-                </button>
-              </div>
-              <div id={"#{@id}-content"}>
-                <%= render_slot(@inner_block) %>
-              </div>
-            </.focus_wrap>
+              <FA.icon name="xmark" class="h-5 w-5 fill-current" />
+            </button>
           </div>
-        </div>
+          <div id={"#{@id}-content"}>
+            <%= render_slot(@inner_block) %>
+          </div>
+        </.focus_wrap>
       </div>
     </div>
     """
@@ -122,7 +121,7 @@ defmodule AmbryWeb.CoreComponents do
       phx-key="escape"
       role="alert"
       class={[
-        "fixed top-2 right-2 w-80 sm:w-96 z-50 rounded-lg p-3 shadow-md ring-1",
+        "fixed top-2 right-2 w-80 sm:w-96 z-50 rounded-sm p-3 shadow-md ring-1",
         "text-zinc-900 fill-zinc-900 shadow-zinc-900/5",
         @kind == :info && "bg-lime-50 ring-lime-200 dark:ring-lime-400 dark:bg-lime-400",
         @kind == :error && "bg-red-50 ring-red-200 dark:ring-red-400 dark:bg-red-400"
@@ -243,7 +242,7 @@ defmodule AmbryWeb.CoreComponents do
     <button
       type={@type}
       class={[
-        "phx-submit-loading:opacity-75 rounded-lg py-2 px-3",
+        "phx-submit-loading:opacity-75 rounded-sm py-2 px-3",
         "text-sm font-semibold leading-6",
         "text-white active:text-white/80 dark:text-zinc-900 dark:active:text-zinc-800",
         button_color_classes(@color),
@@ -357,8 +356,8 @@ defmodule AmbryWeb.CoreComponents do
         name={@name}
         class={
           [
-            "block w-full rounded-lg border px-3 py-2 shadow-sm",
-            "focus:outline-none focus:ring-4 sm:text-sm"
+            "block w-full rounded-sm py-[7px] px-[11px]",
+            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
           ] ++ input_color_classes(@errors) ++ [@class]
         }
         multiple={@multiple}
@@ -381,7 +380,7 @@ defmodule AmbryWeb.CoreComponents do
         name={@name}
         class={
           [
-            "block min-h-48 w-full rounded-lg py-[7px] px-[11px]",
+            "block min-h-48 w-full rounded-sm py-[7px] px-[11px]",
             "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
           ] ++ input_color_classes(@errors) ++ [@class]
         }
@@ -404,8 +403,8 @@ defmodule AmbryWeb.CoreComponents do
         value={@value}
         class={
           [
-            "block w-full rounded-lg border px-3 py-2 shadow-sm",
-            "focus:outline-none focus:ring-4 sm:text-sm"
+            "block w-full rounded-sm py-[7px] px-[11px]",
+            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
           ] ++ input_color_classes(@errors) ++ [@class]
         }
         {@rest}
@@ -427,7 +426,7 @@ defmodule AmbryWeb.CoreComponents do
         value={Form.normalize_value(@type, @value)}
         class={
           [
-            "block w-full rounded-lg py-[7px] px-[11px]",
+            "block w-full rounded-sm py-[7px] px-[11px]",
             "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
           ] ++ input_color_classes(@errors) ++ [@class]
         }
@@ -466,7 +465,7 @@ defmodule AmbryWeb.CoreComponents do
           upload={@upload}
           class={
             [
-              "block w-full rounded-lg rounded-b-none py-[7px] px-[11px] border !text-zinc-500",
+              "block w-full rounded-sm rounded-b-none py-[7px] px-[11px] border !text-zinc-500",
               "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
               "!p-0 file:border-0 file:rounded-none file:p-[11px] file:cursor-pointer",
               "file:bg-zinc-600 file:text-zinc-100 hover:file:bg-zinc-500"
@@ -475,7 +474,7 @@ defmodule AmbryWeb.CoreComponents do
         />
       </div>
       <div
-        class="space-y-4 rounded-b-lg border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4"
+        class="space-y-4 rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4"
         phx-drop-target={@upload.ref}
       >
         <FA.icon :if={@upload.entries == []} name="upload" class="mx-auto my-4 block h-8 w-8 fill-current" />
@@ -531,7 +530,7 @@ defmodule AmbryWeb.CoreComponents do
         placeholder="https://some-image.com/url"
         class={if @show_preview, do: "rounded-b-none"}
       />
-      <div :if={@show_preview} class="rounded-b-lg border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
+      <div :if={@show_preview} class="rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
         <.image_with_size id={@field.id} src={@field.value} class={@image_preview_class} />
       </div>
     </div>
@@ -849,7 +848,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def auth_form_card(assigns) do
     ~H"""
-    <div class="flex flex-col space-y-6 rounded-lg bg-white p-10 shadow-lg dark:bg-zinc-900">
+    <div class="flex flex-col space-y-6 rounded-sm bg-white p-10 shadow-lg dark:bg-zinc-900">
       <%= render_slot(@inner_block) %>
     </div>
     """
@@ -991,7 +990,7 @@ defmodule AmbryWeb.CoreComponents do
           <div class="text-center text-lg">
             <div phx-click={@load_more} phx-target={@target} class="group">
               <span class="block aspect-1 cursor-pointer">
-                <span class="load-more flex h-full w-full rounded-lg border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
+                <span class="load-more flex h-full w-full rounded-sm border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                   <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
                 </span>
               </span>
@@ -1020,7 +1019,7 @@ defmodule AmbryWeb.CoreComponents do
           <span class="block aspect-1">
             <img
               src={@book.image_path}
-              class="h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
+              class="h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
             />
           </span>
         </.link>
@@ -1061,7 +1060,7 @@ defmodule AmbryWeb.CoreComponents do
             <div class="aspect-w-1 aspect-h-1 relative">
               <img
                 src={player_state.media.book.image_path}
-                class="h-full w-full rounded-t-lg border border-b-0 border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
+                class="h-full w-full rounded-t-sm border border-b-0 border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
               />
               <div class="absolute flex">
                 <div
@@ -1108,7 +1107,7 @@ defmodule AmbryWeb.CoreComponents do
         <div class="text-center text-lg">
           <div phx-click={@load_more} phx-target={@target} class="group">
             <span class="block aspect-1 cursor-pointer">
-              <span class="load-more flex h-full w-full rounded-lg border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
+              <span class="load-more flex h-full w-full rounded-sm border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                 <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
               </span>
             </span>

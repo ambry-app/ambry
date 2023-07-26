@@ -71,7 +71,7 @@
       </.note>
 
       <section
-        class="mt-2 w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
+        class="mt-2 w-full space-y-4 rounded-sm border-2 border-dashed border-lime-400 p-4"
         phx-drop-target={@uploads.audio.ref}
       >
         <.live_file_input upload={@uploads.audio} />
@@ -113,7 +113,7 @@
         </button>
       </div>
 
-      <div class="files-list-toggle mt-2 hidden rounded-lg border border-zinc-200 bg-zinc-50 p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="files-list-toggle mt-2 hidden rounded-sm border border-zinc-200 bg-zinc-50 p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
         <div class="space-y-2 divide-y divide-zinc-200 dark:divide-zinc-800">
           <.file_stat_row label="mp4" file={@file_stats.mp4_file} />
           <.file_stat_row label="mpd" file={@file_stats.mpd_file} />
@@ -162,7 +162,7 @@
       <.label>Upload supplemental files</.label>
 
       <section
-        class="mt-2 w-full space-y-4 rounded-lg border-2 border-dashed border-lime-400 p-4"
+        class="mt-2 w-full space-y-4 rounded-sm border-2 border-dashed border-lime-400 p-4"
         phx-drop-target={@uploads.supplemental.ref}
       >
         <.live_file_input upload={@uploads.supplemental} />

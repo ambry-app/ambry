@@ -1,4 +1,6 @@
-<div class="space-y-4">
+<div class="mx-auto max-w-3xl space-y-4">
+  <.flash_group flash={@flash} />
+
   <.simple_form for={@search_form} phx-submit="search" phx-target={@myself}>
     <div class="flex items-end gap-2">
       <.input field={@search_form[:query]} label="Search" container_class="grow" />
@@ -11,13 +13,11 @@
   <% end %>
 
   <%= if !@search_loading && length(@results) > 1 do %>
-    <.simple_form for={@select_author_form} phx-change="select-author" phx-submit="select-author" phx-target={@myself}>
-      <.input
-        type="select"
-        label="Select author"
-        field={@select_author_form[:author_id]}
-        options={Enum.map(@results, &{&1.name, &1.id})}
-      />
+    <.simple_form for={@select_author_form} phx-change="select-author" phx-target={@myself}>
+      <div class="space-y-2">
+        <.label>Select author (<%= length(@results) %> results)</.label>
+        <.input type="select" field={@select_author_form[:author_id]} options={Enum.map(@results, &{&1.name, &1.id})} />
+      </div>
     </.simple_form>
   <% end %>
 
@@ -28,7 +28,7 @@
   <div :for={%{} = author <- [@details]}>
     <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
       <.import_form_row :if={author.name != ""} field={@form[:use_name]} label="Name">
-        <div class="py-[7px] px-[11px] rounded-lg border border-zinc-600 bg-zinc-800 text-zinc-300">
+        <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
           <%= author.name %>
         </div>
       </.import_form_row>
@@ -36,7 +36,7 @@
       <.import_form_row :if={author.description} field={@form[:use_description]} label="Description">
         <.markdown
           content={author.description}
-          class="max-h-64 max-w-max overflow-y-auto rounded-lg border border-zinc-600 bg-zinc-800 p-2"
+          class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-600 bg-zinc-800 p-2"
         />
       </.import_form_row>
 
@@ -51,6 +51,9 @@
 
       <:actions>
         <.button class="mt-2">Import</.button>
+        <.button type="button" color={:zinc} phx-click={JS.exec("data-cancel", to: "#import-modal")}>
+          Cancel
+        </.button>
       </:actions>
     </.simple_form>
   </div>

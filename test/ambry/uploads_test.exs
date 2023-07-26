@@ -48,8 +48,6 @@ defmodule Ambry.UploadsTest do
                }
              } = upload
 
-      dbg(upload)
-
       new_book = insert(:book)
 
       # update_params = %{
@@ -60,7 +58,6 @@ defmodule Ambry.UploadsTest do
       |> Uploads.Upload.changeset(%{})
       |> Ecto.Changeset.put_assoc(:book, new_book)
       |> Ambry.Repo.update!()
-      |> dbg()
     end
 
     # test "can create a upload with an existing book" do

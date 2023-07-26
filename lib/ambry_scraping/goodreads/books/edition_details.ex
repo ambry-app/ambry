@@ -145,12 +145,16 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
       |> List.first()
       |> Floki.children()
 
-    Enum.scan(rest, series_part(series_link), fn next_part, previous_part ->
+    series_part(series_link)
+
+    rest
+    |> Enum.reduce([series_part(series_link)], fn next_part, [previous_series | rest] = acc ->
       case series_part(next_part) do
-        number when is_binary(number) -> %{previous_part | number: number}
-        series -> series
+        %Series{} = new_series -> [new_series | acc]
+        number -> [%{previous_series | number: number} | rest]
       end
     end)
+    |> Enum.reverse()
   end
 
   defp series_part({"a", _attrs, _children} = link) do

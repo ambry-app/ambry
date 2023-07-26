@@ -82,6 +82,8 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
     html
     |> Floki.find("div.workEditions div.elementList")
     |> Enum.flat_map(&parse_edition/1)
+    # TODO: make language filtering configurable
+    |> Enum.filter(&(&1.language == "english"))
   end
 
   defp parse_edition(edition_html) do
@@ -182,7 +184,7 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
 
     case language_row do
       nil -> nil
-      row -> row |> Floki.find(".dataValue") |> Floki.text() |> clean_string()
+      row -> row |> Floki.find(".dataValue") |> Floki.text() |> clean_string() |> String.downcase()
     end
   end
 

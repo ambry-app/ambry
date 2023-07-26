@@ -41,7 +41,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   defp apply_action(socket, :new, _params) do
-    book = %Book{}
+    book = %Book{book_authors: [], series_books: []}
     changeset = Books.change_book(book, %{"image_type" => "upload"})
 
     socket
