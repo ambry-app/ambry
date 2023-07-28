@@ -23,7 +23,7 @@ defmodule Ambry.Media.Processor.OpusConcat do
   end
 
   def can_run?(filenames) when is_list(filenames) do
-    filenames |> filter_filenames(@extensions) |> length() > 1
+    filter_filenames(filenames, @extensions) != []
   end
 
   def run(media) do

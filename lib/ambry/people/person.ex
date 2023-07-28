@@ -13,8 +13,8 @@ defmodule Ambry.People.Person do
   alias Ambry.Narrators.Narrator
 
   schema "people" do
-    has_many :authors, Author
-    has_many :narrators, Narrator
+    has_many :authors, Author, on_replace: :delete
+    has_many :narrators, Narrator, on_replace: :delete
 
     field :name, :string
     field :description, :string

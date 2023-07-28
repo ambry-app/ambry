@@ -1,4 +1,4 @@
-defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
+defmodule AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm do
   @moduledoc false
   use AmbryWeb, :live_component
 
@@ -8,7 +8,6 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
   alias Ambry.Metadata.GoodReads
   alias Ambry.People.Person
   alias Ambry.Search
-  alias Ambry.Series.Series
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -52,69 +51,43 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
 
   def handle_event("import", %{"import" => import_params}, socket) do
     book = socket.assigns.edition_details
-    editions = socket.assigns.editions
 
     params =
       Enum.reduce(import_params, %{}, fn
-        {"use_title", "true"}, acc ->
-          Map.put(acc, "title", book.title)
-
         {"use_published", "true"}, acc ->
           Map.merge(acc, %{
-            "published" => editions.first_published.date,
-            "published_format" => editions.first_published.display_format
+            "published" => book.published.date,
+            "published_format" => book.published.display_format
           })
 
-        {"use_description", "true"}, acc ->
-          Map.put(acc, "description", book.description)
-
-        {"use_authors", "true"}, acc ->
-          Map.put(acc, "book_authors", build_authors_params(authors(book), socket.assigns.matching_authors))
-
-        {"use_series", "true"}, acc ->
-          Map.put(acc, "series_books", build_series_params(book.series, socket.assigns.matching_series))
-
-        {"use_cover_image", "true"}, acc ->
-          Map.merge(acc, %{"image_type" => "url_import", "image_import_url" => book.cover_image.src})
+        {"use_narrators", "true"}, acc ->
+          Map.put(acc, "media_narrators", build_narrators_params(narrators(book), socket.assigns.matching_narrators))
 
         _else, acc ->
           acc
       end)
 
-    send(self(), {:import, %{"book" => params}})
+    send(self(), {:import, %{"media" => params}})
 
     {:noreply, socket}
   end
 
-  defp build_authors_params(imported_authors, existing_authors) do
-    [imported_authors, existing_authors]
+  defp build_narrators_params(imported_narrators, existing_narrators) do
+    [imported_narrators, existing_narrators]
     |> Enum.zip()
     |> Enum.flat_map(fn
       {imported, nil} ->
-        {:ok, %{authors: [author]}} =
-          Ambry.People.create_person(%{name: imported.name, authors: [%{name: imported.name}]})
+        {:ok, %{narrators: [narrator]}} =
+          Ambry.People.create_person(%{name: imported.name, narrators: [%{name: imported.name}]})
 
-        [%{"author_id" => author.id}]
+        [%{"narrator_id" => narrator.id}]
 
-      {_imported, %{authors: []} = existing} ->
-        {:ok, %{authors: [author]}} = Ambry.People.update_person(existing, %{authors: [%{name: existing.name}]})
-        [%{"author_id" => author.id}]
+      {_imported, %{narrators: []} = existing} ->
+        {:ok, %{narrators: [narrator]}} = Ambry.People.update_person(existing, %{narrators: [%{name: existing.name}]})
+        [%{"narrator_id" => narrator.id}]
 
-      {_imported, %{authors: [author | _rest]}} ->
-        [%{"author_id" => author.id}]
-    end)
-  end
-
-  defp build_series_params(imported_series, existing_series) do
-    [imported_series, existing_series]
-    |> Enum.zip()
-    |> Enum.map(fn
-      {imported, nil} ->
-        {:ok, series} = Ambry.Series.create_series(%{name: imported.name})
-        %{"book_number" => imported.number, "series_id" => series.id}
-
-      {imported, existing} ->
-        %{"book_number" => imported.number, "series_id" => existing.id}
+      {_imported, %{narrators: [narrator | _rest]}} ->
+        [%{"narrator_id" => narrator.id}]
     end)
   end
 
@@ -167,21 +140,15 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
   end
 
   defp handle_forwarded_info({:edition_details, {:ok, edition_details}}, socket) do
-    matching_authors =
+    matching_narrators =
       edition_details
-      |> authors()
-      |> Enum.map(fn author -> Search.find_first(author.name, Person) end)
-
-    matching_series =
-      Enum.map(edition_details.series, fn series ->
-        Search.find_first(series.name, Series)
-      end)
+      |> narrators()
+      |> Enum.map(fn narrator -> Search.find_first(narrator.name, Person) end)
 
     assign(socket,
       edition_details_loading: false,
       edition_details: edition_details,
-      matching_authors: matching_authors,
-      matching_series: matching_series
+      matching_narrators: matching_narrators
     )
   end
 
@@ -207,7 +174,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
       select_edition_form: to_form(%{}, as: :select_edition),
       edition_details_loading: false,
       edition_details: nil,
-      form: to_form(init_import_form_params(socket.assigns.book), as: :import)
+      form: to_form(init_import_form_params(socket.assigns.media), as: :import)
     )
   end
 
@@ -237,18 +204,14 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
     )
   end
 
-  defp init_import_form_params(book) do
-    Map.new([:title, :published, :description, :authors, :series, :image], fn
-      :title -> {"use_title", is_nil(book.title)}
-      :published -> {"use_published", is_nil(book.published)}
-      :description -> {"use_description", is_nil(book.description)}
-      :authors -> {"use_authors", book.book_authors == []}
-      :series -> {"use_series", book.series_books == []}
-      :image -> {"use_cover_image", is_nil(book.image_path)}
+  defp init_import_form_params(media) do
+    Map.new([:published, :narrators], fn
+      :published -> {"use_published", is_nil(media.published)}
+      :narrators -> {"use_narrators", media.media_narrators == []}
     end)
   end
 
-  defp authors(edition_details) do
-    Enum.filter(edition_details.authors, &(&1.type == "author"))
+  defp narrators(edition_details) do
+    Enum.filter(edition_details.authors, &(&1.type in ["narrator", "read by", "reader"]))
   end
 end

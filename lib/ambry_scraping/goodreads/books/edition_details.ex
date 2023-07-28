@@ -83,7 +83,7 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
   defp clean_author_type_string(""), do: "author"
 
   defp clean_author_type_string(string) do
-    string |> String.slice(1..-2) |> String.downcase()
+    string |> String.slice(1..-2) |> String.downcase() |> clean_string()
   end
 
   defp parse_description(html) do
@@ -150,6 +150,7 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
     rest
     |> Enum.reduce([series_part(series_link)], fn next_part, [previous_series | rest] = acc ->
       case series_part(next_part) do
+        :error -> acc
         %Series{} = new_series -> [new_series | acc]
         number -> [%{previous_series | number: number} | rest]
       end
@@ -168,8 +169,10 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
 
   @series_number_regex ~r/\(#([0-9.]+)\)/
   defp series_part(string) when is_binary(string) do
-    [_match, number] = Regex.run(@series_number_regex, string)
-    number
+    case Regex.run(@series_number_regex, string) do
+      [_match, number] -> number
+      _else -> :error
+    end
   end
 
   defp parse_id(html, class) do

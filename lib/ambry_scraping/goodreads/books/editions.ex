@@ -173,7 +173,7 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
   end
 
   defp clean_author_type_string(string) do
-    string |> String.slice(1..-2) |> String.downcase()
+    string |> String.slice(1..-2) |> String.downcase() |> clean_string()
   end
 
   defp parse_language(data_rows) do

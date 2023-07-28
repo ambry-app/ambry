@@ -19,7 +19,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
         {nil, assigns} ->
           socket
           |> assign(assigns)
-          |> async_import_search(assigns.type, assigns.query)
+          |> async_search(assigns.type, assigns.query)
 
         {forwarded_info_payload, assigns} ->
           socket
@@ -34,12 +34,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
 
   @impl Phoenix.LiveComponent
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    socket = async_import_search(socket, socket.assigns.type, query)
+    socket = async_search(socket, socket.assigns.type, query)
     {:noreply, socket}
   end
 
   def handle_event("select-author", %{"select_author" => %{"author_id" => author_id}}, socket) do
-    socket = async_import_details(socket, socket.assigns.type, author_id)
+    socket = async_details(socket, socket.assigns.type, author_id)
     {:noreply, socket}
   end
 
@@ -75,7 +75,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
           socket
 
         [first_result | _rest] ->
-          async_import_details(socket, import_type, first_result.id)
+          async_details(socket, import_type, first_result.id)
       end
 
     socket
@@ -97,13 +97,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
     |> assign(details_loading: false)
   end
 
-  defp async_import_search(socket, :goodreads, query),
-    do: do_async_import_search(socket, :goodreads, query, &GoodReads.search_authors/1)
+  defp async_search(socket, :goodreads, query),
+    do: do_async_search(socket, :goodreads, query, &GoodReads.search_authors/1)
 
-  defp async_import_search(socket, :audible, query),
-    do: do_async_import_search(socket, :audible, query, &Audible.search_authors/1)
+  defp async_search(socket, :audible, query), do: do_async_search(socket, :audible, query, &Audible.search_authors/1)
 
-  defp do_async_import_search(socket, import_type, query, query_fun) do
+  defp do_async_search(socket, import_type, query, query_fun) do
     Task.async(fn ->
       response = query_fun.(query |> String.trim() |> String.downcase())
       {{:for, __MODULE__, socket.assigns.id}, {import_type, :search, response}}
@@ -121,13 +120,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
     )
   end
 
-  defp async_import_details(socket, :goodreads, author_id),
-    do: do_async_import_details(socket, :goodreads, author_id, &GoodReads.author/1)
+  defp async_details(socket, :goodreads, author_id),
+    do: do_async_details(socket, :goodreads, author_id, &GoodReads.author/1)
 
-  defp async_import_details(socket, :audible, author_id),
-    do: do_async_import_details(socket, :audible, author_id, &Audible.author/1)
+  defp async_details(socket, :audible, author_id), do: do_async_details(socket, :audible, author_id, &Audible.author/1)
 
-  defp do_async_import_details(socket, import_type, author_id, details_fun) do
+  defp do_async_details(socket, import_type, author_id, details_fun) do
     Task.async(fn ->
       response = details_fun.(author_id)
       {{:for, __MODULE__, socket.assigns.id}, {import_type, :details, response}}

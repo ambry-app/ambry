@@ -46,74 +46,34 @@
 
   <.loading :if={@edition_details_loading}>Fetching edition details...</.loading>
 
-  <div :if={@edition_details} }>
+  <div :for={%{} = book <- [@edition_details]}>
     <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
-      <.import_form_row :if={@edition_details.title != ""} field={@form[:use_title]} label="Title">
+      <.import_form_row :if={book.published} field={@form[:use_published]} label="Published">
         <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
-          <%= @edition_details.title %>
+          <%= display_date(book.published) %>
         </div>
       </.import_form_row>
 
-      <.import_form_row :if={@editions.first_published} field={@form[:use_published]} label="First published">
-        <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
-          <%= display_date(@editions.first_published) %>
-        </div>
-      </.import_form_row>
-
-      <.import_form_row :if={@edition_details.description} field={@form[:use_description]} label="Description">
-        <.markdown
-          content={@edition_details.description}
-          class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-600 bg-zinc-800 p-2"
-        />
-      </.import_form_row>
-
-      <.import_form_row :if={authors(@edition_details) != []} field={@form[:use_authors]} label="Authors">
-        <div :for={{existing_author, imported_author} <- Enum.zip(@matching_authors, authors(@edition_details))}>
-          <%= if existing_author do %>
+      <.import_form_row :if={narrators(book) != []} field={@form[:use_narrators]} label="Narrators">
+        <div :for={{existing_narrator, imported_narrator} <- Enum.zip(@matching_narrators, narrators(book))}>
+          <%= if existing_narrator do %>
             <p class="flex items-center gap-2">
               <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
-              <span class="font-semibold">Existing author</span>
-              <%= existing_author.name %>
+              <span class="font-semibold">Existing narrator</span>
+              <%= existing_narrator.name %>
             </p>
           <% else %>
             <p class="flex items-center gap-2">
               <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
-              <span class="font-semibold">Missing author</span>
-              <%= imported_author.name %>
+              <span class="font-semibold">Missing narrator</span>
+              <%= imported_narrator.name %>
             </p>
           <% end %>
         </div>
-        <p :if={Enum.any?(@matching_authors, &is_nil/1)}>
-          Any missing authors will be imported with just their names. You can add additional details by visiting
+        <p :if={Enum.any?(@matching_narrators, &is_nil/1)}>
+          Any missing narrators will be imported with just their names. You can add additional details by visiting
           <.brand_link navigate={~p"/admin/people"}>Authors & Narrators</.brand_link>.
         </p>
-      </.import_form_row>
-
-      <.import_form_row :if={@edition_details.series != []} field={@form[:use_series]} label="Series">
-        <div :for={{existing_series, imported_series} <- Enum.zip(@matching_series, @edition_details.series)}>
-          <%= if existing_series do %>
-            <p class="flex items-center gap-2">
-              <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
-              <span class="font-semibold">Existing series</span>
-              <%= existing_series.name %> #<%= imported_series.number %>
-            </p>
-          <% else %>
-            <p class="flex items-center gap-2">
-              <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
-              <span class="font-semibold">New series</span>
-              <%= imported_series.name %> #<%= imported_series.number %>
-            </p>
-          <% end %>
-        </div>
-      </.import_form_row>
-
-      <.import_form_row :if={@edition_details.cover_image} field={@form[:use_cover_image]} label="Image">
-        <.image_with_size
-          :if={@edition_details.cover_image}
-          id={@form[:use_cover_image].id}
-          src={@edition_details.cover_image.src}
-          class="h-48 rounded-sm"
-        />
       </.import_form_row>
 
       <:actions>

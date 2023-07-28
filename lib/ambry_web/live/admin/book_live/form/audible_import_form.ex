@@ -3,6 +3,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
   use AmbryWeb, :live_component
 
   import AmbryWeb.Admin.Components
+  import AmbryWeb.Admin.Components.RichSelect, only: [rich_select: 1]
 
   alias Ambry.Metadata.Audible
   alias Ambry.People.Person
@@ -21,7 +22,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
         {nil, assigns} ->
           socket
           |> assign(assigns)
-          |> async_import_search(assigns.query)
+          |> async_search(assigns.query)
 
         {forwarded_info_payload, assigns} ->
           socket
@@ -36,16 +37,16 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
 
   @impl Phoenix.LiveComponent
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    {:noreply, async_import_search(socket, query)}
+    {:noreply, async_search(socket, query)}
   end
 
   def handle_event("select-book", %{"select_book" => %{"book_id" => book_id}}, socket) do
-    book = Enum.find(socket.assigns.results, &(&1.id == book_id))
-    {:noreply, select_result(socket, book)}
+    book = Enum.find(socket.assigns.books, &(&1.id == book_id))
+    {:noreply, select_book(socket, book)}
   end
 
   def handle_event("import", %{"import" => import_params}, socket) do
-    book = socket.assigns.details
+    book = socket.assigns.selected_book
 
     params =
       Enum.reduce(import_params, %{}, fn
@@ -105,16 +106,32 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
     end)
   end
 
-  defp handle_forwarded_info({:search, {:ok, results}}, socket) do
-    socket = assign(socket, search_loading: false, results: results)
+  defp select_book(socket, book) do
+    matching_authors =
+      Enum.map(book.authors, fn author ->
+        Search.find_first(author.name, Person)
+      end)
 
-    socket =
-      case results do
-        [] -> socket
-        [first_result | _rest] -> select_result(socket, first_result)
-      end
+    matching_series =
+      Enum.map(book.series, fn series ->
+        Search.find_first(series.title, Series)
+      end)
 
-    socket
+    assign(socket,
+      selected_book: book,
+      matching_authors: matching_authors,
+      matching_series: matching_series,
+      select_book_form: to_form(%{"book_id" => book.id}, as: :select_book)
+    )
+  end
+
+  defp handle_forwarded_info({:search, {:ok, books}}, socket) do
+    socket = assign(socket, search_loading: false, books: books)
+
+    case books do
+      [] -> socket
+      [first_result | _rest] -> select_book(socket, first_result)
+    end
   end
 
   defp handle_forwarded_info({:search, {:error, _reason}}, socket) do
@@ -123,7 +140,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
     |> assign(search_loading: false)
   end
 
-  defp async_import_search(socket, query) do
+  defp async_search(socket, query) do
     Task.async(fn ->
       response = Audible.search_books(query |> String.trim() |> String.downcase())
       {{:for, __MODULE__, socket.assigns.id}, {:search, response}}
@@ -132,9 +149,9 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
     assign(socket,
       search_form: to_form(%{"query" => query}, as: :search),
       search_loading: true,
-      results: nil,
+      books: [],
       select_book_form: to_form(%{}, as: :select_book),
-      details: nil,
+      selected_book: nil,
       form: to_form(init_import_form_params(socket.assigns.book), as: :import)
     )
   end
@@ -147,19 +164,5 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
       :series -> {"use_series", book.series_books == []}
       :image -> {"use_cover_image", is_nil(book.image_path)}
     end)
-  end
-
-  defp select_result(socket, result) do
-    matching_authors =
-      Enum.map(result.authors, fn author ->
-        Search.find_first(author.name, Person)
-      end)
-
-    matching_series =
-      Enum.map(result.series, fn series ->
-        Search.find_first(series.title, Series)
-      end)
-
-    assign(socket, details: result, matching_authors: matching_authors, matching_series: matching_series)
   end
 end

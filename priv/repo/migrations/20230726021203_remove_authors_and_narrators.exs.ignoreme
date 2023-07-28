@@ -1,0 +1,57 @@
+defmodule Ambry.Repo.Migrations.RemoveAuthorsAndNarrators do
+  use Ecto.Migration
+
+  def up do
+    # Book authors
+
+    alter table(:authors_books) do
+      add :person_id, references(:people)
+    end
+
+    execute """
+    UPDATE authors_books
+      SET person_id = authors.person_id
+    FROM authors
+      WHERE authors_books.author_id = authors.id
+    """
+
+    drop constraint(:authors_books, "authors_books_person_id_fkey")
+
+    alter table(:authors_books) do
+      modify :person_id, references(:people), null: false
+    end
+
+    create unique_index(:authors_books, [:person_id, :book_id])
+
+    # Media narrators
+
+    alter table(:media_narrators) do
+      add :person_id, references(:people)
+    end
+
+    execute """
+    UPDATE media_narrators
+      SET person_id = narrators.person_id
+    FROM narrators
+      WHERE media_narrators.narrator_id = narrators.id
+    """
+
+    drop constraint(:media_narrators, "media_narrators_person_id_fkey")
+
+    alter table(:media_narrators) do
+      modify :person_id, references(:people), null: false
+    end
+
+    create unique_index(:media_narrators, [:person_id, :media_id])
+  end
+
+  def down do
+    alter table(:authors_books) do
+      remove :person_id
+    end
+
+    alter table(:media_narrators) do
+      remove :person_id
+    end
+  end
+end

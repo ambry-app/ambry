@@ -233,4 +233,101 @@ defmodule AmbryWeb.Admin.Components do
     </div>
     """
   end
+
+  @doc """
+  Book Card for displaying scraping results from GoodReads, Audible, etc.
+  """
+  attr :book, :any, required: true
+  slot :actions
+
+  def book_card(%{book: %AmbryScraping.GoodReads.Books.Search.Book{}} = assigns) do
+    ~H"""
+    <div class="flex gap-2 text-sm">
+      <img src={@book.thumbnail.data_url} class="object-contain object-top" />
+      <div>
+        <p class="font-bold"><%= @book.title %></p>
+        <p class="text-zinc-400">
+          by
+          <span :for={contributor <- @book.contributors} class="group">
+            <span><%= contributor.name %></span>
+            <span class="text-xs text-zinc-600">(<%= contributor.type %>)</span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <div :for={action <- @actions}>
+          <%= render_slot(action) %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def book_card(%{book: %AmbryScraping.GoodReads.Books.Editions.Edition{}} = assigns) do
+    ~H"""
+    <div class="flex gap-2 text-sm">
+      <img src={@book.thumbnail.data_url} class="object-contain object-top" />
+      <div>
+        <p class="font-bold"><%= @book.title %></p>
+        <p class="text-zinc-400">
+          by
+          <span :for={contributor <- @book.contributors} class="group">
+            <span><%= contributor.name %></span>
+            <span class="text-xs text-zinc-600">(<%= contributor.type %>)</span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.published && @book.publisher} class="text-xs text-zinc-400">
+          Published <%= display_date(@book.published) %> by <%= @book.publisher %>
+        </p>
+        <p class="text-xs text-zinc-400"><%= @book.format %></p>
+        <div :for={action <- @actions}>
+          <%= render_slot(action) %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def book_card(%{book: %AmbryScraping.Audible.Products.Product{}} = assigns) do
+    ~H"""
+    <div class="flex gap-2 text-sm">
+      <img src={@book.cover_image.src} class="h-24 w-24" />
+      <div>
+        <p class="font-bold"><%= @book.title %></p>
+        <p :if={@book.authors != []} class="text-zinc-400">
+          by
+          <span :for={author <- @book.authors} class="group">
+            <span><%= author.name %></span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.narrators != []} class="text-zinc-400">
+          Narrated by
+          <span :for={narrator <- @book.narrators} class="group">
+            <span><%= narrator.name %></span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.published && @book.publisher} class="text-xs text-zinc-400">
+          Published <%= display_date(@book.published) %> by <%= @book.publisher %>
+        </p>
+        <p class="text-xs text-zinc-400"><%= @book.format %></p>
+        <div :for={action <- @actions}>
+          <%= render_slot(action) %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def display_date(%Date{} = date), do: Calendar.strftime(date, "%B %-d, %Y")
+
+  def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :full, date: date}),
+    do: Calendar.strftime(date, "%B %-d, %Y")
+
+  def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year_month, date: date}),
+    do: Calendar.strftime(date, "%B %Y")
+
+  def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year, date: date}),
+    do: Calendar.strftime(date, "%Y")
 end

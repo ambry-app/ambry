@@ -20,7 +20,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     allow_upload(socket, name,
       accept: ~w(.mp3 .mp4 .m4a .m4b .opus),
       max_entries: 200,
-      max_file_size: 1_500_000_000
+      max_file_size: 1_500_000_000,
+      auto_upload: true
     )
   end
 
@@ -28,7 +29,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     allow_upload(socket, name,
       accept: :any,
       max_entries: 10,
-      max_file_size: 52_428_800
+      max_file_size: 52_428_800,
+      auto_upload: true
     )
   end
 
