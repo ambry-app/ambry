@@ -86,11 +86,6 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     filename
   end
 
-  # TODO: remove these?
-  def error_to_string(:too_large), do: "File is too large"
-  def error_to_string(:too_many_files), do: "Too many files"
-  def error_to_string(:not_accepted), do: "Unacceptable file type"
-
   def handle_image_import(nil), do: {:ok, :no_image_url}
   def handle_image_import(""), do: {:ok, :no_image_url}
 
@@ -113,11 +108,10 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     end
   end
 
-  # TODO: remove these?
   def valid_image_url?(string) when is_binary(string) do
     case URI.new(string) do
       {:ok, %{scheme: scheme} = uri} when is_binary(scheme) ->
-        MIME.from_path(string) in @accepted_mime or valid_image?(uri)
+        image?(MIME.from_path(string)) or valid_image?(uri)
 
       _term ->
         false
@@ -126,14 +120,21 @@ defmodule AmbryWeb.Admin.UploadHelpers do
 
   def valid_image_url?(_term), do: false
 
-  defp valid_image?(uri) do
+  def valid_image?(uri) do
     case Req.head(uri) do
       {:ok, response} ->
         [mime | _rest] = Req.Response.get_header(response, "content-type")
-        mime in @accepted_mime
+        image?(mime)
 
       _else ->
         false
     end
   end
+
+  def image?("image/" <> _rest), do: true
+  def image?(_mime), do: false
+
+  def upload_error_to_string(:too_large), do: "File is too large"
+  def upload_error_to_string(:too_many_files), do: "Too many files"
+  def upload_error_to_string(:not_accepted), do: "Unacceptable file type"
 end

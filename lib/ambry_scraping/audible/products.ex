@@ -84,7 +84,7 @@ defmodule AmbryScraping.Audible.Products do
     {:ok,
      products
      |> Enum.map(&parse_product/1)
-     # TODO: make language filtering configurable
+     # FUTURE: make language filtering configurable
      |> Enum.filter(&(&1.language == "english"))}
   end
 

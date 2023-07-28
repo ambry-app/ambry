@@ -185,9 +185,6 @@ defmodule AmbryWeb.Router do
       live "/users", UserLive.Index, :index
 
       live "/audit", AuditLive.Index, :index
-
-      live "/upload", UploadLive.New
-      live "/upload/:id", UploadLive.Edit
     end
 
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry

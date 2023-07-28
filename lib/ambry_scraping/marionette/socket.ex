@@ -26,7 +26,8 @@ defmodule AmbryScraping.Marionette.Socket do
   end
 
   def init(state) do
-    # FIXME: wait for socket
+    # Wait for FireFox to start listening
+    # There's got to be a better way to do this...
     Process.sleep(2000)
 
     {:ok, socket} = :gen_tcp.connect(~c"localhost", 2828, @sock_opts)

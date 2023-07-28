@@ -82,7 +82,7 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
     html
     |> Floki.find("div.workEditions div.elementList")
     |> Enum.flat_map(&parse_edition/1)
-    # TODO: make language filtering configurable
+    # FUTURE: make language filtering configurable
     |> Enum.filter(&(&1.language == "english"))
   end
 

@@ -17,6 +17,7 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Media.Media
   alias Ambry.Media.PlayerState
   alias Ambry.Series.SeriesBook
+  alias AmbryWeb.Admin.UploadHelpers
   alias AmbryWeb.Components.Autocomplete
   alias AmbryWeb.Player
   alias FontAwesome.LiveView, as: FA
@@ -481,7 +482,11 @@ defmodule AmbryWeb.CoreComponents do
         <div :if={@upload.entries != []} class="flex flex-wrap gap-4">
           <article :for={entry <- @upload.entries} class="inline-block">
             <figure>
-              <.live_image_preview_with_size :if={image?(entry.client_type)} entry={entry} class={@image_preview_class} />
+              <.live_image_preview_with_size
+                :if={UploadHelpers.image?(entry.client_type)}
+                entry={entry}
+                class={@image_preview_class}
+              />
               <figcaption><%= entry.client_name %></figcaption>
             </figure>
 
@@ -496,31 +501,24 @@ defmodule AmbryWeb.CoreComponents do
             </span>
 
             <p :for={err <- upload_errors(@upload, entry)} class="text-red-600 dark:text-red-500">
-              <%= upload_error_to_string(err) %>
+              <%= UploadHelpers.upload_error_to_string(err) %>
             </p>
           </article>
         </div>
         <p :for={err <- upload_errors(@upload)} class="text-red-600 dark:text-red-500">
-          <%= upload_error_to_string(err) %>
+          <%= UploadHelpers.upload_error_to_string(err) %>
         </p>
       </div>
     </div>
     """
   end
 
-  defp upload_error_to_string(:too_large), do: "File is too large"
-  defp upload_error_to_string(:too_many_files), do: "Too many files"
-  defp upload_error_to_string(:not_accepted), do: "Unacceptable file type"
-
-  defp image?("image/" <> _rest), do: true
-  defp image?(_mime), do: false
-
   attr :label, :string, default: nil
   attr :field, FormField, required: true
   attr :image_preview_class, :string, default: nil
 
   def image_import_input(assigns) do
-    assigns = assign(assigns, :show_preview, valid_image_url?(assigns.field.value))
+    assigns = assign(assigns, :show_preview, UploadHelpers.valid_image_url?(assigns.field.value))
 
     ~H"""
     <div>
@@ -535,29 +533,6 @@ defmodule AmbryWeb.CoreComponents do
       </div>
     </div>
     """
-  end
-
-  defp valid_image_url?(string) when is_binary(string) do
-    case URI.new(string) do
-      {:ok, %{scheme: scheme} = uri} when is_binary(scheme) ->
-        image?(MIME.from_path(string)) or valid_image?(uri)
-
-      _term ->
-        false
-    end
-  end
-
-  defp valid_image_url?(_term), do: false
-
-  defp valid_image?(uri) do
-    case Req.head(uri) do
-      {:ok, response} ->
-        [mime | _rest] = Req.Response.get_header(response, "content-type")
-        image?(mime)
-
-      _else ->
-        false
-    end
   end
 
   defp input_color_classes(errors) do
