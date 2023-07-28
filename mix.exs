@@ -49,7 +49,7 @@ defmodule Ambry.MixProject do
       {:argon2_elixir, "~> 3.0"},
       {:bandit, "~> 0.6"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:dataloader, "~> 1.0"},
+      {:dataloader, "~> 2.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:earmark, "~> 1.4"},
       {:ecto_psql_extras, "~> 0.6"},
