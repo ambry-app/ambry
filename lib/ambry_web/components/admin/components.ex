@@ -147,36 +147,6 @@ defmodule AmbryWeb.Admin.Components do
   defp badge_color(:brand), do: "border-lime-200 bg-lime-50 dark:border-lime-400 dark:bg-lime-400"
   defp badge_color(:gray), do: "border-zinc-200 bg-zinc-100 dark:border-zinc-400 dark:bg-zinc-400"
 
-  @doc """
-  Renders a fancy checkbox disguised as a trash-can icon.
-
-  Requires a `%Phoenix.HTML.FormField{}`.
-
-  ## Examples
-
-      <.delete_checkbox field={@form[:delete]} />
-  """
-  attr :field, FormField, doc: "a form field struct retrieved from the form, for example: @form[:email]"
-  attr :class, :string, default: nil, doc: "class overrides"
-
-  def delete_checkbox(%{field: %FormField{} = field} = assigns) do
-    assigns =
-      assigns
-      |> assign(field: nil, id: field.id)
-      |> assign(:name, field.name)
-      |> assign(:checked, Form.normalize_value("checkbox", field.value))
-
-    ~H"""
-    <label class={["flex", @class]}>
-      <input type="checkbox" id={@id} name={@name} value="true" checked={@checked} class="peer hidden" />
-      <FA.icon
-        name="trash"
-        class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
-      />
-    </label>
-    """
-  end
-
   attr :drop_param, :atom, required: true
   attr :parent_form, Form, required: true
   attr :form, Form, required: true

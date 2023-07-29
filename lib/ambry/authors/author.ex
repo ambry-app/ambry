@@ -17,7 +17,6 @@ defmodule Ambry.Authors.Author do
     belongs_to :person, Person
 
     field :name, :string
-    field :delete, :boolean, virtual: true
 
     timestamps()
   end
@@ -25,22 +24,12 @@ defmodule Ambry.Authors.Author do
   @doc false
   def changeset(author, attrs) do
     author
-    |> cast(attrs, [:name, :delete])
-    |> cast_assoc(:person)
+    |> cast(attrs, [:name])
     |> validate_required([:name])
-    |> maybe_apply_delete()
-    |> foreign_key_constraint(:delete,
+    |> foreign_key_constraint(:id,
       name: "authors_books_author_id_fkey",
       message:
         "This author is in use by one or more books. You must first remove them as an author from any associated books."
     )
-  end
-
-  defp maybe_apply_delete(changeset) do
-    if Ecto.Changeset.get_change(changeset, :delete, false) do
-      %{changeset | action: :delete}
-    else
-      changeset
-    end
   end
 end

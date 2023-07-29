@@ -23,6 +23,7 @@ defmodule Ambry.Media.Processor.OpusConcat do
   end
 
   def can_run?(filenames) when is_list(filenames) do
+    # FUTURE: single opus file processor?
     filter_filenames(filenames, @extensions) != []
   end
 
