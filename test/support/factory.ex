@@ -230,8 +230,4 @@ defmodule Ambry.Factory do
   def insert_index!(%Book{id: id}), do: Index.insert!(:book, id)
   def insert_index!(%Person{id: id}), do: Index.insert!(:person, id)
   def insert_index!(%Series{id: id}), do: Index.insert!(:series, id)
-
-  def update_index!(%Book{id: id}), do: Index.update!(:book, id)
-  def update_index!(%Person{id: id}), do: Index.update!(:person, id)
-  def update_index!(%Series{id: id}), do: Index.update!(:series, id)
 end

@@ -157,13 +157,4 @@ defmodule Ambry.Series do
 
     Repo.all(query)
   end
-
-  def find_by_name(name) do
-    query = from a in Series, where: a.name == ^name
-
-    case Repo.one(query) do
-      nil -> {:error, :not_found}
-      series -> {:ok, series}
-    end
-  end
 end

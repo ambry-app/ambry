@@ -11,11 +11,4 @@ defmodule Ambry.Repo do
       result -> {:ok, result}
     end
   end
-
-  def fetch_one(queryable, opts \\ []) do
-    case one(queryable, opts) do
-      nil -> {:error, :not_found}
-      result -> {:ok, result}
-    end
-  end
 end

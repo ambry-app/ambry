@@ -80,7 +80,21 @@ defmodule Ambry.Media do
   """
   def get_media!(id), do: Media |> preload([:book, :media_narrators]) |> Repo.get!(id)
 
-  def get_media(id), do: Repo.fetch(Media, id)
+  @doc """
+  Fetches a single media.
+
+  Returns `{:ok, media}` on success or `{:error, :not_found}`.
+
+  ## Examples
+
+      iex> fetch_media(123)
+      {:ok, %Media{}}
+
+      iex> fetch_media(456)
+      {:error, :not_found}
+
+  """
+  def fetch_media(id), do: Repo.fetch(Media, id)
 
   @doc """
   Creates a media.

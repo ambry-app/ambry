@@ -195,6 +195,18 @@ defmodule Ambry.MediaTest do
     end
   end
 
+  describe "fetch_media/1" do
+    test "returns error if id is invalid" do
+      assert {:error, :not_found} = Media.fetch_media(-1)
+    end
+
+    test "returns the media with the given id" do
+      %{id: id} = insert(:media)
+
+      assert {:ok, %Media.Media{id: ^id}} = Media.fetch_media(id)
+    end
+  end
+
   describe "create_media/1" do
     test "requires book and source_path to be set" do
       {:error, changeset} = Media.create_media(%{})
