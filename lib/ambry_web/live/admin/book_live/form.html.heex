@@ -83,6 +83,7 @@
       </.inputs_for>
 
       <.add_button form={@form} sort_param={:book_authors_sort} label="Add author" />
+      <.delete_input form={@form} drop_param={:book_authors_drop} />
     </div>
 
     <div class="space-y-2">
@@ -109,6 +110,7 @@
       </.inputs_for>
 
       <.add_button form={@form} sort_param={:series_books_sort} label="Add series" />
+      <.delete_input form={@form} drop_param={:series_books_drop} />
     </div>
 
     <div :if={@book.image_path} class="space-y-2">

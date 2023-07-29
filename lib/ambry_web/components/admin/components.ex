@@ -161,6 +161,15 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  attr :drop_param, :atom, required: true
+  attr :form, Form, required: true
+
+  def delete_input(assigns) do
+    ~H"""
+    <input type="hidden" name={@form[@drop_param].name <> "[]"} />
+    """
+  end
+
   attr :sort_param, :atom, required: true
   attr :parent_form, Form, required: true
   attr :form, Form, required: true

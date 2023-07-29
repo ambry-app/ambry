@@ -53,6 +53,7 @@
       </.inputs_for>
 
       <.add_button form={@form} sort_param={:authors_sort} label="Add author" />
+      <.delete_input form={@form} drop_param={:authors_drop} />
     </div>
 
     <div class="space-y-2">
@@ -67,6 +68,7 @@
       </.inputs_for>
 
       <.add_button form={@form} sort_param={:narrators_sort} label="Add narrator" />
+      <.delete_input form={@form} drop_param={:narrators_drop} />
     </div>
 
     <div :if={@person.image_path} class="space-y-2">
