@@ -35,7 +35,7 @@ defmodule Ambry.Application do
       # Starts Oban jobs
       {Oban, oban_config()},
       # HTTP Client for Swoosh API based providers (not used for SMTP providers)
-      {Finch, name: Swoosh.Finch}
+      {Finch, name: Ambry.Finch}
     ]
   end
 
