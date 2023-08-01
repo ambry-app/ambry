@@ -145,4 +145,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
       :image -> {"use_image", is_nil(person.image_path)}
     end)
   end
+
+  defp type_title(:goodreads), do: "GoodReads"
+  defp type_title(:audible), do: "Audible"
 end

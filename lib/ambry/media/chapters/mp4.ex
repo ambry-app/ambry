@@ -21,7 +21,7 @@ defmodule Ambry.Media.Chapters.MP4 do
 
   def inputs, do: []
 
-  def get_chapters(media, _params) do
+  def get_chapters(media) do
     [mp4_file] = Media.files(media, @extensions)
 
     with {:ok, json} <- mp4_chapter_probe(media, mp4_file),

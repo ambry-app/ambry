@@ -21,7 +21,7 @@ defmodule Ambry.Media.Chapters.ChapteredMP3 do
 
   def inputs, do: []
 
-  def get_chapters(media, _params) do
+  def get_chapters(media) do
     mp3_files = Media.files(media, @extensions)
 
     do_get_chapters(media, mp3_files)

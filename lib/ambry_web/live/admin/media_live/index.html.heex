@@ -73,9 +73,9 @@
   <:actions :let={media}>
     <div class="flex gap-2">
       <div class="grow" />
-      <%!-- <.link patch={~p"/admin/media/#{media}/chapters?#{patch_opts(@list_opts)}"}>
+      <.link navigate={~p"/admin/media/#{media}/chapters"}>
         <FA.icon name="book-bookmark" class="h-4 w-4 fill-current" />
-      </.link> --%>
+      </.link>
       <.link navigate={~p"/admin/media/#{media}/edit"}>
         <FA.icon name="pencil" class="h-4 w-4 fill-current" />
       </.link>

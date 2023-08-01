@@ -83,7 +83,10 @@ defmodule Ambry.Media.Media do
       sort_param: :media_narrators_sort,
       drop_param: :media_narrators_drop
     )
-    |> cast_embed(:chapters)
+    |> cast_embed(:chapters,
+      sort_param: :chapters_sort,
+      drop_param: :chapters_drop
+    )
     |> cast_embed(:supplemental_files,
       sort_param: :supplemental_files_sort,
       drop_param: :supplemental_files_drop
