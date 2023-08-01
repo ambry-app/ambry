@@ -2,18 +2,18 @@ defmodule AmbryScraping.Marionette.Browser do
   @moduledoc """
   Headless browser interface for web-scraping.
 
-  This serializes all access to the Marionette.Socket so that simultaneous
+  This serializes all access to the Marionette.Connection so that simultaneous
   requests can't interfere with each other.
   """
 
   use GenServer
 
-  alias AmbryScraping.Marionette.Socket
+  alias AmbryScraping.Marionette.Connection
 
   require Logger
 
   # Time to sleep between checking if the page has fully loaded (ms)
-  @sleep_interval 100
+  @sleep_interval 250
 
   # Max attempts to while waiting for actions to complete
   @max_attempts 10
@@ -180,11 +180,11 @@ defmodule AmbryScraping.Marionette.Browser do
     end
   end
 
-  ### Socket Orders
+  ### Connection Orders
 
   defp navigate(url) do
-    case Socket.order("Navigate", %{url: url}) do
-      %{error: nil} ->
+    case Connection.order("Navigate", %{url: url}) do
+      {:ok, %{error: nil}} ->
         :ok
 
       error ->
@@ -194,8 +194,8 @@ defmodule AmbryScraping.Marionette.Browser do
   end
 
   defp get_page_source do
-    case Socket.order("GetPageSource") do
-      %{error: nil, result: %{"value" => html}} ->
+    case Connection.order("GetPageSource") do
+      {:ok, %{error: nil, result: %{"value" => html}}} ->
         {:ok, html}
 
       error ->
@@ -205,11 +205,11 @@ defmodule AmbryScraping.Marionette.Browser do
   end
 
   defp find_elements(selector) do
-    case Socket.order("FindElement", %{using: "css selector", value: selector}) do
-      %{error: nil, result: %{"value" => response}} ->
+    case Connection.order("FindElement", %{using: "css selector", value: selector}) do
+      {:ok, %{error: nil, result: %{"value" => response}}} ->
         {:ok, Map.values(response)}
 
-      %{error: %{"error" => "no such element"}} ->
+      {:ok, %{error: %{"error" => "no such element"}}} ->
         {:ok, []}
 
       error ->
@@ -219,11 +219,11 @@ defmodule AmbryScraping.Marionette.Browser do
   end
 
   defp click(element_id) do
-    case Socket.order("ElementClick", %{id: element_id}) do
-      %{error: %{"error" => "element not interactable"}} ->
+    case Connection.order("ElementClick", %{id: element_id}) do
+      {:ok, %{error: %{"error" => "element not interactable"}}} ->
         :scrolling
 
-      %{error: nil} ->
+      {:ok, %{error: nil}} ->
         :ok
 
       error ->

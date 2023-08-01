@@ -11,28 +11,19 @@ defmodule AmbryScraping.Marionette.Supervisor do
 
   @impl Supervisor
   def init(_init_arg) do
-    {mktemp_out, 0} = System.cmd("mktemp", ["-d"])
-    tmp_dir = String.trim(mktemp_out)
+    case Application.fetch_env(:ambry, Marionette.Connection) do
+      :error ->
+        :ignore
 
-    children = [
-      # Headless Firefox for scraping
-      {MuonTrap.Daemon,
-       [
-         "firefox",
-         ["--marionette", "--headless", "--no-remote", "--profile", tmp_dir],
-         [
-           name: FirefoxHeadless,
-           log_output: :info,
-           log_prefix: "[Firefox] ",
-           stderr_to_stdout: true
-         ]
-       ]},
-      # Socket for sending commands to the browser
-      Marionette.Socket,
-      # Higher-level interface for serializing commands to the browser
-      Marionette.Browser
-    ]
+      {:ok, config} ->
+        children = [
+          # Connection for sending commands to the browser
+          {Marionette.Connection, config},
+          # Higher-level interface for serializing commands to the browser
+          Marionette.Browser
+        ]
 
-    Supervisor.init(children, strategy: :rest_for_one)
+        Supervisor.init(children, strategy: :rest_for_one)
+    end
   end
 end

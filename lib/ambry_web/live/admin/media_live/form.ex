@@ -21,6 +21,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> allow_supplemental_file_upload(:supplemental)
      |> assign(
        import: nil,
+       scraping_available: AmbryScraping.web_scraping_available?(),
        source_files_expanded: false,
        narrators: Ambry.Narrators.for_select(),
        books: Ambry.Books.for_select()

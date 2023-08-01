@@ -19,7 +19,7 @@
           container_class="grow"
         />
         <.label>Import from:</.label>
-        <.button color={:zinc} class="flex items-center gap-1" name="import" value="goodreads">
+        <.button :if={@scraping_available} color={:zinc} class="flex items-center gap-1" name="import" value="goodreads">
           <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
         </.button>
         <.button color={:zinc} class="flex items-center gap-1" name="import" value="audible">

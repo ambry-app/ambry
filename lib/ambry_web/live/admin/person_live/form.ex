@@ -14,7 +14,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:ok,
      socket
      |> allow_image_upload(:image)
-     |> assign(import: nil)}
+     |> assign(import: nil, scraping_available: AmbryScraping.web_scraping_available?())}
   end
 
   @impl Phoenix.LiveView

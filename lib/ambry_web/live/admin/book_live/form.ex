@@ -17,6 +17,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
      |> allow_image_upload(:image)
      |> assign(
        import: nil,
+       scraping_available: AmbryScraping.web_scraping_available?(),
        authors: Ambry.Authors.for_select(),
        series: Ambry.Series.for_select()
      )}

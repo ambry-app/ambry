@@ -21,6 +21,9 @@ registry](https://github.com/features/packages):
 The only external requirement is a [PostgreSQL](https://www.postgresql.org/)
 database.
 
+You can optionally also supply a headless FireFox instance running marionette
+for web-scraping to import metadata from external sources such as GoodReads.
+
 ### Compose example
 
 Here is an example [Docker Compose](https://docs.docker.com/compose/) file that
@@ -39,11 +42,17 @@ services:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
+  firefox:
+    image: ghcr.io/ambry-app/firefox-headless-marionette:latest
+    container_name: firefox
+    restart: unless-stopped
+
   ambry:
     image: ghcr.io/ambry-app/ambry:latest
     container_name: ambry
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres/postgres
+      - MARIONETTE_URL=tcp://firefox:2828
       - SECRET_KEY_BASE=FpmsgoGanxtwT6/M9/LbP2vFQP70dVqz2G/lC23lzOo2cmGkl82lW18Q01Av3RGV
       - BASE_URL=http://localhost:9000
       - PORT=9000
@@ -72,9 +81,10 @@ The following environment variables are used for configuration:
 | `SECRET_KEY_BASE`           | A secret key string of at least 64 bytes, used for signing secrets like session cookies. | N/A              | Yes       |
 | `PORT`                      | The port you wish the server to listen on.                                               | `80`             | No        |
 | `POOL_SIZE`                 | The number of postgresql database connections to open.                                   | `10`             | No        |
-| `USER_REGISTRATION_ENABLED` | Whether or not users are allowed to register themselves with the server.                  | `no`             | No        |
+| `USER_REGISTRATION_ENABLED` | Whether or not users are allowed to register themselves with the server.                 | `no`             | No        |
 | `MAIL_PROVIDER`             | Valid values: mailjet                                                                    | not-set          | No        |
 | `MAIL_FROM_ADDRESS`         | The email address that transactional emails are sent from                                | `noreply@<HOST>` | No        |
+| `MARIONETTE_URL`            | A tcp URL to a marionette enabled FireFox. e.g. `tcp://hostname:2828`                    | not-set          | No        |
 
 Based on which mail provider you choose, you will need to supply provider
 specific configuration:
@@ -122,6 +132,8 @@ ffmpeg and shaka-packager available in your path.
     installed
 -   [FFmpeg](https://ffmpeg.org/) installed
 -   [shaka-packager](https://github.com/google/shaka-packager) installed
+-   (optional) [FireFox](https://www.mozilla.org/firefox) running in headless
+    mode with marionette enabled
 
 For Elixir/Erlang you can easily install all the right versions using
 [asdf](https://asdf-vm.com/) by running `asdf install` from within the root

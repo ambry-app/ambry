@@ -77,3 +77,8 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Marionette connection
+config :ambry, AmbryScraping.Marionette.Connection,
+  host: "localhost",
+  port: 2828

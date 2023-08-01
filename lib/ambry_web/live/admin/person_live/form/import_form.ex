@@ -112,7 +112,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
       type: import_type,
       search_form: to_form(%{"query" => query}, as: :search),
       search_loading: true,
-      results: nil,
+      results: [],
       select_author_form: to_form(%{}, as: :select_author),
       details_loading: false,
       details: nil,
