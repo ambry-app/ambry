@@ -29,12 +29,13 @@ defmodule AmbryScraping.Audnexus.Books do
   end
 
   defp parse_chapter_info(chapter_info) do
-    {:ok, %Chapters{
-      asin: chapter_info["asin"],
-      brand_intro_duration_ms: chapter_info["brandIntroDurationMs"],
-      brand_outro_duration_ms: chapter_info["brandOutroDurationMs"],
-      chapters: Enum.map(List.wrap(chapter_info["chapters"]), &parse_chapter/1)
-    }}
+    {:ok,
+     %Chapters{
+       asin: chapter_info["asin"],
+       brand_intro_duration_ms: chapter_info["brandIntroDurationMs"],
+       brand_outro_duration_ms: chapter_info["brandOutroDurationMs"],
+       chapters: Enum.map(List.wrap(chapter_info["chapters"]), &parse_chapter/1)
+     }}
   end
 
   defp parse_chapter(chapter) do
