@@ -1,0 +1,38 @@
+<.datalist id="books" options={@books} />
+
+<div class="max-w-3xl">
+  <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+    <.input field={@form[:name]} label="Name" />
+
+    <div class="space-y-2">
+      <.label>Books</.label>
+      <.inputs_for :let={series_book_form} field={@form[:series_books]}>
+        <.sort_input parent_form={@form} form={series_book_form} sort_param={:series_books_sort} />
+
+        <div class="flex items-start gap-2">
+          <.input
+            field={series_book_form[:book_number]}
+            placeholder="no."
+            container_class="w-14 flex-none"
+            show_errors={false}
+          />
+          <.input
+            field={series_book_form[:book_id]}
+            type="autocomplete"
+            options={@books}
+            list="books"
+            container_class="grow"
+          />
+          <.delete_button parent_form={@form} form={series_book_form} drop_param={:series_books_drop} class="pt-[10px]" />
+        </div>
+      </.inputs_for>
+
+      <.add_button form={@form} sort_param={:series_books_sort} label="Add book" />
+      <.delete_input form={@form} drop_param={:series_books_drop} />
+    </div>
+
+    <:actions>
+      <.button>Save</.button>
+    </:actions>
+  </.simple_form>
+</div>

@@ -30,27 +30,27 @@ defmodule AmbryWeb.Admin.Layouts do
           <FA.icon name="binoculars" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>Overview</p>
         </.link>
-        <.link navigate={~p"/admin/people"} class={nav_class(@active_path == "/admin/people")}>
+        <.link navigate={~p"/admin/people"} class={nav_class(@active_path =~ "/admin/people")}>
           <FA.icon name="user-group" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>Authors & Narrators</p>
         </.link>
-        <.link navigate={~p"/admin/books"} class={nav_class(@active_path == "/admin/books")}>
+        <.link navigate={~p"/admin/books"} class={nav_class(@active_path =~ "/admin/books")}>
           <FA.icon name="book" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>Books</p>
         </.link>
-        <.link navigate={~p"/admin/series"} class={nav_class(@active_path == "/admin/series")}>
+        <.link navigate={~p"/admin/series"} class={nav_class(@active_path =~ "/admin/series")}>
           <FA.icon name="book-journal-whills" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>Series</p>
         </.link>
-        <.link navigate={~p"/admin/media"} class={nav_class(@active_path == "/admin/media")}>
+        <.link navigate={~p"/admin/media"} class={nav_class(@active_path =~ "/admin/media")}>
           <FA.icon name="file-audio" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>Media</p>
         </.link>
-        <.link navigate={~p"/admin/audit"} class={nav_class(@active_path == "/admin/audit")}>
+        <.link navigate={~p"/admin/audit"} class={nav_class(@active_path =~ "/admin/audit")}>
           <FA.icon name="file-waveform" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>File Audit</p>
         </.link>
-        <.link navigate={~p"/admin/users"} class={nav_class(@active_path == "/admin/users")}>
+        <.link navigate={~p"/admin/users"} class={nav_class(@active_path =~ "/admin/users")}>
           <FA.icon name="users-gear" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>Manage Users</p>
         </.link>
@@ -73,7 +73,6 @@ defmodule AmbryWeb.Admin.Layouts do
 
   defp nav_class(active? \\ false)
   defp nav_class(true), do: "flex items-center px-4 py-2 gap-4 bg-zinc-300 dark:bg-zinc-700"
-
   defp nav_class(false), do: "flex items-center px-4 py-2 gap-4 hover:bg-zinc-300 dark:hover:bg-zinc-700"
 
   def dashboard_header(assigns) do

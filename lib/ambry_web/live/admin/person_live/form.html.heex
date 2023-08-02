@@ -1,0 +1,112 @@
+<.modal :if={@import} id="import-modal" show on_cancel={JS.push("cancel-import")}>
+  <.live_component id="import-form" module={ImportForm} type={@import.type} query={@import.query} person={@person} />
+</.modal>
+
+<div class="max-w-3xl">
+  <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+    <div class="space-y-2">
+      <.label for={@form[:name].id}>Name</.label>
+      <div class="flex items-center gap-2">
+        <.input field={@form[:name]} show_errors={false} container_class="grow" />
+        <.label>Import from:</.label>
+        <.button :if={@scraping_available} color={:zinc} class="flex items-center gap-1" name="import" value="goodreads">
+          <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
+        </.button>
+        <.button color={:zinc} class="flex items-center gap-1" name="import" value="audible">
+          <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
+        </.button>
+      </div>
+      <.field_errors field={@form[:name]} />
+    </div>
+
+    <div class="flex gap-2">
+      <.input
+        id="description-input"
+        field={@form[:description]}
+        label="Description"
+        type="textarea"
+        phx-hook="maintain-attrs"
+        data-attrs="style"
+        container_class="w-1/2"
+      />
+      <div class="relative w-1/2 flex-1">
+        <div
+          id="description-preview"
+          phx-hook="scroll-match"
+          data-target="description-input"
+          class="absolute top-8 right-0 bottom-0 left-0 overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800"
+        >
+          <.markdown content={@form[:description].value || ""} class="p-2" />
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <.label>Writing as</.label>
+      <.inputs_for :let={author_form} field={@form[:authors]}>
+        <.sort_input parent_form={@form} form={author_form} sort_param={:authors_sort} />
+
+        <div class="flex items-start gap-2">
+          <.input field={author_form[:name]} container_class="grow" />
+          <.delete_button parent_form={@form} form={author_form} drop_param={:authors_drop} class="pt-[10px]" />
+        </div>
+      </.inputs_for>
+
+      <.add_button form={@form} sort_param={:authors_sort} label="Add author" />
+      <.delete_input form={@form} drop_param={:authors_drop} />
+    </div>
+
+    <div class="space-y-2">
+      <.label>Narrating as</.label>
+      <.inputs_for :let={narrator_form} field={@form[:narrators]}>
+        <.sort_input parent_form={@form} form={narrator_form} sort_param={:narrators_sort} />
+
+        <div class="flex items-start gap-2">
+          <.input field={narrator_form[:name]} container_class="grow" />
+          <.delete_button parent_form={@form} form={narrator_form} drop_param={:narrators_drop} class="pt-[10px]" />
+        </div>
+      </.inputs_for>
+
+      <.add_button form={@form} sort_param={:narrators_sort} label="Add narrator" />
+      <.delete_input form={@form} drop_param={:narrators_drop} />
+    </div>
+
+    <div :if={@person.image_path} class="space-y-2">
+      <.label>Current image</.label>
+      <.image_with_size
+        id={"image-#{@person.id}"}
+        src={@person.image_path}
+        class="h-40 w-40 rounded-full object-cover object-top"
+      />
+    </div>
+
+    <.input
+      type="select"
+      label={if @live_action == :new, do: "Image", else: "Replace image"}
+      field={@form[:image_type]}
+      prompt=""
+      options={[
+        {"Upload file", "upload"},
+        {"Import image from URL", "url_import"}
+      ]}
+    />
+
+    <.file_input
+      :if={@form[:image_type].value == "upload"}
+      upload={@uploads.image}
+      label="Upload image"
+      image_preview_class="h-40 w-40 rounded-full object-cover object-top"
+    />
+
+    <.image_import_input
+      :if={@form[:image_type].value == "url_import"}
+      field={@form[:image_import_url]}
+      label="Import image from URL"
+      image_preview_class="h-40 w-40 rounded-full object-cover object-top"
+    />
+
+    <:actions>
+      <.button>Save</.button>
+    </:actions>
+  </.simple_form>
+</div>

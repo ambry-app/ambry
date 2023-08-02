@@ -13,7 +13,7 @@ defmodule AmbryWeb.Admin.Components do
       <div class="flex-grow" />
       <%= if @new_path do %>
         <div class="px-2">
-          <.link patch={@new_path} class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400">
+          <.link navigate={@new_path} class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400">
             New <FA.icon name="plus" class="ml-2 h-4 w-4 fill-current" />
           </.link>
         </div>
@@ -60,9 +60,7 @@ defmodule AmbryWeb.Admin.Components do
 
   def admin_table(assigns) do
     assigns = assign_new(assigns, :row_click, fn -> true end)
-
     default_cell_class = if assigns.row_click, do: "p-3 text-left cursor-pointer", else: "p-3 text-left"
-
     default_header_class = "p-3 text-left"
 
     row_class =
@@ -78,7 +76,7 @@ defmodule AmbryWeb.Admin.Components do
       )
 
     ~H"""
-    <div class="rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
+    <div class="rounded-sm border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
       <%= if @rows == [] do %>
         <div class="p-3">
           <%= render_slot(@no_results) %>
@@ -137,60 +135,178 @@ defmodule AmbryWeb.Admin.Components do
 
   def badge(assigns) do
     ~H"""
-    <span class={["whitespace-nowrap rounded-md border px-1 text-zinc-900", badge_color(@color)]}>
+    <span class={["whitespace-nowrap rounded-sm border px-1 text-zinc-900", badge_color(@color)]}>
       <%= render_slot(@inner_block) %>
     </span>
     """
   end
 
   defp badge_color(:yellow), do: "border-yellow-200 bg-yellow-50 dark:border-yellow-400 dark:bg-yellow-400"
-
   defp badge_color(:blue), do: "border-blue-200 bg-blue-50 dark:border-blue-400 dark:bg-blue-400"
   defp badge_color(:red), do: "border-red-200 bg-red-50 dark:border-red-400 dark:bg-red-400"
   defp badge_color(:brand), do: "border-lime-200 bg-lime-50 dark:border-lime-400 dark:bg-lime-400"
   defp badge_color(:gray), do: "border-zinc-200 bg-zinc-100 dark:border-zinc-400 dark:bg-zinc-400"
 
-  @doc """
-  Renders a fancy checkbox disguised as a trash-can icon.
-
-  Requires a `%Phoenix.HTML.FormField{}`.
-
-  ## Examples
-
-      <.delete_checkbox field={@form[:delete]} />
-  """
-  attr :field, FormField, doc: "a form field struct retrieved from the form, for example: @form[:email]"
-
+  attr :drop_param, :atom, required: true
+  attr :parent_form, Form, required: true
+  attr :form, Form, required: true
   attr :class, :string, default: nil, doc: "class overrides"
 
-  def delete_checkbox(%{field: %FormField{} = field} = assigns) do
-    assigns =
-      assigns
-      |> assign(field: nil, id: field.id)
-      |> assign(:name, field.name)
-      |> assign(:checked, Form.normalize_value("checkbox", field.value))
-
+  def delete_button(assigns) do
     ~H"""
     <label class={["flex", @class]}>
-      <input type="checkbox" id={@id} name={@name} value="true" checked={@checked} class="peer hidden" />
-      <FA.icon
-        name="trash"
-        class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600 peer-checked:text-red-600"
-      />
-    </label>
-    """
-  end
-
-  attr :name, :string, required: true
-  attr :value, :integer, required: true
-  attr :class, :string, default: nil, doc: "class overrides"
-
-  def new_delete_checkbox(assigns) do
-    ~H"""
-    <label class={["flex", @class]}>
-      <input type="checkbox" name={@name} value={@value} class="hidden" />
+      <input type="checkbox" name={@parent_form[@drop_param].name <> "[]"} value={@form.index} class="hidden" />
       <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600" />
     </label>
     """
   end
+
+  attr :drop_param, :atom, required: true
+  attr :form, Form, required: true
+
+  def delete_input(assigns) do
+    ~H"""
+    <input type="hidden" name={@form[@drop_param].name <> "[]"} />
+    """
+  end
+
+  attr :sort_param, :atom, required: true
+  attr :parent_form, Form, required: true
+  attr :form, Form, required: true
+
+  def sort_input(assigns) do
+    ~H"""
+    <input type="hidden" name={@parent_form[@sort_param].name <> "[]"} value={@form.index} />
+    """
+  end
+
+  attr :sort_param, :atom, required: true
+  attr :form, Form, required: true
+  attr :label, :string, required: true
+
+  def add_button(assigns) do
+    ~H"""
+    <label class="text-brand flex cursor-pointer items-center gap-1 hover:underline dark:text-brand-dark">
+      <input type="checkbox" name={@form[@sort_param].name <> "[]"} class="hidden" /> <%= @label %>
+      <FA.icon name="plus" class="h-4 w-4 fill-current" />
+    </label>
+    """
+  end
+
+  attr :field, FormField, required: true
+  attr :label, :string, required: true
+  slot :inner_block, required: true
+
+  def import_form_row(assigns) do
+    ~H"""
+    <div class="flex gap-4 rounded-sm p-3 hover:bg-zinc-950">
+      <div class="py-1">
+        <.input type="checkbox" field={@field} />
+      </div>
+      <label for={@field.id} class="grow cursor-pointer space-y-2">
+        <span class="text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200">
+          <%= @label %>
+        </span>
+        <%= render_slot(@inner_block) %>
+      </label>
+    </div>
+    """
+  end
+
+  @doc """
+  Book Card for displaying scraping results from GoodReads, Audible, etc.
+  """
+  attr :book, :any, required: true
+  slot :actions
+
+  def book_card(%{book: %AmbryScraping.GoodReads.Books.Search.Book{}} = assigns) do
+    ~H"""
+    <div class="flex gap-2 text-sm">
+      <img src={@book.thumbnail.data_url} class="object-contain object-top" />
+      <div>
+        <p class="font-bold"><%= @book.title %></p>
+        <p class="text-zinc-400">
+          by
+          <span :for={contributor <- @book.contributors} class="group">
+            <span><%= contributor.name %></span>
+            <span class="text-xs text-zinc-600">(<%= contributor.type %>)</span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <div :for={action <- @actions}>
+          <%= render_slot(action) %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def book_card(%{book: %AmbryScraping.GoodReads.Books.Editions.Edition{}} = assigns) do
+    ~H"""
+    <div class="flex gap-2 text-sm">
+      <img src={@book.thumbnail.data_url} class="object-contain object-top" />
+      <div>
+        <p class="font-bold"><%= @book.title %></p>
+        <p class="text-zinc-400">
+          by
+          <span :for={contributor <- @book.contributors} class="group">
+            <span><%= contributor.name %></span>
+            <span class="text-xs text-zinc-600">(<%= contributor.type %>)</span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.published && @book.publisher} class="text-xs text-zinc-400">
+          Published <%= display_date(@book.published) %> by <%= @book.publisher %>
+        </p>
+        <p class="text-xs text-zinc-400"><%= @book.format %></p>
+        <div :for={action <- @actions}>
+          <%= render_slot(action) %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def book_card(%{book: %AmbryScraping.Audible.Products.Product{}} = assigns) do
+    ~H"""
+    <div class="flex gap-2 text-sm">
+      <img src={@book.cover_image.src} class="h-24 w-24" />
+      <div>
+        <p class="font-bold"><%= @book.title %></p>
+        <p :if={@book.authors != []} class="text-zinc-400">
+          by
+          <span :for={author <- @book.authors} class="group">
+            <span><%= author.name %></span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.narrators != []} class="text-zinc-400">
+          Narrated by
+          <span :for={narrator <- @book.narrators} class="group">
+            <span><%= narrator.name %></span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.published && @book.publisher} class="text-xs text-zinc-400">
+          Published <%= display_date(@book.published) %> by <%= @book.publisher %>
+        </p>
+        <p class="text-xs text-zinc-400"><%= @book.format %></p>
+        <div :for={action <- @actions}>
+          <%= render_slot(action) %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def display_date(%Date{} = date), do: Calendar.strftime(date, "%B %-d, %Y")
+
+  def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :full, date: date}),
+    do: Calendar.strftime(date, "%B %-d, %Y")
+
+  def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year_month, date: date}),
+    do: Calendar.strftime(date, "%B %Y")
+
+  def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year, date: date}),
+    do: Calendar.strftime(date, "%Y")
 end

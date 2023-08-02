@@ -1,0 +1,60 @@
+<div class="mx-auto max-w-3xl space-y-4">
+  <div class="text-2xl font-bold">Import Chapters from Audible</div>
+
+  <.flash_group flash={@flash} />
+
+  <.simple_form for={@search_form} phx-submit="search" phx-target={@myself}>
+    <div class="flex items-end gap-2">
+      <.input field={@search_form[:query]} label="Search" container_class="grow" />
+      <.button>Search</.button>
+    </div>
+  </.simple_form>
+
+  <%= if @search_loading do %>
+    <.loading>Searching books...</.loading>
+  <% end %>
+
+  <.simple_form
+    :if={!@search_loading && length(@books) > 1}
+    for={@select_book_form}
+    phx-change="select-book"
+    phx-target={@myself}
+  >
+    <div class="space-y-2">
+      <.label>Select book (<%= length(@books) %> results)</.label>
+      <.rich_select id="book-select" field={@select_book_form[:book_id]} options={@books}>
+        <:option :let={book}>
+          <.book_card book={book} />
+        </:option>
+      </.rich_select>
+    </div>
+  </.simple_form>
+
+  <.loading :if={@chapters_loading}>Fetching chapters...</.loading>
+
+  <div :if={@chapters}>
+    <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
+      <.import_form_row field={@form[:use_chapters]} label="Chapters">
+        <div class="flex flex-wrap gap-2">
+          <div
+            :for={chapter <- @chapters.chapters}
+            class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300"
+          >
+            <%= chapter.title %>
+          </div>
+        </div>
+      </.import_form_row>
+
+      <:actions>
+        <div class="flex gap-2">
+          <.button class="mt-2">Import</.button>
+          <%!-- <.button class="mt-2" name={@form[:titles_only].name} color={:yellow}>Import titles only</.button>
+          <.button class="mt-2" name={@form[:times_only].name} color={:yellow}>Import times only</.button> --%>
+        </div>
+        <.button type="button" color={:zinc} phx-click={JS.exec("data-cancel", to: "#import-modal")}>
+          Cancel
+        </.button>
+      </:actions>
+    </.simple_form>
+  </div>
+</div>

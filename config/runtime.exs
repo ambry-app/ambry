@@ -123,30 +123,45 @@ if config_env() == :prod do
 
   # ## Configuring the mailer
   #
-  case System.get_env("MAIL_PROVIDER") do
-    nil ->
-      # no mail provider configured
-      :noop
+  with {:ok, provider} <- System.fetch_env("MAIL_PROVIDER") do
+    config :swoosh, :api_client, Swoosh.ApiClient.Finch
 
-    provider ->
-      config :swoosh, :api_client, Swoosh.ApiClient.Finch
+    case provider do
+      "mailjet" ->
+        api_key =
+          System.get_env("MAILJET_API_KEY") ||
+            raise """
+            environment variable MAILJET_API_KEY is missing.
+            """
 
-      case provider do
-        "mailjet" ->
-          config :ambry, Ambry.Mailer,
-            adapter: Swoosh.Adapters.Mailjet,
-            api_key: System.fetch_env!("MAILJET_API_KEY"),
-            secret: System.fetch_env!("MAILJET_SECRET")
-      end
+        secret =
+          System.get_env("MAILJET_SECRET") ||
+            raise """
+            environment variable MAILJET_SECRET is missing.
+            """
+
+        config :ambry, Ambry.Mailer,
+          adapter: Swoosh.Adapters.Mailjet,
+          api_key: api_key,
+          secret: secret
+    end
   end
 
   user_registration_enabled =
-    case System.get_env("USER_REGISTRATION_ENABLED", "no") do
-      "yes" -> true
-      "no" -> false
-      _ -> false
+    case System.fetch_env("USER_REGISTRATION_ENABLED") do
+      {:ok, "yes"} -> true
+      {:ok, "no"} -> false
+      :error -> false
     end
 
   config :ambry,
     user_registration_enabled: user_registration_enabled
+
+  with {:ok, url} <- System.fetch_env("MARIONETTE_URL") do
+    {:ok, %{scheme: "tcp", host: host, port: port}} = URI.new(url)
+
+    config :ambry, AmbryScraping.Marionette.Connection,
+      host: host,
+      port: port
+  end
 end

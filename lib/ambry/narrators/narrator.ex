@@ -18,7 +18,6 @@ defmodule Ambry.Narrators.Narrator do
     belongs_to :person, Person
 
     field :name, :string
-    field :delete, :boolean, virtual: true
 
     timestamps()
   end
@@ -26,21 +25,12 @@ defmodule Ambry.Narrators.Narrator do
   @doc false
   def changeset(narrator, attrs) do
     narrator
-    |> cast(attrs, [:name, :delete])
+    |> cast(attrs, [:name])
     |> validate_required([:name])
-    |> maybe_apply_delete()
-    |> foreign_key_constraint(:delete,
+    |> foreign_key_constraint(:id,
       name: "media_narrators_narrator_id_fkey",
       message:
         "This narrator is in use by one or more media. You must first remove them as a narrator from any associated media."
     )
-  end
-
-  defp maybe_apply_delete(changeset) do
-    if Ecto.Changeset.get_change(changeset, :delete, false) do
-      %{changeset | action: :delete}
-    else
-      changeset
-    end
   end
 end

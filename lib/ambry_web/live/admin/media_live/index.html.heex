@@ -1,44 +1,3 @@
-<.modal
-  :if={@live_action in [:new, :edit]}
-  id="media-modal"
-  show
-  on_cancel={JS.navigate(~p"/admin/media?#{patch_opts(@list_opts)}")}
->
-  <header class="pb-4">
-    <h1 class="text-2xl font-bold leading-8">
-      <%= @page_title %>
-    </h1>
-  </header>
-
-  <.live_component
-    module={FormComponent}
-    id={@selected_media.id || :new}
-    action={@live_action}
-    media={@selected_media}
-    patch={~p"/admin/media?#{patch_opts(@list_opts)}"}
-  />
-</.modal>
-
-<.modal
-  :if={@live_action == :chapters}
-  id="chapters-modal"
-  show
-  on_cancel={JS.navigate(~p"/admin/media?#{patch_opts(@list_opts)}")}
->
-  <header class="pb-4">
-    <h1 class="text-2xl font-bold leading-8">
-      <%= @page_title %>
-    </h1>
-  </header>
-
-  <.live_component
-    module={ChaptersComponent}
-    id={@selected_media.id}
-    media={@selected_media}
-    patch={~p"/admin/media?#{patch_opts(@list_opts)}"}
-  />
-</.modal>
-
 <%= if @processing_media != [] do %>
   <.admin_table rows={@processing_media}>
     <:col :let={media} label="Processing Media">
@@ -60,7 +19,7 @@
   has_more={@has_more?}
   next_page={~p"/admin/media?#{next_opts(@list_opts)}"}
   prev_page={~p"/admin/media?#{prev_opts(@list_opts)}"}
-  new_path={~p"/admin/media/new?#{patch_opts(@list_opts)}"}
+  new_path={~p"/admin/media/new"}
 />
 
 <.admin_table rows={@media}>
@@ -114,10 +73,10 @@
   <:actions :let={media}>
     <div class="flex gap-2">
       <div class="grow" />
-      <.link patch={~p"/admin/media/#{media}/chapters?#{patch_opts(@list_opts)}"}>
+      <.link navigate={~p"/admin/media/#{media}/chapters"}>
         <FA.icon name="book-bookmark" class="h-4 w-4 fill-current" />
       </.link>
-      <.link patch={~p"/admin/media/#{media}/edit?#{patch_opts(@list_opts)}"}>
+      <.link navigate={~p"/admin/media/#{media}/edit"}>
         <FA.icon name="pencil" class="h-4 w-4 fill-current" />
       </.link>
       <span phx-click="delete" phx-value-id={media.id} data-confirm="Are you sure?">
@@ -131,7 +90,7 @@
         No results for "<%= @list_opts.filter %>"
       <% else %>
         No media yet.
-        <.brand_link patch={~p"/admin/media/new?#{patch_opts(@list_opts)}"}>
+        <.brand_link navigate={~p"/admin/media/new"}>
           Create one.
         </.brand_link>
       <% end %>

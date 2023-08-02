@@ -24,6 +24,15 @@ defmodule Ambry.Search do
     )
   end
 
+  def find_first(query_string, type) do
+    query_string
+    |> search()
+    |> Enum.find(fn
+      %^type{} -> true
+      _else -> false
+    end)
+  end
+
   def query(query_string) do
     like = "%#{query_string}%"
 
@@ -88,9 +97,7 @@ defmodule Ambry.Search do
   end
 
   defp do_partition(%{type: :book, id: id}, {books, people, series}), do: {[id | books], people, series}
-
   defp do_partition(%{type: :person, id: id}, {books, people, series}), do: {books, [id | people], series}
-
   defp do_partition(%{type: :series, id: id}, {books, people, series}), do: {books, people, [id | series]}
 
   defp fetch_books(ids, preload), do: fetch(from(b in Book, where: b.id in ^ids), preload)

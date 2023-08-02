@@ -174,20 +174,19 @@ defmodule Ambry.BooksTest do
     end
 
     test "deletes nested book authors" do
-      %{book_authors: [book_author | rest_book_authors]} = book = insert(:book)
+      %{book_authors: books_authors} = book = insert(:book)
 
       {:ok, updated_book} =
         Books.update_book(
           book,
           %{
-            book_authors: [
-              %{id: book_author.id, delete: true} | Enum.map(rest_book_authors, &%{id: &1.id})
-            ]
+            book_authors_drop: [0],
+            book_authors: books_authors |> Enum.with_index(&{&2, %{id: &1.id}}) |> Map.new()
           }
         )
 
-      assert %{book_authors: book_authors} = updated_book
-      assert length(book_authors) == length(rest_book_authors)
+      assert %{book_authors: new_book_authors} = updated_book
+      assert length(new_book_authors) == length(books_authors) - 1
     end
 
     test "updates nested series books" do
@@ -215,20 +214,19 @@ defmodule Ambry.BooksTest do
     end
 
     test "deletes nested series books" do
-      %{series_books: [series_book | rest_series_books]} = book = insert(:book)
+      %{series_books: series_books} = book = insert(:book)
 
       {:ok, updated_book} =
         Books.update_book(
           book,
           %{
-            series_books: [
-              %{id: series_book.id, delete: true} | Enum.map(rest_series_books, &%{id: &1.id})
-            ]
+            series_books_drop: [0],
+            series_books: series_books |> Enum.with_index(&{&2, %{id: &1.id}}) |> Map.new()
           }
         )
 
-      assert %{series_books: series_books} = updated_book
-      assert length(series_books) == length(rest_series_books)
+      assert %{series_books: new_series_books} = updated_book
+      assert length(new_series_books) == length(series_books) - 1
     end
   end
 

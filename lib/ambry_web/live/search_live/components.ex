@@ -100,7 +100,7 @@ defmodule AmbryWeb.SearchLive.Components do
     ~H"""
     <img
       src={@book.image_path}
-      class="absolute top-0 h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
+      class="absolute top-0 h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
     />
     """
   end
@@ -111,11 +111,11 @@ defmodule AmbryWeb.SearchLive.Components do
     ~H"""
     <img
       src={@book2.image_path}
-      class="h-full w-full origin-bottom-right rounded-lg border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-30 group-hover:translate-y-2 group-hover:rotate-6 dark:border-zinc-900"
+      class="h-full w-full origin-bottom-right rounded-sm border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-30 group-hover:translate-y-2 group-hover:rotate-6 dark:border-zinc-900"
     />
     <img
       src={@book1.image_path}
-      class="absolute top-0 h-full w-full origin-bottom-left rounded-lg border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-40 group-hover:translate-y-2 group-hover:-rotate-6 dark:border-zinc-900"
+      class="absolute top-0 h-full w-full origin-bottom-left rounded-sm border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-40 group-hover:translate-y-2 group-hover:-rotate-6 dark:border-zinc-900"
     />
     """
   end
@@ -131,15 +131,15 @@ defmodule AmbryWeb.SearchLive.Components do
     ~H"""
     <img
       src={@book3.image_path}
-      class="h-full w-full origin-bottom-left rounded-lg border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-20 group-hover:translate-y-3 group-hover:-rotate-12 dark:border-zinc-900"
+      class="h-full w-full origin-bottom-left rounded-sm border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-20 group-hover:translate-y-3 group-hover:-rotate-12 dark:border-zinc-900"
     />
     <img
       src={@book2.image_path}
-      class="absolute top-0 h-full w-full origin-bottom-right rounded-lg border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-30 group-hover:translate-y-3 group-hover:rotate-12 dark:border-zinc-900"
+      class="absolute top-0 h-full w-full origin-bottom-right rounded-sm border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-30 group-hover:translate-y-3 group-hover:rotate-12 dark:border-zinc-900"
     />
     <img
       src={@book1.image_path}
-      class="absolute top-0 h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md group-hover:z-40 dark:border-zinc-900"
+      class="absolute top-0 h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md group-hover:z-40 dark:border-zinc-900"
     />
     """
   end

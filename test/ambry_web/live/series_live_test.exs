@@ -6,7 +6,7 @@ defmodule AmbryWeb.SeriesLiveTest do
   setup :register_and_log_in_user
 
   test "renders a series show page", %{conn: conn} do
-    %{id: series_id, name: series_name} = insert(:series)
+    %{series_books: [%{series: %{id: series_id, name: series_name}} | _rest]} = insert(:book)
 
     {:ok, _view, html} = live(conn, ~p"/series/#{series_id}")
     assert html =~ escape(series_name)

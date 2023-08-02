@@ -23,7 +23,6 @@ defmodule AmbryWeb do
     quote do
       use Phoenix.Router, helpers: false
 
-      # Import common connection and controller functions to use in pipelines
       import Phoenix.Controller
       import Phoenix.LiveView.Router
       import Plug.Conn
@@ -89,30 +88,21 @@ defmodule AmbryWeb do
     quote do
       use Phoenix.Component
 
-      # Import convenience functions from controllers
-      import Phoenix.Controller,
-        only: [get_csrf_token: 0, view_module: 1, view_template: 1]
+      import Phoenix.Controller, only: [get_csrf_token: 0, view_module: 1, view_template: 1]
 
-      # Include general helpers for rendering HTML
       unquote(html_helpers())
     end
   end
 
   defp html_helpers do
     quote do
-      # HTML escaping functionality
-      # Core UI components and translation
       import AmbryWeb.CoreComponents
       import AmbryWeb.Gettext
       import Phoenix.HTML
 
-      # Shortcut for generating JS commands
       alias FontAwesome.LiveView, as: FA
       alias Phoenix.LiveView.JS
 
-      # FontAwesome icons
-
-      # Routes generation with the ~p sigil
       unquote(verified_routes())
     end
   end

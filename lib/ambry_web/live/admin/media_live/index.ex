@@ -10,8 +10,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
   alias Ambry.Media
   alias Ambry.PubSub
-  alias AmbryWeb.Admin.MediaLive.ChaptersComponent
-  alias AmbryWeb.Admin.MediaLive.FormComponent
 
   @valid_sort_fields [
     :book
@@ -25,45 +23,14 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
     {:ok,
      socket
-     |> assign(:header_title, "Media")
+     |> assign(:page_title, "Media")
      |> set_in_progress_media()
      |> maybe_update_media(params, true)}
   end
 
   @impl Phoenix.LiveView
   def handle_params(params, _url, socket) do
-    {:noreply,
-     socket
-     |> maybe_update_media(params)
-     |> apply_action(socket.assigns.live_action, params)}
-  end
-
-  defp apply_action(socket, :edit, %{"id" => id}) do
-    media = Media.get_media!(id)
-
-    socket
-    |> assign(:page_title, media.book.title)
-    |> assign(:selected_media, media)
-  end
-
-  defp apply_action(socket, :new, _params) do
-    socket
-    |> assign(:page_title, "New Media")
-    |> assign(:selected_media, %Media.Media{media_narrators: []})
-  end
-
-  defp apply_action(socket, :chapters, %{"id" => id}) do
-    media = Media.get_media!(id)
-
-    socket
-    |> assign(:page_title, "#{media.book.title} - Chapters")
-    |> assign(:selected_media, media)
-  end
-
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "Media")
-    |> assign(:selected_media, nil)
+    {:noreply, maybe_update_media(socket, params)}
   end
 
   defp maybe_update_media(socket, params, force \\ false) do
@@ -97,23 +64,30 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   end
 
   defp set_in_progress_media(socket) do
-    known_processing_media = Map.get(socket.assigns, :processing_media, [])
-    progress_map = Map.get(socket.assigns, :processing_media_progress_map, %{})
+    if connected?(socket) do
+      known_processing_media = Map.get(socket.assigns, :processing_media, [])
+      progress_map = Map.get(socket.assigns, :processing_media_progress_map, %{})
 
-    {current_processing_media, _has_more?} = Media.list_media(0, 999, %{status: :processing}, desc: :inserted_at)
+      {current_processing_media, _has_more?} = Media.list_media(0, 999, %{status: :processing}, desc: :inserted_at)
 
-    to_add = Enum.map(current_processing_media -- known_processing_media, & &1.id)
-    to_remove = Enum.map(known_processing_media -- current_processing_media, & &1.id)
+      to_add = Enum.map(current_processing_media -- known_processing_media, & &1.id)
+      to_remove = Enum.map(known_processing_media -- current_processing_media, & &1.id)
 
-    progress_map = Map.drop(progress_map, to_remove)
+      progress_map = Map.drop(progress_map, to_remove)
 
-    Enum.each(to_add, &(:ok = PubSub.subscribe("media-progress:#{&1}")))
-    Enum.each(to_remove, &(:ok = PubSub.unsubscribe("media-progress:#{&1}")))
+      Enum.each(to_add, &(:ok = PubSub.subscribe("media-progress:#{&1}")))
+      Enum.each(to_remove, &(:ok = PubSub.unsubscribe("media-progress:#{&1}")))
 
-    assign(socket, %{
-      processing_media: current_processing_media,
-      processing_media_progress_map: progress_map
-    })
+      assign(socket, %{
+        processing_media: current_processing_media,
+        processing_media_progress_map: progress_map
+      })
+    else
+      assign(socket,
+        processing_media: [],
+        processing_media_progress_map: %{}
+      )
+    end
   end
 
   @impl Phoenix.LiveView
@@ -132,9 +106,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   end
 
   def handle_event("row-click", %{"id" => id}, socket) do
-    list_opts = get_list_opts(socket)
-
-    {:noreply, push_patch(socket, to: ~p"/admin/media/#{id}/edit?#{patch_opts(list_opts)}")}
+    {:noreply, push_navigate(socket, to: ~p"/admin/media/#{id}/edit")}
   end
 
   defp list_media(opts) do
@@ -148,28 +120,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     )
   end
 
-  # handle chapter extraction strategy from chapters component
   @impl Phoenix.LiveView
-  def handle_info({:run_strategy, strategy, params}, socket) do
-    %{selected_media: media} = socket.assigns
-
-    case strategy.get_chapters(media, params) do
-      {:ok, chapters} ->
-        send_update(ChaptersComponent,
-          id: media.id,
-          chapters: {:ok, chapters},
-          import_mode: params["import_mode"]
-        )
-
-      {:error, error} ->
-        send_update(ChaptersComponent,
-          id: media.id,
-          chapters: {:error, error}
-        )
-    end
-
-    {:noreply, socket}
-  end
 
   def handle_info(%PubSub.Message{type: :media, action: :progress} = message, socket) do
     %{id: media_id, meta: %{progress: progress}} = message

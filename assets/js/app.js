@@ -30,6 +30,8 @@ import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
 import { MainTainAttrsHook } from "./hooks/maintain-attrs"
 import { InfiniteScrollHook } from "./hooks/infinite-scroll"
 import { DispatchValueChangeHook } from "./hooks/dispatch-value-change"
+import { ImageSizeHook } from "./hooks/image-size"
+import { ScrollMatchHook } from "./hooks/scroll-match"
 
 const playerId = Math.random().toString(36).substring(2)
 
@@ -47,6 +49,8 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "maintain-attrs": MainTainAttrsHook,
     "infinite-scroll": InfiniteScrollHook,
     "dispatch-value-change": DispatchValueChangeHook,
+    "image-size": ImageSizeHook,
+    "scroll-match": ScrollMatchHook,
   },
 })
 

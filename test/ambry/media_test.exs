@@ -195,6 +195,18 @@ defmodule Ambry.MediaTest do
     end
   end
 
+  describe "fetch_media/1" do
+    test "returns error if id is invalid" do
+      assert {:error, :not_found} = Media.fetch_media(-1)
+    end
+
+    test "returns the media with the given id" do
+      %{id: id} = insert(:media)
+
+      assert {:ok, %Media.Media{id: ^id}} = Media.fetch_media(id)
+    end
+  end
+
   describe "create_media/1" do
     test "requires book and source_path to be set" do
       {:error, changeset} = Media.create_media(%{})
@@ -291,22 +303,20 @@ defmodule Ambry.MediaTest do
     end
 
     test "deletes nested media narrators when using 'for: :update'" do
-      %{media_narrators: [media_narrator | rest_media_narrators]} = media = insert(:media)
+      %{media_narrators: media_narrators} = media = insert(:media)
 
       {:ok, updated_media} =
         Media.update_media(
           media,
           %{
-            media_narrators: [
-              %{id: media_narrator.id, delete: true}
-              | Enum.map(rest_media_narrators, &%{id: &1.id})
-            ]
+            media_narrators_drop: [0],
+            media_narrators: media_narrators |> Enum.with_index(&{&2, %{id: &1.id}}) |> Map.new()
           },
           for: :update
         )
 
-      assert %{media_narrators: media_narrators} = updated_media
-      assert length(media_narrators) == length(rest_media_narrators)
+      assert %{media_narrators: new_media_narrators} = updated_media
+      assert length(new_media_narrators) == length(media_narrators) - 1
     end
 
     test "replaces embedded chapters when using 'for: :update'" do

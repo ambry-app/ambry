@@ -7,11 +7,11 @@
       <div class="aspect-1">
         <img
           src={@book.image_path}
-          class="h-full w-full rounded-lg border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:w-80"
+          class="h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:w-80"
         />
       </div>
       <p class="mt-2 text-sm text-zinc-500">
-        Published <%= format_published(@book) %>
+        First published <%= format_published(@book) %>
       </p>
       <div class="mt-4 rounded-sm border border-zinc-200 bg-zinc-50 p-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
         <.brand_link href={~p"/users/log_in"}>Sign in</.brand_link>

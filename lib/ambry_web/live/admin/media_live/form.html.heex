@@ -1,0 +1,213 @@
+<.modal :if={@import} id="import-modal" show on_cancel={JS.push("cancel-import")}>
+  <.live_component id="import-form" module={import_form(@import.type)} query={@import.query} media={@media} />
+</.modal>
+
+<.datalist id="narrators" options={@narrators} />
+<.datalist id="books" options={@books} />
+
+<div class="max-w-3xl">
+  <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+    <div class="space-y-2">
+      <.label for={@form[:book_id].id}>Book</.label>
+      <div class="flex items-center gap-2">
+        <.input
+          field={@form[:book_id]}
+          type="autocomplete"
+          options={@books}
+          list="books"
+          show_errors={false}
+          container_class="grow"
+        />
+        <.label>Import from:</.label>
+        <.button :if={@scraping_available} color={:zinc} class="flex items-center gap-1" name="import" value="goodreads">
+          <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
+        </.button>
+        <.button color={:zinc} class="flex items-center gap-1" name="import" value="audible">
+          <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
+        </.button>
+      </div>
+      <.field_errors field={@form[:book_id]} />
+    </div>
+
+    <div class="space-y-2">
+      <.label for={@form[:published].id}>Published</.label>
+
+      <.note>
+        This is meant to be audiobook recording date, not print publication date.
+      </.note>
+
+      <div class="flex flex-row items-center gap-2">
+        <.input field={@form[:published]} type="date" container_class="flex-grow" />
+        <.label for={@form[:published_format].id}>Display format</.label>
+        <.input
+          field={@form[:published_format]}
+          type="select"
+          container_class="flex-grow"
+          options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+        />
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <.label>Narrated by</.label>
+      <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
+        <.sort_input parent_form={@form} form={media_narrator_form} sort_param={:media_narrators_sort} />
+
+        <div class="flex items-start gap-2">
+          <.input
+            field={media_narrator_form[:narrator_id]}
+            type="autocomplete"
+            options={@narrators}
+            list="narrators"
+            container_class="grow"
+          />
+          <.delete_button
+            parent_form={@form}
+            form={media_narrator_form}
+            drop_param={:media_narrators_drop}
+            class="pt-[10px]"
+          />
+        </div>
+      </.inputs_for>
+
+      <.add_button form={@form} sort_param={:media_narrators_sort} label="Add narrator" />
+      <.delete_input form={@form} drop_param={:media_narrators_drop} />
+    </div>
+
+    <div class="flex gap-4">
+      <.input field={@form[:abridged]} label="Abridged" type="checkbox" />
+      <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
+    </div>
+
+    <.input
+      field={@form[:notes]}
+      label="Notes"
+      type="textarea"
+      phx-hook="maintain-attrs"
+      data-attrs="style"
+      class="!min-h-24"
+    />
+
+    <div class="space-y-2">
+      <%= if @live_action == :new do %>
+        <.label>Upload audio</.label>
+      <% else %>
+        <.label>Upload additional audio</.label>
+
+        <.note>
+          Adding additional files does not replace any existing files. Re-run the processor after adding new files to replace the streamable output files.
+        </.note>
+      <% end %>
+
+      <.note>
+        <:label>Supported formats</:label>
+        mp3, mp4, m4a, m4b, opus
+      </.note>
+
+      <.file_input upload={@uploads.audio} />
+      <.field_errors field={@form[:source_path]} />
+    </div>
+
+    <div :if={@file_stats}>
+      <div class="flex items-center gap-2">
+        <.label>Audio files</.label>
+        <button
+          type="button"
+          class="flex grow items-center text-lime-500 hover:underline"
+          phx-click={JS.toggle(to: ".files-list-toggle")}
+        >
+          <span class="files-list-toggle">show</span>
+          <span class="files-list-toggle hidden">hide</span>
+          <FA.icon name="chevron-down" class="files-list-toggle ml-1 h-4 w-4 fill-current" />
+          <FA.icon name="chevron-up" class="files-list-toggle ml-1 hidden h-4 w-4 fill-current" />
+        </button>
+      </div>
+
+      <div class="files-list-toggle mt-2 hidden rounded-sm border border-zinc-200 bg-zinc-50 p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="space-y-2 divide-y divide-zinc-200 dark:divide-zinc-800">
+          <.file_stat_row label="mp4" file={@file_stats.mp4_file} />
+          <.file_stat_row label="mpd" file={@file_stats.mpd_file} />
+          <.file_stat_row label="hls" file={@file_stats.hls_master} />
+          <.file_stat_row label="hls_0" file={@file_stats.hls_playlist} />
+
+          <%= case @file_stats.source_files do %>
+            <% error when is_atom(error) -> %>
+              <.file_stat_row
+                class="source-list-toggle hidden"
+                label="source"
+                file={%{path: @media.source_path, stat: error}}
+                error_type={:warn}
+              />
+            <% source_files when is_list(source_files) -> %>
+              <.file_stat_row
+                :if={source_files == []}
+                class="source-list-toggle hidden"
+                label="source"
+                file={%{path: @media.source_path, stat: :empty}}
+                error_type={:warn}
+              />
+              <.file_stat_row
+                :for={source_file <- source_files}
+                class="source-list-toggle hidden"
+                label="source"
+                file={source_file}
+                error_type={:warn}
+              />
+          <% end %>
+          <div>
+            <button
+              type="button"
+              class="flex items-center pt-2 text-lime-500 hover:underline"
+              phx-click={JS.toggle(to: ".source-list-toggle")}
+            >
+              <span class="source-list-toggle">show source files</span>
+              <span class="source-list-toggle hidden">hide source files</span>
+              <FA.icon name="chevron-down" class="source-list-toggle ml-1 h-4 w-4 fill-current" />
+              <FA.icon name="chevron-up" class="source-list-toggle ml-1 hidden h-4 w-4 fill-current" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <.file_input upload={@uploads.supplemental} label="Upload supplemental files" image_preview_class="h-48" />
+
+    <div :if={@live_action == :edit && @form[:supplemental_files].value != []} class="space-y-2">
+      <.label>Supplemental files</.label>
+
+      <.inputs_for :let={supplemental_file_form} field={@form[:supplemental_files]}>
+        <.sort_input parent_form={@form} form={supplemental_file_form} sort_param={:supplemental_files_sort} />
+        <.input field={supplemental_file_form[:id]} type="hidden" />
+
+        <div class="flex items-center gap-2">
+          <.label for={supplemental_file_form[:label].name}>Label</.label>
+          <.input field={supplemental_file_form[:label]} placeholder="Label" container_class="grow" />
+          <.label for={supplemental_file_form[:filename].name}>Filename</.label>
+          <.input field={supplemental_file_form[:filename]} placeholder="filename.ext" container_class="grow" />
+          <.delete_button parent_form={@form} form={supplemental_file_form} drop_param={:supplemental_files_drop} />
+        </div>
+      </.inputs_for>
+    </div>
+
+    <div class="space-y-2">
+      <.label for={@form[:processor].name}>
+        <%= if @live_action == :new, do: "Processor", else: "Re-run processor?" %>
+      </.label>
+
+      <.note :if={@live_action == :edit}>
+        This will re-process the source files and replace the streamable output files.
+      </.note>
+
+      <.input
+        type="select"
+        field={@form[:processor]}
+        prompt={if @live_action == :new, do: "auto-select", else: "no"}
+        options={processors(@media, @uploads.audio.entries)}
+      />
+    </div>
+
+    <:actions>
+      <.button>Save</.button>
+    </:actions>
+  </.simple_form>
+</div>

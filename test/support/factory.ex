@@ -158,7 +158,9 @@ defmodule Ambry.Factory do
       mpd_path: "/uploads/media/#{media_id}.mpd",
       hls_path: "/uploads/media/#{media_id}.m3u8",
       mp4_path: "/uploads/media/#{media_id}.mp4",
-      duration: Decimal.new(time + 300)
+      duration: Decimal.new(time + 300),
+      published: Faker.Date.backward(15_466),
+      notes: Faker.Lorem.sentence()
     }
   end
 
@@ -230,8 +232,4 @@ defmodule Ambry.Factory do
   def insert_index!(%Book{id: id}), do: Index.insert!(:book, id)
   def insert_index!(%Person{id: id}), do: Index.insert!(:person, id)
   def insert_index!(%Series{id: id}), do: Index.insert!(:series, id)
-
-  def update_index!(%Book{id: id}), do: Index.update!(:book, id)
-  def update_index!(%Person{id: id}), do: Index.update!(:person, id)
-  def update_index!(%Series{id: id}), do: Index.update!(:series, id)
 end

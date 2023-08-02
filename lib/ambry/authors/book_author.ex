@@ -13,24 +13,13 @@ defmodule Ambry.Authors.BookAuthor do
   schema "authors_books" do
     belongs_to :author, Author
     belongs_to :book, Book
-
-    field :delete, :boolean, virtual: true
   end
 
   @doc false
   def changeset(book_author, attrs) do
     book_author
-    |> cast(attrs, [:author_id, :delete])
+    |> cast(attrs, [:author_id])
     |> validate_required(:author_id)
-    |> maybe_apply_delete()
     |> unique_constraint([:author_id, :book_id])
-  end
-
-  defp maybe_apply_delete(changeset) do
-    if Ecto.Changeset.get_change(changeset, :delete, false) do
-      %{changeset | action: :delete}
-    else
-      changeset
-    end
   end
 end

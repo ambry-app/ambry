@@ -20,7 +20,7 @@ defmodule Ambry.Media.Media do
 
   schema "media" do
     belongs_to :book, Book
-    has_many :media_narrators, MediaNarrator
+    has_many :media_narrators, MediaNarrator, on_replace: :delete
     has_many :player_states, PlayerState
     has_many :authors, through: [:book, :authors]
     many_to_many :narrators, Narrator, join_through: "media_narrators"
@@ -61,7 +61,10 @@ defmodule Ambry.Media.Media do
       :published_format,
       :notes
     ])
-    |> cast_assoc(:media_narrators)
+    |> cast_assoc(:media_narrators,
+      sort_param: :media_narrators_sort,
+      drop_param: :media_narrators_drop
+    )
     |> cast_embed(:supplemental_files)
     |> status_based_validation()
   end
@@ -76,8 +79,14 @@ defmodule Ambry.Media.Media do
       :published_format,
       :notes
     ])
-    |> cast_assoc(:media_narrators)
-    |> cast_embed(:chapters)
+    |> cast_assoc(:media_narrators,
+      sort_param: :media_narrators_sort,
+      drop_param: :media_narrators_drop
+    )
+    |> cast_embed(:chapters,
+      sort_param: :chapters_sort,
+      drop_param: :chapters_drop
+    )
     |> cast_embed(:supplemental_files,
       sort_param: :supplemental_files_sort,
       drop_param: :supplemental_files_drop

@@ -13,23 +13,12 @@ defmodule Ambry.Media.MediaNarrator do
   schema "media_narrators" do
     belongs_to :media, Media
     belongs_to :narrator, Narrator
-
-    field :delete, :boolean, virtual: true
   end
 
   @doc false
   def changeset(media_narrator, attrs) do
     media_narrator
-    |> cast(attrs, [:narrator_id, :delete])
+    |> cast(attrs, [:narrator_id])
     |> validate_required(:narrator_id)
-    |> maybe_apply_delete()
-  end
-
-  defp maybe_apply_delete(changeset) do
-    if Ecto.Changeset.get_change(changeset, :delete, false) do
-      %{changeset | action: :delete}
-    else
-      changeset
-    end
   end
 end

@@ -239,10 +239,11 @@ defmodule Ambry.Search.IndexTest do
 
       {:ok, _updated_series} =
         Ambry.Series.update_series(series, %{
-          series_books: [
-            %{id: series_book_id1, delete: true},
-            %{id: series_book_id2, delete: true}
-          ]
+          series_books_drop: [0, 1],
+          series_books: %{
+            0 => %{id: series_book_id1},
+            1 => %{id: series_book_id2}
+          }
         })
 
       assert :ok = Index.update!(:series, series.id)

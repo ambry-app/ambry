@@ -18,7 +18,11 @@ defmodule Ambry.Search.Index do
   # Insert
 
   def insert!(:book, book_id) do
+    book = Book |> Repo.get!(book_id) |> Repo.preload([:series])
+    series_ids = Enum.map(book.series, & &1.id)
+
     index!(:book, [book_id])
+    index!(:series, series_ids)
   end
 
   def insert!(:media, media_id) do
@@ -47,6 +51,7 @@ defmodule Ambry.Search.Index do
   # Update
 
   def update!(:book, book_id) do
+    reindex_dependents!(:book, book_id)
     index!(:book, [book_id])
   end
 
@@ -203,7 +208,8 @@ defmodule Ambry.Search.Index do
   defp series_record(series) do
     {secondary_names, secondary_dependencies} = names(series.authors)
     {tertiary_names, tertiary_dependencies} = person_names(series.authors)
-    dependencies = Enum.uniq(secondary_dependencies ++ tertiary_dependencies)
+    book_dependencies = Enum.map(series.books, &reference/1)
+    dependencies = Enum.uniq(book_dependencies ++ secondary_dependencies ++ tertiary_dependencies)
 
     %{
       reference: Reference.new(series),

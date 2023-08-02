@@ -8,9 +8,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   import AmbryWeb.Admin.PaginationHelpers
 
   alias Ambry.Books
-  alias Ambry.Books.Book
   alias Ambry.PubSub
-  alias AmbryWeb.Admin.BookLive.FormComponent
 
   @valid_sort_fields [
     :title
@@ -24,36 +22,13 @@ defmodule AmbryWeb.Admin.BookLive.Index do
 
     {:ok,
      socket
-     |> assign(:header_title, "Books")
+     |> assign(page_title: "Books")
      |> maybe_update_books(params, true)}
   end
 
   @impl Phoenix.LiveView
   def handle_params(params, _url, socket) do
-    {:noreply,
-     socket
-     |> maybe_update_books(params)
-     |> apply_action(socket.assigns.live_action, params)}
-  end
-
-  defp apply_action(socket, :edit, %{"id" => id}) do
-    book = Books.get_book!(id)
-
-    socket
-    |> assign(:page_title, book.title)
-    |> assign(:book, book)
-  end
-
-  defp apply_action(socket, :new, _params) do
-    socket
-    |> assign(:page_title, "New Book")
-    |> assign(:book, %Book{book_authors: [], series_books: []})
-  end
-
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "Books")
-    |> assign(:book, nil)
+    {:noreply, maybe_update_books(socket, params)}
   end
 
   defp maybe_update_books(socket, params, force \\ false) do
@@ -113,9 +88,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   end
 
   def handle_event("row-click", %{"id" => id}, socket) do
-    list_opts = get_list_opts(socket)
-
-    {:noreply, push_patch(socket, to: ~p"/admin/books/#{id}/edit?#{patch_opts(list_opts)}")}
+    {:noreply, push_navigate(socket, to: ~p"/admin/books/#{id}/edit")}
   end
 
   defp list_books(opts) do
@@ -133,8 +106,6 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   def handle_info(%PubSub.Message{type: :book}, socket), do: {:noreply, refresh_books(socket)}
 
   defp format_published(%{published_format: :full, published: date}), do: Calendar.strftime(date, "%Y-%m-%d")
-
   defp format_published(%{published_format: :year_month, published: date}), do: Calendar.strftime(date, "%Y-%m")
-
   defp format_published(%{published_format: :year, published: date}), do: Calendar.strftime(date, "%Y")
 end

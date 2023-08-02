@@ -13,14 +13,15 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   @accepted_mime ~w(image/jpeg image/png image/webp)
 
   def allow_image_upload(socket, name) do
-    allow_upload(socket, name, accept: @accepted_extensions, max_entries: 1)
+    allow_upload(socket, name, accept: @accepted_extensions, max_entries: 1, auto_upload: true)
   end
 
   def allow_audio_upload(socket, name) do
     allow_upload(socket, name,
       accept: ~w(.mp3 .mp4 .m4a .m4b .opus),
       max_entries: 200,
-      max_file_size: 1_500_000_000
+      max_file_size: 1_500_000_000,
+      auto_upload: true
     )
   end
 
@@ -28,7 +29,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     allow_upload(socket, name,
       accept: :any,
       max_entries: 10,
-      max_file_size: 52_428_800
+      max_file_size: 52_428_800,
+      auto_upload: true
     )
   end
 
@@ -84,10 +86,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     filename
   end
 
-  def error_to_string(:too_large), do: "Too large"
-  def error_to_string(:too_many_files), do: "You have selected too many files"
-  def error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
-
+  def handle_image_import(nil), do: {:ok, :no_image_url}
   def handle_image_import(""), do: {:ok, :no_image_url}
 
   def handle_image_import(url) do
@@ -100,7 +99,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
 
   defp do_image_import(url) do
     with {:ok, response} <- Req.get(url),
-         [mime | _rest] <- Req.Response.get_header(response, "content-type") do
+         [mime | _rest] when mime in @accepted_mime <- Req.Response.get_header(response, "content-type") do
       filename = save_file_to_disk!(mime, response.body, &images_disk_path/1)
 
       {:ok, ~p"/uploads/images/#{filename}"}
@@ -111,10 +110,31 @@ defmodule AmbryWeb.Admin.UploadHelpers do
 
   def valid_image_url?(string) when is_binary(string) do
     case URI.new(string) do
-      {:ok, %{scheme: scheme}} when is_binary(scheme) -> MIME.from_path(string) in @accepted_mime
-      _term -> false
+      {:ok, %{scheme: scheme} = uri} when is_binary(scheme) ->
+        image?(MIME.from_path(string)) or valid_image?(uri)
+
+      _term ->
+        false
     end
   end
 
   def valid_image_url?(_term), do: false
+
+  def valid_image?(uri) do
+    case Req.head(uri) do
+      {:ok, response} ->
+        [mime | _rest] = Req.Response.get_header(response, "content-type")
+        image?(mime)
+
+      _else ->
+        false
+    end
+  end
+
+  def image?("image/" <> _rest), do: true
+  def image?(_mime), do: false
+
+  def upload_error_to_string(:too_large), do: "File is too large"
+  def upload_error_to_string(:too_many_files), do: "Too many files"
+  def upload_error_to_string(:not_accepted), do: "Unacceptable file type"
 end
