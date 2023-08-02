@@ -158,7 +158,9 @@ defmodule Ambry.Factory do
       mpd_path: "/uploads/media/#{media_id}.mpd",
       hls_path: "/uploads/media/#{media_id}.m3u8",
       mp4_path: "/uploads/media/#{media_id}.mp4",
-      duration: Decimal.new(time + 300)
+      duration: Decimal.new(time + 300),
+      published: Faker.Date.backward(15_466),
+      notes: Faker.Lorem.sentence()
     }
   end
 
