@@ -11,7 +11,10 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   alias Ambry.Series
 
   @valid_sort_fields [
-    :name
+    :name,
+    :authors,
+    :books,
+    :inserted_at
   ]
 
   @impl Phoenix.LiveView
@@ -22,7 +25,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
     {:ok,
      socket
-     |> assign(page_title: "Series")
+     |> assign(page_title: "Series", default_sort: "inserted_at.desc")
      |> maybe_update_series(params, true)}
   end
 
@@ -37,7 +40,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {series, has_more?} = list_series(list_opts)
+      {series, has_more?} = list_series(list_opts, socket.assigns.default_sort)
 
       socket
       |> assign(:list_opts, list_opts)
@@ -81,14 +84,23 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     {:noreply, push_navigate(socket, to: ~p"/admin/series/#{id}/edit")}
   end
 
-  defp list_series(opts) do
+  def handle_event("sort", %{"field" => sort_field}, socket) do
+    list_opts =
+      socket
+      |> get_list_opts()
+      |> Map.update!(:sort, &apply_sort(&1, sort_field, @valid_sort_fields))
+
+    {:noreply, push_patch(socket, to: ~p"/admin/series?#{patch_opts(list_opts)}")}
+  end
+
+  defp list_series(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
     Series.list_series(
       page_to_offset(opts.page),
       limit(),
       filters,
-      sort_to_order(opts.sort, @valid_sort_fields)
+      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
     )
   end
 

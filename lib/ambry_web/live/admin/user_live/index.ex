@@ -13,14 +13,17 @@ defmodule AmbryWeb.Admin.UserLive.Index do
     :email,
     :admin,
     :confirmed,
-    :last_login_at
+    :media_in_progress,
+    :media_finished,
+    :last_login_at,
+    :inserted_at
   ]
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     {:ok,
      socket
-     |> assign(:header_title, "Users")
+     |> assign(header_title: "Users", default_sort: "inserted_at.desc")
      |> maybe_update_users(params, true)}
   end
 
@@ -45,7 +48,7 @@ defmodule AmbryWeb.Admin.UserLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {users, has_more?} = list_users(list_opts)
+      {users, has_more?} = list_users(list_opts, socket.assigns.default_sort)
 
       socket
       |> assign(:list_opts, list_opts)
@@ -130,14 +133,23 @@ defmodule AmbryWeb.Admin.UserLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/users?#{patch_opts(list_opts)}")}
   end
 
-  defp list_users(opts) do
+  def handle_event("sort", %{"field" => sort_field}, socket) do
+    list_opts =
+      socket
+      |> get_list_opts()
+      |> Map.update!(:sort, &apply_sort(&1, sort_field, @valid_sort_fields))
+
+    {:noreply, push_patch(socket, to: ~p"/admin/users?#{patch_opts(list_opts)}")}
+  end
+
+  defp list_users(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
     Accounts.list_users(
       page_to_offset(opts.page),
       limit(),
       filters,
-      sort_to_order(opts.sort, @valid_sort_fields)
+      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
     )
   end
 end

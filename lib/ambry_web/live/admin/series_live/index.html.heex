@@ -6,25 +6,26 @@
   new_path={~p"/admin/series/new"}
 />
 
-<.admin_table rows={@series}>
-  <:col :let={series} label="Name">
-    <%= series.name %>
+<.admin_table rows={@series} sort={@list_opts.sort || @default_sort} actions_class="w-20">
+  <:col :let={series} label="Name" sort_field="name">
+    <p class="truncate"><%= series.name %></p>
   </:col>
-  <:col :let={series} label="Authors" class="hidden sm:table-cell">
-    <%= for author <- series.authors do %>
+  <:col :let={series} label="Authors" class="hidden sm:table-cell" sort_field="authors">
+    <p :for={author <- series.authors} class="truncate">
       <%= author.name %>
-      <%= if author.name != author.person_name do %>
+      <span :if={author.name != author.person_name}>
         (<%= author.person_name %>)
-      <% end %>
-      <br />
-    <% end %>
+      </span>
+    </p>
   </:col>
-  <:col :let={series} label="# Books">
+  <:col :let={series} label="# Books" class="hidden sm:table-cell" sort_field="books">
     <%= series.books %>
   </:col>
+  <:col :let={series} label="Added" sort_field="inserted_at">
+    <p class="truncate"><%= Calendar.strftime(series.inserted_at, "%x") %></p>
+  </:col>
   <:actions :let={series}>
-    <div class="flex gap-2">
-      <div class="grow" />
+    <div class="flex justify-end gap-2">
       <.link navigate={~p"/admin/series/#{series}/edit"}>
         <FA.icon name="pencil" class="h-4 w-4 fill-current" />
       </.link>

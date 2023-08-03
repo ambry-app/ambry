@@ -12,10 +12,10 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
   @valid_sort_fields [
     :name,
-    :is_author,
     :authored_books,
-    :is_narrator,
-    :narrated_media
+    :narrated_media,
+    :has_description,
+    :inserted_at
   ]
 
   @impl Phoenix.LiveView
@@ -26,7 +26,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
     {:ok,
      socket
-     |> assign(page_title: "Authors & Narrators")
+     |> assign(page_title: "Authors & Narrators", default_sort: "inserted_at.desc")
      |> maybe_update_people(params, true)}
   end
 
@@ -41,7 +41,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {people, has_more?} = list_people(list_opts)
+      {people, has_more?} = list_people(list_opts, socket.assigns.default_sort)
 
       socket
       |> assign(:list_opts, list_opts)
@@ -105,14 +105,23 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     {:noreply, push_navigate(socket, to: ~p"/admin/people/#{id}/edit")}
   end
 
-  defp list_people(opts) do
+  def handle_event("sort", %{"field" => sort_field}, socket) do
+    list_opts =
+      socket
+      |> get_list_opts()
+      |> Map.update!(:sort, &apply_sort(&1, sort_field, @valid_sort_fields))
+
+    {:noreply, push_patch(socket, to: ~p"/admin/people?#{patch_opts(list_opts)}")}
+  end
+
+  defp list_people(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
     People.list_people(
       page_to_offset(opts.page),
       limit(),
       filters,
-      sort_to_order(opts.sort, @valid_sort_fields)
+      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
     )
   end
 

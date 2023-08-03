@@ -6,38 +6,36 @@
   new_path={~p"/admin/people/new"}
 />
 
-<.admin_table rows={@people}>
-  <:col :let={person} label="Name">
-    <%= person.name %>
+<.admin_table rows={@people} sort={@list_opts.sort || @default_sort} actions_class="w-20">
+  <:col :let={person} class="w-12">
+    <div class="h-6 w-6">
+      <img :if={person.image_path} src={person.image_path} class="h-full w-full rounded-full object-cover object-top" />
+    </div>
   </:col>
-  <:col :let={person} label="Author?">
-    <%= if person.is_author do %>
-      <FA.icon name="check" class="h-5 w-5 fill-current" />
-    <% else %>
-      <FA.icon name="xmark" class="h-5 w-5 fill-current" />
-    <% end %>
-  </:col>
-  <:col :let={person} label="Narrator?">
-    <%= if person.is_narrator do %>
-      <FA.icon name="check" class="h-5 w-5 fill-current" />
-    <% else %>
-      <FA.icon name="xmark" class="h-5 w-5 fill-current" />
-    <% end %>
-  </:col>
-  <:col :let={person} label="# Authored Books" class="hidden sm:table-cell">
-    <%= person.authored_books %>
-  </:col>
-  <:col :let={person} label="# Narrated Media" class="hidden sm:table-cell">
-    <%= person.narrated_media %>
+  <:col :let={person} label="Name" sort_field="name">
+    <p class="truncate"><%= person.name %></p>
   </:col>
   <:col :let={person} label="AKA" class="hidden md:table-cell">
-    <%= (person.writing_as ++ person.narrating_as)
-    |> Enum.filter(&(&1 != person.name))
-    |> Enum.join(", ") %>
+    <p class="truncate">
+      <%= (person.writing_as ++ person.narrating_as)
+      |> Enum.filter(&(&1 != person.name))
+      |> Enum.join(", ") %>
+    </p>
+  </:col>
+  <:col :let={person} label="# Authored" class="hidden sm:table-cell" sort_field="authored_books">
+    <%= person.authored_books %>
+  </:col>
+  <:col :let={person} label="# Narrated" class="hidden sm:table-cell" sort_field="narrated_media">
+    <%= person.narrated_media %>
+  </:col>
+  <:col :let={person} label="Description?" class="hidden md:table-cell" sort_field="has_description">
+    <.boolean_check_mark value={person.has_description} />
+  </:col>
+  <:col :let={person} label="Added" sort_field="inserted_at">
+    <p class="truncate"><%= Calendar.strftime(person.inserted_at, "%x") %></p>
   </:col>
   <:actions :let={person}>
-    <div class="flex gap-2">
-      <div class="grow" />
+    <div class="flex justify-end gap-2">
       <.link navigate={~p"/admin/people/#{person}/edit"}>
         <FA.icon name="pencil" class="h-4 w-4 fill-current" />
       </.link>

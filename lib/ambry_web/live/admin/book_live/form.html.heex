@@ -113,9 +113,12 @@
       <.delete_input form={@form} drop_param={:series_books_drop} />
     </div>
 
-    <div :if={@book.image_path} class="space-y-2">
-      <.label>Current image</.label>
-      <.image_with_size id={"image-#{@book.id}"} src={@book.image_path} class="h-48 w-48 rounded-sm" />
+    <.input type="hidden" field={@form[:image_path]} />
+    <div :if={@form[:image_path].value && @form[:image_path].value != ""} class="space-y-2">
+      <.label class="flex items-center gap-2">
+        Current image <.image_delete_button field={@form[:image_path]} />
+      </.label>
+      <.image_with_size id={"image-#{@book.id}"} src={@form[:image_path].value} class="h-48 w-48 rounded-sm" />
     </div>
 
     <.input
