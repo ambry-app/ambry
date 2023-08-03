@@ -22,57 +22,58 @@
   new_path={~p"/admin/media/new"}
 />
 
-<.admin_table rows={@media}>
-  <:col :let={media} label="Status">
+<.admin_table rows={@media} sort={@list_opts.sort || @default_sort} actions_class="w-24">
+  <:col :let={media} label="Status" sort_field="status">
     <.badge color={status_color(media.status)}><%= media.status %></.badge>
   </:col>
-  <:col :let={media} label="Book">
-    <%= media.book %>
+  <:col :let={media} label="Book" sort_field="book">
+    <p class="truncate"><%= media.book %></p>
   </:col>
-  <:col :let={media} label="Series" class="hidden md:table-cell">
-    <%= for series <- media.series do %>
+  <:col :let={media} label="Series" class="hidden 2xl:table-cell" sort_field="series">
+    <p :for={series <- media.series} class="truncate">
       <%= series %>
-      <br />
-    <% end %>
+    </p>
   </:col>
-  <:col :let={media} label="Authors" class="hidden sm:table-cell">
-    <%= for author <- media.authors do %>
+  <:col :let={media} label="Authors" class="hidden 2xl:table-cell" sort_field="authors">
+    <p :for={author <- media.authors} class="truncate">
       <%= author.name %>
-      <%= if author.name != author.person_name do %>
+      <span :if={author.name != author.person_name}>
         (<%= author.person_name %>)
-      <% end %>
-      <br />
-    <% end %>
+      </span>
+    </p>
   </:col>
-  <:col :let={media} label="Narrators" class="hidden sm:table-cell">
-    <%= for narrator <- media.narrators do %>
+  <:col :let={media} label="Narrators" class="hidden 2xl:table-cell" sort_field="narrators">
+    <p :for={narrator <- media.narrators} class="truncate">
       <%= narrator.name %>
-      <%= if narrator.name != narrator.person_name do %>
+      <span :if={narrator.name != narrator.person_name}>
         (<%= narrator.person_name %>)
-      <% end %>
-      <br />
-    <% end %>
+      </span>
+    </p>
   </:col>
-  <:col :let={media} label="Duration">
-    <%= format_timecode(media.duration) %>
+  <:col :let={media} label="Duration" class="hidden md:table-cell" sort_field="duration">
+    <p class="truncate"><%= format_timecode(media.duration) %></p>
+  </:col>
+  <:col :let={media} label="Published" class="hidden 2xl:table-cell" sort_field="published">
+    <p class="truncate"><%= format_published(media) %></p>
   </:col>
   <:col :let={media} label="Features" class="hidden lg:table-cell">
-    <%= if media.abridged do %>
-      <.badge color={:yellow}>abridged</.badge>
-      <br />
-    <% end %>
-    <%= if media.full_cast do %>
-      <.badge color={:blue}>full-cast</.badge>
-      <br />
-    <% end %>
-    <%= if media.has_chapters do %>
-      <.badge color={:brand}>chapters</.badge>
-      <br />
-    <% end %>
+    <div class="flex flex-col gap-1">
+      <div :if={media.abridged}>
+        <.badge color={:yellow}>abridged</.badge>
+      </div>
+      <div :if={media.full_cast}>
+        <.badge color={:blue}>full-cast</.badge>
+      </div>
+      <div :if={media.has_chapters}>
+        <.badge color={:brand}>chapters</.badge>
+      </div>
+    </div>
+  </:col>
+  <:col :let={media} label="Added" class="hidden sm:table-cell" sort_field="inserted_at">
+    <p class="truncate"><%= Calendar.strftime(media.inserted_at, "%x") %></p>
   </:col>
   <:actions :let={media}>
-    <div class="flex gap-2">
-      <div class="grow" />
+    <div class="flex justify-end gap-2">
       <.link navigate={~p"/admin/media/#{media}/chapters"}>
         <FA.icon name="book-bookmark" class="h-4 w-4 fill-current" />
       </.link>

@@ -12,7 +12,14 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   alias Ambry.PubSub
 
   @valid_sort_fields [
-    :book
+    :status,
+    :book,
+    :series,
+    :authors,
+    :narrators,
+    :duration,
+    :published,
+    :inserted_at
   ]
 
   @impl Phoenix.LiveView
@@ -23,7 +30,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
     {:ok,
      socket
-     |> assign(:page_title, "Media")
+     |> assign(page_title: "Media", default_sort: "inserted_at.desc")
      |> set_in_progress_media()
      |> maybe_update_media(params, true)}
   end
@@ -39,7 +46,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {media, has_more?} = list_media(list_opts)
+      {media, has_more?} = list_media(list_opts, socket.assigns.default_sort)
 
       socket
       |> assign(:list_opts, list_opts)
@@ -109,14 +116,23 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:noreply, push_navigate(socket, to: ~p"/admin/media/#{id}/edit")}
   end
 
-  defp list_media(opts) do
+  def handle_event("sort", %{"field" => sort_field}, socket) do
+    list_opts =
+      socket
+      |> get_list_opts()
+      |> Map.update!(:sort, &apply_sort(&1, sort_field, @valid_sort_fields))
+
+    {:noreply, push_patch(socket, to: ~p"/admin/media?#{patch_opts(list_opts)}")}
+  end
+
+  defp list_media(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
     Media.list_media(
       page_to_offset(opts.page),
       limit(),
       filters,
-      sort_to_order(opts.sort, @valid_sort_fields)
+      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
     )
   end
 
@@ -134,6 +150,11 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   end
 
   def handle_info(%PubSub.Message{type: :media}, socket), do: {:noreply, refresh_media(socket)}
+
+  defp format_published(%{published: nil}), do: nil
+  defp format_published(%{published_format: :full, published: date}), do: Calendar.strftime(date, "%x")
+  defp format_published(%{published_format: :year_month, published: date}), do: Calendar.strftime(date, "%Y-%m")
+  defp format_published(%{published_format: :year, published: date}), do: Calendar.strftime(date, "%Y")
 
   defp status_color(:pending), do: :yellow
   defp status_color(:processing), do: :blue

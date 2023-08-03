@@ -6,34 +6,42 @@
   new_path={~p"/admin/books/new"}
 />
 
-<.admin_table rows={@books}>
-  <:col :let={book} label="Title">
-    <%= book.title %>
+<.admin_table rows={@books} sort={@list_opts.sort || @default_sort} actions_class="w-20">
+  <:col :let={book} class="w-12">
+    <div class="h-6 w-6">
+      <img :if={book.image_path} src={book.image_path} class="h-full w-full" />
+    </div>
   </:col>
-  <:col :let={book} label="Authors">
-    <%= for author <- book.authors do %>
+  <:col :let={book} label="Title" sort_field="title">
+    <p class="truncate"><%= book.title %></p>
+  </:col>
+  <:col :let={book} label="Authors" class="hidden sm:table-cell" sort_field="authors">
+    <p :for={author <- book.authors} class="truncate">
       <%= author.name %>
-      <%= if author.name != author.person_name do %>
+      <span :if={author.name != author.person_name}>
         (<%= author.person_name %>)
-      <% end %>
-      <br />
-    <% end %>
+      </span>
+    </p>
   </:col>
-  <:col :let={book} label="Series" class="hidden md:table-cell">
-    <%= for series <- book.series do %>
+  <:col :let={book} label="Series" class="hidden xl:table-cell" sort_field="series">
+    <p :for={series <- book.series} class="truncate">
       <%= series %>
-      <br />
-    <% end %>
+    </p>
   </:col>
-  <:col :let={book} label="First published" class="hidden md:table-cell">
-    <%= format_published(book) %>
+  <:col :let={book} label="First published" class="hidden xl:table-cell" sort_field="published">
+    <p class="truncate"><%= format_published(book) %></p>
   </:col>
-  <:col :let={book} label="# Media" class="hidden sm:table-cell">
+  <:col :let={book} label="# Media" class="hidden xl:table-cell" sort_field="media">
     <%= book.media %>
   </:col>
+  <:col :let={book} label="Description?" class="hidden xl:table-cell" sort_field="has_description">
+    <.boolean_check_mark value={book.has_description} />
+  </:col>
+  <:col :let={book} label="Added" sort_field="inserted_at">
+    <p class="truncate"><%= Calendar.strftime(book.inserted_at, "%x") %></p>
+  </:col>
   <:actions :let={book}>
-    <div class="flex gap-2">
-      <div class="grow" />
+    <div class="flex justify-end gap-2">
       <.link navigate={~p"/admin/books/#{book}/edit"}>
         <FA.icon name="pencil" class="h-4 w-4 fill-current" />
       </.link>

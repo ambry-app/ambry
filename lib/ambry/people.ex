@@ -35,7 +35,7 @@ defmodule Ambry.People do
       {[%PersonFlat{}, ...], true}
 
   """
-  def list_people(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ :name) do
+  def list_people(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ {:inserted_at, :desc}) do
     over_limit = limit + 1
 
     people =

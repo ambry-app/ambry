@@ -11,7 +11,13 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   alias Ambry.PubSub
 
   @valid_sort_fields [
-    :title
+    :title,
+    :authors,
+    :series,
+    :published,
+    :media,
+    :has_description,
+    :inserted_at
   ]
 
   @impl Phoenix.LiveView
@@ -22,7 +28,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
 
     {:ok,
      socket
-     |> assign(page_title: "Books")
+     |> assign(page_title: "Books", default_sort: "inserted_at.desc")
      |> maybe_update_books(params, true)}
   end
 
@@ -37,7 +43,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {books, has_more?} = list_books(list_opts)
+      {books, has_more?} = list_books(list_opts, socket.assigns.default_sort)
 
       socket
       |> assign(:list_opts, list_opts)
@@ -91,21 +97,30 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     {:noreply, push_navigate(socket, to: ~p"/admin/books/#{id}/edit")}
   end
 
-  defp list_books(opts) do
+  def handle_event("sort", %{"field" => sort_field}, socket) do
+    list_opts =
+      socket
+      |> get_list_opts()
+      |> Map.update!(:sort, &apply_sort(&1, sort_field, @valid_sort_fields))
+
+    {:noreply, push_patch(socket, to: ~p"/admin/books?#{patch_opts(list_opts)}")}
+  end
+
+  defp list_books(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
     Books.list_books(
       page_to_offset(opts.page),
       limit(),
       filters,
-      sort_to_order(opts.sort, @valid_sort_fields)
+      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
     )
   end
 
   @impl Phoenix.LiveView
   def handle_info(%PubSub.Message{type: :book}, socket), do: {:noreply, refresh_books(socket)}
 
-  defp format_published(%{published_format: :full, published: date}), do: Calendar.strftime(date, "%Y-%m-%d")
+  defp format_published(%{published_format: :full, published: date}), do: Calendar.strftime(date, "%x")
   defp format_published(%{published_format: :year_month, published: date}), do: Calendar.strftime(date, "%Y-%m")
   defp format_published(%{published_format: :year, published: date}), do: Calendar.strftime(date, "%Y")
 end

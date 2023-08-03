@@ -7,36 +7,30 @@
   autofocus_search={@autofocus_search}
 />
 
-<.admin_table rows={@users} row_click={false}>
-  <:col :let={user} label="Email">
-    <%= user.email %>
+<.admin_table rows={@users} row_click={false} sort={@list_opts.sort || @default_sort} actions_class="w-20">
+  <:col :let={user} label="Email" sort_field="email">
+    <p class="truncate"><%= user.email %></p>
   </:col>
-  <:col :let={user} label="Admin?">
-    <%= if user.admin do %>
-      <FA.icon name="check" class="h-5 w-5 fill-current" />
-    <% else %>
-      <FA.icon name="xmark" class="h-5 w-5 fill-current" />
-    <% end %>
+  <:col :let={user} label="Admin?" class="hidden sm:table-cell" sort_field="admin">
+    <.boolean_check_mark value={user.admin} />
   </:col>
-  <:col :let={user} label="Confirmed?">
-    <%= if user.confirmed do %>
-      <FA.icon name="check" class="h-5 w-5 fill-current" />
-    <% else %>
-      <FA.icon name="xmark" class="h-5 w-5 fill-current" />
-    <% end %>
+  <:col :let={user} label="Confirmed?" class="hidden sm:table-cell" sort_field="confirmed">
+    <.boolean_check_mark value={user.confirmed} />
   </:col>
-  <:col :let={user} label="# In-progress Books" class="hidden sm:table-cell">
+  <:col :let={user} label="# In-progress" class="hidden xl:table-cell" sort_field="media_in_progress">
     <%= user.media_in_progress %>
   </:col>
-  <:col :let={user} label="# Finished Books" class="hidden sm:table-cell">
+  <:col :let={user} label="# Finished" class="hidden xl:table-cell" sort_field="media_finished">
     <%= user.media_finished %>
   </:col>
-  <:col :let={user} label="Last Login" class="hidden md:table-cell">
-    <%= user.last_login_at %>
+  <:col :let={user} label="Last Login" class="hidden xl:table-cell" sort_field="last_login_at">
+    <p class="truncate"><%= Calendar.strftime(user.last_login_at, "%c") %></p>
+  </:col>
+  <:col :let={user} label="Joined" sort_field="inserted_at">
+    <p class="truncate"><%= Calendar.strftime(user.inserted_at, "%x") %></p>
   </:col>
   <:actions :let={user}>
-    <div class="flex items-center gap-2">
-      <div class="grow" />
+    <div class="flex items-center justify-end gap-2">
       <%= if user.id != @current_user.id do %>
         <%= if user.admin do %>
           <.button type="button" color={:yellow} class="flex items-center" phx-click="demote" phx-value-id={user.id}>

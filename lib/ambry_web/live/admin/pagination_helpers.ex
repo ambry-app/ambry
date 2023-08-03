@@ -104,4 +104,26 @@ defmodule AmbryWeb.Admin.PaginationHelpers do
     |> Map.new(&{to_string(&1), &1})
     |> Map.get(key_string)
   end
+
+  def apply_sort(existing_sort, new_sort_field, fields) do
+    existing_order = sort_to_order(existing_sort, fields)
+    proposed_order = sort_to_order(new_sort_field, fields)
+
+    new_order =
+      case {existing_order, proposed_order} do
+        {nil, field} -> field
+        {{field, dir}, field} -> {field, toggle_dir(dir)}
+        {{_field, _dir}, new_field} -> new_field
+        {field, field} -> {field, :desc}
+        {_field, new_field} -> new_field
+      end
+
+    case new_order do
+      {field, dir} -> "#{field}.#{dir}"
+      field -> to_string(field)
+    end
+  end
+
+  defp toggle_dir(:asc), do: :desc
+  defp toggle_dir(:desc), do: :asc
 end

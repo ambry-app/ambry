@@ -58,8 +58,22 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  attr :rows, :list, required: true
+  attr :row_click, :boolean, default: true
+  attr :sort, :string, default: nil
+  attr :actions_class, :string, default: nil
+
+  slot :inner_block, required: true
+  slot :actions
+  slot :no_results
+
+  slot :col, required: true do
+    attr :label, :string
+    attr :class, :string
+    attr :sort_field, :string
+  end
+
   def admin_table(assigns) do
-    assigns = assign_new(assigns, :row_click, fn -> true end)
     default_cell_class = if assigns.row_click, do: "p-3 text-left cursor-pointer", else: "p-3 text-left"
     default_header_class = "p-3 text-left"
 
@@ -86,7 +100,15 @@ defmodule AmbryWeb.Admin.Components do
           <thead>
             <tr>
               <%= for col <- @col do %>
-                <th class={[col[:class], @default_header_class]}><%= col.label %></th>
+                <th class={[col[:class], @default_header_class]}>
+                  <div
+                    class={["flex items-center gap-2", if(col[:sort_field], do: "cursor-pointer select-none")]}
+                    phx-click={if(col[:sort_field], do: JS.push("sort", value: %{field: col.sort_field}))}
+                  >
+                    <p class="truncate"><%= col[:label] %></p>
+                    <.sort_button :if={col[:sort_field]} sort={@sort} sort_field={col.sort_field} />
+                  </div>
+                </th>
               <% end %>
 
               <%= if assigns[:actions] do %>
@@ -123,6 +145,39 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  attr :sort, :string, required: true
+  attr :sort_field, :string, required: true
+
+  defp sort_button(assigns) do
+    {field, dir} = sort_field_and_dir(assigns.sort)
+
+    assigns =
+      assign(assigns,
+        active: assigns.sort_field == field,
+        dir: dir
+      )
+
+    ~H"""
+    <FA.icon name={sort_icon(@active, @dir)} class={["h-4 w-4 ", if(@active, do: "fill-current", else: "fill-zinc-600")]} />
+    """
+  end
+
+  defp sort_field_and_dir(nil), do: {nil, nil}
+
+  defp sort_field_and_dir(sort) do
+    case String.split(sort, ".") do
+      [""] -> {nil, nil}
+      [key] -> {key, "asc"}
+      [key, dir] -> {key, dir}
+      _else -> {nil, nil}
+    end
+  end
+
+  defp sort_icon(false, _dir), do: "sort"
+  defp sort_icon(true, "asc"), do: "sort-up"
+  defp sort_icon(true, "desc"), do: "sort-down"
+  defp sort_icon(_active, _dir), do: "sort"
+
   @doc """
   Renders a colored badge with a label in it.
 
@@ -146,6 +201,29 @@ defmodule AmbryWeb.Admin.Components do
   defp badge_color(:red), do: "border-red-200 bg-red-50 dark:border-red-400 dark:bg-red-400"
   defp badge_color(:brand), do: "border-lime-200 bg-lime-50 dark:border-lime-400 dark:bg-lime-400"
   defp badge_color(:gray), do: "border-zinc-200 bg-zinc-100 dark:border-zinc-400 dark:bg-zinc-400"
+
+  attr :value, :boolean, required: true
+
+  def boolean_check_mark(assigns) do
+    ~H"""
+    <%= if @value do %>
+      <FA.icon name="check" class="h-5 w-5 fill-current" />
+    <% else %>
+      <FA.icon name="xmark" class="h-5 w-5 fill-current" />
+    <% end %>
+    """
+  end
+
+  attr :field, FormField, required: true
+
+  def image_delete_button(assigns) do
+    ~H"""
+    <label class="flex">
+      <input type="checkbox" name={@field.name} value="" class="hidden" />
+      <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600" />
+    </label>
+    """
+  end
 
   attr :drop_param, :atom, required: true
   attr :parent_form, Form, required: true

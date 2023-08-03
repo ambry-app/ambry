@@ -16,6 +16,7 @@ defmodule Ambry.Books.BookFlat do
     field :series, {:array, :string}
     field :universe, :string
     field :media, :integer
+    field :has_description, :boolean
 
     timestamps()
   end

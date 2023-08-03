@@ -8,6 +8,7 @@ defmodule Ambry.People.PersonFlat do
   schema "people_flat" do
     field :name, :string
     field :image_path, :string
+    field :has_description, :boolean
 
     field :is_author, :boolean
     field :writing_as, {:array, :string}
