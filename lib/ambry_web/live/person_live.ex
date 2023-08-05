@@ -43,7 +43,7 @@ defmodule AmbryWeb.PersonLive do
         </section>
       </div>
 
-      <div :for={author <- @person.authors}>
+      <div :for={author <- @person.authors} :if={author.books != []}>
         <.books_header>
           Written by <%= name_for_header(author, @person) %>
         </.books_header>
@@ -51,7 +51,7 @@ defmodule AmbryWeb.PersonLive do
         <.book_tiles books={author.books} />
       </div>
 
-      <div :for={narrator <- @person.narrators}>
+      <div :for={narrator <- @person.narrators} :if={narrator.books != []}>
         <.books_header>
           Narrated by <%= name_for_header(narrator, @person) %>
         </.books_header>
