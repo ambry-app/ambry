@@ -77,12 +77,12 @@ ARG MIX_ENV=prod
 
 ENV PHX_SERVER=true
 
-USER nobody
-
 COPY --from=elixir-builder --chown=nobody:nogroup /app /app
 
 RUN mkdir -p /app/uploads
 VOLUME /app/uploads
+
+USER nobody
 
 WORKDIR /app
 ENTRYPOINT ["/app/bin/ambry"]

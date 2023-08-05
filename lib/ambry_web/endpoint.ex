@@ -20,8 +20,8 @@ defmodule AmbryWeb.Endpoint do
   plug Plug.Static,
     at: "/",
     from: :ambry,
-    gzip: false,
-    only: AmbryWeb.static_paths()
+    gzip: true,
+    only_matching: AmbryWeb.static_matching()
 
   # Serve static user uploaded images
   plug Plug.Static,
