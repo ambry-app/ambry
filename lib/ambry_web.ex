@@ -18,6 +18,7 @@ defmodule AmbryWeb do
   """
 
   def static_paths, do: ~w(assets favicon.svg favicon.png favicon-32x32.png favicon-96x96.png robots.txt)
+  def static_matching, do: ~w(assets favicon robots)
 
   def router do
     quote do
