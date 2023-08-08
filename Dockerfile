@@ -52,7 +52,7 @@ RUN mix release --path /app --quiet
 # --------------------------
 # Base Image - elixir-runner
 # --------------------------
-FROM docker.io/alpine:3.18.2 as elixir-runner
+FROM docker.io/alpine:3.18.3 as elixir-runner
 
 ARG SHAKA_VERSION=2.6.1
 
