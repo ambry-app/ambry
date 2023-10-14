@@ -1,4 +1,4 @@
 # NOTE: make sure these versions match in Containerfile and .github/workflows/elixir.yml
 
-elixir 1.15.4-otp-26
-erlang 26.0.2
+elixir 1.15.6-otp-26
+erlang 26.1.2
