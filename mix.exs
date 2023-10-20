@@ -47,7 +47,7 @@ defmodule Ambry.MixProject do
       {:absinthe_relay, "~> 1.5"},
       {:absinthe, "~> 1.7"},
       {:argon2_elixir, "~> 4.0"},
-      {:bandit, "~> 0.6"},
+      {:bandit, "~> 1.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dataloader, "~> 2.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
