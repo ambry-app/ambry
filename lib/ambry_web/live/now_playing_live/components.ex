@@ -76,7 +76,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
 
         <div
           id="about-body"
-          class={["media-tab-body p-4 space-y-2", if(start_on_chapters?(@player.player_state.media), do: "hidden")]}
+          class={["media-tab-body space-y-2 p-4", if(start_on_chapters?(@player.player_state.media), do: "hidden")]}
         >
           <.markdown
             :if={@player.player_state.media.book.description}

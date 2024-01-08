@@ -121,12 +121,7 @@ defmodule AmbryWeb.CoreComponents do
       phx-window-keydown={JS.exec("data-dismiss")}
       phx-key="escape"
       role="alert"
-      class={[
-        "fixed top-2 right-2 w-80 sm:w-96 z-50 rounded-sm p-3 shadow-md ring-1",
-        "text-zinc-900 fill-zinc-900 shadow-zinc-900/5",
-        @kind == :info && "bg-lime-50 ring-lime-200 dark:ring-lime-400 dark:bg-lime-400",
-        @kind == :error && "bg-red-50 ring-red-200 dark:ring-red-400 dark:bg-red-400"
-      ]}
+      class={["fixed top-2 right-2 z-50 w-80 rounded-sm p-3 shadow-md ring-1 sm:w-96", "shadow-zinc-900/5 fill-zinc-900 text-zinc-900", @kind == :info && "bg-lime-50 ring-lime-200 dark:bg-lime-400 dark:ring-lime-400", @kind == :error && "bg-red-50 ring-red-200 dark:bg-red-400 dark:ring-red-400"]}
       {@rest}
     >
       <p :if={@title} class="flex items-center gap-1.5 text-sm font-semibold leading-6">
@@ -242,13 +237,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <button
       type={@type}
-      class={[
-        "phx-submit-loading:opacity-75 rounded-sm py-2 px-3",
-        "text-sm font-semibold leading-6",
-        "text-white active:text-white/80 dark:text-zinc-900 dark:active:text-zinc-800",
-        button_color_classes(@color),
-        @class
-      ]}
+      class={["rounded-sm px-3 py-2 phx-submit-loading:opacity-75", "text-sm font-semibold leading-6", "text-white active:text-white/80 dark:text-zinc-900 dark:active:text-zinc-800", button_color_classes(@color), @class]}
       {@rest}
     >
       <%= render_slot(@inner_block) %>
@@ -333,12 +322,7 @@ defmodule AmbryWeb.CoreComponents do
           name={@name}
           value="true"
           checked={@checked}
-          class={[
-            "rounded",
-            "bg-white border-zinc-300 text-zinc-900 focus:ring-zinc-900",
-            "dark:bg-zinc-800 dark:border-none dark:text-zinc-800 dark:focus:ring-zinc-900",
-            @class
-          ]}
+          class={["rounded", "border-zinc-300 bg-white text-zinc-900 focus:ring-zinc-900", "dark:border-none dark:bg-zinc-800 dark:text-zinc-800 dark:focus:ring-zinc-900", @class]}
           {@rest}
         />
         <%= @label %>
@@ -355,12 +339,7 @@ defmodule AmbryWeb.CoreComponents do
       <select
         id={@id}
         name={@name}
-        class={
-          [
-            "block w-full rounded-sm py-[7px] px-[11px]",
-            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
-          ] ++ input_color_classes(@errors) ++ [@class]
-        }
+        class={["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++ input_color_classes(@errors) ++ [@class]}
         multiple={@multiple}
         {@rest}
       >
@@ -379,12 +358,7 @@ defmodule AmbryWeb.CoreComponents do
       <textarea
         id={@id}
         name={@name}
-        class={
-          [
-            "block min-h-48 w-full rounded-sm py-[7px] px-[11px]",
-            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
-          ] ++ input_color_classes(@errors) ++ [@class]
-        }
+        class={["min-h-48 py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++ input_color_classes(@errors) ++ [@class]}
         {@rest}
       ><%= Form.normalize_value("textarea", @value) %></textarea>
       <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
@@ -425,12 +399,7 @@ defmodule AmbryWeb.CoreComponents do
         name={@name}
         id={@id}
         value={Form.normalize_value(@type, @value)}
-        class={
-          [
-            "block w-full rounded-sm py-[7px] px-[11px]",
-            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
-          ] ++ input_color_classes(@errors) ++ [@class]
-        }
+        class={["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++ input_color_classes(@errors) ++ [@class]}
         {@rest}
       />
       <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
