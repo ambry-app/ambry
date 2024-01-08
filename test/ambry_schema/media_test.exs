@@ -73,7 +73,7 @@ defmodule AmbrySchema.MediaTest do
                    "chapters" => [
                      %{
                        "id" => "gY",
-                       "startTime" => 0.0,
+                       "startTime" => t,
                        "endTime" => _,
                        "title" => "Chapter 1"
                      }
@@ -87,6 +87,8 @@ defmodule AmbrySchema.MediaTest do
                  }
                }
              } = json_response(conn, 200)
+
+      assert t == 0.0
     end
   end
 

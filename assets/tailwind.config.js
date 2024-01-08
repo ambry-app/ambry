@@ -3,6 +3,9 @@
 
 const plugin = require("tailwindcss/plugin")
 
+let { extract } = require("../deps/tailwind_formatter/assets/js")
+extract(module.exports, "../_build")
+
 module.exports = {
   content: ["./js/**/*.js", "../lib/*_web.ex", "../lib/*_web/**/*.*ex"],
   theme: {
