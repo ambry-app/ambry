@@ -36,7 +36,7 @@ defmodule AmbryWeb.Layouts do
             </.link>
             <span
               phx-click={show_search()}
-              class={nav_class(String.starts_with?(@active_path, "/search"), "flex content-center gap-4 cursor-pointer")}
+              class={nav_class(String.starts_with?(@active_path, "/search"), "flex cursor-pointer content-center gap-4")}
             >
               <span title="Search">
                 <FA.icon name="magnifying-glass" class="mt-1 h-6 w-6 fill-current lg:h-5 lg:w-5" />

@@ -72,10 +72,7 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
       </div>
 
       <div class="relative w-full">
-        <div class={[
-          "absolute top-0 right-0 left-0 max-h-96 overflow-y-auto rounded-sm border border-t-0 border-zinc-600 bg-zinc-950 shadow-lg",
-          if(!@open, do: "hidden")
-        ]}>
+        <div class={["absolute top-0 right-0 left-0 max-h-96 overflow-y-auto rounded-sm border border-t-0 border-zinc-600 bg-zinc-950 shadow-lg", if(!@open, do: "hidden")]}>
           <div
             :for={option <- @options}
             class={["relative hover:bg-zinc-900", if(option == @selected_option, do: "bg-zinc-900")]}

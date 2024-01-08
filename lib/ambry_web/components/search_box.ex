@@ -8,10 +8,7 @@ defmodule AmbryWeb.Components.SearchBox do
     ~H"""
     <div
       id={@id}
-      class={[
-        "absolute top-4 w-full sm:max-w-md md:max-w-xl lg:max-w-3xl sm:left-1/2 sm:-translate-x-1/2",
-        if(!@is_open, do: "hidden")
-      ]}
+      class={["absolute top-4 w-full sm:left-1/2 sm:max-w-md sm:-translate-x-1/2 md:max-w-xl lg:max-w-3xl", if(!@is_open, do: "hidden")]}
       phx-click-away={@hide_search}
       phx-window-keydown={@hide_search}
       phx-key="escape"
@@ -33,10 +30,7 @@ defmodule AmbryWeb.Components.SearchBox do
         <span
           id="clear-search"
           title="Clear"
-          class={[
-            "mr-4 flex-none cursor-pointer self-center",
-            if(!@is_open, do: "hidden")
-          ]}
+          class={["mr-4 flex-none cursor-pointer self-center", if(!@is_open, do: "hidden")]}
         >
           <FA.icon name="xmark" class="h-5 w-5 fill-zinc-500" />
         </span>
