@@ -8,9 +8,6 @@ on:
 
 env:
   MIX_ENV: test
-  # NOTE: make sure these versions match in Containerfile and .tool-versions
-  ELIXIR_VERSION_SPEC: "1.15.6"
-  OTP_VERSION_SPEC: "26.1.2"
 
 jobs:
   compile:
@@ -23,8 +20,8 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.16
         with:
-          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
-          otp-version: ${{ env.OTP_VERSION_SPEC }}
+          version-file: .tool-versions
+          version-type: strict
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
@@ -55,8 +52,8 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.16
         with:
-          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
-          otp-version: ${{ env.OTP_VERSION_SPEC }}
+          version-file: .tool-versions
+          version-type: strict
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
@@ -76,8 +73,8 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.16
         with:
-          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
-          otp-version: ${{ env.OTP_VERSION_SPEC }}
+          version-file: .tool-versions
+          version-type: strict
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
@@ -95,8 +92,8 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.16
         with:
-          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
-          otp-version: ${{ env.OTP_VERSION_SPEC }}
+          version-file: .tool-versions
+          version-type: strict
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
@@ -132,8 +129,8 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.16
         with:
-          elixir-version: ${{ env.ELIXIR_VERSION_SPEC }}
-          otp-version: ${{ env.OTP_VERSION_SPEC }}
+          version-file: .tool-versions
+          version-type: strict
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies

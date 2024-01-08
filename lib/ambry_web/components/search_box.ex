@@ -18,14 +18,16 @@ defmodule AmbryWeb.Components.SearchBox do
         <span phx-click={@hide_search} title="Back" class="ml-4 flex-none cursor-pointer self-center">
           <FA.icon name="arrow-left" class="h-5 w-5 fill-zinc-500" />
         </span>
-        <.form :let={f} for={%{}} as={:search} phx-submit="search" phx-target={@myself} class="grow">
-          <%= Phoenix.HTML.Form.search_input(f, :query,
-            id: "search-input",
-            value: @query,
-            placeholder: "Search",
-            class: "w-full border-0 bg-transparent placeholder:font-bold placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0",
-            "phx-autofocus": @is_open
-          ) %>
+        <.form :let={form} for={%{"query" => @query}} as={:search} phx-submit="search" phx-target={@myself} class="grow">
+          <input
+            type="search"
+            id="search-input"
+            value={form[:query].value}
+            name={form[:query].name}
+            placeholder="Search"
+            class="w-full border-0 bg-transparent placeholder:font-bold placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0"
+            phx-autofocus={@is_open}
+          />
         </.form>
         <span
           id="clear-search"

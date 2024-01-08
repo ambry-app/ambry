@@ -71,7 +71,7 @@ defmodule Ambry.MixProject do
       {:npm_deps, "~> 0.3.1", runtime: false},
       {:oban, "~> 2.11"},
       {:phoenix_ecto, "~> 4.4"},
-      {:phoenix_html, "~> 3.3"},
+      {:phoenix_html, "~> 4.0", override: true},
       {:phoenix_live_dashboard, "~> 0.8"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 0.19"},
@@ -92,8 +92,8 @@ defmodule Ambry.MixProject do
     [
       {:"decimal.js", "10.4.3"},
       {:"platform-detect", "3.0.1"},
-      {:"shaka-player", "4.5.0"},
-      {:topbar, "2.0.1"}
+      {:"shaka-player", "4.7.1"},
+      {:topbar, "2.0.2"}
     ]
   end
 
