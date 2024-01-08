@@ -154,9 +154,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
     media_params =
       if audio_files != [] do
-        Map.merge(media_params, %{
-          "source_path" => source_folder
-        })
+        Map.put(media_params, "source_path", source_folder)
       else
         media_params
       end
