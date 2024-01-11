@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Elixir
-        uses: erlef/setup-beam@v1.16
+        uses: erlef/setup-beam@v1.17
         with:
           version-file: .tool-versions
           version-type: strict
@@ -50,7 +50,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Elixir
-        uses: erlef/setup-beam@v1.16
+        uses: erlef/setup-beam@v1.17
         with:
           version-file: .tool-versions
           version-type: strict
@@ -71,7 +71,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Elixir
-        uses: erlef/setup-beam@v1.16
+        uses: erlef/setup-beam@v1.17
         with:
           version-file: .tool-versions
           version-type: strict
@@ -90,7 +90,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Elixir
-        uses: erlef/setup-beam@v1.16
+        uses: erlef/setup-beam@v1.17
         with:
           version-file: .tool-versions
           version-type: strict
@@ -127,7 +127,7 @@ jobs:
           restore-keys: |
             plt-cache-
       - name: Set up Elixir
-        uses: erlef/setup-beam@v1.16
+        uses: erlef/setup-beam@v1.17
         with:
           version-file: .tool-versions
           version-type: strict
