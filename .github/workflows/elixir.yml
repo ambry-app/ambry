@@ -118,7 +118,7 @@ jobs:
           echo "::set-output name=mix_hash::$mix_hash"
       - name: Cache PLT files
         id: cache-plt
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             _build/dev/*.plt
