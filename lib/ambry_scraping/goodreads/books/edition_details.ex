@@ -95,7 +95,7 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
   end
 
   defp parse_cover_image(html) do
-    [src] = html |> Floki.find("div.BookPage__bookCover img") |> Floki.attribute("src")
+    [src | _rest] = html |> Floki.find("div.BookPage__bookCover img") |> Floki.attribute("src")
 
     Image.fetch_from_source(src)
   end
