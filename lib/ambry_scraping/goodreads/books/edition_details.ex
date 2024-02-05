@@ -83,7 +83,7 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
   defp clean_author_type_string(""), do: "author"
 
   defp clean_author_type_string(string) do
-    string |> String.slice(1..-2) |> String.downcase() |> clean_string()
+    string |> String.slice(1..-2//1) |> String.downcase() |> clean_string()
   end
 
   defp parse_description(html) do
