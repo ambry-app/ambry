@@ -11,6 +11,7 @@ defmodule Ambry.Media.Processor do
   alias Ambry.Media.Processor.MP4
   alias Ambry.Media.Processor.MP4Concat
   alias Ambry.Media.Processor.MP4ConcatReEncode
+  alias Ambry.Media.Processor.MP4Copy
   alias Ambry.Media.Processor.MP4ReEncode
   alias Ambry.Media.Processor.OpusConcat
 
@@ -20,6 +21,7 @@ defmodule Ambry.Media.Processor do
     MP4,
     MP4Concat,
     MP4ConcatReEncode,
+    MP4Copy,
     MP4ReEncode,
     OpusConcat
   ]

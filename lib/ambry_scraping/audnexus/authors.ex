@@ -30,6 +30,7 @@ defmodule AmbryScraping.Audnexus.Authors do
   end
 
   defp image(nil), do: nil
+  defp image(""), do: nil
   defp image(src), do: AmbryScraping.Image.fetch_from_source(src)
 
   def search(name) do

@@ -2,9 +2,9 @@
 # Base Image - elixir-builder
 # ---------------------------
 
-# NOTE: make sure these versions match in .github/workflows/elixir.yml and .tool-versions
+# NOTE: make sure these versions match in .tool-versions
 # NOTE: make sure the alpine version matches down below
-FROM docker.io/hexpm/elixir:1.16.1-erlang-26.2-alpine-3.18.4 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.16.1-erlang-26.2.2-alpine-3.19.1 AS elixir-builder
 
 ARG MIX_ENV=prod
 
@@ -49,6 +49,26 @@ RUN mix release --path /app --quiet
 
 
 
+# # --------------------------
+# # Base Image - shaka-builder
+# # --------------------------
+# # Shaka only compiles correctly on alpine 3.12
+# FROM docker.io/alpine:3.12 as shaka-builder
+
+# ARG SHAKA_VERSION=7ef51671f1a221443bcd000ccb13189ee6ccf749
+
+# RUN apk --update upgrade && \
+#   apk add bash curl bsd-compat-headers linux-headers build-base cmake git ninja python3
+
+# RUN git clone --recurse-submodules https://github.com/shaka-project/shaka-packager.git && \
+#   cd shaka-packager && \
+#   git checkout $SHAKA_VERSION && \
+#   git submodule update --recursive && \
+#   cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && \
+#   cmake --build build --parallel
+
+
+
 # --------------------------
 # Base Image - elixir-runner
 # --------------------------
@@ -77,6 +97,7 @@ ARG MIX_ENV=prod
 
 ENV PHX_SERVER=true
 
+# COPY --from=shaka-builder --chown=nobody:nogroup /shaka-packager/build/packager/packager /usr/local/bin/shaka-packager
 COPY --from=elixir-builder --chown=nobody:nogroup /app /app
 
 RUN mkdir -p /app/uploads
