@@ -67,7 +67,7 @@ defmodule Ambry.MixProject do
       {:hashids, "~> 2.0"},
       {:jason, "~> 1.2"},
       {:natural_order, "~> 0.3"},
-      {:npm_deps, "~> 0.3.1", runtime: false},
+      {:npm_deps, github: "doughsay/npm_deps", runtime: false},
       {:oban, "~> 2.11"},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 4.0", override: true},
