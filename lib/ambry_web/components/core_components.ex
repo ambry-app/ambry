@@ -440,11 +440,19 @@ defmodule AmbryWeb.CoreComponents do
   attr :field, FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
 
+  attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
+
   def field_errors(%{field: %FormField{} = field} = assigns) do
-    assigns = assign(assigns, :errors, Enum.map(field.errors, &translate_error(&1)))
+    assigns =
+      assigns
+      |> assign(field: nil)
+      |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
+      |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
 
     ~H"""
-    <.error :for={msg <- @errors}><%= msg %></.error>
+    <div phx-feedback-for={@name}>
+      <.error :for={msg <- @errors}><%= msg %></.error>
+    </div>
     """
   end
 

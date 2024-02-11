@@ -70,6 +70,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     {:noreply, assign_form(socket, changeset)}
   end
 
+  # FIXME: Don't use form submit event for this
   def handle_event("submit", %{"import" => import_type, "book" => book_params}, socket) do
     changeset =
       socket.assigns.book
@@ -124,16 +125,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     changeset = Books.change_book(socket.assigns.book, new_params)
 
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
-  end
-
-  # Forwards `handle_info` messages from `Task`s to live component
-  def handle_info({_task_ref, {{:for, component, id}, payload}}, socket) do
-    send_update(component, id: id, info: payload)
-    {:noreply, socket}
-  end
-
-  def handle_info({:DOWN, _task_ref, :process, _pid, :normal}, socket) do
-    {:noreply, socket}
   end
 
   defp cancel_all_uploads(socket, upload) do
