@@ -29,7 +29,7 @@ defmodule Ambry.MixProject do
   def application do
     [
       mod: {Ambry.Application, []},
-      extra_applications: [:logger, :runtime_tools, :os_mon]
+      extra_applications: [:logger, :runtime_tools, :os_mon, :inets, :ssl]
     ]
   end
 
@@ -68,7 +68,7 @@ defmodule Ambry.MixProject do
       {:hashids, "~> 2.0"},
       {:jason, "~> 1.2"},
       {:natural_order, "~> 0.3"},
-      {:npm_deps, github: "doughsay/npm_deps", runtime: false},
+      {:npm_deps, "~> 0.3", runtime: false},
       {:oban, "~> 2.11"},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 4.0", override: true},
