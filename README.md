@@ -141,7 +141,7 @@ directory. The versions are defined in `.tool-versions`.
 
 ```bash
 # download hex and npm dependencies
-mix deps.get_all
+mix deps.get
 
 # create and migrate the database
 mix ecto.setup
