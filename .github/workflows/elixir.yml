@@ -24,8 +24,6 @@ jobs:
           version-type: strict
       - name: Install dependencies
         run: mix deps.get
-      - name: Compile dependencies
-        run: mix deps.compile
       - name: Compile
         run: mix compile --warnings-as-errors
 
@@ -56,8 +54,6 @@ jobs:
           version-type: strict
       - name: Install dependencies
         run: mix deps.get
-      - name: Compile dependencies
-        run: mix deps.compile
       - name: Setup database
         run: mix ecto.setup
       - name: Run tests
@@ -77,8 +73,6 @@ jobs:
           version-type: strict
       - name: Install dependencies
         run: mix deps.get
-      - name: Compile dependencies
-        run: mix deps.compile
       - name: Check formatted
         run: mix format --check-formatted
 
@@ -96,8 +90,6 @@ jobs:
           version-type: strict
       - name: Install dependencies
         run: mix deps.get
-      - name: Compile dependencies
-        run: mix deps.compile
       - name: Run credo
         run: mix credo --strict
 
@@ -133,7 +125,5 @@ jobs:
           version-type: strict
       - name: Install dependencies
         run: mix deps.get
-      - name: Compile dependencies
-        run: mix deps.compile
       - name: Run dialyzer
         run: mix dialyzer
