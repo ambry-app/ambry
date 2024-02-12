@@ -24,20 +24,18 @@ RUN apk --update upgrade && \
 COPY config /src/config
 COPY mix.exs mix.lock /src/
 
-RUN mix deps.get --only $MIX_ENV
+RUN mix deps.get --only $MIX_ENV && \
+  mix deps.compile && \
+  mix npm_deps.get
 
-# compile deps
-
-RUN mix deps.compile
-
-# compile apps
+# compile app
 
 COPY lib/ ./lib
 COPY priv/ ./priv
 
 RUN mix compile
 
-# deploy assets
+# build & deploy assets
 
 COPY assets/ ./assets
 
