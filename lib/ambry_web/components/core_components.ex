@@ -123,7 +123,7 @@ defmodule AmbryWeb.CoreComponents do
       role="alert"
       class={[
         "fixed top-2 right-2 z-50 w-80 rounded-sm p-3 shadow-md ring-1 sm:w-96",
-        "fill-zinc-900 text-zinc-900 shadow-zinc-900/5",
+        "shadow-zinc-900/5 fill-zinc-900 text-zinc-900",
         @kind == :info && "bg-lime-50 ring-lime-200 dark:bg-lime-400 dark:ring-lime-400",
         @kind == :error && "bg-red-50 ring-red-200 dark:bg-red-400 dark:ring-red-400"
       ]}
@@ -965,7 +965,7 @@ defmodule AmbryWeb.CoreComponents do
         <% else %>
           <div class="text-center text-lg">
             <div phx-click={@load_more} phx-target={@target} class="group">
-              <span class="aspect-1 block cursor-pointer">
+              <span class="block aspect-1 cursor-pointer">
                 <span class="load-more flex h-full w-full rounded-sm border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                   <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
                 </span>
@@ -992,7 +992,7 @@ defmodule AmbryWeb.CoreComponents do
       <% end %>
       <div class="group">
         <.link navigate={~p"/books/#{@book}"}>
-          <span class="aspect-1 block">
+          <span class="block aspect-1">
             <img
               src={@book.image_path}
               class="h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
@@ -1082,7 +1082,7 @@ defmodule AmbryWeb.CoreComponents do
       <%= if @show_load_more do %>
         <div class="text-center text-lg">
           <div phx-click={@load_more} phx-target={@target} class="group">
-            <span class="aspect-1 block cursor-pointer">
+            <span class="block aspect-1 cursor-pointer">
               <span class="load-more flex h-full w-full rounded-sm border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
                 <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
               </span>
