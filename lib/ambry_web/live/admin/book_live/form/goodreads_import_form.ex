@@ -35,56 +35,42 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
 
   @impl Phoenix.LiveComponent
   def handle_async(:search, {:ok, books}, socket) do
-    socket = assign(socket, books: AsyncResult.ok(socket.assigns.books, books))
+    [first_book | _rest] = books
 
-    socket =
-      case books do
-        [] ->
-          socket
-
-        [first_book | _rest] ->
-          socket
-          |> assign(select_book_form: to_form(%{"book_id" => first_book.id}, as: :select_book))
-          |> start_async(:fetch_editions, fn -> fetch_editions(first_book) end)
-      end
-
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> assign(books: AsyncResult.ok(socket.assigns.books, books))
+     |> assign(select_book_form: to_form(%{"book_id" => first_book.id}, as: :select_book))
+     |> start_async(:fetch_editions, fn -> fetch_editions(first_book) end)}
   end
 
   def handle_async(:search, {:exit, {:shutdown, :cancel}}, socket) do
     {:noreply, assign(socket, books: AsyncResult.loading())}
   end
 
-  def handle_async(:search, {:exit, reason}, socket) do
-    {:noreply, assign(socket, books: AsyncResult.failed(socket.assigns.books, {:exit, reason}))}
+  def handle_async(:search, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply, assign(socket, books: AsyncResult.failed(socket.assigns.books, exception.message))}
   end
 
   def handle_async(:fetch_editions, {:ok, editions}, socket) do
-    socket = assign(socket, editions: AsyncResult.ok(socket.assigns.editions, editions))
-
     selected_edition =
       Enum.find(editions.editions, List.first(editions.editions), fn edition ->
         edition.format |> String.downcase() |> String.contains?("audio")
       end)
 
-    socket =
-      if selected_edition do
-        socket
-        |> assign(select_edition_form: to_form(%{"edition_id" => selected_edition.id}, as: :select_edition))
-        |> start_async(:fetch_edition_details, fn -> fetch_edition_details(selected_edition) end)
-      else
-        socket
-      end
-
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> assign(editions: AsyncResult.ok(socket.assigns.editions, editions))
+     |> assign(select_edition_form: to_form(%{"edition_id" => selected_edition.id}, as: :select_edition))
+     |> start_async(:fetch_edition_details, fn -> fetch_edition_details(selected_edition) end)}
   end
 
   def handle_async(:fetch_editions, {:exit, {:shutdown, :cancel}}, socket) do
     {:noreply, assign(socket, editions: AsyncResult.loading())}
   end
 
-  def handle_async(:fetch_editions, {:exit, reason}, socket) do
-    {:noreply, assign(socket, editions: AsyncResult.failed(socket.assigns.editions, {:exit, reason}))}
+  def handle_async(:fetch_editions, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply, assign(socket, editions: AsyncResult.failed(socket.assigns.editions, exception.message))}
   end
 
   def handle_async(:fetch_edition_details, {:ok, results}, socket) do
@@ -102,8 +88,8 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
     {:noreply, assign(socket, edition_details: AsyncResult.loading())}
   end
 
-  def handle_async(:fetch_edition_details, {:exit, reason}, socket) do
-    {:noreply, assign(socket, edition_details: AsyncResult.failed(socket.assigns.edition_details, {:exit, reason}))}
+  def handle_async(:fetch_edition_details, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply, assign(socket, edition_details: AsyncResult.failed(socket.assigns.edition_details, exception.message))}
   end
 
   @impl Phoenix.LiveComponent
@@ -219,26 +205,22 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
   end
 
   defp search(query) do
-    Process.sleep(2000)
-
-    case query |> String.trim() |> String.downcase() |> GoodReads.search_books() do
+    case "#{query}" |> String.trim() |> String.downcase() |> GoodReads.search_books() do
+      {:ok, []} -> raise "No books found"
       {:ok, books} -> books
-      {:error, reason} -> raise "Failed to fetch books from GoodReads: #{inspect(reason)}"
+      {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
     end
   end
 
   defp fetch_editions(book) do
-    Process.sleep(2000)
-
     case GoodReads.editions(book.id) do
+      {:ok, %{editions: []}} -> raise "No editions found"
       {:ok, editions} -> editions
-      {:error, reason} -> raise "Failed to fetch editions from GoodReads: #{inspect(reason)}"
+      {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
     end
   end
 
   defp fetch_edition_details(edition) do
-    Process.sleep(2000)
-
     case GoodReads.edition_details(edition.id) do
       {:ok, edition_details} ->
         matching_authors =
@@ -254,7 +236,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
         %{edition_details: edition_details, matching_authors: matching_authors, matching_series: matching_series}
 
       {:error, reason} ->
-        raise "Failed to fetch edition details from GoodReads: #{inspect(reason)}"
+        raise "Unhandled error: #{inspect(reason)}"
     end
   end
 

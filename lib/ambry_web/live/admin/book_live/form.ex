@@ -70,22 +70,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     {:noreply, assign_form(socket, changeset)}
   end
 
-  # FIXME: Don't use form submit event for this
-  def handle_event("submit", %{"import" => import_type, "book" => book_params}, socket) do
-    changeset =
-      socket.assigns.book
-      |> Books.change_book(book_params)
-      |> Map.put(:action, :validate)
-
-    if Keyword.has_key?(changeset.errors, :title) do
-      {:noreply, assign_form(socket, changeset)}
-    else
-      socket = assign(socket, import: %{type: String.to_existing_atom(import_type), query: book_params["title"]})
-
-      {:noreply, socket}
-    end
-  end
-
   def handle_event("submit", %{"book" => book_params}, socket) do
     with {:ok, _book} <-
            socket.assigns.book |> Books.change_book(book_params) |> Changeset.apply_action(:insert),
@@ -97,6 +81,14 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       {:error, :failed_upload} -> {:noreply, put_flash(socket, :error, "Failed to upload image")}
       {:error, :failed_import} -> {:noreply, put_flash(socket, :error, "Failed to import image")}
     end
+  end
+
+  def handle_event("open-import-form", %{"type" => type}, socket) do
+    query = socket.assigns.form.params["title"]
+    import_type = String.to_existing_atom(type)
+    socket = assign(socket, import: %{type: import_type, query: query})
+
+    {:noreply, socket}
   end
 
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
@@ -176,4 +168,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp import_form(:goodreads), do: GoodreadsImportForm
   defp import_form(:audible), do: AudibleImportForm
+
+  defp open_import_form(type), do: JS.push("open-import-form", value: %{"type" => type})
 end

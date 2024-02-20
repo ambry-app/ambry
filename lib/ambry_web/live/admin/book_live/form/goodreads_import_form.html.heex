@@ -14,8 +14,7 @@
     </:loading>
 
     <:failed :let={failure}>
-      <.error>There was an error searching GoodReads for books:</.error>
-      <pre><%= inspect(failure, pretty: true) %></pre>
+      <.error>There was an error searching GoodReads for books: <%= failure %></.error>
     </:failed>
 
     <div class="grid grid-cols-2 gap-2">
@@ -41,8 +40,7 @@
           </:loading>
 
           <:failed :let={failure}>
-            <.error>There was an error fetching editions from GoodReads:</.error>
-            <pre><%= inspect(failure, pretty: true) %></pre>
+            <.error>There was an error fetching editions from GoodReads: <%= failure %></.error>
           </:failed>
 
           <div class="space-y-2">
@@ -68,8 +66,7 @@
     </:loading>
 
     <:failed :let={failure}>
-      <.error>There was an error fetching edition details from GoodReads:</.error>
-      <pre><%= inspect(failure, pretty: true) %></pre>
+      <.error>There was an error fetching edition details from GoodReads: <%= failure %></.error>
     </:failed>
 
     <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">

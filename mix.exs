@@ -29,7 +29,7 @@ defmodule Ambry.MixProject do
   def application do
     [
       mod: {Ambry.Application, []},
-      extra_applications: [:logger, :runtime_tools, :os_mon, :inets, :ssl]
+      extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end
 
@@ -48,7 +48,6 @@ defmodule Ambry.MixProject do
       {:absinthe, "~> 1.7"},
       {:argon2_elixir, "~> 4.0"},
       {:bandit, "~> 1.0"},
-      {:castore, ">= 0.0.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dataloader, "~> 2.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
