@@ -21,6 +21,8 @@ defmodule AmbryScraping.GoodReads.Books.Search do
     defstruct [:src, :data_url]
   end
 
+  def search(""), do: {:ok, []}
+
   def search(query_string) do
     query = URI.encode_query(%{utf8: "✓", query: query_string})
     path = "/search" |> URI.new!() |> URI.append_query(query) |> URI.to_string()

@@ -62,6 +62,8 @@ defmodule AmbryScraping.Audible.Products do
   @doc """
   Returns product details for a given title search query.
   """
+  def search(""), do: {:ok, []}
+
   def search(query) do
     query =
       URI.encode_query(%{
