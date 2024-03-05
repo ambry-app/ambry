@@ -6,13 +6,11 @@ defmodule Ambry.Media.Chapters do
   alias Ambry.Media.Chapters.ChapteredMP3
   alias Ambry.Media.Chapters.ChapteredMP4
   alias Ambry.Media.Chapters.MP4
-  alias Ambry.Media.Chapters.OverdriveMP3
 
   @strategies [
     ChapteredMP3,
     ChapteredMP4,
-    MP4,
-    OverdriveMP3
+    MP4
   ]
 
   def available_strategies(media) do

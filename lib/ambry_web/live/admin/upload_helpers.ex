@@ -65,7 +65,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   """
   def consume_uploaded_supplemental_files(socket, name) do
     consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
-      filename = save_file_to_disk!(entry.client_type, File.read!(path), &supplemental_files_disk_path/1)
+      filename =
+        save_file_to_disk!(entry.client_type, File.read!(path), &supplemental_files_disk_path/1)
 
       {:ok,
        %{
@@ -99,7 +100,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
 
   defp do_image_import(url) do
     with {:ok, response} <- Req.get(url),
-         [mime | _rest] when mime in @accepted_mime <- Req.Response.get_header(response, "content-type") do
+         [mime | _rest] when mime in @accepted_mime <-
+           Req.Response.get_header(response, "content-type") do
       filename = save_file_to_disk!(mime, response.body, &images_disk_path/1)
 
       {:ok, ~p"/uploads/images/#{filename}"}

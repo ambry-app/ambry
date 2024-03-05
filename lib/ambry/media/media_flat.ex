@@ -53,5 +53,6 @@ defmodule Ambry.Media.MediaFlat do
   def filter(query, :full_cast, full_cast?), do: from(p in query, where: [full_cast: ^full_cast?])
   def filter(query, :abridged, abridged?), do: from(p in query, where: [abridged: ^abridged?])
 
-  def filter(query, :has_chapters, has_chapters?), do: from(p in query, where: [has_chapters: ^has_chapters?])
+  def filter(query, :has_chapters, has_chapters?),
+    do: from(p in query, where: [has_chapters: ^has_chapters?])
 end

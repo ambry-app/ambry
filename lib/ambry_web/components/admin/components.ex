@@ -74,12 +74,15 @@ defmodule AmbryWeb.Admin.Components do
   end
 
   def admin_table(assigns) do
-    default_cell_class = if assigns.row_click, do: "p-3 text-left cursor-pointer", else: "p-3 text-left"
+    default_cell_class =
+      if assigns.row_click, do: "p-3 text-left cursor-pointer", else: "p-3 text-left"
+
     default_header_class = "p-3 text-left"
 
     row_class =
       if assigns.row_click,
-        do: "border-t border-zinc-200 hover:bg-zinc-200 dark:border-zinc-800 dark:hover:bg-zinc-700",
+        do:
+          "border-t border-zinc-200 hover:bg-zinc-200 dark:border-zinc-800 dark:hover:bg-zinc-700",
         else: "border-t border-zinc-200 dark:border-zinc-800"
 
     assigns =
@@ -196,7 +199,9 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  defp badge_color(:yellow), do: "border-yellow-200 bg-yellow-50 dark:border-yellow-400 dark:bg-yellow-400"
+  defp badge_color(:yellow),
+    do: "border-yellow-200 bg-yellow-50 dark:border-yellow-400 dark:bg-yellow-400"
+
   defp badge_color(:blue), do: "border-blue-200 bg-blue-50 dark:border-blue-400 dark:bg-blue-400"
   defp badge_color(:red), do: "border-red-200 bg-red-50 dark:border-red-400 dark:bg-red-400"
   defp badge_color(:brand), do: "border-lime-200 bg-lime-50 dark:border-lime-400 dark:bg-lime-400"
@@ -383,7 +388,7 @@ defmodule AmbryWeb.Admin.Components do
     do: Calendar.strftime(date, "%B %-d, %Y")
 
   def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year_month, date: date}),
-    do: Calendar.strftime(date, "%B %Y")
+      do: Calendar.strftime(date, "%B %Y")
 
   def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year, date: date}),
     do: Calendar.strftime(date, "%Y")

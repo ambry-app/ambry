@@ -15,7 +15,9 @@ defmodule Ambry.SearchTest do
     end
 
     test "returns book (and series) by series name" do
-      %{id: id, series_books: [%{series: %{id: series_id, name: series_name}} | _rest]} = book = insert(:book)
+      %{id: id, series_books: [%{series: %{id: series_id, name: series_name}} | _rest]} =
+        book = insert(:book)
+
       insert_index!(book)
 
       assert results = Search.search(series_name)
@@ -24,7 +26,9 @@ defmodule Ambry.SearchTest do
     end
 
     test "returns book by author name" do
-      %{id: id, book_authors: [%{author: %{name: author_name}} | _rest]} = book = insert(:book, series_books: [])
+      %{id: id, book_authors: [%{author: %{name: author_name}} | _rest]} =
+        book = insert(:book, series_books: [])
+
       insert_index!(book)
       assert [%{id: ^id}] = Search.search(author_name)
     end
@@ -39,7 +43,8 @@ defmodule Ambry.SearchTest do
     end
 
     test "returns book by media narrator name" do
-      %{book: %{id: id} = book, media_narrators: [%{narrator: %{name: narrator_name}} | _rest]} = insert(:media)
+      %{book: %{id: id} = book, media_narrators: [%{narrator: %{name: narrator_name}} | _rest]} =
+        insert(:media)
 
       insert_index!(book)
 
@@ -120,7 +125,9 @@ defmodule Ambry.SearchTest do
     end
 
     test "returns book by author name" do
-      %{id: id, book_authors: [%{author: %{name: author_name}} | _rest]} = book = insert(:book, series_books: [])
+      %{id: id, book_authors: [%{author: %{name: author_name}} | _rest]} =
+        book = insert(:book, series_books: [])
+
       insert_index!(book)
       assert %{id: ^id} = Search.find_first(author_name, Book)
     end
@@ -135,7 +142,9 @@ defmodule Ambry.SearchTest do
     end
 
     test "returns book by media narrator name" do
-      %{book: %{id: id} = book, media_narrators: [%{narrator: %{name: narrator_name}} | _rest]} = insert(:media)
+      %{book: %{id: id} = book, media_narrators: [%{narrator: %{name: narrator_name}} | _rest]} =
+        insert(:media)
+
       insert_index!(book)
       assert %{id: ^id} = Search.find_first(narrator_name, Book)
     end

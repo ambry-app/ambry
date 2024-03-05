@@ -188,7 +188,8 @@ defmodule Ambry.PeopleTest do
     test "deletes nested authors" do
       %{id: author_id, person: person} = insert(:author)
 
-      {:ok, updated_person} = People.update_person(person, %{authors_drop: [0], authors: %{0 => %{id: author_id}}})
+      {:ok, updated_person} =
+        People.update_person(person, %{authors_drop: [0], authors: %{0 => %{id: author_id}}})
 
       assert %{authors: []} = updated_person
     end
@@ -197,7 +198,8 @@ defmodule Ambry.PeopleTest do
     test "cannot delete a nested author if they have authored a book" do
       %{book_authors: [%{author: %{id: author_id, person: person}} | _]} = insert(:book)
 
-      {:error, changeset} = People.update_person(person, %{authors_drop: [0], authors: %{0 => %{id: author_id}}})
+      {:error, changeset} =
+        People.update_person(person, %{authors_drop: [0], authors: %{0 => %{id: author_id}}})
 
       assert %{
                authors: [
@@ -243,7 +245,8 @@ defmodule Ambry.PeopleTest do
     test "cannot delete a nested narrator if they have narrated media" do
       %{media_narrators: [%{narrator: %{id: narrator_id, person: person}} | _]} = insert(:media)
 
-      {:error, changeset} = People.update_person(person, %{narrators_drop: [0], narrators: %{0 => %{id: narrator_id}}})
+      {:error, changeset} =
+        People.update_person(person, %{narrators_drop: [0], narrators: %{0 => %{id: narrator_id}}})
 
       assert %{
                narrators: [
@@ -312,7 +315,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "cannot delete a person if they have narrated media" do
-      %{book: %{title: book_title}, media_narrators: [%{narrator: %{person: person}} | _]} = insert(:media)
+      %{book: %{title: book_title}, media_narrators: [%{narrator: %{person: person}} | _]} =
+        insert(:media)
 
       {:error, {:has_narrated_books, [^book_title]}} = People.delete_person(person)
     end

@@ -36,7 +36,8 @@ uploads_path =
 config :ambry,
   config_env: config_env(),
   uploads_path: uploads_path,
-  first_time_setup: !(File.exists?(Path.join(uploads_path, "setup.lock")) || config_env() == :test)
+  first_time_setup:
+    !(File.exists?(Path.join(uploads_path, "setup.lock")) || config_env() == :test)
 
 if config_env() == :prod do
   database_url =

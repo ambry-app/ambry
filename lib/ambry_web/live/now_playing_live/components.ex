@@ -102,7 +102,8 @@ defmodule AmbryWeb.NowPlayingLive.Components do
 
   defp format_file_name(file), do: file.label || file.filename
 
-  defp file_href(file, media), do: ~p"/download/media/#{Hashids.encode(media.id)}/#{file.id}/#{file.filename}"
+  defp file_href(file, media),
+    do: ~p"/download/media/#{Hashids.encode(media.id)}/#{file.id}/#{file.filename}"
 
   attr :id, :string, required: true
   attr :label, :string, required: true

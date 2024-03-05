@@ -72,7 +72,10 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
       </div>
 
       <div class="relative w-full">
-        <div class={["absolute top-0 right-0 left-0 max-h-96 overflow-y-auto rounded-sm border border-t-0 border-zinc-600 bg-zinc-950 shadow-lg", if(!@open, do: "hidden")]}>
+        <div class={[
+          "absolute top-0 right-0 left-0 max-h-96 overflow-y-auto rounded-sm border border-t-0 border-zinc-600 bg-zinc-950 shadow-lg",
+          if(!@open, do: "hidden")
+        ]}>
           <div
             :for={option <- @options}
             class={["relative hover:bg-zinc-900", if(option == @selected_option, do: "bg-zinc-900")]}
@@ -96,7 +99,8 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
   attr :value, :any, required: true
 
   defp radio_input(assigns) do
-    assigns = assign(assigns, :checked, to_string(assigns.value) == to_string(assigns.field.value))
+    assigns =
+      assign(assigns, :checked, to_string(assigns.value) == to_string(assigns.field.value))
 
     ~H"""
     <input id={"#{@field.id}-#{@value}"} type="radio" class="hidden" value={@value} name={@field.name} checked={@checked} />

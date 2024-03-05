@@ -14,13 +14,19 @@ defmodule Ambry.Metadata.Audible do
   alias AmbryScraping.Audnexus.Books
 
   def search_books(query, refresh \\ false)
-  def search_books(query, true), do: clear_get_and_cache(query, &Products.search/1, &search_books_key/1)
+
+  def search_books(query, true),
+    do: clear_get_and_cache(query, &Products.search/1, &search_books_key/1)
+
   def search_books(query, false), do: cache_get(query, &Products.search/1, &search_books_key/1)
 
   defp search_books_key(query_string), do: "search:#{query_string}"
 
   def search_authors(query, refresh \\ false)
-  def search_authors(query, true), do: clear_get_and_cache(query, &Authors.search/1, &search_authors_key/1)
+
+  def search_authors(query, true),
+    do: clear_get_and_cache(query, &Authors.search/1, &search_authors_key/1)
+
   def search_authors(query, false), do: cache_get(query, &Authors.search/1, &search_authors_key/1)
 
   defp search_authors_key(query_string), do: "search_authors:#{query_string}"

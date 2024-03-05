@@ -200,7 +200,12 @@ defmodule Ambry.Factory do
   def create_fake_files!(%Person{image_path: web_path}), do: create_fake_file(web_path)
   def create_fake_files!(%Book{image_path: web_path}), do: create_fake_file(web_path)
 
-  def create_fake_files!(%Media{source_path: source_path, mpd_path: mpd_path, hls_path: hls_path, mp4_path: mp4_path}) do
+  def create_fake_files!(%Media{
+        source_path: source_path,
+        mpd_path: mpd_path,
+        hls_path: hls_path,
+        mp4_path: mp4_path
+      }) do
     create_fake_source_files!(source_path)
     create_fake_files([mpd_path, hls_path, Ambry.Paths.hls_playlist_path(hls_path), mp4_path])
   end

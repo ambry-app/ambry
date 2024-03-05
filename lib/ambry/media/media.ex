@@ -158,7 +158,8 @@ defmodule Ambry.Media.Media do
     Path.join([source_path, "_out", file])
   end
 
-  def files(%Media{source_path: source_path}, extensions, opts \\ []) when is_binary(source_path) do
+  def files(%Media{source_path: source_path}, extensions, opts \\ [])
+      when is_binary(source_path) do
     full? = Keyword.get(opts, :full?, false)
 
     case File.ls(source_path) do

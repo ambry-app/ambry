@@ -121,7 +121,12 @@ defmodule AmbryWeb.CoreComponents do
       phx-window-keydown={JS.exec("data-dismiss")}
       phx-key="escape"
       role="alert"
-      class={["fixed top-2 right-2 z-50 w-80 rounded-sm p-3 shadow-md ring-1 sm:w-96", "shadow-zinc-900/5 fill-zinc-900 text-zinc-900", @kind == :info && "bg-lime-50 ring-lime-200 dark:bg-lime-400 dark:ring-lime-400", @kind == :error && "bg-red-50 ring-red-200 dark:bg-red-400 dark:ring-red-400"]}
+      class={[
+        "fixed top-2 right-2 z-50 w-80 rounded-sm p-3 shadow-md ring-1 sm:w-96",
+        "shadow-zinc-900/5 fill-zinc-900 text-zinc-900",
+        @kind == :info && "bg-lime-50 ring-lime-200 dark:bg-lime-400 dark:ring-lime-400",
+        @kind == :error && "bg-red-50 ring-red-200 dark:bg-red-400 dark:ring-red-400"
+      ]}
       {@rest}
     >
       <p :if={@title} class="flex items-center gap-1.5 text-sm font-semibold leading-6">
@@ -237,7 +242,13 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <button
       type={@type}
-      class={["rounded-sm px-3 py-2 phx-submit-loading:opacity-75", "text-sm font-semibold leading-6", "text-white active:text-white/80 dark:text-zinc-900 dark:active:text-zinc-800", button_color_classes(@color), @class]}
+      class={[
+        "rounded-sm px-3 py-2 phx-submit-loading:opacity-75",
+        "text-sm font-semibold leading-6",
+        "text-white active:text-white/80 dark:text-zinc-900 dark:active:text-zinc-800",
+        button_color_classes(@color),
+        @class
+      ]}
       {@rest}
     >
       <%= render_slot(@inner_block) %>
@@ -283,7 +294,8 @@ defmodule AmbryWeb.CoreComponents do
     values: ~w(checkbox color date datetime-local email file hidden month number password
                range radio search select tel text textarea time url week autocomplete)
 
-  attr :field, FormField, doc: "a form field struct retrieved from the form, for example: @form[:email]"
+  attr :field, FormField,
+    doc: "a form field struct retrieved from the form, for example: @form[:email]"
 
   attr :errors, :list, default: []
   attr :show_errors, :boolean, default: true, doc: "disables the rendering of errors if false"
@@ -295,7 +307,8 @@ defmodule AmbryWeb.CoreComponents do
   attr :container_class, :string, default: nil, doc: "extra classes for the container div"
   attr :hidden_input, :boolean, default: true
 
-  attr :rest, :global, include: ~w(autocomplete cols disabled form list max maxlength min minlength
+  attr :rest, :global,
+    include: ~w(autocomplete cols disabled form list max maxlength min minlength
                 pattern placeholder readonly required rows size step)
 
   slot :inner_block
@@ -322,7 +335,12 @@ defmodule AmbryWeb.CoreComponents do
           name={@name}
           value="true"
           checked={@checked}
-          class={["rounded", "border-zinc-300 bg-white text-zinc-900 focus:ring-zinc-900", "dark:border-none dark:bg-zinc-800 dark:text-zinc-800 dark:focus:ring-zinc-900", @class]}
+          class={[
+            "rounded",
+            "border-zinc-300 bg-white text-zinc-900 focus:ring-zinc-900",
+            "dark:border-none dark:bg-zinc-800 dark:text-zinc-800 dark:focus:ring-zinc-900",
+            @class
+          ]}
           {@rest}
         />
         <%= @label %>
@@ -339,7 +357,10 @@ defmodule AmbryWeb.CoreComponents do
       <select
         id={@id}
         name={@name}
-        class={["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++ input_color_classes(@errors) ++ [@class]}
+        class={
+          ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+            input_color_classes(@errors) ++ [@class]
+        }
         multiple={@multiple}
         {@rest}
       >
@@ -358,7 +379,10 @@ defmodule AmbryWeb.CoreComponents do
       <textarea
         id={@id}
         name={@name}
-        class={["min-h-48 py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++ input_color_classes(@errors) ++ [@class]}
+        class={
+          ["min-h-48 py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+            input_color_classes(@errors) ++ [@class]
+        }
         {@rest}
       ><%= Form.normalize_value("textarea", @value) %></textarea>
       <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
@@ -399,7 +423,10 @@ defmodule AmbryWeb.CoreComponents do
         name={@name}
         id={@id}
         value={Form.normalize_value(@type, @value)}
-        class={["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++ input_color_classes(@errors) ++ [@class]}
+        class={
+          ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+            input_color_classes(@errors) ++ [@class]
+        }
         {@rest}
       />
       <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
@@ -410,7 +437,8 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   For if you want to have more control over where form field errors are rendered.
   """
-  attr :field, FormField, doc: "a form field struct retrieved from the form, for example: @form[:email]"
+  attr :field, FormField,
+    doc: "a form field struct retrieved from the form, for example: @form[:email]"
 
   def field_errors(%{field: %FormField{} = field} = assigns) do
     assigns = assign(assigns, :errors, Enum.map(field.errors, &translate_error(&1)))
@@ -1078,7 +1106,10 @@ defmodule AmbryWeb.CoreComponents do
   defp loaded?(%Player{player_state: %{media_id: media_id}}, %Media{id: media_id}), do: true
   defp loaded?(_player, _media), do: false
 
-  defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{id: media_id}), do: true
+  defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{
+         id: media_id
+       }),
+       do: true
 
   defp playing?(_player, _media), do: false
 
@@ -1250,7 +1281,8 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   def transition_in do
-    {"transition-all transform ease-out duration-300", "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
+    {"transition-all transform ease-out duration-300",
+     "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95",
      "opacity-100 translate-y-0 sm:scale-100"}
   end
 

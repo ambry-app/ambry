@@ -169,7 +169,8 @@ defmodule Ambry.Search.Index do
 
     media_dependencies = Enum.map(book.media, &Reference.new/1)
 
-    dependencies = Enum.uniq(secondary_dependencies ++ tertiary_dependencies ++ media_dependencies)
+    dependencies =
+      Enum.uniq(secondary_dependencies ++ tertiary_dependencies ++ media_dependencies)
 
     %{
       reference: Reference.new(book),

@@ -72,7 +72,10 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     if Keyword.has_key?(changeset.errors, :name) do
       {:noreply, assign_form(socket, changeset)}
     else
-      socket = assign(socket, import: %{type: String.to_existing_atom(import_type), query: person_params["name"]})
+      socket =
+        assign(socket,
+          import: %{type: String.to_existing_atom(import_type), query: person_params["name"]}
+        )
 
       {:noreply, socket}
     end
@@ -80,9 +83,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
   def handle_event("submit", %{"person" => person_params}, socket) do
     with {:ok, _person} <-
-           socket.assigns.person |> People.change_person(person_params) |> Changeset.apply_action(:insert),
+           socket.assigns.person
+           |> People.change_person(person_params)
+           |> Changeset.apply_action(:insert),
          {:ok, person_params} <- handle_image_upload(socket, person_params, :image),
-         {:ok, person_params} <- handle_image_import(person_params["image_import_url"], person_params) do
+         {:ok, person_params} <-
+           handle_image_import(person_params["image_import_url"], person_params) do
       save_person(socket, socket.assigns.live_action, person_params)
     else
       {:error, %Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}

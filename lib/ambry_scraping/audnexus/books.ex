@@ -22,9 +22,14 @@ defmodule AmbryScraping.Audnexus.Books do
 
   def chapters(asin) do
     case Req.get("#{@url}/#{asin}/chapters", retry: false) do
-      {:ok, %{status: status} = response} when status in 200..299 -> parse_chapter_info(response.body)
-      {:ok, response} -> {:error, response}
-      {:error, reason} -> {:error, reason}
+      {:ok, %{status: status} = response} when status in 200..299 ->
+        parse_chapter_info(response.body)
+
+      {:ok, response} ->
+        {:error, response}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

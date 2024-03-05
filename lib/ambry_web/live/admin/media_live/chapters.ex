@@ -50,7 +50,13 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
   end
 
   def handle_event("import", %{"type" => import_type}, socket) do
-    socket = assign(socket, import: %{type: String.to_existing_atom(import_type), query: socket.assigns.media.book.title})
+    socket =
+      assign(socket,
+        import: %{
+          type: String.to_existing_atom(import_type),
+          query: socket.assigns.media.book.title
+        }
+      )
 
     {:noreply, socket}
   end

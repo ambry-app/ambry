@@ -70,7 +70,9 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.SourceImportForm do
 
   defp build_chapter_params(chapter, :titles_only), do: %{"title" => chapter.title}
   defp build_chapter_params(chapter, :times_only), do: %{"time" => chapter.time}
-  defp build_chapter_params(chapter, :all), do: %{"title" => chapter.title, "time" => chapter.time}
+
+  defp build_chapter_params(chapter, :all),
+    do: %{"title" => chapter.title, "time" => chapter.time}
 
   defp handle_forwarded_info({:chapters, {:ok, chapters}}, socket) do
     assign(socket, chapters_loading: false, chapters: chapters)

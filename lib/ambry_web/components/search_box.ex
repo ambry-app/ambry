@@ -8,7 +8,10 @@ defmodule AmbryWeb.Components.SearchBox do
     ~H"""
     <div
       id={@id}
-      class={["absolute top-4 w-full sm:left-1/2 sm:max-w-md sm:-translate-x-1/2 md:max-w-xl lg:max-w-3xl", if(!@is_open, do: "hidden")]}
+      class={[
+        "absolute top-4 w-full sm:left-1/2 sm:max-w-md sm:-translate-x-1/2 md:max-w-xl lg:max-w-3xl",
+        if(!@is_open, do: "hidden")
+      ]}
       phx-click-away={@hide_search}
       phx-window-keydown={@hide_search}
       phx-key="escape"

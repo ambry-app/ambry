@@ -138,7 +138,8 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
   end
 
   defp parse_authors(data_rows) do
-    authors_row = Enum.find(data_rows, fn row -> Floki.find(row, ".dataTitle:fl-contains('Author')") != [] end)
+    authors_row =
+      Enum.find(data_rows, fn row -> Floki.find(row, ".dataTitle:fl-contains('Author')") != [] end)
 
     case authors_row do
       nil ->
@@ -183,8 +184,11 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
       end)
 
     case language_row do
-      nil -> nil
-      row -> row |> Floki.find(".dataValue") |> Floki.text() |> clean_string() |> String.downcase()
+      nil ->
+        nil
+
+      row ->
+        row |> Floki.find(".dataValue") |> Floki.text() |> clean_string() |> String.downcase()
     end
   end
 
