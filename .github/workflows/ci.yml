@@ -130,11 +130,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set mix file hash
-        id: set_vars
-        run: |
-          mix_hash="${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}"
-          echo "::set-output name=mix_hash::$mix_hash"
+      - name: Set up Elixir
+        id: setup_beam
+        uses: erlef/setup-beam@v1.17
+        with:
+          version-file: .tool-versions
+          version-type: strict
       - name: Cache PLT files
         id: cache-plt
         uses: actions/cache@v4
@@ -142,14 +143,10 @@ jobs:
           path: |
             _build/dev/*.plt
             _build/dev/*.plt.hash
-          key: plt-cache-${{ steps.set_vars.outputs.mix_hash }}
+          key: plt-cache-${{ runner.os }}-mix-${{ env.MIX_ENV }}-otp-${{ steps.setup_beam.outputs.otp-version }}-elixir-${{ steps.setup_beam.outputs.elixir-version }}-lock-${{ hashFiles('/mix.lock') }}
           restore-keys: |
+            plt-cache-${{ runner.os }}-mix-${{ env.MIX_ENV }}-otp-${{ steps.setup_beam.outputs.otp-version }}-elixir-${{ steps.setup_beam.outputs.elixir-version }}-
             plt-cache-
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1.17
-        with:
-          version-file: .tool-versions
-          version-type: strict
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
