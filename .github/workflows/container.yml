@@ -1,4 +1,4 @@
-name: Build & Publish Container
+name: Container
 
 on:
   push:
@@ -15,7 +15,9 @@ env:
 
 jobs:
   build:
+    name: Build & Publish
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       packages: write
