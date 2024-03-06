@@ -143,7 +143,7 @@ jobs:
           path: |
             _build/dev/*.plt
             _build/dev/*.plt.hash
-          key: plt-cache-${{ runner.os }}-mix-${{ env.MIX_ENV }}-otp-${{ steps.setup_beam.outputs.otp-version }}-elixir-${{ steps.setup_beam.outputs.elixir-version }}-lock-${{ hashFiles('/mix.lock') }}
+          key: plt-cache-${{ runner.os }}-mix-${{ env.MIX_ENV }}-otp-${{ steps.setup_beam.outputs.otp-version }}-elixir-${{ steps.setup_beam.outputs.elixir-version }}-lock-${{ hashFiles('mix.lock') }}
           restore-keys: |
             plt-cache-${{ runner.os }}-mix-${{ env.MIX_ENV }}-otp-${{ steps.setup_beam.outputs.otp-version }}-elixir-${{ steps.setup_beam.outputs.elixir-version }}-
             plt-cache-
