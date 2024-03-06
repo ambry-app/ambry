@@ -72,9 +72,12 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
 
   defp build_chapter_params(chapter, :titles_only), do: %{"title" => chapter.title}
   defp build_chapter_params(chapter, :times_only), do: %{"time" => time(chapter)}
-  defp build_chapter_params(chapter, :all), do: %{"title" => chapter.title, "time" => time(chapter)}
 
-  defp time(chapter), do: chapter.start_offset_ms |> Decimal.new() |> Decimal.div(1000) |> Decimal.round(2)
+  defp build_chapter_params(chapter, :all),
+    do: %{"title" => chapter.title, "time" => time(chapter)}
+
+  defp time(chapter),
+    do: chapter.start_offset_ms |> Decimal.new() |> Decimal.div(1000) |> Decimal.round(2)
 
   defp select_book(socket, book) do
     matching_narrators =

@@ -122,7 +122,8 @@ defmodule Ambry.SeriesTest do
 
       %{name: name} = series_params = params_for(:series)
 
-      %{book_number: book_number} = series_book_params = params_for(:series_book, book_id: book_id)
+      %{book_number: book_number} =
+        series_book_params = params_for(:series_book, book_id: book_id)
 
       params = Map.put(series_params, :series_books, [series_book_params])
 

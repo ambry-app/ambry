@@ -66,9 +66,8 @@ defmodule Ambry.MixProject do
       {:gettext, "~> 0.20"},
       {:hashids, "~> 2.0"},
       {:jason, "~> 1.2"},
-      {:lexical_credo, "~> 0.1", only: [:dev, :test]},
       {:natural_order, "~> 0.3"},
-      {:npm_deps, "~> 0.3.1", runtime: false},
+      {:npm_deps, "~> 0.3", runtime: false},
       {:oban, "~> 2.11"},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 4.0", override: true},
@@ -105,7 +104,7 @@ defmodule Ambry.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
+      setup: ["deps.get", "npm_deps.get", "ecto.setup", "assets.setup", "assets.build"],
       "deps.get_all": ["deps.get", "npm_deps.get"],
       "ecto.setup": ["ecto.create", "ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
@@ -113,18 +112,9 @@ defmodule Ambry.MixProject do
       "seed.download": ["cmd ./script/download_seed_files.sh"],
       seed: ["ecto.seed", "seed.download"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.setup": [
-        "tailwind.install --if-missing",
-        "npm_deps.get",
-        "esbuild.install --if-missing"
-      ],
+      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["tailwind default", "esbuild default"],
-      "assets.deploy": [
-        "npm_deps.get",
-        "tailwind default --minify",
-        "esbuild default --minify",
-        "phx.digest"
-      ],
+      "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"],
       check: [
         "format --check-formatted",
         "compile --force --warnings-as-errors",

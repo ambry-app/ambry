@@ -75,7 +75,8 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
       known_processing_media = Map.get(socket.assigns, :processing_media, [])
       progress_map = Map.get(socket.assigns, :processing_media_progress_map, %{})
 
-      {current_processing_media, _has_more?} = Media.list_media(0, 999, %{status: :processing}, desc: :inserted_at)
+      {current_processing_media, _has_more?} =
+        Media.list_media(0, 999, %{status: :processing}, desc: :inserted_at)
 
       to_add = Enum.map(current_processing_media -- known_processing_media, & &1.id)
       to_remove = Enum.map(known_processing_media -- current_processing_media, & &1.id)
@@ -152,9 +153,15 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   def handle_info(%PubSub.Message{type: :media}, socket), do: {:noreply, refresh_media(socket)}
 
   defp format_published(%{published: nil}), do: nil
-  defp format_published(%{published_format: :full, published: date}), do: Calendar.strftime(date, "%x")
-  defp format_published(%{published_format: :year_month, published: date}), do: Calendar.strftime(date, "%Y-%m")
-  defp format_published(%{published_format: :year, published: date}), do: Calendar.strftime(date, "%Y")
+
+  defp format_published(%{published_format: :full, published: date}),
+    do: Calendar.strftime(date, "%x")
+
+  defp format_published(%{published_format: :year_month, published: date}),
+    do: Calendar.strftime(date, "%Y-%m")
+
+  defp format_published(%{published_format: :year, published: date}),
+    do: Calendar.strftime(date, "%Y")
 
   defp status_color(:pending), do: :yellow
   defp status_color(:processing), do: :blue

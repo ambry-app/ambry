@@ -79,7 +79,10 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     if Keyword.has_key?(changeset.errors, :title) do
       {:noreply, assign_form(socket, changeset)}
     else
-      socket = assign(socket, import: %{type: String.to_existing_atom(import_type), query: book_params["title"]})
+      socket =
+        assign(socket,
+          import: %{type: String.to_existing_atom(import_type), query: book_params["title"]}
+        )
 
       {:noreply, socket}
     end
@@ -87,7 +90,9 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   def handle_event("submit", %{"book" => book_params}, socket) do
     with {:ok, _book} <-
-           socket.assigns.book |> Books.change_book(book_params) |> Changeset.apply_action(:insert),
+           socket.assigns.book
+           |> Books.change_book(book_params)
+           |> Changeset.apply_action(:insert),
          {:ok, book_params} <- handle_image_upload(socket, book_params, :image),
          {:ok, book_params} <- handle_image_import(book_params["image_import_url"], book_params) do
       save_book(socket, socket.assigns.live_action, book_params)

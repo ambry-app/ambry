@@ -34,7 +34,8 @@ defmodule Ambry.SupplementalFile do
         []
       else
         [
-          filename: "invalid extension for mime-type: #{mime}, use one of: #{Enum.join(valid_extensions)}"
+          filename:
+            "invalid extension for mime-type: #{mime}, use one of: #{Enum.join(valid_extensions)}"
         ]
       end
     end)

@@ -41,7 +41,8 @@ defmodule AmbrySchema.Books do
     field :published_format, non_null(:date_format)
     field :image_path, :string
 
-    field :authors, non_null(list_of(non_null(:author))), resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
+    field :authors, non_null(list_of(non_null(:author))),
+      resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
 
     field :series_books, non_null(list_of(non_null(:series_book))), resolve: dataloader(Resolvers)
 

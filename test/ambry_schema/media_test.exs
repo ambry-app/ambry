@@ -228,7 +228,8 @@ defmodule AmbrySchema.MediaTest do
       {:ok, %{id: player_state_id_string}} = from_global_id(player_state_gid, AmbrySchema)
       player_state_id = String.to_integer(player_state_id_string)
 
-      assert %{player_states: [%{id: ^player_state_id}]} = Ambry.Repo.preload(media, [:player_states])
+      assert %{player_states: [%{id: ^player_state_id}]} =
+               Ambry.Repo.preload(media, [:player_states])
     end
 
     test "returns the existing player state for the given media", %{
@@ -306,7 +307,8 @@ defmodule AmbrySchema.MediaTest do
       {:ok, %{id: player_state_id_string}} = from_global_id(player_state_gid, AmbrySchema)
       player_state_id = String.to_integer(player_state_id_string)
 
-      assert %{player_states: [%{id: ^player_state_id}]} = Ambry.Repo.preload(media, [:player_states])
+      assert %{player_states: [%{id: ^player_state_id}]} =
+               Ambry.Repo.preload(media, [:player_states])
     end
 
     test "updates the existing player state for the given media", %{

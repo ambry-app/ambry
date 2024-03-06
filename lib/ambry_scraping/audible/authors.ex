@@ -68,7 +68,10 @@ defmodule AmbryScraping.Audible.Authors do
     path = "/search" |> URI.new!() |> URI.append_query(query) |> URI.to_string()
 
     downcased_query_words =
-      query |> String.downcase() |> String.split(" ", trim: true) |> Enum.reject(&(String.length(&1) < 2))
+      query
+      |> String.downcase()
+      |> String.split(" ", trim: true)
+      |> Enum.reject(&(String.length(&1) < 2))
 
     with {:ok, search_results_html} <- Browser.get_page_html(path),
          {:ok, search_results_document} <- Floki.parse_document(search_results_html) do

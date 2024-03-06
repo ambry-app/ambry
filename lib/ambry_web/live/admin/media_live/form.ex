@@ -79,7 +79,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       {:noreply, assign_form(socket, changeset)}
     else
       book = Ambry.Books.get_book!(media_params["book_id"])
-      socket = assign(socket, import: %{type: String.to_existing_atom(import_type), query: book.title})
+
+      socket =
+        assign(socket, import: %{type: String.to_existing_atom(import_type), query: book.title})
 
       {:noreply, socket}
     end
@@ -87,7 +89,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   def handle_event("submit", %{"media" => media_params}, socket) do
     with :ok <- changeset_valid?(socket, media_params),
-         {:ok, media_params} <- handle_supplemental_files_upload(socket, media_params, :supplemental),
+         {:ok, media_params} <-
+           handle_supplemental_files_upload(socket, media_params, :supplemental),
          {:ok, media_params} <- handle_audio_files_upload(socket, media_params, :audio) do
       save_media(socket, socket.assigns.live_action, media_params)
     else
@@ -112,7 +115,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       )
 
     new_params = Map.merge(socket.assigns.form.params, media_params)
-    changeset = Media.change_media(socket.assigns.media, new_params, for: changeset_action(socket.assigns.live_action))
+
+    changeset =
+      Media.change_media(socket.assigns.media, new_params,
+        for: changeset_action(socket.assigns.live_action)
+      )
 
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
   end
@@ -163,7 +170,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp changeset_valid?(socket, media_params) do
-    case Media.change_media(socket.assigns.media, media_params, for: changeset_action(socket.assigns.live_action)) do
+    case Media.change_media(socket.assigns.media, media_params,
+           for: changeset_action(socket.assigns.live_action)
+         ) do
       %{valid?: true} -> :ok
       # if the _only_ error is the missing source-path, then we let it pass (at first)
       %{errors: [source_path: {"can't be blank", [validation: :required]}]} -> :ok
@@ -233,7 +242,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  defp processors(%Media.Media{source_path: path} = media, [_ | _] = uploads) when is_binary(path) do
+  defp processors(%Media.Media{source_path: path} = media, [_ | _] = uploads)
+       when is_binary(path) do
     filenames = Enum.map(uploads, & &1.client_name)
     {media, filenames} |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
   end

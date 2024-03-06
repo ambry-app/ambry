@@ -283,7 +283,8 @@ defmodule AmbryWeb.UserAuth do
 
   @preview_paths ["books"]
 
-  defp unauthenticated_redirect(%{path_info: [root | _rest]} = conn) when root in @preview_paths do
+  defp unauthenticated_redirect(%{path_info: [root | _rest]} = conn)
+       when root in @preview_paths do
     conn
     |> redirect(to: "/preview#{current_path(conn)}")
     |> halt()

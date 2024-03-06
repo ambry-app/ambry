@@ -1,4 +1,4 @@
-name: Elixir CI
+name: CI
 
 on:
   push:
@@ -28,6 +28,25 @@ jobs:
         run: mix deps.compile
       - name: Compile
         run: mix compile --warnings-as-errors
+
+  check-deps:
+    name: Check Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1.17
+        with:
+          version-file: .tool-versions
+          version-type: strict
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Check for retired packages
+        run: mix hex.audit
+      - name: Check for outdated dependencies
+        run: mix deps.unlock --check-unused
 
   test:
     name: Test

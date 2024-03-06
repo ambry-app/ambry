@@ -64,7 +64,10 @@ defmodule AmbryScraping.GoodReads.Authors do
   def search(query) do
     with {:ok, results} <- Books.search(query) do
       downcased_query_words =
-        query |> String.downcase() |> String.split(" ", trim: true) |> Enum.reject(&(String.length(&1) < 2))
+        query
+        |> String.downcase()
+        |> String.split(" ", trim: true)
+        |> Enum.reject(&(String.length(&1) < 2))
 
       {:ok,
        results

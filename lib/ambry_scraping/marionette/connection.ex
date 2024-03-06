@@ -18,7 +18,15 @@ defmodule AmbryScraping.Marionette.Connection do
   @initial_backoff 500
   @max_backoff 60_000
 
-  defstruct [:host, :port, :socket, :session_id, buffer: @buffer, requests: %{}, backoff: @initial_backoff]
+  defstruct [
+    :host,
+    :port,
+    :socket,
+    :session_id,
+    buffer: @buffer,
+    requests: %{},
+    backoff: @initial_backoff
+  ]
 
   # Public API
 
@@ -66,7 +74,14 @@ defmodule AmbryScraping.Marionette.Connection do
       :gen_statem.reply(from, {:error, :disconnected})
     end)
 
-    data = %{data | socket: nil, session_id: nil, buffer: @buffer, requests: %{}, backoff: @initial_backoff}
+    data = %{
+      data
+      | socket: nil,
+        session_id: nil,
+        buffer: @buffer,
+        requests: %{},
+        backoff: @initial_backoff
+    }
 
     actions = [{{:timeout, :reconnect}, data.backoff, nil}]
     {:keep_state, data, actions}
@@ -86,7 +101,9 @@ defmodule AmbryScraping.Marionette.Connection do
 
       :inet.setopts(socket, active: true)
 
-      Logger.info(fn -> "[Marionette] Connection established at tcp://#{data.host}:#{data.port}" end)
+      Logger.info(fn ->
+        "[Marionette] Connection established at tcp://#{data.host}:#{data.port}"
+      end)
 
       {:next_state, :connected, %{data | socket: socket, session_id: session_id}}
     else

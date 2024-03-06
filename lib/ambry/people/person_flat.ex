@@ -41,5 +41,6 @@ defmodule Ambry.People.PersonFlat do
 
   def filter(query, :is_author, is_author?), do: from(p in query, where: [is_author: ^is_author?])
 
-  def filter(query, :is_narrator, is_narrator?), do: from(p in query, where: [is_narrator: ^is_narrator?])
+  def filter(query, :is_narrator, is_narrator?),
+    do: from(p in query, where: [is_narrator: ^is_narrator?])
 end

@@ -57,13 +57,24 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
           Map.put(acc, "description", book.description)
 
         {"use_authors", "true"}, acc ->
-          Map.put(acc, "book_authors", build_authors_params(book.authors, socket.assigns.matching_authors))
+          Map.put(
+            acc,
+            "book_authors",
+            build_authors_params(book.authors, socket.assigns.matching_authors)
+          )
 
         {"use_series", "true"}, acc ->
-          Map.put(acc, "series_books", build_series_params(book.series, socket.assigns.matching_series))
+          Map.put(
+            acc,
+            "series_books",
+            build_series_params(book.series, socket.assigns.matching_series)
+          )
 
         {"use_cover_image", "true"}, acc ->
-          Map.merge(acc, %{"image_type" => "url_import", "image_import_url" => book.cover_image.src})
+          Map.merge(acc, %{
+            "image_type" => "url_import",
+            "image_import_url" => book.cover_image.src
+          })
 
         _else, acc ->
           acc
@@ -85,7 +96,9 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
         [%{"author_id" => author.id}]
 
       {_imported, %{authors: []} = existing} ->
-        {:ok, %{authors: [author]}} = Ambry.People.update_person(existing, %{authors: [%{name: existing.name}]})
+        {:ok, %{authors: [author]}} =
+          Ambry.People.update_person(existing, %{authors: [%{name: existing.name}]})
+
         [%{"author_id" => author.id}]
 
       {_imported, %{authors: [author | _rest]}} ->

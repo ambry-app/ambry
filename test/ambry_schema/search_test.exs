@@ -65,7 +65,9 @@ defmodule AmbrySchema.SearchTest do
     end
 
     test "returns book (and series) by series name", %{conn: conn} do
-      %{id: id, series_books: [%{series: %{id: series_id, name: series_name}} | _rest]} = book = insert(:book)
+      %{id: id, series_books: [%{series: %{id: series_id, name: series_name}} | _rest]} =
+        book = insert(:book)
+
       insert_index!(book)
       gid = to_global_id("Book", id)
       series_gid = to_global_id("Series", series_id)
@@ -88,7 +90,9 @@ defmodule AmbrySchema.SearchTest do
     end
 
     test "returns book by author name", %{conn: conn} do
-      %{id: id, book_authors: [%{author: %{name: author_name}} | _rest]} = book = insert(:book, series_books: [])
+      %{id: id, book_authors: [%{author: %{name: author_name}} | _rest]} =
+        book = insert(:book, series_books: [])
+
       insert_index!(book)
       gid = to_global_id("Book", id)
 
@@ -138,7 +142,8 @@ defmodule AmbrySchema.SearchTest do
     end
 
     test "returns book by media narrator name", %{conn: conn} do
-      %{book: %{id: id} = book, media_narrators: [%{narrator: %{name: narrator_name}} | _rest]} = insert(:media)
+      %{book: %{id: id} = book, media_narrators: [%{narrator: %{name: narrator_name}} | _rest]} =
+        insert(:media)
 
       insert_index!(book)
       gid = to_global_id("Book", id)
@@ -263,7 +268,8 @@ defmodule AmbrySchema.SearchTest do
     end
 
     test "returns series by name", %{conn: conn} do
-      %{id: book_id, series_books: [%{series: %{id: id, name: series_name} = series} | _rest]} = insert(:book)
+      %{id: book_id, series_books: [%{series: %{id: id, name: series_name} = series} | _rest]} =
+        insert(:book)
 
       # NOTE: this also indexes the book
       insert_index!(series)

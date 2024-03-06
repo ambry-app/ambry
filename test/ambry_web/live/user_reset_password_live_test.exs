@@ -38,7 +38,9 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
       result =
         lv
         |> element("#reset_password_form")
-        |> render_change(user: %{"password" => "secret12", "confirmation_password" => "secret123456"})
+        |> render_change(
+          user: %{"password" => "secret12", "confirmation_password" => "secret123456"}
+        )
 
       assert result =~ "should be at least 12 character"
       assert result =~ "does not match password"

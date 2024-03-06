@@ -6,7 +6,8 @@ defmodule AmbryWeb.PersonLiveTest do
   setup :register_and_log_in_user
 
   test "renders a person show page with authored books", %{conn: conn} do
-    %{book_authors: [%{author: %{person: %{id: person_id, name: person_name}}} | _]} = insert(:book)
+    %{book_authors: [%{author: %{person: %{id: person_id, name: person_name}}} | _]} =
+      insert(:book)
 
     {:ok, _view, html} = live(conn, ~p"/people/#{person_id}")
     assert html =~ escape(person_name)

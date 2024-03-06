@@ -4,7 +4,7 @@
 
 # NOTE: make sure these versions match in .tool-versions
 # NOTE: make sure the alpine version matches down below
-FROM docker.io/hexpm/elixir:1.16.1-erlang-26.2-alpine-3.18.4 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.16.1-erlang-26.2.2-alpine-3.19.1 AS elixir-builder
 
 ARG MIX_ENV=prod
 
@@ -24,11 +24,9 @@ RUN apk --update upgrade && \
 COPY config /src/config
 COPY mix.exs mix.lock /src/
 
-RUN mix deps.get --only $MIX_ENV
-
-# compile deps
-
-RUN mix deps.compile
+RUN mix deps.get --only $MIX_ENV && \
+  mix deps.compile && \
+  mix npm_deps.get
 
 # compile apps
 
@@ -37,7 +35,7 @@ COPY priv/ ./priv
 
 RUN mix compile
 
-# deploy assets
+# build && deploy assets
 
 COPY assets/ ./assets
 

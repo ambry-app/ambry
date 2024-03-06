@@ -64,7 +64,8 @@ defmodule Ambry.MediaTest do
     end
 
     test "accepts a 'search' filter that searches by series name" do
-      [_, _, %{id: id, book: %{series_books: [%{series: %{name: series_name}} | _]}}, _, _] = insert_list(5, :media)
+      [_, _, %{id: id, book: %{series_books: [%{series: %{name: series_name}} | _]}}, _, _] =
+        insert_list(5, :media)
 
       {[matched], has_more?} = Media.list_media(0, 10, %{search: series_name})
 
@@ -73,7 +74,8 @@ defmodule Ambry.MediaTest do
     end
 
     test "accepts a 'search' filter that searches by author name" do
-      [_, _, %{id: id, book: %{book_authors: [%{author: %{name: author_name}} | _]}}, _, _] = insert_list(5, :media)
+      [_, _, %{id: id, book: %{book_authors: [%{author: %{name: author_name}} | _]}}, _, _] =
+        insert_list(5, :media)
 
       {[matched], has_more?} = Media.list_media(0, 10, %{search: author_name})
 
@@ -97,7 +99,8 @@ defmodule Ambry.MediaTest do
     end
 
     test "accepts a 'search' filter that searches by narrator name" do
-      [_, _, %{id: id, media_narrators: [%{narrator: %{name: narrator_name}} | _]}, _, _] = insert_list(5, :media)
+      [_, _, %{id: id, media_narrators: [%{narrator: %{name: narrator_name}} | _]}, _, _] =
+        insert_list(5, :media)
 
       {[matched], has_more?} = Media.list_media(0, 10, %{search: narrator_name})
 
@@ -259,7 +262,8 @@ defmodule Ambry.MediaTest do
       media = insert(:media)
       original_value = media.full_cast
 
-      {:ok, updated_media} = Media.update_media(media, %{full_cast: !original_value}, for: :update)
+      {:ok, updated_media} =
+        Media.update_media(media, %{full_cast: !original_value}, for: :update)
 
       assert updated_media.full_cast == !original_value
     end
@@ -276,7 +280,8 @@ defmodule Ambry.MediaTest do
     test "updates nested media narrators when using 'for: :update'" do
       %{id: new_narrator_id} = insert(:narrator)
 
-      %{media_narrators: [existing_media_narrator | rest_media_narrators]} = media = insert(:media)
+      %{media_narrators: [existing_media_narrator | rest_media_narrators]} =
+        media = insert(:media)
 
       assert existing_media_narrator.narrator_id != new_narrator_id
 
@@ -342,7 +347,8 @@ defmodule Ambry.MediaTest do
           status: :pending
         )
 
-      %{duration: duration, mp4_path: mp4_path, mpd_path: mpd_path, hls_path: hls_path} = params_for(:media)
+      %{duration: duration, mp4_path: mp4_path, mpd_path: mpd_path, hls_path: hls_path} =
+        params_for(:media)
 
       {:ok, processed_media} =
         Media.update_media(
@@ -536,7 +542,8 @@ defmodule Ambry.MediaTest do
       %{id: user_id} = insert(:user)
       %{id: media_id} = insert(:media)
 
-      assert {:ok, player_state} = Media.create_player_state(%{user_id: user_id, media_id: media_id})
+      assert {:ok, player_state} =
+               Media.create_player_state(%{user_id: user_id, media_id: media_id})
 
       assert %{user_id: ^user_id, media_id: ^media_id} = player_state
     end
@@ -582,7 +589,8 @@ defmodule Ambry.MediaTest do
 
       new_position = Decimal.sub(player_state.media.duration, Decimal.new(119))
 
-      assert {:ok, %{status: :finished}} = Media.update_player_state(player_state, %{position: new_position})
+      assert {:ok, %{status: :finished}} =
+               Media.update_player_state(player_state, %{position: new_position})
     end
   end
 
@@ -655,7 +663,8 @@ defmodule Ambry.MediaTest do
 
       %{position: new_position, label: new_label} = params_for(:bookmark)
 
-      {:ok, updated_bookmark} = Media.update_bookmark(bookmark, %{position: new_position, label: new_label})
+      {:ok, updated_bookmark} =
+        Media.update_bookmark(bookmark, %{position: new_position, label: new_label})
 
       assert %{position: ^new_position, label: ^new_label} = updated_bookmark
     end

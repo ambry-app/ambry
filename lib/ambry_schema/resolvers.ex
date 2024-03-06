@@ -88,7 +88,9 @@ defmodule AmbrySchema.Resolvers do
     end
   end
 
-  def update_player_state(%{media_id: media_id} = args, %{context: %{current_user: %User{} = user}}) do
+  def update_player_state(%{media_id: media_id} = args, %{
+        context: %{current_user: %User{} = user}
+      }) do
     with {:ok, %{id: media_id, type: :media}} <- from_global_id(media_id, AmbrySchema),
          player_state = Ambry.Media.get_or_create_player_state!(user.id, media_id),
          attrs = Map.delete(args, :media_id),
@@ -158,7 +160,9 @@ defmodule AmbrySchema.Resolvers do
 
   # Custom batches
 
-  def player_state_batch(%Media{id: media_id}, _params, %{context: %{current_user: %User{id: user_id}}}) do
+  def player_state_batch(%Media{id: media_id}, _params, %{
+        context: %{current_user: %User{id: user_id}}
+      }) do
     batch({__MODULE__, :player_states, user_id}, media_id, fn batch_results ->
       {:ok, Map.get(batch_results, media_id)}
     end)

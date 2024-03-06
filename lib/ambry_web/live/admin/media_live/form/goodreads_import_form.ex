@@ -61,7 +61,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm do
           })
 
         {"use_narrators", "true"}, acc ->
-          Map.put(acc, "media_narrators", build_narrators_params(narrators(book), socket.assigns.matching_narrators))
+          Map.put(
+            acc,
+            "media_narrators",
+            build_narrators_params(narrators(book), socket.assigns.matching_narrators)
+          )
 
         _else, acc ->
           acc
@@ -83,7 +87,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm do
         [%{"narrator_id" => narrator.id}]
 
       {_imported, %{narrators: []} = existing} ->
-        {:ok, %{narrators: [narrator]}} = Ambry.People.update_person(existing, %{narrators: [%{name: existing.name}]})
+        {:ok, %{narrators: [narrator]}} =
+          Ambry.People.update_person(existing, %{narrators: [%{name: existing.name}]})
+
         [%{"narrator_id" => narrator.id}]
 
       {_imported, %{narrators: [narrator | _rest]}} ->

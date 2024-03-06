@@ -100,7 +100,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
   defp async_search(socket, :goodreads, query),
     do: do_async_search(socket, :goodreads, query, &GoodReads.search_authors/1)
 
-  defp async_search(socket, :audible, query), do: do_async_search(socket, :audible, query, &Audible.search_authors/1)
+  defp async_search(socket, :audible, query),
+    do: do_async_search(socket, :audible, query, &Audible.search_authors/1)
 
   defp do_async_search(socket, import_type, query, query_fun) do
     Task.async(fn ->
@@ -123,7 +124,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
   defp async_details(socket, :goodreads, author_id),
     do: do_async_details(socket, :goodreads, author_id, &GoodReads.author/1)
 
-  defp async_details(socket, :audible, author_id), do: do_async_details(socket, :audible, author_id, &Audible.author/1)
+  defp async_details(socket, :audible, author_id),
+    do: do_async_details(socket, :audible, author_id, &Audible.author/1)
 
   defp do_async_details(socket, import_type, author_id, details_fun) do
     Task.async(fn ->

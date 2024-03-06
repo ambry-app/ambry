@@ -26,7 +26,8 @@ defmodule AmbryScraping.HTMLToMD do
   defp process_node({"br", [], []}), do: "\n"
   defp process_node({_e, _attrs, children}), do: format_children(children)
 
-  defp format_children(children, wrapping \\ nil), do: children |> Enum.join("") |> String.trim() |> wrap(wrapping)
+  defp format_children(children, wrapping \\ nil),
+    do: children |> Enum.join("") |> String.trim() |> wrap(wrapping)
 
   defp wrap(string, nil), do: string
   defp wrap(string, wrapping), do: " #{wrapping}#{string}#{wrapping} "
