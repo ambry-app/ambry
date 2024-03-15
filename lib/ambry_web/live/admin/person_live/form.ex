@@ -80,7 +80,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   def handle_event("open-import-form", %{"type" => type}, socket) do
-    query = socket.assigns.form.params["name"]
+    query = socket.assigns.form.params["name"] || socket.assigns.person.name
     import_type = String.to_existing_atom(type)
     socket = assign(socket, import: %{type: import_type, query: query})
 

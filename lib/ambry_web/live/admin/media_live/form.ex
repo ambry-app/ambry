@@ -81,14 +81,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   def handle_event("open-import-form", %{"type" => type}, socket) do
-    query =
-      case Map.fetch(socket.assigns.form.params, "book_id") do
-        {:ok, book_id} ->
-          book = Ambry.Books.get_book!(book_id)
-          book.title
+    book_id = socket.assigns.form.params["book_id"] || socket.assigns.media.book_id
 
-        :error ->
-          ""
+    query =
+      if book_id do
+        Ambry.Books.get_book!(book_id).title
+      else
+        ""
       end
 
     import_type = String.to_existing_atom(type)

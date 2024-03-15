@@ -86,7 +86,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   def handle_event("open-import-form", %{"type" => type}, socket) do
-    query = socket.assigns.form.params["title"]
+    query = socket.assigns.form.params["title"] || socket.assigns.book.title
     import_type = String.to_existing_atom(type)
     socket = assign(socket, import: %{type: import_type, query: query})
 
