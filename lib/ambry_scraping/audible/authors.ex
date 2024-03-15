@@ -63,6 +63,8 @@ defmodule AmbryScraping.Audible.Authors do
     end
   end
 
+  def search(""), do: {:ok, []}
+
   def search(name) do
     query = URI.encode_query(%{keywords: name})
     path = "/search" |> URI.new!() |> URI.append_query(query) |> URI.to_string()
