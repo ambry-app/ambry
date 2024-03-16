@@ -27,7 +27,9 @@ export const ShakaPlayerHook = {
     console.log("Shaka: Mounting...")
 
     const [audio] = this.el.getElementsByTagName("audio")
-    const player = new Player(audio)
+    const player = new Player()
+    await player.attach(audio)
+
     const dataset = this.el.dataset
 
     // shaka event handlers
