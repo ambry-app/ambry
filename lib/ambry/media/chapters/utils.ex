@@ -65,6 +65,8 @@ defmodule Ambry.Media.Chapters.Utils do
       "quiet"
     ]
 
+    Logger.info(fn -> "Running `#{command} #{Enum.join(args, " ")}`" end)
+
     case System.cmd(command, args, cd: Media.source_path(media), parallelism: true) do
       {output, 0} ->
         {:ok, output}
@@ -94,6 +96,8 @@ defmodule Ambry.Media.Chapters.Utils do
     ]
 
     try do
+      Logger.info(fn -> "Running `#{command} #{Enum.join(args, " ")}`" end)
+
       {output, 0} =
         System.cmd(command, args,
           cd: Media.source_path(media),
@@ -142,6 +146,8 @@ defmodule Ambry.Media.Chapters.Utils do
   def mp4_chapter_probe(media, mp4_file) do
     command = "ffprobe"
     args = ["-i", mp4_file, "-print_format", "json", "-show_chapters", "-loglevel", "error"]
+
+    Logger.info(fn -> "Running `#{command} #{Enum.join(args, " ")}`" end)
 
     case System.cmd(command, args, cd: Media.source_path(media), parallelism: true) do
       {output, 0} ->

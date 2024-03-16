@@ -41,21 +41,20 @@ defmodule Ambry.Media.Processor.MP4Copy do
 
     {:ok, _progress_tracker} = ProgressTracker.start(media, progress_file_path, @extensions)
 
-    command = "ffmpeg"
-
-    args = [
-      "-loglevel",
-      "quiet",
-      "-vn",
-      "-i",
-      "../#{mp4_file}",
-      "-c copy",
-      "-progress",
-      progress_file_path,
-      "#{id}.mp4"
-    ]
-
-    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
+    run_command!(
+      "ffmpeg",
+      [
+        "-vn",
+        "-i",
+        "../#{mp4_file}",
+        "-c",
+        "copy",
+        "-progress",
+        progress_file_path,
+        "#{id}.mp4"
+      ],
+      cd: Media.out_path(media)
+    )
 
     id
   end

@@ -41,26 +41,26 @@ defmodule Ambry.Media.Processor.MP4Concat do
 
     {:ok, _progress_tracker} = ProgressTracker.start(media, progress_file_path, @extensions)
 
-    command = "ffmpeg"
-
-    args = [
-      "-loglevel",
-      "quiet",
-      "-f",
-      "concat",
-      "-safe",
-      "0",
-      "-vn",
-      "-acodec",
-      "copy",
-      "-i",
-      "files.txt",
-      "-progress",
-      progress_file_path,
-      "#{id}.mp4"
-    ]
-
-    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
+    run_command!(
+      "ffmpeg",
+      [
+        "-loglevel",
+        "quiet",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-vn",
+        "-acodec",
+        "copy",
+        "-i",
+        "files.txt",
+        "-progress",
+        progress_file_path,
+        "#{id}.mp4"
+      ],
+      cd: Media.out_path(media)
+    )
 
     id
   end

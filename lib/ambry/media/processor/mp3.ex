@@ -40,20 +40,20 @@ defmodule Ambry.Media.Processor.MP3 do
 
     {:ok, _progress_tracker} = ProgressTracker.start(media, progress_file_path, @extensions)
 
-    command = "ffmpeg"
-
-    args = [
-      "-loglevel",
-      "quiet",
-      "-vn",
-      "-i",
-      "../#{mp3_file}",
-      "-progress",
-      progress_file_path,
-      "#{id}.mp4"
-    ]
-
-    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
+    run_command!(
+      "ffmpeg",
+      [
+        "-loglevel",
+        "quiet",
+        "-vn",
+        "-i",
+        "../#{mp3_file}",
+        "-progress",
+        progress_file_path,
+        "#{id}.mp4"
+      ],
+      cd: Media.out_path(media)
+    )
 
     id
   end

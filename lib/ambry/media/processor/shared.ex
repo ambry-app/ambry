@@ -9,6 +9,8 @@ defmodule Ambry.Media.Processor.Shared do
   alias Ambry.Media.Media
   alias Ambry.Media.Processor.ProgressTracker
 
+  require Logger
+
   def filter_filenames(filenames, extensions) do
     filenames
     |> Enum.filter(&(Path.extname(&1) in extensions))
@@ -44,45 +46,45 @@ defmodule Ambry.Media.Processor.Shared do
 
     {:ok, _progress_tracker} = ProgressTracker.start(media, progress_file_path, extensions)
 
-    command = "ffmpeg"
-
-    args = [
-      "-loglevel",
-      "quiet",
-      "-f",
-      "concat",
-      "-safe",
-      "0",
-      "-vn",
-      "-i",
-      "files.txt",
-      "-progress",
-      progress_file_path,
-      "#{id}.mp4"
-    ]
-
-    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
+    run_command!(
+      "ffmpeg",
+      [
+        "-loglevel",
+        "quiet",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-vn",
+        "-i",
+        "files.txt",
+        "-progress",
+        progress_file_path,
+        "#{id}.mp4"
+      ],
+      cd: Media.out_path(media)
+    )
 
     id
   end
 
   def create_stream!(media, id) do
-    command = "shaka-packager"
-
-    args = [
-      "in=#{id}.mp4,stream=audio,out=#{id}.mp4,playlist_name=#{id}_0.m3u8",
-      "--base_urls",
-      "/uploads/media/",
-      "--hls_base_url",
-      "/uploads/media/",
-      "--mpd_output",
-      "#{id}.mpd",
-      "--hls_master_playlist_output",
-      "#{id}.m3u8",
-      "-quiet"
-    ]
-
-    {_output, 0} = System.cmd(command, args, cd: Media.out_path(media), parallelism: true)
+    run_command!(
+      "shaka-packager",
+      [
+        "in=#{id}.mp4,stream=audio,out=#{id}.mp4,playlist_name=#{id}_0.m3u8",
+        "--base_urls",
+        "/uploads/media/",
+        "--hls_base_url",
+        "/uploads/media/",
+        "--mpd_output",
+        "#{id}.mpd",
+        "--hls_master_playlist_output",
+        "#{id}.m3u8",
+        "-quiet"
+      ],
+      cd: Media.out_path(media)
+    )
   end
 
   def finalize!(media, id) do
@@ -116,22 +118,26 @@ defmodule Ambry.Media.Processor.Shared do
     # produce. But to get duration from unknown source files, we should not rely
     # on the metadata reported duration.
 
-    command = "ffprobe"
+    output =
+      run_command!("ffprobe", [
+        "-i",
+        file,
+        "-print_format",
+        "json",
+        "-show_entries",
+        "format=duration",
+        "-v",
+        "quiet"
+      ])
 
-    args = [
-      "-i",
-      file,
-      "-print_format",
-      "json",
-      "-show_entries",
-      "format=duration",
-      "-v",
-      "quiet"
-    ]
-
-    {output, 0} = System.cmd(command, args, parallelism: true)
     %{"format" => %{"duration" => duration_string}} = Jason.decode!(output)
 
     Decimal.new(duration_string)
+  end
+
+  def run_command!(command, args, opts \\ []) do
+    Logger.info(fn -> "Running `#{command} #{Enum.join(args, " ")}`" end)
+    {output, 0} = System.cmd(command, args, Keyword.put(opts, :parallelism, true))
+    output
   end
 end
