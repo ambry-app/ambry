@@ -1,8 +1,6 @@
 <div class="mx-auto max-w-3xl space-y-4">
   <div class="text-2xl font-bold">Import Audiobook details from GoodReads</div>
 
-  <.flash_group flash={@flash} />
-
   <.simple_form for={@search_form} phx-submit="search" phx-target={@myself}>
     <div class="flex items-end gap-2">
       <.input field={@search_form[:query]} label="Search" container_class="grow" />
@@ -10,54 +8,76 @@
     </div>
   </.simple_form>
 
-  <div class="grid grid-cols-2 gap-2">
-    <div class="space-y-2">
-      <.loading :if={@search_loading}>Searching books...</.loading>
+  <.async_result :let={books} assign={@books}>
+    <:loading>
+      <.loading>Searching books...</.loading>
+    </:loading>
 
-      <div :if={!@search_loading} class="space-y-2">
-        <.simple_form for={@select_book_form} phx-change="select-book" phx-target={@myself}>
+    <:failed :let={failure}>
+      <.error>There was an error searching GoodReads for books: <%= failure %></.error>
+    </:failed>
+
+    <div class="grid grid-cols-2 gap-2">
+      <div class="space-y-2">
+        <div class="space-y-2">
+          <.simple_form for={@select_book_form} phx-change="select-book" phx-target={@myself}>
+            <div class="space-y-2">
+              <.label>Select book (<%= length(books) %> results)</.label>
+              <.rich_select id="book-select" field={@select_book_form[:book_id]} options={books}>
+                <:option :let={book}>
+                  <.book_card book={book} />
+                </:option>
+              </.rich_select>
+            </div>
+          </.simple_form>
+        </div>
+      </div>
+
+      <div>
+        <.async_result :let={editions} assign={@editions}>
+          <:loading>
+            <.loading>Fetching editions...</.loading>
+          </:loading>
+
+          <:failed :let={failure}>
+            <.error>There was an error fetching editions from GoodReads: <%= failure %></.error>
+          </:failed>
+
           <div class="space-y-2">
-            <.label>Select book (<%= length(@books) %> results)</.label>
-            <.rich_select id="book-select" field={@select_book_form[:book_id]} options={@books}>
-              <:option :let={book}>
-                <.book_card book={book} />
-              </:option>
-            </.rich_select>
+            <.simple_form for={@select_edition_form} phx-change="select-edition" phx-target={@myself}>
+              <div class="space-y-2">
+                <.label>Select edition for <em><%= editions.title %></em></.label>
+                <.rich_select id="edition-select" field={@select_edition_form[:edition_id]} options={editions.editions}>
+                  <:option :let={edition}>
+                    <.book_card book={edition} />
+                  </:option>
+                </.rich_select>
+              </div>
+            </.simple_form>
           </div>
-        </.simple_form>
+        </.async_result>
       </div>
     </div>
+  </.async_result>
 
-    <div>
-      <.loading :if={@editions_loading}>Fetching editions...</.loading>
+  <.async_result :let={edition_details} :if={@editions.ok?} assign={@edition_details}>
+    <:loading>
+      <.loading>Fetching edition details...</.loading>
+    </:loading>
 
-      <div :if={@editions} class="space-y-2">
-        <.simple_form for={@select_edition_form} phx-change="select-edition" phx-target={@myself}>
-          <div class="space-y-2">
-            <.label>Select edition for <em><%= @editions.title %></em></.label>
-            <.rich_select id="edition-select" field={@select_edition_form[:edition_id]} options={@editions.editions}>
-              <:option :let={edition}>
-                <.book_card book={edition} />
-              </:option>
-            </.rich_select>
-          </div>
-        </.simple_form>
-      </div>
-    </div>
-  </div>
+    <:failed :let={failure}>
+      <.error>There was an error fetching edition details from GoodReads: <%= failure %></.error>
+    </:failed>
 
-  <.loading :if={@edition_details_loading}>Fetching edition details...</.loading>
-
-  <div :for={%{} = book <- [@edition_details]}>
     <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
-      <.import_form_row :if={book.published} field={@form[:use_published]} label="Published">
+      <.import_form_row :if={edition_details.published} field={@form[:use_published]} label="Published">
         <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
-          <%= display_date(book.published) %>
+          <%= display_date(edition_details.published) %>
         </div>
       </.import_form_row>
 
-      <.import_form_row :if={narrators(book) != []} field={@form[:use_narrators]} label="Narrators">
-        <div :for={{existing_narrator, imported_narrator} <- Enum.zip(@matching_narrators, narrators(book))}>
+      <.import_form_row :if={narrators(edition_details) != []} field={@form[:use_narrators]} label="Narrators">
+        <div :for={{existing_narrator, imported_narrator} <- Enum.zip(@matching_narrators, narrators(edition_details))}>
           <%= if existing_narrator do %>
             <p class="flex items-center gap-2">
               <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
@@ -85,5 +105,5 @@
         </.button>
       </:actions>
     </.simple_form>
-  </div>
+  </.async_result>
 </div>

@@ -70,24 +70,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("submit", %{"import" => import_type, "book" => book_params}, socket) do
-    changeset =
-      socket.assigns.book
-      |> Books.change_book(book_params)
-      |> Map.put(:action, :validate)
-
-    if Keyword.has_key?(changeset.errors, :title) do
-      {:noreply, assign_form(socket, changeset)}
-    else
-      socket =
-        assign(socket,
-          import: %{type: String.to_existing_atom(import_type), query: book_params["title"]}
-        )
-
-      {:noreply, socket}
-    end
-  end
-
   def handle_event("submit", %{"book" => book_params}, socket) do
     with {:ok, _book} <-
            socket.assigns.book
@@ -101,6 +83,14 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       {:error, :failed_upload} -> {:noreply, put_flash(socket, :error, "Failed to upload image")}
       {:error, :failed_import} -> {:noreply, put_flash(socket, :error, "Failed to import image")}
     end
+  end
+
+  def handle_event("open-import-form", %{"type" => type}, socket) do
+    query = socket.assigns.form.params["title"] || socket.assigns.book.title
+    import_type = String.to_existing_atom(type)
+    socket = assign(socket, import: %{type: import_type, query: query})
+
+    {:noreply, socket}
   end
 
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
@@ -124,16 +114,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     changeset = Books.change_book(socket.assigns.book, new_params)
 
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
-  end
-
-  # Forwards `handle_info` messages from `Task`s to live component
-  def handle_info({_task_ref, {{:for, component, id}, payload}}, socket) do
-    send_update(component, id: id, info: payload)
-    {:noreply, socket}
-  end
-
-  def handle_info({:DOWN, _task_ref, :process, _pid, :normal}, socket) do
-    {:noreply, socket}
   end
 
   defp cancel_all_uploads(socket, upload) do
@@ -190,4 +170,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp import_form(:goodreads), do: GoodreadsImportForm
   defp import_form(:audible), do: AudibleImportForm
+
+  defp open_import_form(type), do: JS.push("open-import-form", value: %{"type" => type})
 end

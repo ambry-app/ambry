@@ -33,6 +33,8 @@ defmodule AmbryScraping.Audnexus.Authors do
   defp image(""), do: nil
   defp image(src), do: AmbryScraping.Image.fetch_from_source(src)
 
+  def search(""), do: {:ok, []}
+
   def search(name) do
     with {:ok, response} <- Req.get(@url, params: [name: name]) do
       {:ok,

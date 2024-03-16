@@ -69,24 +69,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("submit", %{"import" => import_type, "media" => media_params}, socket) do
-    changeset =
-      socket.assigns.media
-      |> Media.change_media(media_params, for: changeset_action(socket.assigns.live_action))
-      |> Map.put(:action, :validate)
-
-    if Keyword.has_key?(changeset.errors, :book_id) do
-      {:noreply, assign_form(socket, changeset)}
-    else
-      book = Ambry.Books.get_book!(media_params["book_id"])
-
-      socket =
-        assign(socket, import: %{type: String.to_existing_atom(import_type), query: book.title})
-
-      {:noreply, socket}
-    end
-  end
-
   def handle_event("submit", %{"media" => media_params}, socket) do
     with :ok <- changeset_valid?(socket, media_params),
          {:ok, media_params} <-
@@ -96,6 +78,21 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     else
       {:error, %Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}
     end
+  end
+
+  def handle_event("open-import-form", %{"type" => type}, socket) do
+    book_id = socket.assigns.form.params["book_id"] || socket.assigns.media.book_id
+
+    query =
+      if book_id do
+        Ambry.Books.get_book!(book_id).title
+      else
+        ""
+      end
+
+    import_type = String.to_existing_atom(type)
+    socket = assign(socket, import: %{type: import_type, query: query})
+    {:noreply, socket}
   end
 
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
@@ -122,16 +119,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       )
 
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
-  end
-
-  # Forwards `handle_info` messages from `Task`s to live component
-  def handle_info({_task_ref, {{:for, component, id}, payload}}, socket) do
-    send_update(component, id: id, info: payload)
-    {:noreply, socket}
-  end
-
-  def handle_info({:DOWN, _task_ref, :process, _pid, :normal}, socket) do
-    {:noreply, socket}
   end
 
   defp handle_supplemental_files_upload(socket, media_params, name) do
@@ -308,4 +295,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   defp format_filesize(bytes) do
     bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()
   end
+
+  defp open_import_form(type), do: JS.push("open-import-form", value: %{"type" => type})
 end

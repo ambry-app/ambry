@@ -1,8 +1,6 @@
 <div class="mx-auto max-w-3xl space-y-4">
   <div class="text-2xl font-bold">Import Book from Audible</div>
 
-  <.flash_group flash={@flash} />
-
   <.simple_form for={@search_form} phx-submit="search" phx-target={@myself}>
     <div class="flex items-end gap-2">
       <.input field={@search_form[:query]} label="Search" container_class="grow" />
@@ -10,93 +8,101 @@
     </div>
   </.simple_form>
 
-  <%= if @search_loading do %>
-    <.loading>Searching books...</.loading>
-  <% end %>
+  <.async_result :let={books} assign={@books}>
+    <:loading>
+      <.loading>Searching books...</.loading>
+    </:loading>
 
-  <%= if !@search_loading && length(@books) > 1 do %>
+    <:failed :let={failure}>
+      <.error>There was an error searching Audible for books: <%= failure %></.error>
+    </:failed>
+
     <.simple_form for={@select_book_form} phx-change="select-book" phx-target={@myself}>
       <div class="space-y-2">
-        <.label>Select book (<%= length(@books) %> results)</.label>
-        <.rich_select id="book-select" field={@select_book_form[:book_id]} options={@books}>
+        <.label>Select book (<%= length(books) %> results)</.label>
+        <.rich_select id="book-select" field={@select_book_form[:book_id]} options={books}>
           <:option :let={book}>
             <.book_card book={book} />
           </:option>
         </.rich_select>
       </div>
     </.simple_form>
-  <% end %>
 
-  <div :if={@selected_book}>
-    <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
-      <.import_form_row :if={@selected_book.title != ""} field={@form[:use_title]} label="Title">
-        <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
-          <%= @selected_book.title %>
-        </div>
-      </.import_form_row>
+    <.async_result :let={selected_book} :if={@books.ok?} assign={@selected_book}>
+      <:loading>
+        <.loading>Fetching book details...</.loading>
+      </:loading>
 
-      <.import_form_row :if={@selected_book.description} field={@form[:use_description]} label="Description">
-        <.markdown
-          content={@selected_book.description}
-          class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-600 bg-zinc-800 p-2"
-        />
-      </.import_form_row>
+      <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
+        <.import_form_row :if={selected_book.title != ""} field={@form[:use_title]} label="Title">
+          <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
+            <%= selected_book.title %>
+          </div>
+        </.import_form_row>
 
-      <.import_form_row :if={@selected_book.authors != []} field={@form[:use_authors]} label="Authors">
-        <div :for={{existing_author, imported_author} <- Enum.zip(@matching_authors, @selected_book.authors)}>
-          <%= if existing_author do %>
-            <p class="flex items-center gap-2">
-              <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
-              <span class="font-semibold">Existing author</span>
-              <%= existing_author.name %>
-            </p>
-          <% else %>
-            <p class="flex items-center gap-2">
-              <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
-              <span class="font-semibold">Missing author</span>
-              <%= imported_author.name %>
-            </p>
-          <% end %>
-        </div>
-        <p :if={Enum.any?(@matching_authors, &is_nil/1)}>
-          Any missing authors will be imported with just their names. You can add additional details by visiting
-          <.brand_link navigate={~p"/admin/people"}>Authors & Narrators</.brand_link>.
-        </p>
-      </.import_form_row>
+        <.import_form_row :if={selected_book.description} field={@form[:use_description]} label="Description">
+          <.markdown
+            content={selected_book.description}
+            class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-600 bg-zinc-800 p-2"
+          />
+        </.import_form_row>
 
-      <.import_form_row :if={@selected_book.series != []} field={@form[:use_series]} label="Series">
-        <div :for={{existing_series, imported_series} <- Enum.zip(@matching_series, @selected_book.series)}>
-          <%= if existing_series do %>
-            <p class="flex items-center gap-2">
-              <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
-              <span class="font-semibold">Existing series</span>
-              <%= existing_series.name %> #<%= imported_series.sequence %>
-            </p>
-          <% else %>
-            <p class="flex items-center gap-2">
-              <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
-              <span class="font-semibold">New series</span>
-              <%= imported_series.title %> #<%= imported_series.sequence %>
-            </p>
-          <% end %>
-        </div>
-      </.import_form_row>
+        <.import_form_row :if={selected_book.authors != []} field={@form[:use_authors]} label="Authors">
+          <div :for={{existing_author, imported_author} <- Enum.zip(@matching_authors, selected_book.authors)}>
+            <%= if existing_author do %>
+              <p class="flex items-center gap-2">
+                <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
+                <span class="font-semibold">Existing author</span>
+                <%= existing_author.name %>
+              </p>
+            <% else %>
+              <p class="flex items-center gap-2">
+                <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
+                <span class="font-semibold">Missing author</span>
+                <%= imported_author.name %>
+              </p>
+            <% end %>
+          </div>
+          <p :if={Enum.any?(@matching_authors, &is_nil/1)}>
+            Any missing authors will be imported with just their names. You can add additional details by visiting
+            <.brand_link navigate={~p"/admin/people"}>Authors & Narrators</.brand_link>.
+          </p>
+        </.import_form_row>
 
-      <.import_form_row :if={@selected_book.cover_image} field={@form[:use_cover_image]} label="Image">
-        <.image_with_size
-          :if={@selected_book.cover_image}
-          id={@form[:use_cover_image].id}
-          src={@selected_book.cover_image.src}
-          class="h-48 rounded-sm"
-        />
-      </.import_form_row>
+        <.import_form_row :if={selected_book.series != []} field={@form[:use_series]} label="Series">
+          <div :for={{existing_series, imported_series} <- Enum.zip(@matching_series, selected_book.series)}>
+            <%= if existing_series do %>
+              <p class="flex items-center gap-2">
+                <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
+                <span class="font-semibold">Existing series</span>
+                <%= existing_series.name %> #<%= imported_series.sequence %>
+              </p>
+            <% else %>
+              <p class="flex items-center gap-2">
+                <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
+                <span class="font-semibold">New series</span>
+                <%= imported_series.title %> #<%= imported_series.sequence %>
+              </p>
+            <% end %>
+          </div>
+        </.import_form_row>
 
-      <:actions>
-        <.button class="mt-2">Import</.button>
-        <.button type="button" color={:zinc} phx-click={JS.exec("data-cancel", to: "#import-modal")}>
-          Cancel
-        </.button>
-      </:actions>
-    </.simple_form>
-  </div>
+        <.import_form_row :if={selected_book.cover_image} field={@form[:use_cover_image]} label="Image">
+          <.image_with_size
+            :if={selected_book.cover_image}
+            id={@form[:use_cover_image].id}
+            src={selected_book.cover_image.src}
+            class="h-48 rounded-sm"
+          />
+        </.import_form_row>
+
+        <:actions>
+          <.button class="mt-2">Import</.button>
+          <.button type="button" color={:zinc} phx-click={JS.exec("data-cancel", to: "#import-modal")}>
+            Cancel
+          </.button>
+        </:actions>
+      </.simple_form>
+    </.async_result>
+  </.async_result>
 </div>

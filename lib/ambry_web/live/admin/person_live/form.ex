@@ -63,24 +63,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("submit", %{"import" => import_type, "person" => person_params}, socket) do
-    changeset =
-      socket.assigns.person
-      |> People.change_person(person_params)
-      |> Map.put(:action, :validate)
-
-    if Keyword.has_key?(changeset.errors, :name) do
-      {:noreply, assign_form(socket, changeset)}
-    else
-      socket =
-        assign(socket,
-          import: %{type: String.to_existing_atom(import_type), query: person_params["name"]}
-        )
-
-      {:noreply, socket}
-    end
-  end
-
   def handle_event("submit", %{"person" => person_params}, socket) do
     with {:ok, _person} <-
            socket.assigns.person
@@ -97,6 +79,14 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     end
   end
 
+  def handle_event("open-import-form", %{"type" => type}, socket) do
+    query = socket.assigns.form.params["name"] || socket.assigns.person.name
+    import_type = String.to_existing_atom(type)
+    socket = assign(socket, import: %{type: import_type, query: query})
+
+    {:noreply, socket}
+  end
+
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :image, ref)}
   end
@@ -110,16 +100,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     new_params = Map.merge(socket.assigns.form.params, person_params)
     changeset = People.change_person(socket.assigns.person, new_params)
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
-  end
-
-  # Forwards `handle_info` messages from `Task`s to live component
-  def handle_info({_task_ref, {{:for, component, id}, payload}}, socket) do
-    send_update(component, id: id, info: payload)
-    {:noreply, socket}
-  end
-
-  def handle_info({:DOWN, _task_ref, :process, _pid, :normal}, socket) do
-    {:noreply, socket}
   end
 
   defp cancel_all_uploads(socket, upload) do
@@ -173,4 +153,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   defp assign_form(socket, %Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
   end
+
+  defp open_import_form(type), do: JS.push("open-import-form", value: %{"type" => type})
 end

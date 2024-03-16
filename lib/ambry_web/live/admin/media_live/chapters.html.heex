@@ -7,20 +7,10 @@
     <div class="space-y-2">
       <.label>Import from:</.label>
       <div class="flex items-center gap-2">
-        <.button
-          type="button"
-          color={:zinc}
-          class="flex items-center gap-1"
-          phx-click={JS.push("import", value: %{type: "source"})}
-        >
+        <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("source")}>
           <FA.icon name="file-audio" class="h-4 w-4 fill-current" /> Source File(s)
         </.button>
-        <.button
-          type="button"
-          color={:zinc}
-          class="flex items-center gap-1"
-          phx-click={JS.push("import", value: %{type: "audible"})}
-        >
+        <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("audible")}>
           <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
         </.button>
       </div>

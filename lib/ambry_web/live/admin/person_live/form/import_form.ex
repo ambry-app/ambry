@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
 
   alias Ambry.Metadata.Audible
   alias Ambry.Metadata.GoodReads
+  alias Phoenix.LiveView.AsyncResult
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -14,37 +15,92 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
-    socket =
-      case Map.pop(assigns, :info) do
-        {nil, assigns} ->
-          socket
-          |> assign(assigns)
-          |> async_search(assigns.type, assigns.query)
+    %{type: type, person: person, query: query} = assigns
 
-        {forwarded_info_payload, assigns} ->
-          socket
-          |> assign(assigns)
-          |> then(fn socket ->
-            handle_forwarded_info(forwarded_info_payload, socket)
-          end)
-      end
+    {:ok,
+     socket
+     |> assign(assigns)
+     |> assign(
+       authors: AsyncResult.loading(),
+       selected_author: AsyncResult.loading(),
+       search_form: to_form(%{"query" => query}, as: :search),
+       select_author_form: to_form(%{}, as: :select_author),
+       form: to_form(init_import_form_params(person), as: :import)
+     )
+     |> start_async(:search, fn -> search(type, query) end)}
+  end
 
-    {:ok, socket}
+  @impl Phoenix.LiveComponent
+  def handle_async(:search, {:ok, authors}, socket) do
+    [first_author | _rest] = authors
+    %{type: type} = socket.assigns
+
+    {:noreply,
+     socket
+     |> assign(authors: AsyncResult.ok(socket.assigns.authors, authors))
+     |> assign(select_author_form: to_form(%{"author_id" => first_author.id}, as: :select_author))
+     |> start_async(:select_author, fn -> select_author(type, first_author) end)}
+  end
+
+  def handle_async(:search, {:exit, {:shutdown, :cancel}}, socket) do
+    {:noreply, assign(socket, authors: AsyncResult.loading())}
+  end
+
+  def handle_async(:search, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply,
+     assign(socket, authors: AsyncResult.failed(socket.assigns.authors, exception.message))}
+  end
+
+  def handle_async(:select_author, {:ok, author}, socket) do
+    {:noreply,
+     assign(socket,
+       selected_author: AsyncResult.ok(socket.assigns.selected_author, author)
+     )}
+  end
+
+  def handle_async(:select_author, {:exit, {:shutdown, :cancel}}, socket) do
+    {:noreply, assign(socket, selected_author: AsyncResult.loading())}
+  end
+
+  def handle_async(:select_author, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply,
+     assign(socket,
+       selected_author: AsyncResult.failed(socket.assigns.selected_author, exception.message)
+     )}
   end
 
   @impl Phoenix.LiveComponent
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    socket = async_search(socket, socket.assigns.type, query)
-    {:noreply, socket}
+    %{type: type} = socket.assigns
+
+    {:noreply,
+     socket
+     |> assign(
+       books: AsyncResult.loading(),
+       selected_book: AsyncResult.loading(),
+       search_form: to_form(%{"query" => query}, as: :search)
+     )
+     |> cancel_async(:search)
+     |> cancel_async(:select_book)
+     |> start_async(:search, fn -> search(type, query) end)}
   end
 
   def handle_event("select-author", %{"select_author" => %{"author_id" => author_id}}, socket) do
-    socket = async_details(socket, socket.assigns.type, author_id)
-    {:noreply, socket}
+    author = Enum.find(socket.assigns.authors.result, &(&1.id == author_id))
+    %{type: type} = socket.assigns
+
+    {:noreply,
+     socket
+     |> assign(
+       selected_author: AsyncResult.loading(),
+       select_author_form: to_form(%{"author_id" => author.id}, as: :select_author)
+     )
+     |> cancel_async(:select_author)
+     |> start_async(:select_author, fn -> select_author(type, author) end)}
   end
 
   def handle_event("import", %{"import" => import_params}, socket) do
-    author = socket.assigns.details
+    author = socket.assigns.selected_author.result
 
     params =
       Enum.reduce(import_params, %{}, fn
@@ -66,78 +122,25 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
     {:noreply, socket}
   end
 
-  defp handle_forwarded_info({import_type, :search, {:ok, results}}, socket) do
-    socket = assign(socket, search_loading: false, results: results)
+  defp search(:goodreads, query), do: do_search(query, &GoodReads.search_authors/1)
+  defp search(:audible, query), do: do_search(query, &Audible.search_authors/1)
 
-    socket =
-      case results do
-        [] ->
-          socket
-
-        [first_result | _rest] ->
-          async_details(socket, import_type, first_result.id)
-      end
-
-    socket
+  defp do_search(query, query_fun) do
+    case "#{query}" |> String.trim() |> String.downcase() |> query_fun.() do
+      {:ok, []} -> raise "No authors found"
+      {:ok, authors} -> authors
+      {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
+    end
   end
 
-  defp handle_forwarded_info({_import_type, :search, {:error, _reason}}, socket) do
-    socket
-    |> put_flash(:error, "search failed")
-    |> assign(search_loading: false)
-  end
+  defp select_author(:goodreads, author), do: do_select_author(author, &GoodReads.author/1)
+  defp select_author(:audible, author), do: do_select_author(author, &Audible.author/1)
 
-  defp handle_forwarded_info({_import_type, :details, {:ok, result}}, socket) do
-    assign(socket, details_loading: false, details: result)
-  end
-
-  defp handle_forwarded_info({_import_type, :details, {:error, _reason}}, socket) do
-    socket
-    |> put_flash(:error, "fetch failed")
-    |> assign(details_loading: false)
-  end
-
-  defp async_search(socket, :goodreads, query),
-    do: do_async_search(socket, :goodreads, query, &GoodReads.search_authors/1)
-
-  defp async_search(socket, :audible, query),
-    do: do_async_search(socket, :audible, query, &Audible.search_authors/1)
-
-  defp do_async_search(socket, import_type, query, query_fun) do
-    Task.async(fn ->
-      response = query_fun.(query |> String.trim() |> String.downcase())
-      {{:for, __MODULE__, socket.assigns.id}, {import_type, :search, response}}
-    end)
-
-    assign(socket,
-      type: import_type,
-      search_form: to_form(%{"query" => query}, as: :search),
-      search_loading: true,
-      results: [],
-      select_author_form: to_form(%{}, as: :select_author),
-      details_loading: false,
-      details: nil,
-      form: to_form(init_import_form_params(socket.assigns.person), as: :import)
-    )
-  end
-
-  defp async_details(socket, :goodreads, author_id),
-    do: do_async_details(socket, :goodreads, author_id, &GoodReads.author/1)
-
-  defp async_details(socket, :audible, author_id),
-    do: do_async_details(socket, :audible, author_id, &Audible.author/1)
-
-  defp do_async_details(socket, import_type, author_id, details_fun) do
-    Task.async(fn ->
-      response = details_fun.(author_id)
-      {{:for, __MODULE__, socket.assigns.id}, {import_type, :details, response}}
-    end)
-
-    assign(socket,
-      select_author_form: to_form(%{"author_id" => author_id}, as: :select_author),
-      details_loading: true,
-      details: nil
-    )
+  defp do_select_author(author, author_fun) do
+    case author_fun.(author.id) do
+      {:ok, author} -> author
+      {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
+    end
   end
 
   defp init_import_form_params(person) do

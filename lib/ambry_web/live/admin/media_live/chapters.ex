@@ -49,14 +49,10 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
     end
   end
 
-  def handle_event("import", %{"type" => import_type}, socket) do
-    socket =
-      assign(socket,
-        import: %{
-          type: String.to_existing_atom(import_type),
-          query: socket.assigns.media.book.title
-        }
-      )
+  def handle_event("open-import-form", %{"type" => type}, socket) do
+    query = socket.assigns.media.book.title
+    import_type = String.to_existing_atom(type)
+    socket = assign(socket, import: %{type: import_type, query: query})
 
     {:noreply, socket}
   end
@@ -73,20 +69,12 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
   end
 
-  # Forwards `handle_info` messages from `Task`s to live component
-  def handle_info({_task_ref, {{:for, component, id}, payload}}, socket) do
-    send_update(component, id: id, info: payload)
-    {:noreply, socket}
-  end
-
-  def handle_info({:DOWN, _task_ref, :process, _pid, :normal}, socket) do
-    {:noreply, socket}
+  defp assign_form(socket, %Changeset{} = changeset) do
+    assign(socket, :form, to_form(changeset))
   end
 
   defp import_form(:source), do: SourceImportForm
   defp import_form(:audible), do: AudibleImportForm
 
-  defp assign_form(socket, %Changeset{} = changeset) do
-    assign(socket, :form, to_form(changeset))
-  end
+  defp open_import_form(type), do: JS.push("open-import-form", value: %{"type" => type})
 end

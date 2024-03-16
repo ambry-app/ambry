@@ -61,6 +61,8 @@ defmodule AmbryScraping.GoodReads.Authors do
     end
   end
 
+  def search(""), do: {:ok, []}
+
   def search(query) do
     with {:ok, results} <- Books.search(query) do
       downcased_query_words =

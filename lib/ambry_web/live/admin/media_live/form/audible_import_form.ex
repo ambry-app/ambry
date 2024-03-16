@@ -8,6 +8,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.AudibleImportForm do
   alias Ambry.Metadata.Audible
   alias Ambry.People.Person
   alias Ambry.Search
+  alias Phoenix.LiveView.AsyncResult
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -16,36 +17,91 @@ defmodule AmbryWeb.Admin.MediaLive.Form.AudibleImportForm do
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
-    socket =
-      case Map.pop(assigns, :info) do
-        {nil, assigns} ->
-          socket
-          |> assign(assigns)
-          |> async_search(assigns.query)
+    {:ok,
+     socket
+     |> assign(assigns)
+     |> assign(
+       books: AsyncResult.loading(),
+       selected_book: AsyncResult.loading(),
+       search_form: to_form(%{"query" => assigns.query}, as: :search),
+       select_book_form: to_form(%{}, as: :select_book),
+       form: to_form(init_import_form_params(assigns.media), as: :import)
+     )
+     |> start_async(:search, fn -> search(assigns.query) end)}
+  end
 
-        {forwarded_info_payload, assigns} ->
-          socket
-          |> assign(assigns)
-          |> then(fn socket ->
-            handle_forwarded_info(forwarded_info_payload, socket)
-          end)
-      end
+  @impl Phoenix.LiveComponent
+  def handle_async(:search, {:ok, books}, socket) do
+    [first_book | _rest] = books
 
-    {:ok, socket}
+    {:noreply,
+     socket
+     |> assign(books: AsyncResult.ok(socket.assigns.books, books))
+     |> assign(select_book_form: to_form(%{"book_id" => first_book.id}, as: :select_book))
+     |> start_async(:select_book, fn -> select_book(first_book) end)}
+  end
+
+  def handle_async(:search, {:exit, {:shutdown, :cancel}}, socket) do
+    {:noreply, assign(socket, books: AsyncResult.loading())}
+  end
+
+  def handle_async(:search, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply, assign(socket, books: AsyncResult.failed(socket.assigns.books, exception.message))}
+  end
+
+  def handle_async(:select_book, {:ok, results}, socket) do
+    %{
+      selected_book: selected_book,
+      matching_narrators: matching_narrators
+    } = results
+
+    {:noreply,
+     assign(socket,
+       selected_book: AsyncResult.ok(socket.assigns.selected_book, selected_book),
+       matching_narrators: matching_narrators
+     )}
+  end
+
+  def handle_async(:select_book, {:exit, {:shutdown, :cancel}}, socket) do
+    {:noreply, assign(socket, selected_book: AsyncResult.loading())}
+  end
+
+  def handle_async(:select_book, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply,
+     assign(socket,
+       selected_book: AsyncResult.failed(socket.assigns.selected_book, exception.message)
+     )}
   end
 
   @impl Phoenix.LiveComponent
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    {:noreply, async_search(socket, query)}
+    {:noreply,
+     socket
+     |> assign(
+       books: AsyncResult.loading(),
+       selected_book: AsyncResult.loading(),
+       search_form: to_form(%{"query" => query}, as: :search)
+     )
+     |> cancel_async(:search)
+     |> cancel_async(:select_book)
+     |> start_async(:search, fn -> search(query) end)}
   end
 
   def handle_event("select-book", %{"select_book" => %{"book_id" => book_id}}, socket) do
-    book = Enum.find(socket.assigns.books, &(&1.id == book_id))
-    {:noreply, select_book(socket, book)}
+    book = Enum.find(socket.assigns.books.result, &(&1.id == book_id))
+
+    {:noreply,
+     socket
+     |> assign(
+       selected_book: AsyncResult.loading(),
+       select_book_form: to_form(%{"book_id" => book.id}, as: :select_book)
+     )
+     |> cancel_async(:select_book)
+     |> start_async(:select_book, fn -> select_book(book) end)}
   end
 
   def handle_event("import", %{"import" => import_params}, socket) do
-    book = socket.assigns.selected_book
+    book = socket.assigns.selected_book.result
 
     params =
       Enum.reduce(import_params, %{}, fn
@@ -92,46 +148,21 @@ defmodule AmbryWeb.Admin.MediaLive.Form.AudibleImportForm do
     end)
   end
 
-  defp select_book(socket, book) do
-    matching_narrators =
-      Enum.map(book.narrators, fn narrator -> Search.find_first(narrator.name, Person) end)
-
-    assign(socket,
-      selected_book: book,
-      matching_narrators: matching_narrators,
-      select_book_form: to_form(%{"book_id" => book.id}, as: :select_book)
-    )
-  end
-
-  defp handle_forwarded_info({:search, {:ok, books}}, socket) do
-    socket = assign(socket, search_loading: false, books: books)
-
-    case books do
-      [] -> socket
-      [first_result | _rest] -> select_book(socket, first_result)
+  defp search(query) do
+    case "#{query}" |> String.trim() |> String.downcase() |> Audible.search_books() do
+      {:ok, []} -> raise "No books found"
+      {:ok, books} -> books
+      {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
     end
   end
 
-  defp handle_forwarded_info({:search, {:error, _reason}}, socket) do
-    socket
-    |> put_flash(:error, "search failed")
-    |> assign(search_loading: false)
-  end
+  defp select_book(book) do
+    matching_narrators =
+      Enum.map(book.narrators, fn author ->
+        Search.find_first(author.name, Person)
+      end)
 
-  defp async_search(socket, query) do
-    Task.async(fn ->
-      response = Audible.search_books(query |> String.trim() |> String.downcase())
-      {{:for, __MODULE__, socket.assigns.id}, {:search, response}}
-    end)
-
-    assign(socket,
-      search_form: to_form(%{"query" => query}, as: :search),
-      search_loading: true,
-      books: [],
-      select_book_form: to_form(%{}, as: :select_book),
-      selected_book: nil,
-      form: to_form(init_import_form_params(socket.assigns.media), as: :import)
-    )
+    %{selected_book: book, matching_narrators: matching_narrators}
   end
 
   defp init_import_form_params(media) do

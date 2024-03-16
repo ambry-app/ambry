@@ -5,6 +5,7 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.SourceImportForm do
   import AmbryWeb.Admin.Components
 
   alias Ambry.Media.Chapters
+  alias Phoenix.LiveView.AsyncResult
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -13,37 +14,50 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.SourceImportForm do
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
-    socket =
-      case Map.pop(assigns, :info) do
-        {nil, assigns} ->
-          socket
-          |> assign(assigns)
-          |> assign(
-            strategies: Chapters.available_strategies(assigns.media),
-            strategy_form: to_form(%{}, as: :strategy),
-            chapters_loading: false,
-            chapters: nil
-          )
-
-        {forwarded_info_payload, assigns} ->
-          socket
-          |> assign(assigns)
-          |> then(fn socket ->
-            handle_forwarded_info(forwarded_info_payload, socket)
-          end)
-      end
-
-    {:ok, socket}
+    {:ok,
+     socket
+     |> assign(assigns)
+     |> assign(
+       strategies: Chapters.available_strategies(assigns.media),
+       chapters: nil,
+       select_strategy_form: to_form(%{}, as: :select_strategy),
+       form: to_form(init_import_form_params(assigns.media), as: :import)
+     )}
   end
 
   @impl Phoenix.LiveComponent
-  def handle_event("run-strategy", %{"strategy" => %{"strategy" => index_string}}, socket) do
+  def handle_async(:run_strategy, {:ok, chapters}, socket) do
+    {:noreply, assign(socket, chapters: AsyncResult.ok(socket.assigns.chapters, chapters))}
+  end
+
+  def handle_async(:run_strategy, {:exit, {:shutdown, :cancel}}, socket) do
+    {:noreply, assign(socket, chapters: AsyncResult.loading())}
+  end
+
+  def handle_async(:run_strategy, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply,
+     assign(socket,
+       chapters: AsyncResult.failed(socket.assigns.chapters, exception.message)
+     )}
+  end
+
+  @impl Phoenix.LiveComponent
+  def handle_event("run-strategy", %{"select_strategy" => %{"strategy" => index_string}}, socket) do
     strategy = Enum.at(socket.assigns.strategies, String.to_integer(index_string))
-    {:noreply, async_run_strategy(socket, strategy)}
+    media = socket.assigns.media
+
+    {:noreply,
+     socket
+     |> assign(
+       chapters: AsyncResult.loading(),
+       select_strategy_form: to_form(%{"strategy" => index_string}, as: :select_strategy)
+     )
+     |> cancel_async(:run_strategy)
+     |> start_async(:run_strategy, fn -> run_strategy(strategy, media) end)}
   end
 
   def handle_event("import", %{"import" => import_params}, socket) do
-    chapters = socket.assigns.chapters
+    chapters = socket.assigns.chapters.result
 
     import_type =
       cond do
@@ -74,27 +88,11 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.SourceImportForm do
   defp build_chapter_params(chapter, :all),
     do: %{"title" => chapter.title, "time" => chapter.time}
 
-  defp handle_forwarded_info({:chapters, {:ok, chapters}}, socket) do
-    assign(socket, chapters_loading: false, chapters: chapters)
-  end
-
-  defp handle_forwarded_info({:chapters, {:error, _reason}}, socket) do
-    socket
-    |> put_flash(:error, "extracting chapters failed")
-    |> assign(chapters_loading: false)
-  end
-
-  defp async_run_strategy(socket, strategy) do
-    Task.async(fn ->
-      response = strategy.get_chapters(socket.assigns.media)
-      {{:for, __MODULE__, socket.assigns.id}, {:chapters, response}}
-    end)
-
-    assign(socket,
-      chapters_loading: true,
-      chapters: nil,
-      form: to_form(init_import_form_params(socket.assigns.media), as: :import)
-    )
+  defp run_strategy(strategy, media) do
+    case strategy.get_chapters(media) do
+      {:ok, chapters} -> chapters
+      {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
+    end
   end
 
   defp init_import_form_params(media) do

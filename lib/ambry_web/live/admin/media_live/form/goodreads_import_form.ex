@@ -8,6 +8,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm do
   alias Ambry.Metadata.GoodReads
   alias Ambry.People.Person
   alias Ambry.Search
+  alias Phoenix.LiveView.AsyncResult
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -16,41 +17,134 @@ defmodule AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm do
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
-    socket =
-      case Map.pop(assigns, :info) do
-        {nil, assigns} ->
-          socket
-          |> assign(assigns)
-          |> async_search(assigns.query)
+    {:ok,
+     socket
+     |> assign(assigns)
+     |> assign(
+       books: AsyncResult.loading(),
+       editions: AsyncResult.loading(),
+       edition_details: AsyncResult.loading(),
+       search_form: to_form(%{"query" => assigns.query}, as: :search),
+       select_book_form: to_form(%{}, as: :select_book),
+       select_edition_form: to_form(%{}, as: :select_edition),
+       form: to_form(init_import_form_params(assigns.media), as: :import)
+     )
+     |> start_async(:search, fn -> search(assigns.query) end)}
+  end
 
-        {forwarded_info_payload, assigns} ->
-          socket
-          |> assign(assigns)
-          |> then(fn socket ->
-            handle_forwarded_info(forwarded_info_payload, socket)
-          end)
-      end
+  @impl Phoenix.LiveComponent
+  def handle_async(:search, {:ok, books}, socket) do
+    [first_book | _rest] = books
 
-    {:ok, socket}
+    {:noreply,
+     socket
+     |> assign(books: AsyncResult.ok(socket.assigns.books, books))
+     |> assign(select_book_form: to_form(%{"book_id" => first_book.id}, as: :select_book))
+     |> start_async(:fetch_editions, fn -> fetch_editions(first_book) end)}
+  end
+
+  def handle_async(:search, {:exit, {:shutdown, :cancel}}, socket) do
+    {:noreply, assign(socket, books: AsyncResult.loading())}
+  end
+
+  def handle_async(:search, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply, assign(socket, books: AsyncResult.failed(socket.assigns.books, exception.message))}
+  end
+
+  def handle_async(:fetch_editions, {:ok, editions}, socket) do
+    selected_edition =
+      Enum.find(editions.editions, List.first(editions.editions), fn edition ->
+        edition.format |> String.downcase() |> String.contains?("audio")
+      end)
+
+    {:noreply,
+     socket
+     |> assign(editions: AsyncResult.ok(socket.assigns.editions, editions))
+     |> assign(
+       select_edition_form: to_form(%{"edition_id" => selected_edition.id}, as: :select_edition)
+     )
+     |> start_async(:fetch_edition_details, fn -> fetch_edition_details(selected_edition) end)}
+  end
+
+  def handle_async(:fetch_editions, {:exit, {:shutdown, :cancel}}, socket) do
+    {:noreply, assign(socket, editions: AsyncResult.loading())}
+  end
+
+  def handle_async(:fetch_editions, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply,
+     assign(socket, editions: AsyncResult.failed(socket.assigns.editions, exception.message))}
+  end
+
+  def handle_async(:fetch_edition_details, {:ok, results}, socket) do
+    %{
+      edition_details: edition_details,
+      matching_narrators: matching_narrators
+    } = results
+
+    {:noreply,
+     assign(socket,
+       edition_details: AsyncResult.ok(socket.assigns.edition_details, edition_details),
+       matching_narrators: matching_narrators
+     )}
+  end
+
+  def handle_async(:fetch_edition_details, {:exit, {:shutdown, :cancel}}, socket) do
+    {:noreply, assign(socket, edition_details: AsyncResult.loading())}
+  end
+
+  def handle_async(:fetch_edition_details, {:exit, {exception, _stacktrace}}, socket) do
+    {:noreply,
+     assign(socket,
+       edition_details: AsyncResult.failed(socket.assigns.edition_details, exception.message)
+     )}
   end
 
   @impl Phoenix.LiveComponent
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    {:noreply, async_search(socket, query)}
+    {:noreply,
+     socket
+     |> assign(
+       books: AsyncResult.loading(),
+       editions: AsyncResult.loading(),
+       edition_details: AsyncResult.loading(),
+       search_form: to_form(%{"query" => query}, as: :search)
+     )
+     |> cancel_async(:search)
+     |> cancel_async(:fetch_editions)
+     |> cancel_async(:fetch_edition_details)
+     |> start_async(:search, fn -> search(query) end)}
   end
 
   def handle_event("select-book", %{"select_book" => %{"book_id" => book_id}}, socket) do
-    book = Enum.find(socket.assigns.books, &(&1.id == book_id))
-    {:noreply, select_book(socket, book)}
+    book = Enum.find(socket.assigns.books.result, &(&1.id == book_id))
+
+    {:noreply,
+     socket
+     |> assign(
+       editions: AsyncResult.loading(),
+       edition_details: AsyncResult.loading(),
+       select_book_form: to_form(%{"book_id" => book.id}, as: :select_book)
+     )
+     |> cancel_async(:fetch_editions)
+     |> cancel_async(:fetch_edition_details)
+     |> start_async(:fetch_editions, fn -> fetch_editions(book) end)}
   end
 
   def handle_event("select-edition", %{"select_edition" => %{"edition_id" => edition_id}}, socket) do
-    edition = Enum.find(socket.assigns.editions.editions, &(&1.id == edition_id))
-    {:noreply, select_edition(socket, edition)}
+    edition = Enum.find(socket.assigns.editions.result.editions, &(&1.id == edition_id))
+
+    {:noreply,
+     socket
+     |> assign(
+       edition_details: AsyncResult.loading(),
+       select_edition_form: to_form(%{"edition_id" => edition.id}, as: :select_edition)
+     )
+     |> cancel_async(:fetch_edition_details)
+     |> start_async(:fetch_edition_details, fn -> fetch_edition_details(edition) end)}
   end
 
   def handle_event("import", %{"import" => import_params}, socket) do
-    book = socket.assigns.edition_details
+    book = socket.assigns.edition_details.result
 
     params =
       Enum.reduce(import_params, %{}, fn
@@ -97,117 +191,38 @@ defmodule AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm do
     end)
   end
 
-  defp select_book(socket, book) do
-    socket
-    |> assign(select_book_form: to_form(%{"book_id" => book.id}, as: :select_book))
-    |> async_fetch_editions(book.id)
-  end
-
-  defp select_edition(socket, edition) do
-    socket
-    |> assign(select_edition_form: to_form(%{"edition_id" => edition.id}, as: :select_edition))
-    |> async_fetch_edition_details(edition.id)
-  end
-
-  defp handle_forwarded_info({:search, {:ok, books}}, socket) do
-    socket = assign(socket, search_loading: false, books: books)
-
-    case books do
-      [] -> socket
-      [first_book | _rest] -> select_book(socket, first_book)
+  defp search(query) do
+    case "#{query}" |> String.trim() |> String.downcase() |> GoodReads.search_books() do
+      {:ok, []} -> raise "No books found"
+      {:ok, books} -> books
+      {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
     end
   end
 
-  defp handle_forwarded_info({:search, {:error, _reason}}, socket) do
-    socket
-    |> put_flash(:error, "search failed")
-    |> assign(search_loading: false)
-  end
-
-  defp handle_forwarded_info({:editions, {:ok, editions}}, socket) do
-    socket = assign(socket, editions_loading: false, editions: editions)
-
-    selected_edition =
-      Enum.find(editions.editions, List.first(editions.editions), fn edition ->
-        edition.format |> String.downcase() |> String.contains?("audio")
-      end)
-
-    if selected_edition do
-      select_edition(socket, selected_edition)
-    else
-      socket
+  defp fetch_editions(book) do
+    case GoodReads.editions(book.id) do
+      {:ok, %{editions: []}} -> raise "No editions found"
+      {:ok, editions} -> editions
+      {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
     end
   end
 
-  defp handle_forwarded_info({:editions, {:error, _reason}}, socket) do
-    socket
-    |> put_flash(:error, "fetching editions failed")
-    |> assign(editions_loading: false)
-  end
+  defp fetch_edition_details(edition) do
+    case GoodReads.edition_details(edition.id) do
+      {:ok, edition_details} ->
+        matching_narrators =
+          edition_details
+          |> narrators()
+          |> Enum.map(fn narrator -> Search.find_first(narrator.name, Person) end)
 
-  defp handle_forwarded_info({:edition_details, {:ok, edition_details}}, socket) do
-    matching_narrators =
-      edition_details
-      |> narrators()
-      |> Enum.map(fn narrator -> Search.find_first(narrator.name, Person) end)
+        %{
+          edition_details: edition_details,
+          matching_narrators: matching_narrators
+        }
 
-    assign(socket,
-      edition_details_loading: false,
-      edition_details: edition_details,
-      matching_narrators: matching_narrators
-    )
-  end
-
-  defp handle_forwarded_info({:edition_details, {:error, _reason}}, socket) do
-    socket
-    |> put_flash(:error, "fetching edition details failed")
-    |> assign(edition_details_loading: false)
-  end
-
-  defp async_search(socket, query) do
-    Task.async(fn ->
-      response = GoodReads.search_books(query |> String.trim() |> String.downcase())
-      {{:for, __MODULE__, socket.assigns.id}, {:search, response}}
-    end)
-
-    assign(socket,
-      search_form: to_form(%{"query" => query}, as: :search),
-      search_loading: true,
-      books: [],
-      select_book_form: to_form(%{}, as: :select_book),
-      editions_loading: false,
-      editions: nil,
-      select_edition_form: to_form(%{}, as: :select_edition),
-      edition_details_loading: false,
-      edition_details: nil,
-      form: to_form(init_import_form_params(socket.assigns.media), as: :import)
-    )
-  end
-
-  defp async_fetch_editions(socket, book_id) do
-    Task.async(fn ->
-      response = GoodReads.editions(book_id)
-      {{:for, __MODULE__, socket.assigns.id}, {:editions, response}}
-    end)
-
-    assign(socket,
-      editions_loading: true,
-      editions: nil,
-      select_edition_form: to_form(%{}, as: :select_edition),
-      edition_details: nil
-    )
-  end
-
-  defp async_fetch_edition_details(socket, edition_id) do
-    Task.async(fn ->
-      response = GoodReads.edition_details(edition_id)
-      {{:for, __MODULE__, socket.assigns.id}, {:edition_details, response}}
-    end)
-
-    assign(socket,
-      edition_details_loading: true,
-      edition_details: nil
-    )
+      {:error, reason} ->
+        raise "Unhandled error: #{inspect(reason)}"
+    end
   end
 
   defp init_import_form_params(media) do

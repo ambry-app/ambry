@@ -19,10 +19,16 @@
           container_class="grow"
         />
         <.label>Import from:</.label>
-        <.button :if={@scraping_available} color={:zinc} class="flex items-center gap-1" name="import" value="goodreads">
+        <.button
+          :if={@scraping_available}
+          color={:zinc}
+          class="flex items-center gap-1"
+          type="button"
+          phx-click={open_import_form("goodreads")}
+        >
           <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
         </.button>
-        <.button color={:zinc} class="flex items-center gap-1" name="import" value="audible">
+        <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("audible")}>
           <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
         </.button>
       </div>
