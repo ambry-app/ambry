@@ -1,17 +1,15 @@
 <div class="mx-auto max-w-3xl space-y-4">
   <div class="text-2xl font-bold">Import Chapters from Source Files</div>
 
-  <.flash_group flash={@flash} />
-
   <.error :if={@strategies == []}>
     There are no import strategies implemented for this media's source files.
   </.error>
 
-  <.simple_form :if={@strategies != []} for={@strategy_form} phx-submit="run-strategy" phx-target={@myself}>
+  <.simple_form :if={@strategies != []} for={@select_strategy_form} phx-submit="run-strategy" phx-target={@myself}>
     <div class="flex items-end gap-2">
       <.input
         type="select"
-        field={@strategy_form[:strategy]}
+        field={@select_strategy_form[:strategy]}
         options={@strategies |> Enum.with_index() |> Enum.map(fn {strategy, index} -> {strategy.name, index} end)}
         container_class="grow"
       />
@@ -19,14 +17,20 @@
     </div>
   </.simple_form>
 
-  <.loading :if={@chapters_loading}>Extracting chapters...</.loading>
+  <.async_result :let={chapters} :if={@chapters} assign={@chapters}>
+    <:loading>
+      <.loading>Extracting chapters...</.loading>
+    </:loading>
 
-  <div :if={@chapters}>
+    <:failed :let={failure}>
+      <.error>There was an error extracting chapters: <%= failure %></.error>
+    </:failed>
+
     <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
       <.import_form_row field={@form[:use_chapters]} label="Chapters">
         <div class="flex flex-wrap gap-2">
           <div
-            :for={chapter <- @chapters}
+            :for={chapter <- chapters}
             class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300"
           >
             <%= chapter.title %>
@@ -45,5 +49,5 @@
         </.button>
       </:actions>
     </.simple_form>
-  </div>
+  </.async_result>
 </div>

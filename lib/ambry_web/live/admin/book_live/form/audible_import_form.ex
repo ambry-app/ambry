@@ -118,14 +118,14 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
           Map.put(
             acc,
             "book_authors",
-            build_authors_params(book.authors, socket.assigns.matching_authors.result)
+            build_authors_params(book.authors, socket.assigns.matching_authors)
           )
 
         {"use_series", "true"}, acc ->
           Map.put(
             acc,
             "series_books",
-            build_series_params(book.series, socket.assigns.matching_series.result)
+            build_series_params(book.series, socket.assigns.matching_series)
           )
 
         {"use_cover_image", "true"}, acc ->
