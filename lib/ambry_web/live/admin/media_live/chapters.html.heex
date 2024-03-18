@@ -19,17 +19,17 @@
     <div class="space-y-2">
       <.label>Chapters</.label>
       <.inputs_for :let={chapter_form} field={@form[:chapters]}>
-        <.sort_input parent_form={@form} form={chapter_form} sort_param={:chapters_sort} />
+        <.sort_input field={@form[:chapters_sort]} index={chapter_form.index} />
 
         <div class="flex items-start gap-2">
           <.input field={chapter_form[:time]} container_class="w-24" />
           <.input field={chapter_form[:title]} container_class="grow" />
-          <.delete_button parent_form={@form} form={chapter_form} drop_param={:chapters_drop} class="pt-[10px]" />
+          <.delete_button field={@form[:chapters_drop]} index={chapter_form.index} class="pt-[10px]" />
         </div>
       </.inputs_for>
 
-      <.add_button form={@form} sort_param={:chapters_sort} label="Add chapter" />
-      <.delete_input form={@form} drop_param={:chapters_drop} />
+      <.add_button field={@form[:chapters_sort]}>Add chapter</.add_button>
+      <.delete_input field={@form[:chapters_drop]} />
     </div>
 
     <:actions>
