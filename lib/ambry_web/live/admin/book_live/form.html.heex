@@ -74,7 +74,7 @@
     <div class="space-y-2">
       <.label>Authors</.label>
       <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
-        <.sort_input parent_form={@form} form={book_author_form} sort_param={:book_authors_sort} />
+        <.sort_input field={@form[:book_authors_sort]} index={book_author_form.index} />
 
         <div class="flex items-start gap-2">
           <.input
@@ -84,18 +84,18 @@
             list="authors"
             container_class="grow"
           />
-          <.delete_button parent_form={@form} form={book_author_form} drop_param={:book_authors_drop} class="pt-[10px]" />
+          <.delete_button field={@form[:book_authors_drop]} index={book_author_form.index} class="pt-[10px]" />
         </div>
       </.inputs_for>
 
-      <.add_button form={@form} sort_param={:book_authors_sort} label="Add author" />
-      <.delete_input form={@form} drop_param={:book_authors_drop} />
+      <.add_button field={@form[:book_authors_sort]}>Add author</.add_button>
+      <.delete_input field={@form[:book_authors_drop]} />
     </div>
 
     <div class="space-y-2">
       <.label>Series</.label>
       <.inputs_for :let={series_book_form} field={@form[:series_books]}>
-        <.sort_input parent_form={@form} form={series_book_form} sort_param={:series_books_sort} />
+        <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
 
         <div class="flex items-start gap-2">
           <.input
@@ -111,12 +111,12 @@
             list="series"
             container_class="grow"
           />
-          <.delete_button parent_form={@form} form={series_book_form} drop_param={:series_books_drop} class="pt-[10px]" />
+          <.delete_button field={@form[:series_books_drop]} index={series_book_form.index} class="pt-[10px]" />
         </div>
       </.inputs_for>
 
-      <.add_button form={@form} sort_param={:series_books_sort} label="Add series" />
-      <.delete_input form={@form} drop_param={:series_books_drop} />
+      <.add_button field={@form[:series_books_sort]}>Add series</.add_button>
+      <.delete_input field={@form[:series_books_drop]} />
     </div>
 
     <.input type="hidden" field={@form[:image_path]} />

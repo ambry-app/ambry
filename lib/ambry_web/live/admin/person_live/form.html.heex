@@ -50,31 +50,31 @@
     <div class="space-y-2">
       <.label>Writing as</.label>
       <.inputs_for :let={author_form} field={@form[:authors]}>
-        <.sort_input parent_form={@form} form={author_form} sort_param={:authors_sort} />
+        <.sort_input field={@form[:authors_sort]} index={author_form.index} />
 
         <div class="flex items-start gap-2">
           <.input field={author_form[:name]} container_class="grow" />
-          <.delete_button parent_form={@form} form={author_form} drop_param={:authors_drop} class="pt-[10px]" />
+          <.delete_button field={@form[:authors_drop]} index={author_form.index} class="pt-[10px]" />
         </div>
       </.inputs_for>
 
-      <.add_button form={@form} sort_param={:authors_sort} label="Add author" />
-      <.delete_input form={@form} drop_param={:authors_drop} />
+      <.add_button field={@form[:authors_sort]}>Add author</.add_button>
+      <.delete_input field={@form[:authors_drop]} />
     </div>
 
     <div class="space-y-2">
       <.label>Narrating as</.label>
       <.inputs_for :let={narrator_form} field={@form[:narrators]}>
-        <.sort_input parent_form={@form} form={narrator_form} sort_param={:narrators_sort} />
+        <.sort_input field={@form[:narrators_sort]} index={narrator_form.index} />
 
         <div class="flex items-start gap-2">
           <.input field={narrator_form[:name]} container_class="grow" />
-          <.delete_button parent_form={@form} form={narrator_form} drop_param={:narrators_drop} class="pt-[10px]" />
+          <.delete_button field={@form[:narrators_drop]} index={narrator_form.index} class="pt-[10px]" />
         </div>
       </.inputs_for>
 
-      <.add_button form={@form} sort_param={:narrators_sort} label="Add narrator" />
-      <.delete_input form={@form} drop_param={:narrators_drop} />
+      <.add_button field={@form[:narrators_sort]}>Add narrator</.add_button>
+      <.delete_input field={@form[:narrators_drop]} />
     </div>
 
     <.input type="hidden" field={@form[:image_path]} />

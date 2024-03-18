@@ -57,7 +57,7 @@
     <div class="space-y-2">
       <.label>Narrated by</.label>
       <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
-        <.sort_input parent_form={@form} form={media_narrator_form} sort_param={:media_narrators_sort} />
+        <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
 
         <div class="flex items-start gap-2">
           <.input
@@ -67,17 +67,12 @@
             list="narrators"
             container_class="grow"
           />
-          <.delete_button
-            parent_form={@form}
-            form={media_narrator_form}
-            drop_param={:media_narrators_drop}
-            class="pt-[10px]"
-          />
+          <.delete_button field={@form[:media_narrators_drop]} index={media_narrator_form.index} class="pt-[10px]" />
         </div>
       </.inputs_for>
 
-      <.add_button form={@form} sort_param={:media_narrators_sort} label="Add narrator" />
-      <.delete_input form={@form} drop_param={:media_narrators_drop} />
+      <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
+      <.delete_input field={@form[:media_narrators_drop]} />
     </div>
 
     <div class="flex gap-4">
@@ -182,7 +177,7 @@
       <.label>Supplemental files</.label>
 
       <.inputs_for :let={supplemental_file_form} field={@form[:supplemental_files]}>
-        <.sort_input parent_form={@form} form={supplemental_file_form} sort_param={:supplemental_files_sort} />
+        <.sort_input field={@form[:supplemental_files_sort]} index={supplemental_file_form.index} />
         <.input field={supplemental_file_form[:id]} type="hidden" />
 
         <div class="flex items-center gap-2">
@@ -190,9 +185,11 @@
           <.input field={supplemental_file_form[:label]} placeholder="Label" container_class="grow" />
           <.label for={supplemental_file_form[:filename].name}>Filename</.label>
           <.input field={supplemental_file_form[:filename]} placeholder="filename.ext" container_class="grow" />
-          <.delete_button parent_form={@form} form={supplemental_file_form} drop_param={:supplemental_files_drop} />
+          <.delete_button field={@form[:supplemental_files_drop]} index={supplemental_file_form.index} />
         </div>
       </.inputs_for>
+
+      <.delete_input field={@form[:supplemental_files_drop]} />
     </div>
 
     <div class="space-y-2">

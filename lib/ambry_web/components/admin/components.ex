@@ -3,7 +3,6 @@ defmodule AmbryWeb.Admin.Components do
 
   use AmbryWeb, :html
 
-  alias Phoenix.HTML.Form
   alias Phoenix.HTML.FormField
 
   def admin_table_header(assigns) do
@@ -230,49 +229,56 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  attr :drop_param, :atom, required: true
-  attr :parent_form, Form, required: true
-  attr :form, Form, required: true
+  attr :field, FormField, required: true
+
+  def delete_input(assigns) do
+    ~H"""
+    <input type="hidden" name={@field.name <> "[]"} />
+    """
+  end
+
+  attr :field, FormField, required: true
+  attr :index, :integer, required: true
+
+  def sort_input(assigns) do
+    ~H"""
+    <input type="hidden" name={@field.name <> "[]"} value={@index} />
+    """
+  end
+
+  attr :field, FormField, required: true
+  attr :index, :integer, required: true
   attr :class, :string, default: nil, doc: "class overrides"
 
   def delete_button(assigns) do
     ~H"""
-    <label class={["flex", @class]}>
-      <input type="checkbox" name={@parent_form[@drop_param].name <> "[]"} value={@form.index} class="hidden" />
+    <button
+      type="button"
+      name={@field.name <> "[]"}
+      value={@index}
+      phx-click={JS.dispatch("change")}
+      class={["flex", @class]}
+    >
       <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600" />
-    </label>
+    </button>
     """
   end
 
-  attr :drop_param, :atom, required: true
-  attr :form, Form, required: true
-
-  def delete_input(assigns) do
-    ~H"""
-    <input type="hidden" name={@form[@drop_param].name <> "[]"} />
-    """
-  end
-
-  attr :sort_param, :atom, required: true
-  attr :parent_form, Form, required: true
-  attr :form, Form, required: true
-
-  def sort_input(assigns) do
-    ~H"""
-    <input type="hidden" name={@parent_form[@sort_param].name <> "[]"} value={@form.index} />
-    """
-  end
-
-  attr :sort_param, :atom, required: true
-  attr :form, Form, required: true
-  attr :label, :string, required: true
+  attr :field, FormField, required: true
+  slot :inner_block, required: true
 
   def add_button(assigns) do
     ~H"""
-    <label class="text-brand flex cursor-pointer items-center gap-1 hover:underline dark:text-brand-dark">
-      <input type="checkbox" name={@form[@sort_param].name <> "[]"} class="hidden" /> <%= @label %>
+    <button
+      type="button"
+      name={@field.name <> "[]"}
+      value="new"
+      phx-click={JS.dispatch("change")}
+      class="text-brand flex cursor-pointer items-center gap-1 hover:underline dark:text-brand-dark"
+    >
+      <%= render_slot(@inner_block) %>
       <FA.icon name="plus" class="h-4 w-4 fill-current" />
-    </label>
+    </button>
     """
   end
 
