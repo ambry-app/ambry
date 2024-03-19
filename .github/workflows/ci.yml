@@ -45,7 +45,7 @@ jobs:
         run: mix deps.get
       - name: Check for retired packages
         run: mix hex.audit
-      - name: Check for outdated dependencies
+      - name: Check for unused dependencies
         run: mix deps.unlock --check-unused
 
   test:
