@@ -81,7 +81,7 @@ defmodule Ambry.MixProject do
       {:swoosh, "~> 1.3"},
       {:tailwind_formatter, "~> 0.4.0", only: [:dev, :test], runtime: false},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
-      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"}
     ]
   end
