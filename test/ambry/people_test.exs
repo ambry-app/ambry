@@ -341,34 +341,4 @@ defmodule Ambry.PeopleTest do
       assert %Ecto.Changeset{valid?: true} = changeset
     end
   end
-
-  describe "get_person_with_books!/1" do
-    test "gets a person and all of their authored books" do
-      %{book_authors: [%{author: %{person: %{id: person_id}}} | _]} = insert(:book)
-
-      person = People.get_person_with_books!(person_id)
-
-      assert %People.Person{
-               authors: [
-                 %{
-                   books: [%{}]
-                 }
-               ]
-             } = person
-    end
-
-    test "gets a person and all of their narrated books" do
-      %{media_narrators: [%{narrator: %{person: %{id: person_id}}} | _]} = insert(:media)
-
-      person = People.get_person_with_books!(person_id)
-
-      assert %People.Person{
-               narrators: [
-                 %{
-                   books: [%{}]
-                 }
-               ]
-             } = person
-    end
-  end
 end

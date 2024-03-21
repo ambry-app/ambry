@@ -9,6 +9,13 @@ defmodule Ambry.Narrators do
   alias Ambry.Repo
 
   @doc """
+  Gets a single narrator.
+
+  Raises `Ecto.NoResultsError` if the Narrator does not exist.
+  """
+  def get_narrator!(id), do: Narrator |> preload(:person) |> Repo.get!(id)
+
+  @doc """
   Returns all narrators for use in `Select` components.
   """
   def for_select do

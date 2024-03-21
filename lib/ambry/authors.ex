@@ -9,6 +9,13 @@ defmodule Ambry.Authors do
   alias Ambry.Repo
 
   @doc """
+  Gets a single author.
+
+  Raises `Ecto.NoResultsError` if the Author does not exist.
+  """
+  def get_author!(id), do: Author |> preload(:person) |> Repo.get!(id)
+
+  @doc """
   Returns all authors for use in `Select` components.
   """
   def for_select do

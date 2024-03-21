@@ -937,60 +937,75 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  @doc """
-  Renders a list of books as a responsive grid of image tiles.
-  """
-  def book_tiles(assigns) do
-    assigns =
-      assigns
-      |> assign_new(:show_load_more, fn -> false end)
-      |> assign_new(:load_more, fn -> {false, false} end)
-      |> assign_new(:infinite_scroll_target, fn -> false end)
-      |> assign_new(:current_page, fn -> 0 end)
+  attr :id, :string, required: true
+  attr :page, :integer, required: true
+  attr :end?, :boolean, required: true
+  attr :stream, :any, required: true
+  attr :next, :string, default: "next-page"
+  attr :prev, :string, default: "prev-page"
+  attr :rest, :global
 
-    {load_more, target} = assigns.load_more
-    assigns = assign(assigns, load_more: load_more, target: target)
-
+  def book_tiles_stream(assigns) do
     ~H"""
-    <.grid>
-      <%= for {book, number} <- books_with_numbers(@books) do %>
-        <.book_tile book={book} number={number} />
-      <% end %>
-
-      <%= if @show_load_more do %>
-        <%= if @infinite_scroll_target do %>
-          <div
-            id="infinite-scroll-marker"
-            phx-hook="infinite-scroll"
-            data-page={@current_page}
-            data-target={@infinite_scroll_target}
-          >
-          </div>
-        <% else %>
-          <div class="text-center text-lg">
-            <div phx-click={@load_more} phx-target={@target} class="group">
-              <span class="block aspect-1 cursor-pointer">
-                <span class="load-more flex h-full w-full rounded-sm border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
-                  <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
-                </span>
-              </span>
-              <p class="group-hover:underline">
-                Load more
-              </p>
-            </div>
-          </div>
-        <% end %>
-      <% end %>
+    <.grid
+      id={@id}
+      phx-update="stream"
+      phx-viewport-top={@page > 1 && @prev}
+      phx-viewport-bottom={!@end? && @next}
+      phx-page-loading
+      class={[if(@end?, do: "", else: "pb-[calc(200vh)]"), if(@page == 1, do: "", else: "pt-[calc(200vh)]")]}
+      {@rest}
+    >
+      <.book_tile :for={{id, book} <- @stream} book={book} id={id} />
     </.grid>
     """
   end
 
+  attr :id, :string, required: true
+  attr :page, :integer, required: true
+  attr :end?, :boolean, required: true
+  attr :stream, :any, required: true
+  attr :player, Player, required: true
+  attr :next, :string, default: "next-page"
+  attr :prev, :string, default: "prev-page"
+  attr :rest, :global
+
+  def player_state_tiles_stream(assigns) do
+    ~H"""
+    <.grid
+      id={@id}
+      phx-update="stream"
+      phx-viewport-top={@page > 1 && @prev}
+      phx-viewport-bottom={!@end? && @next}
+      phx-page-loading
+      class={[if(@end?, do: "", else: "pb-[calc(200vh)]"), if(@page == 1, do: "", else: "pt-[calc(200vh)]")]}
+      {@rest}
+    >
+      <.player_state_tile :for={{id, player_state} <- @stream} player_state={player_state} player={@player} id={id} />
+    </.grid>
+    """
+  end
+
+  attr :books, :list, required: true
+
+  @doc """
+  Renders a list of books as a responsive grid of image tiles.
+  """
+  def book_tiles(assigns) do
+    ~H"""
+    <.grid>
+      <.book_tile :for={{book, number} <- books_with_numbers(@books)} book={book} number={number} />
+    </.grid>
+    """
+  end
+
+  attr :id, :string, default: nil
   attr :book, Book, required: true
   attr :number, Decimal, default: nil
 
   def book_tile(assigns) do
     ~H"""
-    <div class="text-center">
+    <div id={@id} class="text-center">
       <%= if @number do %>
         <p class="font-bold text-zinc-900 dark:text-zinc-100 sm:text-lg">Book <%= @number %></p>
       <% end %>
@@ -1028,76 +1043,56 @@ defmodule AmbryWeb.CoreComponents do
     end
   end
 
-  def player_state_tiles(assigns) do
-    {load_more, target} = assigns.load_more
-    assigns = assign(assigns, load_more: load_more, target: target)
+  attr :id, :string, default: nil
+  attr :player_state, PlayerState, required: true
+  attr :player, Player, required: true
 
+  def player_state_tile(assigns) do
     ~H"""
-    <.grid>
-      <%= for player_state <- @player_states do %>
-        <div class="text-center">
-          <div class="group">
-            <div class="aspect-w-1 aspect-h-1 relative">
-              <img
-                src={player_state.media.book.image_path}
-                class="h-full w-full rounded-t-sm border border-b-0 border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
-              />
-              <div class="absolute flex">
-                <div
-                  phx-click={media_click_action(@player, player_state.media)}
-                  class="mx-auto flex h-16 w-16 cursor-pointer self-center rounded-full bg-white bg-opacity-80 shadow-md backdrop-blur-sm transition group-hover:bg-opacity-100 dark:bg-black dark:bg-opacity-80"
-                >
-                  <div class="mx-auto self-center fill-current">
-                    <%= if playing?(@player, player_state.media) do %>
-                      <FA.icon name="pause" class="h-7 w-7" />
-                    <% else %>
-                      <FA.icon name="play" class="h-7 w-7 pl-1" />
-                    <% end %>
-                  </div>
-                </div>
+    <div id={@id} class="text-center">
+      <div class="group">
+        <div class="aspect-w-1 aspect-h-1 relative">
+          <img
+            src={@player_state.media.book.image_path}
+            class="h-full w-full rounded-t-sm border border-b-0 border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
+          />
+          <div class="absolute flex">
+            <div
+              phx-click={media_click_action(@player, @player_state.media)}
+              class="mx-auto flex h-16 w-16 cursor-pointer self-center rounded-full bg-white bg-opacity-80 shadow-md backdrop-blur-sm transition group-hover:bg-opacity-100 dark:bg-black dark:bg-opacity-80"
+            >
+              <div class="mx-auto self-center fill-current">
+                <%= if playing?(@player, @player_state.media) do %>
+                  <FA.icon name="pause" class="h-7 w-7" />
+                <% else %>
+                  <FA.icon name="play" class="h-7 w-7 pl-1" />
+                <% end %>
               </div>
             </div>
-            <div class="overflow-hidden rounded-b-sm border-x border-zinc-200 bg-zinc-300 shadow-sm dark:border-zinc-900 dark:bg-zinc-800">
-              <div class="bg-brand h-1 dark:bg-brand-dark" style={"width: #{progress_percent(@player, player_state)}%;"} />
-            </div>
-          </div>
-          <p class="font-bold text-zinc-900 hover:underline dark:text-zinc-100 sm:text-lg">
-            <.link navigate={~p"/books/#{player_state.media.book}"}>
-              <%= player_state.media.book.title %>
-            </.link>
-          </p>
-          <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
-            by <.people_links people={player_state.media.book.authors} />
-          </p>
-
-          <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
-            Narrated by <.people_links people={player_state.media.narrators} />
-            <%= if player_state.media.full_cast do %>
-              <span>full cast</span>
-            <% end %>
-          </p>
-
-          <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
-            <.series_book_links series_books={player_state.media.book.series_books} />
           </div>
         </div>
-      <% end %>
-
-      <%= if @show_load_more do %>
-        <div class="text-center text-lg">
-          <div phx-click={@load_more} phx-target={@target} class="group">
-            <span class="block aspect-1 cursor-pointer">
-              <span class="load-more flex h-full w-full rounded-sm border border-zinc-200 bg-zinc-200 shadow-md dark:border-zinc-700 dark:bg-zinc-700">
-                <FA.icon name="ellipsis" class="mx-auto h-12 w-12 self-center fill-current" />
-              </span>
-            </span>
-            <p class="group-hover:underline">
-              Load more
-            </p>
-          </div>
+        <div class="overflow-hidden rounded-b-sm border-x border-zinc-200 bg-zinc-300 shadow-sm dark:border-zinc-900 dark:bg-zinc-800">
+          <div class="bg-brand h-1 dark:bg-brand-dark" style={"width: #{progress_percent(@player, @player_state)}%;"} />
         </div>
-      <% end %>
-    </.grid>
+      </div>
+      <p class="font-bold text-zinc-900 hover:underline dark:text-zinc-100 sm:text-lg">
+        <.link navigate={~p"/books/#{@player_state.media.book}"}>
+          <%= @player_state.media.book.title %>
+        </.link>
+      </p>
+      <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        by <.people_links people={@player_state.media.book.authors} />
+      </p>
+
+      <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        Narrated by <.people_links people={@player_state.media.narrators} />
+        <span :if={@player_state.media.full_cast}>full cast</span>
+      </p>
+
+      <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+        <.series_book_links series_books={@player_state.media.book.series_books} />
+      </div>
+    </div>
     """
   end
 
@@ -1195,11 +1190,13 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   A flexible grid of things
   """
+  attr :class, :any, default: nil
+  attr :rest, :global
   slot :inner_block, required: true
 
   def grid(assigns) do
     ~H"""
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+    <div class={["grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 xl:grid-cols-6", @class]} {@rest}>
       <%= render_slot(@inner_block) %>
     </div>
     """

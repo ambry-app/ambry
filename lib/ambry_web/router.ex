@@ -122,12 +122,15 @@ defmodule AmbryWeb.Router do
         AmbryWeb.NavHooks,
         AmbryWeb.PlayerStateHooks
       ] do
-      live "/", NowPlayingLive, :index
-      live "/library", LibraryLive, :home
-      live "/people/:id", PersonLive, :show
-      live "/series/:id", SeriesLive, :show
-      live "/books/:id", BookLive, :show
-      live "/search/:query", SearchLive, :results
+      live "/", NowPlayingLive
+      live "/library", LibraryLive
+      live "/shelf", ShelfLive
+      live "/people/:id", PersonLive
+      live "/authors/:id", AuthorOrNarratorLive, :author
+      live "/narrators/:id", AuthorOrNarratorLive, :narrator
+      live "/series/:id", SeriesLive
+      live "/books/:id", BookLive
+      live "/search/:query", SearchLive
 
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email

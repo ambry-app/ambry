@@ -14,9 +14,12 @@ defmodule Ambry.Search do
   alias Ambry.Series
   alias Ambry.Series.Series, as: SeriesSchema
 
+  @results_limit 36
+
   def search(query_string) do
     query_string
     |> query()
+    |> limit(@results_limit)
     |> all(
       books_preload: Books.standard_preloads(),
       series_preload: Series.standard_preloads(),

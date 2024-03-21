@@ -208,4 +208,25 @@ defmodule Ambry.Books do
 
     "#{book.title} • by #{authors}"
   end
+
+  @doc """
+  Returns a paginated list of books authored by (or narrated by) the given
+  author (or narrator).
+  """
+  def get_authored_books(author, offset \\ 0, limit \\ 10) do
+    over_limit = limit + 1
+
+    query =
+      from b in Ecto.assoc(author, :books),
+        order_by: [desc: b.inserted_at],
+        offset: ^offset,
+        limit: ^over_limit,
+        preload: [:authors, series_books: :series]
+
+    books = Repo.all(query)
+
+    books_to_return = Enum.slice(books, 0, limit)
+
+    {books_to_return, books != books_to_return}
+  end
 end
