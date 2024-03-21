@@ -25,10 +25,14 @@ defmodule AmbryWeb.Layouts do
           </.link>
         </div>
         <div class="flex-1">
-          <div class="flex justify-center gap-8 lg:gap-12">
+          <div class="flex justify-center gap-8 whitespace-nowrap lg:gap-12">
             <.link navigate={~p"/"} class={nav_class(@active_path == "/")}>
               <span title="Now playing"><FA.icon name="circle-play" class="mt-1 h-6 w-6 fill-current lg:hidden" /></span>
               <span class="hidden text-xl font-bold lg:block">Now Playing</span>
+            </.link>
+            <.link navigate={~p"/shelf"} class={nav_class(@active_path == "/shelf")}>
+              <span title="Your Shelf"><FA.icon name="book-bookmark" class="mt-1 h-6 w-6 fill-current lg:hidden" /></span>
+              <span class="hidden text-xl font-bold lg:block">Your Shelf</span>
             </.link>
             <.link navigate={~p"/library"} class={nav_class(@active_path == "/library")}>
               <span title="Library"><FA.icon name="book-open" class="mt-1 h-6 w-6 fill-current lg:hidden" /></span>
