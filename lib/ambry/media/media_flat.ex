@@ -6,15 +6,17 @@ defmodule Ambry.Media.MediaFlat do
   use Ambry.FlatSchema
 
   alias Ambry.Ecto.Types.PersonName
+  alias Ambry.Ecto.Types.SeriesBook
 
   schema "media_flat" do
     field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready]
     field :full_cast, :boolean
     field :abridged, :boolean
     field :duration, :decimal
-    field :has_chapters, :boolean
+    field :chapters, :integer
     field :book, :string
-    field :series, {:array, :string}
+    field :image_path, :string
+    field :series, {:array, SeriesBook}
     field :universe, :string
     field :authors, {:array, PersonName}
     field :narrators, {:array, PersonName}
@@ -31,7 +33,7 @@ defmodule Ambry.Media.MediaFlat do
       where:
         ilike(m.book, ^search_string) or ilike(m.universe, ^search_string) or
           fragment(
-            "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
+            "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ?)",
             m.series,
             ^search_string
           ) or
@@ -53,6 +55,6 @@ defmodule Ambry.Media.MediaFlat do
   def filter(query, :full_cast, full_cast?), do: from(p in query, where: [full_cast: ^full_cast?])
   def filter(query, :abridged, abridged?), do: from(p in query, where: [abridged: ^abridged?])
 
-  def filter(query, :has_chapters, has_chapters?),
-    do: from(p in query, where: [has_chapters: ^has_chapters?])
+  def filter(query, :has_chapters, true), do: from(p in query, where: p.chapters > 0)
+  def filter(query, :has_chapters, false), do: from(p in query, where: p.chapters == 0)
 end

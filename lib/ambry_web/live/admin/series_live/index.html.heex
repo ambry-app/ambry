@@ -1,49 +1,60 @@
-<.admin_table_header
-  list_opts={@list_opts}
-  has_more={@has_more?}
-  next_page={~p"/admin/series?#{next_opts(@list_opts)}"}
-  prev_page={~p"/admin/series?#{prev_opts(@list_opts)}"}
-  new_path={~p"/admin/series/new"}
-/>
+<.layout title={@page_title} user={@current_user}>
+  <:subheader>
+    <.list_controls
+      search_form={@search_form}
+      new_path={~p"/admin/series/new"}
+      has_next={@has_next}
+      has_prev={@has_prev}
+      next_page_path={@next_page_path}
+      prev_page_path={@prev_page_path}
+    />
+    <.sort_button_bar>
+      <.sort_button current_sort={@current_sort} sort_field="name">Name</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="authors">Authors</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="books"># Books</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="inserted_at">Added</.sort_button>
+    </.sort_button_bar>
+  </:subheader>
 
-<.admin_table rows={@series} sort={@list_opts.sort || @default_sort} actions_class="w-20">
-  <:col :let={series} label="Name" sort_field="name">
-    <p class="truncate"><%= series.name %></p>
-  </:col>
-  <:col :let={series} label="Authors" class="hidden sm:table-cell" sort_field="authors">
-    <p :for={author <- series.authors} class="truncate">
-      <%= author.name %>
-      <span :if={author.name != author.person_name}>
-        (<%= author.person_name %>)
-      </span>
-    </p>
-  </:col>
-  <:col :let={series} label="# Books" class="hidden sm:table-cell" sort_field="books">
-    <%= series.books %>
-  </:col>
-  <:col :let={series} label="Added" sort_field="inserted_at">
-    <p class="truncate"><%= Calendar.strftime(series.inserted_at, "%x") %></p>
-  </:col>
-  <:actions :let={series}>
-    <div class="flex justify-end gap-2">
-      <.link navigate={~p"/admin/series/#{series}/edit"}>
-        <FA.icon name="pencil" class="h-4 w-4 fill-current" />
-      </.link>
-      <span phx-click="delete" phx-value-id={series.id} data-confirm="Are you sure?">
-        <FA.icon name="trash" class="h-4 w-4 fill-current text-red-600" />
-      </span>
-    </div>
-  </:actions>
-  <:no_results>
-    <span class="text-lg font-semibold">
-      <%= if @list_opts.filter do %>
-        No results for "<%= @list_opts.filter %>"
-      <% else %>
-        No series yet.
-        <.brand_link navigate={~p"/admin/series/new"}>
-          Create one.
-        </.brand_link>
-      <% end %>
-    </span>
-  </:no_results>
-</.admin_table>
+  <.flex_table
+    rows={@series}
+    filter={@list_opts.filter}
+    row_click={fn series -> JS.navigate(~p"/admin/series/#{series}/edit") end}
+  >
+    <:empty>
+      No series yet.
+      <.brand_link navigate={~p"/admin/series/new"}>
+        Create one.
+      </.brand_link>
+    </:empty>
+
+    <:row :let={series}>
+      <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
+        <p class="overflow-hidden text-ellipsis"><%= series.name %></p>
+        <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
+          by <%= series.authors |> Enum.map(& &1.name) |> Enum.join(", ") %>
+        </p>
+      </div>
+      <div class="hidden w-12 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
+        <div class="flex gap-4">
+          <span title="# of books">
+            <%= series.books %> <FA.icon name="book" class="h-4 w-4 fill-current inline" />
+          </span>
+        </div>
+      </div>
+      <div class="flex w-32 flex-none flex-col items-end justify-between gap-2">
+        <div class="flex gap-2">
+          <.link navigate={~p"/admin/series/#{series}/edit"}>
+            <FA.icon name="pencil" class="h-4 w-4 fill-current transition-colors hover:fill-blue-600" />
+          </.link>
+          <span phx-click="delete" phx-value-id={series.id} data-confirm="Are you sure?">
+            <FA.icon name="trash" class="h-4 w-4 fill-current transition-colors hover:fill-red-600 cursor-pointer" />
+          </span>
+        </div>
+        <p class="text-sm italic dark:text-zinc-500">
+          Added <%= Calendar.strftime(series.inserted_at, "%x") %>
+        </p>
+      </div>
+    </:row>
+  </.flex_table>
+</.layout>

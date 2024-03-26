@@ -1,111 +1,113 @@
-<div class="flex items-center">
-  <div class="grow" />
-  <button
-    type="button"
-    phx-click="reload"
-    class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400"
-  >
-    Reload <FA.icon name="rotate" class="ml-2 h-4 w-4 fill-current" />
-  </button>
-</div>
-
-<%= if no_problems(@audit) do %>
-  <p class="py-8 text-center text-lg font-semibold">
-    No problems detected! 🎉
-  </p>
-<% else %>
-  <div class="space-y-12">
-    <%= if @audit.orphaned_media_files != [] do %>
-      <div class="space-y-4">
-        <h2 class="mb-2 text-xl font-bold">Orphaned Media Files</h2>
-
-        <p>
-          It should be safe to delete these files, as they are not being used by
-          anything.
-        </p>
-
-        <.admin_table rows={@audit.orphaned_media_files} row_click={false}>
-          <:col :let={file} label="Size">
-            <.badge color={:blue}><%= format_filesize(file.size) %></.badge>
-          </:col>
-          <:col :let={file} label="Path">
-            <%= file.path %>
-          </:col>
-          <:actions :let={file}>
-            <div class="flex gap-2">
-              <div class="grow" />
-              <button phx-click="delete-file" phx-value-id={file.id} data-confirm="Are you sure?">
-                <FA.icon name="trash" class="h-4 w-4 fill-current text-red-600" />
-              </button>
-            </div>
-          </:actions>
-        </.admin_table>
-      </div>
-    <% end %>
-
-    <%= if @audit.orphaned_source_folders != [] do %>
-      <div class="space-y-4">
-        <h2 class="text-xl font-bold">Orphaned Source Folders</h2>
-
-        <p>
-          It should be safe to delete these folders, as they are not being used
-          by anything.
-        </p>
-
-        <.admin_table rows={@audit.orphaned_source_folders} row_click={false}>
-          <:col :let={folder} label="Size">
-            <.badge color={:blue}><%= format_filesize(folder.size) %></.badge>
-          </:col>
-          <:col :let={folder} label="Path">
-            <%= folder.path %>
-          </:col>
-          <:actions :let={folder}>
-            <div class="flex gap-2">
-              <div class="grow" />
-              <button phx-click="delete-folder" phx-value-id={folder.id} data-confirm="Are you sure?">
-                <FA.icon name="trash" class="h-4 w-4 fill-current text-red-600" />
-              </button>
-            </div>
-          </:actions>
-        </.admin_table>
-      </div>
-    <% end %>
-
-    <%= if @audit.broken_media != [] do %>
-      <div class="space-y-4">
-        <h2 class="mb-2 text-xl font-bold">Broken Media</h2>
-
-        <p>
-          These media uploads are broken in some way. They may or may not work
-          in all cases.
-        </p>
-
-        <.admin_table rows={@audit.broken_media}>
-          <:col :let={broken_media} label="Problems" class="space-x-2">
-            <.badge :if={!broken_media.mp4?} color={:red}>mp4</.badge>
-            <.badge :if={!broken_media.mpd?} color={:red}>mpd</.badge>
-            <.badge :if={!broken_media.hls_master?} color={:red}>hls</.badge>
-            <.badge :if={!broken_media.hls_playlist?} color={:red}>hls_0</.badge>
-            <.badge :if={!broken_media.source?} color={:yellow}>source</.badge>
-          </:col>
-          <:col :let={broken_media} label="Book">
-            <%= broken_media.media.book.title %>
-          </:col>
-          <:col :let={broken_media} label="Narrators" class="hidden sm:table-cell">
-            <%= for media_narrator <- broken_media.media.media_narrators do %>
-              <%= media_narrator.narrator.name %>
-            <% end %>
-          </:col>
-          <:actions :let={broken_media}>
-            <div class="flex gap-2">
-              <div class="grow" />
-              <button phx-click="row-click" phx-value-id={broken_media.id}>
-                <FA.icon name="eye" class="h-4 w-4 fill-current" />
-              </button>
-            </div>
-          </:actions>
-        </.admin_table>
-      </div>
-    <% end %>
+<.layout title={@page_title} user={@current_user}>
+  <div class="flex items-center">
+    <div class="grow" />
+    <button
+      type="button"
+      phx-click="reload"
+      class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400"
+    >
+      Reload <FA.icon name="rotate" class="ml-2 h-4 w-4 fill-current" />
+    </button>
   </div>
-<% end %>
+
+  <%= if no_problems(@audit) do %>
+    <p class="py-8 text-center text-lg font-semibold">
+      No problems detected! 🎉
+    </p>
+  <% else %>
+    <div class="space-y-12">
+      <%= if @audit.orphaned_media_files != [] do %>
+        <div class="space-y-4">
+          <h2 class="mb-2 text-xl font-bold">Orphaned Media Files</h2>
+
+          <p>
+            It should be safe to delete these files, as they are not being used by
+            anything.
+          </p>
+
+          <.admin_table rows={@audit.orphaned_media_files} row_click={false}>
+            <:col :let={file} label="Size">
+              <.badge color={:blue}><%= format_filesize(file.size) %></.badge>
+            </:col>
+            <:col :let={file} label="Path">
+              <%= file.path %>
+            </:col>
+            <:actions :let={file}>
+              <div class="flex gap-2">
+                <div class="grow" />
+                <button phx-click="delete-file" phx-value-id={file.id} data-confirm="Are you sure?">
+                  <FA.icon name="trash" class="h-4 w-4 fill-current transition-colors hover:fill-red-600" />
+                </button>
+              </div>
+            </:actions>
+          </.admin_table>
+        </div>
+      <% end %>
+
+      <%= if @audit.orphaned_source_folders != [] do %>
+        <div class="space-y-4">
+          <h2 class="text-xl font-bold">Orphaned Source Folders</h2>
+
+          <p>
+            It should be safe to delete these folders, as they are not being used
+            by anything.
+          </p>
+
+          <.admin_table rows={@audit.orphaned_source_folders} row_click={false}>
+            <:col :let={folder} label="Size">
+              <.badge color={:blue}><%= format_filesize(folder.size) %></.badge>
+            </:col>
+            <:col :let={folder} label="Path">
+              <%= folder.path %>
+            </:col>
+            <:actions :let={folder}>
+              <div class="flex gap-2">
+                <div class="grow" />
+                <button phx-click="delete-folder" phx-value-id={folder.id} data-confirm="Are you sure?">
+                  <FA.icon name="trash" class="h-4 w-4 fill-current transition-colors hover:fill-red-600" />
+                </button>
+              </div>
+            </:actions>
+          </.admin_table>
+        </div>
+      <% end %>
+
+      <%= if @audit.broken_media != [] do %>
+        <div class="space-y-4">
+          <h2 class="mb-2 text-xl font-bold">Broken Media</h2>
+
+          <p>
+            These media uploads are broken in some way. They may or may not work
+            in all cases.
+          </p>
+
+          <.admin_table rows={@audit.broken_media}>
+            <:col :let={broken_media} label="Problems" class="space-x-2">
+              <.badge :if={!broken_media.mp4?} color={:red}>mp4</.badge>
+              <.badge :if={!broken_media.mpd?} color={:red}>mpd</.badge>
+              <.badge :if={!broken_media.hls_master?} color={:red}>hls</.badge>
+              <.badge :if={!broken_media.hls_playlist?} color={:red}>hls_0</.badge>
+              <.badge :if={!broken_media.source?} color={:yellow}>source</.badge>
+            </:col>
+            <:col :let={broken_media} label="Book">
+              <%= broken_media.media.book.title %>
+            </:col>
+            <:col :let={broken_media} label="Narrators" class="hidden sm:table-cell">
+              <%= for media_narrator <- broken_media.media.media_narrators do %>
+                <%= media_narrator.narrator.name %>
+              <% end %>
+            </:col>
+            <:actions :let={broken_media}>
+              <div class="flex gap-2">
+                <div class="grow" />
+                <button phx-click="row-click" phx-value-id={broken_media.id}>
+                  <FA.icon name="eye" class="h-4 w-4 fill-current" />
+                </button>
+              </div>
+            </:actions>
+          </.admin_table>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</.layout>

@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.UserLive.Index do
   use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Gravatar
 
   alias Ambry.Accounts
 
@@ -19,11 +20,16 @@ defmodule AmbryWeb.Admin.UserLive.Index do
     :inserted_at
   ]
 
+  @default_sort "inserted_at.desc"
+
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     {:ok,
      socket
-     |> assign(header_title: "Users", default_sort: "inserted_at.desc")
+     |> assign(
+       page_title: "Users",
+       show_header_search: true
+     )
      |> maybe_update_users(params, true)}
   end
 
@@ -31,15 +37,8 @@ defmodule AmbryWeb.Admin.UserLive.Index do
   def handle_params(params, _url, socket) do
     {:noreply,
      socket
-     |> maybe_update_users(params)
-     |> apply_action(socket.assigns.live_action, params)}
-  end
-
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "Users")
-    |> assign(:user, nil)
-    |> assign_new(:autofocus_search, fn -> false end)
+     |> assign(search_form: to_form(%{"query" => params["filter"]}, as: :search))
+     |> maybe_update_users(params)}
   end
 
   defp maybe_update_users(socket, params, force \\ false) do
@@ -48,12 +47,17 @@ defmodule AmbryWeb.Admin.UserLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {users, has_more?} = list_users(list_opts, socket.assigns.default_sort)
+      {users, has_more?} = list_users(list_opts, @default_sort)
 
-      socket
-      |> assign(:list_opts, list_opts)
-      |> assign(:has_more?, has_more?)
-      |> assign(:users, users)
+      assign(socket,
+        list_opts: list_opts,
+        users: users,
+        has_next: has_more?,
+        has_prev: list_opts.page > 1,
+        next_page_path: ~p"/admin/users?#{next_opts(list_opts)}",
+        prev_page_path: ~p"/admin/users?#{prev_opts(list_opts)}",
+        current_sort: list_opts.sort || @default_sort
+      )
     else
       socket
     end

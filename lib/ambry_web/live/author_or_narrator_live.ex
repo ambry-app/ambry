@@ -17,9 +17,12 @@ defmodule AmbryWeb.AuthorOrNarratorLive do
     ~H"""
     <div class="mx-auto max-w-md space-y-8 p-4 sm:max-w-none sm:space-y-12 sm:p-10 md:max-w-screen-2xl md:p-12 lg:space-y-16 lg:p-16">
       <div class="flex items-center gap-4">
-        <.link navigate={~p"/people/#{@author_or_narrator.person}"}>
+        <.link
+          :if={@author_or_narrator.person.image_path}
+          navigate={~p"/people/#{@author_or_narrator.person}"}
+          class="flex-none"
+        >
           <img
-            :if={@author_or_narrator.person.image_path}
             src={@author_or_narrator.person.image_path}
             class="hidden rounded-full object-cover object-top shadow-lg sm:block sm:h-16 sm:w-16 xl:h-24 xl:w-24"
           />

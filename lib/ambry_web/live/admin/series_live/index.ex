@@ -17,6 +17,8 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     :inserted_at
   ]
 
+  @default_sort "inserted_at.desc"
+
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     if connected?(socket) do
@@ -25,13 +27,20 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
     {:ok,
      socket
-     |> assign(page_title: "Series", default_sort: "inserted_at.desc")
+     |> assign(
+       page_title: "Series",
+       show_header_search: true,
+       header_new_path: ~p"/admin/series/new"
+     )
      |> maybe_update_series(params, true)}
   end
 
   @impl Phoenix.LiveView
   def handle_params(params, _url, socket) do
-    {:noreply, maybe_update_series(socket, params)}
+    {:noreply,
+     socket
+     |> assign(search_form: to_form(%{"query" => params["filter"]}, as: :search))
+     |> maybe_update_series(params)}
   end
 
   defp maybe_update_series(socket, params, force \\ false) do
@@ -40,12 +49,17 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {series, has_more?} = list_series(list_opts, socket.assigns.default_sort)
+      {series, has_more?} = list_series(list_opts, @default_sort)
 
-      socket
-      |> assign(:list_opts, list_opts)
-      |> assign(:has_more?, has_more?)
-      |> assign(:series, series)
+      assign(socket,
+        list_opts: list_opts,
+        series: series,
+        has_next: has_more?,
+        has_prev: list_opts.page > 1,
+        next_page_path: ~p"/admin/series?#{next_opts(list_opts)}",
+        prev_page_path: ~p"/admin/series?#{prev_opts(list_opts)}",
+        current_sort: list_opts.sort || @default_sort
+      )
     else
       socket
     end

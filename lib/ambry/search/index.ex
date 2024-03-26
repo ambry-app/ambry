@@ -244,11 +244,15 @@ defmodule Ambry.Search.Index do
   defp join(items), do: Enum.join(items, " ")
 
   defp insert_records!(records) do
-    {_count, nil} =
-      Repo.insert_all(Record, records,
-        on_conflict: {:replace_all_except, [:reference]},
-        conflict_target: [:reference]
-      )
+    records
+    |> Enum.chunk_every(100)
+    |> Enum.each(fn records ->
+      {_count, nil} =
+        Repo.insert_all(Record, records,
+          on_conflict: {:replace_all_except, [:reference]},
+          conflict_target: [:reference]
+        )
+    end)
 
     :ok
   end

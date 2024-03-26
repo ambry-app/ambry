@@ -22,10 +22,10 @@ export const HeaderScrollspyHook = {
   },
 
   scrolled() {
-    this.navHeader.classList.add("border-b")
+    this.navHeader?.classList.add("border-b")
   },
 
   notScrolled() {
-    this.navHeader.classList.remove("border-b")
+    this.navHeader?.classList.remove("border-b")
   },
 }

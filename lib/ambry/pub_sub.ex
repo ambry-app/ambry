@@ -45,7 +45,7 @@ defmodule Ambry.PubSub do
   Broadcasts a "progress" event for a media.
   """
   def broadcast_progress(%Media{} = media, progress) do
-    topic = "media-progress:#{media.id}"
+    topic = "media-progress"
     message = %Message{type: :media, action: :progress, id: media.id, meta: %{progress: progress}}
 
     broadcast_all([topic], message)
