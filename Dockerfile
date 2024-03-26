@@ -52,7 +52,7 @@ RUN mix release --path /app --quiet
 # --------------------------
 FROM docker.io/alpine:3.19.1 as elixir-runner
 
-ARG SHAKA_PACKAGER_VERSION=3.0.3
+ARG SHAKA_PACKAGER_VERSION=2.6.1
 
 RUN apk --update upgrade && \
   apk add openssl ncurses-libs libstdc++ ffmpeg curl

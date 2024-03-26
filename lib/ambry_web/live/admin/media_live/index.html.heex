@@ -1,100 +1,106 @@
-<%= if @processing_media != [] do %>
-  <.admin_table rows={@processing_media}>
-    <:col :let={media} label="Processing Media">
-      <div>
-        <%= media.book %> by <%= Enum.map_join(media.authors, ", ", & &1.name) %>
+<.layout title={@page_title} user={@current_user}>
+  <:subheader>
+    <.list_controls
+      search_form={@search_form}
+      new_path={~p"/admin/media/new"}
+      has_next={@has_next}
+      has_prev={@has_prev}
+      next_page_path={@next_page_path}
+      prev_page_path={@prev_page_path}
+    />
+    <.sort_button_bar>
+      <.sort_button current_sort={@current_sort} sort_field="status">Status</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="book">Title</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="authors">Authors</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="narrators">Narrators</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="series">Series</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="duration">Duration</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="published">Published</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="inserted_at">Added</.sort_button>
+    </.sort_button_bar>
+  </:subheader>
+
+  <.flex_table
+    rows={@media}
+    filter={@list_opts.filter}
+    row_click={fn media -> JS.navigate(~p"/admin/media/#{media}/edit") end}
+  >
+    <:empty>
+      No media yet.
+      <.brand_link navigate={~p"/admin/media/new"}>
+        Create one.
+      </.brand_link>
+    </:empty>
+
+    <:row :let={media}>
+      <div class="flex flex-shrink-0 flex-col items-start">
+        <div class="h-16 w-16">
+          <img :if={media.image_path} src={media.image_path} class="h-full w-full" />
+        </div>
+        <.badge :if={media.status != :ready} color={status_color(media.status)} class="text-xs text-center w-16 !px-0">
+          <%= media.status %>
+        </.badge>
       </div>
-      <div class="mt-2 w-full bg-zinc-200 dark:bg-zinc-800">
+
+      <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
+        <p class="overflow-hidden text-ellipsis"><%= media.book %></p>
+        <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
+          by <%= media.authors |> Enum.map(& &1.name) |> Enum.join(", ") %>
+        </p>
+        <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
+          narrated by <%= media.narrators |> Enum.map(& &1.name) |> Enum.join(", ") %>
+        </p>
+        <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
+          <%= media.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ") %>
+        </p>
+      </div>
+
+      <div class="hidden w-32 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
+        <div class="flex gap-4">
+          <span :if={media.abridged} title="Abridged">
+            <FA.icon name="clock" class="h-4 w-4 inline fill-current" />
+          </span>
+          <span :if={media.full_cast} title="Full cast">
+            <FA.icon name="users" class="h-4 w-4 inline fill-current" />
+          </span>
+          <span :if={media.chapters > 0} title="# of chapters">
+            <%= media.chapters %> <FA.icon name="book-bookmark" class="h-4 w-4 inline fill-current" />
+          </span>
+        </div>
+      </div>
+
+      <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
+        <div class="flex gap-2 pb-2">
+          <.link navigate={~p"/admin/media/#{media}/chapters"}>
+            <FA.icon name="book-bookmark" class="h-4 w-4 fill-current transition-colors hover:fill-yellow-400" />
+          </.link>
+          <.link navigate={~p"/admin/media/#{media}/edit"}>
+            <FA.icon name="pencil" class="h-4 w-4 fill-current transition-colors hover:fill-blue-600" />
+          </.link>
+          <span phx-click="delete" phx-value-id={media.id} data-confirm="Are you sure?">
+            <FA.icon name="trash" class="h-4 w-4 fill-current transition-colors hover:fill-red-600 cursor-pointer" />
+          </span>
+        </div>
+        <p :if={media.duration} class="text-sm italic dark:text-zinc-500">
+          Duration <%= format_timecode(media.duration) %>
+        </p>
+        <p :if={media.published} class="text-sm italic dark:text-zinc-500">
+          Published <%= format_published(media) %>
+        </p>
+        <p class="text-sm italic dark:text-zinc-500">
+          Added <%= Calendar.strftime(media.inserted_at, "%x") %>
+        </p>
+      </div>
+
+      <div
+        :if={media.status == :processing && @processing_media_progress_map[media.id]}
+        class="absolute right-0 bottom-0 left-0 bg-zinc-200 dark:bg-zinc-800"
+      >
         <div
           class="h-[2px] bg-lime-500 dark:bg-lime-400"
           style={"width: #{progress_percent(@processing_media_progress_map[media.id])}%"}
         />
       </div>
-    </:col>
-  </.admin_table>
-<% end %>
-
-<.admin_table_header
-  list_opts={@list_opts}
-  has_more={@has_more?}
-  next_page={~p"/admin/media?#{next_opts(@list_opts)}"}
-  prev_page={~p"/admin/media?#{prev_opts(@list_opts)}"}
-  new_path={~p"/admin/media/new"}
-/>
-
-<.admin_table rows={@media} sort={@list_opts.sort || @default_sort} actions_class="w-24">
-  <:col :let={media} label="Status" sort_field="status">
-    <.badge color={status_color(media.status)}><%= media.status %></.badge>
-  </:col>
-  <:col :let={media} label="Book" sort_field="book">
-    <p class="truncate"><%= media.book %></p>
-  </:col>
-  <:col :let={media} label="Series" class="hidden 2xl:table-cell" sort_field="series">
-    <p :for={series <- media.series} class="truncate">
-      <%= series %>
-    </p>
-  </:col>
-  <:col :let={media} label="Authors" class="hidden 2xl:table-cell" sort_field="authors">
-    <p :for={author <- media.authors} class="truncate">
-      <%= author.name %>
-      <span :if={author.name != author.person_name}>
-        (<%= author.person_name %>)
-      </span>
-    </p>
-  </:col>
-  <:col :let={media} label="Narrators" class="hidden 2xl:table-cell" sort_field="narrators">
-    <p :for={narrator <- media.narrators} class="truncate">
-      <%= narrator.name %>
-      <span :if={narrator.name != narrator.person_name}>
-        (<%= narrator.person_name %>)
-      </span>
-    </p>
-  </:col>
-  <:col :let={media} label="Duration" class="hidden md:table-cell" sort_field="duration">
-    <p class="truncate"><%= format_timecode(media.duration) %></p>
-  </:col>
-  <:col :let={media} label="Published" class="hidden 2xl:table-cell" sort_field="published">
-    <p class="truncate"><%= format_published(media) %></p>
-  </:col>
-  <:col :let={media} label="Features" class="hidden lg:table-cell">
-    <div class="flex flex-col gap-1">
-      <div :if={media.abridged}>
-        <.badge color={:yellow}>abridged</.badge>
-      </div>
-      <div :if={media.full_cast}>
-        <.badge color={:blue}>full-cast</.badge>
-      </div>
-      <div :if={media.has_chapters}>
-        <.badge color={:brand}>chapters</.badge>
-      </div>
-    </div>
-  </:col>
-  <:col :let={media} label="Added" class="hidden sm:table-cell" sort_field="inserted_at">
-    <p class="truncate"><%= Calendar.strftime(media.inserted_at, "%x") %></p>
-  </:col>
-  <:actions :let={media}>
-    <div class="flex justify-end gap-2">
-      <.link navigate={~p"/admin/media/#{media}/chapters"}>
-        <FA.icon name="book-bookmark" class="h-4 w-4 fill-current" />
-      </.link>
-      <.link navigate={~p"/admin/media/#{media}/edit"}>
-        <FA.icon name="pencil" class="h-4 w-4 fill-current" />
-      </.link>
-      <span phx-click="delete" phx-value-id={media.id} data-confirm="Are you sure?">
-        <FA.icon name="trash" class="h-4 w-4 fill-current text-red-600" />
-      </span>
-    </div>
-  </:actions>
-  <:no_results>
-    <span class="text-lg font-semibold">
-      <%= if @list_opts.filter do %>
-        No results for "<%= @list_opts.filter %>"
-      <% else %>
-        No media yet.
-        <.brand_link navigate={~p"/admin/media/new"}>
-          Create one.
-        </.brand_link>
-      <% end %>
-    </span>
-  </:no_results>
-</.admin_table>
+    </:row>
+  </.flex_table>
+</.layout>

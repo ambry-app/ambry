@@ -6,6 +6,7 @@ defmodule Ambry.Books.BookFlat do
   use Ambry.FlatSchema
 
   alias Ambry.Ecto.Types.PersonName
+  alias Ambry.Ecto.Types.SeriesBook
 
   schema "books_flat" do
     field :title, :string
@@ -13,7 +14,7 @@ defmodule Ambry.Books.BookFlat do
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
     field :image_path, :string
     field :authors, {:array, PersonName}
-    field :series, {:array, :string}
+    field :series, {:array, SeriesBook}
     field :universe, :string
     field :media, :integer
     field :has_description, :boolean
@@ -28,7 +29,7 @@ defmodule Ambry.Books.BookFlat do
       where:
         ilike(b.title, ^search_string) or ilike(b.universe, ^search_string) or
           fragment(
-            "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
+            "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ?)",
             b.series,
             ^search_string
           ) or

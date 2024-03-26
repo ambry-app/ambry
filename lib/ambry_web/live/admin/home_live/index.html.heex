@@ -1,47 +1,49 @@
-<.cards_grid>
-  <.card navigate={~p"/admin/people"} icon="user-group">
-    <.stat>
-      <:title>Authors</:title>
-      <:stat><%= @people_count.authors %></:stat>
-    </.stat>
-    <.stat>
-      <:title>Narrators</:title>
-      <:stat><%= @people_count.narrators %></:stat>
-    </.stat>
-  </.card>
+<.layout title={@page_title} user={@current_user}>
+  <.cards_grid>
+    <.card navigate={~p"/admin/people"} icon="user-group">
+      <.stat>
+        <:title>Authors</:title>
+        <:stat><%= @people_count.authors %></:stat>
+      </.stat>
+      <.stat>
+        <:title>Narrators</:title>
+        <:stat><%= @people_count.narrators %></:stat>
+      </.stat>
+    </.card>
 
-  <.card navigate={~p"/admin/books"} icon="book">
-    <.stat>
-      <:title>Books</:title>
-      <:stat><%= @books_count %></:stat>
-    </.stat>
-  </.card>
+    <.card navigate={~p"/admin/books"} icon="book">
+      <.stat>
+        <:title>Books</:title>
+        <:stat><%= @books_count %></:stat>
+      </.stat>
+    </.card>
 
-  <.card navigate={~p"/admin/series"} icon="book-journal-whills">
-    <.stat>
-      <:title>Series</:title>
-      <:stat><%= @series_count %></:stat>
-    </.stat>
-  </.card>
+    <.card navigate={~p"/admin/series"} icon="book-journal-whills">
+      <.stat>
+        <:title>Series</:title>
+        <:stat><%= @series_count %></:stat>
+      </.stat>
+    </.card>
 
-  <.card navigate={~p"/admin/media"} icon="file-audio">
-    <.stat>
-      <:title>Media</:title>
-      <:stat><%= @media_count %></:stat>
-    </.stat>
-  </.card>
+    <.card navigate={~p"/admin/media"} icon="file-audio">
+      <.stat>
+        <:title>Media</:title>
+        <:stat><%= @media_count %></:stat>
+      </.stat>
+    </.card>
 
-  <.card navigate={~p"/admin/audit"} icon="file-waveform">
-    <.stat>
-      <:title>Files</:title>
-      <:stat><%= @files_count %></:stat>
-    </.stat>
-  </.card>
+    <.card navigate={~p"/admin/audit"} icon="file-waveform">
+      <.stat>
+        <:title>Files</:title>
+        <:stat><%= @files_count %></:stat>
+      </.stat>
+    </.card>
 
-  <.card navigate={~p"/admin/users"} icon="users-gear">
-    <.stat>
-      <:title>Users</:title>
-      <:stat><%= @users_count %></:stat>
-    </.stat>
-  </.card>
-</.cards_grid>
+    <.card navigate={~p"/admin/users"} icon="users-gear">
+      <.stat>
+        <:title>Users</:title>
+        <:stat><%= @users_count %></:stat>
+      </.stat>
+    </.card>
+  </.cards_grid>
+</.layout>

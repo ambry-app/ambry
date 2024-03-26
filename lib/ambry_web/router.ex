@@ -185,7 +185,7 @@ defmodule AmbryWeb.Router do
       live "/media/:id/edit", MediaLive.Form, :edit
       live "/media/:id/chapters", MediaLive.Chapters
 
-      live "/users", UserLive.Index, :index
+      live "/users", UserLive.Index
 
       live "/audit", AuditLive.Index, :index
     end

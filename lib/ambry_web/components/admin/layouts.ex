@@ -3,21 +3,23 @@ defmodule AmbryWeb.Admin.Layouts do
 
   use AmbryWeb, :html
 
-  import AmbryWeb.Gravatar
+  alias AmbryWeb.Admin.Components
 
   embed_templates "layouts/*"
+
+  attr :active_path, :string, required: true
 
   def side_nav(assigns) do
     ~H"""
     <nav
       id="side-bar"
-      class="absolute inset-0 z-10 h-screen w-64 flex-shrink-0 -translate-x-full transform divide-y divide-zinc-200 border-r border-zinc-200 bg-zinc-50 opacity-0 duration-100 ease-out dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 lg:relative lg:transform-none lg:opacity-100"
-      phx-click-away={close_sidebar()}
-      phx-window-keydown={close_sidebar()}
+      class="absolute inset-0 z-10 h-screen w-64 shrink-0 -translate-x-full transform divide-y divide-zinc-200 border-r border-zinc-200 bg-zinc-50 opacity-0 duration-100 ease-out dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 lg:relative lg:transform-none lg:opacity-100"
+      phx-click-away={Components.close_sidebar()}
+      phx-window-keydown={Components.close_sidebar()}
       phx-key="escape"
     >
       <div class="flex items-center gap-3 p-4">
-        <span class="cursor-pointer lg:hidden" phx-click={close_sidebar()}>
+        <span class="cursor-pointer lg:hidden" phx-click={Components.close_sidebar()}>
           <FA.icon name="bars" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
         </span>
         <.link navigate={~p"/admin"} class="mt-1 flex">
@@ -76,63 +78,4 @@ defmodule AmbryWeb.Admin.Layouts do
 
   defp nav_class(false),
     do: "flex items-center px-4 py-2 gap-4 hover:bg-zinc-300 dark:hover:bg-zinc-700"
-
-  def dashboard_header(assigns) do
-    ~H"""
-    <header id="nav-header" class="flex items-center gap-3 border-zinc-100 p-4 dark:border-zinc-900">
-      <span class="cursor-pointer lg:hidden" phx-click={open_sidebar()}>
-        <FA.icon name="bars" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
-      </span>
-      <.link navigate={~p"/admin"} class="flex lg:hidden">
-        <.logo class="h-6 w-6 lg:h-7 lg:w-7" />
-        <.title class="hidden h-6 sm:block lg:h-7" />
-      </.link>
-      <div class="flex-grow pl-0 text-2xl font-bold sm:pl-4 lg:pl-0"><%= @title %></div>
-      <div phx-click-away={hide_menu("admin-user-menu")} phx-window-keydown={hide_menu("admin-user-menu")} phx-key="escape">
-        <img
-          phx-click={toggle_menu("admin-user-menu")}
-          class="mt-1 h-6 cursor-pointer rounded-full lg:h-7 lg:w-7"
-          src={gravatar_url(@user.email)}
-        />
-        <.admin_menu user={@user} />
-      </div>
-    </header>
-    """
-  end
-
-  def admin_menu(assigns) do
-    ~H"""
-    <.menu_wrapper id="admin-user-menu" user={@user}>
-      <div class="py-3">
-        <.link navigate={~p"/"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
-          <FA.icon name="arrow-right-from-bracket" class="scale-[-1] h-5 w-5 fill-current" />
-          <p>Exit Admin</p>
-        </.link>
-        <.link
-          href={~p"/users/log_out"}
-          method="delete"
-          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
-        >
-          <FA.icon name="arrow-right-from-bracket" class="h-5 w-5 fill-current" />
-          <p>Log out</p>
-        </.link>
-      </div>
-    </.menu_wrapper>
-    """
-  end
-
-  @side_bar_open_classes "translate-x-0 ease-in opacity-100"
-  @side_bar_closed_classes "-translate-x-full ease-out opacity-0"
-
-  defp close_sidebar do
-    %JS{}
-    |> JS.remove_class(@side_bar_open_classes, to: "#side-bar")
-    |> JS.add_class(@side_bar_closed_classes, to: "#side-bar")
-  end
-
-  defp open_sidebar do
-    %JS{}
-    |> JS.remove_class(@side_bar_closed_classes, to: "#side-bar")
-    |> JS.add_class(@side_bar_open_classes, to: "#side-bar")
-  end
 end

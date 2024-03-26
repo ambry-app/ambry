@@ -20,6 +20,8 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     :inserted_at
   ]
 
+  @default_sort "inserted_at.desc"
+
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     if connected?(socket) do
@@ -28,13 +30,20 @@ defmodule AmbryWeb.Admin.BookLive.Index do
 
     {:ok,
      socket
-     |> assign(page_title: "Books", default_sort: "inserted_at.desc")
+     |> assign(
+       page_title: "Books",
+       show_header_search: true,
+       header_new_path: ~p"/admin/books/new"
+     )
      |> maybe_update_books(params, true)}
   end
 
   @impl Phoenix.LiveView
   def handle_params(params, _url, socket) do
-    {:noreply, maybe_update_books(socket, params)}
+    {:noreply,
+     socket
+     |> assign(search_form: to_form(%{"query" => params["filter"]}, as: :search))
+     |> maybe_update_books(params)}
   end
 
   defp maybe_update_books(socket, params, force \\ false) do
@@ -43,12 +52,17 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {books, has_more?} = list_books(list_opts, socket.assigns.default_sort)
+      {books, has_more?} = list_books(list_opts, @default_sort)
 
-      socket
-      |> assign(:list_opts, list_opts)
-      |> assign(:has_more?, has_more?)
-      |> assign(:books, books)
+      assign(socket,
+        list_opts: list_opts,
+        books: books,
+        has_next: has_more?,
+        has_prev: list_opts.page > 1,
+        next_page_path: ~p"/admin/books?#{next_opts(list_opts)}",
+        prev_page_path: ~p"/admin/books?#{prev_opts(list_opts)}",
+        current_sort: list_opts.sort || @default_sort
+      )
     else
       socket
     end

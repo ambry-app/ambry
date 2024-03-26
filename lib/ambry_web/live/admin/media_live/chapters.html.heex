@@ -1,39 +1,41 @@
-<.modal :if={@import} id="import-modal" show on_cancel={JS.push("cancel-import")}>
-  <.live_component id="import-form" module={import_form(@import.type)} query={@import.query} media={@media} />
-</.modal>
+<.layout title={@page_title} user={@current_user}>
+  <.modal :if={@import} id="import-modal" show on_cancel={JS.push("cancel-import")}>
+    <.live_component id="import-form" module={import_form(@import.type)} query={@import.query} media={@media} />
+  </.modal>
 
-<div class="max-w-3xl">
-  <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-    <div class="space-y-2">
-      <.label>Import from:</.label>
-      <div class="flex items-center gap-2">
-        <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("source")}>
-          <FA.icon name="file-audio" class="h-4 w-4 fill-current" /> Source File(s)
-        </.button>
-        <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("audible")}>
-          <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
-        </.button>
-      </div>
-    </div>
-
-    <div class="space-y-2">
-      <.label>Chapters</.label>
-      <.inputs_for :let={chapter_form} field={@form[:chapters]}>
-        <.sort_input field={@form[:chapters_sort]} index={chapter_form.index} />
-
-        <div class="flex items-start gap-2">
-          <.input field={chapter_form[:time]} container_class="w-24" />
-          <.input field={chapter_form[:title]} container_class="grow" />
-          <.delete_button field={@form[:chapters_drop]} index={chapter_form.index} class="pt-[10px]" />
+  <div class="max-w-3xl">
+    <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+      <div class="space-y-2">
+        <.label>Import from:</.label>
+        <div class="flex items-center gap-2">
+          <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("source")}>
+            <FA.icon name="file-audio" class="h-4 w-4 fill-current" /> Source File(s)
+          </.button>
+          <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("audible")}>
+            <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
+          </.button>
         </div>
-      </.inputs_for>
+      </div>
 
-      <.add_button field={@form[:chapters_sort]}>Add chapter</.add_button>
-      <.delete_input field={@form[:chapters_drop]} />
-    </div>
+      <div class="space-y-2">
+        <.label>Chapters</.label>
+        <.inputs_for :let={chapter_form} field={@form[:chapters]}>
+          <.sort_input field={@form[:chapters_sort]} index={chapter_form.index} />
 
-    <:actions>
-      <.button>Save</.button>
-    </:actions>
-  </.simple_form>
-</div>
+          <div class="flex items-start gap-2">
+            <.input field={chapter_form[:time]} container_class="w-24" />
+            <.input field={chapter_form[:title]} container_class="grow" />
+            <.delete_button field={@form[:chapters_drop]} index={chapter_form.index} class="pt-[10px]" />
+          </div>
+        </.inputs_for>
+
+        <.add_button field={@form[:chapters_sort]}>Add chapter</.add_button>
+        <.delete_input field={@form[:chapters_drop]} />
+      </div>
+
+      <:actions>
+        <.button>Save</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+</.layout>
