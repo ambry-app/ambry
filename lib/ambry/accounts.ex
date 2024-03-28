@@ -58,7 +58,7 @@ defmodule Ambry.Accounts do
   """
   @spec count_users :: integer()
   def count_users do
-    Repo.one(from u in User, select: count(u.id))
+    Repo.aggregate(User, :count)
   end
 
   @doc """
@@ -453,7 +453,7 @@ defmodule Ambry.Accounts do
       true
   """
   def admin_exists? do
-    Repo.one!(from u in User, select: count(), where: u.admin) > 0
+    Repo.aggregate(from(u in User, where: u.admin), :count) > 0
   end
 
   @doc """

@@ -51,7 +51,7 @@ defmodule Ambry.Series do
   """
   @spec count_series :: integer()
   def count_series do
-    Repo.one(from s in Series, select: count(s.id))
+    Repo.aggregate(Series, :count)
   end
 
   @doc """
