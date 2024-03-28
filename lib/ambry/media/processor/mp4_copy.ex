@@ -16,11 +16,11 @@ defmodule Ambry.Media.Processor.MP4Copy do
   end
 
   def can_run?({media, filenames}) do
-    can_run?(Media.files(media, @extensions, full?: true) ++ filenames)
+    can_run?(Media.files(media, @extensions) ++ filenames)
   end
 
   def can_run?(%Media{} = media) do
-    media |> Media.files(@extensions, full?: true) |> can_run?()
+    media |> Media.files(@extensions) |> can_run?()
   end
 
   def can_run?(filenames) when is_list(filenames) do
@@ -34,7 +34,7 @@ defmodule Ambry.Media.Processor.MP4Copy do
   end
 
   defp convert_mp4!(media) do
-    [mp4_file] = Media.files(media, @extensions, full?: true)
+    [mp4_file] = Media.files(media, @extensions)
 
     id = Media.output_id(media)
     progress_file_path = "#{id}.progress"
