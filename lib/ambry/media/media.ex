@@ -33,6 +33,7 @@ defmodule Ambry.Media.Media do
     field :abridged, :boolean, default: false
 
     field :source_path, :string
+    field :source_files, {:array, :string}
     field :mpd_path, :string
     field :hls_path, :string
     field :mp4_path, :string
@@ -57,6 +58,7 @@ defmodule Ambry.Media.Media do
       :book_id,
       :full_cast,
       :source_path,
+      :source_files,
       :published,
       :published_format,
       :notes
@@ -158,8 +160,22 @@ defmodule Ambry.Media.Media do
     Path.join([source_path, "_out", file])
   end
 
-  def files(%Media{source_path: source_path}, extensions, opts \\ [])
-      when is_binary(source_path) do
+  def files(media, extensions, opts \\ [])
+
+  def files(%Media{source_files: [_ | _] = source_files}, extensions, opts) do
+    full? = Keyword.get(opts, :full?, false)
+
+    paths = Processor.Shared.filter_filenames(source_files, extensions)
+
+    if full? do
+      paths
+    else
+      Enum.map(paths, &Path.basename/1)
+    end
+  end
+
+  # DEPRECATED
+  def files(%Media{source_path: source_path}, extensions, opts) when is_binary(source_path) do
     full? = Keyword.get(opts, :full?, false)
 
     case File.ls(source_path) do

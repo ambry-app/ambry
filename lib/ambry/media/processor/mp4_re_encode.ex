@@ -34,7 +34,7 @@ defmodule Ambry.Media.Processor.MP4ReEncode do
   end
 
   defp convert_mp4!(media) do
-    [mp4_file] = Media.files(media, @extensions)
+    [mp4_file] = Media.files(media, @extensions, full?: true)
 
     id = Media.output_id(media)
     progress_file_path = "#{id}.progress"
@@ -48,7 +48,7 @@ defmodule Ambry.Media.Processor.MP4ReEncode do
         "quiet",
         "-vn",
         "-i",
-        "../#{mp4_file}",
+        "#{mp4_file}",
         "-progress",
         progress_file_path,
         "#{id}.mp4"

@@ -33,7 +33,7 @@ defmodule Ambry.Media.Processor.MP3 do
   end
 
   defp convert_mp3!(media) do
-    [mp3_file] = Media.files(media, @extensions)
+    [mp3_file] = Media.files(media, @extensions, full?: true)
 
     id = Media.output_id(media)
     progress_file_path = "#{id}.progress"
@@ -47,7 +47,7 @@ defmodule Ambry.Media.Processor.MP3 do
         "quiet",
         "-vn",
         "-i",
-        "../#{mp3_file}",
+        "#{mp3_file}",
         "-progress",
         progress_file_path,
         "#{id}.mp4"

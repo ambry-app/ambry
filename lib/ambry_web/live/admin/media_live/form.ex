@@ -148,7 +148,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
     media_params =
       if audio_files != [] do
-        Map.put(media_params, "source_path", source_folder)
+        Map.merge(media_params, %{
+          "source_path" => source_folder,
+          "source_files" => Enum.sort(audio_files, NaturalOrder)
+        })
       else
         media_params
       end
