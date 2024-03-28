@@ -15,11 +15,11 @@ defmodule Ambry.Media.Processor.MP3Concat do
   end
 
   def can_run?({media, filenames}) do
-    can_run?(Media.files(media, @extensions) ++ filenames)
+    can_run?(Media.files(media, @extensions, full?: true) ++ filenames)
   end
 
   def can_run?(%Media{} = media) do
-    media |> Media.files(@extensions) |> can_run?()
+    media |> Media.files(@extensions, full?: true) |> can_run?()
   end
 
   def can_run?(filenames) when is_list(filenames) do

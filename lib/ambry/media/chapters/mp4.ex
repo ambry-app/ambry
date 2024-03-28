@@ -16,13 +16,13 @@ defmodule Ambry.Media.Chapters.MP4 do
   end
 
   def available?(media) do
-    media |> Media.files(@extensions) |> length() == 1
+    media |> Media.files(@extensions, full?: true) |> length() == 1
   end
 
   def inputs, do: []
 
   def get_chapters(media) do
-    [mp4_file] = Media.files(media, @extensions)
+    [mp4_file] = Media.files(media, @extensions, full?: true)
 
     with {:ok, json} <- mp4_chapter_probe(media, mp4_file),
          {:ok, chapters} <- decode(json) do

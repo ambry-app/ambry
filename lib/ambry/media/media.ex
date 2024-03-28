@@ -174,7 +174,7 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  # DEPRECATED
+  # DEPRECATED but still used by any older media that didn't set source_files
   def files(%Media{source_path: source_path}, extensions, opts) when is_binary(source_path) do
     full? = Keyword.get(opts, :full?, false)
 
