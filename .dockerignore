@@ -1,0 +1,8 @@
+_build/
+.elixir_ls/
+.lexical/
+deps/
+.git/
+*.log
+uploads/
+branding/

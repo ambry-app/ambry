@@ -39,6 +39,10 @@ config :ambry,
   first_time_setup:
     !(File.exists?(Path.join(uploads_path, "setup.lock")) || config_env() == :test)
 
+with {:ok, path} <- System.fetch_env("SOURCE_PATH") do
+  config :ambry, source_path: String.trim_trailing(path, "/")
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

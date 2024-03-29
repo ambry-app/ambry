@@ -33,7 +33,7 @@ defmodule Ambry.Media.Media do
     field :abridged, :boolean, default: false
 
     field :source_path, :string
-    field :source_files, {:array, :string}
+    field :source_files, {:array, :string}, default: []
     field :mpd_path, :string
     field :hls_path, :string
     field :mp4_path, :string
