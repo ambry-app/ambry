@@ -67,7 +67,7 @@ defmodule Ambry.People do
     Repo.one(
       from p in PersonFlat,
         select: %{
-          total: count(p.id),
+          total: count(),
           authors: count(fragment("CASE WHEN ? THEN 1 END", p.is_author)),
           narrators: count(fragment("CASE WHEN ? THEN 1 END", p.is_narrator))
         }

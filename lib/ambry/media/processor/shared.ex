@@ -24,7 +24,7 @@ defmodule Ambry.Media.Processor.Shared do
       media
       |> Media.files(extensions)
       |> Enum.map_join("\n", fn filename ->
-        "file #{quote_and_escape_filename("../#{filename}")}"
+        "file #{quote_and_escape_filename(filename)}"
       end)
 
     File.write!(file_list_txt_path, file_list_txt)

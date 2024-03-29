@@ -26,7 +26,7 @@ defmodule Ambry.Media.Processor.ProgressTracker do
   def init(state) do
     full_duration =
       state.media
-      |> Media.files(state.extensions, full?: true)
+      |> Media.files(state.extensions)
       |> Task.async_stream(&get_inaccurate_duration/1, ordered: false)
       |> Stream.map(fn {:ok, duration} -> duration end)
       |> Enum.reduce(&Decimal.add/2)

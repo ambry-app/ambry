@@ -58,7 +58,7 @@ defmodule Ambry.Media.Chapters.ChapteredMP4 do
         {:ok, title}
 
       {_metadata, filename} ->
-        {:ok, Path.rootname(filename)}
+        {:ok, filename |> Path.basename() |> Path.rootname()}
     end
   end
 

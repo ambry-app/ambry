@@ -48,7 +48,7 @@ defmodule Ambry.Media.Processor.MP4ReEncode do
         "quiet",
         "-vn",
         "-i",
-        "../#{mp4_file}",
+        "#{mp4_file}",
         "-progress",
         progress_file_path,
         "#{id}.mp4"

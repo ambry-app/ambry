@@ -47,7 +47,7 @@ defmodule Ambry.Media.Processor.MP3 do
         "quiet",
         "-vn",
         "-i",
-        "../#{mp3_file}",
+        "#{mp3_file}",
         "-progress",
         progress_file_path,
         "#{id}.mp4"

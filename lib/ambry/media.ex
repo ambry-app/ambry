@@ -61,7 +61,7 @@ defmodule Ambry.Media do
   """
   @spec count_media :: integer()
   def count_media do
-    Repo.one(from m in Media, select: count(m.id))
+    Repo.aggregate(Media, :count)
   end
 
   @doc """

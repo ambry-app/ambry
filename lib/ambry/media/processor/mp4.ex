@@ -36,7 +36,7 @@ defmodule Ambry.Media.Processor.MP4 do
     id = Media.output_id(media)
 
     File.cp!(
-      Media.source_path(media, mp4_file),
+      mp4_file,
       Media.out_path(media, "#{id}.mp4")
     )
 

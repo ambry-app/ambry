@@ -46,7 +46,7 @@ defmodule Ambry.Media.Processor.MP4Copy do
       [
         "-vn",
         "-i",
-        "../#{mp4_file}",
+        "#{mp4_file}",
         "-c",
         "copy",
         "-progress",

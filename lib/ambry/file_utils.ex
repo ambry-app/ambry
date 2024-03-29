@@ -19,10 +19,8 @@ defmodule Ambry.FileUtils do
   def maybe_delete_image(nil), do: :noop
 
   def maybe_delete_image(web_path) do
-    book_count = Repo.one(from b in Book, select: count(b.id), where: b.image_path == ^web_path)
-
-    person_count =
-      Repo.one(from p in Person, select: count(p.id), where: p.image_path == ^web_path)
+    book_count = Repo.aggregate(from(b in Book, where: b.image_path == ^web_path), :count)
+    person_count = Repo.aggregate(from(p in Person, where: p.image_path == ^web_path), :count)
 
     if book_count + person_count == 0 do
       disk_path = Paths.web_to_disk(web_path)

@@ -471,10 +471,10 @@ defmodule AmbryWeb.CoreComponents do
           upload={@upload}
           class={
             [
-              "block w-full rounded-sm rounded-b-none py-[7px] px-[11px] border !text-zinc-500",
+              "block w-full rounded-sm rounded-b-none p-0 border !text-zinc-500",
               "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
-              "!p-0 file:border-0 file:rounded-none file:p-[11px] file:cursor-pointer",
-              "file:bg-zinc-600 file:text-zinc-100 hover:file:bg-zinc-500"
+              "file:border-0 file:rounded-none file:p-[11px] file:cursor-pointer",
+              "file:bg-zinc-600 file:text-zinc-100 hover:file:bg-zinc-500 file:font-bold"
             ] ++ input_color_classes(@errors) ++ [@class]
           }
         />

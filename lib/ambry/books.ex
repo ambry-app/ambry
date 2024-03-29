@@ -55,7 +55,7 @@ defmodule Ambry.Books do
   """
   @spec count_books :: integer()
   def count_books do
-    Repo.one(from b in Book, select: count(b.id))
+    Repo.aggregate(Book, :count)
   end
 
   @doc """

@@ -10,6 +10,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Media.Processor
   alias Ambry.Media.ProcessorJob
   alias AmbryWeb.Admin.MediaLive.Form.AudibleImportForm
+  alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
   alias AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm
   alias Ecto.Changeset
 
@@ -21,6 +22,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> allow_supplemental_file_upload(:supplemental)
      |> assign(
        import: nil,
+       select_files: false,
+       selected_files: MapSet.new(),
        scraping_available: AmbryScraping.web_scraping_available?(),
        source_files_expanded: false,
        narrators: Ambry.Narrators.for_select(),
@@ -35,7 +38,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     media = Media.get_media!(id)
-    changeset = Media.change_media(media, %{}, for: :update)
+    changeset = Media.change_media(media, %{"source_type" => "upload"}, for: :update)
 
     socket
     |> assign_form(changeset)
@@ -48,7 +51,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp apply_action(socket, :new, _params) do
     media = %Media.Media{media_narrators: []}
-    changeset = Media.change_media(media, %{}, for: :create)
+    changeset = Media.change_media(media, %{"source_type" => "upload"}, for: :create)
 
     socket
     |> assign_form(changeset)
@@ -73,7 +76,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     with :ok <- changeset_valid?(socket, media_params),
          {:ok, media_params} <-
            handle_supplemental_files_upload(socket, media_params, :supplemental),
-         {:ok, media_params} <- handle_audio_files_upload(socket, media_params, :audio) do
+         {:ok, media_params} <- handle_audio_files_upload(socket, media_params, :audio),
+         {:ok, media_params} <- handle_audio_files_import(socket, media_params) do
       save_media(socket, socket.assigns.live_action, media_params)
     else
       {:error, %Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}
@@ -95,12 +99,20 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:noreply, socket}
   end
 
+  def handle_event("open-file-browser", _params, socket) do
+    {:noreply, assign(socket, select_files: true)}
+  end
+
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :audio, ref)}
   end
 
   def handle_event("cancel-import", _params, socket) do
     {:noreply, assign(socket, import: nil)}
+  end
+
+  def handle_event("cancel-select-files", _params, socket) do
+    {:noreply, assign(socket, select_files: false)}
   end
 
   @impl Phoenix.LiveView
@@ -121,6 +133,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
   end
 
+  def handle_info({:files_selected, files}, socket) do
+    {:noreply, assign(socket, select_files: false, selected_files: files)}
+  end
+
   defp handle_supplemental_files_upload(socket, media_params, name) do
     uploaded_supplemental_files_params = consume_uploaded_supplemental_files(socket, name)
 
@@ -132,7 +148,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      end)}
   end
 
-  defp handle_audio_files_upload(socket, media_params, name) do
+  defp handle_audio_files_upload(socket, %{"source_type" => "upload"} = media_params, name) do
     folder_id = Media.Media.source_id(socket.assigns.media)
     source_folder = source_media_disk_path(folder_id)
 
@@ -146,13 +162,41 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         {:ok, dest}
       end)
 
+    existing_source_files = socket.assigns.media.source_files
+
     media_params =
       if audio_files != [] do
-        Map.put(media_params, "source_path", source_folder)
+        Map.merge(media_params, %{
+          "source_path" => source_folder,
+          "source_files" => Enum.sort(existing_source_files ++ audio_files, NaturalOrder)
+        })
       else
         media_params
       end
 
+    {:ok, media_params}
+  end
+
+  defp handle_audio_files_upload(_socket, media_params, _name) do
+    {:ok, media_params}
+  end
+
+  defp handle_audio_files_import(socket, %{"source_type" => "local_import"} = media_params) do
+    folder_id = Media.Media.source_id(socket.assigns.media)
+    source_folder = source_media_disk_path(folder_id)
+
+    existing_source_files = socket.assigns.media.source_files
+    selected_files = Enum.to_list(socket.assigns.selected_files)
+    new_source_files = Enum.sort(existing_source_files ++ selected_files, NaturalOrder)
+
+    {:ok,
+     Map.merge(media_params, %{
+       "source_path" => source_folder,
+       "source_files" => new_source_files
+     })}
+  end
+
+  defp handle_audio_files_import(_socket, media_params) do
     {:ok, media_params}
   end
 
