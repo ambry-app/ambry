@@ -78,8 +78,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
            handle_supplemental_files_upload(socket, media_params, :supplemental),
          {:ok, media_params} <- handle_audio_files_upload(socket, media_params, :audio),
          {:ok, media_params} <- handle_audio_files_import(socket, media_params) do
-      dbg(media_params)
-      raise "foo"
       save_media(socket, socket.assigns.live_action, media_params)
     else
       {:error, %Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}

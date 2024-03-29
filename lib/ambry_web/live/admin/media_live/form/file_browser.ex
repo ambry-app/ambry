@@ -12,7 +12,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
       <div class="flex gap-2">
         <span><%= MapSet.size(@selected_files) %> file(s) selected</span>
         <.brand_link phx-click="clear" phx-target={@myself}>clear</.brand_link>
-        <%!-- <.brand_link phx-click="toggle-hidden" phx-target={@myself}>toggle hidden</.brand_link> --%>
       </div>
       <hr />
       <.display_path path={@current_path} root={@root_path} />
@@ -24,13 +23,15 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
       </div>
       <hr />
       <ul>
-        <li :for={{file, stat} <- files_and_dirs(@current_path, @hidden_paths, @show_hidden)} class="font-mono flex gap-2">
+        <li :for={%{path: file, stat: stat} <- full_ls!(@current_path)} class="font-mono flex min-w-0 gap-2">
           <%= if stat.type == :directory do %>
-            <div class="w-4" />
+            <div class="w-4 flex-none" />
             <%!-- FIXME: security --%>
-            <.brand_link phx-click={JS.push("select-directory", value: %{dir: file})} phx-target={@myself}>
-              <%= Path.basename(file) %>
-            </.brand_link>
+            <div class="grow overflow-hidden text-ellipsis whitespace-nowrap">
+              <.brand_link phx-click={JS.push("select-directory", value: %{dir: file})} phx-target={@myself}>
+                <%= Path.basename(file) %>
+              </.brand_link>
+            </div>
           <% else %>
             <%= if Path.extname(file) in @allowed_extensions do %>
               <div class="w-4">
@@ -42,12 +43,17 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
                   phx-target={@myself}
                 />
               </div>
-              <span><%= Path.basename(file) %></span>
+              <div class="grow overflow-hidden text-ellipsis whitespace-nowrap"><%= Path.basename(file) %></div>
             <% else %>
               <div class="w-4" />
-              <span class="text-slate-600"><%= Path.basename(file) %></span>
+              <div class="grow overflow-hidden text-ellipsis whitespace-nowrap text-slate-600">
+                <%= Path.basename(file) %>
+              </div>
             <% end %>
           <% end %>
+          <div class="w-48 flex-none text-right text-sm italic text-zinc-500">
+            <%= stat.mtime |> NaiveDateTime.from_erl!() |> Calendar.strftime("%c") %>
+          </div>
         </li>
       </ul>
       <.button phx-click="confirm-selection" phx-target={@myself}>Select Files</.button>
@@ -55,38 +61,24 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
     """
   end
 
-  defp files_and_dirs(path, hidden_paths, show_hidden) do
-    {dirs, files} =
-      path
-      |> full_ls!(hidden_paths, show_hidden)
-      |> Enum.map(&{&1, File.stat!(&1)})
-      |> Enum.split_with(fn {_, stat} -> stat.type == :directory end)
-
-    dirs = Enum.sort_by(dirs, &elem(&1, 0), NaturalOrder)
-    files = Enum.sort_by(files, &elem(&1, 0), NaturalOrder)
-
-    dirs ++ files
-  end
-
-  defp files(path, hidden_paths, show_hidden) do
+  defp files_only!(path) do
     path
-    |> full_ls!(hidden_paths, show_hidden)
-    |> Enum.filter(fn file -> File.stat!(file).type != :directory end)
-    |> Enum.sort(NaturalOrder)
+    |> full_ls!()
+    |> Enum.filter(&(&1.stat.type != :directory))
   end
 
-  defp full_ls!(path, hidden_paths, show_hidden) do
+  def full_ls!(path) do
     path
     |> File.ls!()
-    |> Enum.flat_map(fn file ->
+    |> Enum.map(fn file ->
       full_path = Path.join(path, file)
 
-      cond do
-        show_hidden -> [full_path]
-        MapSet.member?(hidden_paths, full_path) -> []
-        true -> [full_path]
-      end
+      %{
+        path: full_path,
+        stat: File.stat!(full_path)
+      }
     end)
+    |> Enum.sort_by(& &1.stat.mtime, :desc)
   end
 
   @impl Phoenix.LiveComponent
@@ -97,8 +89,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
       |> assign_new(:allowed_extensions, fn -> @allowed_extensions end)
       |> assign_new(:selected_files, fn -> MapSet.new() end)
       |> assign_new(:current_path, fn -> assigns.root_path end)
-      |> assign_new(:hidden_paths, fn -> MapSet.new() end)
-      |> assign_new(:show_hidden, fn -> false end)
 
     {:ok, socket}
   end
@@ -124,7 +114,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   end
 
   def handle_event("select-all", _params, socket) do
-    files_to_select = files(socket.assigns.current_path, socket.assigns.hidden_paths, false)
+    files_to_select = files_only!(socket.assigns.current_path)
 
     {selected_files, allowed_extensions} =
       select_files(
@@ -138,7 +128,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   end
 
   def handle_event("deselect-all", _params, socket) do
-    files_to_deselect = files(socket.assigns.current_path, socket.assigns.hidden_paths, false)
+    files_to_deselect = files_only!(socket.assigns.current_path)
 
     {selected_files, allowed_extensions} =
       deselect_files(
