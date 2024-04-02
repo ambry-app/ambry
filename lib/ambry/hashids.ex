@@ -1,4 +1,4 @@
-defmodule AmbryWeb.Hashids do
+defmodule Ambry.Hashids do
   @moduledoc """
   Encode and decode simple hashids.
   """

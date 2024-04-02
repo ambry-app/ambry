@@ -10,6 +10,7 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Accounts.User
   alias Ambry.Authors.Author
   alias Ambry.Books.Book
+  alias Ambry.Hashids
   alias Ambry.Media.Media
   alias Ambry.Media.PlayerState
   alias Ambry.Narrators.Narrator
@@ -18,7 +19,6 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Search
   alias Ambry.Series.Series
   alias Ambry.Series.SeriesBook
-  alias AmbryWeb.Hashids
 
   def create_session(%{email: email, password: password}, _resolution) do
     if user = Accounts.get_user_by_email_and_password(email, password) do

@@ -8,77 +8,31 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   @impl Phoenix.LiveComponent
   def render(assigns) do
     ~H"""
-    <div class="space-y-2">
-      <div class="flex gap-2">
-        <span><%= MapSet.size(@selected_files) %> file(s) selected</span>
-        <.brand_link phx-click="clear" phx-target={@myself}>clear</.brand_link>
+    <div class="mx-auto max-w-3xl space-y-4">
+      <div class="text-2xl font-bold">Import files from server file-system</div>
+
+      <div class="space-y-1">
+        <.tree_node
+          :for={file_or_folder <- @browser.tree}
+          level={0}
+          node={file_or_folder}
+          open_folders={@open_folders}
+          selected_files={@selected_files}
+          allowed_extensions={@allowed_extensions}
+          target={@myself}
+        />
       </div>
-      <hr />
-      <.display_path path={@current_path} root={@root_path} />
-      <hr />
-      <div class="flex gap-2">
-        <.brand_link phx-click="go-up" phx-target={@myself}>go up</.brand_link>
-        <.brand_link phx-click="select-all" phx-target={@myself}>select all</.brand_link>
-        <.brand_link phx-click="deselect-all" phx-target={@myself}>de-select all</.brand_link>
+
+      <div class="flex items-center gap-2">
+        <.button color={:brand} phx-click="confirm-selection" phx-target={@myself}>Select Files</.button>
+        <div class="grow"><%= MapSet.size(@selected_files) %> file(s) selected</div>
+        <.button color={:zinc} phx-click="clear" phx-target={@myself}>Clear</.button>
+        <.button type="button" color={:zinc} phx-click={JS.exec("data-cancel", to: "#select-files-modal")}>
+          Cancel
+        </.button>
       </div>
-      <hr />
-      <ul>
-        <li :for={%{path: file, stat: stat} <- full_ls!(@current_path)} class="font-mono flex min-w-0 gap-2">
-          <%= if stat.type == :directory do %>
-            <div class="w-4 flex-none" />
-            <%!-- FIXME: security --%>
-            <div class="grow overflow-hidden text-ellipsis whitespace-nowrap">
-              <.brand_link phx-click={JS.push("select-directory", value: %{dir: file})} phx-target={@myself}>
-                <%= Path.basename(file) %>
-              </.brand_link>
-            </div>
-          <% else %>
-            <%= if Path.extname(file) in @allowed_extensions do %>
-              <div class="w-4">
-                <%!-- FIXME: security --%>
-                <input
-                  type="checkbox"
-                  checked={MapSet.member?(@selected_files, file)}
-                  phx-click={JS.push("toggle-file", value: %{file: file})}
-                  phx-target={@myself}
-                />
-              </div>
-              <div class="grow overflow-hidden text-ellipsis whitespace-nowrap"><%= Path.basename(file) %></div>
-            <% else %>
-              <div class="w-4" />
-              <div class="grow overflow-hidden text-ellipsis whitespace-nowrap text-slate-600">
-                <%= Path.basename(file) %>
-              </div>
-            <% end %>
-          <% end %>
-          <div class="w-48 flex-none text-right text-sm italic text-zinc-500">
-            <%= stat.mtime |> NaiveDateTime.from_erl!() |> Calendar.strftime("%c") %>
-          </div>
-        </li>
-      </ul>
-      <.button phx-click="confirm-selection" phx-target={@myself}>Select Files</.button>
     </div>
     """
-  end
-
-  defp files_only!(path) do
-    path
-    |> full_ls!()
-    |> Enum.filter(&(&1.stat.type != :directory))
-  end
-
-  def full_ls!(path) do
-    path
-    |> File.ls!()
-    |> Enum.map(fn file ->
-      full_path = Path.join(path, file)
-
-      %{
-        path: full_path,
-        stat: File.stat!(full_path)
-      }
-    end)
-    |> Enum.sort_by(& &1.stat.mtime, :desc)
   end
 
   @impl Phoenix.LiveComponent
@@ -88,24 +42,36 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
       |> assign(assigns)
       |> assign_new(:allowed_extensions, fn -> @allowed_extensions end)
       |> assign_new(:selected_files, fn -> MapSet.new() end)
+      |> assign_new(:open_folders, fn -> MapSet.new() end)
       |> assign_new(:current_path, fn -> assigns.root_path end)
+      |> assign_new(:browser, fn -> Ambry.FileBrowser.new(assigns.root_path) end)
 
     {:ok, socket}
   end
 
   @impl Phoenix.LiveComponent
-  def handle_event("select-directory", %{"dir" => dir}, socket) do
-    {:noreply, assign(socket, current_path: dir)}
+  def handle_event("toggle-folder", %{"id" => id}, socket) do
+    if MapSet.member?(socket.assigns.open_folders, id) do
+      {:noreply, update(socket, :open_folders, fn folders -> MapSet.delete(folders, id) end)}
+    else
+      {:noreply,
+       socket
+       |> update(:browser, fn browser -> Ambry.FileBrowser.load_contents(browser, id) end)
+       |> update(:open_folders, fn folders -> MapSet.put(folders, id) end)}
+    end
   end
 
-  def handle_event("toggle-file", %{"file" => file}, socket) do
+  def handle_event("toggle-file", %{"id" => id}, socket) do
+    browser = socket.assigns.browser
     selected_files = socket.assigns.selected_files
     allowed_extensions = socket.assigns.allowed_extensions
 
     {selected_files, allowed_extensions} =
-      if MapSet.member?(selected_files, file) do
+      if MapSet.member?(selected_files, id) do
+        {:ok, file} = Ambry.FileBrowser.fetch_file(browser, id)
         deselect_files(selected_files, [file], allowed_extensions)
       else
+        {:ok, file} = Ambry.FileBrowser.fetch_file(browser, id)
         select_files(selected_files, [file], allowed_extensions)
       end
 
@@ -113,8 +79,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
      assign(socket, selected_files: selected_files, allowed_extensions: allowed_extensions)}
   end
 
-  def handle_event("select-all", _params, socket) do
-    files_to_select = files_only!(socket.assigns.current_path)
+  def handle_event("select-all", %{"id" => id}, socket) do
+    browser = socket.assigns.browser
+    {:ok, files_to_select} = Ambry.FileBrowser.fetch_files(browser, id)
 
     {selected_files, allowed_extensions} =
       select_files(
@@ -127,8 +94,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
      assign(socket, selected_files: selected_files, allowed_extensions: allowed_extensions)}
   end
 
-  def handle_event("deselect-all", _params, socket) do
-    files_to_deselect = files_only!(socket.assigns.current_path)
+  def handle_event("deselect-all", %{"id" => id}, socket) do
+    browser = socket.assigns.browser
+    {:ok, files_to_deselect} = Ambry.FileBrowser.fetch_files(browser, id)
 
     {selected_files, allowed_extensions} =
       deselect_files(
@@ -158,7 +126,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   end
 
   def handle_event("confirm-selection", _params, socket) do
-    send(self(), {:files_selected, socket.assigns.selected_files})
+    files =
+      Enum.map(socket.assigns.selected_files, fn id ->
+        {:ok, file} = Ambry.FileBrowser.fetch_file(socket.assigns.browser, id)
+        file.full_path
+      end)
+
+    send(self(), {:files_selected, files})
 
     {:noreply, socket}
   end
@@ -168,7 +142,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   end
 
   defp deselect_files(selected_files, files, allowed_extensions) do
-    files_to_deselect = MapSet.new(files)
+    files_to_deselect = MapSet.new(files, & &1.id)
     selected_files = MapSet.difference(selected_files, files_to_deselect)
 
     allowed_extensions =
@@ -182,15 +156,15 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   end
 
   defp select_files(selected_files, files, allowed_extensions) do
-    case Enum.find(files, &(Path.extname(&1) in allowed_extensions)) do
+    case Enum.find(files, &(&1.extension in allowed_extensions)) do
       nil ->
         {selected_files, allowed_extensions}
 
       first_file ->
-        allowed_extensions = [Path.extname(first_file)]
+        allowed_extensions = [first_file.extension]
 
         files_to_select =
-          files |> Enum.filter(&(Path.extname(&1) in allowed_extensions)) |> MapSet.new()
+          files |> Enum.filter(&(&1.extension in allowed_extensions)) |> MapSet.new(& &1.id)
 
         selected_files = MapSet.union(selected_files, files_to_select)
 
@@ -198,13 +172,194 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
     end
   end
 
-  defp display_path(assigns) do
+  defp any_files?(files_and_folders, allowed_extensions) do
+    Enum.count(files_and_folders, fn
+      %Ambry.FileBrowser.File{} = file -> file.extension in allowed_extensions
+      _ -> false
+    end) > 1
+  end
+
+  defp all_selected?(files_and_folders, selected_files, allowed_extensions) do
+    files_and_folders
+    |> Enum.filter(fn
+      %Ambry.FileBrowser.File{} = file -> file.extension in allowed_extensions
+      _ -> false
+    end)
+    |> Enum.all?(&MapSet.member?(selected_files, &1.id))
+  end
+
+  defp tree_node(%{node: %Ambry.FileBrowser.FolderNode{}} = assigns) do
     ~H"""
-    <%= if @path == @root do %>
-      <p>/</p>
+    <.folder_node
+      level={@level}
+      folder_node={@node}
+      open_folders={@open_folders}
+      selected_files={@selected_files}
+      allowed_extensions={@allowed_extensions}
+      target={@target}
+    />
+    """
+  end
+
+  defp tree_node(%{node: %Ambry.FileBrowser.File{}} = assigns) do
+    ~H"""
+    <.file_node
+      level={@level}
+      file={@node}
+      selected_files={@selected_files}
+      allowed_extensions={@allowed_extensions}
+      target={@target}
+    />
+    """
+  end
+
+  defp folder_node(assigns) do
+    ~H"""
+    <%= if MapSet.member?(@open_folders, @folder_node.folder.id) do %>
+      <.open_folder_node
+        level={@level}
+        folder_node={@folder_node}
+        open_folders={@open_folders}
+        selected_files={@selected_files}
+        allowed_extensions={@allowed_extensions}
+        target={@target}
+      />
     <% else %>
-      <p><%= String.slice(@path, String.length(@root)..-1//1) %></p>
+      <.closed_folder_node
+        level={@level}
+        folder_node={@folder_node}
+        open_folders={@open_folders}
+        selected_files={@selected_files}
+        allowed_extensions={@allowed_extensions}
+        target={@target}
+      />
     <% end %>
+    """
+  end
+
+  defp open_folder_node(assigns) do
+    ~H"""
+    <.row level={@level} phx-click={JS.push("toggle-folder", value: %{id: @folder_node.folder.id})} phx-target={@target}>
+      <div class="w-4 flex-none"><FA.icon name="folder-minus" class="h-4 w-4 fill-brand dark:fill-brand-dark" /></div>
+      <.filename title={@folder_node.folder.path}><%= @folder_node.folder.path %></.filename>
+      <.mtime timestamp={@folder_node.folder.mtime} />
+    </.row>
+    <%= if any_files?(@folder_node.children, @allowed_extensions) do %>
+      <%= if all_selected?(@folder_node.children, @selected_files, @allowed_extensions) do %>
+        <.row
+          level={@level + 1}
+          phx-click={JS.push("deselect-all", value: %{id: @folder_node.folder.id})}
+          phx-target={@target}
+        >
+          <div class="w-4 flex-none"><input type="checkbox" checked /></div>
+          <.filename><%= "All" %></.filename>
+        </.row>
+      <% else %>
+        <.row
+          level={@level + 1}
+          phx-click={JS.push("select-all", value: %{id: @folder_node.folder.id})}
+          phx-target={@target}
+        >
+          <div class="w-4 flex-none"><input type="checkbox" /></div>
+          <.filename><%= "All" %></.filename>
+        </.row>
+      <% end %>
+    <% end %>
+    <.tree_node
+      :for={file_or_folder <- @folder_node.children}
+      level={@level + 1}
+      node={file_or_folder}
+      open_folders={@open_folders}
+      selected_files={@selected_files}
+      allowed_extensions={@allowed_extensions}
+      target={@target}
+    />
+    """
+  end
+
+  defp closed_folder_node(assigns) do
+    ~H"""
+    <.row level={@level} phx-click={JS.push("toggle-folder", value: %{id: @folder_node.folder.id})} phx-target={@target}>
+      <div class="w-4 flex-none"><FA.icon name="folder-plus" class="h-4 w-4 fill-brand dark:fill-brand-dark" /></div>
+      <.filename title={@folder_node.folder.path}><%= @folder_node.folder.path %></.filename>
+      <.mtime timestamp={@folder_node.folder.mtime} />
+    </.row>
+    """
+  end
+
+  defp file_node(assigns) do
+    ~H"""
+    <%= if @file.extension in @allowed_extensions do %>
+      <.allowed_file_node level={@level} file={@file} selected_files={@selected_files} target={@target} />
+    <% else %>
+      <.disallowed_file_node level={@level} file={@file} />
+    <% end %>
+    """
+  end
+
+  defp allowed_file_node(assigns) do
+    ~H"""
+    <.row level={@level} phx-click={JS.push("toggle-file", value: %{id: @file.id})} phx-target={@target} class="font-bold">
+      <div class="w-4 flex-none"><input type="checkbox" checked={MapSet.member?(@selected_files, @file.id)} /></div>
+      <.filename title={@file.path}><%= @file.path %></.filename>
+      <.mtime timestamp={@file.mtime} />
+    </.row>
+    """
+  end
+
+  defp disallowed_file_node(assigns) do
+    ~H"""
+    <.row level={@level} class="italic text-slate-600">
+      <div class="w-4 flex-none" />
+      <.filename title={@file.path}><%= @file.path %></.filename>
+      <.mtime timestamp={@file.mtime} />
+    </.row>
+    """
+  end
+
+  attr :level, :integer, required: true
+  attr :class, :string, default: nil
+  attr :rest, :global
+
+  slot :inner_block, required: true
+
+  defp row(assigns) do
+    ~H"""
+    <div class={["font-mono flex min-w-0 cursor-pointer items-center gap-2 hover:underline", @class]} {@rest}>
+      <.spacer :if={@level > 0} level={@level} />
+      <%= render_slot(@inner_block) %>
+    </div>
+    """
+  end
+
+  attr :class, :string, default: nil
+  attr :rest, :global
+
+  slot :inner_block, required: true
+
+  defp filename(assigns) do
+    ~H"""
+    <div class={["grow overflow-hidden text-ellipsis whitespace-nowrap", @class]} {@rest}>
+      <%= render_slot(@inner_block) %>
+    </div>
+    """
+  end
+
+  attr :timestamp, NaiveDateTime, required: true
+
+  defp mtime(assigns) do
+    ~H"""
+    <div class="w-48 flex-none text-right text-sm italic text-zinc-500">
+      <%= @timestamp |> Calendar.strftime("%c") %>
+    </div>
+    """
+  end
+
+  attr :level, :integer, required: true
+
+  defp spacer(assigns) do
+    ~H"""
+    <div class="flex-none" style={"width: #{(@level * 16) + ((@level - 1) * 8)}px;"} />
     """
   end
 end
