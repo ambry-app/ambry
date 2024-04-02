@@ -8,9 +8,9 @@ defmodule AmbryWeb.BookLive do
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
   alias Ambry.Books
+  alias Ambry.Hashids
   alias Ambry.Media.Media
   alias Ambry.PubSub
-  alias AmbryWeb.Hashids
   alias AmbryWeb.Player
 
   @impl Phoenix.LiveView

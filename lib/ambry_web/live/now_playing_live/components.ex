@@ -8,8 +8,8 @@ defmodule AmbryWeb.NowPlayingLive.Components do
   import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
   alias Ambry.Accounts.User
+  alias Ambry.Hashids
   alias Ambry.Media
-  alias AmbryWeb.Hashids
   alias AmbryWeb.NowPlayingLive.Bookmarks
   alias AmbryWeb.Player
 
