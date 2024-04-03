@@ -218,7 +218,7 @@ defmodule Ambry.Books do
 
     query =
       from b in Ecto.assoc(author, :books),
-        order_by: [desc: b.inserted_at],
+        order_by: [desc: b.published],
         offset: ^offset,
         limit: ^over_limit,
         preload: [:authors, series_books: :series]
