@@ -38,3 +38,8 @@ config :phoenix, :plug_init_mode, :runtime
 # allows Oban to bypass all database interaction and run jobs immediately in the
 # process that enqueued them.
 config :ambry, Oban, testing: :inline
+
+# Disable os_mon for tests
+config :os_mon,
+  start_cpu_sup: false,
+  start_memsup: false
