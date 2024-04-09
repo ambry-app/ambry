@@ -9,7 +9,7 @@ defmodule AmbryWeb.PersonLive do
   alias Ambry.People
 
   # The number of books to show for each author or narrator.
-  @books_limit 6
+  @books_limit 12
 
   @impl Phoenix.LiveView
   def render(assigns) do
