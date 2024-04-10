@@ -1,6 +1,10 @@
 defmodule AmbryScraping.Audible do
   @moduledoc false
 
+  use Boundary,
+    deps: [AmbryScraping.HTMLToMD, AmbryScraping.Image, AmbryScraping.Marionette],
+    exports: [Products.Product]
+
   alias AmbryScraping.Audible.Authors
   alias AmbryScraping.Audible.Products
 

@@ -1,6 +1,14 @@
 defmodule AmbryScraping.GoodReads do
   @moduledoc false
 
+  use Boundary,
+    deps: [AmbryScraping.HTMLToMD, AmbryScraping.Image, AmbryScraping.Marionette],
+    exports: [
+      Books.Editions.Edition,
+      Books.Search.Book,
+      PublishedDate
+    ]
+
   alias AmbryScraping.GoodReads.Authors
   alias AmbryScraping.GoodReads.Books
 

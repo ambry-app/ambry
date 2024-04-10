@@ -1,25 +1,12 @@
 defmodule AmbryScraping do
-  @moduledoc false
+  @moduledoc """
+  Provides web and API scraping for GoodReads, Audible, and Audnexus.
+  """
+
   use Boundary,
-    deps: [],
-    exports: [
-      Audible,
-      Audible.Products.Product,
-      Audnexus,
-      GoodReads,
-      GoodReads.Books.Editions.Edition,
-      GoodReads.Books.Search.Book,
-      GoodReads.PublishedDate
-    ]
+    type: :strict,
+    deps: [Jason, Floki, Logger, Req],
+    exports: [{Audible, []}, {Audnexus, []}, {GoodReads, []}, Image, Marionette]
 
-  alias AmbryScraping.Marionette.Connection
-
-  def web_scraping_available? do
-    Connection
-    |> Process.whereis()
-    |> then(fn
-      nil -> false
-      pid -> Process.alive?(pid)
-    end)
-  end
+  defdelegate web_scraping_available?, to: AmbryScraping.Marionette
 end

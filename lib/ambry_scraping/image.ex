@@ -1,6 +1,8 @@
 defmodule AmbryScraping.Image do
   @moduledoc false
 
+  use Boundary
+
   defstruct [:src, :data_url]
 
   def fetch_from_source(src) do

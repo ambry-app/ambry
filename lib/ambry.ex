@@ -41,6 +41,7 @@ defmodule Ambry do
       PubSub.Message,
       Repo,
       Search,
+      Search.IndexManager,
       Series,
       Series.Series,
       Series.SeriesBook,

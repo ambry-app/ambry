@@ -20,6 +20,11 @@ defmodule Ambry.MixProject do
       ],
       dialyzer: [
         plt_add_apps: [:mix, :ex_unit]
+      ],
+      boundary: [
+        default: [
+          check: [aliases: true]
+        ]
       ]
     ]
   end

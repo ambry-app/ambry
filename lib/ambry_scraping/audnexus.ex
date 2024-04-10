@@ -1,6 +1,8 @@
 defmodule AmbryScraping.Audnexus do
   @moduledoc false
 
+  use Boundary, deps: [AmbryScraping.Image]
+
   alias AmbryScraping.Audnexus.Authors
   alias AmbryScraping.Audnexus.Books
 

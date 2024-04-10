@@ -47,7 +47,7 @@ defmodule AmbryApp.Application do
         # Search index refresher/warmer
         {Task, &Ambry.Search.refresh_entire_index!/0},
         # Headless browser for web-scraping
-        AmbryScraping.Marionette.Supervisor
+        AmbryScraping.Marionette
       ]
   end
 
