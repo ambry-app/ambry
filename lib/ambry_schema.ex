@@ -1,6 +1,7 @@
 defmodule AmbrySchema do
   @moduledoc false
 
+  use Boundary, deps: [Ambry], exports: [PlugHelpers]
   use Absinthe.Schema
   use Absinthe.Relay.Schema, :modern
 

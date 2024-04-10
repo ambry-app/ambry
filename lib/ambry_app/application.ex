@@ -1,11 +1,9 @@
-defmodule Ambry.Application do
+defmodule AmbryApp.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
 
   use Application
-
-  alias Ambry.Search
 
   @impl Application
   def start(_type, _args) do
@@ -45,9 +43,9 @@ defmodule Ambry.Application do
     shared_children() ++
       [
         # Start the Search Index Manager
-        {Search.IndexManager, []},
+        {Ambry.Search.IndexManager, []},
         # Search index refresher/warmer
-        {Task, &Search.Index.refresh_entire_index!/0},
+        {Task, &Ambry.Search.refresh_entire_index!/0},
         # Headless browser for web-scraping
         AmbryScraping.Marionette.Supervisor
       ]

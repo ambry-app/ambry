@@ -7,6 +7,7 @@ defmodule Ambry.MixProject do
       version: "1.2.0",
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
+      compilers: [:boundary] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
@@ -28,7 +29,7 @@ defmodule Ambry.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {Ambry.Application, []},
+      mod: {AmbryApp.Application, []},
       extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end
@@ -48,6 +49,7 @@ defmodule Ambry.MixProject do
       {:absinthe, "~> 1.7"},
       {:argon2_elixir, "~> 4.0"},
       {:bandit, "~> 1.0"},
+      {:boundary, "~> 0.10", runtime: false},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dataloader, "~> 2.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},

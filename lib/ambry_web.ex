@@ -16,6 +16,7 @@ defmodule AmbryWeb do
   below. Instead, define additional modules and import
   those modules here.
   """
+  use Boundary, deps: [Ambry, AmbrySchema, AmbryScraping], exports: [Endpoint]
 
   def static_paths,
     do: ~w(assets favicon.svg favicon.png favicon-32x32.png favicon-96x96.png robots.txt)

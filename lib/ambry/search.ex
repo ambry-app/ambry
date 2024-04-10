@@ -10,11 +10,14 @@ defmodule Ambry.Search do
   alias Ambry.People
   alias Ambry.People.Person
   alias Ambry.Repo
+  alias Ambry.Search.Index
   alias Ambry.Search.Record
   alias Ambry.Series
   alias Ambry.Series.Series, as: SeriesSchema
 
   @results_limit 36
+
+  defdelegate refresh_entire_index!, to: Index
 
   def search(query_string) do
     query_string
