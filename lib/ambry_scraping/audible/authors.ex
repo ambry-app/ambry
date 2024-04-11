@@ -1,21 +1,11 @@
 defmodule AmbryScraping.Audible.Authors do
-  @moduledoc """
-  Audible web-scraping API for authors
-  """
+  @moduledoc false
 
+  alias AmbryScraping.Audible.Author
+  alias AmbryScraping.Audible.AuthorDetails
   alias AmbryScraping.Audible.Browser
   alias AmbryScraping.HTMLToMD
   alias AmbryScraping.Image
-
-  defmodule Author do
-    @moduledoc false
-    defstruct [:id, :name, :description, :image]
-  end
-
-  defmodule SearchResult do
-    @moduledoc false
-    defstruct [:id, :name]
-  end
 
   def details(id) do
     with {:ok, author_html} <- Browser.get_page_html("/author/#{id}"),
@@ -25,7 +15,7 @@ defmodule AmbryScraping.Audible.Authors do
   end
 
   defp parse_author_details(id, author_document) do
-    %Author{
+    %AuthorDetails{
       id: id,
       name: parse_name(author_document),
       description: parse_description(author_document),
@@ -70,7 +60,7 @@ defmodule AmbryScraping.Audible.Authors do
     path = "/search" |> URI.new!() |> URI.append_query(query) |> URI.to_string()
 
     downcased_query_words =
-      query
+      name
       |> String.downcase()
       |> String.split(" ", trim: true)
       |> Enum.reject(&(String.length(&1) < 2))
@@ -87,7 +77,7 @@ defmodule AmbryScraping.Audible.Authors do
          uri = URI.parse(url)
          id = Path.basename(uri.path)
 
-         %SearchResult{
+         %Author{
            id: id,
            name: name
          }
@@ -95,6 +85,7 @@ defmodule AmbryScraping.Audible.Authors do
        |> Enum.uniq_by(& &1.id)
        |> Enum.filter(fn author ->
          downcased_name = String.downcase(author.name)
+
          Enum.any?(downcased_query_words, &String.contains?(downcased_name, &1))
        end)}
     end

@@ -1,24 +1,10 @@
 defmodule AmbryScraping.Audnexus.Books do
-  @moduledoc """
-  Audnexus Books API.
-  """
+  @moduledoc false
+
+  alias AmbryScraping.Audnexus.Chapter
+  alias AmbryScraping.Audnexus.Chapters
 
   @url "https://api.audnex.us/books"
-
-  defmodule Chapters do
-    @moduledoc false
-    defstruct [:asin, :brand_intro_duration_ms, :brand_outro_duration_ms, :chapters]
-  end
-
-  defmodule Chapter do
-    @moduledoc false
-    defstruct [
-      :length_ms,
-      :start_offset_ms,
-      :start_offset_sec,
-      :title
-    ]
-  end
 
   def chapters(asin) do
     case Req.get("#{@url}/#{asin}/chapters", retry: false) do

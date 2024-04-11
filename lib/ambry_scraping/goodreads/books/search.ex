@@ -1,25 +1,10 @@
 defmodule AmbryScraping.GoodReads.Books.Search do
-  @moduledoc """
-  GoodReads book search results
-  """
+  @moduledoc false
 
   alias AmbryScraping.GoodReads.Browser
+  alias AmbryScraping.GoodReads.Contributor
+  alias AmbryScraping.GoodReads.Work
   alias AmbryScraping.Image
-
-  defmodule Book do
-    @moduledoc false
-    defstruct [:id, :title, :contributors, :thumbnail]
-  end
-
-  defmodule Contributor do
-    @moduledoc false
-    defstruct [:id, :name, :type]
-  end
-
-  defmodule Thumbnail do
-    @moduledoc false
-    defstruct [:src, :data_url]
-  end
 
   def search(""), do: {:ok, []}
 
@@ -40,7 +25,7 @@ defmodule AmbryScraping.GoodReads.Books.Search do
   end
 
   defp parse_book(book_html) do
-    %Book{
+    %Work{
       id: "work:" <> parse_work_id(book_html),
       title: parse_book_title(book_html),
       contributors: parse_contributors(book_html),

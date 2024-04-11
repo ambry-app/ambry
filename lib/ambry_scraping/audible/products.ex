@@ -1,8 +1,10 @@
 defmodule AmbryScraping.Audible.Products do
-  @moduledoc """
-  Audible JSON API for products
-  """
+  @moduledoc false
 
+  alias AmbryScraping.Audible.Author
+  alias AmbryScraping.Audible.Narrator
+  alias AmbryScraping.Audible.Product
+  alias AmbryScraping.Audible.Series
   alias AmbryScraping.HTMLToMD
   alias AmbryScraping.Image
 
@@ -26,38 +28,6 @@ defmodule AmbryScraping.Audible.Products do
     series
     sku
   )
-
-  defmodule Product do
-    @moduledoc false
-    defstruct [
-      :id,
-      :title,
-      :authors,
-      :narrators,
-      :series,
-      :description,
-      :cover_image,
-      :format,
-      :published,
-      :publisher,
-      :language
-    ]
-  end
-
-  defmodule Author do
-    @moduledoc false
-    defstruct [:id, :name]
-  end
-
-  defmodule Narrator do
-    @moduledoc false
-    defstruct [:name]
-  end
-
-  defmodule Series do
-    @moduledoc false
-    defstruct [:id, :sequence, :title]
-  end
 
   @doc """
   Returns product details for a given title search query.

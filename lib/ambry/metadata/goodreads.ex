@@ -22,12 +22,12 @@ defmodule Ambry.Metadata.GoodReads do
   defp search_books_key(query_string), do: "search_books:#{query_string}"
 
   def editions(id, refresh \\ false)
-  def editions(id, true), do: clear_get_and_cache(id, &GoodReads.book_editions/1)
-  def editions(id, false), do: cache_get(id, &GoodReads.book_editions/1)
+  def editions(id, true), do: clear_get_and_cache(id, &GoodReads.editions/1)
+  def editions(id, false), do: cache_get(id, &GoodReads.editions/1)
 
   def edition_details(id, refresh \\ false)
-  def edition_details(id, true), do: clear_get_and_cache(id, &GoodReads.book_edition_details/1)
-  def edition_details(id, false), do: cache_get(id, &GoodReads.book_edition_details/1)
+  def edition_details(id, true), do: clear_get_and_cache(id, &GoodReads.edition_details/1)
+  def edition_details(id, false), do: cache_get(id, &GoodReads.edition_details/1)
 
   def search_authors(query, refresh \\ false)
 

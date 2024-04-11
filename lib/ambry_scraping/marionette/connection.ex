@@ -1,9 +1,8 @@
 defmodule AmbryScraping.Marionette.Connection do
-  @moduledoc """
-  TCP socket connection for Marionette.
+  @moduledoc false
 
-  List of WebDriver commands: https://searchfox.org/mozilla-central/source/remote/marionette/driver.sys.mjs#3288
-  """
+  # TCP socket connection for Marionette.
+  # List of WebDriver commands: https://searchfox.org/mozilla-central/source/remote/marionette/driver.sys.mjs#3288
 
   @behaviour :gen_statem
 

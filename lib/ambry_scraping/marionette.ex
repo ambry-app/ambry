@@ -1,5 +1,7 @@
 defmodule AmbryScraping.Marionette do
-  @moduledoc false
+  @moduledoc """
+  Interface to FireFox headless browser using the marionette protocol
+  """
 
   use Boundary, exports: [Browser]
   use Supervisor

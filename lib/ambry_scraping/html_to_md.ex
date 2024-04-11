@@ -1,6 +1,6 @@
 defmodule AmbryScraping.HTMLToMD do
   @moduledoc """
-  A very simple/naive HTML to Markdown converter.
+  A very simple/naive HTML to Markdown converter
 
   It doesn't work great in all cases...
   """

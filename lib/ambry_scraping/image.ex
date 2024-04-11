@@ -1,5 +1,7 @@
 defmodule AmbryScraping.Image do
-  @moduledoc false
+  @moduledoc """
+  An image fetched from a URL
+  """
 
   use Boundary
 

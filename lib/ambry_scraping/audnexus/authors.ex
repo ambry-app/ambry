@@ -1,26 +1,15 @@
 defmodule AmbryScraping.Audnexus.Authors do
-  @moduledoc """
-  Audnexus Authors API.
+  @moduledoc false
 
-  This is much faster than the Audible scraping API and returns the same data.
-  """
+  alias AmbryScraping.Audnexus.Author
+  alias AmbryScraping.Audnexus.AuthorDetails
 
   @url "https://api.audnex.us/authors"
-
-  defmodule Author do
-    @moduledoc false
-    defstruct [:id, :name, :description, :image]
-  end
-
-  defmodule SearchResult do
-    @moduledoc false
-    defstruct [:id, :name]
-  end
 
   def details(id) do
     with {:ok, %{body: attrs}} <- Req.get("#{@url}/#{id}") do
       {:ok,
-       %Author{
+       %AuthorDetails{
          id: attrs["asin"],
          name: attrs["name"],
          description: attrs["description"],
@@ -40,7 +29,7 @@ defmodule AmbryScraping.Audnexus.Authors do
       {:ok,
        response.body
        |> Enum.map(fn attrs ->
-         %SearchResult{
+         %Author{
            id: attrs["asin"],
            name: attrs["name"]
          }

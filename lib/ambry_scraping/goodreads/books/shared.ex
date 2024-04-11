@@ -1,8 +1,9 @@
-defmodule AmbryScraping.GoodReads.PublishedDate do
+defmodule AmbryScraping.GoodReads.Books.Shared do
   @moduledoc false
-  defstruct [:date, :display_format]
 
-  def new(date_string) do
+  alias AmbryScraping.GoodReads.PublishedDate
+
+  def parse_date(date_string) do
     with :error <- parse_full_date(date_string),
          :error <- parse_year_month(date_string),
          :error <- parse_year(date_string) do
@@ -15,7 +16,7 @@ defmodule AmbryScraping.GoodReads.PublishedDate do
     with [_match, month, day, year] <- Regex.run(@full_date_regex, date_string),
          {:ok, month} <- parse_month(month),
          {:ok, date} <- Date.new(String.to_integer(year), month, String.to_integer(day)) do
-      %__MODULE__{
+      %PublishedDate{
         date: date,
         display_format: :full
       }
@@ -29,7 +30,7 @@ defmodule AmbryScraping.GoodReads.PublishedDate do
     with [_match, month, year] <- Regex.run(@year_month_regex, date_string),
          {:ok, month} <- parse_month(month),
          {:ok, date} <- Date.new(String.to_integer(year), month, 1) do
-      %__MODULE__{
+      %PublishedDate{
         date: date,
         display_format: :year_month
       }
@@ -42,7 +43,7 @@ defmodule AmbryScraping.GoodReads.PublishedDate do
   defp parse_year(date_string) do
     with [_match, year] <- Regex.run(@year_regex, date_string),
          {:ok, date} <- Date.new(String.to_integer(year), 1, 1) do
-      %__MODULE__{
+      %PublishedDate{
         date: date,
         display_format: :year
       }
