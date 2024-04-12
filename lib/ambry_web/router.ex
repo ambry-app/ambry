@@ -1,7 +1,6 @@
 defmodule AmbryWeb.Router do
   use AmbryWeb, :router
 
-  import AmbrySchema.PlugHelpers
   import AmbryWeb.UserAuth
   import Phoenix.LiveDashboard.Router
 
@@ -42,7 +41,7 @@ defmodule AmbryWeb.Router do
   pipeline :gql do
     plug :accepts, ["json", "graphql"]
     plug :fetch_api_user
-    plug :put_absinthe_context
+    plug AmbrySchema.ContextPlug
   end
 
   scope "/uploads" do

@@ -1,7 +1,15 @@
-defmodule AmbrySchema.PlugHelpers do
+defmodule AmbrySchema.ContextPlug do
   @moduledoc false
 
-  def put_absinthe_context(conn, _opts) do
+  @behaviour Plug
+
+  @impl Plug
+  def init(opts) do
+    opts
+  end
+
+  @impl Plug
+  def call(conn, _opts) do
     context = build_context(conn)
     Absinthe.Plug.put_options(conn, context: context)
   end

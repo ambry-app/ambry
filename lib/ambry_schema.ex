@@ -1,7 +1,22 @@
 defmodule AmbrySchema do
   @moduledoc false
 
-  use Boundary, deps: [Ambry], exports: [PlugHelpers]
+  use Boundary,
+    type: :strict,
+    deps: [
+      # External
+      Absinthe,
+      Absinthe.Plug,
+      Absinthe.Relay,
+      Dataloader,
+      Decimal,
+      Ecto,
+      Plug,
+      # Internal
+      Ambry
+    ],
+    exports: [ContextPlug]
+
   use Absinthe.Schema
   use Absinthe.Relay.Schema, :modern
 

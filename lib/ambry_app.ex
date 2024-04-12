@@ -5,6 +5,16 @@ defmodule AmbryApp do
 
   use Boundary,
     type: :strict,
-    deps: [Ecto.Migrator, Finch, Oban, Phoenix.PubSub, Ambry, AmbryWeb, AmbryScraping],
+    deps: [
+      # External
+      Ecto.Migrator,
+      Finch,
+      Oban,
+      Phoenix.PubSub,
+      # Internal
+      Ambry,
+      AmbryScraping,
+      AmbryWeb
+    ],
     exports: [Application]
 end
