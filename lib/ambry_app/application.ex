@@ -55,9 +55,7 @@ defmodule AmbryApp.Application do
   # whenever the application is updated.
   @impl Application
   def config_change(changed, _new, removed) do
-    # coveralls-ignore-start
     AmbryWeb.Endpoint.config_change(changed, removed)
-    # coveralls-ignore-stop
     :ok
   end
 

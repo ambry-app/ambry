@@ -4,7 +4,6 @@ defmodule AmbryScraping.GoodReads.Books.Search do
   alias AmbryScraping.GoodReads.Browser
   alias AmbryScraping.GoodReads.Contributor
   alias AmbryScraping.GoodReads.Work
-  alias AmbryScraping.Image
 
   def search(""), do: {:ok, []}
 
@@ -79,7 +78,7 @@ defmodule AmbryScraping.GoodReads.Books.Search do
 
   defp parse_thumbnail(book_html) do
     [src] = book_html |> Floki.find("img.bookCover") |> Floki.attribute("src")
-    Image.fetch_from_source(src)
+    src
   end
 
   defp parse_work_id(book_html) do

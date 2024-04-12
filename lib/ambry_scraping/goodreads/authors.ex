@@ -5,7 +5,6 @@ defmodule AmbryScraping.GoodReads.Authors do
   alias AmbryScraping.GoodReads.Books
   alias AmbryScraping.GoodReads.Browser
   alias AmbryScraping.HTMLToMD
-  alias AmbryScraping.Image
 
   def details("author:" <> id = full_id) do
     with {:ok, author_html} <- Browser.get_page_html("/author/show/#{id}"),
@@ -46,12 +45,8 @@ defmodule AmbryScraping.GoodReads.Authors do
 
   defp parse_image(document) do
     case document |> Floki.find("ul.photoList li.profile img") |> Floki.attribute("src") do
-      [src] ->
-        src = String.replace(src, "p2", "p8")
-        Image.fetch_from_source(src)
-
-      _else ->
-        nil
+      [src] -> String.replace(src, "p2", "p8")
+      _else -> nil
     end
   end
 

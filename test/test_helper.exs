@@ -3,4 +3,5 @@ ExUnit.after_suite(fn _results ->
 end)
 
 ExUnit.start()
+Mneme.start()
 Ecto.Adapters.SQL.Sandbox.mode(Ambry.Repo, :manual)

@@ -8,7 +8,6 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
   alias AmbryScraping.GoodReads.EditionDetails
   alias AmbryScraping.GoodReads.Series
   alias AmbryScraping.HTMLToMD
-  alias AmbryScraping.Image
 
   def edition_details("edition:" <> id = full_id) do
     with {:ok, page_html} <-
@@ -77,8 +76,7 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
 
   defp parse_cover_image(html) do
     [src | _rest] = html |> Floki.find("div.BookPage__bookCover img") |> Floki.attribute("src")
-
-    Image.fetch_from_source(src)
+    src
   end
 
   defp add_details(row, attrs) do

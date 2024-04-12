@@ -4,7 +4,7 @@ defmodule AmbryScraping.Audible do
   """
 
   use Boundary,
-    deps: [AmbryScraping.HTMLToMD, AmbryScraping.Image, AmbryScraping.Marionette],
+    deps: [AmbryScraping.HTMLToMD, AmbryScraping.Marionette],
     exports: [AuthorDetails, Author, Product, Narrator, Series]
 
   alias AmbryScraping.Audible.Authors

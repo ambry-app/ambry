@@ -5,7 +5,7 @@ defmodule AmbryScraping.Audnexus do
   This is much faster than the Audible scraping API and returns the same data.
   """
 
-  use Boundary, deps: [AmbryScraping.Image], exports: [Author, AuthorDetails, Chapters, Chapter]
+  use Boundary, deps: [], exports: [Author, AuthorDetails, Chapters, Chapter]
 
   alias AmbryScraping.Audnexus.Authors
   alias AmbryScraping.Audnexus.Books

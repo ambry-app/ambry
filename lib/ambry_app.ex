@@ -3,5 +3,5 @@ defmodule AmbryApp do
   Ambry OTP application.
   """
 
-  use Boundary, deps: [Ambry, AmbryWeb, AmbryScraping], exports: []
+  use Boundary, deps: [Ambry, AmbryWeb, AmbryScraping], exports: [Application]
 end

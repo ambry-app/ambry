@@ -6,7 +6,7 @@ defmodule AmbryScraping do
   use Boundary,
     type: :strict,
     deps: [Jason, Floki, Logger, Req],
-    exports: [{Audible, []}, {Audnexus, []}, {GoodReads, []}, Image, Marionette]
+    exports: [{Audible, []}, {Audnexus, []}, {GoodReads, []}, Marionette]
 
   defdelegate web_scraping_available?, to: AmbryScraping.Marionette
 end

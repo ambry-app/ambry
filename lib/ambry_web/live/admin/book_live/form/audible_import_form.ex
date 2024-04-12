@@ -131,7 +131,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
         {"use_cover_image", "true"}, acc ->
           Map.merge(acc, %{
             "image_type" => "url_import",
-            "image_import_url" => book.cover_image.src
+            "image_import_url" => book.cover_image
           })
 
         _else, acc ->

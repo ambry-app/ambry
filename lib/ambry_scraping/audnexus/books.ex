@@ -3,13 +3,15 @@ defmodule AmbryScraping.Audnexus.Books do
 
   alias AmbryScraping.Audnexus.Chapter
   alias AmbryScraping.Audnexus.Chapters
-
-  @url "https://api.audnex.us/books"
+  alias AmbryScraping.Audnexus.Client
 
   def chapters(asin) do
-    case Req.get("#{@url}/#{asin}/chapters", retry: false) do
+    case Client.get("/books/#{asin}/chapters", retry: false) do
       {:ok, %{status: status} = response} when status in 200..299 ->
         parse_chapter_info(response.body)
+
+      {:ok, %{status: status}} when status in 400..499 ->
+        {:error, :not_found}
 
       {:ok, response} ->
         {:error, response}

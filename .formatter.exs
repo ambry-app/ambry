@@ -1,5 +1,5 @@
 [
-  import_deps: [:absinthe, :ecto, :ecto_sql, :phoenix],
+  import_deps: [:absinthe, :ecto, :ecto_sql, :phoenix, :mneme],
   subdirectories: ["priv/*/migrations"],
   plugins: [
     Styler,

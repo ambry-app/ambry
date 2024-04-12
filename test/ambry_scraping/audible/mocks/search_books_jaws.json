@@ -1,0 +1,3225 @@
+{
+  "product_filters": [],
+  "products": [
+    {
+      "title": "Jaws",
+      "is_purchasability_suppressed": false,
+      "is_listenable": true,
+      "merchandising_summary": "<i>Jaws</i> is the classic, blockbuster thriller that inspired the three-time Academy Award-winning Steven Spielberg movie and made millions of beachgoers afraid to go into the water....",
+      "relationships": [
+        {
+          "asin": "B002V8N3NA",
+          "relationship_to_product": "child",
+          "relationship_type": "component",
+          "sort": "2"
+        },
+        {
+          "asin": "B091G3LNPG",
+          "content_delivery_type": "BookSeries",
+          "relationship_to_product": "parent",
+          "relationship_type": "series",
+          "sequence": "1",
+          "sku": "SE_RIES_054008",
+          "sku_lite": "SE_RIES_054008",
+          "sort": "1",
+          "title": "Jaws",
+          "url": "/pd/Jaws-Audiobook/B091G3LNPG"
+        },
+        {
+          "asin": "B002V8LFL2",
+          "relationship_to_product": "child",
+          "relationship_type": "component",
+          "sort": "1"
+        }
+      ],
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/41kQFsjfY5L._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C41kQFsjfY5L.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/41kQFsjfY5L._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C41kQFsjfY5L.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBJaws,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBPeter%20Benchley,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/41kQFsjfY5L._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C41kQFsjfY5L.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "release_date": "2009-04-07",
+      "thesaurus_subject_keywords": [
+        "la_confidential",
+        "literature-and-fiction"
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18574426011",
+              "name": "Literature & Fiction"
+            },
+            {
+              "id": "18574427011",
+              "name": "Action & Adventure"
+            },
+            {
+              "id": "18574429011",
+              "name": "Mystery, Thriller & Suspense"
+            },
+            {
+              "id": "18574433011",
+              "name": "Thriller & Suspense"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18574426011",
+              "name": "Literature & Fiction"
+            },
+            {
+              "id": "18574456011",
+              "name": "Genre Fiction"
+            },
+            {
+              "id": "18574475011",
+              "name": "Psychological"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18574426011",
+              "name": "Literature & Fiction"
+            },
+            {
+              "id": "18574490011",
+              "name": "Horror"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18574597011",
+              "name": "Mystery, Thriller & Suspense"
+            },
+            {
+              "id": "18574621011",
+              "name": "Thriller & Suspense"
+            },
+            {
+              "id": "18574631011",
+              "name": "Psychological"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18574597011",
+              "name": "Mystery, Thriller & Suspense"
+            },
+            {
+              "id": "18574621011",
+              "name": "Thriller & Suspense"
+            },
+            {
+              "id": "18574639011",
+              "name": "Suspense"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": true,
+      "series": [
+        {
+          "asin": "B091G3LNPG",
+          "sequence": "1",
+          "title": "Jaws",
+          "url": "/pd/Jaws-Audiobook/B091G3LNPG"
+        }
+      ],
+      "is_adult_product": false,
+      "format_type": "unabridged",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/81p4-VU2BXL._SL900_.jpg"
+      },
+      "runtime_length_min": 579,
+      "sku": "BK_BBCA_000359",
+      "issue_date": "2009-04-07",
+      "narrators": [
+        {
+          "asin": "B0C9MBF86L",
+          "name": "Erik Steele"
+        }
+      ],
+      "asset_details": [],
+      "language": "english",
+      "publication_name": "Jaws",
+      "plans": [
+        {
+          "end_date": "2020-09-13T00:00:00.000-00:00",
+          "plan_name": "Rodizio",
+          "start_date": "2015-09-03T00:00:00.000-00:00"
+        },
+        {
+          "end_date": "2203-10-13T00:00:00.000-00:00",
+          "plan_name": "Radio",
+          "start_date": "2016-05-03T00:00:00.000-00:00"
+        },
+        {
+          "end_date": "2024-12-31T12:00:00.00000Z",
+          "plan_name": "US Minerva",
+          "start_date": "2020-07-02T01:15:00.00015Z"
+        }
+      ],
+      "authors": [
+        {
+          "asin": "B000APWADA",
+          "name": "Peter Benchley"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "format4",
+          "format": "Format4",
+          "is_kindle_enhanced": false,
+          "name": "format4"
+        },
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "piff2232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "piff_22_32"
+        },
+        {
+          "enhanced_codec": "mp42264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_64"
+        },
+        {
+          "enhanced_codec": "piff2264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "piff_22_64"
+        },
+        {
+          "enhanced_codec": "mp42232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_32"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 20.239999771118164,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 20.239999771118164,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "sku_lite": "BK_BBCA_000359",
+      "is_vvab": false,
+      "publisher_summary": "<p><i>Jaws</i> is the classic, blockbuster thriller that inspired the three-time Academy Award-winning Steven Spielberg movie and made millions of beachgoers afraid to go into the water. Experience the thrill of helpless horror again - or for the first time! </p> <p>Jaws was number 48 in the American Film Institute's 100 Years...100 Movies, and the film earned the coveted number-one spot on the Bravo network's 100 Scariest Movie Moments countdown. </p> <p>This timeless tale of man-eating terror that spawned a movie franchise, two video games, a Universal Studios theme park attraction, and two musicals is finally available on audio for the first time ever!</p>",
+      "content_delivery_type": "MultiPartBook",
+      "content_type": "Product",
+      "publisher_name": "Blackstone Audio, Inc.",
+      "sample_url": "https://samples.audible.com/bk/bbca/000359/bk_bbca_000359_sample.mp3",
+      "asin": "B002V8ODY8",
+      "rating": {
+        "num_reviews": 548,
+        "overall_distribution": {
+          "average_rating": 4.321256038647343,
+          "display_average_rating": "4.3",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 3973,
+          "num_four_star_ratings": 1803,
+          "num_one_star_ratings": 113,
+          "num_ratings": 7038,
+          "num_three_star_ratings": 925,
+          "num_two_star_ratings": 224
+        },
+        "performance_distribution": {
+          "average_rating": 4.596147513994073,
+          "display_average_rating": "4.6",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 4286,
+          "num_four_star_ratings": 1265,
+          "num_one_star_ratings": 39,
+          "num_ratings": 6074,
+          "num_three_star_ratings": 420,
+          "num_two_star_ratings": 64
+        },
+        "story_distribution": {
+          "average_rating": 4.263781471120619,
+          "display_average_rating": "4.3",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 3393,
+          "num_four_star_ratings": 1444,
+          "num_one_star_ratings": 149,
+          "num_ratings": 6077,
+          "num_three_star_ratings": 839,
+          "num_two_star_ratings": 252
+        }
+      },
+      "publication_datetime": "2009-04-07T02:57:06Z"
+    },
+    {
+      "title": "Jaws",
+      "is_purchasability_suppressed": false,
+      "is_listenable": true,
+      "merchandising_summary": "<p>There's a silent epidemic in Western civilization, and it is right under our noses. Our jaws are getting smaller and our teeth crooked and crowded, creating not only aesthetic challenges but also difficulties with breathing....</p>",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/51X4YHPShjL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51X4YHPShjL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/51X4YHPShjL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C51X4YHPShjL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBJaws,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBSandra%20Kahn%252C%20Paul%20R.%20Erhli...,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/51X4YHPShjL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C51X4YHPShjL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "subtitle": "The Story of a Hidden Epidemic",
+      "release_date": "2018-09-19",
+      "thesaurus_subject_keywords": [
+        "la_confidential"
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18580540011",
+              "name": "Science & Engineering"
+            },
+            {
+              "id": "18580555011",
+              "name": "Science"
+            },
+            {
+              "id": "18580571011",
+              "name": "Biological Sciences"
+            },
+            {
+              "id": "18580572011",
+              "name": "Anatomy & Physiology"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": false,
+      "is_adult_product": false,
+      "format_type": "unabridged",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/81hxfVq+fVL._SL900_.jpg"
+      },
+      "runtime_length_min": 274,
+      "sku": "BK_TANT_012926",
+      "issue_date": "2018-09-19",
+      "narrators": [
+        {
+          "name": "Gregg Rizzo"
+        }
+      ],
+      "asset_details": [],
+      "language": "english",
+      "plans": [
+        {
+          "end_date": "2025-09-30T12:00:00.00000Z",
+          "plan_name": "US Minerva",
+          "start_date": "2023-01-16T08:00:00.00000Z"
+        }
+      ],
+      "authors": [
+        {
+          "name": "Sandra Kahn"
+        },
+        {
+          "name": "Paul R. Erhlich"
+        },
+        {
+          "name": "Robert Sapolsky - foreword"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "format4",
+          "format": "Format4",
+          "is_kindle_enhanced": false,
+          "name": "format4"
+        },
+        {
+          "enhanced_codec": "piff2232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "piff_22_32"
+        },
+        {
+          "enhanced_codec": "mp42264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_64"
+        },
+        {
+          "enhanced_codec": "mp42232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_32"
+        },
+        {
+          "enhanced_codec": "piff2264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "piff_22_64"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 11.170000076293945,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 11.170000076293945,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "sku_lite": "BK_TANT_012926",
+      "is_vvab": false,
+      "publisher_summary": "<p>There's a silent epidemic in Western civilization, and it is right under our noses. Our jaws are getting smaller and our teeth crooked and crowded, creating not only aesthetic challenges but also difficulties with breathing. Modern orthodontics has persuaded us that braces and oral devices can correct these problems. While teeth can certainly be straightened, what about the underlying causes of this rapid shift in oral evolution and the health risks posed by obstructed airways?  </p> <p>Sandra Kahn and Paul R. Ehrlich, a pioneering orthodontist and a world-renowned evolutionist, respectively, present the biological, dietary, and cultural changes that have driven us toward this major health challenge. They propose simple adjustments that can alleviate this developing crisis, as well as a major alternative to orthodontics that promises more significant long-term relief. </p> <p><i>Jaws </i>will change your life. Every parent should listen to this audiobook.</p>",
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Product",
+      "publisher_name": "Tantor Audio",
+      "sample_url": "https://samples.audible.com/bk/tant/012926/bk_tant_012926_sample.mp3",
+      "asin": "1541447417",
+      "rating": {
+        "num_reviews": 53,
+        "overall_distribution": {
+          "average_rating": 4.3468634686346865,
+          "display_average_rating": "4.3",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 167,
+          "num_four_star_ratings": 59,
+          "num_one_star_ratings": 9,
+          "num_ratings": 271,
+          "num_three_star_ratings": 26,
+          "num_two_star_ratings": 10
+        },
+        "performance_distribution": {
+          "average_rating": 4.076923076923077,
+          "display_average_rating": "4.1",
+          "display_stars": 4.0,
+          "num_five_star_ratings": 129,
+          "num_four_star_ratings": 41,
+          "num_one_star_ratings": 15,
+          "num_ratings": 234,
+          "num_three_star_ratings": 32,
+          "num_two_star_ratings": 17
+        },
+        "story_distribution": {
+          "average_rating": 4.431623931623932,
+          "display_average_rating": "4.4",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 152,
+          "num_four_star_ratings": 47,
+          "num_one_star_ratings": 5,
+          "num_ratings": 234,
+          "num_three_star_ratings": 24,
+          "num_two_star_ratings": 6
+        }
+      },
+      "publication_datetime": "2018-09-19T07:00:00Z"
+    },
+    {
+      "asin": "B096HHRG1L",
+      "asset_details": [],
+      "authors": [
+        {
+          "name": "Patrick Jankiewicz"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "format4",
+          "format": "Format4",
+          "is_kindle_enhanced": false,
+          "name": "format4"
+        },
+        {
+          "enhanced_codec": "LC_64_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_64"
+        },
+        {
+          "enhanced_codec": "LC_128_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_128"
+        },
+        {
+          "enhanced_codec": "mp42232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_32"
+        },
+        {
+          "enhanced_codec": "mp42264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_64"
+        },
+        {
+          "enhanced_codec": "mp44464",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_64"
+        },
+        {
+          "enhanced_codec": "mp444128",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_128"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18571910011",
+              "name": "Arts & Entertainment"
+            },
+            {
+              "id": "18571923011",
+              "name": "Entertainment & Performing Arts"
+            },
+            {
+              "id": "18571933011",
+              "name": "Film & TV"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Product",
+      "format_type": "unabridged",
+      "has_children": false,
+      "is_adult_product": false,
+      "is_listenable": true,
+      "is_purchasability_suppressed": false,
+      "is_vvab": false,
+      "issue_date": "2021-07-06",
+      "language": "english",
+      "merchandising_summary": "<p>Everything you always wanted to know about the 1975 monster-movie hit <i>Jaws </i>and the other monsters that swam in its wake....</p>",
+      "narrators": [
+        {
+          "name": "Nat Segaloff"
+        }
+      ],
+      "plans": [
+        {
+          "end_date": "2024-12-31T12:00:00.00000Z",
+          "plan_name": "US Minerva",
+          "start_date": "2021-06-11T17:41:00.00041Z"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 20.0,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 20.0,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/81CCfGRjLQS._SL900_.jpg"
+      },
+      "publication_datetime": "2021-07-06T07:00:00Z",
+      "publisher_name": "BearManor Media",
+      "publisher_summary": "<p>Everything you always wanted to know about the 1975 monster-movie hit <i>Jaws </i>and the other monsters that swam in its wake.</p>",
+      "rating": {
+        "num_reviews": 12,
+        "overall_distribution": {
+          "average_rating": 4.475728155339806,
+          "display_average_rating": "4.5",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 67,
+          "num_four_star_ratings": 23,
+          "num_one_star_ratings": 2,
+          "num_ratings": 103,
+          "num_three_star_ratings": 10,
+          "num_two_star_ratings": 1
+        },
+        "performance_distribution": {
+          "average_rating": 4.546391752577319,
+          "display_average_rating": "4.5",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 70,
+          "num_four_star_ratings": 17,
+          "num_one_star_ratings": 2,
+          "num_ratings": 97,
+          "num_three_star_ratings": 5,
+          "num_two_star_ratings": 3
+        },
+        "story_distribution": {
+          "average_rating": 4.51063829787234,
+          "display_average_rating": "4.5",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 66,
+          "num_four_star_ratings": 15,
+          "num_one_star_ratings": 1,
+          "num_ratings": 94,
+          "num_three_star_ratings": 9,
+          "num_two_star_ratings": 3
+        }
+      },
+      "release_date": "2021-07-06",
+      "runtime_length_min": 307,
+      "sample_url": "https://samples.audible.com/bk/blak/017306/bk_blak_017306_sample.mp3",
+      "sku": "BK_BLAK_017306",
+      "sku_lite": "BK_BLAK_017306",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/51vInIFxomS._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51vInIFxomS.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/51vInIFxomS._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C51vInIFxomS.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBJust%20When%20You%20Thought%20I...,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBPatrick%20Jankiewicz,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/51vInIFxomS._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C51vInIFxomS.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "subtitle": "A Jaws Companion",
+      "title": "Just When You Thought It Was Safe"
+    },
+    {
+      "title": "Jenny and the Jaws of Life",
+      "is_purchasability_suppressed": false,
+      "is_listenable": true,
+      "merchandising_summary": "<p>In these wonderfully funny and poignant stories, Willett’s eccentric, complex characters think and do the unconventional. With a unique voice and dry humor, Willett gives us a new insight into human existence, showing us those moments in relationships when life suddenly becomes visible....</p>",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/51Di1+2yqzL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51Di1+2yqzL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/51Di1+2yqzL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C51Di1+2yqzL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBJenny%20and%20the%20Jaws%20of%20Life,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBJincy%20Willett,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/51Di1+2yqzL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C51Di1+2yqzL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "subtitle": "Short Stories",
+      "release_date": "2022-05-24",
+      "thesaurus_subject_keywords": [
+        "literature-and-fiction"
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18574426011",
+              "name": "Literature & Fiction"
+            },
+            {
+              "id": "18574446011",
+              "name": "Anthologies & Short Stories"
+            },
+            {
+              "id": "18574448011",
+              "name": "Short Stories"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "24427740011",
+              "name": "Comedy & Humor"
+            },
+            {
+              "id": "18574496011",
+              "name": "Literature & Fiction"
+            },
+            {
+              "id": "18574497011",
+              "name": "Dark Humor"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": false,
+      "is_adult_product": false,
+      "format_type": "unabridged",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/91rngnbg6PL._SL900_.jpg"
+      },
+      "runtime_length_min": 484,
+      "sku": "BK_BLAK_019072",
+      "issue_date": "2022-05-24",
+      "narrators": [
+        {
+          "name": "Hillary Huber"
+        },
+        {
+          "name": "Gabra Zackman"
+        },
+        {
+          "name": "Jonathan Davis"
+        },
+        {
+          "name": "Sarah Naughton"
+        },
+        {
+          "name": "Robert Fass"
+        },
+        {
+          "name": "Tavia Gilbert"
+        }
+      ],
+      "asset_details": [],
+      "language": "english",
+      "plans": [
+        {
+          "end_date": "2024-12-31T12:00:00.00000Z",
+          "plan_name": "US Minerva",
+          "start_date": "2023-10-31T02:00:00.00000Z"
+        }
+      ],
+      "authors": [
+        {
+          "asin": "B001HD0XL0",
+          "name": "Jincy Willett"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "LC_128_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_128"
+        },
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "LC_64_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_64"
+        },
+        {
+          "enhanced_codec": "format4",
+          "format": "Format4",
+          "is_kindle_enhanced": false,
+          "name": "format4"
+        },
+        {
+          "enhanced_codec": "mp42264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_64"
+        },
+        {
+          "enhanced_codec": "mp44464",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_64"
+        },
+        {
+          "enhanced_codec": "mp42232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_32"
+        },
+        {
+          "enhanced_codec": "mp444128",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_128"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 15.5600004196167,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 15.5600004196167,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "sku_lite": "BK_BLAK_019072",
+      "is_vvab": false,
+      "publisher_summary": "<p>In these wonderfully funny and poignant stories, Willett’s eccentric, complex characters think and do the unconventional. Soft, euphonic women gradually grow old; weak, unhappy men confront love and their own mortality; and abominable children desperately try to grow up with grace. With a unique voice and dry humor, Willett gives us a new insight into human existence, showing us those specific moments in relationships when life suddenly becomes visible.</p> <p>Critically acclaimed when it was first published in 1987, <i>Jenny and the Jaws of Life</i> is being brought back due to popular demand. It’s a timeless collection filled with a certain freshness and wit that ring just as loudly today.</p>",
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Product",
+      "publisher_name": "Blackstone Publishing",
+      "sample_url": "https://samples.audible.com/bk/blak/019072/bk_blak_019072_sample.mp3",
+      "asin": "B09V725QZX",
+      "rating": {
+        "num_reviews": 0,
+        "overall_distribution": {
+          "average_rating": 5.0,
+          "display_average_rating": "5.0",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 1,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 1,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "publication_datetime": "2022-05-24T07:00:00Z"
+    },
+    {
+      "asin": "B09TQ1HFH8",
+      "asset_details": [],
+      "authors": [
+        {
+          "asin": "B001H6SSTQ",
+          "name": "Janet Riehecky"
+        },
+        {
+          "name": "Barbara Fox"
+        },
+        {
+          "name": "Jackie Gai DVM"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "format4",
+          "format": "Format4",
+          "is_kindle_enhanced": false,
+          "name": "format4"
+        },
+        {
+          "enhanced_codec": "LC_64_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_64"
+        },
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "LC_128_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_128"
+        },
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "mp44464",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_64"
+        },
+        {
+          "enhanced_codec": "mp42264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_64"
+        },
+        {
+          "enhanced_codec": "mp444128",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_128"
+        },
+        {
+          "enhanced_codec": "mp42232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_32"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18572091011",
+              "name": "Children's Audiobooks"
+            },
+            {
+              "id": "18572561011",
+              "name": "Science & Technology"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Product",
+      "format_type": "unabridged",
+      "has_children": false,
+      "is_adult_product": false,
+      "is_listenable": true,
+      "is_purchasability_suppressed": false,
+      "is_vvab": false,
+      "issue_date": "2022-03-02",
+      "language": "english",
+      "merchandising_summary": "<p>In the game of survival, these animals take a bite out of the competition. Piercing teeth, sharp claws, and powerful jaws can fight off the most daunting enemy and help catch the cleverest prey. Learn about some of nature’s most fearsome opponents.... </p>",
+      "narrators": [
+        {
+          "name": "anonymous"
+        }
+      ],
+      "plans": [
+        {
+          "end_date": "2027-01-01T12:00:00.00000Z",
+          "plan_name": "US Minerva",
+          "start_date": "2022-03-15T22:22:00.00022Z"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 3.109999895095825,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 3.109999895095825,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/81n-WkGmwfL._SL900_.jpg"
+      },
+      "publication_datetime": "2022-03-02T02:13:00Z",
+      "publisher_name": "Capstone Publishers, Inc.",
+      "publisher_summary": "<p>In the game of survival, these animals take a bite out of the competition. Piercing teeth, sharp claws, and powerful jaws can fight off the most daunting enemy and help catch the cleverest prey. Learn about some of nature’s most fearsome opponents.</p>",
+      "rating": {
+        "num_reviews": 0,
+        "overall_distribution": {
+          "average_rating": 4.0,
+          "display_average_rating": "4.0",
+          "display_stars": 4.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 1,
+          "num_one_star_ratings": 0,
+          "num_ratings": 1,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "release_date": "2022-03-02",
+      "runtime_length_min": 6,
+      "sample_url": "https://samples.audible.com/bk/caps/003586/bk_caps_003586_sample.mp3",
+      "sku": "BK_CAPS_003586",
+      "sku_lite": "BK_CAPS_003586",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/61RMP48-5+L._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C61RMP48-5+L.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/61RMP48-5+L._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C61RMP48-5+L.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBTeeth%252C%20Claws%252C%20and%20Jaws,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBJanet%20Riehecky%252C%20Barbara%20Fo...,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/61RMP48-5+L._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C61RMP48-5+L.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "subtitle": "Animal Weapons and Defenses",
+      "title": "Teeth, Claws, and Jaws"
+    },
+    {
+      "title": "The Jaws Obsession",
+      "is_purchasability_suppressed": true,
+      "is_listenable": false,
+      "merchandising_summary": "To share with you, prove to you, convince you, or remind you, that JAWS is the greatest movie of all time. Let‘s make JAWS history.",
+      "relationships": [
+        {
+          "asin": "B0CCLGCPTK",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "65"
+        },
+        {
+          "asin": "B0BRBRLP7Z",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "50"
+        },
+        {
+          "asin": "B0B17H255M",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "21"
+        },
+        {
+          "asin": "B0B8F2MKBW",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "32"
+        },
+        {
+          "asin": "B09NF5GPDR",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "2"
+        },
+        {
+          "asin": "B0BRP4MSHR",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "51"
+        },
+        {
+          "asin": "B0BLKF1RRP",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "44"
+        },
+        {
+          "asin": "B0BBTHBT6T",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "37"
+        },
+        {
+          "asin": "B0CQ94Y42Z",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "73"
+        },
+        {
+          "asin": "B0CM5PL7WZ",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "71"
+        },
+        {
+          "asin": "B0BM3QM52T",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "45"
+        },
+        {
+          "asin": "B09WZMBGWY",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "15"
+        },
+        {
+          "asin": "B0CL91PKYN",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "70"
+        },
+        {
+          "asin": "B0BV936CMP",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "56"
+        },
+        {
+          "asin": "B0BYXNRVT7",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "57"
+        },
+        {
+          "asin": "B09VYJPCGD",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "13"
+        },
+        {
+          "asin": "B0BT16PDH3",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "53"
+        },
+        {
+          "asin": "B09Z64GGYS",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "19"
+        },
+        {
+          "asin": "B0C8F2LXXW",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "62"
+        },
+        {
+          "asin": "B0BKTWX91F",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "43"
+        },
+        {
+          "asin": "B0BH45KDB7",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "41"
+        },
+        {
+          "asin": "B0B4BRVHZ6",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "25"
+        },
+        {
+          "asin": "B09YPQH4NF",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "18"
+        },
+        {
+          "asin": "B0CJC2DGXD",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "74"
+        },
+        {
+          "asin": "B0BSCQLF4P",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "52"
+        },
+        {
+          "asin": "B0C2NNGF84",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "59"
+        },
+        {
+          "asin": "B0B64P93GW",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "28"
+        },
+        {
+          "asin": "B09T94L3B5",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "11"
+        },
+        {
+          "asin": "B0CZ7YTRZW",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "76"
+        },
+        {
+          "asin": "B0C149SXVV",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "61"
+        },
+        {
+          "asin": "B0BQPZSRLM",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "49"
+        },
+        {
+          "asin": "B0CFJ2G75J",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "66"
+        },
+        {
+          "asin": "B09SRL1KB2",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "10"
+        },
+        {
+          "asin": "B0BNH61TGL",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "47"
+        },
+        {
+          "asin": "B0B2PXYXZN",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "35"
+        },
+        {
+          "asin": "B0BF9KZL8P",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "39"
+        },
+        {
+          "asin": "B09ZBBCB7K",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "58"
+        },
+        {
+          "asin": "B0BJW1XLGV",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "42"
+        },
+        {
+          "asin": "B0CNBHVRPK",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "72"
+        },
+        {
+          "asin": "B0B7HTD567",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "30"
+        },
+        {
+          "asin": "B09W326FN6",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "14"
+        },
+        {
+          "asin": "B09S13NZ7Y",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "9"
+        },
+        {
+          "asin": "B0B4FG7ZCL",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "26"
+        },
+        {
+          "asin": "B0CBN831W4",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "64"
+        },
+        {
+          "asin": "B0BPMZSSLP",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "48"
+        },
+        {
+          "asin": "B09NF5JV18",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "1"
+        },
+        {
+          "asin": "B0B5BJ8QNS",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "27"
+        },
+        {
+          "asin": "B09QRXJ5G8",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "6"
+        },
+        {
+          "asin": "B0CV73195J",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "75"
+        },
+        {
+          "asin": "B09KN7DX9G",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "3"
+        },
+        {
+          "asin": "B0B93PCPR6",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "33"
+        },
+        {
+          "asin": "B0CKGD9TTZ",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "69"
+        },
+        {
+          "asin": "B0BVTG5G9C",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "55"
+        },
+        {
+          "asin": "B0C56TX239",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "60"
+        },
+        {
+          "asin": "B0B381L45W",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "24"
+        },
+        {
+          "asin": "B0BD8TYJF1",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "38"
+        },
+        {
+          "asin": "B0B2FDKPLQ",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "23"
+        },
+        {
+          "asin": "B0BB29NV4Q",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "34"
+        },
+        {
+          "asin": "B0C96VM8XC",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "63"
+        },
+        {
+          "asin": "B09RG9XRLT",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "7"
+        },
+        {
+          "asin": "B0BN2BZFPP",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "46"
+        },
+        {
+          "asin": "B0CJL1W5NB",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "68"
+        },
+        {
+          "asin": "B0CGW43CBS",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "67"
+        },
+        {
+          "asin": "B09NF3W2BV",
+          "relationship_to_product": "child",
+          "relationship_type": "season",
+          "sort": "1"
+        },
+        {
+          "asin": "B09PFPJGWH",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "4"
+        },
+        {
+          "asin": "B09Q85C7D6",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "5"
+        },
+        {
+          "asin": "B0B1W8KZ6K",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "22"
+        },
+        {
+          "asin": "B0B84K5GMP",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "31"
+        },
+        {
+          "asin": "B09RVLXQNB",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "8"
+        },
+        {
+          "asin": "B09XJKJDRJ",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "16"
+        },
+        {
+          "asin": "B0BG9DYLPM",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "40"
+        },
+        {
+          "asin": "B09Y4BJGDV",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "17"
+        },
+        {
+          "asin": "B09TZL9TWK",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "12"
+        },
+        {
+          "asin": "B0BBSHNBZ4",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "36"
+        },
+        {
+          "asin": "B09ZQMF24S",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "20"
+        },
+        {
+          "asin": "B0BV13PF9D",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "54"
+        },
+        {
+          "asin": "B0B6TC1WP8",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "29"
+        }
+      ],
+      "new_episode_added_date": "2024-03-27T21:10:36.00010Z",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/41DLn4DFqKL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C41DLn4DFqKL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,1094,50.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/41DLn4DFqKL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C41DLn4DFqKL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBThe%20Jaws%20Obsession,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBJaws%20Obsession,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/41DLn4DFqKL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C41DLn4DFqKL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,929,45.jpg"
+      },
+      "release_date": "2023-03-25",
+      "thesaurus_subject_keywords": [
+        "podcast_film_history",
+        "podcast_tv_and_film",
+        "podcast_show"
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18571910011",
+              "name": "Arts & Entertainment"
+            },
+            {
+              "id": "18571913011",
+              "name": "Art"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": true,
+      "is_adult_product": false,
+      "format_type": "original_recording",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/61Bw20BEAWL._SL900_.jpg"
+      },
+      "sku": "PD_8001_005340",
+      "issue_date": "2023-03-25",
+      "asset_details": [],
+      "language": "english",
+      "plans": [
+        {
+          "end_date": "2099-12-31T05:00:00.00000Z",
+          "plan_name": "Free Tier",
+          "start_date": "2023-03-25T21:52:53.00052Z"
+        }
+      ],
+      "generic_keyword": "672b35f0-852b-4ea7-9a4c-d73f37881d1f",
+      "authors": [
+        {
+          "name": "Jaws Obsession"
+        }
+      ],
+      "episode_count": 76,
+      "price": {},
+      "sku_lite": "PD_8001_005340",
+      "is_vvab": false,
+      "publisher_summary": "To share with you, prove to you, convince you, or remind you, that JAWS is the greatest movie of all time. Let‘s make JAWS history.",
+      "content_delivery_type": "PodcastParent",
+      "content_type": "Podcast",
+      "asin": "B08JJPZFC2",
+      "continuity": "episodic",
+      "music_id": "672b35f0-852b-4ea7-9a4c-d73f37881d1f",
+      "rating": {
+        "num_reviews": 5,
+        "overall_distribution": {
+          "average_rating": 4.857142857142857,
+          "display_average_rating": "4.9",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 6,
+          "num_four_star_ratings": 1,
+          "num_one_star_ratings": 0,
+          "num_ratings": 7,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 4.857142857142857,
+          "display_average_rating": "4.9",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 6,
+          "num_four_star_ratings": 1,
+          "num_one_star_ratings": 0,
+          "num_ratings": 7,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 5.0,
+          "display_average_rating": "5.0",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 7,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 7,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "publication_datetime": "2023-03-25T21:52:53Z"
+    },
+    {
+      "title": "Adventures in Amity",
+      "is_purchasability_suppressed": false,
+      "is_listenable": true,
+      "merchandising_summary": "<p>Set sail with author Dustin McNeill as he goes behind the scenes of Captain Jake’s Amity Boat Tours! <i>Adventures in Amity</i> is the ultimate guide to the legendary attraction that once stood at Universal Studios Florida....</p>",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/51-mbvQhNQS._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51-mbvQhNQS.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/51-mbvQhNQS._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C51-mbvQhNQS.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBAdventures%20in%20Amity,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBDustin%20McNeill,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/51-mbvQhNQS._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C51-mbvQhNQS.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "subtitle": "Tales from the Jaws Ride",
+      "release_date": "2021-06-08",
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18581095011",
+              "name": "Travel & Tourism"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": false,
+      "is_adult_product": false,
+      "format_type": "unabridged",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/81TRfigapQS._SL900_.jpg"
+      },
+      "runtime_length_min": 413,
+      "sku": "BK_ACX0_261794",
+      "issue_date": "2021-06-08",
+      "narrators": [
+        {
+          "name": "Christian Francis"
+        }
+      ],
+      "asset_details": [],
+      "language": "english",
+      "plans": [],
+      "authors": [
+        {
+          "asin": "B00JUL1EBY",
+          "name": "Dustin McNeill"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "LC_64_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_64"
+        },
+        {
+          "enhanced_codec": "format4",
+          "format": "Format4",
+          "is_kindle_enhanced": false,
+          "name": "format4"
+        },
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "LC_128_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_128"
+        },
+        {
+          "enhanced_codec": "mp444128",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_128"
+        },
+        {
+          "enhanced_codec": "mp44464",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_64"
+        },
+        {
+          "enhanced_codec": "mp42264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_64"
+        },
+        {
+          "enhanced_codec": "mp42232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_32"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 19.950000762939453,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 19.950000762939453,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "sku_lite": "BK_ACX0_261794",
+      "is_vvab": false,
+      "publisher_summary": "<p>You're Cleared for Departure, Amity Six. Have a Good Trip.</p> <p>Set sail with author Dustin McNeill as he goes behind the scenes of Captain Jake’s Amity Boat Tours! <i>Adventures in Amity</i> is the ultimate guide to the legendary attraction that once stood at Universal Studios Florida. The book contains over 30 new interviews with the ride’s designers, engineers, and skippers for unprecedented insight into its creation and operation. Hear the untold story of the Jaws ride for the first time ever from those who were actually there!</p> <p>Points of interest:</p> <p></p> <ul> <li>Introduction by filmmaker J. Michael Roddy (“The Shark is Still Working\" documentary)</li> <li>Hear from park execs about the disastrous opening of both Jaws and Universal Florida</li> <li>Hear about the seldom seen 1990 Jaws ride that closed down shortly after the park opened</li> <li>Trace the evolution of the spiel script starting with its original and vastly different 1987 pitch</li> <li>Learn how engineers guaranteed the ride’s operational reliability upon its 1993 re-opening</li> <li>Hear stories from the 1990/1993 opening teams as well as the 2012 closing team</li> <li>Hear from skippers about working with the sometimes temperamental mechanical sharks</li> <li>Contains stories about other classic Universal Studios Florida attractions including Kongfrontation, Earthquake: The Big One, and the E.T. Adventure</li> <li>Hear tales of breakdowns malfunctions, pranks, celebrity guests, and falling overboard</li> <li>Contains coverage of the Jaws ride still operating in Osaka, Japan</li> </ul>",
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Product",
+      "publisher_name": "Encyclopocalypse Publications",
+      "sample_url": "https://samples.audible.com/bk/acx0/261794/bk_acx0_261794_sample.mp3",
+      "asin": "B096T55MPH",
+      "editorial_reviews": [
+        ""
+      ],
+      "rating": {
+        "num_reviews": 2,
+        "overall_distribution": {
+          "average_rating": 4.75,
+          "display_average_rating": "4.8",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 6,
+          "num_four_star_ratings": 2,
+          "num_one_star_ratings": 0,
+          "num_ratings": 8,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 4.75,
+          "display_average_rating": "4.8",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 6,
+          "num_four_star_ratings": 2,
+          "num_one_star_ratings": 0,
+          "num_ratings": 8,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 5.0,
+          "display_average_rating": "5.0",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 8,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 8,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "publication_datetime": "2021-06-08T21:00:00Z"
+    },
+    {
+      "asin": "B00ATSFMV0",
+      "asset_details": [],
+      "authors": [
+        {
+          "name": "Mr. Ron Thomas"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "format4",
+          "format": "Format4",
+          "is_kindle_enhanced": false,
+          "name": "format4"
+        },
+        {
+          "enhanced_codec": "mp42232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_32"
+        },
+        {
+          "enhanced_codec": "mp42264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_64"
+        },
+        {
+          "enhanced_codec": "piff2264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "piff_22_64"
+        },
+        {
+          "enhanced_codec": "piff2232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "piff_22_32"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18572029011",
+              "name": "Business & Careers"
+            },
+            {
+              "id": "18572049011",
+              "name": "Management & Leadership"
+            },
+            {
+              "id": "18572053011",
+              "name": "Management"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Radio/TV Program",
+      "format_type": "original_recording",
+      "has_children": false,
+      "is_adult_product": false,
+      "is_listenable": true,
+      "is_purchasability_suppressed": false,
+      "is_vvab": false,
+      "issue_date": "2012-12-28",
+      "language": "english",
+      "merchandising_summary": "TOP DOG RADIO speaks with film producer, writer, theatre director and Academy Award winner David Brown (1916 – 2010)....",
+      "narrators": [
+        {
+          "name": "Mr. Ron Thomas"
+        },
+        {
+          "name": "Mrs. Marian Burnbaum"
+        },
+        {
+          "name": "Mr. David Brown"
+        }
+      ],
+      "plans": [],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 2.069999933242798,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 2.069999933242798,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/416ktVop70L._SL900_.jpg"
+      },
+      "publication_datetime": "2012-12-28T09:52:00Z",
+      "publisher_name": "On Air Radio Archive",
+      "publisher_summary": "<p>TOP DOG RADIO speaks with film producer, writer, theatre director and Academy Award winner David Brown (1916 – 2010). Brown formed his own film production company in the early 1970s and went on to produce over a dozen blockbuster hits, including The Sting (1973), Jaws (1975), Cocoon (1985) and Driving Miss Daisy (1989). Saying that “every setback is an opportunity,” Brown discusses an issue important to those dreaming of starting their own business. Namely, the right time to quit where you’re at and strike out on your own. Brown also focuses on the changing business of film and movie production, the increasing importance of marketing, and the ability to “read an audience.” For entrepreneurs interested in the entertainment industry, Brown’s insights are beyond valuable. </p> <p>TOP DOG RADIO features exclusive interviews with legendary business leaders, sharing their inner-most secrets on financial and personal success. TOP DOG RADIO is proud to showcase their expertise to entrepreneurs all over the world who want to learn leading business strategies and maximize their potential.We welcome any feedback. For comments or questions, email Topdogradio@gmail.com. TOP DOG RADIO – Where business legends speak.</p>",
+      "rating": {
+        "num_reviews": 2,
+        "overall_distribution": {
+          "average_rating": 4.0,
+          "display_average_rating": "4.0",
+          "display_stars": 4.0,
+          "num_five_star_ratings": 3,
+          "num_four_star_ratings": 2,
+          "num_one_star_ratings": 1,
+          "num_ratings": 6,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 4.0,
+          "display_average_rating": "4.0",
+          "display_stars": 4.0,
+          "num_five_star_ratings": 3,
+          "num_four_star_ratings": 2,
+          "num_one_star_ratings": 1,
+          "num_ratings": 6,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 4.0,
+          "display_average_rating": "4.0",
+          "display_stars": 4.0,
+          "num_five_star_ratings": 3,
+          "num_four_star_ratings": 2,
+          "num_one_star_ratings": 1,
+          "num_ratings": 6,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "release_date": "2012-12-28",
+      "runtime_length_min": 21,
+      "sample_url": "https://samples.audible.com/bk/btwd/000005/bk_btwd_000005_sample.mp3",
+      "sku": "BK_BTWD_000005",
+      "sku_lite": "BK_BTWD_000005",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/416ktVop70L._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C416ktVop70L.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/416ktVop70L._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C416ktVop70L.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBHow%20to%20Produce%20Blockbus...,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBMr.%20Ron%20Thomas,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/416ktVop70L._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C416ktVop70L.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "title": "How to Produce Blockbuster Movies with JAWS' David Brown"
+    },
+    {
+      "title": "Animal Fun Facts for Kids",
+      "is_purchasability_suppressed": false,
+      "is_listenable": true,
+      "merchandising_summary": "<p>Embark on an extraordinary journey through the animal kingdom with <i>Animal Fun Facts</i>! This captivating book is a treasure trove of fascinating information that will leave young listeners in awe....</p>",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/610bSTAS0gL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C610bSTAS0gL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/610bSTAS0gL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C610bSTAS0gL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBAnimal%20Fun%20Facts%20for%20Kids,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBKids%20SLT%20Publications,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/610bSTAS0gL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C610bSTAS0gL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "subtitle": "Paws, Claws & Jaws: Roar, Hop, and Stomp Through a World of Amazing Facts About Dinosaurs, Bunnies, Kangaroos, Bears, Lions, Llamas, Sloths, & More!",
+      "release_date": "2023-07-28",
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18572091011",
+              "name": "Children's Audiobooks"
+            },
+            {
+              "id": "18572099011",
+              "name": "Animals & Nature"
+            },
+            {
+              "id": "18572100011",
+              "name": "Animals"
+            },
+            {
+              "id": "18572107011",
+              "name": "Bears"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18572091011",
+              "name": "Children's Audiobooks"
+            },
+            {
+              "id": "18572099011",
+              "name": "Animals & Nature"
+            },
+            {
+              "id": "18572100011",
+              "name": "Animals"
+            },
+            {
+              "id": "18572119011",
+              "name": "Dinosaurs"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18572091011",
+              "name": "Children's Audiobooks"
+            },
+            {
+              "id": "18572099011",
+              "name": "Animals & Nature"
+            },
+            {
+              "id": "18572100011",
+              "name": "Animals"
+            },
+            {
+              "id": "18572143011",
+              "name": "Lions, Tigers & Leopards"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18572091011",
+              "name": "Children's Audiobooks"
+            },
+            {
+              "id": "18572099011",
+              "name": "Animals & Nature"
+            },
+            {
+              "id": "18572100011",
+              "name": "Animals"
+            },
+            {
+              "id": "18572158011",
+              "name": "Rabbits"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": false,
+      "is_adult_product": false,
+      "format_type": "unabridged",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/91NEZkFx7uL._SL900_.jpg"
+      },
+      "runtime_length_min": 173,
+      "sku": "BK_ACX0_360575",
+      "issue_date": "2023-07-28",
+      "narrators": [
+        {
+          "name": "Mike Baranowski"
+        }
+      ],
+      "asset_details": [],
+      "language": "english",
+      "plans": [],
+      "authors": [
+        {
+          "name": "Kids SLT Publications"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "LC_64_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_64"
+        },
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "LC_128_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_128"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 6.949999809265137,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 6.949999809265137,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "sku_lite": "BK_ACX0_360575",
+      "is_vvab": false,
+      "publisher_summary": "<p>Embark on an extraordinary journey through the animal kingdom with <i>Animal Fun Facts: Roar, Hop, and Stomp Through a World of Amazing Facts About Dinosaurs, Bunnies, Kangaroos, Bears, Lions, Llamas, Sloths, & More!</i> This captivating book is a treasure trove of fascinating information that will leave young listeners in awe.</p> <p>Discover the wonders of the prehistoric era as you delve into the incredible world of dinosaurs. Uncover jaw-dropping facts about their size, diet, and unique characteristics.</p> <p>Hop into the realm of bunnies and explore their adorable habits and playful nature. Learn about their diverse species, habitats, and how they adapt to survive in various environments. Delight in their energetic hops and discover the secrets behind their fluffy tails.</p> <p>Leap into the world of kangaroos and witness their incredible jumping abilities. Marvel at their pouches, which serve as a cozy home for their little joeys. Unearth interesting facts about their social structures, breeding habits, and the fascinating ways they communicate.</p> <p>Roar alongside the kings and queens of the animal kingdom—bears and lions. Uncover their predatory prowess, hunting techniques, and the unique roles they play within their respective ecosystems. Immerse yourself in their majestic presence through vivid anecdotes and captivating trivia.</p> <p>Join the curious llamas on their enchanting journey and explore their role in various cultures. Discover their remarkable ability to adapt to harsh environments, their pack dynamics, and the important roles they play in transportation and wool production.</p> <p>Ease into the slow-paced world of sloths and witness their unique lifestyles. Delve into the fascinating details of their tree-dwelling habits, their slow movements, and the intriguing reasons behind their leisurely pace.</p> <p>Packed with mesmerizing facts, vivid illustrations, and captivating narratives, <i>Animal Fun Facts: Roar, Hop, and Stomp Through a World of Amazing Facts About Dinosaurs, Bunnies, Kangaroos, Bears, Lions, Llamas, Sloths, & More!</i> is a delightful guide that introduces young listeners to a myriad of fascinating creatures. Whether it's dinosaurs, bunnies, kangaroos, bears, lions, llamas, sloths, or more, this book will ignite a love for animals and leave children eager to explore the wonders of the animal kingdom.</p>",
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Product",
+      "publisher_name": "Kids SLT Publications",
+      "sample_url": "https://samples.audible.com/bk/acx0/360575/bk_acx0_360575_sample.mp3",
+      "asin": "B0CD2ZD53R",
+      "editorial_reviews": [
+        ""
+      ],
+      "rating": {
+        "num_reviews": 21,
+        "overall_distribution": {
+          "average_rating": 5.0,
+          "display_average_rating": "5.0",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 21,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 21,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 5.0,
+          "display_average_rating": "5.0",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 21,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 21,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 5.0,
+          "display_average_rating": "5.0",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 21,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 21,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "publication_datetime": "2023-07-28T21:22:00Z"
+    },
+    {
+      "title": "Jaws of Hell",
+      "is_purchasability_suppressed": false,
+      "is_listenable": true,
+      "merchandising_summary": "<p>Ex-SAS trooper and army padre Alex Carter has killed men and slayed demons. Now all he has to do is save humanity from total annihilation....</p>",
+      "relationships": [
+        {
+          "asin": "B0956WZVF9",
+          "content_delivery_type": "BookSeries",
+          "relationship_to_product": "parent",
+          "relationship_type": "series",
+          "sequence": "3",
+          "sku": "SE_RIES_055343",
+          "sku_lite": "SE_RIES_055343",
+          "sort": "3",
+          "title": "Padre",
+          "url": "/pd/Padre-Audiobook/B0956WZVF9"
+        }
+      ],
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/5107PXUrplL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C5107PXUrplL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/5107PXUrplL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C5107PXUrplL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBJaws%20of%20Hell,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBDavid%20J.%20Gatward,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/5107PXUrplL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C5107PXUrplL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "subtitle": "Padre, Book 3",
+      "release_date": "2023-03-23",
+      "thesaurus_subject_keywords": [
+        "literature-and-fiction"
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18574426011",
+              "name": "Literature & Fiction"
+            },
+            {
+              "id": "18574427011",
+              "name": "Action & Adventure"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18574426011",
+              "name": "Literature & Fiction"
+            },
+            {
+              "id": "18574490011",
+              "name": "Horror"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": false,
+      "series": [
+        {
+          "asin": "B0956WZVF9",
+          "sequence": "3",
+          "title": "Padre",
+          "url": "/pd/Padre-Audiobook/B0956WZVF9"
+        }
+      ],
+      "is_adult_product": false,
+      "format_type": "unabridged",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/91akdJUg4QL._SL900_.jpg"
+      },
+      "runtime_length_min": 377,
+      "sku": "BK_ACX0_346514",
+      "issue_date": "2023-03-23",
+      "narrators": [
+        {
+          "name": "Aubrey Parsons"
+        }
+      ],
+      "asset_details": [],
+      "language": "english",
+      "publication_name": "Padre",
+      "plans": [],
+      "authors": [
+        {
+          "asin": "B085T5XR83",
+          "name": "David J. Gatward"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "LC_128_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_128"
+        },
+        {
+          "enhanced_codec": "LC_64_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_64"
+        },
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "mp444128",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_128"
+        },
+        {
+          "enhanced_codec": "mp44464",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_44_64"
+        },
+        {
+          "enhanced_codec": "mp42232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_32"
+        },
+        {
+          "enhanced_codec": "mp42264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_64"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 19.950000762939453,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 19.950000762939453,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "sku_lite": "BK_ACX0_346514",
+      "is_vvab": false,
+      "publisher_summary": "<p><b>Tarantino meets Andy McNab meets the mother of all Korean gore fests!</b> </p> <p>Ex-SAS trooper and army padre Alex Carter has killed men and slayed demons. Now all he has to do is save humanity from total annihilation. </p> <p>Thrust into a world of Nazis, demonic forces, and the occult, Alex will lead his team into the very heart of darkness to carry out the most audacious rescue mission in history. </p> <p>If they survive, it will be a miracle. If they don’t? Not even the dead will walk the Earth. </p> <p><b><i>Jaws of Hell</i></b><b> is the third book in the Padre series. Perfect for fans of Jonathan Maberry, Stephen Leather, Larry Correia, Karl Drinkwater, Guy N. Smith, and F. Paul Wilson.</b></p>",
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Product",
+      "publisher_name": "David Gatward",
+      "sample_url": "https://samples.audible.com/bk/acx0/346514/bk_acx0_346514_sample.mp3",
+      "asin": "B0BZDYV2CZ",
+      "editorial_reviews": [
+        ""
+      ],
+      "rating": {
+        "num_reviews": 0,
+        "overall_distribution": {
+          "average_rating": 3.5,
+          "display_average_rating": "3.5",
+          "display_stars": 3.5,
+          "num_five_star_ratings": 1,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 2,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 1
+        },
+        "performance_distribution": {
+          "average_rating": 5.0,
+          "display_average_rating": "5.0",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 1,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 1,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 5.0,
+          "display_average_rating": "5.0",
+          "display_stars": 5.0,
+          "num_five_star_ratings": 1,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 1,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "publication_datetime": "2023-03-23T23:08:00Z"
+    },
+    {
+      "asin": "B0CC5NNPDQ",
+      "asset_details": [],
+      "category_ladders": [],
+      "content_delivery_type": "PodcastEpisode",
+      "content_type": "Podcast",
+      "episode_type": "full",
+      "format_type": "original_recording",
+      "generic_keyword": "4dec0f7c-a9ae-4610-b104-c3195595fa1c",
+      "has_children": false,
+      "is_adult_product": false,
+      "is_listenable": true,
+      "is_purchasability_suppressed": true,
+      "is_vvab": false,
+      "issue_date": "2023-07-18",
+      "merchandising_summary": "⛵️ We're back after taking a short hiatus, this week bringing you Jaws 2! Join us as we take a trip to Amity Island for this completely ridiculous...",
+      "music_id": "4dec0f7c-a9ae-4610-b104-c3195595fa1c",
+      "plans": [
+        {
+          "end_date": "2099-12-31T05:00:00.00000Z",
+          "plan_name": "Free Tier",
+          "start_date": "2023-03-29T08:03:34.00003Z"
+        }
+      ],
+      "price": {},
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/71-QwomtiML._SL900_.jpg"
+      },
+      "publication_datetime": "2023-07-18T12:00:00Z",
+      "publisher_summary": "<p>⛵️ We're back after taking a short hiatus, this week bringing you Jaws 2! Join us as we take a trip to Amity Island for this completely ridiculous sequel where we'll catch some waterskiing, sailing, and erratically shoot bullets at bluefish. Oh yeah, we'll also choose which character was most deserving to die... if we can figure out any of their names.<br><br>● ● ●<br><br>▶️ <b>Watch the Video Podcast</b><b><br></b><br>☑️ <b>Vote in the Cherry Picker</b><b><br></b><br>● ● ●<br><br>📷 <b>Follow The Cherry Picker on Instagram</b><b><br><br></b><b>🐦 Follow The Cherry Picker on Twitter</b><b><br><br></b>● ● ●<br><br>▶️ <b>Check out Zack's Main YouTube Channel</b><br><br>📷 <b>Follow Zack on Instagram</b><b><br><br></b>🐦 <b>Follow Zack on Twitter</b><b><br><br></b>● ● ●<b><br><br></b><b>▶️ Check Out Eddie's Main YouTube Channel</b><br><br>📷 <b>Follow Eddie on Instagram</b><br><b><br></b>● ● ●<br><br>💲 <b>Support on Patreon</b></p>Support the show",
+      "rating": {
+        "num_reviews": 0,
+        "overall_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "relationships": [
+        {
+          "asin": "B09RKNVXC3",
+          "content_delivery_type": "PodcastParent",
+          "relationship_to_product": "parent",
+          "relationship_type": "episode",
+          "sku": "PD_8001_364915",
+          "sku_lite": "PD_8001_364915",
+          "sort": "75",
+          "title": "The Cherry Picker",
+          "url": "/podcast/The-Cherry-Picker/B09RKNVXC3"
+        }
+      ],
+      "release_date": "2023-07-18",
+      "runtime_length_min": 103,
+      "sku": "PC_801K_380124",
+      "sku_lite": "PC_801K_380124",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/519H2OeoJUL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C519H2OeoJUL.jpg%7C0,0,1200,630+107,79,402,402_PJAdblSocialShare-Gradientoverlay-smallasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,576,270_OU01_ZBLISTENING%20ON,593,216,52,500,AudibleSansMd,30,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,1094,50_ZBEpisode%2075%20%7C%20Jaws%202%20%281978%29,106,519,48,404,AudibleSansMd,24,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/519H2OeoJUL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C519H2OeoJUL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBEpisode%2075%20%7C%20Jaws%202%20%281978%29,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBThe%20Cherry%20Picker,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/519H2OeoJUL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C519H2OeoJUL.jpg%7C0,0,1024,512+97,64,320,320_PJAdblSocialShare-Gradientoverlay-twitter-smallasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,929,45_ZBEpisode%2075%20%7C%20Jaws%202...,96,417,54,320,AudibleSansMd,24,255,255,255.jpg"
+      },
+      "title": "Episode 75 | Jaws 2 (1978)"
+    },
+    {
+      "title": "Inside Jaws",
+      "is_purchasability_suppressed": true,
+      "is_listenable": false,
+      "merchandising_summary": "From the creators of Inside Psycho and Inside the Exorcist comes a new story about a classic movie and its inspirations. A tale of a modest thriller ...",
+      "relationships": [
+        {
+          "asin": "B08JM8D4WZ",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "2"
+        },
+        {
+          "asin": "B08JMB9GTW",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "1"
+        },
+        {
+          "asin": "B08JJHJKR7",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "6"
+        },
+        {
+          "asin": "B0D14LNT9C",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "4"
+        },
+        {
+          "asin": "B08JMB9C9R",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "5"
+        },
+        {
+          "asin": "B0CTQ598DC",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "3"
+        },
+        {
+          "asin": "B08JJPZ6B4",
+          "relationship_to_product": "child",
+          "relationship_type": "season",
+          "sort": "1"
+        }
+      ],
+      "new_episode_added_date": "2024-04-08T08:09:02.00009Z",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/51Sng56SxhL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51Sng56SxhL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,1094,50.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/51Sng56SxhL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C51Sng56SxhL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBInside%20Jaws,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBWondery,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/51Sng56SxhL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C51Sng56SxhL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,929,45.jpg"
+      },
+      "release_date": "2020-09-30",
+      "thesaurus_subject_keywords": [
+        "podcast_society_and_culture",
+        "podcast_film_history",
+        "history_&_criticism",
+        "podcast_documentary",
+        "podcast_tv_and_film",
+        "podcast_show"
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18571910011",
+              "name": "Arts & Entertainment"
+            },
+            {
+              "id": "18571913011",
+              "name": "Art"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18573518011",
+              "name": "History"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18574641011",
+              "name": "Politics & Social Sciences"
+            },
+            {
+              "id": "18574731011",
+              "name": "Social Sciences"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": true,
+      "is_adult_product": false,
+      "format_type": "original_recording",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/9180iMILw9L._SL900_.jpg"
+      },
+      "sku": "PD_8001_135127",
+      "issue_date": "2020-09-30",
+      "asset_details": [],
+      "language": "english",
+      "plans": [
+        {
+          "end_date": "2099-12-31T05:00:00.00000Z",
+          "plan_name": "Free Tier",
+          "start_date": "2020-09-30T19:26:46.00026Z"
+        }
+      ],
+      "generic_keyword": "af174534-1d1f-4ba0-9423-bc9f5ec9888e",
+      "authors": [
+        {
+          "name": "Wondery"
+        }
+      ],
+      "episode_count": 6,
+      "price": {},
+      "sku_lite": "PD_8001_135127",
+      "is_vvab": false,
+      "publisher_summary": "<p>From the creators of Inside Psycho and Inside the Exorcist comes a new story about a classic movie and its inspirations. A tale of a modest thriller that became an ordeal and then a disaster and then a phenomenon and then a classic. A story of one man, a fresh-faced, inexperienced director who nearly wrecked his promising career and became the most important filmmaker of our era. This is Inside JAWS.</p><p><br></p><p>You can binge all episodes of Inside Jaws exclusively and ad-free on Wondery+. Find Wondery+ in the Wondery App or on Apple Podcasts.</p><p><br></p>",
+      "content_delivery_type": "PodcastParent",
+      "content_type": "Podcast",
+      "asin": "B08JJPWDJ5",
+      "continuity": "serial",
+      "music_id": "af174534-1d1f-4ba0-9423-bc9f5ec9888e",
+      "rating": {
+        "num_reviews": 0,
+        "overall_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "publication_datetime": "2020-09-30T19:26:46Z"
+    },
+    {
+      "title": "The Jaws of Hell",
+      "is_purchasability_suppressed": false,
+      "is_listenable": true,
+      "merchandising_summary": "<p>Scott Flawless was certain a return to the friendly confines of the ring was what he needed. But he didn't count on the murderers' row sharing this tournament bracket with him.</p>",
+      "relationships": [
+        {
+          "asin": "B099KLLPTN",
+          "content_delivery_type": "BookSeries",
+          "relationship_to_product": "parent",
+          "relationship_type": "series",
+          "sequence": "4",
+          "sku": "SE_RIES_056820",
+          "sku_lite": "SE_RIES_056820",
+          "sort": "4",
+          "title": "Titan Wars",
+          "url": "/pd/Titan-Wars-Audiobook/B099KLLPTN"
+        }
+      ],
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/51hsvHzdRHL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51hsvHzdRHL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/51hsvHzdRHL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C51hsvHzdRHL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBThe%20Jaws%20of%20Hell,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBSamuel%20Gately,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/51hsvHzdRHL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C51hsvHzdRHL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "subtitle": "Titan Wars, Book 4",
+      "release_date": "2024-02-12",
+      "thesaurus_subject_keywords": [
+        "literature-and-fiction"
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18580606011",
+              "name": "Science Fiction & Fantasy"
+            },
+            {
+              "id": "18580607011",
+              "name": "Fantasy"
+            },
+            {
+              "id": "18580615011",
+              "name": "Epic"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18580606011",
+              "name": "Science Fiction & Fantasy"
+            },
+            {
+              "id": "18580607011",
+              "name": "Fantasy"
+            },
+            {
+              "id": "18580619011",
+              "name": "Humorous"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": false,
+      "series": [
+        {
+          "asin": "B099KLLPTN",
+          "sequence": "4",
+          "title": "Titan Wars",
+          "url": "/pd/Titan-Wars-Audiobook/B099KLLPTN"
+        }
+      ],
+      "is_adult_product": false,
+      "format_type": "unabridged",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/81StZivSs9L._SL900_.jpg"
+      },
+      "runtime_length_min": 356,
+      "sku": "BK_ACX0_386007",
+      "issue_date": "2024-02-12",
+      "narrators": [
+        {
+          "name": "Sean Slater"
+        }
+      ],
+      "asset_details": [],
+      "language": "english",
+      "publication_name": "Titan Wars",
+      "plans": [],
+      "authors": [
+        {
+          "asin": "B06VX2Y25G",
+          "name": "Samuel Gately"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "LC_128_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_128"
+        },
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "LC_64_44100_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_44_64"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 19.950000762939453,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 19.950000762939453,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "sku_lite": "BK_ACX0_386007",
+      "is_vvab": false,
+      "publisher_summary": "<p><b>Step into the Jaws of Hell. Only the Lucky Survive.</b><br /> <br /> Scott Flawless was certain a return to the friendly confines of the ring was what he needed. But he didn't count on the murderers' row sharing this tournament bracket with him. The underground circuit is a dangerous place, and with titans like the scheming Dursham Brothers, the mighty Bell King, and the savage Fog of War, he'll be lucky to make it out of the Jaws of Hell alive.<br /> <br /> <i>The Jaws of Hell concludes the Titan Wars tag-team of books featuring Scott Flawless.</i></p>",
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Product",
+      "publisher_name": "Samuel Gately",
+      "sample_url": "https://samples.audible.com/bk/acx0/386007/bk_acx0_386007_sample.mp3",
+      "asin": "B0CVJP6MVL",
+      "editorial_reviews": [
+        ""
+      ],
+      "rating": {
+        "num_reviews": 0,
+        "overall_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "publication_datetime": "2024-02-12T23:35:00Z"
+    },
+    {
+      "title": "JAWS UNLEASHED: The Podiatry Podcast",
+      "is_purchasability_suppressed": true,
+      "is_listenable": false,
+      "merchandising_summary": "Unleashing the background knowledge of PODIATRY with Dr Wagner.",
+      "relationships": [
+        {
+          "asin": "B0CN9T1R95",
+          "relationship_to_product": "child",
+          "relationship_type": "season",
+          "sort": "1"
+        },
+        {
+          "asin": "B0CN9TFQL2",
+          "relationship_to_product": "child",
+          "relationship_type": "episode",
+          "sort": "1"
+        }
+      ],
+      "new_episode_added_date": "2023-11-14T19:49:19.00049Z",
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/31Qmp3pRfDL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C31Qmp3pRfDL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,1094,50.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/31Qmp3pRfDL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C31Qmp3pRfDL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBJAWS%20UNLEASHED%3A%20The%20Pod...,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBAbraham%20Wagner%20D.P.M.,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/31Qmp3pRfDL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C31Qmp3pRfDL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,929,45.jpg"
+      },
+      "release_date": "2023-11-14",
+      "thesaurus_subject_keywords": [
+        "podcast_health_and_fitness",
+        "podcast_medicine",
+        "podcast_education",
+        "podcast_courses",
+        "podcast_show"
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18573267011",
+              "name": "Education & Learning"
+            },
+            {
+              "id": "18573268011",
+              "name": "Education"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18573370011",
+              "name": "Health & Wellness"
+            },
+            {
+              "id": "18573454011",
+              "name": "Physical Illness & Disease"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18573370011",
+              "name": "Health & Wellness"
+            },
+            {
+              "id": "88083132011",
+              "name": "Hygiene & Healthy Living"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": true,
+      "is_adult_product": false,
+      "format_type": "original_recording",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/41l5rqX7gBL._SL900_.jpg"
+      },
+      "sku": "PD_8001_839498",
+      "issue_date": "2023-11-14",
+      "asset_details": [],
+      "language": "english",
+      "plans": [
+        {
+          "end_date": "2099-12-31T05:00:00.00000Z",
+          "plan_name": "Free Tier",
+          "start_date": "2023-11-14T19:49:02.00049Z"
+        }
+      ],
+      "generic_keyword": "572e3082-b177-4bbd-bddb-9d0b3eb85e16",
+      "authors": [
+        {
+          "name": "Abraham Wagner D.P.M."
+        }
+      ],
+      "episode_count": 1,
+      "price": {},
+      "sku_lite": "PD_8001_839498",
+      "is_vvab": false,
+      "publisher_summary": "<p>Unleashing the background knowledge of PODIATRY with Dr Wagner.</p>",
+      "content_delivery_type": "PodcastParent",
+      "content_type": "Podcast",
+      "asin": "B0CN9T99W1",
+      "continuity": "episodic",
+      "music_id": "572e3082-b177-4bbd-bddb-9d0b3eb85e16",
+      "rating": {
+        "num_reviews": 0,
+        "overall_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 0.0,
+          "display_average_rating": "0.0",
+          "display_stars": 0.0,
+          "num_five_star_ratings": 0,
+          "num_four_star_ratings": 0,
+          "num_one_star_ratings": 0,
+          "num_ratings": 0,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "publication_datetime": "2023-11-14T19:49:02Z"
+    },
+    {
+      "title": "Into the Jaws of the Lion",
+      "is_purchasability_suppressed": false,
+      "is_listenable": true,
+      "merchandising_summary": "<p><i>Into the Jaws of the Lion</i> finds the Arkana agents on a new adventure in India where they search for a jewel-encrusted figurine that holds a clue to an even more priceless artifact. Beating the Nephilim to the prize is the least of their worries....</p>",
+      "relationships": [
+        {
+          "asin": "B0843WN957",
+          "content_delivery_type": "BookSeries",
+          "relationship_to_product": "parent",
+          "relationship_type": "series",
+          "sequence": "5",
+          "sku": "SE_RIES_044324",
+          "sku_lite": "SE_RIES_044324",
+          "sort": "5",
+          "title": "Arkana Archaeology Mystery Thriller Series",
+          "url": "/pd/Arkana-Archaeology-Mystery-Thriller-Series-Audiobook/B0843WN957"
+        }
+      ],
+      "social_media_images": {
+        "facebook": "https://m.media-amazon.com/images/I/61QF4TpupkL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C61QF4TpupkL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg",
+        "ig_static_with_bg": "https://m.media-amazon.com/images/I/61QF4TpupkL._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C61QF4TpupkL.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBInto%20the%20Jaws%20of%20the%20Lion,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBN.%20S.%20Wikarski,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg",
+        "twitter": "https://m.media-amazon.com/images/I/61QF4TpupkL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C61QF4TpupkL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg"
+      },
+      "subtitle": "Arkana Archaeology Mystery Thriller Series, Book 5",
+      "release_date": "2020-05-12",
+      "thesaurus_subject_keywords": [
+        "literature-and-fiction"
+      ],
+      "category_ladders": [
+        {
+          "ladder": [
+            {
+              "id": "18580715011",
+              "name": "Teen & Young Adult"
+            },
+            {
+              "id": "18580894011",
+              "name": "Literature & Fiction"
+            },
+            {
+              "id": "18580895011",
+              "name": "Action & Adventure"
+            }
+          ],
+          "root": "Genres"
+        },
+        {
+          "ladder": [
+            {
+              "id": "18580715011",
+              "name": "Teen & Young Adult"
+            },
+            {
+              "id": "18580961011",
+              "name": "Mystery, Thriller & Suspense"
+            },
+            {
+              "id": "18580967011",
+              "name": "Thrillers & Suspense"
+            }
+          ],
+          "root": "Genres"
+        }
+      ],
+      "has_children": false,
+      "series": [
+        {
+          "asin": "B0843WN957",
+          "sequence": "5",
+          "title": "Arkana Archaeology Mystery Thriller Series",
+          "url": "/pd/Arkana-Archaeology-Mystery-Thriller-Series-Audiobook/B0843WN957"
+        }
+      ],
+      "is_adult_product": false,
+      "format_type": "unabridged",
+      "product_images": {
+        "900": "https://m.media-amazon.com/images/I/91d1dv7+LpL._SL900_.jpg"
+      },
+      "runtime_length_min": 542,
+      "sku": "BK_ACX0_195606",
+      "issue_date": "2020-05-12",
+      "narrators": [
+        {
+          "name": "Bryan Stansbury"
+        }
+      ],
+      "asset_details": [],
+      "language": "english",
+      "publication_name": "Arkana Archaeology Mystery Thriller Series",
+      "plans": [],
+      "authors": [
+        {
+          "asin": "B001K8RR5W",
+          "name": "N. S. Wikarski"
+        }
+      ],
+      "available_codecs": [
+        {
+          "enhanced_codec": "format4",
+          "format": "Format4",
+          "is_kindle_enhanced": false,
+          "name": "format4"
+        },
+        {
+          "enhanced_codec": "LC_32_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_32"
+        },
+        {
+          "enhanced_codec": "LC_64_22050_stereo",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "aax_22_64"
+        },
+        {
+          "enhanced_codec": "piff2264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "piff_22_64"
+        },
+        {
+          "enhanced_codec": "mp42232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_32"
+        },
+        {
+          "enhanced_codec": "mp42264",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "mp4_22_64"
+        },
+        {
+          "enhanced_codec": "piff2232",
+          "format": "Enhanced",
+          "is_kindle_enhanced": true,
+          "name": "piff_22_32"
+        },
+        {
+          "enhanced_codec": "aax",
+          "format": "Enhanced",
+          "is_kindle_enhanced": false,
+          "name": "aax"
+        }
+      ],
+      "price": {
+        "credit_price": 1.0,
+        "list_price": {
+          "base": 19.950000762939453,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        },
+        "lowest_price": {
+          "base": 19.950000762939453,
+          "currency_code": "USD",
+          "merchant_id": "A2ZO8JX97D5MN9",
+          "type": "list"
+        }
+      },
+      "sku_lite": "BK_ACX0_195606",
+      "is_vvab": false,
+      "publisher_summary": "<ul> <li>Award-Nominated Series Finale. Best Mystery of the Month (L.A.S. Reviews, February 2017)</li> <li>For fans of archaeology adventure, alternative history thrillers, and treasure hunt mysteries</li> </ul> <p><b>The Arkana Series</b></p> <p>College freshman Cassie Forsythe wakes from a disturbing nightmare after seeing her sister being murdered by a man in a cowboy hat who demands something called \"the key\". Her dream morphs into frightening reality when her sister is found dead, exactly as her vision foretold.</p> <p>Cassie's life takes an even more bizarre turn once she learns that her dead sister, an antique dealer, has discovered the location of a cache of priceless Minoan artifacts. A secret society called the Arkana and a fanatical religious cult known as the Blessed Nephilim are each determined to claim the prize.</p> <p>Caught squarely between these rival factions is Cassie herself after she stumbles across the only known map to the treasure. The girl allies herself with the Arkana in hopes of staying alive. With Nephilim assassins on her trail, that's easier said than done.</p> <p><b>Volume 5 - Into the Jaws of the Lion</b></p> <p><i>Into the Jaws of the Lion</i> finds the Arkana agents on a new adventure in India where they search for a jewel-encrusted figurine that holds a clue to an even more priceless artifact. Beating the Nephilim to the prize is the least of their worries. Back in the States, the cult's leader has evolved a plan to release a deadly plague on an unsuspecting world just as his henchman zeroes in on the whereabouts of his child bride. Every effort to throw the hunter off the girl's trail only draws him nearer to his prey.</p> <p>A rift among the members of the Arkana crew threatens to destroy the relic quest altogether. Held captive on a frigid mountaintop in the Himalayas, they are forced to summon all their resources not merely to complete their mission but simply to survive the night. If you thought you knew where this saga was headed, be prepared for a shocking twist when the Arkana team wanders blindly into the lion's jaws.</p>",
+      "content_delivery_type": "SinglePartBook",
+      "content_type": "Product",
+      "publisher_name": "N. S. Wikarski",
+      "sample_url": "https://samples.audible.com/bk/acx0/195606/bk_acx0_195606_sample.mp3",
+      "asin": "B088C3FP7L",
+      "editorial_reviews": [
+        ""
+      ],
+      "rating": {
+        "num_reviews": 1,
+        "overall_distribution": {
+          "average_rating": 4.666666666666667,
+          "display_average_rating": "4.7",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 2,
+          "num_four_star_ratings": 1,
+          "num_one_star_ratings": 0,
+          "num_ratings": 3,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "performance_distribution": {
+          "average_rating": 4.666666666666667,
+          "display_average_rating": "4.7",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 2,
+          "num_four_star_ratings": 1,
+          "num_one_star_ratings": 0,
+          "num_ratings": 3,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        },
+        "story_distribution": {
+          "average_rating": 4.666666666666667,
+          "display_average_rating": "4.7",
+          "display_stars": 4.5,
+          "num_five_star_ratings": 2,
+          "num_four_star_ratings": 1,
+          "num_one_star_ratings": 0,
+          "num_ratings": 3,
+          "num_three_star_ratings": 0,
+          "num_two_star_ratings": 0
+        }
+      },
+      "publication_datetime": "2020-05-12T00:21:00Z"
+    }
+  ],
+  "response_groups": [
+    "claim_code_url",
+    "rating",
+    "media",
+    "product_attrs",
+    "sample",
+    "relationships",
+    "product_desc",
+    "always-returned",
+    "product_extended_attrs",
+    "contributors",
+    "provided_review",
+    "product_plans",
+    "price",
+    "series",
+    "category_ladders",
+    "sku",
+    "product_plan_details"
+  ],
+  "total_results": 44
+}

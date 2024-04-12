@@ -4,7 +4,7 @@ defmodule AmbryScraping.GoodReads do
   """
 
   use Boundary,
-    deps: [AmbryScraping.HTMLToMD, AmbryScraping.Image, AmbryScraping.Marionette],
+    deps: [AmbryScraping.HTMLToMD, AmbryScraping.Marionette],
     exports: [
       AuthorDetails,
       Contributor,

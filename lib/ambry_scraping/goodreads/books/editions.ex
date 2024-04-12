@@ -7,7 +7,6 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
   alias AmbryScraping.GoodReads.Contributor
   alias AmbryScraping.GoodReads.Edition
   alias AmbryScraping.GoodReads.Editions
-  alias AmbryScraping.Image
 
   def editions("work:" <> id = full_id) do
     query = URI.encode_query(%{utf8: "✓", per_page: 100})
@@ -113,7 +112,7 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
 
   defp parse_thumbnail(edition_html) do
     [src] = edition_html |> Floki.find("div.leftAlignedImage img") |> Floki.attribute("src")
-    Image.fetch_from_source(src)
+    src
   end
 
   defp parse_authors(data_rows) do
