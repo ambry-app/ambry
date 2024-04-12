@@ -3,5 +3,8 @@ defmodule AmbryApp do
   Ambry OTP application.
   """
 
-  use Boundary, deps: [Ambry, AmbryWeb, AmbryScraping], exports: [Application]
+  use Boundary,
+    type: :strict,
+    deps: [Ecto.Migrator, Finch, Oban, Phoenix.PubSub, Ambry, AmbryWeb, AmbryScraping],
+    exports: [Application]
 end
