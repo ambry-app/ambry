@@ -1,4 +1,4 @@
-defmodule Ambry.Authors.Author do
+defmodule Ambry.People.Author do
   @moduledoc """
   An author writes books.
 

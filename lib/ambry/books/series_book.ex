@@ -1,4 +1,4 @@
-defmodule Ambry.Series.SeriesBook do
+defmodule Ambry.Books.SeriesBook do
   @moduledoc """
   Join table between books and series.
 
@@ -10,7 +10,7 @@ defmodule Ambry.Series.SeriesBook do
   import Ecto.Changeset
 
   alias Ambry.Books.Book
-  alias Ambry.Series.Series
+  alias Ambry.Books.Series
 
   schema "books_series" do
     belongs_to :book, Book

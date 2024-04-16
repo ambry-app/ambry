@@ -3,10 +3,13 @@ defmodule Ambry.Search.IndexTest do
 
   use Ambry.DataCase
 
-  alias Ambry.Reference
+  alias Ambry.Books
+  alias Ambry.Media
+  alias Ambry.People
   alias Ambry.Repo
   alias Ambry.Search.Index
   alias Ambry.Search.Record
+  alias Ambry.Search.Reference
 
   describe "insert(:book, id)" do
     test "indexes a new book" do
@@ -107,7 +110,7 @@ defmodule Ambry.Search.IndexTest do
              } = fetch_record(book)
 
       new_book_title = "New Book Title"
-      {:ok, _book} = Ambry.Books.update_book(book, %{title: new_book_title})
+      {:ok, _book} = Books.update_book(book, %{title: new_book_title})
 
       assert :ok = Index.update!(:book, book.id)
 
@@ -136,7 +139,7 @@ defmodule Ambry.Search.IndexTest do
       refute media_ref in book_two_record.dependencies
       refute narrator_ref in book_two_record.dependencies
 
-      {:ok, _book_two} = Ambry.Media.update_media(media, %{book_id: book_two.id}, for: :update)
+      {:ok, _book_two} = Media.update_media(media, %{book_id: book_two.id}, for: :update)
       assert :ok = Index.update!(:media, media.id)
 
       book_one_record = fetch_record(book_one)
@@ -187,7 +190,7 @@ defmodule Ambry.Search.IndexTest do
       assert tertiary =~ person.name
 
       {:ok, _person} =
-        Ambry.People.update_person(person, %{
+        People.update_person(person, %{
           name: "PersonName",
           authors: [%{id: author.id, name: "AuthorName"}],
           narrators: [%{id: narrator.id, name: "NarratorName"}]
@@ -238,7 +241,7 @@ defmodule Ambry.Search.IndexTest do
       assert %{primary: ^series_name} = fetch_record(series)
 
       {:ok, _updated_series} =
-        Ambry.Series.update_series(series, %{
+        Books.update_series(series, %{
           series_books_drop: [0, 1],
           series_books: %{
             0 => %{id: series_book_id1},
@@ -257,7 +260,7 @@ defmodule Ambry.Search.IndexTest do
 
     Repo.one(
       from record in Record,
-        where: record.reference == type(^reference, Ambry.Ecto.Types.Reference)
+        where: record.reference == type(^reference, Reference.Type)
     )
   end
 end

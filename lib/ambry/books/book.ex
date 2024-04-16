@@ -7,11 +7,11 @@ defmodule Ambry.Books.Book do
 
   import Ecto.Changeset
 
-  alias Ambry.Authors.Author
-  alias Ambry.Authors.BookAuthor
+  alias Ambry.Books.Series
+  alias Ambry.Books.SeriesBook
   alias Ambry.Media.Media
-  alias Ambry.Series.Series
-  alias Ambry.Series.SeriesBook
+  alias Ambry.People.Author
+  alias Ambry.People.BookAuthor
 
   schema "books" do
     has_many :media, Media

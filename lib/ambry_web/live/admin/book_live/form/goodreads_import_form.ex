@@ -5,10 +5,11 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
   import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.Components.RichSelect, only: [rich_select: 1]
 
+  alias Ambry.Books
+  alias Ambry.Books.Series
   alias Ambry.Metadata.GoodReads
   alias Ambry.People.Person
   alias Ambry.Search
-  alias Ambry.Series.Series
   alias Phoenix.LiveView.AsyncResult
 
   @impl Phoenix.LiveComponent
@@ -219,7 +220,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
     |> Enum.zip()
     |> Enum.map(fn
       {imported, nil} ->
-        {:ok, series} = Ambry.Series.create_series(%{name: imported.name})
+        {:ok, series} = Books.create_series(%{name: imported.name})
         %{"book_number" => imported.number, "series_id" => series.id}
 
       {imported, existing} ->

@@ -4,12 +4,12 @@ defmodule Ambry.Search.Record do
   """
   use Ecto.Schema
 
-  alias Ambry.Ecto.Types.Reference
+  alias Ambry.Search.Reference
 
-  @primary_key {:reference, Reference, []}
+  @primary_key {:reference, Reference.Type, []}
 
   schema "search_index" do
-    field :dependencies, {:array, Reference}
+    field :dependencies, {:array, Reference.Type}
     field :primary, :string
     field :secondary, :string
     field :tertiary, :string

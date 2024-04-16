@@ -3,18 +3,33 @@ defmodule Ambry.People do
   Functions for dealing with People.
   """
 
-  import Ambry.FileUtils
+  use Boundary,
+    deps: [Ambry],
+    exports: [
+      Author,
+      BookAuthor,
+      Narrator,
+      Person,
+      PersonName,
+      PersonName.Type
+    ]
+
   import Ambry.Utils
   import Ecto.Query
 
+  alias Ambry.Paths
+  alias Ambry.People.Author
+  alias Ambry.People.Narrator
   alias Ambry.People.Person
   alias Ambry.People.PersonFlat
   alias Ambry.PubSub
   alias Ambry.Repo
 
+  require Logger
+
   @person_direct_assoc_preloads [:authors, :narrators]
 
-  def standard_preloads, do: @person_direct_assoc_preloads
+  def person_standard_preloads, do: @person_direct_assoc_preloads
 
   @doc """
   Returns a limited list of people and whether or not there are more.
@@ -165,6 +180,21 @@ defmodule Ambry.People do
     end
   end
 
+  defp maybe_delete_image(nil), do: :noop
+
+  defp maybe_delete_image(web_path) do
+    person_count = Repo.aggregate(from(p in Person, where: p.image_path == ^web_path), :count)
+
+    if person_count == 0 do
+      disk_path = Paths.web_to_disk(web_path)
+
+      try_delete_file(disk_path)
+    else
+      Logger.warning(fn -> "Not deleting file because it's still in use: #{web_path}" end)
+      {:error, :still_in_use}
+    end
+  end
+
   defp get_authored_books_list(person) do
     %{authors: authors} = Repo.preload(person, authors: [:books])
     Enum.flat_map(authors, fn author -> Enum.map(author.books, & &1.title) end)
@@ -186,5 +216,41 @@ defmodule Ambry.People do
   """
   def change_person(%Person{} = person, attrs \\ %{}) do
     Person.changeset(person, attrs)
+  end
+
+  # Narrators
+
+  @doc """
+  Gets a single narrator.
+
+  Raises `Ecto.NoResultsError` if the Narrator does not exist.
+  """
+  def get_narrator!(id), do: Narrator |> preload(:person) |> Repo.get!(id)
+
+  @doc """
+  Returns all narrators for use in `Select` components.
+  """
+  def narrators_for_select do
+    query = from n in Narrator, select: {n.name, n.id}, order_by: n.name
+
+    Repo.all(query)
+  end
+
+  # Authors
+
+  @doc """
+  Gets a single author.
+
+  Raises `Ecto.NoResultsError` if the Author does not exist.
+  """
+  def get_author!(id), do: Author |> preload(:person) |> Repo.get!(id)
+
+  @doc """
+  Returns all authors for use in `Select` components.
+  """
+  def authors_for_select do
+    query = from a in Author, select: {a.name, a.id}, order_by: a.name
+
+    Repo.all(query)
   end
 end

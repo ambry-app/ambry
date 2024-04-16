@@ -1,4 +1,4 @@
-defmodule Ambry.SupplementalFile do
+defmodule Ambry.Repo.SupplementalFile do
   @moduledoc """
   An uploaded file
   """

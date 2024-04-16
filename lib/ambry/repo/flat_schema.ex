@@ -1,4 +1,4 @@
-defmodule Ambry.FlatSchema do
+defmodule Ambry.Repo.FlatSchema do
   @moduledoc false
 
   defmacro __using__(_opts) do

@@ -9,6 +9,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Media
   alias Ambry.Media.Processor
   alias Ambry.Media.ProcessorJob
+  alias Ambry.People
   alias AmbryWeb.Admin.MediaLive.Form.AudibleImportForm
   alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
   alias AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm
@@ -26,8 +27,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        selected_files: MapSet.new(),
        scraping_available: AmbryScraping.web_scraping_available?(),
        source_files_expanded: false,
-       narrators: Ambry.Narrators.for_select(),
-       books: Ambry.Books.for_select()
+       narrators: People.narrators_for_select(),
+       books: Ambry.Books.books_for_select()
      )}
   end
 
@@ -120,7 +121,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     # narrators could have been created, reload the data-lists
     socket =
       assign(socket,
-        narrators: Ambry.Narrators.for_select()
+        narrators: People.narrators_for_select()
       )
 
     new_params = Map.merge(socket.assigns.form.params, media_params)

@@ -3,7 +3,7 @@ defmodule Ambry.Accounts.UserFlat do
   A flattened view of users.
   """
 
-  use Ambry.FlatSchema
+  use Ambry.Repo.FlatSchema
 
   schema "users_flat" do
     field :email, :string

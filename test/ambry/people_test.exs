@@ -341,4 +341,32 @@ defmodule Ambry.PeopleTest do
       assert %Ecto.Changeset{valid?: true} = changeset
     end
   end
+
+  describe "authors_for_select/0" do
+    test "returns all author names and ids only" do
+      insert_list(3, :author)
+
+      list = People.authors_for_select()
+
+      assert [
+               {_, _},
+               {_, _},
+               {_, _}
+             ] = list
+    end
+  end
+
+  describe "narrators_for_select/0" do
+    test "returns all narrator names and ids only" do
+      insert_list(3, :narrator)
+
+      list = People.narrators_for_select()
+
+      assert [
+               {_, _},
+               {_, _},
+               {_, _}
+             ] = list
+    end
+  end
 end

@@ -6,9 +6,8 @@ defmodule AmbryWeb.AuthorOrNarratorLive do
 
   use AmbryWeb, :live_view
 
-  alias Ambry.Authors
   alias Ambry.Books
-  alias Ambry.Narrators
+  alias Ambry.People
 
   @per_page 36
 
@@ -47,8 +46,8 @@ defmodule AmbryWeb.AuthorOrNarratorLive do
   def mount(%{"id" => author_or_narrator_id}, _session, socket) do
     author_or_narrator =
       case socket.assigns.live_action do
-        :author -> Authors.get_author!(author_or_narrator_id)
-        :narrator -> Narrators.get_narrator!(author_or_narrator_id)
+        :author -> People.get_author!(author_or_narrator_id)
+        :narrator -> People.get_narrator!(author_or_narrator_id)
       end
 
     {:ok,

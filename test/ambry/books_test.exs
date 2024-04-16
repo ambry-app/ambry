@@ -354,11 +354,11 @@ defmodule Ambry.BooksTest do
     end
   end
 
-  describe "for_select/0" do
+  describe "books_for_select/0" do
     test "returns all book titles and ids only" do
       insert_list(3, :book)
 
-      list = Books.for_select()
+      list = Books.books_for_select()
 
       assert [
                {_, _},
@@ -377,6 +377,219 @@ defmodule Ambry.BooksTest do
 
       assert description =~ title
       assert description =~ author_name
+    end
+  end
+
+  describe "list_series/0" do
+    test "returns the first 10 series sorted by name" do
+      insert_list(11, :series)
+
+      {returned_series, has_more?} = Books.list_series()
+
+      assert has_more?
+      assert length(returned_series) == 10
+    end
+  end
+
+  describe "list_series/1" do
+    test "accepts an offset" do
+      insert_list(11, :series)
+
+      {returned_series, has_more?} = Books.list_series(10)
+
+      refute has_more?
+      assert length(returned_series) == 1
+    end
+  end
+
+  describe "list_series/2" do
+    test "accepts a limit" do
+      insert_list(6, :series)
+
+      {returned_series, has_more?} = Books.list_series(0, 5)
+
+      assert has_more?
+      assert length(returned_series) == 5
+    end
+  end
+
+  describe "list_series/3" do
+    test "accepts a 'search' filter that searches by series name" do
+      [_, _, %{id: id, name: name}, _, _] = insert_list(5, :series)
+
+      {[matched], has_more?} = Books.list_series(0, 10, %{search: name})
+
+      refute has_more?
+      assert matched.id == id
+    end
+  end
+
+  describe "list_series/4" do
+    test "allows sorting results by any field on the schema" do
+      %{id: series1_id} = insert(:series, name: "Apple")
+      %{id: series2_id} = insert(:series, name: "Banana")
+      %{id: series3_id} = insert(:series, name: "Carrot")
+
+      {series, false} = Books.list_series(0, 10, %{}, :name)
+
+      assert [
+               %{id: ^series1_id},
+               %{id: ^series2_id},
+               %{id: ^series3_id}
+             ] = series
+
+      {series, false} = Books.list_series(0, 10, %{}, {:desc, :name})
+
+      assert [
+               %{id: ^series3_id},
+               %{id: ^series2_id},
+               %{id: ^series1_id}
+             ] = series
+    end
+  end
+
+  describe "count_series/0" do
+    test "returns the number of series in the database" do
+      insert_list(3, :series)
+
+      assert 3 = Books.count_series()
+    end
+  end
+
+  describe "get_series!/1" do
+    test "raises if id is invalid" do
+      assert_raise Ecto.NoResultsError, fn ->
+        Books.get_series!(-1)
+      end
+    end
+
+    test "returns the series with the given id" do
+      %{id: id} = insert(:series)
+      assert %Books.Series{id: ^id} = Books.get_series!(id)
+    end
+  end
+
+  describe "create_series/1" do
+    test "requires name to be set" do
+      {:error, changeset} = Books.create_series(%{})
+
+      assert %{
+               name: ["can't be blank"]
+             } = errors_on(changeset)
+    end
+
+    test "validates name when given" do
+      {:error, changeset} = Books.create_series(%{name: ""})
+
+      assert %{
+               name: ["can't be blank"]
+             } = errors_on(changeset)
+    end
+
+    test "creates a series when given valid attributes" do
+      %{name: name} = params = params_for(:series)
+
+      assert {:ok, series} = Books.create_series(params)
+
+      assert %{name: ^name} = series
+    end
+
+    test "can create a series with nested book associations" do
+      %{id: book_id} = insert(:book, series_books: [])
+
+      %{name: name} = series_params = params_for(:series)
+
+      %{book_number: book_number} =
+        series_book_params = params_for(:series_book, book_id: book_id)
+
+      params = Map.put(series_params, :series_books, [series_book_params])
+
+      assert {:ok, series} = Books.create_series(params)
+
+      book_number_decimal = Decimal.new(book_number)
+
+      assert %{
+               name: ^name,
+               series_books: [
+                 %{
+                   book_number: ^book_number_decimal,
+                   book_id: ^book_id
+                 }
+               ]
+             } = series
+    end
+  end
+
+  describe "update_series/2" do
+    test "updates a series name" do
+      series = insert(:series)
+      %{name: new_name} = params_for(:series)
+
+      {:ok, updated_series} = Books.update_series(series, %{name: new_name})
+
+      assert updated_series.name == new_name
+    end
+  end
+
+  describe "delete_series/1" do
+    test "deletes a series" do
+      series = insert(:series)
+
+      {:ok, _deleted_series} = Books.delete_series(series)
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Books.get_series!(series.id)
+      end
+    end
+  end
+
+  describe "change_series/1" do
+    test "returns an unchanged changeset for a series" do
+      series = insert(:series)
+
+      changeset = Books.change_series(series)
+
+      assert %Ecto.Changeset{} = changeset
+    end
+  end
+
+  describe "change_series/2" do
+    test "returns a changeset for a series" do
+      series = insert(:series)
+      %{name: new_name} = params_for(:series)
+
+      changeset = Books.change_series(series, %{name: new_name})
+
+      assert %Ecto.Changeset{valid?: true} = changeset
+      assert new_name == Ecto.Changeset.get_change(changeset, :name)
+    end
+  end
+
+  describe "get_series_with_books!/1" do
+    test "gets a series and all of its books" do
+      %{id: book_id, series_books: [%{series_id: series_id} | _other_series]} = insert(:book)
+
+      series = Books.get_series_with_books!(series_id)
+
+      assert %Books.Series{
+               series_books: [
+                 %Books.SeriesBook{book: %Ambry.Books.Book{id: ^book_id}}
+               ]
+             } = series
+    end
+  end
+
+  describe "series_for_select/0" do
+    test "returns all series names and ids only" do
+      insert_list(3, :series)
+
+      list = Books.series_for_select()
+
+      assert [
+               {_, _},
+               {_, _},
+               {_, _}
+             ] = list
     end
   end
 end

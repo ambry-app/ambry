@@ -8,17 +8,17 @@ defmodule AmbrySchema.Resolvers do
   alias Absinthe.Relay.Connection
   alias Ambry.Accounts
   alias Ambry.Accounts.User
-  alias Ambry.Authors.Author
   alias Ambry.Books.Book
+  alias Ambry.Books.Series
+  alias Ambry.Books.SeriesBook
   alias Ambry.Hashids
   alias Ambry.Media.Media
   alias Ambry.Media.PlayerState
-  alias Ambry.Narrators.Narrator
+  alias Ambry.People.Author
+  alias Ambry.People.Narrator
   alias Ambry.People.Person
   alias Ambry.Repo
   alias Ambry.Search
-  alias Ambry.Series.Series
-  alias Ambry.Series.SeriesBook
 
   def create_session(%{email: email, password: password}, _resolution) do
     if user = Accounts.get_user_by_email_and_password(email, password) do

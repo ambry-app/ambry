@@ -1,4 +1,4 @@
-defmodule Ambry.Narrators.Narrator do
+defmodule Ambry.People.Narrator do
   @moduledoc """
   A narrator reads books.
 

@@ -14,9 +14,9 @@ defmodule AmbryWeb.CoreComponents do
   import Phoenix.HTML, only: [raw: 1]
 
   alias Ambry.Books.Book
+  alias Ambry.Books.SeriesBook
   alias Ambry.Media.Media
   alias Ambry.Media.PlayerState
-  alias Ambry.Series.SeriesBook
   alias AmbryWeb.Admin.UploadHelpers
   alias AmbryWeb.Components.Autocomplete
   alias AmbryWeb.Player

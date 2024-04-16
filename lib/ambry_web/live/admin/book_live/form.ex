@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   alias Ambry.Books
   alias Ambry.Books.Book
+  alias Ambry.People
   alias AmbryWeb.Admin.BookLive.Form.AudibleImportForm
   alias AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm
   alias Ecto.Changeset
@@ -18,8 +19,8 @@ defmodule AmbryWeb.Admin.BookLive.Form do
      |> assign(
        import: nil,
        scraping_available: AmbryScraping.web_scraping_available?(),
-       authors: Ambry.Authors.for_select(),
-       series: Ambry.Series.for_select()
+       authors: People.authors_for_select(),
+       series: Books.series_for_select()
      )}
   end
 
@@ -106,8 +107,8 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     # authors and/or series could have been created, reload the data-lists
     socket =
       assign(socket,
-        authors: Ambry.Authors.for_select(),
-        series: Ambry.Series.for_select()
+        authors: People.authors_for_select(),
+        series: Books.series_for_select()
       )
 
     new_params = Map.merge(socket.assigns.form.params, book_params)

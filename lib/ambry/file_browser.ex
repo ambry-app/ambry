@@ -3,6 +3,8 @@ defmodule Ambry.FileBrowser do
   Functions for browsing files and directories.
   """
 
+  use Boundary, deps: [Ambry.Hashids], exports: [File, Folder, FolderNode]
+
   import File, only: [ls!: 1, stat!: 1]
 
   alias Ambry.Hashids

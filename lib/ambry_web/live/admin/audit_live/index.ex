@@ -5,8 +5,8 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
 
   use AmbryWeb, :admin_live_view
 
-  alias Ambry.FileUtils
   alias Ambry.Media
+  alias Ambry.Utils
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -48,7 +48,7 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
   def handle_event("delete-file", %{"id" => file_id}, socket) do
     disk_path = Map.fetch!(socket.assigns.deletable_files, file_id)
 
-    case FileUtils.try_delete_file(disk_path) do
+    case Utils.try_delete_file(disk_path) do
       :ok ->
         {:noreply,
          socket
@@ -63,7 +63,7 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
   def handle_event("delete-folder", %{"id" => folder_id}, socket) do
     disk_path = Map.fetch!(socket.assigns.deletable_folders, folder_id)
 
-    case FileUtils.try_delete_folder(disk_path) do
+    case Utils.try_delete_folder(disk_path) do
       :ok ->
         {:noreply,
          socket

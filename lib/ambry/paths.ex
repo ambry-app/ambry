@@ -3,6 +3,8 @@ defmodule Ambry.Paths do
   Helpers for paths, like the uploads path.
   """
 
+  use Boundary
+
   @doc """
   The path on disk that uploads are saved to.
   """

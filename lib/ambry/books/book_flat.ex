@@ -3,18 +3,18 @@ defmodule Ambry.Books.BookFlat do
   A flattened view of books.
   """
 
-  use Ambry.FlatSchema
+  use Ambry.Repo.FlatSchema
 
-  alias Ambry.Ecto.Types.PersonName
-  alias Ambry.Ecto.Types.SeriesBook
+  alias Ambry.Books.SeriesBookType
+  alias Ambry.People.PersonName
 
   schema "books_flat" do
     field :title, :string
     field :published, :date
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
     field :image_path, :string
-    field :authors, {:array, PersonName}
-    field :series, {:array, SeriesBook}
+    field :authors, {:array, PersonName.Type}
+    field :series, {:array, SeriesBookType.Type}
     field :universe, :string
     field :media, :integer
     field :has_description, :boolean

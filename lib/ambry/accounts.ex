@@ -3,6 +3,14 @@ defmodule Ambry.Accounts do
   The Accounts context.
   """
 
+  use Boundary,
+    deps: [
+      Ambry.Mailer,
+      Ambry.Media,
+      Ambry.Repo
+    ],
+    exports: [User]
+
   import Ecto.Query, warn: false
 
   alias Ambry.Accounts.User

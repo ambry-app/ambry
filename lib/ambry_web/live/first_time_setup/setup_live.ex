@@ -8,6 +8,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
   use AmbryWeb, :live_view
 
   alias Ambry.Accounts
+  alias Ambry.Paths
 
   @impl Phoenix.LiveView
   def render(%{state: :create_user} = assigns) do
@@ -109,7 +110,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
   def handle_event("save", %{"user" => user_params}, socket) do
     with {:ok, user} <- Accounts.register_user(user_params),
          {:ok, _user} <- Accounts.promote_user_to_admin(user) do
-      Ambry.FirstTimeSetup.disable!()
+      disable_first_time_setup!()
 
       {:noreply,
        socket
@@ -129,5 +130,15 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
+  end
+
+  @setup_lock_contents """
+  This file is created once first-time-setup has been completed.
+  Please don't delete it.
+  """
+
+  # Disables first-time-setup, so that the redirect no longer happens.
+  defp disable_first_time_setup!(contents \\ @setup_lock_contents) do
+    File.write!(Paths.uploads_folder_disk_path("setup.lock"), contents)
   end
 end

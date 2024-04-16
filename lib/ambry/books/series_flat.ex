@@ -1,16 +1,16 @@
-defmodule Ambry.Series.SeriesFlat do
+defmodule Ambry.Books.SeriesFlat do
   @moduledoc """
   A flattened view of series.
   """
 
-  use Ambry.FlatSchema
+  use Ambry.Repo.FlatSchema
 
-  alias Ambry.Ecto.Types.PersonName
+  alias Ambry.People.PersonName
 
   schema "series_flat" do
     field :name, :string
     field :books, :integer
-    field :authors, {:array, PersonName}
+    field :authors, {:array, PersonName.Type}
 
     timestamps()
   end

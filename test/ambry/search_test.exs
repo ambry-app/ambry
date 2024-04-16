@@ -1,10 +1,12 @@
 defmodule Ambry.SearchTest do
   use Ambry.DataCase
 
+  import Ambry.Search.IndexFactory
+
   alias Ambry.Books.Book
+  alias Ambry.Books.Series
   alias Ambry.People.Person
   alias Ambry.Search
-  alias Ambry.Series.Series
 
   describe "search/1" do
     test "returns book by title" do

@@ -9,8 +9,8 @@ defmodule Ambry.People.Person do
 
   import Ecto.Changeset
 
-  alias Ambry.Authors.Author
-  alias Ambry.Narrators.Narrator
+  alias Ambry.People.Author
+  alias Ambry.People.Narrator
 
   schema "people" do
     has_many :authors, Author, on_replace: :delete

@@ -7,8 +7,8 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
   import AmbryWeb.Admin.PaginationHelpers
 
+  alias Ambry.Books
   alias Ambry.PubSub
-  alias Ambry.Series
 
   @valid_sort_fields [
     :name,
@@ -78,8 +78,8 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
 
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
-    series = Series.get_series!(id)
-    {:ok, _} = Series.delete_series(series)
+    series = Books.get_series!(id)
+    {:ok, _} = Books.delete_series(series)
 
     {:noreply,
      socket
@@ -110,7 +110,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   defp list_series(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
-    Series.list_series(
+    Books.list_series(
       page_to_offset(opts.page),
       limit(),
       filters,

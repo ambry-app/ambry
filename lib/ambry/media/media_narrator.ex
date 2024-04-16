@@ -8,7 +8,7 @@ defmodule Ambry.Media.MediaNarrator do
   import Ecto.Changeset
 
   alias Ambry.Media.Media
-  alias Ambry.Narrators.Narrator
+  alias Ambry.People.Narrator
 
   schema "media_narrators" do
     belongs_to :media, Media

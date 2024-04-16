@@ -5,15 +5,15 @@ defmodule Ambry.Search.Index do
 
   import Ecto.Query
 
-  alias Ambry.Authors.Author
   alias Ambry.Books.Book
+  alias Ambry.Books.Series
   alias Ambry.Media.Media
-  alias Ambry.Narrators.Narrator
+  alias Ambry.People.Author
+  alias Ambry.People.Narrator
   alias Ambry.People.Person
-  alias Ambry.Reference
   alias Ambry.Repo
   alias Ambry.Search.Record
-  alias Ambry.Series.Series
+  alias Ambry.Search.Reference
 
   # Insert
 
@@ -78,7 +78,7 @@ defmodule Ambry.Search.Index do
     {_count, nil} =
       Repo.delete_all(
         from record in Record,
-          where: record.reference == type(^reference, Ambry.Ecto.Types.Reference)
+          where: record.reference == type(^reference, Reference.Type)
       )
 
     reindex_dependents!(type, id)
@@ -266,7 +266,7 @@ defmodule Ambry.Search.Index do
           where:
             fragment(
               "? = ANY(?)",
-              type(^reference, Ambry.Ecto.Types.Reference),
+              type(^reference, Reference.Type),
               record.dependencies
             )
       )

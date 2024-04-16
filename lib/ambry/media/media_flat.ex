@@ -3,10 +3,10 @@ defmodule Ambry.Media.MediaFlat do
   A flattened view of media.
   """
 
-  use Ambry.FlatSchema
+  use Ambry.Repo.FlatSchema
 
-  alias Ambry.Ecto.Types.PersonName
-  alias Ambry.Ecto.Types.SeriesBook
+  alias Ambry.Books.SeriesBookType
+  alias Ambry.People.PersonName
 
   schema "media_flat" do
     field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready]
@@ -16,10 +16,10 @@ defmodule Ambry.Media.MediaFlat do
     field :chapters, :integer
     field :book, :string
     field :image_path, :string
-    field :series, {:array, SeriesBook}
+    field :series, {:array, SeriesBookType.Type}
     field :universe, :string
-    field :authors, {:array, PersonName}
-    field :narrators, {:array, PersonName}
+    field :authors, {:array, PersonName.Type}
+    field :narrators, {:array, PersonName.Type}
     field :published, :date
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
 

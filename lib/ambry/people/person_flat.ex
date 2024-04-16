@@ -3,7 +3,7 @@ defmodule Ambry.People.PersonFlat do
   A flattened view of people.
   """
 
-  use Ambry.FlatSchema
+  use Ambry.Repo.FlatSchema
 
   schema "people_flat" do
     field :name, :string

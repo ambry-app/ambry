@@ -1,4 +1,4 @@
-defmodule Ambry.Series.Series do
+defmodule Ambry.Books.Series do
   @moduledoc """
   A series of books.
   """
@@ -8,7 +8,7 @@ defmodule Ambry.Series.Series do
   import Ecto.Changeset
 
   alias Ambry.Books.Book
-  alias Ambry.Series.SeriesBook
+  alias Ambry.Books.SeriesBook
 
   schema "series" do
     many_to_many :books, Book, join_through: "books_series"

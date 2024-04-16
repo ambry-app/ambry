@@ -5,7 +5,7 @@ defmodule AmbryWeb.SeriesLive do
 
   use AmbryWeb, :live_view
 
-  alias Ambry.Series
+  alias Ambry.Books
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -28,7 +28,7 @@ defmodule AmbryWeb.SeriesLive do
 
   @impl Phoenix.LiveView
   def mount(%{"id" => series_id}, _session, socket) do
-    series = Series.get_series_with_books!(series_id)
+    series = Books.get_series_with_books!(series_id)
 
     authors =
       series.series_books

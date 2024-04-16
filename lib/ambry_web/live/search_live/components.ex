@@ -6,8 +6,8 @@ defmodule AmbryWeb.SearchLive.Components do
   use AmbryWeb, :html
 
   alias Ambry.Books.Book
+  alias Ambry.Books.Series
   alias Ambry.People.Person
-  alias Ambry.Series.Series
 
   def result_tile(%{result: %Book{}} = assigns) do
     ~H"""

@@ -110,7 +110,7 @@ defmodule AmbryWeb.PersonLive do
     """
   end
 
-  attr :author, Ambry.Authors.Author, required: true
+  attr :author, Ambry.People.Author, required: true
   attr :person, People.Person, required: true
 
   defp author_name(%{author: %{name: name}, person: %{name: name}} = assigns) do
@@ -125,7 +125,7 @@ defmodule AmbryWeb.PersonLive do
     """
   end
 
-  attr :narrator, Ambry.Narrators.Narrator, required: true
+  attr :narrator, Ambry.People.Narrator, required: true
   attr :person, People.Person, required: true
 
   defp narrator_name(%{narrator: %{name: name}, person: %{name: name}} = assigns) do
