@@ -326,9 +326,9 @@ defmodule AmbryWeb.Layouts do
     ~H"""
     <div
       id="playback-rate-menu"
-      class="max-w-80 absolute right-4 bottom-12 z-50 hidden text-zinc-800 shadow-md dark:text-zinc-200"
+      class="max-w-80 bg-zinc-50/90 absolute right-4 bottom-12 z-50 hidden text-zinc-800 shadow-md backdrop-blur transition-opacity dark:bg-zinc-900/90 dark:text-zinc-200"
     >
-      <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800 ">
         <div class="p-3">
           <p class="text-center text-lg font-bold sm:text-xl">
             <%= player_state_playback_rate(@player_state) %>x

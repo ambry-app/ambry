@@ -58,7 +58,7 @@ defmodule AmbryWeb.CoreComponents do
     >
       <div
         id={"#{@id}-bg"}
-        class="border-brand fixed inset-0 border-l-4 bg-white transition-opacity dark:border-brand-dark dark:bg-black"
+        class="border-brand bg-white/90 fixed inset-0 border-l-4 backdrop-blur transition-opacity dark:border-brand-dark dark:bg-black/90"
         aria-hidden="true"
       />
       <div
@@ -1215,8 +1215,11 @@ defmodule AmbryWeb.CoreComponents do
 
   def menu_wrapper(assigns) do
     ~H"""
-    <div id={@id} class="max-w-80 absolute top-12 right-4 z-50 hidden text-zinc-800 shadow-md dark:text-zinc-200">
-      <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+    <div
+      id={@id}
+      class="max-w-80 bg-zinc-50/90 absolute top-12 right-4 z-50 hidden text-zinc-800 shadow-md backdrop-blur transition-opacity dark:bg-zinc-900/90 dark:text-zinc-200"
+    >
+      <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
         <div class="flex items-center gap-4 p-4">
           <img class="h-10 w-10 rounded-full" src={gravatar_url(@user.email)} />
           <p class="overflow-hidden text-ellipsis whitespace-nowrap"><%= @user.email %></p>
