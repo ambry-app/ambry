@@ -1,11 +1,13 @@
 <.layout title={@page_title} user={@current_user}>
-  <.modal :if={@import} id="import-modal" show on_cancel={JS.push("cancel-import")}>
+  <.modal :if={@import} id="import-modal" show on_cancel={close_modal(@media)}>
     <.live_component id="import-form" module={import_form(@import.type)} query={@import.query} media={@media} />
   </.modal>
 
-  <.modal :if={@select_files} id="select-files-modal" show on_cancel={JS.push("cancel-select-files")}>
+  <.modal :if={@select_files} id="select-files-modal" show on_cancel={close_modal(@media)}>
     <.live_component id="file-browser" module={FileBrowser} root_path={Application.get_env(:ambry, :source_path)} />
   </.modal>
+
+  <div id="patch-hack" phx-hook="patch-hack" />
 
   <.datalist id="narrators" options={@narrators} />
   <.datalist id="books" options={@books} />
@@ -29,11 +31,16 @@
             color={:zinc}
             class="flex items-center gap-1"
             type="button"
-            phx-click={open_import_form("goodreads")}
+            phx-click={open_import_form(@media, "goodreads")}
           >
             <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
           </.button>
-          <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("audible")}>
+          <.button
+            color={:zinc}
+            class="flex items-center gap-1"
+            type="button"
+            phx-click={open_import_form(@media, "audible")}
+          >
             <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
           </.button>
         </div>
@@ -103,15 +110,19 @@
         </div>
       </div>
 
-      <.input
-        type="select"
-        label="Audio source type"
-        field={@form[:source_type]}
-        options={[
-          {"Upload from your file-system", "upload"},
-          {"Import from server file-system", "local_import"}
-        ]}
-      />
+      <%= if @local_import_path do %>
+        <.input
+          type="select"
+          label="Audio source type"
+          field={@form[:source_type]}
+          options={[
+            {"Upload from your file-system", "upload"},
+            {"Import from server file-system", "local_import"}
+          ]}
+        />
+      <% else %>
+        <.input type="hidden" field={@form[:source_type]} />
+      <% end %>
 
       <div :if={@form[:source_type].value == "upload"} class="space-y-2">
         <%= if @live_action == :new do %>
@@ -154,7 +165,7 @@
             <button
               class="py-[7px] px-[11px] bg-zinc-600 font-bold text-zinc-100 hover:bg-zinc-500"
               type="button"
-              phx-click="open-file-browser"
+              phx-click={open_file_browser(@media)}
             >
               Browse...
             </button>

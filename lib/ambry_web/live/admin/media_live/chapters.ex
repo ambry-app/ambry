@@ -8,22 +8,29 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
-  def mount(_params, _session, socket) do
-    {:ok, assign(socket, import: nil)}
-  end
-
-  @impl Phoenix.LiveView
-  def handle_params(%{"id" => id}, _url, socket) do
+  def mount(%{"id" => id}, _session, socket) do
     media = Media.get_media!(id)
     changeset = Media.change_media(media, %{}, for: :update)
 
-    {:noreply,
+    {:ok,
      socket
      |> assign_form(changeset)
      |> assign(
        page_title: "#{media.book.title} - Chapters",
-       media: media
+       media: media,
+       import: nil
      )}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_params(%{"import" => type}, _url, socket) do
+    query = socket.assigns.media.book.title
+    import_type = String.to_existing_atom(type)
+    {:noreply, assign(socket, import: %{type: import_type, query: query})}
+  end
+
+  def handle_params(_params, _url, socket) do
+    {:noreply, assign(socket, import: nil)}
   end
 
   @impl Phoenix.LiveView
@@ -76,5 +83,8 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
   defp import_form(:source), do: SourceImportForm
   defp import_form(:audible), do: AudibleImportForm
 
-  defp open_import_form(type), do: JS.push("open-import-form", value: %{"type" => type})
+  defp open_import_form(media, type),
+    do: JS.patch(~p"/admin/media/#{media}/chapters?import=#{type}")
+
+  defp close_import_form(media), do: JS.patch(~p"/admin/media/#{media}/chapters", replace: true)
 end

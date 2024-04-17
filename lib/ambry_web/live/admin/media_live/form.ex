@@ -16,7 +16,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     {:ok,
      socket
      |> allow_audio_upload(:audio)
@@ -28,18 +28,17 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        scraping_available: AmbryScraping.web_scraping_available?(),
        source_files_expanded: false,
        narrators: People.narrators_for_select(),
-       books: Ambry.Books.books_for_select()
-     )}
-  end
-
-  @impl Phoenix.LiveView
-  def handle_params(params, _url, socket) do
-    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+       books: Ambry.Books.books_for_select(),
+       local_import_path: Ambry.Paths.local_import_path()
+     )
+     |> apply_action(socket.assigns.live_action, params)}
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     media = Media.get_media!(id)
-    changeset = Media.change_media(media, %{"source_type" => "upload"}, for: :update)
+
+    changeset =
+      Media.change_media(media, %{"source_type" => default_source_type(socket)}, for: :update)
 
     socket
     |> assign_form(changeset)
@@ -52,7 +51,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp apply_action(socket, :new, _params) do
     media = %Media.Media{media_narrators: []}
-    changeset = Media.change_media(media, %{"source_type" => "upload"}, for: :create)
+
+    changeset =
+      Media.change_media(media, %{"source_type" => default_source_type(socket)}, for: :create)
 
     socket
     |> assign_form(changeset)
@@ -61,6 +62,29 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       media: media,
       file_stats: nil
     )
+  end
+
+  defp default_source_type(socket) do
+    if socket.assigns.local_import_path do
+      "local_import"
+    else
+      "upload"
+    end
+  end
+
+  @impl Phoenix.LiveView
+  def handle_params(%{"import" => type}, _url, socket) do
+    query = socket.assigns.media.book.title
+    import_type = String.to_existing_atom(type)
+    {:noreply, assign(socket, import: %{type: import_type, query: query})}
+  end
+
+  def handle_params(%{"browse" => _}, _url, socket) do
+    {:noreply, assign(socket, select_files: true)}
+  end
+
+  def handle_params(_params, _url, socket) do
+    {:noreply, assign(socket, import: nil, select_files: false)}
   end
 
   @impl Phoenix.LiveView
@@ -85,35 +109,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  def handle_event("open-import-form", %{"type" => type}, socket) do
-    book_id = socket.assigns.form.params["book_id"] || socket.assigns.media.book_id
-
-    query =
-      if book_id do
-        Ambry.Books.get_book!(book_id).title
-      else
-        ""
-      end
-
-    import_type = String.to_existing_atom(type)
-    socket = assign(socket, import: %{type: import_type, query: query})
-    {:noreply, socket}
-  end
-
-  def handle_event("open-file-browser", _params, socket) do
-    {:noreply, assign(socket, select_files: true)}
-  end
-
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :audio, ref)}
-  end
-
-  def handle_event("cancel-import", _params, socket) do
-    {:noreply, assign(socket, import: nil)}
-  end
-
-  def handle_event("cancel-select-files", _params, socket) do
-    {:noreply, assign(socket, select_files: false)}
   end
 
   @impl Phoenix.LiveView
@@ -341,5 +338,15 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()
   end
 
-  defp open_import_form(type), do: JS.push("open-import-form", value: %{"type" => type})
+  defp open_import_form(%Media.Media{id: nil}, type),
+    do: JS.patch(~p"/admin/media/new?import=#{type}")
+
+  defp open_import_form(media, type), do: JS.patch(~p"/admin/media/#{media}/edit?import=#{type}")
+
+  defp close_modal(%Media.Media{id: nil}), do: JS.patch(~p"/admin/media/new", replace: true)
+  defp close_modal(media), do: JS.patch(~p"/admin/media/#{media}/edit", replace: true)
+
+  defp open_file_browser(%Media.Media{id: nil}), do: JS.patch(~p"/admin/media/new?browse")
+
+  defp open_file_browser(media), do: JS.patch(~p"/admin/media/#{media}/edit?browse")
 end

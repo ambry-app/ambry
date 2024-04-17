@@ -62,4 +62,11 @@ defmodule Ambry.Paths do
   """
   def hls_playlist_path(nil), do: nil
   def hls_playlist_path(path), do: Path.rootname(path) <> "_0.m3u8"
+
+  @doc """
+  Returns the configured local import path, or `nil` if not configured.
+  """
+  def local_import_path do
+    Application.get_env(:ambry, :source_path)
+  end
 end
