@@ -1,5 +1,5 @@
 <.layout title={@page_title} user={@current_user}>
-  <.modal :if={@import} id="import-modal" show on_cancel={JS.push("cancel-import")}>
+  <.modal :if={@import} id="import-modal" show on_cancel={close_import_form(@person)}>
     <.live_component id="import-form" module={ImportForm} type={@import.type} query={@import.query} person={@person} />
   </.modal>
 
@@ -17,11 +17,16 @@
             color={:zinc}
             class="flex items-center gap-1"
             type="button"
-            phx-click={open_import_form("goodreads")}
+            phx-click={open_import_form(@person, "goodreads")}
           >
             <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
           </.button>
-          <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("audible")}>
+          <.button
+            color={:zinc}
+            class="flex items-center gap-1"
+            type="button"
+            phx-click={open_import_form(@person, "audible")}
+          >
             <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
           </.button>
         </div>

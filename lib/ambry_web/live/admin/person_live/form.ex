@@ -10,16 +10,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     {:ok,
      socket
      |> allow_image_upload(:image)
-     |> assign(import: nil, scraping_available: AmbryScraping.web_scraping_available?())}
-  end
-
-  @impl Phoenix.LiveView
-  def handle_params(params, _url, socket) do
-    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+     |> assign(import: nil, scraping_available: AmbryScraping.web_scraping_available?())
+     |> apply_action(socket.assigns.live_action, params)}
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -44,6 +40,21 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
       page_title: "New Author or Narrator",
       person: person
     )
+  end
+
+  @impl Phoenix.LiveView
+  def handle_params(params, _url, socket) do
+    {:noreply, handle_import_form_params(socket, params)}
+  end
+
+  defp handle_import_form_params(socket, %{"import" => type}) do
+    query = socket.assigns.form.params["name"] || socket.assigns.person.name
+    import_type = String.to_existing_atom(type)
+    assign(socket, import: %{type: import_type, query: query})
+  end
+
+  defp handle_import_form_params(socket, _params) do
+    assign(socket, import: nil)
   end
 
   @impl Phoenix.LiveView
@@ -154,5 +165,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     assign(socket, :form, to_form(changeset))
   end
 
-  defp open_import_form(type), do: JS.push("open-import-form", value: %{"type" => type})
+  defp open_import_form(%Person{id: nil}, type),
+    do: JS.patch(~p"/admin/people/new?import=#{type}")
+
+  defp open_import_form(person, type),
+    do: JS.patch(~p"/admin/people/#{person}/edit?import=#{type}")
+
+  defp close_import_form(%Person{id: nil}), do: JS.patch(~p"/admin/people/new", replace: true)
+  defp close_import_form(person), do: JS.patch(~p"/admin/people/#{person}/edit", replace: true)
 end
