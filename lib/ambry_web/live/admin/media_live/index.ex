@@ -36,7 +36,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
      |> assign(
        page_title: "Media",
        show_header_search: true,
-       header_new_path: ~p"/admin/media/new",
        processing_media_progress_map: %{}
      )
      |> maybe_update_media(params, true)}

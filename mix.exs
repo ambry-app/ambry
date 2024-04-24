@@ -7,6 +7,7 @@ defmodule Ambry.MixProject do
       version: "1.2.0",
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
+      compilers: [:boundary] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
@@ -19,6 +20,11 @@ defmodule Ambry.MixProject do
       ],
       dialyzer: [
         plt_add_apps: [:mix, :ex_unit]
+      ],
+      boundary: [
+        default: [
+          check: [aliases: true]
+        ]
       ]
     ]
   end
@@ -28,7 +34,7 @@ defmodule Ambry.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {Ambry.Application, []},
+      mod: {AmbryApp.Application, []},
       extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end
@@ -48,6 +54,7 @@ defmodule Ambry.MixProject do
       {:absinthe, "~> 1.7"},
       {:argon2_elixir, "~> 4.0"},
       {:bandit, "~> 1.0"},
+      {:boundary, github: "sasa1977/boundary", runtime: false},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dataloader, "~> 2.0"},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
@@ -67,9 +74,11 @@ defmodule Ambry.MixProject do
       {:gettext, "~> 0.20"},
       {:hashids, "~> 2.0"},
       {:jason, "~> 1.2"},
+      {:mneme, ">= 0.0.0", only: [:dev, :test]},
       {:natural_order, "~> 0.3"},
       {:npm_deps, "~> 0.3", runtime: false},
       {:oban, "~> 2.11"},
+      {:patch, "~> 0.13", only: [:test]},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 4.0", override: true},
       {:phoenix_live_dashboard, "~> 0.8"},

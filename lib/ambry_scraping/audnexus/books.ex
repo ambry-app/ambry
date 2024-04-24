@@ -1,29 +1,17 @@
 defmodule AmbryScraping.Audnexus.Books do
-  @moduledoc """
-  Audnexus Books API.
-  """
+  @moduledoc false
 
-  @url "https://api.audnex.us/books"
-
-  defmodule Chapters do
-    @moduledoc false
-    defstruct [:asin, :brand_intro_duration_ms, :brand_outro_duration_ms, :chapters]
-  end
-
-  defmodule Chapter do
-    @moduledoc false
-    defstruct [
-      :length_ms,
-      :start_offset_ms,
-      :start_offset_sec,
-      :title
-    ]
-  end
+  alias AmbryScraping.Audnexus.Chapter
+  alias AmbryScraping.Audnexus.Chapters
+  alias AmbryScraping.Audnexus.Client
 
   def chapters(asin) do
-    case Req.get("#{@url}/#{asin}/chapters", retry: false) do
+    case Client.get("/books/#{asin}/chapters", retry: false) do
       {:ok, %{status: status} = response} when status in 200..299 ->
         parse_chapter_info(response.body)
+
+      {:ok, %{status: status}} when status in 400..499 ->
+        {:error, :not_found}
 
       {:ok, response} ->
         {:error, response}

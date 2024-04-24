@@ -5,6 +5,8 @@ defmodule Ambry.Repo do
     otp_app: :ambry,
     adapter: Ecto.Adapters.Postgres
 
+  use Boundary, deps: [], exports: [FlatSchema, SupplementalFile]
+
   def fetch(queryable, id, opts \\ []) do
     case get(queryable, id, opts) do
       nil -> {:error, :not_found}

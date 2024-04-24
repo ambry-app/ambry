@@ -13,8 +13,8 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.PlayerState
   alias Ambry.Media.Processor
-  alias Ambry.Narrators.Narrator
-  alias Ambry.SupplementalFile
+  alias Ambry.People.Narrator
+  alias Ambry.Repo.SupplementalFile
 
   @statuses [:pending, :processing, :error, :ready]
 

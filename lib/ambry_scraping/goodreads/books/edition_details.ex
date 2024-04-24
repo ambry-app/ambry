@@ -1,33 +1,13 @@
 defmodule AmbryScraping.GoodReads.Books.EditionDetails do
   @moduledoc false
 
+  import AmbryScraping.GoodReads.Books.Shared, only: [parse_date: 1]
+
   alias AmbryScraping.GoodReads.Browser
-  alias AmbryScraping.GoodReads.PublishedDate
+  alias AmbryScraping.GoodReads.Contributor
+  alias AmbryScraping.GoodReads.EditionDetails
+  alias AmbryScraping.GoodReads.Series
   alias AmbryScraping.HTMLToMD
-  alias AmbryScraping.Image
-
-  defstruct [
-    :id,
-    :title,
-    :authors,
-    :series,
-    :description,
-    :cover_image,
-    :format,
-    :published,
-    :publisher,
-    :language
-  ]
-
-  defmodule Contributor do
-    @moduledoc false
-    defstruct [:id, :name, :type]
-  end
-
-  defmodule Series do
-    @moduledoc false
-    defstruct [:id, :name, :number]
-  end
 
   def edition_details("edition:" <> id = full_id) do
     with {:ok, page_html} <-
@@ -55,7 +35,7 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
 
     attrs = Enum.reduce(work_details_rows ++ edition_details_rows, attrs, &add_details/2)
 
-    struct!(__MODULE__, attrs)
+    struct!(EditionDetails, attrs)
   end
 
   defp parse_book_title(html) do
@@ -96,8 +76,7 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
 
   defp parse_cover_image(html) do
     [src | _rest] = html |> Floki.find("div.BookPage__bookCover img") |> Floki.attribute("src")
-
-    Image.fetch_from_source(src)
+    src
   end
 
   defp add_details(row, attrs) do
@@ -131,7 +110,7 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
   defp parse_published(published_string) do
     case Regex.run(@published_regex, published_string) do
       [_match, date_string, publisher_string] ->
-        {PublishedDate.new(date_string), publisher_string}
+        {parse_date(date_string), publisher_string}
 
       _else ->
         {nil, nil}

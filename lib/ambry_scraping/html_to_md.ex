@@ -1,9 +1,11 @@
 defmodule AmbryScraping.HTMLToMD do
   @moduledoc """
-  A very simple/naive HTML to Markdown converter.
+  A very simple/naive HTML to Markdown converter
 
   It doesn't work great in all cases...
   """
+
+  use Boundary
 
   def html_to_md(html_string) when is_binary(html_string) do
     html_string

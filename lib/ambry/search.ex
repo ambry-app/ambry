@@ -3,27 +3,39 @@ defmodule Ambry.Search do
   A context for aggregate search across books, authors, narrators and series.
   """
 
+  use Boundary,
+    deps: [
+      Ambry.Books,
+      Ambry.Media,
+      Ambry.People,
+      Ambry.PubSub,
+      Ambry.Repo
+    ],
+    exports: [IndexManager]
+
   import Ecto.Query
 
   alias Ambry.Books
   alias Ambry.Books.Book
+  alias Ambry.Books.Series, as: SeriesSchema
   alias Ambry.People
   alias Ambry.People.Person
   alias Ambry.Repo
+  alias Ambry.Search.Index
   alias Ambry.Search.Record
-  alias Ambry.Series
-  alias Ambry.Series.Series, as: SeriesSchema
 
   @results_limit 36
+
+  defdelegate refresh_entire_index!, to: Index
 
   def search(query_string) do
     query_string
     |> query()
     |> limit(@results_limit)
     |> all(
-      books_preload: Books.standard_preloads(),
-      series_preload: Series.standard_preloads(),
-      people_preload: People.standard_preloads()
+      books_preload: Books.book_standard_preloads(),
+      series_preload: Books.series_standard_preloads(),
+      people_preload: People.person_standard_preloads()
     )
   end
 

@@ -1,34 +1,12 @@
 defmodule AmbryScraping.GoodReads.Books.Editions do
   @moduledoc false
 
+  import AmbryScraping.GoodReads.Books.Shared, only: [parse_date: 1]
+
   alias AmbryScraping.GoodReads.Browser
-  alias AmbryScraping.GoodReads.PublishedDate
-  alias AmbryScraping.Image
-
-  defstruct [:id, :title, :primary_author, :first_published, :editions]
-
-  defmodule Contributor do
-    @moduledoc false
-    defstruct [:id, :name, :type]
-  end
-
-  defmodule Edition do
-    @moduledoc false
-    defstruct [
-      :id,
-      :title,
-      :published,
-      :publisher,
-      :format,
-      :contributors,
-      :language,
-      :thumbnail
-      # Possible future improvements:
-      # :isbn
-      # :isbn10
-      # :asin
-    ]
-  end
+  alias AmbryScraping.GoodReads.Contributor
+  alias AmbryScraping.GoodReads.Edition
+  alias AmbryScraping.GoodReads.Editions
 
   def editions("work:" <> id = full_id) do
     query = URI.encode_query(%{utf8: "✓", per_page: 100})
@@ -41,7 +19,7 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
   end
 
   defp parse_page(id, html) do
-    %__MODULE__{
+    %Editions{
       id: id,
       title: parse_book_title(html),
       primary_author: parse_primary_author(html),
@@ -73,7 +51,7 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
 
     case published_text do
       "" -> nil
-      "First published " <> date_string -> date_string |> clean_string() |> PublishedDate.new()
+      "First published " <> date_string -> date_string |> clean_string() |> parse_date()
       _else -> nil
     end
   end
@@ -123,7 +101,7 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
 
     case Regex.run(@published_regex, string) do
       [_match, date_string, publisher_string] ->
-        {PublishedDate.new(date_string), publisher_string}
+        {parse_date(date_string), publisher_string}
 
       _else ->
         {nil, nil}
@@ -134,7 +112,7 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
 
   defp parse_thumbnail(edition_html) do
     [src] = edition_html |> Floki.find("div.leftAlignedImage img") |> Floki.attribute("src")
-    Image.fetch_from_source(src)
+    src
   end
 
   defp parse_authors(data_rows) do

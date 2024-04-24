@@ -2,7 +2,7 @@ defmodule AmbryScraping.Marionette.Browser do
   @moduledoc """
   Headless browser interface for web-scraping.
 
-  This serializes all access to the Marionette.Connection so that simultaneous
+  This serializes all access to the headless browser so that simultaneous
   requests can't interfere with each other.
   """
 
@@ -22,6 +22,10 @@ defmodule AmbryScraping.Marionette.Browser do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
+  @doc """
+  Returns the full page HTML of the given URL after having performed the given
+  actions.
+  """
   def get_page_html(url, actions \\ []) do
     GenServer.call(__MODULE__, {:get_page_html, url, actions}, :infinity)
   end

@@ -490,10 +490,10 @@ defmodule AmbryWeb.Admin.Components do
   attr :book, :any, required: true
   slot :actions
 
-  def book_card(%{book: %AmbryScraping.GoodReads.Books.Search.Book{}} = assigns) do
+  def book_card(%{book: %AmbryScraping.GoodReads.Work{}} = assigns) do
     ~H"""
     <div class="flex gap-2 text-sm">
-      <img src={@book.thumbnail.data_url} class="object-contain object-top" />
+      <img src={@book.thumbnail} class="object-contain object-top" />
       <div>
         <p class="font-bold"><%= @book.title %></p>
         <p class="text-zinc-400">
@@ -512,10 +512,10 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  def book_card(%{book: %AmbryScraping.GoodReads.Books.Editions.Edition{}} = assigns) do
+  def book_card(%{book: %AmbryScraping.GoodReads.Edition{}} = assigns) do
     ~H"""
     <div class="flex gap-2 text-sm">
-      <img src={@book.thumbnail.data_url} class="object-contain object-top" />
+      <img src={@book.thumbnail} class="object-contain object-top" />
       <div>
         <p class="font-bold"><%= @book.title %></p>
         <p class="text-zinc-400">
@@ -538,10 +538,10 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  def book_card(%{book: %AmbryScraping.Audible.Products.Product{}} = assigns) do
+  def book_card(%{book: %AmbryScraping.Audible.Product{}} = assigns) do
     ~H"""
     <div class="flex gap-2 text-sm">
-      <img src={@book.cover_image.src} class="h-24 w-24" />
+      <img src={@book.cover_image} class="h-24 w-24" />
       <div>
         <p class="font-bold"><%= @book.title %></p>
         <p :if={@book.authors != []} class="text-zinc-400">

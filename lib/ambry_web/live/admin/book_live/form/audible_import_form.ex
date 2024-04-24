@@ -5,10 +5,11 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
   import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.Components.RichSelect, only: [rich_select: 1]
 
+  alias Ambry.Books
+  alias Ambry.Books.Series
   alias Ambry.Metadata.Audible
   alias Ambry.People.Person
   alias Ambry.Search
-  alias Ambry.Series.Series
   alias Phoenix.LiveView.AsyncResult
 
   @impl Phoenix.LiveComponent
@@ -131,7 +132,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
         {"use_cover_image", "true"}, acc ->
           Map.merge(acc, %{
             "image_type" => "url_import",
-            "image_import_url" => book.cover_image.src
+            "image_import_url" => book.cover_image
           })
 
         _else, acc ->
@@ -169,7 +170,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
     |> Enum.zip()
     |> Enum.map(fn
       {imported, nil} ->
-        {:ok, series} = Ambry.Series.create_series(%{name: imported.title})
+        {:ok, series} = Books.create_series(%{name: imported.title})
         %{"book_number" => imported.sequence, "series_id" => series.id}
 
       {imported, existing} ->

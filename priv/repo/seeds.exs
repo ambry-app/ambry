@@ -3,12 +3,12 @@
 #
 #     mix ecto.seed
 
-alias Ambry.Authors.Author
-alias Ambry.Authors.BookAuthor
 alias Ambry.Books.Book
 alias Ambry.Media.Media
 alias Ambry.Media.MediaNarrator
-alias Ambry.Narrators.Narrator
+alias Ambry.People.Author
+alias Ambry.People.BookAuthor
+alias Ambry.People.Narrator
 alias Ambry.People.Person
 alias Ambry.Repo
 

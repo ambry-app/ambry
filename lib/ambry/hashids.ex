@@ -3,6 +3,8 @@ defmodule Ambry.Hashids do
   Encode and decode simple hashids.
   """
 
+  use Boundary
+
   @coder Hashids.new([])
 
   def encode(id) do

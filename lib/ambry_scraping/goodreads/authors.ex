@@ -1,17 +1,10 @@
 defmodule AmbryScraping.GoodReads.Authors do
-  @moduledoc """
-  GoodReads web-scraping API for authors
-  """
+  @moduledoc false
 
+  alias AmbryScraping.GoodReads.AuthorDetails
   alias AmbryScraping.GoodReads.Books
   alias AmbryScraping.GoodReads.Browser
   alias AmbryScraping.HTMLToMD
-  alias AmbryScraping.Image
-
-  defmodule Author do
-    @moduledoc false
-    defstruct [:id, :name, :description, :image]
-  end
 
   def details("author:" <> id = full_id) do
     with {:ok, author_html} <- Browser.get_page_html("/author/show/#{id}"),
@@ -23,7 +16,7 @@ defmodule AmbryScraping.GoodReads.Authors do
   end
 
   defp parse_author_details(full_id, author_document, photos_document) do
-    maybe_error(%Author{
+    maybe_error(%AuthorDetails{
       id: full_id,
       name: parse_name(author_document),
       description: parse_description(author_document),
@@ -52,12 +45,8 @@ defmodule AmbryScraping.GoodReads.Authors do
 
   defp parse_image(document) do
     case document |> Floki.find("ul.photoList li.profile img") |> Floki.attribute("src") do
-      [src] ->
-        src = String.replace(src, "p2", "p8")
-        Image.fetch_from_source(src)
-
-      _else ->
-        nil
+      [src] -> String.replace(src, "p2", "p8")
+      _else -> nil
     end
   end
 

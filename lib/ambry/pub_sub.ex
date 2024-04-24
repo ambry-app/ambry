@@ -3,6 +3,8 @@ defmodule Ambry.PubSub do
   Helper functions for publishing and subscribing to Ambry events.
   """
 
+  use Boundary, deps: [Ambry.Media], exports: [Message, Publishable]
+
   alias Ambry.Media.Media
   alias Ambry.PubSub.Message
   alias Ambry.PubSub.Publishable

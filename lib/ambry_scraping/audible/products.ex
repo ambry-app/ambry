@@ -1,12 +1,13 @@
 defmodule AmbryScraping.Audible.Products do
-  @moduledoc """
-  Audible JSON API for products
-  """
+  @moduledoc false
 
+  alias AmbryScraping.Audible.Author
+  alias AmbryScraping.Audible.Client
+  alias AmbryScraping.Audible.Narrator
+  alias AmbryScraping.Audible.Product
+  alias AmbryScraping.Audible.Series
   alias AmbryScraping.HTMLToMD
-  alias AmbryScraping.Image
 
-  @url "https://api.audible.com/1.0"
   @response_groups ~w(
     category_ladders
     claim_code_url
@@ -27,55 +28,20 @@ defmodule AmbryScraping.Audible.Products do
     sku
   )
 
-  defmodule Product do
-    @moduledoc false
-    defstruct [
-      :id,
-      :title,
-      :authors,
-      :narrators,
-      :series,
-      :description,
-      :cover_image,
-      :format,
-      :published,
-      :publisher,
-      :language
-    ]
-  end
-
-  defmodule Author do
-    @moduledoc false
-    defstruct [:id, :name]
-  end
-
-  defmodule Narrator do
-    @moduledoc false
-    defstruct [:name]
-  end
-
-  defmodule Series do
-    @moduledoc false
-    defstruct [:id, :sequence, :title]
-  end
-
   @doc """
   Returns product details for a given title search query.
   """
   def search(""), do: {:ok, []}
 
   def search(query) do
-    query =
-      URI.encode_query(%{
-        title: query,
-        response_groups: Enum.join(@response_groups, ","),
-        products_sort_by: "Relevance",
-        image_sizes: "900"
-      })
+    params = %{
+      title: query,
+      response_groups: Enum.join(@response_groups, ","),
+      products_sort_by: "Relevance",
+      image_sizes: "900"
+    }
 
-    url = "#{@url}/catalog/products" |> URI.new!() |> URI.append_query(query) |> URI.to_string()
-
-    case Req.get(url) do
+    case Client.get("/catalog/products", params) do
       {:ok, %{status: status} = response} when status in 200..299 -> parse_response(response.body)
       {:ok, response} -> {:error, response}
       {:error, reason} -> {:error, reason}
@@ -144,15 +110,9 @@ defmodule AmbryScraping.Audible.Products do
   end
 
   defp parse_description(nil), do: nil
-
   defp parse_description(html), do: HTMLToMD.html_to_md(html)
 
-  defp parse_image(%{"900" => url}) when is_binary(url) do
-    src = String.replace(url, "._SL900_", "")
-
-    Image.fetch_from_source(src)
-  end
-
+  defp parse_image(%{"900" => url}) when is_binary(url), do: String.replace(url, "._SL900_", "")
   defp parse_image(_else), do: nil
 
   defp parse_published(nil), do: nil

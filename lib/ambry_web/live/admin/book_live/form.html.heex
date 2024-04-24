@@ -1,7 +1,9 @@
 <.layout title={@page_title} user={@current_user}>
-  <.modal :if={@import} id="import-modal" show on_cancel={JS.push("cancel-import")}>
+  <.modal :if={@import} id="import-modal" show on_cancel={close_import_form(@book)}>
     <.live_component id="import-form" module={import_form(@import.type)} query={@import.query} book={@book} />
   </.modal>
+
+  <div id="patch-hack" phx-hook="patch-hack" />
 
   <.datalist id="authors" options={@authors} />
   <.datalist id="series" options={@series} />
@@ -18,11 +20,16 @@
             color={:zinc}
             class="flex items-center gap-1"
             type="button"
-            phx-click={open_import_form("goodreads")}
+            phx-click={open_import_form(@book, "goodreads")}
           >
             <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
           </.button>
-          <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("audible")}>
+          <.button
+            color={:zinc}
+            class="flex items-center gap-1"
+            type="button"
+            phx-click={open_import_form(@book, "audible")}
+          >
             <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
           </.button>
         </div>
@@ -142,6 +149,7 @@
       <.file_input
         :if={@form[:image_type].value == "upload"}
         upload={@uploads.image}
+        on_cancel="cancel-upload"
         label="Upload image"
         image_preview_class="h-48 w-48 rounded-sm"
       />

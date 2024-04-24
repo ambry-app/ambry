@@ -1,6 +1,7 @@
 defmodule AmbryWeb.SearchLiveTest do
   use AmbryWeb.ConnCase
 
+  import Ambry.Search.IndexFactory
   import Phoenix.LiveViewTest
 
   setup :register_and_log_in_user

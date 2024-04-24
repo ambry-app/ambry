@@ -1,17 +1,29 @@
 <.layout title={@page_title} user={@current_user}>
-  <.modal :if={@import} id="import-modal" show on_cancel={JS.push("cancel-import")}>
+  <.modal :if={@import} id="import-modal" show on_cancel={close_import_form(@media)}>
     <.live_component id="import-form" module={import_form(@import.type)} query={@import.query} media={@media} />
   </.modal>
+
+  <div id="patch-hack" phx-hook="patch-hack" />
 
   <div class="max-w-3xl">
     <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <div class="space-y-2">
         <.label>Import from:</.label>
         <div class="flex items-center gap-2">
-          <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("source")}>
+          <.button
+            color={:zinc}
+            class="flex items-center gap-1"
+            type="button"
+            phx-click={open_import_form(@media, "source")}
+          >
             <FA.icon name="file-audio" class="h-4 w-4 fill-current" /> Source File(s)
           </.button>
-          <.button color={:zinc} class="flex items-center gap-1" type="button" phx-click={open_import_form("audible")}>
+          <.button
+            color={:zinc}
+            class="flex items-center gap-1"
+            type="button"
+            phx-click={open_import_form(@media, "audible")}
+          >
             <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
           </.button>
         </div>

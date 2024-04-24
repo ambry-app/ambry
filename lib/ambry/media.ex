@@ -3,7 +3,20 @@ defmodule Ambry.Media do
   Functions for dealing with Media.
   """
 
-  import Ambry.FileUtils
+  use Boundary,
+    deps: [Ambry],
+    exports: [
+      Audit,
+      Bookmark,
+      Chapters,
+      Media,
+      Media.Chapter,
+      MediaNarrator,
+      PlayerState,
+      Processor,
+      ProcessorJob
+    ]
+
   import Ambry.Utils
   import Ecto.Query
 
@@ -14,6 +27,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.Media
   alias Ambry.Media.MediaFlat
   alias Ambry.Media.PlayerState
+  alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
 
@@ -153,6 +167,24 @@ defmodule Ambry.Media do
         PubSub.broadcast_delete(media)
         :ok
     end
+  end
+
+  defp delete_media_files(%Media{} = media) do
+    %Media{
+      source_path: source_disk_path,
+      mpd_path: mpd_path,
+      hls_path: hls_path,
+      mp4_path: mp4_path
+    } = media
+
+    try_delete_folder(source_disk_path)
+
+    mpd_path |> Paths.web_to_disk() |> try_delete_file()
+    hls_path |> Paths.web_to_disk() |> try_delete_file()
+    mp4_path |> Paths.web_to_disk() |> try_delete_file()
+    hls_path |> Paths.hls_playlist_path() |> Paths.web_to_disk() |> try_delete_file()
+
+    :ok
   end
 
   @doc """

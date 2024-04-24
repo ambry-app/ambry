@@ -111,7 +111,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
           Map.put(acc, "description", author.description)
 
         {"use_image", "true"}, acc ->
-          Map.merge(acc, %{"image_type" => "url_import", "image_import_url" => author.image.src})
+          Map.merge(acc, %{"image_type" => "url_import", "image_import_url" => author.image})
 
         _else, acc ->
           acc

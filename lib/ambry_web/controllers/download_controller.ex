@@ -3,7 +3,7 @@ defmodule AmbryWeb.DownloadController do
 
   alias Ambry.Hashids
   alias Ambry.Media
-  alias Ambry.SupplementalFile
+  alias Ambry.Repo.SupplementalFile
 
   def download_media(conn, params) do
     with {:ok, [media_id]} <- Hashids.decode(params["media_id"]),

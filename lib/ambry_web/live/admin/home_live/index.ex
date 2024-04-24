@@ -12,7 +12,6 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   alias Ambry.Media
   alias Ambry.People
   alias Ambry.PubSub
-  alias Ambry.Series
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -32,7 +31,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   defp count_things(socket) do
     people_count = People.count_people()
     books_count = Books.count_books()
-    series_count = Series.count_series()
+    series_count = Books.count_series()
     media_count = Media.count_media()
     files_count = Media.Audit.count_files()
     users_count = Accounts.count_users()

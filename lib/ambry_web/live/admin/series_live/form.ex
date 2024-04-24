@@ -3,12 +3,11 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
   use AmbryWeb, :admin_live_view
 
   alias Ambry.Books
-  alias Ambry.Series
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, books: Books.for_select())}
+    {:ok, assign(socket, books: Books.books_for_select())}
   end
 
   @impl Phoenix.LiveView
@@ -17,8 +16,8 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
-    series = Series.get_series!(id)
-    changeset = Series.change_series(series)
+    series = Books.get_series!(id)
+    changeset = Books.change_series(series)
 
     socket
     |> assign_form(changeset)
@@ -29,8 +28,8 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
   end
 
   defp apply_action(socket, :new, _params) do
-    series = %Series.Series{}
-    changeset = Series.change_series(series)
+    series = %Books.Series{}
+    changeset = Books.change_series(series)
 
     socket
     |> assign_form(changeset)
@@ -44,7 +43,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
   def handle_event("validate", %{"series" => series_params}, socket) do
     changeset =
       socket.assigns.series
-      |> Series.change_series(series_params)
+      |> Books.change_series(series_params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
@@ -55,7 +54,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
   end
 
   defp save_series(socket, :edit, series_params) do
-    case Series.update_series(socket.assigns.series, series_params) do
+    case Books.update_series(socket.assigns.series, series_params) do
       {:ok, series} ->
         {:noreply,
          socket
@@ -68,7 +67,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
   end
 
   defp save_series(socket, :new, series_params) do
-    case Series.create_series(series_params) do
+    case Books.create_series(series_params) do
       {:ok, series} ->
         {:noreply,
          socket

@@ -1,21 +1,21 @@
 defmodule Ambry.Factory do
   @moduledoc false
 
+  use Boundary, top_level?: true, check: [in: false, out: false]
   use ExMachina.Ecto, repo: Ambry.Repo
 
   alias Ambry.Accounts.User
-  alias Ambry.Authors.Author
-  alias Ambry.Authors.BookAuthor
   alias Ambry.Books.Book
+  alias Ambry.Books.Series
+  alias Ambry.Books.SeriesBook
   alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.PlayerState
-  alias Ambry.Narrators.Narrator
+  alias Ambry.People.Author
+  alias Ambry.People.BookAuthor
+  alias Ambry.People.Narrator
   alias Ambry.People.Person
-  alias Ambry.Search.Index
-  alias Ambry.Series.Series
-  alias Ambry.Series.SeriesBook
 
   # Users
 
@@ -231,10 +231,4 @@ defmodule Ambry.Factory do
     false = File.exists?(disk_path)
     File.touch!(disk_path)
   end
-
-  # Search indexing
-
-  def insert_index!(%Book{id: id}), do: Index.insert!(:book, id)
-  def insert_index!(%Person{id: id}), do: Index.insert!(:person, id)
-  def insert_index!(%Series{id: id}), do: Index.insert!(:series, id)
 end
