@@ -30,8 +30,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
      socket
      |> assign(
        page_title: "Authors & Narrators",
-       show_header_search: true,
-       header_new_path: ~p"/admin/people/new"
+       show_header_search: true
      )
      |> maybe_update_people(params, true)}
   end

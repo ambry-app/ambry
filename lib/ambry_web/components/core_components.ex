@@ -457,6 +457,7 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   attr :upload, :any, required: true
+  attr :on_cancel, :string, required: true
   attr :label, :string, default: nil
   attr :class, :string, default: nil, doc: "class overrides"
   attr :errors, :list, default: []
@@ -499,8 +500,7 @@ defmodule AmbryWeb.CoreComponents do
 
             <span
               class="cursor-pointer text-2xl transition-colors hover:text-red-600 dark:hover:text-red-500"
-              phx-click="cancel-upload"
-              phx-value-ref={entry.ref}
+              phx-click={JS.push(@on_cancel, value: %{ref: entry.ref})}
             >
               &times;
             </span>

@@ -149,6 +149,7 @@
       <.file_input
         :if={@form[:image_type].value == "upload"}
         upload={@uploads.image}
+        on_cancel="cancel-upload"
         label="Upload image"
         image_preview_class="h-48 w-48 rounded-sm"
       />

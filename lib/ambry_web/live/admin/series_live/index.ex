@@ -29,8 +29,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
      socket
      |> assign(
        page_title: "Series",
-       show_header_search: true,
-       header_new_path: ~p"/admin/series/new"
+       show_header_search: true
      )
      |> maybe_update_series(params, true)}
   end

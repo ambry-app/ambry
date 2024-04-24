@@ -32,8 +32,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
      socket
      |> assign(
        page_title: "Books",
-       show_header_search: true,
-       header_new_path: ~p"/admin/books/new"
+       show_header_search: true
      )
      |> maybe_update_books(params, true)}
   end

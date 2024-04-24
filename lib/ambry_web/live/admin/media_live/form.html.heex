@@ -140,7 +140,7 @@
           mp3, mp4, m4a, m4b, opus
         </.note>
 
-        <.file_input upload={@uploads.audio} />
+        <.file_input upload={@uploads.audio} on_cancel="cancel-upload" />
         <.field_errors field={@form[:source_path]} />
       </div>
 
@@ -248,7 +248,12 @@
         </div>
       </div>
 
-      <.file_input upload={@uploads.supplemental} label="Upload supplemental files" image_preview_class="h-48" />
+      <.file_input
+        upload={@uploads.supplemental}
+        on_cancel="cancel-supplemental-upload"
+        label="Upload supplemental files"
+        image_preview_class="h-48"
+      />
 
       <div :if={@live_action == :edit && @form[:supplemental_files].value != []} class="space-y-2">
         <.label>Supplemental files</.label>

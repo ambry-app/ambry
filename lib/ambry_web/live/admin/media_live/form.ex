@@ -113,6 +113,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:noreply, cancel_upload(socket, :audio, ref)}
   end
 
+  def handle_event("cancel-supplemental-upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :supplemental, ref)}
+  end
+
   @impl Phoenix.LiveView
   def handle_info({:import, %{"media" => media_params}}, socket) do
     # narrators could have been created, reload the data-lists
@@ -132,7 +136,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   def handle_info({:files_selected, files}, socket) do
-    {:noreply, assign(socket, select_files: false, selected_files: files)}
+    {:noreply,
+     socket
+     |> assign(selected_files: files)
+     |> push_patch(to: media_path(socket.assigns.media), replace: true)}
   end
 
   defp handle_supplemental_files_upload(socket, media_params, name) do
@@ -338,15 +345,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()
   end
 
-  defp open_import_form(%Media.Media{id: nil}, type),
-    do: JS.patch(~p"/admin/media/new?import=#{type}")
+  defp media_path(media, params \\ %{})
+  defp media_path(%Media.Media{id: nil}, params), do: ~p"/admin/media/new?#{params}"
+  defp media_path(media, params), do: ~p"/admin/media/#{media}/edit?#{params}"
 
-  defp open_import_form(media, type), do: JS.patch(~p"/admin/media/#{media}/edit?import=#{type}")
-
-  defp close_modal(%Media.Media{id: nil}), do: JS.patch(~p"/admin/media/new", replace: true)
-  defp close_modal(media), do: JS.patch(~p"/admin/media/#{media}/edit", replace: true)
-
-  defp open_file_browser(%Media.Media{id: nil}), do: JS.patch(~p"/admin/media/new?browse")
-
-  defp open_file_browser(media), do: JS.patch(~p"/admin/media/#{media}/edit?browse")
+  defp open_import_form(media, type), do: JS.patch(media_path(media, %{import: type}))
+  defp open_file_browser(media), do: JS.patch(media_path(media, %{browse: :files}))
+  defp close_modal(media), do: JS.patch(media_path(media), replace: true)
 end
