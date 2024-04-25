@@ -558,6 +558,34 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
+  Renders a tab bar style radio-group when given a form field.
+  """
+  attr :label, :string, default: nil
+  attr :field, FormField, required: true
+  attr :options, :list, required: true
+
+  slot :inner_block, required: true
+
+  def tabs(assigns) do
+    ~H"""
+    <div class="flex items-center gap-2">
+      <%= render_slot(@inner_block) %>
+
+      <span class="cursor-default select-none text-sm">•</span>
+
+      <.intersperse :let={{label, value}} enum={@options}>
+        <:separator>
+          <span class="cursor-default select-none text-sm">•</span>
+        </:separator>
+        <label class="cursor-pointer select-none whitespace-nowrap text-sm italic leading-6 has-[:checked]:font-semibold has-[:checked]:not-italic has-[:checked]:underline">
+          <input type="radio" name={@field.name} value={value} checked={@field.value == value} class="hidden" /> <%= label %>
+        </label>
+      </.intersperse>
+    </div>
+    """
+  end
+
+  @doc """
   Renders a label.
   """
   attr :for, :string, default: nil
@@ -566,7 +594,10 @@ defmodule AmbryWeb.CoreComponents do
 
   def label(assigns) do
     ~H"""
-    <label for={@for} class={["block text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200", @class]}>
+    <label
+      for={@for}
+      class={["block whitespace-nowrap text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200", @class]}
+    >
       <%= render_slot(@inner_block) %>
     </label>
     """

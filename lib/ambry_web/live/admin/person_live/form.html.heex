@@ -7,33 +7,34 @@
 
   <div class="max-w-3xl">
     <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <div class="space-y-2">
-        <.label for={@form[:name].id}>Name</.label>
-        <div class="flex items-center gap-2">
-          <.input field={@form[:name]} show_errors={false} container_class="grow" />
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+        <.input field={@form[:name]} label="Name" class="col-start-2 sm:col-start-1" />
+
+        <div class="row-start-1 space-y-2 sm:col-start-2">
           <.label>Import from:</.label>
-          <.button
-            :if={@scraping_available}
-            color={:zinc}
-            class="flex items-center gap-1"
-            type="button"
-            phx-click={open_import_form(@person, "goodreads")}
-          >
-            <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
-          </.button>
-          <.button
-            color={:zinc}
-            class="flex items-center gap-1"
-            type="button"
-            phx-click={open_import_form(@person, "audible")}
-          >
-            <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
-          </.button>
+          <div class="flex items-center gap-2">
+            <.button
+              :if={@scraping_available}
+              color={:zinc}
+              class="flex items-center gap-1"
+              type="button"
+              phx-click={open_import_form(@person, "goodreads")}
+            >
+              <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
+            </.button>
+            <.button
+              color={:zinc}
+              class="flex items-center gap-1"
+              type="button"
+              phx-click={open_import_form(@person, "audible")}
+            >
+              <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
+            </.button>
+          </div>
         </div>
-        <.field_errors field={@form[:name]} />
       </div>
 
-      <div class="flex gap-2">
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <.input
           id="description-input"
           field={@form[:description]}
@@ -41,87 +42,91 @@
           type="textarea"
           phx-hook="maintain-attrs"
           data-attrs="style"
-          container_class="w-1/2"
         />
-        <div class="relative w-1/2 flex-1">
+        <div class="relative">
           <div
             id="description-preview"
             phx-hook="scroll-match"
             data-target="description-input"
-            class="absolute top-8 right-0 bottom-0 left-0 overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800"
+            class="absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800 sm:block"
           >
             <.markdown content={@form[:description].value || ""} class="p-2" />
           </div>
         </div>
       </div>
 
-      <div class="space-y-2">
-        <.label>Writing as</.label>
-        <.inputs_for :let={author_form} field={@form[:authors]}>
-          <.sort_input field={@form[:authors_sort]} index={author_form.index} />
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+        <div class="space-y-2">
+          <.label>Writing as</.label>
+          <.inputs_for :let={author_form} field={@form[:authors]}>
+            <.sort_input field={@form[:authors_sort]} index={author_form.index} />
 
-          <div class="flex items-start gap-2">
-            <.input field={author_form[:name]} container_class="grow" />
-            <.delete_button field={@form[:authors_drop]} index={author_form.index} class="pt-[10px]" />
-          </div>
-        </.inputs_for>
+            <div class="relative">
+              <.input field={author_form[:name]} />
+              <.delete_button field={@form[:authors_drop]} index={author_form.index} class="absolute right-2 top-3" />
+            </div>
+          </.inputs_for>
 
-        <.add_button field={@form[:authors_sort]}>Add author</.add_button>
-        <.delete_input field={@form[:authors_drop]} />
+          <.add_button field={@form[:authors_sort]}>Add author</.add_button>
+          <.delete_input field={@form[:authors_drop]} />
+        </div>
+
+        <div class="space-y-2">
+          <.label>Narrating as</.label>
+          <.inputs_for :let={narrator_form} field={@form[:narrators]}>
+            <.sort_input field={@form[:narrators_sort]} index={narrator_form.index} />
+
+            <div class="relative">
+              <.input field={narrator_form[:name]} container_class="grow" />
+              <.delete_button field={@form[:narrators_drop]} index={narrator_form.index} class="absolute right-2 top-3" />
+            </div>
+          </.inputs_for>
+
+          <.add_button field={@form[:narrators_sort]}>Add narrator</.add_button>
+          <.delete_input field={@form[:narrators_drop]} />
+        </div>
       </div>
 
-      <div class="space-y-2">
-        <.label>Narrating as</.label>
-        <.inputs_for :let={narrator_form} field={@form[:narrators]}>
-          <.sort_input field={@form[:narrators_sort]} index={narrator_form.index} />
-
-          <div class="flex items-start gap-2">
-            <.input field={narrator_form[:name]} container_class="grow" />
-            <.delete_button field={@form[:narrators_drop]} index={narrator_form.index} class="pt-[10px]" />
-          </div>
-        </.inputs_for>
-
-        <.add_button field={@form[:narrators_sort]}>Add narrator</.add_button>
-        <.delete_input field={@form[:narrators_drop]} />
-      </div>
-
+      <.input type="hidden" field={@form[:image_type]} />
       <.input type="hidden" field={@form[:image_path]} />
-      <div :if={@form[:image_path].value && @form[:image_path].value != ""} class="space-y-2">
-        <.label class="flex items-center gap-2">
-          Current image <.image_delete_button field={@form[:image_path]} />
-        </.label>
-        <.image_with_size
-          id={"image-#{@person.id}"}
-          src={@form[:image_path].value}
-          class="h-40 w-40 rounded-full object-cover object-top"
+
+      <%= if @form[:image_path].value && @form[:image_path].value != "" do %>
+        <div class="space-y-2">
+          <.label class="flex items-center gap-2">
+            Image <.image_delete_button field={@form[:image_path]} />
+          </.label>
+          <.image_with_size
+            id={"image-#{@person.id}"}
+            src={@form[:image_path].value}
+            class="h-40 w-40 rounded-full object-cover object-top"
+          />
+        </div>
+      <% else %>
+        <div class="space-y-2">
+          <.tabs
+            field={@form[:image_type]}
+            options={[
+              {"Upload file", "upload"},
+              {"Import image from URL", "url_import"}
+            ]}
+          >
+            <.label>Image</.label>
+          </.tabs>
+        </div>
+
+        <.file_input
+          :if={@form[:image_type].value == "upload"}
+          upload={@uploads.image}
+          on_cancel="cancel-upload"
+          image_preview_class="h-40 w-40 rounded-full object-cover object-top"
         />
-      </div>
 
-      <.input
-        type="select"
-        label={if @live_action == :new, do: "Image", else: "Replace image"}
-        field={@form[:image_type]}
-        prompt=""
-        options={[
-          {"Upload file", "upload"},
-          {"Import image from URL", "url_import"}
-        ]}
-      />
-
-      <.file_input
-        :if={@form[:image_type].value == "upload"}
-        upload={@uploads.image}
-        on_cancel="cancel-upload"
-        label="Upload image"
-        image_preview_class="h-40 w-40 rounded-full object-cover object-top"
-      />
-
-      <.image_import_input
-        :if={@form[:image_type].value == "url_import"}
-        field={@form[:image_import_url]}
-        label="Import image from URL"
-        image_preview_class="h-40 w-40 rounded-full object-cover object-top"
-      />
+        <.image_import_input
+          :if={@form[:image_type].value == "url_import"}
+          field={@form[:image_import_url]}
+          image_preview_class="h-40 w-40 rounded-full object-cover object-top"
+        />
+      <% end %>
 
       <:actions>
         <.button>Save</.button>
