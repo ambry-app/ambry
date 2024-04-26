@@ -74,7 +74,15 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   @impl Phoenix.LiveView
   def handle_params(%{"import" => type}, _url, socket) do
-    query = socket.assigns.media.book.title
+    book_id = socket.assigns.form.params["book_id"] || socket.assigns.media.book_id
+
+    query =
+      if book_id do
+        Ambry.Books.get_book!(book_id).title
+      else
+        ""
+      end
+
     import_type = String.to_existing_atom(type)
     {:noreply, assign(socket, import: %{type: import_type, query: query})}
   end
