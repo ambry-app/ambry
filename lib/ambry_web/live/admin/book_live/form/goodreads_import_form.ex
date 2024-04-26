@@ -181,6 +181,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
 
         {"use_cover_image", "true"}, acc ->
           Map.merge(acc, %{
+            "image_path" => "",
             "image_type" => "url_import",
             "image_import_url" => book.cover_image
           })

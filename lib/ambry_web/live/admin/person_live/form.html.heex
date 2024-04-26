@@ -8,7 +8,7 @@
   <div class="max-w-3xl">
     <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-        <.input field={@form[:name]} label="Name" class="col-start-2 sm:col-start-1" />
+        <.input field={@form[:name]} label="Name" />
 
         <div class="row-start-1 space-y-2 sm:col-start-2">
           <.label>Import from:</.label>
@@ -112,20 +112,20 @@
           >
             <.label>Image</.label>
           </.tabs>
+
+          <.file_input
+            :if={@form[:image_type].value == "upload"}
+            upload={@uploads.image}
+            on_cancel="cancel-upload"
+            image_preview_class="h-40 w-40 rounded-full object-cover object-top"
+          />
+
+          <.image_import_input
+            :if={@form[:image_type].value == "url_import"}
+            field={@form[:image_import_url]}
+            image_preview_class="h-40 w-40 rounded-full object-cover object-top"
+          />
         </div>
-
-        <.file_input
-          :if={@form[:image_type].value == "upload"}
-          upload={@uploads.image}
-          on_cancel="cancel-upload"
-          image_preview_class="h-40 w-40 rounded-full object-cover object-top"
-        />
-
-        <.image_import_input
-          :if={@form[:image_type].value == "url_import"}
-          field={@form[:image_import_url]}
-          image_preview_class="h-40 w-40 rounded-full object-cover object-top"
-        />
       <% end %>
 
       <:actions>

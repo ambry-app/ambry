@@ -14,56 +14,41 @@
 
   <div class="max-w-3xl">
     <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <div class="space-y-2">
-        <.label for={@form[:book_id].id}>Book</.label>
-        <div class="flex items-center gap-2">
-          <.input
-            field={@form[:book_id]}
-            type="autocomplete"
-            options={@books}
-            list="books"
-            show_errors={false}
-            container_class="grow"
-          />
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+        <.input field={@form[:book_id]} label="Book" type="autocomplete" options={@books} list="books" />
+
+        <div class="row-start-1 space-y-2 sm:col-start-2">
           <.label>Import from:</.label>
-          <.button
-            :if={@scraping_available}
-            color={:zinc}
-            class="flex items-center gap-1"
-            type="button"
-            phx-click={open_import_form(@media, "goodreads")}
-          >
-            <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
-          </.button>
-          <.button
-            color={:zinc}
-            class="flex items-center gap-1"
-            type="button"
-            phx-click={open_import_form(@media, "audible")}
-          >
-            <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
-          </.button>
+          <div class="flex items-center gap-2">
+            <.button
+              :if={@scraping_available}
+              color={:zinc}
+              class="flex items-center gap-1"
+              type="button"
+              phx-click={open_import_form(@media, "goodreads")}
+            >
+              <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
+            </.button>
+            <.button
+              color={:zinc}
+              class="flex items-center gap-1"
+              type="button"
+              phx-click={open_import_form(@media, "audible")}
+            >
+              <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
+            </.button>
+          </div>
         </div>
-        <.field_errors field={@form[:book_id]} />
       </div>
 
-      <div class="space-y-2">
-        <.label for={@form[:published].id}>Published</.label>
-
-        <.note>
-          This is meant to be audiobook recording date, not print publication date.
-        </.note>
-
-        <div class="flex flex-row items-center gap-2">
-          <.input field={@form[:published]} type="date" container_class="grow" />
-          <.label for={@form[:published_format].id}>Display format</.label>
-          <.input
-            field={@form[:published_format]}
-            type="select"
-            container_class="grow"
-            options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
-          />
-        </div>
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+        <.input field={@form[:published]} type="date" label="Audio publication date" />
+        <.input
+          field={@form[:published_format]}
+          type="select"
+          label="Date display format"
+          options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+        />
       </div>
 
       <div class="space-y-2">
@@ -71,15 +56,13 @@
         <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
           <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
 
-          <div class="flex items-start gap-2">
-            <.input
-              field={media_narrator_form[:narrator_id]}
-              type="autocomplete"
-              options={@narrators}
-              list="narrators"
-              container_class="grow"
+          <div class="relative">
+            <.input field={media_narrator_form[:narrator_id]} type="autocomplete" options={@narrators} list="narrators" />
+            <.delete_button
+              field={@form[:media_narrators_drop]}
+              index={media_narrator_form.index}
+              class="absolute right-2 top-3"
             />
-            <.delete_button field={@form[:media_narrators_drop]} index={media_narrator_form.index} class="pt-[10px]" />
           </div>
         </.inputs_for>
 
@@ -101,7 +84,7 @@
         class="!min-h-24"
       />
 
-      <div class="space-y-2">
+      <div :if={@live_action == :edit} class="space-y-2">
         <.label>Existing source files</.label>
         <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
           <p :for={file <- @media.source_files} class="text-sm italic">

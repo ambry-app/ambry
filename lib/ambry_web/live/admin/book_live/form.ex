@@ -27,8 +27,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     book = Books.get_book!(id)
-    init_params = if book.image_path, do: %{}, else: %{"image_type" => "upload"}
-    changeset = Books.change_book(book, init_params)
+    changeset = Books.change_book(book, %{"image_type" => "upload"})
 
     socket
     |> assign_form(changeset)
