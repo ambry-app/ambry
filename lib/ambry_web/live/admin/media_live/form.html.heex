@@ -14,56 +14,41 @@
 
   <div class="max-w-3xl">
     <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <div class="space-y-2">
-        <.label for={@form[:book_id].id}>Book</.label>
-        <div class="flex items-center gap-2">
-          <.input
-            field={@form[:book_id]}
-            type="autocomplete"
-            options={@books}
-            list="books"
-            show_errors={false}
-            container_class="grow"
-          />
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+        <.input field={@form[:book_id]} label="Book" type="autocomplete" options={@books} list="books" />
+
+        <div class="row-start-1 space-y-2 sm:col-start-2">
           <.label>Import from:</.label>
-          <.button
-            :if={@scraping_available}
-            color={:zinc}
-            class="flex items-center gap-1"
-            type="button"
-            phx-click={open_import_form(@media, "goodreads")}
-          >
-            <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
-          </.button>
-          <.button
-            color={:zinc}
-            class="flex items-center gap-1"
-            type="button"
-            phx-click={open_import_form(@media, "audible")}
-          >
-            <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
-          </.button>
+          <div class="flex items-center gap-2">
+            <.button
+              :if={@scraping_available}
+              color={:zinc}
+              class="flex items-center gap-1"
+              type="button"
+              phx-click={open_import_form(@media, "goodreads")}
+            >
+              <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
+            </.button>
+            <.button
+              color={:zinc}
+              class="flex items-center gap-1"
+              type="button"
+              phx-click={open_import_form(@media, "audible")}
+            >
+              <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
+            </.button>
+          </div>
         </div>
-        <.field_errors field={@form[:book_id]} />
       </div>
 
-      <div class="space-y-2">
-        <.label for={@form[:published].id}>Published</.label>
-
-        <.note>
-          This is meant to be audiobook recording date, not print publication date.
-        </.note>
-
-        <div class="flex flex-row items-center gap-2">
-          <.input field={@form[:published]} type="date" container_class="grow" />
-          <.label for={@form[:published_format].id}>Display format</.label>
-          <.input
-            field={@form[:published_format]}
-            type="select"
-            container_class="grow"
-            options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
-          />
-        </div>
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+        <.input field={@form[:published]} type="date" label="Audio publication date" />
+        <.input
+          field={@form[:published_format]}
+          type="select"
+          label="Date display format"
+          options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+        />
       </div>
 
       <div class="space-y-2">
@@ -71,15 +56,13 @@
         <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
           <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
 
-          <div class="flex items-start gap-2">
-            <.input
-              field={media_narrator_form[:narrator_id]}
-              type="autocomplete"
-              options={@narrators}
-              list="narrators"
-              container_class="grow"
+          <div class="relative">
+            <.input field={media_narrator_form[:narrator_id]} type="autocomplete" options={@narrators} list="narrators" />
+            <.delete_button
+              field={@form[:media_narrators_drop]}
+              index={media_narrator_form.index}
+              class="absolute right-2 top-3"
             />
-            <.delete_button field={@form[:media_narrators_drop]} index={media_narrator_form.index} class="pt-[10px]" />
           </div>
         </.inputs_for>
 
@@ -101,8 +84,8 @@
         class="!min-h-24"
       />
 
-      <div class="space-y-2">
-        <.label>Existing source files</.label>
+      <div :if={@live_action == :edit} class="space-y-2">
+        <.label>Audio file(s)</.label>
         <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
           <p :for={file <- @media.source_files} class="text-sm italic">
             <%= Path.basename(file) %>
@@ -110,29 +93,20 @@
         </div>
       </div>
 
-      <%= if @local_import_path do %>
-        <.input
-          type="select"
-          label="Audio source type"
-          field={@form[:source_type]}
-          options={[
-            {"Upload from your file-system", "upload"},
-            {"Import from server file-system", "local_import"}
-          ]}
-        />
-      <% else %>
-        <.input type="hidden" field={@form[:source_type]} />
-      <% end %>
-
-      <div :if={@form[:source_type].value == "upload"} class="space-y-2">
-        <%= if @live_action == :new do %>
-          <.label>Upload audio</.label>
+      <div :if={@live_action == :new} class="space-y-2">
+        <%= if @local_import_path do %>
+          <.tabs
+            field={@form[:source_type]}
+            options={[
+              {"Upload from your file-system", "upload"},
+              {"Import from server file-system", "local_import"}
+            ]}
+          >
+            <.label>Audio file(s)</.label>
+          </.tabs>
         <% else %>
-          <.label>Upload additional audio</.label>
-
-          <.note>
-            Adding additional files does not replace any existing files. Re-run the processor after adding new files to replace the streamable output files.
-          </.note>
+          <.label>Audio file(s)</.label>
+          <.input type="hidden" field={@form[:source_type]} />
         <% end %>
 
         <.note>
@@ -140,55 +114,42 @@
           mp3, mp4, m4a, m4b, opus
         </.note>
 
-        <.file_input upload={@uploads.audio} on_cancel="cancel-upload" />
-        <.field_errors field={@form[:source_path]} />
-      </div>
+        <div :if={@form[:source_type].value == "upload"} class="space-y-2">
+          <.file_input upload={@uploads.audio} on_cancel="cancel-upload" />
+          <.field_errors field={@form[:source_path]} />
+        </div>
 
-      <div :if={@form[:source_type].value == "local_import"} class="space-y-2">
-        <%= if @live_action == :new do %>
-          <.label>Import audio</.label>
-        <% else %>
-          <.label>Import additional audio</.label>
-
-          <.note>
-            Adding additional files does not replace any existing files. Re-run the processor after adding new files to replace the streamable output files.
-          </.note>
-        <% end %>
-
-        <.note>
-          <:label>Supported formats</:label>
-          mp3, mp4, m4a, m4b, opus
-        </.note>
-
-        <div>
-          <div class="flex items-center rounded-sm rounded-b-none border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 sm:text-sm sm:leading-6">
-            <button
-              class="py-[7px] px-[11px] bg-zinc-600 font-bold text-zinc-100 hover:bg-zinc-500"
-              type="button"
-              phx-click={open_file_browser(@media)}
-            >
-              Browse...
-            </button>
-            <p class="overflow-hidden text-ellipsis whitespace-nowrap px-2">
-              <%= Enum.count(@selected_files) %> File(s) selected
-            </p>
-          </div>
-          <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
-            <FA.icon
-              :if={Enum.empty?(@selected_files)}
-              name="file-circle-exclamation"
-              class="mx-auto my-4 block h-8 w-8 fill-current"
-            />
-            <p :for={file <- Enum.sort(@selected_files, NaturalOrder)}>
-              <%= Path.basename(file) %>
-            </p>
+        <div :if={@form[:source_type].value == "local_import"} class="space-y-2">
+          <div>
+            <div class="flex items-center rounded-sm rounded-b-none border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 sm:text-sm sm:leading-6">
+              <button
+                class="py-[7px] px-[11px] bg-zinc-600 font-bold text-zinc-100 hover:bg-zinc-500"
+                type="button"
+                phx-click={open_file_browser(@media)}
+              >
+                Browse...
+              </button>
+              <p class="overflow-hidden text-ellipsis whitespace-nowrap px-2">
+                <%= Enum.count(@selected_files) %> File(s) selected
+              </p>
+            </div>
+            <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
+              <FA.icon
+                :if={Enum.empty?(@selected_files)}
+                name="file-circle-exclamation"
+                class="mx-auto my-4 block h-8 w-8 fill-current"
+              />
+              <p :for={file <- Enum.sort(@selected_files, NaturalOrder)}>
+                <%= Path.basename(file) %>
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       <div :if={@file_stats}>
         <div class="flex items-center gap-2">
-          <.label>Audio files</.label>
+          <.label>Streaming files</.label>
           <button
             type="button"
             class="flex grow items-center text-lime-500 hover:underline"
@@ -262,12 +223,16 @@
           <.sort_input field={@form[:supplemental_files_sort]} index={supplemental_file_form.index} />
           <.input field={supplemental_file_form[:id]} type="hidden" />
 
-          <div class="flex items-center gap-2">
+          <div class="relative flex items-center gap-2">
             <.label for={supplemental_file_form[:label].name}>Label</.label>
             <.input field={supplemental_file_form[:label]} placeholder="Label" container_class="grow" />
             <.label for={supplemental_file_form[:filename].name}>Filename</.label>
             <.input field={supplemental_file_form[:filename]} placeholder="filename.ext" container_class="grow" />
-            <.delete_button field={@form[:supplemental_files_drop]} index={supplemental_file_form.index} />
+            <.delete_button
+              field={@form[:supplemental_files_drop]}
+              index={supplemental_file_form.index}
+              class="absolute right-2 top-3"
+            />
           </div>
         </.inputs_for>
 
@@ -280,7 +245,7 @@
         </.label>
 
         <.note :if={@live_action == :edit}>
-          This will re-process the source files and replace the streamable output files.
+          This will re-process the source audio files and replace the output streaming files.
         </.note>
 
         <.input

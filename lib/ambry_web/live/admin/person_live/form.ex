@@ -20,7 +20,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     person = People.get_person!(id)
-    changeset = People.change_person(person, %{})
+    changeset = People.change_person(person, %{"image_type" => "upload"})
 
     socket
     |> assign_form(changeset)
