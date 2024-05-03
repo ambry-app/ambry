@@ -69,6 +69,10 @@ defmodule Ambry.Media.Processor.Shared do
   end
 
   def create_stream!(media, id) do
+    dir = Media.out_path(media)
+    mpd_file = Media.out_path(media, "#{id}.mpd")
+    hls_file = Media.out_path(media, "#{id}.m3u8")
+
     run_command!(
       "shaka-packager",
       [
@@ -78,12 +82,12 @@ defmodule Ambry.Media.Processor.Shared do
         "--hls_base_url",
         "/uploads/media/",
         "--mpd_output",
-        "#{id}.mpd",
+        "#{mpd_file}",
         "--hls_master_playlist_output",
-        "#{id}.m3u8",
+        "#{hls_file}",
         "-quiet"
       ],
-      cd: Media.out_path(media)
+      cd: dir
     )
   end
 
