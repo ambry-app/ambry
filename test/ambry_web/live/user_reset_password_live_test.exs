@@ -1,5 +1,5 @@
 defmodule AmbryWeb.UserResetPasswordLiveTest do
-  use AmbryWeb.ConnCase
+  use AmbryWeb.ConnCase, async: true
 
   import Phoenix.LiveViewTest
 
@@ -39,7 +39,7 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
         lv
         |> element("#reset_password_form")
         |> render_change(
-          user: %{"password" => "secret12", "confirmation_password" => "secret123456"}
+          user: %{"password" => "secret12", "password_confirmation" => "secret123456"}
         )
 
       assert result =~ "should be at least 12 character"
@@ -99,7 +99,7 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
       assert html =~ "Sign in"
     end
 
-    test "redirects to password reset page when the Register button is clicked", %{
+    test "redirects to registration page when the Register button is clicked", %{
       conn: conn,
       token: token
     } do

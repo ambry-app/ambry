@@ -23,7 +23,7 @@ defmodule Ambry.Media.MediaFlat do
     field :published, :date
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   def filter(query, :search, search_string) do

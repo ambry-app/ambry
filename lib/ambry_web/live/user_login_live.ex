@@ -41,7 +41,7 @@ defmodule AmbryWeb.UserLoginLive do
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    email = live_flash(socket.assigns.flash, :email)
+    email = Phoenix.Flash.get(socket.assigns.flash, :email)
     user_registration_enabled = Application.get_env(:ambry, :user_registration_enabled, false)
     form = to_form(%{"email" => email}, as: "user")
 

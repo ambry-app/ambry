@@ -47,7 +47,8 @@ defmodule AmbryWeb do
         formats: [:html, :json],
         layouts: [html: AmbryWeb.Layouts]
 
-      import AmbryWeb.Gettext
+      use Gettext, backend: AmbryWeb.Gettext
+
       import Plug.Conn
 
       unquote(verified_routes())
@@ -102,8 +103,9 @@ defmodule AmbryWeb do
 
   defp html_helpers do
     quote do
+      use Gettext, backend: AmbryWeb.Gettext
+
       import AmbryWeb.CoreComponents
-      import AmbryWeb.Gettext
       import Phoenix.HTML
 
       alias FontAwesome.LiveView, as: FA
@@ -123,7 +125,7 @@ defmodule AmbryWeb do
   end
 
   @doc """
-  When used, dispatch to the appropriate controller/view/etc.
+  When used, dispatch to the appropriate controller/live_view/etc.
   """
   defmacro __using__(which) when is_atom(which) do
     apply(__MODULE__, which, [])

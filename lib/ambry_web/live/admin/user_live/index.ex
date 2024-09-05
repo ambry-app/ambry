@@ -67,7 +67,9 @@ defmodule AmbryWeb.Admin.UserLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     user = Accounts.get_user!(id)
 
-    if user.id != socket.assigns.current_user.id do
+    if user.id == socket.assigns.current_user.id do
+      {:noreply, socket}
+    else
       :ok = Accounts.delete_user(user)
 
       list_opts = get_list_opts(socket)
@@ -81,8 +83,6 @@ defmodule AmbryWeb.Admin.UserLive.Index do
        socket
        |> maybe_update_users(params, true)
        |> put_flash(:info, "User deleted successfully")}
-    else
-      {:noreply, socket}
     end
   end
 
@@ -107,7 +107,9 @@ defmodule AmbryWeb.Admin.UserLive.Index do
   def handle_event("demote", %{"id" => id}, socket) do
     user = Accounts.get_user!(id)
 
-    if user.id != socket.assigns.current_user.id do
+    if user.id == socket.assigns.current_user.id do
+      {:noreply, socket}
+    else
       {:ok, _user} = Accounts.demote_user_from_admin(user)
 
       list_opts = get_list_opts(socket)
@@ -121,8 +123,6 @@ defmodule AmbryWeb.Admin.UserLive.Index do
        socket
        |> maybe_update_users(params, true)
        |> put_flash(:info, "User demoted from admin")}
-    else
-      {:noreply, socket}
     end
   end
 

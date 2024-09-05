@@ -178,13 +178,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     existing_source_files = socket.assigns.media.source_files
 
     media_params =
-      if audio_files != [] do
+      if audio_files == [] do
+        media_params
+      else
         Map.merge(media_params, %{
           "source_path" => source_folder,
           "source_files" => Enum.sort(existing_source_files ++ audio_files, NaturalOrder)
         })
-      else
-        media_params
       end
 
     {:ok, media_params}

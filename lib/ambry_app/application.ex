@@ -20,20 +20,20 @@ defmodule AmbryApp.Application do
 
   defp shared_children do
     [
-      # Start the Ecto repository
-      Ambry.Repo,
       # Start the Telemetry supervisor
       AmbryWeb.Telemetry,
+      # Start the Ecto repository
+      Ambry.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: Ambry.PubSub},
       # Presence
       AmbryWeb.Presence,
-      # Start the Endpoint (http/https)
-      AmbryWeb.Endpoint,
+      # HTTP Client for Swoosh API based providers (not used for SMTP providers)
+      {Finch, name: Ambry.Finch},
       # Starts Oban jobs
       {Oban, oban_config()},
-      # HTTP Client for Swoosh API based providers (not used for SMTP providers)
-      {Finch, name: Ambry.Finch}
+      # Start the Endpoint (http/https)
+      AmbryWeb.Endpoint
     ]
   end
 

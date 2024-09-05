@@ -6,22 +6,39 @@ defmodule AmbryWeb.Layouts do
   import AmbryWeb.Gravatar
   import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
+  alias Ambry.Accounts.User
   alias Ambry.Media
   alias AmbryWeb.Components.SearchBox
 
   embed_templates "layouts/*"
 
   @doc """
+  Main app layout
+  """
+
+  attr :flash, :any, required: true
+  attr :current_user, :any, required: true
+  attr :nav_active_path, :any, required: true
+  attr :query, :any, default: nil
+
+  def app(assigns)
+
+  @doc """
   Main app navigation header
   """
+
+  attr :user, User, required: true
+  attr :active_path, :string, required: true
+  attr :query, :any, default: nil
+
   def nav_header(assigns) do
     ~H"""
     <header id="nav-header" class="border-zinc-100 dark:border-zinc-900">
       <div class="flex p-4 text-zinc-600 dark:text-zinc-500">
         <div class="flex-1">
           <.link navigate={~p"/"} class="flex">
-            <.ambry_icon class="mt-1 h-6 w-6 lg:h-7 lg:w-7" />
-            <.ambry_title class="mt-1 hidden h-6 md:block lg:h-7" />
+            <.ambry_icon />
+            <.ambry_title />
           </.link>
         </div>
         <div class="flex-1">
@@ -67,7 +84,7 @@ defmodule AmbryWeb.Layouts do
       <.live_component
         id="search-box"
         module={SearchBox}
-        query={assigns[:query]}
+        query={@query}
         is_open={search_open?(@active_path)}
         hide_search={hide_search()}
       />
@@ -78,13 +95,18 @@ defmodule AmbryWeb.Layouts do
   defp search_open?("/search/" <> _query), do: true
   defp search_open?(_path), do: false
 
-  def ambry_icon(assigns) do
-    extra_classes = assigns[:class] || ""
-    default_classes = "text-brand dark:text-brand-dark"
-    assigns = assign(assigns, :class, String.trim("#{default_classes} #{extra_classes}"))
+  @doc """
+  Ambry logo icon
+  """
 
+  def ambry_icon(assigns) do
     ~H"""
-    <svg class={@class} version="1.1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      class="text-brand mt-1 h-6 w-6 dark:text-brand-dark lg:h-7 lg:w-7"
+      version="1.1"
+      viewBox="0 0 512 512"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <path
         d="m512 287.9-4e-3 112c-0.896 44.2-35.896 80.1-79.996 80.1-26.47 0-48-21.56-48-48.06v-127.84c0-26.5 21.5-48.1 48-48.1 10.83 0 20.91 2.723 30.3 6.678-12.6-103.58-100.2-182.55-206.3-182.55s-193.71 78.97-206.3 182.57c9.39-4 19.47-6.7 30.3-6.7 26.5 0 48 21.6 48 48.1v127.9c0 26.4-21.5 48-48 48-44.11 0-79.1-35.88-79.1-80.06l-0.9-111.94c0-141.2 114.8-256 256-256 140.9 0 256.5 114.56 256 255.36 0 0.2 0 0-2e-3 0.54451z"
         fill="currentColor"
@@ -97,13 +119,18 @@ defmodule AmbryWeb.Layouts do
     """
   end
 
-  def ambry_title(assigns) do
-    extra_classes = assigns[:class] || ""
-    default_classes = "text-zinc-900 dark:text-zinc-100"
-    assigns = assign(assigns, :class, String.trim("#{default_classes} #{extra_classes}"))
+  @doc """
+  Ambry logo text
+  """
 
+  def ambry_title(assigns) do
     ~H"""
-    <svg class={@class} version="1.1" viewBox="0 0 1536 512" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      class="mt-1 hidden h-6 text-zinc-900 dark:text-zinc-100 md:block lg:h-7"
+      version="1.1"
+      viewBox="0 0 1536 512"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <g fill="currentColor">
         <path d="m283.08 388.31h-123.38l-24 91.692h-95.692l140-448h82.769l140.92 448h-96.615zm-103.69-75.385h83.692l-41.846-159.69z" />
         <g>
@@ -120,6 +147,8 @@ defmodule AmbryWeb.Layouts do
   defp nav_class(active?, extra \\ "")
   defp nav_class(true, extra), do: "text-zinc-900 dark:text-zinc-100 #{extra}"
   defp nav_class(false, extra), do: "hover:text-zinc-900 dark:hover:text-zinc-100 #{extra}"
+
+  attr :user, User, required: true
 
   defp user_menu(assigns) do
     ~H"""
@@ -150,6 +179,12 @@ defmodule AmbryWeb.Layouts do
     </.menu_wrapper>
     """
   end
+
+  @doc """
+  Main app footer with mini-player in it
+  """
+
+  attr :player, AmbryWeb.Player, required: true
 
   def footer(assigns) do
     ~H"""

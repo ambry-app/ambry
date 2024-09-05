@@ -7,6 +7,8 @@ defmodule Ambry.Accounts.UserToken do
 
   import Ecto.Query
 
+  alias Ambry.Accounts.UserToken
+
   @hash_algorithm :sha256
   @rand_size 32
 
@@ -24,7 +26,7 @@ defmodule Ambry.Accounts.UserToken do
     field :context, :string
     field :sent_to, :string
 
-    timestamps(updated_at: false)
+    timestamps(type: :utc_datetime, updated_at: false)
   end
 
   @doc """
@@ -48,7 +50,7 @@ defmodule Ambry.Accounts.UserToken do
   """
   def build_session_token(user) do
     token = :crypto.strong_rand_bytes(@rand_size)
-    {token, %Ambry.Accounts.UserToken{token: token, context: "session", user_id: user.id}}
+    {token, %UserToken{token: token, context: "session", user_id: user.id}}
   end
 
   @doc """
@@ -61,7 +63,7 @@ defmodule Ambry.Accounts.UserToken do
   """
   def verify_session_token_query(token) do
     query =
-      from token in token_and_context_query(token, "session"),
+      from token in by_token_and_context_query(token, "session"),
         join: user in assoc(token, :user),
         where: token.inserted_at > ago(@session_validity_in_days, "day"),
         select: user
@@ -91,7 +93,7 @@ defmodule Ambry.Accounts.UserToken do
     hashed_token = :crypto.hash(@hash_algorithm, token)
 
     {Base.url_encode64(token, padding: false),
-     %Ambry.Accounts.UserToken{
+     %UserToken{
        token: hashed_token,
        context: context,
        sent_to: sent_to,
@@ -119,7 +121,7 @@ defmodule Ambry.Accounts.UserToken do
         days = days_for_context(context)
 
         query =
-          from token in token_and_context_query(hashed_token, context),
+          from token in by_token_and_context_query(hashed_token, context),
             join: user in assoc(token, :user),
             where: token.inserted_at > ago(^days, "day") and token.sent_to == user.email,
             select: user
@@ -154,7 +156,7 @@ defmodule Ambry.Accounts.UserToken do
         hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
 
         query =
-          from token in token_and_context_query(hashed_token, context),
+          from token in by_token_and_context_query(hashed_token, context),
             where: token.inserted_at > ago(@change_email_validity_in_days, "day")
 
         {:ok, query}
@@ -167,18 +169,18 @@ defmodule Ambry.Accounts.UserToken do
   @doc """
   Returns the token struct for the given token value and context.
   """
-  def token_and_context_query(token, context) do
-    from Ambry.Accounts.UserToken, where: [token: ^token, context: ^context]
+  def by_token_and_context_query(token, context) do
+    from UserToken, where: [token: ^token, context: ^context]
   end
 
   @doc """
   Gets all tokens for the given user for the given contexts.
   """
-  def user_and_contexts_query(user, :all) do
-    from t in Ambry.Accounts.UserToken, where: t.user_id == ^user.id
+  def by_user_and_contexts_query(user, :all) do
+    from t in UserToken, where: t.user_id == ^user.id
   end
 
-  def user_and_contexts_query(user, [_ | _] = contexts) do
-    from t in Ambry.Accounts.UserToken, where: t.user_id == ^user.id and t.context in ^contexts
+  def by_user_and_contexts_query(user, [_ | _] = contexts) do
+    from t in UserToken, where: t.user_id == ^user.id and t.context in ^contexts
   end
 end

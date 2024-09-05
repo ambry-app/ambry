@@ -21,7 +21,7 @@ defmodule Ambry.Media.PlayerState do
       values: [:not_started, :in_progress, :finished],
       default: :not_started
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc false

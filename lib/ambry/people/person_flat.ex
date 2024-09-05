@@ -18,7 +18,7 @@ defmodule Ambry.People.PersonFlat do
     field :narrating_as, {:array, :string}
     field :narrated_media, :integer
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   def filter(query, :search, search_string) do

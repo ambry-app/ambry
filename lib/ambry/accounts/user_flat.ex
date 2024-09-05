@@ -13,7 +13,7 @@ defmodule Ambry.Accounts.UserFlat do
     field :media_finished, :integer
     field :last_login_at, :utc_datetime
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   def filter(query, :search, search_string) do

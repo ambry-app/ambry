@@ -39,7 +39,7 @@ defmodule AmbryWeb.UserSettingsLive do
           phx-submit="update_password"
           phx-trigger-action={@trigger_submit}
         >
-          <.input field={@password_form[:email]} type="hidden" value={@current_email} id="hidden_user_email" />
+          <input name={@password_form[:email].name} type="hidden" value={@current_email} id="hidden_user_email" />
           <.input field={@password_form[:password]} type="password" placeholder="New password" required />
           <.input field={@password_form[:password_confirmation]} type="password" placeholder="Confirm new password" />
           <.input

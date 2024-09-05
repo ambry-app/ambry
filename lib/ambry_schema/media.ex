@@ -35,8 +35,8 @@ defmodule AmbrySchema.Media do
     field :published, :date
     field :published_format, non_null(:date_format)
 
-    field :inserted_at, non_null(:naive_datetime)
-    field :updated_at, non_null(:naive_datetime)
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
   end
 
   enum :player_state_status do
@@ -52,8 +52,8 @@ defmodule AmbrySchema.Media do
 
     field :media, non_null(:media), resolve: dataloader(Resolvers)
 
-    field :inserted_at, non_null(:naive_datetime)
-    field :updated_at, non_null(:naive_datetime)
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
   end
 
   connection(node_type: :media)

@@ -83,11 +83,11 @@ defmodule Ambry.MixProject do
       {:phoenix_html, "~> 4.0", override: true},
       {:phoenix_live_dashboard, "~> 0.8"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "~> 0.19"},
+      {:phoenix_live_view, "~> 1.0.0-rc.6", override: true},
       {:phoenix, "~> 1.7.0"},
       {:postgrex, ">= 0.0.0"},
       {:req, "~> 0.3"},
-      {:styler, "~> 0.8", only: [:dev, :test], runtime: false},
+      {:styler, "~> 1.0", only: [:dev, :test], runtime: false},
       {:swoosh, "~> 1.3"},
       {:tailwind_formatter, "~> 0.4.0", only: [:dev, :test], runtime: false},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
@@ -100,8 +100,8 @@ defmodule Ambry.MixProject do
     [
       {:"decimal.js", "10.4.3"},
       {:"platform-detect", "3.0.1"},
-      {:"shaka-player", "4.8.1"},
-      {:topbar, "2.0.2"}
+      {:"shaka-player", "4.11.0"},
+      {:topbar, "3.0.0"}
     ]
   end
 
@@ -122,8 +122,8 @@ defmodule Ambry.MixProject do
       seed: ["ecto.seed", "seed.download"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["tailwind default", "esbuild default"],
-      "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"],
+      "assets.build": ["tailwind ambry", "esbuild ambry"],
+      "assets.deploy": ["tailwind ambry --minify", "esbuild ambry --minify", "phx.digest"],
       check: [
         "format --check-formatted",
         "compile --force --warnings-as-errors",

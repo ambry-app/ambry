@@ -28,8 +28,8 @@ defmodule AmbrySchema.Books do
       resolve &Resolvers.list_series_books/3
     end
 
-    field :inserted_at, non_null(:naive_datetime)
-    field :updated_at, non_null(:naive_datetime)
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
 
     interface :search_result
   end
@@ -49,8 +49,8 @@ defmodule AmbrySchema.Books do
     field :media, non_null(list_of(non_null(:media))),
       resolve: dataloader(Resolvers, args: %{order: {:desc, :inserted_at}})
 
-    field :inserted_at, non_null(:naive_datetime)
-    field :updated_at, non_null(:naive_datetime)
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
 
     interface :search_result
   end

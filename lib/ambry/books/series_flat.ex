@@ -12,7 +12,7 @@ defmodule Ambry.Books.SeriesFlat do
     field :books, :integer
     field :authors, {:array, PersonName.Type}
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   def filter(query, :search, search_string) do
