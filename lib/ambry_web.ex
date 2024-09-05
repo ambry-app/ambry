@@ -47,7 +47,8 @@ defmodule AmbryWeb do
         formats: [:html, :json],
         layouts: [html: AmbryWeb.Layouts]
 
-      import AmbryWeb.Gettext
+      use Gettext, backend: AmbryWeb.Gettext
+
       import Plug.Conn
 
       unquote(verified_routes())
@@ -102,8 +103,9 @@ defmodule AmbryWeb do
 
   defp html_helpers do
     quote do
+      use Gettext, backend: AmbryWeb.Gettext
+
       import AmbryWeb.CoreComponents
-      import AmbryWeb.Gettext
       import Phoenix.HTML
 
       alias FontAwesome.LiveView, as: FA

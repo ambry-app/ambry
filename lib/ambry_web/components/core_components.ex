@@ -8,8 +8,8 @@ defmodule AmbryWeb.CoreComponents do
   """
   use Phoenix.Component
   use AmbryWeb, :verified_routes
+  use Gettext, backend: AmbryWeb.Gettext
 
-  import AmbryWeb.Gettext
   import AmbryWeb.Gravatar
   import Phoenix.HTML, only: [raw: 1]
 
