@@ -60,10 +60,10 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   @impl Phoenix.LiveView
   def handle_event("validate", %{"person" => person_params}, socket) do
     socket =
-      if person_params["image_type"] != "upload" do
-        cancel_all_uploads(socket, :image)
-      else
+      if person_params["image_type"] == "upload" do
         socket
+      else
+        cancel_all_uploads(socket, :image)
       end
 
     changeset =

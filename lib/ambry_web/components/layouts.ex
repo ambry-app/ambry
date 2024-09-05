@@ -6,6 +6,7 @@ defmodule AmbryWeb.Layouts do
   import AmbryWeb.Gravatar
   import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
+  alias Ambry.Accounts.User
   alias Ambry.Media
   alias AmbryWeb.Components.SearchBox
 
@@ -26,7 +27,7 @@ defmodule AmbryWeb.Layouts do
   Main app navigation header
   """
 
-  attr :user, Ambry.Accounts.User, required: true
+  attr :user, User, required: true
   attr :active_path, :string, required: true
   attr :query, :any, default: nil
 
@@ -147,7 +148,7 @@ defmodule AmbryWeb.Layouts do
   defp nav_class(true, extra), do: "text-zinc-900 dark:text-zinc-100 #{extra}"
   defp nav_class(false, extra), do: "hover:text-zinc-900 dark:hover:text-zinc-100 #{extra}"
 
-  attr :user, Ambry.Accounts.User, required: true
+  attr :user, User, required: true
 
   defp user_menu(assigns) do
     ~H"""

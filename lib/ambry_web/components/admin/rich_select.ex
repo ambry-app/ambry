@@ -2,8 +2,10 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
   @moduledoc false
   use AmbryWeb, :live_component
 
+  alias Phoenix.HTML.FormField
+
   attr :id, :string, required: true
-  attr :field, Phoenix.HTML.FormField, required: true
+  attr :field, FormField, required: true
   attr :options, :list, required: true
   attr :option_value, :any, default: &__MODULE__.default_option_value/1
   attr :prompt, :string, default: "​"
@@ -95,7 +97,7 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
 
   # Components
 
-  attr :field, Phoenix.HTML.FormField, required: true
+  attr :field, FormField, required: true
   attr :value, :any, required: true
 
   defp radio_input(assigns) do

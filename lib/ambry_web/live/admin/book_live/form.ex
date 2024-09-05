@@ -67,10 +67,10 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   @impl Phoenix.LiveView
   def handle_event("validate", %{"book" => book_params}, socket) do
     socket =
-      if book_params["image_type"] != "upload" do
-        cancel_all_uploads(socket, :image)
-      else
+      if book_params["image_type"] == "upload" do
         socket
+      else
+        cancel_all_uploads(socket, :image)
       end
 
     changeset =

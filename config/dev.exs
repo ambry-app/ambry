@@ -10,6 +10,11 @@ config :ambry, Ambry.Repo,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
 
+# Marionette connection
+config :ambry, AmbryScraping.Marionette.Connection,
+  host: "localhost",
+  port: 2828
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #
@@ -68,12 +73,12 @@ config :ambry, dev_routes: true
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"
 
+# Initialize plugs at runtime for faster development compilation
+config :phoenix, :plug_init_mode, :runtime
+
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20
-
-# Initialize plugs at runtime for faster development compilation
-config :phoenix, :plug_init_mode, :runtime
 
 config :phoenix_live_view,
   # Include HEEx debug annotations as HTML comments in rendered markup
@@ -83,8 +88,3 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
-
-# Marionette connection
-config :ambry, AmbryScraping.Marionette.Connection,
-  host: "localhost",
-  port: 2828

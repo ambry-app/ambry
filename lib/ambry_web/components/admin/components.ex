@@ -5,9 +5,12 @@ defmodule AmbryWeb.Admin.Components do
 
   import AmbryWeb.Gravatar
 
+  alias Ambry.Accounts.User
+  alias AmbryScraping.GoodReads.PublishedDate
+  alias Phoenix.HTML.Form
   alias Phoenix.HTML.FormField
 
-  attr :user, Ambry.Accounts.User, required: true
+  attr :user, User, required: true
   attr :title, :string, required: true
 
   slot :inner_block, required: true
@@ -29,7 +32,7 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  attr :user, Ambry.Accounts.User, required: true
+  attr :user, User, required: true
   attr :title, :string, required: true
 
   slot :inner_block, required: true
@@ -67,7 +70,7 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  attr :search_form, Phoenix.HTML.Form, default: nil
+  attr :search_form, Form, default: nil
   attr :new_path, :string, default: nil
   attr :has_next, :boolean, default: false
   attr :has_prev, :boolean, default: false
@@ -133,7 +136,7 @@ defmodule AmbryWeb.Admin.Components do
     |> JS.add_class(@side_bar_open_classes, to: "#side-bar")
   end
 
-  attr :search_form, Phoenix.HTML.Form, required: true
+  attr :search_form, Form, required: true
 
   defp admin_table_search_form(assigns) do
     ~H"""
@@ -572,12 +575,12 @@ defmodule AmbryWeb.Admin.Components do
 
   def display_date(%Date{} = date), do: Calendar.strftime(date, "%B %-d, %Y")
 
-  def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :full, date: date}),
+  def display_date(%PublishedDate{display_format: :full, date: date}),
     do: Calendar.strftime(date, "%B %-d, %Y")
 
-  def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year_month, date: date}),
-      do: Calendar.strftime(date, "%B %Y")
+  def display_date(%PublishedDate{display_format: :year_month, date: date}),
+    do: Calendar.strftime(date, "%B %Y")
 
-  def display_date(%AmbryScraping.GoodReads.PublishedDate{display_format: :year, date: date}),
+  def display_date(%PublishedDate{display_format: :year, date: date}),
     do: Calendar.strftime(date, "%Y")
 end

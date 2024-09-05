@@ -116,10 +116,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
 
   def handle_event("go-up", _params, socket) do
     up =
-      if socket.assigns.root_path != socket.assigns.current_path do
-        Path.dirname(socket.assigns.current_path)
-      else
+      if socket.assigns.root_path == socket.assigns.current_path do
         socket.assigns.current_path
+      else
+        Path.dirname(socket.assigns.current_path)
       end
 
     {:noreply, assign(socket, current_path: up)}
