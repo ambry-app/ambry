@@ -41,7 +41,7 @@ config :ambry,
 
 # Configure esbuild (the version is required)
 config :esbuild,
-  version: "0.20.2",
+  version: "0.23.1",
   ambry: [
     args:
       ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
@@ -66,7 +66,7 @@ config :phoenix, :json_library, Jason
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "3.4.3",
+  version: "3.4.10",
   ambry: [
     args: ~w(
       --config=tailwind.config.js
