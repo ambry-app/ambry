@@ -54,12 +54,9 @@ defmodule AmbryWeb.UserConfirmationLiveTest do
                "User confirmation link is invalid or it has expired"
 
       # when logged in
-      conn = build_conn()
+      conn = log_in_user(build_conn(), user)
 
-      {:ok, lv, _html} =
-        conn
-        |> log_in_user(user)
-        |> live(~p"/users/confirm/#{token}")
+      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{token}")
 
       result =
         lv
@@ -68,7 +65,9 @@ defmodule AmbryWeb.UserConfirmationLiveTest do
         |> follow_redirect(conn, "/")
 
       assert {:ok, conn} = result
-      refute Phoenix.Flash.get(conn.assigns.flash, :error)
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
+               "User confirmation link is invalid or it has expired"
     end
 
     test "does not confirm email with invalid token", %{conn: conn, user: user} do

@@ -102,7 +102,7 @@ defmodule AmbryWeb.CoreComponents do
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:info} phx-mounted={show("#flash")}>Welcome Back!</.flash>
   """
-  attr :id, :string, default: "flash", doc: "the optional id of flash container"
+  attr :id, :string, doc: "the optional id of flash container"
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
   attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
@@ -111,15 +111,13 @@ defmodule AmbryWeb.CoreComponents do
   slot :inner_block, doc: "the optional inner block that renders the flash message"
 
   def flash(assigns) do
+    assigns = assign_new(assigns, :id, fn -> "flash-#{assigns.kind}" end)
+
     ~H"""
     <div
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
-      data-dismiss={dismiss_flash(@kind, @id)}
-      phx-click={JS.exec("data-dismiss")}
-      phx-click-away={JS.exec("data-dismiss")}
-      phx-window-keydown={JS.exec("data-dismiss")}
-      phx-key="escape"
+      phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
       role="alert"
       class={[
         "fixed top-2 right-2 z-50 w-80 rounded-sm p-3 shadow-md ring-1 sm:w-96",
@@ -142,12 +140,6 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  defp dismiss_flash(kind, id) do
-    "lv:clear-flash"
-    |> JS.push(value: %{key: kind})
-    |> hide("##{id}")
-  end
-
   @doc """
   Shows the flash group with standard titles and content.
 
@@ -156,32 +148,35 @@ defmodule AmbryWeb.CoreComponents do
       <.flash_group flash={@flash} />
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
+  attr :id, :string, default: "flash-group", doc: "the optional id of flash container"
 
   def flash_group(assigns) do
     ~H"""
-    <.flash kind={:info} title="Success!" flash={@flash} />
-    <.flash kind={:error} title="Error!" flash={@flash} />
-    <.flash
-      id="client-error"
-      kind={:error}
-      title="We've lost connection to the server"
-      phx-disconnected={show(".phx-client-error #client-error")}
-      phx-connected={hide("#client-error")}
-      hidden
-    >
-      Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" />
-    </.flash>
+    <div id={@id}>
+      <.flash kind={:info} title={gettext("Success!")} flash={@flash} />
+      <.flash kind={:error} title={gettext("Error!")} flash={@flash} />
+      <.flash
+        id="client-error"
+        kind={:error}
+        title="We've lost connection to the server"
+        phx-disconnected={show(".phx-client-error #client-error")}
+        phx-connected={hide("#client-error")}
+        hidden
+      >
+        Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" />
+      </.flash>
 
-    <.flash
-      id="server-error"
-      kind={:error}
-      title="Something went wrong!"
-      phx-disconnected={show(".phx-server-error #server-error")}
-      phx-connected={hide("#server-error")}
-      hidden
-    >
-      Hang in there while we get back on track <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" />
-    </.flash>
+      <.flash
+        id="server-error"
+        kind={:error}
+        title="Something went wrong!"
+        phx-disconnected={show(".phx-server-error #server-error")}
+        phx-connected={hide("#server-error")}
+        hidden
+      >
+        Hang in there while we get back on track <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" />
+      </.flash>
+    </div>
     """
   end
 
@@ -198,7 +193,7 @@ defmodule AmbryWeb.CoreComponents do
         </:actions>
       </.simple_form>
   """
-  attr :for, :any, required: true, doc: "the datastructure for the form"
+  attr :for, :any, required: true, doc: "the data structure for the form"
   attr :as, :any, default: nil, doc: "the server side parameter to collect all input under"
 
   attr :rest, :global,
@@ -305,30 +300,32 @@ defmodule AmbryWeb.CoreComponents do
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
   attr :class, :string, default: nil, doc: "class overrides"
   attr :container_class, :string, default: nil, doc: "extra classes for the container div"
-  attr :hidden_input, :boolean, default: true
 
   attr :rest, :global,
     include: ~w(autocomplete cols disabled form list max maxlength min minlength
                 pattern placeholder readonly required rows size step)
 
-  slot :inner_block
-
   def input(%{field: %FormField{} = field} = assigns) do
+    errors = if Phoenix.Component.used_input?(field), do: field.errors, else: []
+
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
-    |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
+    |> assign(:errors, Enum.map(errors, &translate_error(&1)))
     |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
     |> assign_new(:value, fn -> field.value end)
     |> input()
   end
 
-  def input(%{type: "checkbox", value: value} = assigns) do
-    assigns = assign_new(assigns, :checked, fn -> Form.normalize_value("checkbox", value) end)
+  def input(%{type: "checkbox"} = assigns) do
+    assigns =
+      assign_new(assigns, :checked, fn ->
+        Phoenix.HTML.Form.normalize_value("checkbox", assigns[:value])
+      end)
 
     ~H"""
-    <div phx-feedback-for={@name} class={[@container_class]}>
+    <div class={[@container_class]}>
       <.label class="flex items-center gap-4">
-        <input :if={@hidden_input} type="hidden" name={@name} value="false" />
+        <input type="hidden" name={@name} value="false" disabled={@rest[:disabled]} />
         <input
           type="checkbox"
           id={@id}
@@ -352,7 +349,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div phx-feedback-for={@name} class={["space-y-2", @container_class]}>
+    <div class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}><%= @label %></.label>
       <select
         id={@id}
@@ -374,7 +371,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div phx-feedback-for={@name} class={["space-y-2", @container_class]}>
+    <div class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}><%= @label %></.label>
       <textarea
         id={@id}
@@ -392,7 +389,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def input(%{type: "autocomplete"} = assigns) do
     ~H"""
-    <div phx-feedback-for={@name} class={["space-y-2", @container_class]}>
+    <div class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}><%= @label %></.label>
       <.live_component
         module={Autocomplete}
@@ -416,7 +413,7 @@ defmodule AmbryWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div phx-feedback-for={@name} class={["space-y-2", @container_class]}>
+    <div class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}><%= @label %></.label>
       <input
         type={@type}
@@ -450,7 +447,7 @@ defmodule AmbryWeb.CoreComponents do
       |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
 
     ~H"""
-    <div phx-feedback-for={@name}>
+    <div>
       <.error :for={msg <- @errors}><%= msg %></.error>
     </div>
     """

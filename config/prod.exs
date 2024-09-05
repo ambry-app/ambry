@@ -12,7 +12,10 @@ import Config
 config :ambry, AmbryWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest.json"
 
 # Configures Swoosh API Client
-config :swoosh, api_client: Swoosh.ApiClient.Finch, finch_name: Ambry.Finch
+config :swoosh,
+  local: false,
+  api_client: Swoosh.ApiClient.Finch,
+  finch_name: Ambry.Finch
 
 # Do not print debug messages in production
 config :logger, level: :info

@@ -12,7 +12,7 @@ defmodule Ambry.Metadata.Audible.Cache do
   schema "audible_cache" do
     field :value, :binary
 
-    timestamps(updated_at: false)
+    timestamps(type: :utc_datetime, updated_at: false)
   end
 
   @doc false

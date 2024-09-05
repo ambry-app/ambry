@@ -12,7 +12,7 @@ defmodule Ambry.Metadata.GoodReads.Cache do
   schema "goodreads_cache" do
     field :value, :binary
 
-    timestamps(updated_at: false)
+    timestamps(type: :utc_datetime, updated_at: false)
   end
 
   @doc false

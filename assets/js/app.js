@@ -39,6 +39,7 @@ const playerId = Math.random().toString(36).substring(2)
 // Establish Phoenix Socket and LiveView configuration.
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
+  longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken, player_id: playerId },
   hooks: {
     "read-more": ReadMoreHook,

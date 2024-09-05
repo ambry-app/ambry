@@ -1,5 +1,5 @@
 defmodule AmbryWeb.UserForgotPasswordLiveTest do
-  use AmbryWeb.ConnCase
+  use AmbryWeb.ConnCase, async: true
 
   import Phoenix.LiveViewTest
 

@@ -9,6 +9,7 @@ import Config
 
 config :ambry,
   ecto_repos: [Ambry.Repo],
+  generators: [timestamp_type: :utc_datetime],
   user_registration_enabled: true
 
 # Configures the endpoint
@@ -34,7 +35,7 @@ config :ambry, Ambry.Mailer, adapter: Swoosh.Adapters.Local
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.20.2",
-  default: [
+  ambry: [
     args:
       ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
@@ -44,7 +45,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "3.4.3",
-  default: [
+  ambry: [
     args: ~w(
       --config=tailwind.config.js
       --input=css/app.css

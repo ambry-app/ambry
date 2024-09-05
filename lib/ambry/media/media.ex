@@ -45,7 +45,7 @@ defmodule Ambry.Media.Media do
 
     field :notes, :string
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   def statuses, do: @statuses

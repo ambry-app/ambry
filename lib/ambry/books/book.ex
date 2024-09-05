@@ -26,7 +26,7 @@ defmodule Ambry.Books.Book do
     field :description, :string
     field :image_path, :string
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc false

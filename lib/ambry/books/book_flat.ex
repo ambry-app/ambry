@@ -19,7 +19,7 @@ defmodule Ambry.Books.BookFlat do
     field :media, :integer
     field :has_description, :boolean
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   def filter(query, :search, search_string) do

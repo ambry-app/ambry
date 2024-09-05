@@ -20,7 +20,7 @@ defmodule Ambry.People.Person do
     field :description, :string
     field :image_path, :string
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc false

@@ -17,7 +17,7 @@ defmodule Ambry.Media.Bookmark do
     field :position, :decimal
     field :label, :string
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @doc false
