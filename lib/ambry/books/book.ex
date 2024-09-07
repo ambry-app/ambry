@@ -23,6 +23,8 @@ defmodule Ambry.Books.Book do
     field :title, :string
     field :published, :date
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
+
+    # deprecated
     field :description, :string
     field :image_path, :string
 

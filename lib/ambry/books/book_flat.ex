@@ -12,11 +12,14 @@ defmodule Ambry.Books.BookFlat do
     field :title, :string
     field :published, :date
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
-    field :image_path, :string
+    field :image_paths, {:array, :string}
     field :authors, {:array, PersonName.Type}
     field :series, {:array, SeriesBookType.Type}
     field :universe, :string
     field :media, :integer
+
+    # deprecated
+    field :image_path, :string
     field :has_description, :boolean
 
     timestamps(type: :utc_datetime)

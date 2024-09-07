@@ -22,6 +22,8 @@ defmodule Ambry.Media.MediaFlat do
     field :narrators, {:array, PersonName.Type}
     field :published, :date
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
+    field :publisher, :string
+    field :has_description, :boolean
 
     timestamps(type: :utc_datetime)
   end
