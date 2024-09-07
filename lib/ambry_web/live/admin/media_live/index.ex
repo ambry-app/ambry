@@ -133,17 +133,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
   def handle_info(%PubSub.Message{type: :media}, socket), do: {:noreply, refresh_media(socket)}
 
-  defp format_published(%{published: nil}), do: nil
-
-  defp format_published(%{published_format: :full, published: date}),
-    do: Calendar.strftime(date, "%x")
-
-  defp format_published(%{published_format: :year_month, published: date}),
-    do: Calendar.strftime(date, "%Y-%m")
-
-  defp format_published(%{published_format: :year, published: date}),
-    do: Calendar.strftime(date, "%Y")
-
   defp status_color(:pending), do: :yellow
   defp status_color(:processing), do: :blue
   defp status_color(:error), do: :red

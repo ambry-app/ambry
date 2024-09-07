@@ -151,15 +151,6 @@ defmodule AmbryWeb.BookLive do
 
   defp playing?(_player, _media), do: false
 
-  defp format_published(%{published_format: :full, published: date}),
-    do: Calendar.strftime(date, "%B %-d, %Y")
-
-  defp format_published(%{published_format: :year_month, published: date}),
-    do: Calendar.strftime(date, "%B %Y")
-
-  defp format_published(%{published_format: :year, published: date}),
-    do: Calendar.strftime(date, "%Y")
-
   defp format_file_name(file), do: file.label || file.filename
 
   defp file_href(file, media),

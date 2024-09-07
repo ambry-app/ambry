@@ -39,12 +39,17 @@
 
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
         <.input field={@form[:published]} type="date" label="First print publication" />
-        <.input
-          field={@form[:published_format]}
-          type="select"
-          label="Date display format"
-          options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
-        />
+        <div>
+          <.input
+            field={@form[:published_format]}
+            type="select"
+            label="Date display format"
+            options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+          />
+          <span class="text-sm italic dark:text-zinc-500">
+            <%= preview_date_format(@form) %>
+          </span>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">

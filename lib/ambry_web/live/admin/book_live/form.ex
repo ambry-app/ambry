@@ -188,4 +188,11 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp close_import_form(%Book{id: nil}), do: JS.patch(~p"/admin/books/new", replace: true)
   defp close_import_form(book), do: JS.patch(~p"/admin/books/#{book}/edit", replace: true)
+
+  defp preview_date_format(form) do
+    format_published(%{
+      published_format: Ecto.Changeset.get_field(form.source, :published_format),
+      published: Ecto.Changeset.get_field(form.source, :published)
+    })
+  end
 end

@@ -45,6 +45,10 @@ defmodule Ambry.Media.Media do
 
     field :notes, :string
 
+    field :image_path, :string
+    field :description, :string
+    field :publisher, :string
+
     timestamps(type: :utc_datetime)
   end
 
@@ -61,7 +65,10 @@ defmodule Ambry.Media.Media do
       :source_files,
       :published,
       :published_format,
-      :notes
+      :notes,
+      :image_path,
+      :description,
+      :publisher
     ])
     |> cast_assoc(:media_narrators,
       sort_param: :media_narrators_sort,
@@ -79,7 +86,10 @@ defmodule Ambry.Media.Media do
       :full_cast,
       :published,
       :published_format,
-      :notes
+      :notes,
+      :image_path,
+      :description,
+      :publisher
     ])
     |> cast_assoc(:media_narrators,
       sort_param: :media_narrators_sort,

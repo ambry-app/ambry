@@ -66,7 +66,7 @@
           </span>
         </div>
         <p class="text-sm italic dark:text-zinc-500">
-          Published <%= format_published(book) %>
+          Published <%= format_published(book, :short) %>
         </p>
         <p class="text-sm italic dark:text-zinc-500">
           Added <%= Calendar.strftime(book.inserted_at, "%x") %>

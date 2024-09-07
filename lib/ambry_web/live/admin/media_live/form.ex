@@ -19,6 +19,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   def mount(params, _session, socket) do
     {:ok,
      socket
+     |> allow_image_upload(:image)
      |> allow_audio_upload(:audio)
      |> allow_supplemental_file_upload(:supplemental)
      |> assign(
@@ -38,10 +39,15 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     media = Media.get_media!(id)
 
     changeset =
-      Media.change_media(media, %{"source_type" => default_source_type(socket)}, for: :update)
+      Media.change_media(
+        media,
+        %{"image_type" => "upload", "source_type" => default_source_type(socket)},
+        for: :update
+      )
 
     socket
     |> assign_form(changeset)
+    |> dbg()
     |> assign(
       page_title: media.book.title,
       media: media,
@@ -53,7 +59,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     media = %Media.Media{media_narrators: []}
 
     changeset =
-      Media.change_media(media, %{"source_type" => default_source_type(socket)}, for: :create)
+      Media.change_media(
+        media,
+        %{"image_type" => "upload", "source_type" => default_source_type(socket)},
+        for: :create
+      )
 
     socket
     |> assign_form(changeset)
@@ -97,6 +107,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"media" => media_params}, socket) do
+    socket =
+      if media_params["image_type"] == "upload" do
+        socket
+      else
+        cancel_all_uploads(socket, :image)
+      end
+
     changeset =
       socket.assigns.media
       |> Media.change_media(media_params, for: changeset_action(socket.assigns.live_action))
@@ -107,6 +124,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   def handle_event("submit", %{"media" => media_params}, socket) do
     with :ok <- changeset_valid?(socket, media_params),
+         {:ok, media_params} <- handle_image_upload(socket, media_params, :image),
+         {:ok, media_params} <-
+           handle_image_import(media_params["image_import_url"], media_params),
          {:ok, media_params} <-
            handle_supplemental_files_upload(socket, media_params, :supplemental),
          {:ok, media_params} <- handle_audio_files_upload(socket, media_params, :audio),
@@ -148,6 +168,12 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      socket
      |> assign(selected_files: files)
      |> push_patch(to: media_path(socket.assigns.media), replace: true)}
+  end
+
+  defp cancel_all_uploads(socket, upload) do
+    Enum.reduce(socket.assigns.uploads[upload].entries, socket, fn entry, socket ->
+      cancel_upload(socket, upload, entry.ref)
+    end)
   end
 
   defp handle_supplemental_files_upload(socket, media_params, name) do
@@ -221,6 +247,22 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       # if the _only_ error is the missing source-path, then we let it pass (at first)
       %{errors: [source_path: {"can't be blank", [validation: :required]}]} -> :ok
       changeset -> {:error, Map.put(changeset, :action, :validate)}
+    end
+  end
+
+  defp handle_image_upload(socket, media_params, name) do
+    case consume_uploaded_image(socket, name) do
+      {:ok, :no_file} -> {:ok, media_params}
+      {:ok, path} -> {:ok, Map.put(media_params, "image_path", path)}
+      {:error, _reason} -> {:error, :failed_upload}
+    end
+  end
+
+  defp handle_image_import(url, media_params) do
+    case handle_image_import(url) do
+      {:ok, :no_image_url} -> {:ok, media_params}
+      {:ok, path} -> {:ok, Map.put(media_params, "image_path", path)}
+      {:error, _reason} -> {:error, :failed_import}
     end
   end
 
@@ -351,6 +393,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp format_filesize(bytes) do
     bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()
+  end
+
+  defp preview_date_format(form) do
+    format_published(%{
+      published_format: Ecto.Changeset.get_field(form.source, :published_format),
+      published: Ecto.Changeset.get_field(form.source, :published)
+    })
   end
 
   defp media_path(media, params \\ %{})

@@ -1354,4 +1354,24 @@ defmodule AmbryWeb.CoreComponents do
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
   end
+
+  def format_published(%{published: nil}), do: nil
+
+  def format_published(%{published_format: :full, published: date}),
+    do: Calendar.strftime(date, "%B %-d, %Y")
+
+  def format_published(%{published_format: :year_month, published: date}),
+    do: Calendar.strftime(date, "%B %Y")
+
+  def format_published(%{published_format: :year, published: date}),
+    do: Calendar.strftime(date, "%Y")
+
+  def format_published(%{published_format: :full, published: date}, :short),
+    do: Calendar.strftime(date, "%x")
+
+  def format_published(%{published_format: :year_month, published: date}, :short),
+    do: Calendar.strftime(date, "%Y-%m")
+
+  def format_published(%{published_format: :year, published: date}, :short),
+    do: Calendar.strftime(date, "%Y")
 end
