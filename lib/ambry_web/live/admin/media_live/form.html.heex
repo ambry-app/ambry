@@ -102,6 +102,9 @@
         <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
       </div>
 
+      <.input type="hidden" field={@form[:image_type]} />
+      <.input type="hidden" field={@form[:image_path]} />
+
       <%= if @form[:image_path].value && @form[:image_path].value != "" do %>
         <div class="space-y-2">
           <.label class="flex items-center gap-2">

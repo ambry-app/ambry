@@ -1,7 +1,6 @@
-defmodule AmbryWeb.AuthorOrNarratorLive do
+defmodule AmbryWeb.AuthorLive do
   @moduledoc """
-  LiveView for showing an author (or narrator) and all of their authored (or
-  narrated) books.
+  LiveView for showing an author and all of their authored books.
   """
 
   use AmbryWeb, :live_view
@@ -16,20 +15,16 @@ defmodule AmbryWeb.AuthorOrNarratorLive do
     ~H"""
     <div class="mx-auto max-w-md space-y-8 p-4 sm:max-w-none sm:space-y-12 sm:p-10 md:max-w-screen-2xl md:p-12 lg:space-y-16 lg:p-16">
       <div class="flex items-center gap-4">
-        <.link
-          :if={@author_or_narrator.person.image_path}
-          navigate={~p"/people/#{@author_or_narrator.person}"}
-          class="flex-none"
-        >
+        <.link :if={@author.person.image_path} navigate={~p"/people/#{@author.person}"} class="flex-none">
           <img
-            src={@author_or_narrator.person.image_path}
+            src={@author.person.image_path}
             class="hidden rounded-full object-cover object-top shadow-lg sm:block sm:h-16 sm:w-16 xl:h-24 xl:w-24"
           />
         </.link>
         <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
-          <%= header_text(@live_action) %>
-          <.link navigate={~p"/people/#{@author_or_narrator.person}"} class="hover:underline">
-            <%= @author_or_narrator.name %>
+          Written by
+          <.link navigate={~p"/people/#{@author.person}"} class="hover:underline">
+            <%= @author.name %>
           </.link>
         </h1>
       </div>
@@ -39,22 +34,15 @@ defmodule AmbryWeb.AuthorOrNarratorLive do
     """
   end
 
-  defp header_text(:author), do: "Written by"
-  defp header_text(:narrator), do: "Narrated by"
-
   @impl Phoenix.LiveView
-  def mount(%{"id" => author_or_narrator_id}, _session, socket) do
-    author_or_narrator =
-      case socket.assigns.live_action do
-        :author -> People.get_author!(author_or_narrator_id)
-        :narrator -> People.get_narrator!(author_or_narrator_id)
-      end
+  def mount(%{"id" => author_id}, _session, socket) do
+    author = People.get_author!(author_id)
 
     {:ok,
      socket
      |> assign(
-       page_title: author_or_narrator.name,
-       author_or_narrator: author_or_narrator,
+       page_title: author.name,
+       author: author,
        page: 1,
        empty?: false
      )
@@ -79,10 +67,10 @@ defmodule AmbryWeb.AuthorOrNarratorLive do
   end
 
   defp paginate_books(socket, new_page) when new_page >= 1 do
-    %{page: current_page, author_or_narrator: author_or_narrator} = socket.assigns
+    %{page: current_page, author: author} = socket.assigns
 
     {books, more?} =
-      Books.get_authored_books(author_or_narrator, (new_page - 1) * @per_page, @per_page)
+      Books.get_authored_books(author, (new_page - 1) * @per_page, @per_page)
 
     {books, at, limit} =
       if new_page >= current_page do

@@ -6,6 +6,7 @@ defmodule AmbryWeb.PersonLive do
   use AmbryWeb, :live_view
 
   alias Ambry.Books
+  alias Ambry.Media
   alias Ambry.People
 
   # The number of books to show for each author or narrator.
@@ -47,7 +48,7 @@ defmodule AmbryWeb.PersonLive do
         </section>
       </div>
 
-      <div :for={%{author_or_narrator: author, books: books, more?: more?} <- @authored_books}>
+      <div :for={%{author: author, books: books, more?: more?} <- @authored_books}>
         <div class="flex items-baseline gap-4">
           <.books_header>
             Written by <.author_name author={author} person={@person} />
@@ -61,7 +62,7 @@ defmodule AmbryWeb.PersonLive do
         <.book_tiles books={books} />
       </div>
 
-      <div :for={%{author_or_narrator: narrator, books: books, more?: more?} <- @narrated_books}>
+      <div :for={%{narrator: narrator, media: media, more?: more?} <- @narrated_media}>
         <div class="flex items-baseline gap-4">
           <.books_header>
             Narrated by <.narrator_name narrator={narrator} person={@person} />
@@ -72,7 +73,7 @@ defmodule AmbryWeb.PersonLive do
           </.link>
         </div>
 
-        <.book_tiles books={books} />
+        <.media_tiles media={media} />
       </div>
     </div>
     """
@@ -82,22 +83,31 @@ defmodule AmbryWeb.PersonLive do
   def mount(%{"id" => person_id}, _session, socket) do
     person = People.get_person!(person_id)
     authored_books = get_books(person.authors)
-    narrated_books = get_books(person.narrators)
+    narrated_media = get_media(person.narrators)
 
     {:ok,
      assign(socket,
        page_title: person.name,
        person: person,
        authored_books: authored_books,
-       narrated_books: narrated_books
+       narrated_media: narrated_media
      )}
   end
 
-  defp get_books(authors_or_narrators) do
-    Enum.flat_map(authors_or_narrators, fn author_or_narrator ->
-      case Books.get_authored_books(author_or_narrator, 0, @books_limit) do
+  defp get_books(authors) do
+    Enum.flat_map(authors, fn author ->
+      case Books.get_authored_books(author, 0, @books_limit) do
         {[], _} -> []
-        {books, more?} -> [%{author_or_narrator: author_or_narrator, books: books, more?: more?}]
+        {books, more?} -> [%{author: author, books: books, more?: more?}]
+      end
+    end)
+  end
+
+  defp get_media(narrators) do
+    Enum.flat_map(narrators, fn narrator ->
+      case Media.get_narrated_media(narrator, 0, @books_limit) do
+        {[], _} -> []
+        {media, more?} -> [%{narrator: narrator, media: media, more?: more?}]
       end
     end)
   end

@@ -993,6 +993,30 @@ defmodule AmbryWeb.CoreComponents do
   attr :page, :integer, required: true
   attr :end?, :boolean, required: true
   attr :stream, :any, required: true
+  attr :next, :string, default: "next-page"
+  attr :prev, :string, default: "prev-page"
+  attr :rest, :global
+
+  def media_tiles_stream(assigns) do
+    ~H"""
+    <.grid
+      id={@id}
+      phx-update="stream"
+      phx-viewport-top={@page > 1 && @prev}
+      phx-viewport-bottom={!@end? && @next}
+      phx-page-loading
+      class={[if(@end?, do: "", else: "pb-[calc(200vh)]"), if(@page == 1, do: "", else: "pt-[calc(200vh)]")]}
+      {@rest}
+    >
+      <.media_tile :for={{id, media} <- @stream} media={media} id={id} />
+    </.grid>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :page, :integer, required: true
+  attr :end?, :boolean, required: true
+  attr :stream, :any, required: true
   attr :player, Player, required: true
   attr :next, :string, default: "next-page"
   attr :prev, :string, default: "prev-page"
@@ -1014,11 +1038,11 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  attr :books, :list, required: true
-
   @doc """
   Renders a list of books as a responsive grid of image tiles.
   """
+  attr :books, :list, required: true
+
   def book_tiles(assigns) do
     ~H"""
     <.grid>
@@ -1039,12 +1063,7 @@ defmodule AmbryWeb.CoreComponents do
       <% end %>
       <div class="group">
         <.link navigate={~p"/books/#{@book}"}>
-          <span class="block aspect-1">
-            <img
-              src={@book.image_path}
-              class="h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
-            />
-          </span>
+          <.book_multi_image paths={Enum.flat_map(@book.media, &if(&1.image_path, do: [&1.image_path], else: []))} />
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/books/#{@book}"}>
@@ -1060,6 +1079,115 @@ defmodule AmbryWeb.CoreComponents do
         <.series_book_links series_books={@book.series_books} />
       </div>
     </div>
+    """
+  end
+
+  @doc """
+  Renders a list of media as a responsive grid of image tiles.
+  """
+  attr :media, :list, required: true
+
+  def media_tiles(assigns) do
+    ~H"""
+    <.grid>
+      <.media_tile :for={media <- @media} media={media} />
+    </.grid>
+    """
+  end
+
+  attr :id, :string, default: nil
+  attr :media, Media, required: true
+
+  def media_tile(assigns) do
+    ~H"""
+    <div id={@id} class="text-center">
+      <div class="group">
+        <.link navigate={~p"/books/#{@media.book}"}>
+          <.book_multi_image paths={if @media.image_path, do: [@media.image_path], else: []} />
+        </.link>
+        <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+          <.link navigate={~p"/books/#{@media.book}"}>
+            <%= @media.book.title %>
+          </.link>
+        </p>
+      </div>
+      <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        by <.people_links people={@media.book.authors} />
+      </p>
+
+      <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+        <.series_book_links series_books={@media.book.series_books} />
+      </div>
+    </div>
+    """
+  end
+
+  attr :paths, :list, required: true
+
+  def book_multi_image(%{paths: []} = assigns) do
+    ~H"""
+    <span class="block aspect-1 h-full w-full bg-zinc-100 dark:bg-zinc-900" />
+    """
+  end
+
+  def book_multi_image(%{paths: [path]} = assigns) do
+    assigns = assign(assigns, :path, path)
+
+    ~H"""
+    <span class="block aspect-1">
+      <img src={@path} class="h-full w-full object-cover object-center" />
+    </span>
+    """
+  end
+
+  def book_multi_image(%{paths: [path1, path2]} = assigns) do
+    assigns = assign(assigns, path1: path1, path2: path2)
+
+    ~H"""
+    <span class="relative block aspect-1">
+      <img
+        src={@path2}
+        class={[
+          "h-full w-full object-cover object-center",
+          "origin-bottom-right rotate-2 transition-transform",
+          "group-hover:z-30 group-hover:translate-y-2 group-hover:rotate-6"
+        ]}
+      />
+      <img
+        src={@path1}
+        class={[
+          "absolute top-0 h-full w-full object-cover object-center",
+          "origin-bottom-left -rotate-2 transition-transform",
+          "group-hover:z-40 group-hover:translate-y-2 group-hover:-rotate-6"
+        ]}
+      />
+    </span>
+    """
+  end
+
+  def book_multi_image(%{paths: [path1, path2, path3 | _rest]} = assigns) do
+    assigns = assign(assigns, path1: path1, path2: path2, path3: path3)
+
+    ~H"""
+    <span class="relative block aspect-1">
+      <img
+        src={@path3}
+        class={[
+          "h-full w-full object-cover object-center",
+          "origin-bottom-left -rotate-3 transition-transform",
+          "group-hover:z-20 group-hover:translate-y-3 group-hover:-rotate-12"
+        ]}
+      />
+      <img
+        src={@path2}
+        class={[
+          "absolute top-0 h-full w-full object-cover object-center",
+          "origin-bottom-right rotate-3 transition-transform",
+          "group-hover:z-30 group-hover:translate-y-3 group-hover:rotate-12"
+        ]}
+      />
+      <img src={@path1} class={["absolute top-0 h-full w-full object-cover object-center", "group-hover:z-40"]} />
+    </span>
     """
   end
 
@@ -1080,10 +1208,7 @@ defmodule AmbryWeb.CoreComponents do
     <div id={@id} class="text-center">
       <div class="group">
         <div class="aspect-w-1 aspect-h-1 relative">
-          <img
-            src={@player_state.media.book.image_path}
-            class="h-full w-full rounded-t-sm border border-b-0 border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
-          />
+          <.book_multi_image paths={if @player_state.media.image_path, do: [@player_state.media.image_path], else: []} />
           <div class="absolute flex">
             <div
               phx-click={media_click_action(@player, @player_state.media)}

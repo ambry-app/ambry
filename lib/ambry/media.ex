@@ -201,6 +201,44 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  Returns a paginated list of media narrated by the given narrator.
+  """
+  def get_narrated_media(narrator, offset \\ 0, limit \\ 10) do
+    over_limit = limit + 1
+
+    query =
+      from b in Ecto.assoc(narrator, :media),
+        order_by: [desc: b.published],
+        offset: ^offset,
+        limit: ^over_limit,
+        preload: [book: [:authors, series_books: :series]]
+
+    media = Repo.all(query)
+
+    media_to_return = Enum.slice(media, 0, limit)
+
+    {media_to_return, media != media_to_return}
+  end
+
+  @doc """
+  Lists recent media.
+  """
+  def get_recent_media(offset \\ 0, limit \\ 10) do
+    over_limit = limit + 1
+
+    query = from m in Media, order_by: [desc: m.inserted_at], offset: ^offset, limit: ^over_limit
+
+    media =
+      query
+      |> preload(book: [:authors, series_books: :series])
+      |> Repo.all()
+
+    media_to_return = Enum.slice(media, 0, limit)
+
+    {media_to_return, media != media_to_return}
+  end
+
+  @doc """
   Gets recent player states for a given user.
   """
   def get_recent_player_states(user_id, offset \\ 0, limit \\ 10) do

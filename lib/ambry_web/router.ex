@@ -125,8 +125,8 @@ defmodule AmbryWeb.Router do
       live "/library", LibraryLive
       live "/shelf", ShelfLive
       live "/people/:id", PersonLive
-      live "/authors/:id", AuthorOrNarratorLive, :author
-      live "/narrators/:id", AuthorOrNarratorLive, :narrator
+      live "/authors/:id", AuthorLive
+      live "/narrators/:id", NarratorLive
       live "/series/:id", SeriesLive
       live "/books/:id", BookLive
       live "/search/:query", SearchLive

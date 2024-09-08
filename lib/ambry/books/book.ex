@@ -14,7 +14,7 @@ defmodule Ambry.Books.Book do
   alias Ambry.People.BookAuthor
 
   schema "books" do
-    has_many :media, Media
+    has_many :media, Media, preload_order: [desc: :published]
     has_many :series_books, SeriesBook, on_replace: :delete
     has_many :book_authors, BookAuthor, on_replace: :delete
     many_to_many :series, Series, join_through: "books_series"
