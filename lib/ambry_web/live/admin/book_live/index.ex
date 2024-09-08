@@ -16,7 +16,6 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     :series,
     :published,
     :media,
-    :has_description,
     :inserted_at
   ]
 
@@ -104,10 +103,6 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     list_opts = get_list_opts(socket)
 
     {:noreply, push_patch(socket, to: ~p"/admin/books?#{patch_opts(list_opts)}")}
-  end
-
-  def handle_event("row-click", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/admin/books/#{id}/edit")}
   end
 
   def handle_event("sort", %{"field" => sort_field}, socket) do

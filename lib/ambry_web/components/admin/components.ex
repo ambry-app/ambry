@@ -583,4 +583,43 @@ defmodule AmbryWeb.Admin.Components do
 
   def display_date(%PublishedDate{display_format: :year, date: date}),
     do: Calendar.strftime(date, "%Y")
+
+  def multi_image(%{paths: []} = assigns) do
+    ~H"""
+    <div class="h-16 w-16 bg-zinc-200 dark:bg-zinc-800" />
+    """
+  end
+
+  def multi_image(%{paths: [path]} = assigns) do
+    assigns = assign(assigns, :path, path)
+
+    ~H"""
+    <div class="h-16 w-16">
+      <img src={@path} class="h-full w-full" />
+    </div>
+    """
+  end
+
+  def multi_image(%{paths: [path1, path2]} = assigns) do
+    assigns = assign(assigns, %{path1: path1, path2: path2})
+
+    ~H"""
+    <div class="relative h-16 w-16">
+      <img src={@path2} class="absolute top-0 left-0 h-full w-full -translate-x-1 translate-y-1 -rotate-3" />
+      <img src={@path1} class="absolute top-0 left-0 h-full w-full" />
+    </div>
+    """
+  end
+
+  def multi_image(%{paths: [path1, path2, path3 | _rest]} = assigns) do
+    assigns = assign(assigns, %{path1: path1, path2: path2, path3: path3})
+
+    ~H"""
+    <div class="relative h-16 w-16">
+      <img src={@path3} class="absolute top-0 left-0 h-full w-full -translate-x-1 translate-y-1 -rotate-3" />
+      <img src={@path2} class="absolute top-0 left-0 h-full w-full" />
+      <img src={@path1} class="absolute top-0 left-0 h-full w-full translate-x-1 -translate-y-1 rotate-3" />
+    </div>
+    """
+  end
 end

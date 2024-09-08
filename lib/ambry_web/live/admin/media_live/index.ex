@@ -97,10 +97,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/media?#{patch_opts(list_opts)}")}
   end
 
-  def handle_event("row-click", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/admin/media/#{id}/edit")}
-  end
-
   def handle_event("sort", %{"field" => sort_field}, socket) do
     list_opts =
       socket

@@ -31,7 +31,7 @@
 
     <:row :let={person}>
       <div class="flex-shrink-0">
-        <div class="h-12 w-12">
+        <div class={["h-12 w-12", if(!person.image_path, do: "rounded-full bg-zinc-200 dark:bg-zinc-800")]}>
           <img
             :if={person.image_path}
             src={person.image_path}

@@ -114,10 +114,6 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/people?#{patch_opts(list_opts)}")}
   end
 
-  def handle_event("row-click", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/admin/people/#{id}/edit")}
-  end
-
   def handle_event("sort", %{"field" => sort_field}, socket) do
     list_opts =
       socket
