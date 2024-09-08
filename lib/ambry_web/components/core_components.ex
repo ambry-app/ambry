@@ -1145,20 +1145,14 @@ defmodule AmbryWeb.CoreComponents do
 
     ~H"""
     <span class="relative block aspect-1">
-      <img
-        src={@path2}
-        class={[
-          "h-full w-full object-cover object-center",
-          "origin-bottom-right rotate-2 transition-transform",
-          "group-hover:z-30 group-hover:translate-y-2 group-hover:rotate-6"
-        ]}
-      />
+      <img src={@path2} class={["h-full w-full object-cover object-center", "translate-x-1 translate-y-1", "scale-95"]} />
       <img
         src={@path1}
         class={[
           "absolute top-0 h-full w-full object-cover object-center",
-          "origin-bottom-left -rotate-2 transition-transform",
-          "group-hover:z-40 group-hover:translate-y-2 group-hover:-rotate-6"
+          "border border-zinc-200 shadow-md dark:border-zinc-800",
+          "-translate-x-1 -translate-y-1",
+          "scale-95"
         ]}
       />
     </span>
@@ -1170,23 +1164,24 @@ defmodule AmbryWeb.CoreComponents do
 
     ~H"""
     <span class="relative block aspect-1">
-      <img
-        src={@path3}
-        class={[
-          "h-full w-full object-cover object-center",
-          "origin-bottom-left -rotate-3 transition-transform",
-          "group-hover:z-20 group-hover:translate-y-3 group-hover:-rotate-12"
-        ]}
-      />
+      <img src={@path3} class={["h-full w-full object-cover object-center", "translate-x-2 translate-y-2", "scale-90"]} />
       <img
         src={@path2}
         class={[
           "absolute top-0 h-full w-full object-cover object-center",
-          "origin-bottom-right rotate-3 transition-transform",
-          "group-hover:z-30 group-hover:translate-y-3 group-hover:rotate-12"
+          "border border-zinc-200 shadow-md dark:border-zinc-800",
+          "scale-90"
         ]}
       />
-      <img src={@path1} class={["absolute top-0 h-full w-full object-cover object-center", "group-hover:z-40"]} />
+      <img
+        src={@path1}
+        class={[
+          "absolute top-0 h-full w-full object-cover object-center",
+          "border border-zinc-200 shadow-md dark:border-zinc-800",
+          "-translate-x-2 -translate-y-2",
+          "scale-90"
+        ]}
+      />
     </span>
     """
   end

@@ -605,8 +605,11 @@ defmodule AmbryWeb.Admin.Components do
 
     ~H"""
     <div class="relative h-16 w-16">
-      <img src={@path2} class="absolute top-0 left-0 h-full w-full -translate-x-1 translate-y-1 -rotate-3" />
-      <img src={@path1} class="absolute top-0 left-0 h-full w-full" />
+      <img src={@path2} class="translate-x-[2px] translate-y-[2px] absolute top-0 left-0 h-full w-full scale-95" />
+      <img
+        src={@path1}
+        class="-translate-x-[2px] -translate-y-[2px] absolute top-0 left-0 h-full w-full scale-95 border border-zinc-200 shadow-md dark:border-zinc-800"
+      />
     </div>
     """
   end
@@ -616,9 +619,15 @@ defmodule AmbryWeb.Admin.Components do
 
     ~H"""
     <div class="relative h-16 w-16">
-      <img src={@path3} class="absolute top-0 left-0 h-full w-full -translate-x-1 translate-y-1 -rotate-3" />
-      <img src={@path2} class="absolute top-0 left-0 h-full w-full" />
-      <img src={@path1} class="absolute top-0 left-0 h-full w-full translate-x-1 -translate-y-1 rotate-3" />
+      <img src={@path3} class="absolute top-0 left-0 h-full w-full translate-x-1 translate-y-1 scale-90" />
+      <img
+        src={@path2}
+        class="absolute top-0 left-0 h-full w-full scale-90 border border-zinc-200 shadow-md dark:border-zinc-800"
+      />
+      <img
+        src={@path1}
+        class="absolute top-0 left-0 h-full w-full -translate-x-1 -translate-y-1 scale-90 border border-zinc-200 shadow-md dark:border-zinc-800"
+      />
     </div>
     """
   end
