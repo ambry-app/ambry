@@ -94,8 +94,13 @@ defmodule AmbryWeb.SearchLive.Components do
   end
 
   defp image_paths(series) do
+    # use the first non-nil image path from each book in the series
     series.series_books
-    |> Enum.map(&hd(&1.book.media))
-    |> Enum.flat_map(&if(&1.image_path, do: [&1.image_path], else: []))
+    |> Enum.map(fn series_book ->
+      Enum.find_value(series_book.book.media, fn media ->
+        media.image_path
+      end)
+    end)
+    |> Enum.filter(& &1)
   end
 end

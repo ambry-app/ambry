@@ -25,7 +25,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
         />
         <div class="sm:pt-4 md:pt-6 lg:pt-8">
           <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-3xl xl:text-4xl">
-            <.link navigate={~p"/books/#{@media.book}"} class="hover:underline"><%= @media.book.title %></.link>
+            <.link navigate={~p"/audiobooks/#{@media}"} class="hover:underline"><%= @media.book.title %></.link>
           </h1>
 
           <p class="pb-4 text-zinc-800 dark:text-zinc-200 sm:text-lg xl:text-xl">
@@ -34,10 +34,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
 
           <p class="pb-4 text-zinc-800 dark:text-zinc-200 sm:text-lg">
             <span>
-              Narrated by <.people_links people={@media.narrators} />
-              <%= if @media.full_cast do %>
-                <span>full cast</span>
-              <% end %>
+              Narrated by <.people_links people={@media.narrators} full_cast={@media.full_cast} />
             </span>
           </p>
 

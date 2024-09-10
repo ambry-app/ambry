@@ -47,7 +47,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
     socket
     |> assign_form(changeset)
-    |> dbg()
     |> assign(
       page_title: media.book.title,
       media: media,

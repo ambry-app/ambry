@@ -254,16 +254,6 @@ defmodule AmbryWeb.Layouts do
     """
   end
 
-  defp progress_percent(nil), do: "0.0"
-
-  defp progress_percent(%{position: position, media: %{duration: duration}}) do
-    position
-    |> Decimal.div(duration)
-    |> Decimal.mult(100)
-    |> Decimal.round(1)
-    |> Decimal.to_string()
-  end
-
   defp player_controls(assigns) do
     ~H"""
     <div class="flex items-center gap-6 fill-current p-4 text-zinc-900 dark:text-zinc-100">
@@ -280,7 +270,7 @@ defmodule AmbryWeb.Layouts do
       </div>
       <div class="grow overflow-hidden text-ellipsis whitespace-nowrap">
         <span class="text-sm text-zinc-800 dark:text-zinc-300 sm:text-base">
-          <.link navigate={~p"/books/#{@player_state.media.book}"} class="hover:underline" phx-no-format>
+          <.link navigate={~p"/audiobooks/#{@player_state.media}"} class="hover:underline" phx-no-format>
           <%= @player_state.media.book.title %></.link> •
           <span>by <.people_links people={@player_state.media.book.authors} /></span>
           • narrated by <span><.people_links people={@player_state.media.narrators} /></span>

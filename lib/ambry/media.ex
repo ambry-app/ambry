@@ -95,6 +95,25 @@ defmodule Ambry.Media do
   def get_media!(id), do: Media |> preload([:book, :media_narrators]) |> Repo.get!(id)
 
   @doc """
+  Gets a media and the book with all its details.
+  """
+  def get_media_with_book_details!(id) do
+    media_query =
+      from m in Media, where: m.status == :ready and m.id != ^id, order_by: {:desc, :published}
+
+    Media
+    |> preload([
+      :narrators,
+      book: [
+        :authors,
+        series_books: :series,
+        media: ^{media_query, [:narrators, book: [:authors, series_books: :series]]}
+      ]
+    ])
+    |> Repo.get!(id)
+  end
+
+  @doc """
   Fetches a single media.
 
   Returns `{:ok, media}` on success or `{:error, :not_found}`.
@@ -226,7 +245,12 @@ defmodule Ambry.Media do
   def get_recent_media(offset \\ 0, limit \\ 10) do
     over_limit = limit + 1
 
-    query = from m in Media, order_by: [desc: m.inserted_at], offset: ^offset, limit: ^over_limit
+    query =
+      from m in Media,
+        where: m.status == :ready,
+        order_by: [desc: m.inserted_at],
+        offset: ^offset,
+        limit: ^over_limit
 
     media =
       query

@@ -134,9 +134,9 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   defp status_color(:error), do: :red
   defp status_color(:ready), do: :brand
 
-  defp progress_percent(nil), do: "0.0"
+  defp processing_progress_percent(nil), do: "0.0"
 
-  defp progress_percent(%Decimal{} = progress) do
+  defp processing_progress_percent(%Decimal{} = progress) do
     progress
     |> Decimal.mult(100)
     |> Decimal.round(1)
