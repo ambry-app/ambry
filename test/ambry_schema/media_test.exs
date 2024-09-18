@@ -17,6 +17,8 @@ defmodule AmbrySchema.MediaTest do
           duration
           mpdPath
           hlsPath
+          description
+          imagePath
           chapters {
             id
             title

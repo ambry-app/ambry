@@ -1,8 +1,6 @@
 defmodule Ambry.BooksTest do
   use Ambry.DataCase
 
-  import ExUnit.CaptureLog
-
   alias Ambry.Books
 
   describe "list_books/0" do
@@ -240,43 +238,6 @@ defmodule Ambry.BooksTest do
       assert_raise Ecto.NoResultsError, fn ->
         Books.get_book!(book.id)
       end
-    end
-
-    test "deletes the image file from disk used by a book" do
-      book = insert(:book)
-      create_fake_files!(book)
-
-      assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
-
-      :ok = Books.delete_book(book)
-
-      refute File.exists?(Ambry.Paths.web_to_disk(book.image_path))
-    end
-
-    test "does not delete the image file from disk if the same image is used by multiple books" do
-      book = insert(:book)
-      create_fake_files!(book)
-      book2 = insert(:book, image_path: book.image_path)
-
-      assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
-
-      fun = fn ->
-        :ok = Books.delete_book(book2)
-      end
-
-      assert capture_log(fun) =~ "Not deleting file because it's still in use"
-
-      assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
-    end
-
-    test "warns if the image file from disk used by a book does not exist" do
-      book = insert(:book)
-
-      fun = fn ->
-        :ok = Books.delete_book(book)
-      end
-
-      assert capture_log(fun) =~ "Couldn't delete file (enoent)"
     end
 
     test "cannot delete a book if it belongs to an uploaded media" do

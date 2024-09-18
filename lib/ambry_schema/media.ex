@@ -35,6 +35,9 @@ defmodule AmbrySchema.Media do
     field :published, :date
     field :published_format, non_null(:date_format)
 
+    field :image_path, :string
+    field :description, :string
+
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
   end

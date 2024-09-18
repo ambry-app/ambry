@@ -31,6 +31,8 @@ defmodule Ambry.Media do
   alias Ambry.PubSub
   alias Ambry.Repo
 
+  require Logger
+
   @media_preload [:narrators, book: [:authors, series_books: :series]]
   @player_state_preload [media: @media_preload]
 
@@ -203,7 +205,24 @@ defmodule Ambry.Media do
     mp4_path |> Paths.web_to_disk() |> try_delete_file()
     hls_path |> Paths.hls_playlist_path() |> Paths.web_to_disk() |> try_delete_file()
 
+    maybe_delete_image(media.image_path)
+
     :ok
+  end
+
+  defp maybe_delete_image(nil), do: :noop
+
+  defp maybe_delete_image(web_path) do
+    usage_count = Repo.aggregate(from(m in Media, where: m.image_path == ^web_path), :count)
+
+    if usage_count == 0 do
+      disk_path = Paths.web_to_disk(web_path)
+
+      try_delete_file(disk_path)
+    else
+      Logger.warning(fn -> "Not deleting file because it's still in use: #{web_path}" end)
+      {:error, :still_in_use}
+    end
   end
 
   @doc """

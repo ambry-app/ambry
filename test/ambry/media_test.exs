@@ -375,7 +375,14 @@ defmodule Ambry.MediaTest do
 
   describe "delete_media/1" do
     test "deletes a media" do
-      media = insert(:media, source_path: nil, mp4_path: nil, mpd_path: nil, hls_path: nil)
+      media =
+        insert(:media,
+          source_path: nil,
+          mp4_path: nil,
+          mpd_path: nil,
+          hls_path: nil,
+          image_path: nil
+        )
 
       :ok = Media.delete_media(media)
 
@@ -385,7 +392,7 @@ defmodule Ambry.MediaTest do
     end
 
     test "deletes the media files from disk used by a media" do
-      media = insert(:media)
+      media = insert(:media, image_path: nil)
       create_fake_files!(media)
 
       assert File.dir?(media.source_path)
@@ -404,10 +411,47 @@ defmodule Ambry.MediaTest do
     end
 
     test "warns if the media files from disk used by a media do not exist" do
-      media = insert(:media)
+      media = insert(:media, image_path: nil)
       create_fake_files!(media)
 
       media.mp4_path |> Paths.web_to_disk() |> File.rm!()
+
+      fun = fn ->
+        :ok = Media.delete_media(media)
+      end
+
+      assert capture_log(fun) =~ "Couldn't delete file (enoent)"
+    end
+
+    test "deletes the image file from disk used by a media" do
+      media = insert(:media)
+      create_fake_files!(media)
+
+      assert File.exists?(Ambry.Paths.web_to_disk(media.image_path))
+
+      :ok = Media.delete_media(media)
+
+      refute File.exists?(Ambry.Paths.web_to_disk(media.image_path))
+    end
+
+    test "does not delete the image file from disk if the same image is used by multiple media" do
+      media = insert(:media)
+      create_fake_files!(media)
+      media2 = insert(:media, image_path: media.image_path)
+
+      assert File.exists?(Ambry.Paths.web_to_disk(media.image_path))
+
+      fun = fn ->
+        :ok = Media.delete_media(media2)
+      end
+
+      assert capture_log(fun) =~ "Not deleting file because it's still in use"
+
+      assert File.exists?(Ambry.Paths.web_to_disk(media.image_path))
+    end
+
+    test "warns if the image file from disk used by a media does not exist" do
+      media = insert(:media)
 
       fun = fn ->
         :ok = Media.delete_media(media)

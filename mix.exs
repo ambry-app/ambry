@@ -65,7 +65,7 @@ defmodule Ambry.MixProject do
       {:ex_fontawesome, "~> 0.7"},
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:excoveralls, "~> 0.10", only: :test},
-      {:faker, "~> 0.17", only: [:dev, :test]},
+      {:faker, github: "elixirs/faker", only: [:dev, :test]},
       {:familiar, "~> 0.1"},
       {:file_size, "~> 3.0"},
       {:file_system, "~> 1.0"},

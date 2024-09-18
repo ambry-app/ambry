@@ -99,10 +99,6 @@ Repo.transaction(fn ->
     Repo.insert!(%Book{
       title: "The Hanging Stranger",
       published: ~D[1953-12-01],
-      image_path: "/uploads/images/39e43aece0d313944f4d6cfa83367a70.jpg",
-      description: """
-      'The Hanging Stranger' is a short story about a man who finds a dead stranger hanging from a lamp post and begins to realize that his town is not what he thought it was.
-      """,
       book_authors: [
         %BookAuthor{author_id: dick.id}
       ]
@@ -112,10 +108,6 @@ Repo.transaction(fn ->
     Repo.insert!(%Book{
       title: "Let's Get Together",
       published: ~D[1957-02-01],
-      image_path: "/uploads/images/2656d63152439460a48f2843beb3acaf.jpg",
-      description: """
-      "Let's Get Together" is a science fiction short story by American writer Isaac Asimov. It was originally published in the February 1957 issue of Infinity Science Fiction, and included in the collections The Rest of the Robots (1964) and The Complete Robot (1982). The robots in this tale are very different from Asimov's norm, being quite happy to work as war machines. The tale is also based on a continuation of Cold War hostility, rather than the peaceful unified world of most of the robot stories.
-      """,
       book_authors: [
         %BookAuthor{author_id: asimov.id}
       ]
@@ -125,12 +117,6 @@ Repo.transaction(fn ->
     Repo.insert!(%Book{
       title: "The Eyes Have It",
       published: ~D[1953-06-01],
-      image_path: "/uploads/images/31da0b1fd1ea0cc4b70e885ff2a73e53.jpg",
-      description: """
-      **_"It was quite by accident I discovered this incredible invasion of Earth by lifeforms from another planet. As yet, I haven't done anything about it; I can't think of anything to do."_**
-
-      Nobody blends satire and science fiction like renowned luminary of the genre Philip K. Dick. This short but utterly memorable tale tells the story of a man who is utterly convinced that the world is being overrun by aliens. Is he correct, or wildly off-base? Read _The Eyes Have It_ to find out.
-      """,
       book_authors: [
         %BookAuthor{author_id: dick.id}
       ]
@@ -140,16 +126,6 @@ Repo.transaction(fn ->
     Repo.insert!(%Book{
       title: "Youth",
       published: ~D[1952-05-06],
-      image_path: "/uploads/images/810e068bbf78088cbf7f00a5e13a8e6a.jpg",
-      description: """
-      Two young boys find some very unusual new pets in this short story from a Grand Master of Science Fiction.
-
-      Tagging along while his astronomer father visits an industrialist at his vast estate, young Slim is lucky enough to make fast friends with the industrialist’s son, Red, who has recently caught some very strange animals on the property.
-
-      The animals seem intelligent enough, and Red recruits Slim to help him train the odd creatures to do circus tricks. But the boys are about to discover their playthings aren’t exactly animals—and they’ve allowed themselves to be caught for a reason . . .
-
-      Youth is a riveting tale from the author of countless classics, including I, Robot and the Foundation Trilogy, which won the Hugo Award for Best All-Time Series.
-      """,
       book_authors: [
         %BookAuthor{author_id: asimov.id}
       ]
@@ -157,6 +133,10 @@ Repo.transaction(fn ->
 
   Repo.insert!(%Media{
     book_id: the_hanging_stranger.id,
+    image_path: "/uploads/images/39e43aece0d313944f4d6cfa83367a70.jpg",
+    description: """
+    'The Hanging Stranger' is a short story about a man who finds a dead stranger hanging from a lamp post and begins to realize that his town is not what he thought it was.
+    """,
     source_path: Path.join(cwd, "uploads/source_media/7ba49ac7-bf3f-4292-aa5c-3b5ac8c13553"),
     mpd_path: "/uploads/media/4bbb08a5-e668-4b95-81b3-ec2148bfe359.mpd",
     mp4_path: "/uploads/media/4bbb08a5-e668-4b95-81b3-ec2148bfe359.mp4",
@@ -174,6 +154,10 @@ Repo.transaction(fn ->
 
   Repo.insert!(%Media{
     book_id: lets_get_together.id,
+    image_path: "/uploads/images/2656d63152439460a48f2843beb3acaf.jpg",
+    description: """
+    "Let's Get Together" is a science fiction short story by American writer Isaac Asimov. It was originally published in the February 1957 issue of Infinity Science Fiction, and included in the collections The Rest of the Robots (1964) and The Complete Robot (1982). The robots in this tale are very different from Asimov's norm, being quite happy to work as war machines. The tale is also based on a continuation of Cold War hostility, rather than the peaceful unified world of most of the robot stories.
+    """,
     source_path: Path.join(cwd, "uploads/source_media/eb861262-e11d-4bc3-8741-3a386a0ba444"),
     mpd_path: "/uploads/media/112de3cd-e3d2-43d8-be8c-20d0dd0751cf.mpd",
     mp4_path: "/uploads/media/112de3cd-e3d2-43d8-be8c-20d0dd0751cf.mp4",
@@ -191,6 +175,12 @@ Repo.transaction(fn ->
 
   Repo.insert!(%Media{
     book_id: the_eyes_have_it.id,
+    image_path: "/uploads/images/31da0b1fd1ea0cc4b70e885ff2a73e53.jpg",
+    description: """
+    **_"It was quite by accident I discovered this incredible invasion of Earth by lifeforms from another planet. As yet, I haven't done anything about it; I can't think of anything to do."_**
+
+    Nobody blends satire and science fiction like renowned luminary of the genre Philip K. Dick. This short but utterly memorable tale tells the story of a man who is utterly convinced that the world is being overrun by aliens. Is he correct, or wildly off-base? Read _The Eyes Have It_ to find out.
+    """,
     source_path: Path.join(cwd, "uploads/source_media/3605fcfb-7b6e-46c5-959d-44e6e41631fc"),
     mpd_path: "/uploads/media/c365498e-20d5-491a-befe-85f900eddd5a.mpd",
     mp4_path: "/uploads/media/c365498e-20d5-491a-befe-85f900eddd5a.mp4",
@@ -208,6 +198,16 @@ Repo.transaction(fn ->
 
   Repo.insert!(%Media{
     book_id: youth.id,
+    image_path: "/uploads/images/810e068bbf78088cbf7f00a5e13a8e6a.jpg",
+    description: """
+    Two young boys find some very unusual new pets in this short story from a Grand Master of Science Fiction.
+
+    Tagging along while his astronomer father visits an industrialist at his vast estate, young Slim is lucky enough to make fast friends with the industrialist’s son, Red, who has recently caught some very strange animals on the property.
+
+    The animals seem intelligent enough, and Red recruits Slim to help him train the odd creatures to do circus tricks. But the boys are about to discover their playthings aren’t exactly animals—and they’ve allowed themselves to be caught for a reason . . .
+
+    Youth is a riveting tale from the author of countless classics, including I, Robot and the Foundation Trilogy, which won the Hugo Award for Best All-Time Series.
+    """,
     source_path: Path.join(cwd, "uploads/source_media/ab963d4f-029e-4ca5-817a-1854bed2a600"),
     mpd_path: "/uploads/media/57031423-3891-40df-82a3-af99a97de567.mpd",
     mp4_path: "/uploads/media/57031423-3891-40df-82a3-af99a97de567.mp4",
