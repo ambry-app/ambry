@@ -17,6 +17,7 @@ defmodule Ambry.People do
   import Ambry.Utils
   import Ecto.Query
 
+  alias Ambry.Deletions
   alias Ambry.Paths
   alias Ambry.People.Author
   alias Ambry.People.Narrator
@@ -163,22 +164,38 @@ defmodule Ambry.People do
 
   """
   def delete_person(%Person{} = person) do
-    case Repo.delete(change_person(person)) do
-      {:ok, person} ->
-        maybe_delete_image(person.image_path)
-        PubSub.broadcast_delete(person)
-        :ok
+    fn ->
+      case Repo.delete(change_person(person)) do
+        {:ok, person} ->
+          Deletions.track!(:person, person.id)
+          maybe_delete_image(person.image_path)
+          PubSub.broadcast_delete(person)
+          {:ok, person}
 
-      {:error, changeset} ->
-        cond do
-          Keyword.has_key?(changeset.errors, :author) ->
-            {:error, {:has_authored_books, get_authored_books_list(person)}}
+        {:error, changeset} ->
+          cond do
+            Keyword.has_key?(changeset.errors, :author) ->
+              {:error, {:has_authored_books, person}}
 
-          Keyword.has_key?(changeset.errors, :narrator) ->
-            {:error, {:has_narrated_books, get_narrated_books_list(person)}}
-        end
+            Keyword.has_key?(changeset.errors, :narrator) ->
+              {:error, {:has_narrated_books, person}}
+
+            true ->
+              {:error, changeset}
+          end
+      end
     end
+    |> Repo.transact()
+    |> handle_delete_result()
   end
+
+  defp handle_delete_result({:ok, _person}), do: :ok
+
+  defp handle_delete_result({:error, {:has_authored_books, person}}),
+    do: {:error, {:has_authored_books, get_authored_books_list(person)}}
+
+  defp handle_delete_result({:error, {:has_narrated_books, person}}),
+    do: {:error, {:has_narrated_books, get_narrated_books_list(person)}}
 
   defp maybe_delete_image(nil), do: :noop
 

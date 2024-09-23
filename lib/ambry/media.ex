@@ -22,6 +22,7 @@ defmodule Ambry.Media do
 
   alias Ambry.Accounts
   alias Ambry.Books
+  alias Ambry.Deletions
   alias Ambry.Media.Audit
   alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
@@ -182,12 +183,15 @@ defmodule Ambry.Media do
 
   """
   def delete_media(%Media{} = media) do
-    case Repo.delete(media) do
-      {:ok, media} ->
-        delete_media_files(media)
-        PubSub.broadcast_delete(media)
-        :ok
-    end
+    Repo.transact(fn ->
+      case Repo.delete(media) do
+        {:ok, media} ->
+          Deletions.track!(:media, media.id)
+          delete_media_files(media)
+          PubSub.broadcast_delete(media)
+          :ok
+      end
+    end)
   end
 
   defp delete_media_files(%Media{} = media) do
