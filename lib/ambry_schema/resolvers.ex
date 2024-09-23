@@ -11,6 +11,7 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Books.Book
   alias Ambry.Books.Series
   alias Ambry.Books.SeriesBook
+  alias Ambry.Deletions.Deletion
   alias Ambry.Hashids
   alias Ambry.Media.Media
   alias Ambry.Media.PlayerState
@@ -19,6 +20,7 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.People.Person
   alias Ambry.Repo
   alias Ambry.Search
+  alias Ambry.Sync
 
   def create_session(%{email: email, password: password}, _resolution) do
     if user = Accounts.get_user_by_email_and_password(email, password) do
@@ -81,6 +83,10 @@ defmodule AmbrySchema.Resolvers do
     end
   end
 
+  def sync(args, _resolution) do
+    Sync.since(args[:since])
+  end
+
   def load_player_state(%{media_id: media_id}, %{context: %{current_user: %User{} = user}}) do
     with {:ok, %{id: media_id, type: :media}} <- from_global_id(media_id, AmbrySchema) do
       player_state = Ambry.Media.get_or_create_player_state!(user.id, media_id)
@@ -138,6 +144,7 @@ defmodule AmbrySchema.Resolvers do
 
   def node(%{type: :author, id: id}, _resolution), do: {:ok, Repo.get(Author, id)}
   def node(%{type: :book, id: id}, _resolution), do: {:ok, Repo.get(Book, id)}
+  def node(%{type: :deletion, id: id}, _resolution), do: {:ok, Repo.get(Deletion, id)}
   def node(%{type: :media, id: id}, _resolution), do: {:ok, Repo.get(Media, id)}
   def node(%{type: :narrator, id: id}, _resolution), do: {:ok, Repo.get(Narrator, id)}
   def node(%{type: :person, id: id}, _resolution), do: {:ok, Repo.get(Person, id)}
@@ -151,6 +158,7 @@ defmodule AmbrySchema.Resolvers do
 
   def type(%Author{}, _resolution), do: :author
   def type(%Book{}, _resolution), do: :book
+  def type(%Deletion{}, _resolution), do: :deletion
   def type(%Media{}, _resolution), do: :media
   def type(%Narrator{}, _resolution), do: :narrator
   def type(%Person{}, _resolution), do: :person

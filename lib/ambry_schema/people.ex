@@ -23,6 +23,7 @@ defmodule AmbrySchema.People do
     field :updated_at, non_null(:datetime)
 
     interface :search_result
+    interface :sync_result
   end
 
   node object(:author) do

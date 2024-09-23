@@ -32,6 +32,7 @@ defmodule AmbrySchema.Books do
     field :updated_at, non_null(:datetime)
 
     interface :search_result
+    interface :sync_result
   end
 
   node object(:book) do
@@ -51,6 +52,7 @@ defmodule AmbrySchema.Books do
     field :updated_at, non_null(:datetime)
 
     interface :search_result
+    interface :sync_result
 
     field :image_path, :string, deprecate: "imagePath has been moved to `Media`"
     field :description, :string, deprecate: "description has been moved to `Media`"

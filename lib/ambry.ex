@@ -21,6 +21,7 @@ defmodule Ambry do
       {PubSub, []},
       {Repo, []},
       {Search, []},
+      {Sync, []},
       {Utils, []}
     ]
 end

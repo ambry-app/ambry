@@ -40,6 +40,8 @@ defmodule AmbrySchema.Media do
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
+
+    interface :sync_result
   end
 
   enum :player_state_status do
