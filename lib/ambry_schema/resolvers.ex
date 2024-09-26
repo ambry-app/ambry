@@ -14,8 +14,10 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Deletions.Deletion
   alias Ambry.Hashids
   alias Ambry.Media.Media
+  alias Ambry.Media.MediaNarrator
   alias Ambry.Media.PlayerState
   alias Ambry.People.Author
+  alias Ambry.People.BookAuthor
   alias Ambry.People.Narrator
   alias Ambry.People.Person
   alias Ambry.Repo
@@ -83,9 +85,25 @@ defmodule AmbrySchema.Resolvers do
     end
   end
 
-  def sync(args, _resolution) do
-    Sync.since(args[:since])
-  end
+  def people_changed_since(args, _resolution), do: Sync.changes_since(Person, args[:since])
+  def authors_changed_since(args, _resolution), do: Sync.changes_since(Author, args[:since])
+  def narrators_changed_since(args, _resolution), do: Sync.changes_since(Narrator, args[:since])
+  def books_changed_since(args, _resolution), do: Sync.changes_since(Book, args[:since])
+
+  def book_authors_changed_since(args, _resolution),
+    do: Sync.changes_since(BookAuthor, args[:since])
+
+  def series_changed_since(args, _resolution), do: Sync.changes_since(Series, args[:since])
+
+  def series_books_changed_since(args, _resolution),
+    do: Sync.changes_since(SeriesBook, args[:since])
+
+  def media_changed_since(args, _resolution), do: Sync.changes_since(Media, args[:since])
+
+  def media_narrators_changed_since(args, _resolution),
+    do: Sync.changes_since(MediaNarrator, args[:since])
+
+  def deletions_since(args, _resolution), do: Sync.deletions_since(args[:since])
 
   def load_player_state(%{media_id: media_id}, %{context: %{current_user: %User{} = user}}) do
     with {:ok, %{id: media_id, type: :media}} <- from_global_id(media_id, AmbrySchema) do
@@ -144,8 +162,10 @@ defmodule AmbrySchema.Resolvers do
 
   def node(%{type: :author, id: id}, _resolution), do: {:ok, Repo.get(Author, id)}
   def node(%{type: :book, id: id}, _resolution), do: {:ok, Repo.get(Book, id)}
+  def node(%{type: :book_author, id: id}, _resolution), do: {:ok, Repo.get(BookAuthor, id)}
   def node(%{type: :deletion, id: id}, _resolution), do: {:ok, Repo.get(Deletion, id)}
   def node(%{type: :media, id: id}, _resolution), do: {:ok, Repo.get(Media, id)}
+  def node(%{type: :media_narrator, id: id}, _resolution), do: {:ok, Repo.get(MediaNarrator, id)}
   def node(%{type: :narrator, id: id}, _resolution), do: {:ok, Repo.get(Narrator, id)}
   def node(%{type: :person, id: id}, _resolution), do: {:ok, Repo.get(Person, id)}
   def node(%{type: :series, id: id}, _resolution), do: {:ok, Repo.get(Series, id)}
@@ -158,8 +178,10 @@ defmodule AmbrySchema.Resolvers do
 
   def type(%Author{}, _resolution), do: :author
   def type(%Book{}, _resolution), do: :book
+  def type(%BookAuthor{}, _resolution), do: :book_author
   def type(%Deletion{}, _resolution), do: :deletion
   def type(%Media{}, _resolution), do: :media
+  def type(%MediaNarrator{}, _resolution), do: :media_narrator
   def type(%Narrator{}, _resolution), do: :narrator
   def type(%Person{}, _resolution), do: :person
   def type(%PlayerState{}, _resolution), do: :player_state
@@ -189,10 +211,20 @@ defmodule AmbrySchema.Resolvers do
 
   def data, do: Dataloader.Ecto.new(Repo, query: &query/2)
 
-  def query(queryable, params), do: queryable |> query_for() |> apply_params(params)
+  def query(Media, params) do
+    query =
+      if params[:allow_all_media] do
+        from(m in Media)
+      else
+        from m in Media, where: m.status == :ready
+      end
 
-  defp query_for(Media), do: from(m in Media, where: m.status == :ready)
-  defp query_for(queryable), do: queryable
+    apply_params(query, params)
+  end
+
+  def query(queryable, params) do
+    apply_params(queryable, params)
+  end
 
   defp apply_params(query, %{order: order}), do: from(q in query, order_by: ^order)
   defp apply_params(query, _params), do: query

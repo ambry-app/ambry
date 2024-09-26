@@ -17,7 +17,6 @@ defmodule Ambry.People do
   import Ambry.Utils
   import Ecto.Query
 
-  alias Ambry.Deletions
   alias Ambry.Paths
   alias Ambry.People.Author
   alias Ambry.People.Narrator
@@ -167,7 +166,6 @@ defmodule Ambry.People do
     fn ->
       case Repo.delete(change_person(person)) do
         {:ok, person} ->
-          Deletions.track!(:person, person.id)
           maybe_delete_image(person.image_path)
           PubSub.broadcast_delete(person)
           {:ok, person}

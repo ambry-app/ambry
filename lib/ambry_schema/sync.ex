@@ -8,16 +8,16 @@ defmodule AmbrySchema.Sync do
 
   alias AmbrySchema.Resolvers
 
-  interface :sync_result do
-    field :id, non_null(:id)
-    resolve_type &Resolvers.type/2
-  end
-
   enum :deletion_type do
-    value :book
-    value :media
     value :person
+    value :author
+    value :narrator
+    value :book
+    value :book_author
     value :series
+    value :series_book
+    value :media
+    value :media_narrator
   end
 
   node object(:deletion) do
@@ -25,22 +25,91 @@ defmodule AmbrySchema.Sync do
 
     field :record_id, non_null(:id),
       resolve: fn deletion, _, _ ->
-        dbg(deletion)
         {:ok, to_global_id(deletion.type, deletion.record_id, AmbrySchema)}
       end
 
     field :deleted_at, non_null(:datetime)
-
-    interface :sync_result
   end
 
   object :sync_queries do
-    field :sync, non_null(list_of(non_null(:sync_result))) do
+    field :people_changed_since, non_null(list_of(non_null(:person))) do
       arg :since, :datetime
 
       middleware AmbrySchema.AuthMiddleware
 
-      resolve &Resolvers.sync/2
+      resolve &Resolvers.people_changed_since/2
+    end
+
+    field :authors_changed_since, non_null(list_of(non_null(:author))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.authors_changed_since/2
+    end
+
+    field :narrators_changed_since, non_null(list_of(non_null(:narrator))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.narrators_changed_since/2
+    end
+
+    field :books_changed_since, non_null(list_of(non_null(:book))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.books_changed_since/2
+    end
+
+    field :book_authors_changed_since, non_null(list_of(non_null(:book_author))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.book_authors_changed_since/2
+    end
+
+    field :series_changed_since, non_null(list_of(non_null(:series))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.series_changed_since/2
+    end
+
+    field :series_books_changed_since, non_null(list_of(non_null(:series_book))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.series_books_changed_since/2
+    end
+
+    field :media_changed_since, non_null(list_of(non_null(:media))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.media_changed_since/2
+    end
+
+    field :media_narrators_changed_since, non_null(list_of(non_null(:media_narrator))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.media_narrators_changed_since/2
+    end
+
+    field :deletions_since, non_null(list_of(non_null(:deletion))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.deletions_since/2
     end
   end
 end

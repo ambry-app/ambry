@@ -8,6 +8,13 @@ defmodule AmbrySchema.Media do
 
   alias AmbrySchema.Resolvers
 
+  enum :media_processing_status do
+    value :pending
+    value :processing
+    value :error
+    value :ready
+  end
+
   object :chapter do
     field :id, non_null(:id)
     field :title, :string
@@ -16,6 +23,8 @@ defmodule AmbrySchema.Media do
   end
 
   node object(:media) do
+    field :status, non_null(:media_processing_status)
+
     field :full_cast, non_null(:boolean)
     field :abridged, non_null(:boolean)
     field :duration, :float, resolve: Resolvers.resolve_decimal(:duration)
@@ -40,8 +49,14 @@ defmodule AmbrySchema.Media do
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
+  end
 
-    interface :sync_result
+  node object(:media_narrator) do
+    field :media, non_null(:media), resolve: dataloader(Resolvers, args: %{allow_all_media: true})
+    field :narrator, non_null(:narrator), resolve: dataloader(Resolvers)
+
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
   end
 
   enum :player_state_status do

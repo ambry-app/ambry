@@ -21,7 +21,6 @@ defmodule Ambry.Books do
   alias Ambry.Books.BookFlat
   alias Ambry.Books.Series
   alias Ambry.Books.SeriesFlat
-  alias Ambry.Deletions
   alias Ambry.Media.Media
   alias Ambry.PubSub
   alias Ambry.Repo
@@ -149,7 +148,6 @@ defmodule Ambry.Books do
     Repo.transact(fn ->
       case Repo.delete(change_book(book)) do
         {:ok, book} ->
-          Deletions.track!(:book, book.id)
           PubSub.broadcast_delete(book)
           :ok
 
@@ -361,7 +359,6 @@ defmodule Ambry.Books do
   def delete_series(%Series{} = series) do
     Repo.transact(fn ->
       with {:ok, series} <- Repo.delete(change_series(series)) do
-        Deletions.track!(:series, series.id)
         PubSub.broadcast_delete(series)
         :ok
       end

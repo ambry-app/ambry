@@ -17,6 +17,8 @@ defmodule Ambry.Books.SeriesBook do
     belongs_to :series, Series
 
     field :book_number, :decimal
+
+    timestamps(type: :utc_datetime)
   end
 
   @doc false

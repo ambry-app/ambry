@@ -13,6 +13,8 @@ defmodule Ambry.Media.MediaNarrator do
   schema "media_narrators" do
     belongs_to :media, Media
     belongs_to :narrator, Narrator
+
+    timestamps(type: :utc_datetime)
   end
 
   @doc false

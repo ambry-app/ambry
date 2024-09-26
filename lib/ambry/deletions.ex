@@ -11,15 +11,4 @@ defmodule Ambry.Deletions do
     exports: [
       Deletion
     ]
-
-  alias Ambry.Deletions.Deletion
-  alias Ambry.Repo
-
-  def track!(type, id) do
-    Repo.insert!(%Deletion{
-      type: type,
-      record_id: id,
-      deleted_at: DateTime.truncate(DateTime.utc_now(), :second)
-    })
-  end
 end
