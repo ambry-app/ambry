@@ -111,5 +111,9 @@ defmodule AmbrySchema.Sync do
 
       resolve &Resolvers.deletions_since/2
     end
+
+    field :server_time, non_null(:datetime) do
+      resolve fn _, _, _ -> {:ok, DateTime.truncate(DateTime.utc_now(), :second)} end
+    end
   end
 end

@@ -155,8 +155,12 @@ defmodule AmbrySchema.Resolvers do
   end
 
   def resolve_decimal(key) do
-    fn %{^key => value}, _args, _resolution ->
-      {:ok, Decimal.to_float(value)}
+    fn
+      %{^key => nil}, _args, _resolution ->
+        {:ok, nil}
+
+      %{^key => value}, _args, _resolution ->
+        {:ok, Decimal.to_float(value)}
     end
   end
 
