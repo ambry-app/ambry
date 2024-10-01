@@ -78,9 +78,9 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   end
 
   defp save_file_to_disk!(mime, data, path_fun) do
-    hash = Base.encode16(:crypto.hash(:md5, data), case: :lower)
+    uuid = Ecto.UUID.generate()
     [ext | _] = MIME.extensions(mime)
-    filename = "#{hash}.#{ext}"
+    filename = "#{uuid}.#{ext}"
     dest = path_fun.(filename)
     File.write!(dest, data)
 

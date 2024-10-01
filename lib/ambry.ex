@@ -20,6 +20,7 @@ defmodule Ambry do
       {People, []},
       {PubSub, []},
       {Repo, []},
+      {Thumbnails, []},
       {Search, []},
       {Sync, []},
       {Utils, []}

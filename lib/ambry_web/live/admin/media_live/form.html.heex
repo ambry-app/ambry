@@ -110,7 +110,28 @@
           <.label class="flex items-center gap-2">
             Image <.image_delete_button field={@form[:image_path]} />
           </.label>
-          <.image_with_size id={"image-#{@media.id}"} src={@form[:image_path].value} class="h-48 w-48 rounded-sm" />
+          <div class="flex flex-wrap gap-4">
+            <.image_with_size id={"image-#{@media.id}"} src={@form[:image_path].value} class="w-48 rounded-sm" />
+            <%= if @media.thumbnails do %>
+              <.image_with_size
+                id={"image-#{@media.id}-xl"}
+                src={@media.thumbnails.extra_large}
+                class="h-48 w-48 rounded-sm"
+              />
+              <.image_with_size id={"image-#{@media.id}-lg"} src={@media.thumbnails.large} class="h-48 w-48 rounded-sm" />
+              <.image_with_size
+                id={"image-#{@media.id}-md"}
+                src={@media.thumbnails.medium}
+                class="h-48 w-48 rounded-sm"
+              />
+              <.image_with_size id={"image-#{@media.id}-sm"} src={@media.thumbnails.small} class="h-32 w-32 rounded-sm" />
+              <.image_with_size
+                id={"image-#{@media.id}-xs"}
+                src={@media.thumbnails.extra_small}
+                class="h-16 w-16 rounded-sm"
+              />
+            <% end %>
+          </div>
         </div>
       <% else %>
         <div class="space-y-2">

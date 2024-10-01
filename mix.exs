@@ -73,6 +73,7 @@ defmodule Ambry.MixProject do
       {:floki, ">= 0.30.0"},
       {:gettext, "~> 0.20"},
       {:hashids, "~> 2.0"},
+      {:image, "~> 0.37"},
       {:jason, "~> 1.2"},
       {:mneme, ">= 0.0.0", only: [:dev, :test]},
       {:natural_order, "~> 0.3"},
@@ -92,7 +93,8 @@ defmodule Ambry.MixProject do
       {:tailwind_formatter, "~> 0.4.0", only: [:dev, :test], runtime: false},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 1.0"},
-      {:telemetry_poller, "~> 1.0"}
+      {:telemetry_poller, "~> 1.0"},
+      {:thumbhash, "~> 0.1.0-alpha.0"}
     ]
   end
 

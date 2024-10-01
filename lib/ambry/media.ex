@@ -18,6 +18,7 @@ defmodule Ambry.Media do
     ]
 
   import Ambry.Utils
+  import Ecto.Changeset
   import Ecto.Query
 
   alias Ambry.Accounts
@@ -30,6 +31,8 @@ defmodule Ambry.Media do
   alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
+  alias Ambry.Thumbnails
+  alias Ambry.Thumbnails.GenerateThumbnails
 
   require Logger
 
@@ -147,6 +150,13 @@ defmodule Ambry.Media do
     %Media{}
     |> Media.changeset(attrs, for: :create)
     |> Repo.insert()
+    |> tap_ok(fn media ->
+      unless is_nil(media.image_path) do
+        %{"media_id" => media.id}
+        |> GenerateThumbnails.new()
+        |> Oban.insert!()
+      end
+    end)
     |> tap_ok(&PubSub.broadcast_create/1)
   end
 
@@ -163,10 +173,24 @@ defmodule Ambry.Media do
 
   """
   def update_media(%Media{} = media, attrs, for: action) do
-    media
-    |> Media.changeset(attrs, for: action)
-    |> Repo.update()
-    |> tap_ok(&PubSub.broadcast_update/1)
+    Repo.transact(fn ->
+      media
+      |> Media.changeset(attrs, for: action)
+      |> tap(fn changeset ->
+        if changeset.valid? && changed?(changeset, :image_path) do
+          %{"media_id" => media.id}
+          |> GenerateThumbnails.new()
+          |> Oban.insert!()
+        end
+      end)
+      |> Repo.update()
+      |> tap_ok(&PubSub.broadcast_update/1)
+      |> tap_ok(fn updated_media ->
+        if is_nil(updated_media.image_path) && !is_nil(media.image_path) do
+          maybe_delete_image(media.image_path)
+        end
+      end)
+    end)
   end
 
   @doc """
@@ -208,6 +232,9 @@ defmodule Ambry.Media do
     hls_path |> Paths.hls_playlist_path() |> Paths.web_to_disk() |> try_delete_file()
 
     maybe_delete_image(media.image_path)
+
+    unless is_nil(media.thumbnails),
+      do: Thumbnails.try_delete_thumbnails(media.thumbnails)
 
     :ok
   end
@@ -281,6 +308,26 @@ defmodule Ambry.Media do
     media_to_return = Enum.slice(media, 0, limit)
 
     {media_to_return, media != media_to_return}
+  end
+
+  @doc """
+  Generate and store a `%Thumbnails{}` struct on the given media
+  """
+  def generate_thumbnails!(%Media{image_path: nil} = media) do
+    unless is_nil(media.thumbnails) do
+      Ambry.Thumbnails.try_delete_thumbnails(media.thumbnails)
+      {:ok, _media} = update_media(media, %{thumbnails: nil}, for: :thumbnails_update)
+    end
+
+    :ok
+  end
+
+  def generate_thumbnails!(%Media{image_path: image_web_path} = media) do
+    thumbnails = Ambry.Thumbnails.generate_thumbnails!(image_web_path)
+
+    {:ok, _media} = update_media(media, %{thumbnails: thumbnails}, for: :thumbnails_update)
+
+    :ok
   end
 
   @doc """

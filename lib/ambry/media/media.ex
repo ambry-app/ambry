@@ -15,6 +15,7 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.Processor
   alias Ambry.People.Narrator
   alias Ambry.Repo.SupplementalFile
+  alias Ambry.Thumbnails
 
   @statuses [:pending, :processing, :error, :ready]
 
@@ -27,6 +28,7 @@ defmodule Ambry.Media.Media do
 
     embeds_many :chapters, Chapter, on_replace: :delete
     embeds_many :supplemental_files, SupplementalFile, on_replace: :delete
+    embeds_one :thumbnails, Thumbnails, on_replace: :delete
 
     field :full_cast, :boolean, default: false
     field :status, Ecto.Enum, values: @statuses, default: :pending
@@ -116,6 +118,12 @@ defmodule Ambry.Media.Media do
       :status
     ])
     |> status_based_validation()
+  end
+
+  def changeset(media, attrs, for: :thumbnails_update) do
+    media
+    |> cast(attrs, [])
+    |> cast_embed(:thumbnails)
   end
 
   defp status_based_validation(changeset) do

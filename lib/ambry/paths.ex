@@ -52,6 +52,8 @@ defmodule Ambry.Paths do
   @doc """
   Convert a disk path to a "relative" (web) path.
   """
+  def disk_to_web(nil), do: nil
+
   def disk_to_web(path) do
     String.replace(path, uploads_folder_disk_path(), "/uploads")
   end

@@ -44,11 +44,13 @@ defmodule AmbrySchema.Media do
     field :published, :date
     field :published_format, non_null(:date_format)
 
-    field :image_path, :string
     field :description, :string
+    field :thumbnails, :thumbnails
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
+
+    field :image_path, :string, deprecate: "use `thumbnails` instead"
   end
 
   node object(:media_narrator) do
