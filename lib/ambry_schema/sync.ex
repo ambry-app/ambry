@@ -104,6 +104,14 @@ defmodule AmbrySchema.Sync do
       resolve &Resolvers.media_narrators_changed_since/2
     end
 
+    field :player_states_changed_since, non_null(list_of(non_null(:player_state))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.player_states_changed_since/2
+    end
+
     field :deletions_since, non_null(list_of(non_null(:deletion))) do
       arg :since, :datetime
 

@@ -103,6 +103,9 @@ defmodule AmbrySchema.Resolvers do
   def media_narrators_changed_since(args, _resolution),
     do: Sync.changes_since(MediaNarrator, args[:since])
 
+  def player_states_changed_since(args, _resolution),
+    do: Sync.changes_since(PlayerState, args[:since])
+
   def deletions_since(args, _resolution), do: Sync.deletions_since(args[:since])
 
   def load_player_state(%{media_id: media_id}, %{context: %{current_user: %User{} = user}}) do
