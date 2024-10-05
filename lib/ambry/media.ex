@@ -176,21 +176,25 @@ defmodule Ambry.Media do
     Repo.transact(fn ->
       media
       |> Media.changeset(attrs, for: action)
-      |> tap(fn changeset ->
-        if changeset.valid? && changed?(changeset, :image_path) do
-          %{"media_id" => media.id}
-          |> GenerateThumbnails.new()
-          |> Oban.insert!()
-        end
-      end)
+      |> tap(&maybe_generate_thumbnails(&1, media))
       |> Repo.update()
       |> tap_ok(&PubSub.broadcast_update/1)
-      |> tap_ok(fn updated_media ->
-        if is_nil(updated_media.image_path) && !is_nil(media.image_path) do
-          maybe_delete_image(media.image_path)
-        end
-      end)
+      |> tap_ok(&maybe_maybe_delete_image(&1, media))
     end)
+  end
+
+  defp maybe_generate_thumbnails(changeset, media) do
+    if changeset.valid? && changed?(changeset, :image_path) do
+      %{"media_id" => media.id}
+      |> GenerateThumbnails.new()
+      |> Oban.insert!()
+    end
+  end
+
+  defp maybe_maybe_delete_image(updated_media, original_media) do
+    if is_nil(updated_media.image_path) && !is_nil(original_media.image_path) do
+      maybe_delete_image(original_media.image_path)
+    end
   end
 
   @doc """

@@ -133,6 +133,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       save_media(socket, socket.assigns.live_action, media_params)
     else
       {:error, %Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}
+      {:error, :failed_upload} -> {:noreply, put_flash(socket, :error, "Failed to upload image")}
+      {:error, :failed_import} -> {:noreply, put_flash(socket, :error, "Failed to import image")}
     end
   end
 
@@ -245,7 +247,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       %{valid?: true} -> :ok
       # if the _only_ error is the missing source-path, then we let it pass (at first)
       %{errors: [source_path: {"can't be blank", [validation: :required]}]} -> :ok
-      changeset -> {:error, Map.put(changeset, :action, :validate)}
+      %Changeset{} = changeset -> {:error, Map.put(changeset, :action, :validate)}
     end
   end
 
