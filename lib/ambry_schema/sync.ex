@@ -121,7 +121,7 @@ defmodule AmbrySchema.Sync do
     end
 
     field :server_time, non_null(:datetime) do
-      resolve fn _, _, _ -> {:ok, DateTime.truncate(DateTime.utc_now(), :second)} end
+      resolve fn _, _, _ -> {:ok, DateTime.utc_now()} end
     end
   end
 end

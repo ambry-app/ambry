@@ -72,7 +72,7 @@ defmodule AmbrySchema.Media do
     field :position, non_null(:float), resolve: Resolvers.resolve_decimal(:position)
     field :status, non_null(:player_state_status)
 
-    field :media, non_null(:media), resolve: dataloader(Resolvers)
+    field :media, non_null(:media), resolve: dataloader(Resolvers, args: %{allow_all_media: true})
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
