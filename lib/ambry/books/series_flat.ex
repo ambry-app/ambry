@@ -11,7 +11,7 @@ defmodule Ambry.Books.SeriesFlat do
     field :name, :string
     field :books, :integer
     field :media, :integer
-    field :image_paths, {:array, :string}
+    field :thumbnails, {:array, :string}
     field :authors, {:array, PersonName.Type}
 
     timestamps(type: :utc_datetime)

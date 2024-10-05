@@ -9,7 +9,6 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
   alias Ambry.People
   alias Ambry.PubSub
-  alias Ambry.Thumbnails
 
   @valid_sort_fields [
     :name,
@@ -137,16 +136,4 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
   @impl Phoenix.LiveView
   def handle_info(%PubSub.Message{type: :person}, socket), do: {:noreply, refresh_people(socket)}
-
-  defp thumbnail(%{person: %{thumbnails: %Thumbnails{}}} = assigns) do
-    ~H"""
-    <img src={@person.thumbnails.extra_small} class="h-full w-full rounded-full object-cover object-top" />
-    """
-  end
-
-  defp thumbnail(assigns) do
-    ~H"""
-    <img :if={@person.image_path} src={@person.image_path} class="h-full w-full rounded-full object-cover object-top" />
-    """
-  end
 end

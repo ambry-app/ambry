@@ -15,7 +15,7 @@ defmodule Ambry.Media.MediaFlat do
     field :duration, :decimal
     field :chapters, :integer
     field :book, :string
-    field :image_path, :string
+    field :thumbnail, :string
     field :series, {:array, SeriesBookType.Type}
     field :universe, :string
     field :authors, {:array, PersonName.Type}

@@ -34,8 +34,8 @@
 
     <:row :let={media}>
       <div class="flex flex-shrink-0 flex-col items-start">
-        <div class="h-16 w-16">
-          <img :if={media.image_path} src={media.image_path} class="h-full w-full" />
+        <div class={["h-16 w-16", if(!media.thumbnail, do: "bg-zinc-200 dark:bg-zinc-800")]}>
+          <img :if={media.thumbnail} src={media.thumbnail} class="h-full w-full" />
         </div>
         <.badge :if={media.status != :ready} color={status_color(media.status)} class="text-xs text-center w-16 !px-0">
           <%= media.status %>
