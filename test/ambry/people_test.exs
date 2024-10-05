@@ -127,7 +127,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "creates a person when given valid attributes" do
-      %{name: name} = params = params_for(:person)
+      %{name: name} = params = params_for(:person, image_path: nil)
 
       assert {:ok, person} = People.create_person(params)
 
@@ -135,7 +135,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "can create nested authors" do
-      %{name: person_name} = person_params = params_for(:person)
+      %{name: person_name} = person_params = params_for(:person, image_path: nil)
       %{name: author_name} = author_params = params_for(:author)
       params = Map.put(person_params, :authors, [author_params])
 
@@ -145,7 +145,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "can create nested narrators" do
-      %{name: person_name} = person_params = params_for(:person)
+      %{name: person_name} = person_params = params_for(:person, image_path: nil)
       %{name: narrator_name} = narrator_params = params_for(:narrator)
       params = Map.put(person_params, :narrators, [narrator_params])
 
