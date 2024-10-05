@@ -22,8 +22,11 @@ defmodule Ambry.Books do
   alias Ambry.Books.Series
   alias Ambry.Books.SeriesFlat
   alias Ambry.Media.Media
+  alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
+
+  require Logger
 
   @book_direct_assoc_preloads [:authors, :media, book_authors: [:author], series_books: [:series]]
 
@@ -148,6 +151,7 @@ defmodule Ambry.Books do
     Repo.transact(fn ->
       case Repo.delete(change_book(book)) do
         {:ok, book} ->
+          maybe_delete_image(book.image_path)
           PubSub.broadcast_delete(book)
           :ok
 
@@ -159,6 +163,21 @@ defmodule Ambry.Books do
           end
       end
     end)
+  end
+
+  defp maybe_delete_image(nil), do: :noop
+
+  defp maybe_delete_image(web_path) do
+    book_count = Repo.aggregate(from(b in Book, where: b.image_path == ^web_path), :count)
+
+    if book_count == 0 do
+      disk_path = Paths.web_to_disk(web_path)
+
+      try_delete_file(disk_path)
+    else
+      Logger.warning(fn -> "Not deleting file because it's still in use: #{web_path}" end)
+      {:error, :still_in_use}
+    end
   end
 
   @doc """

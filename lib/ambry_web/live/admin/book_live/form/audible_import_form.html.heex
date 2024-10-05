@@ -80,6 +80,30 @@
           </div>
         </.import_form_row>
 
+        <.import_form_row
+          :if={selected_book.description}
+          field={@form[:use_description]}
+          label="Description (Deprecated, only used by the old mobile app)"
+        >
+          <.markdown
+            content={selected_book.description}
+            class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-600 bg-zinc-800 p-2"
+          />
+        </.import_form_row>
+
+        <.import_form_row
+          :if={selected_book.cover_image}
+          field={@form[:use_cover_image]}
+          label="Image (Deprecated, only used by the old mobile app)"
+        >
+          <.image_with_size
+            :if={selected_book.cover_image}
+            id={@form[:use_cover_image].id}
+            src={selected_book.cover_image}
+            class="h-48 rounded-sm"
+          />
+        </.import_form_row>
+
         <:actions>
           <.button class="mt-2">Import</.button>
           <.button type="button" color={:zinc} phx-click={JS.exec("data-cancel", to: "#import-modal")}>

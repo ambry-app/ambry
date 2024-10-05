@@ -162,6 +162,9 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
             "published_format" => editions.first_published.display_format
           })
 
+        {"use_description", "true"}, acc ->
+          Map.put(acc, "description", book.description)
+
         {"use_authors", "true"}, acc ->
           Map.put(
             acc,
@@ -175,6 +178,13 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
             "series_books",
             build_series_params(book.series, socket.assigns.matching_series)
           )
+
+        {"use_cover_image", "true"}, acc ->
+          Map.merge(acc, %{
+            "image_path" => "",
+            "image_type" => "url_import",
+            "image_import_url" => book.cover_image
+          })
 
         _else, acc ->
           acc
@@ -260,11 +270,13 @@ defmodule AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm do
   end
 
   defp init_import_form_params(book) do
-    Map.new([:title, :published, :authors, :series], fn
+    Map.new([:title, :published, :description, :authors, :series, :image], fn
       :title -> {"use_title", is_nil(book.title)}
       :published -> {"use_published", is_nil(book.published)}
+      :description -> {"use_description", is_nil(book.description)}
       :authors -> {"use_authors", book.book_authors == []}
       :series -> {"use_series", book.series_books == []}
+      :image -> {"use_cover_image", is_nil(book.image_path)}
     end)
   end
 

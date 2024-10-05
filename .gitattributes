@@ -1,3 +1,4 @@
 test/ambry_scraping/audible/mocks/* linguist-vendored
 test/ambry_scraping/audnexus/mocks/* linguist-vendored
 test/ambry_scraping/goodreads/mocks/* linguist-vendored
+priv/static/voyager.html linguist-vendored
