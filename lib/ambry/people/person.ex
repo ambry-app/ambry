@@ -11,10 +11,13 @@ defmodule Ambry.People.Person do
 
   alias Ambry.People.Author
   alias Ambry.People.Narrator
+  alias Ambry.Thumbnails
 
   schema "people" do
     has_many :authors, Author, on_replace: :delete
     has_many :narrators, Narrator, on_replace: :delete
+
+    embeds_one :thumbnails, Thumbnails, on_replace: :delete
 
     field :name, :string
     field :description, :string
@@ -35,6 +38,7 @@ defmodule Ambry.People.Person do
       sort_param: :narrators_sort,
       drop_param: :narrators_drop
     )
+    |> cast_embed(:thumbnails)
     |> validate_required([:name])
     |> foreign_key_constraint(:author, name: "authors_books_author_id_fkey")
     |> foreign_key_constraint(:narrator, name: "media_narrators_narrator_id_fkey")

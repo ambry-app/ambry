@@ -93,7 +93,7 @@ defmodule AmbryWeb.Router do
   scope "/preview", AmbryWeb.Preview do
     pipe_through [:browser, :preview]
 
-    get "/books/:id", BookController, :show
+    get "/audiobooks/:id", AudiobookController, :show
   end
 
   ## Authentication routes
@@ -125,10 +125,11 @@ defmodule AmbryWeb.Router do
       live "/library", LibraryLive
       live "/shelf", ShelfLive
       live "/people/:id", PersonLive
-      live "/authors/:id", AuthorOrNarratorLive, :author
-      live "/narrators/:id", AuthorOrNarratorLive, :narrator
+      live "/authors/:id", AuthorLive
+      live "/narrators/:id", NarratorLive
       live "/series/:id", SeriesLive
       live "/books/:id", BookLive
+      live "/audiobooks/:id", AudiobookLive
       live "/search/:query", SearchLive
 
       live "/users/settings", UserSettingsLive, :edit

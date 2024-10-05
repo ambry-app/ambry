@@ -8,10 +8,21 @@ defmodule AmbrySchema.People do
 
   alias AmbrySchema.Resolvers
 
+  object :thumbnails do
+    field :extra_small, non_null(:string)
+    field :small, non_null(:string)
+    field :medium, non_null(:string)
+    field :large, non_null(:string)
+    field :extra_large, non_null(:string)
+
+    field :thumbhash, non_null(:string)
+    field :blurhash, :string
+  end
+
   node object(:person) do
     field :name, non_null(:string)
     field :description, :string
-    field :image_path, :string
+    field :thumbnails, :thumbnails
 
     field :authors, non_null(list_of(non_null(:author))),
       resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
@@ -21,6 +32,8 @@ defmodule AmbrySchema.People do
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
+
+    field :image_path, :string, deprecate: "use `thumbnails` instead"
 
     interface :search_result
   end

@@ -30,6 +30,7 @@ defmodule AmbrySchema do
   import_types AmbrySchema.Media
   import_types AmbrySchema.Sessions
   import_types AmbrySchema.Search
+  import_types AmbrySchema.Sync
 
   query do
     import_fields :node_query
@@ -37,6 +38,7 @@ defmodule AmbrySchema do
     import_fields :book_queries
     import_fields :media_queries
     import_fields :search_queries
+    import_fields :sync_queries
   end
 
   mutation do

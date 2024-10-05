@@ -32,10 +32,11 @@ defmodule AmbryWeb.SearchLive.Components do
     <div class="text-center">
       <div class="group">
         <.link navigate={~p"/people/#{@person}"}>
-          <span class="block aspect-1">
+          <span class={["block aspect-1", if(!@person.thumbnails, do: "rounded-full bg-zinc-200 dark:bg-zinc-800")]}>
             <img
-              src={@person.image_path}
-              class="h-full w-full rounded-full border border-zinc-200 object-cover object-top shadow-md dark:border-zinc-900"
+              :if={@person.thumbnails}
+              src={@person.thumbnails.large}
+              class="h-full w-full rounded-full object-cover object-top"
             />
           </span>
         </.link>
@@ -77,13 +78,11 @@ defmodule AmbryWeb.SearchLive.Components do
     <div class="text-center">
       <div class="group">
         <.link navigate={~p"/series/#{@series}"}>
-          <span class="relative block aspect-1">
-            <.series_images series_books={@series.series_books} />
-          </span>
+          <.book_multi_image thumbnails={thumbnails(@series)} />
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/series/#{@series}"}>
-            <%= @series.name %>
+            <%= @series.name %> (Series)
           </.link>
         </p>
       </div>
@@ -94,53 +93,14 @@ defmodule AmbryWeb.SearchLive.Components do
     """
   end
 
-  defp series_images(%{series_books: [series_book]} = assigns) do
-    assigns = assign(assigns, :book, series_book.book)
-
-    ~H"""
-    <img
-      src={@book.image_path}
-      class="absolute top-0 h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
-    />
-    """
-  end
-
-  defp series_images(%{series_books: [series_book_1, series_book_2]} = assigns) do
-    assigns = assign(assigns, %{book1: series_book_1.book, book2: series_book_2.book})
-
-    ~H"""
-    <img
-      src={@book2.image_path}
-      class="h-full w-full origin-bottom-right rounded-sm border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-30 group-hover:translate-y-2 group-hover:rotate-6 dark:border-zinc-900"
-    />
-    <img
-      src={@book1.image_path}
-      class="absolute top-0 h-full w-full origin-bottom-left rounded-sm border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-40 group-hover:translate-y-2 group-hover:-rotate-6 dark:border-zinc-900"
-    />
-    """
-  end
-
-  defp series_images(%{series_books: [series_book_1, series_book_2, series_book_3 | _]} = assigns) do
-    assigns =
-      assign(assigns, %{
-        book1: series_book_1.book,
-        book2: series_book_2.book,
-        book3: series_book_3.book
-      })
-
-    ~H"""
-    <img
-      src={@book3.image_path}
-      class="h-full w-full origin-bottom-left rounded-sm border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-20 group-hover:translate-y-3 group-hover:-rotate-12 dark:border-zinc-900"
-    />
-    <img
-      src={@book2.image_path}
-      class="absolute top-0 h-full w-full origin-bottom-right rounded-sm border border-zinc-200 object-cover object-center shadow-md transition-transform group-hover:z-30 group-hover:translate-y-3 group-hover:rotate-12 dark:border-zinc-900"
-    />
-    <img
-      src={@book1.image_path}
-      class="absolute top-0 h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md group-hover:z-40 dark:border-zinc-900"
-    />
-    """
+  defp thumbnails(series) do
+    # use the first non-nil image path from each book in the series
+    series.series_books
+    |> Enum.map(fn series_book ->
+      Enum.find_value(series_book.book.media, fn media ->
+        media.thumbnails
+      end)
+    end)
+    |> Enum.filter(& &1)
   end
 end

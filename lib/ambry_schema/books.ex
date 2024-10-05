@@ -19,6 +19,9 @@ defmodule AmbrySchema.Books do
 
     field :book, non_null(:book), resolve: dataloader(Resolvers)
     field :series, non_null(:series), resolve: dataloader(Resolvers)
+
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
   end
 
   node object(:series) do
@@ -36,10 +39,8 @@ defmodule AmbrySchema.Books do
 
   node object(:book) do
     field :title, non_null(:string)
-    field :description, :string
     field :published, non_null(:date)
     field :published_format, non_null(:date_format)
-    field :image_path, :string
 
     field :authors, non_null(list_of(non_null(:author))),
       resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
@@ -53,6 +54,17 @@ defmodule AmbrySchema.Books do
     field :updated_at, non_null(:datetime)
 
     interface :search_result
+
+    field :image_path, :string, deprecate: "imagePath has been moved to `Media`"
+    field :description, :string, deprecate: "description has been moved to `Media`"
+  end
+
+  node object(:book_author) do
+    field :author, non_null(:author), resolve: dataloader(Resolvers)
+    field :book, non_null(:book), resolve: dataloader(Resolvers)
+
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
   end
 
   connection(node_type: :book)

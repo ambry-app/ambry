@@ -111,12 +111,25 @@ defmodule AmbryWeb.Admin.MediaLive.Form.AudibleImportForm do
             "published_format" => "full"
           })
 
+        {"use_publisher", "true"}, acc ->
+          Map.put(acc, "publisher", book.publisher)
+
+        {"use_description", "true"}, acc ->
+          Map.put(acc, "description", book.description)
+
         {"use_narrators", "true"}, acc ->
           Map.put(
             acc,
             "media_narrators",
             build_narrators_params(book.narrators, socket.assigns.matching_narrators)
           )
+
+        {"use_cover_image", "true"}, acc ->
+          Map.merge(acc, %{
+            "image_path" => "",
+            "image_type" => "url_import",
+            "image_import_url" => book.cover_image
+          })
 
         _else, acc ->
           acc
@@ -166,9 +179,12 @@ defmodule AmbryWeb.Admin.MediaLive.Form.AudibleImportForm do
   end
 
   defp init_import_form_params(media) do
-    Map.new([:published, :narrators], fn
+    Map.new([:published, :publisher, :description, :narrators, :image], fn
       :published -> {"use_published", is_nil(media.published)}
+      :publisher -> {"use_publisher", is_nil(media.publisher)}
+      :description -> {"use_description", is_nil(media.description)}
       :narrators -> {"use_narrators", media.media_narrators == []}
+      :image -> {"use_cover_image", is_nil(media.image_path)}
     end)
   end
 end

@@ -535,7 +535,7 @@ defmodule Ambry.BooksTest do
     test "deletes a series" do
       series = insert(:series)
 
-      {:ok, _deleted_series} = Books.delete_series(series)
+      :ok = Books.delete_series(series)
 
       assert_raise Ecto.NoResultsError, fn ->
         Books.get_series!(series.id)

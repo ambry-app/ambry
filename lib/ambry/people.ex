@@ -15,6 +15,7 @@ defmodule Ambry.People do
     ]
 
   import Ambry.Utils
+  import Ecto.Changeset
   import Ecto.Query
 
   alias Ambry.Paths
@@ -24,6 +25,8 @@ defmodule Ambry.People do
   alias Ambry.People.PersonFlat
   alias Ambry.PubSub
   alias Ambry.Repo
+  alias Ambry.Thumbnails
+  alias Ambry.Thumbnails.GenerateThumbnails
 
   require Logger
 
@@ -118,10 +121,19 @@ defmodule Ambry.People do
 
   """
   def create_person(attrs \\ %{}) do
-    %Person{}
-    |> Person.changeset(attrs)
-    |> Repo.insert()
-    |> tap_ok(&PubSub.broadcast_create/1)
+    Repo.transact(fn ->
+      %Person{}
+      |> Person.changeset(attrs)
+      |> Repo.insert()
+      |> tap_ok(fn person ->
+        if !is_nil(person.image_path) do
+          %{"person_id" => person.id}
+          |> GenerateThumbnails.new()
+          |> Oban.insert!()
+        end
+      end)
+      |> tap_ok(&PubSub.broadcast_create/1)
+    end)
   end
 
   @doc """
@@ -137,11 +149,25 @@ defmodule Ambry.People do
 
   """
   def update_person(%Person{} = person, attrs) do
-    person
-    |> Repo.preload(@person_direct_assoc_preloads)
-    |> Person.changeset(attrs)
-    |> Repo.update()
-    |> tap_ok(&PubSub.broadcast_update/1)
+    Repo.transact(fn ->
+      person
+      |> Repo.preload(@person_direct_assoc_preloads)
+      |> Person.changeset(attrs)
+      |> tap(fn changeset ->
+        if changeset.valid? && changed?(changeset, :image_path) do
+          %{"person_id" => person.id}
+          |> GenerateThumbnails.new()
+          |> Oban.insert!()
+        end
+      end)
+      |> Repo.update()
+      |> tap_ok(&PubSub.broadcast_update/1)
+      |> tap_ok(fn updated_person ->
+        if is_nil(updated_person.image_path) && !is_nil(person.image_path) do
+          maybe_delete_image(person.image_path)
+        end
+      end)
+    end)
   end
 
   @doc """
@@ -163,22 +189,41 @@ defmodule Ambry.People do
 
   """
   def delete_person(%Person{} = person) do
-    case Repo.delete(change_person(person)) do
-      {:ok, person} ->
-        maybe_delete_image(person.image_path)
-        PubSub.broadcast_delete(person)
-        :ok
+    fn ->
+      case Repo.delete(change_person(person)) do
+        {:ok, person} ->
+          maybe_delete_image(person.image_path)
 
-      {:error, changeset} ->
-        cond do
-          Keyword.has_key?(changeset.errors, :author) ->
-            {:error, {:has_authored_books, get_authored_books_list(person)}}
+          if !is_nil(person.thumbnails),
+            do: Thumbnails.try_delete_thumbnails(person.thumbnails)
 
-          Keyword.has_key?(changeset.errors, :narrator) ->
-            {:error, {:has_narrated_books, get_narrated_books_list(person)}}
-        end
+          PubSub.broadcast_delete(person)
+          {:ok, person}
+
+        {:error, changeset} ->
+          cond do
+            Keyword.has_key?(changeset.errors, :author) ->
+              {:error, {:has_authored_books, person}}
+
+            Keyword.has_key?(changeset.errors, :narrator) ->
+              {:error, {:has_narrated_books, person}}
+
+            true ->
+              {:error, changeset}
+          end
+      end
     end
+    |> Repo.transact()
+    |> handle_delete_result()
   end
+
+  defp handle_delete_result({:ok, _person}), do: :ok
+
+  defp handle_delete_result({:error, {:has_authored_books, person}}),
+    do: {:error, {:has_authored_books, get_authored_books_list(person)}}
+
+  defp handle_delete_result({:error, {:has_narrated_books, person}}),
+    do: {:error, {:has_narrated_books, get_narrated_books_list(person)}}
 
   defp maybe_delete_image(nil), do: :noop
 
@@ -216,6 +261,26 @@ defmodule Ambry.People do
   """
   def change_person(%Person{} = person, attrs \\ %{}) do
     Person.changeset(person, attrs)
+  end
+
+  @doc """
+  Generate and store a `%Thumbnails{}` struct on the given media
+  """
+  def generate_thumbnails!(%Person{image_path: nil} = person) do
+    if !is_nil(person.thumbnails) do
+      Ambry.Thumbnails.try_delete_thumbnails(person.thumbnails)
+      {:ok, _person} = update_person(person, %{thumbnails: nil})
+    end
+
+    :ok
+  end
+
+  def generate_thumbnails!(%Person{image_path: image_web_path} = person) do
+    thumbnails = Ambry.Thumbnails.generate_thumbnails!(image_web_path)
+
+    {:ok, _person} = update_person(person, %{thumbnails: thumbnails})
+
+    :ok
   end
 
   # Narrators

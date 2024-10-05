@@ -10,6 +10,8 @@ defmodule Ambry.Books.SeriesFlat do
   schema "series_flat" do
     field :name, :string
     field :books, :integer
+    field :media, :integer
+    field :thumbnails, {:array, :string}
     field :authors, {:array, PersonName.Type}
 
     timestamps(type: :utc_datetime)

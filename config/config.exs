@@ -32,7 +32,7 @@ config :ambry, Oban,
   repo: Ambry.Repo,
   plugins: [Oban.Plugins.Pruner],
   # Keep number of media workers low to not starve the host of resources
-  queues: [media: 4]
+  queues: [media: 4, images: 2]
 
 config :ambry,
   ecto_repos: [Ambry.Repo],

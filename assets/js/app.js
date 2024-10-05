@@ -16,30 +16,29 @@
 //
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
-import "phoenix_html"
 import { Socket } from "phoenix"
+import "phoenix_html"
 import { LiveSocket } from "phoenix_live_view"
 import topbar from "topbar"
 
-import { ReadMoreHook } from "./hooks/read-more"
-import { SearchBoxHook } from "./hooks/search-box"
+import { DispatchValueChangeHook } from "./hooks/dispatch-value-change"
 import { HeaderScrollspyHook } from "./hooks/header-scrollspy"
+import { ImageSizeHook } from "./hooks/image-size"
+import { InfiniteScrollHook } from "./hooks/infinite-scroll"
+import { MainTainAttrsHook } from "./hooks/maintain-attrs"
+import { PatchHackHook } from "./hooks/patch-hack"
+import { ReadMoreHook } from "./hooks/read-more"
+import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
+import { ScrollMatchHook } from "./hooks/scroll-match"
+import { SearchBoxHook } from "./hooks/search-box"
 import { ShakaPlayerHook } from "./hooks/shaka-player"
 import { TimeBarHook } from "./hooks/time-bar"
-import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
-import { MainTainAttrsHook } from "./hooks/maintain-attrs"
-import { InfiniteScrollHook } from "./hooks/infinite-scroll"
-import { DispatchValueChangeHook } from "./hooks/dispatch-value-change"
-import { ImageSizeHook } from "./hooks/image-size"
-import { ScrollMatchHook } from "./hooks/scroll-match"
-import { PatchHackHook } from "./hooks/patch-hack"
 
 const playerId = Math.random().toString(36).substring(2)
 
 // Establish Phoenix Socket and LiveView configuration.
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
-  longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken, player_id: playerId },
   hooks: {
     "read-more": ReadMoreHook,

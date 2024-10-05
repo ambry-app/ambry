@@ -8,6 +8,13 @@ defmodule AmbrySchema.Media do
 
   alias AmbrySchema.Resolvers
 
+  enum :media_processing_status do
+    value :pending
+    value :processing
+    value :error
+    value :ready
+  end
+
   object :chapter do
     field :id, non_null(:id)
     field :title, :string
@@ -16,6 +23,8 @@ defmodule AmbrySchema.Media do
   end
 
   node object(:media) do
+    field :status, non_null(:media_processing_status)
+
     field :full_cast, non_null(:boolean)
     field :abridged, non_null(:boolean)
     field :duration, :float, resolve: Resolvers.resolve_decimal(:duration)
@@ -35,6 +44,19 @@ defmodule AmbrySchema.Media do
     field :published, :date
     field :published_format, non_null(:date_format)
 
+    field :description, :string
+    field :thumbnails, :thumbnails
+
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
+
+    field :image_path, :string, deprecate: "use `thumbnails` instead"
+  end
+
+  node object(:media_narrator) do
+    field :media, non_null(:media), resolve: dataloader(Resolvers, args: %{allow_all_media: true})
+    field :narrator, non_null(:narrator), resolve: dataloader(Resolvers)
+
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
   end
@@ -50,7 +72,7 @@ defmodule AmbrySchema.Media do
     field :position, non_null(:float), resolve: Resolvers.resolve_decimal(:position)
     field :status, non_null(:player_state_status)
 
-    field :media, non_null(:media), resolve: dataloader(Resolvers)
+    field :media, non_null(:media), resolve: dataloader(Resolvers, args: %{allow_all_media: true})
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)

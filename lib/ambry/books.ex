@@ -28,7 +28,7 @@ defmodule Ambry.Books do
 
   require Logger
 
-  @book_direct_assoc_preloads [:authors, book_authors: [:author], series_books: [:series]]
+  @book_direct_assoc_preloads [:authors, :media, book_authors: [:author], series_books: [:series]]
 
   def book_standard_preloads, do: @book_direct_assoc_preloads
 
@@ -148,19 +148,21 @@ defmodule Ambry.Books do
 
   """
   def delete_book(%Book{} = book) do
-    case Repo.delete(change_book(book)) do
-      {:ok, book} ->
-        maybe_delete_image(book.image_path)
-        PubSub.broadcast_delete(book)
-        :ok
+    Repo.transact(fn ->
+      case Repo.delete(change_book(book)) do
+        {:ok, book} ->
+          maybe_delete_image(book.image_path)
+          PubSub.broadcast_delete(book)
+          :ok
 
-      {:error, changeset} ->
-        if Keyword.has_key?(changeset.errors, :media) do
-          {:error, :has_media}
-        else
-          {:error, changeset}
-        end
-    end
+        {:error, changeset} ->
+          if Keyword.has_key?(changeset.errors, :media) do
+            {:error, :has_media}
+          else
+            {:error, changeset}
+          end
+      end
+    end)
   end
 
   defp maybe_delete_image(nil), do: :noop
@@ -195,10 +197,14 @@ defmodule Ambry.Books do
   Gets a book and all of its media.
   """
   def get_book_with_media!(book_id) do
-    media_query = from m in Media, where: [status: :ready], order_by: {:desc, :inserted_at}
+    media_query = from m in Media, where: [status: :ready], order_by: {:desc, :published}
 
     Book
-    |> preload([:authors, media: ^{media_query, [:narrators]}, series_books: :series])
+    |> preload([
+      :authors,
+      series_books: :series,
+      media: ^{media_query, [:narrators, book: [:authors, series_books: :series]]}
+    ])
     |> Repo.get!(book_id)
   end
 
@@ -212,7 +218,7 @@ defmodule Ambry.Books do
 
     books =
       query
-      |> preload([:authors, series_books: :series])
+      |> preload([:authors, :media, series_books: :series])
       |> Repo.all()
 
     books_to_return = Enum.slice(books, 0, limit)
@@ -251,7 +257,7 @@ defmodule Ambry.Books do
         order_by: [desc: b.published],
         offset: ^offset,
         limit: ^over_limit,
-        preload: [:authors, series_books: :series]
+        preload: [:authors, :media, series_books: :series]
 
     books = Repo.all(query)
 
@@ -260,7 +266,7 @@ defmodule Ambry.Books do
     {books_to_return, books != books_to_return}
   end
 
-  @series_direct_assoc_preloads [series_books: [book: [:authors]]]
+  @series_direct_assoc_preloads [series_books: [book: [:media, :authors]]]
 
   def series_standard_preloads, do: @series_direct_assoc_preloads
 
@@ -370,9 +376,12 @@ defmodule Ambry.Books do
       {:error, %Ecto.Changeset{}}
   """
   def delete_series(%Series{} = series) do
-    series
-    |> Repo.delete()
-    |> tap_ok(&PubSub.broadcast_delete/1)
+    Repo.transact(fn ->
+      with {:ok, series} <- Repo.delete(change_series(series)) do
+        PubSub.broadcast_delete(series)
+        :ok
+      end
+    end)
   end
 
   @doc """
@@ -394,7 +403,7 @@ defmodule Ambry.Books do
   """
   def get_series_with_books!(series_id) do
     Series
-    |> preload(series_books: [book: [:authors, series_books: :series]])
+    |> preload(series_books: [book: [:authors, :media, series_books: :series]])
     |> Repo.get!(series_id)
   end
 

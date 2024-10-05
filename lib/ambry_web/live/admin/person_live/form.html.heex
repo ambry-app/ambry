@@ -95,11 +95,36 @@
           <.label class="flex items-center gap-2">
             Image <.image_delete_button field={@form[:image_path]} />
           </.label>
-          <.image_with_size
-            id={"image-#{@person.id}"}
-            src={@form[:image_path].value}
-            class="h-40 w-40 rounded-full object-cover object-top"
-          />
+          <div class="flex flex-wrap gap-4">
+            <.image_with_size id={"image-#{@person.id}"} src={@form[:image_path].value} class="w-40" />
+            <%= if @person.thumbnails do %>
+              <.image_with_size
+                id={"image-#{@person.id}-xl"}
+                src={@person.thumbnails.extra_large}
+                class="h-40 w-40 rounded-full object-cover object-top"
+              />
+              <.image_with_size
+                id={"image-#{@person.id}-lg"}
+                src={@person.thumbnails.large}
+                class="h-40 w-40 rounded-full object-cover object-top"
+              />
+              <.image_with_size
+                id={"image-#{@person.id}-md"}
+                src={@person.thumbnails.medium}
+                class="h-40 w-40 rounded-full object-cover object-top"
+              />
+              <.image_with_size
+                id={"image-#{@person.id}-sm"}
+                src={@person.thumbnails.small}
+                class="h-32 w-32 rounded-full object-cover object-top"
+              />
+              <.image_with_size
+                id={"image-#{@person.id}-xs"}
+                src={@person.thumbnails.extra_small}
+                class="h-16 w-16 rounded-full object-cover object-top"
+              />
+            <% end %>
+          </div>
         </div>
       <% else %>
         <div class="space-y-2">

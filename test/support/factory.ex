@@ -160,7 +160,9 @@ defmodule Ambry.Factory do
       mp4_path: "/uploads/media/#{media_id}.mp4",
       duration: Decimal.new(time + 300),
       published: Faker.Date.backward(15_466),
-      notes: Faker.Lorem.sentence()
+      notes: Faker.Lorem.sentence(),
+      description: Faker.Lorem.paragraph(),
+      image_path: "/uploads/images/" <> file_name(:image)
     }
   end
 
@@ -204,10 +206,12 @@ defmodule Ambry.Factory do
         source_path: source_path,
         mpd_path: mpd_path,
         hls_path: hls_path,
-        mp4_path: mp4_path
+        mp4_path: mp4_path,
+        image_path: web_path
       }) do
     create_fake_source_files!(source_path)
     create_fake_files([mpd_path, hls_path, Ambry.Paths.hls_playlist_path(hls_path), mp4_path])
+    if web_path, do: create_fake_file(web_path)
   end
 
   defp create_fake_files(list), do: Enum.each(list, &create_fake_file/1)

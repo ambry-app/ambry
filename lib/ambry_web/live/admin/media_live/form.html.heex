@@ -41,14 +41,41 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
         <.input field={@form[:published]} type="date" label="Audio publication date" />
+        <div>
+          <.input
+            field={@form[:published_format]}
+            type="select"
+            label="Date display format"
+            options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+          />
+          <span class="text-sm italic dark:text-zinc-500">
+            <%= preview_date_format(@form) %>
+          </span>
+        </div>
+        <.input field={@form[:publisher]} label="Publisher" />
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <.input
-          field={@form[:published_format]}
-          type="select"
-          label="Date display format"
-          options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+          id="description-input"
+          field={@form[:description]}
+          label="Description"
+          type="textarea"
+          phx-hook="maintain-attrs"
+          data-attrs="style"
         />
+        <div class="relative">
+          <div
+            id="description-preview"
+            phx-hook="scroll-match"
+            data-target="description-input"
+            class="absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800 sm:block"
+          >
+            <.markdown content={@form[:description].value || ""} class="p-2" />
+          </div>
+        </div>
       </div>
 
       <div class="space-y-2">
@@ -74,6 +101,64 @@
         <.input field={@form[:abridged]} label="Abridged" type="checkbox" />
         <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
       </div>
+
+      <.input type="hidden" field={@form[:image_type]} />
+      <.input type="hidden" field={@form[:image_path]} />
+
+      <%= if @form[:image_path].value && @form[:image_path].value != "" do %>
+        <div class="space-y-2">
+          <.label class="flex items-center gap-2">
+            Image <.image_delete_button field={@form[:image_path]} />
+          </.label>
+          <div class="flex flex-wrap gap-4">
+            <.image_with_size id={"image-#{@media.id}"} src={@form[:image_path].value} class="w-48 rounded-sm" />
+            <%= if @media.thumbnails do %>
+              <.image_with_size
+                id={"image-#{@media.id}-xl"}
+                src={@media.thumbnails.extra_large}
+                class="h-48 w-48 rounded-sm"
+              />
+              <.image_with_size id={"image-#{@media.id}-lg"} src={@media.thumbnails.large} class="h-48 w-48 rounded-sm" />
+              <.image_with_size
+                id={"image-#{@media.id}-md"}
+                src={@media.thumbnails.medium}
+                class="h-48 w-48 rounded-sm"
+              />
+              <.image_with_size id={"image-#{@media.id}-sm"} src={@media.thumbnails.small} class="h-32 w-32 rounded-sm" />
+              <.image_with_size
+                id={"image-#{@media.id}-xs"}
+                src={@media.thumbnails.extra_small}
+                class="h-16 w-16 rounded-sm"
+              />
+            <% end %>
+          </div>
+        </div>
+      <% else %>
+        <div class="space-y-2">
+          <.tabs
+            field={@form[:image_type]}
+            options={[
+              {"Upload file", "upload"},
+              {"Import image from URL", "url_import"}
+            ]}
+          >
+            <.label>Image</.label>
+          </.tabs>
+
+          <.file_input
+            :if={@form[:image_type].value == "upload"}
+            upload={@uploads.image}
+            on_cancel="cancel-upload"
+            image_preview_class="h-48 w-48 rounded-sm"
+          />
+
+          <.image_import_input
+            :if={@form[:image_type].value == "url_import"}
+            field={@form[:image_import_url]}
+            image_preview_class="h-48 w-48 rounded-sm"
+          />
+        </div>
+      <% end %>
 
       <.input
         field={@form[:notes]}

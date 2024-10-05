@@ -283,7 +283,7 @@ defmodule AmbryWeb.UserAuth do
 
   defp signed_in_path(_conn), do: ~p"/"
 
-  @preview_paths ["books"]
+  @preview_paths ["audiobooks"]
 
   defp unauthenticated_redirect(%{path_info: [root | _rest]} = conn)
        when root in @preview_paths do

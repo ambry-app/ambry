@@ -16,7 +16,6 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     :series,
     :published,
     :media,
-    :has_description,
     :inserted_at
   ]
 
@@ -106,10 +105,6 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/books?#{patch_opts(list_opts)}")}
   end
 
-  def handle_event("row-click", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/admin/books/#{id}/edit")}
-  end
-
   def handle_event("sort", %{"field" => sort_field}, socket) do
     list_opts =
       socket
@@ -132,13 +127,4 @@ defmodule AmbryWeb.Admin.BookLive.Index do
 
   @impl Phoenix.LiveView
   def handle_info(%PubSub.Message{type: :book}, socket), do: {:noreply, refresh_books(socket)}
-
-  defp format_published(%{published_format: :full, published: date}),
-    do: Calendar.strftime(date, "%x")
-
-  defp format_published(%{published_format: :year_month, published: date}),
-    do: Calendar.strftime(date, "%Y-%m")
-
-  defp format_published(%{published_format: :year, published: date}),
-    do: Calendar.strftime(date, "%Y")
 end

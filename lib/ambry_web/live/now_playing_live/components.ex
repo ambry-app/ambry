@@ -20,12 +20,17 @@ defmodule AmbryWeb.NowPlayingLive.Components do
     <div class="flex-none lg:flex lg:basis-7/12 lg:place-content-center lg:place-items-center">
       <div class="m-8 flex space-x-4 sm:m-12 md:space-x-8 lg:mr-4">
         <img
-          src={@media.book.image_path}
-          class="aspect-1 h-32 rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[36rem]"
+          :if={@media.thumbnails}
+          src={@media.thumbnails.extra_large}
+          class="aspect-1 h-32 object-cover object-center sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[32rem]"
+        />
+        <div
+          :if={!@media.thumbnails}
+          class="aspect-1 h-32 bg-zinc-200 dark:bg-zinc-800 sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[32rem]"
         />
         <div class="sm:pt-4 md:pt-6 lg:pt-8">
           <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-3xl xl:text-4xl">
-            <.link navigate={~p"/books/#{@media.book}"} class="hover:underline"><%= @media.book.title %></.link>
+            <.link navigate={~p"/audiobooks/#{@media}"} class="hover:underline"><%= @media.book.title %></.link>
           </h1>
 
           <p class="pb-4 text-zinc-800 dark:text-zinc-200 sm:text-lg xl:text-xl">
@@ -34,10 +39,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
 
           <p class="pb-4 text-zinc-800 dark:text-zinc-200 sm:text-lg">
             <span>
-              Narrated by <.people_links people={@media.narrators} />
-              <%= if @media.full_cast do %>
-                <span>full cast</span>
-              <% end %>
+              Narrated by <.people_links people={@media.narrators} full_cast={@media.full_cast} />
             </span>
           </p>
 
@@ -78,10 +80,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
           id="about-body"
           class={["media-tab-body space-y-2 p-4", if(start_on_chapters?(@player.player_state.media), do: "hidden")]}
         >
-          <.markdown
-            :if={@player.player_state.media.book.description}
-            content={@player.player_state.media.book.description}
-          />
+          <.markdown :if={@player.player_state.media.description} content={@player.player_state.media.description} />
           <div class="flex flex-col">
             <.brand_link
               :for={file <- @player.player_state.media.supplemental_files}

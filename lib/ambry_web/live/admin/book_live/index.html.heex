@@ -13,7 +13,6 @@
       <.sort_button current_sort={@current_sort} sort_field="authors">Authors</.sort_button>
       <.sort_button current_sort={@current_sort} sort_field="series">Series</.sort_button>
       <.sort_button current_sort={@current_sort} sort_field="media"># Audiobooks</.sort_button>
-      <.sort_button current_sort={@current_sort} sort_field="has_description">Description?</.sort_button>
       <.sort_button current_sort={@current_sort} sort_field="published">Published</.sort_button>
       <.sort_button current_sort={@current_sort} sort_field="inserted_at">Added</.sort_button>
     </.sort_button_bar>
@@ -33,9 +32,7 @@
 
     <:row :let={book}>
       <div class="flex-shrink-0">
-        <div class="h-16 w-16">
-          <img :if={book.image_path} src={book.image_path} class="h-full w-full" />
-        </div>
+        <.multi_image paths={book.thumbnails} />
       </div>
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
         <p class="overflow-hidden text-ellipsis"><%= book.title %></p>
@@ -48,9 +45,6 @@
       </div>
       <div class="hidden w-32 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
         <div class="flex gap-4">
-          <span :if={!book.has_description} title="Missing description">
-            <FA.icon name="paragraph" class="h-4 w-4 inline fill-red-600" />
-          </span>
           <span :if={book.media > 0} title="# of audiobooks">
             <%= book.media %> <FA.icon name="file-audio" class="h-4 w-4 fill-current inline" />
           </span>
@@ -66,7 +60,7 @@
           </span>
         </div>
         <p class="text-sm italic dark:text-zinc-500">
-          Published <%= format_published(book) %>
+          Published <%= format_published(book, :short) %>
         </p>
         <p class="text-sm italic dark:text-zinc-500">
           Added <%= Calendar.strftime(book.inserted_at, "%x") %>

@@ -45,9 +45,15 @@ defmodule AmbryApp.Application do
         # Start the Search Index Manager
         {Ambry.Search.IndexManager, []},
         # Search index refresher/warmer
-        {Task, &Ambry.Search.refresh_entire_index!/0},
+        Supervisor.child_spec({Task, &Ambry.Search.refresh_entire_index!/0},
+          id: :refresh_search_index
+        ),
         # Headless browser for web-scraping
-        AmbryScraping.Marionette
+        AmbryScraping.Marionette,
+        # Schedule Oban jobs for all missing thumbnails
+        Supervisor.child_spec({Task, &Ambry.Thumbnails.schedule_missing_thumbnails!/0},
+          id: :missing_thumbnails
+        )
       ]
   end
 

@@ -40,13 +40,6 @@
           </div>
         </.import_form_row>
 
-        <.import_form_row :if={selected_book.description} field={@form[:use_description]} label="Description">
-          <.markdown
-            content={selected_book.description}
-            class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-600 bg-zinc-800 p-2"
-          />
-        </.import_form_row>
-
         <.import_form_row :if={selected_book.authors != []} field={@form[:use_authors]} label="Authors">
           <div :for={{existing_author, imported_author} <- Enum.zip(@matching_authors, selected_book.authors)}>
             <%= if existing_author do %>
@@ -87,7 +80,22 @@
           </div>
         </.import_form_row>
 
-        <.import_form_row :if={selected_book.cover_image} field={@form[:use_cover_image]} label="Image">
+        <.import_form_row
+          :if={selected_book.description}
+          field={@form[:use_description]}
+          label="Description (Deprecated, only used by the old mobile app)"
+        >
+          <.markdown
+            content={selected_book.description}
+            class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-600 bg-zinc-800 p-2"
+          />
+        </.import_form_row>
+
+        <.import_form_row
+          :if={selected_book.cover_image}
+          field={@form[:use_cover_image]}
+          label="Image (Deprecated, only used by the old mobile app)"
+        >
           <.image_with_size
             :if={selected_book.cover_image}
             id={@form[:use_cover_image].id}

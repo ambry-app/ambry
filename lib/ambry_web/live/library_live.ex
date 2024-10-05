@@ -5,7 +5,7 @@ defmodule AmbryWeb.LibraryLive do
 
   use AmbryWeb, :live_view
 
-  alias Ambry.Books
+  alias Ambry.Media
 
   @per_page 36
 
@@ -29,7 +29,7 @@ defmodule AmbryWeb.LibraryLive do
           </p>
         </div>
       <% else %>
-        <.book_tiles_stream id="books" stream={@streams.books} page={@page} end?={@end?} />
+        <.media_tiles_stream id="media" stream={@streams.media} page={@page} end?={@end?} />
       <% end %>
     </div>
     """
@@ -40,45 +40,45 @@ defmodule AmbryWeb.LibraryLive do
     {:ok,
      socket
      |> assign(page_title: "Library", page: 1, empty?: false)
-     |> paginate_books(1)}
+     |> paginate_media(1)}
   end
 
   @impl Phoenix.LiveView
   def handle_event("next-page", _, socket) do
-    {:noreply, paginate_books(socket, socket.assigns.page + 1)}
+    {:noreply, paginate_media(socket, socket.assigns.page + 1)}
   end
 
   def handle_event("prev-page", %{"_overran" => true}, socket) do
-    {:noreply, paginate_books(socket, 1)}
+    {:noreply, paginate_media(socket, 1)}
   end
 
   def handle_event("prev-page", _, socket) do
     if socket.assigns.page > 1 do
-      {:noreply, paginate_books(socket, socket.assigns.page - 1)}
+      {:noreply, paginate_media(socket, socket.assigns.page - 1)}
     else
       {:noreply, socket}
     end
   end
 
-  defp paginate_books(socket, new_page) when new_page >= 1 do
+  defp paginate_media(socket, new_page) when new_page >= 1 do
     %{page: current_page} = socket.assigns
-    {books, more?} = Books.get_recent_books((new_page - 1) * @per_page, @per_page)
+    {media, more?} = Media.get_recent_media((new_page - 1) * @per_page, @per_page)
 
-    {books, at, limit} =
+    {media, at, limit} =
       if new_page >= current_page do
-        {books, -1, @per_page * 3 * -1}
+        {media, -1, @per_page * 3 * -1}
       else
-        {Enum.reverse(books), 0, @per_page * 3}
+        {Enum.reverse(media), 0, @per_page * 3}
       end
 
-    case books do
+    case media do
       [] ->
         assign(socket, end?: at == -1, empty?: new_page == 1)
 
-      [_ | _] = books ->
+      [_ | _] = media ->
         socket
         |> assign(end?: at == -1 && !more?, page: new_page)
-        |> stream(:books, books, at: at, limit: limit)
+        |> stream(:media, media, at: at, limit: limit)
     end
   end
 end

@@ -11,13 +11,13 @@ defmodule AmbryWeb.SeriesLive do
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-md space-y-10 p-4 sm:max-w-none sm:space-y-14 sm:p-10 md:max-w-screen-2xl md:p-12 lg:space-y-18 lg:p-16">
-      <div class="space-y-1">
+      <div>
         <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
           <%= @series.name %>
         </h1>
 
         <p class="text-xl text-zinc-800 dark:text-zinc-200">
-          by <.people_links people={@authors} />
+          by <.all_people_links people={@authors} />
         </p>
       </div>
 

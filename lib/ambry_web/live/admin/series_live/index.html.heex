@@ -29,6 +29,9 @@
     </:empty>
 
     <:row :let={series}>
+      <div class="flex-shrink-0">
+        <.multi_image paths={series.thumbnails} />
+      </div>
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
         <p class="overflow-hidden text-ellipsis"><%= series.name %></p>
         <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">

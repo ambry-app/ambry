@@ -31,12 +31,8 @@
 
     <:row :let={person}>
       <div class="flex-shrink-0">
-        <div class="h-12 w-12">
-          <img
-            :if={person.image_path}
-            src={person.image_path}
-            class="h-full w-full rounded-full object-cover object-top"
-          />
+        <div class={["h-12 w-12", if(!person.thumbnail, do: "rounded-full bg-zinc-200 dark:bg-zinc-800")]}>
+          <img :if={person.thumbnail} src={person.thumbnail} class="h-full w-full rounded-full object-cover object-top" />
         </div>
       </div>
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">

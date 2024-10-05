@@ -13,6 +13,8 @@ defmodule Ambry.People.BookAuthor do
   schema "authors_books" do
     belongs_to :author, Author
     belongs_to :book, Book
+
+    timestamps(type: :utc_datetime)
   end
 
   @doc false

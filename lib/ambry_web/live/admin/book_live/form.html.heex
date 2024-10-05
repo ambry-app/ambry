@@ -39,32 +39,16 @@
 
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
         <.input field={@form[:published]} type="date" label="First print publication" />
-        <.input
-          field={@form[:published_format]}
-          type="select"
-          label="Date display format"
-          options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
-        />
-      </div>
-
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <.input
-          id="description-input"
-          field={@form[:description]}
-          label="Description"
-          type="textarea"
-          phx-hook="maintain-attrs"
-          data-attrs="style"
-        />
-        <div class="relative">
-          <div
-            id="description-preview"
-            phx-hook="scroll-match"
-            data-target="description-input"
-            class="absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800 sm:block"
-          >
-            <.markdown content={@form[:description].value || ""} class="p-2" />
-          </div>
+        <div>
+          <.input
+            field={@form[:published_format]}
+            type="select"
+            label="Date display format"
+            options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+          />
+          <span class="text-sm italic dark:text-zinc-500">
+            <%= preview_date_format(@form) %>
+          </span>
         </div>
       </div>
 
@@ -118,13 +102,34 @@
         <.delete_input field={@form[:series_books_drop]} />
       </div>
 
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <.input
+          id="description-input"
+          field={@form[:description]}
+          label="Description (Deprecated, only used by the old mobile app)"
+          type="textarea"
+          phx-hook="maintain-attrs"
+          data-attrs="style"
+        />
+        <div class="relative">
+          <div
+            id="description-preview"
+            phx-hook="scroll-match"
+            data-target="description-input"
+            class="absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800 sm:block"
+          >
+            <.markdown content={@form[:description].value || ""} class="p-2" />
+          </div>
+        </div>
+      </div>
+
       <.input type="hidden" field={@form[:image_type]} />
       <.input type="hidden" field={@form[:image_path]} />
 
       <%= if @form[:image_path].value && @form[:image_path].value != "" do %>
         <div class="space-y-2">
           <.label class="flex items-center gap-2">
-            Image <.image_delete_button field={@form[:image_path]} />
+            Image (Deprecated, only used by the old mobile app) <.image_delete_button field={@form[:image_path]} />
           </.label>
           <.image_with_size id={"image-#{@book.id}"} src={@form[:image_path].value} class="h-48 w-48 rounded-sm" />
         </div>
@@ -137,7 +142,7 @@
               {"Import image from URL", "url_import"}
             ]}
           >
-            <.label>Image</.label>
+            <.label>Image (Deprecated, only used by the old mobile app)</.label>
           </.tabs>
 
           <.file_input

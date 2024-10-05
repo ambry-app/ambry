@@ -993,6 +993,30 @@ defmodule AmbryWeb.CoreComponents do
   attr :page, :integer, required: true
   attr :end?, :boolean, required: true
   attr :stream, :any, required: true
+  attr :next, :string, default: "next-page"
+  attr :prev, :string, default: "prev-page"
+  attr :rest, :global
+
+  def media_tiles_stream(assigns) do
+    ~H"""
+    <.grid
+      id={@id}
+      phx-update="stream"
+      phx-viewport-top={@page > 1 && @prev}
+      phx-viewport-bottom={!@end? && @next}
+      phx-page-loading
+      class={[if(@end?, do: "", else: "pb-[calc(200vh)]"), if(@page == 1, do: "", else: "pt-[calc(200vh)]")]}
+      {@rest}
+    >
+      <.media_tile :for={{id, media} <- @stream} media={media} id={id} />
+    </.grid>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :page, :integer, required: true
+  attr :end?, :boolean, required: true
+  attr :stream, :any, required: true
   attr :player, Player, required: true
   attr :next, :string, default: "next-page"
   attr :prev, :string, default: "prev-page"
@@ -1014,11 +1038,11 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  attr :books, :list, required: true
-
   @doc """
   Renders a list of books as a responsive grid of image tiles.
   """
+  attr :books, :list, required: true
+
   def book_tiles(assigns) do
     ~H"""
     <.grid>
@@ -1039,12 +1063,7 @@ defmodule AmbryWeb.CoreComponents do
       <% end %>
       <div class="group">
         <.link navigate={~p"/books/#{@book}"}>
-          <span class="block aspect-1">
-            <img
-              src={@book.image_path}
-              class="h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
-            />
-          </span>
+          <.book_multi_image thumbnails={Enum.flat_map(@book.media, &if(&1.thumbnails, do: [&1.thumbnails], else: []))} />
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/books/#{@book}"}>
@@ -1060,6 +1079,138 @@ defmodule AmbryWeb.CoreComponents do
         <.series_book_links series_books={@book.series_books} />
       </div>
     </div>
+    """
+  end
+
+  @doc """
+  Renders a list of media as a responsive grid of image tiles.
+  """
+  attr :media, :list, required: true
+
+  attr :rest, :global,
+    include: ~w(show_title show_authors show_series show_narrators show_published)
+
+  def media_tiles(assigns) do
+    ~H"""
+    <.grid>
+      <.media_tile :for={media <- @media} media={media} {@rest} />
+    </.grid>
+    """
+  end
+
+  attr :id, :string, default: nil
+  attr :media, Media, required: true
+
+  attr :show_title, :boolean, default: true
+  attr :show_authors, :boolean, default: true
+  attr :show_series, :boolean, default: true
+  attr :show_narrators, :boolean, default: false
+  attr :show_published, :boolean, default: false
+
+  def media_tile(assigns) do
+    ~H"""
+    <div id={@id} class="text-center">
+      <div class="group">
+        <.link navigate={~p"/audiobooks/#{@media}"}>
+          <.book_multi_image thumbnails={if @media.thumbnails, do: [@media.thumbnails], else: []} />
+        </.link>
+        <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+          <.link navigate={~p"/audiobooks/#{@media}"}>
+            <%= @media.book.title %>
+          </.link>
+        </p>
+      </div>
+
+      <p :if={@show_authors} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        by <.people_links people={@media.book.authors} />
+      </p>
+
+      <p :if={@show_narrators} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        Narrated by <.people_links people={@media.narrators} full_cast={@media.full_cast} />
+      </p>
+
+      <div :if={@show_series} class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+        <.series_book_links series_books={@media.book.series_books} />
+      </div>
+
+      <div :if={@show_published && @media.published} class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+        Published <%= format_published(@media) %>
+        <p :if={@media.publisher}>
+          by <%= @media.publisher %>
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  attr :thumbnails, :list, required: true
+
+  def book_multi_image(%{thumbnails: []} = assigns) do
+    ~H"""
+    <span class="block aspect-1 h-full w-full bg-zinc-100 dark:bg-zinc-900" />
+    """
+  end
+
+  def book_multi_image(%{thumbnails: [thumbnail]} = assigns) do
+    assigns = assign(assigns, :thumbnail, thumbnail)
+
+    ~H"""
+    <span class="block aspect-1">
+      <img src={@thumbnail.large} class="h-full w-full object-cover object-center" />
+    </span>
+    """
+  end
+
+  def book_multi_image(%{thumbnails: [thumbnail1, thumbnail2]} = assigns) do
+    assigns = assign(assigns, thumbnail1: thumbnail1, thumbnail2: thumbnail2)
+
+    ~H"""
+    <span class="relative block aspect-1">
+      <img
+        src={@thumbnail2.large}
+        class={["h-full w-full object-cover object-center", "translate-x-1 translate-y-1", "scale-95"]}
+      />
+      <img
+        src={@thumbnail1.large}
+        class={[
+          "absolute top-0 h-full w-full object-cover object-center",
+          "border border-zinc-200 shadow-md dark:border-zinc-800",
+          "-translate-x-1 -translate-y-1",
+          "scale-95"
+        ]}
+      />
+    </span>
+    """
+  end
+
+  def book_multi_image(%{thumbnails: [thumbnail1, thumbnail2, thumbnail3 | _rest]} = assigns) do
+    assigns =
+      assign(assigns, thumbnail1: thumbnail1, thumbnail2: thumbnail2, thumbnail3: thumbnail3)
+
+    ~H"""
+    <span class="relative block aspect-1">
+      <img
+        src={@thumbnail3.large}
+        class={["h-full w-full object-cover object-center", "translate-x-2 translate-y-2", "scale-90"]}
+      />
+      <img
+        src={@thumbnail2.large}
+        class={[
+          "absolute top-0 h-full w-full object-cover object-center",
+          "border border-zinc-200 shadow-md dark:border-zinc-800",
+          "scale-90"
+        ]}
+      />
+      <img
+        src={@thumbnail1.large}
+        class={[
+          "absolute top-0 h-full w-full object-cover object-center",
+          "border border-zinc-200 shadow-md dark:border-zinc-800",
+          "-translate-x-2 -translate-y-2",
+          "scale-90"
+        ]}
+      />
+    </span>
     """
   end
 
@@ -1080,10 +1231,7 @@ defmodule AmbryWeb.CoreComponents do
     <div id={@id} class="text-center">
       <div class="group">
         <div class="aspect-w-1 aspect-h-1 relative">
-          <img
-            src={@player_state.media.book.image_path}
-            class="h-full w-full rounded-t-sm border border-b-0 border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900"
-          />
+          <.book_multi_image thumbnails={if @player_state.media.thumbnails, do: [@player_state.media.thumbnails], else: []} />
           <div class="absolute flex">
             <div
               phx-click={media_click_action(@player, @player_state.media)}
@@ -1104,7 +1252,7 @@ defmodule AmbryWeb.CoreComponents do
         </div>
       </div>
       <p class="font-bold text-zinc-900 hover:underline dark:text-zinc-100 sm:text-lg">
-        <.link navigate={~p"/books/#{@player_state.media.book}"}>
+        <.link navigate={~p"/audiobooks/#{@player_state.media}"}>
           <%= @player_state.media.book.title %>
         </.link>
       </p>
@@ -1113,8 +1261,7 @@ defmodule AmbryWeb.CoreComponents do
       </p>
 
       <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
-        Narrated by <.people_links people={@player_state.media.narrators} />
-        <span :if={@player_state.media.full_cast}>full cast</span>
+        Narrated by <.people_links people={@player_state.media.narrators} full_cast={@player_state.media.full_cast} />
       </p>
 
       <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
@@ -1144,15 +1291,17 @@ defmodule AmbryWeb.CoreComponents do
 
   defp playing?(_player, _media), do: false
 
-  defp progress_percent(%Player{player_state: %{id: id} = ps}, %PlayerState{id: id}) do
+  def progress_percent(%Player{player_state: %{id: id} = ps}, %PlayerState{id: id}) do
     progress_percent(ps)
   end
 
-  defp progress_percent(_player, ps) do
+  def progress_percent(_player, ps) do
     progress_percent(ps)
   end
 
-  defp progress_percent(%PlayerState{position: position, media: %{duration: duration}}) do
+  def progress_percent(nil), do: "0.0"
+
+  def progress_percent(%PlayerState{position: position, media: %{duration: duration}}) do
     position
     |> Decimal.div(duration)
     |> Decimal.mult(100)
@@ -1161,29 +1310,115 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
-  Renders a list of links to people (like authors or narrators) separated by commas.
+  Renders a list of links to people (like authors or narrators) separated by
+  commas.
+
+  Supports a `full_cast` option to print "and a full cast" at the end.
   """
-  def people_links(assigns) do
-    assigns =
-      assign_new(assigns, :classes, fn ->
-        underline_class =
-          if Map.get(assigns, :underline, true) do
-            "hover:underline"
-          end
+  attr :people, :list, required: true
+  attr :full_cast, :boolean, default: false
 
-        link_class = assigns[:link_class]
+  def all_people_links(%{people: [], full_cast: true} = assigns) do
+    ~H"a full cast"
+  end
 
-        [underline_class, link_class] |> Enum.join(" ") |> String.trim()
-      end)
+  def all_people_links(%{people: [], full_cast: false} = assigns) do
+    ~H""
+  end
 
+  def all_people_links(assigns) do
     ~H"""
     <%= for person_ish <- @people do %>
-      <.link navigate={~p"/people/#{person_ish.person_id}"} class={@classes} phx-no-format>
+      <.link navigate={~p"/people/#{person_ish.person_id}"} class="hover:underline" phx-no-format>
         <%= person_ish.name %></.link><span
         class="last:hidden"
         phx-no-format
       >,</span>
     <% end %>
+    <span :if={@full_cast}>and a full cast</span>
+    """
+  end
+
+  @doc """
+  Renders a list of links to people (like authors or narrators) separated by
+  commas.
+
+  Limits to 2 people, then shows the count of the remaining people.
+
+  Supports a `full_cast` option to print "and a full cast" at the end.
+  """
+  attr :people, :list, required: true
+  attr :full_cast, :boolean, default: false
+
+  def people_links(%{people: [], full_cast: true} = assigns) do
+    ~H"a full cast"
+  end
+
+  def people_links(%{people: [], full_cast: false} = assigns) do
+    ~H""
+  end
+
+  def people_links(%{people: [person], full_cast: true} = assigns) do
+    assigns = assign(assigns, person: person)
+
+    ~H"""
+    <.link navigate={~p"/people/#{@person.person_id}"} class="hover:underline" phx-no-format>
+    <%= @person.name %></.link><span phx-no-format>, and a full cast</span>
+    """
+  end
+
+  def people_links(%{people: [person], full_cast: false} = assigns) do
+    assigns = assign(assigns, person: person)
+
+    ~H"""
+    <.link navigate={~p"/people/#{@person.person_id}"} class="hover:underline">
+      <%= @person.name %>
+    </.link>
+    """
+  end
+
+  def people_links(%{people: [person1, person2], full_cast: true} = assigns) do
+    assigns = assign(assigns, person1: person1, person2: person2)
+
+    ~H"""
+    <.link navigate={~p"/people/#{@person1.person_id}"} class="hover:underline" phx-no-format>
+      <%= @person1.name %></.link><span phx-no-format>,</span>
+    <.link navigate={~p"/people/#{@person2.person_id}"} class="hover:underline" phx-no-format>
+      <%= @person2.name %></.link><span phx-no-format>, and a full cast</span>
+    """
+  end
+
+  def people_links(%{people: [person1, person2], full_cast: false} = assigns) do
+    assigns = assign(assigns, person1: person1, person2: person2)
+
+    ~H"""
+    <.link navigate={~p"/people/#{@person1.person_id}"} class="hover:underline" phx-no-format>
+      <%= @person1.name %></.link><span phx-no-format>,</span>
+    <.link navigate={~p"/people/#{@person2.person_id}"} class="hover:underline">
+      <%= @person2.name %>
+    </.link>
+    """
+  end
+
+  def people_links(%{people: [person1, person2 | rest], full_cast: true} = assigns) do
+    assigns = assign(assigns, person1: person1, person2: person2, others: Enum.count(rest))
+
+    ~H"""
+    <.link navigate={~p"/people/#{@person1.person_id}"} class="hover:underline" phx-no-format>
+      <%= @person1.name %></.link><span phx-no-format>,</span>
+    <.link navigate={~p"/people/#{@person2.person_id}"} class="hover:underline" phx-no-format>
+      <%= @person2.name %></.link><span phx-no-format>, <%= @others %> others, and a full cast</span>
+    """
+  end
+
+  def people_links(%{people: [person1, person2 | rest], full_cast: false} = assigns) do
+    assigns = assign(assigns, person1: person1, person2: person2, others: Enum.count(rest))
+
+    ~H"""
+    <.link navigate={~p"/people/#{@person1.person_id}"} class="hover:underline" phx-no-format>
+      <%= @person1.name %></.link><span phx-no-format>,</span>
+    <.link navigate={~p"/people/#{@person2.person_id}"} class="hover:underline" phx-no-format>
+      <%= @person2.name %></.link><span phx-no-format>, and <%= @others %> others</span>
     """
   end
 
@@ -1253,6 +1488,26 @@ defmodule AmbryWeb.CoreComponents do
           <p class="overflow-hidden text-ellipsis whitespace-nowrap"><%= @user.email %></p>
         </div>
         <%= render_slot(@inner_block) %>
+      </div>
+    </div>
+    """
+  end
+
+  attr :book, Book, required: true
+  attr :class, :string, default: nil
+
+  def book_header(assigns) do
+    ~H"""
+    <div>
+      <h1 class={["text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl", @class]}>
+        <%= @book.title %>
+      </h1>
+      <p class="text-zinc-800 dark:text-zinc-200 sm:text-lg xl:text-xl">
+        <span>by <.all_people_links people={@book.authors} /></span>
+      </p>
+
+      <div class="text-sm text-zinc-600 dark:text-zinc-400 sm:text-base">
+        <.series_book_links series_books={@book.series_books} />
       </div>
     </div>
     """
@@ -1354,4 +1609,24 @@ defmodule AmbryWeb.CoreComponents do
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
   end
+
+  def format_published(%{published: nil}), do: nil
+
+  def format_published(%{published_format: :full, published: date}),
+    do: Calendar.strftime(date, "%B %-d, %Y")
+
+  def format_published(%{published_format: :year_month, published: date}),
+    do: Calendar.strftime(date, "%B %Y")
+
+  def format_published(%{published_format: :year, published: date}),
+    do: Calendar.strftime(date, "%Y")
+
+  def format_published(%{published_format: :full, published: date}, :short),
+    do: Calendar.strftime(date, "%x")
+
+  def format_published(%{published_format: :year_month, published: date}, :short),
+    do: Calendar.strftime(date, "%Y-%m")
+
+  def format_published(%{published_format: :year, published: date}, :short),
+    do: Calendar.strftime(date, "%Y")
 end

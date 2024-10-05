@@ -11,6 +11,7 @@ defmodule Ambry do
     exports: [
       {Accounts, []},
       {Books, []},
+      {Deletions, []},
       {FileBrowser, []},
       {Hashids, []},
       {Media, []},
@@ -19,7 +20,9 @@ defmodule Ambry do
       {People, []},
       {PubSub, []},
       {Repo, []},
+      {Thumbnails, []},
       {Search, []},
+      {Sync, []},
       {Utils, []}
     ]
 end

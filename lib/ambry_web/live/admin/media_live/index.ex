@@ -97,10 +97,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/media?#{patch_opts(list_opts)}")}
   end
 
-  def handle_event("row-click", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/admin/media/#{id}/edit")}
-  end
-
   def handle_event("sort", %{"field" => sort_field}, socket) do
     list_opts =
       socket
@@ -133,25 +129,14 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
 
   def handle_info(%PubSub.Message{type: :media}, socket), do: {:noreply, refresh_media(socket)}
 
-  defp format_published(%{published: nil}), do: nil
-
-  defp format_published(%{published_format: :full, published: date}),
-    do: Calendar.strftime(date, "%x")
-
-  defp format_published(%{published_format: :year_month, published: date}),
-    do: Calendar.strftime(date, "%Y-%m")
-
-  defp format_published(%{published_format: :year, published: date}),
-    do: Calendar.strftime(date, "%Y")
-
   defp status_color(:pending), do: :yellow
   defp status_color(:processing), do: :blue
   defp status_color(:error), do: :red
   defp status_color(:ready), do: :brand
 
-  defp progress_percent(nil), do: "0.0"
+  defp processing_progress_percent(nil), do: "0.0"
 
-  defp progress_percent(%Decimal{} = progress) do
+  defp processing_progress_percent(%Decimal{} = progress) do
     progress
     |> Decimal.mult(100)
     |> Decimal.round(1)
