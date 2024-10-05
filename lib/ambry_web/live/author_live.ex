@@ -15,9 +15,9 @@ defmodule AmbryWeb.AuthorLive do
     ~H"""
     <div class="mx-auto max-w-md space-y-8 p-4 sm:max-w-none sm:space-y-12 sm:p-10 md:max-w-screen-2xl md:p-12 lg:space-y-16 lg:p-16">
       <div class="flex items-center gap-4">
-        <.link :if={@author.person.image_path} navigate={~p"/people/#{@author.person}"} class="flex-none">
+        <.link :if={@author.person.thumbnails} navigate={~p"/people/#{@author.person}"} class="flex-none">
           <img
-            src={@author.person.image_path}
+            src={@author.person.thumbnails.extra_large}
             class="hidden rounded-full object-cover object-top shadow-lg sm:block sm:h-16 sm:w-16 xl:h-24 xl:w-24"
           />
         </.link>

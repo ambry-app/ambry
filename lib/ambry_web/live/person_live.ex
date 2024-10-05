@@ -17,12 +17,12 @@ defmodule AmbryWeb.PersonLive do
     ~H"""
     <div class="mx-auto max-w-md space-y-16 p-4 sm:max-w-none sm:space-y-24 md:max-w-screen-2xl md:p-6 lg:space-y-32 lg:p-8">
       <div
-        :if={@person.image_path || @person.description}
+        :if={@person.thumbnails || @person.description}
         class="justify-center sm:flex sm:flex-row sm:space-x-10 md:space-x-12 lg:space-x-16"
       >
-        <section :if={@person.image_path} id="photo" class="mb-4 min-w-max flex-none sm:mb-0">
+        <section :if={@person.thumbnails} id="photo" class="mb-4 min-w-max flex-none sm:mb-0">
           <img
-            src={@person.image_path}
+            src={@person.thumbnails.extra_large}
             class="mx-auto h-52 w-52 rounded-full object-cover object-top shadow-lg sm:h-64 sm:w-64 md:h-72 md:w-72 lg:h-80 lg:w-80"
           />
         </section>

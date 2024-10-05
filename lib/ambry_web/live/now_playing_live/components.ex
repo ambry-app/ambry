@@ -20,8 +20,13 @@ defmodule AmbryWeb.NowPlayingLive.Components do
     <div class="flex-none lg:flex lg:basis-7/12 lg:place-content-center lg:place-items-center">
       <div class="m-8 flex space-x-4 sm:m-12 md:space-x-8 lg:mr-4">
         <img
-          src={@media.image_path}
+          :if={@media.thumbnails}
+          src={@media.thumbnails.extra_large}
           class="aspect-1 h-32 object-cover object-center sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[32rem]"
+        />
+        <div
+          :if={!@media.thumbnails}
+          class="aspect-1 h-32 bg-zinc-200 dark:bg-zinc-800 sm:h-64 md:h-72 lg:h-80 xl:h-96 2xl:h-[32rem]"
         />
         <div class="sm:pt-4 md:pt-6 lg:pt-8">
           <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-3xl xl:text-4xl">

@@ -15,7 +15,7 @@ defmodule AmbryWeb.Preview.AudiobookController do
       page_title: description,
       og: %{
         title: description,
-        image: media.image_path && unverified_url(conn, media.image_path),
+        image: media.thumbnails && unverified_url(conn, media.thumbnails.extra_large),
         description: media.description && truncate_markdown(media.description),
         url: url(conn, ~p"/audiobooks/#{media.id}")
       }

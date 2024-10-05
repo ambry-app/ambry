@@ -32,10 +32,10 @@ defmodule AmbryWeb.SearchLive.Components do
     <div class="text-center">
       <div class="group">
         <.link navigate={~p"/people/#{@person}"}>
-          <span class={["block aspect-1", if(!@person.image_path, do: "rounded-full bg-zinc-200 dark:bg-zinc-800")]}>
+          <span class={["block aspect-1", if(!@person.thumbnails, do: "rounded-full bg-zinc-200 dark:bg-zinc-800")]}>
             <img
-              :if={@person.image_path}
-              src={@person.image_path}
+              :if={@person.thumbnails}
+              src={@person.thumbnails.large}
               class="h-full w-full rounded-full object-cover object-top"
             />
           </span>
@@ -78,7 +78,7 @@ defmodule AmbryWeb.SearchLive.Components do
     <div class="text-center">
       <div class="group">
         <.link navigate={~p"/series/#{@series}"}>
-          <.book_multi_image paths={image_paths(@series)} />
+          <.book_multi_image thumbnails={thumbnails(@series)} />
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/series/#{@series}"}>
@@ -93,12 +93,12 @@ defmodule AmbryWeb.SearchLive.Components do
     """
   end
 
-  defp image_paths(series) do
+  defp thumbnails(series) do
     # use the first non-nil image path from each book in the series
     series.series_books
     |> Enum.map(fn series_book ->
       Enum.find_value(series_book.book.media, fn media ->
-        media.image_path
+        media.thumbnails
       end)
     end)
     |> Enum.filter(& &1)

@@ -6,8 +6,10 @@ defmodule Ambry.Thumbnails do
   use Ecto.Schema
 
   import Ecto.Changeset
+  import Ecto.Query
 
   alias Ambry.Paths
+  alias Ambry.Thumbnails.GenerateThumbnails
 
   @primary_key false
 
@@ -193,6 +195,34 @@ defmodule Ambry.Thumbnails do
     File.rm(Paths.web_to_disk(thumbnails.medium))
     File.rm(Paths.web_to_disk(thumbnails.small))
     File.rm(Paths.web_to_disk(thumbnails.extra_small))
+    :ok
+  end
+
+  @doc """
+  Schedules jobs for all media and people that have image_paths but don't have
+  thumbnails.
+  """
+  def schedule_missing_thumbnails! do
+    people =
+      Ambry.Repo.all(
+        from p in Ambry.People.Person,
+          where: is_nil(p.thumbnails) and not is_nil(p.image_path)
+      )
+
+    Enum.each(people, fn person ->
+      %{"person_id" => person.id} |> GenerateThumbnails.new() |> Oban.insert!()
+    end)
+
+    media =
+      Ambry.Repo.all(
+        from m in Ambry.Media.Media,
+          where: is_nil(m.thumbnails) and not is_nil(m.image_path)
+      )
+
+    Enum.each(media, fn media ->
+      %{"media_id" => media.id} |> GenerateThumbnails.new() |> Oban.insert!()
+    end)
+
     :ok
   end
 end

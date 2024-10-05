@@ -29,10 +29,10 @@ defmodule AmbryWeb.AudiobookLive do
             </p>
           </div>
 
-          <div class={["aspect-1", if(!@media.image_path, do: "bg-zinc-200 dark:bg-zinc-800")]}>
+          <div class={["aspect-1", if(!@media.thumbnails, do: "bg-zinc-200 dark:bg-zinc-800")]}>
             <img
-              :if={@media.image_path}
-              src={@media.image_path}
+              :if={@media.thumbnails}
+              src={@media.thumbnails.extra_large}
               class="h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:w-80"
             />
           </div>
