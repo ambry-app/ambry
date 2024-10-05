@@ -126,7 +126,7 @@ defmodule Ambry.People do
       |> Person.changeset(attrs)
       |> Repo.insert()
       |> tap_ok(fn person ->
-        unless is_nil(person.image_path) do
+        if !is_nil(person.image_path) do
           %{"person_id" => person.id}
           |> GenerateThumbnails.new()
           |> Oban.insert!()
@@ -194,7 +194,7 @@ defmodule Ambry.People do
         {:ok, person} ->
           maybe_delete_image(person.image_path)
 
-          unless is_nil(person.thumbnails),
+          if !is_nil(person.thumbnails),
             do: Thumbnails.try_delete_thumbnails(person.thumbnails)
 
           PubSub.broadcast_delete(person)
@@ -267,7 +267,7 @@ defmodule Ambry.People do
   Generate and store a `%Thumbnails{}` struct on the given media
   """
   def generate_thumbnails!(%Person{image_path: nil} = person) do
-    unless is_nil(person.thumbnails) do
+    if !is_nil(person.thumbnails) do
       Ambry.Thumbnails.try_delete_thumbnails(person.thumbnails)
       {:ok, _person} = update_person(person, %{thumbnails: nil})
     end

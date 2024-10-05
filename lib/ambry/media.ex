@@ -151,7 +151,7 @@ defmodule Ambry.Media do
     |> Media.changeset(attrs, for: :create)
     |> Repo.insert()
     |> tap_ok(fn media ->
-      unless is_nil(media.image_path) do
+      if !is_nil(media.image_path) do
         %{"media_id" => media.id}
         |> GenerateThumbnails.new()
         |> Oban.insert!()
@@ -233,7 +233,7 @@ defmodule Ambry.Media do
 
     maybe_delete_image(media.image_path)
 
-    unless is_nil(media.thumbnails),
+    if !is_nil(media.thumbnails),
       do: Thumbnails.try_delete_thumbnails(media.thumbnails)
 
     :ok
@@ -314,7 +314,7 @@ defmodule Ambry.Media do
   Generate and store a `%Thumbnails{}` struct on the given media
   """
   def generate_thumbnails!(%Media{image_path: nil} = media) do
-    unless is_nil(media.thumbnails) do
+    if !is_nil(media.thumbnails) do
       Ambry.Thumbnails.try_delete_thumbnails(media.thumbnails)
       {:ok, _media} = update_media(media, %{thumbnails: nil}, for: :thumbnails_update)
     end
