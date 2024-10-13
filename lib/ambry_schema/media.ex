@@ -22,6 +22,13 @@ defmodule AmbrySchema.Media do
     field :end_time, :float
   end
 
+  object :supplemental_file do
+    field :filename, non_null(:string)
+    field :label, :string
+    field :mime, non_null(:string)
+    field :path, non_null(:string)
+  end
+
   node object(:media) do
     field :status, non_null(:media_processing_status)
 
@@ -43,9 +50,14 @@ defmodule AmbrySchema.Media do
 
     field :published, :date
     field :published_format, non_null(:date_format)
+    field :publisher, :string
+
+    field :notes, :string
 
     field :description, :string
     field :thumbnails, :thumbnails
+
+    field :supplemental_files, non_null(list_of(non_null(:supplemental_file)))
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
