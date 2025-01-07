@@ -24,7 +24,7 @@ defmodule AmbryWeb.AuthorLive do
         <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
           Written by
           <.link navigate={~p"/people/#{@author.person}"} class="hover:underline">
-            <%= @author.name %>
+            {@author.name}
           </.link>
         </h1>
       </div>

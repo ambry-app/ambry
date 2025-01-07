@@ -60,7 +60,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
                 </td>
 
                 <td class="border-b border-zinc-100 py-4 pr-4 text-right tabular-nums dark:border-zinc-900">
-                  <%= format_timecode(bookmark.position) %>
+                  {format_timecode(bookmark.position)}
                 </td>
               </tr>
             <% else %>
@@ -81,7 +81,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
                     </div>
                     <p>
                       <%= if bookmark.label do %>
-                        <%= bookmark.label %>
+                        {bookmark.label}
                       <% else %>
                         (unlabeled)
                       <% end %>
@@ -90,7 +90,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
                 </td>
 
                 <td class="border-b border-zinc-100 py-4 pr-4 text-right tabular-nums dark:border-zinc-900">
-                  <%= format_timecode(bookmark.position) %>
+                  {format_timecode(bookmark.position)}
                 </td>
               </tr>
             <% end %>

@@ -42,7 +42,7 @@ defmodule AmbryWeb.SearchLive.Components do
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/people/#{@person}"}>
-            <%= @person.name %>
+            {@person.name}
           </.link>
         </p>
         <p :if={@person.authors != []} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
@@ -50,7 +50,7 @@ defmodule AmbryWeb.SearchLive.Components do
           <%= case aliases(@person, :authors) do %>
             <% "" -> %>
             <% aliases -> %>
-              <span>(<%= aliases %>)</span>
+              <span>({aliases})</span>
           <% end %>
         </p>
         <p :if={@person.narrators != []} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
@@ -58,7 +58,7 @@ defmodule AmbryWeb.SearchLive.Components do
           <%= case aliases(@person, :narrators) do %>
             <% "" -> %>
             <% aliases -> %>
-              <span>(<%= aliases %>)</span>
+              <span>({aliases})</span>
           <% end %>
         </p>
       </div>
@@ -82,7 +82,7 @@ defmodule AmbryWeb.SearchLive.Components do
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/series/#{@series}"}>
-            <%= @series.name %> (Series)
+            {@series.name} (Series)
           </.link>
         </p>
       </div>

@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href={~p"/favicon.png"} sizes="16x16" />
     <link rel="icon" type="image/png" href={~p"/favicon-32x32.png"} sizes="32x32" />
     <link rel="icon" type="image/png" href={~p"/favicon-96x96.png"} sizes="96x96" />
-    <title><%= @page_title %> • Ambry</title>
+    <title>{@page_title} • Ambry</title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
 
     <meta property="og:site_name" content="Ambry • Personal Audiobook Streaming" />
@@ -16,6 +16,6 @@
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body class="bg-white text-zinc-800 antialiased selection:bg-brand selection:text-white dark:bg-black dark:text-zinc-200 dark:selection:bg-brand-dark dark:selection:text-black">
-    <%= @inner_content %>
+    {@inner_content}
   </body>
 </html>

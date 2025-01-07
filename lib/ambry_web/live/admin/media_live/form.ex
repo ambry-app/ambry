@@ -364,18 +364,18 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     <div class={[@class]}>
       <div class="flex p-2">
         <div class="w-28 pr-2">
-          <.badge color={:gray}><%= @label %></.badge>
+          <.badge color={:gray}>{@label}</.badge>
         </div>
         <%= if @file do %>
           <div class="grow break-all pr-2">
-            <%= @file.path %>
+            {@file.path}
           </div>
           <div class="shrink">
             <%= case @file.stat do %>
               <% error when is_atom(error) -> %>
-                <.badge color={color_for_error_type(@error_type)}><%= error %></.badge>
+                <.badge color={color_for_error_type(@error_type)}>{error}</.badge>
               <% stat when is_map(stat) -> %>
-                <.badge color={:blue}><%= format_filesize(stat.size) %></.badge>
+                <.badge color={:blue}>{format_filesize(stat.size)}</.badge>
             <% end %>
           </div>
         <% else %>

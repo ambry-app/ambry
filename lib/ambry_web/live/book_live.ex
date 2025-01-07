@@ -14,7 +14,7 @@ defmodule AmbryWeb.BookLive do
       <div>
         <.book_header book={@book} class="xl:text-5xl" />
         <p class="mt-1 text-sm text-zinc-500">
-          First published <%= format_published(@book) %>
+          First published {format_published(@book)}
         </p>
       </div>
 

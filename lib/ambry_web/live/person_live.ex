@@ -28,7 +28,7 @@ defmodule AmbryWeb.PersonLive do
         </section>
         <section :if={@person.description} id="description" class="sm:ml-10 md:ml-12 lg:ml-16">
           <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
-            <%= @person.name %>
+            {@person.name}
           </h1>
           <div
             id="readMore"
@@ -54,7 +54,7 @@ defmodule AmbryWeb.PersonLive do
             Written by <.author_name author={author} person={@person} />
           </.books_header>
 
-          <.link :if={more?} navigate={~p"/authors/#{author}"} class="hover:underline text-zinc-500">
+          <.link :if={more?} navigate={~p"/authors/#{author}"} class="text-zinc-500 hover:underline">
             See all
           </.link>
         </div>
@@ -68,7 +68,7 @@ defmodule AmbryWeb.PersonLive do
             Narrated by <.narrator_name narrator={narrator} person={@person} />
           </.books_header>
 
-          <.link :if={more?} navigate={~p"/narrators/#{narrator}"} class="hover:underline text-zinc-500">
+          <.link :if={more?} navigate={~p"/narrators/#{narrator}"} class="text-zinc-500 hover:underline">
             See all
           </.link>
         </div>
@@ -115,7 +115,7 @@ defmodule AmbryWeb.PersonLive do
   defp books_header(assigns) do
     ~H"""
     <h2 class="mb-6 text-2xl font-bold sm:text-3xl md:mb-8 lg:mb-12 xl:text-4xl">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </h2>
     """
   end
@@ -125,13 +125,13 @@ defmodule AmbryWeb.PersonLive do
 
   defp author_name(%{author: %{name: name}, person: %{name: name}} = assigns) do
     ~H"""
-    <.link navigate={~p"/authors/#{@author}"} class="hover:underline"><%= @author.name %></.link>
+    <.link navigate={~p"/authors/#{@author}"} class="hover:underline">{@author.name}</.link>
     """
   end
 
   defp author_name(assigns) do
     ~H"""
-    <%= @person.name %> as <.link navigate={~p"/authors/#{@author}"} class="hover:underline"><%= @author.name %></.link>
+    {@person.name} as <.link navigate={~p"/authors/#{@author}"} class="hover:underline">{@author.name}</.link>
     """
   end
 
@@ -140,14 +140,13 @@ defmodule AmbryWeb.PersonLive do
 
   defp narrator_name(%{narrator: %{name: name}, person: %{name: name}} = assigns) do
     ~H"""
-    <.link navigate={~p"/narrators/#{@narrator}"} class="hover:underline"><%= @narrator.name %></.link>
+    <.link navigate={~p"/narrators/#{@narrator}"} class="hover:underline">{@narrator.name}</.link>
     """
   end
 
   defp narrator_name(assigns) do
     ~H"""
-    <%= @person.name %> as
-    <.link navigate={~p"/narrators/#{@narrator}"} class="hover:underline"><%= @narrator.name %></.link>
+    {@person.name} as <.link navigate={~p"/narrators/#{@narrator}"} class="hover:underline">{@narrator.name}</.link>
     """
   end
 end

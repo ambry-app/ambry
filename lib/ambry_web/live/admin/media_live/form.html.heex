@@ -51,7 +51,7 @@
             options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
           />
           <span class="text-sm italic dark:text-zinc-500">
-            <%= preview_date_format(@form) %>
+            {preview_date_format(@form)}
           </span>
         </div>
         <.input field={@form[:publisher]} label="Publisher" />
@@ -88,7 +88,7 @@
             <.delete_button
               field={@form[:media_narrators_drop]}
               index={media_narrator_form.index}
-              class="absolute right-2 top-3"
+              class="absolute top-3 right-2"
             />
           </div>
         </.inputs_for>
@@ -173,7 +173,7 @@
         <.label>Audio file(s)</.label>
         <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
           <p :for={file <- @media.source_files} class="text-sm italic">
-            <%= Path.basename(file) %>
+            {Path.basename(file)}
           </p>
         </div>
       </div>
@@ -215,7 +215,7 @@
                 Browse...
               </button>
               <p class="overflow-hidden text-ellipsis whitespace-nowrap px-2">
-                <%= Enum.count(@selected_files) %> File(s) selected
+                {Enum.count(@selected_files)} File(s) selected
               </p>
             </div>
             <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
@@ -225,7 +225,7 @@
                 class="mx-auto my-4 block h-8 w-8 fill-current"
               />
               <p :for={file <- Enum.sort(@selected_files, NaturalOrder)}>
-                <%= Path.basename(file) %>
+                {Path.basename(file)}
               </p>
             </div>
           </div>
@@ -316,7 +316,7 @@
             <.delete_button
               field={@form[:supplemental_files_drop]}
               index={supplemental_file_form.index}
-              class="absolute right-2 top-3"
+              class="absolute top-3 right-2"
             />
           </div>
         </.inputs_for>
@@ -326,7 +326,7 @@
 
       <div class="space-y-2">
         <.label for={@form[:processor].name}>
-          <%= if @live_action == :new, do: "Processor", else: "Re-run processor?" %>
+          {if @live_action == :new, do: "Processor", else: "Re-run processor?"}
         </.label>
 
         <.note :if={@live_action == :edit}>

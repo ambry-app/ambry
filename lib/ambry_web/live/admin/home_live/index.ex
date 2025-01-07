@@ -53,7 +53,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   defp cards_grid(assigns) do
     ~H"""
     <div class="grid grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-6">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -69,7 +69,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
       <div class="space-y-4 divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 p-2 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 sm:p-4">
         <FA.icon name={@icon} class="mx-auto h-8 w-8 fill-current sm:h-12 sm:w-12" />
         <div class="flex pt-2 sm:pt-4">
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         </div>
       </div>
     </div>
@@ -83,10 +83,10 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
     ~H"""
     <div class="grow">
       <h2 class="text-center font-bold sm:text-xl">
-        <%= render_slot(@title) %>
+        {render_slot(@title)}
       </h2>
       <p class="text-center text-lg font-bold sm:text-2xl">
-        <%= render_slot(@stat) %>
+        {render_slot(@stat)}
       </p>
     </div>
     """

@@ -264,9 +264,9 @@ defmodule AmbryWeb.Layouts do
       <.player_button action={seek_relative(60)} title="Forward 1 minute" icon="forward-step" />
 
       <div class="whitespace-nowrap text-sm tabular-nums text-zinc-600 dark:text-zinc-500 sm:text-base">
-        <span><%= player_state_progress(@player_state) %></span>
+        <span>{player_state_progress(@player_state)}</span>
         <span class="hidden sm:inline">/</span>
-        <span><%= player_state_duration(@player_state) %></span>
+        <span>{player_state_duration(@player_state)}</span>
       </div>
       <div class="grow overflow-hidden text-ellipsis whitespace-nowrap">
         <span class="text-sm text-zinc-800 dark:text-zinc-300 sm:text-base">
@@ -285,7 +285,7 @@ defmodule AmbryWeb.Layouts do
       >
         <div phx-click={toggle_menu("playback-rate-menu")} class="flex cursor-pointer items-center gap-2">
           <span class="hidden text-sm text-zinc-600 dark:text-zinc-500 sm:block sm:text-base">
-            <%= player_state_playback_rate(@player_state) %>x
+            {player_state_playback_rate(@player_state)}x
           </span>
           <FA.icon name="gauge-high" class="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
@@ -356,7 +356,7 @@ defmodule AmbryWeb.Layouts do
       <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800 ">
         <div class="p-3">
           <p class="text-center text-lg font-bold sm:text-xl">
-            <%= player_state_playback_rate(@player_state) %>x
+            {player_state_playback_rate(@player_state)}x
           </p>
         </div>
         <div>
@@ -393,7 +393,7 @@ defmodule AmbryWeb.Layouts do
   defp set_playback_rate_button(assigns) do
     ~H"""
     <span phx-click={set_playback_rate(@rate)} class="cursor-pointer px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
-      <%= @rate %>x
+      {@rate}x
     </span>
     """
   end

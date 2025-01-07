@@ -38,15 +38,15 @@ defmodule AmbryWeb.AudiobookLive do
           </div>
 
           <p class="mt-1 text-sm text-zinc-500">
-            First published <%= format_published(@media.book) %>
+            First published {format_published(@media.book)}
           </p>
 
           <div class="mt-6 divide-y divide-zinc-300 rounded-sm border border-zinc-200 bg-zinc-50 px-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
             <div class="flex items-center gap-4 py-3">
               <div class="grow">
-                <p><%= @media.book.title %></p>
+                <p>{@media.book.title}</p>
                 <p class="text-zinc-600 dark:text-zinc-400">
-                  <%= duration_display(@media.duration) %>
+                  {duration_display(@media.duration)}
                 </p>
               </div>
               <div class="cursor-pointer fill-current" phx-click={media_click_action(@player, @media)}>
@@ -60,18 +60,18 @@ defmodule AmbryWeb.AudiobookLive do
             <div :if={@media.publisher || @media.notes || @media.supplemental_files != []} class="space-y-2 py-3">
               <div>
                 <p :if={@media.published} class="text-sm text-zinc-500">
-                  Published <%= format_published(@media) %>
+                  Published {format_published(@media)}
                 </p>
-                <p :if={@media.publisher} class="text-sm text-zinc-500">by <%= @media.publisher %></p>
+                <p :if={@media.publisher} class="text-sm text-zinc-500">by {@media.publisher}</p>
               </div>
 
               <p :if={@media.notes} class="text-sm text-zinc-500">
-                <%= @media.notes %>
+                {@media.notes}
               </p>
 
               <div :if={@media.supplemental_files != []} class="flex flex-col">
                 <.brand_link :for={file <- @media.supplemental_files} href={file_href(file, @media)} target="_blank">
-                  <%= format_file_name(file) %>
+                  {format_file_name(file)}
                 </.brand_link>
               </div>
             </div>
@@ -110,7 +110,7 @@ defmodule AmbryWeb.AudiobookLive do
           <.markdown
             :if={@media.description}
             content={@media.description}
-            class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-900"
+            class="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-900"
           />
         </section>
       </div>

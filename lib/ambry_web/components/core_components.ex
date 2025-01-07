@@ -86,7 +86,7 @@ defmodule AmbryWeb.CoreComponents do
             </button>
           </div>
           <div id={"#{@id}-content"}>
-            <%= render_slot(@inner_block) %>
+            {render_slot(@inner_block)}
           </div>
         </.focus_wrap>
       </div>
@@ -130,9 +130,9 @@ defmodule AmbryWeb.CoreComponents do
       <p :if={@title} class="flex items-center gap-1.5 text-sm font-semibold leading-6">
         <FA.icon :if={@kind == :info} name="circle-info" class="h-4 w-4" />
         <FA.icon :if={@kind == :error} name="circle-exclamation" class="h-4 w-4" />
-        <%= @title %>
+        {@title}
       </p>
-      <p class="mt-2 text-sm leading-5"><%= msg %></p>
+      <p class="mt-2 text-sm leading-5">{msg}</p>
       <button type="button" class="group absolute top-1 right-1 p-2" aria-label={gettext("close")}>
         <FA.icon name="xmark" class="h-5 w-5 opacity-20 hover:opacity-40" />
       </button>
@@ -209,9 +209,9 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <.form :let={f} for={@for} as={@as} {@rest}>
       <div class={["space-y-6", @container_class]}>
-        <%= render_slot(@inner_block, f) %>
+        {render_slot(@inner_block, f)}
         <div :for={action <- @actions} class="mt-2 flex items-center justify-between gap-6">
-          <%= render_slot(action, f) %>
+          {render_slot(action, f)}
         </div>
       </div>
     </.form>
@@ -246,7 +246,7 @@ defmodule AmbryWeb.CoreComponents do
       ]}
       {@rest}
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </button>
     """
   end
@@ -340,9 +340,9 @@ defmodule AmbryWeb.CoreComponents do
           ]}
           {@rest}
         />
-        <%= @label %>
+        {@label}
       </.label>
-      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
+      <.error :for={msg <- @errors} :if={@show_errors}>{msg}</.error>
     </div>
     """
   end
@@ -350,7 +350,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "select"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}><%= @label %></.label>
+      <.label :if={@label} for={@id}>{@label}</.label>
       <select
         id={@id}
         name={@name}
@@ -361,10 +361,10 @@ defmodule AmbryWeb.CoreComponents do
         multiple={@multiple}
         {@rest}
       >
-        <option :if={@prompt} value=""><%= @prompt %></option>
-        <%= Form.options_for_select(@options, @value) %>
+        <option :if={@prompt} value="">{@prompt}</option>
+        {Form.options_for_select(@options, @value)}
       </select>
-      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
+      <.error :for={msg <- @errors} :if={@show_errors}>{msg}</.error>
     </div>
     """
   end
@@ -372,7 +372,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "textarea"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}><%= @label %></.label>
+      <.label :if={@label} for={@id}>{@label}</.label>
       <textarea
         id={@id}
         name={@name}
@@ -382,7 +382,7 @@ defmodule AmbryWeb.CoreComponents do
         }
         {@rest}
       ><%= Form.normalize_value("textarea", @value) %></textarea>
-      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
+      <.error :for={msg <- @errors} :if={@show_errors}>{msg}</.error>
     </div>
     """
   end
@@ -390,7 +390,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "autocomplete"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}><%= @label %></.label>
+      <.label :if={@label} for={@id}>{@label}</.label>
       <.live_component
         module={Autocomplete}
         id={@id}
@@ -398,14 +398,12 @@ defmodule AmbryWeb.CoreComponents do
         options={@options}
         value={@value}
         class={
-          [
-            "block w-full rounded-sm py-[7px] px-[11px]",
-            "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"
-          ] ++ input_color_classes(@errors) ++ [@class]
+          ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+            input_color_classes(@errors) ++ [@class]
         }
         {@rest}
       />
-      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
+      <.error :for={msg <- @errors} :if={@show_errors}>{msg}</.error>
     </div>
     """
   end
@@ -414,7 +412,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}><%= @label %></.label>
+      <.label :if={@label} for={@id}>{@label}</.label>
       <input
         type={@type}
         name={@name}
@@ -426,7 +424,7 @@ defmodule AmbryWeb.CoreComponents do
         }
         {@rest}
       />
-      <.error :for={msg <- @errors} :if={@show_errors}><%= msg %></.error>
+      <.error :for={msg <- @errors} :if={@show_errors}>{msg}</.error>
     </div>
     """
   end
@@ -448,7 +446,7 @@ defmodule AmbryWeb.CoreComponents do
 
     ~H"""
     <div>
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
   end
@@ -464,15 +462,15 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div>
       <div class="space-y-2">
-        <.label :if={@label}><%= @label %></.label>
+        <.label :if={@label}>{@label}</.label>
         <.live_file_input
           upload={@upload}
           class={
             [
-              "block w-full rounded-sm rounded-b-none p-0 border !text-zinc-500",
+              "!text-zinc-500 block w-full rounded-sm rounded-b-none border p-0",
               "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
-              "file:border-0 file:rounded-none file:p-[11px] file:cursor-pointer",
-              "file:bg-zinc-600 file:text-zinc-100 hover:file:bg-zinc-500 file:font-bold"
+              "file:p-[11px] file:cursor-pointer file:rounded-none file:border-0",
+              "file:bg-zinc-600 file:font-bold file:text-zinc-100 hover:file:bg-zinc-500"
             ] ++ input_color_classes(@errors) ++ [@class]
           }
         />
@@ -490,10 +488,10 @@ defmodule AmbryWeb.CoreComponents do
                 entry={entry}
                 class={@image_preview_class}
               />
-              <figcaption><%= entry.client_name %></figcaption>
+              <figcaption>{entry.client_name}</figcaption>
             </figure>
 
-            <progress value={entry.progress} max="100"><%= entry.progress %>%</progress>
+            <progress value={entry.progress} max="100">{entry.progress}%</progress>
 
             <span
               class="cursor-pointer text-2xl transition-colors hover:text-red-600 dark:hover:text-red-500"
@@ -503,12 +501,12 @@ defmodule AmbryWeb.CoreComponents do
             </span>
 
             <p :for={err <- upload_errors(@upload, entry)} class="text-red-600 dark:text-red-500">
-              <%= UploadHelpers.upload_error_to_string(err) %>
+              {UploadHelpers.upload_error_to_string(err)}
             </p>
           </article>
         </div>
         <p :for={err <- upload_errors(@upload)} class="text-red-600 dark:text-red-500">
-          <%= UploadHelpers.upload_error_to_string(err) %>
+          {UploadHelpers.upload_error_to_string(err)}
         </p>
       </div>
     </div>
@@ -566,7 +564,7 @@ defmodule AmbryWeb.CoreComponents do
   def tabs(assigns) do
     ~H"""
     <div class="flex items-center gap-2">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
 
       <span class="cursor-default select-none text-sm">•</span>
 
@@ -575,7 +573,7 @@ defmodule AmbryWeb.CoreComponents do
           <span class="cursor-default select-none text-sm">•</span>
         </:separator>
         <label class="cursor-pointer select-none whitespace-nowrap text-sm italic leading-6 has-[:checked]:font-semibold has-[:checked]:not-italic has-[:checked]:underline">
-          <input type="radio" name={@field.name} value={value} checked={@field.value == value} class="hidden" /> <%= label %>
+          <input type="radio" name={@field.name} value={value} checked={@field.value == value} class="hidden" /> {label}
         </label>
       </.intersperse>
     </div>
@@ -595,7 +593,7 @@ defmodule AmbryWeb.CoreComponents do
       for={@for}
       class={["block whitespace-nowrap text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200", @class]}
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </label>
     """
   end
@@ -609,7 +607,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <p class="flex items-center gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden dark:text-red-500">
       <FA.icon name="circle-exclamation" class="h-4 w-4 flex-none fill-red-500" />
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </p>
     """
   end
@@ -620,7 +618,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <p class="flex items-center gap-3 text-sm font-semibold leading-6">
       <FA.icon name="rotate" class="h-4 w-4 flex-none animate-spin fill-zinc-800 dark:fill-zinc-200" />
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </p>
     """
   end
@@ -694,13 +692,13 @@ defmodule AmbryWeb.CoreComponents do
     <header class={[@actions != [] && "flex items-center justify-between gap-6", @class]}>
       <div>
         <h1 class="text-center text-xl font-extrabold leading-8 text-zinc-900 dark:text-zinc-50 sm:text-2xl">
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         </h1>
         <p :if={@subtitle != []} class="mt-4 leading-6 text-zinc-800 dark:text-zinc-200">
-          <%= render_slot(@subtitle) %>
+          {render_slot(@subtitle)}
         </p>
       </div>
-      <div class="flex-none"><%= render_slot(@actions) %></div>
+      <div class="flex-none">{render_slot(@actions)}</div>
     </header>
     """
   end
@@ -741,8 +739,8 @@ defmodule AmbryWeb.CoreComponents do
       <table class="w-[40rem] mt-11 sm:w-full">
         <thead class="text-left text-sm leading-6 text-zinc-500">
           <tr>
-            <th :for={col <- @col} class="p-0 pr-6 pb-4 font-normal"><%= col[:label] %></th>
-            <th class="relative p-0 pb-4"><span class="sr-only"><%= gettext("Actions") %></span></th>
+            <th :for={col <- @col} class="p-0 pr-6 pb-4 font-normal">{col[:label]}</th>
+            <th class="relative p-0 pb-4"><span class="sr-only">{gettext("Actions")}</span></th>
           </tr>
         </thead>
         <tbody
@@ -759,7 +757,7 @@ defmodule AmbryWeb.CoreComponents do
               <div class="block py-4 pr-6">
                 <span class="absolute -inset-y-px right-0 -left-4 group-hover:bg-zinc-50 sm:rounded-l-xl" />
                 <span class={["relative", i == 0 && "font-semibold text-zinc-900"]}>
-                  <%= render_slot(col, @row_item.(row)) %>
+                  {render_slot(col, @row_item.(row))}
                 </span>
               </div>
             </td>
@@ -770,7 +768,7 @@ defmodule AmbryWeb.CoreComponents do
                   :for={action <- @action}
                   class="relative ml-4 font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
                 >
-                  <%= render_slot(action, @row_item.(row)) %>
+                  {render_slot(action, @row_item.(row))}
                 </span>
               </div>
             </td>
@@ -800,8 +798,8 @@ defmodule AmbryWeb.CoreComponents do
     <div class="mt-14">
       <dl class="-my-4 divide-y divide-zinc-100">
         <div :for={item <- @item} class="flex gap-4 py-4 text-sm leading-6 sm:gap-8">
-          <dt class="w-1/4 flex-none text-zinc-500"><%= item.title %></dt>
-          <dd class="text-zinc-700"><%= render_slot(item) %></dd>
+          <dt class="w-1/4 flex-none text-zinc-500">{item.title}</dt>
+          <dd class="text-zinc-700">{render_slot(item)}</dd>
         </div>
       </dl>
     </div>
@@ -823,7 +821,7 @@ defmodule AmbryWeb.CoreComponents do
     <div class="mt-16">
       <.link navigate={@navigate} class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700">
         <FA.icon name="arrow-left" class="inline h-3 w-3 stroke-current" />
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </.link>
     </div>
     """
@@ -838,14 +836,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def brand_link(assigns) do
     ~H"""
-    <.link
-      class={[
-        "font-semibold text-brand dark:text-brand-dark hover:underline",
-        @class
-      ]}
-      {@rest}
-      phx-no-format
-    ><%= render_slot(@inner_block) %></.link>
+    <.link class={["text-brand font-semibold hover:underline dark:text-brand-dark", @class]} {@rest} phx-no-format><%= render_slot(@inner_block) %></.link>
     """
   end
 
@@ -857,7 +848,7 @@ defmodule AmbryWeb.CoreComponents do
   def auth_form_card(assigns) do
     ~H"""
     <div class="flex flex-col space-y-6 rounded-sm bg-white p-10 shadow-lg dark:bg-zinc-900">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -956,11 +947,11 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <p class={["border-l-4 border-zinc-400 pl-4 italic text-zinc-500 dark:border-zinc-500 dark:text-zinc-400", @class]}>
       <%= if @label != [] do %>
-        <strong><%= render_slot(@label) %>:</strong>
+        <strong>{render_slot(@label)}:</strong>
       <% else %>
         <strong>Note:</strong>
       <% end %>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </p>
     """
   end
@@ -1059,7 +1050,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div id={@id} class="text-center">
       <%= if @number do %>
-        <p class="font-bold text-zinc-900 dark:text-zinc-100 sm:text-lg">Book <%= @number %></p>
+        <p class="font-bold text-zinc-900 dark:text-zinc-100 sm:text-lg">Book {@number}</p>
       <% end %>
       <div class="group">
         <.link navigate={~p"/books/#{@book}"}>
@@ -1067,7 +1058,7 @@ defmodule AmbryWeb.CoreComponents do
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/books/#{@book}"}>
-            <%= @book.title %>
+            {@book.title}
           </.link>
         </p>
       </div>
@@ -1116,7 +1107,7 @@ defmodule AmbryWeb.CoreComponents do
         </.link>
         <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/audiobooks/#{@media}"}>
-            <%= @media.book.title %>
+            {@media.book.title}
           </.link>
         </p>
       </div>
@@ -1134,9 +1125,9 @@ defmodule AmbryWeb.CoreComponents do
       </div>
 
       <div :if={@show_published && @media.published} class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
-        Published <%= format_published(@media) %>
+        Published {format_published(@media)}
         <p :if={@media.publisher}>
-          by <%= @media.publisher %>
+          by {@media.publisher}
         </p>
       </div>
     </div>
@@ -1253,7 +1244,7 @@ defmodule AmbryWeb.CoreComponents do
       </div>
       <p class="font-bold text-zinc-900 hover:underline dark:text-zinc-100 sm:text-lg">
         <.link navigate={~p"/audiobooks/#{@player_state.media}"}>
-          <%= @player_state.media.book.title %>
+          {@player_state.media.book.title}
         </.link>
       </p>
       <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
@@ -1372,7 +1363,7 @@ defmodule AmbryWeb.CoreComponents do
 
     ~H"""
     <.link navigate={~p"/people/#{@person.person_id}"} class="hover:underline">
-      <%= @person.name %>
+      {@person.name}
     </.link>
     """
   end
@@ -1395,7 +1386,7 @@ defmodule AmbryWeb.CoreComponents do
     <.link navigate={~p"/people/#{@person1.person_id}"} class="hover:underline" phx-no-format>
       <%= @person1.name %></.link><span phx-no-format>,</span>
     <.link navigate={~p"/people/#{@person2.person_id}"} class="hover:underline">
-      <%= @person2.name %>
+      {@person2.name}
     </.link>
     """
   end
@@ -1430,7 +1421,7 @@ defmodule AmbryWeb.CoreComponents do
     <%= for series_book <- Enum.sort_by(@series_books, & &1.series.name) do %>
       <p>
         <.link navigate={~p"/series/#{series_book.series}"} class="hover:underline">
-          <%= series_book.series.name %> #<%= series_book.book_number %>
+          {series_book.series.name} #{series_book.book_number}
         </.link>
       </p>
     <% end %>
@@ -1445,7 +1436,7 @@ defmodule AmbryWeb.CoreComponents do
   def section_header(assigns) do
     ~H"""
     <h1 class="mb-6 text-3xl font-bold text-zinc-900 dark:text-zinc-100 md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </h1>
     """
   end
@@ -1460,7 +1451,7 @@ defmodule AmbryWeb.CoreComponents do
   def grid(assigns) do
     ~H"""
     <div class={["grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 md:gap-8 xl:grid-cols-6", @class]} {@rest}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -1471,7 +1462,7 @@ defmodule AmbryWeb.CoreComponents do
   def markdown(assigns) do
     ~H"""
     <article class={["prose prose-zinc dark:prose-invert", @class]}>
-      <%= raw(Earmark.as_html!(@content)) %>
+      {raw(Earmark.as_html!(@content))}
     </article>
     """
   end
@@ -1485,9 +1476,9 @@ defmodule AmbryWeb.CoreComponents do
       <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
         <div class="flex items-center gap-4 p-4">
           <img class="h-10 w-10 rounded-full" src={gravatar_url(@user.email)} />
-          <p class="overflow-hidden text-ellipsis whitespace-nowrap"><%= @user.email %></p>
+          <p class="overflow-hidden text-ellipsis whitespace-nowrap">{@user.email}</p>
         </div>
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </div>
     </div>
     """
@@ -1500,7 +1491,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div>
       <h1 class={["text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl", @class]}>
-        <%= @book.title %>
+        {@book.title}
       </h1>
       <p class="text-zinc-800 dark:text-zinc-200 sm:text-lg xl:text-xl">
         <span>by <.all_people_links people={@book.authors} /></span>

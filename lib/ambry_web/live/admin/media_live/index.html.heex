@@ -37,37 +37,37 @@
         <div class={["h-16 w-16", if(!media.thumbnail, do: "bg-zinc-200 dark:bg-zinc-800")]}>
           <img :if={media.thumbnail} src={media.thumbnail} class="h-full w-full" />
         </div>
-        <.badge :if={media.status != :ready} color={status_color(media.status)} class="text-xs text-center w-16 !px-0">
-          <%= media.status %>
+        <.badge :if={media.status != :ready} color={status_color(media.status)} class="!px-0 w-16 text-center text-xs">
+          {media.status}
         </.badge>
       </div>
 
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
-        <p class="overflow-hidden text-ellipsis"><%= media.book %></p>
+        <p class="overflow-hidden text-ellipsis">{media.book}</p>
         <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
-          by <%= media.authors |> Enum.map(& &1.name) |> Enum.join(", ") %>
+          by {media.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
         <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
-          narrated by <%= media.narrators |> Enum.map(& &1.name) |> Enum.join(", ") %>
+          narrated by {media.narrators |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
         <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
-          <%= media.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ") %>
+          {media.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ")}
         </p>
       </div>
 
       <div class="hidden w-36 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
         <div class="flex gap-4">
           <span :if={!media.has_description} title="Missing description">
-            <FA.icon name="paragraph" class="h-4 w-4 inline fill-red-600" />
+            <FA.icon name="paragraph" class="inline h-4 w-4 fill-red-600" />
           </span>
           <span :if={media.abridged} title="Abridged">
-            <FA.icon name="clock" class="h-4 w-4 inline fill-current" />
+            <FA.icon name="clock" class="inline h-4 w-4 fill-current" />
           </span>
           <span :if={media.full_cast} title="Full cast">
-            <FA.icon name="users" class="h-4 w-4 inline fill-current" />
+            <FA.icon name="users" class="inline h-4 w-4 fill-current" />
           </span>
           <span :if={media.chapters > 0} title="# of chapters">
-            <%= media.chapters %> <FA.icon name="book-bookmark" class="h-4 w-4 inline fill-current" />
+            {media.chapters} <FA.icon name="book-bookmark" class="inline h-4 w-4 fill-current" />
           </span>
         </div>
       </div>
@@ -81,18 +81,18 @@
             <FA.icon name="pencil" class="h-4 w-4 fill-current transition-colors hover:fill-blue-600" />
           </.link>
           <span phx-click="delete" phx-value-id={media.id} data-confirm="Are you sure?">
-            <FA.icon name="trash" class="h-4 w-4 fill-current transition-colors hover:fill-red-600 cursor-pointer" />
+            <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:fill-red-600" />
           </span>
         </div>
 
         <p :if={media.duration} class="text-sm italic dark:text-zinc-500">
-          Duration <%= format_timecode(media.duration) %>
+          Duration {format_timecode(media.duration)}
         </p>
         <p :if={media.published} class="text-sm italic dark:text-zinc-500">
-          Published <%= format_published(media, :short) %>
+          Published {format_published(media, :short)}
         </p>
         <p class="text-sm italic dark:text-zinc-500">
-          Added <%= Calendar.strftime(media.inserted_at, "%x") %>
+          Added {Calendar.strftime(media.inserted_at, "%x")}
         </p>
       </div>
 

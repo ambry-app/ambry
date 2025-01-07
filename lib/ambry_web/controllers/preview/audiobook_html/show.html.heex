@@ -18,12 +18,12 @@
         />
       </div>
       <p class="mt-1 text-sm text-zinc-500">
-        First published <%= format_published(@media.book) %>
+        First published {format_published(@media.book)}
       </p>
       <p :if={@media.published} class="text-xs text-zinc-500">
-        This edition published <%= format_published(@media) %>
+        This edition published {format_published(@media)}
       </p>
-      <p :if={@media.publisher} class="text-xs text-zinc-500">by <%= @media.publisher %></p>
+      <p :if={@media.publisher} class="text-xs text-zinc-500">by {@media.publisher}</p>
       <div class="mt-4 rounded-sm border border-zinc-200 bg-zinc-50 p-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
         <.brand_link href={~p"/users/log_in"}>Sign in</.brand_link>
         to Ambry to listen to this audiobook!

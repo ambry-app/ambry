@@ -23,7 +23,7 @@
     </:loading>
 
     <:failed :let={failure}>
-      <.error>There was an error extracting chapters: <%= failure %></.error>
+      <.error>There was an error extracting chapters: {failure}</.error>
     </:failed>
 
     <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
@@ -33,7 +33,7 @@
             :for={chapter <- chapters}
             class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300"
           >
-            <%= chapter.title %>
+            {chapter.title}
           </div>
         </div>
       </.import_form_row>
