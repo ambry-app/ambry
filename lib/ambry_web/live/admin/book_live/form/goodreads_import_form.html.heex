@@ -14,7 +14,7 @@
     </:loading>
 
     <:failed :let={failure}>
-      <.error>There was an error searching GoodReads for books: <%= failure %></.error>
+      <.error>There was an error searching GoodReads for books: {failure}</.error>
     </:failed>
 
     <div class="grid grid-cols-2 gap-2">
@@ -22,7 +22,7 @@
         <div class="space-y-2">
           <.simple_form for={@select_book_form} phx-change="select-book" phx-target={@myself}>
             <div class="space-y-2">
-              <.label>Select book (<%= length(books) %> results)</.label>
+              <.label>Select book ({length(books)} results)</.label>
               <.rich_select id="book-select" field={@select_book_form[:book_id]} options={books}>
                 <:option :let={book}>
                   <.book_card book={book} />
@@ -40,13 +40,13 @@
           </:loading>
 
           <:failed :let={failure}>
-            <.error>There was an error fetching editions from GoodReads: <%= failure %></.error>
+            <.error>There was an error fetching editions from GoodReads: {failure}</.error>
           </:failed>
 
           <div class="space-y-2">
             <.simple_form for={@select_edition_form} phx-change="select-edition" phx-target={@myself}>
               <div class="space-y-2">
-                <.label>Select edition for <em><%= editions.title %></em></.label>
+                <.label>Select edition for <em>{editions.title}</em></.label>
                 <.rich_select id="edition-select" field={@select_edition_form[:edition_id]} options={editions.editions}>
                   <:option :let={edition}>
                     <.book_card book={edition} />
@@ -66,19 +66,19 @@
     </:loading>
 
     <:failed :let={failure}>
-      <.error>There was an error fetching edition details from GoodReads: <%= failure %></.error>
+      <.error>There was an error fetching edition details from GoodReads: {failure}</.error>
     </:failed>
 
     <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
       <.import_form_row :if={edition_details.title != ""} field={@form[:use_title]} label="Title">
         <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
-          <%= edition_details.title %>
+          {edition_details.title}
         </div>
       </.import_form_row>
 
       <.import_form_row :if={@editions.result.first_published} field={@form[:use_published]} label="First published">
         <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
-          <%= display_date(@editions.result.first_published) %>
+          {display_date(@editions.result.first_published)}
         </div>
       </.import_form_row>
 
@@ -88,13 +88,13 @@
             <p class="flex items-center gap-2">
               <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
               <span class="font-semibold">Existing author</span>
-              <%= existing_author.name %>
+              {existing_author.name}
             </p>
           <% else %>
             <p class="flex items-center gap-2">
               <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
               <span class="font-semibold">Missing author</span>
-              <%= imported_author.name %>
+              {imported_author.name}
             </p>
           <% end %>
         </div>
@@ -110,13 +110,13 @@
             <p class="flex items-center gap-2">
               <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
               <span class="font-semibold">Existing series</span>
-              <%= existing_series.name %> #<%= imported_series.number %>
+              {existing_series.name} #{imported_series.number}
             </p>
           <% else %>
             <p class="flex items-center gap-2">
               <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
               <span class="font-semibold">New series</span>
-              <%= imported_series.name %> #<%= imported_series.number %>
+              {imported_series.name} #{imported_series.number}
             </p>
           <% end %>
         </div>

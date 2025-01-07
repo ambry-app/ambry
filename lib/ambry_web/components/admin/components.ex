@@ -20,12 +20,12 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <div class="relative flex h-screen min-w-0 grow flex-col">
       <.layout_header user={@user} title={@title}>
-        <%= render_slot(@subheader) %>
+        {render_slot(@subheader)}
       </.layout_header>
 
       <main class="flex grow flex-col overflow-hidden">
         <div id="main-content" class="grow overflow-y-auto overflow-x-hidden p-4" phx-hook="header-scrollspy">
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         </div>
       </main>
     </div>
@@ -49,7 +49,7 @@ defmodule AmbryWeb.Admin.Components do
           <.title class="hidden h-6 sm:block lg:h-7" />
         </.link>
         <div class="grow overflow-hidden text-ellipsis whitespace-nowrap pl-0 text-2xl font-bold sm:pl-4 lg:pl-0">
-          <%= @title %>
+          {@title}
         </div>
         <div
           phx-click-away={hide_menu("admin-user-menu")}
@@ -65,7 +65,7 @@ defmodule AmbryWeb.Admin.Components do
           <.admin_menu user={@user} />
         </div>
       </div>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </header>
     """
   end
@@ -214,7 +214,7 @@ defmodule AmbryWeb.Admin.Components do
     <div class="rounded-sm border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
       <%= if @rows == [] do %>
         <div class="p-3">
-          <%= render_slot(@no_results) %>
+          {render_slot(@no_results)}
         </div>
       <% else %>
         <table class="w-full">
@@ -226,7 +226,7 @@ defmodule AmbryWeb.Admin.Components do
                     class={["flex items-center gap-2", if(col[:sort_field], do: "cursor-pointer select-none")]}
                     phx-click={if(col[:sort_field], do: JS.push("sort", value: %{field: col.sort_field}))}
                   >
-                    <p class="truncate"><%= col[:label] %></p>
+                    <p class="truncate">{col[:label]}</p>
                     <.sort_icon :if={col[:sort_field]} sort={@sort} sort_field={col.sort_field} />
                   </div>
                 </th>
@@ -243,18 +243,18 @@ defmodule AmbryWeb.Admin.Components do
                 <%= for col <- @col do %>
                   <%= if @row_click do %>
                     <td class={[col[:class], @default_cell_class]} phx-click="row-click" phx-value-id={row.id}>
-                      <%= render_slot(col, row) %>
+                      {render_slot(col, row)}
                     </td>
                   <% else %>
                     <td class={[col[:class], @default_cell_class]}>
-                      <%= render_slot(col, row) %>
+                      {render_slot(col, row)}
                     </td>
                   <% end %>
                 <% end %>
 
                 <%= if assigns[:actions] do %>
                   <td class={[assigns[:actions_class], @default_cell_class]}>
-                    <%= render_slot(@actions, row) %>
+                    {render_slot(@actions, row)}
                   </td>
                 <% end %>
               </tr>
@@ -278,15 +278,15 @@ defmodule AmbryWeb.Admin.Components do
     <%= if @rows == [] do %>
       <p class="text-lg font-semibold">
         <%= if @filter do %>
-          No results for "<%= @filter %>"
+          No results for "{@filter}"
         <% else %>
-          <%= render_slot(@empty) %>
+          {render_slot(@empty)}
         <% end %>
       </p>
     <% else %>
       <.admin_table_container>
         <.admin_table_row :for={row <- @rows} phx-click={@row_click && @row_click.(row)}>
-          <%= render_slot(@row, row) %>
+          {render_slot(@row, row)}
         </.admin_table_row>
       </.admin_table_container>
     <% end %>
@@ -298,7 +298,7 @@ defmodule AmbryWeb.Admin.Components do
   defp admin_table_container(assigns) do
     ~H"""
     <div class="divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -309,7 +309,7 @@ defmodule AmbryWeb.Admin.Components do
   defp admin_table_row(assigns) do
     ~H"""
     <div class="relative flex cursor-pointer items-center gap-4 p-4" {@rest}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -319,7 +319,7 @@ defmodule AmbryWeb.Admin.Components do
   def sort_button_bar(assigns) do
     ~H"""
     <div class="flex flex-wrap justify-between divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 font-bold dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -334,7 +334,7 @@ defmodule AmbryWeb.Admin.Components do
       class="flex cursor-pointer select-none items-center gap-2 p-2"
       phx-click={JS.push("sort", value: %{field: @sort_field})}
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
       <.sort_icon sort={@current_sort} sort_field={@sort_field} />
     </div>
     """
@@ -390,7 +390,7 @@ defmodule AmbryWeb.Admin.Components do
   def badge(assigns) do
     ~H"""
     <div class={["inline-block whitespace-nowrap rounded-sm border px-1 text-zinc-900", badge_color(@color), @class]}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -461,7 +461,7 @@ defmodule AmbryWeb.Admin.Components do
       phx-click={JS.dispatch("change")}
       class="text-brand flex cursor-pointer items-center gap-1 hover:underline dark:text-brand-dark"
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
       <FA.icon name="plus" class="h-4 w-4 fill-current" />
     </button>
     """
@@ -479,9 +479,9 @@ defmodule AmbryWeb.Admin.Components do
       </div>
       <label for={@field.id} class="grow cursor-pointer space-y-2">
         <span class="text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200">
-          <%= @label %>
+          {@label}
         </span>
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
       </label>
     </div>
     """
@@ -498,17 +498,17 @@ defmodule AmbryWeb.Admin.Components do
     <div class="flex gap-2 text-sm">
       <img src={@book.thumbnail} class="object-contain object-top" />
       <div>
-        <p class="font-bold"><%= @book.title %></p>
+        <p class="font-bold">{@book.title}</p>
         <p class="text-zinc-400">
           by
           <span :for={contributor <- @book.contributors} class="group">
-            <span><%= contributor.name %></span>
-            <span class="text-xs text-zinc-600">(<%= contributor.type %>)</span>
+            <span>{contributor.name}</span>
+            <span class="text-xs text-zinc-600">({contributor.type})</span>
             <br class="group-last:hidden" />
           </span>
         </p>
         <div :for={action <- @actions}>
-          <%= render_slot(action) %>
+          {render_slot(action)}
         </div>
       </div>
     </div>
@@ -520,21 +520,21 @@ defmodule AmbryWeb.Admin.Components do
     <div class="flex gap-2 text-sm">
       <img src={@book.thumbnail} class="object-contain object-top" />
       <div>
-        <p class="font-bold"><%= @book.title %></p>
+        <p class="font-bold">{@book.title}</p>
         <p class="text-zinc-400">
           by
           <span :for={contributor <- @book.contributors} class="group">
-            <span><%= contributor.name %></span>
-            <span class="text-xs text-zinc-600">(<%= contributor.type %>)</span>
+            <span>{contributor.name}</span>
+            <span class="text-xs text-zinc-600">({contributor.type})</span>
             <br class="group-last:hidden" />
           </span>
         </p>
         <p :if={@book.published && @book.publisher} class="text-xs text-zinc-400">
-          Published <%= display_date(@book.published) %> by <%= @book.publisher %>
+          Published {display_date(@book.published)} by {@book.publisher}
         </p>
-        <p class="text-xs text-zinc-400"><%= @book.format %></p>
+        <p class="text-xs text-zinc-400">{@book.format}</p>
         <div :for={action <- @actions}>
-          <%= render_slot(action) %>
+          {render_slot(action)}
         </div>
       </div>
     </div>
@@ -546,27 +546,27 @@ defmodule AmbryWeb.Admin.Components do
     <div class="flex gap-2 text-sm">
       <img src={@book.cover_image} class="h-24 w-24" />
       <div>
-        <p class="font-bold"><%= @book.title %></p>
+        <p class="font-bold">{@book.title}</p>
         <p :if={@book.authors != []} class="text-zinc-400">
           by
           <span :for={author <- @book.authors} class="group">
-            <span><%= author.name %></span>
+            <span>{author.name}</span>
             <br class="group-last:hidden" />
           </span>
         </p>
         <p :if={@book.narrators != []} class="text-zinc-400">
           Narrated by
           <span :for={narrator <- @book.narrators} class="group">
-            <span><%= narrator.name %></span>
+            <span>{narrator.name}</span>
             <br class="group-last:hidden" />
           </span>
         </p>
         <p :if={@book.published && @book.publisher} class="text-xs text-zinc-400">
-          Published <%= display_date(@book.published) %> by <%= @book.publisher %>
+          Published {display_date(@book.published)} by {@book.publisher}
         </p>
-        <p class="text-xs text-zinc-400"><%= @book.format %></p>
+        <p class="text-xs text-zinc-400">{@book.format}</p>
         <div :for={action <- @actions}>
-          <%= render_slot(action) %>
+          {render_slot(action)}
         </div>
       </div>
     </div>

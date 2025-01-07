@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" href={~p"/favicon-32x32.png"} sizes="32x32" />
     <link rel="icon" type="image/png" href={~p"/favicon-96x96.png"} sizes="96x96" />
     <.live_title suffix=" • Ambry">
-      <%= assigns[:page_title] || "Personal Audiobook Streaming" %>
+      {assigns[:page_title] || "Personal Audiobook Streaming"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
@@ -38,14 +38,14 @@
       <%!-- Root layout for the app --%>
       <div class="flex h-screen flex-col">
         <div class="grow overflow-hidden">
-          <%= @inner_content %>
+          {@inner_content}
         </div>
 
-        <%= live_render(@conn, AmbryWeb.PlayerLive) %>
+        {live_render(@conn, AmbryWeb.PlayerLive)}
       </div>
     <% else %>
       <%!-- Root layout for auth pages --%>
-      <%= @inner_content %>
+      {@inner_content}
     <% end %>
   </body>
 </html>

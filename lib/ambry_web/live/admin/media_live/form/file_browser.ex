@@ -25,7 +25,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
 
       <div class="flex items-center gap-2">
         <.button color={:brand} phx-click="confirm-selection" phx-target={@myself}>Select Files</.button>
-        <div class="grow"><%= MapSet.size(@selected_files) %> file(s) selected</div>
+        <div class="grow">{MapSet.size(@selected_files)} file(s) selected</div>
         <.button color={:zinc} phx-click="clear" phx-target={@myself}>Clear</.button>
         <.button type="button" color={:zinc} phx-click={JS.exec("data-cancel", to: "#select-files-modal")}>
           Cancel
@@ -240,8 +240,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   defp open_folder_node(assigns) do
     ~H"""
     <.row level={@level} phx-click={JS.push("toggle-folder", value: %{id: @folder_node.folder.id})} phx-target={@target}>
-      <div class="w-4 flex-none"><FA.icon name="folder-minus" class="h-4 w-4 fill-brand dark:fill-brand-dark" /></div>
-      <.filename title={@folder_node.folder.path}><%= @folder_node.folder.path %></.filename>
+      <div class="w-4 flex-none"><FA.icon name="folder-minus" class="fill-brand h-4 w-4 dark:fill-brand-dark" /></div>
+      <.filename title={@folder_node.folder.path}>{@folder_node.folder.path}</.filename>
       <.mtime timestamp={@folder_node.folder.mtime} />
     </.row>
     <%= if any_files?(@folder_node.children, @allowed_extensions) do %>
@@ -252,7 +252,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
           phx-target={@target}
         >
           <div class="w-4 flex-none"><input type="checkbox" checked /></div>
-          <.filename><%= "All" %></.filename>
+          <.filename>{"All"}</.filename>
         </.row>
       <% else %>
         <.row
@@ -261,7 +261,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
           phx-target={@target}
         >
           <div class="w-4 flex-none"><input type="checkbox" /></div>
-          <.filename><%= "All" %></.filename>
+          <.filename>{"All"}</.filename>
         </.row>
       <% end %>
     <% end %>
@@ -280,8 +280,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   defp closed_folder_node(assigns) do
     ~H"""
     <.row level={@level} phx-click={JS.push("toggle-folder", value: %{id: @folder_node.folder.id})} phx-target={@target}>
-      <div class="w-4 flex-none"><FA.icon name="folder-plus" class="h-4 w-4 fill-brand dark:fill-brand-dark" /></div>
-      <.filename title={@folder_node.folder.path}><%= @folder_node.folder.path %></.filename>
+      <div class="w-4 flex-none"><FA.icon name="folder-plus" class="fill-brand h-4 w-4 dark:fill-brand-dark" /></div>
+      <.filename title={@folder_node.folder.path}>{@folder_node.folder.path}</.filename>
       <.mtime timestamp={@folder_node.folder.mtime} />
     </.row>
     """
@@ -301,7 +301,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
     ~H"""
     <.row level={@level} phx-click={JS.push("toggle-file", value: %{id: @file.id})} phx-target={@target} class="font-bold">
       <div class="w-4 flex-none"><input type="checkbox" checked={MapSet.member?(@selected_files, @file.id)} /></div>
-      <.filename title={@file.path}><%= @file.path %></.filename>
+      <.filename title={@file.path}>{@file.path}</.filename>
       <.mtime timestamp={@file.mtime} />
     </.row>
     """
@@ -311,7 +311,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
     ~H"""
     <.row level={@level} class="italic text-slate-600">
       <div class="w-4 flex-none" />
-      <.filename title={@file.path}><%= @file.path %></.filename>
+      <.filename title={@file.path}>{@file.path}</.filename>
       <.mtime timestamp={@file.mtime} />
     </.row>
     """
@@ -327,7 +327,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
     ~H"""
     <div class={["font-mono flex min-w-0 cursor-pointer items-center gap-2 hover:underline", @class]} {@rest}>
       <.spacer :if={@level > 0} level={@level} />
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -340,7 +340,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   defp filename(assigns) do
     ~H"""
     <div class={["grow overflow-hidden text-ellipsis whitespace-nowrap", @class]} {@rest}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -350,7 +350,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   defp mtime(assigns) do
     ~H"""
     <div class="w-48 flex-none text-right text-sm italic text-zinc-500">
-      <%= @timestamp |> Calendar.strftime("%c") %>
+      {@timestamp |> Calendar.strftime("%c")}
     </div>
     """
   end

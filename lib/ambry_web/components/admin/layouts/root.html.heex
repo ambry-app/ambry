@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" href={~p"/favicon-32x32.png"} sizes="32x32" />
     <link rel="icon" type="image/png" href={~p"/favicon-96x96.png"} sizes="96x96" />
     <.live_title suffix=" • Ambry Admin">
-      <%= assigns[:page_title] || "Personal Audiobook Streaming" %>
+      {assigns[:page_title] || "Personal Audiobook Streaming"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
@@ -36,7 +36,7 @@
   <body class="bg-white text-zinc-800 antialiased selection:bg-brand selection:text-white dark:bg-black dark:text-zinc-200 dark:selection:bg-brand-dark dark:selection:text-black">
     <div class="flex h-screen flex-col">
       <div class="grow overflow-hidden">
-        <%= @inner_content %>
+        {@inner_content}
       </div>
     </div>
   </body>

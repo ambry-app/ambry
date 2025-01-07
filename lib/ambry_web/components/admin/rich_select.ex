@@ -65,9 +65,9 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
       >
         <div class="grow">
           <%= if @selected_option do %>
-            <%= render_slot(@option, @selected_option) %>
+            {render_slot(@option, @selected_option)}
           <% else %>
-            <span class="text-zinc-500"><%= @prompt %></span>
+            <span class="text-zinc-500">{@prompt}</span>
           <% end %>
         </div>
         <FA.icon name="angle-down" class="h-4 w-4 flex-none fill-zinc-500" />
@@ -86,7 +86,7 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
               <.radio_input field={@field} value={@option_value.(option)} />
             </label>
             <div class="py-[7px] px-[11px]">
-              <%= render_slot(@option, option) %>
+              {render_slot(@option, option)}
             </div>
           </div>
         </div>

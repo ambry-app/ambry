@@ -47,7 +47,7 @@
             options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
           />
           <span class="text-sm italic dark:text-zinc-500">
-            <%= preview_date_format(@form) %>
+            {preview_date_format(@form)}
           </span>
         </div>
       </div>
@@ -62,7 +62,7 @@
             <.delete_button
               field={@form[:book_authors_drop]}
               index={book_author_form.index}
-              class="absolute right-2 top-3"
+              class="absolute top-3 right-2"
             />
           </div>
         </.inputs_for>
@@ -93,7 +93,7 @@
             <.delete_button
               field={@form[:series_books_drop]}
               index={series_book_form.index}
-              class="absolute right-2 top-3"
+              class="absolute top-3 right-2"
             />
           </div>
         </.inputs_for>

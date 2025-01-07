@@ -30,7 +30,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
         />
         <div class="sm:pt-4 md:pt-6 lg:pt-8">
           <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-3xl xl:text-4xl">
-            <.link navigate={~p"/audiobooks/#{@media}"} class="hover:underline"><%= @media.book.title %></.link>
+            <.link navigate={~p"/audiobooks/#{@media}"} class="hover:underline">{@media.book.title}</.link>
           </h1>
 
           <p class="pb-4 text-zinc-800 dark:text-zinc-200 sm:text-lg xl:text-xl">
@@ -87,7 +87,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
               href={file_href(file, @player.player_state.media)}
               target="_blank"
             >
-              <%= format_file_name(file) %>
+              {format_file_name(file)}
             </.brand_link>
           </div>
         </div>
@@ -111,7 +111,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
   defp media_tab(assigns) do
     ~H"""
     <span id={@id} phx-click={activate_tab(@id)} class={media_tab_classes(@active)}>
-      <%= @label %>
+      {@label}
     </span>
     """
   end
@@ -153,11 +153,11 @@ defmodule AmbryWeb.NowPlayingLive.Components do
               <div class={["flex-none", if(@player.current_chapter_index != id, do: "invisible")]}>
                 <FA.icon name="volume-high" class="h-5 w-5 fill-current" />
               </div>
-              <p><%= chapter.title %></p>
+              <p>{chapter.title}</p>
             </td>
 
             <td class="border-b border-zinc-100 py-4 pr-4 text-right tabular-nums dark:border-zinc-900">
-              <%= format_timecode(chapter.time) %>
+              {format_timecode(chapter.time)}
             </td>
           </tr>
         <% end %>

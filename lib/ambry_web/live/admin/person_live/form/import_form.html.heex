@@ -1,5 +1,5 @@
 <div class="mx-auto max-w-3xl space-y-4">
-  <div class="text-2xl font-bold">Import Author/Narrator from <%= type_title(@type) %></div>
+  <div class="text-2xl font-bold">Import Author/Narrator from {type_title(@type)}</div>
 
   <.simple_form for={@search_form} phx-submit="search" phx-target={@myself}>
     <div class="flex items-end gap-2">
@@ -14,12 +14,12 @@
     </:loading>
 
     <:failed :let={failure}>
-      <.error>There was an error searching <%= type_title(@type) %> for authors: <%= failure %></.error>
+      <.error>There was an error searching {type_title(@type)} for authors: {failure}</.error>
     </:failed>
 
     <.simple_form for={@select_author_form} phx-change="select-author" phx-target={@myself}>
       <div class="space-y-2">
-        <.label>Select author (<%= length(authors) %> results)</.label>
+        <.label>Select author ({length(authors)} results)</.label>
         <.input type="select" field={@select_author_form[:author_id]} options={Enum.map(authors, &{&1.name, &1.id})} />
       </div>
     </.simple_form>
@@ -30,13 +30,13 @@
       </:loading>
 
       <:failed :let={failure}>
-        <.error>There was an error fetching author details from <%= type_title(@type) %>: <%= failure %></.error>
+        <.error>There was an error fetching author details from {type_title(@type)}: {failure}</.error>
       </:failed>
 
       <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
         <.import_form_row :if={author.name != ""} field={@form[:use_name]} label="Name">
           <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
-            <%= author.name %>
+            {author.name}
           </div>
         </.import_form_row>
 
