@@ -355,32 +355,17 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Gets or creates a player state for the given user and media.
-  """
-  def get_or_create_player_state!(user_id, media_id) do
-    result =
-      PlayerState
-      |> where([ps], ps.user_id == ^user_id and ps.media_id == ^media_id)
-      |> preload(^@player_state_preload)
-      |> Repo.one()
-
-    case result do
-      nil ->
-        {:ok, player_state} = create_player_state(%{user_id: user_id, media_id: media_id})
-        Repo.preload(player_state, @player_state_preload)
-
-      %PlayerState{} = player_state ->
-        player_state
-    end
-  end
-
-  @doc """
   Gets or creates a player state for the given user and media, and marks it as
   the user's loaded player state.
   """
   def load_player_state!(user, media_id) do
-    player_state = get_or_create_player_state!(user.id, media_id)
-    {:ok, _user} = Accounts.update_user_loaded_player_state(user, player_state.id)
+    {:ok, player_state} =
+      Repo.transact(fn ->
+        player_state = get_player_state!(user.id, media_id)
+        {:ok, _user} = Accounts.update_user_loaded_player_state(user, player_state.id)
+
+        {:ok, player_state}
+      end)
 
     player_state
   end
@@ -406,22 +391,18 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Creates a player_state.
+  Gets a player_state for the given user and media.
 
-  ## Examples
-
-      iex> create_player_state(%{field: value})
-      {:ok, %PlayerState{}}
-
-      iex> create_player_state(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  If the player_state does not exist, it will be created.
   """
-  def create_player_state(attrs) do
-    %PlayerState{}
-    |> PlayerState.changeset(attrs)
-    |> Repo.insert()
-    |> tap_ok(&PubSub.broadcast_create/1)
+  def get_player_state!(user_id, media_id) when is_integer(user_id) and is_integer(media_id) do
+    %PlayerState{user_id: user_id, media_id: media_id}
+    |> Repo.insert!(
+      on_conflict: {:replace, [:position, :playback_rate, :status]},
+      conflict_target: [:user_id, :media_id],
+      returning: true
+    )
+    |> Repo.preload(@player_state_preload)
   end
 
   @doc """
@@ -441,6 +422,21 @@ defmodule Ambry.Media do
     |> PlayerState.changeset(attrs)
     |> Repo.update()
     |> tap_ok(&PubSub.broadcast_update/1)
+  end
+
+  @doc """
+  Updates a player state for a user and media.
+
+  If the player state does not exist, it will be created.
+  """
+  def update_player_state(user_id, media_id, position, playback_rate) do
+    %PlayerState{user_id: user_id, media_id: media_id}
+    |> PlayerState.changeset(%{position: position, playback_rate: playback_rate})
+    |> Repo.insert(
+      on_conflict: {:replace, [:position, :playback_rate, :status]},
+      conflict_target: [:user_id, :media_id],
+      returning: true
+    )
   end
 
   @doc """
