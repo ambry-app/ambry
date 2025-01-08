@@ -110,7 +110,8 @@ defmodule AmbrySchema.Resolvers do
 
   def load_player_state(%{media_id: media_id}, %{context: %{current_user: %User{} = user}}) do
     with {:ok, %{id: media_id, type: :media}} <- from_global_id(media_id, AmbrySchema) do
-      player_state = Ambry.Media.get_or_create_player_state!(user.id, media_id)
+      media_id = String.to_integer(media_id)
+      player_state = Ambry.Media.get_player_state!(user.id, media_id)
       {:ok, %{player_state: player_state}}
     end
   end
@@ -119,9 +120,10 @@ defmodule AmbrySchema.Resolvers do
         context: %{current_user: %User{} = user}
       }) do
     with {:ok, %{id: media_id, type: :media}} <- from_global_id(media_id, AmbrySchema),
-         player_state = Ambry.Media.get_or_create_player_state!(user.id, media_id),
-         attrs = Map.delete(args, :media_id),
-         {:ok, player_state} <- Ambry.Media.update_player_state(player_state, attrs) do
+         media_id = String.to_integer(media_id),
+         %{position: position, playback_rate: playback_rate} = args,
+         {:ok, player_state} <-
+           Ambry.Media.update_player_state(user.id, media_id, position, playback_rate) do
       {:ok, %{player_state: player_state}}
     end
   end

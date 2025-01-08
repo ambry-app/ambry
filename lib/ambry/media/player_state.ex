@@ -44,27 +44,32 @@ defmodule Ambry.Media.PlayerState do
   end
 
   defp compute_and_put_status(changeset) do
-    case changeset do
-      %{data: %{media: %{duration: duration}}} ->
-        position = get_field(changeset, :position)
+    duration = get_duration!(changeset)
+    position = get_field(changeset, :position)
 
-        cond do
-          # 1 minute until it counts as started
-          Decimal.lt?(position, 60) ->
-            put_change(changeset, :status, :not_started)
+    cond do
+      # 1 minute until it counts as started
+      Decimal.lt?(position, 60) ->
+        put_change(changeset, :status, :not_started)
 
-          # 2 minutes from end it counts as finished
-          duration |> Decimal.sub(position) |> Decimal.lt?(120) ->
-            put_change(changeset, :status, :finished)
+      # 2 minutes from end it counts as finished
+      duration |> Decimal.sub(position) |> Decimal.lt?(120) ->
+        put_change(changeset, :status, :finished)
 
-          # otherwise it's in progress
-          true ->
-            put_change(changeset, :status, :in_progress)
-        end
-
-      changeset ->
-        changeset
+      # otherwise it's in progress
+      true ->
+        put_change(changeset, :status, :in_progress)
     end
+  end
+
+  defp get_duration!(%Ecto.Changeset{data: %__MODULE__{media: %Media{duration: duration}}}) do
+    duration
+  end
+
+  defp get_duration!(changeset) do
+    media_id = get_field(changeset, :media_id)
+    %Media{duration: %Decimal{} = duration} = Ambry.Media.get_media!(media_id)
+    duration
   end
 
   defimpl Ambry.PubSub.Publishable do

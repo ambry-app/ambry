@@ -517,26 +517,6 @@ defmodule Ambry.MediaTest do
     end
   end
 
-  describe "get_or_create_player_state!/2" do
-    test "creates a new player state if one doesn't yet exist" do
-      %{id: user_id} = insert(:user)
-      %{id: media_id} = insert(:media)
-
-      player_state = Media.get_or_create_player_state!(user_id, media_id)
-
-      assert %{user_id: ^user_id, media_id: ^media_id} = player_state
-    end
-
-    test "returns an existing player state if one already exists" do
-      %{id: user_id} = insert(:user)
-      %{id: player_state_id, media: %{id: media_id}} = insert(:player_state, user_id: user_id)
-
-      player_state = Media.get_or_create_player_state!(user_id, media_id)
-
-      assert %{id: ^player_state_id} = player_state
-    end
-  end
-
   describe "load_player_state!/2" do
     test "creates a new player state and sets it as the user's loaded player state" do
       user = insert(:user)
@@ -572,24 +552,23 @@ defmodule Ambry.MediaTest do
     end
   end
 
-  describe "create_player_state/1" do
-    test "requires user_id and media_id to be set" do
-      {:error, changeset} = Media.create_player_state(%{})
-
-      assert %{
-               media_id: ["can't be blank"],
-               user_id: ["can't be blank"]
-             } = errors_on(changeset)
-    end
-
-    test "creates a player state when given valid attributes" do
+  describe "get_player_state!/2" do
+    test "creates a new player state if one doesn't yet exist" do
       %{id: user_id} = insert(:user)
       %{id: media_id} = insert(:media)
 
-      assert {:ok, player_state} =
-               Media.create_player_state(%{user_id: user_id, media_id: media_id})
+      player_state = Media.get_player_state!(user_id, media_id)
 
       assert %{user_id: ^user_id, media_id: ^media_id} = player_state
+    end
+
+    test "returns an existing player state if one already exists" do
+      %{id: user_id} = insert(:user)
+      %{id: player_state_id, media: %{id: media_id}} = insert(:player_state, user_id: user_id)
+
+      player_state = Media.get_player_state!(user_id, media_id)
+
+      assert %{id: ^player_state_id} = player_state
     end
   end
 
@@ -635,6 +614,60 @@ defmodule Ambry.MediaTest do
 
       assert {:ok, %{status: :finished}} =
                Media.update_player_state(player_state, %{position: new_position})
+    end
+  end
+
+  describe "update_player_state/4" do
+    test "sets position and playback rate if player state doesn't yet exist" do
+      %{id: user_id} = insert(:user)
+      %{id: media_id} = insert(:media)
+
+      position = Decimal.new(300)
+      playback_rate = Decimal.new("1.25")
+
+      {:ok, player_state} = Media.update_player_state(user_id, media_id, position, playback_rate)
+
+      assert %{position: ^position, playback_rate: ^playback_rate} = player_state
+    end
+
+    test "updates position and playback rate if player state already exists" do
+      %{id: user_id} = insert(:user)
+      %{id: player_state_id} = player_state = insert(:player_state, user_id: user_id)
+
+      new_position = Decimal.new(300)
+      new_playback_rate = Decimal.new("1.25")
+
+      {:ok, updated_player_state} =
+        Media.update_player_state(user_id, player_state.media_id, new_position, new_playback_rate)
+
+      assert %{id: ^player_state_id, position: ^new_position, playback_rate: ^new_playback_rate} =
+               updated_player_state
+    end
+
+    test "sets status to `:not_started`" do
+      %{id: user_id} = insert(:user)
+      %{id: media_id} = insert(:media)
+
+      assert {:ok, %{status: :not_started}} =
+               Media.update_player_state(user_id, media_id, Decimal.new(0), Decimal.new(1))
+    end
+
+    test "sets status to `:in_progress`" do
+      %{id: user_id} = insert(:user)
+      %{id: media_id} = insert(:media)
+
+      assert {:ok, %{status: :in_progress}} =
+               Media.update_player_state(user_id, media_id, Decimal.new(60), Decimal.new(1))
+    end
+
+    test "sets status to `:finished`" do
+      %{id: user_id} = insert(:user)
+      media = %{id: media_id} = insert(:media)
+
+      position = Decimal.sub(media.duration, Decimal.new(119))
+
+      assert {:ok, %{status: :finished}} =
+               Media.update_player_state(user_id, media_id, position, Decimal.new(1))
     end
   end
 
