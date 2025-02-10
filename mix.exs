@@ -4,8 +4,8 @@ defmodule Ambry.MixProject do
   def project do
     [
       app: :ambry,
-      version: "1.2.0",
-      elixir: "~> 1.14",
+      version: "1.4.0",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: [:boundary] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
