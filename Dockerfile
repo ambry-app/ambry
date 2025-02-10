@@ -4,7 +4,7 @@
 
 # NOTE: make sure these versions match in .tool-versions
 # NOTE: make sure the alpine version matches down below
-FROM docker.io/hexpm/elixir:1.18.1-erlang-27.2-alpine-3.21.1 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.18.2-erlang-27.2.2-alpine-3.21.2 AS elixir-builder
 
 ARG MIX_ENV=prod
 
