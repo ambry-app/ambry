@@ -12,7 +12,6 @@ services:
     image: ghcr.io/ambry-app/firefox-headless-marionette:latest
     ports:
       - 2828:2828
-    restart: unless-stopped
 
 volumes:
   pgdata:

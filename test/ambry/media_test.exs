@@ -384,7 +384,7 @@ defmodule Ambry.MediaTest do
           image_path: nil
         )
 
-      :ok = Media.delete_media(media)
+      {:ok, _media} = Media.delete_media(media)
 
       assert_raise Ecto.NoResultsError, fn ->
         Media.get_media!(media.id)
@@ -401,7 +401,7 @@ defmodule Ambry.MediaTest do
       assert media.hls_path |> Paths.web_to_disk() |> File.exists?()
       assert media.hls_path |> Paths.hls_playlist_path() |> Paths.web_to_disk() |> File.exists?()
 
-      :ok = Media.delete_media(media)
+      {:ok, _media} = Media.delete_media(media)
 
       refute File.dir?(media.source_path)
       refute media.mp4_path |> Paths.web_to_disk() |> File.exists?()
@@ -417,7 +417,7 @@ defmodule Ambry.MediaTest do
       media.mp4_path |> Paths.web_to_disk() |> File.rm!()
 
       fun = fn ->
-        :ok = Media.delete_media(media)
+        {:ok, _media} = Media.delete_media(media)
       end
 
       assert capture_log(fun) =~ "Couldn't delete file (enoent)"
@@ -429,7 +429,7 @@ defmodule Ambry.MediaTest do
 
       assert File.exists?(Ambry.Paths.web_to_disk(media.image_path))
 
-      :ok = Media.delete_media(media)
+      {:ok, _media} = Media.delete_media(media)
 
       refute File.exists?(Ambry.Paths.web_to_disk(media.image_path))
     end
@@ -442,7 +442,7 @@ defmodule Ambry.MediaTest do
       assert File.exists?(Ambry.Paths.web_to_disk(media.image_path))
 
       fun = fn ->
-        :ok = Media.delete_media(media2)
+        {:ok, _media} = Media.delete_media(media2)
       end
 
       assert capture_log(fun) =~ "Not deleting file because it's still in use"
@@ -454,7 +454,7 @@ defmodule Ambry.MediaTest do
       media = insert(:media)
 
       fun = fn ->
-        :ok = Media.delete_media(media)
+        {:ok, _media} = Media.delete_media(media)
       end
 
       assert capture_log(fun) =~ "Couldn't delete file (enoent)"

@@ -78,7 +78,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     series = Books.get_series!(id)
-    :ok = Books.delete_series(series)
+    {:ok, _series} = Books.delete_series(series)
 
     {:noreply,
      socket

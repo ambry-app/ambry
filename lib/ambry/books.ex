@@ -148,12 +148,11 @@ defmodule Ambry.Books do
 
   """
   def delete_book(%Book{} = book) do
-    Repo.transact(fn ->
+    fn ->
       case Repo.delete(change_book(book)) do
         {:ok, book} ->
           maybe_delete_image(book.image_path)
-          PubSub.broadcast_delete(book)
-          :ok
+          {:ok, book}
 
         {:error, changeset} ->
           if Keyword.has_key?(changeset.errors, :media) do
@@ -162,7 +161,9 @@ defmodule Ambry.Books do
             {:error, changeset}
           end
       end
-    end)
+    end
+    |> Repo.transact()
+    |> tap_ok(&PubSub.broadcast_delete/1)
   end
 
   defp maybe_delete_image(nil), do: :noop
@@ -376,12 +377,11 @@ defmodule Ambry.Books do
       {:error, %Ecto.Changeset{}}
   """
   def delete_series(%Series{} = series) do
-    Repo.transact(fn ->
-      with {:ok, series} <- Repo.delete(change_series(series)) do
-        PubSub.broadcast_delete(series)
-        :ok
-      end
-    end)
+    fn ->
+      Repo.delete(change_series(series))
+    end
+    |> Repo.transact()
+    |> tap_ok(&PubSub.broadcast_delete/1)
   end
 
   @doc """

@@ -121,7 +121,7 @@ defmodule Ambry.People do
 
   """
   def create_person(attrs \\ %{}) do
-    Repo.transact(fn ->
+    fn ->
       %Person{}
       |> Person.changeset(attrs)
       |> Repo.insert()
@@ -132,8 +132,9 @@ defmodule Ambry.People do
           |> Oban.insert!()
         end
       end)
-      |> tap_ok(&PubSub.broadcast_create/1)
-    end)
+    end
+    |> Repo.transact()
+    |> tap_ok(&PubSub.broadcast_create/1)
   end
 
   @doc """
@@ -149,7 +150,7 @@ defmodule Ambry.People do
 
   """
   def update_person(%Person{} = person, attrs) do
-    Repo.transact(fn ->
+    fn ->
       person
       |> Repo.preload(@person_direct_assoc_preloads)
       |> Person.changeset(attrs)
@@ -161,12 +162,13 @@ defmodule Ambry.People do
         end
       end)
       |> Repo.update()
-      |> tap_ok(&PubSub.broadcast_update/1)
-      |> tap_ok(fn updated_person ->
-        if is_nil(updated_person.image_path) && !is_nil(person.image_path) do
-          maybe_delete_image(person.image_path)
-        end
-      end)
+    end
+    |> Repo.transact()
+    |> tap_ok(&PubSub.broadcast_update/1)
+    |> tap_ok(fn updated_person ->
+      if is_nil(updated_person.image_path) && !is_nil(person.image_path) do
+        maybe_delete_image(person.image_path)
+      end
     end)
   end
 
@@ -197,7 +199,6 @@ defmodule Ambry.People do
           if !is_nil(person.thumbnails),
             do: Thumbnails.try_delete_thumbnails(person.thumbnails)
 
-          PubSub.broadcast_delete(person)
           {:ok, person}
 
         {:error, changeset} ->
@@ -214,6 +215,7 @@ defmodule Ambry.People do
       end
     end
     |> Repo.transact()
+    |> tap_ok(&PubSub.broadcast_delete/1)
     |> handle_delete_result()
   end
 

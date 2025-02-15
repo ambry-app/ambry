@@ -82,7 +82,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     book = Books.get_book!(id)
 
     case Books.delete_book(book) do
-      :ok ->
+      {:ok, _book} ->
         {:noreply,
          socket
          |> refresh_books()
