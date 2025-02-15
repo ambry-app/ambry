@@ -2,6 +2,7 @@ defmodule AmbryWeb.Router do
   use AmbryWeb, :router
 
   import AmbryWeb.UserAuth
+  import Oban.Web.Router
   import Phoenix.LiveDashboard.Router
 
   pipeline :browser do
@@ -191,5 +192,6 @@ defmodule AmbryWeb.Router do
     end
 
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
+    oban_dashboard "/oban"
   end
 end

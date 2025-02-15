@@ -3,8 +3,6 @@
     <.live_component id="import-form" module={ImportForm} type={@import.type} query={@import.query} person={@person} />
   </.modal>
 
-  <div id="patch-hack" phx-hook="patch-hack" />
-
   <div class="max-w-3xl">
     <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">

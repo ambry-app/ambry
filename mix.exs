@@ -78,6 +78,7 @@ defmodule Ambry.MixProject do
       {:mneme, ">= 0.0.0", only: [:dev, :test]},
       {:natural_order, "~> 0.3"},
       {:npm_deps, "~> 0.3", runtime: false},
+      {:oban_web, "~> 2.11"},
       {:oban, "~> 2.11"},
       {:patch, "~> 0.13", only: [:test]},
       {:phoenix_ecto, "~> 4.4"},

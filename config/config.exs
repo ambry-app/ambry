@@ -30,7 +30,8 @@ config :ambry, AmbryWeb.Endpoint,
 # Configure Oban
 config :ambry, Oban,
   repo: Ambry.Repo,
-  plugins: [Oban.Plugins.Pruner],
+  # Prune jobs older than 1 day
+  plugins: [{Oban.Plugins.Pruner, max_age: 86_400}],
   # Keep number of media workers low to not starve the host of resources
   queues: [media: 4, images: 2]
 
