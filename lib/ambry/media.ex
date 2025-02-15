@@ -173,12 +173,13 @@ defmodule Ambry.Media do
 
   """
   def update_media(%Media{} = media, attrs, for: action) do
-    Repo.transact(fn ->
+    fn ->
       media
       |> Media.changeset(attrs, for: action)
       |> tap(&maybe_generate_thumbnails(&1, media))
       |> Repo.update()
-    end)
+    end
+    |> Repo.transact()
     |> tap_ok(&PubSub.broadcast_update/1)
     |> tap_ok(&maybe_maybe_delete_image(&1, media))
   end
@@ -210,13 +211,14 @@ defmodule Ambry.Media do
 
   """
   def delete_media(%Media{} = media) do
-    Repo.transact(fn ->
+    fn ->
       case Repo.delete(media) do
         {:ok, media} ->
           delete_media_files(media)
           {:ok, media}
       end
-    end)
+    end
+    |> Repo.transact()
     |> tap_ok(&PubSub.broadcast_delete/1)
   end
 
