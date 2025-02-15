@@ -178,9 +178,9 @@ defmodule Ambry.Media do
       |> Media.changeset(attrs, for: action)
       |> tap(&maybe_generate_thumbnails(&1, media))
       |> Repo.update()
-      |> tap_ok(&PubSub.broadcast_update/1)
-      |> tap_ok(&maybe_maybe_delete_image(&1, media))
     end)
+    |> tap_ok(&PubSub.broadcast_update/1)
+    |> tap_ok(&maybe_maybe_delete_image(&1, media))
   end
 
   defp maybe_generate_thumbnails(changeset, media) do
@@ -214,10 +214,10 @@ defmodule Ambry.Media do
       case Repo.delete(media) do
         {:ok, media} ->
           delete_media_files(media)
-          PubSub.broadcast_delete(media)
-          :ok
+          {:ok, media}
       end
     end)
+    |> tap_ok(&PubSub.broadcast_delete/1)
   end
 
   defp delete_media_files(%Media{} = media) do

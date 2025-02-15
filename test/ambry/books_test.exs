@@ -235,7 +235,7 @@ defmodule Ambry.BooksTest do
     test "deletes a book" do
       book = insert(:book, image_path: nil)
 
-      :ok = Books.delete_book(book)
+      {:ok, _book} = Books.delete_book(book)
 
       assert_raise Ecto.NoResultsError, fn ->
         Books.get_book!(book.id)
@@ -248,7 +248,7 @@ defmodule Ambry.BooksTest do
 
       assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
 
-      :ok = Books.delete_book(book)
+      {:ok, _book} = Books.delete_book(book)
 
       refute File.exists?(Ambry.Paths.web_to_disk(book.image_path))
     end
@@ -261,7 +261,7 @@ defmodule Ambry.BooksTest do
       assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
 
       fun = fn ->
-        :ok = Books.delete_book(book2)
+        {:ok, _book} = Books.delete_book(book2)
       end
 
       assert capture_log(fun) =~ "Not deleting file because it's still in use"
@@ -273,7 +273,7 @@ defmodule Ambry.BooksTest do
       book = insert(:book)
 
       fun = fn ->
-        :ok = Books.delete_book(book)
+        {:ok, _book} = Books.delete_book(book)
       end
 
       assert capture_log(fun) =~ "Couldn't delete file (enoent)"
@@ -535,7 +535,7 @@ defmodule Ambry.BooksTest do
     test "deletes a series" do
       series = insert(:series)
 
-      :ok = Books.delete_series(series)
+      {:ok, _series} = Books.delete_series(series)
 
       assert_raise Ecto.NoResultsError, fn ->
         Books.get_series!(series.id)

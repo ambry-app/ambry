@@ -171,8 +171,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form.AudibleImportForm do
 
   defp select_book(book) do
     matching_narrators =
-      Enum.map(book.narrators, fn author ->
-        Search.find_first(author.name, Person)
+      Enum.map(book.narrators, fn narrator ->
+        Search.find_first(narrator.name, Person)
       end)
 
     %{selected_book: book, matching_narrators: matching_narrators}
