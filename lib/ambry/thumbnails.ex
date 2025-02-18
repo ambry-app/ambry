@@ -14,6 +14,8 @@ defmodule Ambry.Thumbnails do
   @primary_key false
 
   embedded_schema do
+    field :original, :string
+
     field :extra_small, :string
     field :small, :string
     field :medium, :string
@@ -24,17 +26,8 @@ defmodule Ambry.Thumbnails do
     field :blurhash, :string
   end
 
-  @fields [
-    :extra_small,
-    :small,
-    :medium,
-    :large,
-    :extra_large,
-    :thumbhash,
-    :blurhash
-  ]
-
   @required_fields [
+    :original,
     :extra_small,
     :small,
     :medium,
@@ -42,6 +35,8 @@ defmodule Ambry.Thumbnails do
     :extra_large,
     :thumbhash
   ]
+
+  @fields @required_fields ++ [:blurhash]
 
   def changeset(thumbnails, attrs) do
     thumbnails
@@ -58,6 +53,7 @@ defmodule Ambry.Thumbnails do
     thumbnails = thumbnails!(image, disk_path)
 
     Map.merge(thumbnails, %{
+      original: image_web_path,
       thumbhash: thumbhash,
       blurhash: blurhash
     })
