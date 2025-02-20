@@ -44,7 +44,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   def consume_uploaded_image(socket, name) do
     uploaded_files =
       consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
-        filename = save_file_to_disk!(entry.client_type, File.read!(path), &images_disk_path/1)
+        filename = generate_filename(entry.client_type)
+        File.rename!(path, images_disk_path(filename))
 
         {:ok, ~p"/uploads/images/#{filename}"}
       end)
@@ -65,8 +66,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   """
   def consume_uploaded_supplemental_files(socket, name) do
     consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
-      filename =
-        save_file_to_disk!(entry.client_type, File.read!(path), &supplemental_files_disk_path/1)
+      filename = generate_filename(entry.client_type)
+      File.rename!(path, supplemental_files_disk_path(filename))
 
       {:ok,
        %{
@@ -77,14 +78,11 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     end)
   end
 
-  defp save_file_to_disk!(mime, data, path_fun) do
+  defp generate_filename(mime) do
     uuid = Ecto.UUID.generate()
     [ext | _] = MIME.extensions(mime)
-    filename = "#{uuid}.#{ext}"
-    dest = path_fun.(filename)
-    File.write!(dest, data)
 
-    filename
+    "#{uuid}.#{ext}"
   end
 
   def handle_image_import(nil), do: {:ok, :no_image_url}
@@ -102,7 +100,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     with {:ok, response} <- Req.get(url),
          [mime | _rest] when mime in @accepted_mime <-
            Req.Response.get_header(response, "content-type") do
-      filename = save_file_to_disk!(mime, response.body, &images_disk_path/1)
+      filename = generate_filename(mime)
+      File.write!(images_disk_path(filename), response.body)
 
       {:ok, ~p"/uploads/images/#{filename}"}
     else

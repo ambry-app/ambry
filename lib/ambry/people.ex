@@ -265,8 +265,9 @@ defmodule Ambry.People do
     Person.changeset(person, attrs)
   end
 
+  # TODO: deprecated: remove in favor of `update_person_thumbnails!/2`
   @doc """
-  Generate and store a `%Thumbnails{}` struct on the given media
+  Generate and store a `%Thumbnails{}` struct on the given person
   """
   def generate_thumbnails!(%Person{image_path: nil} = person) do
     if !is_nil(person.thumbnails) do
@@ -283,6 +284,38 @@ defmodule Ambry.People do
     {:ok, _person} = update_person(person, %{thumbnails: thumbnails})
 
     :ok
+  end
+
+  @doc """
+  Generate a `%Thumbnails{}` for the given image_web_path and then store it on
+  the given person.
+
+  If the person already had a `%Thumbnails{}` struct, the old files will be
+  deleted from disk if the update was successful.
+
+  Fails if the given person's image_web_path does not match the given
+  image_web_path, which could happen if the person's image_path was changed
+  while the thumbnail generation was in progress.
+  """
+  def update_person_thumbnails!(person_id, image_web_path) do
+    thumbnails = Ambry.Thumbnails.generate_thumbnails!(image_web_path)
+    person = get_person!(person_id)
+
+    case update_person(person, %{thumbnails: thumbnails}) do
+      {:ok, updated_person} ->
+        # Delete the old thumbnails from disk if they existed
+        if person.thumbnails, do: Ambry.Thumbnails.try_delete_thumbnails(person.thumbnails)
+
+        {:ok, updated_person}
+
+      {:error, changeset} ->
+        Logger.error(fn -> "Failed to update person with thumbnails: #{inspect(changeset)}" end)
+
+        # Delete the new thumbnails from disk
+        Ambry.Thumbnails.try_delete_thumbnails(thumbnails)
+
+        {:error, changeset}
+    end
   end
 
   # Narrators

@@ -11,7 +11,7 @@ defmodule Ambry.Repo.Migrations.AddThumbnailConstraints do
             WHERE people.thumbnails IS NOT NULL AND people.image_path IS NOT NULL;
             """
 
-    create constraint(:people, :thumbnails_original_not_null,
+    create constraint(:people, :thumbnails_original_match_constraint,
              check:
                "thumbnails IS NULL OR (thumbnails->>'original' IS NOT NULL AND thumbnails->>'original' = image_path)"
            )

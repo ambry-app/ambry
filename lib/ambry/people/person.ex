@@ -42,5 +42,6 @@ defmodule Ambry.People.Person do
     |> validate_required([:name])
     |> foreign_key_constraint(:author, name: "authors_books_author_id_fkey")
     |> foreign_key_constraint(:narrator, name: "media_narrators_narrator_id_fkey")
+    |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
   end
 end

@@ -197,7 +197,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         File.mkdir_p!(source_folder)
 
         dest = Path.join([source_folder, entry.client_name])
-        File.cp!(path, dest)
+        File.rename!(path, dest)
 
         {:ok, dest}
       end)
