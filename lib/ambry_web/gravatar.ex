@@ -29,14 +29,14 @@ defmodule AmbryWeb.Gravatar do
     |> to_string()
   end
 
-  defp parse_options(uri, []), do: %URI{uri | query: nil}
-  defp parse_options(uri, opts), do: %URI{uri | query: URI.encode_query(opts)}
+  defp parse_options(%URI{} = uri, []), do: %{uri | query: nil}
+  defp parse_options(%URI{} = uri, opts), do: %{uri | query: URI.encode_query(opts)}
 
-  defp host(uri, true), do: %URI{uri | scheme: "https", host: "secure.#{@domain}"}
-  defp host(uri, false), do: %URI{uri | scheme: "http", host: @domain}
+  defp host(%URI{} = uri, true), do: %{uri | scheme: "https", host: "secure.#{@domain}"}
+  defp host(%URI{} = uri, false), do: %{uri | scheme: "http", host: @domain}
 
-  defp hash_email(uri, email) do
+  defp hash_email(%URI{} = uri, email) do
     hash = Base.encode16(:crypto.hash(:md5, String.downcase(email)), case: :lower)
-    %URI{uri | path: "/avatar/#{hash}"}
+    %{uri | path: "/avatar/#{hash}"}
   end
 end
