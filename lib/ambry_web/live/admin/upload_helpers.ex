@@ -45,7 +45,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     uploaded_files =
       consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
         filename = generate_filename(entry.client_type)
-        File.rename!(path, images_disk_path(filename))
+        File.cp!(path, images_disk_path(filename))
 
         {:ok, ~p"/uploads/images/#{filename}"}
       end)
@@ -67,7 +67,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   def consume_uploaded_supplemental_files(socket, name) do
     consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
       filename = generate_filename(entry.client_type)
-      File.rename!(path, supplemental_files_disk_path(filename))
+      File.cp!(path, supplemental_files_disk_path(filename))
 
       {:ok,
        %{

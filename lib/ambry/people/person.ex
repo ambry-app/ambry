@@ -39,9 +39,18 @@ defmodule Ambry.People.Person do
       drop_param: :narrators_drop
     )
     |> cast_embed(:thumbnails)
+    |> maybe_clear_thumbnails()
     |> validate_required([:name])
     |> foreign_key_constraint(:author, name: "authors_books_author_id_fkey")
     |> foreign_key_constraint(:narrator, name: "media_narrators_narrator_id_fkey")
     |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
+  end
+
+  # if the image_path changes, clear the thumbnails embed
+  defp maybe_clear_thumbnails(changeset) do
+    case fetch_change(changeset, :image_path) do
+      {:ok, _new_path} -> put_embed(changeset, :thumbnails, nil)
+      _ -> changeset
+    end
   end
 end
