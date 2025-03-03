@@ -17,7 +17,11 @@ defmodule Ambry.Media.Processor.ProgressTracker do
     file_path = Media.out_path(media, file)
     File.touch!(file_path)
 
-    GenServer.start(__MODULE__, %{media: media, file_path: file_path, extensions: extensions})
+    GenServer.start_link(__MODULE__, %{media: media, file_path: file_path, extensions: extensions})
+  end
+
+  def stop(pid) do
+    GenServer.cast(pid, :stop)
   end
 
   # Server (callbacks)
@@ -59,6 +63,12 @@ defmodule Ambry.Media.Processor.ProgressTracker do
         Port.close(port)
         {:stop, :normal, state}
     end
+  end
+
+  @impl GenServer
+  def handle_cast(:stop, %{port: port} = state) do
+    Port.close(port)
+    {:stop, :normal, state}
   end
 
   defp publish_progress(media, duration, current_time) do
