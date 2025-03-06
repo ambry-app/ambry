@@ -145,7 +145,7 @@ defmodule Ambry.BooksTest do
 
       assert_enqueued worker: AsyncBroadcast,
                       args: %{
-                        "module" => "Elixir.Ambry.PubSub.BookCreated",
+                        "module" => "Elixir.Ambry.Books.PubSub.BookCreated",
                         "message" => %{
                           "broadcast_topics" => ["book-created:*"],
                           "id" => book.id
@@ -252,7 +252,7 @@ defmodule Ambry.BooksTest do
 
       assert_enqueued worker: AsyncBroadcast,
                       args: %{
-                        "module" => "Elixir.Ambry.PubSub.BookUpdated",
+                        "module" => "Elixir.Ambry.Books.PubSub.BookUpdated",
                         "message" => %{
                           "broadcast_topics" => [
                             "book-updated:#{updated_book.id}",
@@ -282,7 +282,7 @@ defmodule Ambry.BooksTest do
 
       assert_enqueued worker: AsyncBroadcast,
                       args: %{
-                        "module" => "Elixir.Ambry.PubSub.BookDeleted",
+                        "module" => "Elixir.Ambry.Books.PubSub.BookDeleted",
                         "message" => %{
                           "broadcast_topics" => [
                             "book-deleted:#{deleted_book.id}",
@@ -540,7 +540,7 @@ defmodule Ambry.BooksTest do
 
       assert_enqueued worker: AsyncBroadcast,
                       args: %{
-                        "module" => "Elixir.Ambry.PubSub.SeriesCreated",
+                        "module" => "Elixir.Ambry.Books.PubSub.SeriesCreated",
                         "message" => %{
                           "broadcast_topics" => ["series-created:*"],
                           "id" => series.id
@@ -567,7 +567,7 @@ defmodule Ambry.BooksTest do
 
       assert_enqueued worker: AsyncBroadcast,
                       args: %{
-                        "module" => "Elixir.Ambry.PubSub.SeriesUpdated",
+                        "module" => "Elixir.Ambry.Books.PubSub.SeriesUpdated",
                         "message" => %{
                           "broadcast_topics" => [
                             "series-updated:#{updated_series.id}",
@@ -597,7 +597,7 @@ defmodule Ambry.BooksTest do
 
       assert_enqueued worker: AsyncBroadcast,
                       args: %{
-                        "module" => "Elixir.Ambry.PubSub.SeriesDeleted",
+                        "module" => "Elixir.Ambry.Books.PubSub.SeriesDeleted",
                         "message" => %{
                           "broadcast_topics" => [
                             "series-deleted:#{deleted_series.id}",

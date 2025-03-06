@@ -8,22 +8,7 @@ defmodule Ambry.PubSub do
     exports: [
       Message,
       Publishable,
-      PersonCreated,
-      PersonUpdated,
-      PersonDeleted,
-      BookCreated,
-      BookUpdated,
-      BookDeleted,
-      SeriesCreated,
-      SeriesUpdated,
-      SeriesDeleted,
-      MediaCreated,
-      MediaUpdated,
-      MediaDeleted,
-      BookmarkCreated,
-      BookmarkUpdated,
-      BookmarkDeleted,
-      PlayerStateUpdated
+      MessageNew
     ]
 
   alias Ambry.Media.Media

@@ -184,7 +184,7 @@ defmodule Ambry.PeopleTest do
 
       assert_enqueued worker: AsyncBroadcast,
                       args: %{
-                        "module" => "Elixir.Ambry.PubSub.PersonCreated",
+                        "module" => "Elixir.Ambry.People.PubSub.PersonCreated",
                         "message" => %{
                           "broadcast_topics" => ["person-created:*"],
                           "id" => person.id
@@ -341,7 +341,7 @@ defmodule Ambry.PeopleTest do
 
       assert_enqueued worker: AsyncBroadcast,
                       args: %{
-                        "module" => "Elixir.Ambry.PubSub.PersonUpdated",
+                        "module" => "Elixir.Ambry.People.PubSub.PersonUpdated",
                         "message" => %{
                           "broadcast_topics" => [
                             "person-updated:#{person.id}",
@@ -394,7 +394,7 @@ defmodule Ambry.PeopleTest do
 
       assert_enqueued worker: AsyncBroadcast,
                       args: %{
-                        "module" => "Elixir.Ambry.PubSub.PersonDeleted",
+                        "module" => "Elixir.Ambry.People.PubSub.PersonDeleted",
                         "message" => %{
                           "broadcast_topics" => [
                             "person-deleted:#{person.id}",

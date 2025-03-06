@@ -27,15 +27,15 @@ defmodule Ambry.Media do
   alias Ambry.Media.Media
   alias Ambry.Media.MediaFlat
   alias Ambry.Media.PlayerState
+  alias Ambry.Media.PubSub.BookmarkCreated
+  alias Ambry.Media.PubSub.BookmarkDeleted
+  alias Ambry.Media.PubSub.BookmarkUpdated
+  alias Ambry.Media.PubSub.MediaCreated
+  alias Ambry.Media.PubSub.MediaDeleted
+  alias Ambry.Media.PubSub.MediaUpdated
+  alias Ambry.Media.PubSub.PlayerStateUpdated
   alias Ambry.Paths
   alias Ambry.PubSub
-  alias Ambry.PubSub.BookmarkCreated
-  alias Ambry.PubSub.BookmarkDeleted
-  alias Ambry.PubSub.BookmarkUpdated
-  alias Ambry.PubSub.MediaCreated
-  alias Ambry.PubSub.MediaDeleted
-  alias Ambry.PubSub.MediaUpdated
-  alias Ambry.PubSub.PlayerStateUpdated
   alias Ambry.Repo
   alias Ambry.Search
   alias Ambry.Thumbnails

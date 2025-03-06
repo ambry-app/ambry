@@ -18,16 +18,16 @@ defmodule Ambry.Books do
 
   alias Ambry.Books.Book
   alias Ambry.Books.BookFlat
+  alias Ambry.Books.PubSub.BookCreated
+  alias Ambry.Books.PubSub.BookDeleted
+  alias Ambry.Books.PubSub.BookUpdated
+  alias Ambry.Books.PubSub.SeriesCreated
+  alias Ambry.Books.PubSub.SeriesDeleted
+  alias Ambry.Books.PubSub.SeriesUpdated
   alias Ambry.Books.Series
   alias Ambry.Books.SeriesFlat
   alias Ambry.Media.Media
   alias Ambry.PubSub
-  alias Ambry.PubSub.BookCreated
-  alias Ambry.PubSub.BookDeleted
-  alias Ambry.PubSub.BookUpdated
-  alias Ambry.PubSub.SeriesCreated
-  alias Ambry.PubSub.SeriesDeleted
-  alias Ambry.PubSub.SeriesUpdated
   alias Ambry.Repo
 
   require Logger

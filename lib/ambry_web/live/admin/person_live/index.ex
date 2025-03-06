@@ -8,10 +8,10 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   import AmbryWeb.Admin.PaginationHelpers
 
   alias Ambry.People
+  alias Ambry.People.PubSub.PersonCreated
+  alias Ambry.People.PubSub.PersonDeleted
+  alias Ambry.People.PubSub.PersonUpdated
   alias Ambry.PubSub
-  alias Ambry.PubSub.PersonCreated
-  alias Ambry.PubSub.PersonDeleted
-  alias Ambry.PubSub.PersonUpdated
 
   @valid_sort_fields [
     :name,

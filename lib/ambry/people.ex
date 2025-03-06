@@ -11,7 +11,10 @@ defmodule Ambry.People do
       Narrator,
       Person,
       PersonName,
-      PersonName.Type
+      PersonName.Type,
+      PubSub.PersonCreated,
+      PubSub.PersonDeleted,
+      PubSub.PersonUpdated
     ]
 
   import Ambry.Utils
@@ -22,10 +25,10 @@ defmodule Ambry.People do
   alias Ambry.People.Narrator
   alias Ambry.People.Person
   alias Ambry.People.PersonFlat
+  alias Ambry.People.PubSub.PersonCreated
+  alias Ambry.People.PubSub.PersonDeleted
+  alias Ambry.People.PubSub.PersonUpdated
   alias Ambry.PubSub
-  alias Ambry.PubSub.PersonCreated
-  alias Ambry.PubSub.PersonDeleted
-  alias Ambry.PubSub.PersonUpdated
   alias Ambry.Repo
   alias Ambry.Search
   alias Ambry.Thumbnails
