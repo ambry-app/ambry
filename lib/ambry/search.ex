@@ -18,6 +18,7 @@ defmodule Ambry.Search do
   alias Ambry.Books
   alias Ambry.Books.Book
   alias Ambry.Books.Series, as: SeriesSchema
+  alias Ambry.Media.Media
   alias Ambry.People
   alias Ambry.People.Person
   alias Ambry.Repo
@@ -34,14 +35,32 @@ defmodule Ambry.Search do
     _ -> :error
   end
 
+  def insert(%Media{id: id}) do
+    Index.insert!(:media, id)
+  rescue
+    _ -> :error
+  end
+
   def update(%Person{id: id}) do
     Index.update!(:person, id)
   rescue
     _ -> :error
   end
 
+  def update(%Media{id: id}) do
+    Index.update!(:media, id)
+  rescue
+    _ -> :error
+  end
+
   def delete(%Person{id: id}) do
     Index.delete!(:person, id)
+  rescue
+    _ -> :error
+  end
+
+  def delete(%Media{id: id}) do
+    Index.delete!(:media, id)
   rescue
     _ -> :error
   end

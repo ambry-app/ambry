@@ -16,8 +16,9 @@ defmodule Ambry.Search.IndexManager do
   @impl GenServer
   def init(_opts) do
     :ok = PubSub.subscribe("book:*")
-    :ok = PubSub.subscribe("media:*")
-    # :ok = PubSub.subscribe("person:*")
+
+    # :ok = PubSub.subscribe("media:*")  # No longer needed as media index is updated in the transaction
+    # :ok = PubSub.subscribe("person:*") # Already commented out, keeping as-is
     :ok = PubSub.subscribe("series:*")
 
     {:ok, nil}

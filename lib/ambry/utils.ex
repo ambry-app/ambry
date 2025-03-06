@@ -58,8 +58,8 @@ defmodule Ambry.Utils do
   """
   def try_delete_files_async([]), do: {:ok, :noop}
 
-  def try_delete_files_async(disk_paths) do
-    %{"disk_paths" => disk_paths}
+  def try_delete_files_async(disk_paths, folder_paths \\ []) do
+    %{"disk_paths" => disk_paths, "folder_paths" => folder_paths}
     |> DeleteFiles.new()
     |> Oban.insert()
   end
@@ -84,5 +84,20 @@ defmodule Ambry.Utils do
         {:error, posix, path}
         # coveralls-ignore-stop
     end
+  end
+
+  @doc """
+  Tries to delete the given folders.
+
+  Logs output.
+  """
+  def try_delete_folders([]), do: :ok
+
+  def try_delete_folders(folder_paths) do
+    for folder_path <- folder_paths do
+      try_delete_folder(folder_path)
+    end
+
+    :ok
   end
 end

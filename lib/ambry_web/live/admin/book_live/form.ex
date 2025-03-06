@@ -72,12 +72,10 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   def handle_event("submit", %{"book" => book_params}, socket) do
-    with {:ok, _book} <-
-           socket.assigns.book
-           |> Books.change_book(book_params)
-           |> Changeset.apply_action(:insert) do
-      save_book(socket, socket.assigns.live_action, book_params)
-    else
+    case socket.assigns.book
+         |> Books.change_book(book_params)
+         |> Changeset.apply_action(:insert) do
+      {:ok, _book} -> save_book(socket, socket.assigns.live_action, book_params)
       {:error, %Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}
     end
   end

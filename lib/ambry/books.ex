@@ -26,8 +26,8 @@ defmodule Ambry.Books do
   alias Ambry.PubSub.BookDeleted
   alias Ambry.PubSub.BookUpdated
   alias Ambry.PubSub.SeriesCreated
-  alias Ambry.PubSub.SeriesUpdated
   alias Ambry.PubSub.SeriesDeleted
+  alias Ambry.PubSub.SeriesUpdated
   alias Ambry.Repo
 
   require Logger

@@ -8,10 +8,8 @@ defmodule Ambry.Thumbnails.GenerateThumbnails do
     max_attempts: 1
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"media_id" => id}}) do
-    id
-    |> Ambry.Media.get_media!()
-    |> Ambry.Media.generate_thumbnails!()
+  def perform(%Oban.Job{args: %{"media_id" => media_id, "image_path" => image_path}}) do
+    Ambry.Media.update_media_thumbnails!(media_id, image_path)
   end
 
   def perform(%Oban.Job{args: %{"person_id" => person_id, "image_path" => image_path}}) do

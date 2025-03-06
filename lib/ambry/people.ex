@@ -268,7 +268,16 @@ defmodule Ambry.People do
   end
 
   @doc """
-  Generates thumbnails for a person's image asynchronously if needed.
+  Schedules an Oban job to generate thumbnails for a person asynchronously.
+  Only schedules the job if the person has an image path but no thumbnails.
+
+  ## Examples
+
+      iex> generate_thumbnails_async(person)
+      {:ok, %Oban.Job{}}
+
+      iex> generate_thumbnails_async(person_with_thumbnails)
+      {:ok, :noop}
   """
   def generate_thumbnails_async(%Person{image_path: image_path, thumbnails: nil} = person)
       when is_binary(image_path) do

@@ -77,6 +77,7 @@ defmodule Ambry.Media.Media do
     )
     |> cast_embed(:supplemental_files)
     |> status_based_validation()
+    |> validate_image_path()
   end
 
   def changeset(media, attrs, for: :update) do
@@ -104,7 +105,10 @@ defmodule Ambry.Media.Media do
       sort_param: :supplemental_files_sort,
       drop_param: :supplemental_files_drop
     )
+    |> maybe_clear_thumbnails()
     |> status_based_validation()
+    |> validate_image_path()
+    |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
   end
 
   def changeset(media, attrs, for: :processor_update) do
@@ -123,6 +127,7 @@ defmodule Ambry.Media.Media do
     media
     |> cast(attrs, [])
     |> cast_embed(:thumbnails)
+    |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
   end
 
   defp status_based_validation(changeset) do
@@ -192,5 +197,32 @@ defmodule Ambry.Media.Media do
       {:error, _posix} ->
         []
     end
+  end
+
+  # if the image_path changes, clear the thumbnails embed
+  defp maybe_clear_thumbnails(changeset) do
+    case fetch_change(changeset, :image_path) do
+      {:ok, _new_path} -> put_embed(changeset, :thumbnails, nil)
+      _ -> changeset
+    end
+  end
+
+  defp validate_image_path(changeset) do
+    validate_change(changeset, :image_path, fn :image_path, path ->
+      case path do
+        "/uploads/" <> _ = path ->
+          if path |> Ambry.Paths.web_to_disk() |> File.exists?() do
+            []
+          else
+            [image_path: "file does not exist"]
+          end
+
+        nil ->
+          []
+
+        _ ->
+          [image_path: "must begin with /uploads/"]
+      end
+    end)
   end
 end

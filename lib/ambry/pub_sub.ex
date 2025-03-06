@@ -16,7 +16,14 @@ defmodule Ambry.PubSub do
       BookDeleted,
       SeriesCreated,
       SeriesUpdated,
-      SeriesDeleted
+      SeriesDeleted,
+      MediaCreated,
+      MediaUpdated,
+      MediaDeleted,
+      BookmarkCreated,
+      BookmarkUpdated,
+      BookmarkDeleted,
+      PlayerStateUpdated
     ]
 
   alias Ambry.Media.Media
