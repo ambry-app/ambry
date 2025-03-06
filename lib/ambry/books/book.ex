@@ -24,7 +24,6 @@ defmodule Ambry.Books.Book do
 
     # deprecated
     field :description, :string
-    field :image_path, :string
 
     timestamps(type: :utc_datetime)
   end
@@ -32,7 +31,7 @@ defmodule Ambry.Books.Book do
   @doc false
   def changeset(book, attrs) do
     book
-    |> cast(attrs, [:title, :published, :published_format, :description, :image_path])
+    |> cast(attrs, [:title, :published, :published_format, :description])
     |> cast_assoc(:series_books,
       with: &SeriesBook.book_assoc_changeset/2,
       sort_param: :series_books_sort,

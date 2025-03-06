@@ -4,8 +4,20 @@ defmodule Ambry.PubSub do
   """
 
   use Boundary,
-    deps: [Ambry.Media, Ambry.People],
-    exports: [Message, Publishable, PersonCreated, PersonUpdated, PersonDeleted]
+    deps: [Ambry.Media, Ambry.People, Ambry.Books],
+    exports: [
+      Message,
+      Publishable,
+      PersonCreated,
+      PersonUpdated,
+      PersonDeleted,
+      BookCreated,
+      BookUpdated,
+      BookDeleted,
+      SeriesCreated,
+      SeriesUpdated,
+      SeriesDeleted
+    ]
 
   alias Ambry.Media.Media
   alias Ambry.PubSub.AsyncBroadcast

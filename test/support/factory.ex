@@ -90,7 +90,6 @@ defmodule Ambry.Factory do
       title: book_title(),
       published: Faker.Date.backward(15_466),
       description: Faker.Lorem.paragraph(),
-      image_path: "/uploads/images/" <> file_name(:image),
       book_authors: build_list(Faker.random_between(1, 2), :book_author),
       series_books: build_list(Faker.random_between(1, 2), :series_book)
     }
@@ -200,7 +199,7 @@ defmodule Ambry.Factory do
   end
 
   def create_fake_files!(%Person{image_path: web_path}), do: create_fake_file(web_path)
-  def create_fake_files!(%Book{image_path: web_path}), do: create_fake_file(web_path)
+  def create_fake_files!(%Book{}), do: :ok
 
   def create_fake_files!(%Media{
         source_path: source_path,

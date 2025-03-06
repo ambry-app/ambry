@@ -1,9 +1,8 @@
 defmodule Ambry.BooksTest do
   use Ambry.DataCase
 
-  import ExUnit.CaptureLog
-
   alias Ambry.Books
+  alias Ambry.PubSub.AsyncBroadcast
 
   describe "list_books/0" do
     test "returns the first 10 books sorted by title" do
@@ -138,6 +137,21 @@ defmodule Ambry.BooksTest do
 
       assert %{title: ^title, series_books: [%{series_id: ^series_id}]} = book
     end
+
+    test "schedules a job to broadcast a PubSub message" do
+      params = params_for(:book, series_books: [], book_authors: [])
+
+      assert {:ok, book} = Books.create_book(params)
+
+      assert_enqueued worker: AsyncBroadcast,
+                      args: %{
+                        "module" => "Elixir.Ambry.PubSub.BookCreated",
+                        "message" => %{
+                          "broadcast_topics" => ["book-created:*"],
+                          "id" => book.id
+                        }
+                      }
+    end
   end
 
   describe "update_book/2" do
@@ -229,11 +243,30 @@ defmodule Ambry.BooksTest do
       assert %{series_books: new_series_books} = updated_book
       assert length(new_series_books) == length(series_books) - 1
     end
+
+    test "schedules a job to broadcast a PubSub message" do
+      book = insert(:book)
+      %{title: new_title} = params_for(:book)
+
+      {:ok, updated_book} = Books.update_book(book, %{title: new_title})
+
+      assert_enqueued worker: AsyncBroadcast,
+                      args: %{
+                        "module" => "Elixir.Ambry.PubSub.BookUpdated",
+                        "message" => %{
+                          "broadcast_topics" => [
+                            "book-updated:#{updated_book.id}",
+                            "book-updated:*"
+                          ],
+                          "id" => updated_book.id
+                        }
+                      }
+    end
   end
 
   describe "delete_book/1" do
     test "deletes a book" do
-      book = insert(:book, image_path: nil)
+      book = insert(:book)
 
       {:ok, _book} = Books.delete_book(book)
 
@@ -242,41 +275,22 @@ defmodule Ambry.BooksTest do
       end
     end
 
-    test "deletes the image file from disk used by a book" do
-      book = insert(:book)
-      create_fake_files!(book)
-
-      assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
-
-      {:ok, _book} = Books.delete_book(book)
-
-      refute File.exists?(Ambry.Paths.web_to_disk(book.image_path))
-    end
-
-    test "does not delete the image file from disk if the same image is used by multiple books" do
-      book = insert(:book)
-      create_fake_files!(book)
-      book2 = insert(:book, image_path: book.image_path)
-
-      assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
-
-      fun = fn ->
-        {:ok, _book} = Books.delete_book(book2)
-      end
-
-      assert capture_log(fun) =~ "Not deleting file because it's still in use"
-
-      assert File.exists?(Ambry.Paths.web_to_disk(book.image_path))
-    end
-
-    test "warns if the image file from disk used by a book does not exist" do
+    test "schedules a job to broadcast a PubSub message" do
       book = insert(:book)
 
-      fun = fn ->
-        {:ok, _book} = Books.delete_book(book)
-      end
+      {:ok, deleted_book} = Books.delete_book(book)
 
-      assert capture_log(fun) =~ "Couldn't delete file (enoent)"
+      assert_enqueued worker: AsyncBroadcast,
+                      args: %{
+                        "module" => "Elixir.Ambry.PubSub.BookDeleted",
+                        "message" => %{
+                          "broadcast_topics" => [
+                            "book-deleted:#{deleted_book.id}",
+                            "book-deleted:*"
+                          ],
+                          "id" => deleted_book.id
+                        }
+                      }
     end
 
     test "cannot delete a book if it belongs to an uploaded media" do
@@ -518,6 +532,21 @@ defmodule Ambry.BooksTest do
                ]
              } = series
     end
+
+    test "schedules a job to broadcast a PubSub message" do
+      params = params_for(:series)
+
+      assert {:ok, series} = Books.create_series(params)
+
+      assert_enqueued worker: AsyncBroadcast,
+                      args: %{
+                        "module" => "Elixir.Ambry.PubSub.SeriesCreated",
+                        "message" => %{
+                          "broadcast_topics" => ["series-created:*"],
+                          "id" => series.id
+                        }
+                      }
+    end
   end
 
   describe "update_series/2" do
@@ -528,6 +557,25 @@ defmodule Ambry.BooksTest do
       {:ok, updated_series} = Books.update_series(series, %{name: new_name})
 
       assert updated_series.name == new_name
+    end
+
+    test "schedules a job to broadcast a PubSub message" do
+      series = insert(:series)
+      %{name: new_name} = params_for(:series)
+
+      {:ok, updated_series} = Books.update_series(series, %{name: new_name})
+
+      assert_enqueued worker: AsyncBroadcast,
+                      args: %{
+                        "module" => "Elixir.Ambry.PubSub.SeriesUpdated",
+                        "message" => %{
+                          "broadcast_topics" => [
+                            "series-updated:#{updated_series.id}",
+                            "series-updated:*"
+                          ],
+                          "id" => updated_series.id
+                        }
+                      }
     end
   end
 
@@ -540,6 +588,24 @@ defmodule Ambry.BooksTest do
       assert_raise Ecto.NoResultsError, fn ->
         Books.get_series!(series.id)
       end
+    end
+
+    test "schedules a job to broadcast a PubSub message" do
+      series = insert(:series)
+
+      {:ok, deleted_series} = Books.delete_series(series)
+
+      assert_enqueued worker: AsyncBroadcast,
+                      args: %{
+                        "module" => "Elixir.Ambry.PubSub.SeriesDeleted",
+                        "message" => %{
+                          "broadcast_topics" => [
+                            "series-deleted:#{deleted_series.id}",
+                            "series-deleted:*"
+                          ],
+                          "id" => deleted_series.id
+                        }
+                      }
     end
   end
 
