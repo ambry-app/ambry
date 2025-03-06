@@ -139,7 +139,7 @@ defmodule Ambry.Search.IndexTest do
       refute media_ref in book_two_record.dependencies
       refute narrator_ref in book_two_record.dependencies
 
-      {:ok, _book_two} = Media.update_media(media, %{book_id: book_two.id}, for: :update)
+      {:ok, _book_two} = Media.update_media(media, %{book_id: book_two.id})
       assert :ok = Index.update!(:media, media.id)
 
       book_one_record = fetch_record(book_one)

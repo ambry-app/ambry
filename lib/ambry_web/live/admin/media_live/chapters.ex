@@ -10,7 +10,7 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
   @impl Phoenix.LiveView
   def mount(%{"id" => id}, _session, socket) do
     media = Media.get_media!(id)
-    changeset = Media.change_media(media, %{}, for: :update)
+    changeset = Media.change_media(media, %{})
 
     {:ok,
      socket
@@ -37,14 +37,14 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
   def handle_event("validate", %{"media" => media_params}, socket) do
     changeset =
       socket.assigns.media
-      |> Media.change_media(media_params, for: :update)
+      |> Media.change_media(media_params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_event("submit", %{"media" => media_params}, socket) do
-    case Media.update_media(socket.assigns.media, media_params, for: :update) do
+    case Media.update_media(socket.assigns.media, media_params) do
       {:ok, media} ->
         {:noreply,
          socket
@@ -67,7 +67,7 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
   @impl Phoenix.LiveView
   def handle_info({:import, %{"media" => media_params}}, socket) do
     new_params = Map.merge(socket.assigns.form.params, media_params)
-    changeset = Media.change_media(socket.assigns.media, new_params, for: :update)
+    changeset = Media.change_media(socket.assigns.media, new_params)
 
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
   end

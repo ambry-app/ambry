@@ -266,35 +266,35 @@ defmodule Ambry.MediaTest do
   end
 
   describe "update_media/3" do
-    test "allows updating a media's abridged value when using 'for: :update'" do
+    test "allows updating a media's abridged value" do
       media = insert(:media)
       original_value = media.abridged
 
-      {:ok, updated_media} = Media.update_media(media, %{abridged: !original_value}, for: :update)
+      {:ok, updated_media} = Media.update_media(media, %{abridged: !original_value})
 
       assert updated_media.abridged == !original_value
     end
 
-    test "allows updating a media's full_cast value when using 'for: :update'" do
+    test "allows updating a media's full_cast value" do
       media = insert(:media)
       original_value = media.full_cast
 
       {:ok, updated_media} =
-        Media.update_media(media, %{full_cast: !original_value}, for: :update)
+        Media.update_media(media, %{full_cast: !original_value})
 
       assert updated_media.full_cast == !original_value
     end
 
-    test "allows updating a media's book when using 'for: :update'" do
+    test "allows updating a media's book" do
       %{id: book_id} = insert(:book)
       media = insert(:media)
 
-      {:ok, updated_media} = Media.update_media(media, %{book_id: book_id}, for: :update)
+      {:ok, updated_media} = Media.update_media(media, %{book_id: book_id})
 
       assert updated_media.book_id == book_id
     end
 
-    test "updates nested media narrators when using 'for: :update'" do
+    test "updates nested media narrators" do
       %{id: new_narrator_id} = insert(:narrator)
 
       %{media_narrators: [existing_media_narrator | rest_media_narrators]} =
@@ -310,8 +310,7 @@ defmodule Ambry.MediaTest do
               %{id: existing_media_narrator.id, narrator_id: new_narrator_id}
               | Enum.map(rest_media_narrators, &%{id: &1.id})
             ]
-          },
-          for: :update
+          }
         )
 
       assert %{
@@ -324,7 +323,7 @@ defmodule Ambry.MediaTest do
              } = updated_media
     end
 
-    test "deletes nested media narrators when using 'for: :update'" do
+    test "deletes nested media narrators" do
       %{media_narrators: media_narrators} = media = insert(:media)
 
       {:ok, updated_media} =
@@ -333,15 +332,14 @@ defmodule Ambry.MediaTest do
           %{
             media_narrators_drop: [0],
             media_narrators: media_narrators |> Enum.with_index(&{&2, %{id: &1.id}}) |> Map.new()
-          },
-          for: :update
+          }
         )
 
       assert %{media_narrators: new_media_narrators} = updated_media
       assert length(new_media_narrators) == length(media_narrators) - 1
     end
 
-    test "replaces embedded chapters when using 'for: :update'" do
+    test "replaces embedded chapters" do
       media = insert(:media)
 
       new_chapters = [
@@ -349,12 +347,12 @@ defmodule Ambry.MediaTest do
         params_for(:chapter, time: 300, title: "Chapter 2")
       ]
 
-      {:ok, updated_media} = Media.update_media(media, %{chapters: new_chapters}, for: :update)
+      {:ok, updated_media} = Media.update_media(media, %{chapters: new_chapters})
 
       assert length(updated_media.chapters) == 2
     end
 
-    test "updates fields after processing when using 'for: :processor_update'" do
+    test "updates fields after processing with processor-specific attributes" do
       pending_media =
         insert(:media,
           duration: nil,
@@ -376,8 +374,7 @@ defmodule Ambry.MediaTest do
             mpd_path: mpd_path,
             hls_path: hls_path,
             status: :ready
-          },
-          for: :processor_update
+          }
         )
 
       assert %{
@@ -401,9 +398,7 @@ defmodule Ambry.MediaTest do
       assert [] = Ambry.Search.search(new_narrator_name)
 
       {:ok, _updated_media} =
-        Media.update_media(media, %{media_narrators: [%{narrator_id: new_narrator_id}]},
-          for: :update
-        )
+        Media.update_media(media, %{media_narrators: [%{narrator_id: new_narrator_id}]})
 
       assert [%{id: ^book_id}] = Ambry.Search.search(new_narrator_name)
       assert [] = Ambry.Search.search(narrator_name)

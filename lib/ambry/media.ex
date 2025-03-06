@@ -155,7 +155,7 @@ defmodule Ambry.Media do
   """
   def create_media(attrs \\ %{}) do
     Repo.transact(fn ->
-      changeset = Media.changeset(%Media{}, attrs, for: :create)
+      changeset = Media.changeset(%Media{}, attrs)
 
       with {:ok, media} <- Repo.insert(changeset),
            :ok <- Search.insert(media),
@@ -177,16 +177,16 @@ defmodule Ambry.Media do
 
   ## Examples
 
-      iex> update_media(media, %{field: new_value}, for: :update)
+      iex> update_media(media, %{field: new_value})
       {:ok, %Media{}}
 
-      iex> update_media(media, %{field: bad_value}, for: :update)
+      iex> update_media(media, %{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
   """
-  def update_media(%Media{} = media, attrs, for: action) do
+  def update_media(%Media{} = media, attrs) do
     Repo.transact(fn ->
-      changeset = Media.changeset(media, attrs, for: action)
+      changeset = Media.changeset(media, attrs)
 
       with {:ok, updated_media} <- Repo.update(changeset),
            :ok <- Search.update(updated_media),
@@ -325,12 +325,12 @@ defmodule Ambry.Media do
 
   ## Examples
 
-      iex> change_media(media, for: :create)
+      iex> change_media(media)
       %Ecto.Changeset{data: %Media{}}
 
   """
-  def change_media(%Media{} = media, attrs \\ %{}, opts \\ [{:for, :create}]) do
-    Media.changeset(media, attrs, opts)
+  def change_media(%Media{} = media, attrs \\ %{}) do
+    Media.changeset(media, attrs)
   end
 
   @doc """
@@ -385,7 +385,7 @@ defmodule Ambry.Media do
     thumbnails = Ambry.Thumbnails.generate_thumbnails!(image_web_path)
     media = get_media!(media_id)
 
-    case update_media(media, %{thumbnails: thumbnails}, for: :thumbnails_update) do
+    case update_media(media, %{thumbnails: thumbnails}) do
       {:ok, updated_media} ->
         {:ok, updated_media}
 

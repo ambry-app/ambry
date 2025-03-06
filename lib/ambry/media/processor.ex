@@ -27,14 +27,14 @@ defmodule Ambry.Media.Processor do
   ]
 
   def run!(media, processor \\ :auto) do
-    {:ok, media} = Media.update_media(media, %{status: :processing}, for: :processor_update)
+    {:ok, media} = Media.update_media(media, %{status: :processing})
 
     try do
       ensure_clean_out_path!(media)
       run_processor!(media, processor)
     rescue
       exception ->
-        {:ok, _media} = Media.update_media(media, %{status: :error}, for: :processor_update)
+        {:ok, _media} = Media.update_media(media, %{status: :error})
 
         reraise exception, __STACKTRACE__
     end

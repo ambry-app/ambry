@@ -116,8 +116,7 @@ defmodule Ambry.Media.Processor.Shared do
         mp4_path: "/uploads/media/#{id}.mp4",
         duration: duration,
         status: :ready
-      },
-      for: :processor_update
+      }
     )
   end
 

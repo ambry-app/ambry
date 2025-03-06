@@ -56,7 +56,7 @@ defmodule Ambry.Media.Media do
   def statuses, do: @statuses
 
   @doc false
-  def changeset(media, attrs, for: :create) do
+  def changeset(media, attrs) do
     media
     |> cast(attrs, [
       :abridged,
@@ -69,29 +69,12 @@ defmodule Ambry.Media.Media do
       :notes,
       :image_path,
       :description,
-      :publisher
-    ])
-    |> cast_assoc(:media_narrators,
-      sort_param: :media_narrators_sort,
-      drop_param: :media_narrators_drop
-    )
-    |> cast_embed(:supplemental_files)
-    |> status_based_validation()
-    |> validate_image_path()
-  end
-
-  def changeset(media, attrs, for: :update) do
-    media
-    |> cast(attrs, [
-      :abridged,
-      :book_id,
-      :full_cast,
-      :published,
-      :published_format,
-      :notes,
-      :image_path,
-      :description,
-      :publisher
+      :publisher,
+      :duration,
+      :mp4_path,
+      :mpd_path,
+      :hls_path,
+      :status
     ])
     |> cast_assoc(:media_narrators,
       sort_param: :media_narrators_sort,
@@ -108,24 +91,6 @@ defmodule Ambry.Media.Media do
     |> maybe_clear_thumbnails()
     |> status_based_validation()
     |> validate_image_path()
-    |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
-  end
-
-  def changeset(media, attrs, for: :processor_update) do
-    media
-    |> cast(attrs, [
-      :duration,
-      :mp4_path,
-      :mpd_path,
-      :hls_path,
-      :status
-    ])
-    |> status_based_validation()
-  end
-
-  def changeset(media, attrs, for: :thumbnails_update) do
-    media
-    |> cast(attrs, [])
     |> cast_embed(:thumbnails)
     |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
   end
