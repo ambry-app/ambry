@@ -102,10 +102,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:noreply, cancel_upload(socket, :image, ref)}
   end
 
-  def handle_event("cancel-import", _params, socket) do
-    {:noreply, assign(socket, import: nil)}
-  end
-
   @impl Phoenix.LiveView
   def handle_info({:import, %{"person" => person_params}}, socket) do
     new_params = Map.merge(socket.assigns.form.params, person_params)

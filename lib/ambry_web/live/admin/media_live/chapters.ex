@@ -64,10 +64,6 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
     {:noreply, socket}
   end
 
-  def handle_event("cancel-import", _params, socket) do
-    {:noreply, assign(socket, import: nil)}
-  end
-
   @impl Phoenix.LiveView
   def handle_info({:import, %{"media" => media_params}}, socket) do
     new_params = Map.merge(socket.assigns.form.params, media_params)
