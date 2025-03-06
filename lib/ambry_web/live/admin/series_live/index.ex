@@ -8,6 +8,9 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   import AmbryWeb.Admin.PaginationHelpers
 
   alias Ambry.Books
+  alias Ambry.Books.PubSub.SeriesCreated
+  alias Ambry.Books.PubSub.SeriesDeleted
+  alias Ambry.Books.PubSub.SeriesUpdated
   alias Ambry.PubSub
 
   @valid_sort_fields [
@@ -22,7 +25,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     if connected?(socket) do
-      :ok = PubSub.subscribe("series:*")
+      :ok = PubSub.subscribe_to_messages([SeriesCreated, SeriesUpdated, SeriesDeleted])
     end
 
     {:ok,
@@ -114,5 +117,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   end
 
   @impl Phoenix.LiveView
-  def handle_info(%PubSub.Message{type: :series}, socket), do: {:noreply, refresh_series(socket)}
+  def handle_info(%SeriesCreated{}, socket), do: {:noreply, refresh_series(socket)}
+  def handle_info(%SeriesUpdated{}, socket), do: {:noreply, refresh_series(socket)}
+  def handle_info(%SeriesDeleted{}, socket), do: {:noreply, refresh_series(socket)}
 end

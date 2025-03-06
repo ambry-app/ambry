@@ -14,7 +14,12 @@ defmodule Ambry.Media do
       MediaNarrator,
       PlayerState,
       Processor,
-      ProcessorJob
+      ProcessorJob,
+      PubSub.MediaCreated,
+      PubSub.MediaDeleted,
+      PubSub.MediaUpdated,
+      PubSub.PlayerStateUpdated,
+      PubSub.MediaProgress
     ]
 
   import Ambry.Utils

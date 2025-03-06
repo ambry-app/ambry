@@ -9,24 +9,47 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
 
   alias Ambry.Accounts
   alias Ambry.Books
+  alias Ambry.Books.PubSub.BookCreated
+  alias Ambry.Books.PubSub.BookDeleted
+  alias Ambry.Books.PubSub.BookUpdated
+  alias Ambry.Books.PubSub.SeriesCreated
+  alias Ambry.Books.PubSub.SeriesDeleted
+  alias Ambry.Books.PubSub.SeriesUpdated
   alias Ambry.Media
+  alias Ambry.Media.PubSub.MediaCreated
+  alias Ambry.Media.PubSub.MediaDeleted
+  alias Ambry.Media.PubSub.MediaUpdated
   alias Ambry.People
+  alias Ambry.People.PubSub.PersonCreated
+  alias Ambry.People.PubSub.PersonDeleted
+  alias Ambry.People.PubSub.PersonUpdated
   alias Ambry.PubSub
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      :ok = PubSub.subscribe("person:*")
-      :ok = PubSub.subscribe("book:*")
-      :ok = PubSub.subscribe("series:*")
-      :ok = PubSub.subscribe("media:*")
+      :ok =
+        PubSub.subscribe_to_messages([
+          PersonCreated,
+          PersonUpdated,
+          PersonDeleted,
+          BookCreated,
+          BookUpdated,
+          BookDeleted,
+          SeriesCreated,
+          SeriesUpdated,
+          SeriesDeleted,
+          MediaCreated,
+          MediaUpdated,
+          MediaDeleted
+        ])
     end
 
     {:ok, count_things(socket)}
   end
 
   @impl Phoenix.LiveView
-  def handle_info(%PubSub.Message{}, socket), do: {:noreply, count_things(socket)}
+  def handle_info(message, socket) when is_struct(message), do: {:noreply, count_things(socket)}
 
   defp count_things(socket) do
     people_count = People.count_people()

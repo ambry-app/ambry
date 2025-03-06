@@ -9,6 +9,10 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   import AmbryWeb.TimeUtils
 
   alias Ambry.Media
+  alias Ambry.Media.PubSub.MediaCreated
+  alias Ambry.Media.PubSub.MediaDeleted
+  alias Ambry.Media.PubSub.MediaProgress
+  alias Ambry.Media.PubSub.MediaUpdated
   alias Ambry.PubSub
 
   @valid_sort_fields [
@@ -27,8 +31,8 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     if connected?(socket) do
-      :ok = PubSub.subscribe("media:*")
-      :ok = PubSub.subscribe("media-progress")
+      :ok =
+        PubSub.subscribe_to_messages([MediaCreated, MediaUpdated, MediaDeleted, MediaProgress])
     end
 
     {:ok,
@@ -118,16 +122,15 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   end
 
   @impl Phoenix.LiveView
-
-  def handle_info(%PubSub.Message{type: :media, action: :progress} = message, socket) do
-    %{id: media_id, meta: %{progress: progress}} = message
-
+  def handle_info(%MediaProgress{id: media_id, progress: progress}, socket) do
     # NOTE: technically this map will just fill up over time, but it's bounded
     # by the total number of media, and it's only a number, so no big deal.
     {:noreply, update(socket, :processing_media_progress_map, &Map.put(&1, media_id, progress))}
   end
 
-  def handle_info(%PubSub.Message{type: :media}, socket), do: {:noreply, refresh_media(socket)}
+  def handle_info(%MediaCreated{}, socket), do: {:noreply, refresh_media(socket)}
+  def handle_info(%MediaUpdated{}, socket), do: {:noreply, refresh_media(socket)}
+  def handle_info(%MediaDeleted{}, socket), do: {:noreply, refresh_media(socket)}
 
   defp status_color(:pending), do: :yellow
   defp status_color(:processing), do: :blue
