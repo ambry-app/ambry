@@ -95,9 +95,7 @@ defmodule AmbrySchema.BooksTest do
         id
         ... on Book {
           title
-          description
           published
-          imagePath
           authors {
             __typename
           }
@@ -119,9 +117,7 @@ defmodule AmbrySchema.BooksTest do
       %{
         id: id,
         title: title,
-        description: description,
-        published: published,
-        image_path: image_path
+        published: published
       } = book
 
       gid = to_global_id("Book", id)
@@ -139,9 +135,7 @@ defmodule AmbrySchema.BooksTest do
                  "node" => %{
                    "id" => ^gid,
                    "title" => ^title,
-                   "description" => ^description,
                    "published" => ^published_match,
-                   "imagePath" => ^image_path,
                    "authors" => [%{"__typename" => "Author"} | _],
                    "seriesBooks" => [%{"__typename" => "SeriesBook"} | _],
                    "media" => [%{"__typename" => "Media"} | _],

@@ -54,9 +54,6 @@ defmodule AmbrySchema.Books do
     field :updated_at, non_null(:datetime)
 
     interface :search_result
-
-    field :image_path, :string, deprecate: "imagePath has been moved to `Media`"
-    field :description, :string, deprecate: "description has been moved to `Media`"
   end
 
   node object(:book_author) do
