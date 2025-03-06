@@ -13,7 +13,6 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.PlayerState
   alias Ambry.Media.Processor
-  alias Ambry.People.Narrator
   alias Ambry.Repo.SupplementalFile
   alias Ambry.Thumbnails
 
@@ -24,7 +23,7 @@ defmodule Ambry.Media.Media do
     has_many :media_narrators, MediaNarrator, on_replace: :delete
     has_many :player_states, PlayerState
     has_many :authors, through: [:book, :authors]
-    many_to_many :narrators, Narrator, join_through: "media_narrators"
+    has_many :narrators, through: [:media_narrators, :narrator]
 
     embeds_many :chapters, Chapter, on_replace: :delete
     embeds_many :supplemental_files, SupplementalFile, on_replace: :delete

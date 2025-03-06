@@ -1,9 +1,12 @@
 defmodule Ambry.PeopleTest do
   use Ambry.DataCase
 
-  import ExUnit.CaptureLog
-
+  alias Ambry.Paths
   alias Ambry.People
+  alias Ambry.PubSub.AsyncBroadcast
+  alias Ambry.Search.IndexFactory
+  alias Ambry.Thumbnails.GenerateThumbnails
+  alias Ambry.Utils.DeleteFiles
 
   describe "list_people/0" do
     test "returns the first 10 people sorted by name" do
@@ -153,6 +156,41 @@ defmodule Ambry.PeopleTest do
 
       assert %{name: ^person_name, narrators: [%{name: ^narrator_name}]} = person
     end
+
+    test "updates the search index" do
+      %{name: person_name} = params = params_for(:person, image_path: nil)
+
+      assert [] = Ambry.Search.search(person_name)
+
+      assert {:ok, %{id: person_id}} = People.create_person(params)
+
+      assert [%{id: ^person_id}] = Ambry.Search.search(person_name)
+    end
+
+    test "schedules a job to generate thumbnails if a valid image_path is given" do
+      %{web_path: web_path} = valid_image()
+      params = params_for(:person, image_path: web_path)
+
+      assert {:ok, person} = People.create_person(params)
+
+      assert_enqueued worker: GenerateThumbnails,
+                      args: %{"person_id" => person.id, "image_path" => web_path}
+    end
+
+    test "schedules a job to broadcast a PubSub message" do
+      params = params_for(:person, image_path: nil)
+
+      assert {:ok, person} = People.create_person(params)
+
+      assert_enqueued worker: AsyncBroadcast,
+                      args: %{
+                        "module" => "Elixir.Ambry.PubSub.PersonCreated",
+                        "message" => %{
+                          "broadcast_topics" => ["person-created:*"],
+                          "id" => person.id
+                        }
+                      }
+    end
   end
 
   describe "update_person/2" do
@@ -258,67 +296,125 @@ defmodule Ambry.PeopleTest do
                ]
              } = errors_on(changeset)
     end
+
+    test "updates the search index" do
+      %{id: person_id, name: original_name} = person = insert(:person)
+      new_name = Faker.Person.name()
+
+      IndexFactory.insert_index!(person)
+
+      assert [%{id: ^person_id}] = Ambry.Search.search(original_name)
+      assert [] = Ambry.Search.search(new_name)
+
+      {:ok, _updated_person} = People.update_person(person, %{name: new_name})
+
+      assert [] = Ambry.Search.search(original_name)
+      assert [%{id: ^person_id}] = Ambry.Search.search(new_name)
+    end
+
+    test "schedules a job to delete files that are no longer needed" do
+      %{web_path: web_path1} = valid_image()
+      %{web_path: web_path2} = valid_image()
+      person = insert(:person, image_path: web_path1)
+
+      image_disk_path = Paths.web_to_disk(person.image_path)
+
+      {:ok, _updated_person} = People.update_person(person, %{image_path: web_path2})
+
+      assert_enqueued worker: DeleteFiles, args: %{"disk_paths" => [image_disk_path]}
+    end
+
+    test "schedules a job to generate thumbnails if a valid image_path is given" do
+      %{web_path: web_path} = valid_image()
+      person = insert(:person, image_path: nil)
+
+      assert {:ok, person} = People.update_person(person, %{image_path: web_path})
+
+      assert_enqueued worker: GenerateThumbnails,
+                      args: %{"person_id" => person.id, "image_path" => web_path}
+    end
+
+    test "schedules a job to broadcast a PubSub message" do
+      person = insert(:person)
+
+      assert {:ok, _updated_person} = People.update_person(person, %{})
+
+      assert_enqueued worker: AsyncBroadcast,
+                      args: %{
+                        "module" => "Elixir.Ambry.PubSub.PersonUpdated",
+                        "message" => %{
+                          "broadcast_topics" => [
+                            "person-updated:#{person.id}",
+                            "person-updated:*"
+                          ],
+                          "id" => person.id
+                        }
+                      }
+    end
   end
 
   describe "delete_person/1" do
     test "deletes a person" do
       person = insert(:person, image_path: nil)
 
-      :ok = People.delete_person(person)
+      {:ok, _person} = People.delete_person(person)
 
       assert_raise Ecto.NoResultsError, fn ->
         People.get_person!(person.id)
       end
     end
 
-    test "deletes the image file from disk used by a person" do
-      person = insert(:person)
-      create_fake_files!(person)
+    test "updates the search index" do
+      person = %{id: person_id, name: name} = insert(:person)
 
-      assert File.exists?(Ambry.Paths.web_to_disk(person.image_path))
+      IndexFactory.insert_index!(person)
 
-      :ok = People.delete_person(person)
+      assert [%{id: ^person_id}] = Ambry.Search.search(name)
 
-      refute File.exists?(Ambry.Paths.web_to_disk(person.image_path))
+      {:ok, _person} = People.delete_person(person)
+
+      assert [] = Ambry.Search.search(name)
     end
 
-    test "does not delete the image file from disk if the same image is used by multiple people" do
-      person = insert(:person)
-      create_fake_files!(person)
-      person2 = insert(:person, image_path: person.image_path)
+    test "schedules a job to delete files that are no longer needed" do
+      %{web_path: web_path} = valid_image()
+      person = insert(:person, image_path: web_path)
 
-      assert File.exists?(Ambry.Paths.web_to_disk(person.image_path))
+      image_disk_path = Paths.web_to_disk(person.image_path)
 
-      fun = fn ->
-        :ok = People.delete_person(person2)
-      end
+      {:ok, _person} = People.delete_person(person)
 
-      assert capture_log(fun) =~ "Not deleting file because it's still in use"
-
-      assert File.exists?(Ambry.Paths.web_to_disk(person.image_path))
+      assert_enqueued worker: DeleteFiles, args: %{"disk_paths" => [image_disk_path]}
     end
 
-    test "warns if the image file from disk used by a person does not exist" do
+    test "schedules a job to broadcast a PubSub message" do
       person = insert(:person)
 
-      fun = fn ->
-        :ok = People.delete_person(person)
-      end
+      assert {:ok, _person} = People.delete_person(person)
 
-      assert capture_log(fun) =~ "Couldn't delete file (enoent)"
+      assert_enqueued worker: AsyncBroadcast,
+                      args: %{
+                        "module" => "Elixir.Ambry.PubSub.PersonDeleted",
+                        "message" => %{
+                          "broadcast_topics" => [
+                            "person-deleted:#{person.id}",
+                            "person-deleted:*"
+                          ],
+                          "id" => person.id
+                        }
+                      }
     end
 
     test "cannot delete a person if they have authored a book" do
-      %{title: book_title, book_authors: [%{author: %{person: person}} | _]} = insert(:book)
+      %{book_authors: [%{author: %{person: person}} | _]} = insert(:book)
 
-      {:error, {:has_authored_books, [^book_title]}} = People.delete_person(person)
+      {:error, :has_authored_books} = People.delete_person(person)
     end
 
     test "cannot delete a person if they have narrated media" do
-      %{book: %{title: book_title}, media_narrators: [%{narrator: %{person: person}} | _]} =
-        insert(:media)
+      %{media_narrators: [%{narrator: %{person: person}} | _]} = insert(:media)
 
-      {:error, {:has_narrated_books, [^book_title]}} = People.delete_person(person)
+      {:error, :has_narrated_media} = People.delete_person(person)
     end
   end
 
@@ -342,11 +438,85 @@ defmodule Ambry.PeopleTest do
     end
   end
 
-  describe "authors_for_select/0" do
-    test "returns all author names and ids only" do
-      insert_list(3, :author)
+  describe "generate_thumbnails_async/1" do
+    test "schedules a job to generate thumbnails if they're missing" do
+      %{web_path: web_path} = valid_image()
 
-      list = People.authors_for_select()
+      person = insert(:person, image_path: web_path)
+
+      assert {:ok, %Oban.Job{}} = People.generate_thumbnails_async(person)
+
+      assert_enqueued worker: GenerateThumbnails,
+                      args: %{"person_id" => person.id, "image_path" => web_path}
+    end
+
+    test "doesn't schedule a job if the thumbnails are already there" do
+      %{web_path: web_path} = valid_image()
+      person = insert(:person, image_path: web_path)
+      {:ok, person} = People.update_person_thumbnails!(person.id, web_path)
+
+      assert {:ok, :noop} = People.generate_thumbnails_async(person)
+      refute_enqueued worker: GenerateThumbnails
+    end
+  end
+
+  describe "update_person_thumbnails!/2" do
+    test "generates thumbnails and updates the person" do
+      %{web_path: web_path} = valid_image()
+
+      person = insert(:person, image_path: web_path)
+
+      assert person.thumbnails == nil
+      assert {:ok, person} = People.update_person_thumbnails!(person.id, web_path)
+      assert person.thumbnails != nil
+
+      assert File.exists?(Paths.web_to_disk(person.thumbnails.extra_small))
+      assert File.exists?(Paths.web_to_disk(person.thumbnails.small))
+      assert File.exists?(Paths.web_to_disk(person.thumbnails.medium))
+      assert File.exists?(Paths.web_to_disk(person.thumbnails.large))
+      assert File.exists?(Paths.web_to_disk(person.thumbnails.extra_large))
+    end
+
+    test "doesn't update the person if the image given doesn't match what's saved and deletes any files created" do
+      %{web_path: web_path1} = valid_image()
+      %{web_path: web_path2} = valid_image()
+
+      person = insert(:person, image_path: web_path1)
+
+      assert person.thumbnails == nil
+
+      assert {:error, changeset} = People.update_person_thumbnails!(person.id, web_path2)
+
+      thumbnails =
+        changeset |> Ecto.Changeset.get_change(:thumbnails) |> Ecto.Changeset.apply_changes()
+
+      refute File.exists?(Paths.web_to_disk(thumbnails.extra_small))
+      refute File.exists?(Paths.web_to_disk(thumbnails.small))
+      refute File.exists?(Paths.web_to_disk(thumbnails.medium))
+      refute File.exists?(Paths.web_to_disk(thumbnails.large))
+      refute File.exists?(Paths.web_to_disk(thumbnails.extra_large))
+    end
+  end
+
+  describe "get_narrator!/1" do
+    test "raises if id is invalid" do
+      assert_raise Ecto.NoResultsError, fn ->
+        People.get_narrator!(-1)
+      end
+    end
+
+    test "returns the narrator with the given id" do
+      %{id: id} = insert(:narrator)
+
+      assert %People.Narrator{id: ^id} = People.get_narrator!(id)
+    end
+  end
+
+  describe "narrators_for_select/0" do
+    test "returns all narrator names and ids only" do
+      insert_list(3, :narrator)
+
+      list = People.narrators_for_select()
 
       assert [
                {_, _},
@@ -356,11 +526,25 @@ defmodule Ambry.PeopleTest do
     end
   end
 
-  describe "narrators_for_select/0" do
-    test "returns all narrator names and ids only" do
-      insert_list(3, :narrator)
+  describe "get_author!/1" do
+    test "raises if id is invalid" do
+      assert_raise Ecto.NoResultsError, fn ->
+        People.get_author!(-1)
+      end
+    end
 
-      list = People.narrators_for_select()
+    test "returns the author with the given id" do
+      %{id: id} = insert(:author)
+
+      assert %People.Author{id: ^id} = People.get_author!(id)
+    end
+  end
+
+  describe "authors_for_select/0" do
+    test "returns all author names and ids only" do
+      insert_list(3, :author)
+
+      list = People.authors_for_select()
 
       assert [
                {_, _},

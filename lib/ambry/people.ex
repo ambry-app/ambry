@@ -15,7 +15,6 @@ defmodule Ambry.People do
     ]
 
   import Ambry.Utils
-  import Ecto.Changeset
   import Ecto.Query
 
   alias Ambry.Paths
@@ -24,7 +23,11 @@ defmodule Ambry.People do
   alias Ambry.People.Person
   alias Ambry.People.PersonFlat
   alias Ambry.PubSub
+  alias Ambry.PubSub.PersonCreated
+  alias Ambry.PubSub.PersonDeleted
+  alias Ambry.PubSub.PersonUpdated
   alias Ambry.Repo
+  alias Ambry.Search
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
 
@@ -121,20 +124,22 @@ defmodule Ambry.People do
 
   """
   def create_person(attrs \\ %{}) do
-    fn ->
-      %Person{}
-      |> Person.changeset(attrs)
-      |> Repo.insert()
-      |> tap_ok(fn person ->
-        if !is_nil(person.image_path) do
-          %{"person_id" => person.id}
-          |> GenerateThumbnails.new()
-          |> Oban.insert!()
-        end
-      end)
-    end
-    |> Repo.transact()
-    |> tap_ok(&PubSub.broadcast_create/1)
+    Repo.transact(fn ->
+      changeset = Person.changeset(%Person{}, attrs)
+
+      with {:ok, person} <- Repo.insert(changeset),
+           :ok <- Search.insert(person),
+           {:ok, _job_or_noop} <- generate_thumbnails_async(person),
+           {:ok, _job} <- broadcast_person_created(person) do
+        {:ok, person}
+      end
+    end)
+  end
+
+  defp broadcast_person_created(%Person{} = person) do
+    person
+    |> PersonCreated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -150,26 +155,46 @@ defmodule Ambry.People do
 
   """
   def update_person(%Person{} = person, attrs) do
-    fn ->
-      person
-      |> Repo.preload(@person_direct_assoc_preloads)
-      |> Person.changeset(attrs)
-      |> tap(fn changeset ->
-        if changeset.valid? && changed?(changeset, :image_path) do
-          %{"person_id" => person.id}
-          |> GenerateThumbnails.new()
-          |> Oban.insert!()
-        end
-      end)
-      |> Repo.update()
-    end
-    |> Repo.transact()
-    |> tap_ok(&PubSub.broadcast_update/1)
-    |> tap_ok(fn updated_person ->
-      if is_nil(updated_person.image_path) && !is_nil(person.image_path) do
-        maybe_delete_image(person.image_path)
+    Repo.transact(fn ->
+      person = Repo.preload(person, @person_direct_assoc_preloads)
+      changeset = Person.changeset(person, attrs)
+
+      with {:ok, updated_person} <- Repo.update(changeset),
+           :ok <- Search.update(updated_person),
+           {:ok, _job_or_noop} <- delete_unused_files_async(person, updated_person),
+           {:ok, _job_or_noop} <- generate_thumbnails_async(updated_person),
+           {:ok, _job} <- broadcast_person_updated(updated_person) do
+        {:ok, updated_person}
       end
     end)
+  end
+
+  defp delete_unused_files_async(%Person{} = old_person, %Person{} = new_person) do
+    (all_web_paths(old_person) -- all_web_paths(new_person))
+    |> Enum.map(&Paths.web_to_disk/1)
+    |> try_delete_files_async()
+  end
+
+  defp all_web_paths(%Person{} = person) do
+    [person.image_path | if(person.thumbnails, do: all_web_paths(person.thumbnails), else: [])]
+    |> Enum.uniq()
+    |> Enum.filter(& &1)
+  end
+
+  defp all_web_paths(%Thumbnails{} = thumbnails) do
+    [
+      thumbnails.extra_large,
+      thumbnails.large,
+      thumbnails.medium,
+      thumbnails.small,
+      thumbnails.extra_small
+    ]
+  end
+
+  defp broadcast_person_updated(%Person{} = person) do
+    person
+    |> PersonUpdated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -181,75 +206,52 @@ defmodule Ambry.People do
       :ok
 
       iex> delete_person(person)
-      {:error, {:has_authored_books, books}}
+      {:error, :has_authored_books}
 
       iex> delete_person(person)
-      {:error, {:has_narrated_books, books}}
+      {:error, :has_narrated_media}
 
       iex> delete_person(person)
       {:error, %Ecto.Changeset{}}
 
   """
   def delete_person(%Person{} = person) do
-    fn ->
-      case Repo.delete(change_person(person)) do
-        {:ok, person} ->
-          maybe_delete_image(person.image_path)
+    Repo.transact(fn ->
+      changeset = Person.changeset(person, %{})
 
-          if !is_nil(person.thumbnails),
-            do: Thumbnails.try_delete_thumbnails(person.thumbnails)
-
-          {:ok, person}
-
-        {:error, changeset} ->
-          cond do
-            Keyword.has_key?(changeset.errors, :author) ->
-              {:error, {:has_authored_books, person}}
-
-            Keyword.has_key?(changeset.errors, :narrator) ->
-              {:error, {:has_narrated_books, person}}
-
-            true ->
-              {:error, changeset}
-          end
+      with {:ok, deleted_person} <- Repo.delete(changeset),
+           :ok <- Search.delete(deleted_person),
+           {:ok, _job_or_noop} <- delete_all_files_async(deleted_person),
+           {:ok, _job} <- broadcast_person_deleted(deleted_person) do
+        {:ok, deleted_person}
+      else
+        {:error, %Ecto.Changeset{} = changeset} ->
+          deleted_person_changeset_error(changeset)
       end
+    end)
+  end
+
+  defp delete_all_files_async(%Person{} = person) do
+    person
+    |> all_web_paths()
+    |> Enum.map(&Paths.web_to_disk/1)
+    |> try_delete_files_async()
+  end
+
+  defp broadcast_person_deleted(%Person{} = person) do
+    person
+    |> PersonDeleted.new()
+    |> PubSub.broadcast_async()
+  end
+
+  defp deleted_person_changeset_error(%Ecto.Changeset{} = changeset) do
+    cond do
+      Keyword.has_key?(changeset.errors, :author) ->
+        {:error, :has_authored_books}
+
+      Keyword.has_key?(changeset.errors, :narrator) ->
+        {:error, :has_narrated_media}
     end
-    |> Repo.transact()
-    |> tap_ok(&PubSub.broadcast_delete/1)
-    |> handle_delete_result()
-  end
-
-  defp handle_delete_result({:ok, _person}), do: :ok
-
-  defp handle_delete_result({:error, {:has_authored_books, person}}),
-    do: {:error, {:has_authored_books, get_authored_books_list(person)}}
-
-  defp handle_delete_result({:error, {:has_narrated_books, person}}),
-    do: {:error, {:has_narrated_books, get_narrated_books_list(person)}}
-
-  defp maybe_delete_image(nil), do: :noop
-
-  defp maybe_delete_image(web_path) do
-    person_count = Repo.aggregate(from(p in Person, where: p.image_path == ^web_path), :count)
-
-    if person_count == 0 do
-      disk_path = Paths.web_to_disk(web_path)
-
-      try_delete_file(disk_path)
-    else
-      Logger.warning(fn -> "Not deleting file because it's still in use: #{web_path}" end)
-      {:error, :still_in_use}
-    end
-  end
-
-  defp get_authored_books_list(person) do
-    %{authors: authors} = Repo.preload(person, authors: [:books])
-    Enum.flat_map(authors, fn author -> Enum.map(author.books, & &1.title) end)
-  end
-
-  defp get_narrated_books_list(person) do
-    %{narrators: narrators} = Repo.preload(person, narrators: [:books])
-    Enum.flat_map(narrators, fn narrator -> Enum.map(narrator.books, & &1.title) end)
   end
 
   @doc """
@@ -265,33 +267,21 @@ defmodule Ambry.People do
     Person.changeset(person, attrs)
   end
 
-  # TODO: deprecated: remove in favor of `update_person_thumbnails!/2`
   @doc """
-  Generate and store a `%Thumbnails{}` struct on the given person
+  Generates thumbnails for a person's image asynchronously if needed.
   """
-  def generate_thumbnails!(%Person{image_path: nil} = person) do
-    if !is_nil(person.thumbnails) do
-      Ambry.Thumbnails.try_delete_thumbnails(person.thumbnails)
-      {:ok, _person} = update_person(person, %{thumbnails: nil})
-    end
-
-    :ok
+  def generate_thumbnails_async(%Person{image_path: image_path, thumbnails: nil} = person)
+      when is_binary(image_path) do
+    %{"person_id" => person.id, "image_path" => image_path}
+    |> GenerateThumbnails.new()
+    |> Oban.insert()
   end
 
-  def generate_thumbnails!(%Person{image_path: image_web_path} = person) do
-    thumbnails = Ambry.Thumbnails.generate_thumbnails!(image_web_path)
-
-    {:ok, _person} = update_person(person, %{thumbnails: thumbnails})
-
-    :ok
-  end
+  def generate_thumbnails_async(_person), do: {:ok, :noop}
 
   @doc """
   Generate a `%Thumbnails{}` for the given image_web_path and then store it on
   the given person.
-
-  If the person already had a `%Thumbnails{}` struct, the old files will be
-  deleted from disk if the update was successful.
 
   Fails if the given person's image_web_path does not match the given
   image_web_path, which could happen if the person's image_path was changed
@@ -303,16 +293,11 @@ defmodule Ambry.People do
 
     case update_person(person, %{thumbnails: thumbnails}) do
       {:ok, updated_person} ->
-        # Delete the old thumbnails from disk if they existed
-        if person.thumbnails, do: Ambry.Thumbnails.try_delete_thumbnails(person.thumbnails)
-
         {:ok, updated_person}
 
       {:error, changeset} ->
-        Logger.error(fn -> "Failed to update person with thumbnails: #{inspect(changeset)}" end)
-
-        # Delete the new thumbnails from disk
-        Ambry.Thumbnails.try_delete_thumbnails(thumbnails)
+        # Delete the new thumbnails from disk, because the update failed.
+        Thumbnails.try_delete_thumbnails(thumbnails)
 
         {:error, changeset}
     end

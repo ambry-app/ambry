@@ -7,18 +7,16 @@ defmodule Ambry.Books.Book do
 
   import Ecto.Changeset
 
-  alias Ambry.Books.Series
   alias Ambry.Books.SeriesBook
   alias Ambry.Media.Media
-  alias Ambry.People.Author
   alias Ambry.People.BookAuthor
 
   schema "books" do
     has_many :media, Media, preload_order: [desc: :published]
     has_many :series_books, SeriesBook, on_replace: :delete
     has_many :book_authors, BookAuthor, on_replace: :delete
-    many_to_many :series, Series, join_through: "books_series"
-    many_to_many :authors, Author, join_through: "authors_books"
+    has_many :series, through: [:series_books, :series]
+    has_many :authors, through: [:book_authors, :author]
 
     field :title, :string
     field :published, :date

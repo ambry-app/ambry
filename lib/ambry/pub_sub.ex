@@ -3,9 +3,12 @@ defmodule Ambry.PubSub do
   Helper functions for publishing and subscribing to Ambry events.
   """
 
-  use Boundary, deps: [Ambry.Media], exports: [Message, Publishable]
+  use Boundary,
+    deps: [Ambry.Media, Ambry.People],
+    exports: [Message, Publishable, PersonCreated, PersonUpdated, PersonDeleted]
 
   alias Ambry.Media.Media
+  alias Ambry.PubSub.AsyncBroadcast
   alias Ambry.PubSub.Message
   alias Ambry.PubSub.Publishable
   alias Phoenix.PubSub
@@ -63,9 +66,9 @@ defmodule Ambry.PubSub do
   defp broadcast(not_a_struct, _action, _meta),
     do: raise("PubSub broadcast expected a struct, got #{inspect(not_a_struct)}")
 
-  defp broadcast_all([], _message), do: :ok
+  def broadcast_all([], _message), do: :ok
 
-  defp broadcast_all([topic | rest], message) do
+  def broadcast_all([topic | rest], message) do
     case PubSub.broadcast(__MODULE__, topic, message) do
       :ok ->
         Logger.debug(fn -> "#{__MODULE__} Published to #{topic} - #{inspect(message)}" end)
@@ -80,5 +83,32 @@ defmodule Ambry.PubSub do
   def type(module) do
     [last | _] = module |> Module.split() |> Enum.reverse()
     last |> Macro.underscore() |> String.to_atom()
+  end
+
+  # New API:
+
+  def subscribe_to_messages(messages) do
+    messages
+    |> Enum.map(& &1.subscribe_topic())
+    |> Enum.uniq()
+    |> Enum.map(&subscribe/1)
+    |> Enum.uniq()
+    |> case do
+      [:ok] -> :ok
+      _ -> :error
+    end
+  end
+
+  def broadcast(%_{broadcast_topics: topics} = message) do
+    broadcast_all(topics, message)
+  end
+
+  def broadcast_async(%module{} = message) do
+    %{
+      "module" => module,
+      "message" => Map.from_struct(message)
+    }
+    |> AsyncBroadcast.new()
+    |> Oban.insert()
   end
 end

@@ -9,6 +9,9 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
   alias Ambry.People
   alias Ambry.PubSub
+  alias Ambry.PubSub.PersonCreated
+  alias Ambry.PubSub.PersonDeleted
+  alias Ambry.PubSub.PersonUpdated
 
   @valid_sort_fields [
     :name,
@@ -23,7 +26,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     if connected?(socket) do
-      :ok = PubSub.subscribe("person:*")
+      :ok = PubSub.subscribe_to_messages([PersonCreated, PersonUpdated, PersonDeleted])
     end
 
     {:ok,
@@ -81,26 +84,24 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     person = People.get_person!(id)
 
     case People.delete_person(person) do
-      :ok ->
+      {:ok, _deleted_person} ->
         {:noreply,
          socket
          |> refresh_people()
          |> put_flash(:info, "Deleted #{person.name}")}
 
-      {:error, {:has_authored_books, books}} ->
+      {:error, :has_authored_books} ->
         message = """
-        Can't delete person because they have authored the following books:
-        #{Enum.join(books, ", ")}.
+        Can't delete person because they have authored books.
         You must delete the books before you can delete this person.
         """
 
         {:noreply, put_flash(socket, :error, message)}
 
-      {:error, {:has_narrated_books, books}} ->
+      {:error, :has_narrated_media} ->
         message = """
-        Can't delete person because they have narrated the following books:
-        #{Enum.join(books, ", ")}.
-        You must delete the books before you can delete this person.
+        Can't delete person because they have narrated media.
+        You must delete the media before you can delete this person.
         """
 
         {:noreply, put_flash(socket, :error, message)}
@@ -135,5 +136,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   end
 
   @impl Phoenix.LiveView
-  def handle_info(%PubSub.Message{type: :person}, socket), do: {:noreply, refresh_people(socket)}
+  def handle_info(%PersonCreated{}, socket), do: {:noreply, refresh_people(socket)}
+  def handle_info(%PersonUpdated{}, socket), do: {:noreply, refresh_people(socket)}
+  def handle_info(%PersonDeleted{}, socket), do: {:noreply, refresh_people(socket)}
 end

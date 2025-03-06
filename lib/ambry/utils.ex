@@ -2,8 +2,9 @@ defmodule Ambry.Utils do
   @moduledoc """
   Grab-bag of helpful utility functions
   """
-
   use Boundary
+
+  alias Ambry.Utils.DeleteFiles
 
   require Logger
 
@@ -23,18 +24,44 @@ defmodule Ambry.Utils do
 
   Logs output.
   """
-  def try_delete_file(nil), do: :noop
+  def try_delete_file(nil), do: :ok
 
   def try_delete_file(disk_path) do
     case File.rm(disk_path) do
       :ok ->
-        Logger.info(fn -> "Deleted file: #{disk_path}" end)
+        Logger.debug(fn -> "Deleted file: #{disk_path}" end)
         :ok
 
       {:error, posix} ->
         Logger.warning(fn -> "Couldn't delete file (#{posix}): #{disk_path}" end)
         {:error, posix}
     end
+  end
+
+  @doc """
+  Tries to delete the given files.
+
+  Logs output.
+  """
+  def try_delete_files([]), do: :ok
+
+  def try_delete_files(disk_paths) do
+    for disk_path <- disk_paths do
+      try_delete_file(disk_path)
+    end
+
+    :ok
+  end
+
+  @doc """
+  Tries to delete the given files asynchronously.
+  """
+  def try_delete_files_async([]), do: {:ok, :noop}
+
+  def try_delete_files_async(disk_paths) do
+    %{"disk_paths" => disk_paths}
+    |> DeleteFiles.new()
+    |> Oban.insert()
   end
 
   @doc """

@@ -17,7 +17,7 @@ defmodule Ambry.Search.IndexManager do
   def init(_opts) do
     :ok = PubSub.subscribe("book:*")
     :ok = PubSub.subscribe("media:*")
-    :ok = PubSub.subscribe("person:*")
+    # :ok = PubSub.subscribe("person:*")
     :ok = PubSub.subscribe("series:*")
 
     {:ok, nil}

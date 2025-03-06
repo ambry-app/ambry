@@ -235,4 +235,19 @@ defmodule Ambry.Factory do
     false = File.exists?(disk_path)
     File.touch!(disk_path)
   end
+
+  # Real files
+
+  def valid_image do
+    id = Ecto.UUID.generate()
+    filename = "#{id}.jpg"
+    disk_path = Ambry.Paths.images_disk_path(filename)
+    web_path = "/uploads/images/#{filename}"
+    File.cp!("test/support/images/jules_verne.jpg", disk_path)
+
+    %{
+      web_path: web_path,
+      disk_path: Ambry.Paths.web_to_disk(web_path)
+    }
+  end
 end

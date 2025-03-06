@@ -5,6 +5,7 @@ defmodule Ambry.Thumbnails do
   """
   use Ecto.Schema
 
+  import Ambry.Utils, only: [try_delete_file: 1]
   import Ecto.Changeset
   import Ecto.Query
 
@@ -190,26 +191,18 @@ defmodule Ambry.Thumbnails do
   Ignore errors, best effort delete.
   """
   def try_delete_thumbnails(thumbnails) do
-    try_delete(thumbnails.extra_large)
-    try_delete(thumbnails.large)
-    try_delete(thumbnails.medium)
-    try_delete(thumbnails.small)
-    try_delete(thumbnails.extra_small)
+    [
+      thumbnails.extra_large,
+      thumbnails.large,
+      thumbnails.medium,
+      thumbnails.small,
+      thumbnails.extra_small
+    ]
+    |> Enum.map(&Paths.web_to_disk/1)
+    |> Enum.uniq()
+    |> Enum.each(&try_delete_file/1)
+
     :ok
-  end
-
-  defp try_delete(web_path) do
-    disk_path = Paths.web_to_disk(web_path)
-
-    case File.rm(disk_path) do
-      :ok ->
-        Logger.debug(fn -> "Deleted #{disk_path}" end)
-        :ok
-
-      {:error, posix} ->
-        Logger.warning(fn -> "Failed to delete #{disk_path}: #{inspect(posix)}" end)
-        :ok
-    end
   end
 
   @doc """

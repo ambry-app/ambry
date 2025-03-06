@@ -28,6 +28,24 @@ defmodule Ambry.Search do
 
   defdelegate refresh_entire_index!, to: Index
 
+  def insert(%Person{id: id}) do
+    Index.insert!(:person, id)
+  rescue
+    _ -> :error
+  end
+
+  def update(%Person{id: id}) do
+    Index.update!(:person, id)
+  rescue
+    _ -> :error
+  end
+
+  def delete(%Person{id: id}) do
+    Index.delete!(:person, id)
+  rescue
+    _ -> :error
+  end
+
   def search(query_string) do
     query_string
     |> query()
