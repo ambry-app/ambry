@@ -1,6 +1,6 @@
 defmodule Ambry.Media.PubSub.PlayerStateUpdated do
   @moduledoc false
-  use Ambry.PubSub.MessageNew
+  use Ambry.PubSub.Message
 
   alias Ambry.Media.PlayerState
 

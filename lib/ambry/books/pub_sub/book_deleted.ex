@@ -1,6 +1,6 @@
 defmodule Ambry.Books.PubSub.BookDeleted do
   @moduledoc false
-  use Ambry.PubSub.MessageNew
+  use Ambry.PubSub.Message
 
   alias Ambry.Books.Book
 

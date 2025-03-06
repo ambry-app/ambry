@@ -1,6 +1,6 @@
 defmodule Ambry.People.PubSub.PersonCreated do
   @moduledoc false
-  use Ambry.PubSub.MessageNew
+  use Ambry.PubSub.Message
 
   alias Ambry.People.Person
 

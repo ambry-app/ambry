@@ -1,6 +1,6 @@
 defmodule Ambry.Books.PubSub.BookCreated do
   @moduledoc false
-  use Ambry.PubSub.MessageNew
+  use Ambry.PubSub.Message
 
   alias Ambry.Books.Book
 

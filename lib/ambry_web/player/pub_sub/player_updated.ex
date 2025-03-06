@@ -1,6 +1,6 @@
 defmodule AmbryWeb.Player.PubSub.PlayerUpdated do
   @moduledoc false
-  use Ambry.PubSub.MessageNew
+  use Ambry.PubSub.Message
 
   alias AmbryWeb.Player
 

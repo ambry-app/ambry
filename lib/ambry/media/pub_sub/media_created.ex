@@ -1,6 +1,6 @@
 defmodule Ambry.Media.PubSub.MediaCreated do
   @moduledoc false
-  use Ambry.PubSub.MessageNew
+  use Ambry.PubSub.Message
 
   alias Ambry.Media.Media
 
