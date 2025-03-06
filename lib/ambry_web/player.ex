@@ -9,12 +9,13 @@ defmodule AmbryWeb.Player do
   alias Ambry.Accounts.User
   alias Ambry.Media
   alias Ambry.PubSub
+  alias AmbryWeb.Player.PubSub.PlayerUpdated
   alias AmbryWeb.Player.Tracker
 
   defstruct [:connected?, :id, :user, :player_state, :playback_state, :current_chapter_index]
 
-  def get(%User{} = user, nil) do
-    new(user)
+  def new(%User{} = user) do
+    new(user, nil)
   end
 
   def get(%User{} = user, player_id) do
@@ -30,7 +31,7 @@ defmodule AmbryWeb.Player do
     player
   end
 
-  defp new(user, player_id \\ nil) do
+  defp new(user, player_id) do
     {player_state, playback_state} =
       case user.loaded_player_state_id do
         nil -> {nil, :unloaded}
@@ -105,7 +106,12 @@ defmodule AmbryWeb.Player do
 
   defp update_tracker!(player) do
     Tracker.update!(player)
-    PubSub.broadcast_update(player)
+
+    :ok =
+      player
+      |> PlayerUpdated.new()
+      |> PubSub.broadcast()
+
     player
   end
 

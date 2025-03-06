@@ -6,8 +6,8 @@ defmodule AmbryWeb.ShelfLive do
   use AmbryWeb, :live_view
 
   alias Ambry.Media
-  alias Ambry.PubSub
   alias AmbryWeb.Player
+  alias AmbryWeb.Player.PubSub.PlayerUpdated
 
   @per_page 36
 
@@ -92,7 +92,7 @@ defmodule AmbryWeb.ShelfLive do
   end
 
   @impl Phoenix.LiveView
-  def handle_info(%PubSub.Message{type: :player, action: :updated} = _message, socket) do
+  def handle_info(%PlayerUpdated{}, socket) do
     player = Player.reload!(socket.assigns.player)
 
     {:noreply,
