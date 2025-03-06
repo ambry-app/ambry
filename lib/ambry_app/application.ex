@@ -42,8 +42,6 @@ defmodule AmbryApp.Application do
   def children(_env) do
     shared_children() ++
       [
-        # Start the Search Index Manager
-        {Ambry.Search.IndexManager, []},
         # Search index refresher/warmer
         Supervisor.child_spec({Task, &Ambry.Search.refresh_entire_index!/0},
           id: :refresh_search_index

@@ -10,14 +10,13 @@ defmodule Ambry.Search do
       Ambry.People,
       Ambry.PubSub,
       Ambry.Repo
-    ],
-    exports: [IndexManager]
+    ]
 
   import Ecto.Query
 
   alias Ambry.Books
   alias Ambry.Books.Book
-  alias Ambry.Books.Series, as: SeriesSchema
+  alias Ambry.Books.Series
   alias Ambry.Media.Media
   alias Ambry.People
   alias Ambry.People.Person
@@ -29,38 +28,35 @@ defmodule Ambry.Search do
 
   defdelegate refresh_entire_index!, to: Index
 
-  def insert(%Person{id: id}) do
-    Index.insert!(:person, id)
+  def insert(%Person{id: id}), do: do_insert(:person, id)
+  def insert(%Media{id: id}), do: do_insert(:media, id)
+  def insert(%Book{id: id}), do: do_insert(:book, id)
+  def insert(%Series{id: id}), do: do_insert(:series, id)
+
+  def update(%Person{id: id}), do: do_update(:person, id)
+  def update(%Media{id: id}), do: do_update(:media, id)
+  def update(%Book{id: id}), do: do_update(:book, id)
+  def update(%Series{id: id}), do: do_update(:series, id)
+
+  def delete(%Person{id: id}), do: do_delete(:person, id)
+  def delete(%Media{id: id}), do: do_delete(:media, id)
+  def delete(%Book{id: id}), do: do_delete(:book, id)
+  def delete(%Series{id: id}), do: do_delete(:series, id)
+
+  defp do_insert(type, id) do
+    Index.insert!(type, id)
   rescue
     _ -> :error
   end
 
-  def insert(%Media{id: id}) do
-    Index.insert!(:media, id)
+  defp do_update(type, id) do
+    Index.update!(type, id)
   rescue
     _ -> :error
   end
 
-  def update(%Person{id: id}) do
-    Index.update!(:person, id)
-  rescue
-    _ -> :error
-  end
-
-  def update(%Media{id: id}) do
-    Index.update!(:media, id)
-  rescue
-    _ -> :error
-  end
-
-  def delete(%Person{id: id}) do
-    Index.delete!(:person, id)
-  rescue
-    _ -> :error
-  end
-
-  def delete(%Media{id: id}) do
-    Index.delete!(:media, id)
+  defp do_delete(type, id) do
+    Index.delete!(type, id)
   rescue
     _ -> :error
   end
@@ -162,8 +158,7 @@ defmodule Ambry.Search do
 
   defp fetch_people(ids, preload), do: fetch(from(p in Person, where: p.id in ^ids), preload)
 
-  defp fetch_series(ids, preload),
-    do: fetch(from(s in SeriesSchema, where: s.id in ^ids), preload)
+  defp fetch_series(ids, preload), do: fetch(from(s in Series, where: s.id in ^ids), preload)
 
   defp fetch(query, preload) do
     query

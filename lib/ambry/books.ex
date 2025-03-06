@@ -11,7 +11,13 @@ defmodule Ambry.Books do
       SeriesBook,
       SeriesFlat,
       SeriesBookType,
-      SeriesBookType.Type
+      SeriesBookType.Type,
+      PubSub.BookCreated,
+      PubSub.BookUpdated,
+      PubSub.BookDeleted,
+      PubSub.SeriesCreated,
+      PubSub.SeriesUpdated,
+      PubSub.SeriesDeleted
     ]
 
   import Ecto.Query
@@ -29,6 +35,7 @@ defmodule Ambry.Books do
   alias Ambry.Media.Media
   alias Ambry.PubSub
   alias Ambry.Repo
+  alias Ambry.Search
 
   require Logger
 
@@ -114,6 +121,7 @@ defmodule Ambry.Books do
       changeset = change_book(%Book{}, attrs)
 
       with {:ok, book} <- Repo.insert(changeset),
+           :ok <- Search.insert(book),
            {:ok, _job} <- broadcast_book_created(book) do
         {:ok, book}
       end
@@ -144,6 +152,7 @@ defmodule Ambry.Books do
       changeset = change_book(book, attrs)
 
       with {:ok, updated_book} <- Repo.update(changeset),
+           :ok <- Search.update(updated_book),
            {:ok, _job} <- broadcast_book_updated(updated_book) do
         {:ok, updated_book}
       end
@@ -176,6 +185,7 @@ defmodule Ambry.Books do
       changeset = change_book(book)
 
       with {:ok, deleted_book} <- Repo.delete(changeset),
+           :ok <- Search.delete(deleted_book),
            {:ok, _job} <- broadcast_book_deleted(deleted_book) do
         {:ok, deleted_book}
       else
@@ -359,6 +369,7 @@ defmodule Ambry.Books do
       changeset = Series.changeset(%Series{}, attrs)
 
       with {:ok, series} <- Repo.insert(changeset),
+           :ok <- Search.insert(series),
            {:ok, _job} <- broadcast_series_created(series) do
         {:ok, series}
       end
@@ -387,6 +398,7 @@ defmodule Ambry.Books do
       changeset = Series.changeset(series, attrs)
 
       with {:ok, updated_series} <- Repo.update(changeset),
+           :ok <- Search.update(updated_series),
            {:ok, _job} <- broadcast_series_updated(updated_series) do
         {:ok, updated_series}
       end
@@ -415,6 +427,7 @@ defmodule Ambry.Books do
       changeset = change_series(series)
 
       with {:ok, deleted_series} <- Repo.delete(changeset),
+           :ok <- Search.delete(deleted_series),
            {:ok, _job} <- broadcast_series_deleted(deleted_series) do
         {:ok, deleted_series}
       end

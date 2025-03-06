@@ -3,6 +3,7 @@ defmodule Ambry.BooksTest do
 
   alias Ambry.Books
   alias Ambry.PubSub.AsyncBroadcast
+  alias Ambry.Search.IndexFactory
 
   describe "list_books/0" do
     test "returns the first 10 books sorted by title" do
@@ -152,6 +153,16 @@ defmodule Ambry.BooksTest do
                         }
                       }
     end
+
+    test "updates the search index" do
+      %{title: title} = params = params_for(:book, series_books: [], book_authors: [])
+
+      assert [] = Ambry.Search.search(title)
+
+      assert {:ok, %{id: book_id}} = Books.create_book(params)
+
+      assert [%{id: ^book_id}] = Ambry.Search.search(title)
+    end
   end
 
   describe "update_book/2" do
@@ -262,6 +273,21 @@ defmodule Ambry.BooksTest do
                         }
                       }
     end
+
+    test "updates the search index" do
+      %{id: book_id, title: original_title} = book = insert(:book)
+      %{title: new_title} = params_for(:book)
+
+      IndexFactory.insert_index!(book)
+
+      assert [%{id: ^book_id}] = Ambry.Search.search(original_title)
+      assert [] = Ambry.Search.search(new_title)
+
+      {:ok, _updated_book} = Books.update_book(book, %{title: new_title})
+
+      assert [] = Ambry.Search.search(original_title)
+      assert [%{id: ^book_id}] = Ambry.Search.search(new_title)
+    end
   end
 
   describe "delete_book/1" do
@@ -291,6 +317,18 @@ defmodule Ambry.BooksTest do
                           "id" => deleted_book.id
                         }
                       }
+    end
+
+    test "updates the search index" do
+      book = %{id: book_id, title: title} = insert(:book)
+
+      IndexFactory.insert_index!(book)
+
+      assert [%{id: ^book_id}] = Ambry.Search.search(title)
+
+      {:ok, _book} = Books.delete_book(book)
+
+      assert [] = Ambry.Search.search(title)
     end
 
     test "cannot delete a book if it belongs to an uploaded media" do
@@ -547,6 +585,20 @@ defmodule Ambry.BooksTest do
                         }
                       }
     end
+
+    test "updates the search index" do
+      # series can only be searched if they have at least one book
+      %{id: book_id} = insert(:book, series_books: [])
+
+      %{name: name} =
+        params = params_for(:series, series_books: [%{book_id: book_id, book_number: 1}])
+
+      assert [] = Ambry.Search.search(name)
+
+      assert {:ok, %{id: series_id}} = Books.create_series(params)
+
+      assert %{id: ^series_id} = Ambry.Search.find_first(name, Books.Series)
+    end
   end
 
   describe "update_series/2" do
@@ -577,6 +629,25 @@ defmodule Ambry.BooksTest do
                         }
                       }
     end
+
+    test "updates the search index" do
+      # series can only be searched if they have at least one book
+      %{id: book_id} = insert(:book, series_books: [])
+      %{name: new_name} = params_for(:series)
+
+      %{id: series_id, name: original_name} =
+        series = insert(:series, series_books: [%{book_id: book_id, book_number: 1}])
+
+      IndexFactory.insert_index!(series)
+
+      assert %{id: ^series_id} = Ambry.Search.find_first(original_name, Books.Series)
+      refute Ambry.Search.find_first(new_name, Books.Series)
+
+      {:ok, _updated_series} = Books.update_series(series, %{name: new_name})
+
+      refute Ambry.Search.find_first(original_name, Books.Series)
+      assert %{id: ^series_id} = Ambry.Search.find_first(new_name, Books.Series)
+    end
   end
 
   describe "delete_series/1" do
@@ -606,6 +677,22 @@ defmodule Ambry.BooksTest do
                           "id" => deleted_series.id
                         }
                       }
+    end
+
+    test "updates the search index" do
+      # series can only be searched if they have at least one book
+      %{id: book_id} = insert(:book, series_books: [])
+
+      %{id: series_id, name: name} =
+        series = insert(:series, series_books: [%{book_id: book_id, book_number: 1}])
+
+      IndexFactory.insert_index!(series)
+
+      assert %{id: ^series_id} = Ambry.Search.find_first(name, Books.Series)
+
+      {:ok, _series} = Books.delete_series(series)
+
+      refute Ambry.Search.find_first(name, Books.Series)
     end
   end
 
