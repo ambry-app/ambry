@@ -13,9 +13,9 @@ defmodule Ambry.Accounts do
 
   import Ecto.Query, warn: false
 
+  alias Ambry.Accounts.EmailSender
   alias Ambry.Accounts.User
   alias Ambry.Accounts.UserFlat
-  alias Ambry.Accounts.UserNotifier
   alias Ambry.Accounts.UserToken
   alias Ambry.Repo
 
@@ -222,15 +222,26 @@ defmodule Ambry.Accounts do
   ## Examples
 
       iex> deliver_user_update_email_instructions(user, current_email, &url(~p"/users/settings/confirm_email/#{&1}"))
-      {:ok, %{to: ..., body: ...}}
+      {:ok, _token}
 
   """
   def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
       when is_function(update_email_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
+    Repo.transact(fn ->
+      {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
 
-    Repo.insert!(user_token)
-    UserNotifier.deliver_update_email_instructions(user, update_email_url_fun.(encoded_token))
+      with {:ok, _token} <- Repo.insert(user_token),
+           {:ok, _job} <-
+             schedule_update_email_instructions(user, update_email_url_fun.(encoded_token)) do
+        {:ok, encoded_token}
+      end
+    end)
+  end
+
+  defp schedule_update_email_instructions(%User{} = user, url) do
+    %{user_id: user.id, action: "deliver_update_email_instructions", url: url}
+    |> EmailSender.new()
+    |> Oban.insert()
   end
 
   @doc """
@@ -334,10 +345,22 @@ defmodule Ambry.Accounts do
     if user.confirmed_at do
       {:error, :already_confirmed}
     else
-      {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
-      Repo.insert!(user_token)
-      UserNotifier.deliver_confirmation_instructions(user, confirmation_url_fun.(encoded_token))
+      Repo.transact(fn ->
+        {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
+
+        with {:ok, _token} <- Repo.insert(user_token),
+             {:ok, _job} <-
+               schedule_confirmation_email(user, confirmation_url_fun.(encoded_token)) do
+          {:ok, encoded_token}
+        end
+      end)
     end
+  end
+
+  defp schedule_confirmation_email(%User{} = user, url) do
+    %{user_id: user.id, action: "deliver_confirmation_instructions", url: url}
+    |> EmailSender.new()
+    |> Oban.insert()
   end
 
   @doc """
@@ -375,9 +398,21 @@ defmodule Ambry.Accounts do
   """
   def deliver_user_reset_password_instructions(%User{} = user, reset_password_url_fun)
       when is_function(reset_password_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
-    Repo.insert!(user_token)
-    UserNotifier.deliver_reset_password_instructions(user, reset_password_url_fun.(encoded_token))
+    Repo.transact(fn ->
+      {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
+
+      with {:ok, _token} <- Repo.insert(user_token),
+           {:ok, _job} <-
+             schedule_reset_password_email(user, reset_password_url_fun.(encoded_token)) do
+        {:ok, encoded_token}
+      end
+    end)
+  end
+
+  defp schedule_reset_password_email(%User{} = user, url) do
+    %{user_id: user.id, action: "deliver_reset_password_instructions", url: url}
+    |> EmailSender.new()
+    |> Oban.insert()
   end
 
   @doc """

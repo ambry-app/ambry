@@ -274,12 +274,10 @@ defmodule Ambry.AccountsTest do
     end
 
     test "sends token through notification", %{user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(user, "current@example.com", url)
-        end)
+      {:ok, encoded_token} =
+        Accounts.deliver_user_update_email_instructions(user, "current@example.com", & &1)
 
-      {:ok, token} = Base.url_decode64(token, padding: false)
+      {:ok, token} = Base.url_decode64(encoded_token, padding: false)
       assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
@@ -292,12 +290,14 @@ defmodule Ambry.AccountsTest do
       user = :user |> build() |> with_password() |> insert()
       %{email: email} = params_for(:user)
 
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(%{user | email: email}, user.email, url)
-        end)
+      {:ok, encoded_token} =
+        Accounts.deliver_user_update_email_instructions(
+          %{user | email: email},
+          user.email,
+          & &1
+        )
 
-      %{user: user, token: token, email: email}
+      %{user: user, token: encoded_token, email: email}
     end
 
     test "updates the email with a valid token", %{user: user, token: token, email: email} do
@@ -479,12 +479,9 @@ defmodule Ambry.AccountsTest do
     end
 
     test "sends token through notification", %{user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_confirmation_instructions(user, url)
-        end)
+      {:ok, encoded_token} = Accounts.deliver_user_confirmation_instructions(user, & &1)
 
-      {:ok, token} = Base.url_decode64(token, padding: false)
+      {:ok, token} = Base.url_decode64(encoded_token, padding: false)
       assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
@@ -496,12 +493,9 @@ defmodule Ambry.AccountsTest do
     setup do
       user = :user |> build() |> with_password() |> insert()
 
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_confirmation_instructions(user, url)
-        end)
+      {:ok, encoded_token} = Accounts.deliver_user_confirmation_instructions(user, & &1)
 
-      %{user: user, token: token}
+      %{user: user, token: encoded_token}
     end
 
     test "confirms the email with a valid token", %{user: user, token: token} do
@@ -532,12 +526,9 @@ defmodule Ambry.AccountsTest do
     end
 
     test "sends token through notification", %{user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_reset_password_instructions(user, url)
-        end)
+      {:ok, encoded_token} = Accounts.deliver_user_reset_password_instructions(user, & &1)
+      {:ok, token} = Base.url_decode64(encoded_token, padding: false)
 
-      {:ok, token} = Base.url_decode64(token, padding: false)
       assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
@@ -549,12 +540,9 @@ defmodule Ambry.AccountsTest do
     setup do
       user = :user |> build() |> with_password() |> insert()
 
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_reset_password_instructions(user, url)
-        end)
+      {:ok, encoded_token} = Accounts.deliver_user_reset_password_instructions(user, & &1)
 
-      %{user: user, token: token}
+      %{user: user, token: encoded_token}
     end
 
     test "returns the user with valid token", %{user: %{id: id}, token: token} do
@@ -665,13 +653,5 @@ defmodule Ambry.AccountsTest do
     test "does not include password" do
       refute inspect(%User{password: "123456"}) =~ "password: \"123456\""
     end
-  end
-
-  # Helpers
-
-  defp extract_user_token(fun) do
-    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
-    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
-    token
   end
 end

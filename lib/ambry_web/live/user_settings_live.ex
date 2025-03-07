@@ -110,11 +110,12 @@ defmodule AmbryWeb.UserSettingsLive do
 
     case Accounts.apply_user_email(user, password, user_params) do
       {:ok, applied_user} ->
-        Accounts.deliver_user_update_email_instructions(
-          applied_user,
-          user.email,
-          &url(~p"/users/settings/confirm_email/#{&1}")
-        )
+        {:ok, _token} =
+          Accounts.deliver_user_update_email_instructions(
+            applied_user,
+            user.email,
+            &url(~p"/users/settings/confirm_email/#{&1}")
+          )
 
         info = "A link to confirm your email change has been sent to the new address."
         {:noreply, socket |> put_flash(:info, info) |> assign(email_form_current_password: nil)}

@@ -162,12 +162,14 @@ defmodule AmbryWeb.UserSettingsLiveTest do
       user = insert(:user)
       %{email: email} = params_for(:user)
 
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(%{user | email: email}, user.email, url)
-        end)
+      {:ok, encoded_token} =
+        Accounts.deliver_user_update_email_instructions(
+          %{user | email: email},
+          user.email,
+          & &1
+        )
 
-      %{conn: log_in_user(conn, user), token: token, email: email, user: user}
+      %{conn: log_in_user(conn, user), token: encoded_token, email: email, user: user}
     end
 
     test "updates the user email once", %{conn: conn, user: user, token: token, email: email} do
@@ -203,13 +205,5 @@ defmodule AmbryWeb.UserSettingsLiveTest do
       assert {:redirect, %{to: path}} = redirect
       assert path == ~p"/users/log_in"
     end
-  end
-
-  # Helpers
-
-  defp extract_user_token(fun) do
-    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
-    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
-    token
   end
 end
