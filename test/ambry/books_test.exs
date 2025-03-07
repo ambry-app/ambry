@@ -2,7 +2,7 @@ defmodule Ambry.BooksTest do
   use Ambry.DataCase
 
   alias Ambry.Books
-  alias Ambry.PubSub.AsyncBroadcast
+  alias Ambry.PubSub.BroadcastAsync
   alias Ambry.Search.IndexFactory
 
   describe "list_books/0" do
@@ -144,7 +144,7 @@ defmodule Ambry.BooksTest do
 
       assert {:ok, book} = Books.create_book(params)
 
-      assert_enqueued worker: AsyncBroadcast,
+      assert_enqueued worker: BroadcastAsync,
                       args: %{
                         "module" => "Elixir.Ambry.Books.PubSub.BookCreated",
                         "message" => %{
@@ -261,7 +261,7 @@ defmodule Ambry.BooksTest do
 
       {:ok, updated_book} = Books.update_book(book, %{title: new_title})
 
-      assert_enqueued worker: AsyncBroadcast,
+      assert_enqueued worker: BroadcastAsync,
                       args: %{
                         "module" => "Elixir.Ambry.Books.PubSub.BookUpdated",
                         "message" => %{
@@ -306,7 +306,7 @@ defmodule Ambry.BooksTest do
 
       {:ok, deleted_book} = Books.delete_book(book)
 
-      assert_enqueued worker: AsyncBroadcast,
+      assert_enqueued worker: BroadcastAsync,
                       args: %{
                         "module" => "Elixir.Ambry.Books.PubSub.BookDeleted",
                         "message" => %{
@@ -576,7 +576,7 @@ defmodule Ambry.BooksTest do
 
       assert {:ok, series} = Books.create_series(params)
 
-      assert_enqueued worker: AsyncBroadcast,
+      assert_enqueued worker: BroadcastAsync,
                       args: %{
                         "module" => "Elixir.Ambry.Books.PubSub.SeriesCreated",
                         "message" => %{
@@ -617,7 +617,7 @@ defmodule Ambry.BooksTest do
 
       {:ok, updated_series} = Books.update_series(series, %{name: new_name})
 
-      assert_enqueued worker: AsyncBroadcast,
+      assert_enqueued worker: BroadcastAsync,
                       args: %{
                         "module" => "Elixir.Ambry.Books.PubSub.SeriesUpdated",
                         "message" => %{
@@ -666,7 +666,7 @@ defmodule Ambry.BooksTest do
 
       {:ok, deleted_series} = Books.delete_series(series)
 
-      assert_enqueued worker: AsyncBroadcast,
+      assert_enqueued worker: BroadcastAsync,
                       args: %{
                         "module" => "Elixir.Ambry.Books.PubSub.SeriesDeleted",
                         "message" => %{

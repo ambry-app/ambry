@@ -82,4 +82,24 @@ defmodule Ambry.Accounts.UserNotifier do
     ==============================
     """)
   end
+
+  @doc """
+  Deliver instructions to accept a user invitation.
+  """
+  def deliver_invitation_email(user, url) do
+    deliver(user.email, "Invitation to join Ambry", """
+
+    ==============================
+
+    Hi #{user.email},
+
+    You've been invited to join Ambry. You can set up your account by visiting the URL below:
+
+    #{url}
+
+    If you weren't expecting an invitation, please ignore this.
+
+    ==============================
+    """)
+  end
 end

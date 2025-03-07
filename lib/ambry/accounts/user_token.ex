@@ -17,6 +17,7 @@ defmodule Ambry.Accounts.UserToken do
   @reset_password_validity_in_days 1
   @confirm_validity_in_days 7
   @change_email_validity_in_days 7
+  @invitation_validity_in_days 7
   @session_validity_in_days 365
 
   schema "users_tokens" do
@@ -135,6 +136,7 @@ defmodule Ambry.Accounts.UserToken do
 
   defp days_for_context("confirm"), do: @confirm_validity_in_days
   defp days_for_context("reset_password"), do: @reset_password_validity_in_days
+  defp days_for_context("invitation"), do: @invitation_validity_in_days
 
   @doc """
   Checks if the token is valid and returns its underlying lookup query.

@@ -13,9 +13,9 @@ defmodule Ambry.Accounts do
 
   import Ecto.Query, warn: false
 
+  alias Ambry.Accounts.SendEmail
   alias Ambry.Accounts.User
   alias Ambry.Accounts.UserFlat
-  alias Ambry.Accounts.UserNotifier
   alias Ambry.Accounts.UserToken
   alias Ambry.Repo
 
@@ -222,15 +222,26 @@ defmodule Ambry.Accounts do
   ## Examples
 
       iex> deliver_user_update_email_instructions(user, current_email, &url(~p"/users/settings/confirm_email/#{&1}"))
-      {:ok, %{to: ..., body: ...}}
+      {:ok, _token}
 
   """
   def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
       when is_function(update_email_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
+    Repo.transact(fn ->
+      {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
+      url = update_email_url_fun.(encoded_token)
 
-    Repo.insert!(user_token)
-    UserNotifier.deliver_update_email_instructions(user, update_email_url_fun.(encoded_token))
+      with {:ok, _token} <- Repo.insert(user_token),
+           {:ok, _job} <- send_update_email_instructions_async(user, url) do
+        {:ok, encoded_token}
+      end
+    end)
+  end
+
+  defp send_update_email_instructions_async(%User{} = user, url) do
+    %{user_id: user.id, action: "deliver_update_email_instructions", url: url}
+    |> SendEmail.new()
+    |> Oban.insert()
   end
 
   @doc """
@@ -334,10 +345,22 @@ defmodule Ambry.Accounts do
     if user.confirmed_at do
       {:error, :already_confirmed}
     else
-      {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
-      Repo.insert!(user_token)
-      UserNotifier.deliver_confirmation_instructions(user, confirmation_url_fun.(encoded_token))
+      Repo.transact(fn ->
+        {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
+        url = confirmation_url_fun.(encoded_token)
+
+        with {:ok, _token} <- Repo.insert(user_token),
+             {:ok, _job} <- send_confirmation_email_async(user, url) do
+          {:ok, encoded_token}
+        end
+      end)
     end
+  end
+
+  defp send_confirmation_email_async(%User{} = user, url) do
+    %{user_id: user.id, action: "deliver_confirmation_instructions", url: url}
+    |> SendEmail.new()
+    |> Oban.insert()
   end
 
   @doc """
@@ -375,9 +398,21 @@ defmodule Ambry.Accounts do
   """
   def deliver_user_reset_password_instructions(%User{} = user, reset_password_url_fun)
       when is_function(reset_password_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
-    Repo.insert!(user_token)
-    UserNotifier.deliver_reset_password_instructions(user, reset_password_url_fun.(encoded_token))
+    Repo.transact(fn ->
+      {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
+      url = reset_password_url_fun.(encoded_token)
+
+      with {:ok, _token} <- Repo.insert(user_token),
+           {:ok, _job} <- send_reset_password_email_async(user, url) do
+        {:ok, encoded_token}
+      end
+    end)
+  end
+
+  defp send_reset_password_email_async(%User{} = user, url) do
+    %{user_id: user.id, action: "deliver_reset_password_instructions", url: url}
+    |> SendEmail.new()
+    |> Oban.insert()
   end
 
   @doc """
@@ -476,5 +511,90 @@ defmodule Ambry.Accounts do
     {:ok, _user} = Repo.delete(user)
 
     :ok
+  end
+
+  ## User invitations
+
+  @doc ~S"""
+  Delivers a user invitation email to the given email address.
+
+  This will create a new unconfirmed user account and send an invitation email.
+
+  ## Examples
+
+      iex> deliver_user_invitation("new@example.com", &url(~p"/users/accept_invitation/#{&1}"))
+      {:ok, %{to: ..., body: ...}}
+
+      iex> deliver_user_invitation("new@example.com", &url(~p"/users/accept_invitation/#{&1}"))
+      {:error, :not_admin}
+
+  """
+  def deliver_user_invitation(email, accept_invitation_url_fun)
+      when is_function(accept_invitation_url_fun, 1) do
+    Repo.transact(fn ->
+      with {:ok, user} <- create_user_for_invitation(email),
+           {encoded_token, user_token} = UserToken.build_email_token(user, "invitation"),
+           {:ok, _token} <- Repo.insert(user_token),
+           url = accept_invitation_url_fun.(encoded_token),
+           {:ok, _job} <- send_invitation_email_async(user, url) do
+        {:ok, encoded_token}
+      end
+    end)
+  end
+
+  defp create_user_for_invitation(email) do
+    %User{}
+    |> User.invitation_changeset(%{email: email})
+    |> Repo.insert()
+  end
+
+  defp send_invitation_email_async(%User{} = user, url) do
+    %{user_id: user.id, action: "deliver_invitation_email", url: url}
+    |> SendEmail.new()
+    |> Oban.insert()
+  end
+
+  @doc """
+  Gets a user by invitation token.
+
+  ## Examples
+
+      iex> get_user_by_invitation_token("validtoken")
+      %User{}
+
+      iex> get_user_by_invitation_token("invalidtoken")
+      nil
+
+  """
+  def get_user_by_invitation_token(token) do
+    with {:ok, query} <- UserToken.verify_email_token_query(token, "invitation"),
+         %User{} = user <- Repo.one(query) do
+      user
+    else
+      _error -> nil
+    end
+  end
+
+  @doc """
+  Accepts a user invitation by setting their password and confirming their account.
+
+  ## Examples
+
+      iex> accept_user_invitation(user, %{password: "new password", password_confirmation: "new password"})
+      {:ok, %User{}}
+
+      iex> accept_user_invitation(user, %{password: "invalid"})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def accept_user_invitation(user, attrs) do
+    Ecto.Multi.new()
+    |> Ecto.Multi.update(:user, User.accept_invitation_changeset(user, attrs))
+    |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, :all))
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{user: user}} -> {:ok, user}
+      {:error, :user, changeset, _changes_so_far} -> {:error, changeset}
+    end
   end
 end

@@ -17,12 +17,9 @@ defmodule AmbryWeb.UserConfirmationLiveTest do
     end
 
     test "confirms the given token once", %{conn: conn, user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_confirmation_instructions(user, url)
-        end)
+      {:ok, encoded_token} = Accounts.deliver_user_confirmation_instructions(user, & &1)
 
-      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{token}")
+      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{encoded_token}")
 
       result =
         lv
@@ -40,7 +37,7 @@ defmodule AmbryWeb.UserConfirmationLiveTest do
       assert Repo.all(Accounts.UserToken) == []
 
       # when not logged in
-      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{token}")
+      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{encoded_token}")
 
       result =
         lv
@@ -56,7 +53,7 @@ defmodule AmbryWeb.UserConfirmationLiveTest do
       # when logged in
       conn = log_in_user(build_conn(), user)
 
-      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{token}")
+      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{encoded_token}")
 
       result =
         lv
@@ -84,13 +81,5 @@ defmodule AmbryWeb.UserConfirmationLiveTest do
 
       refute Accounts.get_user!(user.id).confirmed_at
     end
-  end
-
-  # Helpers
-
-  defp extract_user_token(fun) do
-    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
-    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
-    token
   end
 end

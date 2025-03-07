@@ -8,12 +8,9 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
   setup do
     user = :user |> build() |> with_password() |> insert()
 
-    token =
-      extract_user_token(fn url ->
-        Accounts.deliver_user_reset_password_instructions(user, url)
-      end)
+    {:ok, encoded_token} = Accounts.deliver_user_reset_password_instructions(user, & &1)
 
-    %{token: token, user: user}
+    %{token: encoded_token, user: user}
   end
 
   describe "Reset password page" do
@@ -113,13 +110,5 @@ defmodule AmbryWeb.UserResetPasswordLiveTest do
 
       assert html =~ "Register"
     end
-  end
-
-  # Helpers
-
-  defp extract_user_token(fun) do
-    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
-    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
-    token
   end
 end

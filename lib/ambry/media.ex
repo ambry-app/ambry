@@ -13,13 +13,11 @@ defmodule Ambry.Media do
       Media.Chapter,
       MediaNarrator,
       PlayerState,
-      Processor,
-      ProcessorJob,
       PubSub.MediaCreated,
       PubSub.MediaDeleted,
+      PubSub.MediaProgress,
       PubSub.MediaUpdated,
-      PubSub.PlayerStateUpdated,
-      PubSub.MediaProgress
+      PubSub.PlayerStateUpdated
     ]
 
   import Ambry.Utils
@@ -32,6 +30,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.Media
   alias Ambry.Media.MediaFlat
   alias Ambry.Media.PlayerState
+  alias Ambry.Media.Processor
   alias Ambry.Media.PubSub.BookmarkCreated
   alias Ambry.Media.PubSub.BookmarkDeleted
   alias Ambry.Media.PubSub.BookmarkUpdated
@@ -40,6 +39,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.Media.PubSub.MediaUpdated
   alias Ambry.Media.PubSub.PlayerStateUpdated
+  alias Ambry.Media.RunProcessor
   alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
@@ -325,6 +325,17 @@ defmodule Ambry.Media do
   end
 
   def generate_thumbnails_async(_media), do: {:ok, :noop}
+
+  @doc """
+  Runs a processor asynchronously for the given media.
+  """
+  def run_processor_async(%Media{} = media, processor) do
+    %{media_id: media.id, processor: processor}
+    |> RunProcessor.new()
+    |> Oban.insert()
+  end
+
+  defdelegate available_processors(media_or_filenames), to: Processor, as: :matched_processors
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking media changes.

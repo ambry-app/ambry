@@ -274,12 +274,10 @@ defmodule Ambry.AccountsTest do
     end
 
     test "sends token through notification", %{user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(user, "current@example.com", url)
-        end)
+      {:ok, encoded_token} =
+        Accounts.deliver_user_update_email_instructions(user, "current@example.com", & &1)
 
-      {:ok, token} = Base.url_decode64(token, padding: false)
+      {:ok, token} = Base.url_decode64(encoded_token, padding: false)
       assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
@@ -292,12 +290,14 @@ defmodule Ambry.AccountsTest do
       user = :user |> build() |> with_password() |> insert()
       %{email: email} = params_for(:user)
 
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(%{user | email: email}, user.email, url)
-        end)
+      {:ok, encoded_token} =
+        Accounts.deliver_user_update_email_instructions(
+          %{user | email: email},
+          user.email,
+          & &1
+        )
 
-      %{user: user, token: token, email: email}
+      %{user: user, token: encoded_token, email: email}
     end
 
     test "updates the email with a valid token", %{user: user, token: token, email: email} do
@@ -479,12 +479,9 @@ defmodule Ambry.AccountsTest do
     end
 
     test "sends token through notification", %{user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_confirmation_instructions(user, url)
-        end)
+      {:ok, encoded_token} = Accounts.deliver_user_confirmation_instructions(user, & &1)
 
-      {:ok, token} = Base.url_decode64(token, padding: false)
+      {:ok, token} = Base.url_decode64(encoded_token, padding: false)
       assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
@@ -496,12 +493,9 @@ defmodule Ambry.AccountsTest do
     setup do
       user = :user |> build() |> with_password() |> insert()
 
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_confirmation_instructions(user, url)
-        end)
+      {:ok, encoded_token} = Accounts.deliver_user_confirmation_instructions(user, & &1)
 
-      %{user: user, token: token}
+      %{user: user, token: encoded_token}
     end
 
     test "confirms the email with a valid token", %{user: user, token: token} do
@@ -532,12 +526,9 @@ defmodule Ambry.AccountsTest do
     end
 
     test "sends token through notification", %{user: user} do
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_reset_password_instructions(user, url)
-        end)
+      {:ok, encoded_token} = Accounts.deliver_user_reset_password_instructions(user, & &1)
+      {:ok, token} = Base.url_decode64(encoded_token, padding: false)
 
-      {:ok, token} = Base.url_decode64(token, padding: false)
       assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
@@ -549,12 +540,9 @@ defmodule Ambry.AccountsTest do
     setup do
       user = :user |> build() |> with_password() |> insert()
 
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_user_reset_password_instructions(user, url)
-        end)
+      {:ok, encoded_token} = Accounts.deliver_user_reset_password_instructions(user, & &1)
 
-      %{user: user, token: token}
+      %{user: user, token: encoded_token}
     end
 
     test "returns the user with valid token", %{user: %{id: id}, token: token} do
@@ -667,11 +655,100 @@ defmodule Ambry.AccountsTest do
     end
   end
 
-  # Helpers
+  describe "deliver_user_invitation/2" do
+    test "creates an unconfirmed user and sends invitation token" do
+      email = "new_user@example.com"
+      {:ok, encoded_token} = Accounts.deliver_user_invitation(email, & &1)
 
-  defp extract_user_token(fun) do
-    {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
-    [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
-    token
+      {:ok, token} = Base.url_decode64(encoded_token, padding: false)
+      assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
+      assert user_token.context == "invitation"
+
+      # Verify new user was created
+      user = Accounts.get_user_by_email(email)
+      assert user
+      assert user.id == user_token.user_id
+      assert user_token.sent_to == email
+      refute user.confirmed_at
+    end
+  end
+
+  describe "get_user_by_invitation_token/1" do
+    setup do
+      email = "new_user@example.com"
+      {:ok, encoded_token} = Accounts.deliver_user_invitation(email, & &1)
+      %{token: encoded_token, email: email}
+    end
+
+    test "returns the user with valid token", %{token: token, email: email} do
+      assert user = Accounts.get_user_by_invitation_token(token)
+      assert user.email == email
+      refute user.confirmed_at
+    end
+
+    test "does not return the user with invalid token" do
+      refute Accounts.get_user_by_invitation_token("oops")
+    end
+
+    test "does not return the user if token expired", %{token: token} do
+      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+      refute Accounts.get_user_by_invitation_token(token)
+    end
+  end
+
+  describe "accept_user_invitation/2" do
+    setup do
+      email = "new_user@example.com"
+      {:ok, encoded_token} = Accounts.deliver_user_invitation(email, & &1)
+      user = Accounts.get_user_by_invitation_token(encoded_token)
+      %{user: user}
+    end
+
+    test "validates password", %{user: user} do
+      {:error, changeset} =
+        Accounts.accept_user_invitation(user, %{
+          password: "not valid",
+          password_confirmation: "another"
+        })
+
+      assert %{
+               password: [
+                 "at least one digit or punctuation character",
+                 "at least one upper case character",
+                 "should be at least 12 character(s)"
+               ],
+               password_confirmation: ["does not match password"]
+             } = errors_on(changeset)
+    end
+
+    test "validates maximum values for password for security", %{user: user} do
+      too_long = String.duplicate("db", 100)
+      {:error, changeset} = Accounts.accept_user_invitation(user, %{password: too_long})
+      assert "should be at most 72 character(s)" in errors_on(changeset).password
+    end
+
+    test "accepts the invitation with valid password", %{user: user} do
+      {:ok, updated_user} =
+        Accounts.accept_user_invitation(user, %{
+          password: valid_new_password(),
+          password_confirmation: valid_new_password()
+        })
+
+      assert is_nil(updated_user.password)
+      assert updated_user.confirmed_at
+      assert Accounts.get_user_by_email_and_password(user.email, valid_new_password())
+    end
+
+    test "deletes all tokens for the given user", %{user: user} do
+      _token = Accounts.generate_user_session_token(user)
+
+      {:ok, _} =
+        Accounts.accept_user_invitation(user, %{
+          password: valid_new_password(),
+          password_confirmation: valid_new_password()
+        })
+
+      refute Repo.get_by(UserToken, user_id: user.id)
+    end
   end
 end

@@ -1,4 +1,4 @@
-defmodule Ambry.PubSub.AsyncBroadcast do
+defmodule Ambry.PubSub.BroadcastAsync do
   @moduledoc false
   use Oban.Worker,
     queue: :pub_sub,
