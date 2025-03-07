@@ -14,10 +14,6 @@ defmodule AmbryWeb.UserAcceptInvitationLive do
       </.header>
 
       <.simple_form for={@form} id="invitation_form" phx-submit="accept_invitation" phx-change="validate">
-        <.error :if={@form.errors != []}>
-          Oops, something went wrong! Please check the errors below.
-        </.error>
-
         <.input field={@form[:password]} type="password" placeholder="New password" required />
         <.input field={@form[:password_confirmation]} type="password" placeholder="Confirm new password" required />
         <:actions>

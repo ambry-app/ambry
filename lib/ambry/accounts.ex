@@ -229,10 +229,10 @@ defmodule Ambry.Accounts do
       when is_function(update_email_url_fun, 1) do
     Repo.transact(fn ->
       {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
+      url = update_email_url_fun.(encoded_token)
 
       with {:ok, _token} <- Repo.insert(user_token),
-           {:ok, _job} <-
-             send_update_email_instructions_async(user, update_email_url_fun.(encoded_token)) do
+           {:ok, _job} <- send_update_email_instructions_async(user, url) do
         {:ok, encoded_token}
       end
     end)
@@ -347,10 +347,10 @@ defmodule Ambry.Accounts do
     else
       Repo.transact(fn ->
         {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
+        url = confirmation_url_fun.(encoded_token)
 
         with {:ok, _token} <- Repo.insert(user_token),
-             {:ok, _job} <-
-               send_confirmation_email_async(user, confirmation_url_fun.(encoded_token)) do
+             {:ok, _job} <- send_confirmation_email_async(user, url) do
           {:ok, encoded_token}
         end
       end)
@@ -400,10 +400,10 @@ defmodule Ambry.Accounts do
       when is_function(reset_password_url_fun, 1) do
     Repo.transact(fn ->
       {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
+      url = reset_password_url_fun.(encoded_token)
 
       with {:ok, _token} <- Repo.insert(user_token),
-           {:ok, _job} <-
-             send_reset_password_email_async(user, reset_password_url_fun.(encoded_token)) do
+           {:ok, _job} <- send_reset_password_email_async(user, url) do
         {:ok, encoded_token}
       end
     end)
@@ -533,10 +533,10 @@ defmodule Ambry.Accounts do
       when is_function(accept_invitation_url_fun, 1) do
     Repo.transact(fn ->
       with {:ok, user} <- create_user_for_invitation(email),
-           {encoded_token, user_token} <- UserToken.build_email_token(user, "invitation"),
+           {encoded_token, user_token} = UserToken.build_email_token(user, "invitation"),
            {:ok, _token} <- Repo.insert(user_token),
-           {:ok, _job} <-
-             send_invitation_email_async(user, accept_invitation_url_fun.(encoded_token)) do
+           url = accept_invitation_url_fun.(encoded_token),
+           {:ok, _job} <- send_invitation_email_async(user, url) do
         {:ok, encoded_token}
       end
     end)
