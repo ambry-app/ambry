@@ -4,7 +4,7 @@
 
 # NOTE: make sure these versions match in .tool-versions
 # NOTE: make sure the alpine version matches down below
-FROM docker.io/hexpm/elixir:1.18.2-erlang-27.2.2-alpine-3.21.2 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.18.3-erlang-27.3-alpine-3.21.3 AS elixir-builder
 
 ARG MIX_ENV=prod
 
@@ -50,9 +50,9 @@ RUN mix release --path /app --quiet
 # --------------------------
 # Base Image - elixir-runner
 # --------------------------
-FROM docker.io/alpine:3.21.1 as elixir-runner
+FROM docker.io/alpine:3.21.3 as elixir-runner
 
-ARG SHAKA_PACKAGER_VERSION=3.4.1
+ARG SHAKA_PACKAGER_VERSION=3.4.2
 
 RUN apk --update upgrade && \
   apk add openssl ncurses-libs libstdc++ ffmpeg curl

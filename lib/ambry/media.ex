@@ -14,11 +14,15 @@ defmodule Ambry.Media do
       MediaNarrator,
       PlayerState,
       Processor,
-      ProcessorJob
+      ProcessorJob,
+      PubSub.MediaCreated,
+      PubSub.MediaDeleted,
+      PubSub.MediaUpdated,
+      PubSub.PlayerStateUpdated,
+      PubSub.MediaProgress
     ]
 
   import Ambry.Utils
-  import Ecto.Changeset
   import Ecto.Query
 
   alias Ambry.Accounts
@@ -28,9 +32,18 @@ defmodule Ambry.Media do
   alias Ambry.Media.Media
   alias Ambry.Media.MediaFlat
   alias Ambry.Media.PlayerState
+  alias Ambry.Media.PubSub.BookmarkCreated
+  alias Ambry.Media.PubSub.BookmarkDeleted
+  alias Ambry.Media.PubSub.BookmarkUpdated
+  alias Ambry.Media.PubSub.MediaCreated
+  alias Ambry.Media.PubSub.MediaDeleted
+  alias Ambry.Media.PubSub.MediaProgress
+  alias Ambry.Media.PubSub.MediaUpdated
+  alias Ambry.Media.PubSub.PlayerStateUpdated
   alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
+  alias Ambry.Search
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
 
@@ -147,17 +160,22 @@ defmodule Ambry.Media do
 
   """
   def create_media(attrs \\ %{}) do
-    %Media{}
-    |> Media.changeset(attrs, for: :create)
-    |> Repo.insert()
-    |> tap_ok(fn media ->
-      if !is_nil(media.image_path) do
-        %{"media_id" => media.id}
-        |> GenerateThumbnails.new()
-        |> Oban.insert!()
+    Repo.transact(fn ->
+      changeset = Media.changeset(%Media{}, attrs)
+
+      with {:ok, media} <- Repo.insert(changeset),
+           :ok <- Search.insert(media),
+           {:ok, _job_or_noop} <- generate_thumbnails_async(media),
+           {:ok, _job} <- broadcast_media_created(media) do
+        {:ok, media}
       end
     end)
-    |> tap_ok(&PubSub.broadcast_create/1)
+  end
+
+  defp broadcast_media_created(%Media{} = media) do
+    media
+    |> MediaCreated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -165,37 +183,53 @@ defmodule Ambry.Media do
 
   ## Examples
 
-      iex> update_media(media, %{field: new_value}, for: :update)
+      iex> update_media(media, %{field: new_value})
       {:ok, %Media{}}
 
-      iex> update_media(media, %{field: bad_value}, for: :update)
+      iex> update_media(media, %{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
   """
-  def update_media(%Media{} = media, attrs, for: action) do
-    fn ->
-      media
-      |> Media.changeset(attrs, for: action)
-      |> tap(&maybe_generate_thumbnails(&1, media))
-      |> Repo.update()
-    end
-    |> Repo.transact()
-    |> tap_ok(&PubSub.broadcast_update/1)
-    |> tap_ok(&maybe_maybe_delete_image(&1, media))
+  def update_media(%Media{} = media, attrs) do
+    Repo.transact(fn ->
+      changeset = Media.changeset(media, attrs)
+
+      with {:ok, updated_media} <- Repo.update(changeset),
+           :ok <- Search.update(updated_media),
+           {:ok, _job_or_noop} <- delete_unused_files_async(media, updated_media),
+           {:ok, _job_or_noop} <- generate_thumbnails_async(updated_media),
+           {:ok, _job} <- broadcast_media_updated(updated_media) do
+        {:ok, updated_media}
+      end
+    end)
   end
 
-  defp maybe_generate_thumbnails(changeset, media) do
-    if changeset.valid? && changed?(changeset, :image_path) do
-      %{"media_id" => media.id}
-      |> GenerateThumbnails.new()
-      |> Oban.insert!()
-    end
+  defp delete_unused_files_async(%Media{} = old_media, %Media{} = new_media) do
+    (all_web_paths(old_media) -- all_web_paths(new_media))
+    |> Enum.map(&Paths.web_to_disk/1)
+    |> try_delete_files_async()
   end
 
-  defp maybe_maybe_delete_image(updated_media, original_media) do
-    if is_nil(updated_media.image_path) && !is_nil(original_media.image_path) do
-      maybe_delete_image(original_media.image_path)
-    end
+  defp all_web_paths(%Media{} = media) do
+    [media.image_path | if(media.thumbnails, do: all_web_paths(media.thumbnails), else: [])]
+    |> Enum.uniq()
+    |> Enum.filter(& &1)
+  end
+
+  defp all_web_paths(%Thumbnails{} = thumbnails) do
+    [
+      thumbnails.extra_large,
+      thumbnails.large,
+      thumbnails.medium,
+      thumbnails.small,
+      thumbnails.extra_small
+    ]
+  end
+
+  defp broadcast_media_updated(%Media{} = media) do
+    media
+    |> MediaUpdated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -211,66 +245,98 @@ defmodule Ambry.Media do
 
   """
   def delete_media(%Media{} = media) do
-    fn ->
-      case Repo.delete(media) do
-        {:ok, media} ->
-          delete_media_files(media)
-          {:ok, media}
+    Repo.transact(fn ->
+      with {:ok, deleted_media} <- Repo.delete(media),
+           :ok <- Search.delete(deleted_media),
+           {:ok, _job} <- delete_all_files_async(deleted_media),
+           {:ok, _job} <- broadcast_media_deleted(deleted_media) do
+        {:ok, deleted_media}
       end
-    end
-    |> Repo.transact()
-    |> tap_ok(&PubSub.broadcast_delete/1)
+    end)
   end
 
-  defp delete_media_files(%Media{} = media) do
+  defp broadcast_media_deleted(%Media{} = media) do
+    media
+    |> MediaDeleted.new()
+    |> PubSub.broadcast_async()
+  end
+
+  defp delete_all_files_async(%Media{} = media) do
+    files_to_delete = all_file_paths(media)
+    folders_to_delete = [media.source_path]
+
+    try_delete_files_async(files_to_delete, folders_to_delete)
+  end
+
+  defp all_file_paths(%Media{} = media) do
     %Media{
-      source_path: source_disk_path,
       mpd_path: mpd_path,
       hls_path: hls_path,
       mp4_path: mp4_path
     } = media
 
-    try_delete_folder(source_disk_path)
+    media_files = [
+      mpd_path,
+      hls_path,
+      mp4_path,
+      Paths.hls_playlist_path(hls_path)
+    ]
 
-    mpd_path |> Paths.web_to_disk() |> try_delete_file()
-    hls_path |> Paths.web_to_disk() |> try_delete_file()
-    mp4_path |> Paths.web_to_disk() |> try_delete_file()
-    hls_path |> Paths.hls_playlist_path() |> Paths.web_to_disk() |> try_delete_file()
+    image_files = [media.image_path]
 
-    maybe_delete_image(media.image_path)
+    thumbnail_files =
+      case media.thumbnails do
+        nil ->
+          []
 
-    if !is_nil(media.thumbnails),
-      do: Thumbnails.try_delete_thumbnails(media.thumbnails)
+        thumbnails ->
+          [
+            thumbnails.extra_large,
+            thumbnails.large,
+            thumbnails.medium,
+            thumbnails.small,
+            thumbnails.extra_small
+          ]
+      end
 
-    :ok
+    (media_files ++ image_files ++ thumbnail_files)
+    |> Enum.filter(& &1)
+    |> Enum.uniq()
+    |> Enum.map(&Paths.web_to_disk/1)
   end
 
-  defp maybe_delete_image(nil), do: :noop
+  @doc """
+  Schedules an Oban job to generate thumbnails for a media asynchronously.
+  Only schedules the job if the media has an image path but no thumbnails.
 
-  defp maybe_delete_image(web_path) do
-    usage_count = Repo.aggregate(from(m in Media, where: m.image_path == ^web_path), :count)
+  ## Examples
 
-    if usage_count == 0 do
-      disk_path = Paths.web_to_disk(web_path)
+      iex> generate_thumbnails_async(media)
+      {:ok, %Oban.Job{}}
 
-      try_delete_file(disk_path)
-    else
-      Logger.warning(fn -> "Not deleting file because it's still in use: #{web_path}" end)
-      {:error, :still_in_use}
-    end
+      iex> generate_thumbnails_async(media_with_thumbnails)
+      {:ok, :noop}
+  """
+  def generate_thumbnails_async(%Media{image_path: image_path, thumbnails: nil} = media)
+      when is_binary(image_path) do
+    %{"media_id" => media.id, "image_path" => image_path}
+    |> GenerateThumbnails.new()
+    |> Oban.insert()
   end
+
+  def generate_thumbnails_async(_media), do: {:ok, :noop}
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking media changes.
 
   ## Examples
 
-      iex> change_media(media, for: :create)
+      iex> change_media(media)
       %Ecto.Changeset{data: %Media{}}
 
   """
-  def change_media(%Media{} = media, attrs \\ %{}, opts \\ [{:for, :create}]) do
-    Media.changeset(media, attrs, opts)
+  def change_media(%Media{} = media, attrs \\ %{}) do
+    Media.changeset(media, attrs)
   end
 
   @doc """
@@ -317,23 +383,50 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Generate and store a `%Thumbnails{}` struct on the given media
-  """
-  def generate_thumbnails!(%Media{image_path: nil} = media) do
-    if !is_nil(media.thumbnails) do
-      Ambry.Thumbnails.try_delete_thumbnails(media.thumbnails)
-      {:ok, _media} = update_media(media, %{thumbnails: nil}, for: :thumbnails_update)
-    end
+  Updates thumbnails for the given media ID and image path.
 
-    :ok
+  This is used by the Oban job to generate thumbnails for media.
+  """
+  def update_media_thumbnails!(media_id, image_web_path) do
+    thumbnails = Ambry.Thumbnails.generate_thumbnails!(image_web_path)
+    media = get_media!(media_id)
+
+    case update_media(media, %{thumbnails: thumbnails}) do
+      {:ok, updated_media} ->
+        {:ok, updated_media}
+
+      {:error, changeset} ->
+        # Delete the new thumbnails from disk, because the update failed.
+        Thumbnails.try_delete_thumbnails(thumbnails)
+
+        {:error, changeset}
+    end
   end
 
-  def generate_thumbnails!(%Media{image_path: image_web_path} = media) do
-    thumbnails = Ambry.Thumbnails.generate_thumbnails!(image_web_path)
+  @doc """
+  Returns a description of a media containing the book's title, narrator names, and author names.
+  """
+  def get_media_description(%Media{} = media) do
+    %{book: book, narrators: narrators} = Repo.preload(media, [:book, :narrators])
+    narrators = Enum.map_join(narrators, ", ", & &1.name)
 
-    {:ok, _media} = update_media(media, %{thumbnails: thumbnails}, for: :thumbnails_update)
+    "#{Books.get_book_description(book)} • narrated by #{narrators}"
+  end
 
-    :ok
+  @doc """
+  Subscribes to all media CRUD messages.
+  """
+  def subscribe_to_media_crud_messages do
+    :ok = PubSub.subscribe(MediaCreated.wildcard_topic())
+    :ok = PubSub.subscribe(MediaUpdated.wildcard_topic())
+    :ok = PubSub.subscribe(MediaDeleted.wildcard_topic())
+  end
+
+  @doc """
+  Subscribes media processing progress messages.
+  """
+  def subscribe_to_media_progress_messages do
+    :ok = PubSub.subscribe(MediaProgress.wildcard_topic())
   end
 
   @doc """
@@ -420,10 +513,20 @@ defmodule Ambry.Media do
 
   """
   def update_player_state(%PlayerState{} = player_state, attrs) do
+    Repo.transact(fn ->
+      changeset = PlayerState.changeset(player_state, attrs)
+
+      with {:ok, updated_player_state} <- Repo.update(changeset),
+           {:ok, _job} <- broadcast_player_state_updated(updated_player_state) do
+        {:ok, updated_player_state}
+      end
+    end)
+  end
+
+  defp broadcast_player_state_updated(%PlayerState{} = player_state) do
     player_state
-    |> PlayerState.changeset(attrs)
-    |> Repo.update()
-    |> tap_ok(&PubSub.broadcast_update/1)
+    |> PlayerStateUpdated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -432,13 +535,24 @@ defmodule Ambry.Media do
   If the player state does not exist, it will be created.
   """
   def update_player_state(user_id, media_id, position, playback_rate) do
-    %PlayerState{user_id: user_id, media_id: media_id}
-    |> PlayerState.changeset(%{position: position, playback_rate: playback_rate})
-    |> Repo.insert(
-      on_conflict: {:replace, [:position, :playback_rate, :status]},
-      conflict_target: [:user_id, :media_id],
-      returning: true
-    )
+    Repo.transact(fn ->
+      changeset =
+        PlayerState.changeset(
+          %PlayerState{user_id: user_id, media_id: media_id},
+          %{position: position, playback_rate: playback_rate}
+        )
+
+      options = [
+        on_conflict: {:replace, [:position, :playback_rate, :status]},
+        conflict_target: [:user_id, :media_id],
+        returning: true
+      ]
+
+      with {:ok, player_state} <- Repo.insert(changeset, options),
+           {:ok, _job} <- broadcast_player_state_updated(player_state) do
+        {:ok, player_state}
+      end
+    end)
   end
 
   @doc """
@@ -500,10 +614,20 @@ defmodule Ambry.Media do
 
   """
   def create_bookmark(attrs) do
-    %Bookmark{}
-    |> Bookmark.changeset(attrs)
-    |> Repo.insert()
-    |> tap_ok(&PubSub.broadcast_create/1)
+    Repo.transact(fn ->
+      changeset = Bookmark.changeset(%Bookmark{}, attrs)
+
+      with {:ok, bookmark} <- Repo.insert(changeset),
+           {:ok, _job} <- broadcast_bookmark_created(bookmark) do
+        {:ok, bookmark}
+      end
+    end)
+  end
+
+  defp broadcast_bookmark_created(%Bookmark{} = bookmark) do
+    bookmark
+    |> BookmarkCreated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -519,10 +643,20 @@ defmodule Ambry.Media do
 
   """
   def update_bookmark(%Bookmark{} = bookmark, attrs) do
+    Repo.transact(fn ->
+      changeset = Bookmark.changeset(bookmark, attrs)
+
+      with {:ok, updated_bookmark} <- Repo.update(changeset),
+           {:ok, _job} <- broadcast_bookmark_updated(updated_bookmark) do
+        {:ok, updated_bookmark}
+      end
+    end)
+  end
+
+  defp broadcast_bookmark_updated(%Bookmark{} = bookmark) do
     bookmark
-    |> Bookmark.changeset(attrs)
-    |> Repo.update()
-    |> tap_ok(&PubSub.broadcast_update/1)
+    |> BookmarkUpdated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -538,9 +672,18 @@ defmodule Ambry.Media do
 
   """
   def delete_bookmark(%Bookmark{} = bookmark) do
+    Repo.transact(fn ->
+      with {:ok, deleted_bookmark} <- Repo.delete(bookmark),
+           {:ok, _job} <- broadcast_bookmark_deleted(deleted_bookmark) do
+        {:ok, deleted_bookmark}
+      end
+    end)
+  end
+
+  defp broadcast_bookmark_deleted(%Bookmark{} = bookmark) do
     bookmark
-    |> Repo.delete()
-    |> tap_ok(&PubSub.broadcast_delete/1)
+    |> BookmarkDeleted.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -554,15 +697,5 @@ defmodule Ambry.Media do
   """
   def change_bookmark(%Bookmark{} = bookmark, attrs \\ %{}) do
     Bookmark.changeset(bookmark, attrs)
-  end
-
-  @doc """
-  Returns a description of a media containing the book's title, narrator names, and author names.
-  """
-  def get_media_description(%Media{} = media) do
-    %{book: book, narrators: narrators} = Repo.preload(media, [:book, :narrators])
-    narrators = Enum.map_join(narrators, ", ", & &1.name)
-
-    "#{Books.get_book_description(book)} • narrated by #{narrators}"
   end
 end

@@ -11,20 +11,31 @@ defmodule Ambry.Books do
       SeriesBook,
       SeriesFlat,
       SeriesBookType,
-      SeriesBookType.Type
+      SeriesBookType.Type,
+      PubSub.BookCreated,
+      PubSub.BookUpdated,
+      PubSub.BookDeleted,
+      PubSub.SeriesCreated,
+      PubSub.SeriesUpdated,
+      PubSub.SeriesDeleted
     ]
 
-  import Ambry.Utils
   import Ecto.Query
 
   alias Ambry.Books.Book
   alias Ambry.Books.BookFlat
+  alias Ambry.Books.PubSub.BookCreated
+  alias Ambry.Books.PubSub.BookDeleted
+  alias Ambry.Books.PubSub.BookUpdated
+  alias Ambry.Books.PubSub.SeriesCreated
+  alias Ambry.Books.PubSub.SeriesDeleted
+  alias Ambry.Books.PubSub.SeriesUpdated
   alias Ambry.Books.Series
   alias Ambry.Books.SeriesFlat
   alias Ambry.Media.Media
-  alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
+  alias Ambry.Search
 
   require Logger
 
@@ -106,10 +117,21 @@ defmodule Ambry.Books do
 
   """
   def create_book(attrs \\ %{}) do
-    %Book{}
-    |> change_book(attrs)
-    |> Repo.insert()
-    |> tap_ok(&PubSub.broadcast_create/1)
+    Repo.transact(fn ->
+      changeset = change_book(%Book{}, attrs)
+
+      with {:ok, book} <- Repo.insert(changeset),
+           :ok <- Search.insert(book),
+           {:ok, _job} <- broadcast_book_created(book) do
+        {:ok, book}
+      end
+    end)
+  end
+
+  defp broadcast_book_created(%Book{} = book) do
+    book
+    |> BookCreated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -125,11 +147,22 @@ defmodule Ambry.Books do
 
   """
   def update_book(%Book{} = book, attrs) do
+    Repo.transact(fn ->
+      book = Repo.preload(book, @book_direct_assoc_preloads)
+      changeset = change_book(book, attrs)
+
+      with {:ok, updated_book} <- Repo.update(changeset),
+           :ok <- Search.update(updated_book),
+           {:ok, _job} <- broadcast_book_updated(updated_book) do
+        {:ok, updated_book}
+      end
+    end)
+  end
+
+  defp broadcast_book_updated(%Book{} = book) do
     book
-    |> Repo.preload(@book_direct_assoc_preloads)
-    |> change_book(attrs)
-    |> Repo.update()
-    |> tap_ok(&PubSub.broadcast_update/1)
+    |> BookUpdated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -148,37 +181,28 @@ defmodule Ambry.Books do
 
   """
   def delete_book(%Book{} = book) do
-    fn ->
-      case Repo.delete(change_book(book)) do
-        {:ok, book} ->
-          maybe_delete_image(book.image_path)
-          {:ok, book}
+    Repo.transact(fn ->
+      changeset = change_book(book)
 
-        {:error, changeset} ->
+      with {:ok, deleted_book} <- Repo.delete(changeset),
+           :ok <- Search.delete(deleted_book),
+           {:ok, _job} <- broadcast_book_deleted(deleted_book) do
+        {:ok, deleted_book}
+      else
+        {:error, %Ecto.Changeset{} = changeset} ->
           if Keyword.has_key?(changeset.errors, :media) do
             {:error, :has_media}
           else
             {:error, changeset}
           end
       end
-    end
-    |> Repo.transact()
-    |> tap_ok(&PubSub.broadcast_delete/1)
+    end)
   end
 
-  defp maybe_delete_image(nil), do: :noop
-
-  defp maybe_delete_image(web_path) do
-    book_count = Repo.aggregate(from(b in Book, where: b.image_path == ^web_path), :count)
-
-    if book_count == 0 do
-      disk_path = Paths.web_to_disk(web_path)
-
-      try_delete_file(disk_path)
-    else
-      Logger.warning(fn -> "Not deleting file because it's still in use: #{web_path}" end)
-      {:error, :still_in_use}
-    end
+  defp broadcast_book_deleted(%Book{} = book) do
+    book
+    |> BookDeleted.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -267,6 +291,15 @@ defmodule Ambry.Books do
     {books_to_return, books != books_to_return}
   end
 
+  @doc """
+  Subscribes to all book CRUD messages.
+  """
+  def subscribe_to_book_crud_messages do
+    :ok = PubSub.subscribe(BookCreated.wildcard_topic())
+    :ok = PubSub.subscribe(BookUpdated.wildcard_topic())
+    :ok = PubSub.subscribe(BookDeleted.wildcard_topic())
+  end
+
   @series_direct_assoc_preloads [series_books: [book: [:media, :authors]]]
 
   def series_standard_preloads, do: @series_direct_assoc_preloads
@@ -341,10 +374,21 @@ defmodule Ambry.Books do
       {:error, %Ecto.Changeset{}}
   """
   def create_series(attrs) do
-    %Series{}
-    |> Series.changeset(attrs)
-    |> Repo.insert()
-    |> tap_ok(&PubSub.broadcast_create/1)
+    Repo.transact(fn ->
+      changeset = Series.changeset(%Series{}, attrs)
+
+      with {:ok, series} <- Repo.insert(changeset),
+           :ok <- Search.insert(series),
+           {:ok, _job} <- broadcast_series_created(series) do
+        {:ok, series}
+      end
+    end)
+  end
+
+  defp broadcast_series_created(%Series{} = series) do
+    series
+    |> SeriesCreated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -359,10 +403,21 @@ defmodule Ambry.Books do
       {:error, %Ecto.Changeset{}}
   """
   def update_series(%Series{} = series, attrs) do
+    Repo.transact(fn ->
+      changeset = Series.changeset(series, attrs)
+
+      with {:ok, updated_series} <- Repo.update(changeset),
+           :ok <- Search.update(updated_series),
+           {:ok, _job} <- broadcast_series_updated(updated_series) do
+        {:ok, updated_series}
+      end
+    end)
+  end
+
+  defp broadcast_series_updated(%Series{} = series) do
     series
-    |> Series.changeset(attrs)
-    |> Repo.update()
-    |> tap_ok(&PubSub.broadcast_create/1)
+    |> SeriesUpdated.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -377,11 +432,21 @@ defmodule Ambry.Books do
       {:error, %Ecto.Changeset{}}
   """
   def delete_series(%Series{} = series) do
-    fn ->
-      Repo.delete(change_series(series))
-    end
-    |> Repo.transact()
-    |> tap_ok(&PubSub.broadcast_delete/1)
+    Repo.transact(fn ->
+      changeset = change_series(series)
+
+      with {:ok, deleted_series} <- Repo.delete(changeset),
+           :ok <- Search.delete(deleted_series),
+           {:ok, _job} <- broadcast_series_deleted(deleted_series) do
+        {:ok, deleted_series}
+      end
+    end)
+  end
+
+  defp broadcast_series_deleted(%Series{} = series) do
+    series
+    |> SeriesDeleted.new()
+    |> PubSub.broadcast_async()
   end
 
   @doc """
@@ -414,5 +479,14 @@ defmodule Ambry.Books do
     query = from s in Series, select: {s.name, s.id}, order_by: s.name
 
     Repo.all(query)
+  end
+
+  @doc """
+  Subscribes to all series CRUD messages.
+  """
+  def subscribe_to_series_crud_messages do
+    :ok = PubSub.subscribe(SeriesCreated.wildcard_topic())
+    :ok = PubSub.subscribe(SeriesUpdated.wildcard_topic())
+    :ok = PubSub.subscribe(SeriesDeleted.wildcard_topic())
   end
 end

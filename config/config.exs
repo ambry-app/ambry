@@ -33,7 +33,7 @@ config :ambry, Oban,
   # Prune jobs older than 1 day
   plugins: [{Oban.Plugins.Pruner, max_age: 86_400}],
   # Keep number of media workers low to not starve the host of resources
-  queues: [media: 4, images: 2]
+  queues: [default: 10, pub_sub: 10, media: 4, images: 4]
 
 config :ambry,
   ecto_repos: [Ambry.Repo],

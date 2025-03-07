@@ -1,10 +1,11 @@
 defmodule Ambry.MediaTest do
   use Ambry.DataCase
 
-  import ExUnit.CaptureLog
-
   alias Ambry.Media
   alias Ambry.Paths
+  alias Ambry.Search.IndexFactory
+  alias Ambry.Thumbnails.GenerateThumbnails
+  alias Ambry.Utils.DeleteFiles
 
   describe "get_media_file_details/1" do
     test "delegates to Audit" do
@@ -246,38 +247,54 @@ defmodule Ambry.MediaTest do
 
       assert %{media_narrators: [%{narrator_id: ^narrator_id}]} = media
     end
+
+    test "updates the search index" do
+      %{id: book_id} = insert(:book)
+      %{id: narrator_id, name: narrator_name} = insert(:narrator)
+
+      assert [] = Ambry.Search.search(narrator_name)
+
+      params =
+        :media
+        |> params_for(book_id: book_id, media_narrators: [%{narrator_id: narrator_id}])
+        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :media_narrators])
+
+      assert {:ok, _media} = Media.create_media(params)
+
+      assert [%{id: ^book_id}] = Ambry.Search.search(narrator_name)
+    end
   end
 
   describe "update_media/3" do
-    test "allows updating a media's abridged value when using 'for: :update'" do
+    test "allows updating a media's abridged value" do
       media = insert(:media)
       original_value = media.abridged
 
-      {:ok, updated_media} = Media.update_media(media, %{abridged: !original_value}, for: :update)
+      {:ok, updated_media} = Media.update_media(media, %{abridged: !original_value})
 
       assert updated_media.abridged == !original_value
     end
 
-    test "allows updating a media's full_cast value when using 'for: :update'" do
+    test "allows updating a media's full_cast value" do
       media = insert(:media)
       original_value = media.full_cast
 
       {:ok, updated_media} =
-        Media.update_media(media, %{full_cast: !original_value}, for: :update)
+        Media.update_media(media, %{full_cast: !original_value})
 
       assert updated_media.full_cast == !original_value
     end
 
-    test "allows updating a media's book when using 'for: :update'" do
+    test "allows updating a media's book" do
       %{id: book_id} = insert(:book)
       media = insert(:media)
 
-      {:ok, updated_media} = Media.update_media(media, %{book_id: book_id}, for: :update)
+      {:ok, updated_media} = Media.update_media(media, %{book_id: book_id})
 
       assert updated_media.book_id == book_id
     end
 
-    test "updates nested media narrators when using 'for: :update'" do
+    test "updates nested media narrators" do
       %{id: new_narrator_id} = insert(:narrator)
 
       %{media_narrators: [existing_media_narrator | rest_media_narrators]} =
@@ -293,8 +310,7 @@ defmodule Ambry.MediaTest do
               %{id: existing_media_narrator.id, narrator_id: new_narrator_id}
               | Enum.map(rest_media_narrators, &%{id: &1.id})
             ]
-          },
-          for: :update
+          }
         )
 
       assert %{
@@ -307,7 +323,7 @@ defmodule Ambry.MediaTest do
              } = updated_media
     end
 
-    test "deletes nested media narrators when using 'for: :update'" do
+    test "deletes nested media narrators" do
       %{media_narrators: media_narrators} = media = insert(:media)
 
       {:ok, updated_media} =
@@ -316,15 +332,14 @@ defmodule Ambry.MediaTest do
           %{
             media_narrators_drop: [0],
             media_narrators: media_narrators |> Enum.with_index(&{&2, %{id: &1.id}}) |> Map.new()
-          },
-          for: :update
+          }
         )
 
       assert %{media_narrators: new_media_narrators} = updated_media
       assert length(new_media_narrators) == length(media_narrators) - 1
     end
 
-    test "replaces embedded chapters when using 'for: :update'" do
+    test "replaces embedded chapters" do
       media = insert(:media)
 
       new_chapters = [
@@ -332,12 +347,12 @@ defmodule Ambry.MediaTest do
         params_for(:chapter, time: 300, title: "Chapter 2")
       ]
 
-      {:ok, updated_media} = Media.update_media(media, %{chapters: new_chapters}, for: :update)
+      {:ok, updated_media} = Media.update_media(media, %{chapters: new_chapters})
 
       assert length(updated_media.chapters) == 2
     end
 
-    test "updates fields after processing when using 'for: :processor_update'" do
+    test "updates fields after processing with processor-specific attributes" do
       pending_media =
         insert(:media,
           duration: nil,
@@ -359,8 +374,7 @@ defmodule Ambry.MediaTest do
             mpd_path: mpd_path,
             hls_path: hls_path,
             status: :ready
-          },
-          for: :processor_update
+          }
         )
 
       assert %{
@@ -370,6 +384,24 @@ defmodule Ambry.MediaTest do
                hls_path: ^hls_path,
                status: :ready
              } = processed_media
+    end
+
+    test "updates the search index" do
+      %{book_id: book_id, media_narrators: [%{narrator: %{name: narrator_name}} | _]} =
+        media = insert(:media)
+
+      %{id: new_narrator_id, name: new_narrator_name} = insert(:narrator)
+
+      IndexFactory.insert_index!(media)
+
+      assert [%{id: ^book_id}] = Ambry.Search.search(narrator_name)
+      assert [] = Ambry.Search.search(new_narrator_name)
+
+      {:ok, _updated_media} =
+        Media.update_media(media, %{media_narrators: [%{narrator_id: new_narrator_id}]})
+
+      assert [%{id: ^book_id}] = Ambry.Search.search(new_narrator_name)
+      assert [] = Ambry.Search.search(narrator_name)
     end
   end
 
@@ -391,8 +423,21 @@ defmodule Ambry.MediaTest do
       end
     end
 
-    test "deletes the media files from disk used by a media" do
-      media = insert(:media, image_path: nil)
+    test "updates the search index" do
+      %{book_id: book_id, media_narrators: [%{narrator: %{name: narrator_name}} | _]} =
+        media = insert(:media)
+
+      IndexFactory.insert_index!(media)
+
+      assert [%{id: ^book_id}] = Ambry.Search.search(narrator_name)
+
+      {:ok, _media} = Media.delete_media(media)
+
+      assert [] = Ambry.Search.search(narrator_name)
+    end
+
+    test "deletes all related files from disk using a background job" do
+      media = insert(:media)
       create_fake_files!(media)
 
       assert File.dir?(media.source_path)
@@ -400,64 +445,43 @@ defmodule Ambry.MediaTest do
       assert media.mpd_path |> Paths.web_to_disk() |> File.exists?()
       assert media.hls_path |> Paths.web_to_disk() |> File.exists?()
       assert media.hls_path |> Paths.hls_playlist_path() |> Paths.web_to_disk() |> File.exists?()
-
+      assert media.image_path |> Paths.web_to_disk() |> File.exists?()
       {:ok, _media} = Media.delete_media(media)
 
-      refute File.dir?(media.source_path)
-      refute media.mp4_path |> Paths.web_to_disk() |> File.exists?()
-      refute media.mpd_path |> Paths.web_to_disk() |> File.exists?()
-      refute media.hls_path |> Paths.web_to_disk() |> File.exists?()
-      refute media.hls_path |> Paths.hls_playlist_path() |> Paths.web_to_disk() |> File.exists?()
+      # Verify a job was scheduled to delete files
+      assert_enqueued worker: DeleteFiles,
+                      args: %{
+                        "disk_paths" => [
+                          Paths.web_to_disk(media.mpd_path),
+                          Paths.web_to_disk(media.hls_path),
+                          Paths.web_to_disk(media.mp4_path),
+                          Paths.web_to_disk(Paths.hls_playlist_path(media.hls_path)),
+                          Paths.web_to_disk(media.image_path)
+                        ],
+                        "folder_paths" => [media.source_path]
+                      }
+    end
+  end
+
+  describe "generate_thumbnails_async/1" do
+    test "schedules a job to generate thumbnails if they're missing" do
+      %{web_path: web_path} = valid_image()
+
+      media = insert(:media, image_path: web_path)
+
+      assert {:ok, %Oban.Job{}} = Media.generate_thumbnails_async(media)
+
+      assert_enqueued worker: GenerateThumbnails,
+                      args: %{"media_id" => media.id, "image_path" => web_path}
     end
 
-    test "warns if the media files from disk used by a media do not exist" do
-      media = insert(:media, image_path: nil)
-      create_fake_files!(media)
+    test "doesn't schedule a job if the thumbnails are already there" do
+      %{web_path: web_path} = valid_image()
+      media = insert(:media, image_path: web_path)
+      {:ok, media} = Media.update_media_thumbnails!(media.id, web_path)
 
-      media.mp4_path |> Paths.web_to_disk() |> File.rm!()
-
-      fun = fn ->
-        {:ok, _media} = Media.delete_media(media)
-      end
-
-      assert capture_log(fun) =~ "Couldn't delete file (enoent)"
-    end
-
-    test "deletes the image file from disk used by a media" do
-      media = insert(:media)
-      create_fake_files!(media)
-
-      assert File.exists?(Ambry.Paths.web_to_disk(media.image_path))
-
-      {:ok, _media} = Media.delete_media(media)
-
-      refute File.exists?(Ambry.Paths.web_to_disk(media.image_path))
-    end
-
-    test "does not delete the image file from disk if the same image is used by multiple media" do
-      media = insert(:media)
-      create_fake_files!(media)
-      media2 = insert(:media, image_path: media.image_path)
-
-      assert File.exists?(Ambry.Paths.web_to_disk(media.image_path))
-
-      fun = fn ->
-        {:ok, _media} = Media.delete_media(media2)
-      end
-
-      assert capture_log(fun) =~ "Not deleting file because it's still in use"
-
-      assert File.exists?(Ambry.Paths.web_to_disk(media.image_path))
-    end
-
-    test "warns if the image file from disk used by a media does not exist" do
-      media = insert(:media)
-
-      fun = fn ->
-        {:ok, _media} = Media.delete_media(media)
-      end
-
-      assert capture_log(fun) =~ "Couldn't delete file (enoent)"
+      assert {:ok, :noop} = Media.generate_thumbnails_async(media)
+      refute_enqueued worker: GenerateThumbnails
     end
   end
 

@@ -13,7 +13,6 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.PlayerState
   alias Ambry.Media.Processor
-  alias Ambry.People.Narrator
   alias Ambry.Repo.SupplementalFile
   alias Ambry.Thumbnails
 
@@ -24,7 +23,7 @@ defmodule Ambry.Media.Media do
     has_many :media_narrators, MediaNarrator, on_replace: :delete
     has_many :player_states, PlayerState
     has_many :authors, through: [:book, :authors]
-    many_to_many :narrators, Narrator, join_through: "media_narrators"
+    has_many :narrators, through: [:media_narrators, :narrator]
 
     embeds_many :chapters, Chapter, on_replace: :delete
     embeds_many :supplemental_files, SupplementalFile, on_replace: :delete
@@ -57,7 +56,7 @@ defmodule Ambry.Media.Media do
   def statuses, do: @statuses
 
   @doc false
-  def changeset(media, attrs, for: :create) do
+  def changeset(media, attrs) do
     media
     |> cast(attrs, [
       :abridged,
@@ -70,28 +69,12 @@ defmodule Ambry.Media.Media do
       :notes,
       :image_path,
       :description,
-      :publisher
-    ])
-    |> cast_assoc(:media_narrators,
-      sort_param: :media_narrators_sort,
-      drop_param: :media_narrators_drop
-    )
-    |> cast_embed(:supplemental_files)
-    |> status_based_validation()
-  end
-
-  def changeset(media, attrs, for: :update) do
-    media
-    |> cast(attrs, [
-      :abridged,
-      :book_id,
-      :full_cast,
-      :published,
-      :published_format,
-      :notes,
-      :image_path,
-      :description,
-      :publisher
+      :publisher,
+      :duration,
+      :mp4_path,
+      :mpd_path,
+      :hls_path,
+      :status
     ])
     |> cast_assoc(:media_narrators,
       sort_param: :media_narrators_sort,
@@ -105,25 +88,11 @@ defmodule Ambry.Media.Media do
       sort_param: :supplemental_files_sort,
       drop_param: :supplemental_files_drop
     )
+    |> maybe_clear_thumbnails()
     |> status_based_validation()
-  end
-
-  def changeset(media, attrs, for: :processor_update) do
-    media
-    |> cast(attrs, [
-      :duration,
-      :mp4_path,
-      :mpd_path,
-      :hls_path,
-      :status
-    ])
-    |> status_based_validation()
-  end
-
-  def changeset(media, attrs, for: :thumbnails_update) do
-    media
-    |> cast(attrs, [])
+    |> validate_image_path()
     |> cast_embed(:thumbnails)
+    |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
   end
 
   defp status_based_validation(changeset) do
@@ -193,5 +162,32 @@ defmodule Ambry.Media.Media do
       {:error, _posix} ->
         []
     end
+  end
+
+  # if the image_path changes, clear the thumbnails embed
+  defp maybe_clear_thumbnails(changeset) do
+    case fetch_change(changeset, :image_path) do
+      {:ok, _new_path} -> put_embed(changeset, :thumbnails, nil)
+      _ -> changeset
+    end
+  end
+
+  defp validate_image_path(changeset) do
+    validate_change(changeset, :image_path, fn :image_path, path ->
+      case path do
+        "/uploads/" <> _ = path ->
+          if path |> Ambry.Paths.web_to_disk() |> File.exists?() do
+            []
+          else
+            [image_path: "file does not exist"]
+          end
+
+        nil ->
+          []
+
+        _ ->
+          [image_path: "must begin with /uploads/"]
+      end
+    end)
   end
 end

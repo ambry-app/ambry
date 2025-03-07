@@ -21,6 +21,8 @@ defmodule Ambry.DataCase do
 
   using do
     quote do
+      use Oban.Testing, repo: Ambry.Repo
+
       import Ambry.DataCase
       import Ambry.Factory
       import Ecto

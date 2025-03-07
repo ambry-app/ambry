@@ -9,11 +9,12 @@ defmodule Ambry.People.Narrator do
 
   import Ecto.Changeset
 
-  alias Ambry.Media.Media
+  alias Ambry.Media.MediaNarrator
   alias Ambry.People.Person
 
   schema "narrators" do
-    many_to_many :media, Media, join_through: "media_narrators"
+    has_many :media_narrators, MediaNarrator
+    has_many :media, through: [:media_narrators, :media]
     has_many :books, through: [:media, :book]
     belongs_to :person, Person
 

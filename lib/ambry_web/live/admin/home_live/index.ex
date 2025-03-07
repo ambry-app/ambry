@@ -11,22 +11,21 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   alias Ambry.Books
   alias Ambry.Media
   alias Ambry.People
-  alias Ambry.PubSub
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      :ok = PubSub.subscribe("person:*")
-      :ok = PubSub.subscribe("book:*")
-      :ok = PubSub.subscribe("series:*")
-      :ok = PubSub.subscribe("media:*")
+      Books.subscribe_to_book_crud_messages()
+      Books.subscribe_to_series_crud_messages()
+      People.subscribe_to_person_crud_messages()
+      Media.subscribe_to_media_crud_messages()
     end
 
     {:ok, count_things(socket)}
   end
 
   @impl Phoenix.LiveView
-  def handle_info(%PubSub.Message{}, socket), do: {:noreply, count_things(socket)}
+  def handle_info(message, socket) when is_struct(message), do: {:noreply, count_things(socket)}
 
   defp count_things(socket) do
     people_count = People.count_people()

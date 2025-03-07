@@ -3,11 +3,13 @@ defmodule Ambry.PubSub do
   Helper functions for publishing and subscribing to Ambry events.
   """
 
-  use Boundary, deps: [Ambry.Media], exports: [Message, Publishable]
+  use Boundary,
+    deps: [Ambry.Media, Ambry.People, Ambry.Books],
+    exports: [
+      Message
+    ]
 
-  alias Ambry.Media.Media
-  alias Ambry.PubSub.Message
-  alias Ambry.PubSub.Publishable
+  alias Ambry.PubSub.AsyncBroadcast
   alias Phoenix.PubSub
 
   require Logger
@@ -29,39 +31,11 @@ defmodule Ambry.PubSub do
   end
 
   @doc """
-  Broadcasts a "created" event for a struct.
+  Broadcast a message to all topics in its broadcast_topics field.
   """
-  def broadcast_create(value, meta \\ %{}), do: broadcast(value, :created, meta)
-
-  @doc """
-  Broadcasts an "updated" event for a struct.
-  """
-  def broadcast_update(value, meta \\ %{}), do: broadcast(value, :updated, meta)
-
-  @doc """
-  Broadcasts a "deleted" event for a struct.
-  """
-  def broadcast_delete(value, meta \\ %{}), do: broadcast(value, :deleted, meta)
-
-  @doc """
-  Broadcasts a "progress" event for a media.
-  """
-  def broadcast_progress(%Media{} = media, progress) do
-    topic = "media-progress"
-    message = %Message{type: :media, action: :progress, id: media.id, meta: %{progress: progress}}
-
-    broadcast_all([topic], message)
-  end
-
-  defp broadcast(%mod{id: id} = data, action, meta) do
-    message = %Message{type: type(mod), action: action, id: id, meta: meta}
-    topics = Publishable.topics(data)
-
+  def broadcast(%_{broadcast_topics: topics} = message) do
     broadcast_all(topics, message)
   end
-
-  defp broadcast(not_a_struct, _action, _meta),
-    do: raise("PubSub broadcast expected a struct, got #{inspect(not_a_struct)}")
 
   defp broadcast_all([], _message), do: :ok
 
@@ -77,8 +51,15 @@ defmodule Ambry.PubSub do
     end
   end
 
-  def type(module) do
-    [last | _] = module |> Module.split() |> Enum.reverse()
-    last |> Macro.underscore() |> String.to_atom()
+  @doc """
+  Schedule a message to be broadcast asynchronously via Oban.
+  """
+  def broadcast_async(%module{} = message) do
+    %{
+      "module" => module,
+      "message" => Map.from_struct(message)
+    }
+    |> AsyncBroadcast.new()
+    |> Oban.insert()
   end
 end

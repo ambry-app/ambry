@@ -7,18 +7,16 @@ defmodule Ambry.Books.Book do
 
   import Ecto.Changeset
 
-  alias Ambry.Books.Series
   alias Ambry.Books.SeriesBook
   alias Ambry.Media.Media
-  alias Ambry.People.Author
   alias Ambry.People.BookAuthor
 
   schema "books" do
     has_many :media, Media, preload_order: [desc: :published]
     has_many :series_books, SeriesBook, on_replace: :delete
     has_many :book_authors, BookAuthor, on_replace: :delete
-    many_to_many :series, Series, join_through: "books_series"
-    many_to_many :authors, Author, join_through: "authors_books"
+    has_many :series, through: [:series_books, :series]
+    has_many :authors, through: [:book_authors, :author]
 
     field :title, :string
     field :published, :date
@@ -26,7 +24,6 @@ defmodule Ambry.Books.Book do
 
     # deprecated
     field :description, :string
-    field :image_path, :string
 
     timestamps(type: :utc_datetime)
   end
@@ -34,7 +31,7 @@ defmodule Ambry.Books.Book do
   @doc false
   def changeset(book, attrs) do
     book
-    |> cast(attrs, [:title, :published, :published_format, :description, :image_path])
+    |> cast(attrs, [:title, :published, :published_format, :description])
     |> cast_assoc(:series_books,
       with: &SeriesBook.book_assoc_changeset/2,
       sort_param: :series_books_sort,

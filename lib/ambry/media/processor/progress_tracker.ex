@@ -9,6 +9,7 @@ defmodule Ambry.Media.Processor.ProgressTracker do
   import Ambry.Media.Processor.Shared, only: [get_inaccurate_duration: 1]
 
   alias Ambry.Media.Media
+  alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.PubSub
 
   # Client
@@ -73,7 +74,8 @@ defmodule Ambry.Media.Processor.ProgressTracker do
 
   defp publish_progress(media, duration, current_time) do
     progress = Decimal.div(current_time, duration)
-    PubSub.broadcast_progress(media, progress)
+    message = MediaProgress.new(media, progress)
+    PubSub.broadcast(message)
   end
 
   defp get_current_time(progress),

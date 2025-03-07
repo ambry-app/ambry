@@ -1,4 +1,4 @@
 # NOTE: make sure these versions match in Containerfile
 
-elixir 1.18.2-otp-27
-erlang 27.2.4
+elixir 1.18.3-otp-27
+erlang 27.3

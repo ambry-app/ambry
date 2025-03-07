@@ -9,11 +9,12 @@ defmodule Ambry.People.Author do
 
   import Ecto.Changeset
 
-  alias Ambry.Books.Book
+  alias Ambry.People.BookAuthor
   alias Ambry.People.Person
 
   schema "authors" do
-    many_to_many :books, Book, join_through: "authors_books"
+    has_many :book_authors, BookAuthor
+    has_many :books, through: [:book_authors, :book]
     belongs_to :person, Person
 
     field :name, :string

@@ -58,11 +58,11 @@ defmodule AmbrySchema.Resolvers do
   end
 
   def list_narrated_media(%Narrator{} = narrator, args, _resolution) do
-    narrator
-    |> Ecto.assoc(:media)
-    |> join(:inner, [m], b in assoc(m, :book))
-    |> order_by([_, _, b], desc: b.published)
-    |> Connection.from_query(&Repo.all/1, args)
+    query =
+      from m in Ecto.assoc(narrator, :media),
+        order_by: [desc: :published]
+
+    Connection.from_query(query, &Repo.all/1, args)
   end
 
   def list_player_states(args, %{context: %{current_user: %User{} = user}}) do

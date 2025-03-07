@@ -5,15 +5,20 @@ defmodule Ambry.Thumbnails do
   """
   use Ecto.Schema
 
+  import Ambry.Utils, only: [try_delete_file: 1]
   import Ecto.Changeset
   import Ecto.Query
 
   alias Ambry.Paths
   alias Ambry.Thumbnails.GenerateThumbnails
 
+  require Logger
+
   @primary_key false
 
   embedded_schema do
+    field :original, :string
+
     field :extra_small, :string
     field :small, :string
     field :medium, :string
@@ -24,17 +29,8 @@ defmodule Ambry.Thumbnails do
     field :blurhash, :string
   end
 
-  @fields [
-    :extra_small,
-    :small,
-    :medium,
-    :large,
-    :extra_large,
-    :thumbhash,
-    :blurhash
-  ]
-
   @required_fields [
+    :original,
     :extra_small,
     :small,
     :medium,
@@ -42,6 +38,8 @@ defmodule Ambry.Thumbnails do
     :extra_large,
     :thumbhash
   ]
+
+  @fields @required_fields ++ [:blurhash]
 
   def changeset(thumbnails, attrs) do
     thumbnails
@@ -55,9 +53,10 @@ defmodule Ambry.Thumbnails do
 
     thumbhash = thumbhash!(image)
     blurhash = blurhash!(image)
-    thumbnails = thumbnails!(image, disk_path)
+    thumbnails = thumbnails!(image)
 
     Map.merge(thumbnails, %{
+      original: image_web_path,
       thumbhash: thumbhash,
       blurhash: blurhash
     })
@@ -88,7 +87,7 @@ defmodule Ambry.Thumbnails do
     end
   end
 
-  defp thumbnails!(image, disk_path) do
+  defp thumbnails!(image) do
     {width, height, _bands} = Image.shape(image)
     length = min(width, height)
 
@@ -161,13 +160,14 @@ defmodule Ambry.Thumbnails do
           }
       end
 
-    extra_small_path = write_thumbnail!(extra_small, disk_path, "xs")
-    small_path = if small, do: write_thumbnail!(small, disk_path, "sm"), else: extra_small_path
-    medium_path = if medium, do: write_thumbnail!(medium, disk_path, "md"), else: small_path
-    large_path = if large, do: write_thumbnail!(large, disk_path, "lg"), else: medium_path
+    id = Ecto.UUID.generate()
+    extra_small_path = write_thumbnail!(extra_small, id, "xs")
+    small_path = if small, do: write_thumbnail!(small, id, "sm"), else: extra_small_path
+    medium_path = if medium, do: write_thumbnail!(medium, id, "md"), else: small_path
+    large_path = if large, do: write_thumbnail!(large, id, "lg"), else: medium_path
 
     extra_large_path =
-      if extra_large, do: write_thumbnail!(extra_large, disk_path, "xl"), else: large_path
+      if extra_large, do: write_thumbnail!(extra_large, id, "xl"), else: large_path
 
     %{
       extra_large: Paths.disk_to_web(extra_large_path),
@@ -178,9 +178,10 @@ defmodule Ambry.Thumbnails do
     }
   end
 
-  defp write_thumbnail!(image, disk_path, suffix) do
-    filename = Path.rootname(disk_path) <> "-" <> suffix <> ".webp"
-    Image.write!(image, filename, quality: 85)
+  defp write_thumbnail!(image, id, suffix) do
+    filename = Path.join(Paths.images_disk_path(), "#{id}-#{suffix}.webp")
+    Image.write!(image, filename, quality: 90)
+    Logger.debug(fn -> "Wrote thumbnail #{filename}" end)
     filename
   end
 
@@ -190,11 +191,17 @@ defmodule Ambry.Thumbnails do
   Ignore errors, best effort delete.
   """
   def try_delete_thumbnails(thumbnails) do
-    File.rm(Paths.web_to_disk(thumbnails.extra_large))
-    File.rm(Paths.web_to_disk(thumbnails.large))
-    File.rm(Paths.web_to_disk(thumbnails.medium))
-    File.rm(Paths.web_to_disk(thumbnails.small))
-    File.rm(Paths.web_to_disk(thumbnails.extra_small))
+    [
+      thumbnails.extra_large,
+      thumbnails.large,
+      thumbnails.medium,
+      thumbnails.small,
+      thumbnails.extra_small
+    ]
+    |> Enum.map(&Paths.web_to_disk/1)
+    |> Enum.uniq()
+    |> Enum.each(&try_delete_file/1)
+
     :ok
   end
 

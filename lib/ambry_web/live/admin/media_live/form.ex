@@ -41,8 +41,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     changeset =
       Media.change_media(
         media,
-        %{"image_type" => "upload", "source_type" => default_source_type(socket)},
-        for: :update
+        %{"image_type" => "upload", "source_type" => default_source_type(socket)}
       )
 
     socket
@@ -60,8 +59,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     changeset =
       Media.change_media(
         media,
-        %{"image_type" => "upload", "source_type" => default_source_type(socket)},
-        for: :create
+        %{"image_type" => "upload", "source_type" => default_source_type(socket)}
       )
 
     socket
@@ -115,7 +113,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
     changeset =
       socket.assigns.media
-      |> Media.change_media(media_params, for: changeset_action(socket.assigns.live_action))
+      |> Media.change_media(media_params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
@@ -157,9 +155,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     new_params = Map.merge(socket.assigns.form.params, media_params)
 
     changeset =
-      Media.change_media(socket.assigns.media, new_params,
-        for: changeset_action(socket.assigns.live_action)
-      )
+      Media.change_media(socket.assigns.media, new_params)
 
     {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
   end
@@ -241,9 +237,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp changeset_valid?(socket, media_params) do
-    case Media.change_media(socket.assigns.media, media_params,
-           for: changeset_action(socket.assigns.live_action)
-         ) do
+    case Media.change_media(socket.assigns.media, media_params) do
       %{valid?: true} -> :ok
       # if the _only_ error is the missing source-path, then we let it pass (at first)
       %{errors: [source_path: {"can't be blank", [validation: :required]}]} -> :ok
@@ -268,7 +262,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp save_media(socket, :edit, media_params) do
-    case Media.update_media(socket.assigns.media, media_params, for: :update) do
+    case Media.update_media(socket.assigns.media, media_params) do
       {:ok, media} ->
         maybe_start_processor!(media, media_params, :edit)
 
@@ -301,9 +295,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   defp assign_form(socket, %Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
   end
-
-  defp changeset_action(:new), do: :create
-  defp changeset_action(:edit), do: :update
 
   defp maybe_start_processor!(media, media_params, :new) do
     processor =
