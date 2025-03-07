@@ -198,6 +198,7 @@ defmodule Ambry.Factory do
     Enum.join([Faker.Lorem.word(), Faker.File.file_name(type)], "-")
   end
 
+  def create_fake_files!(list) when is_list(list), do: Enum.each(list, &create_fake_files!/1)
   def create_fake_files!(%Person{image_path: web_path}), do: create_fake_file(web_path)
   def create_fake_files!(%Book{}), do: :ok
 
@@ -242,7 +243,7 @@ defmodule Ambry.Factory do
     filename = "#{id}.jpg"
     disk_path = Ambry.Paths.images_disk_path(filename)
     web_path = "/uploads/images/#{filename}"
-    File.cp!("test/support/images/jules_verne.jpg", disk_path)
+    File.cp!("test/support/files/jules_verne.jpg", disk_path)
 
     %{
       web_path: web_path,
