@@ -9,13 +9,12 @@ defmodule AmbryWeb.Player.PubSub.PlayerUpdated do
     field :broadcast_topics, {:array, :string}
   end
 
-  def new(%Player{id: player_id} = _player) when is_binary(player_id) do
+  def new(%Player{id: player_id} = player) when is_binary(player_id) do
     %__MODULE__{
       id: player_id,
-      broadcast_topics: ["player:#{player_id}"]
+      broadcast_topics: [player_topic(player)]
     }
   end
 
-  @impl true
-  def subscribe_topic, do: "player:*"
+  def player_topic(%Player{id: player_id}) when is_binary(player_id), do: "player:#{player_id}"
 end

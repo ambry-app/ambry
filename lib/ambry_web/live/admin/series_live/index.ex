@@ -11,7 +11,6 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   alias Ambry.Books.PubSub.SeriesCreated
   alias Ambry.Books.PubSub.SeriesDeleted
   alias Ambry.Books.PubSub.SeriesUpdated
-  alias Ambry.PubSub
 
   @valid_sort_fields [
     :name,
@@ -25,7 +24,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     if connected?(socket) do
-      :ok = PubSub.subscribe_to_messages([SeriesCreated, SeriesUpdated, SeriesDeleted])
+      Books.subscribe_to_series_crud_messages()
     end
 
     {:ok,

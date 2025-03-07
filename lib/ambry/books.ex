@@ -291,6 +291,15 @@ defmodule Ambry.Books do
     {books_to_return, books != books_to_return}
   end
 
+  @doc """
+  Subscribes to all book CRUD messages.
+  """
+  def subscribe_to_book_crud_messages do
+    :ok = PubSub.subscribe(BookCreated.wildcard_topic())
+    :ok = PubSub.subscribe(BookUpdated.wildcard_topic())
+    :ok = PubSub.subscribe(BookDeleted.wildcard_topic())
+  end
+
   @series_direct_assoc_preloads [series_books: [book: [:media, :authors]]]
 
   def series_standard_preloads, do: @series_direct_assoc_preloads
@@ -470,5 +479,14 @@ defmodule Ambry.Books do
     query = from s in Series, select: {s.name, s.id}, order_by: s.name
 
     Repo.all(query)
+  end
+
+  @doc """
+  Subscribes to all series CRUD messages.
+  """
+  def subscribe_to_series_crud_messages do
+    :ok = PubSub.subscribe(SeriesCreated.wildcard_topic())
+    :ok = PubSub.subscribe(SeriesUpdated.wildcard_topic())
+    :ok = PubSub.subscribe(SeriesDeleted.wildcard_topic())
   end
 end

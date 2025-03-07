@@ -10,9 +10,8 @@ defmodule Ambry.People.PubSub.PersonCreated do
   end
 
   def new(%Person{} = person) do
-    %__MODULE__{id: person.id, broadcast_topics: ["person-created:*"]}
+    %__MODULE__{id: person.id, broadcast_topics: [wildcard_topic()]}
   end
 
-  @impl true
-  def subscribe_topic, do: "person-created:*"
+  def wildcard_topic, do: "person-created:*"
 end

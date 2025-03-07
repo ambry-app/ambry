@@ -9,40 +9,16 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
 
   alias Ambry.Accounts
   alias Ambry.Books
-  alias Ambry.Books.PubSub.BookCreated
-  alias Ambry.Books.PubSub.BookDeleted
-  alias Ambry.Books.PubSub.BookUpdated
-  alias Ambry.Books.PubSub.SeriesCreated
-  alias Ambry.Books.PubSub.SeriesDeleted
-  alias Ambry.Books.PubSub.SeriesUpdated
   alias Ambry.Media
-  alias Ambry.Media.PubSub.MediaCreated
-  alias Ambry.Media.PubSub.MediaDeleted
-  alias Ambry.Media.PubSub.MediaUpdated
   alias Ambry.People
-  alias Ambry.People.PubSub.PersonCreated
-  alias Ambry.People.PubSub.PersonDeleted
-  alias Ambry.People.PubSub.PersonUpdated
-  alias Ambry.PubSub
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      :ok =
-        PubSub.subscribe_to_messages([
-          PersonCreated,
-          PersonUpdated,
-          PersonDeleted,
-          BookCreated,
-          BookUpdated,
-          BookDeleted,
-          SeriesCreated,
-          SeriesUpdated,
-          SeriesDeleted,
-          MediaCreated,
-          MediaUpdated,
-          MediaDeleted
-        ])
+      Books.subscribe_to_book_crud_messages()
+      Books.subscribe_to_series_crud_messages()
+      People.subscribe_to_person_crud_messages()
+      Media.subscribe_to_media_crud_messages()
     end
 
     {:ok, count_things(socket)}

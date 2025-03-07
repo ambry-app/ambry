@@ -2,12 +2,8 @@ defmodule Ambry.PubSub.Message do
   @moduledoc false
   import Ecto.Changeset
 
-  @callback subscribe_topic() :: String.t()
-
   defmacro __using__(_opts) do
     quote do
-      @behaviour Ambry.PubSub.Message
-
       use Ecto.Schema
 
       @primary_key false

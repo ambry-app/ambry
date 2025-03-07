@@ -11,7 +11,6 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   alias Ambry.People.PubSub.PersonCreated
   alias Ambry.People.PubSub.PersonDeleted
   alias Ambry.People.PubSub.PersonUpdated
-  alias Ambry.PubSub
 
   @valid_sort_fields [
     :name,
@@ -26,7 +25,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     if connected?(socket) do
-      :ok = PubSub.subscribe_to_messages([PersonCreated, PersonUpdated, PersonDeleted])
+      People.subscribe_to_person_crud_messages()
     end
 
     {:ok,

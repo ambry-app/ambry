@@ -12,14 +12,11 @@ defmodule Ambry.Media.PubSub.BookmarkUpdated do
   def new(%Bookmark{} = bookmark) do
     %__MODULE__{
       id: bookmark.id,
-      broadcast_topics: [
-        "bookmark-updated:#{bookmark.id}",
-        "bookmark-updated:#{bookmark.user_id}:#{bookmark.media_id}",
-        "bookmark-updated:*"
-      ]
+      broadcast_topics: [bookmark_topic(bookmark), wildcard_topic()]
     }
   end
 
-  @impl true
-  def subscribe_topic, do: "bookmark-updated:*"
+  def wildcard_topic, do: "bookmark-updated:*"
+
+  def bookmark_topic(%Bookmark{} = bookmark), do: "bookmark-updated:#{bookmark.id}"
 end

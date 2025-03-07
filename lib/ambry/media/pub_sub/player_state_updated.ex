@@ -12,14 +12,12 @@ defmodule Ambry.Media.PubSub.PlayerStateUpdated do
   def new(%PlayerState{} = player_state) do
     %__MODULE__{
       id: player_state.id,
-      broadcast_topics: [
-        "player-state-updated:#{player_state.id}",
-        "player-state-updated:#{player_state.user_id}:#{player_state.media_id}",
-        "player-state-updated:*"
-      ]
+      broadcast_topics: [player_state_topic(player_state), wildcard_topic()]
     }
   end
 
-  @impl true
-  def subscribe_topic, do: "player-state-updated:*"
+  def wildcard_topic, do: "player-state-updated:*"
+
+  def player_state_topic(%PlayerState{} = player_state),
+    do: "player-state-updated:#{player_state.id}"
 end

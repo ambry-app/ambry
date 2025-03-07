@@ -47,8 +47,8 @@ defmodule AmbryWeb.Player do
     })
   end
 
-  def subscribe!(%__MODULE__{id: id}) when is_binary(id) do
-    :ok = PubSub.subscribe("player:#{id}")
+  def subscribe!(%__MODULE__{id: id} = player) when is_binary(id) do
+    :ok = PubSub.subscribe(PlayerUpdated.player_topic(player))
   end
 
   # NOTE: This might not be a great idea, we should see if we can make this not

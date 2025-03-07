@@ -12,14 +12,11 @@ defmodule Ambry.Media.PubSub.BookmarkDeleted do
   def new(%Bookmark{} = bookmark) do
     %__MODULE__{
       id: bookmark.id,
-      broadcast_topics: [
-        "bookmark-deleted:#{bookmark.id}",
-        "bookmark-deleted:#{bookmark.user_id}:#{bookmark.media_id}",
-        "bookmark-deleted:*"
-      ]
+      broadcast_topics: [bookmark_topic(bookmark), wildcard_topic()]
     }
   end
 
-  @impl true
-  def subscribe_topic, do: "bookmark-deleted:*"
+  def wildcard_topic, do: "bookmark-deleted:*"
+
+  def bookmark_topic(%Bookmark{} = bookmark), do: "bookmark-deleted:#{bookmark.id}"
 end

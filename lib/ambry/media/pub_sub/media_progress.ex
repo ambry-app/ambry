@@ -14,10 +14,11 @@ defmodule Ambry.Media.PubSub.MediaProgress do
     %__MODULE__{
       id: media.id,
       progress: progress,
-      broadcast_topics: ["media-progress"]
+      broadcast_topics: [media_topic(media), wildcard_topic()]
     }
   end
 
-  @impl true
-  def subscribe_topic, do: "media-progress"
+  def wildcard_topic, do: "media-progress:*"
+
+  def media_topic(%Media{} = media), do: "media-progress:#{media.id}"
 end

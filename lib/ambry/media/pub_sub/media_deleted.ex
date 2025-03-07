@@ -12,10 +12,11 @@ defmodule Ambry.Media.PubSub.MediaDeleted do
   def new(%Media{} = media) do
     %__MODULE__{
       id: media.id,
-      broadcast_topics: ["media-deleted:#{media.id}", "media-deleted:*"]
+      broadcast_topics: [media_topic(media), wildcard_topic()]
     }
   end
 
-  @impl true
-  def subscribe_topic, do: "media-deleted:*"
+  def wildcard_topic, do: "media-deleted:*"
+
+  def media_topic(%Media{} = media), do: "media-deleted:#{media.id}"
 end

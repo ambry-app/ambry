@@ -37,6 +37,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.PubSub.BookmarkUpdated
   alias Ambry.Media.PubSub.MediaCreated
   alias Ambry.Media.PubSub.MediaDeleted
+  alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.Media.PubSub.MediaUpdated
   alias Ambry.Media.PubSub.PlayerStateUpdated
   alias Ambry.Paths
@@ -403,6 +404,32 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  Returns a description of a media containing the book's title, narrator names, and author names.
+  """
+  def get_media_description(%Media{} = media) do
+    %{book: book, narrators: narrators} = Repo.preload(media, [:book, :narrators])
+    narrators = Enum.map_join(narrators, ", ", & &1.name)
+
+    "#{Books.get_book_description(book)} • narrated by #{narrators}"
+  end
+
+  @doc """
+  Subscribes to all media CRUD messages.
+  """
+  def subscribe_to_media_crud_messages do
+    :ok = PubSub.subscribe(MediaCreated.wildcard_topic())
+    :ok = PubSub.subscribe(MediaUpdated.wildcard_topic())
+    :ok = PubSub.subscribe(MediaDeleted.wildcard_topic())
+  end
+
+  @doc """
+  Subscribes media processing progress messages.
+  """
+  def subscribe_to_media_progress_messages do
+    :ok = PubSub.subscribe(MediaProgress.wildcard_topic())
+  end
+
+  @doc """
   Gets recent player states for a given user.
   """
   def get_recent_player_states(user_id, offset \\ 0, limit \\ 10) do
@@ -670,15 +697,5 @@ defmodule Ambry.Media do
   """
   def change_bookmark(%Bookmark{} = bookmark, attrs \\ %{}) do
     Bookmark.changeset(bookmark, attrs)
-  end
-
-  @doc """
-  Returns a description of a media containing the book's title, narrator names, and author names.
-  """
-  def get_media_description(%Media{} = media) do
-    %{book: book, narrators: narrators} = Repo.preload(media, [:book, :narrators])
-    narrators = Enum.map_join(narrators, ", ", & &1.name)
-
-    "#{Books.get_book_description(book)} • narrated by #{narrators}"
   end
 end

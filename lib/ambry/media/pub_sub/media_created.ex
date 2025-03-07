@@ -10,9 +10,8 @@ defmodule Ambry.Media.PubSub.MediaCreated do
   end
 
   def new(%Media{} = media) do
-    %__MODULE__{id: media.id, broadcast_topics: ["media-created:*"]}
+    %__MODULE__{id: media.id, broadcast_topics: [wildcard_topic()]}
   end
 
-  @impl true
-  def subscribe_topic, do: "media-created:*"
+  def wildcard_topic, do: "media-created:*"
 end

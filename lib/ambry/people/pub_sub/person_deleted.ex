@@ -12,10 +12,11 @@ defmodule Ambry.People.PubSub.PersonDeleted do
   def new(%Person{} = person) do
     %__MODULE__{
       id: person.id,
-      broadcast_topics: ["person-deleted:#{person.id}", "person-deleted:*"]
+      broadcast_topics: [person_topic(person), wildcard_topic()]
     }
   end
 
-  @impl true
-  def subscribe_topic, do: "person-deleted:*"
+  def wildcard_topic, do: "person-deleted:*"
+
+  def person_topic(%Person{} = person), do: "person-deleted:#{person.id}"
 end

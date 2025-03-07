@@ -315,6 +315,15 @@ defmodule Ambry.People do
     end
   end
 
+  @doc """
+  Subscribes to all person CRUD messages.
+  """
+  def subscribe_to_person_crud_messages do
+    :ok = PubSub.subscribe(PersonCreated.wildcard_topic())
+    :ok = PubSub.subscribe(PersonUpdated.wildcard_topic())
+    :ok = PubSub.subscribe(PersonDeleted.wildcard_topic())
+  end
+
   # Narrators
 
   @doc """

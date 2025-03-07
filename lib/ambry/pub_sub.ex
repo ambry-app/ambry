@@ -31,11 +31,15 @@ defmodule Ambry.PubSub do
   end
 
   @doc """
-  Broadcast messages to a list of topics
+  Broadcast a message to all topics in its broadcast_topics field.
   """
-  def broadcast_all([], _message), do: :ok
+  def broadcast(%_{broadcast_topics: topics} = message) do
+    broadcast_all(topics, message)
+  end
 
-  def broadcast_all([topic | rest], message) do
+  defp broadcast_all([], _message), do: :ok
+
+  defp broadcast_all([topic | rest], message) do
     case PubSub.broadcast(__MODULE__, topic, message) do
       :ok ->
         Logger.debug(fn -> "#{__MODULE__} Published to #{topic} - #{inspect(message)}" end)
@@ -45,29 +49,6 @@ defmodule Ambry.PubSub do
         Logger.warning(fn -> "#{__MODULE__} Failed publish to #{topic} - #{inspect(reason)}" end)
         {:error, reason}
     end
-  end
-
-  @doc """
-  Subscribe to messages from the listed modules.
-  Each module must implement the Ambry.PubSub.Message behavior.
-  """
-  def subscribe_to_messages(messages) do
-    messages
-    |> Enum.map(& &1.subscribe_topic())
-    |> Enum.uniq()
-    |> Enum.map(&subscribe/1)
-    |> Enum.uniq()
-    |> case do
-      [:ok] -> :ok
-      _ -> :error
-    end
-  end
-
-  @doc """
-  Broadcast a message to all topics in its broadcast_topics field.
-  """
-  def broadcast(%_{broadcast_topics: topics} = message) do
-    broadcast_all(topics, message)
   end
 
   @doc """

@@ -10,9 +10,8 @@ defmodule Ambry.Books.PubSub.BookCreated do
   end
 
   def new(%Book{} = book) do
-    %__MODULE__{id: book.id, broadcast_topics: ["book-created:*"]}
+    %__MODULE__{id: book.id, broadcast_topics: [wildcard_topic()]}
   end
 
-  @impl true
-  def subscribe_topic, do: "book-created:*"
+  def wildcard_topic, do: "book-created:*"
 end

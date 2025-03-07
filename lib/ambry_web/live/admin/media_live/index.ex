@@ -13,7 +13,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   alias Ambry.Media.PubSub.MediaDeleted
   alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.Media.PubSub.MediaUpdated
-  alias Ambry.PubSub
 
   @valid_sort_fields [
     :status,
@@ -31,8 +30,8 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     if connected?(socket) do
-      :ok =
-        PubSub.subscribe_to_messages([MediaCreated, MediaUpdated, MediaDeleted, MediaProgress])
+      Media.subscribe_to_media_crud_messages()
+      Media.subscribe_to_media_progress_messages()
     end
 
     {:ok,
