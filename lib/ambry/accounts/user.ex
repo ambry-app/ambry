@@ -53,6 +53,27 @@ defmodule Ambry.Accounts.User do
     |> validate_password(opts)
   end
 
+  @doc """
+  A user changeset for invitation.
+
+  It is important to validate the length of the email.
+  Otherwise databases may truncate the email without warnings, which
+  could lead to unpredictable or insecure behaviour.
+
+  ## Options
+
+    * `:validate_email` - Validates the uniqueness of the email, in case
+      you don't want to validate the uniqueness of the email (like when
+      using this changeset for validations on a LiveView form before
+      submitting the form), this option can be set to `false`.
+      Defaults to `true`.
+  """
+  def invitation_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:email])
+    |> validate_email(opts)
+  end
+
   defp validate_email(changeset, opts) do
     changeset
     |> validate_required([:email])
@@ -186,5 +207,17 @@ defmodule Ambry.Accounts.User do
   """
   def loaded_player_state_changeset(user, player_state_id) do
     change(user, loaded_player_state_id: player_state_id)
+  end
+
+  @doc """
+  Accepts an invitation by setting the password and confirming the account.
+  """
+  def accept_invitation_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:password])
+    |> validate_required([:password])
+    |> validate_confirmation(:password, message: "does not match password")
+    |> validate_password([])
+    |> confirm_changeset()
   end
 end

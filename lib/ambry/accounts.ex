@@ -512,4 +512,89 @@ defmodule Ambry.Accounts do
 
     :ok
   end
+
+  ## User invitations
+
+  @doc ~S"""
+  Delivers a user invitation email to the given email address.
+
+  This will create a new unconfirmed user account and send an invitation email.
+
+  ## Examples
+
+      iex> deliver_user_invitation("new@example.com", &url(~p"/users/accept_invitation/#{&1}"))
+      {:ok, %{to: ..., body: ...}}
+
+      iex> deliver_user_invitation("new@example.com", &url(~p"/users/accept_invitation/#{&1}"))
+      {:error, :not_admin}
+
+  """
+  def deliver_user_invitation(email, accept_invitation_url_fun)
+      when is_function(accept_invitation_url_fun, 1) do
+    Repo.transact(fn ->
+      with {:ok, user} <- create_user_for_invitation(email),
+           {encoded_token, user_token} <- UserToken.build_email_token(user, "invitation"),
+           {:ok, _token} <- Repo.insert(user_token),
+           {:ok, _job} <-
+             schedule_invitation_email(user, accept_invitation_url_fun.(encoded_token)) do
+        {:ok, encoded_token}
+      end
+    end)
+  end
+
+  defp create_user_for_invitation(email) do
+    %User{}
+    |> User.invitation_changeset(%{email: email})
+    |> Repo.insert()
+  end
+
+  defp schedule_invitation_email(%User{} = user, url) do
+    %{user_id: user.id, action: "deliver_invitation_email", url: url}
+    |> EmailSender.new()
+    |> Oban.insert()
+  end
+
+  @doc """
+  Gets a user by invitation token.
+
+  ## Examples
+
+      iex> get_user_by_invitation_token("validtoken")
+      %User{}
+
+      iex> get_user_by_invitation_token("invalidtoken")
+      nil
+
+  """
+  def get_user_by_invitation_token(token) do
+    with {:ok, query} <- UserToken.verify_email_token_query(token, "invitation"),
+         %User{} = user <- Repo.one(query) do
+      user
+    else
+      _error -> nil
+    end
+  end
+
+  @doc """
+  Accepts a user invitation by setting their password and confirming their account.
+
+  ## Examples
+
+      iex> accept_user_invitation(user, %{password: "new password", password_confirmation: "new password"})
+      {:ok, %User{}}
+
+      iex> accept_user_invitation(user, %{password: "invalid"})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def accept_user_invitation(user, attrs) do
+    Ecto.Multi.new()
+    |> Ecto.Multi.update(:user, User.accept_invitation_changeset(user, attrs))
+    |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, :all))
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{user: user}} -> {:ok, user}
+      {:error, :user, changeset, _changes_so_far} -> {:error, changeset}
+    end
+  end
 end

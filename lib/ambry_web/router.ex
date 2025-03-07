@@ -108,6 +108,7 @@ defmodule AmbryWeb.Router do
       live "/users/log_in", UserLoginLive, :new
       live "/users/reset_password", UserForgotPasswordLive, :new
       live "/users/reset_password/:token", UserResetPasswordLive, :edit
+      live "/users/accept_invitation/:token", UserAcceptInvitationLive, :edit
     end
 
     post "/users/log_in", UserSessionController, :create
