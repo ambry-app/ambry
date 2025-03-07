@@ -72,6 +72,7 @@ defmodule AmbryWeb.Admin.Components do
 
   attr :search_form, Form, default: nil
   attr :new_path, :string, default: nil
+  attr :new_text, :string, default: "New"
   attr :has_next, :boolean, default: false
   attr :has_prev, :boolean, default: false
   attr :next_page_path, :string, default: nil
@@ -87,7 +88,7 @@ defmodule AmbryWeb.Admin.Components do
       </div>
       <div :if={@new_path}>
         <.link navigate={@new_path} class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400">
-          New <FA.icon name="plus" class="ml-2 h-4 w-4 fill-current" />
+          {@new_text} <FA.icon name="plus" class="ml-2 h-4 w-4 fill-current" />
         </.link>
       </div>
       <div :if={@prev_page_path}>

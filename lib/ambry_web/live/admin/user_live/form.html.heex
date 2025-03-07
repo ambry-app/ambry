@@ -1,0 +1,11 @@
+<.layout title={@page_title} user={@current_user}>
+  <div class="max-w-3xl">
+    <.simple_form for={@form} phx-change="validate" phx-submit="submit">
+      <.input type="email" field={@form[:email]} label="Email Address" required />
+
+      <:actions>
+        <.button>Send Invitation</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+</.layout>
