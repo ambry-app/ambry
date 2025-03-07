@@ -1,4 +1,4 @@
-defmodule Ambry.Accounts.EmailSender do
+defmodule Ambry.Accounts.SendEmail do
   @moduledoc """
   Oban worker for sending account-related emails asynchronously.
   """

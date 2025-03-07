@@ -13,7 +13,7 @@ defmodule Ambry.Accounts do
 
   import Ecto.Query, warn: false
 
-  alias Ambry.Accounts.EmailSender
+  alias Ambry.Accounts.SendEmail
   alias Ambry.Accounts.User
   alias Ambry.Accounts.UserFlat
   alias Ambry.Accounts.UserToken
@@ -232,15 +232,15 @@ defmodule Ambry.Accounts do
 
       with {:ok, _token} <- Repo.insert(user_token),
            {:ok, _job} <-
-             schedule_update_email_instructions(user, update_email_url_fun.(encoded_token)) do
+             send_update_email_instructions_async(user, update_email_url_fun.(encoded_token)) do
         {:ok, encoded_token}
       end
     end)
   end
 
-  defp schedule_update_email_instructions(%User{} = user, url) do
+  defp send_update_email_instructions_async(%User{} = user, url) do
     %{user_id: user.id, action: "deliver_update_email_instructions", url: url}
-    |> EmailSender.new()
+    |> SendEmail.new()
     |> Oban.insert()
   end
 
@@ -350,16 +350,16 @@ defmodule Ambry.Accounts do
 
         with {:ok, _token} <- Repo.insert(user_token),
              {:ok, _job} <-
-               schedule_confirmation_email(user, confirmation_url_fun.(encoded_token)) do
+               send_confirmation_email_async(user, confirmation_url_fun.(encoded_token)) do
           {:ok, encoded_token}
         end
       end)
     end
   end
 
-  defp schedule_confirmation_email(%User{} = user, url) do
+  defp send_confirmation_email_async(%User{} = user, url) do
     %{user_id: user.id, action: "deliver_confirmation_instructions", url: url}
-    |> EmailSender.new()
+    |> SendEmail.new()
     |> Oban.insert()
   end
 
@@ -403,15 +403,15 @@ defmodule Ambry.Accounts do
 
       with {:ok, _token} <- Repo.insert(user_token),
            {:ok, _job} <-
-             schedule_reset_password_email(user, reset_password_url_fun.(encoded_token)) do
+             send_reset_password_email_async(user, reset_password_url_fun.(encoded_token)) do
         {:ok, encoded_token}
       end
     end)
   end
 
-  defp schedule_reset_password_email(%User{} = user, url) do
+  defp send_reset_password_email_async(%User{} = user, url) do
     %{user_id: user.id, action: "deliver_reset_password_instructions", url: url}
-    |> EmailSender.new()
+    |> SendEmail.new()
     |> Oban.insert()
   end
 
@@ -536,7 +536,7 @@ defmodule Ambry.Accounts do
            {encoded_token, user_token} <- UserToken.build_email_token(user, "invitation"),
            {:ok, _token} <- Repo.insert(user_token),
            {:ok, _job} <-
-             schedule_invitation_email(user, accept_invitation_url_fun.(encoded_token)) do
+             send_invitation_email_async(user, accept_invitation_url_fun.(encoded_token)) do
         {:ok, encoded_token}
       end
     end)
@@ -548,9 +548,9 @@ defmodule Ambry.Accounts do
     |> Repo.insert()
   end
 
-  defp schedule_invitation_email(%User{} = user, url) do
+  defp send_invitation_email_async(%User{} = user, url) do
     %{user_id: user.id, action: "deliver_invitation_email", url: url}
-    |> EmailSender.new()
+    |> SendEmail.new()
     |> Oban.insert()
   end
 

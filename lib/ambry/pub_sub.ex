@@ -9,7 +9,7 @@ defmodule Ambry.PubSub do
       Message
     ]
 
-  alias Ambry.PubSub.AsyncBroadcast
+  alias Ambry.PubSub.BroadcastAsync
   alias Phoenix.PubSub
 
   require Logger
@@ -59,7 +59,7 @@ defmodule Ambry.PubSub do
       "module" => module,
       "message" => Map.from_struct(message)
     }
-    |> AsyncBroadcast.new()
+    |> BroadcastAsync.new()
     |> Oban.insert()
   end
 end

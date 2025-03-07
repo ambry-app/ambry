@@ -7,8 +7,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.Media
-  alias Ambry.Media.Processor
-  alias Ambry.Media.ProcessorJob
   alias Ambry.People
   alias AmbryWeb.Admin.MediaLive.Form.AudibleImportForm
   alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
@@ -303,9 +301,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         processor -> processor
       end
 
-    %{media_id: media.id, processor: processor}
-    |> ProcessorJob.new()
-    |> Oban.insert!()
+    Media.run_processor_async(media, processor)
   end
 
   defp maybe_start_processor!(media, media_params, :edit) do
@@ -314,25 +310,23 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         :noop
 
       processor ->
-        %{media_id: media.id, processor: processor}
-        |> ProcessorJob.new()
-        |> Oban.insert!()
+        Media.run_processor_async(media, processor)
     end
   end
 
   defp processors(%Media.Media{source_path: path} = media, [_ | _] = uploads)
        when is_binary(path) do
     filenames = Enum.map(uploads, & &1.client_name)
-    {media, filenames} |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+    {media, filenames} |> Media.available_processors() |> Enum.map(&{&1.name(), &1})
   end
 
   defp processors(_media, [_ | _] = uploads) do
     filenames = Enum.map(uploads, & &1.client_name)
-    filenames |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+    filenames |> Media.available_processors() |> Enum.map(&{&1.name(), &1})
   end
 
   defp processors(%Media.Media{source_path: path} = media, _uploads) when is_binary(path) do
-    media |> Processor.matched_processors() |> Enum.map(&{&1.name(), &1})
+    media |> Media.available_processors() |> Enum.map(&{&1.name(), &1})
   end
 
   defp processors(_media, _uploads), do: []

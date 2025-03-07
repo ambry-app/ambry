@@ -3,7 +3,7 @@ defmodule Ambry.PeopleTest do
 
   alias Ambry.Paths
   alias Ambry.People
-  alias Ambry.PubSub.AsyncBroadcast
+  alias Ambry.PubSub.BroadcastAsync
   alias Ambry.Search.IndexFactory
   alias Ambry.Thumbnails.GenerateThumbnails
   alias Ambry.Utils.DeleteFiles
@@ -182,7 +182,7 @@ defmodule Ambry.PeopleTest do
 
       assert {:ok, person} = People.create_person(params)
 
-      assert_enqueued worker: AsyncBroadcast,
+      assert_enqueued worker: BroadcastAsync,
                       args: %{
                         "module" => "Elixir.Ambry.People.PubSub.PersonCreated",
                         "message" => %{
@@ -339,7 +339,7 @@ defmodule Ambry.PeopleTest do
 
       assert {:ok, _updated_person} = People.update_person(person, %{})
 
-      assert_enqueued worker: AsyncBroadcast,
+      assert_enqueued worker: BroadcastAsync,
                       args: %{
                         "module" => "Elixir.Ambry.People.PubSub.PersonUpdated",
                         "message" => %{
@@ -392,7 +392,7 @@ defmodule Ambry.PeopleTest do
 
       assert {:ok, _person} = People.delete_person(person)
 
-      assert_enqueued worker: AsyncBroadcast,
+      assert_enqueued worker: BroadcastAsync,
                       args: %{
                         "module" => "Elixir.Ambry.People.PubSub.PersonDeleted",
                         "message" => %{

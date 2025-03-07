@@ -1,4 +1,4 @@
-defmodule Ambry.Media.ProcessorJob do
+defmodule Ambry.Media.RunProcessor do
   @moduledoc """
   Media uploads processor Oban job.
   """
