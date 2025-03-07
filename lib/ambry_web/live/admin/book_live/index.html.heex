@@ -24,10 +24,12 @@
     row_click={fn book -> JS.navigate(~p"/admin/books/#{book}/edit") end}
   >
     <:empty>
-      No books yet.
-      <.brand_link navigate={~p"/admin/books/new"}>
-        Create one.
-      </.brand_link>
+      <div data-role="empty-message">
+        No books yet.
+        <.brand_link navigate={~p"/admin/books/new"}>
+          Create one.
+        </.brand_link>
+      </div>
     </:empty>
 
     <:row :let={book}>
@@ -35,34 +37,34 @@
         <.multi_image paths={book.thumbnails} />
       </div>
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
-        <p class="overflow-hidden text-ellipsis">{book.title}</p>
-        <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
+        <p class="overflow-hidden text-ellipsis" data-role="book-title">{book.title}</p>
+        <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500" data-role="book-authors">
           by {book.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
-        <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
+        <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500" data-role="book-series">
           {book.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ")}
         </p>
       </div>
       <div class="hidden w-32 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
         <div class="flex gap-4">
-          <span :if={book.media > 0} title="# of audiobooks">
+          <span :if={book.media > 0} title="# of audiobooks" data-role="book-media-count">
             {book.media} <FA.icon name="file-audio" class="inline h-4 w-4 fill-current" />
           </span>
         </div>
       </div>
       <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
         <div class="flex gap-2 pb-2">
-          <.link navigate={~p"/admin/books/#{book}/edit"}>
+          <.link navigate={~p"/admin/books/#{book}/edit"} data-role="edit-book">
             <FA.icon name="pencil" class="h-4 w-4 fill-current transition-colors hover:fill-blue-600" />
           </.link>
-          <span phx-click="delete" phx-value-id={book.id} data-confirm="Are you sure?">
+          <span phx-click="delete" phx-value-id={book.id} data-confirm="Are you sure?" data-role="delete-book">
             <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:fill-red-600" />
           </span>
         </div>
-        <p class="text-sm italic dark:text-zinc-500">
+        <p class="text-sm italic dark:text-zinc-500" data-role="book-published">
           Published {format_published(book, :short)}
         </p>
-        <p class="text-sm italic dark:text-zinc-500">
+        <p class="text-sm italic dark:text-zinc-500" data-role="book-added">
           Added {Calendar.strftime(book.inserted_at, "%x")}
         </p>
       </div>

@@ -331,13 +331,16 @@ defmodule AmbryWeb.Admin.Components do
 
   def sort_button(assigns) do
     ~H"""
-    <div
+    <button
+      type="button"
+      phx-click="sort"
+      phx-value-field={@sort_field}
+      data-role="sort-button"
       class="flex cursor-pointer select-none items-center gap-2 p-2"
-      phx-click={JS.push("sort", value: %{field: @sort_field})}
     >
       {render_slot(@inner_block)}
       <.sort_icon sort={@current_sort} sort_field={@sort_field} />
-    </div>
+    </button>
     """
   end
 
