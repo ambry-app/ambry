@@ -22,16 +22,13 @@ defmodule Ambry.Books.Book do
     field :published, :date
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
 
-    # deprecated
-    field :description, :string
-
     timestamps(type: :utc_datetime)
   end
 
   @doc false
   def changeset(book, attrs) do
     book
-    |> cast(attrs, [:title, :published, :published_format, :description])
+    |> cast(attrs, [:title, :published, :published_format])
     |> cast_assoc(:series_books,
       with: &SeriesBook.book_assoc_changeset/2,
       sort_param: :series_books_sort,

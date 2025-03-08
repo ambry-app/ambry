@@ -106,7 +106,7 @@ defmodule Ambry.BooksTest do
     end
 
     test "creates a book when given valid attributes" do
-      %{title: title} = params = params_for(:book, series_books: [], book_authors: [])
+      %{title: title} = params = params_for(:book)
 
       assert {:ok, book} = Books.create_book(params)
 
@@ -114,10 +114,10 @@ defmodule Ambry.BooksTest do
     end
 
     test "can create nested book authors" do
-      %{id: author_id} = insert(:author)
+      person = insert(:person, authors: [build(:author)])
+      [%{id: author_id}] = person.authors
 
-      %{title: title} =
-        params = params_for(:book, series_books: [], book_authors: [%{author_id: author_id}])
+      %{title: title} = params = params_for(:book, book_authors: [%{author_id: author_id}])
 
       assert {:ok, book} = Books.create_book(params)
 
@@ -125,22 +125,22 @@ defmodule Ambry.BooksTest do
     end
 
     test "can create nested series books" do
-      %{id: series_id} = insert(:series)
+      series = insert(:series)
 
       %{title: title} =
         params =
         params_for(:book,
-          series_books: [%{series_id: series_id, book_number: 1}],
-          book_authors: []
+          series_books: [%{series_id: series.id, book_number: 1}]
         )
 
       assert {:ok, book} = Books.create_book(params)
 
-      assert %{title: ^title, series_books: [%{series_id: ^series_id}]} = book
+      assert %{title: ^title, series_books: [%{series_id: series_id}]} = book
+      assert series_id == series.id
     end
 
     test "schedules a job to broadcast a PubSub message" do
-      params = params_for(:book, series_books: [], book_authors: [])
+      params = params_for(:book)
 
       assert {:ok, book} = Books.create_book(params)
 
@@ -155,7 +155,7 @@ defmodule Ambry.BooksTest do
     end
 
     test "updates the search index" do
-      %{title: title} = params = params_for(:book, series_books: [], book_authors: [])
+      %{title: title} = params = params_for(:book)
 
       assert [] = Ambry.Search.search(title)
 
@@ -176,17 +176,19 @@ defmodule Ambry.BooksTest do
     end
 
     test "updates nested book authors" do
-      %{id: new_author_id} = insert(:author)
-      %{book_authors: [existing_book_author | rest_book_authors]} = book = insert(:book)
+      person = insert(:person, authors: [build(:author)])
+      [%{id: new_author_id}] = person.authors
 
-      assert existing_book_author.author_id != new_author_id
+      book =
+        insert(:book,
+          book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
+        )
+
+      [%{id: book_author_id}] = book.book_authors
 
       {:ok, updated_book} =
         Books.update_book(book, %{
-          book_authors: [
-            %{id: existing_book_author.id, author_id: new_author_id}
-            | Enum.map(rest_book_authors, &%{id: &1.id})
-          ]
+          book_authors: [%{id: book_author_id, author_id: new_author_id}]
         })
 
       assert %{
@@ -194,65 +196,65 @@ defmodule Ambry.BooksTest do
                  %{
                    author_id: ^new_author_id
                  }
-                 | _rest
                ]
              } = updated_book
     end
 
     test "deletes nested book authors" do
-      %{book_authors: books_authors} = book = insert(:book)
+      book =
+        insert(:book,
+          book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
+        )
+
+      [%{id: book_author_id}] = book.book_authors
 
       {:ok, updated_book} =
         Books.update_book(
           book,
           %{
             book_authors_drop: [0],
-            book_authors: books_authors |> Enum.with_index(&{&2, %{id: &1.id}}) |> Map.new()
+            book_authors: %{0 => %{id: book_author_id}}
           }
         )
 
-      assert %{book_authors: new_book_authors} = updated_book
-      assert length(new_book_authors) == length(books_authors) - 1
+      assert %{book_authors: []} = updated_book
     end
 
     test "updates nested series books" do
-      %{id: new_series_id} = insert(:series)
-      %{series_books: [existing_series_book | rest_series_books]} = book = insert(:book)
-
-      assert existing_series_book.series_id != new_series_id
+      series = insert(:series)
+      book = insert(:book, series_books: [build(:series_book, series: build(:series))])
+      [%{id: series_book_id}] = book.series_books
 
       {:ok, updated_book} =
         Books.update_book(book, %{
-          series_books: [
-            %{id: existing_series_book.id, series_id: new_series_id}
-            | Enum.map(rest_series_books, &%{id: &1.id})
-          ]
+          series_books: [%{id: series_book_id, series_id: series.id}]
         })
 
       assert %{
                series_books: [
                  %{
-                   series_id: ^new_series_id
+                   series_id: series_id
                  }
-                 | _rest
                ]
              } = updated_book
+
+      assert series_id == series.id
     end
 
     test "deletes nested series books" do
-      %{series_books: series_books} = book = insert(:book)
+      book = insert(:book, series_books: [build(:series_book, series: build(:series))])
+      [%{id: series_book_id}] = book.series_books
 
       {:ok, updated_book} =
         Books.update_book(
           book,
           %{
             series_books_drop: [0],
-            series_books: series_books |> Enum.with_index(&{&2, %{id: &1.id}}) |> Map.new()
+            series_books: %{0 => %{id: series_book_id}}
           }
         )
 
-      assert %{series_books: new_series_books} = updated_book
-      assert length(new_series_books) == length(series_books) - 1
+      assert %{series_books: []} = updated_book
     end
 
     test "schedules a job to broadcast a PubSub message" do
@@ -332,7 +334,8 @@ defmodule Ambry.BooksTest do
     end
 
     test "cannot delete a book if it belongs to an uploaded media" do
-      %{book: book} = insert(:media)
+      book = insert(:book)
+      insert(:media, book: book)
 
       {:error, :has_media} = Books.delete_book(book)
     end
@@ -361,9 +364,10 @@ defmodule Ambry.BooksTest do
 
   describe "get_book_with_media!/1" do
     test "gets a book and of its uploaded media" do
-      %{id: media_id, book: %{id: book_id}} = insert(:media, status: :ready)
+      book = insert(:book)
+      %{id: media_id} = insert(:media, book: book, status: :ready)
 
-      book = Books.get_book_with_media!(book_id)
+      book = Books.get_book_with_media!(book.id)
 
       assert %Books.Book{
                media: [
@@ -422,7 +426,11 @@ defmodule Ambry.BooksTest do
 
   describe "get_book_description/1" do
     test "returns a string describing the book" do
-      book = insert(:book)
+      book =
+        insert(:book,
+          book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
+        )
+
       %{title: title, book_authors: [%{author: %{name: author_name}} | _]} = book
 
       description = Books.get_book_description(book)
@@ -547,12 +555,12 @@ defmodule Ambry.BooksTest do
     end
 
     test "can create a series with nested book associations" do
-      %{id: book_id} = insert(:book, series_books: [])
+      book = insert(:book)
 
       %{name: name} = series_params = params_for(:series)
 
       %{book_number: book_number} =
-        series_book_params = params_for(:series_book, book_id: book_id)
+        series_book_params = params_for(:series_book, book_id: book.id)
 
       params = Map.put(series_params, :series_books, [series_book_params])
 
@@ -565,10 +573,12 @@ defmodule Ambry.BooksTest do
                series_books: [
                  %{
                    book_number: ^book_number_decimal,
-                   book_id: ^book_id
+                   book_id: book_id
                  }
                ]
              } = series
+
+      assert book_id == book.id
     end
 
     test "schedules a job to broadcast a PubSub message" do
@@ -588,10 +598,10 @@ defmodule Ambry.BooksTest do
 
     test "updates the search index" do
       # series can only be searched if they have at least one book
-      %{id: book_id} = insert(:book, series_books: [])
+      book = insert(:book)
 
       %{name: name} =
-        params = params_for(:series, series_books: [%{book_id: book_id, book_number: 1}])
+        params = params_for(:series, series_books: [%{book_id: book.id, book_number: 1}])
 
       assert [] = Ambry.Search.search(name)
 
@@ -632,11 +642,15 @@ defmodule Ambry.BooksTest do
 
     test "updates the search index" do
       # series can only be searched if they have at least one book
-      %{id: book_id} = insert(:book, series_books: [])
+      book = insert(:book)
       %{name: new_name} = params_for(:series)
 
-      %{id: series_id, name: original_name} =
-        series = insert(:series, series_books: [%{book_id: book_id, book_number: 1}])
+      series =
+        insert(:series,
+          series_books: [build(:series_book, book: book)]
+        )
+
+      %{id: series_id, name: original_name} = series
 
       IndexFactory.insert_index!(series)
 
@@ -681,10 +695,14 @@ defmodule Ambry.BooksTest do
 
     test "updates the search index" do
       # series can only be searched if they have at least one book
-      %{id: book_id} = insert(:book, series_books: [])
+      book = insert(:book)
 
-      %{id: series_id, name: name} =
-        series = insert(:series, series_books: [%{book_id: book_id, book_number: 1}])
+      series =
+        insert(:series,
+          series_books: [build(:series_book, book: book)]
+        )
+
+      %{id: series_id, name: name} = series
 
       IndexFactory.insert_index!(series)
 
@@ -720,15 +738,18 @@ defmodule Ambry.BooksTest do
 
   describe "get_series_with_books!/1" do
     test "gets a series and all of its books" do
-      %{id: book_id, series_books: [%{series_id: series_id} | _other_series]} = insert(:book)
+      book = insert(:book)
+      series = insert(:series, series_books: [build(:series_book, book: book)])
 
-      series = Books.get_series_with_books!(series_id)
+      loaded_series = Books.get_series_with_books!(series.id)
 
       assert %Books.Series{
                series_books: [
-                 %Books.SeriesBook{book: %Ambry.Books.Book{id: ^book_id}}
+                 %Books.SeriesBook{book: %Ambry.Books.Book{id: book_id}}
                ]
-             } = series
+             } = loaded_series
+
+      assert book_id == book.id
     end
   end
 
