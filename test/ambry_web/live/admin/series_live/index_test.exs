@@ -92,7 +92,7 @@ defmodule AmbryWeb.Admin.SeriesLive.IndexTest do
 
       # Search for specific series
       view
-      |> form("#nav-header form")
+      |> form("[data-role='search-form']")
       |> render_submit(%{search: %{query: "Unique"}})
 
       # Should only show matching series

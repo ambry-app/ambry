@@ -141,7 +141,7 @@ defmodule AmbryWeb.Admin.Components do
 
   defp admin_table_search_form(assigns) do
     ~H"""
-    <.form for={@search_form} phx-submit="search">
+    <.form for={@search_form} phx-submit="search" data-role="search-form">
       <input
         id={@search_form.id}
         type="search"
@@ -271,13 +271,13 @@ defmodule AmbryWeb.Admin.Components do
   attr :filter, :string, default: nil
   attr :row_click, :any, default: nil
 
-  slot :empty, required: true
+  slot :empty
   slot :row, required: true
 
   def flex_table(assigns) do
     ~H"""
     <%= if @rows == [] do %>
-      <p class="text-lg font-semibold" data-role="empty-message">
+      <p :if={@empty} class="text-lg font-semibold" data-role="empty-message">
         <%= if @filter do %>
           No results for "{@filter}"
         <% else %>

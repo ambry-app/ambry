@@ -132,7 +132,7 @@ defmodule AmbryWeb.Admin.PersonLive.IndexTest do
 
       # Search for specific person
       view
-      |> form("#nav-header form")
+      |> form("[data-role='search-form']")
       |> render_submit(%{search: %{query: "Unique"}})
 
       # Should only show matching person
