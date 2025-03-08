@@ -277,7 +277,7 @@ defmodule AmbryWeb.Admin.Components do
   def flex_table(assigns) do
     ~H"""
     <%= if @rows == [] do %>
-      <p class="text-lg font-semibold">
+      <p class="text-lg font-semibold" data-role="empty-message">
         <%= if @filter do %>
           No results for "{@filter}"
         <% else %>

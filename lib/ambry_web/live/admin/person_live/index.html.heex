@@ -23,12 +23,10 @@
     row_click={fn person -> JS.navigate(~p"/admin/people/#{person}/edit") end}
   >
     <:empty>
-      <div data-role="empty-message">
-        No people yet.
-        <.brand_link navigate={~p"/admin/people/new"}>
-          Create one.
-        </.brand_link>
-      </div>
+      No people yet.
+      <.brand_link navigate={~p"/admin/people/new"}>
+        Create one.
+      </.brand_link>
     </:empty>
 
     <:row :let={person}>

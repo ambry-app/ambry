@@ -22,12 +22,10 @@
     row_click={fn series -> JS.navigate(~p"/admin/series/#{series}/edit") end}
   >
     <:empty>
-      <div data-role="empty-message">
-        No series yet.
-        <.brand_link navigate={~p"/admin/series/new"}>
-          Create one.
-        </.brand_link>
-      </div>
+      No series yet.
+      <.brand_link navigate={~p"/admin/series/new"}>
+        Create one.
+      </.brand_link>
     </:empty>
 
     <:row :let={series}>
