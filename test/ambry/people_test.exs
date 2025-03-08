@@ -52,14 +52,14 @@ defmodule Ambry.PeopleTest do
     end
 
     test "accepts an 'is_author' filter" do
-      %{person: %{id: id}} = insert(:author)
+      %{id: id} = insert(:person, authors: [build(:author)])
 
       {[%{id: ^id}], false} = People.list_people(0, 10, %{is_author: true})
       {[], false} = People.list_people(0, 10, %{is_author: false})
     end
 
     test "accepts an 'is_narrator' filter" do
-      %{person: %{id: id}} = insert(:narrator)
+      %{id: id} = insert(:person, narrators: [build(:narrator)])
 
       {[%{id: ^id}], false} = People.list_people(0, 10, %{is_narrator: true})
       {[], false} = People.list_people(0, 10, %{is_narrator: false})
@@ -168,7 +168,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "schedules a job to generate thumbnails if a valid image_path is given" do
-      %{web_path: web_path} = valid_image()
+      %{web_path: web_path} = valid_image(:person)
       params = params_for(:person, image_path: web_path)
 
       assert {:ok, person} = People.create_person(params)
@@ -204,7 +204,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "updates nested authors" do
-      %{id: author_id, person: person} = insert(:author)
+      person = insert(:person, authors: [build(:author)])
+      [%{id: author_id}] = person.authors
       new_name = Faker.Person.name()
 
       {:ok, updated_person} =
@@ -224,7 +225,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "deletes nested authors" do
-      %{id: author_id, person: person} = insert(:author)
+      person = insert(:person, authors: [build(:author)])
+      [%{id: author_id}] = person.authors
 
       {:ok, updated_person} =
         People.update_person(person, %{authors_drop: [0], authors: %{0 => %{id: author_id}}})
@@ -234,7 +236,12 @@ defmodule Ambry.PeopleTest do
 
     @tag :skip
     test "cannot delete a nested author if they have authored a book" do
-      %{book_authors: [%{author: %{id: author_id, person: person}} | _]} = insert(:book)
+      book =
+        insert(:book,
+          book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
+        )
+
+      %{book_authors: [%{author: %{id: author_id, person: person}}]} = book
 
       {:error, changeset} =
         People.update_person(person, %{authors_drop: [0], authors: %{0 => %{id: author_id}}})
@@ -251,7 +258,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "updates nested narrators" do
-      %{id: narrator_id, person: person} = insert(:narrator)
+      person = insert(:person, narrators: [build(:narrator)])
+      [%{id: narrator_id}] = person.narrators
       new_name = Faker.Person.name()
 
       {:ok, updated_person} =
@@ -271,7 +279,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "deletes nested narrators" do
-      %{id: narrator_id, person: person} = insert(:narrator)
+      person = insert(:person, narrators: [build(:narrator)])
+      [%{id: narrator_id}] = person.narrators
 
       {:ok, updated_person} =
         People.update_person(person, %{narrators_drop: [0], narrators: %{0 => %{id: narrator_id}}})
@@ -281,7 +290,14 @@ defmodule Ambry.PeopleTest do
 
     @tag :skip
     test "cannot delete a nested narrator if they have narrated media" do
-      %{media_narrators: [%{narrator: %{id: narrator_id, person: person}} | _]} = insert(:media)
+      media =
+        insert(:media,
+          media_narrators: [
+            build(:media_narrator, narrator: build(:narrator, person: build(:person)))
+          ]
+        )
+
+      %{media_narrators: [%{narrator: %{id: narrator_id, person: person}}]} = media
 
       {:error, changeset} =
         People.update_person(person, %{narrators_drop: [0], narrators: %{0 => %{id: narrator_id}}})
@@ -313,9 +329,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "schedules a job to delete files that are no longer needed" do
-      %{web_path: web_path1} = valid_image()
-      %{web_path: web_path2} = valid_image()
-      person = insert(:person, image_path: web_path1)
+      person = :person |> build() |> with_image() |> insert()
+      %{web_path: web_path2} = valid_image(:person)
 
       image_disk_path = Paths.web_to_disk(person.image_path)
 
@@ -325,7 +340,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "schedules a job to generate thumbnails if a valid image_path is given" do
-      %{web_path: web_path} = valid_image()
+      %{web_path: web_path} = valid_image(:person)
       person = insert(:person, image_path: nil)
 
       assert {:ok, person} = People.update_person(person, %{image_path: web_path})
@@ -377,8 +392,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "schedules a job to delete files that are no longer needed" do
-      %{web_path: web_path} = valid_image()
-      person = insert(:person, image_path: web_path)
+      person = :person |> build() |> with_image() |> insert()
 
       image_disk_path = Paths.web_to_disk(person.image_path)
 
@@ -406,13 +420,27 @@ defmodule Ambry.PeopleTest do
     end
 
     test "cannot delete a person if they have authored a book" do
-      %{book_authors: [%{author: %{person: person}} | _]} = insert(:book)
+      person =
+        insert(:person,
+          authors: [
+            build(:author,
+              book_authors: [build(:book_author, book: build(:book))]
+            )
+          ]
+        )
 
       {:error, :has_authored_books} = People.delete_person(person)
     end
 
     test "cannot delete a person if they have narrated media" do
-      %{media_narrators: [%{narrator: %{person: person}} | _]} = insert(:media)
+      person =
+        insert(:person,
+          narrators: [
+            build(:narrator,
+              media_narrators: [build(:media_narrator, media: build(:media, book: build(:book)))]
+            )
+          ]
+        )
 
       {:error, :has_narrated_media} = People.delete_person(person)
     end
@@ -440,9 +468,8 @@ defmodule Ambry.PeopleTest do
 
   describe "generate_thumbnails_async/1" do
     test "schedules a job to generate thumbnails if they're missing" do
-      %{web_path: web_path} = valid_image()
-
-      person = insert(:person, image_path: web_path)
+      person = :person |> build() |> with_image() |> insert()
+      web_path = person.image_path
 
       assert {:ok, %Oban.Job{}} = People.generate_thumbnails_async(person)
 
@@ -451,9 +478,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "doesn't schedule a job if the thumbnails are already there" do
-      %{web_path: web_path} = valid_image()
-      person = insert(:person, image_path: web_path)
-      {:ok, person} = People.update_person_thumbnails!(person.id, web_path)
+      person = :person |> build() |> with_thumbnails() |> insert()
 
       assert {:ok, :noop} = People.generate_thumbnails_async(person)
       refute_enqueued worker: GenerateThumbnails
@@ -462,12 +487,10 @@ defmodule Ambry.PeopleTest do
 
   describe "update_person_thumbnails!/2" do
     test "generates thumbnails and updates the person" do
-      %{web_path: web_path} = valid_image()
-
-      person = insert(:person, image_path: web_path)
+      person = :person |> build() |> with_image() |> insert()
 
       assert person.thumbnails == nil
-      assert {:ok, person} = People.update_person_thumbnails!(person.id, web_path)
+      assert {:ok, person} = People.update_person_thumbnails!(person.id, person.image_path)
       assert person.thumbnails != nil
 
       assert File.exists?(Paths.web_to_disk(person.thumbnails.extra_small))
@@ -478,10 +501,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "doesn't update the person if the image given doesn't match what's saved and deletes any files created" do
-      %{web_path: web_path1} = valid_image()
-      %{web_path: web_path2} = valid_image()
-
-      person = insert(:person, image_path: web_path1)
+      person = :person |> build() |> with_image() |> insert()
+      %{web_path: web_path2} = valid_image(:person)
 
       assert person.thumbnails == nil
 
@@ -506,7 +527,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "returns the narrator with the given id" do
-      %{id: id} = insert(:narrator)
+      person = insert(:person, narrators: [build(:narrator)])
+      [%{id: id}] = person.narrators
 
       assert %People.Narrator{id: ^id} = People.get_narrator!(id)
     end
@@ -514,7 +536,7 @@ defmodule Ambry.PeopleTest do
 
   describe "narrators_for_select/0" do
     test "returns all narrator names and ids only" do
-      insert_list(3, :narrator)
+      insert(:person, narrators: build_list(3, :narrator))
 
       list = People.narrators_for_select()
 
@@ -534,7 +556,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "returns the author with the given id" do
-      %{id: id} = insert(:author)
+      person = insert(:person, authors: [build(:author)])
+      [%{id: id}] = person.authors
 
       assert %People.Author{id: ^id} = People.get_author!(id)
     end
@@ -542,7 +565,7 @@ defmodule Ambry.PeopleTest do
 
   describe "authors_for_select/0" do
     test "returns all author names and ids only" do
-      insert_list(3, :author)
+      insert(:person, authors: build_list(3, :author))
 
       list = People.authors_for_select()
 
