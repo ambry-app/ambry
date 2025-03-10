@@ -4,7 +4,6 @@ defmodule Ambry.PeopleTest do
   alias Ambry.Paths
   alias Ambry.People
   alias Ambry.PubSub.BroadcastAsync
-  alias Ambry.Search.IndexFactory
   alias Ambry.Thumbnails.GenerateThumbnails
   alias Ambry.Utils.DeleteFiles
 
@@ -314,10 +313,8 @@ defmodule Ambry.PeopleTest do
     end
 
     test "updates the search index" do
-      %{id: person_id, name: original_name} = person = insert(:person)
+      %{id: person_id, name: original_name} = person = :person |> insert() |> with_search_index()
       new_name = Faker.Person.name()
-
-      IndexFactory.insert_index!(person)
 
       assert [%{id: ^person_id}] = Ambry.Search.search(original_name)
       assert [] = Ambry.Search.search(new_name)
@@ -380,9 +377,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "updates the search index" do
-      person = %{id: person_id, name: name} = insert(:person)
-
-      IndexFactory.insert_index!(person)
+      person = %{id: person_id, name: name} = :person |> insert() |> with_search_index()
 
       assert [%{id: ^person_id}] = Ambry.Search.search(name)
 

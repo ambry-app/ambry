@@ -3,7 +3,6 @@ defmodule Ambry.BooksTest do
 
   alias Ambry.Books
   alias Ambry.PubSub.BroadcastAsync
-  alias Ambry.Search.IndexFactory
 
   describe "list_books/0" do
     test "returns the first 10 books sorted by title" do
@@ -277,10 +276,8 @@ defmodule Ambry.BooksTest do
     end
 
     test "updates the search index" do
-      %{id: book_id, title: original_title} = book = insert(:book)
+      %{id: book_id, title: original_title} = book = :book |> insert() |> with_search_index()
       %{title: new_title} = params_for(:book)
-
-      IndexFactory.insert_index!(book)
 
       assert [%{id: ^book_id}] = Ambry.Search.search(original_title)
       assert [] = Ambry.Search.search(new_title)
@@ -322,9 +319,7 @@ defmodule Ambry.BooksTest do
     end
 
     test "updates the search index" do
-      book = %{id: book_id, title: title} = insert(:book)
-
-      IndexFactory.insert_index!(book)
+      book = %{id: book_id, title: title} = :book |> insert() |> with_search_index()
 
       assert [%{id: ^book_id}] = Ambry.Search.search(title)
 
@@ -646,13 +641,11 @@ defmodule Ambry.BooksTest do
       %{name: new_name} = params_for(:series)
 
       series =
-        insert(:series,
-          series_books: [build(:series_book, book: book)]
-        )
+        :series
+        |> insert(series_books: [build(:series_book, book: book)])
+        |> with_search_index()
 
       %{id: series_id, name: original_name} = series
-
-      IndexFactory.insert_index!(series)
 
       assert %{id: ^series_id} = Ambry.Search.find_first(original_name, Books.Series)
       refute Ambry.Search.find_first(new_name, Books.Series)
@@ -698,13 +691,11 @@ defmodule Ambry.BooksTest do
       book = insert(:book)
 
       series =
-        insert(:series,
-          series_books: [build(:series_book, book: book)]
-        )
+        :series
+        |> insert(series_books: [build(:series_book, book: book)])
+        |> with_search_index()
 
       %{id: series_id, name: name} = series
-
-      IndexFactory.insert_index!(series)
 
       assert %{id: ^series_id} = Ambry.Search.find_first(name, Books.Series)
 

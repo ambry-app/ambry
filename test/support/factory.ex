@@ -16,6 +16,7 @@ defmodule Ambry.Factory do
   alias Ambry.People.BookAuthor
   alias Ambry.People.Narrator
   alias Ambry.People.Person
+  alias Ambry.Search.Index
 
   # Users
 
@@ -135,19 +136,15 @@ defmodule Ambry.Factory do
       abridged: Enum.random([true, false]),
       published: Faker.Date.backward(15_466),
       notes: Faker.Lorem.sentence(),
-      description: Faker.Lorem.paragraph()
+      description: Faker.Lorem.paragraph(),
+      source_path: valid_source_path()
     }
   end
 
   def with_source_files(%Media{} = media, type \\ :m4a, count \\ 1) do
     audio_file_disk_path = valid_audio(type)
-    source_path = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
 
-    %{
-      media
-      | source_path: source_path,
-        source_files: for(_ <- 1..count, do: audio_file_disk_path)
-    }
+    %{media | source_files: for(_ <- 1..count, do: audio_file_disk_path)}
   end
 
   def with_output_files(media, processor \\ :auto)
@@ -191,6 +188,31 @@ defmodule Ambry.Factory do
     }
   end
 
+  # Search indexes
+
+  def with_search_index(%_{__meta__: %{state: :built}}),
+    do: raise("Inserting search indexes requires database persisted records")
+
+  def with_search_index(%Person{id: id} = person) do
+    Index.insert!(:person, id)
+    person
+  end
+
+  def with_search_index(%Book{id: id} = book) do
+    Index.insert!(:book, id)
+    book
+  end
+
+  def with_search_index(%Series{id: id} = series) do
+    Index.insert!(:series, id)
+    series
+  end
+
+  def with_search_index(%Media{id: id} = media) do
+    Index.insert!(:media, id)
+    media
+  end
+
   # Images and Thumbnails
 
   def with_image(%Person{} = person) do
@@ -228,6 +250,8 @@ defmodule Ambry.Factory do
   end
 
   # Test files
+
+  def valid_source_path, do: Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
 
   def valid_image(:person), do: copy_test_image("test/support/files/jules_verne.jpg")
   def valid_image(:media), do: copy_test_image("test/support/files/mysterious_island.jpg")

@@ -126,18 +126,6 @@ defmodule Ambry.FactoryTest do
       assert %Person{} = author2.person
     end
 
-    test "creates a book with an author, but inserting each resource one at a time" do
-      person = insert(:person)
-      author = insert(:author, person: person)
-      book_author = build(:book_author, author: author)
-      book = insert(:book, book_authors: [book_author])
-
-      assert %Book{} = book
-      assert [%BookAuthor{author: author}] = book.book_authors
-      assert %Author{} = author
-      assert %Person{} = author.person
-    end
-
     test "creates a book that's part of a series" do
       book =
         insert(:book,
