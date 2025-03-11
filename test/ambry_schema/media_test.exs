@@ -41,7 +41,19 @@ defmodule AmbrySchema.MediaTest do
     }
     """
     test "resolves Media fields", %{conn: conn, user: user} do
-      media = insert(:media, status: :ready)
+      media =
+        :media
+        |> build(
+          book: build(:book),
+          media_narrators: [
+            build(:media_narrator, narrator: build(:narrator, person: build(:person)))
+          ],
+          chapters: [build(:chapter, title: "Chapter 1", time: Decimal.new(0))]
+        )
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
+
       insert(:player_state, user_id: user.id, media: media, status: :in_progress)
 
       %{
@@ -79,10 +91,9 @@ defmodule AmbrySchema.MediaTest do
                        "endTime" => _,
                        "title" => "Chapter 1"
                      }
-                     | _
                    ],
                    "book" => %{"__typename" => "Book"},
-                   "narrators" => [%{"__typename" => "Narrator"} | _],
+                   "narrators" => [%{"__typename" => "Narrator"}],
                    "playerState" => %{"__typename" => "PlayerState"},
                    "insertedAt" => "" <> _,
                    "updatedAt" => "" <> _
@@ -113,7 +124,13 @@ defmodule AmbrySchema.MediaTest do
     }
     """
     test "resolves PlayerState fields", %{conn: conn, user: user} do
-      media = insert(:media, status: :ready)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
+
       player_state = insert(:player_state, user_id: user.id, media: media, status: :in_progress)
 
       %{
@@ -208,7 +225,13 @@ defmodule AmbrySchema.MediaTest do
     test "creates a new player state when one doesn't yet exist for the given media", %{
       conn: conn
     } do
-      media = insert(:media, status: :ready)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
+
       media_gid = to_global_id("Media", media.id)
 
       assert %{player_states: []} = Ambry.Repo.preload(media, [:player_states])
@@ -238,7 +261,13 @@ defmodule AmbrySchema.MediaTest do
       conn: conn,
       user: user
     } do
-      media = insert(:media, status: :ready)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
+
       player_state = insert(:player_state, user_id: user.id, media: media, status: :in_progress)
       media_gid = to_global_id("Media", media.id)
       player_state_gid = to_global_id("PlayerState", player_state.id)
@@ -277,7 +306,13 @@ defmodule AmbrySchema.MediaTest do
     test "creates a new player state when one doesn't yet exist for the given media", %{
       conn: conn
     } do
-      media = insert(:media, status: :ready)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
+
       media_gid = to_global_id("Media", media.id)
 
       assert %{player_states: []} = Ambry.Repo.preload(media, [:player_states])
@@ -317,7 +352,13 @@ defmodule AmbrySchema.MediaTest do
       conn: conn,
       user: user
     } do
-      media = insert(:media, status: :ready)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
+
       player_state = insert(:player_state, user_id: user.id, media: media, status: :in_progress)
       media_gid = to_global_id("Media", media.id)
       player_state_gid = to_global_id("PlayerState", player_state.id)

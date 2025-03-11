@@ -28,8 +28,7 @@ defmodule AmbrySchema.PeopleTest do
     }
     """
     test "resolves Person fields", %{conn: conn} do
-      %{person: person} = insert(:author)
-      insert(:narrator, person: person, name: person.name)
+      person = insert(:person, authors: [build(:author)], narrators: [build(:narrator)])
 
       %{
         id: id,
@@ -83,10 +82,8 @@ defmodule AmbrySchema.PeopleTest do
     }
     """
     test "resolves Author fields", %{conn: conn} do
-      %{
-        id: id,
-        name: name
-      } = insert(:author)
+      person = insert(:person, authors: [build(:author)])
+      %{authors: [%{id: id, name: name}]} = person
 
       gid = to_global_id("Author", id)
 
@@ -131,10 +128,8 @@ defmodule AmbrySchema.PeopleTest do
     }
     """
     test "resolves Narrator fields", %{conn: conn} do
-      %{
-        id: id,
-        name: name
-      } = insert(:narrator)
+      person = insert(:person, narrators: [build(:narrator)])
+      %{narrators: [%{id: id, name: name}]} = person
 
       gid = to_global_id("Narrator", id)
 

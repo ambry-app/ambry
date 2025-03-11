@@ -13,7 +13,7 @@ defmodule Ambry.Search.IndexTest do
 
   describe "insert(:book, id)" do
     test "indexes a new book" do
-      %{book: %{title: book_title} = book} = insert(:media)
+      %{title: book_title} = book = insert(:book)
 
       assert :ok = Index.insert!(:book, book.id)
 
@@ -29,7 +29,15 @@ defmodule Ambry.Search.IndexTest do
       Index.insert!(:book, book.id)
       initial_book_record = fetch_record(book)
 
-      media = insert(:media, book: book)
+      media =
+        insert(:media,
+          book: book,
+          media_narrators:
+            build_list(3, :media_narrator,
+              narrator: fn -> build(:narrator, person: build(:person)) end
+            )
+        )
+
       narrator_references = Enum.map(media.media_narrators, &Reference.new(&1.narrator.person))
 
       # the narrators are not part of the initial book index record
@@ -101,7 +109,7 @@ defmodule Ambry.Search.IndexTest do
 
   describe "update(:book, id)" do
     test "updates the index of a book" do
-      %{book: %{title: book_title} = book} = insert(:media)
+      %{title: book_title} = book = insert(:book)
 
       assert :ok = Index.insert!(:book, book.id)
 
@@ -122,7 +130,16 @@ defmodule Ambry.Search.IndexTest do
 
   describe "update(:media, id)" do
     test "updates the index of all books involved in the operation" do
-      %{book: book_one, media_narrators: [%{narrator: narrator} | _rest]} = media = insert(:media)
+      %{book: book_one, media_narrators: [%{narrator: narrator} | _rest]} =
+        media =
+        insert(:media,
+          book: build(:book),
+          media_narrators:
+            build_list(3, :media_narrator,
+              narrator: fn -> build(:narrator, person: build(:person)) end
+            )
+        )
+
       book_two = insert(:book)
       Index.insert!(:book, book_one.id)
       Index.insert!(:book, book_two.id)
@@ -162,12 +179,14 @@ defmodule Ambry.Search.IndexTest do
       } =
         person =
         insert(:person,
-          authors: build_list(1, :author, person: nil),
-          narrators: build_list(1, :narrator, person: nil)
+          authors: build_list(1, :author),
+          narrators: build_list(1, :narrator)
         )
 
       book_one = insert(:book, book_authors: [%{author_id: author.id}])
-      %{book: book_two} = insert(:media, media_narrators: [%{narrator_id: narrator.id}])
+
+      %{book: book_two} =
+        insert(:media, book: build(:book), media_narrators: [%{narrator_id: narrator.id}])
 
       Index.insert!(:person, person.id)
       Index.insert!(:book, book_one.id)

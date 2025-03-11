@@ -1,14 +1,12 @@
 defmodule AmbryWeb.SearchLiveTest do
   use AmbryWeb.ConnCase
 
-  import Ambry.Search.IndexFactory
   import Phoenix.LiveViewTest
 
   setup :register_and_log_in_user
 
   test "renders search results page when searching for a book", %{conn: conn} do
-    %{title: book_title} = book = insert(:book)
-    insert_index!(book)
+    %{title: book_title} = :book |> insert() |> with_search_index()
 
     {:ok, _view, html} = live(conn, ~p"/search/#{book_title}")
 
@@ -16,8 +14,7 @@ defmodule AmbryWeb.SearchLiveTest do
   end
 
   test "renders search results page when searching for a person", %{conn: conn} do
-    %{name: person_name} = person = insert(:person)
-    insert_index!(person)
+    %{name: person_name} = :person |> insert() |> with_search_index()
 
     {:ok, _view, html} = live(conn, ~p"/search/#{person_name}")
 
@@ -25,8 +22,12 @@ defmodule AmbryWeb.SearchLiveTest do
   end
 
   test "renders search results page when searching for a series", %{conn: conn} do
-    %{series_books: [%{series: %{name: series_name} = series} | _rest]} = insert(:book)
-    insert_index!(series)
+    book =
+      :book
+      |> insert(series_books: [build(:series_book, series: build(:series))])
+      |> with_search_index()
+
+    %{series_books: [%{series: %{name: series_name}}]} = book
 
     {:ok, _view, html} = live(conn, ~p"/search/#{series_name}")
 

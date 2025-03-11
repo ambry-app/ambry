@@ -1,23 +1,38 @@
 defmodule AmbryWeb.PersonLiveTest do
-  use AmbryWeb.ConnCase
+  use AmbryWeb.ConnCase, async: true
 
   import Phoenix.LiveViewTest
 
   setup :register_and_log_in_user
 
   test "renders a person show page with authored books", %{conn: conn} do
-    %{book_authors: [%{author: %{person: %{id: person_id, name: person_name}}} | _]} =
-      insert(:book)
+    book =
+      insert(:book,
+        book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
+      )
 
-    {:ok, _view, html} = live(conn, ~p"/people/#{person_id}")
-    assert html =~ escape(person_name)
+    %{book_authors: [%{author: %{person: person}}]} = book
+
+    {:ok, _view, html} = live(conn, ~p"/people/#{person.id}")
+
+    assert html =~ person.name
+    assert html =~ book.title
   end
 
   test "renders a person show page with narrated books", %{conn: conn} do
-    %{media_narrators: [%{narrator: %{person: %{id: person_id} = person}} | _]} = insert(:media)
-    {:ok, %{name: person_name}} = Ambry.People.update_person(person, %{name: "Foo"})
+    media =
+      insert(:media,
+        book: build(:book),
+        media_narrators: [
+          build(:media_narrator, narrator: build(:narrator, person: build(:person)))
+        ]
+      )
 
-    {:ok, _view, html} = live(conn, ~p"/people/#{person_id}")
-    assert html =~ escape(person_name)
+    %{book: book, media_narrators: [%{narrator: %{person: person}}]} = media
+
+    {:ok, _view, html} = live(conn, ~p"/people/#{person.id}")
+
+    assert html =~ person.name
+    assert html =~ book.title
   end
 end

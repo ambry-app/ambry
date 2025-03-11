@@ -43,14 +43,19 @@ defmodule Ambry.Media.MediaTest do
 
   describe "output_id/1" do
     test "generates a new UUID if no output files exist yet" do
-      media = insert(:media, source_path: nil, mp4_path: nil, mpd_path: nil, hls_path: nil)
+      media = insert(:media, book: build(:book))
 
       uuid = Media.output_id(media)
       assert {:ok, _} = Ecto.UUID.cast(uuid)
     end
 
     test "returns the existing output id if it exists" do
-      media = build(:media)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
 
       uuid = Media.output_id(media)
       assert {:ok, _} = Ecto.UUID.cast(uuid)
@@ -83,12 +88,15 @@ defmodule Ambry.Media.MediaTest do
 
   describe "files/2" do
     test "returns a list of files with given extension from the media source path" do
-      media = build(:media)
-      create_fake_files!(media)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files(:mp3)
+        |> insert()
 
-      files = Media.files(media, [".mp3"])
-
-      assert ["bar.mp3", "baz.mp3", "foo.mp3"] = Enum.map(files, &Path.basename(&1))
+      assert files = Media.files(media, [".mp3"])
+      assert length(files) == 1
+      assert files |> hd() |> Path.extname() == ".mp3"
     end
 
     test "if the media's source path does not exist, returns an empty list" do

@@ -51,6 +51,19 @@ defmodule AmbryWeb.ConnCase do
   end
 
   @doc """
+  Setup helper that registers and logs in admin users.
+
+      setup :register_and_log_in_admin_user
+
+  It stores an updated connection and a registered admin user in the
+  test context.
+  """
+  def register_and_log_in_admin_user(%{conn: conn}) do
+    user = Ambry.Factory.insert(:admin)
+    %{conn: log_in_user(conn, user), user: user}
+  end
+
+  @doc """
   Logs the given `user` into the `conn`.
 
   It returns an updated `conn`.
@@ -78,5 +91,11 @@ defmodule AmbryWeb.ConnCase do
 
   def escape(string) do
     string |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+  end
+
+  def ensure_all_messages_handled(pid) do
+    # makes a genserver call to this pid and blocks for a response, ensuring
+    # that all pending messages have been handled
+    _ = :sys.get_state(pid)
   end
 end

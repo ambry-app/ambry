@@ -141,7 +141,7 @@ defmodule AmbryWeb.Admin.Components do
 
   defp admin_table_search_form(assigns) do
     ~H"""
-    <.form for={@search_form} phx-submit="search">
+    <.form for={@search_form} phx-submit="search" data-role="search-form">
       <input
         id={@search_form.id}
         type="search"
@@ -271,13 +271,13 @@ defmodule AmbryWeb.Admin.Components do
   attr :filter, :string, default: nil
   attr :row_click, :any, default: nil
 
-  slot :empty, required: true
+  slot :empty
   slot :row, required: true
 
   def flex_table(assigns) do
     ~H"""
     <%= if @rows == [] do %>
-      <p class="text-lg font-semibold">
+      <p :if={@empty} class="text-lg font-semibold" data-role="empty-message">
         <%= if @filter do %>
           No results for "{@filter}"
         <% else %>
@@ -331,13 +331,16 @@ defmodule AmbryWeb.Admin.Components do
 
   def sort_button(assigns) do
     ~H"""
-    <div
+    <button
+      type="button"
+      phx-click="sort"
+      phx-value-field={@sort_field}
+      data-role="sort-button"
       class="flex cursor-pointer select-none items-center gap-2 p-2"
-      phx-click={JS.push("sort", value: %{field: @sort_field})}
     >
       {render_slot(@inner_block)}
       <.sort_icon sort={@current_sort} sort_field={@sort_field} />
-    </div>
+    </button>
     """
   end
 

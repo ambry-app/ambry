@@ -16,6 +16,7 @@ defmodule Ambry.Factory do
   alias Ambry.People.BookAuthor
   alias Ambry.People.Narrator
   alias Ambry.People.Person
+  alias Ambry.Search.Index
 
   # Users
 
@@ -49,37 +50,22 @@ defmodule Ambry.Factory do
     %Person{
       name: Faker.Person.name(),
       description: Faker.Lorem.paragraph(),
-      image_path: "/uploads/images/" <> file_name(:image)
+      authors: [],
+      narrators: []
     }
   end
 
   def author_factory do
-    name = Faker.Person.name()
-
     %Author{
-      name: name,
-      person: build(:person, name: name)
+      name: Faker.Person.name(),
+      person: nil
     }
   end
 
   def narrator_factory do
-    name = Faker.Person.name()
-
     %Narrator{
-      name: name,
-      person: build(:person, name: name)
-    }
-  end
-
-  def media_narrator_factory do
-    %MediaNarrator{
-      narrator: build(:narrator)
-    }
-  end
-
-  def book_author_factory do
-    %BookAuthor{
-      author: build(:author)
+      name: Faker.Person.name(),
+      person: nil
     }
   end
 
@@ -89,9 +75,9 @@ defmodule Ambry.Factory do
     %Book{
       title: book_title(),
       published: Faker.Date.backward(15_466),
-      description: Faker.Lorem.paragraph(),
-      book_authors: build_list(Faker.random_between(1, 2), :book_author),
-      series_books: build_list(Faker.random_between(1, 2), :series_book)
+      published_format: Enum.random([:full, :year_month, :year]),
+      book_authors: [],
+      series_books: []
     }
   end
 
@@ -103,11 +89,19 @@ defmodule Ambry.Factory do
     ["The", prefix, type, "of", name] |> Enum.filter(& &1) |> Enum.join(" ")
   end
 
+  def book_author_factory do
+    %BookAuthor{
+      author: nil,
+      book: nil
+    }
+  end
+
   # Series
 
   def series_factory do
     %Series{
-      name: series_name()
+      name: series_name(),
+      series_books: []
     }
   end
 
@@ -130,46 +124,48 @@ defmodule Ambry.Factory do
   end
 
   def series_book_factory do
-    %SeriesBook{
-      series: build(:series),
-      book_number: Faker.random_between(1, 10)
-    }
+    %SeriesBook{book_number: Faker.random_between(1, 10)}
   end
 
   # Media
 
   def media_factory do
-    ExMachina.Sequence.reset([:chapter_time, :chapter_number])
-
-    chapters = build_list(Faker.random_between(10, 40), :chapter)
-    %{time: time} = List.last(chapters)
-
-    media_id = Ecto.UUID.generate()
-
     %Media{
-      book: build(:book),
-      media_narrators: build_list(Faker.random_between(1, 2), :media_narrator),
-      chapters: chapters,
       full_cast: Enum.random([true, false]),
-      status: Enum.random(Media.statuses()),
+      status: :pending,
       abridged: Enum.random([true, false]),
-      source_path: Ambry.Paths.source_media_disk_path(Ecto.UUID.generate()),
-      mpd_path: "/uploads/media/#{media_id}.mpd",
-      hls_path: "/uploads/media/#{media_id}.m3u8",
-      mp4_path: "/uploads/media/#{media_id}.mp4",
-      duration: Decimal.new(time + 300),
       published: Faker.Date.backward(15_466),
       notes: Faker.Lorem.sentence(),
       description: Faker.Lorem.paragraph(),
-      image_path: "/uploads/images/" <> file_name(:image)
+      source_path: fn -> valid_source_path() end
+    }
+  end
+
+  def with_source_files(%Media{} = media, type \\ :m4a, count \\ 1) do
+    audio_file_disk_path = valid_audio(type)
+
+    %{media | source_files: for(_ <- 1..count, do: audio_file_disk_path)}
+  end
+
+  def with_output_files(media, processor \\ :auto)
+
+  def with_output_files(%Media{__meta__: %{state: :loaded}} = media, processor) do
+    {:ok, media} = Ambry.Media.Processor.run!(media, processor)
+    media
+  end
+
+  def with_output_files(_media, _processor),
+    do: raise("Generating media output files requires database persisted media")
+
+  def media_narrator_factory do
+    %MediaNarrator{
+      narrator: nil,
+      media: nil
     }
   end
 
   def chapter_factory do
-    %Media.Chapter{
-      time: sequence(:chapter_time, &(&1 * 300)),
-      title: sequence(:chapter_number, &"Chapter #{&1 + 1}")
-    }
+    %Media.Chapter{}
   end
 
   # Player States
@@ -192,61 +188,95 @@ defmodule Ambry.Factory do
     }
   end
 
-  # Fake file handling
+  # Search indexes
 
-  defp file_name(type) do
-    Enum.join([Faker.Lorem.word(), Faker.File.file_name(type)], "-")
+  def with_search_index(%_{__meta__: %{state: :built}}),
+    do: raise("Inserting search indexes requires database persisted records")
+
+  def with_search_index(%Person{id: id} = person) do
+    Index.insert!(:person, id)
+    person
   end
 
-  def create_fake_files!(%Person{image_path: web_path}), do: create_fake_file(web_path)
-  def create_fake_files!(%Book{}), do: :ok
-
-  def create_fake_files!(%Media{
-        source_path: source_path,
-        mpd_path: mpd_path,
-        hls_path: hls_path,
-        mp4_path: mp4_path,
-        image_path: web_path
-      }) do
-    create_fake_source_files!(source_path)
-    create_fake_files([mpd_path, hls_path, Ambry.Paths.hls_playlist_path(hls_path), mp4_path])
-    if web_path, do: create_fake_file(web_path)
+  def with_search_index(%Book{id: id} = book) do
+    Index.insert!(:book, id)
+    book
   end
 
-  defp create_fake_files(list), do: Enum.each(list, &create_fake_file/1)
-
-  defp create_fake_file(web_path) do
-    disk_path = Ambry.Paths.web_to_disk(web_path)
-    create_file_if_not_exists!(disk_path)
+  def with_search_index(%Series{id: id} = series) do
+    Index.insert!(:series, id)
+    series
   end
 
-  def create_fake_source_files!(source_path) do
-    File.mkdir_p!(Path.join([source_path, "_out"]))
-
-    create_file_if_not_exists!(Path.join([source_path, "_out", "files.txt"]))
-
-    Enum.each(["foo.mp3", "bar.mp3", "baz.mp3"], fn file ->
-      [source_path, file] |> Path.join() |> create_file_if_not_exists!()
-    end)
+  def with_search_index(%Media{id: id} = media) do
+    Index.insert!(:media, id)
+    media
   end
 
-  defp create_file_if_not_exists!(disk_path) do
-    false = File.exists?(disk_path)
-    File.touch!(disk_path)
+  # Images and Thumbnails
+
+  def with_image(%Person{} = person) do
+    %{person | image_path: valid_image(:person)[:web_path]}
   end
 
-  # Real files
+  def with_image(%Media{} = media) do
+    %{media | image_path: valid_image(:media)[:web_path]}
+  end
 
-  def valid_image do
+  def with_thumbnails(%Person{} = person) do
+    %{web_path: image_web_path} = valid_image(:person)
+
+    thumbnails_attrs = Ambry.Thumbnails.generate_thumbnails!(image_web_path)
+
+    thumbnails =
+      %Ambry.Thumbnails{}
+      |> Ambry.Thumbnails.changeset(thumbnails_attrs)
+      |> Ecto.Changeset.apply_action!(:insert)
+
+    %{person | image_path: image_web_path, thumbnails: thumbnails}
+  end
+
+  def with_thumbnails(%Media{} = media) do
+    %{web_path: image_web_path} = valid_image(:media)
+
+    thumbnails_attrs = Ambry.Thumbnails.generate_thumbnails!(image_web_path)
+
+    thumbnails =
+      %Ambry.Thumbnails{}
+      |> Ambry.Thumbnails.changeset(thumbnails_attrs)
+      |> Ecto.Changeset.apply_action!(:insert)
+
+    %{media | image_path: image_web_path, thumbnails: thumbnails}
+  end
+
+  # Test files
+
+  def valid_source_path do
+    path = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
+    File.mkdir_p!(path)
+    path
+  end
+
+  def valid_image(:person), do: copy_test_image("test/support/files/jules_verne.jpg")
+  def valid_image(:media), do: copy_test_image("test/support/files/mysterious_island.jpg")
+
+  defp copy_test_image(test_file_path) do
     id = Ecto.UUID.generate()
     filename = "#{id}.jpg"
     disk_path = Ambry.Paths.images_disk_path(filename)
     web_path = "/uploads/images/#{filename}"
-    File.cp!("test/support/images/jules_verne.jpg", disk_path)
+    File.cp!(test_file_path, disk_path)
 
     %{
       web_path: web_path,
       disk_path: Ambry.Paths.web_to_disk(web_path)
     }
   end
+
+  def valid_audio(:flac), do: "test/support/files/sample.flac"
+  def valid_audio(:m4a), do: "test/support/files/sample.m4a"
+  def valid_audio(:mp3), do: "test/support/files/sample.mp3"
+  def valid_audio(:ogg), do: "test/support/files/sample.ogg"
+  def valid_audio(:opus), do: "test/support/files/sample.opus"
+  def valid_audio(:wav), do: "test/support/files/sample.wav"
 end
