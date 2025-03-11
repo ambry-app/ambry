@@ -24,7 +24,10 @@ defmodule AmbrySchema.BooksTest do
     }
     """
     test "resolves SeriesBook fields", %{conn: conn} do
-      %{series_books: [%{id: id, book_number: book_number} | _]} = insert(:book)
+      book =
+        insert(:book, series_books: [build(:series_book, book_number: 1, series: build(:series))])
+
+      %{series_books: [%{id: id, book_number: book_number}]} = book
       gid = to_global_id("SeriesBook", id)
 
       conn =
@@ -112,13 +115,29 @@ defmodule AmbrySchema.BooksTest do
     }
     """
     test "resolves Book fields", %{conn: conn} do
-      %{book: book} = insert(:media, status: :ready)
+      media =
+        :media
+        |> build(
+          media_narrators: [
+            build(:media_narrator, narrator: build(:narrator, person: build(:person)))
+          ],
+          book:
+            build(:book,
+              series_books: [build(:series_book, series: build(:series))],
+              book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
+            )
+        )
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
 
       %{
-        id: id,
-        title: title,
-        published: published
-      } = book
+        book: %{
+          id: id,
+          title: title,
+          published: published
+        }
+      } = media
 
       gid = to_global_id("Book", id)
 
@@ -136,9 +155,9 @@ defmodule AmbrySchema.BooksTest do
                    "id" => ^gid,
                    "title" => ^title,
                    "published" => ^published_match,
-                   "authors" => [%{"__typename" => "Author"} | _],
-                   "seriesBooks" => [%{"__typename" => "SeriesBook"} | _],
-                   "media" => [%{"__typename" => "Media"} | _],
+                   "authors" => [%{"__typename" => "Author"}],
+                   "seriesBooks" => [%{"__typename" => "SeriesBook"}],
+                   "media" => [%{"__typename" => "Media"}],
                    "insertedAt" => "" <> _,
                    "updatedAt" => "" <> _
                  }

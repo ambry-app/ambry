@@ -42,7 +42,14 @@ defmodule AmbrySchema.AccountsTest do
 
     test "resolves User fields", %{conn: conn, user: user} do
       %{email: email} = user
-      player_state = insert(:player_state, user_id: user.id, status: :in_progress)
+
+      player_state =
+        insert(:player_state,
+          user_id: user.id,
+          status: :in_progress,
+          media: build(:media, book: build(:book))
+        )
+
       Ambry.Accounts.update_user_loaded_player_state(user, player_state.id)
 
       conn =
