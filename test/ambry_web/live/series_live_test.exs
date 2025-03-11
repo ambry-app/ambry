@@ -12,6 +12,6 @@ defmodule AmbryWeb.SeriesLiveTest do
     {:ok, _view, html} = live(conn, ~p"/series/#{series.id}")
 
     assert html =~ series.name
-    assert html =~ book.title
+    assert html =~ String.replace(book.title, "'", "&#39;")
   end
 end
