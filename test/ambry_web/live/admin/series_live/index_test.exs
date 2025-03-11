@@ -14,7 +14,7 @@ defmodule AmbryWeb.Admin.SeriesLive.IndexTest do
     end
 
     test "renders list of series", %{conn: conn} do
-      author = insert(:author)
+      author = insert(:author, person: build(:person, name: "Test Author"))
       book = insert(:book, book_authors: [%{author: author}])
 
       series =
@@ -26,7 +26,7 @@ defmodule AmbryWeb.Admin.SeriesLive.IndexTest do
       {:ok, view, _html} = live(conn, ~p"/admin/series")
 
       assert has_element?(view, "[data-role='series-name']", series.name)
-      assert has_element?(view, "[data-role='series-authors']", "by #{author.person.name}")
+      assert has_element?(view, "[data-role='series-authors']", "by #{author.name}")
       assert has_element?(view, "[data-role='series-book-count']", "1")
     end
 

@@ -26,14 +26,20 @@ defmodule AmbryWeb.Admin.UserLive.IndexTest do
 
       # Create 2 in-progress and 1 finished media
       :media
+      |> build(book: build(:book))
+      |> with_source_files()
       |> insert()
       |> then(&insert(:player_state, user: user, media: &1, status: :in_progress))
 
       :media
+      |> build(book: build(:book))
+      |> with_source_files()
       |> insert()
       |> then(&insert(:player_state, user: user, media: &1, status: :in_progress))
 
       :media
+      |> build(book: build(:book))
+      |> with_source_files()
       |> insert()
       |> then(&insert(:player_state, user: user, media: &1, status: :finished))
 

@@ -14,7 +14,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
     end
 
     test "renders list of books", %{conn: conn} do
-      author = insert(:author)
+      author = insert(:author, person: build(:person))
       series = insert(:series)
 
       book =
@@ -27,7 +27,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
       {:ok, view, _html} = live(conn, ~p"/admin/books")
 
       assert has_element?(view, "[data-role='book-title']", book.title)
-      assert has_element?(view, "[data-role='book-authors']", "by #{author.person.name}")
+      assert has_element?(view, "[data-role='book-authors']", "by #{author.name}")
       assert has_element?(view, "[data-role='book-series']", "#{series.name} #1")
     end
 
@@ -38,7 +38,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
       assert has_element?(view, "[data-role='empty-message']")
 
       # Create a new book
-      author = insert(:author)
+      author = insert(:author, person: build(:person))
       book = insert(:book, title: "New Book", book_authors: [%{author: author}])
       book |> Ambry.Books.PubSub.BookCreated.new() |> Ambry.PubSub.broadcast()
       ensure_all_messages_handled(view.pid)

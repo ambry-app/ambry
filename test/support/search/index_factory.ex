@@ -1,6 +1,8 @@
 defmodule Ambry.Search.IndexFactory do
   @moduledoc false
 
+  # TODO: remove me
+
   alias Ambry.Books.Book
   alias Ambry.Books.Series
   alias Ambry.Media.Media

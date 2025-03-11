@@ -68,8 +68,12 @@ defmodule AmbryWeb.Admin.PersonLive.IndexTest do
 
   describe "Delete" do
     test "cannot delete a person that has authored books", %{conn: conn} do
-      author = insert(:author)
-      insert(:book, book_authors: [%{author: author}])
+      book =
+        insert(:book,
+          book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
+        )
+
+      %{book_authors: [%{author: author}]} = book
 
       {:ok, view, _html} = live(conn, ~p"/admin/people")
 
@@ -85,9 +89,15 @@ defmodule AmbryWeb.Admin.PersonLive.IndexTest do
     end
 
     test "cannot delete a person that has narrated media", %{conn: conn} do
-      book = insert(:book, book_authors: [])
-      narrator = insert(:narrator)
-      insert(:media, book: book, media_narrators: [%{narrator: narrator}])
+      media =
+        insert(:media,
+          book: build(:book),
+          media_narrators: [
+            build(:media_narrator, narrator: build(:narrator, person: build(:person)))
+          ]
+        )
+
+      %{media_narrators: [%{narrator: narrator}]} = media
 
       {:ok, view, _html} = live(conn, ~p"/admin/people")
 
