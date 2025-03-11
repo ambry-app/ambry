@@ -251,7 +251,11 @@ defmodule Ambry.Factory do
 
   # Test files
 
-  def valid_source_path, do: Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
+  def valid_source_path do
+    path = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
+    File.mkdir_p!(path)
+    path
+  end
 
   def valid_image(:person), do: copy_test_image("test/support/files/jules_verne.jpg")
   def valid_image(:media), do: copy_test_image("test/support/files/mysterious_island.jpg")

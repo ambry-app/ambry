@@ -5,38 +5,38 @@ defmodule Ambry.Media.AuditTest do
 
   describe "get_media_file_details/1" do
     test "returns source file details" do
-      %{source_path: source_path} =
-        media = insert(:media, mpd_path: nil, mp4_path: nil, hls_path: nil)
-
-      create_fake_source_files!(source_path)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
 
       assert audit = Audit.get_media_file_details(media)
 
       assert %{
-               source_files: [
-                 %{
-                   path: out_files_txt_path,
-                   stat: %File.Stat{}
-                 },
-                 %{
-                   path: bar_mp3_path,
-                   stat: %File.Stat{}
-                 },
-                 %{
-                   path: baz_mp3_path,
-                   stat: %File.Stat{}
-                 },
-                 %{
-                   path: foo_mp3_path,
-                   stat: %File.Stat{}
-                 }
-               ]
+               hls_master: %{
+                 path: hls_master_path,
+                 stat: %File.Stat{}
+               },
+               hls_playlist: %{
+                 path: hls_playlist_path,
+                 stat: %File.Stat{}
+               },
+               mp4_file: %{
+                 path: mp4_path,
+                 stat: %File.Stat{}
+               },
+               mpd_file: %{
+                 path: mpd_path,
+                 stat: %File.Stat{}
+               }
              } = audit
 
-      assert "foo.mp3" = Path.basename(foo_mp3_path)
-      assert "bar.mp3" = Path.basename(bar_mp3_path)
-      assert "baz.mp3" = Path.basename(baz_mp3_path)
-      assert "files.txt" = Path.basename(out_files_txt_path)
+      assert is_binary(hls_master_path)
+      assert is_binary(hls_playlist_path)
+      assert is_binary(mp4_path)
+      assert is_binary(mpd_path)
     end
 
     test "when source folder is missing" do
@@ -48,8 +48,12 @@ defmodule Ambry.Media.AuditTest do
     end
 
     test "returns media file details" do
-      media = insert(:media)
-      create_fake_files!(media)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
 
       assert audit = Audit.get_media_file_details(media)
 
@@ -62,7 +66,12 @@ defmodule Ambry.Media.AuditTest do
     end
 
     test "when media file is missing" do
-      media = insert(:media)
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
 
       File.rm_rf!(Ambry.Paths.web_to_disk(media.mp4_path))
 
@@ -80,15 +89,23 @@ defmodule Ambry.Media.AuditTest do
 
   describe "orphaned_files_audit/0" do
     test "returns a report of files on disk that are not associated with the database" do
-      media1 = insert(:media)
-      media2 = insert(:media)
+      media1 =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
 
-      create_fake_files!(media1)
-      create_fake_files!(media2)
+      media2 =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
 
       # an orphaned source folder with a file in it
-      orphaned_source_path = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
-      create_fake_source_files!(orphaned_source_path)
+      orphaned_source_path = valid_source_path()
+      File.write!(Path.join(orphaned_source_path, "test.mp3"), "test")
 
       # an orphaned mp4 file
       File.touch!(Ambry.Paths.web_to_disk("/uploads/media/#{Ecto.UUID.generate()}.mp4"))

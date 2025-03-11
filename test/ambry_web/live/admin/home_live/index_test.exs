@@ -7,8 +7,11 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
 
   describe "Index" do
     test "renders admin dashboard with all stats", %{conn: conn} do
-      author = insert(:author)
-      narrator = insert(:narrator)
+      person1 = :person |> build() |> with_thumbnails() |> insert()
+      person2 = :person |> build() |> with_thumbnails() |> insert()
+
+      author = insert(:author, person: person1)
+      narrator = insert(:narrator, person: person2)
       series = insert(:series)
 
       book =
@@ -17,9 +20,16 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
           series_books: [%{series: series, book_number: 1}]
         )
 
-      media = insert(:media, status: :ready, book: book, media_narrators: [%{narrator: narrator}])
-
-      create_fake_files!([author.person, narrator.person, book, media])
+      :media
+      |> build(
+        status: :ready,
+        book: book,
+        media_narrators: [%{narrator: narrator}]
+      )
+      |> with_thumbnails()
+      |> with_source_files()
+      |> insert()
+      |> with_output_files()
 
       {:ok, view, html} = live(conn, ~p"/admin")
 
