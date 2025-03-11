@@ -137,7 +137,7 @@ defmodule Ambry.Factory do
       published: Faker.Date.backward(15_466),
       notes: Faker.Lorem.sentence(),
       description: Faker.Lorem.paragraph(),
-      source_path: valid_source_path()
+      source_path: fn -> valid_source_path() end
     }
   end
 

@@ -411,7 +411,9 @@ defmodule Ambry.AccountsTest do
   describe "update_user_loaded_player_state/2" do
     test "updates a users currently loaded player state" do
       user = insert(:user)
-      player_state = insert(:player_state, user_id: user.id)
+
+      player_state =
+        insert(:player_state, user_id: user.id, media: build(:media, book: build(:book)))
 
       {:ok, user} = Accounts.update_user_loaded_player_state(user, player_state.id)
 

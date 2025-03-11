@@ -40,7 +40,7 @@ defmodule Ambry.Media.AuditTest do
     end
 
     test "when source folder is missing" do
-      media = insert(:media, mpd_path: nil, mp4_path: nil, hls_path: nil)
+      media = insert(:media, source_path: "/some/path", book: build(:book))
 
       assert audit = Audit.get_media_file_details(media)
 
