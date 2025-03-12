@@ -8,7 +8,31 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   @impl Phoenix.LiveComponent
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-3xl space-y-4">
+    <div class="h-screen p-6">
+      <div class="mx-auto flex h-full max-w-3xl flex-col space-y-4">
+        <div class="text-2xl font-bold">Import files from server file-system</div>
+        <div class="flex-1 overflow-auto border-t border-b border-zinc-200 dark:border-zinc-800">
+          <.tree_node
+            :for={file_or_folder <- @browser.tree}
+            level={0}
+            node={file_or_folder}
+            open_folders={@open_folders}
+            selected_files={@selected_files}
+            allowed_extensions={@allowed_extensions}
+            target={@myself}
+          />
+        </div>
+        <div class="flex items-center gap-2">
+          <.button color={:brand} phx-click="confirm-selection" phx-target={@myself}>Select Files</.button>
+          <div class="grow">{MapSet.size(@selected_files)} file(s) selected</div>
+          <.button color={:zinc} phx-click="clear" phx-target={@myself}>Clear</.button>
+          <.button type="button" color={:zinc} phx-click={JS.exec("data-cancel", to: "#select-files-modal")}>
+            Cancel
+          </.button>
+        </div>
+      </div>
+    </div>
+    <%!-- <div class="mx-auto max-w-3xl space-y-4">
       <div class="text-2xl font-bold">Import files from server file-system</div>
 
       <div class="space-y-1">
@@ -31,7 +55,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
           Cancel
         </.button>
       </div>
-    </div>
+    </div> --%>
     """
   end
 
