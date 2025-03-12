@@ -73,7 +73,7 @@ defmodule AmbryWeb.CoreComponents do
           id={"#{@id}-container"}
           phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
           phx-key="escape"
-          class="relative p-6 transition"
+          class="relative transition"
         >
           <div class="absolute top-6 right-5">
             <button
