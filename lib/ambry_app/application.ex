@@ -7,6 +7,11 @@ defmodule AmbryApp.Application do
 
   @impl Application
   def start(_type, _args) do
+    # attach Sentry to the logger
+    :logger.add_handler(:sentry_handler, Sentry.LoggerHandler, %{
+      config: %{metadata: [:file, :line]}
+    })
+
     # ensures all migrations have been run on application start
     migrate!()
 

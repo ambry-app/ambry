@@ -8,6 +8,7 @@ defmodule AmbryWeb.UserAuth do
   import Plug.Conn
 
   alias Ambry.Accounts
+  alias Ambry.Accounts.User
 
   # Make the remember me cookie valid for 60 days.
   # If you want bump or reduce this value, also change
@@ -95,7 +96,11 @@ defmodule AmbryWeb.UserAuth do
   """
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
-    user = user_token && Accounts.get_user_by_session_token(user_token)
+
+    user =
+      user_token &&
+        user_token |> Accounts.get_user_by_session_token() |> with_sentry_user_context()
+
     assign(conn, :current_user, user)
   end
 
@@ -119,7 +124,10 @@ defmodule AmbryWeb.UserAuth do
   """
   def fetch_api_user(conn, _opts) do
     user_token = get_token_from_header(conn)
-    user = user_token && Accounts.get_user_by_session_token(user_token)
+
+    user =
+      user_token &&
+        user_token |> Accounts.get_user_by_session_token() |> with_sentry_user_context()
 
     conn
     |> assign(:api_user, user)
@@ -202,7 +210,7 @@ defmodule AmbryWeb.UserAuth do
   defp mount_current_user(session, socket) do
     Phoenix.Component.assign_new(socket, :current_user, fn ->
       if user_token = session["user_token"] do
-        Accounts.get_user_by_session_token(user_token)
+        user_token |> Accounts.get_user_by_session_token() |> with_sentry_user_context()
       end
     end)
   end
@@ -296,5 +304,16 @@ defmodule AmbryWeb.UserAuth do
     conn
     |> redirect(to: ~p"/users/log_in")
     |> halt()
+  end
+
+  defp with_sentry_user_context(nil), do: nil
+
+  defp with_sentry_user_context(%User{} = user) do
+    Sentry.Context.set_user_context(%{
+      id: user.id,
+      email: user.email
+    })
+
+    user
   end
 end

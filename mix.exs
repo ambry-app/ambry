@@ -89,6 +89,7 @@ defmodule Ambry.MixProject do
       {:phoenix, "~> 1.7.0"},
       {:postgrex, ">= 0.0.0"},
       {:req, "~> 0.3"},
+      {:sentry, "~> 10.8"},
       {:styler, "~> 1.0", only: [:dev, :test], runtime: false},
       {:swoosh, "~> 1.3"},
       {:tailwind_formatter, "~> 0.4.0", only: [:dev, :test], runtime: false},

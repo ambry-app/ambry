@@ -61,6 +61,8 @@ defmodule AmbryWeb do
         layout: {AmbryWeb.Layouts, :app},
         container: {:div, class: "contents"}
 
+      on_mount Sentry.LiveViewHook
+
       unquote(html_helpers())
     end
   end
