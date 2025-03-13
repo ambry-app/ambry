@@ -43,6 +43,7 @@ RUN mix assets.deploy
 
 # build release
 
+RUN mix sentry.package_source_code
 RUN mix release --path /app --quiet
 
 

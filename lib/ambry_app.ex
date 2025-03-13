@@ -11,6 +11,7 @@ defmodule AmbryApp do
       Finch,
       Oban,
       Phoenix.PubSub,
+      Sentry,
       # Internal
       Ambry,
       AmbryScraping,

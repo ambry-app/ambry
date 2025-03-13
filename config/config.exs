@@ -65,6 +65,16 @@ config :mime, :types, %{
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Configure Sentry
+config :sentry,
+  environment_name: Mix.env(),
+  enable_source_code_context: true,
+  root_source_code_paths: [File.cwd!()],
+  client: Ambry.SentryFinchHTTPClient,
+  integrations: [
+    oban: [capture_errors: true]
+  ]
+
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "3.4.10",
