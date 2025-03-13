@@ -5,8 +5,13 @@
 
 ## Intro
 
-Ambry is your personal audiobook shelf. Upload your books to a self hosted
-server and stream to any device over the web.
+Ambry is your personal audiobook library. Upload your books to a self-hosted
+server and stream to any device over the web using a browser or a native mobile
+app.
+
+This repo holds the code for the Ambry server.
+
+The mobile app code is located here: https://github.com/ambry-app/ambry-mobile-next
 
 ## Running the server
 
@@ -111,7 +116,7 @@ The first time Ambry is booted up, it will walk you through setting up your
 initial admin user account. Just visit the URL at which you're hosting Ambry to
 get started:
 
--   `http(s)://your-ambry-domain/`
+- `http(s)://your-ambry-domain/`
 
 Once that's done, the server will restart and you can log into your new account
 and get started using Ambry!
@@ -126,14 +131,14 @@ ffmpeg and shaka-packager available in your path.
 
 ### Requirements
 
--   A [PostgreSQL](https://www.postgresql.org/) server running on localhost (you
-    can customize the details in `./config/dev.exs`)
--   [Elixir](https://elixir-lang.org/) and [Erlang/OTP](https://www.erlang.org/)
-    installed
--   [FFmpeg](https://ffmpeg.org/) installed
--   [shaka-packager](https://github.com/google/shaka-packager) installed
--   (optional) [FireFox](https://www.mozilla.org/firefox) running in headless
-    mode with marionette enabled
+- A [PostgreSQL](https://www.postgresql.org/) server running on localhost (you
+  can customize the details in `./config/dev.exs`)
+- [Elixir](https://elixir-lang.org/) and [Erlang/OTP](https://www.erlang.org/)
+  installed
+- [FFmpeg](https://ffmpeg.org/) installed
+- [shaka-packager](https://github.com/google/shaka-packager) installed
+- (optional) [FireFox](https://www.mozilla.org/firefox) running in headless
+  mode with marionette enabled
 
 For Elixir/Erlang you can easily install all the right versions using
 [asdf](https://asdf-vm.com/) by running `asdf install` from within the root
