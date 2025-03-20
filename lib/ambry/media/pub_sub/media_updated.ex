@@ -16,7 +16,7 @@ defmodule Ambry.Media.PubSub.MediaUpdated do
     }
   end
 
-  def wildcard_topic, do: "media-deleted:*"
+  def wildcard_topic, do: "media-updated:*"
 
-  def media_topic(%Media{} = media), do: "media-deleted:#{media.id}"
+  def media_topic(%Media{} = media), do: "media-updated:#{media.id}"
 end
