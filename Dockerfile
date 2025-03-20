@@ -60,7 +60,7 @@ RUN apk --update upgrade && \
 
 RUN curl -L \
   -o /usr/local/bin/shaka-packager \
-  https://github.com/shaka-project/shaka-packager/releases/download/v$SHAKE_PACKAGER_VERSION/packager-linux-x64
+  https://github.com/shaka-project/shaka-packager/releases/download/v$SHAKA_PACKAGER_VERSION/packager-linux-x64
 
 RUN chmod +x /usr/local/bin/shaka-packager
 
