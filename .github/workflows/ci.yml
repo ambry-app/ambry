@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.20
         with:
@@ -36,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.20
         with:
@@ -76,7 +76,7 @@ jobs:
           stat $(which shaka-packager)
           shaka-packager --version
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.20
         with:
@@ -97,7 +97,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.20
         with:
@@ -116,7 +116,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Elixir
         uses: erlef/setup-beam@v1.20
         with:
@@ -138,7 +138,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Elixir
         id: setup_beam
         uses: erlef/setup-beam@v1.20
