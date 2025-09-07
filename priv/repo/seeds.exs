@@ -24,7 +24,7 @@ alias Ambry.Thumbnails
 
 cwd = File.cwd!()
 
-Repo.transaction(fn ->
+Repo.transact(fn ->
   ## People ##
 
   %{authors: [jules_verne]} =
