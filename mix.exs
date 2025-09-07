@@ -102,9 +102,9 @@ defmodule Ambry.MixProject do
 
   def npm_deps do
     [
-      {:"decimal.js", "10.5.0"},
+      {:"decimal.js", "10.6.0"},
       {:"platform-detect", "3.0.1"},
-      {:"shaka-player", "4.13.8"},
+      {:"shaka-player", "4.16.0"},
       {:topbar, "3.0.0"}
     ]
   end
