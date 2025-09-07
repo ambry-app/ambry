@@ -79,7 +79,7 @@ defmodule Ambry.MixProject do
       {:natural_order, "~> 0.3"},
       {:npm_deps, "~> 0.3", runtime: false},
       {:oban_web, "~> 2.11"},
-      {:oban, "~> 2.11"},
+      {:oban, "~> 2.20"},
       {:patch, "~> 0.13", only: [:test]},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 4.0", override: true},
