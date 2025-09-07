@@ -147,7 +147,8 @@ defmodule Ambry.Search.Index do
           preload: [:series_books, authors: [:person]]
       )
 
-    {series_to_insert, series_to_delete} = Enum.split_with(series, &(length(&1.series_books) > 0))
+    {series_to_insert, series_to_delete} =
+      Enum.split_with(series, &(not Enum.empty?(&1.series_books)))
 
     series_to_insert
     |> Enum.map(&series_record/1)
