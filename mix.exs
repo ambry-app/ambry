@@ -88,7 +88,7 @@ defmodule Ambry.MixProject do
       {:phoenix_live_dashboard, "~> 0.8"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1", override: true},
-      {:phoenix, "~> 1.7.0"},
+      {:phoenix, "~> 1.8.0"},
       {:postgrex, ">= 0.0.0"},
       {:quokka, "~> 2.11", only: [:dev, :test], runtime: false},
       {:req, "~> 0.3"},
