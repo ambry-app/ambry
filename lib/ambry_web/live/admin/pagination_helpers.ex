@@ -88,9 +88,7 @@ defmodule AmbryWeb.Admin.PaginationHelpers do
     key = parse_order_key(key, fields)
     dir = parse_order_dir(dir)
 
-    if is_nil(key) || is_nil(dir) do
-      nil
-    else
+    if !(is_nil(key) || is_nil(dir)) do
       {key, dir}
     end
   end

@@ -310,7 +310,7 @@ defmodule AmbryWeb.CoreComponents do
 
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
-    |> assign(:errors, Enum.map(errors, &translate_error(&1)))
+    |> assign(:errors, Enum.map(errors, &translate_error/1))
     |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
     |> assign_new(:value, fn -> field.value end)
     |> input()
@@ -441,7 +441,7 @@ defmodule AmbryWeb.CoreComponents do
     assigns =
       assigns
       |> assign(field: nil)
-      |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
+      |> assign(:errors, Enum.map(field.errors, &translate_error/1))
       |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
 
     ~H"""

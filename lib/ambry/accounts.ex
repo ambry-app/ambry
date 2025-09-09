@@ -198,7 +198,7 @@ defmodule Ambry.Accounts do
 
     with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
          %UserToken{sent_to: email} <- Repo.one(query),
-         {:ok, _} <- Repo.transaction(user_email_multi(user, email, context)) do
+         {:ok, _} <- Repo.transact(user_email_multi(user, email, context)) do
       :ok
     else
       _error -> :error
@@ -278,7 +278,7 @@ defmodule Ambry.Accounts do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, changeset)
     |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, :all))
-    |> Repo.transaction()
+    |> Repo.transact()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
       {:error, :user, changeset, _actions_applied} -> {:error, changeset}
@@ -372,7 +372,7 @@ defmodule Ambry.Accounts do
   def confirm_user(token) do
     with {:ok, query} <- UserToken.verify_email_token_query(token, "confirm"),
          %User{} = user <- Repo.one(query),
-         {:ok, %{user: user}} <- Repo.transaction(confirm_user_multi(user)) do
+         {:ok, %{user: user}} <- Repo.transact(confirm_user_multi(user)) do
       {:ok, user}
     else
       _error -> :error
@@ -452,7 +452,7 @@ defmodule Ambry.Accounts do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, User.password_changeset(user, attrs))
     |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, :all))
-    |> Repo.transaction()
+    |> Repo.transact()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
       {:error, :user, changeset, _changes_so_far} -> {:error, changeset}
@@ -591,7 +591,7 @@ defmodule Ambry.Accounts do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, User.accept_invitation_changeset(user, attrs))
     |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, :all))
-    |> Repo.transaction()
+    |> Repo.transact()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
       {:error, :user, changeset, _changes_so_far} -> {:error, changeset}

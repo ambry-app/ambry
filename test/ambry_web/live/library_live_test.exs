@@ -19,6 +19,6 @@ defmodule AmbryWeb.LibraryLiveTest do
 
     {:ok, _view, html} = live(conn, ~p"/library")
 
-    assert html =~ book_title
+    assert html =~ html_escape(book_title)
   end
 end

@@ -2,7 +2,7 @@
   import_deps: [:absinthe, :ecto, :ecto_sql, :phoenix, :mneme, :oban, :oban_web],
   subdirectories: ["priv/*/migrations"],
   plugins: [
-    Styler,
+    Quokka,
     TailwindFormatter,
     Phoenix.LiveView.HTMLFormatter,
     Ambry.GraphQLSigilFormatter

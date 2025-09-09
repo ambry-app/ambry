@@ -20,8 +20,7 @@ defmodule AmbryWeb.ShelfLive do
           <FA.icon name="book-bookmark" class="mx-auto h-24 w-24 fill-current" />
 
           <p class="mt-4 text-center">
-            Your shelf is empty! Head on over to the
-            <.brand_link navigate={~p"/library"}>library</.brand_link>
+            Your shelf is empty! Head on over to the <.brand_link navigate={~p"/library"}>library</.brand_link>
             to pick a book.
           </p>
         </div>

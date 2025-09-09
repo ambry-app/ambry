@@ -89,7 +89,7 @@ defmodule AmbryWeb.ConnCase do
     Plug.Conn.put_req_header(conn, "authorization", "")
   end
 
-  def escape(string) do
+  def html_escape(string) do
     string |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
   end
 

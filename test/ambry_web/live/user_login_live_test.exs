@@ -64,7 +64,7 @@ defmodule AmbryWeb.UserLoginLiveTest do
 
       {:ok, _login_live, login_html} =
         lv
-        |> element(~s|a:fl-contains("register for one")|)
+        |> element("a", "register for one")
         |> render_click()
         |> follow_redirect(conn, ~p"/users/register")
 
@@ -78,7 +78,7 @@ defmodule AmbryWeb.UserLoginLiveTest do
 
       {:ok, _forgot_password_live, forgot_password_html} =
         lv
-        |> element(~s{a:fl-contains('Forgot your password?')})
+        |> element("a", "Forgot your password?")
         |> render_click()
         |> follow_redirect(conn, ~p"/users/reset_password")
 

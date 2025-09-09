@@ -11,8 +11,7 @@ defmodule AmbryWeb.UserLoginLive do
         <:subtitle>
           Welcome to Ambry! Please sign in to your account below.
           <%= if @user_registration_enabled do %>
-            If you don't yet have an account, you can
-            <.brand_link navigate={~p"/users/register"}>
+            If you don't yet have an account, you can <.brand_link navigate={~p"/users/register"}>
               register for one
             </.brand_link>.
           <% end %>

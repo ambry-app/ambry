@@ -19,6 +19,6 @@ defmodule AmbryWeb.AudiobookLiveTest do
 
     {:ok, _view, html} = live(conn, ~p"/audiobooks/#{media_id}")
 
-    assert html =~ String.replace(book_title, "'", "&#39;")
+    assert html =~ html_escape(book_title)
   end
 end

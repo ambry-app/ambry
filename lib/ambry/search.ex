@@ -46,19 +46,19 @@ defmodule Ambry.Search do
   defp do_insert(type, id) do
     Index.insert!(type, id)
   rescue
-    _ -> :error
+    reason -> {:error, reason}
   end
 
   defp do_update(type, id) do
     Index.update!(type, id)
   rescue
-    _ -> :error
+    reason -> {:error, reason}
   end
 
   defp do_delete(type, id) do
     Index.delete!(type, id)
   rescue
-    _ -> :error
+    reason -> {:error, reason}
   end
 
   def search(query_string) do

@@ -10,7 +10,7 @@ defmodule AmbryWeb.SearchLiveTest do
 
     {:ok, _view, html} = live(conn, ~p"/search/#{book_title}")
 
-    assert html =~ escape(book_title)
+    assert html =~ html_escape(book_title)
   end
 
   test "renders search results page when searching for a person", %{conn: conn} do
@@ -18,7 +18,7 @@ defmodule AmbryWeb.SearchLiveTest do
 
     {:ok, _view, html} = live(conn, ~p"/search/#{person_name}")
 
-    assert html =~ escape(person_name)
+    assert html =~ html_escape(person_name)
   end
 
   test "renders search results page when searching for a series", %{conn: conn} do
@@ -31,6 +31,6 @@ defmodule AmbryWeb.SearchLiveTest do
 
     {:ok, _view, html} = live(conn, ~p"/search/#{series_name}")
 
-    assert html =~ escape(series_name)
+    assert html =~ html_escape(series_name)
   end
 end

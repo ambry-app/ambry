@@ -15,8 +15,8 @@ defmodule AmbryWeb.PersonLiveTest do
 
     {:ok, _view, html} = live(conn, ~p"/people/#{person.id}")
 
-    assert html =~ person.name
-    assert html =~ book.title
+    assert html =~ html_escape(person.name)
+    assert html =~ html_escape(book.title)
   end
 
   test "renders a person show page with narrated books", %{conn: conn} do
@@ -32,7 +32,7 @@ defmodule AmbryWeb.PersonLiveTest do
 
     {:ok, _view, html} = live(conn, ~p"/people/#{person.id}")
 
-    assert html =~ person.name
-    assert html =~ book.title
+    assert html =~ html_escape(person.name)
+    assert html =~ html_escape(book.title)
   end
 end
