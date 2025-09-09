@@ -24,8 +24,7 @@ defmodule AmbryWeb.UserResetPasswordLive do
 
       <p class="mt-4 text-center">
         <.brand_link navigate={~p"/users/register"}>Register</.brand_link>
-        |
-        <.brand_link navigate={~p"/users/log_in"}>Log in</.brand_link>
+        | <.brand_link navigate={~p"/users/log_in"}>Log in</.brand_link>
       </p>
     </.auth_form_card>
     """
