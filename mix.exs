@@ -14,13 +14,9 @@ defmodule Ambry.MixProject do
       deps: deps(),
       npm_deps: npm_deps(),
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.html": :test,
-        "coveralls.lcov": :test
-      ],
       dialyzer: [
-        plt_add_apps: [:mix, :ex_unit]
+        plt_add_apps: [:mix, :ex_unit],
+        flags: [:no_opaque]
       ],
       boundary: [
         default: [
@@ -44,6 +40,16 @@ defmodule Ambry.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(:dev), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.html": :test,
+        "coveralls.lcov": :test
+      ]
+    ]
+  end
 
   # Specifies your project dependencies.
   #
@@ -72,7 +78,7 @@ defmodule Ambry.MixProject do
       {:file_system, "~> 1.0"},
       {:finch, "~> 0.13"},
       {:floki, ">= 0.30.0"},
-      {:gettext, "~> 0.20"},
+      {:gettext, "~> 1.0"},
       {:hashids, "~> 2.0"},
       {:igniter, "~> 0.6", override: true},
       {:image, "~> 0.37"},

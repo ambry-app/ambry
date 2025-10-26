@@ -4,7 +4,7 @@
 
 # NOTE: make sure these versions match in .tool-versions
 # NOTE: make sure the alpine version matches down below
-FROM docker.io/hexpm/elixir:1.18.4-erlang-27.3.4.2-alpine-3.22.1 AS elixir-builder
+FROM docker.io/hexpm/elixir:1.19.1-erlang-28.1.1-alpine-3.22.2 AS elixir-builder
 
 ARG MIX_ENV=prod
 
@@ -51,7 +51,7 @@ RUN mix release --path /app --quiet
 # --------------------------
 # Base Image - elixir-runner
 # --------------------------
-FROM docker.io/alpine:3.22.1 AS elixir-runner
+FROM docker.io/alpine:3.22.2 AS elixir-runner
 
 ARG SHAKA_PACKAGER_VERSION=3.4.2
 
