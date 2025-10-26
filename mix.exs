@@ -15,7 +15,8 @@ defmodule Ambry.MixProject do
       npm_deps: npm_deps(),
       test_coverage: [tool: ExCoveralls],
       dialyzer: [
-        plt_add_apps: [:mix, :ex_unit]
+        plt_add_apps: [:mix, :ex_unit],
+        flags: [:no_opaque]
       ],
       boundary: [
         default: [
