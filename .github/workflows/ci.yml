@@ -91,6 +91,40 @@ jobs:
       - name: Run tests
         run: mix coveralls
 
+  seeds:
+    name: Check Seeds
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1.20
+        with:
+          version-file: .tool-versions
+          version-type: strict
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Compile dependencies
+        run: mix deps.compile
+      - name: Setup database
+        run: mix ecto.setup
+      - name: Seed DB
+        run: mix ecto.seed
+
   check-formatted:
     name: Check Formatted
     runs-on: ubuntu-latest

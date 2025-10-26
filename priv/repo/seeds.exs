@@ -35,6 +35,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/001a07ae-2bf5-484c-b7c2-c0b62084651d.jpg",
         extra_small: "/uploads/images/001a07ae-2bf5-484c-b7c2-c0b62084651d-xs.webp",
         small: "/uploads/images/001a07ae-2bf5-484c-b7c2-c0b62084651d-sm.webp",
         medium: "/uploads/images/001a07ae-2bf5-484c-b7c2-c0b62084651d-md.webp",
@@ -57,6 +58,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/464c6305-f307-4504-8cdb-54ee523eb8c2.jpg",
         extra_small: "/uploads/images/464c6305-f307-4504-8cdb-54ee523eb8c2-xs.webp",
         small: "/uploads/images/464c6305-f307-4504-8cdb-54ee523eb8c2-sm.webp",
         medium: "/uploads/images/464c6305-f307-4504-8cdb-54ee523eb8c2-md.webp",
@@ -79,6 +81,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/6330a96e-564a-4d43-b067-4594e0cb1620.jpg",
         extra_small: "/uploads/images/6330a96e-564a-4d43-b067-4594e0cb1620-xs.webp",
         small: "/uploads/images/6330a96e-564a-4d43-b067-4594e0cb1620-sm.webp",
         medium: "/uploads/images/6330a96e-564a-4d43-b067-4594e0cb1620-md.webp",
@@ -101,6 +104,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/d4a1addc-e65b-4f90-8282-0fdc2e275d9f.jpg",
         extra_small: "/uploads/images/d4a1addc-e65b-4f90-8282-0fdc2e275d9f-xs.webp",
         small: "/uploads/images/d4a1addc-e65b-4f90-8282-0fdc2e275d9f-sm.webp",
         medium: "/uploads/images/d4a1addc-e65b-4f90-8282-0fdc2e275d9f-md.webp",
@@ -123,6 +127,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/64e3c1dd-0c25-4889-98e9-f5756a279f04.jpg",
         extra_small: "/uploads/images/64e3c1dd-0c25-4889-98e9-f5756a279f04-xs.webp",
         small: "/uploads/images/64e3c1dd-0c25-4889-98e9-f5756a279f04-sm.webp",
         medium: "/uploads/images/64e3c1dd-0c25-4889-98e9-f5756a279f04-md.webp",
@@ -145,6 +150,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/26c057fe-e508-48f9-9c1c-f0f1809465ae.jpg",
         extra_small: "/uploads/images/26c057fe-e508-48f9-9c1c-f0f1809465ae-xs.webp",
         small: "/uploads/images/26c057fe-e508-48f9-9c1c-f0f1809465ae-sm.webp",
         medium: "/uploads/images/26c057fe-e508-48f9-9c1c-f0f1809465ae-md.webp",
@@ -165,6 +171,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/8472ffe9-d717-4319-9023-c983a05cfb4a.jpg",
         extra_small: "/uploads/images/8472ffe9-d717-4319-9023-c983a05cfb4a-xs.webp",
         small: "/uploads/images/8472ffe9-d717-4319-9023-c983a05cfb4a-sm.webp",
         medium: "/uploads/images/8472ffe9-d717-4319-9023-c983a05cfb4a-md.webp",
@@ -187,6 +194,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/74e9d1e3-8db6-4c3b-9bcb-16693687490e.jpg",
         extra_small: "/uploads/images/74e9d1e3-8db6-4c3b-9bcb-16693687490e-xs.webp",
         small: "/uploads/images/74e9d1e3-8db6-4c3b-9bcb-16693687490e-sm.webp",
         medium: "/uploads/images/74e9d1e3-8db6-4c3b-9bcb-16693687490e-md.webp",
@@ -209,6 +217,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/49350e87-cfd9-4884-af38-df935a26ab60.jpg",
         extra_small: "/uploads/images/49350e87-cfd9-4884-af38-df935a26ab60-xs.webp",
         small: "/uploads/images/49350e87-cfd9-4884-af38-df935a26ab60-sm.webp",
         medium: "/uploads/images/49350e87-cfd9-4884-af38-df935a26ab60-md.webp",
@@ -231,6 +240,7 @@ Repo.transact(fn ->
         }
       ],
       thumbnails: %Thumbnails{
+        original: "/uploads/images/6574da90-c914-4ac9-8823-1d8d311d0d36.jpg",
         extra_small: "/uploads/images/6574da90-c914-4ac9-8823-1d8d311d0d36-xs.webp",
         small: "/uploads/images/6574da90-c914-4ac9-8823-1d8d311d0d36-sm.webp",
         medium: "/uploads/images/6574da90-c914-4ac9-8823-1d8d311d0d36-md.webp",
@@ -465,6 +475,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/57e6fe29-289a-429e-862c-57b6c5d8bc67.jpg",
       extra_small: "/uploads/images/57e6fe29-289a-429e-862c-57b6c5d8bc67-xs.webp",
       small: "/uploads/images/57e6fe29-289a-429e-862c-57b6c5d8bc67-sm.webp",
       medium: "/uploads/images/57e6fe29-289a-429e-862c-57b6c5d8bc67-md.webp",
@@ -495,6 +506,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/80371d2d-2923-4e19-8d5b-0561b5bbdc7e.jpg",
       extra_small: "/uploads/images/80371d2d-2923-4e19-8d5b-0561b5bbdc7e-xs.webp",
       small: "/uploads/images/80371d2d-2923-4e19-8d5b-0561b5bbdc7e-sm.webp",
       medium: "/uploads/images/80371d2d-2923-4e19-8d5b-0561b5bbdc7e-md.webp",
@@ -525,6 +537,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/fb173bc1-446a-4dbb-8fb2-332ed54ca29d.jpg",
       extra_small: "/uploads/images/fb173bc1-446a-4dbb-8fb2-332ed54ca29d-xs.webp",
       small: "/uploads/images/fb173bc1-446a-4dbb-8fb2-332ed54ca29d-sm.webp",
       medium: "/uploads/images/fb173bc1-446a-4dbb-8fb2-332ed54ca29d-md.webp",
@@ -555,6 +568,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/7e1e3e4d-95c8-49d8-90d6-16ad3d8ea6fc.jpg",
       extra_small: "/uploads/images/7e1e3e4d-95c8-49d8-90d6-16ad3d8ea6fc-xs.webp",
       small: "/uploads/images/7e1e3e4d-95c8-49d8-90d6-16ad3d8ea6fc-sm.webp",
       medium: "/uploads/images/7e1e3e4d-95c8-49d8-90d6-16ad3d8ea6fc-md.webp",
@@ -585,6 +599,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/7ec1ca7c-c286-4d4c-8c31-9f56cd7407c5.jpg",
       extra_small: "/uploads/images/7ec1ca7c-c286-4d4c-8c31-9f56cd7407c5-xs.webp",
       small: "/uploads/images/7ec1ca7c-c286-4d4c-8c31-9f56cd7407c5-sm.webp",
       medium: "/uploads/images/7ec1ca7c-c286-4d4c-8c31-9f56cd7407c5-md.webp",
@@ -615,6 +630,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/58a889ba-73bb-41ce-a30b-427470b7f2f3.jpg",
       extra_small: "/uploads/images/58a889ba-73bb-41ce-a30b-427470b7f2f3-xs.webp",
       small: "/uploads/images/58a889ba-73bb-41ce-a30b-427470b7f2f3-sm.webp",
       medium: "/uploads/images/58a889ba-73bb-41ce-a30b-427470b7f2f3-md.webp",
@@ -645,6 +661,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/07267014-e2d7-44d3-a206-d91a9dfa27e3.jpg",
       extra_small: "/uploads/images/07267014-e2d7-44d3-a206-d91a9dfa27e3-xs.webp",
       small: "/uploads/images/07267014-e2d7-44d3-a206-d91a9dfa27e3-sm.webp",
       medium: "/uploads/images/07267014-e2d7-44d3-a206-d91a9dfa27e3-md.webp",
@@ -675,6 +692,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/fddc237f-a9ac-48f9-93c0-0d3e771d4f07.jpg",
       extra_small: "/uploads/images/fddc237f-a9ac-48f9-93c0-0d3e771d4f07-xs.webp",
       small: "/uploads/images/fddc237f-a9ac-48f9-93c0-0d3e771d4f07-sm.webp",
       medium: "/uploads/images/fddc237f-a9ac-48f9-93c0-0d3e771d4f07-md.webp",
@@ -705,6 +723,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/080bfcd6-1f58-4d10-ae09-d94b5a365cf6.jpg",
       extra_small: "/uploads/images/080bfcd6-1f58-4d10-ae09-d94b5a365cf6-xs.webp",
       small: "/uploads/images/080bfcd6-1f58-4d10-ae09-d94b5a365cf6-sm.webp",
       medium: "/uploads/images/080bfcd6-1f58-4d10-ae09-d94b5a365cf6-md.webp",
@@ -735,6 +754,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/130b30a8-ae83-4aef-b252-7f0cd869c0c5.jpg",
       extra_small: "/uploads/images/130b30a8-ae83-4aef-b252-7f0cd869c0c5-xs.webp",
       small: "/uploads/images/130b30a8-ae83-4aef-b252-7f0cd869c0c5-sm.webp",
       medium: "/uploads/images/130b30a8-ae83-4aef-b252-7f0cd869c0c5-md.webp",
@@ -765,6 +785,7 @@ Repo.transact(fn ->
       }
     ],
     thumbnails: %Thumbnails{
+      original: "/uploads/images/e3af413b-3685-4fd2-b0b1-30eb94bd0ee4.jpg",
       extra_small: "/uploads/images/e3af413b-3685-4fd2-b0b1-30eb94bd0ee4-xs.webp",
       small: "/uploads/images/e3af413b-3685-4fd2-b0b1-30eb94bd0ee4-sm.webp",
       medium: "/uploads/images/e3af413b-3685-4fd2-b0b1-30eb94bd0ee4-md.webp",
@@ -786,4 +807,6 @@ Repo.transact(fn ->
       "\"I've had a most amazing time....\"\n\nSo begins the Time Traveller's astonishing firsthand account of his journey 800,000 years beyond his own era—and the story that launched H.G. Wells's successful career and earned him his reputation as the father of science fiction. With a speculative leap that still fires the imagination, Wells sends his brave explorer to face a future burdened with our greatest hopes...and our darkest fears. A pull of the Time Machine's lever propels him to the age of a slowly dying Earth. There he discovers two bizarre races—the ethereal Eloi and the subterranean Morlocks—who not only symbolize the duality of human nature, but offer a terrifying portrait of the men of tomorrow as well. Published in 1895, this masterpiece of invention captivated readers on the threshold of a new century. Thanks to Wells's expert storytelling and provocative insight,  **The Time Machine**  will continue to enthrall readers for generations to come.",
     publisher: "LibriVox"
   })
+
+  {:ok, :done}
 end)
