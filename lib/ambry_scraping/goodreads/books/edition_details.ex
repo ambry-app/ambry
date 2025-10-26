@@ -12,6 +12,8 @@ defmodule AmbryScraping.GoodReads.Books.EditionDetails do
   def edition_details("edition:" <> id = full_id) do
     with {:ok, page_html} <-
            Browser.get_page_html("/book/show/#{id}",
+             wait_for: "main.BookPage",
+             maybe_click: "button[aria-label='Close']",
              click: "button[aria-label='Book details and editions']",
              wait_for: "div.EditionDetails"
            ),
