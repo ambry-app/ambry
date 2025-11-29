@@ -99,3 +99,42 @@ Relay-compatible GraphQL schema for mobile app. Uses Dataloader for batching.
 - PostgreSQL database
 - FFmpeg and shaka-packager for audio transcoding
 - Optional: Headless Firefox with Marionette for GoodReads scraping
+
+## Tidewave MCP Server
+
+When the dev server is running (`iex -S mix phx.server`), the Tidewave MCP server provides direct access to the running application. Available tools:
+
+| Tool | Description |
+|------|-------------|
+| `mcp__tidewave__get_ecto_schemas` | List all Ecto schemas in the project |
+| `mcp__tidewave__get_logs` | Retrieve live server logs with optional filtering |
+| `mcp__tidewave__get_source_location` | Find source file location for a module/function |
+| `mcp__tidewave__get_docs` | Get documentation for modules and functions |
+| `mcp__tidewave__project_eval` | Execute Elixir code in the running server context |
+| `mcp__tidewave__execute_sql_query` | Run SQL queries against the database |
+| `mcp__tidewave__search_package_docs` | Search Hex documentation for dependencies |
+
+### Test User Account
+
+A test user exists for development/testing:
+- **Email:** `claude@anthropic.local`
+- **Password:** `ClaudeTestPassword123!`
+
+### GraphQL Testing
+
+The best way to test GraphQL queries is directly through Absinthe using `mcp__tidewave__project_eval`, bypassing HTTP entirely:
+
+```elixir
+# Run authenticated GraphQL query directly (via mcp__tidewave__project_eval)
+user = Ambry.Accounts.get_user_by_email("claude@anthropic.local")
+
+query = """
+  query {
+    me { email admin insertedAt }
+  }
+"""
+
+Absinthe.run(query, AmbrySchema, context: %{current_user: user})
+```
+
+This avoids shell escaping issues and is faster than HTTP requests.
