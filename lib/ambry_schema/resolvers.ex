@@ -20,6 +20,7 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.People.BookAuthor
   alias Ambry.People.Narrator
   alias Ambry.People.Person
+  alias Ambry.Playback
   alias Ambry.Repo
   alias Ambry.Search
   alias Ambry.Sync
@@ -214,6 +215,75 @@ defmodule AmbrySchema.Resolvers do
     |> Repo.all()
     # NOTE: There should never be more than one player state per media per user.
     |> Map.new(&{&1.media_id, &1})
+  end
+
+  # ============================================================================
+  # Playback Sync
+  # ============================================================================
+
+  @doc """
+  Handles bidirectional sync of playback progress.
+
+  1. Registers/updates the device
+  2. Upserts playthroughs from client (with user_id from context)
+  3. Records events from client
+  4. Returns all data changed since lastSyncTime
+  """
+  def sync_progress(%{input: input}, %{context: %{current_user: %User{id: user_id}}}) do
+    %{
+      device: device_input,
+      playthroughs: playthroughs_input,
+      events: events_input,
+      last_sync_time: last_sync_time
+    } = input
+
+    # 1. Register/update device
+    device_attrs = Map.put(device_input, :user_id, user_id)
+    {:ok, _device} = Playback.register_device(device_attrs)
+
+    # 2. Upsert playthroughs from client
+    playthroughs_data =
+      Enum.map(playthroughs_input, fn playthrough ->
+        # Decode media_id from global ID
+        {:ok, %{id: media_id_str}} = from_global_id(playthrough.media_id, AmbrySchema)
+        media_id = String.to_integer(media_id_str)
+
+        playthrough
+        |> Map.put(:user_id, user_id)
+        |> Map.put(:media_id, media_id)
+      end)
+
+    Playback.sync_playthroughs(playthroughs_data)
+
+    # 3. Record events from client
+    events_data =
+      Enum.map(events_input, fn event ->
+        Map.from_struct(event)
+      end)
+
+    Playback.sync_events(events_data)
+
+    # 4. Query changes since lastSyncTime and return
+    server_time = DateTime.utc_now()
+
+    # If no lastSyncTime, return empty lists (first sync just uploads, doesn't download)
+    # On subsequent syncs, return changes from other devices
+    {playthroughs, events} =
+      if last_sync_time do
+        {
+          Playback.list_playthroughs_changed_since(user_id, last_sync_time),
+          Playback.list_events_changed_since(user_id, last_sync_time)
+        }
+      else
+        {[], []}
+      end
+
+    {:ok,
+     %{
+       playthroughs: playthroughs,
+       events: events,
+       server_time: server_time
+     }}
   end
 
   # Dataloader

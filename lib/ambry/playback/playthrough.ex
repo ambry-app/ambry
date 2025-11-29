@@ -60,7 +60,16 @@ defmodule Ambry.Playback.Playthrough do
   """
   def changeset(playthrough, attrs) do
     playthrough
-    |> cast(attrs, [:id, :media_id, :user_id, :status, :started_at, :finished_at, :abandoned_at, :deleted_at])
+    |> cast(attrs, [
+      :id,
+      :media_id,
+      :user_id,
+      :status,
+      :started_at,
+      :finished_at,
+      :abandoned_at,
+      :deleted_at
+    ])
     |> validate_required([:id, :media_id, :user_id, :status, :started_at])
     |> validate_status_timestamps()
     |> unique_constraint([:user_id, :media_id, :started_at],
@@ -96,6 +105,16 @@ defmodule Ambry.Playback.Playthrough do
 
     playthrough
     |> change(deleted_at: now)
+  end
+
+  @doc """
+  Creates a changeset for resuming a finished or abandoned playthrough.
+
+  Reverts status to in_progress and clears finished_at/abandoned_at.
+  """
+  def resume_changeset(playthrough) do
+    playthrough
+    |> change(status: :in_progress, finished_at: nil, abandoned_at: nil)
   end
 
   defp validate_status_timestamps(changeset) do

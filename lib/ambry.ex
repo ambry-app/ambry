@@ -18,6 +18,7 @@ defmodule Ambry do
       {Metadata, []},
       {Paths, []},
       {People, []},
+      {Playback, []},
       {PubSub, []},
       {Repo, []},
       {Thumbnails, []},

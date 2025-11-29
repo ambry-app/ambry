@@ -92,7 +92,7 @@ defmodule Ambry.Playback do
     changeset = Playthrough.changeset(%Playthrough{}, attrs)
 
     Repo.insert(changeset,
-      on_conflict: {:replace, [:status, :finished_at, :abandoned_at, :updated_at]},
+      on_conflict: {:replace, [:status, :finished_at, :abandoned_at, :deleted_at, :updated_at]},
       conflict_target: :id,
       returning: true
     )
@@ -182,6 +182,30 @@ defmodule Ambry.Playback do
   def abandon_playthrough(%Playthrough{} = playthrough) do
     playthrough
     |> Playthrough.abandon_changeset()
+    |> Repo.update()
+  end
+
+  @doc """
+  Soft-deletes a playthrough.
+
+  Sets `deleted_at` timestamp for sync purposes. The playthrough and its
+  events remain in the database but are filtered out of normal queries.
+  """
+  def delete_playthrough(%Playthrough{} = playthrough) do
+    playthrough
+    |> Playthrough.delete_changeset()
+    |> Repo.update()
+  end
+
+  @doc """
+  Resumes a finished or abandoned playthrough.
+
+  Reverts status to `in_progress` and clears `finished_at`/`abandoned_at`.
+  The user continues from their last position (derived from playback events).
+  """
+  def resume_playthrough(%Playthrough{} = playthrough) do
+    playthrough
+    |> Playthrough.resume_changeset()
     |> Repo.update()
   end
 
