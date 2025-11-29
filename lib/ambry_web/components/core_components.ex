@@ -1277,7 +1277,8 @@ defmodule AmbryWeb.CoreComponents do
 
   defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{
          id: media_id
-       }), do: true
+       }),
+       do: true
 
   defp playing?(_player, _media), do: false
 
