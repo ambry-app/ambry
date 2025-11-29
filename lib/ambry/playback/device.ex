@@ -81,12 +81,12 @@ defmodule Ambry.Playback.Device do
   """
   def touch_changeset(device) do
     device
-    |> change(last_seen_at: DateTime.utc_now())
+    |> change(last_seen_at: DateTime.utc_now() |> DateTime.truncate(:second))
   end
 
   defp default_last_seen_at(changeset) do
     case get_field(changeset, :last_seen_at) do
-      nil -> put_change(changeset, :last_seen_at, DateTime.utc_now())
+      nil -> put_change(changeset, :last_seen_at, DateTime.utc_now() |> DateTime.truncate(:second))
       _ -> changeset
     end
   end

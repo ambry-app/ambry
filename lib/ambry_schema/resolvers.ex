@@ -256,15 +256,10 @@ defmodule AmbrySchema.Resolvers do
     Playback.sync_playthroughs(playthroughs_data)
 
     # 3. Record events from client
-    events_data =
-      Enum.map(events_input, fn event ->
-        Map.from_struct(event)
-      end)
-
-    Playback.sync_events(events_data)
+    Playback.sync_events(events_input)
 
     # 4. Query changes since lastSyncTime and return
-    server_time = DateTime.utc_now()
+    server_time = DateTime.utc_now() |> DateTime.truncate(:second)
 
     # If no lastSyncTime, return empty lists (first sync just uploads, doesn't download)
     # On subsequent syncs, return changes from other devices

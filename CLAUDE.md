@@ -114,6 +114,17 @@ When the dev server is running (`iex -S mix phx.server`), the Tidewave MCP serve
 | `mcp__tidewave__execute_sql_query` | Run SQL queries against the database |
 | `mcp__tidewave__search_package_docs` | Search Hex documentation for dependencies |
 
+### Hot Reloading Code Changes
+
+After editing Elixir files, recompile without restarting the server:
+
+```elixir
+# Via mcp__tidewave__project_eval
+IEx.Helpers.recompile()
+```
+
+This hot-reloads code changes into the running server. Avoid using `mix compile` in a separate shell as it can interfere with the running IEx session.
+
 ### Test User Account
 
 A test user exists for development/testing:
