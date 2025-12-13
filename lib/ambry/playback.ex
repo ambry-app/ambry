@@ -58,15 +58,12 @@ defmodule Ambry.Playback do
   end
 
   @doc """
-  Gets a device by ID.
+  Fetches a device by ID.
 
   Returns `{:ok, device}` or `{:error, :not_found}`.
   """
-  def get_device(id) do
-    case Repo.get(Device, id) do
-      nil -> {:error, :not_found}
-      device -> {:ok, device}
-    end
+  def fetch_device(id) do
+    Repo.fetch(Device, id)
   end
 
   @doc """
@@ -110,15 +107,12 @@ defmodule Ambry.Playback do
   end
 
   @doc """
-  Gets a playthrough by ID.
+  Fetches a playthrough by ID.
 
   Returns `{:ok, playthrough}` or `{:error, :not_found}`.
   """
-  def get_playthrough(id) do
-    case Repo.get(Playthrough, id) do
-      nil -> {:error, :not_found}
-      playthrough -> {:ok, playthrough}
-    end
+  def fetch_playthrough(id) do
+    Repo.fetch(Playthrough, id)
   end
 
   @doc """
