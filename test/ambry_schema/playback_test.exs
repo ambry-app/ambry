@@ -154,7 +154,9 @@ defmodule AmbrySchema.PlaybackTest do
       # Create existing playthrough and event on server
       media = insert(:media, book: build(:book))
       playthrough = insert(:playthrough, user: user, media: media)
-      old_event = insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 10:00:00Z])
+
+      old_event =
+        insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 10:00:00Z])
 
       # Sync with a recent lastSyncTime
       device_id = Ecto.UUID.generate()

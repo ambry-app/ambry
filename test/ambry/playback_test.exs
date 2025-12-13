@@ -38,7 +38,7 @@ defmodule Ambry.PlaybackTest do
       {:ok, device2} = Playback.register_device(attrs)
 
       assert device1.id == device2.id
-      assert DateTime.compare(device2.last_seen_at, device1.last_seen_at) == :gt
+      assert DateTime.after?(device2.last_seen_at, device1.last_seen_at)
     end
   end
 
@@ -364,7 +364,10 @@ defmodule Ambry.PlaybackTest do
   describe "get_latest_event/1" do
     test "returns the most recent event" do
       playthrough = insert(:playthrough)
-      _old = insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 10:00:00Z])
+
+      _old =
+        insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 10:00:00Z])
+
       new = insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 11:00:00Z])
 
       assert latest = Playback.get_latest_event(playthrough.id)
