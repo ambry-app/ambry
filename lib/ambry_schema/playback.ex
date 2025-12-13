@@ -33,6 +33,11 @@ defmodule AmbrySchema.Playback do
     value :web
   end
 
+  enum :device_type_input do
+    value :ios
+    value :android
+  end
+
   ## Output Types
 
   object :device do
@@ -77,7 +82,7 @@ defmodule AmbrySchema.Playback do
 
   input_object :device_input do
     field :id, non_null(:id)
-    field :type, non_null(:device_type)
+    field :type, non_null(:device_type_input)
     field :brand, :string
     field :model_name, :string
     field :browser, :string

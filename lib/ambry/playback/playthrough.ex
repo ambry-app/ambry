@@ -98,7 +98,7 @@ defmodule Ambry.Playback.Playthrough do
   Creates a changeset for finishing a playthrough.
   """
   def finish_changeset(playthrough) do
-    now = DateTime.utc_now()
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     playthrough
     |> change(status: :finished, finished_at: now)
@@ -108,7 +108,7 @@ defmodule Ambry.Playback.Playthrough do
   Creates a changeset for abandoning a playthrough.
   """
   def abandon_changeset(playthrough) do
-    now = DateTime.utc_now()
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     playthrough
     |> change(status: :abandoned, abandoned_at: now)
@@ -118,7 +118,7 @@ defmodule Ambry.Playback.Playthrough do
   Creates a changeset for soft-deleting a playthrough.
   """
   def delete_changeset(playthrough) do
-    now = DateTime.utc_now()
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
 
     playthrough
     |> change(deleted_at: now)

@@ -198,7 +198,7 @@ defmodule AmbrySchema.Resolvers do
   def type(%Series{}, _resolution), do: :series
   def type(%SeriesBook{}, _resolution), do: :series_book
 
-  # Custom batches
+  ## Custom batches
 
   def player_state_batch(%Media{id: media_id}, _params, %{
         context: %{current_user: %User{id: user_id}}
@@ -284,7 +284,7 @@ defmodule AmbrySchema.Resolvers do
      }}
   end
 
-  # Dataloader
+  ## Dataloader
 
   def data, do: Dataloader.Ecto.new(Repo, query: &query/2)
 
