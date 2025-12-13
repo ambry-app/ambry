@@ -17,6 +17,7 @@ defmodule Ambry.Playback.PlaybackEvent do
   - `start`: Playthrough started
   - `finish`: Playthrough marked as finished (auto-detected or manual)
   - `abandon`: User explicitly abandoned the playthrough
+  - `resume`: User resumed a previously finished or abandoned playthrough
 
   Lifecycle events are semantic markers about the playthrough status, not playback
   state changes. A user might "finish" a book while at any position (e.g., after
@@ -42,9 +43,9 @@ defmodule Ambry.Playback.PlaybackEvent do
   @primary_key {:id, :binary_id, autogenerate: false}
   @foreign_key_type :binary_id
 
-  @event_types [:start, :play, :pause, :seek, :rate_change, :finish, :abandon]
+  @event_types [:start, :play, :pause, :seek, :rate_change, :finish, :abandon, :resume]
   @playback_event_types [:play, :pause, :seek, :rate_change]
-  @lifecycle_event_types [:start, :finish, :abandon]
+  @lifecycle_event_types [:start, :finish, :abandon, :resume]
 
   schema "playback_events" do
     belongs_to :playthrough, Playthrough

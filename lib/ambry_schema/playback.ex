@@ -26,6 +26,7 @@ defmodule AmbrySchema.Playback do
     value :rate_change
     value :finish
     value :abandon
+    value :resume
   end
 
   enum :device_type do
