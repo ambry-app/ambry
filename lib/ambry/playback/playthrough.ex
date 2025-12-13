@@ -8,13 +8,30 @@ defmodule Ambry.Playback.Playthrough do
 
   ## Status Lifecycle
 
-      [No playthrough] → [in_progress] → [finished]
-                              ↓              ↓
-                         [abandoned]    [resume → in_progress]
+       ┌────────────────┐
+       │ No playthrough │
+       └───────┬────────┘
+               ▼
+             Start
+               │
+               ▼
+        ┌─────────────┐
+   ┌───►│ In progress ├──────┐
+   │    └──────┬──────┘      │
+   │           ▼             ▼
+   │        Abandon        Finish
+   │           │             │
+   │           ▼             ▼
+   │     ┌───────────┐  ┌──────────┐
+   │     │ Abandoned │  │ Finished │
+   │     └─────┬─────┘  └────┬─────┘
+   │           ▼             │
+   └────────Resume◄──────────┘
 
   - `in_progress`: Currently listening (only one active per user/media)
   - `finished`: Completed (auto-detected near end, or explicit)
   - `abandoned`: Explicitly abandoned by user
+  - Both `finished` and `abandoned` can be resumed to `in_progress`
 
   ## Soft Deletes
 
