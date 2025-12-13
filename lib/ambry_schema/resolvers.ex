@@ -217,9 +217,7 @@ defmodule AmbrySchema.Resolvers do
     |> Map.new(&{&1.media_id, &1})
   end
 
-  # ============================================================================
-  # Playback Sync
-  # ============================================================================
+  ## Playback Sync
 
   @doc """
   Handles bidirectional sync of playback progress.

@@ -8,9 +8,7 @@ defmodule AmbrySchema.Playback do
 
   alias AmbrySchema.Resolvers
 
-  # ============================================================================
-  # Enums
-  # ============================================================================
+  ## Enums
 
   enum :playthrough_status do
     value :in_progress
@@ -35,9 +33,7 @@ defmodule AmbrySchema.Playback do
     value :web
   end
 
-  # ============================================================================
-  # Output Types
-  # ============================================================================
+  ## Output Types
 
   object :device do
     field :id, non_null(:id)
@@ -77,9 +73,7 @@ defmodule AmbrySchema.Playback do
     field :previous_rate, :float, resolve: Resolvers.resolve_decimal(:previous_rate)
   end
 
-  # ============================================================================
-  # Input Types
-  # ============================================================================
+  ## Input Types
 
   input_object :device_input do
     field :id, non_null(:id)
@@ -121,9 +115,7 @@ defmodule AmbrySchema.Playback do
     field :events, non_null(list_of(non_null(:playback_event_input)))
   end
 
-  # ============================================================================
-  # Mutation Output
-  # ============================================================================
+  ## Mutation Output
 
   object :sync_progress_payload do
     field :playthroughs, non_null(list_of(non_null(:playthrough)))
@@ -131,9 +123,7 @@ defmodule AmbrySchema.Playback do
     field :server_time, non_null(:datetime)
   end
 
-  # ============================================================================
-  # Mutations
-  # ============================================================================
+  ## Mutations
 
   object :playback_mutations do
     field :sync_progress, :sync_progress_payload do

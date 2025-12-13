@@ -38,9 +38,7 @@ defmodule Ambry.Playback do
   alias Ambry.Playback.Playthrough
   alias Ambry.Repo
 
-  # ============================================================================
-  # Devices
-  # ============================================================================
+  ## Devices
 
   @doc """
   Registers a new device or updates an existing one.
@@ -76,9 +74,7 @@ defmodule Ambry.Playback do
     |> Repo.all()
   end
 
-  # ============================================================================
-  # Playthroughs
-  # ============================================================================
+  ## Playthroughs
 
   @doc """
   Creates a new playthrough or updates an existing one.
@@ -203,9 +199,7 @@ defmodule Ambry.Playback do
     |> Repo.update()
   end
 
-  # ============================================================================
-  # Playback Events
-  # ============================================================================
+  ## Playback Events
 
   @doc """
   Records a playback event.
@@ -294,9 +288,7 @@ defmodule Ambry.Playback do
     |> Repo.all()
   end
 
-  # ============================================================================
-  # State Derivation
-  # ============================================================================
+  ## State Derivation
 
   @doc """
   Derives the current state for a playthrough from its event stream.
@@ -365,9 +357,7 @@ defmodule Ambry.Playback do
     |> elem(1)
   end
 
-  # ============================================================================
-  # Sync Helpers
-  # ============================================================================
+  ## Sync Helpers
 
   @doc """
   Syncs playthroughs from a client.
