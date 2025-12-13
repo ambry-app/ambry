@@ -86,8 +86,11 @@ defmodule Ambry.Playback.Device do
 
   defp default_last_seen_at(changeset) do
     case get_field(changeset, :last_seen_at) do
-      nil -> put_change(changeset, :last_seen_at, DateTime.utc_now() |> DateTime.truncate(:second))
-      _ -> changeset
+      nil ->
+        put_change(changeset, :last_seen_at, DateTime.utc_now() |> DateTime.truncate(:second))
+
+      _ ->
+        changeset
     end
   end
 end

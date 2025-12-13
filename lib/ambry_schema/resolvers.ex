@@ -239,7 +239,7 @@ defmodule AmbrySchema.Resolvers do
 
     # 1. Register/update device
     device_attrs = Map.put(device_input, :user_id, user_id)
-    {:ok, _device} = Playback.register_device(device_attrs)
+    {:ok, device} = Playback.register_device(device_attrs)
 
     # 2. Upsert playthroughs from client
     playthroughs_data =
@@ -255,8 +255,13 @@ defmodule AmbrySchema.Resolvers do
 
     Playback.sync_playthroughs(playthroughs_data)
 
-    # 3. Record events from client
-    Playback.sync_events(events_input)
+    # 3. Record events from client (with device_id from registered device)
+    events_data =
+      Enum.map(events_input, fn event ->
+        Map.put(event, :device_id, device.id)
+      end)
+
+    Playback.sync_events(events_data)
 
     # 4. Query changes since lastSyncTime and return
     server_time = DateTime.utc_now() |> DateTime.truncate(:second)
