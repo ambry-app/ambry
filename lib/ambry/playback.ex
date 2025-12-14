@@ -77,9 +77,10 @@ defmodule Ambry.Playback do
   ## Playthroughs
 
   @doc """
-  Creates a new playthrough or updates an existing one.
+  Upserts a playthrough based on client-generated UUID.
 
-  Uses upsert semantics based on the client-generated ID.
+  If a playthrough with the same ID exists, updates it.
+  Otherwise, creates a new playthrough (even if duplicate from migration edge case).
   """
   def upsert_playthrough(attrs) do
     changeset = Playthrough.changeset(%Playthrough{}, attrs)
@@ -94,11 +95,15 @@ defmodule Ambry.Playback do
   @doc """
   Gets the active (in_progress) playthrough for a user and media.
 
+  If multiple in-progress playthroughs exist (migration edge case), returns the most recently updated one.
+
   Returns `nil` if no active playthrough exists.
   """
   def get_active_playthrough(user_id, media_id) do
     Playthrough
     |> where([p], p.user_id == ^user_id and p.media_id == ^media_id and p.status == :in_progress)
+    |> order_by([p], desc: p.updated_at)
+    |> limit(1)
     |> Repo.one()
   end
 

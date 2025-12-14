@@ -47,9 +47,6 @@ defmodule Ambry.Repo.Migrations.CreatePlaybackTables do
     create index(:playthroughs, [:media_id])
     create index(:playthroughs, [:user_id, :media_id, :status])
 
-    # Unique constraint: only one playthrough with same user/media/started_at
-    create unique_index(:playthroughs, [:user_id, :media_id, :started_at])
-
     # Playback events table - immutable records of playback actions
     create table(:playback_events, primary_key: false) do
       add :id, :binary_id, primary_key: true

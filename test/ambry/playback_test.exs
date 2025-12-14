@@ -124,6 +124,36 @@ defmodule Ambry.PlaybackTest do
 
       assert Playback.get_active_playthrough(user.id, media.id) == nil
     end
+
+    test "returns most recent when multiple in-progress playthroughs exist (migration edge case)" do
+      user = insert(:user)
+      media = insert(:media, book: build(:book))
+
+      # Create two in-progress playthroughs (simulating migration edge case)
+      # Can now have same started_at since we removed the unique constraint
+      older =
+        insert(:playthrough,
+          user: user,
+          media: media,
+          status: :in_progress,
+          started_at: ~U[2024-01-01 10:00:00Z],
+          updated_at: ~U[2024-01-01 12:00:00Z]
+        )
+
+      newer =
+        insert(:playthrough,
+          user: user,
+          media: media,
+          status: :in_progress,
+          started_at: ~U[2024-01-01 10:00:00Z],
+          updated_at: ~U[2024-01-02 12:00:00Z]
+        )
+
+      # Should return the most recently updated one
+      assert fetched = Playback.get_active_playthrough(user.id, media.id)
+      assert fetched.id == newer.id
+      refute fetched.id == older.id
+    end
   end
 
   describe "fetch_playthrough/1" do
