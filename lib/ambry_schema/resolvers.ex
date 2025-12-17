@@ -264,8 +264,8 @@ defmodule AmbrySchema.Resolvers do
     # 4. Query changes since lastSyncTime and return
     server_time = DateTime.utc_now() |> DateTime.truncate(:second)
 
-    # If no lastSyncTime, return empty lists (first sync just uploads, doesn't download)
-    # On subsequent syncs, return changes from other devices
+    # If no lastSyncTime (initial sync), return all playthroughs and events
+    # On subsequent syncs, return only changes since last sync
     {playthroughs, events} =
       if last_sync_time do
         {
@@ -273,7 +273,10 @@ defmodule AmbrySchema.Resolvers do
           Playback.list_events_changed_since(user_id, last_sync_time)
         }
       else
-        {[], []}
+        {
+          Playback.list_all_playthroughs(user_id),
+          Playback.list_all_events(user_id)
+        }
       end
 
     {:ok,

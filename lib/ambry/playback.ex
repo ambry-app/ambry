@@ -163,6 +163,18 @@ defmodule Ambry.Playback do
   end
 
   @doc """
+  Lists all playthroughs for a user (no pagination).
+
+  Used for initial sync when a fresh device needs all data.
+  """
+  def list_all_playthroughs(user_id) do
+    Playthrough
+    |> where([p], p.user_id == ^user_id)
+    |> order_by([p], asc: p.updated_at)
+    |> Repo.all()
+  end
+
+  @doc """
   Finishes a playthrough.
   """
   def finish_playthrough(%Playthrough{} = playthrough) do
@@ -288,6 +300,20 @@ defmodule Ambry.Playback do
     PlaybackEvent
     |> join(:inner, [e], p in Playthrough, on: e.playthrough_id == p.id)
     |> where([e, p], p.user_id == ^user_id and e.timestamp > ^since)
+    |> order_by([e], asc: e.timestamp)
+    |> select([e], e)
+    |> Repo.all()
+  end
+
+  @doc """
+  Lists all events for a user's playthroughs (no pagination).
+
+  Used for initial sync when a fresh device needs all data.
+  """
+  def list_all_events(user_id) do
+    PlaybackEvent
+    |> join(:inner, [e], p in Playthrough, on: e.playthrough_id == p.id)
+    |> where([_e, p], p.user_id == ^user_id)
     |> order_by([e], asc: e.timestamp)
     |> select([e], e)
     |> Repo.all()

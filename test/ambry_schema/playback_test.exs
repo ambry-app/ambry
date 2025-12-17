@@ -75,8 +75,25 @@ defmodule AmbrySchema.PlaybackTest do
       assert %{
                "data" => %{
                  "syncProgress" => %{
-                   "playthroughs" => [],
-                   "events" => [],
+                   "playthroughs" => [
+                     %{
+                       "id" => ^playthrough_id,
+                       "status" => "IN_PROGRESS",
+                       "startedAt" => ^now,
+                       "finishedAt" => nil,
+                       "abandonedAt" => nil,
+                       "deletedAt" => nil
+                     }
+                   ],
+                   "events" => [
+                     %{
+                       "id" => ^event_id,
+                       "type" => "PLAY",
+                       "timestamp" => ^now,
+                       "position" => +0.0,
+                       "playbackRate" => +1.0
+                     }
+                   ],
                    "serverTime" => _server_time
                  }
                }
@@ -94,7 +111,7 @@ defmodule AmbrySchema.PlaybackTest do
       assert hd(events).type == :play
     end
 
-    test "syncs resume lifecycle event", %{conn: conn, user: user} do
+    test "syncs resume lifecycle event", %{conn: conn, user: _user} do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
@@ -236,7 +253,7 @@ defmodule AmbrySchema.PlaybackTest do
       assert device.model_name == "iPhone 14 Pro"
     end
 
-    test "handles finished playthrough sync", %{conn: conn, user: user} do
+    test "handles finished playthrough sync", %{conn: conn, user: _user} do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
@@ -283,7 +300,7 @@ defmodule AmbrySchema.PlaybackTest do
       assert playthrough.finished_at != nil
     end
 
-    test "handles abandoned playthrough sync", %{conn: conn, user: user} do
+    test "handles abandoned playthrough sync", %{conn: conn, user: _user} do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
@@ -330,7 +347,7 @@ defmodule AmbrySchema.PlaybackTest do
       assert playthrough.abandoned_at != nil
     end
 
-    test "handles seek event with from/to positions", %{conn: conn, user: user} do
+    test "handles seek event with from/to positions", %{conn: conn, user: _user} do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
@@ -481,7 +498,7 @@ defmodule AmbrySchema.PlaybackTest do
              } = json_response(conn, 200)
     end
 
-    test "handles soft-deleted playthrough", %{conn: conn, user: user} do
+    test "handles soft-deleted playthrough", %{conn: conn, user: _user} do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
