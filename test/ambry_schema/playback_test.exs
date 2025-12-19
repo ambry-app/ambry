@@ -2,8 +2,12 @@ defmodule AmbrySchema.PlaybackTest do
   use AmbryWeb.ConnCase
 
   import Ambry.GraphQLSigil
+  import Ecto.Query
 
-  alias Ambry.Playback
+  alias Ambry.Playback.Device
+  alias Ambry.Playback.PlaybackEvent
+  alias Ambry.Playback.Playthrough
+  alias Ambry.Repo
 
   setup :register_and_put_user_api_token
 
@@ -100,13 +104,13 @@ defmodule AmbrySchema.PlaybackTest do
              } = json_response(conn, 200)
 
       # Verify playthrough was created
-      assert {:ok, playthrough} = Playback.fetch_playthrough(playthrough_id)
+      playthrough = Repo.get!(Playthrough, playthrough_id)
       assert playthrough.user_id == user.id
       assert playthrough.media_id == media.id
       assert playthrough.status == :in_progress
 
       # Verify event was created
-      events = Playback.list_events(playthrough_id)
+      events = Repo.all(from e in PlaybackEvent, where: e.playthrough_id == ^playthrough_id)
       assert length(events) == 1
       assert hd(events).type == :play
     end
@@ -159,7 +163,7 @@ defmodule AmbrySchema.PlaybackTest do
              } = json_response(conn, 200)
 
       # Verify resume event was created without position/playbackRate
-      events = Playback.list_events(playthrough_id)
+      events = Repo.all(from e in PlaybackEvent, where: e.playthrough_id == ^playthrough_id)
       assert length(events) == 1
       resume_event = hd(events)
       assert resume_event.type == :resume
@@ -246,7 +250,7 @@ defmodule AmbrySchema.PlaybackTest do
       assert %{"data" => %{"syncProgress" => _}} = json_response(conn, 200)
 
       # Verify device was registered
-      assert {:ok, device} = Playback.fetch_device(device_id)
+      device = Repo.get!(Device, device_id)
       assert device.user_id == user.id
       assert device.type == :ios
       assert device.brand == "Apple"
@@ -295,7 +299,7 @@ defmodule AmbrySchema.PlaybackTest do
       assert %{"data" => %{"syncProgress" => _}} = json_response(conn, 200)
 
       # Verify finished playthrough
-      assert {:ok, playthrough} = Playback.fetch_playthrough(playthrough_id)
+      playthrough = Repo.get!(Playthrough, playthrough_id)
       assert playthrough.status == :finished
       assert playthrough.finished_at != nil
     end
@@ -342,7 +346,7 @@ defmodule AmbrySchema.PlaybackTest do
       assert %{"data" => %{"syncProgress" => _}} = json_response(conn, 200)
 
       # Verify abandoned playthrough
-      assert {:ok, playthrough} = Playback.fetch_playthrough(playthrough_id)
+      playthrough = Repo.get!(Playthrough, playthrough_id)
       assert playthrough.status == :abandoned
       assert playthrough.abandoned_at != nil
     end
@@ -393,7 +397,7 @@ defmodule AmbrySchema.PlaybackTest do
       assert %{"data" => %{"syncProgress" => _}} = json_response(conn, 200)
 
       # Verify seek event with from/to positions
-      events = Playback.list_events(playthrough_id)
+      events = Repo.all(from e in PlaybackEvent, where: e.playthrough_id == ^playthrough_id)
       assert length(events) == 1
       seek_event = hd(events)
       assert seek_event.type == :seek
@@ -533,7 +537,7 @@ defmodule AmbrySchema.PlaybackTest do
       assert %{"data" => %{"syncProgress" => _}} = json_response(conn, 200)
 
       # Verify playthrough was created with deleted_at
-      assert {:ok, playthrough} = Playback.fetch_playthrough(playthrough_id)
+      playthrough = Repo.get!(Playthrough, playthrough_id)
       assert playthrough.deleted_at != nil
     end
   end

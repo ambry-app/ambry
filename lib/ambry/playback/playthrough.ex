@@ -94,46 +94,6 @@ defmodule Ambry.Playback.Playthrough do
     )
   end
 
-  @doc """
-  Creates a changeset for finishing a playthrough.
-  """
-  def finish_changeset(playthrough) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    playthrough
-    |> change(status: :finished, finished_at: now)
-  end
-
-  @doc """
-  Creates a changeset for abandoning a playthrough.
-  """
-  def abandon_changeset(playthrough) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    playthrough
-    |> change(status: :abandoned, abandoned_at: now)
-  end
-
-  @doc """
-  Creates a changeset for soft-deleting a playthrough.
-  """
-  def delete_changeset(playthrough) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    playthrough
-    |> change(deleted_at: now)
-  end
-
-  @doc """
-  Creates a changeset for resuming a finished or abandoned playthrough.
-
-  Reverts status to in_progress and clears finished_at/abandoned_at.
-  """
-  def resume_changeset(playthrough) do
-    playthrough
-    |> change(status: :in_progress, finished_at: nil, abandoned_at: nil)
-  end
-
   defp validate_status_timestamps(changeset) do
     status = get_field(changeset, :status)
 

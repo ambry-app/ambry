@@ -3,24 +3,14 @@ defmodule Ambry.Playback do
   Context for managing playback state via event sourcing.
 
   This module provides functions for:
-  - Managing playthroughs (user journeys through media)
-  - Recording playback events (play, pause, seek, etc.)
-  - Registering and managing devices
-  - Deriving current state from event streams
-  - Syncing events between client and server
+  - Registering devices
+  - Syncing playthroughs and events between client and server
 
   ## Key Concepts
 
   - **Playthrough**: A user's journey through a book (days/weeks/months)
   - **PlaybackEvent**: Immutable record of a playback action
   - **Device**: Client device that produces events
-
-  ## State Derivation
-
-  Current playback state is derived from the event stream:
-  - Position: from most recent event
-  - Rate: from most recent event
-  - Listening time: sum of (pause.position - play.position) / rate
   """
 
   use Boundary,
@@ -55,25 +45,6 @@ defmodule Ambry.Playback do
     )
   end
 
-  @doc """
-  Fetches a device by ID.
-
-  Returns `{:ok, device}` or `{:error, :not_found}`.
-  """
-  def fetch_device(id) do
-    Repo.fetch(Device, id)
-  end
-
-  @doc """
-  Lists all devices for a user.
-  """
-  def list_devices(user_id) do
-    Device
-    |> where([d], d.user_id == ^user_id)
-    |> order_by([d], desc: d.last_seen_at)
-    |> Repo.all()
-  end
-
   ## Playthroughs
 
   @doc """
@@ -90,64 +61,6 @@ defmodule Ambry.Playback do
       conflict_target: :id,
       returning: true
     )
-  end
-
-  @doc """
-  Gets the active (in_progress) playthrough for a user and media.
-
-  If multiple in-progress playthroughs exist (migration edge case), returns the most recently updated one.
-
-  Returns `nil` if no active playthrough exists.
-  """
-  def get_active_playthrough(user_id, media_id) do
-    Playthrough
-    |> where([p], p.user_id == ^user_id and p.media_id == ^media_id and p.status == :in_progress)
-    |> order_by([p], desc: p.updated_at)
-    |> limit(1)
-    |> Repo.one()
-  end
-
-  @doc """
-  Fetches a playthrough by ID.
-
-  Returns `{:ok, playthrough}` or `{:error, :not_found}`.
-  """
-  def fetch_playthrough(id) do
-    Repo.fetch(Playthrough, id)
-  end
-
-  @doc """
-  Gets a playthrough by ID, raising if not found.
-  """
-  def get_playthrough!(id) do
-    Repo.get!(Playthrough, id)
-  end
-
-  @doc """
-  Lists all playthroughs for a user.
-
-  Optionally filtered by status.
-  """
-  def list_playthroughs(user_id, opts \\ []) do
-    status = Keyword.get(opts, :status)
-    limit = Keyword.get(opts, :limit, 50)
-    offset = Keyword.get(opts, :offset, 0)
-
-    query =
-      Playthrough
-      |> where([p], p.user_id == ^user_id)
-      |> order_by([p], desc: p.updated_at)
-      |> limit(^limit)
-      |> offset(^offset)
-
-    query =
-      if status do
-        where(query, [p], p.status == ^status)
-      else
-        query
-      end
-
-    Repo.all(query)
   end
 
   @doc """
@@ -174,64 +87,7 @@ defmodule Ambry.Playback do
     |> Repo.all()
   end
 
-  @doc """
-  Finishes a playthrough.
-  """
-  def finish_playthrough(%Playthrough{} = playthrough) do
-    playthrough
-    |> Playthrough.finish_changeset()
-    |> Repo.update()
-  end
-
-  @doc """
-  Abandons a playthrough.
-  """
-  def abandon_playthrough(%Playthrough{} = playthrough) do
-    playthrough
-    |> Playthrough.abandon_changeset()
-    |> Repo.update()
-  end
-
-  @doc """
-  Soft-deletes a playthrough.
-
-  Sets `deleted_at` timestamp for sync purposes. The playthrough and its
-  events remain in the database but are filtered out of normal queries.
-  """
-  def delete_playthrough(%Playthrough{} = playthrough) do
-    playthrough
-    |> Playthrough.delete_changeset()
-    |> Repo.update()
-  end
-
-  @doc """
-  Resumes a finished or abandoned playthrough.
-
-  Reverts status to `in_progress` and clears `finished_at`/`abandoned_at`.
-  The user continues from their last position (derived from playback events).
-  """
-  def resume_playthrough(%Playthrough{} = playthrough) do
-    playthrough
-    |> Playthrough.resume_changeset()
-    |> Repo.update()
-  end
-
   ## Playback Events
-
-  @doc """
-  Records a playback event.
-
-  Events are immutable - this always inserts, never updates.
-  Uses ON CONFLICT DO NOTHING for idempotent upserts.
-  """
-  def record_event(attrs) do
-    changeset = PlaybackEvent.changeset(%PlaybackEvent{}, attrs)
-
-    Repo.insert(changeset,
-      on_conflict: :nothing,
-      returning: true
-    )
-  end
 
   @doc """
   Records multiple playback events in a single transaction.
@@ -270,27 +126,6 @@ defmodule Ambry.Playback do
   defp truncate_timestamp(other), do: other
 
   @doc """
-  Gets all events for a playthrough, ordered by timestamp.
-  """
-  def list_events(playthrough_id) do
-    PlaybackEvent
-    |> where([e], e.playthrough_id == ^playthrough_id)
-    |> order_by([e], asc: e.timestamp)
-    |> Repo.all()
-  end
-
-  @doc """
-  Gets the most recent event for a playthrough.
-  """
-  def get_latest_event(playthrough_id) do
-    PlaybackEvent
-    |> where([e], e.playthrough_id == ^playthrough_id)
-    |> order_by([e], desc: e.timestamp)
-    |> limit(1)
-    |> Repo.one()
-  end
-
-  @doc """
   Lists events changed since a given timestamp.
 
   Used for sync - returns events with timestamp after the given time.
@@ -317,75 +152,6 @@ defmodule Ambry.Playback do
     |> order_by([e], asc: e.timestamp)
     |> select([e], e)
     |> Repo.all()
-  end
-
-  ## State Derivation
-
-  @doc """
-  Derives the current state for a playthrough from its event stream.
-
-  Returns a map with:
-  - `:position` - current position in seconds
-  - `:playback_rate` - current playback rate
-  - `:last_event_at` - timestamp of most recent event
-  - `:total_listening_time` - calculated real listening time
-
-  Note: Only playback events (play, pause, seek, rate_change) are used for
-  position/rate derivation. Lifecycle events (start, finish, abandon) don't
-  have position data.
-  """
-  def derive_state(playthrough_id) do
-    events = list_events(playthrough_id)
-    playback_events = Enum.filter(events, &(&1.type in PlaybackEvent.playback_event_types()))
-
-    case playback_events do
-      [] ->
-        %{
-          position: Decimal.new(0),
-          playback_rate: Decimal.new(1),
-          last_event_at: nil,
-          total_listening_time: Decimal.new(0)
-        }
-
-      playback_events ->
-        latest = List.last(playback_events)
-
-        %{
-          position: latest.position,
-          playback_rate: latest.playback_rate,
-          last_event_at: latest.timestamp,
-          total_listening_time: calculate_listening_time(playback_events)
-        }
-    end
-  end
-
-  @doc """
-  Calculates total listening time from a list of events.
-
-  Listening time is calculated as the sum of time between play and pause events,
-  divided by the playback rate active during that segment.
-  """
-  def calculate_listening_time(events) do
-    events
-    |> Enum.reduce({nil, Decimal.new(0)}, fn event, {play_event, total} ->
-      case {event.type, play_event} do
-        # Start of a play segment
-        {:play, nil} ->
-          {event, total}
-
-        # End of a play segment - calculate duration
-        {:pause, %{position: start_pos, playback_rate: rate}} ->
-          duration = Decimal.sub(event.position, start_pos)
-          # Adjust for playback rate (listening at 2x means half the real time)
-          real_time = Decimal.div(duration, rate)
-          {nil, Decimal.add(total, real_time)}
-
-        # Ignore other events for listening time calculation
-        _ ->
-          {play_event, total}
-      end
-    end)
-    |> elem(1)
   end
 
   ## Sync Helpers
