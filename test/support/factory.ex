@@ -16,6 +16,9 @@ defmodule Ambry.Factory do
   alias Ambry.People.BookAuthor
   alias Ambry.People.Narrator
   alias Ambry.People.Person
+  alias Ambry.Playback.Device
+  alias Ambry.Playback.PlaybackEvent
+  alias Ambry.Playback.Playthrough
   alias Ambry.Search.Index
 
   # Users
@@ -177,6 +180,68 @@ defmodule Ambry.Factory do
       position: Decimal.new(0),
       status: :not_started
     }
+  end
+
+  # Playback
+
+  def device_factory do
+    %Device{
+      id: Ecto.UUID.generate(),
+      user: build(:user),
+      type: Enum.random([:ios, :android, :web]),
+      brand: Faker.Company.name(),
+      model_name: sequence(:model_name, &"Model-#{&1}"),
+      os_name: Enum.random(["iOS", "Android", "Windows", "macOS", "Linux"]),
+      os_version: "#{Faker.random_between(10, 16)}.0",
+      last_seen_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+  end
+
+  def playthrough_factory do
+    %Playthrough{
+      id: Ecto.UUID.generate(),
+      user: build(:user),
+      media: build(:media, book: build(:book)),
+      status: :in_progress,
+      started_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+  end
+
+  def finished_playthrough_factory do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    build(:playthrough,
+      status: :finished,
+      finished_at: now
+    )
+  end
+
+  def abandoned_playthrough_factory do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    build(:playthrough,
+      status: :abandoned,
+      abandoned_at: now
+    )
+  end
+
+  def playback_event_factory do
+    %PlaybackEvent{
+      id: Ecto.UUID.generate(),
+      playthrough: build(:playthrough),
+      type: :play,
+      timestamp: DateTime.utc_now() |> DateTime.truncate(:second),
+      position: Decimal.new("#{Faker.random_between(0, 1000)}.0"),
+      playback_rate: Decimal.new("1.0")
+    }
+  end
+
+  def lifecycle_event_factory do
+    build(:playback_event,
+      type: :start,
+      position: nil,
+      playback_rate: nil
+    )
   end
 
   # Bookmarks

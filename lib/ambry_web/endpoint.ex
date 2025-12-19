@@ -31,6 +31,11 @@ defmodule AmbryWeb.Endpoint do
     gzip: false,
     only: ~w(images)
 
+  # Tidewave MCP server for AI-assisted development
+  if Code.ensure_loaded?(Tidewave) do
+    plug Tidewave
+  end
+
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do

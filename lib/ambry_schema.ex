@@ -28,6 +28,7 @@ defmodule AmbrySchema do
   import_types AmbrySchema.People
   import_types AmbrySchema.Books
   import_types AmbrySchema.Media
+  import_types AmbrySchema.Playback
   import_types AmbrySchema.Sessions
   import_types AmbrySchema.Search
   import_types AmbrySchema.Sync
@@ -44,6 +45,7 @@ defmodule AmbrySchema do
   mutation do
     import_fields :session_mutations
     import_fields :media_mutations
+    import_fields :playback_mutations
   end
 
   @impl Absinthe.Schema
