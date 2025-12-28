@@ -116,6 +116,23 @@ defmodule Ambry.Media do
   Gets a media and the book with all its details.
   """
   def get_media_with_book_details!(id) do
+    id
+    |> media_with_book_details_query()
+    |> Repo.get!(id)
+  end
+
+  @doc """
+  Gets a media and the book with all its details.
+
+  Returns `{:ok, media}` on success or `{:error, :not_found}`.
+  """
+  def fetch_media_with_book_details(id) do
+    id
+    |> media_with_book_details_query()
+    |> Repo.fetch(id)
+  end
+
+  defp media_with_book_details_query(id) do
     media_query =
       from m in Media, where: m.status == :ready and m.id != ^id, order_by: {:desc, :published}
 
@@ -128,7 +145,6 @@ defmodule Ambry.Media do
         media: ^{media_query, [:narrators, book: [:authors, series_books: :series]]}
       ]
     ])
-    |> Repo.get!(id)
   end
 
   @doc """

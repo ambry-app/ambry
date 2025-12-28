@@ -5,6 +5,8 @@ defmodule AmbryWeb.AudiobookLive do
 
   use AmbryWeb, :live_view
 
+  import Absinthe.Relay.Node, only: [to_global_id: 3]
+  import AmbryWeb.Helpers.IdHelpers
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
   alias Ambry.Books
@@ -119,18 +121,24 @@ defmodule AmbryWeb.AudiobookLive do
   end
 
   @impl Phoenix.LiveView
-  def mount(%{"id" => media_id}, _session, socket) do
-    media = Media.get_media_with_book_details!(media_id)
+  def mount(%{"id" => id_param}, _session, socket) do
+    with {:ok, media_id} <- parse_id(id_param, :media),
+         {:ok, media} <- Media.fetch_media_with_book_details(media_id) do
+      if connected?(socket) do
+        Player.subscribe!(socket.assigns.player)
+      end
 
-    if connected?(socket) do
-      Player.subscribe!(socket.assigns.player)
+      global_id = to_global_id("Media", media.id, AmbrySchema)
+
+      {:ok,
+       assign(socket,
+         page_title: Books.get_book_description(media.book),
+         media: media,
+         global_id: global_id
+       )}
+    else
+      _ -> {:ok, redirect(socket, to: ~p"/")}
     end
-
-    {:ok,
-     assign(socket,
-       page_title: Books.get_book_description(media.book),
-       media: media
-     )}
   end
 
   @impl Phoenix.LiveView

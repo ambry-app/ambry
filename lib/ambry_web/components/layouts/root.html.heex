@@ -14,6 +14,13 @@
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
+    <script :if={assigns[:global_id]} id="deep-link-script" data-global-id={@global_id}>
+      // Attempt to open the Ambry mobile app via deep link
+      (function() {
+        var globalId = document.getElementById('deep-link-script').dataset.globalId;
+        window.location = 'ambry://media/' + globalId;
+      })();
+    </script>
     <script type="text/javascript">
       // fix mobile browser viewport height shenanigans.
       // https://www.markusantonwolf.com/blog/solution-to-the-mobile-viewport-height-issue-with-tailwind-css/
