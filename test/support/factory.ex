@@ -193,7 +193,7 @@ defmodule Ambry.Factory do
       model_name: sequence(:model_name, &"Model-#{&1}"),
       os_name: Enum.random(["iOS", "Android", "Windows", "macOS", "Linux"]),
       os_version: "#{Faker.random_between(10, 16)}.0",
-      last_seen_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      last_seen_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
     }
   end
 
@@ -203,12 +203,12 @@ defmodule Ambry.Factory do
       user: build(:user),
       media: build(:media, book: build(:book)),
       status: :in_progress,
-      started_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      started_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
     }
   end
 
   def finished_playthrough_factory do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
     build(:playthrough,
       status: :finished,
@@ -217,7 +217,7 @@ defmodule Ambry.Factory do
   end
 
   def abandoned_playthrough_factory do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
     build(:playthrough,
       status: :abandoned,
@@ -230,7 +230,7 @@ defmodule Ambry.Factory do
       id: Ecto.UUID.generate(),
       playthrough: build(:playthrough),
       type: :play,
-      timestamp: DateTime.utc_now() |> DateTime.truncate(:second),
+      timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
       position: Decimal.new("#{Faker.random_between(0, 1000)}.0"),
       playback_rate: Decimal.new("1.0")
     }

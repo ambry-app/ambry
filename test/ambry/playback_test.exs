@@ -52,7 +52,7 @@ defmodule Ambry.PlaybackTest do
         user_id: user.id,
         media_id: media.id,
         status: :in_progress,
-        started_at: DateTime.utc_now()
+        started_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
       }
 
       assert {:ok, playthrough} = Playback.upsert_playthrough(attrs)
@@ -69,7 +69,7 @@ defmodule Ambry.PlaybackTest do
         media_id: playthrough.media_id,
         status: :finished,
         started_at: playthrough.started_at,
-        finished_at: DateTime.utc_now()
+        finished_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
       }
 
       assert {:ok, updated} = Playback.upsert_playthrough(attrs)
@@ -82,10 +82,10 @@ defmodule Ambry.PlaybackTest do
   describe "list_playthroughs_changed_since/2" do
     test "returns playthroughs updated after the given time" do
       user = insert(:user)
-      old = insert(:playthrough, user: user, updated_at: ~U[2025-01-01 10:00:00Z])
-      new = insert(:playthrough, user: user, updated_at: ~U[2025-01-02 10:00:00Z])
+      old = insert(:playthrough, user: user, updated_at: ~U[2025-01-01 10:00:00.000Z])
+      new = insert(:playthrough, user: user, updated_at: ~U[2025-01-02 10:00:00.000Z])
 
-      since = ~U[2025-01-01 12:00:00Z]
+      since = ~U[2025-01-01 12:00:00.000Z]
       playthroughs = Playback.list_playthroughs_changed_since(user.id, since)
 
       assert length(playthroughs) == 1
@@ -103,7 +103,7 @@ defmodule Ambry.PlaybackTest do
           id: Ecto.UUID.generate(),
           playthrough_id: playthrough.id,
           type: :play,
-          timestamp: DateTime.utc_now(),
+          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
           position: Decimal.new("0"),
           playback_rate: Decimal.new("1.0")
         },
@@ -111,7 +111,7 @@ defmodule Ambry.PlaybackTest do
           id: Ecto.UUID.generate(),
           playthrough_id: playthrough.id,
           type: :pause,
-          timestamp: DateTime.utc_now(),
+          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
           position: Decimal.new("100"),
           playback_rate: Decimal.new("1.0")
         }
@@ -125,10 +125,14 @@ defmodule Ambry.PlaybackTest do
     test "returns events after the given time" do
       user = insert(:user)
       playthrough = insert(:playthrough, user: user)
-      old = insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 10:00:00Z])
-      new = insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-02 10:00:00Z])
 
-      since = ~U[2025-01-01 12:00:00Z]
+      old =
+        insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 10:00:00.000Z])
+
+      new =
+        insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-02 10:00:00.000Z])
+
+      since = ~U[2025-01-01 12:00:00.000Z]
       events = Playback.list_events_changed_since(user.id, since)
 
       assert length(events) == 1
@@ -148,7 +152,7 @@ defmodule Ambry.PlaybackTest do
           user_id: user.id,
           media_id: media.id,
           status: :in_progress,
-          started_at: DateTime.utc_now()
+          started_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
         }
       ]
 
@@ -168,7 +172,7 @@ defmodule Ambry.PlaybackTest do
           id: Ecto.UUID.generate(),
           playthrough_id: playthrough.id,
           type: :play,
-          timestamp: DateTime.utc_now(),
+          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
           position: Decimal.new("0"),
           playback_rate: Decimal.new("1.0")
         }

@@ -104,7 +104,7 @@ defmodule Ambry.Playback do
           playthrough_id: attrs[:playthrough_id] || attrs["playthrough_id"],
           device_id: attrs[:device_id] || attrs["device_id"],
           type: attrs[:type] || attrs["type"],
-          timestamp: truncate_timestamp(timestamp),
+          timestamp: timestamp,
           position: attrs[:position] || attrs["position"],
           playback_rate: attrs[:playback_rate] || attrs["playback_rate"],
           from_position: attrs[:from_position] || attrs["from_position"],
@@ -121,9 +121,6 @@ defmodule Ambry.Playback do
 
     {:ok, count}
   end
-
-  defp truncate_timestamp(%DateTime{} = dt), do: DateTime.truncate(dt, :second)
-  defp truncate_timestamp(other), do: other
 
   @doc """
   Lists events changed since a given timestamp.
@@ -164,35 +161,12 @@ defmodule Ambry.Playback do
   """
   def sync_playthroughs(playthroughs_data) when is_list(playthroughs_data) do
     Enum.map(playthroughs_data, fn data ->
-      # Truncate all datetime fields to remove microseconds
-      data =
-        data
-        |> truncate_datetime_field(:started_at)
-        |> truncate_datetime_field(:finished_at)
-        |> truncate_datetime_field(:abandoned_at)
-        |> truncate_datetime_field(:deleted_at)
-
       case upsert_playthrough(data) do
         {:ok, playthrough} -> playthrough
         {:error, _changeset} -> nil
       end
     end)
     |> Enum.filter(& &1)
-  end
-
-  defp truncate_datetime_field(data, key) when is_map(data) do
-    string_key = to_string(key)
-
-    cond do
-      Map.has_key?(data, key) ->
-        Map.update!(data, key, &truncate_timestamp/1)
-
-      Map.has_key?(data, string_key) ->
-        Map.update!(data, string_key, &truncate_timestamp/1)
-
-      true ->
-        data
-    end
   end
 
   @doc """
