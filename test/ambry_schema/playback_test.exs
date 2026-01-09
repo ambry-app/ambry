@@ -40,7 +40,7 @@ defmodule AmbrySchema.PlaybackTest do
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
       event_id = Ecto.UUID.generate()
-      now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      now = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
 
       variables = %{
         "input" => %{
@@ -120,7 +120,7 @@ defmodule AmbrySchema.PlaybackTest do
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
       event_id = Ecto.UUID.generate()
-      now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      now = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
 
       variables = %{
         "input" => %{
@@ -177,11 +177,11 @@ defmodule AmbrySchema.PlaybackTest do
       playthrough = insert(:playthrough, user: user, media: media)
 
       old_event =
-        insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 10:00:00Z])
+        insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 10:00:00.000Z])
 
       # Sync with a recent lastSyncTime
       device_id = Ecto.UUID.generate()
-      last_sync = ~U[2025-01-01 09:00:00Z] |> DateTime.to_iso8601()
+      last_sync = ~U[2025-01-01 09:00:00.000Z] |> DateTime.to_iso8601()
 
       variables = %{
         "input" => %{
@@ -261,7 +261,7 @@ defmodule AmbrySchema.PlaybackTest do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
-      now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      now = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
 
       variables = %{
         "input" => %{
@@ -308,7 +308,7 @@ defmodule AmbrySchema.PlaybackTest do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
-      now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      now = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
 
       variables = %{
         "input" => %{
@@ -356,7 +356,7 @@ defmodule AmbrySchema.PlaybackTest do
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
       event_id = Ecto.UUID.generate()
-      now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      now = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
 
       variables = %{
         "input" => %{
@@ -413,7 +413,11 @@ defmodule AmbrySchema.PlaybackTest do
       _web_event = insert(:playback_event, playthrough: playthrough, device: web_device)
 
       # Mobile client syncs - should receive events from web device
-      last_sync = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.to_iso8601()
+      last_sync =
+        DateTime.utc_now()
+        |> DateTime.truncate(:millisecond)
+        |> DateTime.add(-3600, :second)
+        |> DateTime.to_iso8601()
 
       variables = %{
         "input" => %{
@@ -506,7 +510,7 @@ defmodule AmbrySchema.PlaybackTest do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
-      now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      now = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
 
       variables = %{
         "input" => %{

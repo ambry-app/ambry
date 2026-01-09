@@ -12,6 +12,7 @@ defmodule Ambry do
       {Accounts, []},
       {Books, []},
       {Deletions, []},
+      {Ecto, []},
       {FileBrowser, []},
       {Hashids, []},
       {Media, []},

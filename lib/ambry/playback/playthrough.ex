@@ -62,12 +62,12 @@ defmodule Ambry.Playback.Playthrough do
       values: [:in_progress, :finished, :abandoned],
       default: :in_progress
 
-    field :started_at, :utc_datetime
-    field :finished_at, :utc_datetime
-    field :abandoned_at, :utc_datetime
-    field :deleted_at, :utc_datetime
+    field :started_at, Ambry.Ecto.UtcDateTimeMs
+    field :finished_at, Ambry.Ecto.UtcDateTimeMs
+    field :abandoned_at, Ambry.Ecto.UtcDateTimeMs
+    field :deleted_at, Ambry.Ecto.UtcDateTimeMs
 
-    timestamps(type: :utc_datetime)
+    timestamps(type: Ambry.Ecto.UtcDateTimeMs)
   end
 
   @doc """

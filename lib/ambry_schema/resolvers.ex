@@ -262,7 +262,7 @@ defmodule AmbrySchema.Resolvers do
     Playback.sync_events(events_data)
 
     # 4. Query changes since lastSyncTime and return
-    server_time = DateTime.utc_now() |> DateTime.truncate(:second)
+    server_time = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
     # If no lastSyncTime (initial sync), return all playthroughs and events
     # On subsequent syncs, return only changes since last sync

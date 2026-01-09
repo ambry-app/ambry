@@ -52,7 +52,7 @@ defmodule Ambry.Playback.PlaybackEvent do
     belongs_to :device, Device
 
     field :type, Ecto.Enum, values: @event_types
-    field :timestamp, :utc_datetime
+    field :timestamp, Ambry.Ecto.UtcDateTimeMs
     field :position, :decimal
     field :playback_rate, :decimal
 
