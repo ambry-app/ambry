@@ -63,7 +63,9 @@ defmodule Ambry.Playback.PlaybackEvent do
     # rate_change-specific field
     field :previous_rate, :decimal
 
-    # Note: no inserted_at/updated_at - events are immutable
+    # Events are immutable, so no updated_at. inserted_at is used for sync cursoring
+    # (distinct from `timestamp` which is when the event occurred on the client).
+    timestamps(type: :utc_datetime_usec, updated_at: false)
   end
 
   @doc """

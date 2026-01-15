@@ -95,6 +95,8 @@ defmodule Ambry.Playback do
   Returns `{:ok, count}` with number of events inserted.
   """
   def record_events(events_attrs) when is_list(events_attrs) do
+    now = DateTime.utc_now()
+
     events =
       Enum.map(events_attrs, fn attrs ->
         timestamp = attrs[:timestamp] || attrs["timestamp"]
@@ -109,7 +111,8 @@ defmodule Ambry.Playback do
           playback_rate: attrs[:playback_rate] || attrs["playback_rate"],
           from_position: attrs[:from_position] || attrs["from_position"],
           to_position: attrs[:to_position] || attrs["to_position"],
-          previous_rate: attrs[:previous_rate] || attrs["previous_rate"]
+          previous_rate: attrs[:previous_rate] || attrs["previous_rate"],
+          inserted_at: now
         }
       end)
 
@@ -123,16 +126,17 @@ defmodule Ambry.Playback do
   end
 
   @doc """
-  Lists events changed since a given timestamp.
+  Lists events inserted since a given timestamp.
 
-  Used for sync - returns events with timestamp after the given time.
-  Note: Events are immutable, so "changed" means "created after".
+  Used for sync - returns events inserted after the given time.
+  Uses `inserted_at` (when recorded) rather than `timestamp` (when occurred)
+  so that synthesized historical events can be synced to clients.
   """
   def list_events_changed_since(user_id, since) do
     PlaybackEvent
     |> join(:inner, [e], p in Playthrough, on: e.playthrough_id == p.id)
-    |> where([e, p], p.user_id == ^user_id and e.timestamp > ^since)
-    |> order_by([e], asc: e.timestamp)
+    |> where([e, p], p.user_id == ^user_id and e.inserted_at > ^since)
+    |> order_by([e], asc: e.inserted_at)
     |> select([e], e)
     |> Repo.all()
   end
