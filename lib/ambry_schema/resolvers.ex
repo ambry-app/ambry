@@ -259,7 +259,7 @@ defmodule AmbrySchema.Resolvers do
         Map.put(event, :device_id, device.id)
       end)
 
-    Playback.sync_events(events_data)
+    Playback.record_events(events_data)
 
     # 4. Query changes since lastSyncTime and return
     server_time = DateTime.utc_now() |> DateTime.truncate(:millisecond)

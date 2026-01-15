@@ -172,23 +172,4 @@ defmodule Ambry.PlaybackTest do
       assert hd(result).status == :in_progress
     end
   end
-
-  describe "sync_events/1" do
-    test "records multiple events" do
-      playthrough = insert(:playthrough)
-
-      events_data = [
-        %{
-          id: Ecto.UUID.generate(),
-          playthrough_id: playthrough.id,
-          type: :play,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
-          position: Decimal.new("0"),
-          playback_rate: Decimal.new("1.0")
-        }
-      ]
-
-      assert {:ok, 1} = Playback.sync_events(events_data)
-    end
-  end
 end
