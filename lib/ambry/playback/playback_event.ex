@@ -37,19 +37,21 @@ defmodule Ambry.Playback.PlaybackEvent do
 
   import Ecto.Changeset
 
+  alias Ambry.Media.Media
   alias Ambry.Playback.Device
   alias Ambry.Playback.Playthrough
 
   @primary_key {:id, :binary_id, autogenerate: false}
   @foreign_key_type :binary_id
 
-  @event_types [:start, :play, :pause, :seek, :rate_change, :finish, :abandon, :resume]
+  @event_types [:start, :play, :pause, :seek, :rate_change, :finish, :abandon, :resume, :delete]
   @playback_event_types [:play, :pause, :seek, :rate_change]
-  @lifecycle_event_types [:start, :finish, :abandon, :resume]
+  @lifecycle_event_types [:start, :finish, :abandon, :resume, :delete]
 
   schema "playback_events" do
     belongs_to :playthrough, Playthrough
     belongs_to :device, Device
+    belongs_to :media, Media, type: :id
 
     field :type, Ecto.Enum, values: @event_types
     field :timestamp, Ambry.Ecto.UtcDateTimeMs
@@ -63,7 +65,9 @@ defmodule Ambry.Playback.PlaybackEvent do
     # rate_change-specific field
     field :previous_rate, :decimal
 
-    # Note: no inserted_at/updated_at - events are immutable
+    # Events are immutable, so no updated_at. inserted_at is used for sync cursoring
+    # (distinct from `timestamp` which is when the event occurred on the client).
+    timestamps(type: :utc_datetime_usec, updated_at: false)
   end
 
   @doc """
@@ -95,6 +99,7 @@ defmodule Ambry.Playback.PlaybackEvent do
       :id,
       :playthrough_id,
       :device_id,
+      :media_id,
       :type,
       :timestamp,
       :position,
@@ -121,8 +126,13 @@ defmodule Ambry.Playback.PlaybackEvent do
         |> validate_required([:position, :playback_rate])
         |> validate_playback_event_fields(type)
 
+      type == :start ->
+        # Start events require media_id to identify what is being played, as well as default position/rate
+        changeset
+        |> validate_required([:media_id, :position, :playback_rate])
+
       type in @lifecycle_event_types ->
-        # Lifecycle events don't need position/rate
+        # Other lifecycle events don't need position/rate or media_id
         changeset
 
       true ->

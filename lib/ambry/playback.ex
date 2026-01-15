@@ -94,45 +94,43 @@ defmodule Ambry.Playback do
 
   Returns `{:ok, count}` with number of events inserted.
   """
-  def record_events(events_attrs) when is_list(events_attrs) do
-    events =
+  def record_events(events_attrs) do
+    events_attrs =
       Enum.map(events_attrs, fn attrs ->
-        timestamp = attrs[:timestamp] || attrs["timestamp"]
-
-        %{
-          id: attrs[:id] || attrs["id"],
-          playthrough_id: attrs[:playthrough_id] || attrs["playthrough_id"],
-          device_id: attrs[:device_id] || attrs["device_id"],
-          type: attrs[:type] || attrs["type"],
-          timestamp: timestamp,
-          position: attrs[:position] || attrs["position"],
-          playback_rate: attrs[:playback_rate] || attrs["playback_rate"],
-          from_position: attrs[:from_position] || attrs["from_position"],
-          to_position: attrs[:to_position] || attrs["to_position"],
-          previous_rate: attrs[:previous_rate] || attrs["previous_rate"]
-        }
+        Map.put(attrs, :inserted_at, {:placeholder, :now})
       end)
 
+    expected_count = length(events_attrs)
+
     {count, _} =
-      Repo.insert_all(PlaybackEvent, events,
+      Repo.insert_all(PlaybackEvent, events_attrs,
         on_conflict: :nothing,
-        returning: false
+        returning: false,
+        placeholders: %{now: DateTime.utc_now()}
       )
+
+    if count != expected_count do
+      Sentry.capture_message(
+        "Some playback events were not inserted due to conflicts",
+        extra: %{expected: expected_count, inserted: count}
+      )
+    end
 
     {:ok, count}
   end
 
   @doc """
-  Lists events changed since a given timestamp.
+  Lists events inserted since a given timestamp.
 
-  Used for sync - returns events with timestamp after the given time.
-  Note: Events are immutable, so "changed" means "created after".
+  Used for sync - returns events inserted after the given time.
+  Uses `inserted_at` (when recorded) rather than `timestamp` (when occurred)
+  so that synthesized historical events can be synced to clients.
   """
   def list_events_changed_since(user_id, since) do
     PlaybackEvent
     |> join(:inner, [e], p in Playthrough, on: e.playthrough_id == p.id)
-    |> where([e, p], p.user_id == ^user_id and e.timestamp > ^since)
-    |> order_by([e], asc: e.timestamp)
+    |> where([e, p], p.user_id == ^user_id and e.inserted_at > ^since)
+    |> order_by([e], asc: e.inserted_at)
     |> select([e], e)
     |> Repo.all()
   end
@@ -167,15 +165,5 @@ defmodule Ambry.Playback do
       end
     end)
     |> Enum.filter(& &1)
-  end
-
-  @doc """
-  Syncs events from a client.
-
-  Accepts a list of event data and records them.
-  Returns `{:ok, count}` with number of events synced.
-  """
-  def sync_events(events_data) when is_list(events_data) do
-    record_events(events_data)
   end
 end

@@ -122,22 +122,32 @@ defmodule Ambry.PlaybackTest do
   end
 
   describe "list_events_changed_since/2" do
-    test "returns events after the given time" do
+    test "returns events inserted after the given time" do
       user = insert(:user)
       playthrough = insert(:playthrough, user: user)
 
-      old =
-        insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-01 10:00:00.000Z])
+      # Both events have realistic client timestamps (millisecond precision)
+      # but different inserted_at times (when they were recorded on server)
+      _old =
+        insert(:playback_event,
+          playthrough: playthrough,
+          timestamp: ~U[2025-01-01 10:00:00.000Z],
+          inserted_at: ~U[2025-01-01 10:00:00.000000Z]
+        )
 
       new =
-        insert(:playback_event, playthrough: playthrough, timestamp: ~U[2025-01-02 10:00:00.000Z])
+        insert(:playback_event,
+          playthrough: playthrough,
+          timestamp: ~U[2025-01-01 11:00:00.000Z],
+          inserted_at: ~U[2025-01-02 10:00:00.000000Z]
+        )
 
+      # Client sends lastSyncTime with millisecond precision
       since = ~U[2025-01-01 12:00:00.000Z]
       events = Playback.list_events_changed_since(user.id, since)
 
       assert length(events) == 1
       assert hd(events).id == new.id
-      refute Enum.any?(events, &(&1.id == old.id))
     end
   end
 
@@ -160,25 +170,6 @@ defmodule Ambry.PlaybackTest do
 
       assert length(result) == 1
       assert hd(result).status == :in_progress
-    end
-  end
-
-  describe "sync_events/1" do
-    test "records multiple events" do
-      playthrough = insert(:playthrough)
-
-      events_data = [
-        %{
-          id: Ecto.UUID.generate(),
-          playthrough_id: playthrough.id,
-          type: :play,
-          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
-          position: Decimal.new("0"),
-          playback_rate: Decimal.new("1.0")
-        }
-      ]
-
-      assert {:ok, 1} = Playback.sync_events(events_data)
     end
   end
 end

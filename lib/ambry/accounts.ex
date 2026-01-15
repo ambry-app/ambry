@@ -56,6 +56,17 @@ defmodule Ambry.Accounts do
   end
 
   @doc """
+  Returns all users (id and email only) for use in dropdowns.
+  """
+  @spec list_all_users_for_select :: [{integer(), String.t()}]
+  def list_all_users_for_select do
+    User
+    |> select([u], {u.id, u.email})
+    |> order_by([u], asc: u.email)
+    |> Repo.all()
+  end
+
+  @doc """
   Returns the number of users.
 
   ## Examples
