@@ -255,7 +255,8 @@ defmodule AmbrySchema.Resolvers do
 
     media_id_lookup = Map.new(playthroughs_data, &{&1.id, &1.media_id})
 
-    # 3. Record events from client (with device_id from registered device), backfilling media_id, position, and playback_rate for :start events
+    # 3. Record events from client (with device_id from registered device),
+    #    backfilling media_id, position, and playback_rate for :start events
     events_data =
       Enum.map(events_input, fn event ->
         event
