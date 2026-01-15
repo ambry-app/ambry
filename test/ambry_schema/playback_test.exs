@@ -39,7 +39,8 @@ defmodule AmbrySchema.PlaybackTest do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
-      event_id = Ecto.UUID.generate()
+      event1_id = Ecto.UUID.generate()
+      event2_id = Ecto.UUID.generate()
       now = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
 
       variables = %{
@@ -59,7 +60,16 @@ defmodule AmbrySchema.PlaybackTest do
           ],
           "events" => [
             %{
-              "id" => event_id,
+              "id" => event1_id,
+              "playthroughId" => playthrough_id,
+              "type" => "START",
+              "timestamp" => now,
+              "position" => 0.0,
+              "playbackRate" => 1.0,
+              "mediaId" => media.id
+            },
+            %{
+              "id" => event2_id,
               "playthroughId" => playthrough_id,
               "type" => "PLAY",
               "timestamp" => now,
@@ -91,7 +101,14 @@ defmodule AmbrySchema.PlaybackTest do
                    ],
                    "events" => [
                      %{
-                       "id" => ^event_id,
+                       "id" => ^event1_id,
+                       "type" => "START",
+                       "timestamp" => ^now,
+                       "position" => +0.0,
+                       "playbackRate" => +1.0
+                     },
+                     %{
+                       "id" => ^event2_id,
                        "type" => "PLAY",
                        "timestamp" => ^now,
                        "position" => +0.0,
@@ -109,17 +126,18 @@ defmodule AmbrySchema.PlaybackTest do
       assert playthrough.media_id == media.id
       assert playthrough.status == :in_progress
 
-      # Verify event was created
+      # Verify events were created
       events = Repo.all(from e in PlaybackEvent, where: e.playthrough_id == ^playthrough_id)
-      assert length(events) == 1
-      assert hd(events).type == :play
+      assert length(events) == 2
+      assert Enum.map(events, & &1.type) |> Enum.sort() == [:play, :start]
     end
 
     test "syncs resume lifecycle event", %{conn: conn, user: _user} do
       media = insert(:media, book: build(:book))
       playthrough_id = Ecto.UUID.generate()
       device_id = Ecto.UUID.generate()
-      event_id = Ecto.UUID.generate()
+      event1_id = Ecto.UUID.generate()
+      event2_id = Ecto.UUID.generate()
       now = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
 
       variables = %{
@@ -139,7 +157,16 @@ defmodule AmbrySchema.PlaybackTest do
           ],
           "events" => [
             %{
-              "id" => event_id,
+              "id" => event1_id,
+              "playthroughId" => playthrough_id,
+              "type" => "START",
+              "timestamp" => now,
+              "position" => 0.0,
+              "playbackRate" => 1.0,
+              "mediaId" => media.id
+            },
+            %{
+              "id" => event2_id,
               "playthroughId" => playthrough_id,
               "type" => "RESUME",
               "timestamp" => now
@@ -164,9 +191,9 @@ defmodule AmbrySchema.PlaybackTest do
 
       # Verify resume event was created without position/playbackRate
       events = Repo.all(from e in PlaybackEvent, where: e.playthrough_id == ^playthrough_id)
-      assert length(events) == 1
-      resume_event = hd(events)
-      assert resume_event.type == :resume
+      assert length(events) == 2
+      assert Enum.map(events, & &1.type) |> Enum.sort() == [:resume, :start]
+      resume_event = Enum.find(events, &(&1.type == :resume))
       assert resume_event.position == nil
       assert resume_event.playback_rate == nil
     end
@@ -283,6 +310,15 @@ defmodule AmbrySchema.PlaybackTest do
             %{
               "id" => Ecto.UUID.generate(),
               "playthroughId" => playthrough_id,
+              "type" => "START",
+              "timestamp" => now,
+              "position" => 0.0,
+              "playbackRate" => 1.0,
+              "mediaId" => media.id
+            },
+            %{
+              "id" => Ecto.UUID.generate(),
+              "playthroughId" => playthrough_id,
               "type" => "FINISH",
               "timestamp" => now
             }
@@ -327,6 +363,15 @@ defmodule AmbrySchema.PlaybackTest do
             }
           ],
           "events" => [
+            %{
+              "id" => Ecto.UUID.generate(),
+              "playthroughId" => playthrough_id,
+              "type" => "START",
+              "timestamp" => now,
+              "position" => 0.0,
+              "playbackRate" => 1.0,
+              "mediaId" => media.id
+            },
             %{
               "id" => Ecto.UUID.generate(),
               "playthroughId" => playthrough_id,
@@ -375,6 +420,15 @@ defmodule AmbrySchema.PlaybackTest do
           ],
           "events" => [
             %{
+              "id" => Ecto.UUID.generate(),
+              "playthroughId" => playthrough_id,
+              "type" => "START",
+              "timestamp" => now,
+              "position" => 0.0,
+              "playbackRate" => 1.0,
+              "mediaId" => media.id
+            },
+            %{
               "id" => event_id,
               "playthroughId" => playthrough_id,
               "type" => "SEEK",
@@ -398,8 +452,10 @@ defmodule AmbrySchema.PlaybackTest do
 
       # Verify seek event with from/to positions
       events = Repo.all(from e in PlaybackEvent, where: e.playthrough_id == ^playthrough_id)
-      assert length(events) == 1
-      seek_event = hd(events)
+      assert length(events) == 2
+      assert Enum.map(events, & &1.type) |> Enum.sort() == [:seek, :start]
+
+      seek_event = Enum.find(events, &(&1.type == :seek))
       assert seek_event.type == :seek
       assert Decimal.eq?(seek_event.from_position, Decimal.new("100.0"))
       assert Decimal.eq?(seek_event.to_position, Decimal.new("500.0"))

@@ -150,10 +150,7 @@ defmodule Ambry.Playback do
       |> select([p], p.user_id)
       |> Repo.one()
 
-    unless user_id do
-      # Playthrough doesn't exist yet, skip
-      :ok
-    else
+    if user_id do
       # Fetch all events for this playthrough, sorted by timestamp
       events =
         PlaybackEvent
@@ -173,6 +170,9 @@ defmodule Ambry.Playback do
           conflict_target: :id
         )
       end
+    else
+      # Playthrough doesn't exist yet, skip
+      :ok
     end
   end
 

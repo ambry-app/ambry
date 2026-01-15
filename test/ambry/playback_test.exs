@@ -102,6 +102,15 @@ defmodule Ambry.PlaybackTest do
         %{
           id: Ecto.UUID.generate(),
           playthrough_id: playthrough.id,
+          type: :start,
+          timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
+          position: Decimal.new("0"),
+          playback_rate: Decimal.new("1.0"),
+          media_id: playthrough.media_id
+        },
+        %{
+          id: Ecto.UUID.generate(),
+          playthrough_id: playthrough.id,
           type: :play,
           timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
           position: Decimal.new("0"),
@@ -117,7 +126,7 @@ defmodule Ambry.PlaybackTest do
         }
       ]
 
-      assert {:ok, 2} = Playback.record_events(events)
+      assert {:ok, 3} = Playback.record_events(events)
     end
   end
 
