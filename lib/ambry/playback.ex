@@ -18,6 +18,7 @@ defmodule Ambry.Playback do
     exports: [
       Device,
       Playthrough,
+      PlaythroughNew,
       PlaybackEvent
     ]
 
@@ -26,6 +27,7 @@ defmodule Ambry.Playback do
   alias Ambry.Playback.Device
   alias Ambry.Playback.PlaybackEvent
   alias Ambry.Playback.Playthrough
+  alias Ambry.Playback.PlaythroughNew
   alias Ambry.Repo
 
   ## Devices
@@ -92,6 +94,9 @@ defmodule Ambry.Playback do
   @doc """
   Records multiple playback events in a single transaction.
 
+  Also rebuilds the derived playthrough state in `playthroughs_new` for any
+  affected playthroughs.
+
   Returns `{:ok, count}` with number of events inserted.
   """
   def record_events(events_attrs) do
@@ -116,7 +121,59 @@ defmodule Ambry.Playback do
       )
     end
 
+    # Rebuild derived state for affected playthroughs
+    playthrough_ids =
+      events_attrs
+      |> Enum.map(&(&1[:playthrough_id] || &1["playthrough_id"]))
+      |> Enum.uniq()
+
+    rebuild_playthroughs_new(playthrough_ids)
+
     {:ok, count}
+  end
+
+  @doc """
+  Rebuilds the derived state in `playthroughs_new` for the given playthrough IDs.
+
+  Fetches all events for each playthrough, reduces them to derive the current state,
+  and upserts the result.
+  """
+  def rebuild_playthroughs_new(playthrough_ids) when is_list(playthrough_ids) do
+    Enum.each(playthrough_ids, &rebuild_playthrough_new/1)
+  end
+
+  defp rebuild_playthrough_new(playthrough_id) do
+    # Get user_id from the old playthroughs table (for now)
+    user_id =
+      Playthrough
+      |> where([p], p.id == ^playthrough_id)
+      |> select([p], p.user_id)
+      |> Repo.one()
+
+    unless user_id do
+      # Playthrough doesn't exist yet, skip
+      :ok
+    else
+      # Fetch all events for this playthrough, sorted by timestamp
+      events =
+        PlaybackEvent
+        |> where([e], e.playthrough_id == ^playthrough_id)
+        |> order_by([e], asc: e.timestamp)
+        |> Repo.all()
+
+      if events != [] do
+        # Reduce events to derive state
+        state = PlaythroughNew.reduce(events, playthrough_id, user_id)
+
+        # Upsert into playthroughs_new
+        Repo.insert_all(
+          PlaythroughNew,
+          [state],
+          on_conflict: {:replace_all_except, [:id]},
+          conflict_target: :id
+        )
+      end
+    end
   end
 
   @doc """
