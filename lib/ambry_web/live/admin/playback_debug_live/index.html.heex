@@ -55,52 +55,154 @@
     <%!-- Right panel: Details --%>
     <div class="min-w-0 grow">
       <div :if={@selected_playthrough}>
-        <%!-- Playthrough details --%>
-        <h2 class="mb-2 font-bold">Playthrough Details</h2>
-        <table class="mb-6 w-full text-sm">
-          <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">ID</td>
-              <td class="font-mono py-1 text-xs">{@selected_playthrough.id}</td>
-            </tr>
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">User</td>
-              <td class="py-1">{@selected_playthrough.user.email}</td>
-            </tr>
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Media ID</td>
-              <td class="font-mono py-1 text-xs">{@selected_playthrough.media_id}</td>
-            </tr>
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Status</td>
-              <td class="py-1">{@selected_playthrough.status}</td>
-            </tr>
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Started At</td>
-              <td class="py-1">{format_datetime(@selected_playthrough.started_at)}</td>
-            </tr>
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Finished At</td>
-              <td class="py-1">{format_datetime(@selected_playthrough.finished_at)}</td>
-            </tr>
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Abandoned At</td>
-              <td class="py-1">{format_datetime(@selected_playthrough.abandoned_at)}</td>
-            </tr>
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Deleted At</td>
-              <td class="py-1">{format_datetime(@selected_playthrough.deleted_at)}</td>
-            </tr>
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Inserted At</td>
-              <td class="py-1">{format_datetime(@selected_playthrough.inserted_at)}</td>
-            </tr>
-            <tr>
-              <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Updated At</td>
-              <td class="py-1">{format_datetime(@selected_playthrough.updated_at)}</td>
-            </tr>
-          </tbody>
-        </table>
+        <%!-- Playthrough details - side by side --%>
+        <div class="mb-6 flex gap-8">
+          <%!-- Original playthrough --%>
+          <div class="flex-1">
+            <h2 class="mb-2 font-bold">Playthrough (Original)</h2>
+            <table class="w-full text-sm">
+              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">ID</td>
+                  <td class="font-mono py-1 text-xs">{@selected_playthrough.id}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">User</td>
+                  <td class="py-1">{@selected_playthrough.user.email}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Media ID</td>
+                  <td class="font-mono py-1 text-xs">{@selected_playthrough.media_id}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Status</td>
+                  <td class="py-1">{@selected_playthrough.status}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Started At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough.started_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Finished At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough.finished_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Abandoned At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough.abandoned_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Deleted At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough.deleted_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Inserted At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough.inserted_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Updated At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough.updated_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Position</td>
+                  <td class="py-1 text-zinc-400">-</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Rate</td>
+                  <td class="py-1 text-zinc-400">-</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">
+                    Last Event At
+                  </td>
+                  <td class="py-1 text-zinc-400">-</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">
+                    Refreshed At
+                  </td>
+                  <td class="py-1 text-zinc-400">-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <%!-- New playthrough --%>
+          <div class="flex-1">
+            <h2 class="mb-2 font-bold">Playthrough (New)</h2>
+            <table :if={@selected_playthrough_new} class="w-full text-sm">
+              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">ID</td>
+                  <td class="font-mono py-1 text-xs">{@selected_playthrough_new.id}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">User</td>
+                  <td class="py-1">{@selected_playthrough_new.user.email}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Media ID</td>
+                  <td class="font-mono py-1 text-xs">{@selected_playthrough_new.media_id}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Status</td>
+                  <td class="py-1">{@selected_playthrough_new.status}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Started At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough_new.started_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Finished At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough_new.finished_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Abandoned At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough_new.abandoned_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Deleted At</td>
+                  <td class="py-1">{format_datetime(@selected_playthrough_new.deleted_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Inserted At</td>
+                  <td class="py-1 text-zinc-400">-</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Updated At</td>
+                  <td class="py-1 text-zinc-400">-</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Position</td>
+                  <td class="font-mono py-1 text-xs">
+                    {@selected_playthrough_new.position &&
+                      Decimal.round(@selected_playthrough_new.position, 1)}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Rate</td>
+                  <td class="font-mono py-1 text-xs">
+                    {@selected_playthrough_new.rate &&
+                      Decimal.to_string(@selected_playthrough_new.rate)}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">
+                    Last Event At
+                  </td>
+                  <td class="py-1">{format_datetime(@selected_playthrough_new.last_event_at)}</td>
+                </tr>
+                <tr>
+                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">
+                    Refreshed At
+                  </td>
+                  <td class="py-1">{format_datetime(@selected_playthrough_new.refreshed_at)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div :if={!@selected_playthrough_new} class="italic text-zinc-500 dark:text-zinc-400">
+              No matching record in playthroughs_new table.
+            </div>
+          </div>
+        </div>
 
         <%!-- Events --%>
         <h2 class="mb-2 font-bold">Events ({length(@events)})</h2>

@@ -22,6 +22,7 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
        selected_user_id: nil,
        playthroughs: [],
        selected_playthrough: nil,
+       selected_playthrough_new: nil,
        events: []
      )}
   end
@@ -49,10 +50,15 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
 
   defp maybe_select_playthrough(socket, playthrough_id) do
     playthrough = get_playthrough(playthrough_id)
+    playthrough_new = if playthrough, do: get_playthrough_new(playthrough_id)
     events = if playthrough, do: list_events_for_playthrough(playthrough_id), else: []
 
     socket
-    |> assign(selected_playthrough: playthrough, events: events)
+    |> assign(
+      selected_playthrough: playthrough,
+      selected_playthrough_new: playthrough_new,
+      events: events
+    )
   end
 
   @impl Phoenix.LiveView
@@ -80,6 +86,14 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
 
   defp get_playthrough(id) do
     from(p in Ambry.Playback.Playthrough,
+      where: p.id == ^id,
+      preload: [[media: :book], :user]
+    )
+    |> Repo.one()
+  end
+
+  defp get_playthrough_new(id) do
+    from(p in Ambry.Playback.PlaythroughNew,
       where: p.id == ^id,
       preload: [[media: :book], :user]
     )
