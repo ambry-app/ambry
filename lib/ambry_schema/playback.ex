@@ -25,6 +25,7 @@ defmodule AmbrySchema.Playback do
     value :finish
     value :abandon
     value :resume
+    value :delete
   end
 
   enum :device_type do
@@ -69,6 +70,7 @@ defmodule AmbrySchema.Playback do
     field :id, non_null(:id)
     field :playthrough_id, non_null(:id)
     field :device_id, :id
+    field :media_id, :id
     field :type, non_null(:playback_event_type)
     field :timestamp, non_null(:datetime)
     field :position, :float, resolve: Resolvers.resolve_decimal(:position)
@@ -104,6 +106,7 @@ defmodule AmbrySchema.Playback do
   input_object :playback_event_input do
     field :id, non_null(:id)
     field :playthrough_id, non_null(:id)
+    field :media_id, :id
     field :type, non_null(:playback_event_type)
     field :timestamp, non_null(:datetime)
     field :position, :float

@@ -253,10 +253,25 @@ defmodule AmbrySchema.Resolvers do
 
     Playback.sync_playthroughs(playthroughs_data)
 
-    # 3. Record events from client (with device_id from registered device)
+    media_id_lookup = Map.new(playthroughs_data, &{&1.id, &1.media_id})
+
+    # 3. Record events from client (with device_id from registered device), backfilling media_id, position, and playback_rate for :start events
     events_data =
       Enum.map(events_input, fn event ->
-        Map.put(event, :device_id, device.id)
+        event
+        |> Map.put(:device_id, device.id)
+        |> then(fn
+          %{type: :start} = event ->
+            media_id = Map.get(media_id_lookup, event.playthrough_id)
+
+            event
+            |> Map.put(:media_id, media_id)
+            |> Map.put(:position, 0.0)
+            |> Map.put(:playback_rate, 1.0)
+
+          event ->
+            event
+        end)
       end)
 
     Playback.record_events(events_data)
