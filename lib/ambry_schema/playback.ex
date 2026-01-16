@@ -129,10 +129,23 @@ defmodule AmbrySchema.Playback do
     field :events, non_null(list_of(non_null(:playback_event_input)))
   end
 
+  # V2 input - events only, no playthroughs needed
+  input_object :sync_events_input do
+    field :last_sync_time, :datetime
+    field :device, non_null(:device_input)
+    field :events, non_null(list_of(non_null(:playback_event_input)))
+  end
+
   ## Mutation Output
 
   object :sync_progress_payload do
     field :playthroughs, non_null(list_of(non_null(:playthrough)))
+    field :events, non_null(list_of(non_null(:playback_event)))
+    field :server_time, non_null(:datetime)
+  end
+
+  # V2 payload - events only
+  object :sync_events_payload do
     field :events, non_null(list_of(non_null(:playback_event)))
     field :server_time, non_null(:datetime)
   end
@@ -146,6 +159,15 @@ defmodule AmbrySchema.Playback do
       middleware AmbrySchema.AuthMiddleware
 
       resolve &Resolvers.sync_progress/2
+    end
+
+    @desc "V2 sync: events only, no playthroughs. All state is derived from events."
+    field :sync_events, :sync_events_payload do
+      arg :input, non_null(:sync_events_input)
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.sync_events/2
     end
   end
 end

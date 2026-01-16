@@ -101,7 +101,7 @@ defmodule Ambry.Playback do
 
   Returns `{:ok, count}` with number of events inserted.
   """
-  def record_events(events_attrs) do
+  def record_events(events_attrs, user_id) do
     events_attrs =
       Enum.map(events_attrs, fn attrs ->
         Map.put(attrs, :inserted_at, {:placeholder, :now})
@@ -120,52 +120,30 @@ defmodule Ambry.Playback do
       |> Enum.map(&(&1[:playthrough_id] || &1["playthrough_id"]))
       |> Enum.uniq()
 
-    rebuild_playthroughs_new(playthrough_ids)
+    Enum.each(playthrough_ids, &rebuild_playthrough_new(&1, user_id))
 
     {:ok, count}
   end
 
-  @doc """
-  Rebuilds the derived state in `playthroughs_new` for the given playthrough IDs.
+  defp rebuild_playthrough_new(playthrough_id, user_id) do
+    # Fetch all events for this playthrough, sorted by timestamp
+    events =
+      PlaybackEvent
+      |> where([e], e.playthrough_id == ^playthrough_id)
+      |> order_by([e], asc: e.timestamp)
+      |> Repo.all()
 
-  Fetches all events for each playthrough, reduces them to derive the current state,
-  and upserts the result.
-  """
-  def rebuild_playthroughs_new(playthrough_ids) when is_list(playthrough_ids) do
-    Enum.each(playthrough_ids, &rebuild_playthrough_new/1)
-  end
+    if events != [] do
+      # Reduce events to derive state
+      state = PlaythroughNew.reduce(events, playthrough_id, user_id)
 
-  defp rebuild_playthrough_new(playthrough_id) do
-    # Get user_id from the old playthroughs table (for now)
-    user_id =
-      Playthrough
-      |> where([p], p.id == ^playthrough_id)
-      |> select([p], p.user_id)
-      |> Repo.one()
-
-    if user_id do
-      # Fetch all events for this playthrough, sorted by timestamp
-      events =
-        PlaybackEvent
-        |> where([e], e.playthrough_id == ^playthrough_id)
-        |> order_by([e], asc: e.timestamp)
-        |> Repo.all()
-
-      if events != [] do
-        # Reduce events to derive state
-        state = PlaythroughNew.reduce(events, playthrough_id, user_id)
-
-        # Upsert into playthroughs_new
-        Repo.insert_all(
-          PlaythroughNew,
-          [state],
-          on_conflict: {:replace_all_except, [:id]},
-          conflict_target: :id
-        )
-      end
-    else
-      # Playthrough doesn't exist yet, skip
-      :ok
+      # Upsert into playthroughs_new
+      Repo.insert_all(
+        PlaythroughNew,
+        [state],
+        on_conflict: {:replace_all_except, [:id]},
+        conflict_target: :id
+      )
     end
   end
 
@@ -199,6 +177,34 @@ defmodule Ambry.Playback do
     |> Repo.all()
   end
 
+  @doc """
+  V2: Lists events changed since the given time, using playthroughs_new.
+
+  For V2 sync which doesn't use the legacy playthroughs table.
+  """
+  def list_events_changed_since_v2(user_id, since) do
+    PlaybackEvent
+    |> join(:inner, [e], p in PlaythroughNew, on: e.playthrough_id == p.id)
+    |> where([e, p], p.user_id == ^user_id and e.inserted_at > ^since)
+    |> order_by([e], asc: e.inserted_at)
+    |> select([e], e)
+    |> Repo.all()
+  end
+
+  @doc """
+  V2: Lists all events for a user, using playthroughs_new.
+
+  For V2 sync which doesn't use the legacy playthroughs table.
+  """
+  def list_all_events_v2(user_id) do
+    PlaybackEvent
+    |> join(:inner, [e], p in PlaythroughNew, on: e.playthrough_id == p.id)
+    |> where([_e, p], p.user_id == ^user_id)
+    |> order_by([e], asc: e.timestamp)
+    |> select([e], e)
+    |> Repo.all()
+  end
+
   ## Sync Helpers
 
   @doc """
@@ -215,61 +221,5 @@ defmodule Ambry.Playback do
       end
     end)
     |> Enum.filter(& &1)
-  end
-
-  ## Data Integrity Helpers
-
-  @doc """
-  Finds playthroughs that are missing start events.
-
-  Returns a list of playthrough structs that have no corresponding start event.
-  Use `create_missing_start_events/0` to fix these.
-  """
-  def find_playthroughs_missing_start_events do
-    Playthrough
-    |> join(:left, [p], e in PlaybackEvent, on: e.playthrough_id == p.id and e.type == :start)
-    |> where([_p, e], is_nil(e.id))
-    |> select([p], p)
-    |> Repo.all()
-  end
-
-  @doc """
-  Creates synthetic start events for any playthroughs missing them.
-
-  This is a repair function to catch any playthroughs that slipped through
-  between the one-time migration and the ongoing sync fix being deployed.
-
-  Returns `{:ok, count}` with the number of start events created.
-  """
-  def create_missing_start_events do
-    playthroughs = find_playthroughs_missing_start_events()
-
-    if playthroughs == [] do
-      {:ok, 0}
-    else
-      events =
-        Enum.map(playthroughs, fn p ->
-          # Find playback_rate from first event with a rate, or default to 1.0
-          rate =
-            PlaybackEvent
-            |> where([e], e.playthrough_id == ^p.id and not is_nil(e.playback_rate))
-            |> order_by([e], asc: e.timestamp)
-            |> limit(1)
-            |> select([e], e.playback_rate)
-            |> Repo.one() || Decimal.new("1.0")
-
-          %{
-            id: Ecto.UUID.generate(),
-            playthrough_id: p.id,
-            media_id: p.media_id,
-            type: :start,
-            timestamp: p.started_at,
-            position: Decimal.new(0),
-            playback_rate: rate
-          }
-        end)
-
-      record_events(events)
-    end
   end
 end

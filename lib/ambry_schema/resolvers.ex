@@ -337,7 +337,7 @@ defmodule AmbrySchema.Resolvers do
         end)
       end)
 
-    Playback.record_events(events_data ++ synthetic_events)
+    Playback.record_events(events_data ++ synthetic_events, user_id)
 
     # 5. Query changes since lastSyncTime and return
     server_time = DateTime.utc_now() |> DateTime.truncate(:millisecond)
@@ -398,6 +398,72 @@ defmodule AmbrySchema.Resolvers do
       e
     ])
     |> IO.iodata_to_binary()
+  end
+
+  @doc """
+  V2 sync: events only, no playthroughs.
+
+  This is a simplified sync endpoint for clients that have migrated to event-sourced
+  playback. All playthrough state is derived from events, so we only need to:
+  1. Register/update the device
+  2. Record events from client
+  3. Return events changed since lastSyncTime
+
+  Unlike sync_progress/2, this does NOT:
+  - Accept or sync playthroughs (state is derived from events)
+  - Synthesize start/delete events (V2 clients send complete events)
+  - Backfill missing fields (V2 clients include all required fields)
+  - Filter delete events from response (V2 clients understand them)
+  """
+  def sync_events(%{input: input}, %{context: %{current_user: %User{id: user_id}}}) do
+    %{
+      device: device_input,
+      events: events_input,
+      last_sync_time: last_sync_time
+    } = input
+
+    # 1. Register/update device
+    device_attrs = Map.put(device_input, :user_id, user_id)
+    {:ok, device} = Playback.register_device(device_attrs)
+
+    # 2. Record events from client (with device_id and app info from registered device)
+    #    Decode media_id from Relay global ID if present
+    events_data =
+      Enum.map(events_input, fn event ->
+        event
+        |> Map.put(:device_id, device.id)
+        |> Map.put(:app_version, device.app_version)
+        |> Map.put(:app_build, device.app_build)
+        |> then(fn event ->
+          case event[:media_id] do
+            nil ->
+              event
+
+            global_id ->
+              {:ok, %{id: media_id_str}} = from_global_id(global_id, AmbrySchema)
+              Map.put(event, :media_id, String.to_integer(media_id_str))
+          end
+        end)
+      end)
+
+    Playback.record_events(events_data, user_id)
+
+    # 3. Query events changed since lastSyncTime and return (including delete events)
+    #    Use V2 query functions that join to playthroughs_new instead of legacy playthroughs
+    server_time = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+
+    events =
+      if last_sync_time do
+        Playback.list_events_changed_since_v2(user_id, last_sync_time)
+      else
+        Playback.list_all_events_v2(user_id)
+      end
+
+    {:ok,
+     %{
+       events: events,
+       server_time: server_time
+     }}
   end
 
   ## Dataloader
