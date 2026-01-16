@@ -43,6 +43,11 @@ defmodule Ambry.Playback.Device do
     field :os_name, :string
     field :os_version, :string
 
+    # App info
+    field :app_id, :string
+    field :app_version, :string
+    field :app_build, :string
+
     field :last_seen_at, Ambry.Ecto.UtcDateTimeMs
 
     timestamps(type: Ambry.Ecto.UtcDateTimeMs)
@@ -70,6 +75,9 @@ defmodule Ambry.Playback.Device do
       :browser_version,
       :os_name,
       :os_version,
+      :app_id,
+      :app_version,
+      :app_build,
       :last_seen_at
     ])
     |> validate_required([:id, :user_id, :type])

@@ -253,22 +253,35 @@ defmodule AmbrySchema.Resolvers do
 
     Playback.sync_playthroughs(playthroughs_data)
 
+    # Build lookup of media_id from upserted playthroughs (for backfilling start
+    # events) Legacy clients don't send media_id on start events
     media_id_lookup = Map.new(playthroughs_data, &{&1.id, &1.media_id})
 
-    # 3. Record events from client (with device_id from registered device),
+    # Build lookup of playback_rate from play events (for backfilling start
+    # events) Legacy clients don't send rate on start events but do on the first
+    # play event
+    play_rate_lookup =
+      events_input
+      |> Enum.filter(&(&1.type == :play && &1[:playback_rate]))
+      |> Map.new(&{&1.playthrough_id, &1.playback_rate})
+
+    # 3. Record events from client (with device_id and app info from registered device),
     #    backfilling media_id, position, and playback_rate for :start events
     events_data =
       Enum.map(events_input, fn event ->
         event
         |> Map.put(:device_id, device.id)
+        |> Map.put(:app_version, device.app_version)
+        |> Map.put(:app_build, device.app_build)
         |> then(fn
           %{type: :start} = event ->
             media_id = Map.get(media_id_lookup, event.playthrough_id)
+            playback_rate = Map.get(play_rate_lookup, event.playthrough_id, 1.0)
 
             event
             |> Map.put(:media_id, media_id)
             |> Map.put(:position, 0.0)
-            |> Map.put(:playback_rate, 1.0)
+            |> Map.put(:playback_rate, playback_rate)
 
           event ->
             event
