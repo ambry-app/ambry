@@ -275,8 +275,7 @@ defmodule AmbrySchema.Resolvers do
     playthroughs_with_start =
       events_input
       |> Enum.filter(&(&1.type == :start))
-      |> Enum.map(& &1.playthrough_id)
-      |> MapSet.new()
+      |> MapSet.new(& &1.playthrough_id)
 
     synthetic_start_events =
       playthroughs_data
