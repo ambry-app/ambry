@@ -216,4 +216,60 @@ defmodule Ambry.Playback do
     end)
     |> Enum.filter(& &1)
   end
+
+  ## Data Integrity Helpers
+
+  @doc """
+  Finds playthroughs that are missing start events.
+
+  Returns a list of playthrough structs that have no corresponding start event.
+  Use `create_missing_start_events/0` to fix these.
+  """
+  def find_playthroughs_missing_start_events do
+    Playthrough
+    |> join(:left, [p], e in PlaybackEvent, on: e.playthrough_id == p.id and e.type == :start)
+    |> where([_p, e], is_nil(e.id))
+    |> select([p], p)
+    |> Repo.all()
+  end
+
+  @doc """
+  Creates synthetic start events for any playthroughs missing them.
+
+  This is a repair function to catch any playthroughs that slipped through
+  between the one-time migration and the ongoing sync fix being deployed.
+
+  Returns `{:ok, count}` with the number of start events created.
+  """
+  def create_missing_start_events do
+    playthroughs = find_playthroughs_missing_start_events()
+
+    if playthroughs == [] do
+      {:ok, 0}
+    else
+      events =
+        Enum.map(playthroughs, fn p ->
+          # Find playback_rate from first event with a rate, or default to 1.0
+          rate =
+            PlaybackEvent
+            |> where([e], e.playthrough_id == ^p.id and not is_nil(e.playback_rate))
+            |> order_by([e], asc: e.timestamp)
+            |> limit(1)
+            |> select([e], e.playback_rate)
+            |> Repo.one() || Decimal.new("1.0")
+
+          %{
+            id: Ecto.UUID.generate(),
+            playthrough_id: p.id,
+            media_id: p.media_id,
+            type: :start,
+            timestamp: p.started_at,
+            position: Decimal.new(0),
+            playback_rate: rate
+          }
+        end)
+
+      record_events(events)
+    end
+  end
 end

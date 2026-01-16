@@ -265,7 +265,56 @@ defmodule AmbrySchema.Resolvers do
       |> Enum.filter(&(&1.type == :play && &1[:playback_rate]))
       |> Map.new(&{&1.playthrough_id, &1.playback_rate})
 
-    # 3. Record events from client (with device_id and app info from registered device),
+    # 3. Synthesize lifecycle events for playthroughs.
+    #    Legacy clients may sync playthroughs without events (e.g., during initial migration).
+    #    We synthesize start events to ensure playthroughs_new has a valid media_id.
+    #    Legacy clients also don't send delete events but do send deleted_at on playthroughs,
+    #    so we synthesize delete events so the event-sourced system sees the deletion.
+
+    # Find which playthroughs already have a start event in the input
+    playthroughs_with_start =
+      events_input
+      |> Enum.filter(&(&1.type == :start))
+      |> MapSet.new(& &1.playthrough_id)
+
+    synthetic_start_events =
+      playthroughs_data
+      |> Enum.reject(&MapSet.member?(playthroughs_with_start, &1.id))
+      |> Enum.map(fn playthrough ->
+        playback_rate = Map.get(play_rate_lookup, playthrough.id, 1.0)
+
+        %{
+          id: deterministic_start_event_id(playthrough.id),
+          playthrough_id: playthrough.id,
+          device_id: device.id,
+          type: :start,
+          timestamp: playthrough.started_at,
+          media_id: playthrough.media_id,
+          position: 0.0,
+          playback_rate: playback_rate,
+          app_version: device.app_version,
+          app_build: device.app_build
+        }
+      end)
+
+    synthetic_delete_events =
+      playthroughs_data
+      |> Enum.filter(&(&1[:deleted_at] != nil))
+      |> Enum.map(fn playthrough ->
+        %{
+          id: deterministic_delete_event_id(playthrough.id),
+          playthrough_id: playthrough.id,
+          device_id: device.id,
+          type: :delete,
+          timestamp: playthrough.deleted_at,
+          app_version: device.app_version,
+          app_build: device.app_build
+        }
+      end)
+
+    synthetic_events = synthetic_start_events ++ synthetic_delete_events
+
+    # 4. Record events from client (with device_id and app info from registered device),
     #    backfilling media_id, position, and playback_rate for :start events
     events_data =
       Enum.map(events_input, fn event ->
@@ -288,9 +337,9 @@ defmodule AmbrySchema.Resolvers do
         end)
       end)
 
-    Playback.record_events(events_data)
+    Playback.record_events(events_data ++ synthetic_events)
 
-    # 4. Query changes since lastSyncTime and return
+    # 5. Query changes since lastSyncTime and return
     server_time = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
     # If no lastSyncTime (initial sync), return all playthroughs and events
@@ -308,12 +357,47 @@ defmodule AmbrySchema.Resolvers do
         }
       end
 
+    # Filter out delete events from the response.
+    # Legacy clients don't understand delete events and would crash trying to store them.
+    events = Enum.reject(events, &(&1.type == :delete))
+
     {:ok,
      %{
        playthroughs: playthroughs,
        events: events,
        server_time: server_time
      }}
+  end
+
+  # Generates deterministic UUIDs for synthetic events based on playthrough_id.
+  # This ensures that syncing the same playthrough multiple times doesn't create
+  # duplicate synthetic events (record_events uses on_conflict: :nothing).
+  defp deterministic_start_event_id(playthrough_id) do
+    deterministic_event_id("start_event", playthrough_id)
+  end
+
+  defp deterministic_delete_event_id(playthrough_id) do
+    deterministic_event_id("delete_event", playthrough_id)
+  end
+
+  defp deterministic_event_id(prefix, playthrough_id) do
+    import Bitwise
+
+    hash = :crypto.hash(:sha256, prefix <> ":" <> playthrough_id)
+    <<a::32, b::16, c::16, d::16, e::48>> = binary_part(hash, 0, 16)
+
+    # Set UUID version 4 and RFC 4122 variant bits
+    c_with_version = (c &&& 0x0FFF) ||| 0x4000
+    d_with_variant = (d &&& 0x3FFF) ||| 0x8000
+
+    :io_lib.format("~8.16.0b-~4.16.0b-~4.16.0b-~4.16.0b-~12.16.0b", [
+      a,
+      b,
+      c_with_version,
+      d_with_variant,
+      e
+    ])
+    |> IO.iodata_to_binary()
   end
 
   ## Dataloader
