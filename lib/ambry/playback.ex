@@ -35,13 +35,15 @@ defmodule Ambry.Playback do
   @doc """
   Registers a new device or updates an existing one.
 
-  Uses upsert semantics - if device with ID exists, updates last_seen_at.
+  Uses upsert semantics - if device with ID exists, updates all fields except
+  id, user_id, and inserted_at. This ensures fields that change over time
+  (os_version, app_version, etc.) stay current.
   """
   def register_device(attrs) do
     changeset = Device.changeset(%Device{}, attrs)
 
     Repo.insert(changeset,
-      on_conflict: {:replace, [:last_seen_at, :updated_at]},
+      on_conflict: {:replace_all_except, [:id, :user_id, :inserted_at]},
       conflict_target: :id,
       returning: true
     )
@@ -105,21 +107,12 @@ defmodule Ambry.Playback do
         Map.put(attrs, :inserted_at, {:placeholder, :now})
       end)
 
-    expected_count = length(events_attrs)
-
     {count, _} =
       Repo.insert_all(PlaybackEvent, events_attrs,
         on_conflict: :nothing,
         returning: false,
         placeholders: %{now: DateTime.utc_now()}
       )
-
-    if count != expected_count do
-      Sentry.capture_message(
-        "Some playback events were not inserted due to conflicts",
-        extra: %{expected: expected_count, inserted: count}
-      )
-    end
 
     # Rebuild derived state for affected playthroughs
     playthrough_ids =

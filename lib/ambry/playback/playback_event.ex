@@ -65,6 +65,10 @@ defmodule Ambry.Playback.PlaybackEvent do
     # rate_change-specific field
     field :previous_rate, :decimal
 
+    # App info snapshot (for debugging - captured at event creation time)
+    field :app_version, :string
+    field :app_build, :string
+
     # Events are immutable, so no updated_at. inserted_at is used for sync cursoring
     # (distinct from `timestamp` which is when the event occurred on the client).
     timestamps(type: :utc_datetime_usec, updated_at: false)
@@ -106,7 +110,9 @@ defmodule Ambry.Playback.PlaybackEvent do
       :playback_rate,
       :from_position,
       :to_position,
-      :previous_rate
+      :previous_rate,
+      :app_version,
+      :app_build
     ])
     |> validate_required([
       :id,

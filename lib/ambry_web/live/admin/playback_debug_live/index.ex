@@ -21,6 +21,7 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
        users: users,
        selected_user_id: nil,
        playthroughs: [],
+       player_states_count: nil,
        selected_playthrough: nil,
        selected_playthrough_new: nil,
        events: []
@@ -37,21 +38,33 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
     {:noreply, socket}
   end
 
-  defp maybe_select_user(socket, nil), do: socket
+  defp maybe_select_user(socket, blank) when blank in [nil, ""] do
+    socket
+    |> assign(
+      selected_user_id: nil,
+      playthroughs: [],
+      player_states_count: nil
+    )
+  end
 
   defp maybe_select_user(socket, user_id) do
     playthroughs = list_playthroughs_for_user(user_id)
+    player_states_count = count_player_states_for_user(user_id)
 
     socket
-    |> assign(selected_user_id: user_id, playthroughs: playthroughs)
+    |> assign(
+      selected_user_id: user_id,
+      playthroughs: playthroughs,
+      player_states_count: player_states_count
+    )
   end
 
   defp maybe_select_playthrough(socket, nil), do: socket
 
   defp maybe_select_playthrough(socket, playthrough_id) do
-    playthrough = get_playthrough(playthrough_id)
-    playthrough_new = if playthrough, do: get_playthrough_new(playthrough_id)
-    events = if playthrough, do: list_events_for_playthrough(playthrough_id), else: []
+    playthrough_new = get_playthrough_new(playthrough_id)
+    playthrough = if playthrough_new, do: get_playthrough(playthrough_id)
+    events = if playthrough_new, do: list_events_for_playthrough(playthrough_id), else: []
 
     socket
     |> assign(
@@ -76,12 +89,20 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
   end
 
   defp list_playthroughs_for_user(user_id) do
-    from(p in Ambry.Playback.Playthrough,
+    from(p in Ambry.Playback.PlaythroughNew,
       where: p.user_id == ^user_id,
-      order_by: [desc: p.updated_at],
+      order_by: [desc: p.last_event_at],
       preload: [media: :book]
     )
     |> Repo.all()
+  end
+
+  defp count_player_states_for_user(user_id) do
+    from(ps in Ambry.Media.PlayerState,
+      where: ps.user_id == ^user_id,
+      select: count(ps.id)
+    )
+    |> Repo.one()
   end
 
   defp get_playthrough(id) do
@@ -124,26 +145,26 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
   end
 
   defp status_badge_class(playthrough) do
-    cond do
-      playthrough.deleted_at ->
+    case playthrough.status do
+      :deleted ->
         "rounded px-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
 
-      playthrough.status == :in_progress ->
+      :in_progress ->
         "rounded px-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
 
-      playthrough.status == :finished ->
+      :finished ->
         "rounded px-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
 
-      playthrough.status == :abandoned ->
+      :abandoned ->
         "rounded px-1 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
 
-      true ->
+      _ ->
         "rounded px-1 bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200"
     end
   end
 
   defp status_label(playthrough) do
-    if playthrough.deleted_at, do: "deleted", else: playthrough.status
+    playthrough.status
   end
 
   defp event_type_badge_class(type) when type in [:play, :pause, :seek, :rate_change],
@@ -155,4 +176,72 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
 
   defp event_type_badge_class(_type),
     do: "rounded px-1 text-xs bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200"
+
+  # Discrepancy highlighting helpers
+
+  @discrepancy_class "bg-red-100 text-red-900 dark:bg-red-900/50 dark:text-red-200"
+
+  defp discrepancy_class(nil, _new_val), do: nil
+  defp discrepancy_class(_old_val, nil), do: nil
+
+  defp discrepancy_class(%DateTime{} = old_val, %DateTime{} = new_val) do
+    if !datetimes_match?(old_val, new_val), do: @discrepancy_class
+  end
+
+  defp discrepancy_class(old_val, new_val) do
+    if !values_match?(old_val, new_val), do: @discrepancy_class
+  end
+
+  defp datetimes_match?(dt1, dt2) do
+    abs(DateTime.diff(dt1, dt2, :millisecond)) <= 1000
+  end
+
+  defp values_match?(val, val), do: true
+  defp values_match?(_, _), do: false
+
+  # Device display helpers
+
+  defp format_device(nil), do: nil
+
+  defp format_device(device) do
+    case device.type do
+      :web -> format_web_device(device)
+      _ -> format_mobile_device(device)
+    end
+  end
+
+  defp format_mobile_device(device) do
+    model = device.model_name || device.brand || to_string(device.type)
+    os = format_os(device.os_name, device.os_version)
+    app = format_app_version(device.app_version, device.app_build)
+
+    [model, os, app]
+    |> Enum.filter(& &1)
+    |> Enum.join(" / ")
+  end
+
+  defp format_web_device(device) do
+    browser = format_browser(device.browser, device.browser_version)
+    os = device.os_name
+
+    case {browser, os} do
+      {nil, nil} -> "Web"
+      {nil, os} -> "Web (#{os})"
+      {browser, nil} -> browser
+      {browser, os} -> "#{browser} (#{os})"
+    end
+  end
+
+  defp format_os(nil, _), do: nil
+  defp format_os(name, nil), do: name
+  defp format_os(name, version), do: "#{name} #{version}"
+
+  defp format_browser(nil, _), do: nil
+  defp format_browser(name, nil), do: name
+  defp format_browser(name, version), do: "#{name} #{version}"
+
+  defp format_app_version(nil, nil), do: nil
+  defp format_app_version(version, nil), do: "v#{version}"
+  defp format_app_version(nil, build), do: "build #{build}"
+  defp format_app_version(version, build), do: "v#{version} (#{build})"
 end

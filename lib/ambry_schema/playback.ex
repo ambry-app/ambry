@@ -50,6 +50,9 @@ defmodule AmbrySchema.Playback do
     field :browser_version, :string
     field :os_name, :string
     field :os_version, :string
+    field :app_id, :string
+    field :app_version, :string
+    field :app_build, :string
     field :last_seen_at, non_null(:datetime)
   end
 
@@ -91,6 +94,9 @@ defmodule AmbrySchema.Playback do
     field :browser_version, :string
     field :os_name, :string
     field :os_version, :string
+    field :app_id, :string
+    field :app_version, :string
+    field :app_build, :string
   end
 
   input_object :playthrough_input do
