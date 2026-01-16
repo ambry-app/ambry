@@ -38,25 +38,36 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
     {:noreply, socket}
   end
 
-  defp maybe_select_user(socket, blank) when blank in [nil, ""] do
-    socket
-    |> assign(
-      selected_user_id: nil,
-      playthroughs: [],
-      player_states_count: nil
-    )
-  end
-
   defp maybe_select_user(socket, user_id) do
-    playthroughs = list_playthroughs_for_user(user_id)
-    player_states_count = count_player_states_for_user(user_id)
+    socket =
+      if user_id != socket.assigns.selected_user_id do
+        assign(socket,
+          selected_playthrough: nil,
+          selected_playthrough_new: nil,
+          events: []
+        )
+      else
+        socket
+      end
 
-    socket
-    |> assign(
-      selected_user_id: user_id,
-      playthroughs: playthroughs,
-      player_states_count: player_states_count
-    )
+    if user_id in [nil, ""] do
+      socket
+      |> assign(
+        selected_user_id: nil,
+        playthroughs: [],
+        player_states_count: nil
+      )
+    else
+      playthroughs = list_playthroughs_for_user(user_id)
+      player_states_count = count_player_states_for_user(user_id)
+
+      socket
+      |> assign(
+        selected_user_id: user_id,
+        playthroughs: playthroughs,
+        player_states_count: player_states_count
+      )
+    end
   end
 
   defp maybe_select_playthrough(socket, nil), do: socket
