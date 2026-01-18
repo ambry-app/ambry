@@ -91,6 +91,27 @@ defmodule Ambry.Playback do
     |> Repo.all()
   end
 
+  @doc """
+  Rebuilds all playthroughs in the `playthroughs_new` table from their events.
+
+  This is useful for migrations or repairs where the derived state needs to be
+  re-calculated from the source of truth (the events).
+  """
+  def rebuild_all_playthroughs do
+    # Get all playthrough and user IDs from the new table
+    query =
+      from(pn in PlaythroughNew,
+        select: {pn.id, pn.user_id}
+      )
+
+    Repo.all(query)
+    |> Enum.each(fn {playthrough_id, user_id} ->
+      rebuild_playthrough_new(playthrough_id, user_id)
+    end)
+
+    :ok
+  end
+
   ## Playback Events
 
   @doc """
