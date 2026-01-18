@@ -459,6 +459,14 @@ defmodule AmbrySchema.Resolvers do
         Playback.list_all_events_v2(user_id)
       end
 
+    events =
+      Enum.map(events, fn event ->
+        case event.media_id do
+          nil -> event
+          id -> %{event | media_id: Absinthe.Relay.Node.to_global_id("Media", id, AmbrySchema)}
+        end
+      end)
+
     {:ok,
      %{
        events: events,
