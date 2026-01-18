@@ -126,7 +126,7 @@ defmodule Ambry.PlaybackTest do
         }
       ]
 
-      assert {:ok, 3} = Playback.record_events(events)
+      assert {:ok, 3} = Playback.record_events(events, playthrough.user_id)
     end
   end
 
