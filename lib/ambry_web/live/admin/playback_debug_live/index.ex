@@ -40,14 +40,14 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
 
   defp maybe_select_user(socket, user_id) do
     socket =
-      if user_id != socket.assigns.selected_user_id do
+      if user_id == socket.assigns.selected_user_id do
+        socket
+      else
         assign(socket,
           selected_playthrough: nil,
           selected_playthrough_new: nil,
           events: []
         )
-      else
-        socket
       end
 
     if user_id in [nil, ""] do
