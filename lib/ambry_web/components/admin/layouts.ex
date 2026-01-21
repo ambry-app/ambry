@@ -52,10 +52,6 @@ defmodule AmbryWeb.Admin.Layouts do
           <FA.icon name="file-waveform" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>File Audit</p>
         </.link>
-        <.link navigate={~p"/admin/playback-debug"} class={nav_class(@active_path =~ "/admin/playback-debug")}>
-          <FA.icon name="bug" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
-          <p>Playback Debug</p>
-        </.link>
         <.link navigate={~p"/admin/users"} class={nav_class(@active_path =~ "/admin/users")}>
           <FA.icon name="users-gear" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
           <p>Manage Users</p>

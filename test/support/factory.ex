@@ -19,6 +19,7 @@ defmodule Ambry.Factory do
   alias Ambry.Playback.Device
   alias Ambry.Playback.PlaybackEvent
   alias Ambry.Playback.Playthrough
+  alias Ambry.Playback.PlaythroughNew
   alias Ambry.Search.Index
 
   # Users
@@ -223,6 +224,22 @@ defmodule Ambry.Factory do
       status: :abandoned,
       abandoned_at: now
     )
+  end
+
+  def playthrough_new_factory do
+    now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+
+    %PlaythroughNew{
+      id: Ecto.UUID.generate(),
+      user: build(:user),
+      media: build(:media, book: build(:book)),
+      status: :in_progress,
+      started_at: now,
+      last_event_at: now,
+      position: Decimal.new(0),
+      rate: Decimal.new("1.0"),
+      refreshed_at: DateTime.utc_now()
+    }
   end
 
   def playback_event_factory do
