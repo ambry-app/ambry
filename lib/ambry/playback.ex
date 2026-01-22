@@ -17,16 +17,20 @@ defmodule Ambry.Playback do
     deps: [Ambry],
     exports: [
       Device,
+      DeviceFlat,
       Playthrough,
       PlaythroughNew,
+      PlaythroughFlat,
       PlaybackEvent
     ]
 
   import Ecto.Query
 
   alias Ambry.Playback.Device
+  alias Ambry.Playback.DeviceFlat
   alias Ambry.Playback.PlaybackEvent
   alias Ambry.Playback.Playthrough
+  alias Ambry.Playback.PlaythroughFlat
   alias Ambry.Playback.PlaythroughNew
   alias Ambry.Repo
 
@@ -89,6 +93,59 @@ defmodule Ambry.Playback do
     |> where([p], p.user_id == ^user_id)
     |> order_by([p], asc: p.updated_at)
     |> Repo.all()
+  end
+
+  @doc """
+  Lists playthroughs from the flat view with filtering, sorting, and pagination.
+  """
+  def list_playthroughs_flat(offset, limit, filters, order_by) do
+    limit_plus_one = limit + 1
+
+    results =
+      PlaythroughFlat
+      |> PlaythroughFlat.filter(filters)
+      |> PlaythroughFlat.order(order_by)
+      |> limit(^limit_plus_one)
+      |> offset(^offset)
+      |> Repo.all()
+
+    if length(results) > limit do
+      {Enum.slice(results, 0, limit), true}
+    else
+      {results, false}
+    end
+  end
+
+  @doc """
+  Lists devices from the flat view with filtering, sorting, and pagination.
+  """
+  def list_devices_flat(offset, limit, filters, order_by) do
+    limit_plus_one = limit + 1
+
+    results =
+      DeviceFlat
+      |> DeviceFlat.filter(filters)
+      |> DeviceFlat.order(order_by)
+      |> limit(^limit_plus_one)
+      |> offset(^offset)
+      |> Repo.all()
+
+    if length(results) > limit do
+      {Enum.slice(results, 0, limit), true}
+    else
+      {results, false}
+    end
+  end
+
+  @doc """
+  Gets a single playthrough_new by ID with preloads.
+  """
+  def get_playthrough_new(id) do
+    from(p in PlaythroughNew,
+      where: p.id == ^id,
+      preload: [[media: :book], :user]
+    )
+    |> Repo.one()
   end
 
   @doc """

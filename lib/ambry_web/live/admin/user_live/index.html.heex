@@ -19,7 +19,11 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table rows={@users} filter={@list_opts.filter}>
+  <.flex_table
+    rows={@users}
+    filter={@list_opts.filter}
+    row_click={fn user -> JS.navigate(~p"/admin/users/#{user}/playthroughs") end}
+  >
     <:row :let={user}>
       <div class="flex-shrink-0">
         <div class="h-16 w-16">
@@ -36,6 +40,7 @@
           <span :if={user.admin} title="Admin" data-role="is-admin">
             <FA.icon name="lock" class="inline h-4 w-4 fill-current" />
           </span>
+
           <span
             title={if user.confirmed, do: "Confirmed", else: "Unconfirmed"}
             data-role={if user.confirmed, do: "is-confirmed", else: "is-unconfirmed"}
@@ -45,9 +50,11 @@
               class="inline h-4 w-4 fill-current"
             />
           </span>
+
           <span :if={user.media_in_progress > 0} title="# of in-progress books" data-role="user-in-progress">
             {user.media_in_progress} <FA.icon name="book-bookmark" class="inline h-4 w-4 fill-current" />
           </span>
+
           <span :if={user.media_finished > 0} title="# of finished books" data-role="user-finished">
             {user.media_finished} <FA.icon name="book" class="inline h-4 w-4 fill-current" />
           </span>
@@ -55,7 +62,18 @@
       </div>
 
       <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
-        <div class="flex gap-2 pb-2">
+        <div class="flex gap-2 pb-2 text-zinc-400">
+          <.link navigate={~p"/admin/users/#{user}/playthroughs"} title="Playthroughs">
+            <FA.icon
+              name="play"
+              class="h-4 w-4 fill-current transition-colors hover:fill-brand dark:hover:fill-brand-dark"
+            />
+          </.link>
+
+          <.link navigate={~p"/admin/users/#{user}/devices"} title="Devices">
+            <FA.icon name="mobile-screen" class="h-4 w-4 fill-current transition-colors hover:fill-blue-600" />
+          </.link>
+
           <%= if user.id != @current_user.id do %>
             <%= if user.admin do %>
               <.button

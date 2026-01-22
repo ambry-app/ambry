@@ -189,9 +189,11 @@ defmodule AmbryWeb.Router do
 
       live "/users", UserLive.Index
       live "/users/new", UserLive.Form, :new
+      live "/users/:user_id/playthroughs", PlaybackDebugLive.Index
+      live "/users/:user_id/playthroughs/:playthrough_id", PlaybackDebugLive.Index
+      live "/users/:user_id/devices", UserDevicesLive.Index
 
       live "/audit", AuditLive.Index, :index
-      live "/playback-debug", PlaybackDebugLive.Index
     end
 
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry

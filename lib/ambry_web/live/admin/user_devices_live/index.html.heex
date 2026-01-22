@@ -1,0 +1,68 @@
+<.layout title={@page_title} user={@current_user}>
+  <:subheader>
+    <.list_controls
+      search_form={@search_form}
+      has_next={@has_next}
+      has_prev={@has_prev}
+      next_page_path={@next_page_path}
+      prev_page_path={@prev_page_path}
+    />
+    <.sort_button_bar>
+      <.sort_button current_sort={@current_sort} sort_field="type">Type</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="brand">Brand</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="model_name">Model</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="os_name">OS</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="app_id">App</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="event_count">Events</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="last_seen_at">Last Seen</.sort_button>
+    </.sort_button_bar>
+  </:subheader>
+
+  <div class="h-[calc(100vh-10rem)] flex flex-col">
+    <.flex_table rows={@devices}>
+      <:empty>
+        No devices found for this user.
+      </:empty>
+
+      <:row :let={device}>
+        <div class="flex-shrink-0">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
+            <FA.icon
+              name={if device.type == :web, do: "desktop", else: "mobile-screen"}
+              class="h-6 w-6 fill-zinc-500 dark:fill-zinc-400"
+            />
+          </div>
+        </div>
+
+        <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
+          <p class="overflow-hidden text-ellipsis font-medium">
+            {format_device(device)}
+          </p>
+          <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500">
+            {device.app_id} {format_app_version(device.app_version, device.app_build)}
+          </p>
+          <p class="font-mono overflow-hidden text-ellipsis text-xs text-zinc-400" title={device.id}>
+            {String.slice(device.id, 0, 8)}
+          </p>
+        </div>
+
+        <div class="hidden w-32 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
+          <div class="flex gap-4">
+            <span :if={device.event_count > 0} title="# of playback events">
+              {device.event_count} <FA.icon name="bolt" class="inline h-4 w-4 fill-current" />
+            </span>
+          </div>
+        </div>
+
+        <div class="flex w-48 flex-none flex-col items-end justify-center whitespace-nowrap">
+          <p class="text-sm italic dark:text-zinc-500" title={format_full_datetime(device.last_seen_at)}>
+            Last seen {format_date(device.last_seen_at)}
+          </p>
+          <p class="text-sm italic dark:text-zinc-500" title={format_full_datetime(device.inserted_at)}>
+            First seen {format_date(device.inserted_at)}
+          </p>
+        </div>
+      </:row>
+    </.flex_table>
+  </div>
+</.layout>

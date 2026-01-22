@@ -1,412 +1,103 @@
 <.layout title={@page_title} user={@current_user}>
   <:subheader>
-    <form phx-change="select_user" class="flex items-center gap-4">
-      <label class="font-semibold">User:</label>
-      <select
-        name="user_id"
-        class="rounded border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800"
-      >
-        <option value="">Select a user...</option>
-        <option :for={{id, email} <- @users} value={id} selected={to_string(id) == @selected_user_id}>
-          {email}
-        </option>
-      </select>
-    </form>
+    <.list_controls
+      search_form={@search_form}
+      has_next={@has_next}
+      has_prev={@has_prev}
+      next_page_path={@next_page_path}
+      prev_page_path={@prev_page_path}
+    />
+    <.sort_button_bar>
+      <.sort_button current_sort={@current_sort} sort_field="book_title">Title</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="status">Status</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="progress_percent">Progress</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="last_event_at">Last Event</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="started_at">Started</.sort_button>
+    </.sort_button_bar>
   </:subheader>
 
-  <div class="h-[calc(100vh-10rem)] flex gap-4">
-    <%!-- Left panel: Playthroughs list --%>
-    <div class="flex w-1/3 shrink-0 flex-col">
-      <h2 class="mb-2 font-bold">
-        Playthroughs ({length(@playthroughs)})
-        <span :if={@player_states_count} class="font-normal text-zinc-500 dark:text-zinc-400">
-          / PlayerStates ({@player_states_count})
-        </span>
-      </h2>
-      <div :if={@playthroughs == []} class="italic text-zinc-500 dark:text-zinc-400">
-        <%= if @selected_user_id do %>
-          No playthroughs for this user.
-        <% else %>
-          Select a user to view playthroughs.
-        <% end %>
-      </div>
-      <div class="space-y-2 overflow-y-auto">
-        <div
-          :for={playthrough <- @playthroughs}
-          phx-click="select_playthrough"
-          phx-value-id={playthrough.id}
-          class={[
-            "cursor-pointer rounded border p-2 text-sm",
-            @selected_playthrough_new && @selected_playthrough_new.id == playthrough.id &&
-              "border-brand bg-brand/10 dark:border-brand-dark dark:bg-brand-dark/10",
-            !(@selected_playthrough_new && @selected_playthrough_new.id == playthrough.id) &&
-              "border-zinc-200 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
-          ]}
-        >
-          <div class="truncate font-medium">
-            {playthrough_label(playthrough)}
+  <.modal
+    :if={@selected_playthrough}
+    id="events-modal"
+    show
+    on_cancel={JS.patch(~p"/admin/users/#{@selected_user.id}/playthroughs")}
+  >
+    <.live_component
+      module={EventsModal}
+      id="events-modal-component"
+      playthrough={@selected_playthrough}
+    />
+  </.modal>
+
+  <div class="h-[calc(100vh-10rem)] flex flex-col">
+    <.flex_table
+      rows={@playthroughs}
+      row_click={
+        fn playthrough ->
+          JS.patch(~p"/admin/users/#{@selected_user.id}/playthroughs/#{playthrough.id}")
+        end
+      }
+    >
+      <:empty>
+        No playthroughs found for this user.
+      </:empty>
+      <:row :let={playthrough}>
+        <div class="flex-shrink-0">
+          <div class={[
+            "h-16 w-16",
+            if(!playthrough.media_thumbnail,
+              do: "flex items-center justify-center bg-zinc-200 dark:bg-zinc-800"
+            )
+          ]}>
+            <img
+              :if={playthrough.media_thumbnail}
+              src={playthrough.media_thumbnail}
+              class="h-full w-full object-cover"
+            />
+            <FA.icon
+              :if={!playthrough.media_thumbnail}
+              name="circle-play"
+              class="h-8 w-8 fill-zinc-500 dark:fill-zinc-400"
+            />
           </div>
-          <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+        </div>
+        <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
+          <p class="overflow-hidden text-ellipsis font-medium">
+            {playthrough_label(playthrough)}
+          </p>
+          <div class="flex items-center gap-2 text-xs">
             <span class={status_badge_class(playthrough)}>
               {status_label(playthrough)}
             </span>
-            <span>Last Event: {Calendar.strftime(playthrough.last_event_at, "%Y-%m-%d %H:%M")}</span>
+            <span class="font-mono text-zinc-400" title={playthrough.id}>
+              {String.slice(playthrough.id, 0, 8)}
+            </span>
           </div>
         </div>
-      </div>
-    </div>
-
-    <%!-- Right panel: Details --%>
-    <div class="flex min-w-0 grow flex-col">
-      <div :if={@selected_playthrough_new} class="flex min-h-0 flex-1 flex-col">
-        <%!-- Playthrough details - side by side (sticky at top) --%>
-        <div class="mb-4 flex shrink-0 gap-8">
-          <%!-- New playthrough --%>
-          <div class="flex-1">
-            <h2 class="mb-2 font-bold">Playthrough (New)</h2>
-            <table class="w-full text-sm">
-              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">ID</td>
-                  <td class={[
-                    "font-mono py-1 text-xs",
-                    @selected_playthrough && discrepancy_class(@selected_playthrough.id, @selected_playthrough_new.id)
-                  ]}>
-                    {@selected_playthrough_new.id}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">User</td>
-                  <td class={[
-                    "py-1",
-                    @selected_playthrough &&
-                      discrepancy_class(
-                        @selected_playthrough.user.email,
-                        @selected_playthrough_new.user.email
-                      )
-                  ]}>
-                    {@selected_playthrough_new.user.email}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Media ID</td>
-                  <td class={[
-                    "font-mono py-1 text-xs",
-                    @selected_playthrough &&
-                      discrepancy_class(
-                        @selected_playthrough.media_id,
-                        @selected_playthrough_new.media_id
-                      )
-                  ]}>
-                    {@selected_playthrough_new.media_id}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Status</td>
-                  <td class={[
-                    "py-1",
-                    @selected_playthrough &&
-                      discrepancy_class(
-                        @selected_playthrough.status,
-                        @selected_playthrough_new.status
-                      )
-                  ]}>
-                    {@selected_playthrough_new.status}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Started At</td>
-                  <td class={[
-                    "py-1",
-                    @selected_playthrough &&
-                      discrepancy_class(
-                        @selected_playthrough.started_at,
-                        @selected_playthrough_new.started_at
-                      )
-                  ]}>
-                    {format_datetime(@selected_playthrough_new.started_at)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Finished At</td>
-                  <td class={[
-                    "py-1",
-                    @selected_playthrough &&
-                      discrepancy_class(
-                        @selected_playthrough.finished_at,
-                        @selected_playthrough_new.finished_at
-                      )
-                  ]}>
-                    {format_datetime(@selected_playthrough_new.finished_at)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Abandoned At</td>
-                  <td class={[
-                    "py-1",
-                    @selected_playthrough &&
-                      discrepancy_class(
-                        @selected_playthrough.abandoned_at,
-                        @selected_playthrough_new.abandoned_at
-                      )
-                  ]}>
-                    {format_datetime(@selected_playthrough_new.abandoned_at)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Deleted At</td>
-                  <td class={[
-                    "py-1",
-                    @selected_playthrough &&
-                      discrepancy_class(
-                        @selected_playthrough.deleted_at,
-                        @selected_playthrough_new.deleted_at
-                      )
-                  ]}>
-                    {format_datetime(@selected_playthrough_new.deleted_at)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Inserted At</td>
-                  <td class="py-1 text-zinc-400">-</td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Updated At</td>
-                  <td class="py-1 text-zinc-400">-</td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Position</td>
-                  <td class="font-mono py-1 text-xs">
-                    {@selected_playthrough_new.position &&
-                      Decimal.round(@selected_playthrough_new.position, 1)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Rate</td>
-                  <td class="font-mono py-1 text-xs">
-                    {@selected_playthrough_new.rate &&
-                      Decimal.to_string(@selected_playthrough_new.rate)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">
-                    Last Event At
-                  </td>
-                  <td class="py-1">{format_datetime(@selected_playthrough_new.last_event_at)}</td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">
-                    Refreshed At
-                  </td>
-                  <td class="py-1">{format_datetime(@selected_playthrough_new.refreshed_at)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <%!-- Original playthrough --%>
-          <div class="flex-1">
-            <h2 class="mb-2 font-bold">Playthrough (Original)</h2>
-            <table :if={@selected_playthrough} class="w-full text-sm">
-              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">ID</td>
-                  <td class={[
-                    "font-mono py-1 text-xs",
-                    discrepancy_class(@selected_playthrough.id, @selected_playthrough_new.id)
-                  ]}>
-                    {@selected_playthrough.id}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">User</td>
-                  <td class={[
-                    "py-1",
-                    discrepancy_class(
-                      @selected_playthrough.user.email,
-                      @selected_playthrough_new.user.email
-                    )
-                  ]}>
-                    {@selected_playthrough.user.email}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Media ID</td>
-                  <td class={[
-                    "font-mono py-1 text-xs",
-                    discrepancy_class(
-                      @selected_playthrough.media_id,
-                      @selected_playthrough_new.media_id
-                    )
-                  ]}>
-                    {@selected_playthrough.media_id}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Status</td>
-                  <td class={[
-                    "py-1",
-                    discrepancy_class(
-                      @selected_playthrough.status,
-                      @selected_playthrough_new.status
-                    )
-                  ]}>
-                    {@selected_playthrough.status}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Started At</td>
-                  <td class={[
-                    "py-1",
-                    discrepancy_class(
-                      @selected_playthrough.started_at,
-                      @selected_playthrough_new.started_at
-                    )
-                  ]}>
-                    {format_datetime(@selected_playthrough.started_at)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Finished At</td>
-                  <td class={[
-                    "py-1",
-                    discrepancy_class(
-                      @selected_playthrough.finished_at,
-                      @selected_playthrough_new.finished_at
-                    )
-                  ]}>
-                    {format_datetime(@selected_playthrough.finished_at)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Abandoned At</td>
-                  <td class={[
-                    "py-1",
-                    discrepancy_class(
-                      @selected_playthrough.abandoned_at,
-                      @selected_playthrough_new.abandoned_at
-                    )
-                  ]}>
-                    {format_datetime(@selected_playthrough.abandoned_at)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Deleted At</td>
-                  <td class={[
-                    "py-1",
-                    discrepancy_class(
-                      @selected_playthrough.deleted_at,
-                      @selected_playthrough_new.deleted_at
-                    )
-                  ]}>
-                    {format_datetime(@selected_playthrough.deleted_at)}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Inserted At</td>
-                  <td class="py-1">{format_datetime(@selected_playthrough.inserted_at)}</td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Updated At</td>
-                  <td class="py-1">{format_datetime(@selected_playthrough.updated_at)}</td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Position</td>
-                  <td class="py-1 text-zinc-400">-</td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">Rate</td>
-                  <td class="py-1 text-zinc-400">-</td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">
-                    Last Event At
-                  </td>
-                  <td class="py-1 text-zinc-400">-</td>
-                </tr>
-                <tr>
-                  <td class="py-1 pr-4 font-medium text-zinc-600 dark:text-zinc-400">
-                    Refreshed At
-                  </td>
-                  <td class="py-1 text-zinc-400">-</td>
-                </tr>
-              </tbody>
-            </table>
-            <div :if={!@selected_playthrough} class="italic text-zinc-500 dark:text-zinc-400">
-              No matching record in playthroughs table.
-            </div>
+        <div class="hidden w-44 flex-none flex-col items-end justify-center gap-1 text-zinc-400 sm:flex">
+          <div class="flex items-center gap-4 text-sm">
+            <span title="Current Position">
+              <span :if={playthrough.progress_percent} class="font-medium text-zinc-900 dark:text-zinc-100">
+                {Decimal.round(playthrough.progress_percent, 1)}%
+              </span>
+              <span class="text-xs">
+                ({playthrough.position && Decimal.round(playthrough.position, 1)}s)
+              </span>
+            </span>
+            <span :if={playthrough.rate} title="Playback Rate" class="text-zinc-500">
+              {Decimal.to_string(playthrough.rate)}x
+            </span>
           </div>
         </div>
-
-        <%!-- Events --%>
-        <div class="flex min-h-0 flex-1 flex-col">
-          <h2 class="mb-2 shrink-0 font-bold">Events ({length(@events)})</h2>
-          <div class="flex-1 overflow-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b border-zinc-300 text-left text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-                  <th class="pr-2 pb-2">Type</th>
-                  <th class="pr-2 pb-2">Timestamp</th>
-                  <th class="pr-2 pb-2">Inserted At</th>
-                  <th class="pr-2 pb-2">Position</th>
-                  <th class="pr-2 pb-2">Rate</th>
-                  <th class="pr-2 pb-2">From</th>
-                  <th class="pr-2 pb-2">To</th>
-                  <th class="pr-2 pb-2">Prev Rate</th>
-                  <th class="pr-2 pb-2">App</th>
-                  <th class="pr-2 pb-2">Device</th>
-                  <th class="pr-2 pb-2">Device ID</th>
-                  <th class="pb-2">ID</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                <tr :for={event <- @events} class="hover:bg-zinc-50 dark:hover:bg-zinc-800">
-                  <td class="py-1 pr-2">
-                    <span class={event_type_badge_class(event.type)}>
-                      {event.type}
-                    </span>
-                  </td>
-                  <td class="font-mono py-1 pr-2 text-xs">{format_datetime(event.timestamp)}</td>
-                  <td class="font-mono py-1 pr-2 text-xs">{format_datetime(event.inserted_at)}</td>
-                  <td class="font-mono py-1 pr-2 text-xs">
-                    {event.position && Decimal.round(event.position, 1)}
-                  </td>
-                  <td class="font-mono py-1 pr-2 text-xs">
-                    {event.playback_rate && Decimal.to_string(event.playback_rate)}
-                  </td>
-                  <td class="font-mono py-1 pr-2 text-xs">
-                    {event.from_position && Decimal.round(event.from_position, 1)}
-                  </td>
-                  <td class="font-mono py-1 pr-2 text-xs">
-                    {event.to_position && Decimal.round(event.to_position, 1)}
-                  </td>
-                  <td class="font-mono py-1 pr-2 text-xs">
-                    {event.previous_rate && Decimal.to_string(event.previous_rate)}
-                  </td>
-                  <td class="py-1 pr-2 text-xs">
-                    {format_app_version(event.app_version, event.app_build)}
-                  </td>
-                  <td class="max-w-40 truncate py-1 pr-2 text-xs" title={format_device(event.device)}>
-                    {format_device(event.device)}
-                  </td>
-                  <td
-                    class="max-w-20 font-mono truncate py-1 pr-2 text-xs"
-                    title={event.device && event.device.id}
-                  >
-                    {event.device && String.slice(event.device.id, 0, 8)}
-                  </td>
-                  <td class="max-w-20 font-mono truncate py-1 text-xs" title={event.id}>
-                    {String.slice(event.id, 0, 8)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="flex w-48 flex-none flex-col items-end justify-center whitespace-nowrap">
+          <p class="text-sm italic dark:text-zinc-500" title={format_full_datetime(playthrough.last_event_at)}>
+            Last event {format_date(playthrough.last_event_at)}
+          </p>
+          <p class="text-sm italic dark:text-zinc-500" title={format_full_datetime(playthrough.started_at)}>
+            Started {format_date(playthrough.started_at)}
+          </p>
         </div>
-      </div>
-
-      <div :if={!@selected_playthrough_new} class="italic text-zinc-500 dark:text-zinc-400">
-        Select a playthrough to view details.
-      </div>
-    </div>
+      </:row>
+    </.flex_table>
   </div>
 </.layout>
