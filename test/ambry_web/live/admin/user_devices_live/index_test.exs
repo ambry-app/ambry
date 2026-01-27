@@ -9,24 +9,18 @@ defmodule AmbryWeb.Admin.UserDevicesLive.IndexTest do
     test "renders list of devices for a selected user", %{conn: conn} do
       user = insert(:user, email: "device_user@example.com")
 
-      device1 =
-        insert(:device,
-          user: user,
-          type: :web,
-          browser: "Firefox",
-          os_name: "Linux",
-          last_seen_at: ~U[2023-01-02 10:00:00.000Z]
-        )
+      device1 = insert(:device, type: :web, browser: "Firefox", os_name: "Linux")
+      insert(:device_user, device: device1, user: user, last_seen_at: ~U[2023-01-02 10:00:00.000000Z])
 
       device2 =
         insert(:device,
-          user: user,
           type: :android,
           brand: "Google",
           model_name: "Pixel 6",
-          os_name: "Android",
-          last_seen_at: ~U[2023-01-01 10:00:00.000Z]
+          os_name: "Android"
         )
+
+      insert(:device_user, device: device2, user: user, last_seen_at: ~U[2023-01-01 10:00:00.000000Z])
 
       {:ok, _view, html} = live(conn, ~p"/admin/users/#{user.id}/devices")
 
@@ -44,29 +38,14 @@ defmodule AmbryWeb.Admin.UserDevicesLive.IndexTest do
     test "orders devices by last_seen_at descending", %{conn: conn} do
       user = insert(:user)
 
-      _device1 =
-        insert(:device,
-          user: user,
-          type: :android,
-          last_seen_at: ~U[2023-01-01 10:00:00.000Z],
-          model_name: "Old Device"
-        )
+      device1 = insert(:device, type: :android, model_name: "Old Device")
+      insert(:device_user, device: device1, user: user, last_seen_at: ~U[2023-01-01 10:00:00.000000Z])
 
-      _device2 =
-        insert(:device,
-          user: user,
-          type: :android,
-          last_seen_at: ~U[2023-01-03 10:00:00.000Z],
-          model_name: "New Device"
-        )
+      device2 = insert(:device, type: :android, model_name: "New Device")
+      insert(:device_user, device: device2, user: user, last_seen_at: ~U[2023-01-03 10:00:00.000000Z])
 
-      _device3 =
-        insert(:device,
-          user: user,
-          type: :android,
-          last_seen_at: ~U[2023-01-02 10:00:00.000Z],
-          model_name: "Middle Device"
-        )
+      device3 = insert(:device, type: :android, model_name: "Middle Device")
+      insert(:device_user, device: device3, user: user, last_seen_at: ~U[2023-01-02 10:00:00.000000Z])
 
       {:ok, view, _html} = live(conn, ~p"/admin/users/#{user.id}/devices")
 
@@ -83,9 +62,12 @@ defmodule AmbryWeb.Admin.UserDevicesLive.IndexTest do
 
     test "shows event counts", %{conn: conn} do
       user = insert(:user)
-      device = insert(:device, user: user)
+      device = insert(:device)
+      insert(:device_user, device: device, user: user)
 
-      insert_list(3, :playback_event, device: device)
+      # Events need to be associated with a playthrough owned by the user
+      playthrough = insert(:playthrough, user: user)
+      insert_list(3, :playback_event, device: device, playthrough: playthrough)
 
       {:ok, _view, html} = live(conn, ~p"/admin/users/#{user.id}/devices")
 

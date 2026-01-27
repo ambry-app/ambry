@@ -20,9 +20,9 @@ defmodule AmbrySchema.PlaybackV2Test do
     }
     """
 
-    test "returns events with global relay IDs for mediaId", %{conn: conn, user: user} do
+    test "returns events with global relay IDs for mediaId", %{conn: conn, user: _user} do
       media = insert(:media, book: insert(:book))
-      device = insert(:device, user: user)
+      device_id = Ecto.UUID.generate()
 
       # V2 of the sync protocol uses a UUID for the playthrough ID
       playthrough_id = Ecto.UUID.generate()
@@ -31,7 +31,7 @@ defmodule AmbrySchema.PlaybackV2Test do
         build(:playback_event,
           id: Ecto.UUID.generate(),
           playthrough_id: playthrough_id,
-          device_id: device.id,
+          device_id: device_id,
           media_id: media.id,
           type: :start
         )
@@ -48,8 +48,9 @@ defmodule AmbrySchema.PlaybackV2Test do
         }
       ]
 
+      # The sync mutation will create the device and link it to the authenticated user
       device_input = %{
-        id: device.id,
+        id: device_id,
         type: "IOS"
       }
 

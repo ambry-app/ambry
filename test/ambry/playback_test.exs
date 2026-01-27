@@ -34,11 +34,36 @@ defmodule Ambry.PlaybackTest do
       }
 
       {:ok, device1} = Playback.register_device(attrs)
+      link1 = Ambry.Repo.get_by!(Playback.DeviceUser, device_id: device_id, user_id: user.id)
+
       :timer.sleep(1000)
       {:ok, device2} = Playback.register_device(attrs)
+      link2 = Ambry.Repo.get_by!(Playback.DeviceUser, device_id: device_id, user_id: user.id)
 
       assert device1.id == device2.id
-      assert DateTime.after?(device2.last_seen_at, device1.last_seen_at)
+      assert DateTime.after?(link2.last_seen_at, link1.last_seen_at)
+    end
+
+    test "allows the same device to be used by multiple users" do
+      user1 = insert(:user)
+      user2 = insert(:user)
+      device_id = Ecto.UUID.generate()
+
+      attrs1 = %{id: device_id, user_id: user1.id, type: :ios}
+      attrs2 = %{id: device_id, user_id: user2.id, type: :ios}
+
+      {:ok, device1} = Playback.register_device(attrs1)
+      {:ok, device2} = Playback.register_device(attrs2)
+
+      # Same device record
+      assert device1.id == device2.id
+
+      # But separate user links
+      link1 = Ambry.Repo.get_by!(Playback.DeviceUser, device_id: device_id, user_id: user1.id)
+      link2 = Ambry.Repo.get_by!(Playback.DeviceUser, device_id: device_id, user_id: user2.id)
+
+      assert link1.user_id == user1.id
+      assert link2.user_id == user2.id
     end
   end
 

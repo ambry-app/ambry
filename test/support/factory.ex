@@ -17,6 +17,7 @@ defmodule Ambry.Factory do
   alias Ambry.People.Narrator
   alias Ambry.People.Person
   alias Ambry.Playback.Device
+  alias Ambry.Playback.DeviceUser
   alias Ambry.Playback.PlaybackEvent
   alias Ambry.Playback.Playthrough
   alias Ambry.Playback.PlaythroughNew
@@ -188,13 +189,19 @@ defmodule Ambry.Factory do
   def device_factory do
     %Device{
       id: Ecto.UUID.generate(),
-      user: build(:user),
       type: Enum.random([:ios, :android, :web]),
       brand: Faker.Company.name(),
       model_name: sequence(:model_name, &"Model-#{&1}"),
       os_name: Enum.random(["iOS", "Android", "Windows", "macOS", "Linux"]),
-      os_version: "#{Faker.random_between(10, 16)}.0",
-      last_seen_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      os_version: "#{Faker.random_between(10, 16)}.0"
+    }
+  end
+
+  def device_user_factory do
+    %DeviceUser{
+      device: build(:device),
+      user: build(:user),
+      last_seen_at: DateTime.utc_now()
     }
   end
 
