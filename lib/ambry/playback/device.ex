@@ -6,6 +6,9 @@ defmodule Ambry.Playback.Device do
   the client platform. This enables analytics about which devices users
   listen on and helps with debugging sync issues.
 
+  Devices can be shared between users. The `devices_users` table tracks
+  which users have used each device.
+
   ## Device Types
   - `ios`: iOS native app
   - `android`: Android native app
@@ -16,7 +19,7 @@ defmodule Ambry.Playback.Device do
 
   import Ecto.Changeset
 
-  alias Ambry.Accounts.User
+  alias Ambry.Playback.DeviceUser
   alias Ambry.Playback.PlaybackEvent
 
   @primary_key {:id, :binary_id, autogenerate: false}
@@ -25,9 +28,9 @@ defmodule Ambry.Playback.Device do
   @device_types [:ios, :android, :web]
 
   schema "devices" do
-    belongs_to :user, User, type: :id
-
     has_many :events, PlaybackEvent
+    has_many :device_users, DeviceUser
+    has_many :users, through: [:device_users, :user]
 
     field :type, Ecto.Enum, values: @device_types
 
@@ -48,8 +51,6 @@ defmodule Ambry.Playback.Device do
     field :app_version, :string
     field :app_build, :string
 
-    field :last_seen_at, Ambry.Ecto.UtcDateTimeMs
-
     timestamps(type: Ambry.Ecto.UtcDateTimeMs)
   end
 
@@ -67,7 +68,6 @@ defmodule Ambry.Playback.Device do
     device
     |> cast(attrs, [
       :id,
-      :user_id,
       :type,
       :brand,
       :model_name,
@@ -77,32 +77,8 @@ defmodule Ambry.Playback.Device do
       :os_version,
       :app_id,
       :app_version,
-      :app_build,
-      :last_seen_at
+      :app_build
     ])
-    |> validate_required([:id, :user_id, :type])
-    |> default_last_seen_at()
-  end
-
-  @doc """
-  Creates a changeset for updating last_seen_at.
-  """
-  def touch_changeset(device) do
-    device
-    |> change(last_seen_at: DateTime.utc_now() |> DateTime.truncate(:millisecond))
-  end
-
-  defp default_last_seen_at(changeset) do
-    case get_field(changeset, :last_seen_at) do
-      nil ->
-        put_change(
-          changeset,
-          :last_seen_at,
-          DateTime.utc_now() |> DateTime.truncate(:millisecond)
-        )
-
-      _ ->
-        changeset
-    end
+    |> validate_required([:id, :type])
   end
 end

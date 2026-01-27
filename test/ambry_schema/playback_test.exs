@@ -5,6 +5,7 @@ defmodule AmbrySchema.PlaybackTest do
   import Ecto.Query
 
   alias Ambry.Playback.Device
+  alias Ambry.Playback.DeviceUser
   alias Ambry.Playback.PlaybackEvent
   alias Ambry.Playback.Playthrough
   alias Ambry.Repo
@@ -278,10 +279,13 @@ defmodule AmbrySchema.PlaybackTest do
 
       # Verify device was registered
       device = Repo.get!(Device, device_id)
-      assert device.user_id == user.id
       assert device.type == :ios
       assert device.brand == "Apple"
       assert device.model_name == "iPhone 14 Pro"
+
+      # Verify device-user link was created
+      device_user = Repo.get_by!(DeviceUser, device_id: device_id, user_id: user.id)
+      assert device_user.user_id == user.id
     end
 
     test "handles finished playthrough sync", %{conn: conn, user: _user} do
@@ -464,7 +468,8 @@ defmodule AmbrySchema.PlaybackTest do
     test "can receive events from web devices in sync response", %{conn: conn, user: user} do
       # Create a web device and playthrough server-side (simulating web UI activity)
       media = insert(:media, book: build(:book))
-      web_device = insert(:device, user: user, type: :web)
+      web_device = insert(:device, type: :web)
+      insert(:device_user, device: web_device, user: user)
       playthrough = insert(:playthrough, user: user, media: media)
       _web_event = insert(:playback_event, playthrough: playthrough, device: web_device)
 

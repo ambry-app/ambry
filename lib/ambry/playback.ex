@@ -18,6 +18,7 @@ defmodule Ambry.Playback do
     exports: [
       Device,
       DeviceFlat,
+      DeviceUser,
       Playthrough,
       PlaythroughNew,
       PlaythroughFlat,
@@ -28,6 +29,7 @@ defmodule Ambry.Playback do
 
   alias Ambry.Playback.Device
   alias Ambry.Playback.DeviceFlat
+  alias Ambry.Playback.DeviceUser
   alias Ambry.Playback.PlaybackEvent
   alias Ambry.Playback.Playthrough
   alias Ambry.Playback.PlaythroughFlat
@@ -37,20 +39,45 @@ defmodule Ambry.Playback do
   ## Devices
 
   @doc """
-  Registers a new device or updates an existing one.
+  Registers a device and links it to a user.
 
-  Uses upsert semantics - if device with ID exists, updates all fields except
-  id, user_id, and inserted_at. This ensures fields that change over time
-  (os_version, app_version, etc.) stay current.
+  Upserts the device metadata and creates/updates the device-user link.
+  Returns `{:ok, device}` on success.
+
+  This function:
+  1. Upserts the device record (metadata like OS, app version, etc.)
+  2. Upserts the device-user link with updated last_seen_at
   """
   def register_device(attrs) do
-    changeset = Device.changeset(%Device{}, attrs)
+    {user_id, device_attrs} = Map.pop(attrs, :user_id)
 
-    Repo.insert(changeset,
-      on_conflict: {:replace_all_except, [:id, :user_id, :inserted_at]},
-      conflict_target: :id,
-      returning: true
-    )
+    Repo.transaction(fn ->
+      # Upsert the device
+      device_changeset = Device.changeset(%Device{}, device_attrs)
+
+      {:ok, device} =
+        Repo.insert(device_changeset,
+          on_conflict: {:replace_all_except, [:id, :inserted_at]},
+          conflict_target: :id,
+          returning: true
+        )
+
+      # Upsert the device-user link
+      link_attrs = %{
+        device_id: device.id,
+        user_id: user_id,
+        last_seen_at: DateTime.utc_now()
+      }
+
+      link_changeset = DeviceUser.changeset(%DeviceUser{}, link_attrs)
+
+      Repo.insert(link_changeset,
+        on_conflict: [set: [last_seen_at: DateTime.utc_now()]],
+        conflict_target: [:device_id, :user_id]
+      )
+
+      device
+    end)
   end
 
   ## Playthroughs
