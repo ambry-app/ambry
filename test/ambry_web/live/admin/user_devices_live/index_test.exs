@@ -10,7 +10,12 @@ defmodule AmbryWeb.Admin.UserDevicesLive.IndexTest do
       user = insert(:user, email: "device_user@example.com")
 
       device1 = insert(:device, type: :web, browser: "Firefox", os_name: "Linux")
-      insert(:device_user, device: device1, user: user, last_seen_at: ~U[2023-01-02 10:00:00.000000Z])
+
+      insert(:device_user,
+        device: device1,
+        user: user,
+        last_seen_at: ~U[2023-01-02 10:00:00.000000Z]
+      )
 
       device2 =
         insert(:device,
@@ -20,7 +25,11 @@ defmodule AmbryWeb.Admin.UserDevicesLive.IndexTest do
           os_name: "Android"
         )
 
-      insert(:device_user, device: device2, user: user, last_seen_at: ~U[2023-01-01 10:00:00.000000Z])
+      insert(:device_user,
+        device: device2,
+        user: user,
+        last_seen_at: ~U[2023-01-01 10:00:00.000000Z]
+      )
 
       {:ok, _view, html} = live(conn, ~p"/admin/users/#{user.id}/devices")
 
@@ -39,13 +48,28 @@ defmodule AmbryWeb.Admin.UserDevicesLive.IndexTest do
       user = insert(:user)
 
       device1 = insert(:device, type: :android, model_name: "Old Device")
-      insert(:device_user, device: device1, user: user, last_seen_at: ~U[2023-01-01 10:00:00.000000Z])
+
+      insert(:device_user,
+        device: device1,
+        user: user,
+        last_seen_at: ~U[2023-01-01 10:00:00.000000Z]
+      )
 
       device2 = insert(:device, type: :android, model_name: "New Device")
-      insert(:device_user, device: device2, user: user, last_seen_at: ~U[2023-01-03 10:00:00.000000Z])
+
+      insert(:device_user,
+        device: device2,
+        user: user,
+        last_seen_at: ~U[2023-01-03 10:00:00.000000Z]
+      )
 
       device3 = insert(:device, type: :android, model_name: "Middle Device")
-      insert(:device_user, device: device3, user: user, last_seen_at: ~U[2023-01-02 10:00:00.000000Z])
+
+      insert(:device_user,
+        device: device3,
+        user: user,
+        last_seen_at: ~U[2023-01-02 10:00:00.000000Z]
+      )
 
       {:ok, view, _html} = live(conn, ~p"/admin/users/#{user.id}/devices")
 
