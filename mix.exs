@@ -99,7 +99,7 @@ defmodule Ambry.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:quokka, "~> 2.11", only: [:dev, :test], runtime: false},
       {:req, "~> 0.3"},
-      {:sentry, "~> 11.0"},
+      {:sentry, "~> 13.0"},
       {:swoosh, "~> 1.3"},
       {:tailwind_formatter, "~> 0.4.0", only: [:dev, :test], runtime: false},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
