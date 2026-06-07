@@ -37,8 +37,6 @@ defmodule Ambry.Books do
   alias Ambry.Repo
   alias Ambry.Search
 
-  require Logger
-
   @book_direct_assoc_preloads [:authors, :media, book_authors: [:author], series_books: [:series]]
 
   def book_standard_preloads, do: @book_direct_assoc_preloads

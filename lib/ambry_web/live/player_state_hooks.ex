@@ -8,8 +8,6 @@ defmodule AmbryWeb.PlayerStateHooks do
 
   alias AmbryWeb.Player
 
-  require Logger
-
   def on_mount(:default, _params, _session, socket) do
     %{assigns: %{current_user: user}} = socket
 

@@ -130,8 +130,6 @@ defmodule AmbryWeb.Admin.UserDevicesLive.Index do
 
   # Device display helpers
 
-  defp format_device(nil), do: nil
-
   defp format_device(device) do
     case device.type do
       :web -> format_web_device(device)

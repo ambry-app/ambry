@@ -134,7 +134,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   defp status_color(:pending), do: :yellow
   defp status_color(:processing), do: :blue
   defp status_color(:error), do: :red
-  defp status_color(:ready), do: :brand
 
   defp processing_progress_percent(nil), do: "0.0"
 

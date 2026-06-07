@@ -34,8 +34,6 @@ defmodule Ambry.People do
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
 
-  require Logger
-
   @person_direct_assoc_preloads [:authors, :narrators]
 
   def person_standard_preloads, do: @person_direct_assoc_preloads
