@@ -19,7 +19,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
           phx-target={@myself}
           phx-value-time={@player_state.position}
         >
-          New <FA.icon name="plus" class="ml-2 h-4 w-4 fill-current" />
+          New <.icon name="fa-plus" class="ml-2 h-4 w-4 text-current" />
         </span>
       </div>
 
@@ -41,11 +41,11 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
                         phx-click="cancel-edit-bookmark"
                         phx-target={@myself}
                       >
-                        <FA.icon name="xmark" class="h-5 w-5 fill-current" />
+                        <.icon name="fa-xmark" class="h-5 w-5 text-current" />
                       </button>
                       <.input field={@form[:label]} placeholder="Label" class="!mt-0" />
                       <button type="submit" class="text-zinc-500 hover:text-brand-dark">
-                        <FA.icon name="check" class="h-5 w-5 fill-current" />
+                        <.icon name="fa-check" class="h-5 w-5 text-current" />
                       </button>
                       <button
                         type="button"
@@ -53,7 +53,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
                         phx-target={@myself}
                         class="text-zinc-500 hover:text-red-500"
                       >
-                        <FA.icon name="trash" class="h-5 w-5 fill-current" />
+                        <.icon name="fa-trash" class="h-5 w-5 text-current" />
                       </button>
                     </div>
                   </.form>
@@ -77,7 +77,7 @@ defmodule AmbryWeb.NowPlayingLive.Bookmarks do
                       phx-target={@myself}
                       phx-value-id={bookmark.id}
                     >
-                      <FA.icon name="pencil" class="h-4 w-4 fill-current" />
+                      <.icon name="fa-pencil" class="h-4 w-4 text-current" />
                     </div>
                     <p>
                       <%= if bookmark.label do %>

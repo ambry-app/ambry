@@ -151,7 +151,7 @@ defmodule AmbryWeb.NowPlayingLive.Components do
           >
             <td class="flex items-center space-x-2 border-b border-zinc-100 py-4 pl-4 dark:border-zinc-900">
               <div class={["flex-none", if(@player.current_chapter_index != id, do: "invisible")]}>
-                <FA.icon name="volume-high" class="h-5 w-5 fill-current" />
+                <.icon name="fa-volume-high" class="h-5 w-5 text-current" />
               </div>
               <p>{chapter.title}</p>
             </td>

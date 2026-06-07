@@ -27,9 +27,9 @@
       <:row :let={device}>
         <div class="flex-shrink-0">
           <div class="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <FA.icon
-              name={if device.type == :web, do: "desktop", else: "mobile-screen"}
-              class="h-6 w-6 fill-zinc-500 dark:fill-zinc-400"
+            <.icon
+              name={if device.type == :web, do: "fa-desktop", else: "fa-mobile-screen"}
+              class="h-6 w-6 text-zinc-500 dark:text-zinc-400"
             />
           </div>
         </div>
@@ -49,7 +49,7 @@
         <div class="hidden w-32 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
           <div class="flex gap-4">
             <span :if={device.event_count > 0} title="# of playback events">
-              {device.event_count} <FA.icon name="bolt" class="inline h-4 w-4 fill-current" />
+              {device.event_count} <.icon name="fa-bolt" class="inline h-4 w-4 text-current" />
             </span>
           </div>
         </div>

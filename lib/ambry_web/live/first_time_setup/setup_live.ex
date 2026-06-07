@@ -67,7 +67,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
   defp restart_button(%{state: :admin_exists} = assigns) do
     ~H"""
     <.button class="w-full" phx-click="restart">
-      Restart <FA.icon name="rotate" class="ml-2 inline h-4 w-4" aria-hidden="true" />
+      Restart <.icon name="fa-rotate" class="ml-2 inline h-4 w-4" aria-hidden="true" />
     </.button>
     """
   end
@@ -75,7 +75,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
   defp restart_button(%{state: :restarting} = assigns) do
     ~H"""
     <.button class="w-full" disabled>
-      Restarting... <FA.icon name="rotate" class="ml-2 inline h-4 w-4 animate-spin" aria-hidden="true" />
+      Restarting... <.icon name="fa-rotate" class="ml-2 inline h-4 w-4 animate-spin" aria-hidden="true" />
     </.button>
     """
   end

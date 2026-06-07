@@ -70,7 +70,7 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
             <span class="text-zinc-500">{@prompt}</span>
           <% end %>
         </div>
-        <FA.icon name="angle-down" class="h-4 w-4 flex-none fill-zinc-500" />
+        <.icon name="fa-angle-down" class="h-4 w-4 flex-none text-zinc-500" />
       </div>
 
       <div class="relative w-full">

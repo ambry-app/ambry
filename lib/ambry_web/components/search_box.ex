@@ -19,7 +19,7 @@ defmodule AmbryWeb.Components.SearchBox do
     >
       <div class="mx-4 flex rounded-sm border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 sm:mx-0">
         <span phx-click={@hide_search} title="Back" class="ml-4 flex-none cursor-pointer self-center">
-          <FA.icon name="arrow-left" class="h-5 w-5 fill-zinc-500" />
+          <.icon name="fa-arrow-left" class="h-5 w-5 text-zinc-500" />
         </span>
         <.form :let={form} for={%{"query" => @query}} as={:search} phx-submit="search" phx-target={@myself} class="grow">
           <input
@@ -37,7 +37,7 @@ defmodule AmbryWeb.Components.SearchBox do
           title="Clear"
           class={["mr-4 flex-none cursor-pointer self-center", if(!@is_open, do: "hidden")]}
         >
-          <FA.icon name="xmark" class="h-5 w-5 fill-zinc-500" />
+          <.icon name="fa-xmark" class="h-5 w-5 text-zinc-500" />
         </span>
       </div>
     </div>

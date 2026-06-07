@@ -53,9 +53,9 @@ defmodule AmbryWeb.AudiobookLive do
               </div>
               <div class="cursor-pointer fill-current" phx-click={media_click_action(@player, @media)}>
                 <%= if playing?(@player, @media) do %>
-                  <FA.icon name="pause" class="h-12 w-12" />
+                  <.icon name="fa-pause" class="h-12 w-12" />
                 <% else %>
-                  <FA.icon name="play" class="h-12 w-12 pl-1" />
+                  <.icon name="fa-play" class="h-12 w-12 pl-1" />
                 <% end %>
               </div>
             </div>

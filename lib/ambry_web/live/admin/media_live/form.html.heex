@@ -25,7 +25,7 @@
               type="button"
               phx-click={open_import_form(@media, "goodreads")}
             >
-              <FA.icon name="goodreads" type="brands" class="h-4 w-4 fill-current" /> GoodReads
+              <.icon name="fa-brands-goodreads" class="h-4 w-4 text-current" /> GoodReads
             </.button>
             <.button
               color={:zinc}
@@ -33,7 +33,7 @@
               type="button"
               phx-click={open_import_form(@media, "audible")}
             >
-              <FA.icon name="audible" type="brands" class="h-4 w-4 fill-current" /> Audible
+              <.icon name="fa-brands-audible" class="h-4 w-4 text-current" /> Audible
             </.button>
           </div>
         </div>
@@ -217,10 +217,10 @@
               </p>
             </div>
             <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
-              <FA.icon
+              <.icon
                 :if={Enum.empty?(@selected_files)}
-                name="file-circle-exclamation"
-                class="mx-auto my-4 block h-8 w-8 fill-current"
+                name="fa-file-circle-exclamation"
+                class="mx-auto my-4 block h-8 w-8 text-current"
               />
               <p :for={file <- Enum.sort(@selected_files, NaturalOrder)}>
                 {Path.basename(file)}
@@ -240,8 +240,8 @@
           >
             <span class="files-list-toggle">show</span>
             <span class="files-list-toggle hidden">hide</span>
-            <FA.icon name="chevron-down" class="files-list-toggle ml-1 h-4 w-4 fill-current" />
-            <FA.icon name="chevron-up" class="files-list-toggle ml-1 hidden h-4 w-4 fill-current" />
+            <.icon name="fa-chevron-down" class="files-list-toggle ml-1 h-4 w-4 text-current" />
+            <.icon name="fa-chevron-up" class="files-list-toggle ml-1 hidden h-4 w-4 text-current" />
           </button>
         </div>
 
@@ -284,8 +284,8 @@
               >
                 <span class="source-list-toggle">show source files</span>
                 <span class="source-list-toggle hidden">hide source files</span>
-                <FA.icon name="chevron-down" class="source-list-toggle ml-1 h-4 w-4 fill-current" />
-                <FA.icon name="chevron-up" class="source-list-toggle ml-1 hidden h-4 w-4 fill-current" />
+                <.icon name="fa-chevron-down" class="source-list-toggle ml-1 h-4 w-4 text-current" />
+                <.icon name="fa-chevron-up" class="source-list-toggle ml-1 hidden h-4 w-4 text-current" />
               </button>
             </div>
           </div>

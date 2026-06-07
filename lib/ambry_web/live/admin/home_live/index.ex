@@ -66,7 +66,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
     <div class="relative">
       <.link class="absolute top-0 left-0 h-full w-full" navigate={@navigate}></.link>
       <div class="space-y-4 divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 p-2 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 sm:p-4">
-        <FA.icon name={@icon} class="mx-auto h-8 w-8 fill-current sm:h-12 sm:w-12" />
+        <.icon name={@icon} class="mx-auto block h-8 w-8 text-current sm:h-12 sm:w-12" />
         <div class="flex pt-2 sm:pt-4">
           {render_slot(@inner_block)}
         </div>

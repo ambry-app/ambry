@@ -110,7 +110,6 @@ defmodule AmbryWeb do
       import AmbryWeb.CoreComponents
       import Phoenix.HTML
 
-      alias FontAwesome.LiveView, as: FA
       alias Phoenix.LiveView.JS
 
       unquote(verified_routes())

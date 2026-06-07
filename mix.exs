@@ -69,7 +69,6 @@ defmodule Ambry.MixProject do
       {:ecto_psql_extras, "~> 0.6"},
       {:ecto_sql, "~> 3.6"},
       {:esbuild, "~> 0.7", runtime: Mix.env() == :dev},
-      {:ex_fontawesome, "~> 0.7"},
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:excoveralls, "~> 0.10", only: :test},
       {:faker, "~> 0.19.0-alpha.1", only: [:dev, :test]},

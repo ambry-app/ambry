@@ -20,10 +20,33 @@ defmodule AmbryWeb.CoreComponents do
   alias AmbryWeb.Admin.UploadHelpers
   alias AmbryWeb.Components.Autocomplete
   alias AmbryWeb.Player
-  alias FontAwesome.LiveView, as: FA
   alias Phoenix.HTML.Form
   alias Phoenix.HTML.FormField
   alias Phoenix.LiveView.JS
+
+  @doc """
+  Renders a [FontAwesome](https://fontawesome.com) icon.
+
+  Icons are vendored as SVGs under `assets/vendor/fontawesome` and rendered as CSS
+  masks by a Tailwind plugin (see `assets/tailwind.config.js`). Use `fa-<name>` for
+  solid icons and `fa-brands-<name>` for brand icons. The icon takes the current
+  text color and defaults to 1.5rem; override the size with `h-*`/`w-*` utilities.
+
+  ## Examples
+
+      <.icon name="fa-play" />
+      <.icon name="fa-magnifying-glass" class="h-5 w-5 text-zinc-500" />
+      <.icon name="fa-brands-goodreads" class="h-4 w-4" />
+  """
+  attr :name, :string, required: true
+  attr :class, :any, default: nil
+  attr :rest, :global
+
+  def icon(%{name: "fa-" <> _} = assigns) do
+    ~H"""
+    <span class={[@name, @class]} {@rest} />
+    """
+  end
 
   @doc """
   Renders a modal.
@@ -82,7 +105,7 @@ defmodule AmbryWeb.CoreComponents do
               class="-m-3 flex-none p-3 opacity-20 hover:opacity-40"
               aria-label={gettext("close")}
             >
-              <FA.icon name="xmark" class="h-5 w-5 fill-current" />
+              <.icon name="fa-xmark" class="h-5 w-5 text-current" />
             </button>
           </div>
           <div id={"#{@id}-content"}>
@@ -128,13 +151,13 @@ defmodule AmbryWeb.CoreComponents do
       {@rest}
     >
       <p :if={@title} class="flex items-center gap-1.5 text-sm font-semibold leading-6">
-        <FA.icon :if={@kind == :info} name="circle-info" class="h-4 w-4" />
-        <FA.icon :if={@kind == :error} name="circle-exclamation" class="h-4 w-4" />
+        <.icon :if={@kind == :info} name="fa-circle-info" class="h-4 w-4" />
+        <.icon :if={@kind == :error} name="fa-circle-exclamation" class="h-4 w-4" />
         {@title}
       </p>
       <p class="mt-2 text-sm leading-5">{msg}</p>
       <button type="button" class="group absolute top-1 right-1 p-2" aria-label={gettext("close")}>
-        <FA.icon name="xmark" class="h-5 w-5 opacity-20 hover:opacity-40" />
+        <.icon name="fa-xmark" class="h-5 w-5 opacity-20 hover:opacity-40" />
       </button>
     </div>
     """
@@ -163,7 +186,7 @@ defmodule AmbryWeb.CoreComponents do
         phx-connected={hide("#client-error")}
         hidden
       >
-        Attempting to reconnect <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" />
+        Attempting to reconnect <.icon name="fa-rotate" class="ml-1 inline h-3 w-3 animate-spin" />
       </.flash>
 
       <.flash
@@ -174,7 +197,7 @@ defmodule AmbryWeb.CoreComponents do
         phx-connected={hide("#server-error")}
         hidden
       >
-        Hang in there while we get back on track <FA.icon name="rotate" class="ml-1 inline h-3 w-3 animate-spin" />
+        Hang in there while we get back on track <.icon name="fa-rotate" class="ml-1 inline h-3 w-3 animate-spin" />
       </.flash>
     </div>
     """
@@ -479,7 +502,7 @@ defmodule AmbryWeb.CoreComponents do
         class="space-y-4 rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4"
         phx-drop-target={@upload.ref}
       >
-        <FA.icon :if={@upload.entries == []} name="upload" class="mx-auto my-4 block h-8 w-8 fill-current" />
+        <.icon :if={@upload.entries == []} name="fa-upload" class="mx-auto my-4 block h-8 w-8 text-current" />
         <div :if={@upload.entries != []} class="flex flex-wrap gap-4">
           <article :for={entry <- @upload.entries} class="inline-block">
             <figure>
@@ -606,7 +629,7 @@ defmodule AmbryWeb.CoreComponents do
   def error(assigns) do
     ~H"""
     <p class="flex items-center gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden dark:text-red-500">
-      <FA.icon name="circle-exclamation" class="h-4 w-4 flex-none fill-red-500" />
+      <.icon name="fa-circle-exclamation" class="h-4 w-4 flex-none text-red-500" />
       {render_slot(@inner_block)}
     </p>
     """
@@ -617,7 +640,7 @@ defmodule AmbryWeb.CoreComponents do
   def loading(assigns) do
     ~H"""
     <p class="flex items-center gap-3 text-sm font-semibold leading-6">
-      <FA.icon name="rotate" class="h-4 w-4 flex-none animate-spin fill-zinc-800 dark:fill-zinc-200" />
+      <.icon name="fa-rotate" class="h-4 w-4 flex-none animate-spin text-zinc-800 dark:text-zinc-200" />
       {render_slot(@inner_block)}
     </p>
     """
@@ -820,7 +843,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div class="mt-16">
       <.link navigate={@navigate} class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700">
-        <FA.icon name="arrow-left" class="inline h-3 w-3 stroke-current" />
+        <.icon name="fa-arrow-left" class="inline h-3 w-3 stroke-current" />
         {render_slot(@inner_block)}
       </.link>
     </div>
@@ -1230,9 +1253,9 @@ defmodule AmbryWeb.CoreComponents do
             >
               <div class="mx-auto self-center fill-current">
                 <%= if playing?(@player, @player_state.media) do %>
-                  <FA.icon name="pause" class="h-7 w-7" />
+                  <.icon name="fa-pause" class="h-7 w-7" />
                 <% else %>
-                  <FA.icon name="play" class="h-7 w-7 pl-1" />
+                  <.icon name="fa-play" class="h-7 w-7 pl-1" />
                 <% end %>
               </div>
             </div>
