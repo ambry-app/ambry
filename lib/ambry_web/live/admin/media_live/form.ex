@@ -378,7 +378,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   defp color_for_error_type(:warn), do: :yellow
 
   defp format_filesize(bytes) do
-    bytes |> FileSize.from_bytes() |> FileSize.scale() |> FileSize.format()
+    Ambry.Utils.humanize_bytes(bytes)
   end
 
   defp preview_date_format(form) do

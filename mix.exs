@@ -74,7 +74,6 @@ defmodule Ambry.MixProject do
       {:excoveralls, "~> 0.10", only: :test},
       {:faker, "~> 0.19.0-alpha.1", only: [:dev, :test]},
       {:familiar, "~> 0.1"},
-      {:file_size, "~> 3.0"},
       {:file_system, "~> 1.0"},
       {:finch, "~> 0.13"},
       {:floki, ">= 0.30.0"},
