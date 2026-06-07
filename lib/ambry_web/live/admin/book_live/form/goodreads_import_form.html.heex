@@ -86,13 +86,13 @@
         <div :for={{existing_author, imported_author} <- Enum.zip(@matching_authors, authors(edition_details))}>
           <%= if existing_author do %>
             <p class="flex items-center gap-2">
-              <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
+              <.icon name="fa-circle-check" class="text-brand h-4 w-4 flex-none dark:text-brand-dark" />
               <span class="font-semibold">Existing author</span>
               {existing_author.name}
             </p>
           <% else %>
             <p class="flex items-center gap-2">
-              <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
+              <.icon name="fa-triangle-exclamation" class="h-4 w-4 flex-none text-amber-600 dark:text-amber-500" />
               <span class="font-semibold">Missing author</span>
               {imported_author.name}
             </p>
@@ -109,13 +109,13 @@
         <div :for={{existing_series, imported_series} <- Enum.zip(@matching_series, edition_details.series)}>
           <%= if existing_series do %>
             <p class="flex items-center gap-2">
-              <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
+              <.icon name="fa-circle-check" class="text-brand h-4 w-4 flex-none dark:text-brand-dark" />
               <span class="font-semibold">Existing series</span>
               {existing_series.name} #{imported_series.number}
             </p>
           <% else %>
             <p class="flex items-center gap-2">
-              <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
+              <.icon name="fa-triangle-exclamation" class="h-4 w-4 flex-none text-amber-600 dark:text-amber-500" />
               <span class="font-semibold">New series</span>
               {imported_series.name} #{imported_series.number}
             </p>

@@ -6,7 +6,7 @@
       phx-click="reload"
       class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400"
     >
-      Reload <FA.icon name="rotate" class="ml-2 h-4 w-4 fill-current" />
+      Reload <.icon name="fa-rotate" class="ml-2 h-4 w-4 text-current" />
     </button>
   </div>
 
@@ -36,7 +36,7 @@
               <div class="flex gap-2">
                 <div class="grow" />
                 <button phx-click="delete-file" phx-value-id={file.id} data-confirm="Are you sure?">
-                  <FA.icon name="trash" class="h-4 w-4 fill-current transition-colors hover:fill-red-600" />
+                  <.icon name="fa-trash" class="h-4 w-4 text-current transition-colors hover:text-red-600" />
                 </button>
               </div>
             </:actions>
@@ -64,7 +64,7 @@
               <div class="flex gap-2">
                 <div class="grow" />
                 <button phx-click="delete-folder" phx-value-id={folder.id} data-confirm="Are you sure?">
-                  <FA.icon name="trash" class="h-4 w-4 fill-current transition-colors hover:fill-red-600" />
+                  <.icon name="fa-trash" class="h-4 w-4 text-current transition-colors hover:text-red-600" />
                 </button>
               </div>
             </:actions>
@@ -101,7 +101,7 @@
               <div class="flex gap-2">
                 <div class="grow" />
                 <button phx-click="row-click" phx-value-id={broken_media.id}>
-                  <FA.icon name="eye" class="h-4 w-4 fill-current" />
+                  <.icon name="fa-eye" class="h-4 w-4 text-current" />
                 </button>
               </div>
             </:actions>

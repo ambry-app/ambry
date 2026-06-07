@@ -42,7 +42,7 @@ defmodule AmbryWeb.Admin.Components do
     <header id="nav-header" class="space-y-4 border-zinc-100 p-4 dark:border-zinc-900">
       <div class="flex items-center gap-3">
         <span class="cursor-pointer lg:hidden" phx-click={open_sidebar()}>
-          <FA.icon name="bars" class="h-6 w-6 fill-current lg:h-7 lg:w-7" />
+          <.icon name="fa-bars" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
         </span>
         <.link navigate={~p"/admin"} class="flex lg:hidden">
           <.logo class="h-6 w-6 lg:h-7 lg:w-7" />
@@ -88,14 +88,14 @@ defmodule AmbryWeb.Admin.Components do
       </div>
       <div :if={@new_path}>
         <.link navigate={@new_path} class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400">
-          {@new_text} <FA.icon name="plus" class="ml-2 h-4 w-4 fill-current" />
+          {@new_text} <.icon name="fa-plus" class="ml-2 h-4 w-4 text-current" />
         </.link>
       </div>
       <div :if={@prev_page_path}>
-        <.pagination_chevron active={@has_prev} name="chevron-left" to={@prev_page_path} />
+        <.pagination_chevron active={@has_prev} name="fa-chevron-left" to={@prev_page_path} />
       </div>
       <div :if={@next_page_path}>
-        <.pagination_chevron active={@has_next} name="chevron-right" to={@next_page_path} />
+        <.pagination_chevron active={@has_next} name="fa-chevron-right" to={@next_page_path} />
       </div>
     </div>
     """
@@ -106,7 +106,7 @@ defmodule AmbryWeb.Admin.Components do
     <.menu_wrapper id="admin-user-menu" user={@user}>
       <div class="py-3">
         <.link navigate={~p"/"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
-          <FA.icon name="arrow-right-from-bracket" class="scale-[-1] h-5 w-5 fill-current" />
+          <.icon name="fa-arrow-right-from-bracket" class="scale-[-1] h-5 w-5 text-current" />
           <p>Exit Admin</p>
         </.link>
         <.link
@@ -114,7 +114,7 @@ defmodule AmbryWeb.Admin.Components do
           method="delete"
           class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
         >
-          <FA.icon name="arrow-right-from-bracket" class="h-5 w-5 fill-current" />
+          <.icon name="fa-arrow-right-from-bracket" class="h-5 w-5 text-current" />
           <p>Log out</p>
         </.link>
       </div>
@@ -162,13 +162,13 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <%= if @active do %>
       <.link patch={@to} class="cursor-pointer">
-        <FA.icon
+        <.icon
           name={@name}
-          class="h-5 w-5 fill-current text-zinc-600 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-100"
+          class="h-5 w-5 text-current text-zinc-600 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-100"
         />
       </.link>
     <% else %>
-      <FA.icon name={@name} class="h-5 w-5 fill-current dark:text-zinc-900" />
+      <.icon name={@name} class="h-5 w-5 text-current dark:text-zinc-900" />
     <% end %>
     """
   end
@@ -357,9 +357,9 @@ defmodule AmbryWeb.Admin.Components do
       )
 
     ~H"""
-    <FA.icon
+    <.icon
       name={sort_icon_name(@active, @dir)}
-      class={["h-4 w-4 ", if(@active, do: "fill-current", else: "fill-zinc-600")]}
+      class={["h-4 w-4 ", if(@active, do: "text-current", else: "text-zinc-600")]}
     />
     """
   end
@@ -375,10 +375,10 @@ defmodule AmbryWeb.Admin.Components do
     end
   end
 
-  defp sort_icon_name(false, _dir), do: "sort"
-  defp sort_icon_name(true, "asc"), do: "sort-up"
-  defp sort_icon_name(true, "desc"), do: "sort-down"
-  defp sort_icon_name(_active, _dir), do: "sort"
+  defp sort_icon_name(false, _dir), do: "fa-sort"
+  defp sort_icon_name(true, "asc"), do: "fa-sort-up"
+  defp sort_icon_name(true, "desc"), do: "fa-sort-down"
+  defp sort_icon_name(_active, _dir), do: "fa-sort"
 
   @doc """
   Renders a colored badge with a label in it.
@@ -413,7 +413,7 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <label class="flex">
       <input type="checkbox" name={@field.name} value="" class="hidden" />
-      <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600" />
+      <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
     </label>
     """
   end
@@ -448,7 +448,7 @@ defmodule AmbryWeb.Admin.Components do
       phx-click={JS.dispatch("change")}
       class={["flex", @class]}
     >
-      <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:text-red-600" />
+      <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
     </button>
     """
   end
@@ -466,7 +466,7 @@ defmodule AmbryWeb.Admin.Components do
       class="text-brand flex cursor-pointer items-center gap-1 hover:underline dark:text-brand-dark"
     >
       {render_slot(@inner_block)}
-      <FA.icon name="plus" class="h-4 w-4 fill-current" />
+      <.icon name="fa-plus" class="h-4 w-4 text-current" />
     </button>
     """
   end

@@ -44,23 +44,23 @@
       <div class="hidden w-32 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
         <div class="flex gap-4">
           <span :if={!person.has_description} title="Missing description" data-role="person-missing-description">
-            <FA.icon name="paragraph" class="inline h-4 w-4 fill-red-600" />
+            <.icon name="fa-paragraph" class="inline h-4 w-4 text-red-600" />
           </span>
           <span :if={person.authored_books > 0} title="# of authored books" data-role="person-authored-count">
-            {person.authored_books} <FA.icon name="book" class="inline h-4 w-4 fill-current" />
+            {person.authored_books} <.icon name="fa-book" class="inline h-4 w-4 text-current" />
           </span>
           <span :if={person.narrated_media > 0} title="# of narrated audiobooks" data-role="person-narrated-count">
-            {person.narrated_media} <FA.icon name="microphone" class="inline h-4 w-4 fill-current" />
+            {person.narrated_media} <.icon name="fa-microphone" class="inline h-4 w-4 text-current" />
           </span>
         </div>
       </div>
       <div class="flex w-32 flex-none flex-col items-end justify-between whitespace-nowrap">
         <div class="flex gap-2 pb-2">
           <.link navigate={~p"/admin/people/#{person}/edit"} data-role="edit-person">
-            <FA.icon name="pencil" class="h-4 w-4 fill-current transition-colors hover:fill-blue-600" />
+            <.icon name="fa-pencil" class="h-4 w-4 text-current transition-colors hover:text-blue-600" />
           </.link>
           <span phx-click="delete" phx-value-id={person.id} data-confirm="Are you sure?" data-role="delete-person">
-            <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:fill-red-600" />
+            <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
           </span>
         </div>
         <p class="text-sm italic dark:text-zinc-500" data-role="person-added">

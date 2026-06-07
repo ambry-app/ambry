@@ -44,15 +44,15 @@ defmodule AmbryWeb.Layouts do
         <div class="flex-1">
           <div class="flex justify-center gap-8 whitespace-nowrap lg:gap-12">
             <.link navigate={~p"/"} class={nav_class(@active_path == "/")}>
-              <span title="Now playing"><FA.icon name="circle-play" class="mt-1 h-6 w-6 fill-current lg:hidden" /></span>
+              <span title="Now playing"><.icon name="fa-circle-play" class="mt-1 h-6 w-6 text-current lg:hidden" /></span>
               <span class="hidden text-xl font-bold lg:block">Now Playing</span>
             </.link>
             <.link navigate={~p"/shelf"} class={nav_class(@active_path == "/shelf")}>
-              <span title="Your Shelf"><FA.icon name="book-bookmark" class="mt-1 h-6 w-6 fill-current lg:hidden" /></span>
+              <span title="Your Shelf"><.icon name="fa-book-bookmark" class="mt-1 h-6 w-6 text-current lg:hidden" /></span>
               <span class="hidden text-xl font-bold lg:block">Your Shelf</span>
             </.link>
             <.link navigate={~p"/library"} class={nav_class(@active_path == "/library")}>
-              <span title="Library"><FA.icon name="book-open" class="mt-1 h-6 w-6 fill-current lg:hidden" /></span>
+              <span title="Library"><.icon name="fa-book-open" class="mt-1 h-6 w-6 text-current lg:hidden" /></span>
               <span class="hidden text-xl font-bold lg:block">Library</span>
             </.link>
             <span
@@ -60,7 +60,7 @@ defmodule AmbryWeb.Layouts do
               class={nav_class(String.starts_with?(@active_path, "/search"), "flex cursor-pointer content-center gap-4")}
             >
               <span title="Search">
-                <FA.icon name="magnifying-glass" class="mt-1 h-6 w-6 fill-current lg:h-5 lg:w-5" />
+                <.icon name="fa-magnifying-glass" class="mt-1 h-6 w-6 text-current lg:h-5 lg:w-5" />
               </span>
               <span class="hidden text-xl font-bold xl:block">Search</span>
             </span>
@@ -156,7 +156,7 @@ defmodule AmbryWeb.Layouts do
       <div class="py-3">
         <%= if @user.admin do %>
           <.link navigate={~p"/admin"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
-            <FA.icon name="screwdriver-wrench" class="h-5 w-5 fill-current" />
+            <.icon name="fa-screwdriver-wrench" class="h-5 w-5 text-current" />
             <p>Admin</p>
           </.link>
         <% end %>
@@ -164,7 +164,7 @@ defmodule AmbryWeb.Layouts do
           navigate={~p"/users/settings"}
           class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
         >
-          <FA.icon name="user-gear" class="h-5 w-5 fill-current" />
+          <.icon name="fa-user-gear" class="h-5 w-5 text-current" />
           <p>Account Settings</p>
         </.link>
         <.link
@@ -172,7 +172,7 @@ defmodule AmbryWeb.Layouts do
           method="delete"
           class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
         >
-          <FA.icon name="arrow-right-from-bracket" class="h-5 w-5 fill-current" />
+          <.icon name="fa-arrow-right-from-bracket" class="h-5 w-5 text-current" />
           <p>Log out</p>
         </.link>
       </div>
@@ -257,11 +257,11 @@ defmodule AmbryWeb.Layouts do
   defp player_controls(assigns) do
     ~H"""
     <div class="flex items-center gap-6 fill-current p-4 text-zinc-900 dark:text-zinc-100">
-      <.player_button action={seek_relative(-60)} title="Back 1 minute" icon="backward-step" />
-      <.player_button action={seek_relative(-10)} title="Back 10 seconds" icon="rotate-left" />
+      <.player_button action={seek_relative(-60)} title="Back 1 minute" icon="fa-backward-step" />
+      <.player_button action={seek_relative(-10)} title="Back 10 seconds" icon="fa-rotate-left" />
       <.play_pause_button playback_state={@playback_state} />
-      <.player_button action={seek_relative(10)} title="Forward 10 seconds" icon="rotate-right" />
-      <.player_button action={seek_relative(60)} title="Forward 1 minute" icon="forward-step" />
+      <.player_button action={seek_relative(10)} title="Forward 10 seconds" icon="fa-rotate-right" />
+      <.player_button action={seek_relative(60)} title="Forward 1 minute" icon="fa-forward-step" />
 
       <div class="whitespace-nowrap text-sm tabular-nums text-zinc-600 dark:text-zinc-500 sm:text-base">
         <span>{player_state_progress(@player_state)}</span>
@@ -287,7 +287,7 @@ defmodule AmbryWeb.Layouts do
           <span class="hidden text-sm text-zinc-600 dark:text-zinc-500 sm:block sm:text-base">
             {player_state_playback_rate(@player_state)}x
           </span>
-          <FA.icon name="gauge-high" class="h-4 w-4 sm:h-5 sm:w-5" />
+          <.icon name="fa-gauge-high" class="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
         <.playback_rate_menu player_state={@player_state} />
       </div>
@@ -303,7 +303,7 @@ defmodule AmbryWeb.Layouts do
   defp player_button(assigns) do
     ~H"""
     <span phx-click={@action} class="cursor-pointer" title={@title}>
-      <FA.icon name={@icon} class={@class} />
+      <.icon name={@icon} class={@class} />
     </span>
     """
   end
@@ -338,10 +338,10 @@ defmodule AmbryWeb.Layouts do
     ~H"""
     <span phx-click={toggle_playback()} class="cursor-pointer">
       <span :if={@playback_state == :paused} title="Play">
-        <FA.icon name="play" class="h-6 w-6 pl-1 sm:h-7 sm:w-7" />
+        <.icon name="fa-play" class="h-6 w-6 pl-1 sm:h-7 sm:w-7" />
       </span>
       <span :if={@playback_state == :playing} title="Pause">
-        <FA.icon name="pause" class="h-6 w-6 sm:h-7 sm:w-7" />
+        <.icon name="fa-pause" class="h-6 w-6 sm:h-7 sm:w-7" />
       </span>
     </span>
     """
@@ -361,8 +361,8 @@ defmodule AmbryWeb.Layouts do
         </div>
         <div>
           <div class="flex divide-x divide-zinc-200 dark:divide-zinc-800">
-            <.adjust_playback_rate_button action={decrement_playback_rate()} icon="minus" />
-            <.adjust_playback_rate_button action={increment_playback_rate()} icon="plus" />
+            <.adjust_playback_rate_button action={decrement_playback_rate()} icon="fa-minus" />
+            <.adjust_playback_rate_button action={increment_playback_rate()} icon="fa-plus" />
           </div>
         </div>
         <div class="flex py-3 tabular-nums sm:text-lg">
@@ -383,7 +383,7 @@ defmodule AmbryWeb.Layouts do
   defp adjust_playback_rate_button(assigns) do
     ~H"""
     <div phx-click={@action} class="grow cursor-pointer p-4 hover:bg-zinc-300 dark:hover:bg-zinc-700">
-      <FA.icon name={@icon} class="mx-auto h-4 w-4 sm:h-5 sm:w-5" />
+      <.icon name={@icon} class="mx-auto h-4 w-4 sm:h-5 sm:w-5" />
     </div>
     """
   end

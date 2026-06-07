@@ -1,6 +1,6 @@
 <.layout title={@page_title} user={@current_user}>
   <.cards_grid>
-    <.card navigate={~p"/admin/people"} icon="user-group">
+    <.card navigate={~p"/admin/people"} icon="fa-user-group">
       <.stat>
         <:title>Authors</:title>
         <:stat><span data-role="author-count">{@people_count.authors}</span></:stat>
@@ -11,35 +11,35 @@
       </.stat>
     </.card>
 
-    <.card navigate={~p"/admin/books"} icon="book">
+    <.card navigate={~p"/admin/books"} icon="fa-book">
       <.stat>
         <:title>Books</:title>
         <:stat><span data-role="book-count">{@books_count}</span></:stat>
       </.stat>
     </.card>
 
-    <.card navigate={~p"/admin/series"} icon="book-journal-whills">
+    <.card navigate={~p"/admin/series"} icon="fa-book-journal-whills">
       <.stat>
         <:title>Series</:title>
         <:stat><span data-role="series-count">{@series_count}</span></:stat>
       </.stat>
     </.card>
 
-    <.card navigate={~p"/admin/media"} icon="file-audio">
+    <.card navigate={~p"/admin/media"} icon="fa-file-audio">
       <.stat>
         <:title>Media</:title>
         <:stat><span data-role="media-count">{@media_count}</span></:stat>
       </.stat>
     </.card>
 
-    <.card navigate={~p"/admin/audit"} icon="file-waveform">
+    <.card navigate={~p"/admin/audit"} icon="fa-file-waveform">
       <.stat>
         <:title>Files</:title>
         <:stat><span data-role="file-count">{@files_count}</span></:stat>
       </.stat>
     </.card>
 
-    <.card navigate={~p"/admin/users"} icon="users-gear">
+    <.card navigate={~p"/admin/users"} icon="fa-users-gear">
       <.stat>
         <:title>Users</:title>
         <:stat><span data-role="user-count">{@users_count}</span></:stat>

@@ -57,13 +57,13 @@
           <div :for={{existing_narrator, imported_narrator} <- Enum.zip(@matching_narrators, selected_book.narrators)}>
             <%= if existing_narrator do %>
               <p class="flex items-center gap-2">
-                <FA.icon name="circle-check" class="fill-brand h-4 w-4 flex-none dark:fill-brand-dark" />
+                <.icon name="fa-circle-check" class="text-brand h-4 w-4 flex-none dark:text-brand-dark" />
                 <span class="font-semibold">Existing narrator</span>
                 {existing_narrator.name}
               </p>
             <% else %>
               <p class="flex items-center gap-2">
-                <FA.icon name="triangle-exclamation" class="h-4 w-4 flex-none fill-amber-600 dark:fill-amber-500" />
+                <.icon name="fa-triangle-exclamation" class="h-4 w-4 flex-none text-amber-600 dark:text-amber-500" />
                 <span class="font-semibold">Missing narrator</span>
                 {imported_narrator.name}
               </p>

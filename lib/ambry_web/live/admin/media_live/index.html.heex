@@ -58,16 +58,16 @@
       <div class="hidden w-36 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
         <div class="flex gap-4">
           <span :if={!media.has_description} title="Missing description">
-            <FA.icon name="paragraph" class="inline h-4 w-4 fill-red-600" />
+            <.icon name="fa-paragraph" class="inline h-4 w-4 text-red-600" />
           </span>
           <span :if={media.abridged} title="Abridged">
-            <FA.icon name="clock" class="inline h-4 w-4 fill-current" />
+            <.icon name="fa-clock" class="inline h-4 w-4 text-current" />
           </span>
           <span :if={media.full_cast} title="Full cast">
-            <FA.icon name="users" class="inline h-4 w-4 fill-current" />
+            <.icon name="fa-users" class="inline h-4 w-4 text-current" />
           </span>
           <span :if={media.chapters > 0} title="# of chapters">
-            {media.chapters} <FA.icon name="book-bookmark" class="inline h-4 w-4 fill-current" />
+            {media.chapters} <.icon name="fa-book-bookmark" class="inline h-4 w-4 text-current" />
           </span>
         </div>
       </div>
@@ -75,13 +75,13 @@
       <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
         <div class="flex gap-2 pb-2">
           <.link navigate={~p"/admin/media/#{media}/chapters"}>
-            <FA.icon name="book-bookmark" class="h-4 w-4 fill-current transition-colors hover:fill-yellow-400" />
+            <.icon name="fa-book-bookmark" class="h-4 w-4 text-current transition-colors hover:text-yellow-400" />
           </.link>
           <.link navigate={~p"/admin/media/#{media}/edit"}>
-            <FA.icon name="pencil" class="h-4 w-4 fill-current transition-colors hover:fill-blue-600" />
+            <.icon name="fa-pencil" class="h-4 w-4 text-current transition-colors hover:text-blue-600" />
           </.link>
           <span phx-click="delete" phx-value-id={media.id} data-confirm="Are you sure?">
-            <FA.icon name="trash" class="h-4 w-4 cursor-pointer fill-current transition-colors hover:fill-red-600" />
+            <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
           </span>
         </div>
 

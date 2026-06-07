@@ -15,7 +15,7 @@ defmodule AmbryWeb.LibraryLive do
     <div class="mx-auto max-w-md p-4 sm:max-w-none sm:p-10 md:max-w-screen-2xl md:p-12 lg:p-16">
       <%= if @empty? do %>
         <div class="mt-10">
-          <FA.icon name="book-open" class="mx-auto h-24 w-24 fill-current" />
+          <.icon name="fa-book-open" class="mx-auto h-24 w-24 text-current" />
 
           <p class="mt-4 text-center">
             The library is empty!
