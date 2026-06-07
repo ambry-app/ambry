@@ -130,7 +130,11 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
   defp search(:audible, query), do: do_search(query, &Audible.search_authors/1)
 
   defp do_search(query, query_fun) do
-    case "#{query}" |> String.trim() |> String.downcase() |> query_fun.() do
+    "#{query}"
+    |> String.trim()
+    |> String.downcase()
+    |> query_fun.()
+    |> case do
       {:ok, []} -> raise "No authors found"
       {:ok, authors} -> authors
       {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"

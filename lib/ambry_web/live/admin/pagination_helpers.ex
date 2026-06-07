@@ -26,7 +26,10 @@ defmodule AmbryWeb.Admin.PaginationHelpers do
   end
 
   defp get_page_from_params(params) do
-    case params |> Map.get("page", "1") |> Integer.parse() do
+    params
+    |> Map.get("page", "1")
+    |> Integer.parse()
+    |> case do
       {page, _} when page >= 1 -> page
       {_bad_page, _} -> 1
       :error -> 1
@@ -34,14 +37,20 @@ defmodule AmbryWeb.Admin.PaginationHelpers do
   end
 
   defp get_filter_from_params(params) do
-    case params |> Map.get("filter", "") |> String.trim() do
+    params
+    |> Map.get("filter", "")
+    |> String.trim()
+    |> case do
       "" -> nil
       filter -> filter
     end
   end
 
   defp get_sort_from_params(params) do
-    case params |> Map.get("sort", "") |> String.trim() do
+    params
+    |> Map.get("sort", "")
+    |> String.trim()
+    |> case do
       "" -> nil
       sort -> sort
     end

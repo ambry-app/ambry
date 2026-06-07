@@ -122,7 +122,11 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
     do: chapter.start_offset_ms |> Decimal.new() |> Decimal.div(1000) |> Decimal.round(2)
 
   defp search(query) do
-    case "#{query}" |> String.trim() |> String.downcase() |> Audible.search_books() do
+    "#{query}"
+    |> String.trim()
+    |> String.downcase()
+    |> Audible.search_books()
+    |> case do
       {:ok, []} -> raise "No books found"
       {:ok, books} -> books
       {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"

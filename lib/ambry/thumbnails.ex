@@ -73,7 +73,7 @@ defmodule Ambry.Thumbnails do
       {:ok, data} = Vix.Vips.Image.write_to_binary(image)
       :binary.bin_to_list(data)
     else
-      image = Image.add_alpha!(image, 255)
+      image = Image.add_alpha!(image, :opaque)
 
       {:ok, data} = Vix.Vips.Image.write_to_binary(image)
       :binary.bin_to_list(data)
