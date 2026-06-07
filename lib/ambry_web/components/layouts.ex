@@ -383,7 +383,7 @@ defmodule AmbryWeb.Layouts do
   defp adjust_playback_rate_button(assigns) do
     ~H"""
     <div phx-click={@action} class="grow cursor-pointer p-4 hover:bg-zinc-300 dark:hover:bg-zinc-700">
-      <.icon name={@icon} class="mx-auto h-4 w-4 sm:h-5 sm:w-5" />
+      <.icon name={@icon} class="mx-auto block h-4 w-4 sm:h-5 sm:w-5" />
     </div>
     """
   end
