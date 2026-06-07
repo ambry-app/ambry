@@ -1,6 +1,7 @@
 defmodule Ambry.PeopleTest do
   use Ambry.DataCase
 
+  alias Ambry.Fake
   alias Ambry.Paths
   alias Ambry.People
   alias Ambry.PubSub.BroadcastAsync
@@ -195,7 +196,7 @@ defmodule Ambry.PeopleTest do
   describe "update_person/2" do
     test "updates a person" do
       person = insert(:person)
-      new_name = Faker.Person.name()
+      new_name = Fake.full_name()
 
       {:ok, updated_person} = People.update_person(person, %{name: new_name})
 
@@ -205,7 +206,7 @@ defmodule Ambry.PeopleTest do
     test "updates nested authors" do
       person = insert(:person, authors: [build(:author)])
       [%{id: author_id}] = person.authors
-      new_name = Faker.Person.name()
+      new_name = Fake.full_name()
 
       {:ok, updated_person} =
         People.update_person(person, %{
@@ -259,7 +260,7 @@ defmodule Ambry.PeopleTest do
     test "updates nested narrators" do
       person = insert(:person, narrators: [build(:narrator)])
       [%{id: narrator_id}] = person.narrators
-      new_name = Faker.Person.name()
+      new_name = Fake.full_name()
 
       {:ok, updated_person} =
         People.update_person(person, %{
@@ -314,7 +315,7 @@ defmodule Ambry.PeopleTest do
 
     test "updates the search index" do
       %{id: person_id, name: original_name} = person = :person |> insert() |> with_search_index()
-      new_name = Faker.Person.name()
+      new_name = Fake.full_name()
 
       assert [%{id: ^person_id}] = Ambry.Search.search(original_name)
       assert [] = Ambry.Search.search(new_name)
@@ -455,7 +456,7 @@ defmodule Ambry.PeopleTest do
     test "returns a changeset for a person" do
       person = insert(:person)
 
-      changeset = People.change_person(person, %{name: Faker.Person.name()})
+      changeset = People.change_person(person, %{name: Fake.full_name()})
 
       assert %Ecto.Changeset{valid?: true} = changeset
     end
