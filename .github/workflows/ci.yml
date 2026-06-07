@@ -23,6 +23,11 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+      - name: Pin Hex
+        # Hex 2.4.x fails to unpack ex_fontawesome's tarball ("Unpacking tarball
+        # failed: file too big: metadata.config"). Pin to the last known-good 2.3.x
+        # until the upstream regression is fixed.
+        run: mix local.hex 2.3.1 --force
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
@@ -42,6 +47,11 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+      - name: Pin Hex
+        # Hex 2.4.x fails to unpack ex_fontawesome's tarball ("Unpacking tarball
+        # failed: file too big: metadata.config"). Pin to the last known-good 2.3.x
+        # until the upstream regression is fixed.
+        run: mix local.hex 2.3.1 --force
       - name: Install dependencies
         run: mix deps.get
       - name: Check for retired packages
@@ -82,6 +92,11 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+      - name: Pin Hex
+        # Hex 2.4.x fails to unpack ex_fontawesome's tarball ("Unpacking tarball
+        # failed: file too big: metadata.config"). Pin to the last known-good 2.3.x
+        # until the upstream regression is fixed.
+        run: mix local.hex 2.3.1 --force
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
@@ -116,6 +131,11 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+      - name: Pin Hex
+        # Hex 2.4.x fails to unpack ex_fontawesome's tarball ("Unpacking tarball
+        # failed: file too big: metadata.config"). Pin to the last known-good 2.3.x
+        # until the upstream regression is fixed.
+        run: mix local.hex 2.3.1 --force
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
@@ -137,6 +157,11 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+      - name: Pin Hex
+        # Hex 2.4.x fails to unpack ex_fontawesome's tarball ("Unpacking tarball
+        # failed: file too big: metadata.config"). Pin to the last known-good 2.3.x
+        # until the upstream regression is fixed.
+        run: mix local.hex 2.3.1 --force
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
@@ -156,6 +181,11 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+      - name: Pin Hex
+        # Hex 2.4.x fails to unpack ex_fontawesome's tarball ("Unpacking tarball
+        # failed: file too big: metadata.config"). Pin to the last known-good 2.3.x
+        # until the upstream regression is fixed.
+        run: mix local.hex 2.3.1 --force
       - name: Install dependencies
         run: mix deps.get
       - name: Compile dependencies
@@ -179,6 +209,9 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+      - name: Pin Hex
+        # See note above: Hex 2.4.x breaks ex_fontawesome's tarball unpacking.
+        run: mix local.hex 2.3.1 --force
       - name: Cache PLT files
         id: cache-plt
         uses: actions/cache@v5

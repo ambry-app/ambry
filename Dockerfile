@@ -12,9 +12,11 @@ WORKDIR /src
 
 # system updates
 
+# NOTE: Hex pinned to 2.3.1 — 2.4.x fails to unpack ex_fontawesome's tarball
+# ("file too big: metadata.config"). Remove the version pin once that's fixed upstream.
 RUN mix do \
   local.rebar --force,\
-  local.hex --force
+  local.hex 2.3.1 --force
 
 RUN apk --update upgrade && \
   apk add build-base git
