@@ -8,6 +8,7 @@ defmodule Ambry.Factory do
   alias Ambry.Books.Book
   alias Ambry.Books.Series
   alias Ambry.Books.SeriesBook
+  alias Ambry.Fake
   alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
@@ -27,7 +28,7 @@ defmodule Ambry.Factory do
 
   def user_factory do
     %User{
-      email: Faker.Internet.email(),
+      email: Fake.email(),
       hashed_password: "fake"
     }
   end
@@ -53,8 +54,8 @@ defmodule Ambry.Factory do
 
   def person_factory do
     %Person{
-      name: Faker.Person.name(),
-      description: Faker.Lorem.paragraph(),
+      name: Fake.full_name(),
+      description: Fake.paragraph(),
       authors: [],
       narrators: []
     }
@@ -62,14 +63,14 @@ defmodule Ambry.Factory do
 
   def author_factory do
     %Author{
-      name: Faker.Person.name(),
+      name: Fake.full_name(),
       person: nil
     }
   end
 
   def narrator_factory do
     %Narrator{
-      name: Faker.Person.name(),
+      name: Fake.full_name(),
       person: nil
     }
   end
@@ -79,7 +80,7 @@ defmodule Ambry.Factory do
   def book_factory do
     %Book{
       title: book_title(),
-      published: Faker.Date.backward(15_466),
+      published: Fake.date_backward(15_466),
       published_format: Enum.random([:full, :year_month, :year]),
       book_authors: [],
       series_books: []
@@ -89,7 +90,7 @@ defmodule Ambry.Factory do
   defp book_title do
     prefix = sequence(:book_title_prefix, [nil, "Official", "Unauthorized", "Unofficial"])
     type = sequence(:book_title_type, ["Biography", "Autobiography", "Memoir"])
-    name = Faker.Person.name()
+    name = Fake.full_name()
 
     ["The", prefix, type, "of", name] |> Enum.filter(& &1) |> Enum.join(" ")
   end
@@ -111,7 +112,7 @@ defmodule Ambry.Factory do
   end
 
   defp series_name do
-    name = Faker.Person.last_name()
+    name = Fake.last_name()
 
     suffix =
       sequence(:series_name_suffix, [
@@ -129,7 +130,7 @@ defmodule Ambry.Factory do
   end
 
   def series_book_factory do
-    %SeriesBook{book_number: Faker.random_between(1, 10)}
+    %SeriesBook{book_number: Fake.integer(1, 10)}
   end
 
   # Media
@@ -139,9 +140,9 @@ defmodule Ambry.Factory do
       full_cast: Enum.random([true, false]),
       status: :pending,
       abridged: Enum.random([true, false]),
-      published: Faker.Date.backward(15_466),
-      notes: Faker.Lorem.sentence(),
-      description: Faker.Lorem.paragraph(),
+      published: Fake.date_backward(15_466),
+      notes: Fake.sentence(),
+      description: Fake.paragraph(),
       source_path: fn -> valid_source_path() end
     }
   end
@@ -190,10 +191,10 @@ defmodule Ambry.Factory do
     %Device{
       id: Ecto.UUID.generate(),
       type: Enum.random([:ios, :android, :web]),
-      brand: Faker.Company.name(),
+      brand: Fake.company_name(),
       model_name: sequence(:model_name, &"Model-#{&1}"),
       os_name: Enum.random(["iOS", "Android", "Windows", "macOS", "Linux"]),
-      os_version: "#{Faker.random_between(10, 16)}.0"
+      os_version: "#{Fake.integer(10, 16)}.0"
     }
   end
 
@@ -255,7 +256,7 @@ defmodule Ambry.Factory do
       playthrough: build(:playthrough),
       type: :play,
       timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
-      position: Decimal.new("#{Faker.random_between(0, 1000)}.0"),
+      position: Decimal.new("#{Fake.integer(0, 1000)}.0"),
       playback_rate: Decimal.new("1.0")
     }
   end
@@ -272,8 +273,8 @@ defmodule Ambry.Factory do
 
   def bookmark_factory do
     %Bookmark{
-      position: (Faker.random_uniform() * 1000) |> Decimal.from_float() |> Decimal.round(1),
-      label: Faker.Lorem.word()
+      position: (Fake.uniform() * 1000) |> Decimal.from_float() |> Decimal.round(1),
+      label: Fake.word()
     }
   end
 
