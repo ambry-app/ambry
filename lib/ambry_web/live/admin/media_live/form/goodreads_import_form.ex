@@ -205,7 +205,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm do
   end
 
   defp search(query) do
-    case "#{query}" |> String.trim() |> String.downcase() |> GoodReads.search_books() do
+    "#{query}"
+    |> String.trim()
+    |> String.downcase()
+    |> GoodReads.search_books()
+    |> case do
       {:ok, []} -> raise "No books found"
       {:ok, books} -> books
       {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"

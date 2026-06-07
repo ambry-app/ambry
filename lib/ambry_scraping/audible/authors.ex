@@ -43,9 +43,10 @@ defmodule AmbryScraping.Audible.Authors do
 
   @src_trailing ~r/\.__.*?__\./
   defp parse_image(document) do
-    case document
-         |> Floki.find("div.image-mask img.author-image-outline")
-         |> Floki.attribute("src") do
+    document
+    |> Floki.find("div.image-mask img.author-image-outline")
+    |> Floki.attribute("src")
+    |> case do
       [src] -> String.replace(src, @src_trailing, ".")
       _else -> nil
     end

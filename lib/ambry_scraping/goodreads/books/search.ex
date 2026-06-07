@@ -55,7 +55,10 @@ defmodule AmbryScraping.GoodReads.Books.Search do
   end
 
   defp parse_author_type(author_html) do
-    case author_html |> Floki.find("span.greyText") |> Floki.text() do
+    author_html
+    |> Floki.find("span.greyText")
+    |> Floki.text()
+    |> case do
       "" ->
         "author"
 

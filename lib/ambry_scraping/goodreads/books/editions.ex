@@ -143,7 +143,11 @@ defmodule AmbryScraping.GoodReads.Books.Editions do
   end
 
   defp parse_author_type(author_html) do
-    case author_html |> Floki.find("span.greyText") |> Floki.text() |> clean_string() do
+    author_html
+    |> Floki.find("span.greyText")
+    |> Floki.text()
+    |> clean_string()
+    |> case do
       "" -> "author"
       "(Goodreads Author)" -> "author"
       "(Goodreads Author)" <> string -> clean_author_type_string(string)

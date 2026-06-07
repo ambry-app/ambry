@@ -170,7 +170,11 @@ defmodule AmbryWeb.Admin.BookLive.Form.AudibleImportForm do
   end
 
   defp search(query) do
-    case "#{query}" |> String.trim() |> String.downcase() |> Audible.search_books() do
+    "#{query}"
+    |> String.trim()
+    |> String.downcase()
+    |> Audible.search_books()
+    |> case do
       {:ok, []} -> raise "No books found"
       {:ok, books} -> books
       {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"

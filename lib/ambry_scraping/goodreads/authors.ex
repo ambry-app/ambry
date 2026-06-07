@@ -44,7 +44,10 @@ defmodule AmbryScraping.GoodReads.Authors do
   end
 
   defp parse_image(document) do
-    case document |> Floki.find("ul.photoList li.profile img") |> Floki.attribute("src") do
+    document
+    |> Floki.find("ul.photoList li.profile img")
+    |> Floki.attribute("src")
+    |> case do
       [src] -> String.replace(src, "p2", "p8")
       _else -> nil
     end
