@@ -8,6 +8,38 @@ defmodule Ambry.Utils do
 
   require Logger
 
+  @byte_units ["B", "kB", "MB", "GB", "TB", "PB"]
+
+  @doc """
+  Formats a byte count as a human-readable string using SI (1000-based) units,
+  rounded to a whole number.
+
+  ## Examples
+
+      iex> Ambry.Utils.humanize_bytes(0)
+      "0 B"
+
+      iex> Ambry.Utils.humanize_bytes(1500)
+      "2 kB"
+
+      iex> Ambry.Utils.humanize_bytes(1_073_741_824)
+      "1 GB"
+  """
+  @spec humanize_bytes(non_neg_integer()) :: String.t()
+  def humanize_bytes(bytes) when is_integer(bytes) and bytes >= 0 do
+    humanize_bytes(bytes / 1, @byte_units)
+  end
+
+  defp humanize_bytes(value, [unit]), do: "#{round(value)} #{unit}"
+
+  defp humanize_bytes(value, [unit | larger_units]) do
+    if value >= 1000 do
+      humanize_bytes(value / 1000, larger_units)
+    else
+      "#{round(value)} #{unit}"
+    end
+  end
+
   defmacro tap_ok(tuple, fun) do
     quote bind_quoted: [fun: fun, tuple: tuple] do
       case tuple do

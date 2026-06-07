@@ -79,8 +79,8 @@ defmodule AmbryWeb.Admin.AuditLive.Index do
     {:noreply, push_navigate(socket, to: ~p"/admin/media/#{media_id}/edit")}
   end
 
-  defp format_filesize(size) do
-    size |> FileSize.scale() |> FileSize.format()
+  defp format_filesize(bytes) do
+    Utils.humanize_bytes(bytes)
   end
 
   defp no_problems(audit) do

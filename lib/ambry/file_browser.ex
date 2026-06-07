@@ -159,7 +159,7 @@ defmodule Ambry.FileBrowser do
             full_path: full_path,
             mtime: mtime,
             extension: Path.extname(path),
-            size: stat.size |> FileSize.from_bytes() |> FileSize.scale()
+            size: stat.size
           }
       end
     end)

@@ -139,7 +139,7 @@ defmodule Ambry.Media.Audit do
       %{
         id: Ecto.UUID.generate(),
         path: full_path,
-        size: FileSize.from_file!(full_path)
+        size: File.stat!(full_path).size
       }
     end)
   end
@@ -209,11 +209,9 @@ defmodule Ambry.Media.Audit do
     |> File.ls!()
     |> Enum.map(fn file_path ->
       full_path = Path.join([folder_path, file_path])
-      FileSize.from_file!(full_path)
+      File.stat!(full_path).size
     end)
-    |> Enum.reduce(FileSize.from_bytes(0), fn size, acc ->
-      FileSize.add(size, acc)
-    end)
+    |> Enum.sum()
   end
 
   # A %Media{} struct from ecto
