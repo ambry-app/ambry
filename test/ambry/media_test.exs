@@ -543,6 +543,131 @@ defmodule Ambry.MediaTest do
     end
   end
 
+  describe "replace_media/2" do
+    setup do
+      media =
+        :media
+        |> build(book: build(:book))
+        |> with_source_files()
+        |> insert()
+        |> with_output_files()
+
+      media =
+        Repo.update!(
+          Ecto.Changeset.change(media, %{
+            chapters: [
+              %Ambry.Media.Media.Chapter{time: Decimal.new("0.0"), title: "Chapter 1"},
+              %Ambry.Media.Media.Chapter{time: Decimal.new("60.0"), title: "Chapter 2"}
+            ]
+          })
+        )
+
+      player_state =
+        insert(:player_state,
+          media: media,
+          user: build(:user),
+          position: Decimal.new("123.4"),
+          status: :in_progress
+        )
+
+      %{media: media, player_state: player_state}
+    end
+
+    test "updates source files, marks the media pending, and queues reprocessing", %{media: media} do
+      new_source_path = Paths.source_media_disk_path(Ecto.UUID.generate())
+      new_source_files = [valid_audio(:mp3)]
+
+      {:ok, replaced} =
+        Media.replace_media(media, %{
+          source_path: new_source_path,
+          source_files: new_source_files,
+          processor: :auto
+        })
+
+      assert replaced.source_path == new_source_path
+      assert replaced.source_files == new_source_files
+      assert replaced.status == :pending
+
+      assert_enqueued worker: Ambry.Media.RunProcessor,
+                      args: %{"media_id" => media.id, "processor" => "auto"}
+    end
+
+    test "keeps the same streaming output URLs (overwrites in place)", %{media: media} do
+      {:ok, replaced} =
+        Media.replace_media(media, %{
+          source_path: Paths.source_media_disk_path(Ecto.UUID.generate()),
+          source_files: [valid_audio(:mp3)],
+          processor: :auto
+        })
+
+      assert replaced.mp4_path == media.mp4_path
+      assert replaced.mpd_path == media.mpd_path
+      assert replaced.hls_path == media.hls_path
+    end
+
+    test "leaves chapters and listeners' saved positions untouched", %{
+      media: media,
+      player_state: player_state
+    } do
+      {:ok, replaced} =
+        Media.replace_media(media, %{
+          source_path: Paths.source_media_disk_path(Ecto.UUID.generate()),
+          source_files: [valid_audio(:mp3)],
+          processor: :auto
+        })
+
+      assert Enum.map(replaced.chapters, & &1.title) == ["Chapter 1", "Chapter 2"]
+
+      reloaded_player_state = Media.get_player_state!(player_state.id)
+      assert Decimal.equal?(reloaded_player_state.position, Decimal.new("123.4"))
+    end
+
+    test "deletes the old source folder with a background job", %{media: media} do
+      old_source_path = media.source_path
+
+      {:ok, _replaced} =
+        Media.replace_media(media, %{
+          source_path: Paths.source_media_disk_path(Ecto.UUID.generate()),
+          source_files: [valid_audio(:mp3)],
+          processor: :auto
+        })
+
+      assert_enqueued worker: DeleteFiles,
+                      args: %{"disk_paths" => [], "folder_paths" => [old_source_path]}
+    end
+
+    test "end-to-end: reprocessing regenerates the streaming files in place", %{media: media} do
+      {:ok, replaced} =
+        Media.replace_media(media, %{
+          source_path: Paths.source_media_disk_path(Ecto.UUID.generate()),
+          source_files: [valid_audio(:m4a)],
+          processor: :auto
+        })
+
+      # Simulate the enqueued RunProcessor Oban job running.
+      {:ok, processed} = Ambry.Media.Processor.run!(Media.get_media!(replaced.id))
+
+      assert processed.status == :ready
+
+      # Same URLs as before -> overwritten in place, not orphaned.
+      assert processed.mp4_path == media.mp4_path
+      assert processed.mpd_path == media.mpd_path
+      assert processed.hls_path == media.hls_path
+
+      # The streaming files actually exist on disk at those paths.
+      assert processed.mp4_path |> Paths.web_to_disk() |> File.exists?()
+      assert processed.hls_path |> Paths.web_to_disk() |> File.exists?()
+
+      assert processed.hls_path
+             |> Paths.hls_playlist_path()
+             |> Paths.web_to_disk()
+             |> File.exists?()
+
+      # Duration was recomputed from the new audio by the processor.
+      assert %Decimal{} = processed.duration
+    end
+  end
+
   describe "generate_thumbnails_async/1" do
     test "schedules a job to generate thumbnails if they're missing" do
       media =

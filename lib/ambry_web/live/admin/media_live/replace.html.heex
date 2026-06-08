@@ -1,0 +1,106 @@
+<.layout title={@page_title} user={@current_user}>
+  <.modal :if={@select_files} id="select-files-modal" show on_cancel={close_file_browser(@media)}>
+    <.live_component id="file-browser" module={FileBrowser} root_path={Application.get_env(:ambry, :source_path)} />
+  </.modal>
+
+  <div class="max-w-3xl space-y-6">
+    <div class="flex gap-3 rounded-sm border border-yellow-400 bg-yellow-50 p-4 text-yellow-800 dark:border-yellow-600 dark:bg-yellow-950 dark:text-yellow-200">
+      <.icon name="fa-triangle-exclamation" class="mt-1 h-5 w-5 flex-none text-current" />
+      <div class="space-y-2 text-sm">
+        <p class="font-semibold">Replacing audio is disruptive.</p>
+        <p>
+          This re-processes the book and overwrites the streaming files. It is meant for fixing the
+          files of the <strong>same edition/recording</strong>
+          (e.g. a corrupt or low-quality source), <strong>not</strong>
+          for switching to a different edition.
+        </p>
+        <p>
+          Chapters and listeners' saved positions are left as-is. Anyone streaming will pick up the new
+          audio automatically, but anyone who <strong>downloaded</strong> this book for offline listening
+          must delete and re-download it to get the new files.
+        </p>
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <.label>Current audio file(s)</.label>
+      <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
+        <p :if={@media.source_files == []} class="text-sm italic text-zinc-500">
+          No source files on record.
+        </p>
+        <p :for={file <- @media.source_files} class="text-sm italic">
+          {Path.basename(file)}
+        </p>
+      </div>
+    </div>
+
+    <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+      <div class="space-y-2">
+        <%= if @local_import_path do %>
+          <.tabs
+            field={@form[:source_type]}
+            options={[
+              {"Upload from your file-system", "upload"},
+              {"Import from server file-system", "local_import"}
+            ]}
+          >
+            <.label>New audio file(s)</.label>
+          </.tabs>
+        <% else %>
+          <.label>New audio file(s)</.label>
+          <.input type="hidden" field={@form[:source_type]} />
+        <% end %>
+
+        <.note>
+          <:label>Supported formats</:label>
+          mp3, mp4, m4a, m4b, opus
+        </.note>
+
+        <div :if={@form[:source_type].value == "upload"} class="space-y-2">
+          <.file_input upload={@uploads.audio} on_cancel="cancel-upload" />
+        </div>
+
+        <div :if={@form[:source_type].value == "local_import"} class="space-y-2">
+          <div>
+            <div class="flex items-center rounded-sm rounded-b-none border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 sm:text-sm sm:leading-6">
+              <button
+                class="py-[7px] px-[11px] bg-zinc-600 font-bold text-zinc-100 hover:bg-zinc-500"
+                type="button"
+                phx-click={open_file_browser(@media)}
+              >
+                Browse...
+              </button>
+              <p class="overflow-hidden text-ellipsis whitespace-nowrap px-2">
+                {Enum.count(@selected_files)} File(s) selected
+              </p>
+            </div>
+            <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
+              <.icon
+                :if={Enum.empty?(@selected_files)}
+                name="fa-file-circle-exclamation"
+                class="mx-auto my-4 block h-8 w-8 text-current"
+              />
+              <p :for={file <- Enum.sort(@selected_files, NaturalOrder)}>
+                {Path.basename(file)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <.label for={@form[:processor].name}>Processor</.label>
+        <.input
+          type="select"
+          field={@form[:processor]}
+          prompt="auto-select"
+          options={processor_options(@uploads.audio.entries, @selected_files)}
+        />
+      </div>
+
+      <:actions>
+        <.button>Replace audio</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+</.layout>

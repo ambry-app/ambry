@@ -80,6 +80,9 @@
           <.link navigate={~p"/admin/media/#{media}/edit"}>
             <.icon name="fa-pencil" class="h-4 w-4 text-current transition-colors hover:text-blue-600" />
           </.link>
+          <.link navigate={~p"/admin/media/#{media}/replace"} title="Replace audio">
+            <.icon name="fa-upload" class="h-4 w-4 text-current transition-colors hover:text-lime-500" />
+          </.link>
           <span phx-click="delete" phx-value-id={media.id} data-confirm="Are you sure?">
             <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
           </span>
