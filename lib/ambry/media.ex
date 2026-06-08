@@ -349,6 +349,55 @@ defmodule Ambry.Media do
     |> Oban.insert()
   end
 
+  @doc """
+  Replaces a media's source audio files with a new set of files and re-runs
+  processing, overwriting the streaming output files in place.
+
+  This is intended for swapping in corrected files for the *same*
+  edition/recording (for example, fixing a corrupt, mistagged, or low-quality
+  source) — not for switching to a different edition. Because the timeline is
+  expected to line up, chapters and listeners' saved positions and bookmarks are
+  deliberately left untouched.
+
+  The streaming output files keep the same URLs (they are overwritten in place);
+  `Plug.Static` serves them with mtime-based ETags, so clients revalidate and
+  pick up the new audio the next time they play. Offline downloads in the mobile
+  app are *not* automatically invalidated and must be re-downloaded by the user.
+
+  The previous source folder is deleted asynchronously once the new files are in
+  place.
+
+  ## Examples
+
+      iex> replace_media(media, %{source_path: path, source_files: files, processor: :auto})
+      {:ok, %Media{}}
+
+  """
+  def replace_media(%Media{} = media, %{
+        source_path: source_path,
+        source_files: source_files,
+        processor: processor
+      }) do
+    old_source_path = media.source_path
+
+    with {:ok, updated_media} <-
+           update_media(media, %{
+             source_path: source_path,
+             source_files: source_files,
+             status: :pending
+           }),
+         {:ok, _job} <- run_processor_async(updated_media, processor) do
+      delete_old_source_folder_async(old_source_path, source_path)
+      {:ok, updated_media}
+    end
+  end
+
+  defp delete_old_source_folder_async(old_source_path, new_source_path)
+       when old_source_path in [nil, new_source_path], do: {:ok, :noop}
+
+  defp delete_old_source_folder_async(old_source_path, _new_source_path),
+    do: try_delete_files_async([], [old_source_path])
+
   defdelegate available_processors(media_or_filenames), to: Processor, as: :matched_processors
 
   @doc """
