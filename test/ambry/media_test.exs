@@ -657,7 +657,11 @@ defmodule Ambry.MediaTest do
       # The streaming files actually exist on disk at those paths.
       assert processed.mp4_path |> Paths.web_to_disk() |> File.exists?()
       assert processed.hls_path |> Paths.web_to_disk() |> File.exists?()
-      assert processed.hls_path |> Paths.hls_playlist_path() |> Paths.web_to_disk() |> File.exists?()
+
+      assert processed.hls_path
+             |> Paths.hls_playlist_path()
+             |> Paths.web_to_disk()
+             |> File.exists?()
 
       # Duration was recomputed from the new audio by the processor.
       assert %Decimal{} = processed.duration
