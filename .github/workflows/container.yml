@@ -7,6 +7,9 @@ on:
     tags: ["v*.*.*"]
   pull_request:
     branches: [main]
+  # Manual escape hatch: lets an image be built for main without waiting for a
+  # push, for when a merge lands without dispatching this workflow.
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
