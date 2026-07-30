@@ -854,7 +854,7 @@ defmodule AmbryWeb.CoreComponents do
   A link with brand colors and hover styling.
   """
   attr :class, :string, default: nil
-  attr :rest, :global, include: ~w(navigate patch href replace method csrf_token)
+  attr :rest, :global, include: ~w(navigate patch href replace method csrf_token target)
   slot :inner_block, required: true
 
   def brand_link(assigns) do
