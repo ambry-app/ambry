@@ -1484,7 +1484,7 @@ defmodule AmbryWeb.CoreComponents do
   def markdown(assigns) do
     ~H"""
     <article class={["prose prose-zinc dark:prose-invert", @class]}>
-      {raw(Earmark.as_html!(@content))}
+      {raw(AmbryWeb.Markdown.to_html!(@content))}
     </article>
     """
   end

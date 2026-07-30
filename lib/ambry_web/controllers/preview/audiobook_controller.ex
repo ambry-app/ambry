@@ -36,9 +36,7 @@ defmodule AmbryWeb.Preview.AudiobookController do
 
   defp truncate_markdown(markdown) do
     (markdown
-     |> Earmark.as_html!()
-     |> Floki.parse_document!()
-     |> Floki.text()
+     |> AmbryWeb.Markdown.to_text!()
      |> String.slice(0..252)) <>
       "..."
   end
