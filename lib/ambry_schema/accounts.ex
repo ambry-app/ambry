@@ -4,7 +4,6 @@ defmodule AmbrySchema.Accounts do
   use Absinthe.Schema.Notation
   use Absinthe.Relay.Schema.Notation, :modern
 
-  import Absinthe.Resolution.Helpers, only: [dataloader: 1]
 
   alias AmbrySchema.Resolvers
 
@@ -13,7 +12,6 @@ defmodule AmbrySchema.Accounts do
     field :admin, non_null(:boolean)
     field :confirmed_at, :datetime
 
-    field :loaded_player_state, :player_state, resolve: dataloader(Resolvers)
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)

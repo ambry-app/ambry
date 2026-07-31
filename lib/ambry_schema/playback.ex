@@ -4,17 +4,10 @@ defmodule AmbrySchema.Playback do
   use Absinthe.Schema.Notation
   use Absinthe.Relay.Schema.Notation, :modern
 
-  import Absinthe.Resolution.Helpers, only: [dataloader: 2]
 
   alias AmbrySchema.Resolvers
 
   ## Enums
-
-  enum :playthrough_status do
-    value :in_progress
-    value :finished
-    value :abandoned
-  end
 
   enum :playback_event_type do
     value :start
@@ -56,19 +49,6 @@ defmodule AmbrySchema.Playback do
     field :last_seen_at, non_null(:datetime)
   end
 
-  object :playthrough do
-    field :id, non_null(:id)
-    field :status, non_null(:playthrough_status)
-    field :started_at, non_null(:datetime)
-    field :finished_at, :datetime
-    field :abandoned_at, :datetime
-    field :deleted_at, :datetime
-    field :inserted_at, non_null(:datetime)
-    field :updated_at, non_null(:datetime)
-
-    field :media, non_null(:media), resolve: dataloader(Resolvers, args: %{allow_all_media: true})
-  end
-
   object :playback_event do
     field :id, non_null(:id)
     field :playthrough_id, non_null(:id)
@@ -99,16 +79,6 @@ defmodule AmbrySchema.Playback do
     field :app_build, :string
   end
 
-  input_object :playthrough_input do
-    field :id, non_null(:id)
-    field :media_id, non_null(:id)
-    field :status, non_null(:playthrough_status)
-    field :started_at, non_null(:datetime)
-    field :finished_at, :datetime
-    field :abandoned_at, :datetime
-    field :deleted_at, :datetime
-  end
-
   input_object :playback_event_input do
     field :id, non_null(:id)
     field :playthrough_id, non_null(:id)
@@ -122,13 +92,6 @@ defmodule AmbrySchema.Playback do
     field :previous_rate, :float
   end
 
-  input_object :sync_progress_input do
-    field :last_sync_time, :datetime
-    field :device, non_null(:device_input)
-    field :playthroughs, non_null(list_of(non_null(:playthrough_input)))
-    field :events, non_null(list_of(non_null(:playback_event_input)))
-  end
-
   # V2 input - events only, no playthroughs needed
   input_object :sync_events_input do
     field :last_sync_time, :datetime
@@ -137,12 +100,6 @@ defmodule AmbrySchema.Playback do
   end
 
   ## Mutation Output
-
-  object :sync_progress_payload do
-    field :playthroughs, non_null(list_of(non_null(:playthrough)))
-    field :events, non_null(list_of(non_null(:playback_event)))
-    field :server_time, non_null(:datetime)
-  end
 
   # V2 payload - events only
   object :sync_events_payload do
@@ -153,14 +110,6 @@ defmodule AmbrySchema.Playback do
   ## Mutations
 
   object :playback_mutations do
-    field :sync_progress, :sync_progress_payload do
-      arg :input, non_null(:sync_progress_input)
-
-      middleware AmbrySchema.AuthMiddleware
-
-      resolve &Resolvers.sync_progress/2
-    end
-
     @desc "V2 sync: events only, no playthroughs. All state is derived from events."
     field :sync_events, :sync_events_payload do
       arg :input, non_null(:sync_events_input)
