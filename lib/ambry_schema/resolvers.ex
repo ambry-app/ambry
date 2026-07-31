@@ -206,14 +206,13 @@ defmodule AmbrySchema.Resolvers do
     Playback.record_events(events_data, user_id)
 
     # 3. Query events changed since lastSyncTime and return (including delete events)
-    #    Use V2 query functions that join to playthroughs_new instead of legacy playthroughs
     server_time = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
     events =
       if last_sync_time do
-        Playback.list_events_changed_since_v2(user_id, last_sync_time)
+        Playback.list_events_changed_since(user_id, last_sync_time)
       else
-        Playback.list_all_events_v2(user_id)
+        Playback.list_all_events(user_id)
       end
 
     events =

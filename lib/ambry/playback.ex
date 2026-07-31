@@ -19,7 +19,6 @@ defmodule Ambry.Playback do
       Device,
       DeviceFlat,
       DeviceUser,
-      Playthrough,
       PlaythroughNew,
       PlaythroughFlat,
       PlaybackEvent
@@ -31,7 +30,6 @@ defmodule Ambry.Playback do
   alias Ambry.Playback.DeviceFlat
   alias Ambry.Playback.DeviceUser
   alias Ambry.Playback.PlaybackEvent
-  alias Ambry.Playback.Playthrough
   alias Ambry.Playback.PlaythroughFlat
   alias Ambry.Playback.PlaythroughNew
   alias Ambry.Repo
@@ -81,46 +79,6 @@ defmodule Ambry.Playback do
   end
 
   ## Playthroughs
-
-  @doc """
-  Upserts a playthrough based on client-generated UUID.
-
-  If a playthrough with the same ID exists, updates it.
-  Otherwise, creates a new playthrough (even if duplicate from migration edge case).
-  """
-  def upsert_playthrough(attrs) do
-    changeset = Playthrough.changeset(%Playthrough{}, attrs)
-
-    Repo.insert(changeset,
-      on_conflict: {:replace, [:status, :finished_at, :abandoned_at, :deleted_at, :updated_at]},
-      conflict_target: :id,
-      returning: true
-    )
-  end
-
-  @doc """
-  Lists playthroughs changed since a given timestamp.
-
-  Used for sync - returns playthroughs updated after the given time.
-  """
-  def list_playthroughs_changed_since(user_id, since) do
-    Playthrough
-    |> where([p], p.user_id == ^user_id and p.updated_at > ^since)
-    |> order_by([p], asc: p.updated_at)
-    |> Repo.all()
-  end
-
-  @doc """
-  Lists all playthroughs for a user (no pagination).
-
-  Used for initial sync when a fresh device needs all data.
-  """
-  def list_all_playthroughs(user_id) do
-    Playthrough
-    |> where([p], p.user_id == ^user_id)
-    |> order_by([p], asc: p.updated_at)
-    |> Repo.all()
-  end
 
   @doc """
   Lists playthroughs from the flat view with filtering, sorting, and pagination.
@@ -253,15 +211,14 @@ defmodule Ambry.Playback do
   end
 
   @doc """
-  Lists events inserted since a given timestamp.
+  Lists events changed since the given time.
 
-  Used for sync - returns events inserted after the given time.
-  Uses `inserted_at` (when recorded) rather than `timestamp` (when occurred)
-  so that synthesized historical events can be synced to clients.
+  Used for sync - uses `inserted_at` (when recorded) rather than `timestamp`
+  (when occurred) so that synthesized historical events reach clients.
   """
   def list_events_changed_since(user_id, since) do
     PlaybackEvent
-    |> join(:inner, [e], p in Playthrough, on: e.playthrough_id == p.id)
+    |> join(:inner, [e], p in PlaythroughNew, on: e.playthrough_id == p.id)
     |> where([e, p], p.user_id == ^user_id and e.inserted_at > ^since)
     |> order_by([e], asc: e.inserted_at)
     |> select([e], e)
@@ -269,62 +226,16 @@ defmodule Ambry.Playback do
   end
 
   @doc """
-  Lists all events for a user's playthroughs (no pagination).
+  Lists all events for a user (no pagination).
 
   Used for initial sync when a fresh device needs all data.
   """
   def list_all_events(user_id) do
     PlaybackEvent
-    |> join(:inner, [e], p in Playthrough, on: e.playthrough_id == p.id)
-    |> where([_e, p], p.user_id == ^user_id)
-    |> order_by([e], asc: e.timestamp)
-    |> select([e], e)
-    |> Repo.all()
-  end
-
-  @doc """
-  V2: Lists events changed since the given time, using playthroughs_new.
-
-  For V2 sync which doesn't use the legacy playthroughs table.
-  """
-  def list_events_changed_since_v2(user_id, since) do
-    PlaybackEvent
-    |> join(:inner, [e], p in PlaythroughNew, on: e.playthrough_id == p.id)
-    |> where([e, p], p.user_id == ^user_id and e.inserted_at > ^since)
-    |> order_by([e], asc: e.inserted_at)
-    |> select([e], e)
-    |> Repo.all()
-  end
-
-  @doc """
-  V2: Lists all events for a user, using playthroughs_new.
-
-  For V2 sync which doesn't use the legacy playthroughs table.
-  """
-  def list_all_events_v2(user_id) do
-    PlaybackEvent
     |> join(:inner, [e], p in PlaythroughNew, on: e.playthrough_id == p.id)
     |> where([_e, p], p.user_id == ^user_id)
     |> order_by([e], asc: e.timestamp)
     |> select([e], e)
     |> Repo.all()
-  end
-
-  ## Sync Helpers
-
-  @doc """
-  Syncs playthroughs from a client.
-
-  Accepts a list of playthrough data and upserts them.
-  Returns the list of synced playthroughs.
-  """
-  def sync_playthroughs(playthroughs_data) when is_list(playthroughs_data) do
-    Enum.map(playthroughs_data, fn data ->
-      case upsert_playthrough(data) do
-        {:ok, playthrough} -> playthrough
-        {:error, _changeset} -> nil
-      end
-    end)
-    |> Enum.filter(& &1)
   end
 end

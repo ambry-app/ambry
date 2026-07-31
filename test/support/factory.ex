@@ -12,7 +12,6 @@ defmodule Ambry.Factory do
   alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
-  alias Ambry.Media.PlayerState
   alias Ambry.People.Author
   alias Ambry.People.BookAuthor
   alias Ambry.People.Narrator
@@ -20,7 +19,6 @@ defmodule Ambry.Factory do
   alias Ambry.Playback.Device
   alias Ambry.Playback.DeviceUser
   alias Ambry.Playback.PlaybackEvent
-  alias Ambry.Playback.Playthrough
   alias Ambry.Playback.PlaythroughNew
   alias Ambry.Search.Index
 
@@ -174,17 +172,6 @@ defmodule Ambry.Factory do
     %Media.Chapter{}
   end
 
-  # Player States
-
-  def player_state_factory do
-    %PlayerState{
-      media: build(:media),
-      playback_rate: Enum.random(Enum.map(["1.0", "1.25", "1.5", "1.75", "2.0"], &Decimal.new/1)),
-      position: Decimal.new(0),
-      status: :not_started
-    }
-  end
-
   # Playback
 
   def device_factory do
@@ -206,34 +193,6 @@ defmodule Ambry.Factory do
     }
   end
 
-  def playthrough_factory do
-    %Playthrough{
-      id: Ecto.UUID.generate(),
-      user: build(:user),
-      media: build(:media, book: build(:book)),
-      status: :in_progress,
-      started_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-    }
-  end
-
-  def finished_playthrough_factory do
-    now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
-
-    build(:playthrough,
-      status: :finished,
-      finished_at: now
-    )
-  end
-
-  def abandoned_playthrough_factory do
-    now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
-
-    build(:playthrough,
-      status: :abandoned,
-      abandoned_at: now
-    )
-  end
-
   def playthrough_new_factory do
     now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
@@ -253,7 +212,7 @@ defmodule Ambry.Factory do
   def playback_event_factory do
     %PlaybackEvent{
       id: Ecto.UUID.generate(),
-      playthrough: build(:playthrough),
+      playthrough_id: Ecto.UUID.generate(),
       type: :play,
       timestamp: DateTime.utc_now() |> DateTime.truncate(:millisecond),
       position: Decimal.new("#{Fake.integer(0, 1000)}.0"),

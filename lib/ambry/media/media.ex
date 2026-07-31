@@ -11,7 +11,6 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.Media
   alias Ambry.Media.Media.Chapter
   alias Ambry.Media.MediaNarrator
-  alias Ambry.Media.PlayerState
   alias Ambry.Media.Processor
   alias Ambry.Repo.SupplementalFile
   alias Ambry.Thumbnails
@@ -21,7 +20,6 @@ defmodule Ambry.Media.Media do
   schema "media" do
     belongs_to :book, Book
     has_many :media_narrators, MediaNarrator, on_replace: :delete
-    has_many :player_states, PlayerState
     has_many :authors, through: [:book, :authors]
     has_many :narrators, through: [:media_narrators, :narrator]
 

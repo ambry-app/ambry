@@ -12,24 +12,20 @@ defmodule Ambry.Media do
       Media,
       Media.Chapter,
       MediaNarrator,
-      PlayerState,
       PubSub.MediaCreated,
       PubSub.MediaDeleted,
       PubSub.MediaProgress,
-      PubSub.MediaUpdated,
-      PubSub.PlayerStateUpdated
+      PubSub.MediaUpdated
     ]
 
   import Ambry.Utils
   import Ecto.Query
 
-  alias Ambry.Accounts
   alias Ambry.Books
   alias Ambry.Media.Audit
   alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
   alias Ambry.Media.MediaFlat
-  alias Ambry.Media.PlayerState
   alias Ambry.Media.Processor
   alias Ambry.Media.PubSub.BookmarkCreated
   alias Ambry.Media.PubSub.BookmarkDeleted
@@ -38,7 +34,6 @@ defmodule Ambry.Media do
   alias Ambry.Media.PubSub.MediaDeleted
   alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.Media.PubSub.MediaUpdated
-  alias Ambry.Media.PubSub.PlayerStateUpdated
   alias Ambry.Media.RunProcessor
   alias Ambry.Paths
   alias Ambry.PubSub
@@ -46,9 +41,6 @@ defmodule Ambry.Media do
   alias Ambry.Search
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
-
-  @media_preload [:narrators, book: [:authors, series_books: :series]]
-  @player_state_preload [media: @media_preload]
 
   defdelegate get_media_file_details(media), to: Audit
   defdelegate orphaned_files_audit(), to: Audit
@@ -501,132 +493,6 @@ defmodule Ambry.Media do
   """
   def subscribe_to_media_progress_messages do
     :ok = PubSub.subscribe(MediaProgress.wildcard_topic())
-  end
-
-  @doc """
-  Gets recent player states for a given user.
-  """
-  def get_recent_player_states(user_id, offset \\ 0, limit \\ 10) do
-    over_limit = limit + 1
-
-    player_states =
-      PlayerState
-      |> where([ps], ps.user_id == ^user_id and ps.status == :in_progress)
-      |> order_by({:desc, :updated_at})
-      |> offset(^offset)
-      |> limit(^over_limit)
-      |> preload(^@player_state_preload)
-      |> Repo.all()
-
-    player_states_to_return = Enum.slice(player_states, 0, limit)
-
-    {player_states_to_return, player_states != player_states_to_return}
-  end
-
-  @doc """
-  Gets or creates a player state for the given user and media, and marks it as
-  the user's loaded player state.
-  """
-  def load_player_state!(user, media_id) do
-    {:ok, player_state} =
-      Repo.transact(fn ->
-        player_state = get_player_state!(user.id, media_id)
-        {:ok, _user} = Accounts.update_user_loaded_player_state(user, player_state.id)
-
-        {:ok, player_state}
-      end)
-
-    player_state
-  end
-
-  @doc """
-  Gets a single player_state.
-
-  Raises `Ecto.NoResultsError` if the Player state does not exist.
-
-  ## Examples
-
-      iex> get_player_state!(123)
-      %PlayerState{}
-
-      iex> get_player_state!(456)
-      ** (Ecto.NoResultsError)
-
-  """
-  def get_player_state!(id) do
-    PlayerState
-    |> preload(^@player_state_preload)
-    |> Repo.get!(id)
-  end
-
-  @doc """
-  Gets a player_state for the given user and media.
-
-  If the player_state does not exist, it will be created.
-  """
-  def get_player_state!(user_id, media_id) when is_integer(user_id) and is_integer(media_id) do
-    %PlayerState{user_id: user_id, media_id: media_id}
-    |> Repo.insert!(
-      on_conflict: {:replace, [:position, :playback_rate, :status]},
-      conflict_target: [:user_id, :media_id],
-      returning: true
-    )
-    |> Repo.preload(@player_state_preload)
-  end
-
-  @doc """
-  Updates a player_state.
-
-  ## Examples
-
-      iex> update_player_state(player_state, %{field: new_value})
-      {:ok, %PlayerState{}}
-
-      iex> update_player_state(player_state, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def update_player_state(%PlayerState{} = player_state, attrs) do
-    Repo.transact(fn ->
-      changeset = PlayerState.changeset(player_state, attrs)
-
-      with {:ok, updated_player_state} <- Repo.update(changeset),
-           {:ok, _job} <- broadcast_player_state_updated(updated_player_state) do
-        {:ok, updated_player_state}
-      end
-    end)
-  end
-
-  defp broadcast_player_state_updated(%PlayerState{} = player_state) do
-    player_state
-    |> PlayerStateUpdated.new()
-    |> PubSub.broadcast_async()
-  end
-
-  @doc """
-  Updates a player state for a user and media.
-
-  If the player state does not exist, it will be created.
-  """
-  def update_player_state(user_id, media_id, position, playback_rate) do
-    Repo.transact(fn ->
-      changeset =
-        PlayerState.changeset(
-          %PlayerState{user_id: user_id, media_id: media_id},
-          %{position: position, playback_rate: playback_rate}
-        )
-
-      options = [
-        on_conflict: {:replace, [:position, :playback_rate, :status]},
-        conflict_target: [:user_id, :media_id],
-        returning: true
-      ]
-
-      with {:ok, player_state} <- Repo.insert(changeset, options),
-           {:ok, _job} <- broadcast_player_state_updated(player_state) do
-        {:ok, player_state}
-      end
-    end)
   end
 
   @doc """

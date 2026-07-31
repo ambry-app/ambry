@@ -39,7 +39,6 @@ defmodule Ambry.Playback.PlaybackEvent do
 
   alias Ambry.Media.Media
   alias Ambry.Playback.Device
-  alias Ambry.Playback.Playthrough
 
   @primary_key {:id, :binary_id, autogenerate: false}
   @foreign_key_type :binary_id
@@ -49,7 +48,7 @@ defmodule Ambry.Playback.PlaybackEvent do
   @lifecycle_event_types [:start, :finish, :abandon, :resume, :delete]
 
   schema "playback_events" do
-    belongs_to :playthrough, Playthrough
+    field :playthrough_id, :binary_id
     belongs_to :device, Device
     belongs_to :media, Media, type: :id
 

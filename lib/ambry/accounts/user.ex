@@ -7,11 +7,8 @@ defmodule Ambry.Accounts.User do
 
   import Ecto.Changeset
 
-  alias Ambry.Media.PlayerState
 
   schema "users" do
-    belongs_to :loaded_player_state, PlayerState
-    has_many :player_states, PlayerState
 
     field :email, :string
     field :password, :string, virtual: true, redact: true
@@ -200,13 +197,6 @@ defmodule Ambry.Accounts.User do
   """
   def demote_from_admin_changeset(user) do
     change(user, admin: false)
-  end
-
-  @doc """
-  Updates a user's loaded player state.
-  """
-  def loaded_player_state_changeset(user, player_state_id) do
-    change(user, loaded_player_state_id: player_state_id)
   end
 
   @doc """
