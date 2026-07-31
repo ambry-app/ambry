@@ -4,10 +4,8 @@ defmodule AmbryWeb.Layouts do
   use AmbryWeb, :html
 
   import AmbryWeb.Gravatar
-  import AmbryWeb.TimeUtils, only: [format_timecode: 1]
 
   alias Ambry.Accounts.User
-  alias Ambry.Media
   alias AmbryWeb.Components.SearchBox
 
   embed_templates "layouts/*"
@@ -43,15 +41,7 @@ defmodule AmbryWeb.Layouts do
         </div>
         <div class="flex-1">
           <div class="flex justify-center gap-8 whitespace-nowrap lg:gap-12">
-            <.link navigate={~p"/"} class={nav_class(@active_path == "/")}>
-              <span title="Now playing"><.icon name="fa-circle-play" class="mt-1 h-6 w-6 text-current lg:hidden" /></span>
-              <span class="hidden text-xl font-bold lg:block">Now Playing</span>
-            </.link>
-            <.link navigate={~p"/shelf"} class={nav_class(@active_path == "/shelf")}>
-              <span title="Your Shelf"><.icon name="fa-book-bookmark" class="mt-1 h-6 w-6 text-current lg:hidden" /></span>
-              <span class="hidden text-xl font-bold lg:block">Your Shelf</span>
-            </.link>
-            <.link navigate={~p"/library"} class={nav_class(@active_path == "/library")}>
+            <.link navigate={~p"/"} class={nav_class(@active_path in ["/", "/library"])}>
               <span title="Library"><.icon name="fa-book-open" class="mt-1 h-6 w-6 text-current lg:hidden" /></span>
               <span class="hidden text-xl font-bold lg:block">Library</span>
             </.link>
@@ -180,224 +170,6 @@ defmodule AmbryWeb.Layouts do
     """
   end
 
-  @doc """
-  Main app footer with mini-player in it
-  """
-
-  attr :player, AmbryWeb.Player, required: true
-
-  def footer(assigns) do
-    ~H"""
-    <footer class="relative bg-zinc-100 dark:bg-zinc-900">
-      <.time_bar :if={@player.player_state} player_state={@player.player_state} />
-      <.player_controls
-        :if={@player.player_state}
-        playback_state={@player.playback_state}
-        player_state={@player.player_state}
-      />
-      <.media_player player_state={@player.player_state} />
-    </footer>
-    """
-  end
-
-  defp media_player(assigns) do
-    ~H"""
-    <div id="media-player" phx-hook="media-player" {player_state_attrs(@player_state)}>
-      <audio />
-    </div>
-    """
-  end
-
-  defp player_state_attrs(nil), do: %{"data-media-unloaded" => true}
-
-  defp player_state_attrs(%Media.PlayerState{
-         media: %Media.Media{id: id, mpd_path: path, hls_path: hls_path},
-         position: position,
-         playback_rate: playback_rate
-       }) do
-    %{
-      "data-media-id" => id,
-      "data-media-position" => position,
-      "data-media-path" => "#{path}#t=#{position}",
-      "data-media-hls-path" => "#{hls_path}#t=#{position}",
-      "data-media-playback-rate" => playback_rate
-    }
-  end
-
-  # these comments are here for the tailwind JIT:
-  # when hovering we need class="h-[4px]" on the progress bar and class="!block"
-  # on the handle
-  defp time_bar(assigns) do
-    ~H"""
-    <div
-      id="time-bar"
-      class="group absolute -top-4 h-8 w-full cursor-pointer"
-      phx-hook="time-bar"
-      data-duration={@player_state.media.duration}
-    >
-      <div
-        id="time-code"
-        phx-update="ignore"
-        class="pointer-events-none absolute -top-4 hidden rounded-sm border border-zinc-200 bg-zinc-100 px-1 tabular-nums group-hover:block dark:border-zinc-800 dark:bg-zinc-900"
-      />
-      <div class="mr-[12px] relative top-4 bg-zinc-200 dark:bg-zinc-800">
-        <div
-          class="h-[2px] bg-brand group-hover:h-[4px] dark:bg-brand-dark"
-          style={"width: #{progress_percent(@player_state)}%"}
-        />
-        <div
-          class="top-[-6px] bg-brand pointer-events-none absolute hidden h-4 w-4 rounded-full group-hover:!block dark:bg-brand-dark"
-          style={"left: calc(#{progress_percent(@player_state)}% - 8px)"}
-        />
-      </div>
-    </div>
-    """
-  end
-
-  defp player_controls(assigns) do
-    ~H"""
-    <div class="flex items-center gap-6 fill-current p-4 text-zinc-900 dark:text-zinc-100">
-      <.player_button action={seek_relative(-60)} title="Back 1 minute" icon="fa-backward-step" />
-      <.player_button action={seek_relative(-10)} title="Back 10 seconds" icon="fa-rotate-left" />
-      <.play_pause_button playback_state={@playback_state} />
-      <.player_button action={seek_relative(10)} title="Forward 10 seconds" icon="fa-rotate-right" />
-      <.player_button action={seek_relative(60)} title="Forward 1 minute" icon="fa-forward-step" />
-
-      <div class="whitespace-nowrap text-sm tabular-nums text-zinc-600 dark:text-zinc-500 sm:text-base">
-        <span>{player_state_progress(@player_state)}</span>
-        <span class="hidden sm:inline">/</span>
-        <span>{player_state_duration(@player_state)}</span>
-      </div>
-      <div class="grow overflow-hidden text-ellipsis whitespace-nowrap">
-        <span class="text-sm text-zinc-800 dark:text-zinc-300 sm:text-base">
-          <.link navigate={~p"/audiobooks/#{@player_state.media}"} class="hover:underline" phx-no-format>
-          <%= @player_state.media.book.title %></.link> •
-          <span>by <.people_links people={@player_state.media.book.authors} /></span>
-          • narrated by <span><.people_links people={@player_state.media.narrators} /></span>
-        </span>
-      </div>
-      <div
-        title="Playback speed"
-        class="flex items-center gap-2"
-        phx-click-away={hide_menu("playback-rate-menu")}
-        phx-window-keydown={hide_menu("playback-rate-menu")}
-        phx-key="escape"
-      >
-        <div phx-click={toggle_menu("playback-rate-menu")} class="flex cursor-pointer items-center gap-2">
-          <span class="hidden text-sm text-zinc-600 dark:text-zinc-500 sm:block sm:text-base">
-            {player_state_playback_rate(@player_state)}x
-          </span>
-          <.icon name="fa-gauge-high" class="h-4 w-4 sm:h-5 sm:w-5" />
-        </div>
-        <.playback_rate_menu player_state={@player_state} />
-      </div>
-    </div>
-    """
-  end
-
-  attr :action, JS, required: true
-  attr :title, :string, required: true
-  attr :icon, :string, required: true
-  attr :class, :string, default: "h-4 w-4 sm:h-5 sm:w-5"
-
-  defp player_button(assigns) do
-    ~H"""
-    <span phx-click={@action} class="cursor-pointer" title={@title}>
-      <.icon name={@icon} class={@class} />
-    </span>
-    """
-  end
-
-  defp player_state_progress(nil), do: "--:--"
-
-  defp player_state_progress(%{playback_rate: playback_rate, position: position}) do
-    format_timecode(Decimal.div(position, playback_rate))
-  end
-
-  defp player_state_duration(nil), do: "--:--"
-
-  defp player_state_duration(%{playback_rate: playback_rate, media: %{duration: duration}}) do
-    format_timecode(Decimal.div(duration, playback_rate))
-  end
-
-  defp player_state_playback_rate(nil), do: "1.0"
-
-  defp player_state_playback_rate(%{playback_rate: playback_rate}) do
-    format_decimal(playback_rate)
-  end
-
-  defp format_decimal(decimal) do
-    rounded = Decimal.round(decimal, 1)
-
-    if Decimal.equal?(rounded, decimal), do: rounded, else: decimal
-  end
-
-  attr :playback_state, :atom, required: true
-
-  defp play_pause_button(assigns) do
-    ~H"""
-    <span phx-click={toggle_playback()} class="cursor-pointer">
-      <span :if={@playback_state == :paused} title="Play">
-        <.icon name="fa-play" class="h-6 w-6 pl-1 sm:h-7 sm:w-7" />
-      </span>
-      <span :if={@playback_state == :playing} title="Pause">
-        <.icon name="fa-pause" class="h-6 w-6 sm:h-7 sm:w-7" />
-      </span>
-    </span>
-    """
-  end
-
-  defp playback_rate_menu(assigns) do
-    ~H"""
-    <div
-      id="playback-rate-menu"
-      class="max-w-80 bg-zinc-50/90 absolute right-4 bottom-12 z-50 hidden text-zinc-800 shadow-md backdrop-blur transition-opacity dark:bg-zinc-900/90 dark:text-zinc-200"
-    >
-      <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800 ">
-        <div class="p-3">
-          <p class="text-center text-lg font-bold sm:text-xl">
-            {player_state_playback_rate(@player_state)}x
-          </p>
-        </div>
-        <div>
-          <div class="flex divide-x divide-zinc-200 dark:divide-zinc-800">
-            <.adjust_playback_rate_button action={decrement_playback_rate()} icon="fa-minus" />
-            <.adjust_playback_rate_button action={increment_playback_rate()} icon="fa-plus" />
-          </div>
-        </div>
-        <div class="flex py-3 tabular-nums sm:text-lg">
-          <.set_playback_rate_button rate="1.0" />
-          <.set_playback_rate_button rate="1.25" />
-          <.set_playback_rate_button rate="1.5" />
-          <.set_playback_rate_button rate="1.75" />
-          <.set_playback_rate_button rate="2.0" />
-        </div>
-      </div>
-    </div>
-    """
-  end
-
-  attr :action, JS, required: true
-  attr :icon, :string, required: true
-
-  defp adjust_playback_rate_button(assigns) do
-    ~H"""
-    <div phx-click={@action} class="grow cursor-pointer p-4 hover:bg-zinc-300 dark:hover:bg-zinc-700">
-      <.icon name={@icon} class="mx-auto block h-4 w-4 sm:h-5 sm:w-5" />
-    </div>
-    """
-  end
-
-  attr :rate, :string, required: true
-
-  defp set_playback_rate_button(assigns) do
-    ~H"""
-    <span phx-click={set_playback_rate(@rate)} class="cursor-pointer px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
-      {@rate}x
-    </span>
-    """
-  end
-
   ## JS Commands
 
   defp show_search(js \\ %JS{}) do
@@ -421,17 +193,4 @@ defmodule AmbryWeb.Layouts do
     |> JS.dispatch("ambry:search-box-hidden", to: "#search-box")
   end
 
-  defp toggle_playback, do: JS.dispatch("ambry:toggle-playback", to: "#media-player")
-
-  defp seek_relative(value),
-    do: JS.dispatch("ambry:seek-relative", to: "#media-player", detail: %{value: value})
-
-  defp decrement_playback_rate,
-    do: JS.dispatch("ambry:decrement-playback-rate", to: "#media-player")
-
-  defp increment_playback_rate,
-    do: JS.dispatch("ambry:increment-playback-rate", to: "#media-player")
-
-  defp set_playback_rate(value),
-    do: JS.dispatch("ambry:set-playback-rate", to: "#media-player", detail: %{value: value})
 end

@@ -120,12 +120,10 @@ defmodule AmbryWeb.Router do
     live_session :require_authenticated_user,
       on_mount: [
         {AmbryWeb.UserAuth, :ensure_authenticated},
-        AmbryWeb.NavHooks,
-        AmbryWeb.PlayerStateHooks
+        AmbryWeb.NavHooks
       ] do
-      live "/", NowPlayingLive
+      live "/", LibraryLive
       live "/library", LibraryLive
-      live "/shelf", ShelfLive
       live "/people/:id", PersonLive
       live "/authors/:id", AuthorLive
       live "/narrators/:id", NarratorLive

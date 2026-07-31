@@ -111,7 +111,6 @@ defmodule Ambry.MixProject do
     [
       {:"decimal.js", "10.6.0"},
       {:"platform-detect", "3.0.1"},
-      {:"shaka-player", "4.16.0"},
       {:topbar, "3.0.0"}
     ]
   end
