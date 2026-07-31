@@ -192,5 +192,4 @@ defmodule AmbryWeb.Layouts do
     )
     |> JS.dispatch("ambry:search-box-hidden", to: "#search-box")
   end
-
 end

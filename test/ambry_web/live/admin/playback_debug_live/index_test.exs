@@ -31,9 +31,7 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.IndexTest do
       media = insert(:media, book: book)
       playthrough = insert(:playthrough_new, user: user, media: media)
 
-      # Add an event - use playthrough_id and set playthrough struct to nil to avoid conflicts
       insert(:playback_event,
-        playthrough: nil,
         playthrough_id: playthrough.id,
         type: :play,
         position: Decimal.new("123.4")

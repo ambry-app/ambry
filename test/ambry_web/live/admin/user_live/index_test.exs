@@ -29,19 +29,19 @@ defmodule AmbryWeb.Admin.UserLive.IndexTest do
       |> build(book: build(:book))
       |> with_source_files()
       |> insert()
-      |> then(&insert(:player_state, user: user, media: &1, status: :in_progress))
+      |> then(&insert(:playthrough_new, user: user, media: &1, status: :in_progress))
 
       :media
       |> build(book: build(:book))
       |> with_source_files()
       |> insert()
-      |> then(&insert(:player_state, user: user, media: &1, status: :in_progress))
+      |> then(&insert(:playthrough_new, user: user, media: &1, status: :in_progress))
 
       :media
       |> build(book: build(:book))
       |> with_source_files()
       |> insert()
-      |> then(&insert(:player_state, user: user, media: &1, status: :finished))
+      |> then(&insert(:playthrough_new, user: user, media: &1, status: :finished))
 
       {:ok, view, _html} = live(conn, ~p"/admin/users")
 

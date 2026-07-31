@@ -408,19 +408,6 @@ defmodule Ambry.AccountsTest do
     end
   end
 
-  describe "update_user_loaded_player_state/2" do
-    test "updates a users currently loaded player state" do
-      user = insert(:user)
-
-      player_state =
-        insert(:player_state, user_id: user.id, media: build(:media, book: build(:book)))
-
-      {:ok, user} = Accounts.update_user_loaded_player_state(user, player_state.id)
-
-      assert user.loaded_player_state_id == player_state.id
-    end
-  end
-
   describe "generate_user_session_token/1" do
     setup do
       %{user: :user |> build() |> with_password() |> insert()}

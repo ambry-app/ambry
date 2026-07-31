@@ -72,5 +72,4 @@ defmodule AmbrySchema.Media do
   end
 
   connection(node_type: :media)
-
 end
