@@ -26,6 +26,19 @@ defmodule Ambry.SearchTest do
       assert result_ids == Enum.sort([id, series_id])
     end
 
+    test "returns book by a recording's display-title override" do
+      book = insert(:book, title: "Harry Potter and the Philosopher's Stone")
+
+      :media
+      |> insert(book: book, title: "Harry Potter and the Sorcerer's Stone")
+      |> with_search_index()
+
+      %{id: id} = book
+
+      assert [%{id: ^id}] = Search.search("Sorcerer's Stone")
+      assert [%{id: ^id}] = Search.search("Philosopher's Stone")
+    end
+
     test "returns book by author name" do
       book =
         :book
@@ -161,6 +174,19 @@ defmodule Ambry.SearchTest do
       %{id: id, series_books: [%{series: %{name: series_name}}]} = book
 
       assert %{id: ^id} = Search.find_first(series_name, Book)
+    end
+
+    test "returns book by a recording's display-title override" do
+      book = insert(:book, title: "Harry Potter and the Philosopher's Stone")
+
+      :media
+      |> insert(book: book, title: "Harry Potter and the Sorcerer's Stone")
+      |> with_search_index()
+
+      %{id: id} = book
+
+      assert [%{id: ^id}] = Search.search("Sorcerer's Stone")
+      assert [%{id: ^id}] = Search.search("Philosopher's Stone")
     end
 
     test "returns book by author name" do

@@ -1413,12 +1413,13 @@ defmodule AmbryWeb.CoreComponents do
 
   attr :book, Book, required: true
   attr :class, :string, default: nil
+  attr :title_override, :string, default: nil
 
   def book_header(assigns) do
     ~H"""
     <div>
       <h1 class={["text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl", @class]}>
-        {@book.title}
+        {@title_override || @book.title}
       </h1>
       <p class="text-zinc-800 dark:text-zinc-200 sm:text-lg xl:text-xl">
         <span>by <.all_people_links people={@book.authors} /></span>

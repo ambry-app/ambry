@@ -14,6 +14,7 @@ defmodule Ambry.Factory do
   alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
+  alias Ambry.Media.MediaTranslator
   alias Ambry.People.Author
   alias Ambry.People.AuthorPerson
   alias Ambry.People.BookAuthor
@@ -186,6 +187,13 @@ defmodule Ambry.Factory do
       notes: Fake.sentence(),
       description: Fake.paragraph(),
       source_path: fn -> valid_source_path() end
+    }
+  end
+
+  def media_translator_factory do
+    %MediaTranslator{
+      media: nil,
+      author: nil
     }
   end
 
