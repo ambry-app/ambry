@@ -74,6 +74,72 @@ defmodule AmbrySchema.SyncTest do
     end
   end
 
+  describe "universesChangedSince" do
+    @query ~G"""
+    query Sync($since: DateTime) {
+      universesChangedSince(since: $since) {
+        id
+        name
+      }
+      bookUniversesChangedSince(since: $since) {
+        id
+        book {
+          title
+        }
+        universe {
+          name
+        }
+      }
+      deletionsSince(since: $since) {
+        type
+        recordId
+      }
+    }
+    """
+    test "returns universes, memberships, and tracks their deletions", %{conn: conn} do
+      book = insert(:book, title: "Warbreaker")
+
+      {:ok, universe} =
+        Ambry.Books.create_universe(%{
+          name: "Cosmere",
+          book_universes: [%{book_id: book.id}]
+        })
+
+      conn = post(conn, "/gql", %{"query" => @query, "variables" => %{}})
+
+      assert %{
+               "data" => %{
+                 "universesChangedSince" => [%{"name" => "Cosmere"}],
+                 "bookUniversesChangedSince" => [
+                   %{
+                     "book" => %{"title" => "Warbreaker"},
+                     "universe" => %{"name" => "Cosmere"}
+                   }
+                 ]
+               }
+             } = json_response(conn, 200)
+
+      {:ok, _universe} = Ambry.Books.delete_universe(Ambry.Books.get_universe!(universe.id))
+
+      conn =
+        post(build_conn_with_same_auth(conn), "/gql", %{
+          "query" => @query,
+          "variables" => %{"since" => "2000-01-01T00:00:00Z"}
+        })
+
+      assert %{
+               "data" => %{
+                 "universesChangedSince" => [],
+                 "bookUniversesChangedSince" => [],
+                 "deletionsSince" => deletions
+               }
+             } = json_response(conn, 200)
+
+      assert Enum.any?(deletions, &(&1["type"] == "UNIVERSE"))
+      assert Enum.any?(deletions, &(&1["type"] == "BOOK_UNIVERSE"))
+    end
+  end
+
   defp build_conn_with_same_auth(conn) do
     auth_header = Plug.Conn.get_req_header(conn, "authorization")
 

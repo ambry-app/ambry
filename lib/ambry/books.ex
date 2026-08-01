@@ -7,17 +7,23 @@ defmodule Ambry.Books do
     deps: [Ambry],
     exports: [
       Book,
+      BookUniverse,
       Series,
       SeriesBook,
       SeriesFlat,
       SeriesBookType,
       SeriesBookType.Type,
+      Universe,
+      UniverseFlat,
       PubSub.BookCreated,
       PubSub.BookUpdated,
       PubSub.BookDeleted,
       PubSub.SeriesCreated,
       PubSub.SeriesUpdated,
-      PubSub.SeriesDeleted
+      PubSub.SeriesDeleted,
+      PubSub.UniverseCreated,
+      PubSub.UniverseUpdated,
+      PubSub.UniverseDeleted
     ]
 
   import Ecto.Query
@@ -30,14 +36,26 @@ defmodule Ambry.Books do
   alias Ambry.Books.PubSub.SeriesCreated
   alias Ambry.Books.PubSub.SeriesDeleted
   alias Ambry.Books.PubSub.SeriesUpdated
+  alias Ambry.Books.PubSub.UniverseCreated
+  alias Ambry.Books.PubSub.UniverseDeleted
+  alias Ambry.Books.PubSub.UniverseUpdated
   alias Ambry.Books.Series
   alias Ambry.Books.SeriesFlat
+  alias Ambry.Books.Universe
+  alias Ambry.Books.UniverseFlat
   alias Ambry.Media.Media
   alias Ambry.PubSub
   alias Ambry.Repo
   alias Ambry.Search
 
-  @book_direct_assoc_preloads [:authors, :media, book_authors: [:author], series_books: [:series]]
+  @book_direct_assoc_preloads [
+    :authors,
+    :media,
+    :universes,
+    book_authors: [:author],
+    series_books: [:series],
+    book_universes: [:universe]
+  ]
 
   def book_standard_preloads, do: @book_direct_assoc_preloads
 
@@ -486,5 +504,147 @@ defmodule Ambry.Books do
     :ok = PubSub.subscribe(SeriesCreated.wildcard_topic())
     :ok = PubSub.subscribe(SeriesUpdated.wildcard_topic())
     :ok = PubSub.subscribe(SeriesDeleted.wildcard_topic())
+  end
+
+  # Universes
+  #
+  # NOTE: universes are not in the full-text search index (yet) — deliberate;
+  # revisit if searching "Cosmere" ever matters.
+
+  @universe_direct_assoc_preloads [book_universes: [book: [:media, :authors]]]
+
+  def universe_standard_preloads, do: @universe_direct_assoc_preloads
+
+  @doc """
+  Returns a limited list of universes and whether or not there are more.
+
+  By default, it will limit to the first 10 results. Supply `offset` and
+  `limit` to change this. Also can optionally filter by the given `filter`
+  string.
+
+  ## Examples
+
+      iex> list_universes()
+      {[%UniverseFlat{}, ...], true}
+  """
+  def list_universes(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :name]) do
+    over_limit = limit + 1
+
+    universes =
+      offset
+      |> UniverseFlat.paginate(over_limit)
+      |> UniverseFlat.filter(filters)
+      |> UniverseFlat.order(order)
+      |> Repo.all()
+
+    universes_to_return = Enum.slice(universes, 0, limit)
+
+    {universes_to_return, universes != universes_to_return}
+  end
+
+  @doc """
+  Returns the number of universes.
+  """
+  @spec count_universes :: integer()
+  def count_universes do
+    Repo.aggregate(Universe, :count)
+  end
+
+  @doc """
+  Gets a single universe.
+
+  Raises `Ecto.NoResultsError` if the Universe does not exist.
+  """
+  def get_universe!(id) do
+    Universe
+    |> preload(^@universe_direct_assoc_preloads)
+    |> Repo.get!(id)
+  end
+
+  @doc """
+  Creates a universe.
+  """
+  def create_universe(attrs) do
+    Repo.transact(fn ->
+      changeset = Universe.changeset(%Universe{}, attrs)
+
+      with {:ok, universe} <- Repo.insert(changeset),
+           {:ok, _job} <- broadcast_universe_created(universe) do
+        {:ok, universe}
+      end
+    end)
+  end
+
+  defp broadcast_universe_created(%Universe{} = universe) do
+    universe
+    |> UniverseCreated.new()
+    |> PubSub.broadcast_async()
+  end
+
+  @doc """
+  Updates a universe.
+  """
+  def update_universe(%Universe{} = universe, attrs) do
+    Repo.transact(fn ->
+      changeset = Universe.changeset(universe, attrs)
+
+      with {:ok, updated_universe} <- Repo.update(changeset),
+           {:ok, _job} <- broadcast_universe_updated(updated_universe) do
+        {:ok, updated_universe}
+      end
+    end)
+  end
+
+  defp broadcast_universe_updated(%Universe{} = universe) do
+    universe
+    |> UniverseUpdated.new()
+    |> PubSub.broadcast_async()
+  end
+
+  @doc """
+  Deletes a universe.
+
+  Books keep existing — only their universe membership goes away.
+  """
+  def delete_universe(%Universe{} = universe) do
+    Repo.transact(fn ->
+      changeset = change_universe(universe)
+
+      with {:ok, deleted_universe} <- Repo.delete(changeset),
+           {:ok, _job} <- broadcast_universe_deleted(deleted_universe) do
+        {:ok, deleted_universe}
+      end
+    end)
+  end
+
+  defp broadcast_universe_deleted(%Universe{} = universe) do
+    universe
+    |> UniverseDeleted.new()
+    |> PubSub.broadcast_async()
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking universe changes.
+  """
+  def change_universe(%Universe{} = universe, attrs \\ %{}) do
+    Universe.changeset(universe, attrs)
+  end
+
+  @doc """
+  Returns all universes for use in `Select` components.
+  """
+  def universes_for_select do
+    query = from u in Universe, select: {u.name, u.id}, order_by: u.name
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Subscribes to all universe CRUD messages.
+  """
+  def subscribe_to_universe_crud_messages do
+    :ok = PubSub.subscribe(UniverseCreated.wildcard_topic())
+    :ok = PubSub.subscribe(UniverseUpdated.wildcard_topic())
+    :ok = PubSub.subscribe(UniverseDeleted.wildcard_topic())
   end
 end

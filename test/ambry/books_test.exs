@@ -757,4 +757,90 @@ defmodule Ambry.BooksTest do
              ] = list
     end
   end
+
+  describe "universes" do
+    test "create_universe/1 creates a universe with books" do
+      book = insert(:book)
+
+      {:ok, universe} =
+        Books.create_universe(%{name: "Cosmere", book_universes: [%{book_id: book.id}]})
+
+      assert %{name: "Cosmere"} = universe
+      assert [%{book_id: book_id}] = universe.book_universes
+      assert book_id == book.id
+    end
+
+    test "create_universe/1 requires a name" do
+      {:error, changeset} = Books.create_universe(%{})
+
+      assert %{name: ["can't be blank"]} = errors_on(changeset)
+    end
+
+    test "update_universe/2 updates name and book membership" do
+      book = insert(:book)
+      {:ok, universe} = Books.create_universe(%{name: "Cosmere"})
+
+      {:ok, updated} =
+        Books.update_universe(Books.get_universe!(universe.id), %{
+          name: "The Cosmere",
+          book_universes: [%{book_id: book.id}]
+        })
+
+      assert %{name: "The Cosmere", book_universes: [%{book_id: book_id}]} = updated
+      assert book_id == book.id
+    end
+
+    test "delete_universe/1 deletes the universe but not its books" do
+      book = insert(:book)
+
+      {:ok, universe} =
+        Books.create_universe(%{name: "Cosmere", book_universes: [%{book_id: book.id}]})
+
+      {:ok, _universe} = Books.delete_universe(Books.get_universe!(universe.id))
+
+      assert_raise Ecto.NoResultsError, fn -> Books.get_universe!(universe.id) end
+      assert %{id: _} = Books.get_book!(book.id)
+    end
+
+    test "get_universe!/1 preloads books" do
+      book = insert(:book)
+
+      {:ok, universe} =
+        Books.create_universe(%{name: "Cosmere", book_universes: [%{book_id: book.id}]})
+
+      assert %{book_universes: [%{book: %{id: book_id}}]} = Books.get_universe!(universe.id)
+      assert book_id == book.id
+    end
+
+    test "list_universes/0 returns flat universes with book counts" do
+      book = insert(:book)
+      {:ok, _} = Books.create_universe(%{name: "Cosmere", book_universes: [%{book_id: book.id}]})
+
+      {[universe_flat], false} = Books.list_universes()
+
+      assert %{name: "Cosmere", books: 1} = universe_flat
+    end
+
+    test "universes_for_select/0 returns name/id tuples" do
+      {:ok, universe} = Books.create_universe(%{name: "Cosmere"})
+
+      assert [{"Cosmere", id}] = Books.universes_for_select()
+      assert id == universe.id
+    end
+
+    test "books can be assigned universes through the book changeset" do
+      book = insert(:book)
+      {:ok, universe} = Books.create_universe(%{name: "Cosmere"})
+
+      {:ok, updated_book} =
+        Books.update_book(Books.get_book!(book.id), %{
+          book_universes: [%{universe_id: universe.id}]
+        })
+
+      assert [%{universe_id: universe_id}] = updated_book.book_universes
+      assert universe_id == universe.id
+
+      assert %{universes: [%{name: "Cosmere"}]} = Books.get_book!(book.id)
+    end
+  end
 end

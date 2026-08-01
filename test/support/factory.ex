@@ -6,8 +6,10 @@ defmodule Ambry.Factory do
 
   alias Ambry.Accounts.User
   alias Ambry.Books.Book
+  alias Ambry.Books.BookUniverse
   alias Ambry.Books.Series
   alias Ambry.Books.SeriesBook
+  alias Ambry.Books.Universe
   alias Ambry.Fake
   alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
@@ -151,6 +153,22 @@ defmodule Ambry.Factory do
       ])
 
     Enum.join(["The", name, suffix], " ")
+  end
+
+  # Universes
+
+  def universe_factory do
+    %Universe{
+      name: "The #{Fake.last_name()} Universe",
+      book_universes: []
+    }
+  end
+
+  def book_universe_factory do
+    %BookUniverse{
+      book: nil,
+      universe: nil
+    }
   end
 
   def series_book_factory do

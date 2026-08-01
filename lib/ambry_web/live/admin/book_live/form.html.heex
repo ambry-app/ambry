@@ -11,6 +11,7 @@
 
   <.datalist id="authors" options={@authors} />
   <.datalist id="series" options={@series} />
+  <.datalist id="universes" options={@universes} />
 
   <div class="max-w-3xl">
     <.simple_form id="book-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
@@ -96,6 +97,25 @@
 
         <.add_button field={@form[:series_books_sort]}>Add series</.add_button>
         <.delete_input field={@form[:series_books_drop]} />
+      </div>
+
+      <div class="space-y-2">
+        <.label>Universes</.label>
+        <.inputs_for :let={book_universe_form} field={@form[:book_universes]}>
+          <.sort_input field={@form[:book_universes_sort]} index={book_universe_form.index} />
+
+          <div class="relative">
+            <.input field={book_universe_form[:universe_id]} type="autocomplete" options={@universes} list="universes" />
+            <.delete_button
+              field={@form[:book_universes_drop]}
+              index={book_universe_form.index}
+              class="absolute top-3 right-2"
+            />
+          </div>
+        </.inputs_for>
+
+        <.add_button field={@form[:book_universes_sort]}>Add universe</.add_button>
+        <.delete_input field={@form[:book_universes_drop]} />
       </div>
 
       <:actions>

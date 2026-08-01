@@ -17,7 +17,7 @@ defmodule Ambry.Media.MediaFlat do
     field :book, :string
     field :thumbnail, :string
     field :series, {:array, SeriesBookType.Type}
-    field :universe, :string
+    field :universes, :string
     field :authors, {:array, PersonName.Type}
     field :narrators, {:array, PersonName.Type}
     field :published, :date
@@ -33,7 +33,7 @@ defmodule Ambry.Media.MediaFlat do
 
     from m in query,
       where:
-        ilike(m.book, ^search_string) or ilike(m.universe, ^search_string) or
+        ilike(m.book, ^search_string) or ilike(m.universes, ^search_string) or
           fragment(
             "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ?)",
             m.series,

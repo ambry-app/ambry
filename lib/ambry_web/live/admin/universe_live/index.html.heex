@@ -1,0 +1,59 @@
+<.layout title={@page_title} user={@current_user}>
+  <:subheader>
+    <.list_controls
+      search_form={@search_form}
+      new_path={~p"/admin/universes/new"}
+      has_next={@has_next}
+      has_prev={@has_prev}
+      next_page_path={@next_page_path}
+      prev_page_path={@prev_page_path}
+    />
+    <.sort_button_bar>
+      <.sort_button current_sort={@current_sort} sort_field="name">Name</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="books"># Books</.sort_button>
+      <.sort_button current_sort={@current_sort} sort_field="inserted_at">Added</.sort_button>
+    </.sort_button_bar>
+  </:subheader>
+
+  <.flex_table
+    rows={@universes}
+    filter={@list_opts.filter}
+    row_click={fn universe -> JS.navigate(~p"/admin/universes/#{universe}/edit") end}
+  >
+    <:empty>
+      No universes yet.
+      <.brand_link navigate={~p"/admin/universes/new"}>
+        Create one.
+      </.brand_link>
+    </:empty>
+
+    <:row :let={universe}>
+      <div class="flex-shrink-0">
+        <.multi_image paths={universe.thumbnails} />
+      </div>
+      <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
+        <p class="overflow-hidden text-ellipsis" data-role="universe-name">{universe.name}</p>
+      </div>
+      <div class="hidden w-12 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
+        <div class="flex gap-4">
+          <span title="# of books" data-role="universe-book-count">
+            {universe.books} <.icon name="fa-book" class="inline h-4 w-4 text-current" />
+          </span>
+        </div>
+      </div>
+      <div class="flex w-32 flex-none flex-col items-end justify-between gap-2">
+        <div class="flex gap-2">
+          <.link navigate={~p"/admin/universes/#{universe}/edit"} data-role="edit-universe">
+            <.icon name="fa-pencil" class="h-4 w-4 text-current transition-colors hover:text-blue-600" />
+          </.link>
+          <span phx-click="delete" phx-value-id={universe.id} data-confirm="Are you sure?" data-role="delete-universe">
+            <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
+          </span>
+        </div>
+        <p class="text-sm italic dark:text-zinc-500" data-role="universe-added">
+          Added {Calendar.strftime(universe.inserted_at, "%x")}
+        </p>
+      </div>
+    </:row>
+  </.flex_table>
+</.layout>
