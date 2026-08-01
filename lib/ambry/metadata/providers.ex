@@ -39,6 +39,7 @@ defmodule Ambry.Metadata.Providers do
   defp call(provider_id, capability, fun, arg, ttl, opts) do
     with {:ok, entry} <- Registry.fetch(provider_id),
          :ok <- check_enabled(entry),
+         :ok <- check_available(entry),
          :ok <- check_capability(entry, capability) do
       Cache.fetch(
         "#{entry.id}:#{fun}:#{arg}",
@@ -51,6 +52,9 @@ defmodule Ambry.Metadata.Providers do
 
   defp check_enabled(%{enabled: true}), do: :ok
   defp check_enabled(_entry), do: {:error, :provider_disabled}
+
+  defp check_available(%{available: true}), do: :ok
+  defp check_available(_entry), do: {:error, :provider_not_configured}
 
   defp check_capability(entry, capability) do
     if capability in entry.capabilities do

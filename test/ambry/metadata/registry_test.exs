@@ -6,8 +6,20 @@ defmodule Ambry.Metadata.RegistryTest do
   test "all/0 returns every known provider enabled by default, in priority order" do
     entries = Registry.all()
 
-    assert Enum.map(entries, & &1.id) == ["rreading_glasses", "audible", "audnexus"]
+    assert Enum.map(entries, & &1.id) == ["rreading_glasses", "hardcover", "audible", "audnexus"]
     assert Enum.all?(entries, & &1.enabled)
+  end
+
+  test "providers requiring config are unavailable until configured" do
+    {:ok, entry} = Registry.fetch("hardcover")
+    refute entry.available
+
+    # unavailable providers are excluded from enabled/1 (import forms)...
+    refute "hardcover" in Enum.map(Registry.enabled(level: :work), & &1.id)
+
+    # ...until a token is stored
+    {:ok, _row} = Registry.update("hardcover", %{config: %{"api_token" => "h.p.s"}})
+    assert "hardcover" in Enum.map(Registry.enabled(level: :work), & &1.id)
   end
 
   test "default configs come from the provider's config fields" do

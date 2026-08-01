@@ -157,13 +157,32 @@ defmodule Ambry.Metadata.Provider do
   @doc "Operator-editable settings, with defaults giving a zero-config working setup."
   @callback config_fields() :: [ConfigField.t()]
 
+  @type notice :: {:info | :warning | :error, String.t()}
+
+  @doc """
+  Whether the provider can be used with the given config — e.g. a provider
+  requiring an API token is unavailable until one is configured. Unavailable
+  providers stay visible in the admin settings (with notices explaining why)
+  but are not offered in import forms. Optional; defaults to `true`.
+  """
+  @callback available?(config()) :: boolean
+
+  @doc """
+  Operator-facing notices about the provider's configuration — token
+  expiry warnings, setup hints. Shown on the admin settings page.
+  Optional; defaults to `[]`.
+  """
+  @callback config_notices(config()) :: [notice()]
+
   @callback search_books(query :: String.t(), config()) :: {:ok, [Book.t()]} | {:error, term}
   @callback book_details(id :: String.t(), config()) :: {:ok, Book.t()} | {:error, term}
   @callback search_authors(query :: String.t(), config()) :: {:ok, [Author.t()]} | {:error, term}
   @callback author_details(id :: String.t(), config()) :: {:ok, Author.t()} | {:error, term}
   @callback chapters(asin :: String.t(), config()) :: {:ok, Chapters.t()} | {:error, term}
 
-  @optional_callbacks search_books: 2,
+  @optional_callbacks available?: 1,
+                      config_notices: 1,
+                      search_books: 2,
                       book_details: 2,
                       search_authors: 2,
                       author_details: 2,
@@ -172,5 +191,19 @@ defmodule Ambry.Metadata.Provider do
   @doc "The default config for a provider module, derived from its config fields."
   def default_config(provider_module) do
     Map.new(provider_module.config_fields(), fn field -> {field.key, field.default} end)
+  end
+
+  @doc "Whether a provider module is usable with the given config (default true)."
+  def available?(provider_module, config) do
+    not function_exported?(provider_module, :available?, 1) or provider_module.available?(config)
+  end
+
+  @doc "Operator-facing config notices for a provider module (default none)."
+  def config_notices(provider_module, config) do
+    if function_exported?(provider_module, :config_notices, 1) do
+      provider_module.config_notices(config)
+    else
+      []
+    end
   end
 end

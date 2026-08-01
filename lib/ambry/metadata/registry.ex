@@ -13,14 +13,25 @@ defmodule Ambry.Metadata.Registry do
   alias Ambry.Metadata.ProviderConfig
   alias Ambry.Metadata.Providers.Audible
   alias Ambry.Metadata.Providers.Audnexus
+  alias Ambry.Metadata.Providers.Hardcover
   alias Ambry.Metadata.Providers.RreadingGlasses
   alias Ambry.Repo
 
-  @known_providers [RreadingGlasses, Audible, Audnexus]
+  @known_providers [RreadingGlasses, Hardcover, Audible, Audnexus]
 
   defmodule Entry do
     @moduledoc "A provider module joined with its runtime configuration."
-    defstruct [:module, :id, :display_name, :level, :capabilities, :enabled, :priority, :config]
+    defstruct [
+      :module,
+      :id,
+      :display_name,
+      :level,
+      :capabilities,
+      :enabled,
+      :available,
+      :priority,
+      :config
+    ]
   end
 
   @doc "All known providers with their runtime configuration, in priority order."
@@ -31,6 +42,7 @@ defmodule Ambry.Metadata.Registry do
     |> Enum.with_index()
     |> Enum.map(fn {module, index} ->
       row = Enum.find(stored, &(&1.provider_id == module.id()))
+      config = build_config(module, row)
 
       %Entry{
         module: module,
@@ -39,20 +51,21 @@ defmodule Ambry.Metadata.Registry do
         level: module.level(),
         capabilities: module.capabilities(),
         enabled: if(row, do: row.enabled, else: true),
+        available: Provider.available?(module, config),
         priority: (row && row.priority) || index,
-        config: build_config(module, row)
+        config: config
       }
     end)
     |> Enum.sort_by(& &1.priority)
   end
 
-  @doc "Enabled providers, optionally filtered by level or capability."
+  @doc "Enabled *and* available providers, optionally filtered by level or capability."
   def enabled(filters \\ []) do
     level = Keyword.get(filters, :level)
     capability = Keyword.get(filters, :capability)
 
     Enum.filter(all(), fn entry ->
-      entry.enabled and
+      entry.enabled and entry.available and
         (is_nil(level) or entry.level == level) and
         (is_nil(capability) or capability in entry.capabilities)
     end)

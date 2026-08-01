@@ -80,8 +80,16 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
               </span>
             </div>
 
+            <div :for={{level, message} <- notices(entry)} class="mt-2">
+              <p class={["flex items-center gap-2 text-sm", notice_class(level)]}>
+                <.icon name={notice_icon(level)} class="h-4 w-4 flex-none" />
+                {message}
+              </p>
+            </div>
+
             <form
               :if={entry.module.config_fields() != []}
+              id={"provider-config-#{entry.id}"}
               phx-submit="save-config"
               class="mt-4 space-y-4"
             >
@@ -194,6 +202,16 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
        "Audiobook releases — narrators, square covers, and chapters, keyed by ASIN."}
     ]
   end
+
+  defp notices(entry), do: Ambry.Metadata.Provider.config_notices(entry.module, entry.config)
+
+  defp notice_class(:info), do: "text-zinc-500 dark:text-zinc-400"
+  defp notice_class(:warning), do: "text-amber-600 dark:text-amber-500"
+  defp notice_class(:error), do: "text-red-600 dark:text-red-500"
+
+  defp notice_icon(:info), do: "fa-circle-info"
+  defp notice_icon(:warning), do: "fa-triangle-exclamation"
+  defp notice_icon(:error), do: "fa-circle-exclamation"
 
   defp capability_label(:book_search), do: "book search"
   defp capability_label(:book_details), do: "book details"

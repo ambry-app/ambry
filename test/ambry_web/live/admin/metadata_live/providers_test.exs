@@ -33,7 +33,7 @@ defmodule AmbryWeb.Admin.MetadataLive.ProvidersTest do
     {:ok, view, _html} = live(conn, ~p"/admin/metadata-providers")
 
     view
-    |> form("form[phx-submit='save-config']", %{
+    |> form("#provider-config-rreading_glasses", %{
       "provider_id" => "rreading_glasses",
       "config" => %{"base_url" => "http://rg.local:8788"}
     })
