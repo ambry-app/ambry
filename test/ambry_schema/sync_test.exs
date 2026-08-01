@@ -140,6 +140,76 @@ defmodule AmbrySchema.SyncTest do
     end
   end
 
+  describe "mediaTranslatorsChangedSince" do
+    @query ~G"""
+    query Sync($since: DateTime) {
+      mediaTranslatorsChangedSince(since: $since) {
+        id
+        media {
+          title
+          language
+        }
+        author {
+          name
+        }
+      }
+      deletionsSince(since: $since) {
+        type
+        recordId
+      }
+    }
+    """
+    test "returns translator credits and tracks their deletions", %{conn: conn} do
+      author = insert(:author, name: "Ken Liu", person: build(:person))
+      book = insert(:book)
+
+      media =
+        insert(:media,
+          book: book,
+          title: "The Three-Body Problem (English)",
+          language: "English",
+          media_translators: [build(:media_translator, author: author)]
+        )
+
+      conn = post(conn, "/gql", %{"query" => @query, "variables" => %{}})
+
+      assert %{
+               "data" => %{
+                 "mediaTranslatorsChangedSince" => [
+                   %{
+                     "media" => %{
+                       "title" => "The Three-Body Problem (English)",
+                       "language" => "English"
+                     },
+                     "author" => %{"name" => "Ken Liu"}
+                   }
+                 ]
+               }
+             } = json_response(conn, 200)
+
+      {:ok, _media} =
+        Ambry.Media.update_media(Ambry.Media.get_media!(media.id), %{
+          media_translators_drop: [0],
+          media_translators: %{0 => %{id: List.first(media.media_translators).id}}
+        })
+
+      conn =
+        post(build_conn_with_same_auth(conn), "/gql", %{
+          "query" => @query,
+          "variables" => %{"since" => "2000-01-01T00:00:00Z"}
+        })
+
+      assert %{
+               "data" => %{
+                 "mediaTranslatorsChangedSince" => [],
+                 "deletionsSince" => deletions
+               }
+             } = json_response(conn, 200)
+
+      assert Enum.any?(deletions, &(&1["type"] == "MEDIA_TRANSLATOR"))
+    end
+  end
+
   defp build_conn_with_same_auth(conn) do
     auth_header = Plug.Conn.get_req_header(conn, "authorization")
 

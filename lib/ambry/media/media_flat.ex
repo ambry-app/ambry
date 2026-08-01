@@ -9,6 +9,8 @@ defmodule Ambry.Media.MediaFlat do
   alias Ambry.People.PersonName
 
   schema "media_flat" do
+    field :title, :string
+    field :language, :string
     field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready]
     field :full_cast, :boolean
     field :abridged, :boolean
@@ -33,7 +35,8 @@ defmodule Ambry.Media.MediaFlat do
 
     from m in query,
       where:
-        ilike(m.book, ^search_string) or ilike(m.universes, ^search_string) or
+        ilike(m.book, ^search_string) or ilike(m.title, ^search_string) or
+          ilike(m.universes, ^search_string) or
           fragment(
             "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ?)",
             m.series,

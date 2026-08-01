@@ -12,6 +12,7 @@ defmodule Ambry.Media do
       Media,
       Media.Chapter,
       MediaNarrator,
+      MediaTranslator,
       PubSub.MediaCreated,
       PubSub.MediaDeleted,
       PubSub.MediaProgress,
@@ -100,7 +101,8 @@ defmodule Ambry.Media do
       ** (Ecto.NoResultsError)
 
   """
-  def get_media!(id), do: Media |> preload([:book, :media_narrators]) |> Repo.get!(id)
+  def get_media!(id),
+    do: Media |> preload([:book, :media_narrators, :media_translators]) |> Repo.get!(id)
 
   @doc """
   Gets a media and the book with all its details.
@@ -129,6 +131,7 @@ defmodule Ambry.Media do
     Media
     |> preload([
       :narrators,
+      :translators,
       book: [
         :authors,
         series_books: :series,

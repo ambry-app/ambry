@@ -173,10 +173,14 @@ defmodule Ambry.Search.Index do
     dependencies =
       Enum.uniq(secondary_dependencies ++ tertiary_dependencies ++ media_dependencies)
 
+    # recording display-title overrides are searchable alongside the book
+    # title (e.g. find "Sorcerer's Stone" under the British-titled book)
+    media_titles = book.media |> Enum.map(& &1.title) |> Enum.filter(& &1)
+
     %{
       reference: Reference.new(book),
       dependencies: dependencies,
-      primary: book.title,
+      primary: join(Enum.uniq([book.title | media_titles])),
       secondary: join(secondary_names),
       tertiary: join(tertiary_names)
     }

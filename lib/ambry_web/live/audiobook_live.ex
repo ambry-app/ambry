@@ -20,12 +20,15 @@ defmodule AmbryWeb.AudiobookLive do
       <div class="justify-center sm:flex sm:flex-row">
         <section id="cover" class="mb-4 flex-none sm:mb-0 sm:w-80">
           <div class="mb-6 sm:hidden">
-            <.book_header book={@media.book} />
+            <.book_header book={@media.book} title_override={@media.title} />
             <p class="mt-4">
               Narrated by <.all_people_links people={@media.narrators} full_cast={@media.full_cast} />
               <%= if @media.abridged do %>
                 <span>(Abridged)</span>
               <% end %>
+            </p>
+            <p :if={@media.translators != []}>
+              Translated by <.all_people_links people={@media.translators} />
             </p>
           </div>
 
@@ -44,9 +47,12 @@ defmodule AmbryWeb.AudiobookLive do
           <div class="mt-6 divide-y divide-zinc-300 rounded-sm border border-zinc-200 bg-zinc-50 px-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
             <div class="flex items-center gap-4 py-3">
               <div class="grow">
-                <p>{@media.book.title}</p>
+                <p>{@media.title || @media.book.title}</p>
                 <p class="text-zinc-600 dark:text-zinc-400">
                   {duration_display(@media.duration)}
+                </p>
+                <p :if={@media.language} class="text-zinc-600 dark:text-zinc-400">
+                  {@media.language}
                 </p>
               </div>
             </div>
@@ -93,12 +99,15 @@ defmodule AmbryWeb.AudiobookLive do
         </section>
 
         <section id="description" class="hidden max-w-md sm:ml-10 sm:block">
-          <.book_header book={@media.book} />
+          <.book_header book={@media.book} title_override={@media.title} />
           <p class="mt-4">
             Narrated by <.all_people_links people={@media.narrators} full_cast={@media.full_cast} />
             <%= if @media.abridged do %>
               <span>(Abridged)</span>
             <% end %>
+          </p>
+          <p :if={@media.translators != []}>
+            Translated by <.all_people_links people={@media.translators} />
           </p>
           <.markdown
             :if={@media.description}

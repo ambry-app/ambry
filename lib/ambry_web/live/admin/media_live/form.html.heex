@@ -15,6 +15,7 @@
 
   <.datalist id="narrators" options={@narrators} />
   <.datalist id="books" options={@books} />
+  <.datalist id="translators" options={@authors} />
 
   <div class="max-w-3xl">
     <.simple_form id="media-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
@@ -35,6 +36,15 @@
             </.button>
           </div>
         </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+        <.input
+          field={@form[:title]}
+          label="Title override"
+          placeholder="defaults to the book's title"
+        />
+        <.input field={@form[:language]} label="Language" />
       </div>
 
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
@@ -91,6 +101,30 @@
 
         <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
         <.delete_input field={@form[:media_narrators_drop]} />
+      </div>
+
+      <div class="space-y-2">
+        <.label>Translated by</.label>
+        <.inputs_for :let={media_translator_form} field={@form[:media_translators]}>
+          <.sort_input field={@form[:media_translators_sort]} index={media_translator_form.index} />
+
+          <div class="relative">
+            <.input
+              field={media_translator_form[:author_id]}
+              type="autocomplete"
+              options={@authors}
+              list="translators"
+            />
+            <.delete_button
+              field={@form[:media_translators_drop]}
+              index={media_translator_form.index}
+              class="absolute top-3 right-2"
+            />
+          </div>
+        </.inputs_for>
+
+        <.add_button field={@form[:media_translators_sort]}>Add translator</.add_button>
+        <.delete_input field={@form[:media_translators_drop]} />
       </div>
 
       <div class="flex gap-4">
