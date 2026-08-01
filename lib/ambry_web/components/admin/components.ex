@@ -545,6 +545,44 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  def book_card(%{book: %Ambry.Metadata.Provider.Book{}} = assigns) do
+    ~H"""
+    <div class="flex gap-2 text-sm">
+      <img :if={@book.cover_url} src={@book.cover_url} class="h-24 w-24 object-contain object-top" />
+      <div>
+        <p class="font-bold">{@book.title}</p>
+        <p :if={@book.authors != []} class="text-zinc-400">
+          by
+          <span :for={author <- @book.authors} class="group">
+            <span>{author.name}</span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.narrators != []} class="text-zinc-400">
+          Narrated by
+          <span :for={narrator <- @book.narrators} class="group">
+            <span>{narrator.name}</span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.series != []} class="text-xs text-zinc-400">
+          <span :for={series <- @book.series} class="group">
+            <span>{series.name} #{series.number}</span>
+            <br class="group-last:hidden" />
+          </span>
+        </p>
+        <p :if={@book.published} class="text-xs text-zinc-400">
+          Published {display_date(@book.published)}<span :if={@book.publisher}> by {@book.publisher}</span>
+        </p>
+        <p :if={@book.format} class="text-xs text-zinc-400">{@book.format}</p>
+        <div :for={action <- @actions}>
+          {render_slot(action)}
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   def book_card(%{book: %AmbryScraping.Audible.Product{}} = assigns) do
     ~H"""
     <div class="flex gap-2 text-sm">
@@ -586,6 +624,17 @@ defmodule AmbryWeb.Admin.Components do
     do: Calendar.strftime(date, "%B %Y")
 
   def display_date(%PublishedDate{display_format: :year, date: date}),
+    do: Calendar.strftime(date, "%Y")
+
+  def display_date(%Ambry.Metadata.Provider.PublishedDate{display_format: :full, date: date}),
+    do: Calendar.strftime(date, "%B %-d, %Y")
+
+  def display_date(%Ambry.Metadata.Provider.PublishedDate{
+        display_format: :year_month,
+        date: date
+      }), do: Calendar.strftime(date, "%B %Y")
+
+  def display_date(%Ambry.Metadata.Provider.PublishedDate{display_format: :year, date: date}),
     do: Calendar.strftime(date, "%Y")
 
   def multi_image(%{paths: []} = assigns) do

@@ -4,9 +4,11 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   alias Ambry.Books
   alias Ambry.Books.Book
+  alias Ambry.Metadata.Registry
   alias Ambry.People
   alias AmbryWeb.Admin.BookLive.Form.AudibleImportForm
   alias AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm
+  alias AmbryWeb.Admin.BookLive.Form.ProviderImportForm
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
@@ -16,6 +18,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
      |> assign(
        import: nil,
        scraping_available: AmbryScraping.web_scraping_available?(),
+       work_providers: Registry.enabled(level: :work, capability: :book_search),
        authors: People.authors_for_select(),
        series: Books.series_for_select()
      )
@@ -53,8 +56,18 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp handle_import_form_params(socket, %{"import" => type}) do
     query = socket.assigns.form.params["title"] || socket.assigns.book.title
-    import_type = String.to_existing_atom(type)
-    assign(socket, import: %{type: import_type, query: query})
+
+    cond do
+      type in ~w(goodreads audible) ->
+        assign(socket, import: %{type: String.to_existing_atom(type), query: query})
+
+      match?({:ok, _provider}, Registry.fetch(type)) ->
+        {:ok, provider} = Registry.fetch(type)
+        assign(socket, import: %{provider: provider, query: query})
+
+      true ->
+        assign(socket, import: nil)
+    end
   end
 
   defp handle_import_form_params(socket, _params) do
@@ -82,11 +95,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   def handle_event("open-import-form", %{"type" => type}, socket) do
-    query = socket.assigns.form.params["title"] || socket.assigns.book.title
-    import_type = String.to_existing_atom(type)
-    socket = assign(socket, import: %{type: import_type, query: query})
-
-    {:noreply, socket}
+    {:noreply, handle_import_form_params(socket, %{"import" => type})}
   end
 
   @impl Phoenix.LiveView

@@ -7,10 +7,12 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.Media
+  alias Ambry.Metadata.Registry
   alias Ambry.People
   alias AmbryWeb.Admin.MediaLive.Form.AudibleImportForm
   alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
   alias AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm
+  alias AmbryWeb.Admin.MediaLive.Form.ProviderImportForm
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
@@ -25,6 +27,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        select_files: false,
        selected_files: MapSet.new(),
        scraping_available: AmbryScraping.web_scraping_available?(),
+       recording_providers: Registry.enabled(level: :recording, capability: :book_search),
        source_files_expanded: false,
        narrators: People.narrators_for_select(),
        books: Ambry.Books.books_for_select(),
@@ -88,8 +91,17 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         ""
       end
 
-    import_type = String.to_existing_atom(type)
-    {:noreply, assign(socket, import: %{type: import_type, query: query})}
+    cond do
+      type in ~w(goodreads audible) ->
+        {:noreply, assign(socket, import: %{type: String.to_existing_atom(type), query: query})}
+
+      match?({:ok, _provider}, Registry.fetch(type)) ->
+        {:ok, provider} = Registry.fetch(type)
+        {:noreply, assign(socket, import: %{provider: provider, query: query})}
+
+      true ->
+        {:noreply, assign(socket, import: nil)}
+    end
   end
 
   def handle_params(%{"browse" => _}, _url, socket) do

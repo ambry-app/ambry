@@ -51,10 +51,11 @@ defmodule Ambry.Metadata.Registry do
     level = Keyword.get(filters, :level)
     capability = Keyword.get(filters, :capability)
 
-    all()
-    |> Enum.filter(& &1.enabled)
-    |> Enum.filter(fn entry -> is_nil(level) or entry.level == level end)
-    |> Enum.filter(fn entry -> is_nil(capability) or capability in entry.capabilities end)
+    Enum.filter(all(), fn entry ->
+      entry.enabled and
+        (is_nil(level) or entry.level == level) and
+        (is_nil(capability) or capability in entry.capabilities)
+    end)
   end
 
   @doc "Fetches a provider entry by its string id."
