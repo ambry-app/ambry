@@ -38,6 +38,12 @@ defmodule AmbrySchema.Media do
     @desc "Display-title override for this recording (translated/regional/retail title); null means the book's title applies"
     field :title, :string
 
+    @desc "For multi-part recordings: this recording's position in its part set"
+    field :part_number, :integer
+    field :parts_total, :integer
+
+    field :recording_group, :recording_group, resolve: dataloader(Resolvers)
+
     field :duration, :float, resolve: Resolvers.resolve_decimal(:duration)
     field :mpd_path, :string
     field :hls_path, :string
@@ -65,6 +71,16 @@ defmodule AmbrySchema.Media do
     field :updated_at, non_null(:datetime)
 
     field :image_path, :string, deprecate: "use `thumbnails` instead"
+  end
+
+  node object(:recording_group) do
+    field :name, :string
+
+    field :media, non_null(list_of(non_null(:media))),
+      resolve: dataloader(Resolvers, args: %{order: {:asc, :part_number}})
+
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
   end
 
   node object(:media_narrator) do

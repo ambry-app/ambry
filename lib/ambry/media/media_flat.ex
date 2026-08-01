@@ -10,6 +10,8 @@ defmodule Ambry.Media.MediaFlat do
 
   schema "media_flat" do
     field :title, :string
+    field :part_number, :integer
+    field :parts_total, :integer
     field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready]
     field :full_cast, :boolean
     field :abridged, :boolean

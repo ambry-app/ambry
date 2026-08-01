@@ -16,6 +16,7 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Books.Book
   alias Ambry.Books.SeriesBook
   alias Ambry.Media.Media
+  alias Ambry.Media.MediaFlat
   alias Ambry.People.Author
   alias AmbryWeb.Admin.UploadHelpers
   alias AmbryWeb.Components.Autocomplete
@@ -1116,7 +1117,15 @@ defmodule AmbryWeb.CoreComponents do
         </.link>
         <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/audiobooks/#{@media}"}>
-            {@media.title || @media.book.title}
+            {media_display_title(@media)}
+          </.link>
+        </p>
+        <p
+          :if={!@show_title && media_distinguisher(@media)}
+          class="text-sm text-zinc-800 group-hover:underline dark:text-zinc-200"
+        >
+          <.link navigate={~p"/audiobooks/#{@media}"}>
+            {media_distinguisher(@media)}
           </.link>
         </p>
       </div>
@@ -1333,6 +1342,27 @@ defmodule AmbryWeb.CoreComponents do
     <.link navigate={person_ish_path(@person2)} class="hover:underline" phx-no-format>
       <%= @person2.name %></.link><span phx-no-format>, and <%= @others %> others</span>
     """
+  end
+
+  @doc """
+  The title a recording displays as, for both Media structs (book preloaded)
+  and MediaFlat rows: the override verbatim, else the book title plus part
+  label.
+  """
+  def media_display_title(%Media{} = media), do: Media.display_title(media)
+
+  def media_display_title(%MediaFlat{} = flat) do
+    cond do
+      flat.title -> flat.title
+      label = Media.part_label(flat) -> "#{flat.book} (#{label})"
+      true -> flat.book
+    end
+  end
+
+  # When a tile hides its title (e.g. "other editions" lists), parts of a set
+  # still need telling apart: the override title or the part label.
+  defp media_distinguisher(%Media{} = media) do
+    media.title || Media.part_label(media)
   end
 
   # Authors can be linked to multiple people (composite pen names), so author

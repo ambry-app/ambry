@@ -20,7 +20,7 @@ defmodule AmbryWeb.AudiobookLive do
       <div class="justify-center sm:flex sm:flex-row">
         <section id="cover" class="mb-4 flex-none sm:mb-0 sm:w-80">
           <div class="mb-6 sm:hidden">
-            <.book_header book={@media.book} title_override={@media.title} />
+            <.book_header book={@media.book} title_override={media_display_title(@media)} />
             <p class="mt-4">
               Narrated by <.all_people_links people={@media.narrators} full_cast={@media.full_cast} />
               <%= if @media.abridged do %>
@@ -44,7 +44,10 @@ defmodule AmbryWeb.AudiobookLive do
           <div class="mt-6 divide-y divide-zinc-300 rounded-sm border border-zinc-200 bg-zinc-50 px-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
             <div class="flex items-center gap-4 py-3">
               <div class="grow">
-                <p>{@media.title || @media.book.title}</p>
+                <p>{media_display_title(@media)}</p>
+                <p :if={part_set_line(@media)} class="text-zinc-600 dark:text-zinc-400">
+                  {part_set_line(@media)}
+                </p>
                 <p class="text-zinc-600 dark:text-zinc-400">
                   {duration_display(@media.duration)}
                 </p>
@@ -93,7 +96,7 @@ defmodule AmbryWeb.AudiobookLive do
         </section>
 
         <section id="description" class="hidden max-w-md sm:ml-10 sm:block">
-          <.book_header book={@media.book} title_override={@media.title} />
+          <.book_header book={@media.book} title_override={media_display_title(@media)} />
           <p class="mt-4">
             Narrated by <.all_people_links people={@media.narrators} full_cast={@media.full_cast} />
             <%= if @media.abridged do %>
@@ -125,6 +128,19 @@ defmodule AmbryWeb.AudiobookLive do
        )}
     else
       _ -> {:ok, redirect(socket, to: ~p"/")}
+    end
+  end
+
+  # "Season One — Part 2 of 3" / "Part 2 of 3" / nil
+  defp part_set_line(media) do
+    label = Ambry.Media.Media.part_label(media)
+    group_name = media.recording_group && media.recording_group.name
+
+    case {group_name, label} do
+      {nil, nil} -> nil
+      {nil, label} -> label
+      {name, nil} -> name
+      {name, label} -> "#{name} — #{label}"
     end
   end
 

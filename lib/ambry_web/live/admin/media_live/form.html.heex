@@ -100,6 +100,24 @@
         <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
       </div>
 
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
+        <.input field={@form[:part_number]} type="number" min="1" label="Part number" />
+        <.input field={@form[:parts_total]} type="number" min="1" label="Total parts" />
+        <.input
+          field={@form[:recording_group_choice]}
+          type="select"
+          label="Recording group"
+          options={recording_group_options(@recording_groups)}
+          value={recording_group_choice_value(@form)}
+        />
+      </div>
+
+      <.input
+        :if={to_string(@form[:recording_group_choice].value) == "new"}
+        field={@form[:new_recording_group_name]}
+        label="New group name (optional — e.g. a season name)"
+      />
+
       <.input type="hidden" field={@form[:image_type]} />
       <.input type="hidden" field={@form[:image_path]} />
 

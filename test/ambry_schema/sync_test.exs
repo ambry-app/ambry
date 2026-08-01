@@ -140,6 +140,88 @@ defmodule AmbrySchema.SyncTest do
     end
   end
 
+  describe "recordingGroupsChangedSince" do
+    @query ~G"""
+    query Sync($since: DateTime) {
+      recordingGroupsChangedSince(since: $since) {
+        id
+        name
+      }
+      mediaChangedSince(since: $since) {
+        partNumber
+        partsTotal
+        recordingGroup {
+          name
+        }
+      }
+      deletionsSince(since: $since) {
+        type
+        recordId
+      }
+    }
+    """
+    test "returns groups, part fields, and tracks group deletions", %{conn: conn} do
+      book = insert(:book)
+
+      {:ok, media} =
+        :media
+        |> params_for(
+          book_id: book.id,
+          part_number: 1,
+          parts_total: 3,
+          recording_group_choice: "new",
+          new_recording_group_name: "Season One"
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :part_number,
+          :parts_total,
+          :recording_group_choice,
+          :new_recording_group_name
+        ])
+        |> Ambry.Media.create_media()
+
+      conn = post(conn, "/gql", %{"query" => @query, "variables" => %{}})
+
+      assert %{
+               "data" => %{
+                 "recordingGroupsChangedSince" => [%{"name" => "Season One"}],
+                 "mediaChangedSince" => [
+                   %{
+                     "partNumber" => 1,
+                     "partsTotal" => 3,
+                     "recordingGroup" => %{"name" => "Season One"}
+                   }
+                 ]
+               }
+             } = json_response(conn, 200)
+
+      # clearing the last member orphan-deletes the group, tracked for sync
+      {:ok, _media} =
+        Ambry.Media.update_media(Ambry.Media.get_media!(media.id), %{
+          recording_group_choice: "none"
+        })
+
+      conn =
+        post(build_conn_with_same_auth(conn), "/gql", %{
+          "query" => @query,
+          "variables" => %{"since" => "2000-01-01T00:00:00Z"}
+        })
+
+      assert %{
+               "data" => %{
+                 "recordingGroupsChangedSince" => [],
+                 "deletionsSince" => deletions
+               }
+             } = json_response(conn, 200)
+
+      assert Enum.any?(deletions, &(&1["type"] == "RECORDING_GROUP"))
+    end
+  end
+
   defp build_conn_with_same_auth(conn) do
     auth_header = Plug.Conn.get_req_header(conn, "authorization")
 

@@ -14,6 +14,7 @@ defmodule Ambry.Factory do
   alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
+  alias Ambry.Media.RecordingGroup
   alias Ambry.People.Author
   alias Ambry.People.AuthorPerson
   alias Ambry.People.BookAuthor
@@ -186,6 +187,12 @@ defmodule Ambry.Factory do
       notes: Fake.sentence(),
       description: Fake.paragraph(),
       source_path: fn -> valid_source_path() end
+    }
+  end
+
+  def recording_group_factory do
+    %RecordingGroup{
+      name: nil
     }
   end
 

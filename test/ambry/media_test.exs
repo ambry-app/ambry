@@ -367,6 +367,146 @@ defmodule Ambry.MediaTest do
     end
   end
 
+  describe "multi-part recordings" do
+    test "creates media with part fields and a new named recording group" do
+      %{id: book_id} = insert(:book)
+
+      params =
+        :media
+        |> params_for(
+          book_id: book_id,
+          part_number: 1,
+          parts_total: 3,
+          recording_group_choice: "new",
+          new_recording_group_name: "Season One"
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :part_number,
+          :parts_total,
+          :recording_group_choice,
+          :new_recording_group_name
+        ])
+
+      assert {:ok, media} = Media.create_media(params)
+
+      assert %{part_number: 1, parts_total: 3, recording_group: %{name: "Season One"}} = media
+      assert [{"Season One", _id}] = Media.recording_groups_for_select(book_id)
+    end
+
+    test "links a sibling part to an existing group via the choice field" do
+      %{id: book_id} = insert(:book)
+
+      {:ok, part_one} =
+        :media
+        |> params_for(book_id: book_id, part_number: 1, recording_group_choice: "new")
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :part_number,
+          :recording_group_choice
+        ])
+        |> Media.create_media()
+
+      group_id = part_one.recording_group.id
+
+      {:ok, part_two} =
+        :media
+        |> params_for(
+          book_id: book_id,
+          part_number: 2,
+          recording_group_choice: to_string(group_id)
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :part_number,
+          :recording_group_choice
+        ])
+        |> Media.create_media()
+
+      assert part_two.recording_group_id == group_id
+
+      # unnamed groups get a readable select label
+      assert [{"Unnamed group #" <> _, ^group_id}] = Media.recording_groups_for_select(book_id)
+    end
+
+    test "clearing the last member deletes the orphaned group" do
+      %{id: book_id} = insert(:book)
+
+      {:ok, media} =
+        :media
+        |> params_for(book_id: book_id, recording_group_choice: "new")
+        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :recording_group_choice])
+        |> Media.create_media()
+
+      assert media.recording_group_id
+
+      {:ok, updated} =
+        Media.update_media(Media.get_media!(media.id), %{recording_group_choice: "none"})
+
+      assert updated.recording_group_id == nil
+      assert [] = Media.recording_groups_for_select(book_id)
+      assert Ambry.Repo.aggregate(Ambry.Media.RecordingGroup, :count) == 0
+    end
+
+    test "validates part fields" do
+      %{id: book_id} = insert(:book)
+
+      params =
+        :media
+        |> params_for(book_id: book_id, part_number: 3, parts_total: 2)
+        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :part_number, :parts_total])
+
+      {:error, changeset} = Media.create_media(params)
+
+      assert %{part_number: ["can't be greater than the total number of parts"]} =
+               errors_on(changeset)
+    end
+
+    test "part_label/1 and display_title/1" do
+      alias Ambry.Media.Media, as: MediaSchema
+
+      assert MediaSchema.part_label(%{part_number: nil, parts_total: nil}) == nil
+      assert MediaSchema.part_label(%{part_number: 2, parts_total: nil}) == "Part 2"
+      assert MediaSchema.part_label(%{part_number: 2, parts_total: 3}) == "Part 2 of 3"
+
+      book = build(:book, title: "The Way of Kings")
+
+      plain = build(:media, book: book, part_number: nil, parts_total: nil, title: nil)
+      assert MediaSchema.display_title(plain) == "The Way of Kings"
+
+      part = build(:media, book: book, part_number: 2, parts_total: 3, title: nil)
+      assert MediaSchema.display_title(part) == "The Way of Kings (Part 2 of 3)"
+
+      override =
+        build(:media,
+          book: book,
+          part_number: 2,
+          parts_total: 3,
+          title: "The Way of Kings (2 of 3)"
+        )
+
+      assert MediaSchema.display_title(override) == "The Way of Kings (2 of 3)"
+    end
+
+    test "get_media_description/1 includes the part label" do
+      book = insert(:book, title: "The Way of Kings")
+      media = insert(:media, book: book, part_number: 1, parts_total: 3)
+
+      description = media.id |> Media.get_media!() |> Media.get_media_description()
+
+      assert description =~ "The Way of Kings (Part 1 of 3)"
+    end
+  end
+
   describe "update_media/3" do
     test "allows updating a media's abridged value" do
       media = insert(:media, book: build(:book))

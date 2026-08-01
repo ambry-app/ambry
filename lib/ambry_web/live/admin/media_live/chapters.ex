@@ -16,7 +16,7 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters do
      socket
      |> assign_form(changeset)
      |> assign(
-       page_title: "#{media.book.title} - Chapters",
+       page_title: "#{Ambry.Media.Media.display_title(media)} - Chapters",
        media: media,
        import: nil
      )}

@@ -45,8 +45,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     socket
     |> assign_form(changeset)
     |> assign(
-      page_title: media.book.title,
+      page_title: Media.Media.display_title(media),
       media: media,
+      recording_groups: Media.recording_groups_for_select(media.book_id),
       file_stats: Media.get_media_file_details(media)
     )
   end
@@ -65,6 +66,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     |> assign(
       page_title: "New Media",
       media: media,
+      recording_groups: [],
       file_stats: nil
     )
   end
@@ -110,6 +112,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       else
         cancel_all_uploads(socket, :image)
       end
+
+    socket =
+      assign(socket,
+        recording_groups: Media.recording_groups_for_select(media_params["book_id"])
+      )
 
     changeset =
       socket.assigns.media
@@ -394,4 +401,15 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   defp open_import_form(media, type), do: JS.patch(media_path(media, %{import: type}))
   defp open_file_browser(media), do: JS.patch(media_path(media, %{browse: :files}))
   defp close_modal(media), do: JS.patch(media_path(media), replace: true)
+
+  defp recording_group_options(groups) do
+    [{"(not part of a group)", "none"}, {"+ New group…", "new"} | groups]
+  end
+
+  defp recording_group_choice_value(form) do
+    case form[:recording_group_choice].value do
+      nil -> form[:recording_group_id].value || "none"
+      value -> value
+    end
+  end
 end
