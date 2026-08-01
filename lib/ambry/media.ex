@@ -428,7 +428,6 @@ defmodule Ambry.Media do
     {media_to_return, media != media_to_return}
   end
 
-
   @doc """
   Lists recent media.
   """
