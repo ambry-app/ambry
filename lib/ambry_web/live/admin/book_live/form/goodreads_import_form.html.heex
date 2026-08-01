@@ -20,7 +20,7 @@
     <div class="grid grid-cols-2 gap-2">
       <div class="space-y-2">
         <div class="space-y-2">
-          <.simple_form for={@select_book_form} phx-change="select-book" phx-target={@myself}>
+          <.simple_form id="select-book-form" for={@select_book_form} phx-change="select-book" phx-target={@myself}>
             <div class="space-y-2">
               <.label>Select book ({length(books)} results)</.label>
               <.rich_select id="book-select" field={@select_book_form[:book_id]} options={books}>
@@ -44,7 +44,12 @@
           </:failed>
 
           <div class="space-y-2">
-            <.simple_form for={@select_edition_form} phx-change="select-edition" phx-target={@myself}>
+            <.simple_form
+              id="select-edition-form"
+              for={@select_edition_form}
+              phx-change="select-edition"
+              phx-target={@myself}
+            >
               <div class="space-y-2">
                 <.label>Select edition for <em>{editions.title}</em></.label>
                 <.rich_select id="edition-select" field={@select_edition_form[:edition_id]} options={editions.editions}>

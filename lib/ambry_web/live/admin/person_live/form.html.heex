@@ -10,7 +10,7 @@
   </.modal>
 
   <div class="max-w-3xl">
-    <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+    <.simple_form id="person-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
         <.input field={@form[:name]} label="Name" />
 

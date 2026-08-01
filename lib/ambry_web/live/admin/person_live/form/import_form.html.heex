@@ -20,7 +20,7 @@
       <.error>There was an error searching {@provider.display_name} for authors: {failure}</.error>
     </:failed>
 
-    <.simple_form for={@select_author_form} phx-change="select-author" phx-target={@myself}>
+    <.simple_form id="select-author-form" for={@select_author_form} phx-change="select-author" phx-target={@myself}>
       <div class="space-y-2">
         <.label>Select author ({length(authors)} results)</.label>
         <.input type="select" field={@select_author_form[:author_id]} options={Enum.map(authors, &{&1.name, &1.id})} />

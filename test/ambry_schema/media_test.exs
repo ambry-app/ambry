@@ -1,7 +1,7 @@
 defmodule AmbrySchema.MediaTest do
   use AmbryWeb.ConnCase
 
-  import Absinthe.Relay.Node, only: [to_global_id: 2, from_global_id: 2]
+  import Absinthe.Relay.Node, only: [to_global_id: 2]
   import Ambry.GraphQLSigil
 
   setup :register_and_put_user_api_token
@@ -37,7 +37,7 @@ defmodule AmbrySchema.MediaTest do
       }
     }
     """
-    test "resolves Media fields", %{conn: conn, user: user} do
+    test "resolves Media fields", %{conn: conn} do
       media =
         :media
         |> build(
