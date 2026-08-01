@@ -113,9 +113,13 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
   defp hydrate_books([], _config), do: {:ok, []}
 
   defp hydrate_books(book_ids, config) do
-    params = Enum.map(book_ids, &{:id, &1})
+    # Hand-built query string: the endpoint only honors repeated `id=`
+    # params (the swagger's csv form silently drops all but the first id),
+    # and Req's :params option collapses duplicate keys — so neither csv
+    # nor params-based encoding can express this request.
+    path = "/book/bulk?" <> Enum.map_join(book_ids, "&", &"id=#{&1}")
 
-    case Client.get_json(base_url(config), "/book/bulk", params) do
+    case Client.get_json(base_url(config), path, []) do
       {:ok, %{"Works" => works}} ->
         by_edition_id =
           for work <- works, edition <- work["Books"] || [], into: %{} do

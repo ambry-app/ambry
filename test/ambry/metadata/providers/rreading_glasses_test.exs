@@ -19,10 +19,17 @@ defmodule Ambry.Metadata.Providers.RreadingGlassesTest do
 
       patch(Client, :get_json, fn
         _base, "/search", _params -> {:ok, search}
-        _base, "/book/bulk", _params -> {:ok, bulk}
+        _base, "/book/bulk?" <> _query, [] -> {:ok, bulk}
       end)
 
       assert {:ok, [first | _rest] = books} = RreadingGlasses.search_books("dcc", %{})
+
+      # every search bookId must reach /book/bulk as its own repeated `id=`
+      # param, hand-built into the path: the endpoint drops all-but-first id
+      # in csv form, and Req's :params option collapses duplicate keys
+      search_ids = search |> Enum.map(& &1["bookId"]) |> Enum.uniq()
+      expected_path = "/book/bulk?" <> Enum.map_join(search_ids, "&", &"id=#{&1}")
+      assert_called(Client.get_json(_, ^expected_path, []))
 
       # only hydrated works come back, deduped by work id
       assert length(books) == length(Enum.uniq_by(books, & &1.id))
