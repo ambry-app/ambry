@@ -30,10 +30,19 @@ defmodule AmbryScraping.Audible.Products do
 
   @doc """
   Returns product details for a given title search query.
-  """
-  def search(""), do: {:ok, []}
 
-  def search(query) do
+  Options:
+
+    * `:language` — only return products in this language (compared
+      case-insensitively against Audible's language names, which are
+      English words like "english", "german"). Defaults to `"english"`;
+      pass `"any"` (or `nil`) to disable filtering.
+  """
+  def search(query, opts \\ [])
+
+  def search("", _opts), do: {:ok, []}
+
+  def search(query, opts) do
     params = %{
       title: query,
       response_groups: Enum.join(@response_groups, ","),
@@ -42,22 +51,31 @@ defmodule AmbryScraping.Audible.Products do
     }
 
     case Client.get("/catalog/products", params) do
-      {:ok, %{status: status} = response} when status in 200..299 -> parse_response(response.body)
-      {:ok, response} -> {:error, response}
-      {:error, reason} -> {:error, reason}
+      {:ok, %{status: status} = response} when status in 200..299 ->
+        parse_response(response.body, Keyword.get(opts, :language, "english"))
+
+      {:ok, response} ->
+        {:error, response}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  defp parse_response(%{"products" => products}) do
-    {:ok,
-     products
-     |> Enum.map(&parse_product/1)
-     # FUTURE: make language filtering configurable
-     |> Enum.filter(&(&1.language == "english"))}
+  defp parse_response(%{"products" => products}, language) do
+    {:ok, products |> Enum.map(&parse_product/1) |> filter_language(language)}
   end
 
-  defp parse_response(_body) do
+  defp parse_response(_body, _language) do
     {:error, :unexpected_response_payload}
+  end
+
+  defp filter_language(products, language) when language in [nil, "any"], do: products
+
+  defp filter_language(products, language) do
+    language = String.downcase(language)
+
+    Enum.filter(products, &(String.downcase(&1.language || "") == language))
   end
 
   defp parse_product(product) do

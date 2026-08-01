@@ -88,5 +88,28 @@ defmodule AmbryScraping.AudibleTest do
     test "returns an empty list if given an empty query" do
       assert {:ok, []} = Audible.search_books("")
     end
+
+    test "filters results by language, configurably" do
+      patch(Client, :get, fn _url, _params ->
+        {:ok,
+         %{
+           status: 200,
+           body:
+             "test/ambry_scraping/audible/mocks/search_books_jaws.json"
+             |> File.read!()
+             |> Jason.decode!()
+         }}
+      end)
+
+      # the fixture holds 14 english products and 1 with no language
+      assert {:ok, books} = Audible.search_books("Jaws")
+      assert length(books) == 14
+      assert Enum.all?(books, &(&1.language == "english"))
+
+      assert {:ok, books} = Audible.search_books("Jaws", language: "any")
+      assert length(books) == 15
+
+      assert {:ok, []} = Audible.search_books("Jaws", language: "german")
+    end
   end
 end

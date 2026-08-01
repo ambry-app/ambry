@@ -26,7 +26,7 @@ defmodule Ambry.Metadata.Providers.AudibleTest do
       language: "english"
     }
 
-    patch(AmbryScraping.Audible, :search_books, fn "dcc" -> {:ok, [product]} end)
+    patch(AmbryScraping.Audible, :search_books, fn "dcc", _opts -> {:ok, [product]} end)
 
     assert {:ok, [%Provider.Book{} = book]} = Audible.search_books("dcc", %{})
 
@@ -39,8 +39,21 @@ defmodule Ambry.Metadata.Providers.AudibleTest do
   end
 
   test "passes through errors" do
-    patch(AmbryScraping.Audible, :search_books, fn _query -> {:error, :whoops} end)
+    patch(AmbryScraping.Audible, :search_books, fn _query, _opts -> {:error, :whoops} end)
 
     assert {:error, :whoops} = Audible.search_books("q", %{})
+  end
+
+  test "passes the configured language through, defaulting to english" do
+    patch(AmbryScraping.Audible, :search_books, fn _query, opts ->
+      send(self(), {:language, Keyword.get(opts, :language)})
+      {:ok, []}
+    end)
+
+    assert {:ok, []} = Audible.search_books("q", %{})
+    assert_received {:language, "english"}
+
+    assert {:ok, []} = Audible.search_books("q", %{language: "german"})
+    assert_received {:language, "german"}
   end
 end

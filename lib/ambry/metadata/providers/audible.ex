@@ -26,14 +26,29 @@ defmodule Ambry.Metadata.Providers.Audible do
   def capabilities, do: [:book_search]
 
   @impl Provider
-  def config_fields, do: []
+  def config_fields do
+    [
+      %Provider.ConfigField{
+        key: :language,
+        label: "Language",
+        type: :string,
+        default: "english",
+        help:
+          "Only show search results in this language (Audible's language names, e.g. " <>
+            ~s{"english", "german"). Set to "any" to disable filtering. } <>
+            "Clear the cache after changing so old results don't linger."
+      }
+    ]
+  end
 
   @impl Provider
-  def search_books(query, _config) do
-    with {:ok, products} <- Audible.search_books(query) do
+  def search_books(query, config) do
+    with {:ok, products} <- Audible.search_books(query, language: language(config)) do
       {:ok, Enum.map(products, &product_to_book/1)}
     end
   end
+
+  defp language(config), do: config[:language] || "english"
 
   defp product_to_book(product) do
     %Provider.Book{

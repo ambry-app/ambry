@@ -66,6 +66,7 @@ defmodule AmbryScraping.Audible do
   Searches for audiobooks by name.
 
   This function uses the public Audible API to search for audiobooks.
+  See `AmbryScraping.Audible.Products.search/2` for options (`:language`).
   """
-  def search_books(query), do: Products.search(query)
+  def search_books(query, opts \\ []), do: Products.search(query, opts)
 end
