@@ -479,7 +479,15 @@ defmodule Ambry.Media do
     %{book: book, narrators: narrators} = Repo.preload(media, [:book, :narrators])
     narrators = Enum.map_join(narrators, ", ", & &1.name)
 
-    "#{Books.get_book_description(book)} • narrated by #{narrators}"
+    description = Books.get_book_description(book)
+
+    # recordings with a display-title override are described by it
+    description =
+      if media.title,
+        do: String.replace_prefix(description, book.title, media.title),
+        else: description
+
+    "#{description} • narrated by #{narrators}"
   end
 
   @doc """
