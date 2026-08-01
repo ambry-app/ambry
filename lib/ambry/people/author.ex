@@ -35,10 +35,5 @@ defmodule Ambry.People.Author do
       message:
         "This author is in use by one or more books. You must first remove them as an author from any associated books."
     )
-    |> foreign_key_constraint(:id,
-      name: "media_translators_author_id_fkey",
-      message:
-        "This author is credited as a translator on one or more recordings. You must first remove those credits."
-    )
   end
 end
