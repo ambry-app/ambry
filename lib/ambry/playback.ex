@@ -19,7 +19,7 @@ defmodule Ambry.Playback do
       Device,
       DeviceFlat,
       DeviceUser,
-      PlaythroughNew,
+      Playthrough,
       PlaythroughFlat,
       PlaybackEvent
     ]
@@ -30,8 +30,8 @@ defmodule Ambry.Playback do
   alias Ambry.Playback.DeviceFlat
   alias Ambry.Playback.DeviceUser
   alias Ambry.Playback.PlaybackEvent
+  alias Ambry.Playback.Playthrough
   alias Ambry.Playback.PlaythroughFlat
-  alias Ambry.Playback.PlaythroughNew
   alias Ambry.Repo
 
   ## Devices
@@ -123,10 +123,10 @@ defmodule Ambry.Playback do
   end
 
   @doc """
-  Gets a single playthrough_new by ID with preloads.
+  Gets a single playthrough by ID with preloads.
   """
-  def get_playthrough_new(id) do
-    from(p in PlaythroughNew,
+  def get_playthrough(id) do
+    from(p in Playthrough,
       where: p.id == ^id,
       preload: [[media: :book], :user]
     )
@@ -134,7 +134,7 @@ defmodule Ambry.Playback do
   end
 
   @doc """
-  Rebuilds all playthroughs in the `playthroughs_new` table from their events.
+  Rebuilds all playthroughs in the `playthroughs` table from their events.
 
   This is useful for migrations or repairs where the derived state needs to be
   re-calculated from the source of truth (the events).
@@ -142,13 +142,13 @@ defmodule Ambry.Playback do
   def rebuild_all_playthroughs do
     # Get all playthrough and user IDs from the new table
     query =
-      from(pn in PlaythroughNew,
+      from(pn in Playthrough,
         select: {pn.id, pn.user_id}
       )
 
     Repo.all(query)
     |> Enum.each(fn {playthrough_id, user_id} ->
-      rebuild_playthrough_new(playthrough_id, user_id)
+      rebuild_playthrough(playthrough_id, user_id)
     end)
 
     :ok
@@ -159,7 +159,7 @@ defmodule Ambry.Playback do
   @doc """
   Records multiple playback events in a single transaction.
 
-  Also rebuilds the derived playthrough state in `playthroughs_new` for any
+  Also rebuilds the derived playthrough state in `playthroughs` for any
   affected playthroughs.
 
   Returns `{:ok, count}` with number of events inserted.
@@ -183,12 +183,12 @@ defmodule Ambry.Playback do
       |> Enum.map(&(&1[:playthrough_id] || &1["playthrough_id"]))
       |> Enum.uniq()
 
-    Enum.each(playthrough_ids, &rebuild_playthrough_new(&1, user_id))
+    Enum.each(playthrough_ids, &rebuild_playthrough(&1, user_id))
 
     {:ok, count}
   end
 
-  defp rebuild_playthrough_new(playthrough_id, user_id) do
+  defp rebuild_playthrough(playthrough_id, user_id) do
     # Fetch all events for this playthrough, sorted by timestamp
     events =
       PlaybackEvent
@@ -198,11 +198,11 @@ defmodule Ambry.Playback do
 
     if events != [] do
       # Reduce events to derive state
-      state = PlaythroughNew.reduce(events, playthrough_id, user_id)
+      state = Playthrough.reduce(events, playthrough_id, user_id)
 
-      # Upsert into playthroughs_new
+      # Upsert into playthroughs
       Repo.insert_all(
-        PlaythroughNew,
+        Playthrough,
         [state],
         on_conflict: {:replace_all_except, [:id]},
         conflict_target: :id
@@ -218,7 +218,7 @@ defmodule Ambry.Playback do
   """
   def list_events_changed_since(user_id, since) do
     PlaybackEvent
-    |> join(:inner, [e], p in PlaythroughNew, on: e.playthrough_id == p.id)
+    |> join(:inner, [e], p in Playthrough, on: e.playthrough_id == p.id)
     |> where([e, p], p.user_id == ^user_id and e.inserted_at > ^since)
     |> order_by([e], asc: e.inserted_at)
     |> select([e], e)
@@ -232,7 +232,7 @@ defmodule Ambry.Playback do
   """
   def list_all_events(user_id) do
     PlaybackEvent
-    |> join(:inner, [e], p in PlaythroughNew, on: e.playthrough_id == p.id)
+    |> join(:inner, [e], p in Playthrough, on: e.playthrough_id == p.id)
     |> where([_e, p], p.user_id == ^user_id)
     |> order_by([e], asc: e.timestamp)
     |> select([e], e)

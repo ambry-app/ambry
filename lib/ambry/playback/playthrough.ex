@@ -1,4 +1,4 @@
-defmodule Ambry.Playback.PlaythroughNew do
+defmodule Ambry.Playback.Playthrough do
   @moduledoc """
   Event-sourced playthrough state.
 
@@ -14,7 +14,7 @@ defmodule Ambry.Playback.PlaythroughNew do
   @primary_key {:id, :binary_id, autogenerate: false}
   @foreign_key_type :binary_id
 
-  schema "playthroughs_new" do
+  schema "playthroughs" do
     belongs_to :media, Media, type: :id
     belongs_to :user, User, type: :id
 

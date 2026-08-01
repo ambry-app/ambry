@@ -563,7 +563,7 @@ defmodule Ambry.MediaTest do
         )
 
       playthrough =
-        insert(:playthrough_new,
+        insert(:playthrough,
           media: media,
           user: build(:user),
           position: Decimal.new("123.4"),
@@ -618,7 +618,7 @@ defmodule Ambry.MediaTest do
 
       assert Enum.map(replaced.chapters, & &1.title) == ["Chapter 1", "Chapter 2"]
 
-      reloaded_playthrough = Ambry.Playback.get_playthrough_new(playthrough.id)
+      reloaded_playthrough = Ambry.Playback.get_playthrough(playthrough.id)
       assert Decimal.equal?(reloaded_playthrough.position, Decimal.new("123.4"))
     end
 

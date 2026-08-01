@@ -69,7 +69,7 @@ defmodule Ambry.PlaybackTest do
 
   describe "record_events/1" do
     test "records multiple events" do
-      playthrough = insert(:playthrough_new)
+      playthrough = insert(:playthrough)
 
       events = [
         %{
@@ -106,7 +106,7 @@ defmodule Ambry.PlaybackTest do
   describe "list_events_changed_since/2" do
     test "returns events inserted after the given time" do
       user = insert(:user)
-      playthrough = insert(:playthrough_new, user: user)
+      playthrough = insert(:playthrough, user: user)
 
       # Both events have realistic client timestamps (millisecond precision)
       # but different inserted_at times (when they were recorded on server)

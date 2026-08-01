@@ -19,7 +19,7 @@ defmodule Ambry.Factory do
   alias Ambry.Playback.Device
   alias Ambry.Playback.DeviceUser
   alias Ambry.Playback.PlaybackEvent
-  alias Ambry.Playback.PlaythroughNew
+  alias Ambry.Playback.Playthrough
   alias Ambry.Search.Index
 
   # Users
@@ -193,10 +193,10 @@ defmodule Ambry.Factory do
     }
   end
 
-  def playthrough_new_factory do
+  def playthrough_factory do
     now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
 
-    %PlaythroughNew{
+    %Playthrough{
       id: Ecto.UUID.generate(),
       user: build(:user),
       media: build(:media, book: build(:book)),
