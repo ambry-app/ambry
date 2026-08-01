@@ -20,6 +20,7 @@ defmodule Ambry.Metadata.CacheTest do
     assert {:ok, :new} = Cache.fetch("test:op:arg", fn -> {:ok, :new} end, ttl: -1)
   end
 
+  @tag :capture_log
   test "serves stale value when re-fetch fails" do
     assert {:ok, :old} = Cache.fetch("test:op:arg", fn -> {:ok, :old} end)
     assert {:ok, :old} = Cache.fetch("test:op:arg", fn -> {:error, :down} end, ttl: -1)
@@ -31,6 +32,7 @@ defmodule Ambry.Metadata.CacheTest do
     assert {:ok, :new} = Cache.fetch("test:op:arg", fn -> {:ok, :unused} end)
   end
 
+  @tag :capture_log
   test "refresh serves stale on fetch failure" do
     assert {:ok, :old} = Cache.fetch("test:op:arg", fn -> {:ok, :old} end)
     assert {:ok, :old} = Cache.fetch("test:op:arg", fn -> {:error, :down} end, refresh: true)

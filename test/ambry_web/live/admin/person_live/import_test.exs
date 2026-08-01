@@ -98,6 +98,8 @@ defmodule AmbryWeb.Admin.PersonLive.ImportTest do
     assert html =~ "999015-fresh.jpg"
   end
 
+  # the async search task intentionally raises; capture its crash report
+  @tag :capture_log
   test "renders provider errors in the modal", %{conn: conn} do
     patch(Ambry.Metadata.Providers.RreadingGlasses, :search_authors, fn _query, _config ->
       {:error, :nxdomain}
