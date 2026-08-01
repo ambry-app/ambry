@@ -4,7 +4,7 @@ defmodule AmbrySchema.People do
   use Absinthe.Schema.Notation
   use Absinthe.Relay.Schema.Notation, :modern
 
-  import Absinthe.Resolution.Helpers, only: [dataloader: 1, dataloader: 2]
+  import Absinthe.Resolution.Helpers, only: [dataloader: 1, dataloader: 2, dataloader: 3]
 
   alias AmbrySchema.Resolvers
 
@@ -41,11 +41,28 @@ defmodule AmbrySchema.People do
   node object(:author) do
     field :name, non_null(:string)
 
-    field :person, non_null(:person), resolve: dataloader(Resolvers)
+    field :person, non_null(:person),
+      deprecate: "use `people` instead; an author can be linked to multiple people",
+      resolve:
+        dataloader(Resolvers, :people,
+          args: %{order: :id},
+          callback: fn people, _parent, _args -> {:ok, List.first(people)} end
+        )
+
+    field :people, non_null(list_of(non_null(:person))),
+      resolve: dataloader(Resolvers, :people, args: %{order: :id})
 
     connection field :authored_books, node_type: :book do
       resolve &Resolvers.list_authored_books/3
     end
+
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
+  end
+
+  node object(:author_person) do
+    field :author, non_null(:author), resolve: dataloader(Resolvers)
+    field :person, non_null(:person), resolve: dataloader(Resolvers)
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)

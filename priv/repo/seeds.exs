@@ -7,6 +7,7 @@ alias Ambry.Books.Book
 alias Ambry.Media.Media
 alias Ambry.Media.MediaNarrator
 alias Ambry.People.Author
+alias Ambry.People.AuthorPerson
 alias Ambry.People.BookAuthor
 alias Ambry.People.Narrator
 alias Ambry.People.Person
@@ -27,12 +28,10 @@ cwd = File.cwd!()
 Repo.transact(fn ->
   ## People ##
 
-  %{authors: [jules_verne]} =
+  %{author_people: [%{author: jules_verne}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "Jules Verne"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "Jules Verne"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/001a07ae-2bf5-484c-b7c2-c0b62084651d.jpg",
@@ -50,12 +49,10 @@ Repo.transact(fn ->
       image_path: "/uploads/images/001a07ae-2bf5-484c-b7c2-c0b62084651d.jpg"
     })
 
-  %{authors: [h_g_wells]} =
+  %{author_people: [%{author: h_g_wells}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "H.G. Wells"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "H.G. Wells"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/464c6305-f307-4504-8cdb-54ee523eb8c2.jpg",
@@ -73,12 +70,10 @@ Repo.transact(fn ->
       image_path: "/uploads/images/464c6305-f307-4504-8cdb-54ee523eb8c2.jpg"
     })
 
-  %{authors: [l_m_montgomery]} =
+  %{author_people: [%{author: l_m_montgomery}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "L.M. Montgomery"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "L.M. Montgomery"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/6330a96e-564a-4d43-b067-4594e0cb1620.jpg",
@@ -96,12 +91,10 @@ Repo.transact(fn ->
       image_path: "/uploads/images/6330a96e-564a-4d43-b067-4594e0cb1620.jpg"
     })
 
-  %{authors: [arthur_conan_doyle]} =
+  %{author_people: [%{author: arthur_conan_doyle}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "Arthur Conan Doyle"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "Arthur Conan Doyle"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/d4a1addc-e65b-4f90-8282-0fdc2e275d9f.jpg",
@@ -119,12 +112,10 @@ Repo.transact(fn ->
       image_path: "/uploads/images/d4a1addc-e65b-4f90-8282-0fdc2e275d9f.jpg"
     })
 
-  %{authors: [edgar_rice_burroughs]} =
+  %{author_people: [%{author: edgar_rice_burroughs}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "Edgar Rice Burroughs"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "Edgar Rice Burroughs"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/64e3c1dd-0c25-4889-98e9-f5756a279f04.jpg",
@@ -142,12 +133,10 @@ Repo.transact(fn ->
       image_path: "/uploads/images/64e3c1dd-0c25-4889-98e9-f5756a279f04.jpg"
     })
 
-  %{authors: [rudyard_kipling]} =
+  %{author_people: [%{author: rudyard_kipling}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "Rudyard Kipling"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "Rudyard Kipling"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/26c057fe-e508-48f9-9c1c-f0f1809465ae.jpg",
@@ -163,12 +152,10 @@ Repo.transact(fn ->
       image_path: "/uploads/images/26c057fe-e508-48f9-9c1c-f0f1809465ae.jpg"
     })
 
-  %{authors: [robert_louis_stevenson]} =
+  %{author_people: [%{author: robert_louis_stevenson}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "Robert Louis Stevenson"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "Robert Louis Stevenson"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/8472ffe9-d717-4319-9023-c983a05cfb4a.jpg",
@@ -186,12 +173,10 @@ Repo.transact(fn ->
       image_path: "/uploads/images/8472ffe9-d717-4319-9023-c983a05cfb4a.jpg"
     })
 
-  %{authors: [frances_hodgson_burnett]} =
+  %{author_people: [%{author: frances_hodgson_burnett}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "Frances Hodgson Burnett"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "Frances Hodgson Burnett"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/74e9d1e3-8db6-4c3b-9bcb-16693687490e.jpg",
@@ -209,12 +194,10 @@ Repo.transact(fn ->
       image_path: "/uploads/images/74e9d1e3-8db6-4c3b-9bcb-16693687490e.jpg"
     })
 
-  %{authors: [alexandre_dumas]} =
+  %{author_people: [%{author: alexandre_dumas}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "Alexandre Dumas"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "Alexandre Dumas"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/49350e87-cfd9-4884-af38-df935a26ab60.jpg",
@@ -232,12 +215,10 @@ Repo.transact(fn ->
       image_path: "/uploads/images/49350e87-cfd9-4884-af38-df935a26ab60.jpg"
     })
 
-  %{authors: [emmuska_orczy]} =
+  %{author_people: [%{author: emmuska_orczy}]} =
     Repo.insert!(%Person{
-      authors: [
-        %Author{
-          name: "Emmuska Orczy"
-        }
+      author_people: [
+        %AuthorPerson{author: %Author{name: "Emmuska Orczy"}}
       ],
       thumbnails: %Thumbnails{
         original: "/uploads/images/6574da90-c914-4ac9-8823-1d8d311d0d36.jpg",

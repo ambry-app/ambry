@@ -15,18 +15,35 @@ defmodule AmbryWeb.AuthorLive do
     ~H"""
     <div class="mx-auto max-w-md space-y-8 p-4 sm:max-w-none sm:space-y-12 sm:p-10 md:max-w-screen-2xl md:p-12 lg:space-y-16 lg:p-16">
       <div class="flex items-center gap-4">
-        <.link :if={@author.person.thumbnails} navigate={~p"/people/#{@author.person}"} class="flex-none">
-          <img
-            src={@author.person.thumbnails.extra_large}
-            class="hidden rounded-full object-cover object-top shadow-lg sm:block sm:h-16 sm:w-16 xl:h-24 xl:w-24"
-          />
-        </.link>
-        <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
-          Written by
-          <.link navigate={~p"/people/#{@author.person}"} class="hover:underline">
-            {@author.name}
+        <%= for person <- @author.people, person.thumbnails do %>
+          <.link navigate={~p"/people/#{person}"} class="flex-none">
+            <img
+              src={person.thumbnails.extra_large}
+              class="hidden rounded-full object-cover object-top shadow-lg sm:block sm:h-16 sm:w-16 xl:h-24 xl:w-24"
+            />
           </.link>
-        </h1>
+        <% end %>
+        <div>
+          <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
+            Written by
+            <%= case @author.people do %>
+              <% [person] -> %>
+                <.link navigate={~p"/people/#{person}"} class="hover:underline">
+                  {@author.name}
+                </.link>
+              <% _people -> %>
+                {@author.name}
+            <% end %>
+          </h1>
+          <p :if={pen_name_people(@author) != []} class="mt-2 text-zinc-500">
+            a pen name of <.link
+              :for={person <- pen_name_people(@author)}
+              navigate={~p"/people/#{person}"}
+              class="hover:underline"
+              phx-no-format
+            ><%= person.name %></.link><span class="last:hidden">,</span>
+          </p>
+        </div>
       </div>
 
       <.book_tiles_stream id="books" stream={@streams.books} page={@page} end?={@end?} />
@@ -63,6 +80,15 @@ defmodule AmbryWeb.AuthorLive do
       {:noreply, paginate_books(socket, socket.assigns.page - 1)}
     else
       {:noreply, socket}
+    end
+  end
+
+  # People worth calling out under the heading: everyone, unless this is the
+  # simple case of a single person writing under their own name.
+  defp pen_name_people(author) do
+    case author.people do
+      [%{name: name}] when name == author.name -> []
+      people -> people
     end
   end
 

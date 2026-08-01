@@ -11,6 +11,7 @@ defmodule AmbrySchema.Sync do
   enum :deletion_type do
     value :person
     value :author
+    value :author_person
     value :narrator
     value :book
     value :book_author
@@ -46,6 +47,14 @@ defmodule AmbrySchema.Sync do
       middleware AmbrySchema.AuthMiddleware
 
       resolve &Resolvers.authors_changed_since/2
+    end
+
+    field :author_people_changed_since, non_null(list_of(non_null(:author_person))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.author_people_changed_since/2
     end
 
     field :narrators_changed_since, non_null(list_of(non_null(:narrator))) do

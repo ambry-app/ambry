@@ -114,7 +114,7 @@ defmodule Ambry.BooksTest do
 
     test "can create nested book authors" do
       person = insert(:person, authors: [build(:author)])
-      [%{id: author_id}] = person.authors
+      [%{author: %{id: author_id}}] = person.author_people
 
       %{title: title} = params = params_for(:book, book_authors: [%{author_id: author_id}])
 
@@ -176,7 +176,7 @@ defmodule Ambry.BooksTest do
 
     test "updates nested book authors" do
       person = insert(:person, authors: [build(:author)])
-      [%{id: new_author_id}] = person.authors
+      [%{author: %{id: new_author_id}}] = person.author_people
 
       book =
         insert(:book,

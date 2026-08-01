@@ -72,6 +72,10 @@ defmodule AmbrySchema.PeopleTest do
           person {
             __typename
           }
+          people {
+            __typename
+            name
+          }
           authoredBooks(first: 1) {
             __typename
           }
@@ -83,7 +87,8 @@ defmodule AmbrySchema.PeopleTest do
     """
     test "resolves Author fields", %{conn: conn} do
       person = insert(:person, authors: [build(:author)])
-      %{authors: [%{id: id, name: name}]} = person
+      %{author_people: [%{author: %{id: id, name: name}}]} = person
+      person_name = person.name
 
       gid = to_global_id("Author", id)
 
@@ -99,6 +104,7 @@ defmodule AmbrySchema.PeopleTest do
                    "id" => ^gid,
                    "name" => ^name,
                    "person" => %{"__typename" => "Person"},
+                   "people" => [%{"__typename" => "Person", "name" => ^person_name}],
                    "authoredBooks" => %{"__typename" => "BookConnection"},
                    "insertedAt" => "" <> _,
                    "updatedAt" => "" <> _

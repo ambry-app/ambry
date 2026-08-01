@@ -2,20 +2,23 @@ defmodule Ambry.People.Author do
   @moduledoc """
   An author writes books.
 
-  Belongs to a Person, so one person can write as multiple authors (pen names).
+  Linked to one or more People, so one person can write as multiple authors
+  (pen names), and one author name can be shared by multiple people (composite
+  pen names like James S.A. Corey).
   """
 
   use Ecto.Schema
 
   import Ecto.Changeset
 
+  alias Ambry.People.AuthorPerson
   alias Ambry.People.BookAuthor
-  alias Ambry.People.Person
 
   schema "authors" do
     has_many :book_authors, BookAuthor
     has_many :books, through: [:book_authors, :book]
-    belongs_to :person, Person
+    has_many :author_people, AuthorPerson
+    has_many :people, through: [:author_people, :person]
 
     field :name, :string
 

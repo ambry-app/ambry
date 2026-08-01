@@ -132,14 +132,19 @@ defmodule AmbryWeb.Admin.BookLive.Form.ProviderImportForm do
   defp build_authors_params(matching_authors) do
     Enum.map(matching_authors, fn
       {imported, nil} ->
-        {:ok, %{authors: [author]}} =
-          Ambry.People.create_person(%{name: imported.name, authors: [%{name: imported.name}]})
+        {:ok, %{author_people: [%{author: author}]}} =
+          Ambry.People.create_person(%{
+            name: imported.name,
+            author_people: [%{author: %{name: imported.name}}]
+          })
 
         %{"author_id" => author.id}
 
       {_imported, %{authors: []} = existing} ->
-        {:ok, %{authors: [author]}} =
-          Ambry.People.update_person(existing, %{authors: [%{name: existing.name}]})
+        {:ok, %{author_people: [%{author: author}]}} =
+          Ambry.People.update_person(existing, %{
+            author_people: [%{author: %{name: existing.name}}]
+          })
 
         %{"author_id" => author.id}
 

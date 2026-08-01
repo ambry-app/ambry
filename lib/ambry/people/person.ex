@@ -10,12 +10,13 @@ defmodule Ambry.People.Person do
   import Ecto.Changeset
 
   alias Ambry.Paths
-  alias Ambry.People.Author
+  alias Ambry.People.AuthorPerson
   alias Ambry.People.Narrator
   alias Ambry.Thumbnails
 
   schema "people" do
-    has_many :authors, Author, on_replace: :delete
+    has_many :author_people, AuthorPerson, on_replace: :delete
+    has_many :authors, through: [:author_people, :author]
     has_many :narrators, Narrator, on_replace: :delete
 
     embeds_one :thumbnails, Thumbnails, on_replace: :delete
@@ -24,6 +25,10 @@ defmodule Ambry.People.Person do
     field :description, :string
     field :image_path, :string
 
+    # form-only: staging input for linking an existing author, see
+    # AmbryWeb.Admin.PersonLive.Form
+    field :link_author_id, :integer, virtual: true
+
     timestamps(type: :utc_datetime)
   end
 
@@ -31,9 +36,9 @@ defmodule Ambry.People.Person do
   def changeset(person, attrs) do
     person
     |> cast(attrs, [:name, :description, :image_path])
-    |> cast_assoc(:authors,
-      sort_param: :authors_sort,
-      drop_param: :authors_drop
+    |> cast_assoc(:author_people,
+      sort_param: :author_people_sort,
+      drop_param: :author_people_drop
     )
     |> cast_assoc(:narrators,
       sort_param: :narrators_sort,
@@ -43,7 +48,6 @@ defmodule Ambry.People.Person do
     |> maybe_clear_thumbnails()
     |> validate_required([:name])
     |> validate_image_path()
-    |> foreign_key_constraint(:author, name: "authors_books_author_id_fkey")
     |> foreign_key_constraint(:narrator, name: "media_narrators_narrator_id_fkey")
     |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
   end

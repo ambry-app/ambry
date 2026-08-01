@@ -132,7 +132,8 @@ defmodule AmbrySchema.SearchTest do
         )
         |> with_search_index()
 
-      %{id: id, book_authors: [%{author: %{person: %{name: person_name}}}]} = book
+      %{id: id, book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]} =
+        book
 
       gid = to_global_id("Book", id)
 
@@ -251,7 +252,7 @@ defmodule AmbrySchema.SearchTest do
 
     test "returns person by author name", %{conn: conn} do
       person = :person |> insert(authors: [build(:author)]) |> with_search_index()
-      %{id: id, authors: [%{name: author_name}]} = person
+      %{id: id, author_people: [%{author: %{name: author_name}}]} = person
       gid = to_global_id("Person", id)
 
       conn =
@@ -386,7 +387,7 @@ defmodule AmbrySchema.SearchTest do
       %{
         id: book_id,
         series_books: [%{series: %{id: id}}],
-        book_authors: [%{author: %{person: %{name: person_name}}}]
+        book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]
       } = book
 
       gid = to_global_id("Series", id)

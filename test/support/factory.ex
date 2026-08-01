@@ -13,6 +13,7 @@ defmodule Ambry.Factory do
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
   alias Ambry.People.Author
+  alias Ambry.People.AuthorPerson
   alias Ambry.People.BookAuthor
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -50,20 +51,45 @@ defmodule Ambry.Factory do
 
   # People
 
-  def person_factory do
+  # `authors` is a through association; the factory translates it into
+  # `author_people` join rows so call sites can keep the natural shape.
+  def person_factory(attrs) do
+    {authors, attrs} = Map.pop(attrs, :authors)
+
+    author_people =
+      case authors do
+        nil -> []
+        authors -> Enum.map(authors, &%AuthorPerson{author: &1})
+      end
+
     %Person{
       name: Fake.full_name(),
       description: Fake.paragraph(),
-      authors: [],
+      author_people: author_people,
       narrators: []
     }
+    |> merge_attributes(attrs)
+    |> evaluate_lazy_attributes()
   end
 
-  def author_factory do
+  # `people` is a through association; the factory translates `person`/`people`
+  # into `author_people` join rows so call sites can keep the natural shape.
+  def author_factory(attrs) do
+    {person, attrs} = Map.pop(attrs, :person)
+    {people, attrs} = Map.pop(attrs, :people)
+
+    author_people =
+      case people || List.wrap(person) do
+        [] -> []
+        people -> Enum.map(people, &%AuthorPerson{person: &1})
+      end
+
     %Author{
       name: Fake.full_name(),
-      person: nil
+      author_people: author_people
     }
+    |> merge_attributes(attrs)
+    |> evaluate_lazy_attributes()
   end
 
   def narrator_factory do

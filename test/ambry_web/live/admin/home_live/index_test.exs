@@ -56,8 +56,8 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
 
       assert has_element?(view, "[data-role='author-count']", "0")
 
-      author = insert(:author, person: build(:person))
-      author.person |> Ambry.People.PubSub.PersonCreated.new() |> Ambry.PubSub.broadcast()
+      %{author_people: [%{person: person}]} = insert(:author, person: build(:person))
+      person |> Ambry.People.PubSub.PersonCreated.new() |> Ambry.PubSub.broadcast()
       ensure_all_messages_handled(view.pid)
 
       assert has_element?(view, "[data-role='author-count']", "1")

@@ -11,7 +11,7 @@ defmodule AmbryWeb.PersonLiveTest do
         book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
       )
 
-    %{book_authors: [%{author: %{person: person}}]} = book
+    %{book_authors: [%{author: %{author_people: [%{person: person}]}}]} = book
 
     {:ok, _view, html} = live(conn, ~p"/people/#{person.id}")
 

@@ -174,7 +174,7 @@ defmodule Ambry.Search.IndexTest do
     test "updates all index records that reference this person" do
       %{
         name: person_name,
-        authors: [author],
+        author_people: [%{id: author_person_id, author: author}],
         narrators: [narrator]
       } =
         person =
@@ -211,7 +211,9 @@ defmodule Ambry.Search.IndexTest do
       {:ok, _person} =
         People.update_person(person, %{
           name: "PersonName",
-          authors: [%{id: author.id, name: "AuthorName"}],
+          author_people: [
+            %{id: author_person_id, author: %{id: author.id, name: "AuthorName"}}
+          ],
           narrators: [%{id: narrator.id, name: "NarratorName"}]
         })
 
