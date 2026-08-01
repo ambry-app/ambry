@@ -37,10 +37,6 @@ defmodule AmbrySchema.Media do
 
     @desc "Display-title override for this recording (translated/regional/retail title); null means the book's title applies"
     field :title, :string
-    field :language, :string
-
-    field :translators, non_null(list_of(non_null(:author))),
-      resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
 
     field :duration, :float, resolve: Resolvers.resolve_decimal(:duration)
     field :mpd_path, :string
@@ -74,14 +70,6 @@ defmodule AmbrySchema.Media do
   node object(:media_narrator) do
     field :media, non_null(:media), resolve: dataloader(Resolvers, args: %{allow_all_media: true})
     field :narrator, non_null(:narrator), resolve: dataloader(Resolvers)
-
-    field :inserted_at, non_null(:datetime)
-    field :updated_at, non_null(:datetime)
-  end
-
-  node object(:media_translator) do
-    field :media, non_null(:media), resolve: dataloader(Resolvers, args: %{allow_all_media: true})
-    field :author, non_null(:author), resolve: dataloader(Resolvers)
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)

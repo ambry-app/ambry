@@ -352,66 +352,18 @@ defmodule Ambry.MediaTest do
     end
   end
 
-  describe "version fields" do
-    test "creates media with a title override, language, and translators" do
+  describe "display-title override" do
+    test "creates media with a title override" do
       %{id: book_id} = insert(:book)
-      %{id: author_id} = insert(:author, person: build(:person))
 
       params =
         :media
-        |> params_for(
-          book_id: book_id,
-          title: "The Three-Body Problem (English)",
-          language: "English",
-          media_translators: [%{author_id: author_id}]
-        )
-        |> Map.take([
-          :abridged,
-          :full_cast,
-          :source_path,
-          :book_id,
-          :title,
-          :language,
-          :media_translators
-        ])
+        |> params_for(book_id: book_id, title: "The Three-Body Problem (English)")
+        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :title])
 
       assert {:ok, media} = Media.create_media(params)
 
-      assert %{
-               title: "The Three-Body Problem (English)",
-               language: "English",
-               media_translators: [%{author_id: ^author_id}]
-             } = media
-
-      assert %{translators: [%{id: ^author_id}]} =
-               Ambry.Repo.preload(media, :translators)
-    end
-
-    test "an author credited as translator cannot be deleted" do
-      author = insert(:author, person: build(:person))
-      %{id: book_id} = insert(:book)
-
-      params =
-        :media
-        |> params_for(book_id: book_id, media_translators: [%{author_id: author.id}])
-        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :media_translators])
-
-      {:ok, _media} = Media.create_media(params)
-
-      # unlinking the author's only person would orphan-delete the author,
-      # which the translator credit blocks
-      [%{id: person_id}] = Ambry.Repo.preload(author, :people).people
-      person = Ambry.People.get_person!(person_id)
-      [%{id: join_id}] = person.author_people
-
-      {:error, changeset} =
-        Ambry.People.update_person(person, %{
-          author_people_drop: [0],
-          author_people: %{0 => %{id: join_id}}
-        })
-
-      assert %{author_people: [message]} = errors_on(changeset)
-      assert message =~ "credited as a translator"
+      assert %{title: "The Three-Body Problem (English)"} = media
     end
   end
 

@@ -27,7 +27,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        recording_providers: Registry.enabled(level: :recording, capability: :book_search),
        source_files_expanded: false,
        narrators: People.narrators_for_select(),
-       authors: People.authors_for_select(),
        books: Ambry.Books.books_for_select(),
        local_import_path: Ambry.Paths.local_import_path()
      )

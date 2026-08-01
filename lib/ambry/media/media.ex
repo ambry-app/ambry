@@ -11,7 +11,6 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.Media
   alias Ambry.Media.Media.Chapter
   alias Ambry.Media.MediaNarrator
-  alias Ambry.Media.MediaTranslator
   alias Ambry.Media.Processor
   alias Ambry.Repo.SupplementalFile
   alias Ambry.Thumbnails
@@ -21,10 +20,8 @@ defmodule Ambry.Media.Media do
   schema "media" do
     belongs_to :book, Book
     has_many :media_narrators, MediaNarrator, on_replace: :delete
-    has_many :media_translators, MediaTranslator, on_replace: :delete
     has_many :authors, through: [:book, :authors]
     has_many :narrators, through: [:media_narrators, :narrator]
-    has_many :translators, through: [:media_translators, :author]
 
     embeds_many :chapters, Chapter, on_replace: :delete
     embeds_many :supplemental_files, SupplementalFile, on_replace: :delete
@@ -34,11 +31,9 @@ defmodule Ambry.Media.Media do
     field :status, Ecto.Enum, values: @statuses, default: :pending
     field :abridged, :boolean, default: false
 
-    # version fields: how this recording differs from the work — a
-    # display-title override (translated/regional/retail title), the
-    # recording's language, and translator credits (see :translators)
+    # display-title override: how this recording's title differs from the
+    # work's (translated/regional/retail title); nil means the book's title
     field :title, :string
-    field :language, :string
 
     field :source_path, :string
     field :source_files, {:array, :string}, default: []
@@ -70,7 +65,6 @@ defmodule Ambry.Media.Media do
       :book_id,
       :full_cast,
       :title,
-      :language,
       :source_path,
       :source_files,
       :published,
@@ -88,10 +82,6 @@ defmodule Ambry.Media.Media do
     |> cast_assoc(:media_narrators,
       sort_param: :media_narrators_sort,
       drop_param: :media_narrators_drop
-    )
-    |> cast_assoc(:media_translators,
-      sort_param: :media_translators_sort,
-      drop_param: :media_translators_drop
     )
     |> cast_embed(:chapters,
       sort_param: :chapters_sort,
