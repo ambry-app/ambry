@@ -20,7 +20,6 @@ defmodule AmbrySchema.Sync do
     value :series_book
     value :media
     value :media_narrator
-    value :media_translator
     value :universe
   end
 
@@ -130,14 +129,6 @@ defmodule AmbrySchema.Sync do
       middleware AmbrySchema.AuthMiddleware
 
       resolve &Resolvers.media_narrators_changed_since/2
-    end
-
-    field :media_translators_changed_since, non_null(list_of(non_null(:media_translator))) do
-      arg :since, :datetime
-
-      middleware AmbrySchema.AuthMiddleware
-
-      resolve &Resolvers.media_translators_changed_since/2
     end
 
     field :deletions_since, non_null(list_of(non_null(:deletion))) do

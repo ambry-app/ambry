@@ -27,9 +27,6 @@ defmodule AmbryWeb.AudiobookLive do
                 <span>(Abridged)</span>
               <% end %>
             </p>
-            <p :if={@media.translators != []}>
-              Translated by <.all_people_links people={@media.translators} />
-            </p>
           </div>
 
           <div class={["aspect-1", if(!@media.thumbnails, do: "bg-zinc-200 dark:bg-zinc-800")]}>
@@ -50,9 +47,6 @@ defmodule AmbryWeb.AudiobookLive do
                 <p>{@media.title || @media.book.title}</p>
                 <p class="text-zinc-600 dark:text-zinc-400">
                   {duration_display(@media.duration)}
-                </p>
-                <p :if={@media.language} class="text-zinc-600 dark:text-zinc-400">
-                  {@media.language}
                 </p>
               </div>
             </div>
@@ -105,9 +99,6 @@ defmodule AmbryWeb.AudiobookLive do
             <%= if @media.abridged do %>
               <span>(Abridged)</span>
             <% end %>
-          </p>
-          <p :if={@media.translators != []}>
-            Translated by <.all_people_links people={@media.translators} />
           </p>
           <.markdown
             :if={@media.description}
