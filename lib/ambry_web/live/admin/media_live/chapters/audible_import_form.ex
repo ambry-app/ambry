@@ -1,12 +1,23 @@
 defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
-  @moduledoc false
+  @moduledoc """
+  Chapter import via the metadata provider facade: Audible catalog search
+  for the recording, Audnexus for its chapter list (keyed by ASIN).
+
+  Per the roadmap (1h): provider chapter timestamps describe Audible's
+  retail edition, not the local rip — importing them wholesale is the
+  legacy behavior this form keeps for now; the markers-vs-titles split
+  arrives with the chapter-model work.
+  """
   use AmbryWeb, :live_component
 
   import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.Components.RichSelect, only: [rich_select: 1]
 
-  alias Ambry.Metadata.Audible
+  alias Ambry.Metadata.Providers
   alias Phoenix.LiveView.AsyncResult
+
+  @search_provider "audible"
+  @chapters_provider "audnexus"
 
   @impl Phoenix.LiveComponent
   def mount(socket) do
@@ -21,6 +32,7 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
      |> assign(
        books: AsyncResult.loading(),
        chapters: AsyncResult.loading(),
+       refresh: false,
        search_form: to_form(%{"query" => assigns.query}, as: :search),
        select_book_form: to_form(%{}, as: :select_book),
        form: to_form(init_import_form_params(assigns.media), as: :import)
@@ -31,12 +43,15 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
   @impl Phoenix.LiveComponent
   def handle_async(:search, {:ok, books}, socket) do
     [first_book | _rest] = books
+    # a Re-fetch search carries its refresh through to the chained
+    # chapters fetch — otherwise stale cached chapters survive
+    refresh = socket.assigns.refresh
 
     {:noreply,
      socket
-     |> assign(books: AsyncResult.ok(socket.assigns.books, books))
+     |> assign(books: AsyncResult.ok(socket.assigns.books, books), refresh: false)
      |> assign(select_book_form: to_form(%{"book_id" => first_book.id}, as: :select_book))
-     |> start_async(:fetch_chapters, fn -> fetch_chapters(first_book) end)}
+     |> start_async(:fetch_chapters, fn -> fetch_chapters(first_book, refresh) end)}
   end
 
   def handle_async(:search, {:exit, {:shutdown, :cancel}}, socket) do
@@ -63,17 +78,20 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
   end
 
   @impl Phoenix.LiveComponent
-  def handle_event("search", %{"search" => %{"query" => query}}, socket) do
+  def handle_event("search", %{"search" => %{"query" => query}} = params, socket) do
+    refresh = Map.has_key?(params, "refresh")
+
     {:noreply,
      socket
      |> assign(
        books: AsyncResult.loading(),
        chapters: AsyncResult.loading(),
+       refresh: refresh,
        search_form: to_form(%{"query" => query}, as: :search)
      )
      |> cancel_async(:search)
      |> cancel_async(:fetch_chapters)
-     |> start_async(:search, fn -> search(query) end)}
+     |> start_async(:search, fn -> search(query, refresh) end)}
   end
 
   def handle_event("select-book", %{"select_book" => %{"book_id" => book_id}}, socket) do
@@ -121,11 +139,11 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
   defp time(chapter),
     do: chapter.start_offset_ms |> Decimal.new() |> Decimal.div(1000) |> Decimal.round(2)
 
-  defp search(query) do
+  defp search(query, refresh \\ false) do
     "#{query}"
     |> String.trim()
     |> String.downcase()
-    |> Audible.search_books()
+    |> then(&Providers.search_books(@search_provider, &1, refresh: refresh))
     |> case do
       {:ok, []} -> raise "No books found"
       {:ok, books} -> books
@@ -133,8 +151,8 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
     end
   end
 
-  defp fetch_chapters(book) do
-    case Audible.chapters(book.id) do
+  defp fetch_chapters(book, refresh \\ false) do
+    case Providers.chapters(@chapters_provider, book.asin, refresh: refresh) do
       {:ok, chapters} -> chapters
       {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
     end

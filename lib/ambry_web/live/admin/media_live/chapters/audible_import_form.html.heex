@@ -5,6 +5,9 @@
     <div class="flex items-end gap-2">
       <.input field={@search_form[:query]} label="Search" container_class="grow" />
       <.button>Search</.button>
+      <.button name="refresh" value="true" title="Bypass cached results and re-fetch">
+        Re-fetch
+      </.button>
     </div>
   </.simple_form>
 
