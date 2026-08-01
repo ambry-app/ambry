@@ -4,7 +4,7 @@ defmodule Ambry.MixProject do
   def project do
     [
       app: :ambry,
-      version: "1.4.0",
+      version: "1.7.0",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: [:boundary, :phoenix_live_view] ++ Mix.compilers(),
@@ -111,7 +111,6 @@ defmodule Ambry.MixProject do
     [
       {:"decimal.js", "10.6.0"},
       {:"platform-detect", "3.0.1"},
-      {:"shaka-player", "4.16.0"},
       {:topbar, "3.0.0"}
     ]
   end

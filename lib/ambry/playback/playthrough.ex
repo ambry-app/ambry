@@ -1,53 +1,15 @@
 defmodule Ambry.Playback.Playthrough do
   @moduledoc """
-  Represents a user's journey through a book, from start to finish or abandon.
+  Event-sourced playthrough state.
 
-  A playthrough tracks the complete lifecycle of listening to a media item,
-  including all play, pause, seek, and rate change events. Multiple playthroughs
-  can exist for the same user/media pair (e.g., re-listens).
-
-  ## Status Lifecycle
-
-       ┌────────────────┐
-       │ No playthrough │
-       └───────┬────────┘
-               ▼
-             Start
-               │
-               ▼
-        ┌─────────────┐
-   ┌───►│ In progress ├──────┐
-   │    └──────┬──────┘      │
-   │           ▼             ▼
-   │        Abandon        Finish
-   │           │             │
-   │           ▼             ▼
-   │     ┌───────────┐  ┌──────────┐
-   │     │ Abandoned │  │ Finished │
-   │     └─────┬─────┘  └────┬─────┘
-   │           ▼             │
-   └────────Resume◄──────────┘
-
-  - `in_progress`: Currently listening (only one active per user/media)
-  - `finished`: Completed (auto-detected near end, or explicit)
-  - `abandoned`: Explicitly abandoned by user
-  - Both `finished` and `abandoned` can be resumed to `in_progress`
-
-  ## Soft Deletes
-
-  Playthroughs can be soft-deleted by setting `deleted_at`. This is used when
-  a user wants to completely remove a playthrough (e.g., accidentally opened
-  a book they didn't intend to listen to). Soft deletes enable proper sync
-  across devices - the deletion propagates to other clients.
+  This table contains state that is 100% derived from playback events.
+  The state can be rebuilt at any time by reducing the event stream.
   """
 
   use Ecto.Schema
 
-  import Ecto.Changeset
-
   alias Ambry.Accounts.User
   alias Ambry.Media.Media
-  alias Ambry.Playback.PlaybackEvent
 
   @primary_key {:id, :binary_id, autogenerate: false}
   @foreign_key_type :binary_id
@@ -56,56 +18,101 @@ defmodule Ambry.Playback.Playthrough do
     belongs_to :media, Media, type: :id
     belongs_to :user, User, type: :id
 
-    has_many :events, PlaybackEvent
-
-    field :status, Ecto.Enum,
-      values: [:in_progress, :finished, :abandoned],
-      default: :in_progress
+    field :status, Ecto.Enum, values: [:in_progress, :finished, :abandoned, :deleted]
 
     field :started_at, Ambry.Ecto.UtcDateTimeMs
     field :finished_at, Ambry.Ecto.UtcDateTimeMs
     field :abandoned_at, Ambry.Ecto.UtcDateTimeMs
     field :deleted_at, Ambry.Ecto.UtcDateTimeMs
 
-    timestamps(type: Ambry.Ecto.UtcDateTimeMs)
+    field :position, :decimal
+    field :rate, :decimal
+
+    field :last_event_at, Ambry.Ecto.UtcDateTimeMs
+
+    field :refreshed_at, :utc_datetime_usec
   end
 
   @doc """
-  Creates a changeset for a new playthrough.
+  Reduces a list of events (sorted by timestamp ascending) into playthrough state.
 
-  Requires a client-generated UUID as the id.
+  Returns a map with all the derived fields, suitable for insertion.
   """
-  def changeset(playthrough, attrs) do
-    playthrough
-    |> cast(attrs, [
-      :id,
-      :media_id,
-      :user_id,
-      :status,
-      :started_at,
-      :finished_at,
-      :abandoned_at,
-      :deleted_at
-    ])
-    |> validate_required([:id, :media_id, :user_id, :status, :started_at])
-    |> validate_status_timestamps()
-    |> unique_constraint([:user_id, :media_id, :started_at],
-      name: :playthroughs_user_id_media_id_started_at_index
-    )
+  def reduce(events, playthrough_id, user_id) do
+    initial_state = %{
+      id: playthrough_id,
+      user_id: user_id,
+      media_id: nil,
+      status: nil,
+      started_at: nil,
+      finished_at: nil,
+      abandoned_at: nil,
+      deleted_at: nil,
+      position: nil,
+      rate: nil,
+      last_event_at: nil,
+      refreshed_at: DateTime.utc_now()
+    }
+
+    events
+    |> Enum.reduce(initial_state, &apply_event/2)
   end
 
-  defp validate_status_timestamps(changeset) do
-    status = get_field(changeset, :status)
-
-    case status do
-      :finished ->
-        validate_required(changeset, [:finished_at])
-
-      :abandoned ->
-        validate_required(changeset, [:abandoned_at])
-
-      _ ->
-        changeset
-    end
+  defp apply_event(event, state) do
+    state
+    |> update_last_event_at(event)
+    |> apply_event_type(event)
   end
+
+  defp update_last_event_at(state, event) do
+    %{state | last_event_at: event.timestamp}
+  end
+
+  # Lifecycle events
+  defp apply_event_type(state, %{type: :start} = event) do
+    %{
+      state
+      | status: :in_progress,
+        started_at: event.timestamp,
+        media_id: event.media_id,
+        position: event.position,
+        rate: event.playback_rate
+    }
+  end
+
+  defp apply_event_type(state, %{type: :finish} = event) do
+    %{state | status: :finished, finished_at: event.timestamp}
+  end
+
+  defp apply_event_type(state, %{type: :abandon} = event) do
+    %{state | status: :abandoned, abandoned_at: event.timestamp}
+  end
+
+  defp apply_event_type(state, %{type: :delete} = event) do
+    %{state | status: :deleted, deleted_at: event.timestamp}
+  end
+
+  defp apply_event_type(state, %{type: :resume}) do
+    %{state | status: :in_progress, finished_at: nil, abandoned_at: nil, deleted_at: nil}
+  end
+
+  # Playback events
+  defp apply_event_type(state, %{type: :play} = event) do
+    %{state | position: event.position}
+  end
+
+  defp apply_event_type(state, %{type: :pause} = event) do
+    %{state | position: event.position}
+  end
+
+  defp apply_event_type(state, %{type: :seek} = event) do
+    %{state | position: event.to_position}
+  end
+
+  defp apply_event_type(state, %{type: :rate_change} = event) do
+    %{state | rate: event.playback_rate}
+  end
+
+  # Fallback for unknown event types
+  defp apply_event_type(state, _event), do: state
 end

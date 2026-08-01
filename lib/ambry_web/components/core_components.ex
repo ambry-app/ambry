@@ -16,10 +16,8 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Books.Book
   alias Ambry.Books.SeriesBook
   alias Ambry.Media.Media
-  alias Ambry.Media.PlayerState
   alias AmbryWeb.Admin.UploadHelpers
   alias AmbryWeb.Components.Autocomplete
-  alias AmbryWeb.Player
   alias Phoenix.HTML.Form
   alias Phoenix.HTML.FormField
   alias Phoenix.LiveView.JS
@@ -1027,31 +1025,6 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  attr :id, :string, required: true
-  attr :page, :integer, required: true
-  attr :end?, :boolean, required: true
-  attr :stream, :any, required: true
-  attr :player, Player, required: true
-  attr :next, :string, default: "next-page"
-  attr :prev, :string, default: "prev-page"
-  attr :rest, :global
-
-  def player_state_tiles_stream(assigns) do
-    ~H"""
-    <.grid
-      id={@id}
-      phx-update="stream"
-      phx-viewport-top={@page > 1 && @prev}
-      phx-viewport-bottom={!@end? && @next}
-      phx-page-loading
-      class={[if(@end?, do: "", else: "pb-[calc(200vh)]"), if(@page == 1, do: "", else: "pt-[calc(200vh)]")]}
-      {@rest}
-    >
-      <.player_state_tile :for={{id, player_state} <- @stream} player_state={player_state} player={@player} id={id} />
-    </.grid>
-    """
-  end
-
   @doc """
   Renders a list of books as a responsive grid of image tiles.
   """
@@ -1234,92 +1207,6 @@ defmodule AmbryWeb.CoreComponents do
       [%Book{} | _] = books -> Enum.map(books, &{&1, nil})
       [%SeriesBook{} | _] = series_books -> Enum.map(series_books, &{&1.book, &1.book_number})
     end
-  end
-
-  attr :id, :string, default: nil
-  attr :player_state, PlayerState, required: true
-  attr :player, Player, required: true
-
-  def player_state_tile(assigns) do
-    ~H"""
-    <div id={@id} class="text-center">
-      <div class="group">
-        <div class="aspect-w-1 aspect-h-1 relative">
-          <.book_multi_image thumbnails={if @player_state.media.thumbnails, do: [@player_state.media.thumbnails], else: []} />
-          <div class="absolute flex">
-            <div
-              phx-click={media_click_action(@player, @player_state.media)}
-              class="mx-auto flex h-16 w-16 cursor-pointer self-center rounded-full bg-white bg-opacity-80 shadow-md backdrop-blur-sm transition group-hover:bg-opacity-100 dark:bg-black dark:bg-opacity-80"
-            >
-              <div class="mx-auto self-center fill-current">
-                <%= if playing?(@player, @player_state.media) do %>
-                  <.icon name="fa-pause" class="h-7 w-7" />
-                <% else %>
-                  <.icon name="fa-play" class="h-7 w-7 pl-1" />
-                <% end %>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="overflow-hidden rounded-b-sm border-x border-zinc-200 bg-zinc-300 shadow-sm dark:border-zinc-900 dark:bg-zinc-800">
-          <div class="bg-brand h-1 dark:bg-brand-dark" style={"width: #{progress_percent(@player, @player_state)}%;"} />
-        </div>
-      </div>
-      <p class="font-bold text-zinc-900 hover:underline dark:text-zinc-100 sm:text-lg">
-        <.link navigate={~p"/audiobooks/#{@player_state.media}"}>
-          {@player_state.media.book.title}
-        </.link>
-      </p>
-      <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
-        by <.people_links people={@player_state.media.book.authors} />
-      </p>
-
-      <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
-        Narrated by <.people_links people={@player_state.media.narrators} full_cast={@player_state.media.full_cast} />
-      </p>
-
-      <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
-        <.series_book_links series_books={@player_state.media.book.series_books} />
-      </div>
-    </div>
-    """
-  end
-
-  defp media_click_action(player, media) do
-    if loaded?(player, media) do
-      JS.dispatch("ambry:toggle-playback", to: "#media-player")
-    else
-      "ambry:load-and-play-media"
-      |> JS.dispatch(to: "#media-player", detail: %{id: media.id})
-      |> JS.navigate(~p"/")
-    end
-  end
-
-  defp loaded?(%Player{player_state: %{media_id: media_id}}, %Media{id: media_id}), do: true
-  defp loaded?(_player, _media), do: false
-
-  defp playing?(%Player{player_state: %{media_id: media_id}, playback_state: :playing}, %Media{
-         id: media_id
-       }), do: true
-
-  defp playing?(_player, _media), do: false
-
-  def progress_percent(%Player{player_state: %{id: id} = ps}, %PlayerState{id: id}) do
-    progress_percent(ps)
-  end
-
-  def progress_percent(_player, ps) do
-    progress_percent(ps)
-  end
-
-  def progress_percent(nil), do: "0.0"
-
-  def progress_percent(%PlayerState{position: position, media: %{duration: duration}}) do
-    position
-    |> Decimal.div(duration)
-    |> Decimal.mult(100)
-    |> Decimal.round(1)
-    |> Decimal.to_string()
   end
 
   @doc """

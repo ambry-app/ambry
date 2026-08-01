@@ -30,21 +30,15 @@ import { ReadMoreHook } from "./hooks/read-more"
 import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
 import { ScrollMatchHook } from "./hooks/scroll-match"
 import { SearchBoxHook } from "./hooks/search-box"
-import { ShakaPlayerHook } from "./hooks/shaka-player"
-import { TimeBarHook } from "./hooks/time-bar"
-
-const playerId = Math.random().toString(36).substring(2)
 
 // Establish Phoenix Socket and LiveView configuration.
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
-  params: { _csrf_token: csrfToken, player_id: playerId },
+  params: { _csrf_token: csrfToken },
   hooks: {
     "read-more": ReadMoreHook,
     "search-box": SearchBoxHook,
     "header-scrollspy": HeaderScrollspyHook,
-    "media-player": ShakaPlayerHook,
-    "time-bar": TimeBarHook,
     "scroll-into-view": ScrollIntoViewHook,
     "maintain-attrs": MainTainAttrsHook,
     "infinite-scroll": InfiniteScrollHook,

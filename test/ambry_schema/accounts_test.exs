@@ -12,9 +12,6 @@ defmodule AmbrySchema.AccountsTest do
         email
         admin
         confirmedAt
-        loadedPlayerState {
-          __typename
-        }
         insertedAt
         updatedAt
       }
@@ -43,15 +40,6 @@ defmodule AmbrySchema.AccountsTest do
     test "resolves User fields", %{conn: conn, user: user} do
       %{email: email} = user
 
-      player_state =
-        insert(:player_state,
-          user_id: user.id,
-          status: :in_progress,
-          media: build(:media, book: build(:book))
-        )
-
-      Ambry.Accounts.update_user_loaded_player_state(user, player_state.id)
-
       conn =
         post(conn, "/gql", %{
           "query" => @query
@@ -63,7 +51,6 @@ defmodule AmbrySchema.AccountsTest do
                    "email" => ^email,
                    "admin" => false,
                    "confirmedAt" => nil,
-                   "loadedPlayerState" => %{"__typename" => "PlayerState"},
                    "insertedAt" => "" <> _,
                    "updatedAt" => "" <> _
                  }

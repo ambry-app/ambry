@@ -67,58 +67,6 @@ defmodule Ambry.PlaybackTest do
     end
   end
 
-  describe "upsert_playthrough/1" do
-    test "creates a new playthrough" do
-      user = insert(:user)
-      media = insert(:media, book: build(:book))
-
-      attrs = %{
-        id: Ecto.UUID.generate(),
-        user_id: user.id,
-        media_id: media.id,
-        status: :in_progress,
-        started_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-      }
-
-      assert {:ok, playthrough} = Playback.upsert_playthrough(attrs)
-      assert playthrough.status == :in_progress
-      assert playthrough.user_id == user.id
-    end
-
-    test "updates an existing playthrough" do
-      playthrough = insert(:playthrough, status: :in_progress)
-
-      attrs = %{
-        id: playthrough.id,
-        user_id: playthrough.user_id,
-        media_id: playthrough.media_id,
-        status: :finished,
-        started_at: playthrough.started_at,
-        finished_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-      }
-
-      assert {:ok, updated} = Playback.upsert_playthrough(attrs)
-      assert updated.id == playthrough.id
-      assert updated.status == :finished
-      assert updated.finished_at != nil
-    end
-  end
-
-  describe "list_playthroughs_changed_since/2" do
-    test "returns playthroughs updated after the given time" do
-      user = insert(:user)
-      old = insert(:playthrough, user: user, updated_at: ~U[2025-01-01 10:00:00.000Z])
-      new = insert(:playthrough, user: user, updated_at: ~U[2025-01-02 10:00:00.000Z])
-
-      since = ~U[2025-01-01 12:00:00.000Z]
-      playthroughs = Playback.list_playthroughs_changed_since(user.id, since)
-
-      assert length(playthroughs) == 1
-      assert hd(playthroughs).id == new.id
-      refute Enum.any?(playthroughs, &(&1.id == old.id))
-    end
-  end
-
   describe "record_events/1" do
     test "records multiple events" do
       playthrough = insert(:playthrough)
@@ -164,14 +112,14 @@ defmodule Ambry.PlaybackTest do
       # but different inserted_at times (when they were recorded on server)
       _old =
         insert(:playback_event,
-          playthrough: playthrough,
+          playthrough_id: playthrough.id,
           timestamp: ~U[2025-01-01 10:00:00.000Z],
           inserted_at: ~U[2025-01-01 10:00:00.000000Z]
         )
 
       new =
         insert(:playback_event,
-          playthrough: playthrough,
+          playthrough_id: playthrough.id,
           timestamp: ~U[2025-01-01 11:00:00.000Z],
           inserted_at: ~U[2025-01-02 10:00:00.000000Z]
         )
@@ -182,28 +130,6 @@ defmodule Ambry.PlaybackTest do
 
       assert length(events) == 1
       assert hd(events).id == new.id
-    end
-  end
-
-  describe "sync_playthroughs/1" do
-    test "upserts multiple playthroughs" do
-      user = insert(:user)
-      media = insert(:media, book: build(:book))
-
-      playthroughs_data = [
-        %{
-          id: Ecto.UUID.generate(),
-          user_id: user.id,
-          media_id: media.id,
-          status: :in_progress,
-          started_at: DateTime.utc_now() |> DateTime.truncate(:millisecond)
-        }
-      ]
-
-      result = Playback.sync_playthroughs(playthroughs_data)
-
-      assert length(result) == 1
-      assert hd(result).status == :in_progress
     end
   end
 end

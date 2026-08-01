@@ -31,8 +31,6 @@ defmodule AmbryApp.Application do
       Ambry.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: Ambry.PubSub},
-      # Presence
-      AmbryWeb.Presence,
       # HTTP Client for Swoosh API based providers (not used for SMTP providers)
       {Finch, name: Ambry.Finch},
       # Starts Oban jobs

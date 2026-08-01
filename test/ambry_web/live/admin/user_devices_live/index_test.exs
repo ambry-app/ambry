@@ -91,7 +91,7 @@ defmodule AmbryWeb.Admin.UserDevicesLive.IndexTest do
 
       # Events need to be associated with a playthrough owned by the user
       playthrough = insert(:playthrough, user: user)
-      insert_list(3, :playback_event, device: device, playthrough: playthrough)
+      insert_list(3, :playback_event, device: device, playthrough_id: playthrough.id)
 
       {:ok, _view, html} = live(conn, ~p"/admin/users/#{user.id}/devices")
 

@@ -562,15 +562,15 @@ defmodule Ambry.MediaTest do
           })
         )
 
-      player_state =
-        insert(:player_state,
+      playthrough =
+        insert(:playthrough,
           media: media,
           user: build(:user),
           position: Decimal.new("123.4"),
           status: :in_progress
         )
 
-      %{media: media, player_state: player_state}
+      %{media: media, playthrough: playthrough}
     end
 
     test "updates source files, marks the media pending, and queues reprocessing", %{media: media} do
@@ -607,7 +607,7 @@ defmodule Ambry.MediaTest do
 
     test "leaves chapters and listeners' saved positions untouched", %{
       media: media,
-      player_state: player_state
+      playthrough: playthrough
     } do
       {:ok, replaced} =
         Media.replace_media(media, %{
@@ -618,8 +618,8 @@ defmodule Ambry.MediaTest do
 
       assert Enum.map(replaced.chapters, & &1.title) == ["Chapter 1", "Chapter 2"]
 
-      reloaded_player_state = Media.get_player_state!(player_state.id)
-      assert Decimal.equal?(reloaded_player_state.position, Decimal.new("123.4"))
+      reloaded_playthrough = Ambry.Playback.get_playthrough(playthrough.id)
+      assert Decimal.equal?(reloaded_playthrough.position, Decimal.new("123.4"))
     end
 
     test "deletes the old source folder with a background job", %{media: media} do
@@ -710,300 +710,6 @@ defmodule Ambry.MediaTest do
       changeset = Media.change_media(media, %{abridged: !media.abridged})
 
       assert %Ecto.Changeset{valid?: true} = changeset
-    end
-  end
-
-  describe "get_recent_player_states/1" do
-    test "returns the first 10 player_states sorted by inserted_at" do
-      user = insert(:user)
-
-      insert_list(11, :player_state,
-        status: :in_progress,
-        user_id: user.id,
-        media: fn ->
-          insert(:media,
-            book: fn -> build(:book) end,
-            duration: Decimal.new(3600)
-          )
-        end
-      )
-
-      {returned_player_states, has_more?} = Media.get_recent_player_states(user.id)
-
-      assert has_more?
-      assert length(returned_player_states) == 10
-    end
-  end
-
-  describe "get_recent_player_states/2" do
-    test "accepts an offset" do
-      user = insert(:user)
-
-      insert_list(11, :player_state,
-        status: :in_progress,
-        user_id: user.id,
-        media: fn ->
-          insert(:media,
-            book: build(:book),
-            duration: Decimal.new(3600)
-          )
-        end
-      )
-
-      {returned_player_states, has_more?} = Media.get_recent_player_states(user.id, 10)
-
-      refute has_more?
-      assert length(returned_player_states) == 1
-    end
-  end
-
-  describe "get_recent_player_states/3" do
-    test "accepts a limit" do
-      user = insert(:user)
-
-      insert_list(6, :player_state,
-        status: :in_progress,
-        user_id: user.id,
-        media: fn ->
-          insert(:media,
-            book: build(:book),
-            duration: Decimal.new(3600)
-          )
-        end
-      )
-
-      {returned_player_states, has_more?} = Media.get_recent_player_states(user.id, 0, 5)
-
-      assert has_more?
-      assert length(returned_player_states) == 5
-    end
-  end
-
-  describe "load_player_state!/2" do
-    test "creates a new player state and sets it as the user's loaded player state" do
-      user = insert(:user)
-
-      %{id: media_id} =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      %{id: player_state_id} = Media.load_player_state!(user, media_id)
-
-      assert %{loaded_player_state_id: ^player_state_id} = Ambry.Repo.reload!(user)
-    end
-
-    test "gets an existing player state and sets it as the user's loaded player state" do
-      user = insert(:user)
-
-      media =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      %{id: player_state_id} = insert(:player_state, user_id: user.id, media: media)
-
-      %{id: ^player_state_id} = Media.load_player_state!(user, media.id)
-
-      assert %{loaded_player_state_id: ^player_state_id} = Ambry.Repo.reload!(user)
-    end
-  end
-
-  describe "get_player_state!/1" do
-    test "raises if id is invalid" do
-      assert_raise Ecto.NoResultsError, fn ->
-        Media.get_player_state!(-1)
-      end
-    end
-
-    test "returns the player state with the given id" do
-      user = insert(:user)
-
-      media =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      %{id: id} = insert(:player_state, user_id: user.id, media: media)
-
-      assert %Media.PlayerState{id: ^id} = Media.get_player_state!(id)
-    end
-  end
-
-  describe "get_player_state!/2" do
-    test "creates a new player state if one doesn't yet exist" do
-      %{id: user_id} = insert(:user)
-
-      %{id: media_id} =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      player_state = Media.get_player_state!(user_id, media_id)
-
-      assert %{user_id: ^user_id, media_id: ^media_id} = player_state
-    end
-
-    test "returns an existing player state if one already exists" do
-      %{id: user_id} = insert(:user)
-
-      media =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      %{id: player_state_id} = insert(:player_state, user_id: user_id, media: media)
-
-      player_state = Media.get_player_state!(user_id, media.id)
-
-      assert %{id: ^player_state_id} = player_state
-    end
-  end
-
-  describe "update_player_state/2" do
-    test "updates position and playback rate" do
-      %{id: user_id} = insert(:user)
-
-      media =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      player_state = insert(:player_state, user_id: user_id, media: media)
-
-      new_position = Decimal.new(300)
-      new_playback_rate = Decimal.new("1.25")
-
-      {:ok, updated_player_state} =
-        Media.update_player_state(player_state, %{
-          position: new_position,
-          playback_rate: new_playback_rate
-        })
-
-      assert %{position: ^new_position, playback_rate: ^new_playback_rate} = updated_player_state
-    end
-
-    test "status goes from `:not_started` to `:in_progress` to `:finished`" do
-      %{id: user_id} = insert(:user)
-
-      media =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      player_state =
-        insert(:player_state, user_id: user_id, position: Decimal.new(0), media: media)
-
-      assert %{status: :not_started} = player_state
-
-      new_position = Decimal.new(59)
-
-      assert {:ok, %{status: :not_started} = player_state} =
-               Media.update_player_state(player_state, %{position: new_position})
-
-      new_position = Decimal.new(60)
-
-      assert {:ok, %{status: :in_progress} = player_state} =
-               Media.update_player_state(player_state, %{position: new_position})
-
-      new_position = Decimal.sub(player_state.media.duration, Decimal.new(120))
-
-      assert {:ok, %{status: :in_progress} = player_state} =
-               Media.update_player_state(player_state, %{position: new_position})
-
-      new_position = Decimal.sub(player_state.media.duration, Decimal.new(119))
-
-      assert {:ok, %{status: :finished}} =
-               Media.update_player_state(player_state, %{position: new_position})
-    end
-  end
-
-  describe "update_player_state/4" do
-    test "sets position and playback rate if player state doesn't yet exist" do
-      %{id: user_id} = insert(:user)
-
-      %{id: media_id} =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      position = Decimal.new(300)
-      playback_rate = Decimal.new("1.25")
-
-      {:ok, player_state} = Media.update_player_state(user_id, media_id, position, playback_rate)
-
-      assert %{position: ^position, playback_rate: ^playback_rate} = player_state
-    end
-
-    test "updates position and playback rate if player state already exists" do
-      %{id: user_id} = insert(:user)
-
-      media =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      %{id: player_state_id} = insert(:player_state, user_id: user_id, media: media)
-
-      new_position = Decimal.new(300)
-      new_playback_rate = Decimal.new("1.25")
-
-      {:ok, updated_player_state} =
-        Media.update_player_state(user_id, media.id, new_position, new_playback_rate)
-
-      assert %{id: ^player_state_id, position: ^new_position, playback_rate: ^new_playback_rate} =
-               updated_player_state
-    end
-
-    test "sets status to `:not_started`" do
-      %{id: user_id} = insert(:user)
-
-      %{id: media_id} =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      assert {:ok, %{status: :not_started}} =
-               Media.update_player_state(user_id, media_id, Decimal.new(0), Decimal.new(1))
-    end
-
-    test "sets status to `:in_progress`" do
-      %{id: user_id} = insert(:user)
-
-      %{id: media_id} =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      assert {:ok, %{status: :in_progress}} =
-               Media.update_player_state(user_id, media_id, Decimal.new(60), Decimal.new(1))
-    end
-
-    test "sets status to `:finished`" do
-      %{id: user_id} = insert(:user)
-
-      media =
-        %{id: media_id} =
-        insert(:media,
-          book: build(:book),
-          duration: Decimal.new(3600)
-        )
-
-      position = Decimal.sub(media.duration, Decimal.new(119))
-
-      assert {:ok, %{status: :finished}} =
-               Media.update_player_state(user_id, media_id, position, Decimal.new(1))
     end
   end
 

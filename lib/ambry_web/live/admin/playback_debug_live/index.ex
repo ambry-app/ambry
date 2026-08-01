@@ -60,7 +60,7 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
   end
 
   defp maybe_select_playthrough(socket, playthrough_id) do
-    playthrough = Playback.get_playthrough_new(playthrough_id)
+    playthrough = Playback.get_playthrough(playthrough_id)
     assign(socket, selected_playthrough: playthrough)
   end
 

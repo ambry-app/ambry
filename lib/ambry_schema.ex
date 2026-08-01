@@ -37,14 +37,12 @@ defmodule AmbrySchema do
     import_fields :node_query
     import_fields :account_queries
     import_fields :book_queries
-    import_fields :media_queries
     import_fields :search_queries
     import_fields :sync_queries
   end
 
   mutation do
     import_fields :session_mutations
-    import_fields :media_mutations
     import_fields :playback_mutations
   end
 

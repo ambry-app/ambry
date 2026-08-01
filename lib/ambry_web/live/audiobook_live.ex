@@ -12,8 +12,6 @@ defmodule AmbryWeb.AudiobookLive do
   alias Ambry.Books
   alias Ambry.Hashids
   alias Ambry.Media
-  alias AmbryWeb.Player
-  alias AmbryWeb.Player.PubSub.PlayerUpdated
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -50,13 +48,6 @@ defmodule AmbryWeb.AudiobookLive do
                 <p class="text-zinc-600 dark:text-zinc-400">
                   {duration_display(@media.duration)}
                 </p>
-              </div>
-              <div class="cursor-pointer fill-current" phx-click={media_click_action(@player, @media)}>
-                <%= if playing?(@player, @media) do %>
-                  <.icon name="fa-pause" class="h-12 w-12" />
-                <% else %>
-                  <.icon name="fa-play" class="h-12 w-12 pl-1" />
-                <% end %>
               </div>
             </div>
             <div :if={@media.publisher || @media.notes || @media.supplemental_files != []} class="space-y-2 py-3">
@@ -124,10 +115,6 @@ defmodule AmbryWeb.AudiobookLive do
   def mount(%{"id" => id_param}, _session, socket) do
     with {:ok, media_id} <- parse_id(id_param, :media),
          {:ok, media} <- Media.fetch_media_with_book_details(media_id) do
-      if connected?(socket) do
-        Player.subscribe!(socket.assigns.player)
-      end
-
       global_id = to_global_id("Media", media.id, AmbrySchema)
 
       {:ok,
@@ -140,31 +127,6 @@ defmodule AmbryWeb.AudiobookLive do
       _ -> {:ok, redirect(socket, to: ~p"/")}
     end
   end
-
-  @impl Phoenix.LiveView
-  def handle_info(%PlayerUpdated{}, socket) do
-    {:noreply, assign(socket, player: Player.reload!(socket.assigns.player))}
-  end
-
-  defp media_click_action(player, media) do
-    if loaded?(player, media) do
-      JS.dispatch("ambry:toggle-playback", to: "#media-player")
-    else
-      "ambry:load-and-play-media"
-      |> JS.dispatch(to: "#media-player", detail: %{id: media.id})
-      |> JS.navigate(~p"/")
-    end
-  end
-
-  defp loaded?(%Player{player_state: %{media_id: media_id}}, %Media.Media{id: media_id}), do: true
-  defp loaded?(_player, _media), do: false
-
-  defp playing?(
-         %Player{player_state: %{media_id: media_id}, playback_state: :playing},
-         %Media.Media{id: media_id}
-       ), do: true
-
-  defp playing?(_player, _media), do: false
 
   defp format_file_name(file), do: file.label || file.filename
 
