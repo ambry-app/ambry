@@ -1,14 +1,6 @@
 <.layout title={@page_title} user={@current_user}>
   <.modal :if={@import} id="import-modal" show on_cancel={close_modal(@media)}>
     <.live_component
-      :if={@import[:type]}
-      id="import-form"
-      module={import_form(@import.type)}
-      query={@import.query}
-      media={@media}
-    />
-    <.live_component
-      :if={@import[:provider]}
       id="import-form"
       module={ProviderImportForm}
       provider={@import.provider}
@@ -40,15 +32,6 @@
               phx-click={open_import_form(@media, provider.id)}
             >
               {provider.display_name}
-            </.button>
-            <.button
-              :if={@scraping_available}
-              color={:zinc}
-              class="flex items-center gap-1"
-              type="button"
-              phx-click={open_import_form(@media, "goodreads")}
-            >
-              <.icon name="fa-brands-goodreads" class="h-4 w-4 text-current" /> GoodReads
             </.button>
           </div>
         </div>

@@ -10,11 +10,6 @@ config :ambry, Ambry.Repo,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
 
-# Marionette connection
-config :ambry, AmbryScraping.Marionette.Connection,
-  host: "localhost",
-  port: 2828
-
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #

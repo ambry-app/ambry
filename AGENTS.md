@@ -50,7 +50,7 @@ The codebase uses the [Boundary](https://github.com/sasa1977/boundary) library t
 - **AmbryApp** - OTP application supervision tree
 - **AmbryWeb** - Phoenix web layer (controllers, LiveViews, components)
 - **AmbrySchema** - GraphQL API (Absinthe schema, resolvers)
-- **AmbryScraping** - Web scraping for metadata from GoodReads, Audible, Audnexus
+- **AmbryScraping** - API clients for external metadata services (Audible catalog, Audnexus), wrapped by the `Ambry.Metadata` provider layer
 
 ### Core Contexts (lib/ambry/)
 
@@ -98,7 +98,6 @@ Relay-compatible GraphQL schema for mobile app. Uses Dataloader for batching.
 
 - PostgreSQL database
 - FFmpeg and shaka-packager for audio transcoding
-- Optional: Headless Firefox with Marionette for GoodReads scraping
 
 ## Tidewave MCP Server
 

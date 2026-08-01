@@ -8,10 +8,5 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  firefox:
-    image: ghcr.io/ambry-app/firefox-headless-marionette:latest
-    ports:
-      - 2828:2828
-
 volumes:
   pgdata:

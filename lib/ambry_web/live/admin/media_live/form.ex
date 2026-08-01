@@ -9,9 +9,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Media
   alias Ambry.Metadata.Registry
   alias Ambry.People
-  alias AmbryWeb.Admin.MediaLive.Form.AudibleImportForm
   alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
-  alias AmbryWeb.Admin.MediaLive.Form.GoodreadsImportForm
   alias AmbryWeb.Admin.MediaLive.Form.ProviderImportForm
   alias Ecto.Changeset
 
@@ -26,7 +24,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        import: nil,
        select_files: false,
        selected_files: MapSet.new(),
-       scraping_available: AmbryScraping.web_scraping_available?(),
        recording_providers: Registry.enabled(level: :recording, capability: :book_search),
        source_files_expanded: false,
        narrators: People.narrators_for_select(),
@@ -91,16 +88,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         ""
       end
 
-    cond do
-      type in ~w(goodreads audible) ->
-        {:noreply, assign(socket, import: %{type: String.to_existing_atom(type), query: query})}
-
-      match?({:ok, _provider}, Registry.fetch(type)) ->
-        {:ok, provider} = Registry.fetch(type)
-        {:noreply, assign(socket, import: %{provider: provider, query: query})}
-
-      true ->
-        {:noreply, assign(socket, import: nil)}
+    case Registry.fetch(type) do
+      {:ok, provider} -> {:noreply, assign(socket, import: %{provider: provider, query: query})}
+      {:error, :unknown_provider} -> {:noreply, assign(socket, import: nil)}
     end
   end
 
@@ -345,9 +335,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp parse_requested_processor(""), do: :none_specified
   defp parse_requested_processor(string), do: String.to_existing_atom(string)
-
-  defp import_form(:goodreads), do: GoodreadsImportForm
-  defp import_form(:audible), do: AudibleImportForm
 
   # Components
 

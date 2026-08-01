@@ -161,12 +161,4 @@ if config_env() == :prod do
 
   config :ambry,
     user_registration_enabled: user_registration_enabled
-
-  with {:ok, url} <- System.fetch_env("MARIONETTE_URL") do
-    {:ok, %{scheme: "tcp", host: host, port: port}} = URI.new(url)
-
-    config :ambry, AmbryScraping.Marionette.Connection,
-      host: host,
-      port: port
-  end
 end
