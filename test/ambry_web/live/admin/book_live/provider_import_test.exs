@@ -21,12 +21,11 @@ defmodule AmbryWeb.Admin.BookLive.ProviderImportTest do
     }
   end
 
-  test "offers work-level providers plus legacy imports", %{conn: conn} do
+  test "offers all providers with book search as import sources", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/admin/books/new")
 
     assert html =~ "rreading-glasses"
     assert html =~ "Audible"
-    # GoodReads only shows when Marionette is configured (never in test)
     refute html =~ "GoodReads"
   end
 

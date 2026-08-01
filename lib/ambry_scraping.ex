@@ -1,12 +1,12 @@
 defmodule AmbryScraping do
   @moduledoc """
-  Provides web and API scraping for GoodReads, Audible, and Audnexus.
+  API clients for external audiobook-metadata services (Audible catalog,
+  Audnexus). Wrapped by the `Ambry.Metadata` provider layer — no browser
+  scraping remains.
   """
 
   use Boundary,
     type: :strict,
     deps: [Jason, Floki, Logger, Req],
-    exports: [{Audible, []}, {Audnexus, []}, {GoodReads, []}, Marionette]
-
-  defdelegate web_scraping_available?, to: AmbryScraping.Marionette
+    exports: [{Audible, []}, {Audnexus, []}]
 end

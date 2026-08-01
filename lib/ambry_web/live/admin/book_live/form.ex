@@ -6,8 +6,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   alias Ambry.Books.Book
   alias Ambry.Metadata.Registry
   alias Ambry.People
-  alias AmbryWeb.Admin.BookLive.Form.AudibleImportForm
-  alias AmbryWeb.Admin.BookLive.Form.GoodreadsImportForm
   alias AmbryWeb.Admin.BookLive.Form.ProviderImportForm
   alias Ecto.Changeset
 
@@ -17,8 +15,9 @@ defmodule AmbryWeb.Admin.BookLive.Form do
      socket
      |> assign(
        import: nil,
-       scraping_available: AmbryScraping.web_scraping_available?(),
-       work_providers: Registry.enabled(level: :work, capability: :book_search),
+       # work-level providers plus Audible: its normalized results carry
+       # title/authors/series too, and the generic form is provider-agnostic
+       import_providers: Registry.enabled(capability: :book_search),
        authors: People.authors_for_select(),
        series: Books.series_for_select()
      )
@@ -54,19 +53,12 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     {:noreply, handle_import_form_params(socket, params)}
   end
 
-  defp handle_import_form_params(socket, %{"import" => type}) do
+  defp handle_import_form_params(socket, %{"import" => provider_id}) do
     query = socket.assigns.form.params["title"] || socket.assigns.book.title
 
-    cond do
-      type in ~w(goodreads audible) ->
-        assign(socket, import: %{type: String.to_existing_atom(type), query: query})
-
-      match?({:ok, _provider}, Registry.fetch(type)) ->
-        {:ok, provider} = Registry.fetch(type)
-        assign(socket, import: %{provider: provider, query: query})
-
-      true ->
-        assign(socket, import: nil)
+    case Registry.fetch(provider_id) do
+      {:ok, provider} -> assign(socket, import: %{provider: provider, query: query})
+      {:error, :unknown_provider} -> assign(socket, import: nil)
     end
   end
 
@@ -142,9 +134,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   defp assign_form(socket, %Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
   end
-
-  defp import_form(:goodreads), do: GoodreadsImportForm
-  defp import_form(:audible), do: AudibleImportForm
 
   defp open_import_form(%Book{id: nil}, type), do: JS.patch(~p"/admin/books/new?import=#{type}")
 

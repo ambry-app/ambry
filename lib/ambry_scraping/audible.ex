@@ -1,23 +1,17 @@
 defmodule AmbryScraping.Audible do
   @moduledoc """
-  A mix of web scraping and API scraping for Audible.
+  API client for Audible's public (undocumented but stable) catalog API.
   """
 
   use Boundary,
-    deps: [AmbryScraping.HTMLToMD, AmbryScraping.Marionette],
-    exports: [AuthorDetails, Author, Product, Narrator, Series]
+    deps: [AmbryScraping.HTMLToMD],
+    exports: [Author, Product, Narrator, Series]
 
-  alias AmbryScraping.Audible.Authors
   alias AmbryScraping.Audible.Products
 
   defmodule Author do
     @moduledoc "Author name and ID only"
     defstruct [:id, :name]
-  end
-
-  defmodule AuthorDetails do
-    @moduledoc "Author details including name, description, and image"
-    defstruct [:id, :name, :description, :image]
   end
 
   defmodule Narrator do
@@ -46,21 +40,6 @@ defmodule AmbryScraping.Audible do
       :language
     ]
   end
-
-  @doc """
-  Searches for authors by name.
-
-  This function uses web scraping to search for authors on the Audible website.
-  """
-  def search_authors(query), do: Authors.search(query)
-
-  @doc """
-  Fetches the details of an author by their ID (ASIN).
-
-  This functions uses web scraping to fetch the details of an author from the
-  Audible website.
-  """
-  def author_details(id), do: Authors.details(id)
 
   @doc """
   Searches for audiobooks by name.
