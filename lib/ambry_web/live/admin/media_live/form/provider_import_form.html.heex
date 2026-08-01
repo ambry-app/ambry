@@ -81,7 +81,11 @@
       </.import_form_row>
 
       <.import_form_row :if={@selected_book.cover_url} field={@form[:use_cover_image]} label="Image">
-        <.image_with_size id={@form[:use_cover_image].id} src={@selected_book.cover_url} class="h-48 rounded-sm" />
+        <.image_with_size
+          id={@form[:use_cover_image].id}
+          src={proxied_remote_image_url(@selected_book.cover_url)}
+          class="h-48 rounded-sm"
+        />
       </.import_form_row>
 
       <:actions>

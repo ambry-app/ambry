@@ -53,7 +53,7 @@
         <.import_form_row :if={author.image_url} field={@form[:use_image]} label="Image">
           <.image_with_size
             id={@form[:use_image].id}
-            src={author.image_url}
+            src={proxied_remote_image_url(author.image_url)}
             class="h-40 w-40 rounded-full object-cover object-top"
           />
         </.import_form_row>

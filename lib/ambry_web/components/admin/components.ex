@@ -548,7 +548,11 @@ defmodule AmbryWeb.Admin.Components do
   def book_card(%{book: %Ambry.Metadata.Provider.Book{}} = assigns) do
     ~H"""
     <div class="flex gap-2 text-sm">
-      <img :if={@book.cover_url} src={@book.cover_url} class="h-24 w-24 object-contain object-top" />
+      <img
+        :if={@book.cover_url}
+        src={proxied_remote_image_url(@book.cover_url)}
+        class="h-24 w-24 object-contain object-top"
+      />
       <div>
         <p class="font-bold">{@book.title}</p>
         <p :if={@book.authors != []} class="text-zinc-400">

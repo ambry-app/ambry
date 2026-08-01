@@ -197,6 +197,8 @@ defmodule AmbryWeb.Router do
       live "/metadata-providers", MetadataLive.Providers
     end
 
+    get "/image-proxy", ImageProxyController, :show
+
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
     oban_dashboard "/oban"
   end

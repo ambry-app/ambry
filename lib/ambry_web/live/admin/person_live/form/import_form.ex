@@ -22,6 +22,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
      |> assign(
        authors: AsyncResult.loading(),
        selected_author: AsyncResult.loading(),
+       refresh: false,
        search_form: to_form(%{"query" => query}, as: :search),
        select_author_form: to_form(%{}, as: :select_author),
        form: to_form(init_import_form_params(person), as: :import)
@@ -32,13 +33,15 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
   @impl Phoenix.LiveComponent
   def handle_async(:search, {:ok, authors}, socket) do
     [first_author | _rest] = authors
-    %{provider: provider} = socket.assigns
+    # a Re-fetch search carries its refresh through to the auto-selected
+    # author's details fetch — otherwise stale cached details survive
+    %{provider: provider, refresh: refresh} = socket.assigns
 
     {:noreply,
      socket
-     |> assign(authors: AsyncResult.ok(socket.assigns.authors, authors))
+     |> assign(authors: AsyncResult.ok(socket.assigns.authors, authors), refresh: false)
      |> assign(select_author_form: to_form(%{"author_id" => first_author.id}, as: :select_author))
-     |> start_async(:select_author, fn -> select_author(provider.id, first_author) end)}
+     |> start_async(:select_author, fn -> select_author(provider.id, first_author, refresh) end)}
   end
 
   def handle_async(:search, {:exit, {:shutdown, :cancel}}, socket) do
@@ -78,6 +81,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
      |> assign(
        authors: AsyncResult.loading(),
        selected_author: AsyncResult.loading(),
+       refresh: refresh,
        search_form: to_form(%{"query" => query}, as: :search)
      )
      |> cancel_async(:search)
@@ -138,8 +142,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
     end
   end
 
-  defp select_author(provider_id, author) do
-    case Providers.author_details(provider_id, author.id) do
+  defp select_author(provider_id, author, refresh \\ false) do
+    case Providers.author_details(provider_id, author.id, refresh: refresh) do
       {:ok, author} -> author
       {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
     end

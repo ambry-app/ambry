@@ -9,6 +9,14 @@ defmodule AmbryWeb.Admin.PersonLive.ImportTest do
 
   setup :register_and_log_in_admin_user
 
+  # The import form chains two asyncs (search completion starts the
+  # author-details fetch), and render_async/1 can return between them —
+  # a second call drains the chained async deterministically.
+  defp render_chained_async(view) do
+    render_async(view)
+    render_async(view)
+  end
+
   defp patch_rreading_glasses do
     author = %Provider.Author{
       provider: "rreading_glasses",
@@ -42,7 +50,7 @@ defmodule AmbryWeb.Admin.PersonLive.ImportTest do
 
     {:ok, view, _html} = live(conn, ~p"/admin/people/new?import=rreading_glasses")
 
-    html = render_async(view)
+    html = render_chained_async(view)
     assert html =~ "Matt Dinniman"
     assert html =~ "Writer and artist from Gig Harbor."
 
@@ -61,6 +69,33 @@ defmodule AmbryWeb.Admin.PersonLive.ImportTest do
     {:ok, _view, html} = live(conn, ~p"/admin/people/new?import=bogus")
 
     refute html =~ "Import Author/Narrator"
+  end
+
+  test "Re-fetch bypasses the cache for details too, not just the search", %{conn: conn} do
+    author = patch_rreading_glasses()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/people/new?import=rreading_glasses")
+    render_chained_async(view)
+
+    # both responses are cached now; the provider module is out of the loop
+    restore(Ambry.Metadata.Providers.RreadingGlasses)
+
+    fresh = %{author | image_url: "https://images.gr-assets.com/authors/999015-fresh.jpg"}
+
+    patch(Ambry.Metadata.Providers.RreadingGlasses, :search_authors, fn _query, _config ->
+      {:ok, [fresh]}
+    end)
+
+    patch(Ambry.Metadata.Providers.RreadingGlasses, :author_details, fn "999015", _config ->
+      {:ok, fresh}
+    end)
+
+    view
+    |> form("form[phx-submit='search']", %{"search" => %{"query" => "matt dinniman"}})
+    |> render_submit(%{"refresh" => "true"})
+
+    html = render_chained_async(view)
+    assert html =~ "999015-fresh.jpg"
   end
 
   test "renders provider errors in the modal", %{conn: conn} do
