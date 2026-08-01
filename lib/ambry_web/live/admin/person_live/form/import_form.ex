@@ -4,8 +4,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
 
   import AmbryWeb.Admin.Components
 
-  alias Ambry.Metadata.Audible
-  alias Ambry.Metadata.GoodReads
+  alias Ambry.Metadata.Providers
   alias Phoenix.LiveView.AsyncResult
 
   @impl Phoenix.LiveComponent
@@ -15,7 +14,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
-    %{type: type, person: person, query: query} = assigns
+    %{provider: provider, person: person, query: query} = assigns
 
     {:ok,
      socket
@@ -27,19 +26,19 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
        select_author_form: to_form(%{}, as: :select_author),
        form: to_form(init_import_form_params(person), as: :import)
      )
-     |> start_async(:search, fn -> search(type, query) end)}
+     |> start_async(:search, fn -> search(provider.id, query) end)}
   end
 
   @impl Phoenix.LiveComponent
   def handle_async(:search, {:ok, authors}, socket) do
     [first_author | _rest] = authors
-    %{type: type} = socket.assigns
+    %{provider: provider} = socket.assigns
 
     {:noreply,
      socket
      |> assign(authors: AsyncResult.ok(socket.assigns.authors, authors))
      |> assign(select_author_form: to_form(%{"author_id" => first_author.id}, as: :select_author))
-     |> start_async(:select_author, fn -> select_author(type, first_author) end)}
+     |> start_async(:select_author, fn -> select_author(provider.id, first_author) end)}
   end
 
   def handle_async(:search, {:exit, {:shutdown, :cancel}}, socket) do
@@ -70,24 +69,25 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
   end
 
   @impl Phoenix.LiveComponent
-  def handle_event("search", %{"search" => %{"query" => query}}, socket) do
-    %{type: type} = socket.assigns
+  def handle_event("search", %{"search" => %{"query" => query}} = params, socket) do
+    %{provider: provider} = socket.assigns
+    refresh = Map.has_key?(params, "refresh")
 
     {:noreply,
      socket
      |> assign(
-       books: AsyncResult.loading(),
-       selected_book: AsyncResult.loading(),
+       authors: AsyncResult.loading(),
+       selected_author: AsyncResult.loading(),
        search_form: to_form(%{"query" => query}, as: :search)
      )
      |> cancel_async(:search)
-     |> cancel_async(:select_book)
-     |> start_async(:search, fn -> search(type, query) end)}
+     |> cancel_async(:select_author)
+     |> start_async(:search, fn -> search(provider.id, query, refresh) end)}
   end
 
   def handle_event("select-author", %{"select_author" => %{"author_id" => author_id}}, socket) do
     author = Enum.find(socket.assigns.authors.result, &(&1.id == author_id))
-    %{type: type} = socket.assigns
+    %{provider: provider} = socket.assigns
 
     {:noreply,
      socket
@@ -96,7 +96,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
        select_author_form: to_form(%{"author_id" => author.id}, as: :select_author)
      )
      |> cancel_async(:select_author)
-     |> start_async(:select_author, fn -> select_author(type, author) end)}
+     |> start_async(:select_author, fn -> select_author(provider.id, author) end)}
   end
 
   def handle_event("import", %{"import" => import_params}, socket) do
@@ -114,7 +114,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
           Map.merge(acc, %{
             "image_path" => "",
             "image_type" => "url_import",
-            "image_import_url" => author.image
+            "image_import_url" => author.image_url
           })
 
         _else, acc ->
@@ -126,14 +126,11 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
     {:noreply, socket}
   end
 
-  defp search(:goodreads, query), do: do_search(query, &GoodReads.search_authors/1)
-  defp search(:audible, query), do: do_search(query, &Audible.search_authors/1)
-
-  defp do_search(query, query_fun) do
+  defp search(provider_id, query, refresh \\ false) do
     "#{query}"
     |> String.trim()
     |> String.downcase()
-    |> query_fun.()
+    |> then(&Providers.search_authors(provider_id, &1, refresh: refresh))
     |> case do
       {:ok, []} -> raise "No authors found"
       {:ok, authors} -> authors
@@ -141,11 +138,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
     end
   end
 
-  defp select_author(:goodreads, author), do: do_select_author(author, &GoodReads.author/1)
-  defp select_author(:audible, author), do: do_select_author(author, &Audible.author/1)
-
-  defp do_select_author(author, author_fun) do
-    case author_fun.(author.id) do
+  defp select_author(provider_id, author) do
+    case Providers.author_details(provider_id, author.id) do
       {:ok, author} -> author
       {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
     end
@@ -158,7 +152,4 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
       :image -> {"use_image", is_nil(person.image_path)}
     end)
   end
-
-  defp type_title(:goodreads), do: "GoodReads"
-  defp type_title(:audible), do: "Audible"
 end
