@@ -27,23 +27,6 @@ defmodule AmbryWeb.AuthorLiveTest do
     assert html =~ html_escape(author.name)
   end
 
-  test "shows media the author translated", %{conn: conn} do
-    author = insert(:author, name: "Ken Liu", person: build(:person))
-    book = insert(:book, title: "The Three-Body Problem")
-
-    insert(:media,
-      book: book,
-      status: :ready,
-      title: "The Three-Body Problem (English)",
-      media_translators: [build(:media_translator, author: author)]
-    )
-
-    {:ok, _view, html} = live(conn, ~p"/authors/#{author.id}")
-
-    assert html =~ "Translated"
-    assert html =~ html_escape("The Three-Body Problem (English)")
-  end
-
   test "renders a narrator page with no narrated media", %{conn: conn} do
     narrator = insert(:narrator, person: build(:person))
 

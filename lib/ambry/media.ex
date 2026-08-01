@@ -428,25 +428,6 @@ defmodule Ambry.Media do
     {media_to_return, media != media_to_return}
   end
 
-  @doc """
-  Returns a paginated list of media translated by the given author identity.
-  """
-  def get_translated_media(author, offset \\ 0, limit \\ 10) do
-    over_limit = limit + 1
-
-    query =
-      from b in Ecto.assoc(author, :translated_media),
-        order_by: [desc: b.published],
-        offset: ^offset,
-        limit: ^over_limit,
-        preload: [book: [:authors, series_books: :series]]
-
-    media = Repo.all(query)
-
-    media_to_return = Enum.slice(media, 0, limit)
-
-    {media_to_return, media != media_to_return}
-  end
 
   @doc """
   Lists recent media.
