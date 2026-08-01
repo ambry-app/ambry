@@ -193,6 +193,8 @@ defmodule AmbryWeb.Router do
       live "/users/:user_id/devices", UserDevicesLive.Index
 
       live "/audit", AuditLive.Index, :index
+
+      live "/metadata-providers", MetadataLive.Providers
     end
 
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry

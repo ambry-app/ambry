@@ -33,6 +33,9 @@ defmodule Ambry.Metadata.Providers do
   def chapters(provider_id, asin, opts \\ []),
     do: call(provider_id, :chapters, :chapters, asin, @details_ttl, opts)
 
+  @doc "Clears all cached responses for a provider."
+  def clear_cache(provider_id), do: Cache.clear_provider(provider_id)
+
   defp call(provider_id, capability, fun, arg, ttl, opts) do
     with {:ok, entry} <- Registry.fetch(provider_id),
          :ok <- check_enabled(entry),
