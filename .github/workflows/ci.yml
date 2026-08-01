@@ -89,7 +89,7 @@ jobs:
       - name: Setup database
         run: mix ecto.setup
       - name: Run tests
-        run: mix coveralls
+        run: mix coveralls --warnings-as-errors
 
   seeds:
     name: Check Seeds

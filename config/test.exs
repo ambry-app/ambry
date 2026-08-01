@@ -41,6 +41,10 @@ config :os_mon,
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
 
+# LiveViewTest warnings (e.g. phx-change forms without ids, which break
+# form recovery) fail the test instead of scrolling by as noise
+config :phoenix_live_view, :test_warnings, missing_form_id: :raise
+
 # Enable helpful, but potentially expensive runtime checks
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true

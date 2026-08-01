@@ -2,7 +2,7 @@
   <.datalist id="books" options={@books} />
 
   <div class="max-w-3xl">
-    <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+    <.simple_form id="series-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <.input field={@form[:name]} label="Name" />
 
       <div class="space-y-2">

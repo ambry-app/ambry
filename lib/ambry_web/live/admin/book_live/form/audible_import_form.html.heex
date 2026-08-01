@@ -17,7 +17,7 @@
       <.error>There was an error searching Audible for books: {failure}</.error>
     </:failed>
 
-    <.simple_form for={@select_book_form} phx-change="select-book" phx-target={@myself}>
+    <.simple_form id="select-book-form" for={@select_book_form} phx-change="select-book" phx-target={@myself}>
       <div class="space-y-2">
         <.label>Select book ({length(books)} results)</.label>
         <.rich_select id="book-select" field={@select_book_form[:book_id]} options={books}>

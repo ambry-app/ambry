@@ -33,3 +33,4 @@ ambry-*.tar
 
 # User uploads
 /uploads/
+local.env

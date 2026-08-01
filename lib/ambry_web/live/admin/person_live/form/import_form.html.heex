@@ -1,10 +1,13 @@
 <div class="mx-auto max-w-3xl space-y-4 p-6">
-  <div class="text-2xl font-bold">Import Author/Narrator from {type_title(@type)}</div>
+  <div class="text-2xl font-bold">Import Author/Narrator from {@provider.display_name}</div>
 
   <.simple_form for={@search_form} phx-submit="search" phx-target={@myself}>
     <div class="flex items-end gap-2">
       <.input field={@search_form[:query]} label="Search" container_class="grow" />
       <.button>Search</.button>
+      <.button name="refresh" value="true" title="Bypass cached results and re-fetch">
+        Re-fetch
+      </.button>
     </div>
   </.simple_form>
 
@@ -14,10 +17,10 @@
     </:loading>
 
     <:failed :let={failure}>
-      <.error>There was an error searching {type_title(@type)} for authors: {failure}</.error>
+      <.error>There was an error searching {@provider.display_name} for authors: {failure}</.error>
     </:failed>
 
-    <.simple_form for={@select_author_form} phx-change="select-author" phx-target={@myself}>
+    <.simple_form id="select-author-form" for={@select_author_form} phx-change="select-author" phx-target={@myself}>
       <div class="space-y-2">
         <.label>Select author ({length(authors)} results)</.label>
         <.input type="select" field={@select_author_form[:author_id]} options={Enum.map(authors, &{&1.name, &1.id})} />
@@ -30,7 +33,7 @@
       </:loading>
 
       <:failed :let={failure}>
-        <.error>There was an error fetching author details from {type_title(@type)}: {failure}</.error>
+        <.error>There was an error fetching author details from {@provider.display_name}: {failure}</.error>
       </:failed>
 
       <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
@@ -47,10 +50,10 @@
           />
         </.import_form_row>
 
-        <.import_form_row :if={author.image} field={@form[:use_image]} label="Image">
+        <.import_form_row :if={author.image_url} field={@form[:use_image]} label="Image">
           <.image_with_size
             id={@form[:use_image].id}
-            src={author.image}
+            src={proxied_remote_image_url(author.image_url)}
             class="h-40 w-40 rounded-full object-cover object-top"
           />
         </.import_form_row>

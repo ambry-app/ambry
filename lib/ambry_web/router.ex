@@ -193,7 +193,11 @@ defmodule AmbryWeb.Router do
       live "/users/:user_id/devices", UserDevicesLive.Index
 
       live "/audit", AuditLive.Index, :index
+
+      live "/metadata-providers", MetadataLive.Providers
     end
+
+    get "/image-proxy", ImageProxyController, :show
 
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
     oban_dashboard "/oban"

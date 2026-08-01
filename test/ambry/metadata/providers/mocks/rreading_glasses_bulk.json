@@ -1,0 +1,480 @@
+{
+ "Works": [
+  {
+   "ForeignId": 76027608,
+   "Title": "Dungeon Crawler Carl",
+   "FullTitle": "Dungeon Crawler Carl",
+   "ShortTitle": "Dungeon Crawler Carl",
+   "Url": "https://www.goodreads.com/work/76027608-dungeon-crawler-carl",
+   "ReleaseDate": "2020-09-21 07:00:00",
+   "ReleaseDateRaw": "2020-09-21",
+   "Genres": [
+    "Fantasy",
+    "Science Fiction",
+    "Audiobook",
+    "Fiction",
+    "Litrpg",
+    "Humor",
+    "Dystopia",
+    "Adventure",
+    "Book Club",
+    "Comedy"
+   ],
+   "RelatedWorks": [],
+   "Books": [
+    {
+     "ForeignId": 211721806,
+     "Asin": "059382024X",
+     "Description": "The apocalypse will be televised! Welcome to the first book in the wildly popular and addictive Dungeon Crawler Carl series\u2014now with bonus material exclusive to this print edition.\r\n\r\nYou know what\u2019s worse than breaking up with your girlfriend? Being stuck with her prize-winning show cat. And you know what\u2019s worse than that? An alien invasion, the destruction of all man-made structures on Earth, and the systematic exploitation of all the survivors for a sadistic intergalactic game show. That\u2019s what.\r\n\r\nJoin Coast Guard vet Carl and his ex-girlfriend\u2019s cat, Princess Donut, as they try to survive the end of the world\u2014or just get to the next level\u2014in a video game\u2013like, trap-filled fantasy dungeon. A dungeon that\u2019s actually the set of a reality television show with countless viewers across the galaxy. Exploding goblins. Magical potions. Deadly, drug-dealing llamas. This ain\u2019t your ordinary game show.\r\n\r\nWelcome, Crawler. Welcome to the Dungeon. Survival is optional. Keeping the viewers entertained is not.\r\n\r\n\r\nIncludes part one of the exclusive bonus story \u201cBackstage at the Pineapple Cabaret.\u201d",
+     "Isbn13": "9780593820247",
+     "Title": "Dungeon Crawler Carl",
+     "FullTitle": "Dungeon Crawler Carl",
+     "ShortTitle": "Dungeon Crawler Carl",
+     "Language": "eng",
+     "Format": "Hardcover",
+     "EditionInformation": "",
+     "Publisher": "Ace",
+     "ImageUrl": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1715780755i/211721806.jpg",
+     "IsEbook": false,
+     "NumPages": 450,
+     "RatingCount": 72451,
+     "AverageRating": 4.4,
+     "Url": "https://www.goodreads.com/book/show/211721806-dungeon-crawler-carl",
+     "ReleaseDate": "2024-08-27 07:00:00",
+     "ReleaseDateRaw": "2024-08-27",
+     "Contributors": [
+      {
+       "ForeignId": 999015,
+       "Role": "Author"
+      }
+     ],
+     "KCA": "kca://book/amzn1.gr.book.v3.DEkFEMTVAOxkOWnD",
+     "RatingSum": 318488
+    }
+   ],
+   "Series": [
+    {
+     "ForeignId": 309211,
+     "Title": "Dungeon Crawler Carl",
+     "Description": "TODO",
+     "LinkItems": [
+      {
+       "ForeignWorkId": 76027608,
+       "PositionInSeries": "1",
+       "SeriesPosition": 1,
+       "Primary": false
+      }
+     ],
+     "KCA": "kca://series/amzn1.gr.series.v3.JVWSypCYGeq7psky"
+    }
+   ],
+   "Authors": [
+    {
+     "ForeignId": 999015,
+     "Name": "Matt Dinniman",
+     "Description": "Matt Dinniman is the best-selling writer and artist from Gig Harbor, Washington. He is the published author of dozens of short stories and a gaggle of books. In addition, his art publications\u2014from greeting cards to stationery kits to calendars\u2014can be found in boutique and stationery shops around the world. Also, he strongly feels like a pretentious twat when he writes about himself in third person.",
+     "ImageUrl": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/authors/1378793109i/999015._UY200_CR225,0,200,200_.jpg",
+     "Url": "https://www.goodreads.com/author/show/999015.Matt_Dinniman",
+     "RatingCount": 0,
+     "AverageRating": 0,
+     "Works": [
+      {
+       "ForeignId": 76027608,
+       "Title": "Dungeon Crawler Carl",
+       "FullTitle": "Dungeon Crawler Carl",
+       "ShortTitle": "Dungeon Crawler Carl",
+       "Url": "https://www.goodreads.com/work/76027608-dungeon-crawler-carl",
+       "ReleaseDate": "2020-09-21 07:00:00",
+       "ReleaseDateRaw": "2020-09-21",
+       "Genres": [
+        "Fantasy",
+        "Science Fiction",
+        "Audiobook",
+        "Fiction",
+        "Litrpg",
+        "Humor",
+        "Dystopia",
+        "Adventure",
+        "Book Club",
+        "Comedy"
+       ],
+       "RelatedWorks": [],
+       "Books": null,
+       "Series": [
+        {
+         "ForeignId": 309211,
+         "Title": "Dungeon Crawler Carl",
+         "Description": "TODO",
+         "LinkItems": [
+          {
+           "ForeignWorkId": 76027608,
+           "PositionInSeries": "1",
+           "SeriesPosition": 1,
+           "Primary": false
+          }
+         ],
+         "KCA": "kca://series/amzn1.gr.series.v3.JVWSypCYGeq7psky"
+        }
+       ],
+       "Authors": null,
+       "KCA": "kca://work/amzn1.gr.work.v3.ebEzo_4_YMEtmddW",
+       "BestBookId": 211721806,
+       "RatingCount": 0,
+       "AverageRating": 0,
+       "RatingSum": 0
+      }
+     ],
+     "Series": [
+      {
+       "ForeignId": 309211,
+       "Title": "Dungeon Crawler Carl",
+       "Description": "TODO",
+       "LinkItems": [
+        {
+         "ForeignWorkId": 76027608,
+         "PositionInSeries": "1",
+         "SeriesPosition": 1,
+         "Primary": false
+        }
+       ],
+       "KCA": "kca://series/amzn1.gr.series.v3.JVWSypCYGeq7psky"
+      }
+     ],
+     "KCA": "kca://author/amzn1.gr.author.v1.H7LarilhpCQ5hVOQ8TMJuQ"
+    }
+   ],
+   "KCA": "kca://work/amzn1.gr.work.v3.ebEzo_4_YMEtmddW",
+   "BestBookId": 211721806,
+   "RatingCount": 0,
+   "AverageRating": 0,
+   "RatingSum": 0
+  },
+  {
+   "ForeignId": 27679568,
+   "Title": "The Way of Kings, Part 1",
+   "FullTitle": "The Way of Kings, Part 1",
+   "ShortTitle": "The Way of Kings, Part 1",
+   "Url": "https://www.goodreads.com/work/27679568-the-way-of-kings-volume-1",
+   "ReleaseDate": "2010-08-31 07:00:00",
+   "ReleaseDateRaw": "2010-08-31",
+   "Genres": [
+    "Fantasy",
+    "Fiction",
+    "High Fantasy",
+    "Epic Fantasy",
+    "Adult",
+    "Audiobook",
+    "Magic",
+    "Science Fiction Fantasy",
+    "Novels",
+    "Adventure"
+   ],
+   "RelatedWorks": [],
+   "Books": [
+    {
+     "ForeignId": 9329354,
+     "Asin": "0575097361",
+     "Description": "Speak again the ancient oaths. Life before death. Strength before weakness, Journey before destination. And return to men the shards they once bore. The knights radiant must stand again.\r\n\r\nRoshar is a world of stone and storms. Uncanny tempests of incredible power sweep across the rocky terrain so frequently that they have shaped ecology and civilization alike. Animals hide in shells, trees pull in branches, and grass retracts into the soilless ground. Cities are built only where the topography offers shelter.\r\n\r\nIt has been centuries since the fall of the ten consecrated orders known as the Knights Radiant, but their Shardblades and Shardplate remain: mystical swords and suits of armor that transform ordinary men into near-invincible warriors. Men trade kingdoms for Shardblades. Wars are fought for them, and won by them.\r\n\r\nOne such war is about to swallow up a soldier, a brightlord and a young woman scholar.",
+     "Isbn13": "9780575097360",
+     "Title": "The Way of Kings, Part 1",
+     "FullTitle": "The Way of Kings, Part 1",
+     "ShortTitle": "The Way of Kings, Part 1",
+     "Language": "eng",
+     "Format": "Paperback",
+     "EditionInformation": "",
+     "Publisher": "Gollancz",
+     "ImageUrl": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1357609842i/9329354.jpg",
+     "IsEbook": false,
+     "NumPages": 594,
+     "RatingCount": 27038,
+     "AverageRating": 4.64,
+     "Url": "https://www.goodreads.com/book/show/9329354-the-way-of-kings-part-1",
+     "ReleaseDate": "2011-01-01 08:00:00",
+     "ReleaseDateRaw": "2011-01-01",
+     "Contributors": [
+      {
+       "ForeignId": 38550,
+       "Role": "Author"
+      }
+     ],
+     "KCA": "kca://book/amzn1.gr.book.v1.Da8i5WuIwloaT8FRMZTOkg",
+     "RatingSum": 125344
+    }
+   ],
+   "Series": [
+    {
+     "ForeignId": 49075,
+     "Title": "The Stormlight Archive",
+     "Description": "TODO",
+     "LinkItems": [
+      {
+       "ForeignWorkId": 27679568,
+       "PositionInSeries": "1, Part 1",
+       "SeriesPosition": 1,
+       "Primary": false
+      }
+     ],
+     "KCA": "kca://series/amzn1.gr.series.v1.psZ3a7nPsOQhIriTc7P4Mg"
+    }
+   ],
+   "Authors": [
+    {
+     "ForeignId": 38550,
+     "Name": "Brandon Sanderson",
+     "Description": "I\u2019m Brandon Sanderson, and I write stories of the fantastic: fantasy, science fiction, and thrillers.The release of Wind and Truth in December 2024\u2014the fifth and final book in the first arc of the #1 New York Times bestselling Stormlight Archive series\u2014marks a significant milestone for me. This series is my love letter to the epic fantasy genre, and it\u2019s the type of story I always dreamed epic fantasy could be. Now is a great time to get into the Stormlight Archive since the first arc, which begins with Way of Kings, is complete.During our crowdfunding campaign for the leatherbound edition of Words of Radiance, I announced a fifth Secret Project called Isles of the Emberdark, which came out in the summer of 2025. Coming December 2025 is Tailored Realities, my non-Cosmere short story collection featuring the new novella Moment Zero.Defiant, the fourth and final volume of the series that started with Skyward in 2018, came out in November 2023, capping an already book-filled year that saw the releases of all four Secret Projects: Tress of the Emerald Sea, The Frugal Wizard\u2019s Handbook for Surviving Medieval England, Yumi and the Nightmare Painter, and The Sunlit Man. These four books were all initially offered to backers of the #1 Kickstarter campaign of all time.November 2022 saw the release of The Lost Metal, the seventh volume in the Mistborn saga, and the final volume of the Mistborn Era Two featuring Wax & Wayne. Now that the first arc of the Stormlight Archive is wrapped up, I\u2019ve started writing the third era of Mistborn in 2025.Most readers have noticed that my adult fantasy novels are in a connected universe called the Cosmere. This includes The Stormlight Archive, both Mistborn series, Elantris, Warbreaker, four of the five Secret Projects, and various novellas, including The Emperor\u2019s Soul, which won a Hugo Award in 2013. In November 2016 all of the existing Cosmere short fiction was released in one volume called Arcanum Unbounded. If you\u2019ve read all of my adult fantasy novels and want to see some behind-the-scenes information, that collection is a must-read.I also have three YA series: The Rithmatist (currently at one book), The Reckoners (a trilogy beginning with Steelheart), and Skyward. For young readers I also have my humorous series Alcatraz vs. the Evil Librarians, which had its final book, Bastille vs. the Evil Librarians, released in 2022. Many of my adult readers enjoy all of those books as well, and many of my YA readers enjoy my adult books, usually starting with Mistborn.Additionally, I have a few other novellas that are more on the thriller/sci-fi side. These include the three stories in Legion: The Many Lives of Stephen Leeds, as well as Perfect State and Snapshot. These two novellas are also featured in 2025\u2019s Tailored Realities. There\u2019s a lot of material to go around!Good starting places are Mistborn (a.k.a. The Final Empire), Skyward, Steelheart, The Emperor\u2019s Soul, Tress of the Emerald Sea, and Alcatraz vs. the Evil Librarians. If you\u2019re already a fan of big fat fantasies, you can jump right into The Way of Kings.I was also honored to be able to complete the final three volumes of The Wheel of Time, beginning with The Gathering Storm, using Robert Jordan\u2019s notes.Sample chapters from all of my books are available at brandonsanderson.com\u2014and check out the rest of my site for chapter-by-chapter annotations, deleted scenes, and more.",
+     "ImageUrl": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/authors/1721927489i/38550._UX200_CR0,0,200,200_.jpg",
+     "Url": "https://www.goodreads.com/author/show/38550.Brandon_Sanderson",
+     "RatingCount": 0,
+     "AverageRating": 0,
+     "Works": [
+      {
+       "ForeignId": 27679568,
+       "Title": "The Way of Kings, Part 1",
+       "FullTitle": "The Way of Kings, Part 1",
+       "ShortTitle": "The Way of Kings, Part 1",
+       "Url": "https://www.goodreads.com/work/27679568-the-way-of-kings-volume-1",
+       "ReleaseDate": "2010-08-31 07:00:00",
+       "ReleaseDateRaw": "2010-08-31",
+       "Genres": [
+        "Fantasy",
+        "Fiction",
+        "High Fantasy",
+        "Epic Fantasy",
+        "Adult",
+        "Audiobook",
+        "Magic",
+        "Science Fiction Fantasy",
+        "Novels",
+        "Adventure"
+       ],
+       "RelatedWorks": [],
+       "Books": null,
+       "Series": [
+        {
+         "ForeignId": 49075,
+         "Title": "The Stormlight Archive",
+         "Description": "TODO",
+         "LinkItems": [
+          {
+           "ForeignWorkId": 27679568,
+           "PositionInSeries": "1, Part 1",
+           "SeriesPosition": 1,
+           "Primary": false
+          }
+         ],
+         "KCA": "kca://series/amzn1.gr.series.v1.psZ3a7nPsOQhIriTc7P4Mg"
+        }
+       ],
+       "Authors": null,
+       "KCA": "kca://work/amzn1.gr.work.v1.-6okDVLEtjhiK8_IS8lcBw",
+       "BestBookId": 9329354,
+       "RatingCount": 0,
+       "AverageRating": 0,
+       "RatingSum": 0
+      }
+     ],
+     "Series": [
+      {
+       "ForeignId": 49075,
+       "Title": "The Stormlight Archive",
+       "Description": "TODO",
+       "LinkItems": [
+        {
+         "ForeignWorkId": 27679568,
+         "PositionInSeries": "1, Part 1",
+         "SeriesPosition": 1,
+         "Primary": false
+        }
+       ],
+       "KCA": "kca://series/amzn1.gr.series.v1.psZ3a7nPsOQhIriTc7P4Mg"
+      }
+     ],
+     "KCA": "kca://author/amzn1.gr.author.v1.vzIvVoDHMvUP6APuS-ItJA"
+    }
+   ],
+   "KCA": "kca://work/amzn1.gr.work.v1.-6okDVLEtjhiK8_IS8lcBw",
+   "BestBookId": 9329354,
+   "RatingCount": 0,
+   "AverageRating": 0,
+   "RatingSum": 0
+  }
+ ],
+ "Series": [
+  {
+   "ForeignId": 309211,
+   "Title": "Dungeon Crawler Carl",
+   "Description": "TODO",
+   "LinkItems": [
+    {
+     "ForeignWorkId": 76027608,
+     "PositionInSeries": "1",
+     "SeriesPosition": 1,
+     "Primary": false
+    }
+   ],
+   "KCA": "kca://series/amzn1.gr.series.v3.JVWSypCYGeq7psky"
+  },
+  {
+   "ForeignId": 49075,
+   "Title": "The Stormlight Archive",
+   "Description": "TODO",
+   "LinkItems": [
+    {
+     "ForeignWorkId": 27679568,
+     "PositionInSeries": "1, Part 1",
+     "SeriesPosition": 1,
+     "Primary": false
+    }
+   ],
+   "KCA": "kca://series/amzn1.gr.series.v1.psZ3a7nPsOQhIriTc7P4Mg"
+  }
+ ],
+ "Authors": [
+  {
+   "ForeignId": 999015,
+   "Name": "Matt Dinniman",
+   "Description": "Matt Dinniman is the best-selling writer and artist from Gig Harbor, Washington. He is the published author of dozens of short stories and a gaggle of books. In addition, his art publications\u2014from greeting cards to stationery kits to calendars\u2014can be found in boutique and stationery shops around the world. Also, he strongly feels like a pretentious twat when he writes about himself in third person.",
+   "ImageUrl": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/authors/1378793109i/999015._UY200_CR225,0,200,200_.jpg",
+   "Url": "https://www.goodreads.com/author/show/999015.Matt_Dinniman",
+   "RatingCount": 0,
+   "AverageRating": 0,
+   "Works": [
+    {
+     "ForeignId": 76027608,
+     "Title": "Dungeon Crawler Carl",
+     "FullTitle": "Dungeon Crawler Carl",
+     "ShortTitle": "Dungeon Crawler Carl",
+     "Url": "https://www.goodreads.com/work/76027608-dungeon-crawler-carl",
+     "ReleaseDate": "2020-09-21 07:00:00",
+     "ReleaseDateRaw": "2020-09-21",
+     "Genres": [
+      "Fantasy",
+      "Science Fiction",
+      "Audiobook",
+      "Fiction",
+      "Litrpg",
+      "Humor",
+      "Dystopia",
+      "Adventure",
+      "Book Club",
+      "Comedy"
+     ],
+     "RelatedWorks": [],
+     "Books": null,
+     "Series": [
+      {
+       "ForeignId": 309211,
+       "Title": "Dungeon Crawler Carl",
+       "Description": "TODO",
+       "LinkItems": [
+        {
+         "ForeignWorkId": 76027608,
+         "PositionInSeries": "1",
+         "SeriesPosition": 1,
+         "Primary": false
+        }
+       ],
+       "KCA": "kca://series/amzn1.gr.series.v3.JVWSypCYGeq7psky"
+      }
+     ],
+     "Authors": null,
+     "KCA": "kca://work/amzn1.gr.work.v3.ebEzo_4_YMEtmddW",
+     "BestBookId": 211721806,
+     "RatingCount": 0,
+     "AverageRating": 0,
+     "RatingSum": 0
+    }
+   ],
+   "Series": [
+    {
+     "ForeignId": 309211,
+     "Title": "Dungeon Crawler Carl",
+     "Description": "TODO",
+     "LinkItems": [
+      {
+       "ForeignWorkId": 76027608,
+       "PositionInSeries": "1",
+       "SeriesPosition": 1,
+       "Primary": false
+      }
+     ],
+     "KCA": "kca://series/amzn1.gr.series.v3.JVWSypCYGeq7psky"
+    }
+   ],
+   "KCA": "kca://author/amzn1.gr.author.v1.H7LarilhpCQ5hVOQ8TMJuQ"
+  },
+  {
+   "ForeignId": 38550,
+   "Name": "Brandon Sanderson",
+   "Description": "I\u2019m Brandon Sanderson, and I write stories of the fantastic: fantasy, science fiction, and thrillers.The release of Wind and Truth in December 2024\u2014the fifth and final book in the first arc of the #1 New York Times bestselling Stormlight Archive series\u2014marks a significant milestone for me. This series is my love letter to the epic fantasy genre, and it\u2019s the type of story I always dreamed epic fantasy could be. Now is a great time to get into the Stormlight Archive since the first arc, which begins with Way of Kings, is complete.During our crowdfunding campaign for the leatherbound edition of Words of Radiance, I announced a fifth Secret Project called Isles of the Emberdark, which came out in the summer of 2025. Coming December 2025 is Tailored Realities, my non-Cosmere short story collection featuring the new novella Moment Zero.Defiant, the fourth and final volume of the series that started with Skyward in 2018, came out in November 2023, capping an already book-filled year that saw the releases of all four Secret Projects: Tress of the Emerald Sea, The Frugal Wizard\u2019s Handbook for Surviving Medieval England, Yumi and the Nightmare Painter, and The Sunlit Man. These four books were all initially offered to backers of the #1 Kickstarter campaign of all time.November 2022 saw the release of The Lost Metal, the seventh volume in the Mistborn saga, and the final volume of the Mistborn Era Two featuring Wax & Wayne. Now that the first arc of the Stormlight Archive is wrapped up, I\u2019ve started writing the third era of Mistborn in 2025.Most readers have noticed that my adult fantasy novels are in a connected universe called the Cosmere. This includes The Stormlight Archive, both Mistborn series, Elantris, Warbreaker, four of the five Secret Projects, and various novellas, including The Emperor\u2019s Soul, which won a Hugo Award in 2013. In November 2016 all of the existing Cosmere short fiction was released in one volume called Arcanum Unbounded. If you\u2019ve read all of my adult fantasy novels and want to see some behind-the-scenes information, that collection is a must-read.I also have three YA series: The Rithmatist (currently at one book), The Reckoners (a trilogy beginning with Steelheart), and Skyward. For young readers I also have my humorous series Alcatraz vs. the Evil Librarians, which had its final book, Bastille vs. the Evil Librarians, released in 2022. Many of my adult readers enjoy all of those books as well, and many of my YA readers enjoy my adult books, usually starting with Mistborn.Additionally, I have a few other novellas that are more on the thriller/sci-fi side. These include the three stories in Legion: The Many Lives of Stephen Leeds, as well as Perfect State and Snapshot. These two novellas are also featured in 2025\u2019s Tailored Realities. There\u2019s a lot of material to go around!Good starting places are Mistborn (a.k.a. The Final Empire), Skyward, Steelheart, The Emperor\u2019s Soul, Tress of the Emerald Sea, and Alcatraz vs. the Evil Librarians. If you\u2019re already a fan of big fat fantasies, you can jump right into The Way of Kings.I was also honored to be able to complete the final three volumes of The Wheel of Time, beginning with The Gathering Storm, using Robert Jordan\u2019s notes.Sample chapters from all of my books are available at brandonsanderson.com\u2014and check out the rest of my site for chapter-by-chapter annotations, deleted scenes, and more.",
+   "ImageUrl": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/authors/1721927489i/38550._UX200_CR0,0,200,200_.jpg",
+   "Url": "https://www.goodreads.com/author/show/38550.Brandon_Sanderson",
+   "RatingCount": 0,
+   "AverageRating": 0,
+   "Works": [
+    {
+     "ForeignId": 27679568,
+     "Title": "The Way of Kings, Part 1",
+     "FullTitle": "The Way of Kings, Part 1",
+     "ShortTitle": "The Way of Kings, Part 1",
+     "Url": "https://www.goodreads.com/work/27679568-the-way-of-kings-volume-1",
+     "ReleaseDate": "2010-08-31 07:00:00",
+     "ReleaseDateRaw": "2010-08-31",
+     "Genres": [
+      "Fantasy",
+      "Fiction",
+      "High Fantasy",
+      "Epic Fantasy",
+      "Adult",
+      "Audiobook",
+      "Magic",
+      "Science Fiction Fantasy",
+      "Novels",
+      "Adventure"
+     ],
+     "RelatedWorks": [],
+     "Books": null,
+     "Series": [
+      {
+       "ForeignId": 49075,
+       "Title": "The Stormlight Archive",
+       "Description": "TODO",
+       "LinkItems": [
+        {
+         "ForeignWorkId": 27679568,
+         "PositionInSeries": "1, Part 1",
+         "SeriesPosition": 1,
+         "Primary": false
+        }
+       ],
+       "KCA": "kca://series/amzn1.gr.series.v1.psZ3a7nPsOQhIriTc7P4Mg"
+      }
+     ],
+     "Authors": null,
+     "KCA": "kca://work/amzn1.gr.work.v1.-6okDVLEtjhiK8_IS8lcBw",
+     "BestBookId": 9329354,
+     "RatingCount": 0,
+     "AverageRating": 0,
+     "RatingSum": 0
+    }
+   ],
+   "Series": [
+    {
+     "ForeignId": 49075,
+     "Title": "The Stormlight Archive",
+     "Description": "TODO",
+     "LinkItems": [
+      {
+       "ForeignWorkId": 27679568,
+       "PositionInSeries": "1, Part 1",
+       "SeriesPosition": 1,
+       "Primary": false
+      }
+     ],
+     "KCA": "kca://series/amzn1.gr.series.v1.psZ3a7nPsOQhIriTc7P4Mg"
+    }
+   ],
+   "KCA": "kca://author/amzn1.gr.author.v1.vzIvVoDHMvUP6APuS-ItJA"
+  }
+ ]
+}

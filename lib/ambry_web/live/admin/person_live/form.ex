@@ -4,6 +4,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
   import AmbryWeb.Admin.UploadHelpers
 
+  alias Ambry.Metadata.Registry
   alias Ambry.People
   alias Ambry.People.Person
   alias AmbryWeb.Admin.PersonLive.Form.ImportForm
@@ -14,7 +15,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:ok,
      socket
      |> allow_image_upload(:image)
-     |> assign(import: nil, scraping_available: AmbryScraping.web_scraping_available?())
+     |> assign(import: nil, providers: Registry.enabled(capability: :author_search))
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -47,10 +48,13 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:noreply, handle_import_form_params(socket, params)}
   end
 
-  defp handle_import_form_params(socket, %{"import" => type}) do
+  defp handle_import_form_params(socket, %{"import" => provider_id}) do
     query = socket.assigns.form.params["name"] || socket.assigns.person.name
-    import_type = String.to_existing_atom(type)
-    assign(socket, import: %{type: import_type, query: query})
+
+    case Registry.fetch(provider_id) do
+      {:ok, provider} -> assign(socket, import: %{provider: provider, query: query})
+      {:error, :unknown_provider} -> assign(socket, import: nil)
+    end
   end
 
   defp handle_import_form_params(socket, _params) do
@@ -90,12 +94,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     end
   end
 
-  def handle_event("open-import-form", %{"type" => type}, socket) do
-    query = socket.assigns.form.params["name"] || socket.assigns.person.name
-    import_type = String.to_existing_atom(type)
-    socket = assign(socket, import: %{type: import_type, query: query})
-
-    {:noreply, socket}
+  def handle_event("open-import-form", %{"type" => provider_id}, socket) do
+    {:noreply, handle_import_form_params(socket, %{"import" => provider_id})}
   end
 
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do

@@ -550,7 +550,7 @@ defmodule AmbryWeb.CoreComponents do
         class={if @show_preview, do: "rounded-b-none"}
       />
       <div :if={@show_preview} class="rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
-        <.image_with_size id={@field.id} src={@field.value} class={@image_preview_class} />
+        <.image_with_size id={@field.id} src={proxied_remote_image_url(@field.value)} class={@image_preview_class} />
       </div>
     </div>
     """
@@ -643,6 +643,18 @@ defmodule AmbryWeb.CoreComponents do
     </p>
     """
   end
+
+  @doc """
+  Routes a remote image URL through the admin image proxy, so import
+  previews render even in browsers whose tracking protection blocks
+  hotlinks to provider CDNs. Local paths (and nil) pass through unchanged.
+  """
+  def proxied_remote_image_url(nil), do: nil
+
+  def proxied_remote_image_url("http" <> _rest = url),
+    do: "/admin/image-proxy?" <> URI.encode_query(url: url)
+
+  def proxied_remote_image_url(url), do: url
 
   attr :id, :string, required: true
   attr :src, :string, required: true

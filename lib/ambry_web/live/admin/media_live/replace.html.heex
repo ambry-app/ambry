@@ -34,7 +34,7 @@
       </div>
     </div>
 
-    <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+    <.simple_form id="media-replace-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <div class="space-y-2">
         <%= if @local_import_path do %>
           <.tabs

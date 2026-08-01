@@ -1,32 +1,30 @@
 <.layout title={@page_title} user={@current_user}>
   <.modal :if={@import} id="import-modal" show on_cancel={close_import_form(@person)}>
-    <.live_component id="import-form" module={ImportForm} type={@import.type} query={@import.query} person={@person} />
+    <.live_component
+      id="import-form"
+      module={ImportForm}
+      provider={@import.provider}
+      query={@import.query}
+      person={@person}
+    />
   </.modal>
 
   <div class="max-w-3xl">
-    <.simple_form for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+    <.simple_form id="person-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
         <.input field={@form[:name]} label="Name" />
 
-        <div class="row-start-1 space-y-2 sm:col-start-2">
+        <div :if={@providers != []} class="row-start-1 space-y-2 sm:col-start-2">
           <.label>Import from:</.label>
           <div class="flex items-center gap-2">
             <.button
-              :if={@scraping_available}
+              :for={provider <- @providers}
               color={:zinc}
               class="flex items-center gap-1"
               type="button"
-              phx-click={open_import_form(@person, "goodreads")}
+              phx-click={open_import_form(@person, provider.id)}
             >
-              <.icon name="fa-brands-goodreads" class="h-4 w-4 text-current" /> GoodReads
-            </.button>
-            <.button
-              color={:zinc}
-              class="flex items-center gap-1"
-              type="button"
-              phx-click={open_import_form(@person, "audible")}
-            >
-              <.icon name="fa-brands-audible" class="h-4 w-4 text-current" /> Audible
+              {provider.display_name}
             </.button>
           </div>
         </div>

@@ -52,6 +52,13 @@ defmodule AmbryWeb.Admin.Layouts do
           <.icon name="fa-file-waveform" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
           <p>File Audit</p>
         </.link>
+        <.link
+          navigate={~p"/admin/metadata-providers"}
+          class={nav_class(@active_path =~ "/admin/metadata-providers")}
+        >
+          <.icon name="fa-screwdriver-wrench" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
+          <p>Metadata Providers</p>
+        </.link>
         <.link navigate={~p"/admin/users"} class={nav_class(@active_path =~ "/admin/users")}>
           <.icon name="fa-users-gear" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
           <p>Manage Users</p>
