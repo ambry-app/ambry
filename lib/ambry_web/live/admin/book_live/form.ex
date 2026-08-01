@@ -19,7 +19,8 @@ defmodule AmbryWeb.Admin.BookLive.Form do
        # title/authors/series too, and the generic form is provider-agnostic
        import_providers: Registry.enabled(capability: :book_search),
        authors: People.authors_for_select(),
-       series: Books.series_for_select()
+       series: Books.series_for_select(),
+       universes: Books.universes_for_select()
      )
      |> apply_action(socket.assigns.live_action, params)}
   end

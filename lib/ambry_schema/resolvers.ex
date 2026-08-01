@@ -8,8 +8,10 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Accounts
   alias Ambry.Accounts.User
   alias Ambry.Books.Book
+  alias Ambry.Books.BookUniverse
   alias Ambry.Books.Series
   alias Ambry.Books.SeriesBook
+  alias Ambry.Books.Universe
   alias Ambry.Deletions.Deletion
   alias Ambry.Hashids
   alias Ambry.Media.Media
@@ -89,6 +91,11 @@ defmodule AmbrySchema.Resolvers do
   def book_authors_changed_since(args, _resolution),
     do: Sync.changes_since(BookAuthor, args[:since])
 
+  def universes_changed_since(args, _resolution), do: Sync.changes_since(Universe, args[:since])
+
+  def book_universes_changed_since(args, _resolution),
+    do: Sync.changes_since(BookUniverse, args[:since])
+
   def series_changed_since(args, _resolution), do: Sync.changes_since(Series, args[:since])
 
   def series_books_changed_since(args, _resolution),
@@ -148,6 +155,10 @@ defmodule AmbrySchema.Resolvers do
 
   def node(%{type: :book, id: id}, _resolution), do: {:ok, Repo.get(Book, id)}
   def node(%{type: :book_author, id: id}, _resolution), do: {:ok, Repo.get(BookAuthor, id)}
+
+  def node(%{type: :book_universe, id: id}, _resolution), do: {:ok, Repo.get(BookUniverse, id)}
+
+  def node(%{type: :universe, id: id}, _resolution), do: {:ok, Repo.get(Universe, id)}
   def node(%{type: :deletion, id: id}, _resolution), do: {:ok, Repo.get(Deletion, id)}
   def node(%{type: :media, id: id}, _resolution), do: {:ok, Repo.get(Media, id)}
   def node(%{type: :media_narrator, id: id}, _resolution), do: {:ok, Repo.get(MediaNarrator, id)}
@@ -160,6 +171,8 @@ defmodule AmbrySchema.Resolvers do
   def type(%AuthorPerson{}, _resolution), do: :author_person
   def type(%Book{}, _resolution), do: :book
   def type(%BookAuthor{}, _resolution), do: :book_author
+  def type(%BookUniverse{}, _resolution), do: :book_universe
+  def type(%Universe{}, _resolution), do: :universe
   def type(%Deletion{}, _resolution), do: :deletion
   def type(%Media{}, _resolution), do: :media
   def type(%MediaNarrator{}, _resolution), do: :media_narrator

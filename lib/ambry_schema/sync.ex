@@ -15,10 +15,12 @@ defmodule AmbrySchema.Sync do
     value :narrator
     value :book
     value :book_author
+    value :book_universe
     value :series
     value :series_book
     value :media
     value :media_narrator
+    value :universe
   end
 
   node object(:deletion) do
@@ -79,6 +81,22 @@ defmodule AmbrySchema.Sync do
       middleware AmbrySchema.AuthMiddleware
 
       resolve &Resolvers.book_authors_changed_since/2
+    end
+
+    field :universes_changed_since, non_null(list_of(non_null(:universe))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.universes_changed_since/2
+    end
+
+    field :book_universes_changed_since, non_null(list_of(non_null(:book_universe))) do
+      arg :since, :datetime
+
+      middleware AmbrySchema.AuthMiddleware
+
+      resolve &Resolvers.book_universes_changed_since/2
     end
 
     field :series_changed_since, non_null(list_of(non_null(:series))) do

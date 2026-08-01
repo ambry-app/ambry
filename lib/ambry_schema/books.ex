@@ -37,6 +37,24 @@ defmodule AmbrySchema.Books do
     interface :search_result
   end
 
+  node object(:universe) do
+    field :name, non_null(:string)
+
+    field :books, non_null(list_of(non_null(:book))),
+      resolve: dataloader(Resolvers, args: %{order: {:asc, :title}})
+
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
+  end
+
+  node object(:book_universe) do
+    field :book, non_null(:book), resolve: dataloader(Resolvers)
+    field :universe, non_null(:universe), resolve: dataloader(Resolvers)
+
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
+  end
+
   node object(:book) do
     field :title, non_null(:string)
     field :published, non_null(:date)
@@ -46,6 +64,9 @@ defmodule AmbrySchema.Books do
       resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
 
     field :series_books, non_null(list_of(non_null(:series_book))), resolve: dataloader(Resolvers)
+
+    field :universes, non_null(list_of(non_null(:universe))),
+      resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
 
     field :media, non_null(list_of(non_null(:media))),
       resolve: dataloader(Resolvers, args: %{order: {:desc, :inserted_at}})

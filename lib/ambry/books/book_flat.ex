@@ -15,7 +15,7 @@ defmodule Ambry.Books.BookFlat do
     field :thumbnails, {:array, :string}
     field :authors, {:array, PersonName.Type}
     field :series, {:array, SeriesBookType.Type}
-    field :universe, :string
+    field :universes, :string
     field :media, :integer
 
     # deprecated
@@ -30,7 +30,7 @@ defmodule Ambry.Books.BookFlat do
 
     from b in query,
       where:
-        ilike(b.title, ^search_string) or ilike(b.universe, ^search_string) or
+        ilike(b.title, ^search_string) or ilike(b.universes, ^search_string) or
           fragment(
             "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ?)",
             b.series,
