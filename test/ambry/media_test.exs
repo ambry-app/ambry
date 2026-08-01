@@ -913,5 +913,15 @@ defmodule Ambry.MediaTest do
       assert description =~ author.name
       assert description =~ narrator.name
     end
+
+    test "uses the display-title override when present" do
+      book = insert(:book, title: "Philosopher's Stone")
+      media = insert(:media, book: book, title: "Sorcerer's Stone")
+
+      description = media.id |> Media.get_media!() |> Media.get_media_description()
+
+      assert description =~ "Sorcerer's Stone"
+      refute description =~ "Philosopher's Stone"
+    end
   end
 end

@@ -63,6 +63,7 @@ defmodule AmbryWeb.AuthorLive do
        page: 1,
        empty?: false
      )
+     |> stream(:books, [])
      |> paginate_books(1)}
   end
 

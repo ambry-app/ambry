@@ -46,6 +46,7 @@ defmodule AmbryWeb.NarratorLive do
        page: 1,
        empty?: false
      )
+     |> stream(:media, [])
      |> paginate_media(1)}
   end
 

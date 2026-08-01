@@ -1116,7 +1116,7 @@ defmodule AmbryWeb.CoreComponents do
         </.link>
         <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/audiobooks/#{@media}"}>
-            {@media.book.title}
+            {@media.title || @media.book.title}
           </.link>
         </p>
       </div>
