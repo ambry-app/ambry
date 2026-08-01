@@ -86,6 +86,57 @@ defmodule Ambry.Metadata.Providers.RreadingGlassesTest do
       assert result.provider == "rreading_glasses"
       assert result.image_url =~ "http"
     end
+
+    test "orders results by name similarity to the query, not book-hit order" do
+      # first search hit is a book *about* Doyle by his bibliographer;
+      # Doyle himself authors the remaining hits
+      search = [
+        %{"bookId" => 1, "workId" => 10, "author" => %{"id" => 111}},
+        %{"bookId" => 2, "workId" => 20, "author" => %{"id" => 222}},
+        %{"bookId" => 3, "workId" => 30, "author" => %{"id" => 222}}
+      ]
+
+      patch(Client, :get_json, fn
+        _base, "/search", _params ->
+          {:ok, search}
+
+        _base, "/author/111", [] ->
+          {:ok, %{"ForeignId" => 111, "Name" => "Richard Lancelyn Green"}}
+
+        _base, "/author/222", [] ->
+          {:ok, %{"ForeignId" => 222, "Name" => "Arthur Conan Doyle"}}
+      end)
+
+      assert {:ok, [first, second]} = RreadingGlasses.search_authors("arthur conan doyle", %{})
+      assert first.name == "Arthur Conan Doyle"
+      assert second.name == "Richard Lancelyn Green"
+    end
+
+    test "strips Goodreads size modifiers from author photos" do
+      author = fixture("rreading_glasses_author.json")
+      assert author["ImageUrl"] =~ "._UY200_"
+
+      patch(Client, :get_json, fn _base, "/author/" <> _id, [] -> {:ok, author} end)
+
+      assert {:ok, %Provider.Author{image_url: image_url}} =
+               RreadingGlasses.author_details("999015", %{})
+
+      refute image_url =~ "._UY200_"
+      assert image_url =~ ~r/999015\.jpg$/
+    end
+
+    test "maps the Goodreads nophoto placeholder to no image" do
+      author = %{
+        "ForeignId" => 1,
+        "Name" => "Richard Lancelyn Green",
+        "ImageUrl" =>
+          "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/nophoto/user/u_700x933.png"
+      }
+
+      patch(Client, :get_json, fn _base, "/author/" <> _id, [] -> {:ok, author} end)
+
+      assert {:ok, %Provider.Author{image_url: nil}} = RreadingGlasses.author_details("1", %{})
+    end
   end
 
   describe "author_details/2" do

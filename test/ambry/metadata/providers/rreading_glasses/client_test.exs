@@ -10,6 +10,15 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses.ClientTest do
     assert {:ok, [%{"bookId" => 1}]} = Client.get_json("https://rg.test", "/search", q: "x")
   end
 
+  test "disables Req's automatic retry (429 Retry-After waits hang interactive imports)" do
+    patch(Req, :get, fn opts ->
+      assert Keyword.get(opts, :retry) == false
+      {:ok, %Req.Response{status: 200, body: []}}
+    end)
+
+    assert {:ok, []} = Client.get_json("https://rg.test", "/search", q: "x")
+  end
+
   test "decodes JSON served as text/plain (public instance behind Cloudflare)" do
     patch(Req, :get, fn _opts ->
       {:ok, %Req.Response{status: 200, body: ~s([{"bookId": 211721806, "workId": 76027608}])}}

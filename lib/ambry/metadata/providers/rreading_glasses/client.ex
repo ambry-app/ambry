@@ -17,7 +17,11 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses.Client do
   def get_json(base_url, path, params \\ []) do
     url = String.trim_trailing(base_url, "/") <> path
 
-    case Req.get(url: url, params: params, receive_timeout: @receive_timeout) do
+    # retry: false — Req's default retry honors Retry-After on 429s, which
+    # the shared public instance hands out in tens of seconds; hanging an
+    # interactive import form that long is worse than failing fast (the
+    # error renders in the modal and there is a Re-fetch button).
+    case Req.get(url: url, params: params, receive_timeout: @receive_timeout, retry: false) do
       {:ok, %{status: 200, body: body}} -> decode(body)
       {:ok, %{status: 404}} -> {:error, :not_found}
       {:ok, response} -> {:error, response}

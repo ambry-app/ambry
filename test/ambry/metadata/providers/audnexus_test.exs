@@ -15,6 +15,20 @@ defmodule Ambry.Metadata.Providers.AudnexusTest do
              Audnexus.search_authors("matt", %{})
   end
 
+  test "orders fuzzy search results by name similarity to the query" do
+    patch(AmbryScraping.Audnexus, :search_authors, fn _query ->
+      {:ok,
+       [
+         %AmbryScraping.Audnexus.Author{id: "B1", name: "Conan O'Brien: Life Lessons"},
+         %AmbryScraping.Audnexus.Author{id: "B2", name: "Larry Doyle"},
+         %AmbryScraping.Audnexus.Author{id: "B3", name: "Arthur Conan Doyle"}
+       ]}
+    end)
+
+    assert {:ok, [first | _rest]} = Audnexus.search_authors("arthur conan doyle", %{})
+    assert first.name == "Arthur Conan Doyle"
+  end
+
   test "normalizes author details" do
     patch(AmbryScraping.Audnexus, :author_details, fn "B002D1TN2W" ->
       {:ok,

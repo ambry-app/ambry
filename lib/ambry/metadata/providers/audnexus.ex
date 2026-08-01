@@ -36,10 +36,25 @@ defmodule Ambry.Metadata.Providers.Audnexus do
   def search_authors(query, _config) do
     with {:ok, authors} <- Audnexus.search_authors(query) do
       {:ok,
-       Enum.map(authors, fn author ->
+       authors
+       |> Enum.map(fn author ->
          %Provider.Author{provider: id(), id: author.id, name: author.name}
-       end)}
+       end)
+       |> sort_by_name_similarity(query)}
     end
+  end
+
+  # Audnexus name search is fuzzy to the point of returning unrelated
+  # people (and whole book titles as "names"); order by similarity to the
+  # query so the right person is preselected.
+  defp sort_by_name_similarity(authors, query) do
+    query = query |> String.trim() |> String.downcase()
+
+    Enum.sort_by(
+      authors,
+      &String.jaro_distance(String.downcase(&1.name || ""), query),
+      :desc
+    )
   end
 
   @impl Provider

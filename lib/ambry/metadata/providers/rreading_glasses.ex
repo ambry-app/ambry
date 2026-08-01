@@ -81,14 +81,18 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
         results
         |> Enum.map(&get_in(&1, ["author", "id"]))
         |> Enum.reject(&is_nil/1)
-        |> Enum.uniq()
+        |> rank_by_frequency()
         |> Enum.take(@max_author_hydrations)
-        |> Enum.flat_map(fn author_id ->
-          case author_details(author_id, config) do
-            {:ok, author} -> [author]
-            {:error, _reason} -> []
-          end
+        |> Task.async_stream(&author_details(&1, config),
+          max_concurrency: @max_author_hydrations,
+          timeout: 35_000,
+          on_timeout: :kill_task
+        )
+        |> Enum.flat_map(fn
+          {:ok, {:ok, author}} -> [author]
+          _error -> []
         end)
+        |> sort_by_name_similarity(query)
 
       {:ok, authors}
     end
@@ -103,12 +107,49 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
          id: to_string(author["ForeignId"]),
          name: author["Name"],
          description: presence(author["Description"]),
-         image_url: presence(author["ImageUrl"])
+         image_url: author["ImageUrl"] |> presence() |> full_size_image()
        }}
     end
   end
 
   defp base_url(config), do: config[:base_url] || "https://api.bookinfo.pro"
+
+  # Search hits are book-relevance-ordered, so the first hit's author can be
+  # an editor/scholar of a work *about* the searched person. Hydrate the
+  # authors appearing most often across the hits, then present them ordered
+  # by name similarity to the query — searching "arthur conan doyle" should
+  # preselect Doyle, not the editor of an anthology that ranked first.
+  defp rank_by_frequency(author_ids) do
+    frequencies = Enum.frequencies(author_ids)
+
+    author_ids
+    |> Enum.uniq()
+    |> Enum.sort_by(&frequencies[&1], :desc)
+  end
+
+  defp sort_by_name_similarity(authors, query) do
+    query = query |> String.trim() |> String.downcase()
+
+    Enum.sort_by(
+      authors,
+      &String.jaro_distance(String.downcase(&1.name || ""), query),
+      :desc
+    )
+  end
+
+  # Goodreads image URLs need two normalizations: photo-less people get a
+  # literal placeholder image (`…/nophoto/user/…`), which should read as
+  # "no image", and real photos arrive constrained by an Amazon-style size
+  # modifier (`…/999015._UY200_CR102,0,200,200_.jpg`) — stripping the
+  # modifier segment yields the full-size original (up to ~700px; that is
+  # all Goodreads stores) for the thumbnail pipeline.
+  defp full_size_image(nil), do: nil
+
+  defp full_size_image(url) do
+    if !(url =~ "/nophoto/") do
+      Regex.replace(~r{\._[^./]+_\.}, url, ".")
+    end
+  end
 
   defp hydrate_books([], _config), do: {:ok, []}
 
@@ -156,7 +197,8 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
       id: to_string(work["ForeignId"]),
       title: work["Title"],
       description: best["Description"] || first_present(editions, "Description"),
-      cover_url: best["ImageUrl"] || first_present(editions, "ImageUrl"),
+      cover_url:
+        full_size_image(presence(best["ImageUrl"]) || first_present(editions, "ImageUrl")),
       published:
         Provider.PublishedDate.from_string(work["ReleaseDateRaw"] || best["ReleaseDateRaw"]),
       publisher: presence(best["Publisher"]),
@@ -215,7 +257,7 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
       format: presence(edition["Format"]),
       publisher: presence(edition["Publisher"]),
       published: Provider.PublishedDate.from_string(edition["ReleaseDateRaw"]),
-      cover_url: presence(edition["ImageUrl"])
+      cover_url: edition["ImageUrl"] |> presence() |> full_size_image()
     }
   end
 
