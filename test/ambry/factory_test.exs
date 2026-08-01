@@ -12,6 +12,7 @@ defmodule Ambry.FactoryTest do
   alias Ambry.Media.Media.Chapter
   alias Ambry.Media.MediaNarrator
   alias Ambry.People.Author
+  alias Ambry.People.AuthorPerson
   alias Ambry.People.BookAuthor
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -26,7 +27,7 @@ defmodule Ambry.FactoryTest do
       assert is_binary(person.description)
       refute person.image_path
       refute person.thumbnails
-      assert person.authors == []
+      assert person.author_people == []
       assert person.narrators == []
     end
 
@@ -58,7 +59,7 @@ defmodule Ambry.FactoryTest do
 
       assert %Person{} = person
       assert "Real Name" = person.name
-      assert [%Author{name: "Pen Name"}] = person.authors
+      assert [%AuthorPerson{author: %Author{name: "Pen Name"}}] = person.author_people
     end
 
     test "creates a person that narrates as a narrator under an alias" do
@@ -82,7 +83,7 @@ defmodule Ambry.FactoryTest do
 
       assert %Person{} = person
       assert "Real Name" = person.name
-      assert 3 = length(person.authors)
+      assert 3 = length(person.author_people)
     end
   end
 
@@ -107,7 +108,7 @@ defmodule Ambry.FactoryTest do
       assert %Book{} = book
       assert [%BookAuthor{author: author}] = book.book_authors
       assert %Author{} = author
-      assert %Person{} = author.person
+      assert [%AuthorPerson{person: %Person{}}] = author.author_people
     end
 
     test "creates a book with multiple authors" do
@@ -121,9 +122,9 @@ defmodule Ambry.FactoryTest do
       assert 2 = length(book.book_authors)
       assert [%BookAuthor{author: author1}, %BookAuthor{author: author2}] = book.book_authors
       assert %Author{} = author1
-      assert %Person{} = author1.person
+      assert [%AuthorPerson{person: %Person{}}] = author1.author_people
       assert %Author{} = author2
-      assert %Person{} = author2.person
+      assert [%AuthorPerson{person: %Person{}}] = author2.author_people
     end
 
     test "creates a book that's part of a series" do

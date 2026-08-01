@@ -140,11 +140,11 @@ defmodule Ambry.PeopleTest do
     test "can create nested authors" do
       %{name: person_name} = person_params = params_for(:person, image_path: nil)
       %{name: author_name} = author_params = params_for(:author)
-      params = Map.put(person_params, :authors, [author_params])
+      params = Map.put(person_params, :author_people, [%{author: author_params}])
 
       assert {:ok, person} = People.create_person(params)
 
-      assert %{name: ^person_name, authors: [%{name: ^author_name}]} = person
+      assert %{name: ^person_name, author_people: [%{author: %{name: ^author_name}}]} = person
     end
 
     test "can create nested narrators" do
@@ -205,56 +205,95 @@ defmodule Ambry.PeopleTest do
 
     test "updates nested authors" do
       person = insert(:person, authors: [build(:author)])
-      [%{id: author_id}] = person.authors
+      [%{id: join_id, author: %{id: author_id}}] = person.author_people
       new_name = Fake.full_name()
 
       {:ok, updated_person} =
         People.update_person(person, %{
           name: new_name,
-          authors: [%{id: author_id, name: new_name}]
+          author_people: [%{id: join_id, author: %{id: author_id, name: new_name}}]
         })
 
       assert %{
                name: ^new_name,
-               authors: [
+               author_people: [
                  %{
-                   name: ^new_name
+                   author: %{name: ^new_name}
                  }
                ]
              } = updated_person
     end
 
-    test "deletes nested authors" do
-      person = insert(:person, authors: [build(:author)])
-      [%{id: author_id}] = person.authors
+    test "links an existing author to another person (composite pen name)" do
+      author = insert(:author, person: build(:person))
+      other_person = insert(:person)
 
       {:ok, updated_person} =
-        People.update_person(person, %{authors_drop: [0], authors: %{0 => %{id: author_id}}})
+        People.update_person(other_person, %{author_people: [%{author_id: author.id}]})
 
-      assert %{authors: []} = updated_person
+      assert %{author_people: [%{author_id: author_id}]} = updated_person
+      assert author_id == author.id
+
+      assert %{people: people} = People.get_author!(author.id)
+      assert length(people) == 2
     end
 
-    @tag :skip
+    test "unlinking a shared author keeps the author" do
+      author = insert(:author, person: build(:person))
+      other_person = insert(:person)
+
+      {:ok, other_person} =
+        People.update_person(other_person, %{author_people: [%{author_id: author.id}]})
+
+      [%{id: join_id}] = other_person.author_people
+
+      {:ok, updated_person} =
+        People.update_person(other_person, %{
+          author_people_drop: [0],
+          author_people: %{0 => %{id: join_id}}
+        })
+
+      assert %{author_people: []} = updated_person
+      assert %{people: [_person]} = People.get_author!(author.id)
+    end
+
+    test "deletes nested authors" do
+      person = insert(:person, authors: [build(:author)])
+      [%{id: join_id, author: %{id: author_id}}] = person.author_people
+
+      {:ok, updated_person} =
+        People.update_person(person, %{
+          author_people_drop: [0],
+          author_people: %{0 => %{id: join_id}}
+        })
+
+      assert %{author_people: []} = updated_person
+
+      # the author lost its last person link, so it was deleted entirely
+      assert_raise Ecto.NoResultsError, fn -> People.get_author!(author_id) end
+    end
+
     test "cannot delete a nested author if they have authored a book" do
       book =
         insert(:book,
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
 
-      %{book_authors: [%{author: %{id: author_id, person: person}}]} = book
+      %{book_authors: [%{author: %{id: author_id, author_people: [%{person: person}]}}]} = book
+
+      %{author_people: [%{id: join_id}]} = person = People.get_person!(person.id)
 
       {:error, changeset} =
-        People.update_person(person, %{authors_drop: [0], authors: %{0 => %{id: author_id}}})
+        People.update_person(person, %{
+          author_people_drop: [0],
+          author_people: %{0 => %{id: join_id}}
+        })
 
-      assert %{
-               authors: [
-                 %{
-                   id: [
-                     "This author is in use by one or more books. You must first remove them as an author from any associated books."
-                   ]
-                 }
-               ]
-             } = errors_on(changeset)
+      assert %{author_people: [message]} = errors_on(changeset)
+      assert message =~ "This author is in use by one or more books."
+
+      # the author and its link both survive
+      assert %{author_people: [%{author_id: ^author_id}]} = People.get_person!(person.id)
     end
 
     test "updates nested narrators" do
@@ -553,7 +592,7 @@ defmodule Ambry.PeopleTest do
 
     test "returns the author with the given id" do
       person = insert(:person, authors: [build(:author)])
-      [%{id: id}] = person.authors
+      [%{author: %{id: id}}] = person.author_people
 
       assert %People.Author{id: ^id} = People.get_author!(id)
     end

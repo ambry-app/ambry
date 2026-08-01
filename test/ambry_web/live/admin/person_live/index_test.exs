@@ -73,18 +73,18 @@ defmodule AmbryWeb.Admin.PersonLive.IndexTest do
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
 
-      %{book_authors: [%{author: author}]} = book
+      %{book_authors: [%{author: %{author_people: [%{person: person}]}}]} = book
 
       {:ok, view, _html} = live(conn, ~p"/admin/people")
 
-      assert has_element?(view, "[data-role='person-name']", author.person.name)
+      assert has_element?(view, "[data-role='person-name']", person.name)
 
       view
       |> element("[data-role='delete-person']")
       |> render_click()
 
       # Person should still be visible
-      assert has_element?(view, "[data-role='person-name']", author.person.name)
+      assert has_element?(view, "[data-role='person-name']", person.name)
       assert render(view) =~ "Can&#39;t delete person because they have authored books"
     end
 
@@ -200,7 +200,7 @@ defmodule AmbryWeb.Admin.PersonLive.IndexTest do
 
   describe "Author and Narrator Counts" do
     test "shows book and media counts", %{conn: conn} do
-      %{authors: [author], narrators: [narrator]} =
+      %{author_people: [%{author: author}], narrators: [narrator]} =
         insert(:person,
           name: "Test Person",
           authors: [%{name: "Test Author"}],

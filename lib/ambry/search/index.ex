@@ -107,7 +107,7 @@ defmodule Ambry.Search.Index do
       Repo.all(
         from book in Book,
           where: book.id in ^book_ids,
-          preload: [:series, authors: [:person], media: [narrators: [:person]]]
+          preload: [:series, authors: [:people], media: [narrators: [:person]]]
       )
 
     books
@@ -144,7 +144,7 @@ defmodule Ambry.Search.Index do
       Repo.all(
         from series in Series,
           where: series.id in ^series_ids,
-          preload: [:series_books, authors: [:person]]
+          preload: [:series_books, authors: [:people]]
       )
 
     {series_to_insert, series_to_delete} =
@@ -210,7 +210,7 @@ defmodule Ambry.Search.Index do
   defp series_record(series) do
     {secondary_names, secondary_dependencies} = names(series.authors)
     {tertiary_names, tertiary_dependencies} = person_names(series.authors)
-    book_dependencies = Enum.map(series.books, &reference/1)
+    book_dependencies = Enum.flat_map(series.books, &references/1)
     dependencies = Enum.uniq(book_dependencies ++ secondary_dependencies ++ tertiary_dependencies)
 
     %{
@@ -223,23 +223,33 @@ defmodule Ambry.Search.Index do
   end
 
   defp names(structs) do
-    structs
-    |> Enum.map(&{&1.name, reference(&1)})
-    |> Enum.uniq()
-    |> Enum.unzip()
+    names = structs |> Enum.map(& &1.name) |> Enum.uniq()
+    references = structs |> Enum.flat_map(&references/1) |> Enum.uniq()
+
+    {names, references}
   end
 
   defp person_names(authors_or_narrators) do
     authors_or_narrators
-    |> Enum.reject(&(&1.name == &1.person.name))
-    |> Enum.map(&{&1.person.name, reference(&1.person)})
+    |> Enum.flat_map(fn identity ->
+      identity
+      |> people_of()
+      |> Enum.reject(&(&1.name == identity.name))
+    end)
+    |> Enum.map(&{&1.name, Reference.new(&1)})
     |> Enum.uniq()
     |> Enum.unzip()
   end
 
-  defp reference(%Author{person: person}), do: Reference.new(person)
-  defp reference(%Narrator{person: person}), do: Reference.new(person)
-  defp reference(struct), do: Reference.new(struct)
+  defp people_of(%Author{people: people}), do: people
+  defp people_of(%Narrator{person: person}), do: [person]
+
+  defp references(%Author{} = author), do: author |> people_of() |> Enum.map(&Reference.new/1)
+
+  defp references(%Narrator{} = narrator),
+    do: narrator |> people_of() |> Enum.map(&Reference.new/1)
+
+  defp references(struct), do: [Reference.new(struct)]
 
   defp join([]), do: nil
   defp join(items), do: Enum.join(items, " ")

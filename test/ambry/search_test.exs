@@ -47,7 +47,8 @@ defmodule Ambry.SearchTest do
         )
         |> with_search_index()
 
-      %{id: id, book_authors: [%{author: %{person: %{name: person_name}}}]} = book
+      %{id: id, book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]} =
+        book
 
       assert [%{id: ^id}] = Search.search(person_name)
     end
@@ -91,7 +92,7 @@ defmodule Ambry.SearchTest do
     end
 
     test "returns person by author name" do
-      %{id: id, authors: [%{name: author_name}]} =
+      %{id: id, author_people: [%{author: %{name: author_name}}]} =
         :person |> insert(authors: [build(:author)]) |> with_search_index()
 
       assert [%{id: ^id}] = Search.search(author_name)
@@ -136,7 +137,7 @@ defmodule Ambry.SearchTest do
       %{
         id: book_id,
         series_books: [%{series: %{id: id}}],
-        book_authors: [%{author: %{person: %{name: person_name}}}]
+        book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]
       } = book
 
       assert results = Search.search(person_name)
@@ -183,7 +184,8 @@ defmodule Ambry.SearchTest do
         )
         |> with_search_index()
 
-      %{id: id, book_authors: [%{author: %{person: %{name: person_name}}}]} = book
+      %{id: id, book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]} =
+        book
 
       assert %{id: ^id} = Search.find_first(person_name, Book)
     end
@@ -230,7 +232,7 @@ defmodule Ambry.SearchTest do
     end
 
     test "returns person by author name" do
-      %{id: id, authors: [%{name: author_name}]} =
+      %{id: id, author_people: [%{author: %{name: author_name}}]} =
         :person |> insert(authors: [build(:author)]) |> with_search_index()
 
       assert %{id: ^id} = Search.find_first(author_name, Person)
@@ -282,7 +284,7 @@ defmodule Ambry.SearchTest do
 
       %{
         series_books: [%{series: %{id: id}}],
-        book_authors: [%{author: %{person: %{name: person_name}}}]
+        book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]
       } = book
 
       assert %{id: ^id} = Search.find_first(person_name, Series)

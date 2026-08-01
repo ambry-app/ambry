@@ -54,17 +54,52 @@
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
         <div class="space-y-2">
           <.label>Writing as</.label>
-          <.inputs_for :let={author_form} field={@form[:authors]}>
-            <.sort_input field={@form[:authors_sort]} index={author_form.index} />
+          <.datalist id="all-authors" options={@authors} />
+          <.inputs_for :let={author_person_form} field={@form[:author_people]}>
+            <.sort_input field={@form[:author_people_sort]} index={author_person_form.index} />
 
-            <div class="relative">
-              <.input field={author_form[:name]} />
-              <.delete_button field={@form[:authors_drop]} index={author_form.index} class="absolute top-3 right-2" />
-            </div>
+            <%= if linked_author_row?(author_person_form) do %>
+              <div class="relative">
+                <.input type="hidden" field={author_person_form[:author_id]} />
+                <.input
+                  type="text"
+                  name={"linked-author-#{author_person_form.index}"}
+                  value={linked_author_name(@authors, author_person_form[:author_id].value)}
+                  disabled
+                />
+                <.delete_button
+                  field={@form[:author_people_drop]}
+                  index={author_person_form.index}
+                  class="absolute top-3 right-2"
+                />
+              </div>
+            <% else %>
+              <.inputs_for :let={author_form} field={author_person_form[:author]}>
+                <div class="relative">
+                  <.input field={author_form[:name]} />
+                  <.delete_button
+                    field={@form[:author_people_drop]}
+                    index={author_person_form.index}
+                    class="absolute top-3 right-2"
+                  />
+                </div>
+                <p :if={shared_with(author_person_form, @person) != []} class="text-xs text-zinc-500">
+                  Shared pen name with {Enum.join(shared_with(author_person_form, @person), ", ")}
+                </p>
+              </.inputs_for>
+            <% end %>
           </.inputs_for>
 
-          <.add_button field={@form[:authors_sort]}>Add author</.add_button>
-          <.delete_input field={@form[:authors_drop]} />
+          <.add_button field={@form[:author_people_sort]}>Add author</.add_button>
+          <.delete_input field={@form[:author_people_drop]} />
+
+          <.input
+            field={@form[:link_author_id]}
+            type="autocomplete"
+            options={@authors}
+            list="all-authors"
+            label="Or link an existing author"
+          />
         </div>
 
         <div class="space-y-2">

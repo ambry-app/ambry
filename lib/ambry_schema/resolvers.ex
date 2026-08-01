@@ -15,6 +15,7 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
   alias Ambry.People.Author
+  alias Ambry.People.AuthorPerson
   alias Ambry.People.BookAuthor
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -78,6 +79,10 @@ defmodule AmbrySchema.Resolvers do
 
   def people_changed_since(args, _resolution), do: Sync.changes_since(Person, args[:since])
   def authors_changed_since(args, _resolution), do: Sync.changes_since(Author, args[:since])
+
+  def author_people_changed_since(args, _resolution),
+    do: Sync.changes_since(AuthorPerson, args[:since])
+
   def narrators_changed_since(args, _resolution), do: Sync.changes_since(Narrator, args[:since])
   def books_changed_since(args, _resolution), do: Sync.changes_since(Book, args[:since])
 
@@ -138,6 +143,9 @@ defmodule AmbrySchema.Resolvers do
   end
 
   def node(%{type: :author, id: id}, _resolution), do: {:ok, Repo.get(Author, id)}
+
+  def node(%{type: :author_person, id: id}, _resolution), do: {:ok, Repo.get(AuthorPerson, id)}
+
   def node(%{type: :book, id: id}, _resolution), do: {:ok, Repo.get(Book, id)}
   def node(%{type: :book_author, id: id}, _resolution), do: {:ok, Repo.get(BookAuthor, id)}
   def node(%{type: :deletion, id: id}, _resolution), do: {:ok, Repo.get(Deletion, id)}
@@ -149,6 +157,7 @@ defmodule AmbrySchema.Resolvers do
   def node(%{type: :series_book, id: id}, _resolution), do: {:ok, Repo.get(SeriesBook, id)}
 
   def type(%Author{}, _resolution), do: :author
+  def type(%AuthorPerson{}, _resolution), do: :author_person
   def type(%Book{}, _resolution), do: :book
   def type(%BookAuthor{}, _resolution), do: :book_author
   def type(%Deletion{}, _resolution), do: :deletion

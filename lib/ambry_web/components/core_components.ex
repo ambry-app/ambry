@@ -16,6 +16,7 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Books.Book
   alias Ambry.Books.SeriesBook
   alias Ambry.Media.Media
+  alias Ambry.People.Author
   alias AmbryWeb.Admin.UploadHelpers
   alias AmbryWeb.Components.Autocomplete
   alias Phoenix.HTML.Form
@@ -1241,7 +1242,7 @@ defmodule AmbryWeb.CoreComponents do
   def all_people_links(assigns) do
     ~H"""
     <%= for person_ish <- @people do %>
-      <.link navigate={~p"/people/#{person_ish.person_id}"} class="hover:underline" phx-no-format>
+      <.link navigate={person_ish_path(person_ish)} class="hover:underline" phx-no-format>
         <%= person_ish.name %></.link><span
         class="last:hidden"
         phx-no-format
@@ -1274,7 +1275,7 @@ defmodule AmbryWeb.CoreComponents do
     assigns = assign(assigns, person: person)
 
     ~H"""
-    <.link navigate={~p"/people/#{@person.person_id}"} class="hover:underline" phx-no-format>
+    <.link navigate={person_ish_path(@person)} class="hover:underline" phx-no-format>
     <%= @person.name %></.link><span phx-no-format>, and a full cast</span>
     """
   end
@@ -1283,7 +1284,7 @@ defmodule AmbryWeb.CoreComponents do
     assigns = assign(assigns, person: person)
 
     ~H"""
-    <.link navigate={~p"/people/#{@person.person_id}"} class="hover:underline">
+    <.link navigate={person_ish_path(@person)} class="hover:underline">
       {@person.name}
     </.link>
     """
@@ -1293,9 +1294,9 @@ defmodule AmbryWeb.CoreComponents do
     assigns = assign(assigns, person1: person1, person2: person2)
 
     ~H"""
-    <.link navigate={~p"/people/#{@person1.person_id}"} class="hover:underline" phx-no-format>
+    <.link navigate={person_ish_path(@person1)} class="hover:underline" phx-no-format>
       <%= @person1.name %></.link><span phx-no-format>,</span>
-    <.link navigate={~p"/people/#{@person2.person_id}"} class="hover:underline" phx-no-format>
+    <.link navigate={person_ish_path(@person2)} class="hover:underline" phx-no-format>
       <%= @person2.name %></.link><span phx-no-format>, and a full cast</span>
     """
   end
@@ -1304,9 +1305,9 @@ defmodule AmbryWeb.CoreComponents do
     assigns = assign(assigns, person1: person1, person2: person2)
 
     ~H"""
-    <.link navigate={~p"/people/#{@person1.person_id}"} class="hover:underline" phx-no-format>
+    <.link navigate={person_ish_path(@person1)} class="hover:underline" phx-no-format>
       <%= @person1.name %></.link><span phx-no-format>,</span>
-    <.link navigate={~p"/people/#{@person2.person_id}"} class="hover:underline">
+    <.link navigate={person_ish_path(@person2)} class="hover:underline">
       {@person2.name}
     </.link>
     """
@@ -1316,9 +1317,9 @@ defmodule AmbryWeb.CoreComponents do
     assigns = assign(assigns, person1: person1, person2: person2, others: Enum.count(rest))
 
     ~H"""
-    <.link navigate={~p"/people/#{@person1.person_id}"} class="hover:underline" phx-no-format>
+    <.link navigate={person_ish_path(@person1)} class="hover:underline" phx-no-format>
       <%= @person1.name %></.link><span phx-no-format>,</span>
-    <.link navigate={~p"/people/#{@person2.person_id}"} class="hover:underline" phx-no-format>
+    <.link navigate={person_ish_path(@person2)} class="hover:underline" phx-no-format>
       <%= @person2.name %></.link><span phx-no-format>, <%= @others %> others, and a full cast</span>
     """
   end
@@ -1327,12 +1328,17 @@ defmodule AmbryWeb.CoreComponents do
     assigns = assign(assigns, person1: person1, person2: person2, others: Enum.count(rest))
 
     ~H"""
-    <.link navigate={~p"/people/#{@person1.person_id}"} class="hover:underline" phx-no-format>
+    <.link navigate={person_ish_path(@person1)} class="hover:underline" phx-no-format>
       <%= @person1.name %></.link><span phx-no-format>,</span>
-    <.link navigate={~p"/people/#{@person2.person_id}"} class="hover:underline" phx-no-format>
+    <.link navigate={person_ish_path(@person2)} class="hover:underline" phx-no-format>
       <%= @person2.name %></.link><span phx-no-format>, and <%= @others %> others</span>
     """
   end
+
+  # Authors can be linked to multiple people (composite pen names), so author
+  # links go to the author page; narrators link straight to their person.
+  defp person_ish_path(%Author{} = author), do: ~p"/authors/#{author}"
+  defp person_ish_path(person_ish), do: ~p"/people/#{person_ish.person_id}"
 
   @doc """
   Renders a list of links to series, each in its own p tag.

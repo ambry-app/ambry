@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
   alias Ambry.Metadata.Registry
   alias Ambry.People
+  alias Ambry.People.Author
   alias Ambry.People.Person
   alias AmbryWeb.Admin.PersonLive.Form.ImportForm
   alias Ecto.Changeset
@@ -15,7 +16,11 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:ok,
      socket
      |> allow_image_upload(:image)
-     |> assign(import: nil, providers: Registry.enabled(capability: :author_search))
+     |> assign(
+       import: nil,
+       providers: Registry.enabled(capability: :author_search),
+       authors: People.authors_for_select()
+     )
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -63,6 +68,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"person" => person_params}, socket) do
+    person_params = maybe_link_author(person_params)
+
     socket =
       if person_params["image_type"] == "upload" do
         socket
@@ -79,6 +86,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   def handle_event("submit", %{"person" => person_params}, socket) do
+    person_params = maybe_link_author(person_params)
+
     with {:ok, _person} <-
            socket.assigns.person
            |> People.change_person(person_params)
@@ -159,6 +168,62 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
   defp assign_form(socket, %Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
+  end
+
+  # Selecting an author in the "link an existing author" autocomplete stages an
+  # `author_people` row linking that author (unless it's already present).
+  defp maybe_link_author(%{"link_author_id" => id} = person_params) when id not in [nil, ""] do
+    author_people = person_params["author_people"] || %{}
+
+    linked_ids =
+      author_people
+      |> Map.values()
+      |> Enum.flat_map(&[&1["author_id"], get_in(&1, ["author", "id"])])
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&to_string/1)
+
+    person_params = Map.put(person_params, "link_author_id", "")
+
+    if to_string(id) in linked_ids do
+      person_params
+    else
+      next_index =
+        author_people
+        |> Map.keys()
+        |> Enum.map(&String.to_integer/1)
+        |> Enum.max(fn -> -1 end)
+        |> Kernel.+(1)
+        |> to_string()
+
+      sort = person_params["author_people_sort"] || []
+
+      person_params
+      |> Map.put("author_people", Map.put(author_people, next_index, %{"author_id" => id}))
+      |> Map.put("author_people_sort", sort ++ [next_index])
+    end
+  end
+
+  defp maybe_link_author(person_params), do: person_params
+
+  defp linked_author_row?(author_person_form) do
+    is_nil(author_person_form.data.id) and
+      author_person_form[:author_id].value not in [nil, ""]
+  end
+
+  defp linked_author_name(authors, value) do
+    Enum.find_value(authors, fn {name, id} -> to_string(id) == to_string(value) && name end)
+  end
+
+  defp shared_with(author_person_form, person) do
+    case author_person_form.data.author do
+      %Author{people: people} when is_list(people) ->
+        people
+        |> Enum.reject(&(&1.id == person.id))
+        |> Enum.map(& &1.name)
+
+      _author ->
+        []
+    end
   end
 
   defp open_import_form(%Person{id: nil}, type),

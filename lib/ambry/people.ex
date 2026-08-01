@@ -7,6 +7,7 @@ defmodule Ambry.People do
     deps: [Ambry],
     exports: [
       Author,
+      AuthorPerson,
       BookAuthor,
       Narrator,
       Person,
@@ -22,6 +23,7 @@ defmodule Ambry.People do
 
   alias Ambry.Paths
   alias Ambry.People.Author
+  alias Ambry.People.AuthorPerson
   alias Ambry.People.Narrator
   alias Ambry.People.Person
   alias Ambry.People.PersonFlat
@@ -34,7 +36,7 @@ defmodule Ambry.People do
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
 
-  @person_direct_assoc_preloads [:authors, :narrators]
+  @person_direct_assoc_preloads [:authors, :narrators, author_people: [author: :people]]
 
   def person_standard_preloads, do: @person_direct_assoc_preloads
 
@@ -161,11 +163,46 @@ defmodule Ambry.People do
       changeset = Person.changeset(person, attrs)
 
       with {:ok, updated_person} <- Repo.update(changeset),
+           :ok <- delete_orphaned_authors(person, changeset),
            :ok <- Search.update(updated_person),
            {:ok, _job_or_noop} <- delete_unused_files_async(person, updated_person),
            {:ok, _job_or_noop} <- generate_thumbnails_async(updated_person),
            {:ok, _job} <- broadcast_person_updated(updated_person) do
         {:ok, updated_person}
+      end
+    end)
+  end
+
+  # Unlinking a pen name from a person must not leave an author with no people
+  # behind: authors that lost their last link are deleted (blocked with an
+  # error if they're still in use by books).
+  defp delete_orphaned_authors(%Person{} = person, %Ecto.Changeset{} = changeset) do
+    previously_linked_ids = Enum.map(person.author_people, & &1.author_id)
+
+    orphaned_authors =
+      Repo.all(
+        from author in Author,
+          as: :author,
+          where: author.id in ^previously_linked_ids,
+          where: not exists(from ap in AuthorPerson, where: ap.author_id == parent_as(:author).id)
+      )
+
+    Enum.reduce_while(orphaned_authors, :ok, fn author, :ok ->
+      author
+      |> Author.changeset(%{})
+      |> Repo.delete()
+      |> case do
+        {:ok, _author} ->
+          {:cont, :ok}
+
+        {:error, %Ecto.Changeset{} = author_changeset} ->
+          {message, _opts} = author_changeset.errors[:id]
+
+          {:halt,
+           {:error,
+            changeset
+            |> Ecto.Changeset.add_error(:author_people, "#{author.name}: #{message}")
+            |> Map.put(:action, :update)}}
       end
     end)
   end
@@ -220,14 +257,47 @@ defmodule Ambry.People do
     Repo.transact(fn ->
       changeset = Person.changeset(person, %{})
 
-      with {:ok, deleted_person} <- Repo.delete(changeset),
+      with :ok <- delete_exclusive_authors(person),
+           {:ok, deleted_person} <- Repo.delete(changeset),
            :ok <- Search.delete(deleted_person),
            {:ok, _job_or_noop} <- delete_all_files_async(deleted_person),
            {:ok, _job} <- broadcast_person_deleted(deleted_person) do
         {:ok, deleted_person}
       else
+        {:error, :has_authored_books} ->
+          {:error, :has_authored_books}
+
         {:error, %Ecto.Changeset{} = changeset} ->
           deleted_person_changeset_error(changeset)
+      end
+    end)
+  end
+
+  # Deleting a person cascades their author links away, so authors exclusive
+  # to this person are deleted up front (composite authors shared with other
+  # people survive). Deletion is blocked if an exclusive author still has
+  # books.
+  defp delete_exclusive_authors(%Person{} = person) do
+    exclusive_authors =
+      Repo.all(
+        from author in Author,
+          as: :author,
+          join: ap in assoc(author, :author_people),
+          on: ap.person_id == ^person.id,
+          where:
+            not exists(
+              from other in AuthorPerson,
+                where: other.author_id == parent_as(:author).id and other.person_id != ^person.id
+            )
+      )
+
+    Enum.reduce_while(exclusive_authors, :ok, fn author, :ok ->
+      author
+      |> Author.changeset(%{})
+      |> Repo.delete()
+      |> case do
+        {:ok, _author} -> {:cont, :ok}
+        {:error, %Ecto.Changeset{}} -> {:halt, {:error, :has_authored_books}}
       end
     end)
   end
@@ -246,12 +316,10 @@ defmodule Ambry.People do
   end
 
   defp deleted_person_changeset_error(%Ecto.Changeset{} = changeset) do
-    cond do
-      Keyword.has_key?(changeset.errors, :author) ->
-        {:error, :has_authored_books}
-
-      Keyword.has_key?(changeset.errors, :narrator) ->
-        {:error, :has_narrated_media}
+    if Keyword.has_key?(changeset.errors, :narrator) do
+      {:error, :has_narrated_media}
+    else
+      {:error, changeset}
     end
   end
 
@@ -347,7 +415,7 @@ defmodule Ambry.People do
 
   Raises `Ecto.NoResultsError` if the Author does not exist.
   """
-  def get_author!(id), do: Author |> preload(:person) |> Repo.get!(id)
+  def get_author!(id), do: Author |> preload(:people) |> Repo.get!(id)
 
   @doc """
   Returns all authors for use in `Select` components.
