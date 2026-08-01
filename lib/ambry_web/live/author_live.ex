@@ -6,6 +6,7 @@ defmodule AmbryWeb.AuthorLive do
   use AmbryWeb, :live_view
 
   alias Ambry.Books
+  alias Ambry.Media
   alias Ambry.People
 
   @per_page 36
@@ -47,6 +48,13 @@ defmodule AmbryWeb.AuthorLive do
       </div>
 
       <.book_tiles_stream id="books" stream={@streams.books} page={@page} end?={@end?} />
+
+      <div :if={@translated_media != []}>
+        <h2 class="mb-6 text-2xl font-bold sm:text-3xl md:mb-8 lg:mb-12 xl:text-4xl">
+          Translated
+        </h2>
+        <.media_tiles media={@translated_media} />
+      </div>
     </div>
     """
   end
@@ -54,6 +62,7 @@ defmodule AmbryWeb.AuthorLive do
   @impl Phoenix.LiveView
   def mount(%{"id" => author_id}, _session, socket) do
     author = People.get_author!(author_id)
+    {translated_media, _more?} = Media.get_translated_media(author, 0, @per_page)
 
     {:ok,
      socket
@@ -61,8 +70,10 @@ defmodule AmbryWeb.AuthorLive do
        page_title: author.name,
        author: author,
        page: 1,
-       empty?: false
+       empty?: false,
+       translated_media: translated_media
      )
+     |> stream(:books, [])
      |> paginate_books(1)}
   end
 

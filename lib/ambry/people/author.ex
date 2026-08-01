@@ -11,6 +11,7 @@ defmodule Ambry.People.Author do
 
   import Ecto.Changeset
 
+  alias Ambry.Media.MediaTranslator
   alias Ambry.People.AuthorPerson
   alias Ambry.People.BookAuthor
 
@@ -19,6 +20,8 @@ defmodule Ambry.People.Author do
     has_many :books, through: [:book_authors, :book]
     has_many :author_people, AuthorPerson
     has_many :people, through: [:author_people, :person]
+    has_many :media_translators, MediaTranslator
+    has_many :translated_media, through: [:media_translators, :media]
 
     field :name, :string
 
