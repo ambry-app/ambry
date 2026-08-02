@@ -371,7 +371,11 @@
         />
       </div>
 
-      <.provenance_panel record={@media} />
+      <.provenance_panel
+        record={@media}
+        changeset={@form.source}
+        pending_sources={ProvenanceHints.sources(@provenance_hints)}
+      />
 
       <:actions>
         <.button>Save</.button>

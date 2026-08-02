@@ -44,6 +44,29 @@ defmodule Ambry.ProvenanceTest do
       assert %{"source" => "manual", "locked" => true} = Provenance.entry(updated, :description)
     end
 
+    test "an accepted value records its source even when it equals the stored value" do
+      # re-importing the same name must still flip legacy/manual → provider:
+      # acceptance is a statement about where the current value comes from
+      {:ok, person} = People.create_person(%{name: "Arthur Conan Doyle"})
+
+      {:ok, updated} =
+        People.update_person(person, %{name: "Arthur Conan Doyle"},
+          provenance: %{"name" => "provider:wikidata"}
+        )
+
+      assert %{"source" => "provider:wikidata", "locked" => false} =
+               Provenance.entry(updated, :name)
+    end
+
+    test "a hint for a field that stays empty records nothing" do
+      {:ok, person} =
+        People.create_person(%{name: "Somebody"},
+          provenance: %{"description" => "provider:hardcover"}
+        )
+
+      assert Provenance.entry(person, :description) == nil
+    end
+
     test "a manual edit over a provider value re-records it as manual and locks it" do
       {:ok, person} =
         People.create_person(

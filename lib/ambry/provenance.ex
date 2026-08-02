@@ -58,13 +58,15 @@ defmodule Ambry.Provenance do
   end
 
   @doc """
-  Records provenance for every tracked field the changeset is changing.
+  Records provenance for the tracked fields a save touches.
 
   `sources` maps field names (strings) to the source the pending value came
-  from (e.g. `"provider:audible"`); a changed field with a source hint
-  records that source unlocked, a changed field without one is a manual
-  edit — recorded `"manual"` and locked. Unchanged fields keep whatever
-  provenance they had.
+  from (e.g. `"provider:audible"`): a hinted field records that source
+  unlocked — even when the accepted value happens to equal what was already
+  stored (the operator's acceptance is a statement about where the current
+  value comes from, and it's what lets refresh update the field later). A
+  changed field without a hint is a manual edit — recorded `"manual"` and
+  locked. Unchanged, unhinted fields keep whatever provenance they had.
   """
   @spec track_changes(Ecto.Changeset.t(), [atom()], %{String.t() => source()}) ::
           Ecto.Changeset.t()
@@ -73,10 +75,17 @@ defmodule Ambry.Provenance do
 
     updated =
       Enum.reduce(tracked_fields, existing, fn field, acc ->
-        if Map.has_key?(changeset.changes, field) do
-          Map.put(acc, to_string(field), new_entry(Map.get(sources, to_string(field))))
-        else
-          acc
+        source = Map.get(sources, to_string(field))
+
+        cond do
+          Map.has_key?(changeset.changes, field) ->
+            Map.put(acc, to_string(field), new_entry(source))
+
+          source && get_field(changeset, field) not in [nil, ""] ->
+            Map.put(acc, to_string(field), new_entry(source))
+
+          true ->
+            acc
         end
       end)
 

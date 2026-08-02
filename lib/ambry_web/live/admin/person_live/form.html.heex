@@ -184,7 +184,11 @@
         </div>
       <% end %>
 
-      <.provenance_panel record={@person} />
+      <.provenance_panel
+        record={@person}
+        changeset={@form.source}
+        pending_sources={ProvenanceHints.sources(@provenance_hints)}
+      />
 
       <:actions>
         <.button>Save</.button>

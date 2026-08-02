@@ -497,8 +497,14 @@ defmodule AmbryWeb.Admin.Components do
   provider-fillable fields (see `Ambry.Provenance`). Renders nothing for
   unsaved records. The parent LiveView must handle the
   `"toggle-provenance-lock"` event (field name in `phx-value-field`).
+
+  Pass the form's `changeset` and the pending accepted-value sources
+  (field-string → source-string) so rows can also show what the *next
+  save* will record — without them the panel only reflects saved state.
   """
   attr :record, :any, required: true
+  attr :changeset, :any, default: nil
+  attr :pending_sources, :map, default: %{}
 
   def provenance_panel(assigns) do
     assigns = assign(assigns, :fields, assigns.record.__struct__.provenance_fields())
@@ -513,6 +519,14 @@ defmodule AmbryWeb.Admin.Components do
           </span>
           <span class="grow text-zinc-600 dark:text-zinc-400">
             {provenance_description(@record, field)}
+            <span
+              :if={pending = provenance_pending(@record, @changeset, @pending_sources, field)}
+              class="text-amber-600 dark:text-amber-500"
+            >
+              → after save: {provenance_source_label(pending["source"])} ({(pending["locked"] &&
+                                                                              "locked") ||
+                "unlocked"})
+            </span>
           </span>
           <button
             type="button"
@@ -521,7 +535,7 @@ defmodule AmbryWeb.Admin.Components do
             title={provenance_lock_title(Provenance.locked?(@record, field))}
           >
             <.icon
-              name={if Provenance.locked?(@record, field), do: "fa-lock", else: "fa-lock-open"}
+              name={if Provenance.locked?(@record, field), do: "fa-lock", else: "fa-unlock"}
               class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-lime-600"
             />
           </button>
@@ -545,6 +559,28 @@ defmodule AmbryWeb.Admin.Components do
           nil -> provenance_source_label(source)
           at -> "#{provenance_source_label(source)} · #{String.slice(at, 0, 10)}"
         end
+    end
+  end
+
+  # What the next save will record for this field, mirroring
+  # Ambry.Provenance.track_changes/3: an accepted (hinted) value records
+  # its source unlocked; an edited value without a hint is a manual edit,
+  # locked. Nil when nothing pending or when it matches the saved entry.
+  defp provenance_pending(record, changeset, pending_sources, field) do
+    source = Map.get(pending_sources, to_string(field))
+    changed? = changeset != nil and Map.has_key?(changeset.changes, field)
+
+    pending =
+      cond do
+        is_binary(source) -> %{"source" => source, "locked" => false}
+        changed? -> %{"source" => "manual", "locked" => true}
+        true -> nil
+      end
+
+    saved = Provenance.entry(record, field)
+
+    if pending != nil and (saved == nil or Map.take(saved, ["source", "locked"]) != pending) do
+      pending
     end
   end
 

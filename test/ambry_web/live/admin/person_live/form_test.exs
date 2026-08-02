@@ -69,6 +69,20 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
 
       refute html =~ "Metadata provenance"
     end
+
+    test "the panel previews what the next save will record", %{conn: conn} do
+      person = insert(:person, name: "Old Name")
+
+      {:ok, view, html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+      refute html =~ "after save:"
+
+      html =
+        view
+        |> form("#person-form", %{"person" => %{"name" => "New Name"}})
+        |> render_change()
+
+      assert html =~ "after save: manually edited (locked)"
+    end
   end
 
   describe "linking an existing author (composite pen names)" do
