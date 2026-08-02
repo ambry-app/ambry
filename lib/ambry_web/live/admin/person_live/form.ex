@@ -9,6 +9,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People.Author
   alias Ambry.People.Person
   alias Ambry.Provenance
+  alias AmbryWeb.Admin.PersonLive.Form.ImagePicker
   alias AmbryWeb.Admin.PersonLive.Form.ImportForm
   alias AmbryWeb.Admin.ProvenanceHints
   alias Ecto.Changeset
@@ -20,6 +21,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> allow_image_upload(:image)
      |> assign(
        import: nil,
+       image_picker: false,
        provenance_hints: %{},
        providers: Registry.enabled(capability: :author_search),
        authors: People.authors_for_select()
@@ -121,6 +123,14 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:noreply, assign(socket, person: person)}
   end
 
+  def handle_event("open-image-picker", _params, socket) do
+    {:noreply, assign(socket, image_picker: true)}
+  end
+
+  def handle_event("close-image-picker", _params, socket) do
+    {:noreply, assign(socket, image_picker: false)}
+  end
+
   def handle_event("open-import-form", %{"type" => provider_id}, socket) do
     {:noreply, handle_import_form_params(socket, %{"import" => provider_id})}
   end
@@ -130,6 +140,21 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_info({:image_picked, url, source}, socket) do
+    picked = %{"image_path" => "", "image_type" => "url_import", "image_import_url" => url}
+    hints = ProvenanceHints.from_import(picked, source)
+    new_params = Map.merge(socket.assigns.form.params, picked)
+    changeset = People.change_person(socket.assigns.person, new_params)
+
+    {:noreply,
+     socket
+     |> assign_form(changeset)
+     |> assign(
+       image_picker: false,
+       provenance_hints: Map.merge(socket.assigns.provenance_hints, hints)
+     )}
+  end
+
   def handle_info({:import, %{"person" => person_params}, source}, socket) do
     hints = ProvenanceHints.from_import(person_params, source)
     new_params = Map.merge(socket.assigns.form.params, person_params)
@@ -255,6 +280,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
         []
     end
   end
+
+  defp picker_query(form, person), do: form.params["name"] || person.name
 
   defp open_import_form(%Person{id: nil}, type),
     do: JS.patch(~p"/admin/people/new?import=#{type}")

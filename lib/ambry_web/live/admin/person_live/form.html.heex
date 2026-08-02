@@ -9,6 +9,10 @@
     />
   </.modal>
 
+  <.modal :if={@image_picker} id="image-picker-modal" show on_cancel={JS.push("close-image-picker")}>
+    <.live_component id="image-picker" module={ImagePicker} query={picker_query(@form, @person)} />
+  </.modal>
+
   <div class="max-w-3xl">
     <.simple_form id="person-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
@@ -159,20 +163,32 @@
         </div>
       <% else %>
         <div class="space-y-2">
-          <.tabs
-            field={@form[:image_type]}
-            options={[
-              {"Upload file", "upload"},
-              {"Import image from URL", "url_import"}
-            ]}
-          >
-            <.label>Image</.label>
-          </.tabs>
+          <div class="flex flex-wrap items-center gap-4">
+            <.tabs
+              field={@form[:image_type]}
+              options={[
+                {"Upload file", "upload"},
+                {"Import image from URL", "url_import"}
+              ]}
+            >
+              <.label>Image</.label>
+            </.tabs>
+
+            <.button
+              type="button"
+              color={:zinc}
+              phx-click="open-image-picker"
+              disabled={picker_query(@form, @person) in [nil, ""]}
+            >
+              Find images…
+            </.button>
+          </div>
 
           <.file_input
             :if={@form[:image_type].value == "upload"}
             upload={@uploads.image}
             on_cancel="cancel-upload"
+            paste_upload
             image_preview_class="h-40 w-40 rounded-full object-cover object-top"
           />
 
