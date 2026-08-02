@@ -111,6 +111,7 @@ defmodule AmbryWeb.AudiobookLive do
                 :for={media <- @other_editions}
                 media={media}
                 collapse_part_sets
+                collapse_navigate={:representative}
                 show_title={false}
                 show_authors={false}
                 show_series={false}
