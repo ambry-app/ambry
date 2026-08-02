@@ -482,6 +482,10 @@ defmodule AmbryWeb.CoreComponents do
   attr :errors, :list, default: []
   attr :image_preview_class, :string, default: nil
 
+  attr :paste_upload, :boolean,
+    default: false,
+    doc: "also accept an image pasted from the clipboard (adds a JS hook to the drop area)"
+
   def file_input(assigns) do
     ~H"""
     <div>
@@ -500,10 +504,16 @@ defmodule AmbryWeb.CoreComponents do
         />
       </div>
       <div
+        id={"#{@upload.ref}-drop-area"}
         class="space-y-4 rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4"
         phx-drop-target={@upload.ref}
+        phx-hook={if @paste_upload, do: "paste-image"}
+        data-upload-name={if @paste_upload, do: @upload.name}
       >
         <.icon :if={@upload.entries == []} name="fa-upload" class="mx-auto my-4 block h-8 w-8 text-current" />
+        <p :if={@paste_upload && @upload.entries == []} class="text-center text-xs text-zinc-500">
+          drop, or paste from the clipboard
+        </p>
         <div :if={@upload.entries != []} class="flex flex-wrap gap-4">
           <article :for={entry <- @upload.entries} class="inline-block">
             <figure>

@@ -26,6 +26,7 @@ import { HeaderScrollspyHook } from "./hooks/header-scrollspy"
 import { ImageSizeHook } from "./hooks/image-size"
 import { InfiniteScrollHook } from "./hooks/infinite-scroll"
 import { MainTainAttrsHook } from "./hooks/maintain-attrs"
+import { PasteImageHook } from "./hooks/paste-image"
 import { ReadMoreHook } from "./hooks/read-more"
 import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
 import { ScrollMatchHook } from "./hooks/scroll-match"
@@ -45,6 +46,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "dispatch-value-change": DispatchValueChangeHook,
     "image-size": ImageSizeHook,
     "scroll-match": ScrollMatchHook,
+    "paste-image": PasteImageHook,
   },
 })
 
