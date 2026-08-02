@@ -21,7 +21,8 @@ defmodule AmbryWeb.AudiobookLivePartTest do
     {:ok, _view, html} = live(conn, ~p"/audiobooks/#{media.id}")
 
     assert html =~ "Dungeon Crawler Carl (Part 2 of 3)"
-    assert html =~ "Season One — Part 2 of 3"
+    assert html =~ "Part 2 of 3"
+    refute html =~ "Season One"
   end
 
   test "tiles show composed titles for parts", %{conn: conn} do

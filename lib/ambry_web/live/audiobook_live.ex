@@ -88,13 +88,13 @@ defmodule AmbryWeb.AudiobookLive do
                     <.book_multi_image thumbnails={if part.thumbnails, do: [part.thumbnails], else: []} />
                   </div>
                   <p class="mt-1 text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    {part_chip_label(part)}
+                    {part_chip_label(part, @part_set)}
                   </p>
                 <% else %>
                   <.link navigate={~p"/audiobooks/#{part}"} class="group">
                     <.book_multi_image thumbnails={if part.thumbnails, do: [part.thumbnails], else: []} />
                     <p class="mt-1 text-sm text-zinc-800 group-hover:underline dark:text-zinc-200">
-                      {part_chip_label(part)}
+                      {part_chip_label(part, @part_set)}
                     </p>
                   </.link>
                 <% end %>
@@ -171,21 +171,14 @@ defmodule AmbryWeb.AudiobookLive do
   end
 
   # short label under each cover in the part rail
-  defp part_chip_label(part) do
-    Ambry.Media.Media.part_label(part) || part.title || "Untitled"
+  defp part_chip_label(part, group) do
+    Ambry.Media.Media.part_label(part, group) || part.title || "Untitled"
   end
 
-  # "Season One — Part 2 of 3" / "Part 2 of 3" / nil
+  # "Part 2 of 3" / "Episode 4 of 6" / nil — the group name is admin-only
+  # and deliberately not shown
   defp part_set_line(media) do
-    label = Ambry.Media.Media.part_label(media)
-    group_name = media.recording_group && media.recording_group.name
-
-    case {group_name, label} do
-      {nil, nil} -> nil
-      {nil, label} -> label
-      {name, nil} -> name
-      {name, label} -> "#{name} — #{label}"
-    end
+    Ambry.Media.Media.part_label(media)
   end
 
   defp format_file_name(file), do: file.label || file.filename

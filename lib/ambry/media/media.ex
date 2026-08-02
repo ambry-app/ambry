@@ -45,6 +45,8 @@ defmodule Ambry.Media.Media do
     # form-only: recording-group picker staging, see apply_recording_group_choice/1
     field :recording_group_choice, :string, virtual: true
     field :recording_group_name, :string, virtual: true
+    field :recording_group_part_word, :string, virtual: true
+    field :recording_group_part_word_plural, :string, virtual: true
 
     field :source_path, :string
     field :source_files, {:array, :string}, default: []
@@ -106,7 +108,11 @@ defmodule Ambry.Media.Media do
       sort_param: :supplemental_files_sort,
       drop_param: :supplemental_files_drop
     )
-    |> cast(attrs, [:recording_group_name], empty_values: [])
+    |> cast(
+      attrs,
+      [:recording_group_name, :recording_group_part_word, :recording_group_part_word_plural],
+      empty_values: []
+    )
     |> apply_recording_group_choice()
     |> maybe_rename_recording_group()
     |> validate_part_fields()
@@ -131,8 +137,11 @@ defmodule Ambry.Media.Media do
         put_change(changeset, :recording_group_id, nil)
 
       "new" ->
-        name = presence(get_change(changeset, :recording_group_name))
-        put_assoc(changeset, :recording_group, %RecordingGroup{name: name})
+        put_assoc(changeset, :recording_group, %RecordingGroup{
+          name: presence(get_change(changeset, :recording_group_name)),
+          part_word: group_word_change(changeset, :recording_group_part_word),
+          part_word_plural: group_word_change(changeset, :recording_group_part_word_plural)
+        })
 
       id ->
         case Integer.parse(id) do
@@ -142,24 +151,38 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  # Renames the currently-linked group (shared by all its parts) when the
-  # form's name field changed. Only applies while the media stays linked to
-  # that same group — picking a different or new group ignores it.
+  # Updates the currently-linked group's label/wording (shared by all its
+  # parts) when the form's fields changed. Only applies while the media stays
+  # linked to that same group — picking a different or new group ignores it.
   defp maybe_rename_recording_group(changeset) do
-    name = get_change(changeset, :recording_group_name)
     group = changeset.data.recording_group
 
-    with false <- is_nil(name),
+    updates =
+      [
+        name: get_change(changeset, :recording_group_name),
+        part_word: get_change(changeset, :recording_group_part_word),
+        part_word_plural: get_change(changeset, :recording_group_part_word_plural)
+      ]
+      |> Enum.reject(fn {_field, value} -> is_nil(value) end)
+      |> Map.new(fn {field, value} -> {field, presence(value)} end)
+
+    with false <- updates == %{},
          false <- get_change(changeset, :recording_group_choice) == "new",
          %RecordingGroup{} <- group,
          true <- get_field(changeset, :recording_group_id) == group.id,
-         new_name = presence(name),
-         true <- new_name != group.name do
-      put_assoc(changeset, :recording_group, RecordingGroup.changeset(group, %{name: new_name}))
+         true <- Enum.any?(updates, fn {field, value} -> Map.get(group, field) != value end) do
+      put_assoc(changeset, :recording_group, RecordingGroup.changeset(group, updates))
     else
-      _no_rename -> changeset
+      _no_update -> changeset
     end
   end
+
+  defp group_word_change(changeset, field) do
+    changeset |> get_change(field) |> presence_downcase()
+  end
+
+  defp presence_downcase(nil), do: nil
+  defp presence_downcase(string), do: string |> presence() |> then(&(&1 && String.downcase(&1)))
 
   defp presence(nil), do: nil
   defp presence(string) when is_binary(string), do: with("" <- String.trim(string), do: nil)
@@ -197,13 +220,32 @@ defmodule Ambry.Media.Media do
   end
 
   @doc """
-  A human label for a media's position in its part set, or nil for
-  single-release recordings. Works on anything with the part fields
-  (Media structs and MediaFlat rows alike).
+  A human label for a media's position in its part set ("Part 2 of 3",
+  "Episode 4" per the group's wording), or nil for single-release
+  recordings. Works on anything with the part fields (Media structs and
+  MediaFlat rows alike); the wording comes from the loaded recording group,
+  a flat row's part_word column, or an explicitly passed group.
   """
-  def part_label(%{part_number: nil}), do: nil
-  def part_label(%{part_number: n, parts_total: nil}), do: "Part #{n}"
-  def part_label(%{part_number: n, parts_total: total}), do: "Part #{n} of #{total}"
+  def part_label(media_ish, group \\ nil)
+  def part_label(%{part_number: nil}, _group), do: nil
+
+  def part_label(%{part_number: n} = media_ish, group) do
+    word = media_ish |> resolve_part_word(group) |> String.capitalize()
+
+    case media_ish.parts_total do
+      nil -> "#{word} #{n}"
+      total -> "#{word} #{n} of #{total}"
+    end
+  end
+
+  defp resolve_part_word(_media_ish, %RecordingGroup{} = group),
+    do: RecordingGroup.part_word(group)
+
+  defp resolve_part_word(%Media{recording_group: %RecordingGroup{} = group}, nil),
+    do: RecordingGroup.part_word(group)
+
+  defp resolve_part_word(%{part_word: word}, nil) when is_binary(word), do: word
+  defp resolve_part_word(_media_ish, nil), do: "part"
 
   defp status_based_validation(changeset) do
     changeset

@@ -74,7 +74,14 @@ defmodule AmbrySchema.Media do
   end
 
   node object(:recording_group) do
+    @desc "Admin-only organizational label; clients should not display it"
     field :name, :string
+
+    @desc "Wording for one release in this set; null means \"part\""
+    field :part_word, :string
+
+    @desc "Wording for several releases; null means \"parts\""
+    field :part_word_plural, :string
 
     field :media, non_null(list_of(non_null(:media))),
       resolve: dataloader(Resolvers, args: %{order: {:asc, :part_number}})

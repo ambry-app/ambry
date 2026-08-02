@@ -1409,16 +1409,12 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
-  A label for a part set: "Season One · 3 parts", or "3 parts" for unnamed
-  groups. The group's media must be loaded.
+  A user-facing label for a part set: "3 parts", "6 episodes" — count plus
+  the group's plural wording. The group's name is an admin-only label and is
+  deliberately never rendered here.
   """
   def part_set_label(%RecordingGroup{} = group, parts \\ nil) do
-    count = "#{length(parts || group.media)} parts"
-
-    case group.name do
-      nil -> count
-      name -> "#{name} · #{count}"
-    end
+    "#{length(parts || group.media)} #{RecordingGroup.part_word_plural(group)}"
   end
 
   @doc """

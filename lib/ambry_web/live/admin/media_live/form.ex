@@ -406,6 +406,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     [{"(not part of a group)", "none"}, {"+ New group…", "new"} | groups]
   end
 
+  defp group_field_value(form, media, virtual_field, group_field) do
+    case {form[virtual_field].value, group_name_mode(form, media)} do
+      {nil, :edit} -> media.recording_group && Map.get(media.recording_group, group_field)
+      {value, _mode} -> value
+    end
+  end
+
   # :new — naming a group being created; :edit — renaming the currently
   # linked group; nil — no name input
   defp group_name_mode(form, media) do

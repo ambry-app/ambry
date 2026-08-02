@@ -142,7 +142,8 @@ defmodule Ambry.Media do
       book: [
         :authors,
         series_books: :series,
-        media: ^{media_query, [:narrators, book: [:authors, series_books: :series]]}
+        media:
+          ^{media_query, [:narrators, :recording_group, book: [:authors, series_books: :series]]}
       ]
     ])
   end

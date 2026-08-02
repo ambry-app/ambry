@@ -29,7 +29,8 @@ defmodule AmbryWeb.PartSetUxTest do
       {:ok, _view, html} = live(conn, ~p"/")
 
       assert html =~ "Dungeon Crawler Carl"
-      assert html =~ "Season One · 3 parts"
+      assert html =~ "3 parts"
+      refute html =~ "Season One"
       # the individual part labels don't appear as separate tiles
       refute html =~ "(Part 1 of 3)"
       assert html =~ ~p"/books/#{book.id}"
@@ -56,7 +57,8 @@ defmodule AmbryWeb.PartSetUxTest do
       {:ok, _view, html} = live(conn, ~p"/books/#{book.id}")
 
       assert html =~ "Editions"
-      assert html =~ "Season One · 2 parts"
+      assert html =~ "2 parts"
+      refute html =~ "Season One"
 
       # parts render in part order despite publication-date ordering elsewhere
       assert [i1, i2] =
@@ -75,8 +77,9 @@ defmodule AmbryWeb.PartSetUxTest do
 
       {:ok, _view, html} = live(conn, ~p"/audiobooks/#{part_two.id}")
 
-      # rail with heading and links to sibling parts
-      assert html =~ "Season One · 3 parts"
+      # rail with heading and links to sibling parts (group name is admin-only)
+      assert html =~ "3 parts"
+      refute html =~ "Season One"
       assert html =~ ~p"/audiobooks/#{part_one.id}"
 
       # the true alternate edition still shows under Other Editions
@@ -95,6 +98,41 @@ defmodule AmbryWeb.PartSetUxTest do
       {:ok, _view, html} = live(conn, ~p"/audiobooks/#{media.id}")
 
       refute html =~ "Other Editions"
+    end
+  end
+
+  describe "custom part wording" do
+    test "episode wording flows through labels and titles", %{conn: conn} do
+      book = insert(:book, title: "Dungeon Crawler Carl")
+
+      group =
+        insert(:recording_group,
+          name: "Admin Label",
+          part_word: "episode",
+          part_word_plural: "episodes"
+        )
+
+      parts =
+        for n <- 1..2 do
+          insert(:media,
+            book: book,
+            part_number: n,
+            parts_total: 2,
+            recording_group: group,
+            status: :ready
+          )
+        end
+
+      # library: collapsed tile counts in episodes
+      {:ok, _view, html} = live(conn, ~p"/")
+      assert html =~ "2 episodes"
+      refute html =~ "Admin Label"
+
+      # audiobook page: composed title, details line, and rail chips all say Episode
+      {:ok, _view, html} = live(conn, ~p"/audiobooks/#{hd(parts).id}")
+      assert html =~ "Dungeon Crawler Carl (Episode 1 of 2)"
+      assert html =~ "Episode 2"
+      refute html =~ "Admin Label"
     end
   end
 

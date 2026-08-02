@@ -112,18 +112,25 @@
         />
       </div>
 
-      <.input
-        :if={group_name_mode(@form, @media) == :new}
-        field={@form[:recording_group_name]}
-        label="New group name (optional — e.g. a season name)"
-      />
-
-      <.input
-        :if={group_name_mode(@form, @media) == :edit}
-        field={@form[:recording_group_name]}
-        label="Group name (renames it for every part; optional)"
-        value={@form[:recording_group_name].value || (@media.recording_group && @media.recording_group.name)}
-      />
+      <div :if={group_name_mode(@form, @media)} class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
+        <.input
+          field={@form[:recording_group_name]}
+          label="Group label (admin-only; optional)"
+          value={group_field_value(@form, @media, :recording_group_name, :name)}
+        />
+        <.input
+          field={@form[:recording_group_part_word]}
+          label={~s(What's one release called? — default "part")}
+          placeholder="part"
+          value={group_field_value(@form, @media, :recording_group_part_word, :part_word)}
+        />
+        <.input
+          field={@form[:recording_group_part_word_plural]}
+          label={~s(…and several? — default "parts")}
+          placeholder="parts"
+          value={group_field_value(@form, @media, :recording_group_part_word_plural, :part_word_plural)}
+        />
+      </div>
 
       <.input type="hidden" field={@form[:image_type]} />
       <.input type="hidden" field={@form[:image_path]} />
