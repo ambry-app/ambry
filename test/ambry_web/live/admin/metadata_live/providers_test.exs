@@ -15,6 +15,12 @@ defmodule AmbryWeb.Admin.MetadataLive.ProvidersTest do
     assert html =~ "Audnexus"
     assert html =~ "Person-level providers"
     assert html =~ "Wikipedia"
+
+    # TMDB renders in the person-level section even while unavailable:
+    # the settings page is where the key gets pasted
+    assert html =~ "TMDB"
+    assert html =~ ~s(name="config[api_key]")
+    assert html =~ "No API key configured"
   end
 
   test "toggles a provider off and on", %{conn: conn} do
