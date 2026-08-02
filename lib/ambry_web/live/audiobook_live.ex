@@ -110,6 +110,7 @@ defmodule AmbryWeb.AudiobookLive do
               <.media_tile
                 :for={media <- @other_editions}
                 media={media}
+                collapse_part_sets
                 show_title={false}
                 show_authors={false}
                 show_series={false}
@@ -151,11 +152,15 @@ defmodule AmbryWeb.AudiobookLive do
           _no_set -> nil
         end
 
+      # true alternates only: drop this media's own part-set siblings, then
+      # collapse sibling part sets to one representative each — the tile
+      # stacks the set's covers (a set is one edition, not N tiles)
       other_editions =
-        Enum.reject(
-          media.book.media,
-          &(part_set && &1.recording_group_id == media.recording_group_id)
+        media.book.media
+        |> Enum.reject(
+          &(&1.recording_group_id && &1.recording_group_id == media.recording_group_id)
         )
+        |> part_set_representatives()
 
       {:ok,
        assign(socket,

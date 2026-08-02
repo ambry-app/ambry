@@ -23,8 +23,7 @@ defmodule AmbryWeb.Admin.ProvenanceHints do
   def from_import(params, source) do
     scalar_hints =
       for {key, value} <- params,
-          not is_list(value),
-          not is_map(value),
+          scalar?(value),
           key not in @non_field_keys,
           into: %{} do
         {key, %{source: source, watch: key, value: normalize(value)}}
@@ -72,6 +71,11 @@ defmodule AmbryWeb.Admin.ProvenanceHints do
 
   @doc "The `provenance:` opts value for a save: field name → source."
   def sources(hints), do: Map.new(hints, fn {field, hint} -> {field, hint.source} end)
+
+  # association params arrive as lists/maps and are never hinted — but
+  # structs (%Date{} from published imports) are maps too, and ARE scalar
+  # values (dropping them recorded accepted dates as manual edits)
+  defp scalar?(value), do: not is_list(value) and (not is_map(value) or is_struct(value))
 
   defp normalize(value), do: to_string(value)
 end
