@@ -132,6 +132,14 @@
         />
       </div>
 
+      <.input
+        :if={group_name_mode(@form, @media)}
+        field={@form[:recording_group_show_label]}
+        type="checkbox"
+        label="Show the group label to listeners on this set's stacked tile"
+        value={group_field_value(@form, @media, :recording_group_show_label, :show_label)}
+      />
+
       <.input type="hidden" field={@form[:image_type]} />
       <.input type="hidden" field={@form[:image_path]} />
 

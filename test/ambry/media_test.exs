@@ -395,6 +395,46 @@ defmodule Ambry.MediaTest do
 
       assert %{part_number: 1, parts_total: 3, recording_group: %{name: "Season One"}} = media
       assert [{"Season One", _id}] = Media.recording_groups_for_select(book_id)
+
+      # label visibility defaults to off — an explicit choice, never
+      # inferred from the label's presence
+      assert media.recording_group.show_label == false
+    end
+
+    test "the group's show_label flag is set at creation and toggled on rename" do
+      %{id: book_id} = insert(:book)
+
+      params =
+        :media
+        |> params_for(
+          book_id: book_id,
+          recording_group_choice: "new",
+          recording_group_name: "Season One",
+          recording_group_show_label: "true"
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :recording_group_choice,
+          :recording_group_name,
+          :recording_group_show_label
+        ])
+
+      assert {:ok, media} = Media.create_media(params)
+      assert media.recording_group.show_label == true
+
+      group_id = media.recording_group.id
+
+      # toggling off through the linked-group edit path
+      assert {:ok, _updated} =
+               Media.update_media(Media.get_media!(media.id), %{
+                 recording_group_choice: to_string(group_id),
+                 recording_group_show_label: "false"
+               })
+
+      assert Ambry.Repo.get!(Ambry.Media.RecordingGroup, group_id).show_label == false
     end
 
     test "links a sibling part to an existing group via the choice field" do

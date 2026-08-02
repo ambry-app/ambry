@@ -243,6 +243,46 @@ defmodule AmbryWeb.EditionsUxTest do
     end
   end
 
+  describe "group label visibility" do
+    test "the label renders on group tiles only when the group opts in", %{conn: conn} do
+      book = insert(:book, title: "Dungeon Crawler Carl")
+
+      group =
+        insert(:recording_group,
+          name: "The Audio Immersion Experience — Season One",
+          show_label: true
+        )
+
+      [part_one | _rest] =
+        for n <- 1..2 do
+          insert(:media,
+            book: book,
+            part_number: n,
+            parts_total: 2,
+            recording_group: group,
+            status: :ready
+          )
+        end
+
+      other = insert(:media, book: book, status: :ready)
+
+      # library group tile shows the label
+      {:ok, _view, html} = live(conn, ~p"/")
+      assert html =~ "The Audio Immersion Experience — Season One"
+
+      # book page group tile shows it too
+      {:ok, _view, html} = live(conn, ~p"/books/#{book.id}")
+      assert html =~ "The Audio Immersion Experience — Season One"
+
+      # the audiobook page rail heading stays label-free (tile-only choice)
+      {:ok, _view, html} = live(conn, ~p"/audiobooks/#{part_one.id}")
+      refute html =~ "The Audio Immersion Experience — Season One"
+
+      # sanity: another edition exists so the book page didn't redirect
+      assert other.status == :ready
+    end
+  end
+
   describe "custom part wording" do
     test "episode wording flows through labels and titles", %{conn: conn} do
       book = insert(:book, title: "Dungeon Crawler Carl")

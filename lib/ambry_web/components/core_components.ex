@@ -1202,6 +1202,13 @@ defmodule AmbryWeb.CoreComponents do
         </p>
       </div>
 
+      <p
+        :if={@edition.group && @edition.group.show_label && @edition.group.name}
+        class="text-sm text-zinc-800 dark:text-zinc-200"
+      >
+        {@edition.group.name}
+      </p>
+
       <p class="text-sm text-zinc-600 dark:text-zinc-400">
         {part_set_label(@edition.group, @edition.media)}
       </p>
@@ -1480,8 +1487,8 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   A user-facing label for a part set: "3 parts", "6 episodes" — count plus
   the group's plural wording (default wording when the group struct isn't
-  loaded). The group's name is an admin-only label and is deliberately
-  never rendered here.
+  loaded). The group's *name* renders separately, and only when the group
+  opts in via `show_label` (see `edition_tile/1`).
   """
   def part_set_label(group, parts \\ nil)
 
