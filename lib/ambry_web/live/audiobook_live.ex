@@ -77,13 +77,38 @@ defmodule AmbryWeb.AudiobookLive do
             <.markdown :if={@media.description} content={@media.description} class="mt-4" />
           </section>
 
-          <%= if @media.book.media != [] do %>
+          <%= if @part_set do %>
+            <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {part_set_label(@part_set)}
+            </h2>
+            <div class="grid grid-cols-3 gap-4 sm:gap-6">
+              <div :for={part <- @part_set.media} class="text-center">
+                <%= if part.id == @media.id do %>
+                  <div class="ring-brand rounded-sm ring-2 dark:ring-brand-dark">
+                    <.book_multi_image thumbnails={if part.thumbnails, do: [part.thumbnails], else: []} />
+                  </div>
+                  <p class="mt-1 text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    {part_chip_label(part)}
+                  </p>
+                <% else %>
+                  <.link navigate={~p"/audiobooks/#{part}"} class="group">
+                    <.book_multi_image thumbnails={if part.thumbnails, do: [part.thumbnails], else: []} />
+                    <p class="mt-1 text-sm text-zinc-800 group-hover:underline dark:text-zinc-200">
+                      {part_chip_label(part)}
+                    </p>
+                  </.link>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <%= if @other_editions != [] do %>
             <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
               Other Editions
             </h2>
             <div class="grid grid-cols-2 gap-4 sm:gap-6 md:gap-8">
               <.media_tile
-                :for={media <- @media.book.media}
+                :for={media <- @other_editions}
                 media={media}
                 show_title={false}
                 show_authors={false}
@@ -120,15 +145,34 @@ defmodule AmbryWeb.AudiobookLive do
          {:ok, media} <- Media.fetch_media_with_book_details(media_id) do
       global_id = to_global_id("Media", media.id, AmbrySchema)
 
+      part_set =
+        case media.recording_group do
+          %{media: [_, _ | _]} = group -> group
+          _no_set -> nil
+        end
+
+      other_editions =
+        Enum.reject(
+          media.book.media,
+          &(part_set && &1.recording_group_id == media.recording_group_id)
+        )
+
       {:ok,
        assign(socket,
          page_title: Books.get_book_description(media.book),
          media: media,
+         part_set: part_set,
+         other_editions: other_editions,
          global_id: global_id
        )}
     else
       _ -> {:ok, redirect(socket, to: ~p"/")}
     end
+  end
+
+  # short label under each cover in the part rail
+  defp part_chip_label(part) do
+    Ambry.Media.Media.part_label(part) || part.title || "Untitled"
   end
 
   # "Season One — Part 2 of 3" / "Part 2 of 3" / nil

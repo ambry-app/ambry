@@ -130,10 +130,15 @@ defmodule Ambry.Media do
     media_query =
       from m in Media, where: m.status == :ready and m.id != ^id, order_by: {:desc, :published}
 
+    group_media_query =
+      from m in Media,
+        where: m.status == :ready,
+        order_by: [asc_nulls_last: m.part_number, asc: m.id]
+
     Media
     |> preload([
       :narrators,
-      :recording_group,
+      recording_group: [media: ^group_media_query],
       book: [
         :authors,
         series_books: :series,
@@ -474,16 +479,38 @@ defmodule Ambry.Media do
   def get_recent_media(offset \\ 0, limit \\ 10) do
     over_limit = limit + 1
 
+    # part sets collapse to one entry: only the first ready part of each
+    # recording group represents its set
     query =
       from m in Media,
         where: m.status == :ready,
+        where:
+          is_nil(m.recording_group_id) or
+            m.id ==
+              fragment(
+                """
+                (SELECT m2.id FROM media m2
+                 WHERE m2.recording_group_id = ? AND m2.status = 'ready'
+                 ORDER BY m2.part_number ASC NULLS LAST, m2.id ASC
+                 LIMIT 1)
+                """,
+                m.recording_group_id
+              ),
         order_by: [desc: m.inserted_at],
         offset: ^offset,
         limit: ^over_limit
 
+    group_media_query =
+      from m in Media,
+        where: m.status == :ready,
+        order_by: [asc_nulls_last: m.part_number, asc: m.id]
+
     media =
       query
-      |> preload(book: [:authors, series_books: :series])
+      |> preload(
+        book: [:authors, series_books: :series],
+        recording_group: [media: ^group_media_query]
+      )
       |> Repo.all()
 
     media_to_return = Enum.slice(media, 0, limit)
