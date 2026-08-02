@@ -298,8 +298,13 @@ defmodule Ambry.Books do
   def get_authored_books(author, offset \\ 0, limit \\ 10) do
     over_limit = limit + 1
 
+    # books with zero ready editions are hidden from users entirely
+    # (tile system v2) — filtered here so pagination stays correct
     query =
       from b in Ecto.assoc(author, :books),
+        as: :book,
+        where:
+          exists(from m in Media, where: m.book_id == parent_as(:book).id and m.status == :ready),
         order_by: [desc: b.published],
         offset: ^offset,
         limit: ^over_limit,

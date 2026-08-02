@@ -12,6 +12,7 @@ defmodule AmbryWeb.AudiobookLive do
   alias Ambry.Books
   alias Ambry.Hashids
   alias Ambry.Media
+  alias Ambry.Media.Editions
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -107,11 +108,9 @@ defmodule AmbryWeb.AudiobookLive do
               Other Editions
             </h2>
             <div class="grid grid-cols-2 gap-4 sm:gap-6 md:gap-8">
-              <.media_tile
-                :for={media <- @other_editions}
-                media={media}
-                collapse_part_sets
-                collapse_navigate={:representative}
+              <.edition_tile
+                :for={edition <- @other_editions}
+                edition={edition}
                 show_title={false}
                 show_authors={false}
                 show_series={false}
@@ -153,15 +152,14 @@ defmodule AmbryWeb.AudiobookLive do
           _no_set -> nil
         end
 
-      # true alternates only: drop this media's own part-set siblings, then
-      # collapse sibling part sets to one representative each — the tile
-      # stacks the set's covers (a set is one edition, not N tiles)
+      # true alternates only: every other edition of the book, minus this
+      # media's own part set (its parts live in the rail above)
       other_editions =
         media.book.media
+        |> Editions.from_media()
         |> Enum.reject(
-          &(&1.recording_group_id && &1.recording_group_id == media.recording_group_id)
+          &(&1.kind == :group and &1.group != nil and &1.group.id == media.recording_group_id)
         )
-        |> part_set_representatives()
 
       {:ok,
        assign(socket,

@@ -6,6 +6,7 @@ defmodule AmbryWeb.SeriesLive do
   use AmbryWeb, :live_view
 
   alias Ambry.Books
+  alias Ambry.Media.Editions
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -21,7 +22,7 @@ defmodule AmbryWeb.SeriesLive do
         </p>
       </div>
 
-      <.book_tiles books={@series.series_books} />
+      <.book_tiles books={@series_books} />
     </div>
     """
   end
@@ -30,8 +31,16 @@ defmodule AmbryWeb.SeriesLive do
   def mount(%{"id" => series_id}, _session, socket) do
     series = Books.get_series_with_books!(series_id)
 
-    authors =
+    # tile system v2: books with no ready editions are hidden from users
+    # entirely (series show gaps while a book processes); explicit series
+    # ordering, which the association never guaranteed
+    series_books =
       series.series_books
+      |> Enum.filter(&(Editions.from_media(&1.book.media) != []))
+      |> Enum.sort_by(& &1.book_number, Decimal)
+
+    authors =
+      series_books
       |> Enum.flat_map(& &1.book.authors)
       |> Enum.uniq()
 
@@ -39,6 +48,7 @@ defmodule AmbryWeb.SeriesLive do
      socket
      |> assign(:page_title, series.name)
      |> assign(:series, series)
+     |> assign(:series_books, series_books)
      |> assign(:authors, authors)}
   end
 end

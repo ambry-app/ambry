@@ -6,6 +6,7 @@ defmodule AmbryWeb.BookLive do
   use AmbryWeb, :live_view
 
   alias Ambry.Books
+  alias Ambry.Media.Editions
 
   @impl Phoenix.LiveView
   def render(assigns) do
@@ -18,37 +19,21 @@ defmodule AmbryWeb.BookLive do
         </p>
       </div>
 
-      <%= if @book.media == [] do %>
-        <p class="mt-4 font-bold">Sorry, there are currently no audiobooks uploaded for this book.</p>
-      <% else %>
-        <div>
-          <h1 class="mb-4 text-2xl font-bold sm:text-3xl lg:mb-8 lg:text-4xl">Editions</h1>
+      <div>
+        <h1 class="mb-4 text-2xl font-bold sm:text-3xl lg:mb-8 lg:text-4xl">Editions</h1>
 
-          <div :for={%{group: group, parts: parts} <- @part_groups} class="mb-10">
-            <h2 class="mb-4 text-xl font-bold text-zinc-800 dark:text-zinc-200 sm:text-2xl">
-              {part_set_label(group, parts)}
-            </h2>
-            <.media_tiles
-              media={parts}
-              show_title={false}
-              show_authors={false}
-              show_series={false}
-              show_narrators={true}
-              show_published={true}
-            />
-          </div>
-
-          <.media_tiles
-            :if={@ungrouped_media != []}
-            media={@ungrouped_media}
+        <.grid>
+          <.edition_tile
+            :for={edition <- @editions}
+            edition={edition}
             show_title={false}
             show_authors={false}
             show_series={false}
             show_narrators={true}
             show_published={true}
           />
-        </div>
-      <% end %>
+        </.grid>
+      </div>
     </div>
     """
   end
@@ -57,29 +42,23 @@ defmodule AmbryWeb.BookLive do
   def mount(%{"id" => book_id}, _session, socket) do
     book = Books.get_book_with_media!(book_id)
 
-    case book.media do
-      [media] ->
-        {:ok, push_navigate(socket, to: ~p"/audiobooks/#{media}")}
+    # tile system v2: the page is a flat grid of edition tiles; a book with
+    # exactly one edition redirects to that edition's target (a group's
+    # target is its first part), and a book with no ready editions is
+    # hidden from users entirely
+    case Editions.from_media(book.media) do
+      [] ->
+        {:ok, redirect(socket, to: ~p"/")}
 
-      _else ->
-        part_groups =
-          book.media
-          |> Enum.filter(& &1.recording_group_id)
-          |> Enum.group_by(& &1.recording_group_id)
-          |> Enum.map(fn {_group_id, parts} ->
-            %{
-              group: hd(parts).recording_group,
-              parts: Enum.sort_by(parts, &{&1.part_number || :infinity, &1.id})
-            }
-          end)
-          |> Enum.sort_by(& &1.group.id)
+      [only_edition] ->
+        {:ok, push_navigate(socket, to: ~p"/audiobooks/#{only_edition.representative}")}
 
+      editions ->
         {:ok,
          assign(socket,
            page_title: Books.get_book_description(book),
            book: book,
-           part_groups: part_groups,
-           ungrouped_media: Enum.reject(book.media, & &1.recording_group_id)
+           editions: editions
          )}
     end
   end

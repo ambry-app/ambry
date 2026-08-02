@@ -1,9 +1,11 @@
-defmodule AmbryWeb.PartSetUxTest do
+defmodule AmbryWeb.EditionsUxTest do
+  @moduledoc """
+  Behavioral spec for tile system v2 (ROADMAP "Tile system v2"): recursive
+  collapse, ready-only for users, editions-based click targets.
+  """
   use AmbryWeb.ConnCase, async: true
 
   import Phoenix.LiveViewTest
-
-  alias AmbryWeb.CoreComponents
 
   setup :register_and_log_in_user
 
@@ -16,24 +18,31 @@ defmodule AmbryWeb.PartSetUxTest do
         part_number: n,
         parts_total: Keyword.get(opts, :count, 3),
         recording_group: group,
-        status: :ready
+        status: :ready,
+        published: opts[:published]
       )
     end
   end
 
   describe "library page" do
-    test "collapses a part set into one stacked tile linking to the book", %{conn: conn} do
+    test "a group renders as one stacked tile navigating to its first part", %{conn: conn} do
       book = insert(:book, title: "Dungeon Crawler Carl")
-      insert_part_set(book, name: "Season One")
+      [part_one, part_two, part_three] = insert_part_set(book, name: "Season One")
 
       {:ok, _view, html} = live(conn, ~p"/")
 
       assert html =~ "Dungeon Crawler Carl"
       assert html =~ "3 parts"
       refute html =~ "Season One"
-      # the individual part labels don't appear as separate tiles
       refute html =~ "(Part 1 of 3)"
-      assert html =~ ~p"/books/#{book.id}"
+
+      # group tiles land on the first part — never the book page
+      assert html =~ ~p"/audiobooks/#{part_one.id}"
+      refute html =~ ~p"/books/#{book.id}"
+
+      for part <- [part_two, part_three] do
+        refute html =~ ~p"/audiobooks/#{part.id}"
+      end
     end
 
     test "single-release media are unaffected", %{conn: conn} do
@@ -47,12 +56,10 @@ defmodule AmbryWeb.PartSetUxTest do
   end
 
   describe "book page" do
-    test "renders part sets as titled sections with parts in order, ungrouped below", %{
-      conn: conn
-    } do
+    test "renders a flat grid of edition tiles — groups stack, no sub-sections", %{conn: conn} do
       book = insert(:book, title: "Dungeon Crawler Carl")
-      insert_part_set(book, name: "Season One", count: 2)
-      insert(:media, book: book, status: :ready)
+      [part_one, _part_two] = insert_part_set(book, name: "Season One", count: 2)
+      solo = insert(:media, book: book, status: :ready)
 
       {:ok, _view, html} = live(conn, ~p"/books/#{book.id}")
 
@@ -60,26 +67,38 @@ defmodule AmbryWeb.PartSetUxTest do
       assert html =~ "2 parts"
       refute html =~ "Season One"
 
-      # parts render in part order despite publication-date ordering elsewhere
-      assert [i1, i2] =
-               Regex.scan(~r/Part \d of 2/, html) |> List.flatten() |> Enum.take(2)
+      # the group is ONE tile linking to its first part; parts are not
+      # individually tiled
+      assert html =~ ~p"/audiobooks/#{part_one.id}"
+      assert html =~ ~p"/audiobooks/#{solo.id}"
+      refute html =~ "Part 2 of 2"
+    end
 
-      assert i1 == "Part 1 of 2"
-      assert i2 == "Part 2 of 2"
+    test "a book whose only edition is a group redirects to the first part", %{conn: conn} do
+      book = insert(:book)
+      [part_one | _rest] = insert_part_set(book)
+
+      assert {:error, {:live_redirect, %{to: to}}} = live(conn, ~p"/books/#{book.id}")
+      assert to == ~p"/audiobooks/#{part_one.id}"
+    end
+
+    test "a book with nothing ready redirects home", %{conn: conn} do
+      book = insert(:book)
+      insert(:media, book: book, status: :pending)
+
+      assert {:error, {:redirect, %{to: "/"}}} = live(conn, ~p"/books/#{book.id}")
     end
   end
 
   describe "audiobook page" do
-    test "a sibling part set stacks as one tile under Other Editions", %{conn: conn} do
+    test "a sibling group is one stacked tile under Other Editions, landing on its first part",
+         %{conn: conn} do
       book = insert(:book, title: "Dungeon Crawler Carl")
       [part_one, part_two, part_three] = insert_part_set(book, name: "Season One")
       solo = insert(:media, book: book, status: :ready)
 
       {:ok, _view, html} = live(conn, ~p"/audiobooks/#{solo.id}")
 
-      # one stacked tile for the whole set — never one tile per part — and
-      # it navigates into the set: the first part's page (the book page is
-      # already one click away from here)
       assert html =~ "Other Editions"
       assert html =~ "3 parts"
       assert html =~ ~p"/audiobooks/#{part_one.id}"
@@ -89,7 +108,7 @@ defmodule AmbryWeb.PartSetUxTest do
       end
     end
 
-    test "a sibling set with non-ready parts stacks only its ready parts", %{conn: conn} do
+    test "a sibling group with non-ready parts stacks only its ready parts", %{conn: conn} do
       book = insert(:book)
       group = insert(:recording_group)
 
@@ -116,8 +135,7 @@ defmodule AmbryWeb.PartSetUxTest do
 
       {:ok, _view, html} = live(conn, ~p"/audiobooks/#{solo.id}")
 
-      # the pending first part neither counts nor represents — the first
-      # READY part is the stack's landing target
+      # the pending first part neither counts nor represents
       assert html =~ "2 parts"
       assert html =~ ~p"/audiobooks/#{part_two.id}"
     end
@@ -138,8 +156,7 @@ defmodule AmbryWeb.PartSetUxTest do
       assert html =~ "Other Editions"
       assert html =~ ~p"/audiobooks/#{other_edition.id}"
 
-      # sibling parts are not duplicated in Other Editions: their links appear
-      # exactly once (in the rail)
+      # sibling parts appear exactly once (in the rail)
       assert html |> String.split(~p"/audiobooks/#{part_one.id}") |> length() == 2
     end
 
@@ -150,6 +167,79 @@ defmodule AmbryWeb.PartSetUxTest do
       {:ok, _view, html} = live(conn, ~p"/audiobooks/#{media.id}")
 
       refute html =~ "Other Editions"
+    end
+  end
+
+  describe "series page (book tiles)" do
+    test "a sole-group book links into its first part; multi-edition books to the book page",
+         %{conn: conn} do
+      series = insert(:series, name: "Test Series")
+
+      sole_group_book =
+        insert(:book, title: "Sole Group Book", series_books: [%{series: series, book_number: 1}])
+
+      [part_one | _rest] = insert_part_set(sole_group_book)
+
+      multi_book =
+        insert(:book,
+          title: "Multi Edition Book",
+          series_books: [%{series: series, book_number: 2}]
+        )
+
+      insert(:media, book: multi_book, status: :ready)
+      insert(:media, book: multi_book, status: :ready)
+
+      {:ok, _view, html} = live(conn, ~p"/series/#{series.id}")
+
+      # editions-based click rule: one edition → its target (the group's
+      # first part), multiple → the book page
+      assert html =~ ~p"/audiobooks/#{part_one.id}"
+      assert html =~ ~p"/books/#{multi_book.id}"
+      refute html =~ ~p"/books/#{sole_group_book.id}"
+    end
+
+    test "books with nothing ready are hidden entirely", %{conn: conn} do
+      series = insert(:series)
+
+      visible =
+        insert(:book, title: "Visible Book", series_books: [%{series: series, book_number: 1}])
+
+      insert(:media, book: visible, status: :ready)
+
+      hidden =
+        insert(:book, title: "Hidden Book", series_books: [%{series: series, book_number: 2}])
+
+      insert(:media, book: hidden, status: :pending)
+
+      {:ok, _view, html} = live(conn, ~p"/series/#{series.id}")
+
+      assert html =~ "Visible Book"
+      refute html =~ "Hidden Book"
+    end
+  end
+
+  describe "narrator page" do
+    test "never shows non-ready media", %{conn: conn} do
+      narrator = insert(:narrator, person: build(:person))
+
+      ready =
+        insert(:media,
+          book: insert(:book, title: "Ready Book"),
+          status: :ready,
+          media_narrators: [build(:media_narrator, narrator: narrator)]
+        )
+
+      pending =
+        insert(:media,
+          book: insert(:book, title: "Pending Book"),
+          status: :pending,
+          media_narrators: [build(:media_narrator, narrator: narrator)]
+        )
+
+      {:ok, _view, html} = live(conn, ~p"/narrators/#{narrator.id}")
+
+      assert html =~ ~p"/audiobooks/#{ready.id}"
+      refute html =~ ~p"/audiobooks/#{pending.id}"
     end
   end
 
@@ -175,7 +265,7 @@ defmodule AmbryWeb.PartSetUxTest do
           )
         end
 
-      # library: collapsed tile counts in episodes
+      # library: the group tile counts in episodes
       {:ok, _view, html} = live(conn, ~p"/")
       assert html =~ "2 episodes"
       refute html =~ "Admin Label"
@@ -185,58 +275,6 @@ defmodule AmbryWeb.PartSetUxTest do
       assert html =~ "Dungeon Crawler Carl (Episode 1 of 2)"
       assert html =~ "Episode 2"
       refute html =~ "Admin Label"
-    end
-  end
-
-  describe "part_set_stack_media/1 (book tile stacks)" do
-    test "a part set contributes only its first part when other editions exist" do
-      book = insert(:book)
-      [part_one | rest] = insert_part_set(book)
-      solo = insert(:media, book: book, status: :ready)
-
-      stacked = CoreComponents.part_set_stack_media([solo, part_one | rest])
-
-      assert Enum.map(stacked, & &1.id) == [solo.id, part_one.id]
-    end
-
-    test "a sole part-set edition stacks all of its parts in order" do
-      book = insert(:book)
-      parts = insert_part_set(book)
-
-      stacked = CoreComponents.part_set_stack_media(Enum.shuffle(parts))
-
-      assert Enum.map(stacked, & &1.id) == Enum.map(parts, & &1.id)
-    end
-
-    test "non-ready media never contribute to stacks" do
-      book = insert(:book)
-      parts = insert_part_set(book)
-      pending = insert(:media, book: book, status: :pending)
-
-      # the pending solo is invisible — the set is still the sole (ready)
-      # edition and stacks its parts
-      stacked = CoreComponents.part_set_stack_media([pending | parts])
-
-      assert Enum.map(stacked, & &1.id) == Enum.map(parts, & &1.id)
-    end
-
-    test "part_set_representatives/1 keeps one ready media per edition" do
-      book = insert(:book)
-      group = insert(:recording_group)
-
-      pending_first =
-        insert(:media, book: book, part_number: 1, recording_group: group, status: :pending)
-
-      ready_second =
-        insert(:media, book: book, part_number: 2, recording_group: group, status: :ready)
-
-      solo = insert(:media, book: book, status: :ready)
-
-      representatives =
-        CoreComponents.part_set_representatives([pending_first, ready_second, solo])
-
-      # the set is represented by its first READY part
-      assert Enum.map(representatives, & &1.id) == [ready_second.id, solo.id]
     end
   end
 end

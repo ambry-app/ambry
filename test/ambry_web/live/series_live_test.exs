@@ -8,6 +8,7 @@ defmodule AmbryWeb.SeriesLiveTest do
   test "renders a series show page", %{conn: conn} do
     series = insert(:series)
     book = insert(:book, series_books: [%{series: series, book_number: 1}])
+    insert(:media, book: book, status: :ready)
 
     {:ok, _view, html} = live(conn, ~p"/series/#{series.id}")
 
