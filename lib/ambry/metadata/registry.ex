@@ -15,9 +15,10 @@ defmodule Ambry.Metadata.Registry do
   alias Ambry.Metadata.Providers.Audnexus
   alias Ambry.Metadata.Providers.Hardcover
   alias Ambry.Metadata.Providers.RreadingGlasses
+  alias Ambry.Metadata.Providers.Wikidata
   alias Ambry.Repo
 
-  @known_providers [RreadingGlasses, Hardcover, Audible, Audnexus]
+  @known_providers [RreadingGlasses, Hardcover, Audible, Audnexus, Wikidata]
 
   defmodule Entry do
     @moduledoc "A provider module joined with its runtime configuration."

@@ -13,6 +13,8 @@ defmodule AmbryWeb.Admin.MetadataLive.ProvidersTest do
     assert html =~ "rreading-glasses"
     assert html =~ "Audible"
     assert html =~ "Audnexus"
+    assert html =~ "Person-level providers"
+    assert html =~ "Wikipedia"
   end
 
   test "toggles a provider off and on", %{conn: conn} do

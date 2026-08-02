@@ -1,0 +1,27 @@
+{
+  "searchinfo": { "search": "ty franck" },
+  "search": [
+    {
+      "id": "Q18608460",
+      "title": "Q18608460",
+      "label": "Ty Franck",
+      "description": "American science fiction writer",
+      "match": { "type": "label", "language": "en", "text": "Ty Franck" }
+    },
+    {
+      "id": "Q3107329",
+      "title": "Q3107329",
+      "label": "Leviathan Wakes",
+      "description": "2011 novel by James S. A. Corey",
+      "match": { "type": "label", "language": "en", "text": "Leviathan Wakes" }
+    },
+    {
+      "id": "Q99999999",
+      "title": "Q99999999",
+      "label": "Obscure Narrator",
+      "description": "audiobook narrator",
+      "match": { "type": "label", "language": "en", "text": "Obscure Narrator" }
+    }
+  ],
+  "success": 1
+}

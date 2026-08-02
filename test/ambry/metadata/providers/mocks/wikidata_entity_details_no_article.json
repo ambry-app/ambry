@@ -1,0 +1,23 @@
+{
+  "entities": {
+    "Q99999999": {
+      "type": "item",
+      "id": "Q99999999",
+      "labels": { "en": { "language": "en", "value": "Obscure Narrator" } },
+      "descriptions": { "en": { "language": "en", "value": "audiobook narrator" } },
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": { "value": { "entity-type": "item", "id": "Q5" }, "type": "wikibase-entityid" }
+            }
+          }
+        ]
+      },
+      "sitelinks": {}
+    }
+  },
+  "success": 1
+}

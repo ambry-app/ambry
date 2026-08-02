@@ -9,6 +9,10 @@ defmodule Ambry.Metadata.Provider do
       audiobook releases.
     * `:recording` — the concrete side: audiobook releases with narrators,
       square cover art, chapters. ASIN is the natural key at this level.
+    * `:person` — the humans behind author and narrator identities: bios
+      and profile photos, keyed on real people rather than published-as
+      names (covers narrate-only people and the halves of composite pen
+      names that book catalogs can't see).
 
   All callbacks return normalized structs defined in this module, so the web
   layer never depends on any provider's upstream payload shape. Capabilities
@@ -149,7 +153,7 @@ defmodule Ambry.Metadata.Provider do
   @callback display_name() :: String.t()
 
   @doc "Which level of the data model this provider speaks to."
-  @callback level() :: :work | :recording
+  @callback level() :: :work | :recording | :person
 
   @doc "The optional callbacks this provider actually implements."
   @callback capabilities() :: [capability()]

@@ -1,0 +1,34 @@
+{
+  "entities": {
+    "Q18608460": {
+      "type": "item",
+      "id": "Q18608460",
+      "labels": { "en": { "language": "en", "value": "Ty Franck" } },
+      "descriptions": { "en": { "language": "en", "value": "American science fiction writer" } },
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": { "value": { "entity-type": "item", "id": "Q5" }, "type": "wikibase-entityid" }
+            }
+          }
+        ],
+        "P18": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P18",
+              "datavalue": { "value": "Ty Franck (36166643166).jpg", "type": "string" }
+            }
+          }
+        ]
+      },
+      "sitelinks": {
+        "enwiki": { "site": "enwiki", "title": "Ty Franck", "badges": [] }
+      }
+    }
+  },
+  "success": 1
+}

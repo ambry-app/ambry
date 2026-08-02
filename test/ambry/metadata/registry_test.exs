@@ -6,7 +6,9 @@ defmodule Ambry.Metadata.RegistryTest do
   test "all/0 returns every known provider enabled by default, in priority order" do
     entries = Registry.all()
 
-    assert Enum.map(entries, & &1.id) == ["rreading_glasses", "hardcover", "audible", "audnexus"]
+    assert Enum.map(entries, & &1.id) ==
+             ["rreading_glasses", "hardcover", "audible", "audnexus", "wikidata"]
+
     assert Enum.all?(entries, & &1.enabled)
   end
 
@@ -33,8 +35,10 @@ defmodule Ambry.Metadata.RegistryTest do
 
     assert ["audnexus"] = Enum.map(Registry.enabled(capability: :chapters), & &1.id)
 
-    assert ["rreading_glasses", "audnexus"] =
+    assert ["rreading_glasses", "audnexus", "wikidata"] =
              Enum.map(Registry.enabled(capability: :author_search), & &1.id)
+
+    assert ["wikidata"] = Enum.map(Registry.enabled(level: :person), & &1.id)
   end
 
   test "update/2 persists enabled flag and priority" do
