@@ -38,7 +38,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImagePicker do
   @impl Phoenix.LiveComponent
   def render(assigns) do
     ~H"""
-    <div class="space-y-4">
+    <div class="mx-auto max-w-3xl space-y-4 p-6">
       <h2 class="text-2xl font-bold">Find images</h2>
       <p class="text-sm text-zinc-600 dark:text-zinc-400">
         Best match for “{@query}” from every enabled provider. Pick a photo to stage it as a URL
@@ -135,11 +135,32 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImagePicker do
   # one glance, not a wrong import
   defp find_candidate(provider, query) do
     with {:ok, [top | _rest]} <- Providers.search_authors(provider.id, query, []),
+         true <- name_plausible?(query, top.name),
          {:ok, image_url} <- candidate_image(provider, top) do
       %{name: top.name, image_url: image_url}
     else
       _no_candidate -> nil
     end
+  end
+
+  # Guards against confidently-wrong candidates: rreading-glasses author
+  # search is book-relevance driven, so searching a narrator can surface
+  # the book's *author* instead (Jefferson Mays → James S.A. Corey). Jaro
+  # distance can't separate that case from legitimate name variants
+  # ("Ty Franck" vs "Tyler Corey Franck" scores lower than the Corey
+  # mismatch) — but sharing a name token does.
+  defp name_plausible?(query, name) do
+    not MapSet.disjoint?(name_tokens(query), name_tokens(name))
+  end
+
+  defp name_tokens(nil), do: MapSet.new()
+
+  defp name_tokens(string) do
+    string
+    |> String.downcase()
+    |> String.split(~r/[^\p{L}\p{N}]+/u, trim: true)
+    |> Enum.filter(&(String.length(&1) >= 2))
+    |> MapSet.new()
   end
 
   defp candidate_image(_provider, %{image_url: url}) when is_binary(url) and url != "",

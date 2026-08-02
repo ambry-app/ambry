@@ -126,6 +126,39 @@ defmodule AmbryWeb.Admin.PersonLive.ImagePickerTest do
     assert %{"source" => "manual", "locked" => true} = Provenance.entry(person, :name)
   end
 
+  test "a top hit sharing no name token with the query is not offered", %{conn: conn} do
+    # rreading-glasses author search is book-relevance driven: searching
+    # the narrator "Jefferson Mays" surfaces the *author* James S.A. Corey
+    patch(Providers, :search_authors, fn
+      "rreading_glasses", _query, [] ->
+        {:ok,
+         [
+           %Provider.Author{
+             provider: "rreading_glasses",
+             id: "1",
+             name: "James S.A. Corey",
+             image_url: @gr_image
+           }
+         ]}
+
+      _other, _query, [] ->
+        {:ok, []}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/people/new")
+
+    view
+    |> form("#person-form", %{"person" => %{"name" => "Jefferson Mays"}})
+    |> render_change()
+
+    view |> element("button[phx-click='open-image-picker']") |> render_click()
+    html = render_async(view)
+
+    refute html =~ URI.encode_www_form(@gr_image)
+    refute html =~ "James S.A. Corey"
+    assert html =~ "No match"
+  end
+
   test "the find-images button is disabled until the person has a name", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/admin/people/new")
 
