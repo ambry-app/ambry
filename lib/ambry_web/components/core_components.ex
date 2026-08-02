@@ -1128,9 +1128,18 @@ defmodule AmbryWeb.CoreComponents do
   attr :show_published, :boolean, default: false
   attr :collapse_part_sets, :boolean, default: false
 
+  attr :collapse_navigate, :atom,
+    values: [:book, :representative],
+    default: :book,
+    doc: """
+    where a collapsed part-set tile lands: the book page (library listings —
+    the parts are listed there in order) or the representative part's own
+    audiobook page (Other Editions — the book page is already one click away,
+    so the stack takes you into the set instead)
+    """
+
   # A part set collapses into a single stacked tile (its parts' covers),
-  # titled with the book, and lands on the book page where the parts are
-  # listed in order.
+  # titled with the book.
   def media_tile(
         %{
           collapse_part_sets: true,
@@ -1140,13 +1149,13 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div id={@id} class="text-center">
       <div class="group">
-        <.link navigate={~p"/books/#{@media.book}"}>
+        <.link navigate={collapsed_tile_path(@collapse_navigate, @media)}>
           <.book_multi_image thumbnails={
             Enum.flat_map(@media.recording_group.media, &if(&1.thumbnails, do: [&1.thumbnails], else: []))
           } />
         </.link>
         <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
-          <.link navigate={~p"/books/#{@media.book}"}>
+          <.link navigate={collapsed_tile_path(@collapse_navigate, @media)}>
             {@media.book.title}
           </.link>
         </p>
@@ -1471,6 +1480,11 @@ defmodule AmbryWeb.CoreComponents do
   # tile stacks must never leak pending/processing/errored media — several
   # callers preload a book's media unfiltered
   defp ready_media(media_list), do: Enum.filter(media_list, &(&1.status == :ready))
+
+  # the media on a collapsed tile is the set's representative (its first
+  # ready part), so :representative navigation is just its own page
+  defp collapsed_tile_path(:book, media), do: ~p"/books/#{media.book}"
+  defp collapsed_tile_path(:representative, media), do: ~p"/audiobooks/#{media}"
 
   # When a tile hides its title (e.g. "other editions" lists), parts of a set
   # still need telling apart: the override title or the part label.

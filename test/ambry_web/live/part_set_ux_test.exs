@@ -77,13 +77,14 @@ defmodule AmbryWeb.PartSetUxTest do
 
       {:ok, _view, html} = live(conn, ~p"/audiobooks/#{solo.id}")
 
-      # one stacked tile for the whole set, landing on the book page —
-      # never one tile per part
+      # one stacked tile for the whole set — never one tile per part — and
+      # it navigates into the set: the first part's page (the book page is
+      # already one click away from here)
       assert html =~ "Other Editions"
       assert html =~ "3 parts"
-      assert html =~ ~p"/books/#{book.id}"
+      assert html =~ ~p"/audiobooks/#{part_one.id}"
 
-      for part <- [part_one, part_two, part_three] do
+      for part <- [part_two, part_three] do
         refute html =~ ~p"/audiobooks/#{part.id}"
       end
     end
@@ -100,22 +101,25 @@ defmodule AmbryWeb.PartSetUxTest do
         status: :pending
       )
 
-      for n <- 2..3 do
-        insert(:media,
-          book: book,
-          part_number: n,
-          parts_total: 3,
-          recording_group: group,
-          status: :ready
-        )
-      end
+      [part_two, _part_three] =
+        for n <- 2..3 do
+          insert(:media,
+            book: book,
+            part_number: n,
+            parts_total: 3,
+            recording_group: group,
+            status: :ready
+          )
+        end
 
       solo = insert(:media, book: book, status: :ready)
 
       {:ok, _view, html} = live(conn, ~p"/audiobooks/#{solo.id}")
 
-      # the pending first part neither counts nor represents
+      # the pending first part neither counts nor represents — the first
+      # READY part is the stack's landing target
       assert html =~ "2 parts"
+      assert html =~ ~p"/audiobooks/#{part_two.id}"
     end
 
     test "shows the part rail and excludes siblings from Other Editions", %{conn: conn} do
