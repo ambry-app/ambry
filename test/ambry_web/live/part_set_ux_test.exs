@@ -70,6 +70,54 @@ defmodule AmbryWeb.PartSetUxTest do
   end
 
   describe "audiobook page" do
+    test "a sibling part set stacks as one tile under Other Editions", %{conn: conn} do
+      book = insert(:book, title: "Dungeon Crawler Carl")
+      [part_one, part_two, part_three] = insert_part_set(book, name: "Season One")
+      solo = insert(:media, book: book, status: :ready)
+
+      {:ok, _view, html} = live(conn, ~p"/audiobooks/#{solo.id}")
+
+      # one stacked tile for the whole set, landing on the book page —
+      # never one tile per part
+      assert html =~ "Other Editions"
+      assert html =~ "3 parts"
+      assert html =~ ~p"/books/#{book.id}"
+
+      for part <- [part_one, part_two, part_three] do
+        refute html =~ ~p"/audiobooks/#{part.id}"
+      end
+    end
+
+    test "a sibling set with non-ready parts stacks only its ready parts", %{conn: conn} do
+      book = insert(:book)
+      group = insert(:recording_group)
+
+      insert(:media,
+        book: book,
+        part_number: 1,
+        parts_total: 3,
+        recording_group: group,
+        status: :pending
+      )
+
+      for n <- 2..3 do
+        insert(:media,
+          book: book,
+          part_number: n,
+          parts_total: 3,
+          recording_group: group,
+          status: :ready
+        )
+      end
+
+      solo = insert(:media, book: book, status: :ready)
+
+      {:ok, _view, html} = live(conn, ~p"/audiobooks/#{solo.id}")
+
+      # the pending first part neither counts nor represents
+      assert html =~ "2 parts"
+    end
+
     test "shows the part rail and excludes siblings from Other Editions", %{conn: conn} do
       book = insert(:book, title: "Dungeon Crawler Carl")
       [part_one, part_two, _part_three] = insert_part_set(book, name: "Season One")
@@ -154,6 +202,37 @@ defmodule AmbryWeb.PartSetUxTest do
       stacked = CoreComponents.part_set_stack_media(Enum.shuffle(parts))
 
       assert Enum.map(stacked, & &1.id) == Enum.map(parts, & &1.id)
+    end
+
+    test "non-ready media never contribute to stacks" do
+      book = insert(:book)
+      parts = insert_part_set(book)
+      pending = insert(:media, book: book, status: :pending)
+
+      # the pending solo is invisible — the set is still the sole (ready)
+      # edition and stacks its parts
+      stacked = CoreComponents.part_set_stack_media([pending | parts])
+
+      assert Enum.map(stacked, & &1.id) == Enum.map(parts, & &1.id)
+    end
+
+    test "part_set_representatives/1 keeps one ready media per edition" do
+      book = insert(:book)
+      group = insert(:recording_group)
+
+      pending_first =
+        insert(:media, book: book, part_number: 1, recording_group: group, status: :pending)
+
+      ready_second =
+        insert(:media, book: book, part_number: 2, recording_group: group, status: :ready)
+
+      solo = insert(:media, book: book, status: :ready)
+
+      representatives =
+        CoreComponents.part_set_representatives([pending_first, ready_second, solo])
+
+      # the set is represented by its first READY part
+      assert Enum.map(representatives, & &1.id) == [ready_second.id, solo.id]
     end
   end
 end

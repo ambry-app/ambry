@@ -80,4 +80,60 @@ defmodule AmbryWeb.Admin.BookLive.ProviderImportTest do
     assert html =~ "Existing author"
     assert html =~ "Existing series"
   end
+
+  test "a composite pen name shows and links the credited author identity, not the person",
+       %{conn: conn} do
+    # Ty Franck writes as himself AND as half of James S.A. Corey; a book
+    # credited to the pen name must render and link the pen name — never
+    # the person behind it, and never his first identity
+    import Ecto.Query, only: [from: 2]
+
+    person =
+      insert(:person,
+        name: "Ty Franck",
+        authors: [build(:author, name: "Ty Franck"), build(:author, name: "James S.A. Corey")]
+      )
+
+    with_search_index(person)
+
+    book = %{
+      result_book()
+      | authors: [%Provider.Contributor{id: "1", name: "James S.A. Corey", role: "author"}]
+    }
+
+    patch(Ambry.Metadata.Providers.RreadingGlasses, :search_books, fn _query, _config ->
+      {:ok, [book]}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/books/new?import=rreading_glasses")
+
+    html = render_async(view)
+    assert html =~ ~r|Existing author</span>\s*James S\.A\. Corey|
+    refute html =~ ~r|Existing author</span>\s*Ty Franck|
+
+    view
+    |> form("form[phx-submit='import']", %{
+      "import" => %{
+        "use_title" => "true",
+        "use_published" => "true",
+        "use_authors" => "true",
+        "use_series" => "false"
+      }
+    })
+    |> render_submit()
+
+    view |> form("#book-form", %{"book" => %{}}) |> render_submit()
+
+    saved_book =
+      Ambry.Repo.one!(from b in Ambry.Books.Book, where: b.title == "Dungeon Crawler Carl")
+
+    corey = Ambry.Repo.one!(from a in Ambry.People.Author, where: a.name == "James S.A. Corey")
+
+    assert [%{id: author_id}] = Ambry.Repo.preload(saved_book, :authors).authors
+    assert author_id == corey.id
+
+    # no duplicate person or identity was created
+    assert [_ty_franck] = Ambry.Repo.all(Ambry.People.Person)
+    assert length(Ambry.Repo.all(Ambry.People.Author)) == 2
+  end
 end

@@ -149,9 +149,28 @@ defmodule AmbryWeb.Admin.MediaLive.Form.ProviderImportForm do
 
         %{"narrator_id" => narrator.id}
 
-      {_imported, %{narrators: [narrator | _rest]}} ->
-        %{"narrator_id" => narrator.id}
+      {imported, existing} ->
+        %{"narrator_id" => pick_narrator(existing, imported.name).id}
     end)
+  end
+
+  # The narrator identity that gets linked for a matched person: the stage
+  # name the imported credit actually names (a person can narrate under a
+  # different name than they're known by), falling back to their first
+  # identity for fuzzy matches.
+  defp pick_narrator(%Person{narrators: narrators}, imported_name) do
+    Enum.find(narrators, &(String.downcase(&1.name) == String.downcase(imported_name))) ||
+      List.first(narrators)
+  end
+
+  # what the "Existing narrator" row shows: the identity being linked (or,
+  # for a person with no narrator identities yet, the person whose new
+  # identity will carry their name) — never the person behind a stage name
+  defp existing_narrator_label(person, imported) do
+    case pick_narrator(person, imported.name) do
+      nil -> person.name
+      narrator -> narrator.name
+    end
   end
 
   defp search(provider_id, query, refresh \\ false) do

@@ -142,8 +142,15 @@ defmodule Ambry.Media do
       book: [
         :authors,
         series_books: :series,
+        # sibling editions carry their group's (ready) media too, so a
+        # sibling part set can render as one stacked tile
         media:
-          ^{media_query, [:narrators, :recording_group, book: [:authors, series_books: :series]]}
+          ^{media_query,
+           [
+             :narrators,
+             recording_group: [media: group_media_query],
+             book: [:authors, series_books: :series]
+           ]}
       ]
     ])
   end

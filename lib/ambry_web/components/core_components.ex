@@ -1428,11 +1428,13 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
-  The media whose covers a book tile stacks: one per edition — part sets
-  contribute only their first part — unless the book's sole edition is a part
-  set, in which case its parts are the stack.
+  One media per edition, ready only: ungrouped media pass through, a part
+  set is represented by its first ready part. The shared collapse rule for
+  every user-facing surface that lists editions.
   """
-  def part_set_stack_media(media_list) do
+  def part_set_representatives(media_list) do
+    media_list = ready_media(media_list)
+
     first_parts =
       media_list
       |> Enum.filter(& &1.recording_group_id)
@@ -1441,10 +1443,19 @@ defmodule AmbryWeb.CoreComponents do
         {group_id, Enum.min_by(parts, &{&1.part_number || :infinity, &1.id}).id}
       end)
 
-    representatives =
-      Enum.filter(media_list, fn media ->
-        is_nil(media.recording_group_id) or first_parts[media.recording_group_id] == media.id
-      end)
+    Enum.filter(media_list, fn media ->
+      is_nil(media.recording_group_id) or first_parts[media.recording_group_id] == media.id
+    end)
+  end
+
+  @doc """
+  The media whose covers a book tile stacks, ready only: one per edition —
+  part sets contribute only their first part — unless the book's sole
+  edition is a part set, in which case its parts are the stack.
+  """
+  def part_set_stack_media(media_list) do
+    media_list = ready_media(media_list)
+    representatives = part_set_representatives(media_list)
 
     case representatives do
       [%{recording_group_id: group_id}] when not is_nil(group_id) ->
@@ -1456,6 +1467,10 @@ defmodule AmbryWeb.CoreComponents do
         representatives
     end
   end
+
+  # tile stacks must never leak pending/processing/errored media — several
+  # callers preload a book's media unfiltered
+  defp ready_media(media_list), do: Enum.filter(media_list, &(&1.status == :ready))
 
   # When a tile hides its title (e.g. "other editions" lists), parts of a set
   # still need telling apart: the override title or the part label.
