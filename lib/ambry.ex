@@ -20,6 +20,7 @@ defmodule Ambry do
       {Paths, []},
       {People, []},
       {Playback, []},
+      {Provenance, []},
       {PubSub, []},
       {Repo, []},
       {Thumbnails, []},

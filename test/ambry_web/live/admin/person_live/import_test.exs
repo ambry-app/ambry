@@ -65,6 +65,64 @@ defmodule AmbryWeb.Admin.PersonLive.ImportTest do
     assert html =~ ~s(value="https://images.gr-assets.com/authors/999015.jpg")
   end
 
+  test "accepted provider values save with provider provenance, unlocked", %{conn: conn} do
+    patch_rreading_glasses()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/people/new?import=rreading_glasses")
+    render_chained_async(view)
+
+    view
+    |> form("form[phx-submit='import']", %{
+      "import" => %{"use_name" => "true", "use_description" => "true", "use_image" => "false"}
+    })
+    |> render_submit()
+
+    view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+    person = person_by_name("Matt Dinniman")
+
+    assert %{"source" => "provider:rreading_glasses", "locked" => false} =
+             Ambry.Provenance.entry(person, :name)
+
+    assert %{"source" => "provider:rreading_glasses", "locked" => false} =
+             Ambry.Provenance.entry(person, :description)
+  end
+
+  test "editing an accepted value before saving makes it a manual edit again", %{conn: conn} do
+    patch_rreading_glasses()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/people/new?import=rreading_glasses")
+    render_chained_async(view)
+
+    view
+    |> form("form[phx-submit='import']", %{
+      "import" => %{"use_name" => "true", "use_description" => "true", "use_image" => "false"}
+    })
+    |> render_submit()
+
+    view
+    |> form("#person-form", %{"person" => %{"description" => "My own curated bio."}})
+    |> render_change()
+
+    view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+    person = person_by_name("Matt Dinniman")
+
+    # untouched accepted value keeps its provider provenance…
+    assert %{"source" => "provider:rreading_glasses", "locked" => false} =
+             Ambry.Provenance.entry(person, :name)
+
+    # …but the edited one is operator curation now — manual and locked
+    assert %{"source" => "manual", "locked" => true} =
+             Ambry.Provenance.entry(person, :description)
+  end
+
+  defp person_by_name(name) do
+    import Ecto.Query, only: [from: 2]
+
+    Ambry.Repo.one!(from p in Ambry.People.Person, where: p.name == ^name)
+  end
+
   test "unknown provider in the URL just closes the import modal", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/admin/people/new?import=bogus")
 

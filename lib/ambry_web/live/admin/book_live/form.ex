@@ -6,7 +6,9 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   alias Ambry.Books.Book
   alias Ambry.Metadata.Registry
   alias Ambry.People
+  alias Ambry.Provenance
   alias AmbryWeb.Admin.BookLive.Form.ProviderImportForm
+  alias AmbryWeb.Admin.ProvenanceHints
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
@@ -15,6 +17,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
      socket
      |> assign(
        import: nil,
+       provenance_hints: %{},
        # work-level providers plus Audible: its normalized results carry
        # title/authors/series too, and the generic form is provider-agnostic
        import_providers: Registry.enabled(capability: :book_search),
@@ -74,10 +77,20 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       |> Books.change_book(book_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign_form(socket, changeset)}
+    {:noreply,
+     socket
+     |> assign_form(changeset)
+     |> assign(
+       provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, book_params)
+     )}
   end
 
   def handle_event("submit", %{"book" => book_params}, socket) do
+    socket =
+      assign(socket,
+        provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, book_params)
+      )
+
     socket.assigns.book
     |> Books.change_book(book_params)
     |> Changeset.apply_action(:insert)
@@ -87,12 +100,17 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     end
   end
 
+  def handle_event("toggle-provenance-lock", %{"field" => field}, socket) do
+    {:ok, book} = Provenance.toggle_lock(socket.assigns.book, field)
+    {:noreply, assign(socket, book: book)}
+  end
+
   def handle_event("open-import-form", %{"type" => type}, socket) do
     {:noreply, handle_import_form_params(socket, %{"import" => type})}
   end
 
   @impl Phoenix.LiveView
-  def handle_info({:import, %{"book" => book_params}}, socket) do
+  def handle_info({:import, %{"book" => book_params}, source}, socket) do
     # authors and/or series could have been created, reload the data-lists
     socket =
       assign(socket,
@@ -100,14 +118,23 @@ defmodule AmbryWeb.Admin.BookLive.Form do
         series: Books.series_for_select()
       )
 
+    hints = ProvenanceHints.from_import(book_params, source)
     new_params = Map.merge(socket.assigns.form.params, book_params)
     changeset = Books.change_book(socket.assigns.book, new_params)
 
-    {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
+    {:noreply,
+     socket
+     |> assign_form(changeset)
+     |> assign(
+       import: nil,
+       provenance_hints: Map.merge(socket.assigns.provenance_hints, hints)
+     )}
   end
 
   defp save_book(socket, :edit, book_params) do
-    case Books.update_book(socket.assigns.book, book_params) do
+    opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+
+    case Books.update_book(socket.assigns.book, book_params, opts) do
       {:ok, book} ->
         {:noreply,
          socket
@@ -120,7 +147,9 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   defp save_book(socket, :new, book_params) do
-    case Books.create_book(book_params) do
+    opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+
+    case Books.create_book(book_params, opts) do
       {:ok, book} ->
         {:noreply,
          socket

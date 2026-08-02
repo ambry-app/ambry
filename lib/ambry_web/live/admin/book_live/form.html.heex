@@ -118,6 +118,12 @@
         <.delete_input field={@form[:book_universes_drop]} />
       </div>
 
+      <.provenance_panel
+        record={@book}
+        changeset={@form.source}
+        pending_sources={ProvenanceHints.sources(@provenance_hints)}
+      />
+
       <:actions>
         <.button>Save</.button>
       </:actions>

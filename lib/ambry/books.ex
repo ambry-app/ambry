@@ -131,10 +131,12 @@ defmodule Ambry.Books do
       iex> create_book(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
+  Accepts `provenance: %{"field" => source}` in `opts` to record where
+  provider-fillable field values came from — see `Ambry.Provenance`.
   """
-  def create_book(attrs \\ %{}) do
+  def create_book(attrs \\ %{}, opts \\ []) do
     Repo.transact(fn ->
-      changeset = change_book(%Book{}, attrs)
+      changeset = Book.changeset(%Book{}, attrs, opts)
 
       with {:ok, book} <- Repo.insert(changeset),
            :ok <- Search.insert(book),
@@ -161,11 +163,13 @@ defmodule Ambry.Books do
       iex> update_book(book, %{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
+  Accepts `provenance: %{"field" => source}` in `opts` to record where
+  provider-fillable field values came from — see `Ambry.Provenance`.
   """
-  def update_book(%Book{} = book, attrs) do
+  def update_book(%Book{} = book, attrs, opts \\ []) do
     Repo.transact(fn ->
       book = Repo.preload(book, @book_direct_assoc_preloads)
-      changeset = change_book(book, attrs)
+      changeset = Book.changeset(book, attrs, opts)
 
       with {:ok, updated_book} <- Repo.update(changeset),
            :ok <- Search.update(updated_book),
