@@ -58,7 +58,9 @@ defmodule Ambry.Metadata.Providers.Tmdb do
     if available?(config) do
       []
     else
-      [{:warning, "No API key configured — get a free key at #{@signup_url}."}]
+      # info, not warning: this provider is a purely optional extra — an
+      # unkeyed TMDB is a fine steady state, not a misconfiguration
+      [{:info, "Optional — paste a free API key from #{@signup_url} to enable TMDB headshots."}]
     end
   end
 

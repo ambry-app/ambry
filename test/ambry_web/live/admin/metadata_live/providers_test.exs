@@ -20,7 +20,7 @@ defmodule AmbryWeb.Admin.MetadataLive.ProvidersTest do
     # the settings page is where the key gets pasted
     assert html =~ "TMDB"
     assert html =~ ~s(name="config[api_key]")
-    assert html =~ "No API key configured"
+    assert html =~ "Optional — paste a free API key"
   end
 
   test "toggles a provider off and on", %{conn: conn} do

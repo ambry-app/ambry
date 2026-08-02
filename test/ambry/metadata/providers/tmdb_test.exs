@@ -18,8 +18,9 @@ defmodule Ambry.Metadata.Providers.TmdbTest do
       refute Tmdb.available?(%{api_key: ""})
       assert Tmdb.available?(%{api_key: "abc123"})
 
-      assert [{:warning, notice}] = Tmdb.config_notices(%{})
+      assert [{:info, notice}] = Tmdb.config_notices(%{})
       assert notice =~ "themoviedb.org"
+      assert notice =~ "Optional"
 
       assert [] = Tmdb.config_notices(%{api_key: "abc123"})
     end
