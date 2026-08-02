@@ -49,6 +49,7 @@ defmodule Ambry.Media.Media do
     # form-only: recording-group picker staging, see apply_recording_group_choice/1
     field :recording_group_choice, :string, virtual: true
     field :recording_group_name, :string, virtual: true
+    field :recording_group_show_label, :boolean, virtual: true
     field :recording_group_part_word, :string, virtual: true
     field :recording_group_part_word_plural, :string, virtual: true
 
@@ -90,6 +91,7 @@ defmodule Ambry.Media.Media do
       :parts_total,
       :recording_group_id,
       :recording_group_choice,
+      :recording_group_show_label,
       :source_path,
       :source_files,
       :published,
@@ -148,6 +150,7 @@ defmodule Ambry.Media.Media do
       "new" ->
         put_assoc(changeset, :recording_group, %RecordingGroup{
           name: presence(get_change(changeset, :recording_group_name)),
+          show_label: get_change(changeset, :recording_group_show_label) == true,
           part_word: group_word_change(changeset, :recording_group_part_word),
           part_word_plural: group_word_change(changeset, :recording_group_part_word_plural)
         })
@@ -169,11 +172,12 @@ defmodule Ambry.Media.Media do
     updates =
       [
         name: get_change(changeset, :recording_group_name),
+        show_label: get_change(changeset, :recording_group_show_label),
         part_word: get_change(changeset, :recording_group_part_word),
         part_word_plural: get_change(changeset, :recording_group_part_word_plural)
       ]
       |> Enum.reject(fn {_field, value} -> is_nil(value) end)
-      |> Map.new(fn {field, value} -> {field, presence(value)} end)
+      |> Map.new(fn {field, value} -> {field, group_update_value(field, value)} end)
 
     with false <- updates == %{},
          false <- get_change(changeset, :recording_group_choice) == "new",
@@ -185,6 +189,11 @@ defmodule Ambry.Media.Media do
       _no_update -> changeset
     end
   end
+
+  # the label-visibility flag is a boolean — everything else is a string
+  # that folds empty to nil
+  defp group_update_value(:show_label, value), do: value
+  defp group_update_value(_field, value), do: presence(value)
 
   defp group_word_change(changeset, field) do
     changeset |> get_change(field) |> presence_downcase()

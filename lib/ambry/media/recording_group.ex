@@ -18,8 +18,11 @@ defmodule Ambry.Media.RecordingGroup do
   schema "recording_groups" do
     has_many :media, Media, preload_order: [asc: :part_number]
 
-    # admin-only organizational label; never rendered in user-facing UI
+    # organizational label; rendered on the set's stacked tile only when
+    # the operator opts in via show_label (an explicit choice — label
+    # presence alone never triggers user-facing rendering)
     field :name, :string
+    field :show_label, :boolean, default: false
 
     # what one release in this set is called ("part" by default; "episode",
     # "volume", ...). Stored lowercase; display capitalizes as needed. nil
@@ -32,7 +35,7 @@ defmodule Ambry.Media.RecordingGroup do
 
   @doc false
   def changeset(recording_group, attrs) do
-    cast(recording_group, attrs, [:name, :part_word, :part_word_plural])
+    cast(recording_group, attrs, [:name, :show_label, :part_word, :part_word_plural])
   end
 
   @doc "The singular word for one release in this set, defaulting to \"part\"."
