@@ -157,9 +157,28 @@ defmodule AmbryWeb.Admin.BookLive.Form.ProviderImportForm do
 
         %{"author_id" => author.id}
 
-      {_imported, %{authors: [author | _rest]}} ->
-        %{"author_id" => author.id}
+      {imported, existing} ->
+        %{"author_id" => pick_author(existing, imported.name).id}
     end)
+  end
+
+  # The author identity that gets linked for a matched person: the pen name
+  # the imported credit actually names — a person can write under several
+  # (composite pen names), and their first identity is not necessarily the
+  # credited one. Falls back to the first identity for fuzzy matches.
+  defp pick_author(%Person{authors: authors}, imported_name) do
+    Enum.find(authors, &(String.downcase(&1.name) == String.downcase(imported_name))) ||
+      List.first(authors)
+  end
+
+  # what the "Existing author" row shows: the identity being linked (or, for
+  # a person with no author identities yet, the person whose new identity
+  # will carry their name) — never the person behind a pen name
+  defp existing_author_label(person, imported) do
+    case pick_author(person, imported.name) do
+      nil -> person.name
+      author -> author.name
+    end
   end
 
   defp build_series_params(matching_series) do

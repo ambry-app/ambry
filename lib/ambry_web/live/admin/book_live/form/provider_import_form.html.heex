@@ -56,7 +56,7 @@
             <p class="flex items-center gap-2">
               <.icon name="fa-circle-check" class="text-brand h-4 w-4 flex-none dark:text-brand-dark" />
               <span class="font-semibold">Existing author</span>
-              {existing_author.name}
+              {existing_author_label(existing_author, imported_author)}
             </p>
           <% else %>
             <p class="flex items-center gap-2">
