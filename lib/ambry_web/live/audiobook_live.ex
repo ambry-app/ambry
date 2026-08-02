@@ -20,7 +20,7 @@ defmodule AmbryWeb.AudiobookLive do
       <div class="justify-center sm:flex sm:flex-row">
         <section id="cover" class="mb-4 flex-none sm:mb-0 sm:w-80">
           <div class="mb-6 sm:hidden">
-            <.book_header book={@media.book} title_override={@media.title} />
+            <.book_header book={@media.book} title_override={media_display_title(@media)} />
             <p class="mt-4">
               Narrated by <.all_people_links people={@media.narrators} full_cast={@media.full_cast} />
               <%= if @media.abridged do %>
@@ -44,7 +44,10 @@ defmodule AmbryWeb.AudiobookLive do
           <div class="mt-6 divide-y divide-zinc-300 rounded-sm border border-zinc-200 bg-zinc-50 px-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
             <div class="flex items-center gap-4 py-3">
               <div class="grow">
-                <p>{@media.title || @media.book.title}</p>
+                <p>{media_display_title(@media)}</p>
+                <p :if={part_set_line(@media)} class="text-zinc-600 dark:text-zinc-400">
+                  {part_set_line(@media)}
+                </p>
                 <p class="text-zinc-600 dark:text-zinc-400">
                   {duration_display(@media.duration)}
                 </p>
@@ -74,13 +77,38 @@ defmodule AmbryWeb.AudiobookLive do
             <.markdown :if={@media.description} content={@media.description} class="mt-4" />
           </section>
 
-          <%= if @media.book.media != [] do %>
+          <%= if @part_set do %>
+            <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {part_set_label(@part_set)}
+            </h2>
+            <div class="grid grid-cols-3 gap-4 sm:gap-6">
+              <div :for={part <- @part_set.media} class="text-center">
+                <%= if part.id == @media.id do %>
+                  <div class="ring-brand rounded-sm ring-2 dark:ring-brand-dark">
+                    <.book_multi_image thumbnails={if part.thumbnails, do: [part.thumbnails], else: []} />
+                  </div>
+                  <p class="mt-1 text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    {part_chip_label(part, @part_set)}
+                  </p>
+                <% else %>
+                  <.link navigate={~p"/audiobooks/#{part}"} class="group">
+                    <.book_multi_image thumbnails={if part.thumbnails, do: [part.thumbnails], else: []} />
+                    <p class="mt-1 text-sm text-zinc-800 group-hover:underline dark:text-zinc-200">
+                      {part_chip_label(part, @part_set)}
+                    </p>
+                  </.link>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <%= if @other_editions != [] do %>
             <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
               Other Editions
             </h2>
             <div class="grid grid-cols-2 gap-4 sm:gap-6 md:gap-8">
               <.media_tile
-                :for={media <- @media.book.media}
+                :for={media <- @other_editions}
                 media={media}
                 show_title={false}
                 show_authors={false}
@@ -93,7 +121,7 @@ defmodule AmbryWeb.AudiobookLive do
         </section>
 
         <section id="description" class="hidden max-w-md sm:ml-10 sm:block">
-          <.book_header book={@media.book} title_override={@media.title} />
+          <.book_header book={@media.book} title_override={media_display_title(@media)} />
           <p class="mt-4">
             Narrated by <.all_people_links people={@media.narrators} full_cast={@media.full_cast} />
             <%= if @media.abridged do %>
@@ -117,15 +145,40 @@ defmodule AmbryWeb.AudiobookLive do
          {:ok, media} <- Media.fetch_media_with_book_details(media_id) do
       global_id = to_global_id("Media", media.id, AmbrySchema)
 
+      part_set =
+        case media.recording_group do
+          %{media: [_, _ | _]} = group -> group
+          _no_set -> nil
+        end
+
+      other_editions =
+        Enum.reject(
+          media.book.media,
+          &(part_set && &1.recording_group_id == media.recording_group_id)
+        )
+
       {:ok,
        assign(socket,
          page_title: Books.get_book_description(media.book),
          media: media,
+         part_set: part_set,
+         other_editions: other_editions,
          global_id: global_id
        )}
     else
       _ -> {:ok, redirect(socket, to: ~p"/")}
     end
+  end
+
+  # short label under each cover in the part rail
+  defp part_chip_label(part, group) do
+    Ambry.Media.Media.part_label(part, group) || part.title || "Untitled"
+  end
+
+  # "Part 2 of 3" / "Episode 4 of 6" / nil — the group name is admin-only
+  # and deliberately not shown
+  defp part_set_line(media) do
+    Ambry.Media.Media.part_label(media)
   end
 
   defp format_file_name(file), do: file.label || file.filename

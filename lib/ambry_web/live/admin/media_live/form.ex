@@ -45,8 +45,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     socket
     |> assign_form(changeset)
     |> assign(
-      page_title: media.book.title,
+      page_title: Media.Media.display_title(media),
       media: media,
+      recording_groups: Media.recording_groups_for_select(media.book_id),
       file_stats: Media.get_media_file_details(media)
     )
   end
@@ -65,6 +66,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     |> assign(
       page_title: "New Media",
       media: media,
+      recording_groups: [],
       file_stats: nil
     )
   end
@@ -110,6 +112,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       else
         cancel_all_uploads(socket, :image)
       end
+
+    socket =
+      assign(socket,
+        recording_groups: Media.recording_groups_for_select(media_params["book_id"])
+      )
 
     changeset =
       socket.assigns.media
@@ -394,4 +401,34 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   defp open_import_form(media, type), do: JS.patch(media_path(media, %{import: type}))
   defp open_file_browser(media), do: JS.patch(media_path(media, %{browse: :files}))
   defp close_modal(media), do: JS.patch(media_path(media), replace: true)
+
+  defp recording_group_options(groups) do
+    [{"(not part of a group)", "none"}, {"+ New group…", "new"} | groups]
+  end
+
+  defp group_field_value(form, media, virtual_field, group_field) do
+    case {form[virtual_field].value, group_name_mode(form, media)} do
+      {nil, :edit} -> media.recording_group && Map.get(media.recording_group, group_field)
+      {value, _mode} -> value
+    end
+  end
+
+  # :new — naming a group being created; :edit — renaming the currently
+  # linked group; nil — no name input
+  defp group_name_mode(form, media) do
+    choice = to_string(recording_group_choice_value(form))
+
+    cond do
+      choice == "new" -> :new
+      media.recording_group_id && choice == to_string(media.recording_group_id) -> :edit
+      true -> nil
+    end
+  end
+
+  defp recording_group_choice_value(form) do
+    case form[:recording_group_choice].value do
+      nil -> form[:recording_group_id].value || "none"
+      value -> value
+    end
+  end
 end

@@ -16,6 +16,7 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Hashids
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
+  alias Ambry.Media.RecordingGroup
   alias Ambry.People.Author
   alias Ambry.People.AuthorPerson
   alias Ambry.People.BookAuthor
@@ -106,6 +107,9 @@ defmodule AmbrySchema.Resolvers do
   def media_narrators_changed_since(args, _resolution),
     do: Sync.changes_since(MediaNarrator, args[:since])
 
+  def recording_groups_changed_since(args, _resolution),
+    do: Sync.changes_since(RecordingGroup, args[:since])
+
   def deletions_since(args, _resolution), do: Sync.deletions_since(args[:since])
 
   def list_series_books(%Series{} = series, args, _resolution) do
@@ -165,6 +169,10 @@ defmodule AmbrySchema.Resolvers do
 
   def node(%{type: :narrator, id: id}, _resolution), do: {:ok, Repo.get(Narrator, id)}
   def node(%{type: :person, id: id}, _resolution), do: {:ok, Repo.get(Person, id)}
+
+  def node(%{type: :recording_group, id: id}, _resolution),
+    do: {:ok, Repo.get(RecordingGroup, id)}
+
   def node(%{type: :series, id: id}, _resolution), do: {:ok, Repo.get(Series, id)}
   def node(%{type: :series_book, id: id}, _resolution), do: {:ok, Repo.get(SeriesBook, id)}
 
@@ -179,6 +187,7 @@ defmodule AmbrySchema.Resolvers do
   def type(%MediaNarrator{}, _resolution), do: :media_narrator
   def type(%Narrator{}, _resolution), do: :narrator
   def type(%Person{}, _resolution), do: :person
+  def type(%RecordingGroup{}, _resolution), do: :recording_group
   def type(%Series{}, _resolution), do: :series
   def type(%SeriesBook{}, _resolution), do: :series_book
 

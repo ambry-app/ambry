@@ -11,7 +11,9 @@ defmodule Ambry.Media do
       Chapters,
       Media,
       Media.Chapter,
+      MediaFlat,
       MediaNarrator,
+      RecordingGroup,
       PubSub.MediaCreated,
       PubSub.MediaDeleted,
       PubSub.MediaProgress,
@@ -34,6 +36,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.PubSub.MediaDeleted
   alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.Media.PubSub.MediaUpdated
+  alias Ambry.Media.RecordingGroup
   alias Ambry.Media.RunProcessor
   alias Ambry.Paths
   alias Ambry.PubSub
@@ -100,7 +103,8 @@ defmodule Ambry.Media do
       ** (Ecto.NoResultsError)
 
   """
-  def get_media!(id), do: Media |> preload([:book, :media_narrators]) |> Repo.get!(id)
+  def get_media!(id),
+    do: Media |> preload([:book, :media_narrators, :recording_group]) |> Repo.get!(id)
 
   @doc """
   Gets a media and the book with all its details.
@@ -126,13 +130,20 @@ defmodule Ambry.Media do
     media_query =
       from m in Media, where: m.status == :ready and m.id != ^id, order_by: {:desc, :published}
 
+    group_media_query =
+      from m in Media,
+        where: m.status == :ready,
+        order_by: [asc_nulls_last: m.part_number, asc: m.id]
+
     Media
     |> preload([
       :narrators,
+      recording_group: [media: ^group_media_query],
       book: [
         :authors,
         series_books: :series,
-        media: ^{media_query, [:narrators, book: [:authors, series_books: :series]]}
+        media:
+          ^{media_query, [:narrators, :recording_group, book: [:authors, series_books: :series]]}
       ]
     ])
   end
@@ -201,6 +212,7 @@ defmodule Ambry.Media do
       changeset = Media.changeset(media, attrs)
 
       with {:ok, updated_media} <- Repo.update(changeset),
+           :ok <- delete_orphaned_recording_groups(),
            :ok <- Search.update(updated_media),
            {:ok, _job_or_noop} <- delete_unused_files_async(media, updated_media),
            {:ok, _job_or_noop} <- generate_thumbnails_async(updated_media),
@@ -253,6 +265,7 @@ defmodule Ambry.Media do
   def delete_media(%Media{} = media) do
     Repo.transact(fn ->
       with {:ok, deleted_media} <- Repo.delete(media),
+           :ok <- delete_orphaned_recording_groups(),
            :ok <- Search.delete(deleted_media),
            {:ok, _job} <- delete_all_files_async(deleted_media),
            {:ok, _job} <- broadcast_media_deleted(deleted_media) do
@@ -406,6 +419,42 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  Returns the recording groups usable for the given book, for `Select`
+  components: every group already attached to one of the book's media.
+  """
+  def recording_groups_for_select(nil), do: []
+  def recording_groups_for_select(""), do: []
+
+  def recording_groups_for_select(book_id) do
+    query =
+      from g in RecordingGroup,
+        join: m in assoc(g, :media),
+        on: m.book_id == ^book_id,
+        distinct: true,
+        order_by: g.id,
+        select: {g.name, g.id}
+
+    query
+    |> Repo.all()
+    |> Enum.map(fn
+      {nil, id} -> {"Unnamed group ##{id}", id}
+      {name, id} -> {name, id}
+    end)
+  end
+
+  # Groups exist only to tie parts together; once no media references one it
+  # is deleted (the delete trigger records it for sync).
+  defp delete_orphaned_recording_groups do
+    Repo.delete_all(
+      from g in RecordingGroup,
+        as: :group,
+        where: not exists(from m in Media, where: m.recording_group_id == parent_as(:group).id)
+    )
+
+    :ok
+  end
+
+  @doc """
   Returns a paginated list of media narrated by the given narrator.
   """
   def get_narrated_media(narrator, offset \\ 0, limit \\ 10) do
@@ -431,16 +480,38 @@ defmodule Ambry.Media do
   def get_recent_media(offset \\ 0, limit \\ 10) do
     over_limit = limit + 1
 
+    # part sets collapse to one entry: only the first ready part of each
+    # recording group represents its set
     query =
       from m in Media,
         where: m.status == :ready,
+        where:
+          is_nil(m.recording_group_id) or
+            m.id ==
+              fragment(
+                """
+                (SELECT m2.id FROM media m2
+                 WHERE m2.recording_group_id = ? AND m2.status = 'ready'
+                 ORDER BY m2.part_number ASC NULLS LAST, m2.id ASC
+                 LIMIT 1)
+                """,
+                m.recording_group_id
+              ),
         order_by: [desc: m.inserted_at],
         offset: ^offset,
         limit: ^over_limit
 
+    group_media_query =
+      from m in Media,
+        where: m.status == :ready,
+        order_by: [asc_nulls_last: m.part_number, asc: m.id]
+
     media =
       query
-      |> preload(book: [:authors, series_books: :series])
+      |> preload(
+        book: [:authors, series_books: :series],
+        recording_group: [media: ^group_media_query]
+      )
       |> Repo.all()
 
     media_to_return = Enum.slice(media, 0, limit)
@@ -478,11 +549,13 @@ defmodule Ambry.Media do
 
     description = Books.get_book_description(book)
 
-    # recordings with a display-title override are described by it
+    # recordings are described by their display title (override or part label)
     description =
-      if media.title,
-        do: String.replace_prefix(description, book.title, media.title),
-        else: description
+      String.replace_prefix(
+        description,
+        book.title,
+        Media.display_title(%{media | book: book})
+      )
 
     "#{description} • narrated by #{narrators}"
   end

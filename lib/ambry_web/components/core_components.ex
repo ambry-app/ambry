@@ -16,6 +16,8 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Books.Book
   alias Ambry.Books.SeriesBook
   alias Ambry.Media.Media
+  alias Ambry.Media.MediaFlat
+  alias Ambry.Media.RecordingGroup
   alias Ambry.People.Author
   alias AmbryWeb.Admin.UploadHelpers
   alias AmbryWeb.Components.Autocomplete
@@ -1020,6 +1022,7 @@ defmodule AmbryWeb.CoreComponents do
   attr :stream, :any, required: true
   attr :next, :string, default: "next-page"
   attr :prev, :string, default: "prev-page"
+  attr :collapse_part_sets, :boolean, default: false
   attr :rest, :global
 
   def media_tiles_stream(assigns) do
@@ -1033,7 +1036,12 @@ defmodule AmbryWeb.CoreComponents do
       class={[if(@end?, do: "", else: "pb-[calc(200vh)]"), if(@page == 1, do: "", else: "pt-[calc(200vh)]")]}
       {@rest}
     >
-      <.media_tile :for={{id, media} <- @stream} media={media} id={id} />
+      <.media_tile
+        :for={{id, media} <- @stream}
+        media={media}
+        id={id}
+        collapse_part_sets={@collapse_part_sets}
+      />
     </.grid>
     """
   end
@@ -1063,7 +1071,9 @@ defmodule AmbryWeb.CoreComponents do
       <% end %>
       <div class="group">
         <.link navigate={~p"/books/#{@book}"}>
-          <.book_multi_image thumbnails={Enum.flat_map(@book.media, &if(&1.thumbnails, do: [&1.thumbnails], else: []))} />
+          <.book_multi_image thumbnails={
+            Enum.flat_map(part_set_stack_media(@book.media), &if(&1.thumbnails, do: [&1.thumbnails], else: []))
+          } />
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/books/#{@book}"}>
@@ -1106,6 +1116,46 @@ defmodule AmbryWeb.CoreComponents do
   attr :show_series, :boolean, default: true
   attr :show_narrators, :boolean, default: false
   attr :show_published, :boolean, default: false
+  attr :collapse_part_sets, :boolean, default: false
+
+  # A part set collapses into a single stacked tile (its parts' covers),
+  # titled with the book, and lands on the book page where the parts are
+  # listed in order.
+  def media_tile(
+        %{
+          collapse_part_sets: true,
+          media: %Media{recording_group: %RecordingGroup{media: [_, _ | _]}}
+        } = assigns
+      ) do
+    ~H"""
+    <div id={@id} class="text-center">
+      <div class="group">
+        <.link navigate={~p"/books/#{@media.book}"}>
+          <.book_multi_image thumbnails={
+            Enum.flat_map(@media.recording_group.media, &if(&1.thumbnails, do: [&1.thumbnails], else: []))
+          } />
+        </.link>
+        <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+          <.link navigate={~p"/books/#{@media.book}"}>
+            {@media.book.title}
+          </.link>
+        </p>
+      </div>
+
+      <p class="text-sm text-zinc-600 dark:text-zinc-400">
+        {part_set_label(@media.recording_group)}
+      </p>
+
+      <p :if={@show_authors} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        by <.people_links people={@media.book.authors} />
+      </p>
+
+      <div :if={@show_series} class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+        <.series_book_links series_books={@media.book.series_books} />
+      </div>
+    </div>
+    """
+  end
 
   def media_tile(assigns) do
     ~H"""
@@ -1116,7 +1166,15 @@ defmodule AmbryWeb.CoreComponents do
         </.link>
         <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
           <.link navigate={~p"/audiobooks/#{@media}"}>
-            {@media.title || @media.book.title}
+            {media_display_title(@media)}
+          </.link>
+        </p>
+        <p
+          :if={!@show_title && media_distinguisher(@media)}
+          class="text-sm text-zinc-800 group-hover:underline dark:text-zinc-200"
+        >
+          <.link navigate={~p"/audiobooks/#{@media}"}>
+            {media_distinguisher(@media)}
           </.link>
         </p>
       </div>
@@ -1333,6 +1391,66 @@ defmodule AmbryWeb.CoreComponents do
     <.link navigate={person_ish_path(@person2)} class="hover:underline" phx-no-format>
       <%= @person2.name %></.link><span phx-no-format>, and <%= @others %> others</span>
     """
+  end
+
+  @doc """
+  The title a recording displays as, for both Media structs (book preloaded)
+  and MediaFlat rows: the override verbatim, else the book title plus part
+  label.
+  """
+  def media_display_title(%Media{} = media), do: Media.display_title(media)
+
+  def media_display_title(%MediaFlat{} = flat) do
+    cond do
+      flat.title -> flat.title
+      label = Media.part_label(flat) -> "#{flat.book} (#{label})"
+      true -> flat.book
+    end
+  end
+
+  @doc """
+  A user-facing label for a part set: "3 parts", "6 episodes" — count plus
+  the group's plural wording. The group's name is an admin-only label and is
+  deliberately never rendered here.
+  """
+  def part_set_label(%RecordingGroup{} = group, parts \\ nil) do
+    "#{length(parts || group.media)} #{RecordingGroup.part_word_plural(group)}"
+  end
+
+  @doc """
+  The media whose covers a book tile stacks: one per edition — part sets
+  contribute only their first part — unless the book's sole edition is a part
+  set, in which case its parts are the stack.
+  """
+  def part_set_stack_media(media_list) do
+    first_parts =
+      media_list
+      |> Enum.filter(& &1.recording_group_id)
+      |> Enum.group_by(& &1.recording_group_id)
+      |> Map.new(fn {group_id, parts} ->
+        {group_id, Enum.min_by(parts, &{&1.part_number || :infinity, &1.id}).id}
+      end)
+
+    representatives =
+      Enum.filter(media_list, fn media ->
+        is_nil(media.recording_group_id) or first_parts[media.recording_group_id] == media.id
+      end)
+
+    case representatives do
+      [%{recording_group_id: group_id}] when not is_nil(group_id) ->
+        media_list
+        |> Enum.filter(&(&1.recording_group_id == group_id))
+        |> Enum.sort_by(&{&1.part_number || :infinity, &1.id})
+
+      _multiple_editions ->
+        representatives
+    end
+  end
+
+  # When a tile hides its title (e.g. "other editions" lists), parts of a set
+  # still need telling apart: the override title or the part label.
+  defp media_distinguisher(%Media{} = media) do
+    media.title || Media.part_label(media)
   end
 
   # Authors can be linked to multiple people (composite pen names), so author

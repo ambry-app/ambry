@@ -29,7 +29,7 @@ defmodule AmbryWeb.LibraryLive do
           </p>
         </div>
       <% else %>
-        <.media_tiles_stream id="media" stream={@streams.media} page={@page} end?={@end?} />
+        <.media_tiles_stream id="media" stream={@streams.media} page={@page} end?={@end?} collapse_part_sets />
       <% end %>
     </div>
     """

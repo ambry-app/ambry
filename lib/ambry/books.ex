@@ -244,7 +244,8 @@ defmodule Ambry.Books do
     |> preload([
       :authors,
       series_books: :series,
-      media: ^{media_query, [:narrators, book: [:authors, series_books: :series]]}
+      media:
+        ^{media_query, [:narrators, :recording_group, book: [:authors, series_books: :series]]}
     ])
     |> Repo.get!(book_id)
   end

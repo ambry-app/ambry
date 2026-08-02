@@ -24,8 +24,23 @@ defmodule AmbryWeb.BookLive do
         <div>
           <h1 class="mb-4 text-2xl font-bold sm:text-3xl lg:mb-8 lg:text-4xl">Editions</h1>
 
+          <div :for={%{group: group, parts: parts} <- @part_groups} class="mb-10">
+            <h2 class="mb-4 text-xl font-bold text-zinc-800 dark:text-zinc-200 sm:text-2xl">
+              {part_set_label(group, parts)}
+            </h2>
+            <.media_tiles
+              media={parts}
+              show_title={false}
+              show_authors={false}
+              show_series={false}
+              show_narrators={true}
+              show_published={true}
+            />
+          </div>
+
           <.media_tiles
-            media={@book.media}
+            :if={@ungrouped_media != []}
+            media={@ungrouped_media}
             show_title={false}
             show_authors={false}
             show_series={false}
@@ -47,10 +62,24 @@ defmodule AmbryWeb.BookLive do
         {:ok, push_navigate(socket, to: ~p"/audiobooks/#{media}")}
 
       _else ->
+        part_groups =
+          book.media
+          |> Enum.filter(& &1.recording_group_id)
+          |> Enum.group_by(& &1.recording_group_id)
+          |> Enum.map(fn {_group_id, parts} ->
+            %{
+              group: hd(parts).recording_group,
+              parts: Enum.sort_by(parts, &{&1.part_number || :infinity, &1.id})
+            }
+          end)
+          |> Enum.sort_by(& &1.group.id)
+
         {:ok,
          assign(socket,
            page_title: Books.get_book_description(book),
-           book: book
+           book: book,
+           part_groups: part_groups,
+           ungrouped_media: Enum.reject(book.media, & &1.recording_group_id)
          )}
     end
   end
