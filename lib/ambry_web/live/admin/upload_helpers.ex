@@ -97,7 +97,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   end
 
   defp do_image_import(url) do
-    with {:ok, response} <- Req.get(url),
+    with {:ok, response} <- Req.get(url: url, headers: [{"user-agent", http_user_agent()}]),
          [mime | _rest] when mime in @accepted_mime <-
            Req.Response.get_header(response, "content-type") do
       filename = generate_filename(mime)
@@ -122,7 +122,7 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   def valid_image_url?(_term), do: false
 
   def valid_image?(uri) do
-    case Req.head(uri) do
+    case Req.head(url: uri, headers: [{"user-agent", http_user_agent()}]) do
       {:ok, response} ->
         [mime | _rest] = Req.Response.get_header(response, "content-type")
         image?(mime)
@@ -131,6 +131,8 @@ defmodule AmbryWeb.Admin.UploadHelpers do
         false
     end
   end
+
+  defp http_user_agent, do: Ambry.Utils.http_user_agent()
 
   def image?("image/" <> _rest), do: true
   def image?(_mime), do: false

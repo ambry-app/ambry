@@ -200,7 +200,9 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
       {:work, "Work-level providers",
        "Books, authors, and series — the abstract side of the library."},
       {:recording, "Recording-level providers",
-       "Audiobook releases — narrators, square covers, and chapters, keyed by ASIN."}
+       "Audiobook releases — narrators, square covers, and chapters, keyed by ASIN."},
+      {:person, "Person-level providers",
+       "Bios and photos for the humans behind authors and narrators — keyed on real people, not published-as names."}
     ]
   end
 

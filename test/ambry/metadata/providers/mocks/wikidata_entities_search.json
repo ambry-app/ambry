@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "Q18608460": {
+      "type": "item",
+      "id": "Q18608460",
+      "labels": { "en": { "language": "en", "value": "Ty Franck" } },
+      "descriptions": { "en": { "language": "en", "value": "American science fiction writer" } },
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": { "value": { "entity-type": "item", "id": "Q5" }, "type": "wikibase-entityid" }
+            }
+          }
+        ]
+      }
+    },
+    "Q3107329": {
+      "type": "item",
+      "id": "Q3107329",
+      "labels": { "en": { "language": "en", "value": "Leviathan Wakes" } },
+      "descriptions": { "en": { "language": "en", "value": "2011 novel by James S. A. Corey" } },
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": { "value": { "entity-type": "item", "id": "Q7725634" }, "type": "wikibase-entityid" }
+            }
+          }
+        ]
+      }
+    },
+    "Q99999999": {
+      "type": "item",
+      "id": "Q99999999",
+      "labels": { "en": { "language": "en", "value": "Obscure Narrator" } },
+      "descriptions": { "en": { "language": "en", "value": "audiobook narrator" } },
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": { "value": { "entity-type": "item", "id": "Q5" }, "type": "wikibase-entityid" }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "success": 1
+}

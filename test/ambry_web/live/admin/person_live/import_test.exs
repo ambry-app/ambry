@@ -42,6 +42,7 @@ defmodule AmbryWeb.Admin.PersonLive.ImportTest do
 
     assert html =~ "rreading-glasses"
     assert html =~ "Audnexus"
+    assert html =~ "Wikipedia"
     refute html =~ "GoodReads"
   end
 

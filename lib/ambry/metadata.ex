@@ -8,7 +8,7 @@ defmodule Ambry.Metadata do
   # inherited from the parent boundary anyway; it's listed to make the
   # dependency visible.
   use Boundary,
-    deps: [Ambry.Repo, AmbryScraping],
+    deps: [Ambry.Repo, Ambry.Utils, AmbryScraping],
     exports: [
       {Provider, []},
       Providers,
