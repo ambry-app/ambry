@@ -7,7 +7,7 @@ defmodule Ambry.Metadata.RegistryTest do
     entries = Registry.all()
 
     assert Enum.map(entries, & &1.id) ==
-             ["rreading_glasses", "hardcover", "audible", "audnexus", "wikidata"]
+             ["rreading_glasses", "hardcover", "audible", "audnexus", "wikidata", "tmdb"]
 
     assert Enum.all?(entries, & &1.enabled)
   end
@@ -38,7 +38,11 @@ defmodule Ambry.Metadata.RegistryTest do
     assert ["rreading_glasses", "audnexus", "wikidata"] =
              Enum.map(Registry.enabled(capability: :author_search), & &1.id)
 
+    # tmdb is person-level too but unavailable until an API key is stored
     assert ["wikidata"] = Enum.map(Registry.enabled(level: :person), & &1.id)
+
+    {:ok, _row} = Registry.update("tmdb", %{config: %{"api_key" => "k"}})
+    assert ["wikidata", "tmdb"] = Enum.map(Registry.enabled(level: :person), & &1.id)
   end
 
   test "update/2 persists enabled flag and priority" do
