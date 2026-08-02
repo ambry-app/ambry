@@ -14,7 +14,6 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   def mount(_params, _session, socket) do
     {:ok,
      socket
-     |> assign(:header_title, "Metadata Providers")
      |> assign(:page_title, "Metadata Providers")
      |> load_providers()}
   end
@@ -22,92 +21,105 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-3xl space-y-8 p-4">
-      <p class="text-zinc-500 dark:text-zinc-400">
-        Providers fill in facts during import; you curate the structure. Priority controls the
-        order providers are offered in import forms. Settings apply immediately; cached responses
-        can be cleared per provider.
-      </p>
+    <.layout title={@page_title} user={@current_user}>
+      <div class="mx-auto max-w-3xl space-y-8">
+        <p class="text-zinc-500 dark:text-zinc-400">
+          Providers fill in facts during import; you curate the structure. Priority controls the
+          order providers are offered in import forms. Settings apply immediately; cached responses
+          can be cleared per provider.
+        </p>
 
-      <section :for={{level, title, blurb} <- levels()}>
-        <h2 class="mb-1 text-lg font-bold">{title}</h2>
-        <p class="mb-4 text-sm text-zinc-500 dark:text-zinc-400">{blurb}</p>
+        <section :for={{level, title, blurb} <- levels()}>
+          <h2 class="mb-1 text-lg font-bold">{title}</h2>
+          <p class="mb-4 text-sm text-zinc-500 dark:text-zinc-400">{blurb}</p>
 
-        <div class="space-y-4">
-          <div
-            :for={entry <- providers_for_level(@providers, level)}
-            class="rounded-sm border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900"
-          >
-            <div class="flex items-center gap-3">
-              <span class={[
-                "inline-block h-2.5 w-2.5 rounded-full",
-                (entry.enabled && "bg-lime-500") || "bg-zinc-400 dark:bg-zinc-600"
-              ]} />
-              <h3 class="grow font-semibold">{entry.display_name}</h3>
-
-              <.button
-                :if={length(providers_for_level(@providers, level)) > 1}
-                phx-click="move"
-                phx-value-id={entry.id}
-                phx-value-direction="up"
-                class="!px-2 !py-1"
-                title="Higher priority"
-              >
-                <.icon name="fa-chevron-up" class="h-3 w-3" />
-              </.button>
-              <.button
-                :if={length(providers_for_level(@providers, level)) > 1}
-                phx-click="move"
-                phx-value-id={entry.id}
-                phx-value-direction="down"
-                class="!px-2 !py-1"
-                title="Lower priority"
-              >
-                <.icon name="fa-chevron-down" class="h-3 w-3" />
-              </.button>
-
-              <.button phx-click="toggle" phx-value-id={entry.id} class="!px-2 !py-1">
-                {(entry.enabled && "Disable") || "Enable"}
-              </.button>
-            </div>
-
-            <div class="mt-2 flex flex-wrap gap-2">
-              <span
-                :for={capability <- entry.capabilities}
-                class="rounded-sm bg-zinc-200 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-              >
-                {capability_label(capability)}
-              </span>
-            </div>
-
-            <div :for={{level, message} <- notices(entry)} class="mt-2">
-              <p class={["flex items-center gap-2 text-sm", notice_class(level)]}>
-                <.icon name={notice_icon(level)} class="h-4 w-4 flex-none" />
-                {message}
-              </p>
-            </div>
-
-            <form
-              :if={entry.module.config_fields() != []}
-              id={"provider-config-#{entry.id}"}
-              phx-submit="save-config"
-              class="mt-4 space-y-4"
+          <div class="space-y-4">
+            <div
+              :for={entry <- providers_for_level(@providers, level)}
+              class="rounded-sm border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900"
             >
-              <input type="hidden" name="provider_id" value={entry.id} />
-              <div :for={field <- entry.module.config_fields()}>
-                <.input
-                  type={(field.type == :secret && "password") || "text"}
-                  label={field.label}
-                  name={"config[#{field.key}]"}
-                  value={display_value(entry.config[field.key], field)}
-                  placeholder={field.default}
-                />
-                <p :if={field.help} class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  {field.help}
+              <div class="flex items-center gap-3">
+                <span class={[
+                  "inline-block h-2.5 w-2.5 rounded-full",
+                  (entry.enabled && "bg-lime-500") || "bg-zinc-400 dark:bg-zinc-600"
+                ]} />
+                <h3 class="grow font-semibold">{entry.display_name}</h3>
+
+                <.button
+                  :if={length(providers_for_level(@providers, level)) > 1}
+                  phx-click="move"
+                  phx-value-id={entry.id}
+                  phx-value-direction="up"
+                  class="!px-2 !py-1"
+                  title="Higher priority"
+                >
+                  <.icon name="fa-chevron-up" class="h-3 w-3" />
+                </.button>
+                <.button
+                  :if={length(providers_for_level(@providers, level)) > 1}
+                  phx-click="move"
+                  phx-value-id={entry.id}
+                  phx-value-direction="down"
+                  class="!px-2 !py-1"
+                  title="Lower priority"
+                >
+                  <.icon name="fa-chevron-down" class="h-3 w-3" />
+                </.button>
+
+                <.button phx-click="toggle" phx-value-id={entry.id} class="!px-2 !py-1">
+                  {(entry.enabled && "Disable") || "Enable"}
+                </.button>
+              </div>
+
+              <div class="mt-2 flex flex-wrap gap-2">
+                <span
+                  :for={capability <- entry.capabilities}
+                  class="rounded-sm bg-zinc-200 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                >
+                  {capability_label(capability)}
+                </span>
+              </div>
+
+              <div :for={{level, message} <- notices(entry)} class="mt-2">
+                <p class={["flex items-center gap-2 text-sm", notice_class(level)]}>
+                  <.icon name={notice_icon(level)} class="h-4 w-4 flex-none" />
+                  {message}
                 </p>
               </div>
-              <div class="flex gap-2">
-                <.button type="submit">Save</.button>
+
+              <form
+                :if={entry.module.config_fields() != []}
+                id={"provider-config-#{entry.id}"}
+                phx-submit="save-config"
+                class="mt-4 space-y-4"
+              >
+                <input type="hidden" name="provider_id" value={entry.id} />
+                <div :for={field <- entry.module.config_fields()}>
+                  <.input
+                    type={(field.type == :secret && "password") || "text"}
+                    label={field.label}
+                    name={"config[#{field.key}]"}
+                    value={display_value(entry.config[field.key], field)}
+                    placeholder={field.default}
+                  />
+                  <p :if={field.help} class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {field.help}
+                  </p>
+                </div>
+                <div class="flex gap-2">
+                  <.button type="submit">Save</.button>
+                  <.button
+                    type="button"
+                    phx-click="clear-cache"
+                    phx-value-id={entry.id}
+                    data-confirm={"Clear all cached #{entry.display_name} responses?"}
+                  >
+                    Clear cache
+                  </.button>
+                </div>
+              </form>
+
+              <div :if={entry.module.config_fields() == []} class="mt-4">
                 <.button
                   type="button"
                   phx-click="clear-cache"
@@ -117,22 +129,11 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
                   Clear cache
                 </.button>
               </div>
-            </form>
-
-            <div :if={entry.module.config_fields() == []} class="mt-4">
-              <.button
-                type="button"
-                phx-click="clear-cache"
-                phx-value-id={entry.id}
-                data-confirm={"Clear all cached #{entry.display_name} responses?"}
-              >
-                Clear cache
-              </.button>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </.layout>
     """
   end
 
