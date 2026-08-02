@@ -1,0 +1,32 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "gender": 2,
+      "id": 1252351,
+      "known_for_department": "Writing",
+      "name": "Ty Franck",
+      "original_name": "Ty Franck",
+      "popularity": 1.4,
+      "profile_path": "/tyfranck-profile.jpg",
+      "known_for": [
+        { "id": 63639, "media_type": "tv", "name": "The Expanse" },
+        { "id": 99999, "media_type": "movie", "title": "Some Film" }
+      ]
+    },
+    {
+      "adult": false,
+      "gender": 0,
+      "id": 555,
+      "known_for_department": null,
+      "name": "Ty Franck Lookalike",
+      "original_name": "Ty Franck Lookalike",
+      "popularity": 0.1,
+      "profile_path": null,
+      "known_for": []
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 2
+}
