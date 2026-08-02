@@ -378,7 +378,7 @@ defmodule Ambry.MediaTest do
           part_number: 1,
           parts_total: 3,
           recording_group_choice: "new",
-          new_recording_group_name: "Season One"
+          recording_group_name: "Season One"
         )
         |> Map.take([
           :abridged,
@@ -388,7 +388,7 @@ defmodule Ambry.MediaTest do
           :part_number,
           :parts_total,
           :recording_group_choice,
-          :new_recording_group_name
+          :recording_group_name
         ])
 
       assert {:ok, media} = Media.create_media(params)
@@ -455,6 +455,97 @@ defmodule Ambry.MediaTest do
       assert updated.recording_group_id == nil
       assert [] = Media.recording_groups_for_select(book_id)
       assert Ambry.Repo.aggregate(Ambry.Media.RecordingGroup, :count) == 0
+    end
+
+    test "renames the linked group from any part (shared by all parts)" do
+      %{id: book_id} = insert(:book)
+
+      {:ok, part_one} =
+        :media
+        |> params_for(book_id: book_id, recording_group_choice: "new")
+        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :recording_group_choice])
+        |> Media.create_media()
+
+      group_id = part_one.recording_group.id
+
+      {:ok, updated} =
+        Media.update_media(Media.get_media!(part_one.id), %{
+          recording_group_choice: to_string(group_id),
+          recording_group_name: "Season One"
+        })
+
+      assert %{recording_group: %{name: "Season One"}} = updated
+      assert [{"Season One", ^group_id}] = Media.recording_groups_for_select(book_id)
+    end
+
+    test "clears a group's name with an empty string" do
+      %{id: book_id} = insert(:book)
+
+      {:ok, media} =
+        :media
+        |> params_for(
+          book_id: book_id,
+          recording_group_choice: "new",
+          recording_group_name: "Typo Name"
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :recording_group_choice,
+          :recording_group_name
+        ])
+        |> Media.create_media()
+
+      group_id = media.recording_group.id
+
+      {:ok, updated} =
+        Media.update_media(Media.get_media!(media.id), %{
+          recording_group_choice: to_string(group_id),
+          recording_group_name: ""
+        })
+
+      assert %{recording_group: %{name: nil}} = updated
+    end
+
+    test "the name field is ignored when switching to a different group" do
+      %{id: book_id} = insert(:book)
+
+      {:ok, first} =
+        :media
+        |> params_for(
+          book_id: book_id,
+          recording_group_choice: "new",
+          recording_group_name: "Keep Me"
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :recording_group_choice,
+          :recording_group_name
+        ])
+        |> Media.create_media()
+
+      {:ok, second} =
+        :media
+        |> params_for(book_id: book_id, recording_group_choice: "new")
+        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :recording_group_choice])
+        |> Media.create_media()
+
+      keep_me_id = first.recording_group.id
+
+      # switch `second` over to the first group while a stale name value posts
+      {:ok, moved} =
+        Media.update_media(Media.get_media!(second.id), %{
+          recording_group_choice: to_string(keep_me_id),
+          recording_group_name: "Keep Me"
+        })
+
+      assert moved.recording_group_id == keep_me_id
+      assert [{"Keep Me", ^keep_me_id}] = Media.recording_groups_for_select(book_id)
     end
 
     test "validates part fields" do

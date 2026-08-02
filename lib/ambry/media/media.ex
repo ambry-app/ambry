@@ -44,7 +44,7 @@ defmodule Ambry.Media.Media do
 
     # form-only: recording-group picker staging, see apply_recording_group_choice/1
     field :recording_group_choice, :string, virtual: true
-    field :new_recording_group_name, :string, virtual: true
+    field :recording_group_name, :string, virtual: true
 
     field :source_path, :string
     field :source_files, {:array, :string}, default: []
@@ -80,7 +80,6 @@ defmodule Ambry.Media.Media do
       :parts_total,
       :recording_group_id,
       :recording_group_choice,
-      :new_recording_group_name,
       :source_path,
       :source_files,
       :published,
@@ -107,7 +106,9 @@ defmodule Ambry.Media.Media do
       sort_param: :supplemental_files_sort,
       drop_param: :supplemental_files_drop
     )
+    |> cast(attrs, [:recording_group_name], empty_values: [])
     |> apply_recording_group_choice()
+    |> maybe_rename_recording_group()
     |> validate_part_fields()
     |> maybe_clear_thumbnails()
     |> status_based_validation()
@@ -130,7 +131,7 @@ defmodule Ambry.Media.Media do
         put_change(changeset, :recording_group_id, nil)
 
       "new" ->
-        name = presence(get_change(changeset, :new_recording_group_name))
+        name = presence(get_change(changeset, :recording_group_name))
         put_assoc(changeset, :recording_group, %RecordingGroup{name: name})
 
       id ->
@@ -138,6 +139,25 @@ defmodule Ambry.Media.Media do
           {id, ""} -> put_change(changeset, :recording_group_id, id)
           _else -> add_error(changeset, :recording_group_choice, "is invalid")
         end
+    end
+  end
+
+  # Renames the currently-linked group (shared by all its parts) when the
+  # form's name field changed. Only applies while the media stays linked to
+  # that same group — picking a different or new group ignores it.
+  defp maybe_rename_recording_group(changeset) do
+    name = get_change(changeset, :recording_group_name)
+    group = changeset.data.recording_group
+
+    with false <- is_nil(name),
+         false <- get_change(changeset, :recording_group_choice) == "new",
+         %RecordingGroup{} <- group,
+         true <- get_field(changeset, :recording_group_id) == group.id,
+         new_name = presence(name),
+         true <- new_name != group.name do
+      put_assoc(changeset, :recording_group, RecordingGroup.changeset(group, %{name: new_name}))
+    else
+      _no_rename -> changeset
     end
   end
 

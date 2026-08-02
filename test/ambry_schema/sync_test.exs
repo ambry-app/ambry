@@ -170,7 +170,7 @@ defmodule AmbrySchema.SyncTest do
           part_number: 1,
           parts_total: 3,
           recording_group_choice: "new",
-          new_recording_group_name: "Season One"
+          recording_group_name: "Season One"
         )
         |> Map.take([
           :abridged,
@@ -180,7 +180,7 @@ defmodule AmbrySchema.SyncTest do
           :part_number,
           :parts_total,
           :recording_group_choice,
-          :new_recording_group_name
+          :recording_group_name
         ])
         |> Ambry.Media.create_media()
 

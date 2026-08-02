@@ -113,9 +113,16 @@
       </div>
 
       <.input
-        :if={to_string(@form[:recording_group_choice].value) == "new"}
-        field={@form[:new_recording_group_name]}
+        :if={group_name_mode(@form, @media) == :new}
+        field={@form[:recording_group_name]}
         label="New group name (optional — e.g. a season name)"
+      />
+
+      <.input
+        :if={group_name_mode(@form, @media) == :edit}
+        field={@form[:recording_group_name]}
+        label="Group name (renames it for every part; optional)"
+        value={@form[:recording_group_name].value || (@media.recording_group && @media.recording_group.name)}
       />
 
       <.input type="hidden" field={@form[:image_type]} />
