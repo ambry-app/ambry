@@ -7,6 +7,7 @@ defmodule AmbryWeb.SearchLive.Components do
 
   alias Ambry.Books.Book
   alias Ambry.Books.Series
+  alias Ambry.Media.Editions
   alias Ambry.People.Person
 
   def result_tile(%{result: %Book{}} = assigns) do
@@ -93,14 +94,18 @@ defmodule AmbryWeb.SearchLive.Components do
     """
   end
 
+  # Series tile rule (tile system v2): up to 3 covers — the books in
+  # series order, each contributing its representative (the newest
+  # edition's cover); books with no ready edition are skipped.
   defp thumbnails(series) do
-    # use the first non-nil image path from each book in the series
     series.series_books
-    |> Enum.map(fn series_book ->
-      Enum.find_value(series_book.book.media, fn media ->
-        media.thumbnails
-      end)
+    |> Enum.sort_by(& &1.book_number, Decimal)
+    |> Enum.flat_map(fn series_book ->
+      case Editions.from_media(series_book.book.media) do
+        [newest | _rest] -> List.wrap(newest.representative.thumbnails)
+        [] -> []
+      end
     end)
-    |> Enum.filter(& &1)
+    |> Enum.take(3)
   end
 end

@@ -15,6 +15,8 @@ defmodule AmbryWeb.CoreComponents do
 
   alias Ambry.Books.Book
   alias Ambry.Books.SeriesBook
+  alias Ambry.Media.Editions
+  alias Ambry.Media.Editions.Edition
   alias Ambry.Media.Media
   alias Ambry.Media.MediaFlat
   alias Ambry.Media.RecordingGroup
@@ -1032,7 +1034,6 @@ defmodule AmbryWeb.CoreComponents do
   attr :stream, :any, required: true
   attr :next, :string, default: "next-page"
   attr :prev, :string, default: "prev-page"
-  attr :collapse_part_sets, :boolean, default: false
   attr :rest, :global
 
   def media_tiles_stream(assigns) do
@@ -1046,12 +1047,36 @@ defmodule AmbryWeb.CoreComponents do
       class={[if(@end?, do: "", else: "pb-[calc(200vh)]"), if(@page == 1, do: "", else: "pt-[calc(200vh)]")]}
       {@rest}
     >
-      <.media_tile
-        :for={{id, media} <- @stream}
-        media={media}
-        id={id}
-        collapse_part_sets={@collapse_part_sets}
-      />
+      <.media_tile :for={{id, media} <- @stream} media={media} id={id} />
+    </.grid>
+    """
+  end
+
+  @doc """
+  Streams a listing of editions: each streamed row is a representative
+  media (grouped rows arrive with their recording group's visible media
+  preloaded) rendered as its edition tile.
+  """
+  attr :id, :string, required: true
+  attr :page, :integer, required: true
+  attr :end?, :boolean, required: true
+  attr :stream, :any, required: true
+  attr :next, :string, default: "next-page"
+  attr :prev, :string, default: "prev-page"
+  attr :rest, :global
+
+  def edition_tiles_stream(assigns) do
+    ~H"""
+    <.grid
+      id={@id}
+      phx-update="stream"
+      phx-viewport-top={@page > 1 && @prev}
+      phx-viewport-bottom={!@end? && @next}
+      phx-page-loading
+      class={[if(@end?, do: "", else: "pb-[calc(200vh)]"), if(@page == 1, do: "", else: "pt-[calc(200vh)]")]}
+      {@rest}
+    >
+      <.edition_tile :for={{id, media} <- @stream} edition={Editions.from_representative(media)} id={id} />
     </.grid>
     """
   end
@@ -1073,20 +1098,37 @@ defmodule AmbryWeb.CoreComponents do
   attr :book, Book, required: true
   attr :number, Decimal, default: nil
 
+  # Recursive collapse (tile system v2): one cover per edition, newest
+  # edition first and in front; each edition contributes its
+  # representative's cover. One edition → the tile links straight to that
+  # edition's target; multiple → the book page.
   def book_tile(assigns) do
+    editions = Editions.from_media(assigns.book.media)
+
+    link =
+      case editions do
+        [only_edition] -> ~p"/audiobooks/#{only_edition.representative}"
+        _multiple_or_none -> ~p"/books/#{assigns.book}"
+      end
+
+    thumbnails =
+      editions
+      |> Enum.map(& &1.representative.thumbnails)
+      |> Enum.filter(& &1)
+
+    assigns = assign(assigns, link: link, tile_thumbnails: thumbnails)
+
     ~H"""
     <div id={@id} class="text-center">
       <%= if @number do %>
         <p class="font-bold text-zinc-900 dark:text-zinc-100 sm:text-lg">Book {@number}</p>
       <% end %>
       <div class="group">
-        <.link navigate={~p"/books/#{@book}"}>
-          <.book_multi_image thumbnails={
-            Enum.flat_map(part_set_stack_media(@book.media), &if(&1.thumbnails, do: [&1.thumbnails], else: []))
-          } />
+        <.link navigate={@link}>
+          <.book_multi_image thumbnails={@tile_thumbnails} />
         </.link>
         <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
-          <.link navigate={~p"/books/#{@book}"}>
+          <.link navigate={@link}>
             {@book.title}
           </.link>
         </p>
@@ -1118,6 +1160,63 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Renders one edition (tile system v2): a single audiobook as its media
+  tile, a part set as one stacked tile of its parts' covers. A group tile
+  always navigates to its first part's page.
+  """
+  attr :id, :string, default: nil
+  attr :edition, Edition, required: true
+
+  attr :show_title, :boolean, default: true
+  attr :show_authors, :boolean, default: true
+  attr :show_series, :boolean, default: true
+  attr :show_narrators, :boolean, default: false
+  attr :show_published, :boolean, default: false
+
+  def edition_tile(%{edition: %Edition{kind: :single}} = assigns) do
+    ~H"""
+    <.media_tile
+      id={@id}
+      media={@edition.representative}
+      show_title={@show_title}
+      show_authors={@show_authors}
+      show_series={@show_series}
+      show_narrators={@show_narrators}
+      show_published={@show_published}
+    />
+    """
+  end
+
+  def edition_tile(%{edition: %Edition{kind: :group}} = assigns) do
+    ~H"""
+    <div id={@id} class="text-center">
+      <div class="group">
+        <.link navigate={~p"/audiobooks/#{@edition.representative}"}>
+          <.book_multi_image thumbnails={Enum.flat_map(@edition.media, &if(&1.thumbnails, do: [&1.thumbnails], else: []))} />
+        </.link>
+        <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+          <.link navigate={~p"/audiobooks/#{@edition.representative}"}>
+            {@edition.representative.book.title}
+          </.link>
+        </p>
+      </div>
+
+      <p class="text-sm text-zinc-600 dark:text-zinc-400">
+        {part_set_label(@edition.group, @edition.media)}
+      </p>
+
+      <p :if={@show_authors} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        by <.people_links people={@edition.representative.book.authors} />
+      </p>
+
+      <div :if={@show_series} class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+        <.series_book_links series_books={@edition.representative.book.series_books} />
+      </div>
+    </div>
+    """
+  end
+
   attr :id, :string, default: nil
   attr :media, Media, required: true
 
@@ -1126,55 +1225,6 @@ defmodule AmbryWeb.CoreComponents do
   attr :show_series, :boolean, default: true
   attr :show_narrators, :boolean, default: false
   attr :show_published, :boolean, default: false
-  attr :collapse_part_sets, :boolean, default: false
-
-  attr :collapse_navigate, :atom,
-    values: [:book, :representative],
-    default: :book,
-    doc: """
-    where a collapsed part-set tile lands: the book page (library listings —
-    the parts are listed there in order) or the representative part's own
-    audiobook page (Other Editions — the book page is already one click away,
-    so the stack takes you into the set instead)
-    """
-
-  # A part set collapses into a single stacked tile (its parts' covers),
-  # titled with the book.
-  def media_tile(
-        %{
-          collapse_part_sets: true,
-          media: %Media{recording_group: %RecordingGroup{media: [_, _ | _]}}
-        } = assigns
-      ) do
-    ~H"""
-    <div id={@id} class="text-center">
-      <div class="group">
-        <.link navigate={collapsed_tile_path(@collapse_navigate, @media)}>
-          <.book_multi_image thumbnails={
-            Enum.flat_map(@media.recording_group.media, &if(&1.thumbnails, do: [&1.thumbnails], else: []))
-          } />
-        </.link>
-        <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
-          <.link navigate={collapsed_tile_path(@collapse_navigate, @media)}>
-            {@media.book.title}
-          </.link>
-        </p>
-      </div>
-
-      <p class="text-sm text-zinc-600 dark:text-zinc-400">
-        {part_set_label(@media.recording_group)}
-      </p>
-
-      <p :if={@show_authors} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
-        by <.people_links people={@media.book.authors} />
-      </p>
-
-      <div :if={@show_series} class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
-        <.series_book_links series_books={@media.book.series_books} />
-      </div>
-    </div>
-    """
-  end
 
   def media_tile(assigns) do
     ~H"""
@@ -1429,62 +1479,19 @@ defmodule AmbryWeb.CoreComponents do
 
   @doc """
   A user-facing label for a part set: "3 parts", "6 episodes" — count plus
-  the group's plural wording. The group's name is an admin-only label and is
-  deliberately never rendered here.
+  the group's plural wording (default wording when the group struct isn't
+  loaded). The group's name is an admin-only label and is deliberately
+  never rendered here.
   """
-  def part_set_label(%RecordingGroup{} = group, parts \\ nil) do
+  def part_set_label(group, parts \\ nil)
+
+  def part_set_label(%RecordingGroup{} = group, parts) do
     "#{length(parts || group.media)} #{RecordingGroup.part_word_plural(group)}"
   end
 
-  @doc """
-  One media per edition, ready only: ungrouped media pass through, a part
-  set is represented by its first ready part. The shared collapse rule for
-  every user-facing surface that lists editions.
-  """
-  def part_set_representatives(media_list) do
-    media_list = ready_media(media_list)
-
-    first_parts =
-      media_list
-      |> Enum.filter(& &1.recording_group_id)
-      |> Enum.group_by(& &1.recording_group_id)
-      |> Map.new(fn {group_id, parts} ->
-        {group_id, Enum.min_by(parts, &{&1.part_number || :infinity, &1.id}).id}
-      end)
-
-    Enum.filter(media_list, fn media ->
-      is_nil(media.recording_group_id) or first_parts[media.recording_group_id] == media.id
-    end)
+  def part_set_label(nil, parts) when is_list(parts) do
+    "#{length(parts)} parts"
   end
-
-  @doc """
-  The media whose covers a book tile stacks, ready only: one per edition —
-  part sets contribute only their first part — unless the book's sole
-  edition is a part set, in which case its parts are the stack.
-  """
-  def part_set_stack_media(media_list) do
-    media_list = ready_media(media_list)
-    representatives = part_set_representatives(media_list)
-
-    case representatives do
-      [%{recording_group_id: group_id}] when not is_nil(group_id) ->
-        media_list
-        |> Enum.filter(&(&1.recording_group_id == group_id))
-        |> Enum.sort_by(&{&1.part_number || :infinity, &1.id})
-
-      _multiple_editions ->
-        representatives
-    end
-  end
-
-  # tile stacks must never leak pending/processing/errored media — several
-  # callers preload a book's media unfiltered
-  defp ready_media(media_list), do: Enum.filter(media_list, &(&1.status == :ready))
-
-  # the media on a collapsed tile is the set's representative (its first
-  # ready part), so :representative navigation is just its own page
-  defp collapsed_tile_path(:book, media), do: ~p"/books/#{media.book}"
-  defp collapsed_tile_path(:representative, media), do: ~p"/audiobooks/#{media}"
 
   # When a tile hides its title (e.g. "other editions" lists), parts of a set
   # still need telling apart: the override title or the part label.

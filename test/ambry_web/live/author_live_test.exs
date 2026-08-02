@@ -12,6 +12,7 @@ defmodule AmbryWeb.AuthorLiveTest do
       )
 
     %{book_authors: [%{author: author}]} = book
+    insert(:media, book: book, status: :ready)
 
     {:ok, _view, html} = live(conn, ~p"/authors/#{author.id}")
 

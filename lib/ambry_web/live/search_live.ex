@@ -7,6 +7,9 @@ defmodule AmbryWeb.SearchLive do
 
   import AmbryWeb.SearchLive.Components
 
+  alias Ambry.Books.Book
+  alias Ambry.Books.Series
+  alias Ambry.Media.Editions
   alias Ambry.Search
 
   @impl Phoenix.LiveView
@@ -29,7 +32,10 @@ defmodule AmbryWeb.SearchLive do
   @impl Phoenix.LiveView
   def mount(%{"query" => query}, _session, socket) do
     query = String.trim(query)
-    results = Search.search(query)
+
+    # tile system v2: books with no ready editions are hidden from users,
+    # and a series is hidden when none of its books are visible
+    results = query |> Search.search() |> Enum.filter(&visible?/1)
 
     {:ok,
      socket
@@ -37,4 +43,10 @@ defmodule AmbryWeb.SearchLive do
      |> assign(:query, query)
      |> assign(:results, results)}
   end
+
+  defp visible?(%Book{} = book), do: Editions.from_media(book.media) != []
+
+  defp visible?(%Series{} = series), do: Enum.any?(series.series_books, &visible?(&1.book))
+
+  defp visible?(_person), do: true
 end

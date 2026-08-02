@@ -9,6 +9,8 @@ defmodule Ambry.Media do
       Audit,
       Bookmark,
       Chapters,
+      Editions,
+      Editions.Edition,
       Media,
       Media.Chapter,
       MediaFlat,
@@ -142,15 +144,8 @@ defmodule Ambry.Media do
       book: [
         :authors,
         series_books: :series,
-        # sibling editions carry their group's (ready) media too, so a
-        # sibling part set can render as one stacked tile
         media:
-          ^{media_query,
-           [
-             :narrators,
-             recording_group: [media: group_media_query],
-             book: [:authors, series_books: :series]
-           ]}
+          ^{media_query, [:narrators, :recording_group, book: [:authors, series_books: :series]]}
       ]
     ])
   end
@@ -471,8 +466,10 @@ defmodule Ambry.Media do
   def get_narrated_media(narrator, offset \\ 0, limit \\ 10) do
     over_limit = limit + 1
 
+    # users never see non-ready audiobooks (tile system v2, rule 1)
     query =
       from b in Ecto.assoc(narrator, :media),
+        where: b.status == :ready,
         order_by: [desc: b.published],
         offset: ^offset,
         limit: ^over_limit,

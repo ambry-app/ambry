@@ -12,6 +12,7 @@ defmodule AmbryWeb.PersonLiveTest do
       )
 
     %{book_authors: [%{author: %{author_people: [%{person: person}]}}]} = book
+    insert(:media, book: book, status: :ready)
 
     {:ok, _view, html} = live(conn, ~p"/people/#{person.id}")
 
@@ -23,6 +24,7 @@ defmodule AmbryWeb.PersonLiveTest do
     media =
       insert(:media,
         book: build(:book),
+        status: :ready,
         media_narrators: [
           build(:media_narrator, narrator: build(:narrator, person: build(:person)))
         ]
