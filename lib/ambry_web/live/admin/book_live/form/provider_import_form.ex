@@ -15,6 +15,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.ProviderImportForm do
   alias Ambry.Books.Series
   alias Ambry.Metadata.Providers
   alias Ambry.People.Person
+  alias Ambry.Provenance
   alias Ambry.Search
   alias Phoenix.LiveView.AsyncResult
 
@@ -88,6 +89,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.ProviderImportForm do
 
   def handle_event("import", %{"import" => import_params}, socket) do
     book = socket.assigns.selected_book
+    source = Provenance.provider_source(socket.assigns.provider.id)
 
     params =
       Enum.reduce(import_params, %{}, fn
@@ -101,7 +103,11 @@ defmodule AmbryWeb.Admin.BookLive.Form.ProviderImportForm do
           })
 
         {"use_authors", "true"}, acc ->
-          Map.put(acc, "book_authors", build_authors_params(socket.assigns.matching_authors))
+          Map.put(
+            acc,
+            "book_authors",
+            build_authors_params(socket.assigns.matching_authors, source)
+          )
 
         {"use_series", "true"}, acc ->
           Map.put(acc, "series_books", build_series_params(socket.assigns.matching_series))
@@ -110,7 +116,7 @@ defmodule AmbryWeb.Admin.BookLive.Form.ProviderImportForm do
           acc
       end)
 
-    send(self(), {:import, %{"book" => params}})
+    send(self(), {:import, %{"book" => params}, source})
 
     {:noreply, socket}
   end
@@ -129,14 +135,17 @@ defmodule AmbryWeb.Admin.BookLive.Form.ProviderImportForm do
     )
   end
 
-  defp build_authors_params(matching_authors) do
+  defp build_authors_params(matching_authors, source) do
     Enum.map(matching_authors, fn
       {imported, nil} ->
         {:ok, %{author_people: [%{author: author}]}} =
-          Ambry.People.create_person(%{
-            name: imported.name,
-            author_people: [%{author: %{name: imported.name}}]
-          })
+          Ambry.People.create_person(
+            %{
+              name: imported.name,
+              author_people: [%{author: %{name: imported.name}}]
+            },
+            provenance: %{"name" => source}
+          )
 
         %{"author_id" => author.id}
 

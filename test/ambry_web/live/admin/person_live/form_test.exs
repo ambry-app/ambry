@@ -4,8 +4,72 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
   import Phoenix.LiveViewTest
 
   alias Ambry.People
+  alias Ambry.Provenance
 
   setup :register_and_log_in_admin_user
+
+  describe "field-level provenance" do
+    test "manually edited fields save with manual provenance, locked", %{conn: conn} do
+      person = insert(:person, name: "Old Name")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+
+      view |> form("#person-form", %{"person" => %{"name" => "New Name"}}) |> render_submit()
+
+      updated = People.get_person!(person.id)
+      assert %{"source" => "manual", "locked" => true} = Provenance.entry(updated, :name)
+
+      # untouched fields get no provenance entry
+      assert Provenance.entry(updated, :image_path) == nil
+    end
+
+    test "the provenance panel shows sources and toggles locks", %{conn: conn} do
+      person =
+        insert(:person,
+          field_provenance: %{
+            "name" => %{
+              "source" => "provider:audible",
+              "locked" => false,
+              "at" => "2026-08-01T00:00:00Z"
+            }
+          }
+        )
+
+      {:ok, view, html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+
+      assert html =~ "Metadata provenance"
+      assert html =~ "Audible"
+
+      view
+      |> element(~s{button[phx-click="toggle-provenance-lock"][phx-value-field="name"]})
+      |> render_click()
+
+      updated = People.get_person!(person.id)
+
+      assert %{"source" => "provider:audible", "locked" => true} =
+               Provenance.entry(updated, :name)
+    end
+
+    test "locking a field that has no provenance protects it as legacy", %{conn: conn} do
+      person = insert(:person)
+
+      {:ok, view, html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+      assert html =~ "no provenance recorded"
+
+      view
+      |> element(~s{button[phx-click="toggle-provenance-lock"][phx-value-field="description"]})
+      |> render_click()
+
+      updated = People.get_person!(person.id)
+      assert %{"source" => "legacy", "locked" => true} = Provenance.entry(updated, :description)
+    end
+
+    test "the panel is not rendered for new records", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/admin/people/new")
+
+      refute html =~ "Metadata provenance"
+    end
+  end
 
   describe "linking an existing author (composite pen names)" do
     test "links a shared author through the autocomplete", %{conn: conn} do

@@ -6,6 +6,8 @@ defmodule AmbryWeb.Admin.Components do
   import AmbryWeb.Gravatar
 
   alias Ambry.Accounts.User
+  alias Ambry.Metadata.Registry
+  alias Ambry.Provenance
   alias Phoenix.HTML.Form
   alias Phoenix.HTML.FormField
 
@@ -489,6 +491,80 @@ defmodule AmbryWeb.Admin.Components do
     </div>
     """
   end
+
+  @doc """
+  Provenance display + lock toggles for a persisted record's
+  provider-fillable fields (see `Ambry.Provenance`). Renders nothing for
+  unsaved records. The parent LiveView must handle the
+  `"toggle-provenance-lock"` event (field name in `phx-value-field`).
+  """
+  attr :record, :any, required: true
+
+  def provenance_panel(assigns) do
+    assigns = assign(assigns, :fields, assigns.record.__struct__.provenance_fields())
+
+    ~H"""
+    <div :if={@record.id} class="max-w-lg space-y-2">
+      <.label>Metadata provenance</.label>
+      <div class="divide-y divide-zinc-200 rounded-sm border border-zinc-200 text-sm dark:divide-zinc-800 dark:border-zinc-800">
+        <div :for={field <- @fields} class="flex items-center gap-2 px-3 py-2">
+          <span class="w-36 shrink-0 font-semibold text-zinc-800 dark:text-zinc-200">
+            {Phoenix.Naming.humanize(field)}
+          </span>
+          <span class="grow text-zinc-600 dark:text-zinc-400">
+            {provenance_description(@record, field)}
+          </span>
+          <button
+            type="button"
+            phx-click="toggle-provenance-lock"
+            phx-value-field={field}
+            title={provenance_lock_title(Provenance.locked?(@record, field))}
+          >
+            <.icon
+              name={if Provenance.locked?(@record, field), do: "fa-lock", else: "fa-lock-open"}
+              class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-lime-600"
+            />
+          </button>
+        </div>
+      </div>
+      <p class="text-xs text-zinc-500">
+        Locked fields are never overwritten by metadata refresh or auto-match. Editing a field by
+        hand locks it; accepting a provider suggestion records the provider and stays unlocked.
+      </p>
+    </div>
+    """
+  end
+
+  defp provenance_description(record, field) do
+    case Provenance.entry(record, field) do
+      nil ->
+        "no provenance recorded"
+
+      %{"source" => source} = entry ->
+        case entry["at"] do
+          nil -> provenance_source_label(source)
+          at -> "#{provenance_source_label(source)} · #{String.slice(at, 0, 10)}"
+        end
+    end
+  end
+
+  defp provenance_source_label("manual"), do: "manually edited"
+  defp provenance_source_label("legacy"), do: "legacy (pre-provenance)"
+
+  defp provenance_source_label("provider:" <> provider_id) do
+    case Registry.fetch(provider_id) do
+      {:ok, entry} -> entry.display_name
+      {:error, :unknown_provider} -> provider_id
+    end
+  end
+
+  defp provenance_source_label(other), do: other
+
+  defp provenance_lock_title(true),
+    do: "Locked — automated refresh will never overwrite this field. Click to unlock."
+
+  defp provenance_lock_title(false),
+    do: "Unlocked — automated refresh may update this field. Click to lock."
 
   @doc """
   Book Card for displaying normalized metadata-provider results.

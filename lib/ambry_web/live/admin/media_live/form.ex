@@ -9,8 +9,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Media
   alias Ambry.Metadata.Registry
   alias Ambry.People
+  alias Ambry.Provenance
   alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
   alias AmbryWeb.Admin.MediaLive.Form.ProviderImportForm
+  alias AmbryWeb.Admin.ProvenanceHints
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
@@ -22,6 +24,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> allow_supplemental_file_upload(:supplemental)
      |> assign(
        import: nil,
+       provenance_hints: %{},
        select_files: false,
        selected_files: MapSet.new(),
        recording_providers: Registry.enabled(level: :recording, capability: :book_search),
@@ -123,10 +126,20 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       |> Media.change_media(media_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign_form(socket, changeset)}
+    {:noreply,
+     socket
+     |> assign_form(changeset)
+     |> assign(
+       provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, media_params)
+     )}
   end
 
   def handle_event("submit", %{"media" => media_params}, socket) do
+    socket =
+      assign(socket,
+        provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, media_params)
+      )
+
     with :ok <- changeset_valid?(socket, media_params),
          {:ok, media_params} <- handle_image_upload(socket, media_params, :image),
          {:ok, media_params} <-
@@ -143,6 +156,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
+  def handle_event("toggle-provenance-lock", %{"field" => field}, socket) do
+    {:ok, media} = Provenance.toggle_lock(socket.assigns.media, field)
+    {:noreply, assign(socket, media: media)}
+  end
+
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :audio, ref)}
   end
@@ -152,19 +170,26 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   @impl Phoenix.LiveView
-  def handle_info({:import, %{"media" => media_params}}, socket) do
+  def handle_info({:import, %{"media" => media_params}, source}, socket) do
     # narrators could have been created, reload the data-lists
     socket =
       assign(socket,
         narrators: People.narrators_for_select()
       )
 
+    hints = ProvenanceHints.from_import(media_params, source)
     new_params = Map.merge(socket.assigns.form.params, media_params)
 
     changeset =
       Media.change_media(socket.assigns.media, new_params)
 
-    {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
+    {:noreply,
+     socket
+     |> assign_form(changeset)
+     |> assign(
+       import: nil,
+       provenance_hints: Map.merge(socket.assigns.provenance_hints, hints)
+     )}
   end
 
   def handle_info({:files_selected, files}, socket) do
@@ -269,7 +294,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp save_media(socket, :edit, media_params) do
-    case Media.update_media(socket.assigns.media, media_params) do
+    opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+
+    case Media.update_media(socket.assigns.media, media_params, opts) do
       {:ok, media} ->
         maybe_start_processor!(media, media_params, :edit)
 
@@ -284,7 +311,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp save_media(socket, :new, media_params) do
-    case Media.create_media(media_params) do
+    opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+
+    case Media.create_media(media_params, opts) do
       {:ok, media} ->
         media = Media.get_media!(media.id)
         maybe_start_processor!(media, media_params, :new)

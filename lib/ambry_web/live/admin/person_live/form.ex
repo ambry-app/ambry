@@ -8,7 +8,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People
   alias Ambry.People.Author
   alias Ambry.People.Person
+  alias Ambry.Provenance
   alias AmbryWeb.Admin.PersonLive.Form.ImportForm
+  alias AmbryWeb.Admin.ProvenanceHints
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
@@ -18,6 +20,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> allow_image_upload(:image)
      |> assign(
        import: nil,
+       provenance_hints: %{},
        providers: Registry.enabled(capability: :author_search),
        authors: People.authors_for_select()
      )
@@ -82,11 +85,21 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
       |> People.change_person(person_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign_form(socket, changeset)}
+    {:noreply,
+     socket
+     |> assign_form(changeset)
+     |> assign(
+       provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, person_params)
+     )}
   end
 
   def handle_event("submit", %{"person" => person_params}, socket) do
     person_params = maybe_link_author(person_params)
+
+    socket =
+      assign(socket,
+        provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, person_params)
+      )
 
     with {:ok, _person} <-
            socket.assigns.person
@@ -103,6 +116,11 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     end
   end
 
+  def handle_event("toggle-provenance-lock", %{"field" => field}, socket) do
+    {:ok, person} = Provenance.toggle_lock(socket.assigns.person, field)
+    {:noreply, assign(socket, person: person)}
+  end
+
   def handle_event("open-import-form", %{"type" => provider_id}, socket) do
     {:noreply, handle_import_form_params(socket, %{"import" => provider_id})}
   end
@@ -112,10 +130,18 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   @impl Phoenix.LiveView
-  def handle_info({:import, %{"person" => person_params}}, socket) do
+  def handle_info({:import, %{"person" => person_params}, source}, socket) do
+    hints = ProvenanceHints.from_import(person_params, source)
     new_params = Map.merge(socket.assigns.form.params, person_params)
     changeset = People.change_person(socket.assigns.person, new_params)
-    {:noreply, socket |> assign_form(changeset) |> assign(import: nil)}
+
+    {:noreply,
+     socket
+     |> assign_form(changeset)
+     |> assign(
+       import: nil,
+       provenance_hints: Map.merge(socket.assigns.provenance_hints, hints)
+     )}
   end
 
   defp cancel_all_uploads(socket, upload) do
@@ -141,7 +167,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   defp save_person(socket, :edit, person_params) do
-    case People.update_person(socket.assigns.person, person_params) do
+    opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+
+    case People.update_person(socket.assigns.person, person_params, opts) do
       {:ok, person} ->
         {:noreply,
          socket
@@ -154,7 +182,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   defp save_person(socket, :new, person_params) do
-    case People.create_person(person_params) do
+    opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+
+    case People.create_person(person_params, opts) do
       {:ok, person} ->
         {:noreply,
          socket

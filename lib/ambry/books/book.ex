@@ -11,6 +11,10 @@ defmodule Ambry.Books.Book do
   alias Ambry.Books.SeriesBook
   alias Ambry.Media.Media
   alias Ambry.People.BookAuthor
+  alias Ambry.Provenance
+
+  # provider-fillable scalar fields tracked by field-level provenance
+  @provenance_fields [:title, :published, :published_format]
 
   schema "books" do
     has_many :media, Media, preload_order: [desc: :published]
@@ -25,11 +29,15 @@ defmodule Ambry.Books.Book do
     field :published, :date
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
 
+    field :field_provenance, :map, default: %{}
+
     timestamps(type: :utc_datetime)
   end
 
+  def provenance_fields, do: @provenance_fields
+
   @doc false
-  def changeset(book, attrs) do
+  def changeset(book, attrs, opts \\ []) do
     book
     |> cast(attrs, [:title, :published, :published_format])
     |> cast_assoc(:series_books,
@@ -48,5 +56,6 @@ defmodule Ambry.Books.Book do
     )
     |> validate_required([:title, :published])
     |> foreign_key_constraint(:media, name: "media_book_id_fkey")
+    |> Provenance.track_changes(@provenance_fields, opts[:provenance] || %{})
   end
 end

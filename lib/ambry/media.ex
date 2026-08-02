@@ -175,10 +175,12 @@ defmodule Ambry.Media do
       iex> create_media(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
+  Accepts `provenance: %{"field" => source}` in `opts` to record where
+  provider-fillable field values came from — see `Ambry.Provenance`.
   """
-  def create_media(attrs \\ %{}) do
+  def create_media(attrs \\ %{}, opts \\ []) do
     Repo.transact(fn ->
-      changeset = Media.changeset(%Media{}, attrs)
+      changeset = Media.changeset(%Media{}, attrs, opts)
 
       with {:ok, media} <- Repo.insert(changeset),
            :ok <- Search.insert(media),
@@ -206,10 +208,12 @@ defmodule Ambry.Media do
       iex> update_media(media, %{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
+  Accepts `provenance: %{"field" => source}` in `opts` to record where
+  provider-fillable field values came from — see `Ambry.Provenance`.
   """
-  def update_media(%Media{} = media, attrs) do
+  def update_media(%Media{} = media, attrs, opts \\ []) do
     Repo.transact(fn ->
-      changeset = Media.changeset(media, attrs)
+      changeset = Media.changeset(media, attrs, opts)
 
       with {:ok, updated_media} <- Repo.update(changeset),
            :ok <- delete_orphaned_recording_groups(),

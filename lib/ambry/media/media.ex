@@ -13,10 +13,14 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.Processor
   alias Ambry.Media.RecordingGroup
+  alias Ambry.Provenance
   alias Ambry.Repo.SupplementalFile
   alias Ambry.Thumbnails
 
   @statuses [:pending, :processing, :error, :ready]
+
+  # provider-fillable scalar fields tracked by field-level provenance
+  @provenance_fields [:published, :published_format, :publisher, :description, :image_path]
 
   schema "media" do
     belongs_to :book, Book
@@ -65,13 +69,17 @@ defmodule Ambry.Media.Media do
     field :description, :string
     field :publisher, :string
 
+    field :field_provenance, :map, default: %{}
+
     timestamps(type: :utc_datetime)
   end
 
   def statuses, do: @statuses
 
+  def provenance_fields, do: @provenance_fields
+
   @doc false
-  def changeset(media, attrs) do
+  def changeset(media, attrs, opts \\ []) do
     media
     |> cast(attrs, [
       :abridged,
@@ -121,6 +129,7 @@ defmodule Ambry.Media.Media do
     |> validate_image_path()
     |> cast_embed(:thumbnails)
     |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
+    |> Provenance.track_changes(@provenance_fields, opts[:provenance] || %{})
   end
 
   # The media form stages the recording-group picker in a virtual field:

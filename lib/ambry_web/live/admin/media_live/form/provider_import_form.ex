@@ -10,6 +10,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.ProviderImportForm do
 
   alias Ambry.Metadata.Providers
   alias Ambry.People.Person
+  alias Ambry.Provenance
   alias Ambry.Search
   alias Phoenix.LiveView.AsyncResult
 
@@ -82,6 +83,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.ProviderImportForm do
 
   def handle_event("import", %{"import" => import_params}, socket) do
     book = socket.assigns.selected_book
+    source = Provenance.provider_source(socket.assigns.provider.id)
 
     params =
       Enum.reduce(import_params, %{}, fn
@@ -101,7 +103,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.ProviderImportForm do
           Map.put(
             acc,
             "media_narrators",
-            build_narrators_params(socket.assigns.matching_narrators)
+            build_narrators_params(socket.assigns.matching_narrators, source)
           )
 
         {"use_cover_image", "true"}, acc ->
@@ -115,7 +117,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.ProviderImportForm do
           acc
       end)
 
-    send(self(), {:import, %{"media" => params}})
+    send(self(), {:import, %{"media" => params}, source})
 
     {:noreply, socket}
   end
@@ -130,11 +132,14 @@ defmodule AmbryWeb.Admin.MediaLive.Form.ProviderImportForm do
     )
   end
 
-  defp build_narrators_params(matching_narrators) do
+  defp build_narrators_params(matching_narrators, source) do
     Enum.map(matching_narrators, fn
       {imported, nil} ->
         {:ok, %{narrators: [narrator]}} =
-          Ambry.People.create_person(%{name: imported.name, narrators: [%{name: imported.name}]})
+          Ambry.People.create_person(
+            %{name: imported.name, narrators: [%{name: imported.name}]},
+            provenance: %{"name" => source}
+          )
 
         %{"narrator_id" => narrator.id}
 

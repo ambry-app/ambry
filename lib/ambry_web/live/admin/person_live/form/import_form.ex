@@ -5,6 +5,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
   import AmbryWeb.Admin.Components
 
   alias Ambry.Metadata.Providers
+  alias Ambry.Provenance
   alias Phoenix.LiveView.AsyncResult
 
   @impl Phoenix.LiveComponent
@@ -125,7 +126,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form.ImportForm do
           acc
       end)
 
-    send(self(), {:import, %{"person" => params}})
+    source = Provenance.provider_source(socket.assigns.provider.id)
+    send(self(), {:import, %{"person" => params}, source})
 
     {:noreply, socket}
   end

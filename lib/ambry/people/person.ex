@@ -12,7 +12,11 @@ defmodule Ambry.People.Person do
   alias Ambry.Paths
   alias Ambry.People.AuthorPerson
   alias Ambry.People.Narrator
+  alias Ambry.Provenance
   alias Ambry.Thumbnails
+
+  # provider-fillable scalar fields tracked by field-level provenance
+  @provenance_fields [:name, :description, :image_path]
 
   schema "people" do
     has_many :author_people, AuthorPerson, on_replace: :delete
@@ -25,6 +29,8 @@ defmodule Ambry.People.Person do
     field :description, :string
     field :image_path, :string
 
+    field :field_provenance, :map, default: %{}
+
     # form-only: staging input for linking an existing author, see
     # AmbryWeb.Admin.PersonLive.Form
     field :link_author_id, :integer, virtual: true
@@ -32,8 +38,10 @@ defmodule Ambry.People.Person do
     timestamps(type: :utc_datetime)
   end
 
+  def provenance_fields, do: @provenance_fields
+
   @doc false
-  def changeset(person, attrs) do
+  def changeset(person, attrs, opts \\ []) do
     person
     |> cast(attrs, [:name, :description, :image_path])
     |> cast_assoc(:author_people,
@@ -50,6 +58,7 @@ defmodule Ambry.People.Person do
     |> validate_image_path()
     |> foreign_key_constraint(:narrator, name: "media_narrators_narrator_id_fkey")
     |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
+    |> Provenance.track_changes(@provenance_fields, opts[:provenance] || %{})
   end
 
   # if the image_path changes, clear the thumbnails embed

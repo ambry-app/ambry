@@ -125,10 +125,12 @@ defmodule Ambry.People do
       iex> create_person(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
+  Accepts `provenance: %{"field" => source}` in `opts` to record where
+  provider-fillable field values came from — see `Ambry.Provenance`.
   """
-  def create_person(attrs \\ %{}) do
+  def create_person(attrs \\ %{}, opts \\ []) do
     Repo.transact(fn ->
-      changeset = Person.changeset(%Person{}, attrs)
+      changeset = Person.changeset(%Person{}, attrs, opts)
 
       with {:ok, person} <- Repo.insert(changeset),
            :ok <- Search.insert(person),
@@ -156,11 +158,13 @@ defmodule Ambry.People do
       iex> update_person(person, %{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
+  Accepts `provenance: %{"field" => source}` in `opts` to record where
+  provider-fillable field values came from — see `Ambry.Provenance`.
   """
-  def update_person(%Person{} = person, attrs) do
+  def update_person(%Person{} = person, attrs, opts \\ []) do
     Repo.transact(fn ->
       person = Repo.preload(person, @person_direct_assoc_preloads)
-      changeset = Person.changeset(person, attrs)
+      changeset = Person.changeset(person, attrs, opts)
 
       with {:ok, updated_person} <- Repo.update(changeset),
            :ok <- delete_orphaned_authors(person, changeset),
