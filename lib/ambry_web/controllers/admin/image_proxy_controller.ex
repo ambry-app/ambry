@@ -21,7 +21,13 @@ defmodule AmbryWeb.Admin.ImageProxyController do
   def show(conn, %{"url" => url}) do
     with %URI{scheme: scheme} when scheme in ["http", "https"] <- URI.parse(url),
          {:ok, %{status: 200, body: body} = response} when is_binary(body) <-
-           Req.get(url: url, receive_timeout: @receive_timeout, retry: false, decode_body: false),
+           Req.get(
+             url: url,
+             headers: [{"user-agent", Ambry.Utils.http_user_agent()}],
+             receive_timeout: @receive_timeout,
+             retry: false,
+             decode_body: false
+           ),
          [content_type | _rest] <- Req.Response.get_header(response, "content-type"),
          true <- String.starts_with?(content_type, @allowed_content_types) do
       conn

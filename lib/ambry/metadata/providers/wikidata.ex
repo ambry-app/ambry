@@ -11,8 +11,11 @@ defmodule Ambry.Metadata.Providers.Wikidata do
   Flow: Wikidata entity search, hydrated and filtered to humans (P31 = Q5)
   → bio from the Wikipedia summary-extract API (the article's lead
   section; falls back to the terse Wikidata description when a person has
-  no English article) → freely-licensed photo from Commons (P18), served
-  scaled through Special:FilePath.
+  no English article) → freely-licensed photo, preferring the summary's
+  direct `originalimage` URL (a plain upload.wikimedia.org file — no
+  MediaWiki redirect or on-demand thumbnailer in the path) and falling
+  back to the Commons P18 claim via Special:FilePath for article-less
+  people.
 
   Zero-config and free, no API key. Registered with the author-search
   capabilities, so the person form offers it alongside the book-keyed
@@ -139,12 +142,14 @@ defmodule Ambry.Metadata.Providers.Wikidata do
   end
 
   defp entity_details(entity) do
+    summary = fetch_summary(get_in(entity, ["sitelinks", "enwiki", "title"]))
+
     %Provider.Author{
       provider: id(),
       id: entity["id"],
       name: label(entity),
-      description: bio(entity),
-      image_url: image_url(entity)
+      description: presence(summary["extract"]) || description(entity),
+      image_url: get_in(summary, ["originalimage", "source"]) || p18_image_url(entity)
     }
   end
 
@@ -152,22 +157,18 @@ defmodule Ambry.Metadata.Providers.Wikidata do
 
   defp description(entity), do: get_in(entity, ["descriptions", "en", "value"])
 
-  defp bio(entity) do
-    wikipedia_extract(get_in(entity, ["sitelinks", "enwiki", "title"])) || description(entity)
-  end
+  defp fetch_summary(nil), do: %{}
 
-  defp wikipedia_extract(nil), do: nil
-
-  defp wikipedia_extract(title) do
+  defp fetch_summary(title) do
     url = @wikipedia_summary_url <> URI.encode(title, &URI.char_unreserved?/1)
 
     case Client.get_json(url, []) do
-      {:ok, %{"extract" => extract}} when is_binary(extract) and extract != "" -> extract
-      _no_usable_summary -> nil
+      {:ok, summary} when is_map(summary) -> summary
+      _no_usable_summary -> %{}
     end
   end
 
-  defp image_url(entity) do
+  defp p18_image_url(entity) do
     case claim_values(entity, "P18") do
       [filename | _rest] when is_binary(filename) ->
         @commons_file_path_url <>
@@ -177,6 +178,10 @@ defmodule Ambry.Metadata.Providers.Wikidata do
         nil
     end
   end
+
+  defp presence(nil), do: nil
+  defp presence(""), do: nil
+  defp presence(value), do: value
 
   defp claim_values(entity, property) do
     for claim <- get_in(entity, ["claims", property]) || [],

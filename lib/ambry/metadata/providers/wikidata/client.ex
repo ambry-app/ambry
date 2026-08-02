@@ -36,7 +36,5 @@ defmodule Ambry.Metadata.Providers.Wikidata.Client do
 
   defp decode(_body), do: {:error, :unexpected_response_payload}
 
-  defp user_agent do
-    "Ambry/#{Application.spec(:ambry, :vsn)} (https://github.com/ambry-app/ambry)"
-  end
+  defp user_agent, do: Ambry.Utils.http_user_agent()
 end

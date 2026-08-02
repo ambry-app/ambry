@@ -11,6 +11,18 @@ defmodule Ambry.Utils do
   @byte_units ["B", "kB", "MB", "GB", "TB", "PB"]
 
   @doc """
+  Descriptive User-Agent for outbound HTTP requests.
+
+  Some services (notably the Wikimedia family) throttle or block generic
+  library UAs; their API etiquette asks for an identifying agent with a
+  contact point.
+  """
+  @spec http_user_agent() :: String.t()
+  def http_user_agent do
+    "Ambry/#{Application.spec(:ambry, :vsn)} (https://github.com/ambry-app/ambry)"
+  end
+
+  @doc """
   Formats a byte count as a human-readable string using SI (1000-based) units,
   rounded to a whole number.
 

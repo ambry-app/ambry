@@ -61,7 +61,7 @@ defmodule Ambry.Metadata.Providers.WikidataTest do
   end
 
   describe "author_details/2" do
-    test "combines the Wikipedia lead extract with the Commons photo" do
+    test "combines the Wikipedia lead extract with the article's direct original image" do
       details = fixture("wikidata_entity_details.json")
       summary = fixture("wikipedia_summary.json")
 
@@ -74,6 +74,23 @@ defmodule Ambry.Metadata.Providers.WikidataTest do
 
       assert %Provider.Author{provider: "wikidata", id: "Q18608460", name: "Ty Franck"} = author
       assert author.description =~ "one half of James S. A. Corey"
+
+      # the summary's originalimage is a direct upload.wikimedia.org file —
+      # preferred over Special:FilePath (no redirect / on-demand thumbnailer)
+      assert author.image_url ==
+               "https://upload.wikimedia.org/wikipedia/commons/8/85/Ty_Franck_%2836166643166%29.jpg"
+    end
+
+    test "falls back to the P18 FilePath URL when the summary has no image" do
+      details = fixture("wikidata_entity_details.json")
+      summary = fixture("wikipedia_summary.json") |> Map.drop(["originalimage", "thumbnail"])
+
+      patch(Client, :get_json, fn
+        @wikidata_api, _params -> {:ok, details}
+        @summary_prefix <> _title, [] -> {:ok, summary}
+      end)
+
+      assert {:ok, author} = Wikidata.author_details("Q18608460", %{})
 
       # P18 filename → scaled Special:FilePath URL, fully encoded
       assert author.image_url ==
@@ -91,7 +108,7 @@ defmodule Ambry.Metadata.Providers.WikidataTest do
       assert author.image_url == nil
     end
 
-    test "a failing summary fetch degrades to the Wikidata description" do
+    test "a failing summary fetch degrades to the Wikidata description and P18 image" do
       details = fixture("wikidata_entity_details.json")
 
       patch(Client, :get_json, fn
@@ -101,6 +118,7 @@ defmodule Ambry.Metadata.Providers.WikidataTest do
 
       assert {:ok, author} = Wikidata.author_details("Q18608460", %{})
       assert author.description == "American science fiction writer"
+      assert author.image_url =~ "Special:FilePath"
     end
 
     test "missing entities are :not_found" do
