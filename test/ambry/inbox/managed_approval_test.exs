@@ -173,6 +173,39 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
     end
   end
 
+  describe "publishing on approval" do
+    # An approved recording is finished. Leaving it pending forever was the
+    # gap that made the inbox produce records nothing could ever see.
+    test "publishes when the switch is on" do
+      {:ok, _setting} = Settings.set_direct_play_publishing(true)
+      %{item: item} = downloads_item()
+
+      assert {:ok, media} = Inbox.approve_item(item)
+      assert Media.get_media!(media.id).status == :ready
+    end
+
+    # The whole point of the switch: the server must never hand a client a
+    # direct-play recording before the fleet can play one.
+    test "waits in pending when the switch is off" do
+      {:ok, _setting} = Settings.set_direct_play_publishing(false)
+      %{item: item} = downloads_item()
+
+      assert {:ok, media} = Inbox.approve_item(item)
+      assert Media.get_media!(media.id).status == :pending
+    end
+
+    test "turning the switch on later releases what was waiting" do
+      {:ok, _setting} = Settings.set_direct_play_publishing(false)
+      %{item: item} = downloads_item()
+      {:ok, media} = Inbox.approve_item(item)
+
+      {:ok, _setting} = Settings.set_direct_play_publishing(true)
+      assert {:ok, %{published: 1}} = Media.publish_pending_direct_play()
+
+      assert Media.get_media!(media.id).status == :ready
+    end
+  end
+
   describe "other locations" do
     test "an external collection is still adopted exactly where it lies" do
       %{item: item, source: source} =
