@@ -18,6 +18,7 @@ defmodule Ambry.Media.MediaTrack do
 
   import Ecto.Changeset
 
+  alias Ambry.Hashids
   alias Ambry.Media.Media
   alias Ambry.Media.MediaTrack
 
@@ -61,6 +62,18 @@ defmodule Ambry.Media.MediaTrack do
     |> validate_number(:duration, greater_than: 0)
     |> validate_number(:start_offset, greater_than_or_equal_to: 0)
     |> unique_constraint([:media_id, :index])
+  end
+
+  @doc """
+  The URL clients fetch this track from.
+
+  The track's own path is a disk path that may be anywhere — the uploads
+  tree, a folder referenced in place, or a library root — so the URL is keyed
+  on the track instead, and ends in the file's real name so downloads keep
+  their real extension.
+  """
+  def web_path(%MediaTrack{id: id, path: path}) do
+    "/files/track/#{Hashids.encode(id)}/#{Path.basename(path)}"
   end
 
   @doc """
