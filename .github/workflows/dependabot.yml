@@ -12,8 +12,25 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
+      # Auto-merge is enabled with a GitHub App token rather than GITHUB_TOKEN.
+      # GitHub does not trigger workflow runs from events created with
+      # GITHUB_TOKEN, so merges performed under it pushed to main silently: no
+      # CI run and, more importantly, no container image published. Between
+      # 2026-06-08 and 2026-07-30 every merge to main was a Dependabot
+      # auto-merge, and no image was published for any of them.
+      #
+      # NOTE: these are *Dependabot* secrets, not Actions secrets. Workflow runs
+      # triggered by Dependabot read from the Dependabot secret store, so both
+      # must be set under Settings -> Secrets and variables -> Dependabot.
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Enable auto-merge for Dependabot PRs
         run: gh pr merge --auto --merge "$PR_URL"
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
