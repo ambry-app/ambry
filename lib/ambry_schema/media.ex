@@ -4,7 +4,7 @@ defmodule AmbrySchema.Media do
   use Absinthe.Schema.Notation
   use Absinthe.Relay.Schema.Notation, :modern
 
-  import Absinthe.Resolution.Helpers, only: [dataloader: 1, dataloader: 2]
+  import Absinthe.Resolution.Helpers, only: [dataloader: 1, dataloader: 2, dataloader: 3]
 
   alias AmbrySchema.Resolvers
 
@@ -29,6 +29,15 @@ defmodule AmbrySchema.Media do
     field :path, non_null(:string)
   end
 
+  @desc "How accurately a player can seek within a track"
+  enum :seek_accuracy do
+    @desc "Seeking lands where it says it does"
+    value :exact
+
+    @desc "The file carries no seek index (e.g. VBR mp3 with no Xing header); positions may drift"
+    value :approximate
+  end
+
   node object(:media) do
     field :status, non_null(:media_processing_status)
 
@@ -45,6 +54,14 @@ defmodule AmbrySchema.Media do
     field :recording_group, :recording_group, resolve: dataloader(Resolvers)
 
     field :duration, :float, resolve: Resolvers.resolve_decimal(:duration)
+
+    @desc "Direct-play audio files, in playback order; empty for media that only has the legacy packaged artifacts below"
+    field :tracks, non_null(list_of(non_null(:media_track))),
+      resolve: dataloader(Resolvers, :media_tracks, args: %{order: {:asc, :index}})
+
+    # kept as-is, not deprecated: until direct-play publishing is switched on
+    # these are still the only way to play anything, and every deployed client
+    # queries them
     field :mpd_path, :string
     field :hls_path, :string
     field :mp4_path, :string
@@ -85,6 +102,39 @@ defmodule AmbrySchema.Media do
 
     field :media, non_null(list_of(non_null(:media))),
       resolve: dataloader(Resolvers, args: %{order: {:asc, :part_number}})
+
+    field :inserted_at, non_null(:datetime)
+    field :updated_at, non_null(:datetime)
+  end
+
+  @desc "One audio file of a recording, played directly by the client"
+  node object(:media_track) do
+    field :media, non_null(:media), resolve: dataloader(Resolvers, args: %{allow_all_media: true})
+
+    @desc "Position in the recording's ordered track list, 0-based"
+    field :index, non_null(:integer)
+
+    @desc "Where to fetch the file; requires the same authentication as any other media URL"
+    field :path, non_null(:string), resolve: &Resolvers.media_track_path/3
+
+    @desc "Size in bytes. A float because audiobook files routinely exceed what GraphQL's 32-bit Int can hold"
+    field :size, non_null(:float), resolve: fn track, _, _ -> {:ok, track.size / 1} end
+
+    @desc "Media type of the file, e.g. \"audio/mp4\""
+    field :mime, :string
+
+    @desc "Container as probed, e.g. \"mov,mp4,m4a,3gp,3g2,mj2\""
+    field :format, :string
+
+    @desc "Audio codec as probed, e.g. \"aac\". Clients decide playability from this and `mime` — nothing here is assumed playable"
+    field :codec, :string
+
+    field :duration, non_null(:float), resolve: Resolvers.resolve_decimal(:duration)
+
+    @desc "Where this track starts on the book's continuous timeline, in seconds. Playback positions are always absolute book-seconds"
+    field :start_offset, non_null(:float), resolve: Resolvers.resolve_decimal(:start_offset)
+
+    field :seek_accuracy, non_null(:seek_accuracy)
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
