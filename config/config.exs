@@ -43,7 +43,11 @@ config :ambry, Oban,
     {Oban.Plugins.Cron,
      crontab: [
        {"0 * * * *", Ambry.Inbox.RunDiscovery},
-       {"0 4 * * *", Ambry.Media.RunReconciliation}
+       {"0 4 * * *", Ambry.Media.RunReconciliation},
+       # Organizing is triggered by the edits that invalidate a path, so this
+       # is the backstop for the one thing no edit can announce: a change to
+       # the naming template itself, which invalidates every path at once.
+       {"30 4 * * *", Ambry.Media.RunOrganize}
      ]}
   ],
   # Keep number of media workers low to not starve the host of resources

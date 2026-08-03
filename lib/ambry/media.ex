@@ -39,6 +39,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.Media.PubSub.MediaUpdated
   alias Ambry.Media.RecordingGroup
+  alias Ambry.Media.RunOrganize
   alias Ambry.Media.RunProcessor
   alias Ambry.Media.RunScan
   alias Ambry.Media.Scanner
@@ -52,6 +53,26 @@ defmodule Ambry.Media do
 
   defdelegate get_media_file_details(media), to: Audit
   defdelegate orphaned_files_audit(), to: Audit
+
+  @doc """
+  Brings a recording's managed files back in line with the naming template.
+
+  Asynchronous because it touches the filesystem, and safe to call after any
+  edit: a recording that is already where it belongs, external, or outside a
+  library root is a no-op.
+  """
+  def organize_async(%Media{id: id}), do: enqueue_organize(%{"media_id" => id})
+
+  @doc """
+  The same, for every managed recording of a book.
+
+  A book's title, primary author and primary series all appear in the path of
+  every recording of it, so editing the book moves its files, not just its
+  own page.
+  """
+  def organize_book_async(book_id), do: enqueue_organize(%{"book_id" => book_id})
+
+  defp enqueue_organize(args), do: args |> RunOrganize.new() |> Oban.insert()
 
   @doc """
   Returns a limited list of media and whether or not there are more.

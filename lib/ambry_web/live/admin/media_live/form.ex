@@ -307,6 +307,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     case Media.update_media(socket.assigns.media, media_params, opts) do
       {:ok, media} ->
         maybe_start_processor!(media, media_params, :edit)
+        # a title override or a changed date moves the folder
+        {:ok, _job} = Media.organize_async(media)
 
         {:noreply,
          socket
