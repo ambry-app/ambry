@@ -236,6 +236,26 @@ defmodule Ambry.Factory do
     %{media | source_files: for(_ <- 1..count, do: audio_file_disk_path)}
   end
 
+  @doc """
+  Copies real audio fixtures into the media's own source folder, the way an
+  upload does — so `source_files` holds absolute paths to files that are
+  actually there and can be probed.
+  """
+  def with_copied_source_files(%Media{} = media, type \\ :m4a, count \\ 1) do
+    fixture = valid_audio(type)
+    folder = Media.source_path(media)
+    File.mkdir_p!(folder)
+
+    files =
+      for index <- 1..count do
+        dest = Path.join(folder, "#{index}-sample#{Path.extname(fixture)}")
+        File.cp!(fixture, dest)
+        dest
+      end
+
+    %{media | source_files: files}
+  end
+
   def with_output_files(media, processor \\ :auto)
 
   def with_output_files(%Media{__meta__: %{state: :loaded}} = media, processor) do

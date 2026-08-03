@@ -36,6 +36,8 @@ defmodule Ambry.Media do
   alias Ambry.Media.PubSub.MediaUpdated
   alias Ambry.Media.RecordingGroup
   alias Ambry.Media.RunProcessor
+  alias Ambry.Media.RunScan
+  alias Ambry.Media.Scanner
   alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
@@ -356,6 +358,23 @@ defmodule Ambry.Media do
   def run_processor_async(%Media{} = media, processor) do
     %{media_id: media.id, processor: processor}
     |> RunProcessor.new()
+    |> Oban.insert()
+  end
+
+  @doc """
+  Scans a media's source files into direct-play tracks.
+
+  Delegates to `Ambry.Media.Scanner`; returns `{:ok, media}` or
+  `{:error, reason}`.
+  """
+  defdelegate scan_media(media), to: Scanner, as: :scan
+
+  @doc """
+  Scans a media's source files asynchronously.
+  """
+  def scan_media_async(%Media{} = media) do
+    %{media_id: media.id}
+    |> RunScan.new()
     |> Oban.insert()
   end
 
