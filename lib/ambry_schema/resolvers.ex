@@ -16,6 +16,7 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Hashids
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
+  alias Ambry.Media.MediaTrack
   alias Ambry.Media.RecordingGroup
   alias Ambry.People.Author
   alias Ambry.People.AuthorPerson
@@ -107,6 +108,9 @@ defmodule AmbrySchema.Resolvers do
   def media_narrators_changed_since(args, _resolution),
     do: Sync.changes_since(MediaNarrator, args[:since])
 
+  def media_tracks_changed_since(args, _resolution),
+    do: Sync.changes_since(MediaTrack, args[:since])
+
   def recording_groups_changed_since(args, _resolution),
     do: Sync.changes_since(RecordingGroup, args[:since])
 
@@ -142,6 +146,9 @@ defmodule AmbrySchema.Resolvers do
          }
      end)}
   end
+
+  def media_track_path(%MediaTrack{} = track, _args, _resolution),
+    do: {:ok, MediaTrack.web_path(track)}
 
   def resolve_decimal(key) do
     fn
@@ -185,6 +192,7 @@ defmodule AmbrySchema.Resolvers do
   def type(%Deletion{}, _resolution), do: :deletion
   def type(%Media{}, _resolution), do: :media
   def type(%MediaNarrator{}, _resolution), do: :media_narrator
+  def type(%MediaTrack{}, _resolution), do: :media_track
   def type(%Narrator{}, _resolution), do: :narrator
   def type(%Person{}, _resolution), do: :person
   def type(%RecordingGroup{}, _resolution), do: :recording_group
