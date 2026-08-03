@@ -11,6 +11,7 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.Media
   alias Ambry.Media.Media.Chapter
   alias Ambry.Media.MediaNarrator
+  alias Ambry.Media.MediaTrack
   alias Ambry.Media.Processor
   alias Ambry.Media.RecordingGroup
   alias Ambry.Provenance
@@ -28,6 +29,10 @@ defmodule Ambry.Media.Media do
     has_many :media_narrators, MediaNarrator, on_replace: :delete
     has_many :authors, through: [:book, :authors]
     has_many :narrators, through: [:media_narrators, :narrator]
+
+    # direct-play: the ordered audio files clients play as-is. Empty for
+    # legacy media, which stream/download the packaged artifacts below.
+    has_many :media_tracks, MediaTrack, on_replace: :delete, preload_order: [asc: :index]
 
     embeds_many :chapters, Chapter, on_replace: :delete
     embeds_many :supplemental_files, SupplementalFile, on_replace: :delete
@@ -110,6 +115,7 @@ defmodule Ambry.Media.Media do
       sort_param: :media_narrators_sort,
       drop_param: :media_narrators_drop
     )
+    |> maybe_cast_tracks(attrs)
     |> cast_embed(:chapters,
       sort_param: :chapters_sort,
       drop_param: :chapters_drop
@@ -278,13 +284,48 @@ defmodule Ambry.Media.Media do
     |> maybe_validate_paths()
   end
 
+  # A ready media needs *some* playable representation. Direct-play media have
+  # tracks; legacy media have the packaged artifacts, which is why the trio is
+  # nullable rather than gone — already-imported media keep playing untouched
+  # until the back-catalog reclaim retires them.
   defp maybe_validate_paths(changeset) do
-    if get_field(changeset, :status) == :ready do
+    if get_field(changeset, :status) == :ready and not direct_play?(changeset) do
       validate_required(changeset, [
         :mpd_path,
         :hls_path,
         :mp4_path
       ])
+    else
+      changeset
+    end
+  end
+
+  # An unloaded assoc can't vouch for itself, so it reads as "no tracks" and
+  # the legacy paths stay required. `get_media!/1` preloads tracks, so every
+  # caller that edits an existing media sees the truth.
+  defp direct_play?(changeset) do
+    case tracks(changeset) do
+      [_ | _] -> true
+      _no_tracks -> false
+    end
+  end
+
+  defp tracks(changeset) do
+    case changeset.changes do
+      %{media_tracks: tracks} -> tracks
+      _unchanged -> loaded_tracks(changeset.data)
+    end
+  end
+
+  defp loaded_tracks(%Media{media_tracks: %Ecto.Association.NotLoaded{}}), do: []
+  defp loaded_tracks(%Media{media_tracks: tracks}), do: tracks
+  defp loaded_tracks(_data), do: []
+
+  # Tracks are written by the scanner, never by a form: the admin forms don't
+  # submit the param, and casting an assoc they never loaded would raise.
+  defp maybe_cast_tracks(changeset, attrs) do
+    if Map.has_key?(attrs, :media_tracks) or Map.has_key?(attrs, "media_tracks") do
+      cast_assoc(changeset, :media_tracks)
     else
       changeset
     end

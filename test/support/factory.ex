@@ -13,6 +13,7 @@ defmodule Ambry.Factory do
   alias Ambry.Fake
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
+  alias Ambry.Media.MediaTrack
   alias Ambry.Media.RecordingGroup
   alias Ambry.People.Author
   alias Ambry.People.AuthorPerson
@@ -193,6 +194,40 @@ defmodule Ambry.Factory do
     %RecordingGroup{
       name: nil
     }
+  end
+
+  def media_track_factory do
+    %MediaTrack{
+      index: 0,
+      path: fn -> Ambry.Paths.source_media_disk_path("#{Ecto.UUID.generate()}.m4b") end,
+      size: trunc(Fake.uniform() * 500_000_000),
+      mime: "audio/mp4",
+      format: "mov,mp4,m4a,3gp,3g2,mj2",
+      codec: "aac",
+      duration: (Fake.uniform() * 30_000) |> Decimal.from_float() |> Decimal.round(2),
+      start_offset: Decimal.new(0),
+      seek_accuracy: :exact
+    }
+  end
+
+  @doc """
+  Gives a media a direct-play track per the given durations, laid end-to-end
+  on the book's timeline.
+  """
+  def with_tracks(%Media{} = media, durations \\ ["3600.0"]) do
+    {tracks, _offset} =
+      durations
+      |> Enum.with_index()
+      |> Enum.map_reduce(Decimal.new(0), fn {duration, index}, offset ->
+        duration = Decimal.new(duration)
+
+        track =
+          build(:media_track, index: index, duration: duration, start_offset: offset)
+
+        {track, Decimal.add(offset, duration)}
+      end)
+
+    %{media | media_tracks: tracks}
   end
 
   def with_source_files(%Media{} = media, type \\ :m4a, count \\ 1) do

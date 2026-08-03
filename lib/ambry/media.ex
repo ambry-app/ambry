@@ -14,6 +14,7 @@ defmodule Ambry.Media do
       Media.Chapter,
       MediaFlat,
       MediaNarrator,
+      MediaTrack,
       RecordingGroup,
       PubSub.MediaCreated,
       PubSub.MediaDeleted,
@@ -101,7 +102,10 @@ defmodule Ambry.Media do
 
   """
   def get_media!(id),
-    do: Media |> preload([:book, :media_narrators, :recording_group]) |> Repo.get!(id)
+    do:
+      Media
+      |> preload([:book, :media_narrators, :media_tracks, :recording_group])
+      |> Repo.get!(id)
 
   @doc """
   Gets a media and the book with all its details.
