@@ -104,7 +104,7 @@ defmodule Ambry.Metadata.Providers.Hardcover do
          title: book["title"],
          description: presence(book["description"]),
          cover_url: get_in(book, ["image", "url"]),
-         published: Provider.PublishedDate.from_string(book["release_date"]),
+         published: published_date(book["release_date"]),
          authors: contributions_to_authors(book["contributions"]),
          series: book_series(book["book_series"])
        }}
@@ -225,7 +225,7 @@ defmodule Ambry.Metadata.Providers.Hardcover do
         title: doc["title"],
         description: presence(doc["description"]),
         cover_url: get_in(doc, ["image", "url"]),
-        published: Provider.PublishedDate.from_string(doc["release_date"]),
+        published: published_date(doc["release_date"]),
         authors: contributions_to_authors(doc["contributions"]),
         series: featured_series(doc["featured_series"])
       }
@@ -233,6 +233,12 @@ defmodule Ambry.Metadata.Providers.Hardcover do
   end
 
   defp search_hit_to_book(_hit), do: nil
+
+  defp published_date(raw) do
+    raw
+    |> Provider.PublishedDate.from_string()
+    |> Provider.PublishedDate.assume_jan1_is_year_only()
+  end
 
   # a null contribution role means "Author"; anything else (Cover Artist,
   # Illustrator, Translator, …) is not an author credit

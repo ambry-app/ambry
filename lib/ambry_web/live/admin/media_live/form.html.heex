@@ -115,7 +115,7 @@
       <div :if={group_name_mode(@form, @media)} class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
         <.input
           field={@form[:recording_group_name]}
-          label="Group label (optional; admin-only unless shown below)"
+          label="Group label (optional)"
           value={group_field_value(@form, @media, :recording_group_name, :name)}
         />
         <.input

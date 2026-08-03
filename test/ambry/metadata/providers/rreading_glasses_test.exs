@@ -108,6 +108,29 @@ defmodule Ambry.Metadata.Providers.RreadingGlassesTest do
       assert %Provider.PublishedDate{date: ~D[2011-09-27]} = published
     end
 
+    test "a full January 1st date reads as year-only display" do
+      # Goodreads-shaped data encodes year-only knowledge as a literal
+      # YYYY-01-01 (e.g. Project Hail Mary), indistinguishable from a
+      # real date — assume year-only rather than display a made-up Jan 1
+      work = %{
+        "ForeignId" => 1,
+        "Title" => "Project Hail Mary",
+        "ReleaseDateRaw" => "2021-01-01",
+        "BestBookId" => 5,
+        "Books" => [%{"ForeignId" => 5, "ReleaseDateRaw" => "2021-05-04", "ImageUrl" => "x"}]
+      }
+
+      patch(Client, :get_json, fn _base, "/work/1", [] -> {:ok, work} end)
+
+      assert {:ok, %Provider.Book{published: published, editions: [edition]}} =
+               RreadingGlasses.book_details("1", %{})
+
+      assert %Provider.PublishedDate{date: ~D[2021-01-01], display_format: :year} = published
+      # a real non-Jan-1 edition date keeps full display
+      assert %Provider.PublishedDate{date: ~D[2021-05-04], display_format: :full} =
+               edition.published
+    end
+
     test "no date at all yields nil" do
       work = %{
         "ForeignId" => 1,

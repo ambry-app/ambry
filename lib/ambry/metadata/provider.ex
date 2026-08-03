@@ -48,6 +48,25 @@ defmodule Ambry.Metadata.Provider do
       end
     end
 
+    @doc """
+    Demotes a full January-1st date to year-only display.
+
+    Goodreads-shaped sources (and Hardcover) encode "we only know the
+    year" as a literal `YYYY-01-01`, indistinguishable in the payload
+    from a real date — so a full Jan-1 date is far more likely year-only
+    knowledge than a genuine release day. The underlying date is kept;
+    the operator can flip the display format back per book when a
+    release really was January 1st.
+    """
+    def assume_jan1_is_year_only(nil), do: nil
+
+    def assume_jan1_is_year_only(
+          %__MODULE__{display_format: :full, date: %Date{month: 1, day: 1}} = published
+        ),
+        do: %{published | display_format: :year}
+
+    def assume_jan1_is_year_only(%__MODULE__{} = published), do: published
+
     defp new(year, month, day, display_format) do
       case Date.from_iso8601("#{year}-#{pad(month)}-#{pad(day)}") do
         {:ok, date} -> %__MODULE__{date: date, display_format: display_format}

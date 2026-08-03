@@ -216,11 +216,17 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
   # vs its 2014 Crown edition, Eragon 2002-06-01 vs 2005 hits); when a work
   # lacks one, the earliest edition date is the closest safe approximation.
   defp work_published(work, editions) do
-    Provider.PublishedDate.from_string(work["ReleaseDateRaw"]) ||
+    published_date(work["ReleaseDateRaw"]) ||
       editions
-      |> Enum.map(&Provider.PublishedDate.from_string(&1["ReleaseDateRaw"]))
+      |> Enum.map(&published_date(&1["ReleaseDateRaw"]))
       |> Enum.reject(&is_nil/1)
       |> Enum.min_by(& &1.date, Date, fn -> nil end)
+  end
+
+  defp published_date(raw) do
+    raw
+    |> Provider.PublishedDate.from_string()
+    |> Provider.PublishedDate.assume_jan1_is_year_only()
   end
 
   defp best_edition(editions, preferred_edition_id, best_book_id) do
@@ -268,7 +274,7 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
       language: presence(edition["Language"]),
       format: presence(edition["Format"]),
       publisher: presence(edition["Publisher"]),
-      published: Provider.PublishedDate.from_string(edition["ReleaseDateRaw"]),
+      published: published_date(edition["ReleaseDateRaw"]),
       cover_url: edition["ImageUrl"] |> presence() |> full_size_image()
     }
   end
