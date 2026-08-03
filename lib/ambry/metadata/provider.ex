@@ -62,8 +62,7 @@ defmodule Ambry.Metadata.Provider do
 
     def assume_jan1_is_year_only(
           %__MODULE__{display_format: :full, date: %Date{month: 1, day: 1}} = published
-        ),
-        do: %{published | display_format: :year}
+        ), do: %{published | display_format: :year}
 
     def assume_jan1_is_year_only(%__MODULE__{} = published), do: published
 
