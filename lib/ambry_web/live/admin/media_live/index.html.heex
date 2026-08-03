@@ -40,6 +40,15 @@
         <.badge :if={media.status != :ready} color={status_color(media.status)} class="!px-0 w-16 text-center text-xs">
           {media.status}
         </.badge>
+        <.badge
+          :if={media.missing_since}
+          color={:red}
+          class="!px-0 w-16 text-center text-xs"
+          title={"Files couldn't be read since #{Calendar.strftime(media.missing_since, "%x %X")}"}
+          data-role="media-missing"
+        >
+          missing
+        </.badge>
       </div>
 
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">

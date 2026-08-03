@@ -390,11 +390,15 @@ defmodule AmbryWeb.Admin.Components do
   """
   attr :color, :atom, doc: "one of yellow, blue, red, brand, or gray"
   attr :class, :string, default: nil
+  attr :rest, :global, include: ~w(title)
   slot :inner_block, required: true
 
   def badge(assigns) do
     ~H"""
-    <div class={["inline-block whitespace-nowrap rounded-sm border px-1 text-zinc-900", badge_color(@color), @class]}>
+    <div
+      class={["inline-block whitespace-nowrap rounded-sm border px-1 text-zinc-900", badge_color(@color), @class]}
+      {@rest}
+    >
       {render_slot(@inner_block)}
     </div>
     """
