@@ -73,7 +73,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
          |> reload()}
 
       {:error, reason} ->
-        {:noreply, put_flash(socket, :error, approval_error(reason))}
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(reason))}
     end
   end
 
@@ -114,6 +114,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     socket
     |> assign(
       items: items,
+      # one query for the page, not one per row
+      progress: Inbox.progress(items),
       counts: Inbox.count_by_status(),
       status: status,
       list_opts: list_opts,
@@ -127,23 +129,17 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   defp reload(socket), do: load_items(socket, patch(socket, []))
 
-  # Say what to do about it, not just what went wrong.
-  defp approval_error(:multi_file_unsupported),
-    do:
-      "Direct play handles single-file recordings for now — merge this one externally, or skip it."
+  # What the row's background work is doing. `:done` and `:issue` say nothing
+  # here — the row already shows its matches or its issue, and repeating
+  # "done" on every settled row is noise that hides the rows that aren't.
+  defp progress_label(:working), do: "Working on it…"
+  defp progress_label(:queued), do: "Queued"
+  defp progress_label(:failed), do: "A background job failed — try re-probing or re-matching."
 
-  defp approval_error(:no_published_date),
-    do:
-      "No publication date, and one can't be invented. Match a work, or tag the file with a date."
+  defp progress_label(:incomplete), do: "Never finished matching. Try re-matching."
 
-  defp approval_error(:no_title),
-    do: "Nothing here says what this is. Match a work, or tag the file with a title."
-
-  defp approval_error({:unreadable, _reason}),
-    do: "Couldn't read the file — it may have moved or gone away since it was found."
-
-  defp approval_error(:already_approved), do: "Already in the library."
-  defp approval_error(_reason), do: "Couldn't add this to the library."
+  defp progress_label(:never_ran), do: "Never read. Try re-probing."
+  defp progress_label(_settled), do: nil
 
   # Blank values are dropped rather than passed as nil: the shared pagination
   # helpers read params with `Map.get(params, "filter", "")`, which only
@@ -231,10 +227,15 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   """
   def match_summary(%InboxItem{matches: matches}) when is_map(matches) do
     Enum.map(["work", "recording"], fn level ->
+      # `|| []` on both lines: a level present without candidates used to
+      # crash `List.first/1` here, taking the whole page down over one
+      # malformed row, while the line below already guarded for it.
+      candidates = get_in(matches, [level, "candidates"]) || []
+
       %{
         level: level,
-        best: get_in(matches, [level, "candidates"]) |> List.first(),
-        alternatives: max(length(get_in(matches, [level, "candidates"]) || []) - 1, 0),
+        best: List.first(candidates),
+        alternatives: max(length(candidates) - 1, 0),
         confidence: get_in(matches, [level, "confidence"]) || 0.0,
         query: get_in(matches, [level, "query"])
       }
