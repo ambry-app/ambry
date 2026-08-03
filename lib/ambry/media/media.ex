@@ -133,7 +133,7 @@ defmodule Ambry.Media.Media do
     |> maybe_rename_recording_group()
     |> validate_part_fields()
     |> maybe_clear_thumbnails()
-    |> status_based_validation()
+    |> status_based_validation(opts)
     |> validate_image_path()
     |> cast_embed(:thumbnails)
     |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
@@ -271,7 +271,7 @@ defmodule Ambry.Media.Media do
   defp resolve_part_word(%{part_word: word}, nil) when is_binary(word), do: word
   defp resolve_part_word(_media_ish, nil), do: "part"
 
-  defp status_based_validation(changeset) do
+  defp status_based_validation(changeset, opts) do
     changeset
     # always required
     |> validate_required([
@@ -281,22 +281,42 @@ defmodule Ambry.Media.Media do
       :abridged,
       :source_path
     ])
-    |> maybe_validate_paths()
+    |> maybe_validate_paths(opts)
   end
 
   # A ready media needs *some* playable representation. Direct-play media have
   # tracks; legacy media have the packaged artifacts, which is why the trio is
   # nullable rather than gone — already-imported media keep playing untouched
   # until the back-catalog reclaim retires them.
-  defp maybe_validate_paths(changeset) do
-    if get_field(changeset, :status) == :ready and not direct_play?(changeset) do
-      validate_required(changeset, [
-        :mpd_path,
-        :hls_path,
-        :mp4_path
-      ])
-    else
-      changeset
+  #
+  # Publishing a tracks-only recording is additionally gated on the operator
+  # switch, because the app has to understand tracks before the server ever
+  # hands it one. Callers pass `direct_play_publishing?` in; the context reads
+  # the setting so this stays a pure function of its inputs.
+  defp maybe_validate_paths(changeset, opts) do
+    cond do
+      get_field(changeset, :status) != :ready ->
+        changeset
+
+      not direct_play?(changeset) ->
+        validate_required(changeset, [
+          :mpd_path,
+          :hls_path,
+          :mp4_path
+        ])
+
+      # The gate applies to the act of publishing, not to every later edit:
+      # turning the switch back off must not strand recordings that are
+      # already live, or leave them uneditable.
+      get_change(changeset, :status) == :ready and !opts[:direct_play_publishing?] ->
+        add_error(
+          changeset,
+          :status,
+          "can't be ready: direct-play publishing is switched off"
+        )
+
+      true ->
+        changeset
     end
   end
 

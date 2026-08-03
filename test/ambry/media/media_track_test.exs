@@ -85,10 +85,13 @@ defmodule Ambry.Media.MediaTrackTest do
       media = :media |> insert(book: build(:book)) |> then(&Media.get_media!(&1.id))
 
       assert {:ok, media} =
-               Media.update_media(media, %{
-                 status: :ready,
-                 media_tracks: [params_for(:media_track)]
-               })
+               Media.update_media(
+                 media,
+                 %{status: :ready, media_tracks: [params_for(:media_track)]},
+                 # publishing is separately gated on the operator switch; see
+                 # Ambry.SettingsTest
+                 direct_play_publishing?: true
+               )
 
       assert media.status == :ready
       assert is_nil(media.mp4_path)
@@ -106,6 +109,8 @@ defmodule Ambry.Media.MediaTrackTest do
              } = errors_on(changeset)
     end
 
+    # also covers the publishing switch: flipping it off must not strand
+    # recordings that are already live
     test "an existing direct-play media stays editable without them" do
       media = insert(:media, book: build(:book), status: :ready)
       insert(:media_track, media: media)

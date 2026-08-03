@@ -205,6 +205,8 @@ defmodule AmbryWeb.Router do
       live "/audit", AuditLive.Index, :index
 
       live "/metadata-providers", MetadataLive.Providers
+
+      live "/settings", SettingsLive.Index
     end
 
     get "/image-proxy", ImageProxyController, :show
