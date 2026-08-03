@@ -102,10 +102,51 @@ defmodule Ambry.Utils do
   """
   def try_delete_files_async([]), do: {:ok, :noop}
 
-  def try_delete_files_async(disk_paths, folder_paths \\ []) do
+  def try_delete_files_async(disk_paths, folder_paths \\ [], opts \\ []) do
     %{"disk_paths" => disk_paths, "folder_paths" => folder_paths}
+    |> maybe_put("prune_until", opts[:prune_until])
     |> DeleteFiles.new()
     |> Oban.insert()
+  end
+
+  defp maybe_put(args, _key, nil), do: args
+  defp maybe_put(args, key, value), do: Map.put(args, key, value)
+
+  @doc """
+  Removes now-empty parent folders, walking up from each given folder.
+
+  Deleting the last book by an author leaves `Brandon Sanderson/The
+  Stormlight Archive/` standing empty, and a library tree that only ever
+  accumulates empty folders isn't organized for long.
+
+  Stops at the first folder that still holds something, and never removes one
+  of `stop_paths` — those are the registered library roots, whose existence
+  is configuration rather than a side effect of holding a book.
+  """
+  def try_prune_empty_parents(folder_paths, stop_paths) do
+    stop = MapSet.new(stop_paths)
+
+    for folder_path <- folder_paths, is_binary(folder_path) do
+      prune_empty_parents(Path.dirname(folder_path), stop)
+    end
+
+    :ok
+  end
+
+  defp prune_empty_parents(path, stop) do
+    parent = Path.dirname(path)
+
+    cond do
+      MapSet.member?(stop, path) -> :ok
+      parent == path -> :ok
+      not empty_dir?(path) -> :ok
+      File.rmdir(path) != :ok -> :ok
+      true -> prune_empty_parents(parent, stop)
+    end
+  end
+
+  defp empty_dir?(path) do
+    match?({:ok, []}, File.ls(path))
   end
 
   @doc """

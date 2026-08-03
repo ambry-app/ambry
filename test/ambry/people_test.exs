@@ -42,10 +42,14 @@ defmodule Ambry.PeopleTest do
   end
 
   describe "list_people/3" do
+    # Named explicitly rather than via the faker: the search is trigram-based,
+    # so two randomly generated names that happen to look alike both match and
+    # the test fails for reasons that have nothing to do with the search.
     test "accepts a 'search' filter that searches by person name" do
-      [_, _, %{id: id, name: name}, _, _] = insert_list(5, :person)
+      for name <- ["Wodehouse", "Zamyatin", "Kobayashi"], do: insert(:person, name: name)
+      %{id: id} = insert(:person, name: "Quetzalcoatl")
 
-      {[matched], has_more?} = People.list_people(0, 10, %{search: name})
+      {[matched], has_more?} = People.list_people(0, 10, %{search: "Quetzalcoatl"})
 
       refute has_more?
       assert matched.id == id
