@@ -43,6 +43,7 @@ defmodule Ambry.Media do
   alias Ambry.PubSub
   alias Ambry.Repo
   alias Ambry.Search
+  alias Ambry.Settings
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
 
@@ -190,6 +191,8 @@ defmodule Ambry.Media do
   provider-fillable field values came from — see `Ambry.Provenance`.
   """
   def create_media(attrs \\ %{}, opts \\ []) do
+    opts = with_publishing_gate(opts)
+
     Repo.transact(fn ->
       changeset = Media.changeset(%Media{}, attrs, opts)
 
@@ -200,6 +203,13 @@ defmodule Ambry.Media do
         {:ok, media}
       end
     end)
+  end
+
+  # Whether a tracks-only recording may be published is an operator setting,
+  # read here so the changeset stays a pure function of its inputs. Callers
+  # may override it (the scanner never publishes either way).
+  defp with_publishing_gate(opts) do
+    Keyword.put_new_lazy(opts, :direct_play_publishing?, &Settings.direct_play_publishing?/0)
   end
 
   defp broadcast_media_created(%Media{} = media) do
@@ -223,6 +233,8 @@ defmodule Ambry.Media do
   provider-fillable field values came from — see `Ambry.Provenance`.
   """
   def update_media(%Media{} = media, attrs, opts \\ []) do
+    opts = with_publishing_gate(opts)
+
     Repo.transact(fn ->
       changeset = Media.changeset(media, attrs, opts)
 

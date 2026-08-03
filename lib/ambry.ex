@@ -25,6 +25,7 @@ defmodule Ambry do
       {Repo, []},
       {Thumbnails, []},
       {Search, []},
+      {Settings, []},
       {Sync, []},
       {Utils, []}
     ]
