@@ -12,12 +12,18 @@ defmodule Ambry.Inbox.InboxItem do
 
   import Ecto.Changeset
 
+  alias Ambry.Library.Location
   alias Ambry.Media.Media
 
   @statuses [:pending, :dismissed, :approved]
 
   schema "inbox_items" do
     belongs_to :media, Media
+
+    # Where this was found, which is what says whether approving it should
+    # bring the files into a library root or adopt them where they lie.
+    # Nullable: items from an ad-hoc scan have no location to speak for them.
+    belongs_to :location, Location
 
     field :path, :string
     field :files, {:array, :string}, default: []
@@ -35,7 +41,17 @@ defmodule Ambry.Inbox.InboxItem do
   @doc false
   def changeset(inbox_item, attrs) do
     inbox_item
-    |> cast(attrs, [:path, :files, :status, :probe, :tags, :matches, :issue, :media_id])
+    |> cast(attrs, [
+      :path,
+      :files,
+      :status,
+      :probe,
+      :tags,
+      :matches,
+      :issue,
+      :media_id,
+      :location_id
+    ])
     |> validate_required([:path, :status])
     |> unique_constraint(:path)
   end

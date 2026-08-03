@@ -11,6 +11,7 @@ defmodule Ambry.Factory do
   alias Ambry.Books.SeriesBook
   alias Ambry.Books.Universe
   alias Ambry.Fake
+  alias Ambry.Library.Location
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.MediaTrack
@@ -400,6 +401,18 @@ defmodule Ambry.Factory do
     path = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
     File.mkdir_p!(path)
     path
+  end
+
+  # Library locations
+
+  def location_factory do
+    %Location{
+      name: sequence(:location_name, &"Location #{&1}"),
+      path: sequence(:location_path, &"/data/location-#{&1}"),
+      kind: :downloads,
+      import_policy: :hardlink,
+      enabled: true
+    }
   end
 
   def valid_image(:person), do: copy_test_image("test/support/files/jules_verne.jpg")
