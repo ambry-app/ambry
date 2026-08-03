@@ -66,6 +66,96 @@ defmodule Ambry.InboxTest do
       assert {:ok, %{created: 3}} = Inbox.discover(root)
     end
 
+    # Every shape below is copied from the operator's real downloads folder,
+    # where the naive "one candidate per immediate child" rule turned a
+    # 43-book series into a single 1707-file item.
+    test "splits a series folder into one candidate per book" do
+      root = watched_root()
+      series = Path.join(root, "Discworld")
+
+      for title <- ["Discworld 5 Sourcery", "Discworld 30 The Wee Free Men", "Discworld 39 Snuff"] do
+        release_folder(series, title, ["book.m4b"])
+      end
+
+      assert {:ok, %{created: 3}} = Inbox.discover(root)
+
+      {items, false} = Inbox.list_items()
+
+      assert Enum.map(items, &InboxItem.name/1) |> Enum.sort() == [
+               "Discworld 30 The Wee Free Men",
+               "Discworld 39 Snuff",
+               "Discworld 5 Sourcery"
+             ]
+    end
+
+    test "keeps a book split across numbered part folders as one candidate" do
+      root = watched_root()
+      book = Path.join(root, "1 The Way of Kings")
+
+      for part <- ["1 of 5", "2 of 5", "3 of 5"] do
+        release_folder(book, part, ["01.mp3", "02.mp3"])
+      end
+
+      assert {:ok, %{created: 1}} = Inbox.discover(root)
+
+      {[item], false} = Inbox.list_items()
+      assert InboxItem.name(item) == "1 The Way of Kings"
+      assert length(item.files) == 6
+    end
+
+    test "keeps a book split across disc folders as one candidate" do
+      root = watched_root()
+      book = Path.join(root, "The Colorado Kid by Stephen King")
+
+      for disc <- ["The Colorado Kid (Disc 01)", "The Colorado Kid (Disc 02)"] do
+        release_folder(book, disc, ["01.mp3"])
+      end
+
+      assert {:ok, %{created: 1}} = Inbox.discover(root)
+
+      {[item], false} = Inbox.list_items()
+      assert InboxItem.name(item) == "The Colorado Kid by Stephen King"
+      assert length(item.files) == 2
+    end
+
+    # The trap in the other direction: these look part-ish because they end
+    # in a number, but they're three separate books.
+    test "does not merge separately numbered books into one candidate" do
+      root = watched_root()
+      trilogy = Path.join(root, "Gwendy's Button Box")
+
+      for book <- ["Gwendy's Button Box 1", "Gwendy's Button Box 2", "Gwendy's Button Box 3"] do
+        release_folder(trilogy, book, ["book.m4b"])
+      end
+
+      assert {:ok, %{created: 3}} = Inbox.discover(root)
+    end
+
+    test "looks inside an author folder holding a single book" do
+      root = watched_root()
+      author = Path.join(root, "Dennis E. Taylor")
+      release_folder(author, "Book 5 - Not Till We Are Lost", ["book.m4b"])
+
+      assert {:ok, %{created: 1}} = Inbox.discover(root)
+
+      {[item], false} = Inbox.list_items()
+      assert InboxItem.name(item) == "Book 5 - Not Till We Are Lost"
+    end
+
+    test "treats a folder holding audio directly as the release, subfolders or not" do
+      root = watched_root()
+      release = release_folder(root, "Dan Brown - Origin", ["01.mp3", "02.mp3"])
+      extras = Path.join(release, "extras")
+      File.mkdir_p!(extras)
+      copy_audio(extras, "interview.mp3")
+
+      assert {:ok, %{created: 1}} = Inbox.discover(root)
+
+      {[item], false} = Inbox.list_items()
+      assert InboxItem.name(item) == "Dan Brown - Origin"
+      assert length(item.files) == 3
+    end
+
     test "ignores folders with no audio in them" do
       root = watched_root()
       junk = Path.join(root, "Artwork")

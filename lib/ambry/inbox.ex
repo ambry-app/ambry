@@ -16,12 +16,14 @@ defmodule Ambry.Inbox do
 
   ## Discovery shape
 
-  Each *immediate child* of the watched root is one candidate: a release
-  folder (with all the audio beneath it) or a loose file. That's the \\*arr
-  convention and it fits a downloads folder, which is the only kind of
-  watched location that exists so far. Organized collections nested by
-  author/series will want a different walk; that arrives with the
-  watched-location registry.
+  A downloads folder does not say consistently where one release ends and
+  the next begins, so the walk decides from what it finds. A folder holding
+  audio directly *is* the release; a folder whose subfolders are plainly
+  parts ("Disc 02", "3 of 5") is still one release; anything else is a
+  container to look inside. Loose files at any level are their own release.
+
+  That's measured against a real downloads tree rather than assumed — see
+  `directory_candidate/1`.
   """
 
   use Boundary,
@@ -173,34 +175,67 @@ defmodule Ambry.Inbox do
 
   defp filter_by_path(query, filter), do: where(query, [i], ilike(i.path, ^"%#{filter}%"))
 
-  # One candidate per immediate child of the root: a release folder with all
-  # the audio beneath it, or a loose file.
   defp candidates(root) do
-    case File.ls(root) do
-      {:ok, entries} ->
-        entries
-        |> Enum.sort(NaturalOrder)
-        |> Enum.map(&Path.join(root, &1))
-        |> Enum.flat_map(&candidate/1)
-
-      {:error, reason} ->
-        Logger.warning(fn -> "Couldn't read watched location #{root}: #{inspect(reason)}" end)
-        []
-    end
+    root |> entries() |> Enum.flat_map(&candidate/1)
   end
 
   defp candidate(path) do
     cond do
-      File.dir?(path) ->
-        case audio_files(path) do
-          [] -> []
-          files -> [{path, files}]
-        end
+      File.dir?(path) -> directory_candidate(path)
+      audio_file?(path) -> [{path, [path]}]
+      true -> []
+    end
+  end
 
-      audio_file?(path) ->
-        [{path, [path]}]
+  # Where one release ends and the next begins, which a downloads folder does
+  # not answer consistently. Measured against the real thing, three shapes
+  # exist and the rule has to tell them apart:
+  #
+  #   Dan Brown - Origin/*.mp3          one book, audio sitting right there
+  #   Discworld/<43 titles>/*.mp3       a whole series in one folder
+  #   The Way of Kings/{1 of 5, ...}    one book split across subfolders
+  #
+  # Taking every immediate child as a release turns Discworld into a single
+  # 1707-file item; recursing to the deepest audio-bearing folder shatters
+  # The Way of Kings into five. So: audio in hand means this is the release,
+  # subfolders that are plainly *parts* keep the parent as the release, and
+  # anything else is a container worth looking inside.
+  defp directory_candidate(dir) do
+    direct_audio = dir |> entries() |> Enum.filter(&audio_file?/1)
+    subdirs = dir |> entries() |> Enum.filter(&File.dir?/1)
 
-      true ->
+    cond do
+      direct_audio != [] -> [{dir, audio_files(dir)}]
+      subdirs == [] -> []
+      Enum.all?(subdirs, &part_folder?/1) -> one_candidate(dir)
+      true -> Enum.flat_map(subdirs, &candidate/1)
+    end
+  end
+
+  defp one_candidate(dir) do
+    case audio_files(dir) do
+      [] -> []
+      files -> [{dir, files}]
+    end
+  end
+
+  # Deliberately strict. "Disc 02" and "3 of 5" are parts; "Gwendy's Button
+  # Box 2" and "01 - The Restaurant at the End of the Universe" are their own
+  # books, and a looser pattern (anything ending in a number) would swallow
+  # them into one item.
+  @part_folder ~r/^(disc|cd|part|vol|volume)\s*\.?\s*\d+$|^\d+\s*of\s*\d+$|\((disc|cd|part)\s*\d+\)$/i
+
+  defp part_folder?(dir) do
+    dir |> Path.basename() |> String.trim() |> then(&Regex.match?(@part_folder, &1))
+  end
+
+  defp entries(dir) do
+    case File.ls(dir) do
+      {:ok, entries} ->
+        entries |> Enum.sort(NaturalOrder) |> Enum.map(&Path.join(dir, &1))
+
+      {:error, reason} ->
+        Logger.warning(fn -> "Couldn't read #{dir}: #{inspect(reason)}" end)
         []
     end
   end
@@ -217,17 +252,9 @@ defmodule Ambry.Inbox do
   end
 
   defp walk(dir) do
-    case File.ls(dir) do
-      {:ok, entries} ->
-        Enum.flat_map(entries, fn entry ->
-          path = Path.join(dir, entry)
-          if File.dir?(path), do: walk(path), else: [path]
-        end)
-
-      {:error, reason} ->
-        Logger.warning(fn -> "Couldn't read #{dir}: #{inspect(reason)}" end)
-        []
-    end
+    dir
+    |> entries()
+    |> Enum.flat_map(fn path -> if File.dir?(path), do: walk(path), else: [path] end)
   end
 
   defp audio_file?(path) do
