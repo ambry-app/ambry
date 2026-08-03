@@ -147,7 +147,8 @@ defmodule AmbryWeb.EditionsUxTest do
 
       {:ok, _view, html} = live(conn, ~p"/audiobooks/#{part_two.id}")
 
-      # rail with heading and links to sibling parts (group name is admin-only)
+      # rail with heading and links to sibling parts (no show_label opt-in,
+      # so the group name stays hidden)
       assert html =~ "3 parts"
       refute html =~ "Season One"
       assert html =~ ~p"/audiobooks/#{part_one.id}"
@@ -158,6 +159,20 @@ defmodule AmbryWeb.EditionsUxTest do
 
       # sibling parts appear exactly once (in the rail)
       assert html |> String.split(~p"/audiobooks/#{part_one.id}") |> length() == 2
+    end
+
+    test "a lone sibling part stays in the rail, not Other Editions", %{conn: conn} do
+      # regression: book.media excludes the current media, so a 2-part set
+      # leaves ONE sibling — which collapses to a single edition (one-part
+      # groups present as singles) and used to leak into Other Editions
+      book = insert(:book)
+      [part_one, part_two] = insert_part_set(book, count: 2)
+
+      {:ok, _view, html} = live(conn, ~p"/audiobooks/#{part_one.id}")
+
+      refute html =~ "Other Editions"
+      # the sibling links exactly once — from the rail
+      assert html |> String.split(~p"/audiobooks/#{part_two.id}") |> length() == 2
     end
 
     test "no rail or Other Editions for a lone single-part recording", %{conn: conn} do
@@ -274,9 +289,9 @@ defmodule AmbryWeb.EditionsUxTest do
       {:ok, _view, html} = live(conn, ~p"/books/#{book.id}")
       assert html =~ "The Audio Immersion Experience — Season One"
 
-      # the audiobook page rail heading stays label-free (tile-only choice)
+      # the audiobook page rail heading shows it under the same opt-in
       {:ok, _view, html} = live(conn, ~p"/audiobooks/#{part_one.id}")
-      refute html =~ "The Audio Immersion Experience — Season One"
+      assert html =~ "The Audio Immersion Experience — Season One"
 
       # sanity: another edition exists so the book page didn't redirect
       assert other.status == :ready

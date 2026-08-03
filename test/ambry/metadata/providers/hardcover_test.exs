@@ -86,6 +86,24 @@ defmodule Ambry.Metadata.Providers.HardcoverTest do
       assert [%Provider.Series{name: "Some Series", number: "10.5"}] = book.series
     end
 
+    test "a full January 1st date reads as year-only display" do
+      patch(Client, :query, fn _config, _query, %{id: 1} ->
+        {:ok,
+         %{
+           "books_by_pk" => %{
+             "id" => 1,
+             "title" => "Year Only Book",
+             "release_date" => "2021-01-01",
+             "book_series" => [],
+             "contributions" => []
+           }
+         }}
+      end)
+
+      assert {:ok, %Provider.Book{published: published}} = Hardcover.book_details("1", %{})
+      assert %Provider.PublishedDate{date: ~D[2021-01-01], display_format: :year} = published
+    end
+
     test "missing books are not_found" do
       patch(Client, :query, fn _config, _query, _vars -> {:ok, %{"books_by_pk" => nil}} end)
 

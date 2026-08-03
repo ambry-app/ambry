@@ -79,9 +79,18 @@ defmodule AmbryWeb.AudiobookLive do
           </section>
 
           <%= if @part_set do %>
-            <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {part_set_label(@part_set)}
-            </h2>
+            <%= if @part_set.show_label && @part_set.name do %>
+              <h2 class="mt-6 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                {@part_set.name}
+              </h2>
+              <p class="mb-2 text-sm text-zinc-600 dark:text-zinc-400">
+                {part_set_label(@part_set)}
+              </p>
+            <% else %>
+              <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                {part_set_label(@part_set)}
+              </h2>
+            <% end %>
             <div class="grid grid-cols-3 gap-4 sm:gap-6">
               <div :for={part <- @part_set.media} class="text-center">
                 <%= if part.id == @media.id do %>
@@ -153,13 +162,16 @@ defmodule AmbryWeb.AudiobookLive do
         end
 
       # true alternates only: every other edition of the book, minus this
-      # media's own part set (its parts live in the rail above)
+      # media's own part set (its parts live in the rail above). Siblings are
+      # dropped before grouping — book.media already excludes the current
+      # media, and a lone leftover part would otherwise present as a single
+      # edition (one-part groups collapse) and sneak past a post-hoc reject.
       other_editions =
         media.book.media
-        |> Editions.from_media()
         |> Enum.reject(
-          &(&1.kind == :group and &1.group != nil and &1.group.id == media.recording_group_id)
+          &(media.recording_group_id && &1.recording_group_id == media.recording_group_id)
         )
+        |> Editions.from_media()
 
       {:ok,
        assign(socket,
@@ -179,8 +191,8 @@ defmodule AmbryWeb.AudiobookLive do
     Ambry.Media.Media.part_label(part, group) || part.title || "Untitled"
   end
 
-  # "Part 2 of 3" / "Episode 4 of 6" / nil — the group name is admin-only
-  # and deliberately not shown
+  # "Part 2 of 3" / "Episode 4 of 6" / nil — the group name renders in the
+  # parts-rail heading (when the group opts in via show_label), not here
   defp part_set_line(media) do
     Ambry.Media.Media.part_label(media)
   end
