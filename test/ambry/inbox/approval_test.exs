@@ -99,7 +99,9 @@ defmodule Ambry.Inbox.ApprovalTest do
 
   describe "approve/1 refusals" do
     test "refuses a multi-file release rather than importing half of it" do
-      item = tagged_item(files: ["01.mp3", "02.mp3"])
+      # Checked before the draft: no amount of curation makes a multi-file
+      # release importable, so the operator must not be sent to the form.
+      item = tagged_item(files: ["01.mp3", "02.mp3"], settle: false)
 
       assert {:error, :multi_file_unsupported} = Inbox.approve_item(item)
       assert Repo.aggregate(Book, :count) == 0
@@ -108,20 +110,16 @@ defmodule Ambry.Inbox.ApprovalTest do
     # A work must have a publication date and the inbox has no business
     # inventing one — matching a work supplies it, as does tagging the file.
     test "keeps a matched work's date granularity instead of inventing a release day" do
-      item = tagged_item(dated: false)
-
       selection = %{
         "source" => "provider:x",
         "id" => "1",
         "title" => "Project Hail Mary",
         "published" => "2021-01-01",
-        "published_format" => "year"
+        "published_format" => "year",
+        "score" => 1.0
       }
 
-      {:ok, item} =
-        Inbox.update_item(item, %{
-          matches: %{"work" => %{"candidates" => [selection], "selected" => selection}}
-        })
+      item = tagged_item(dated: false, work_match: selection)
 
       assert {:ok, media} = Inbox.approve_item(item)
 
@@ -130,11 +128,30 @@ defmodule Ambry.Inbox.ApprovalTest do
       assert book.published_format == :year
     end
 
+    # The refusal that used to be thrown at the last moment is now a decision
+    # the operator can see in the form — a missing publication date is
+    # something to supply, not a mystery at the point of clicking import.
     test "refuses a release with no publication date anywhere" do
-      item = tagged_item(dated: false)
+      item = tagged_item(dated: false, settle: false)
+      {:ok, item} = Inbox.prepare_draft(item)
 
-      assert {:error, :no_published_date} = Inbox.approve_item(item)
+      assert {:error, {:unresolved, outstanding}} = Inbox.approve_item(item)
+      assert Enum.any?(outstanding, &(&1.label == "First published" and &1.state == :missing))
       assert Repo.aggregate(Book, :count) == 0
+    end
+
+    test "a required decision cannot be waived into approval" do
+      item = tagged_item(dated: false, settle: false)
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert {:error, changeset} =
+               Inbox.update_draft(item, %{
+                 "work" => %{
+                   "published" => %{"value" => "", "approved" => true, "required" => true}
+                 }
+               })
+
+      refute changeset.valid?
     end
 
     @tag :capture_log
@@ -171,20 +188,34 @@ defmodule Ambry.Inbox.ApprovalTest do
     {[item], false} = Inbox.list_items()
     {:ok, item} = Inbox.probe_item(item)
 
-    case Keyword.get(opts, :work_match) do
-      {"local", id} ->
-        selection = %{"source" => "local", "id" => id}
+    item =
+      case Keyword.get(opts, :work_match) do
+        nil ->
+          item
 
-        {:ok, item} =
-          Inbox.update_item(item, %{
-            matches: %{"work" => %{"candidates" => [selection], "selected" => selection}}
-          })
+        match ->
+          candidate =
+            case match do
+              {"local", id} -> %{"source" => "local", "id" => id, "score" => 1.0}
+              %{} = provider -> provider
+            end
 
-        item
+          {:ok, item} =
+            Inbox.update_item(item, %{
+              matches: %{
+                "work" => %{"candidates" => [candidate], "confidence" => 1.0},
+                "recording" => %{"candidates" => []}
+              }
+            })
 
-      nil ->
-        item
-    end
+          item
+      end
+
+    # Approval executes a resolved draft, so getting an item to the state the
+    # import form would leave it in is now part of arranging any approval
+    # test. `settle: false` is for the tests that care about what happens when
+    # it isn't.
+    if Keyword.get(opts, :settle, true), do: settle(item), else: item
   end
 
   defp tagged_fixture(dated?) do

@@ -10,7 +10,6 @@ defmodule AmbryWeb.Admin.UploadHelpers do
   import Phoenix.LiveView.Upload, only: [consume_uploaded_entries: 3]
 
   @accepted_extensions ~w(.jpg .jpeg .png .webp)
-  @accepted_mime ~w(image/jpeg image/png image/webp)
 
   def allow_image_upload(socket, name) do
     allow_upload(socket, name, accept: @accepted_extensions, max_entries: 1, auto_upload: true)
@@ -85,57 +84,12 @@ defmodule AmbryWeb.Admin.UploadHelpers do
     "#{uuid}.#{ext}"
   end
 
-  def handle_image_import(nil), do: {:ok, :no_image_url}
-  def handle_image_import(""), do: {:ok, :no_image_url}
-
-  def handle_image_import(url) do
-    if valid_image_url?(url) do
-      do_image_import(url)
-    else
-      {:error, :invalid_image_url}
-    end
-  end
-
-  defp do_image_import(url) do
-    with {:ok, response} <- Req.get(url: url, headers: [{"user-agent", http_user_agent()}]),
-         [mime | _rest] when mime in @accepted_mime <-
-           Req.Response.get_header(response, "content-type") do
-      filename = generate_filename(mime)
-      File.write!(images_disk_path(filename), response.body)
-
-      {:ok, ~p"/uploads/images/#{filename}"}
-    else
-      _term -> {:error, :failed_to_download_image}
-    end
-  end
-
-  def valid_image_url?(string) when is_binary(string) do
-    case URI.new(string) do
-      {:ok, %{scheme: scheme} = uri} when is_binary(scheme) ->
-        image?(MIME.from_path(string)) or valid_image?(uri)
-
-      _term ->
-        false
-    end
-  end
-
-  def valid_image_url?(_term), do: false
-
-  def valid_image?(uri) do
-    case Req.head(url: uri, headers: [{"user-agent", http_user_agent()}]) do
-      {:ok, response} ->
-        [mime | _rest] = Req.Response.get_header(response, "content-type")
-        image?(mime)
-
-      _else ->
-        false
-    end
-  end
-
-  defp http_user_agent, do: Ambry.Utils.http_user_agent()
-
-  def image?("image/" <> _rest), do: true
-  def image?(_mime), do: false
+  # The import itself lives in `Ambry.Images` — the inbox needs it too, and
+  # `Ambry.Inbox` can't reach into the web layer.
+  defdelegate handle_image_import(url), to: Ambry.Images, as: :import_url
+  defdelegate valid_image_url?(string), to: Ambry.Images, as: :valid_url?
+  defdelegate valid_image?(uri), to: Ambry.Images, as: :head_says_image?
+  defdelegate image?(mime), to: Ambry.Images, as: :image_mime?
 
   def upload_error_to_string(:too_large), do: "File is too large"
   def upload_error_to_string(:too_many_files), do: "Too many files"

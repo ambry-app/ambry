@@ -96,16 +96,29 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   def handle_event("filter-status", %{"status" => status}, socket) do
     {:noreply,
-     push_patch(socket, to: ~p"/admin/inbox?#{patch(socket, status: status, page: "1")}")}
+     push_patch(socket,
+       to: ~p"/admin/inbox?#{patch(socket, status: status, ready: nil, page: "1")}"
+     )}
+  end
+
+  def handle_event("filter-ready", _params, socket) do
+    ready = if !socket.assigns.ready, do: "true"
+
+    {:noreply,
+     push_patch(socket,
+       to: ~p"/admin/inbox?#{patch(socket, ready: ready, status: "pending", page: "1")}"
+     )}
   end
 
   defp load_items(socket, params) do
     list_opts = get_list_opts(params)
     status = parse_status(params["status"])
+    ready = parse_ready(params["ready"])
 
     {items, has_more?} =
       Inbox.list_items(
         status: status,
+        ready: ready,
         filter: list_opts.filter,
         offset: page_to_offset(list_opts.page),
         limit: limit()
@@ -117,6 +130,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       # one query for the page, not one per row
       progress: Inbox.progress(items),
       counts: Inbox.count_by_status(),
+      ready_count: Inbox.count_ready(),
+      ready: ready,
       status: status,
       list_opts: list_opts,
       has_next: has_more?,
@@ -149,7 +164,9 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       "filter" => Keyword.get(overrides, :filter, socket.assigns.list_opts.filter),
       "page" => Keyword.get(overrides, :page, to_string(socket.assigns.list_opts.page)),
       "status" =>
-        Keyword.get(overrides, :status, socket.assigns.status && to_string(socket.assigns.status))
+        Keyword.get(overrides, :status, socket.assigns.status && to_string(socket.assigns.status)),
+      "ready" =>
+        Keyword.get(overrides, :ready, socket.assigns.ready && to_string(socket.assigns.ready))
     }
     |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
     |> Map.new()
@@ -159,6 +176,9 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     do: String.to_existing_atom(status)
 
   defp parse_status(_anything), do: nil
+
+  defp parse_ready("true"), do: true
+  defp parse_ready(_anything), do: nil
 
   defp status_color(:pending), do: :yellow
   defp status_color(:approved), do: :brand

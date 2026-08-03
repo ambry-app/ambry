@@ -1,0 +1,238 @@
+defmodule Ambry.Inbox.Draft.Edit do
+  @moduledoc """
+  The operations the import form performs on a staged import.
+
+  Scalar *values* are ordinary form inputs — the form autosaves, so typing is
+  handled by casting params. Everything here is the other half: the choices
+  that aren't text, where the operator is picking between things rather than
+  writing one (which candidate, which identity, who's behind a credit).
+
+  Doing those as explicit operations rather than as more form params keeps
+  each one a single named transition with the invariant intact afterwards,
+  instead of a hidden-input trick whose meaning has to be reconstructed from
+  the params on the way back in.
+  """
+
+  alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Credit
+  alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.Draft.SeriesLink
+
+  @doc """
+  Accepts one of a scalar's proposed candidates.
+  """
+  def choose_field(draft, section, name, source) do
+    update_field(draft, section, name, &Field.choose(&1, source))
+  end
+
+  @doc """
+  Settles a scalar as deliberately empty.
+  """
+  def waive_field(draft, section, name) do
+    update_field(draft, section, name, &Field.waive/1)
+  end
+
+  @doc """
+  Settles which Book this is — an existing one, or a new one.
+  """
+  def choose_work(draft, "local", id) do
+    update_in(draft.work, &%{&1 | mode: :link, book_id: id, approved: true})
+  end
+
+  def choose_work(draft, _provider_source, _id) do
+    update_in(draft.work, &%{&1 | mode: :create, book_id: nil, approved: true})
+  end
+
+  @doc """
+  Points a credit at an identity that already exists.
+  """
+  def link_credit(draft, section, index, identity_id) do
+    update_credit(draft, section, index, fn credit ->
+      %{credit | mode: :link, identity_id: identity_id, approved: true}
+    end)
+  end
+
+  @doc """
+  Switches a credit to creating a new identity, backed by whoever is listed.
+
+  Falls back to the 1:1 default when the list is empty, so the control is
+  never in a state with nobody behind it.
+  """
+  def create_credit(draft, section, index) do
+    update_credit(draft, section, index, fn credit ->
+      people =
+        if credit.people == [], do: Credit.new_person_default(credit.name), else: credit.people
+
+      %{credit | mode: :create, identity_id: nil, people: people}
+    end)
+  end
+
+  @doc """
+  Adds another human behind a credit.
+
+  Two or more is a shared pen name — the whole of the composite-author case,
+  expressed as a longer list rather than a different mode.
+  """
+  def add_person(draft, section, index) do
+    update_credit(draft, section, index, fn credit ->
+      %{credit | mode: :create, people: credit.people ++ [%PersonRef{name: ""}]}
+    end)
+  end
+
+  def remove_person(draft, section, index, person_index) do
+    update_credit(draft, section, index, fn credit ->
+      %{credit | people: List.delete_at(credit.people, person_index)}
+    end)
+  end
+
+  @doc """
+  Names one of the people behind a credit, or points at an existing person.
+  """
+  def set_person(draft, section, index, person_index, attrs) do
+    update_credit(draft, section, index, fn credit ->
+      people =
+        List.update_at(credit.people, person_index, fn person ->
+          %{
+            person
+            | name: Map.get(attrs, :name, person.name),
+              person_id: Map.get(attrs, :person_id, person.person_id)
+          }
+        end)
+
+      %{credit | people: people}
+    end)
+  end
+
+  @doc """
+  Marks a credit settled, or unsettles it for another look.
+  """
+  def approve_credit(draft, section, index, approved?) do
+    update_credit(draft, section, index, &%{&1 | approved: approved?})
+  end
+
+  @doc """
+  Drops a proposed credit entirely — the source suggested somebody this
+  recording isn't actually by.
+  """
+  def remove_credit(draft, section, index) do
+    update_credits(draft, section, &List.delete_at(&1, index))
+  end
+
+  ## series
+
+  def set_series_number(draft, index, number) do
+    update_series(draft, index, &%{&1 | number: presence(number)})
+  end
+
+  def approve_series(draft, index, approved?) do
+    update_series(draft, index, &%{&1 | approved: approved?})
+  end
+
+  def link_series(draft, index, series_id) do
+    update_series(draft, index, &%{&1 | mode: :link, series_id: series_id})
+  end
+
+  def create_series(draft, index) do
+    update_series(draft, index, &%{&1 | mode: :create, series_id: nil})
+  end
+
+  def remove_series(draft, index) do
+    update_in(draft.work.series, &List.delete_at(&1, index))
+  end
+
+  ## the identity decisions
+
+  def approve_work(draft, approved?), do: update_in(draft.work.approved, fn _ -> approved? end)
+
+  def approve_recording(draft, approved?),
+    do: update_in(draft.recording.approved, fn _ -> approved? end)
+
+  @doc """
+  Approves every decision that is only waiting on a nod.
+
+  The "looks right, take it" button. Deliberately does NOT invent values —
+  anything genuinely missing or contradictory stays outstanding, so this can
+  never turn a `:missing` title into an imported book with no title.
+  """
+  def approve_all(%Draft{} = draft) do
+    draft
+    |> update_in([Access.key(:work)], &approve_all_work/1)
+    |> update_in([Access.key(:recording)], &approve_all_recording/1)
+  end
+
+  defp approve_all_work(work) do
+    %{
+      work
+      | # With no candidates there is exactly one thing this can be — a new
+        # book — so confirming it is precisely the nod this button is for.
+        approved: true,
+        title: settle_if_possible(work.title),
+        published: settle_if_possible(work.published),
+        published_format: settle_if_possible(work.published_format),
+        authors: Enum.map(work.authors, &settle_credit/1),
+        series: Enum.map(work.series, &settle_series/1)
+    }
+  end
+
+  defp approve_all_recording(recording) do
+    %{
+      recording
+      | approved: true,
+        title: settle_if_possible(recording.title),
+        published: settle_if_possible(recording.published),
+        publisher: settle_if_possible(recording.publisher),
+        description: settle_if_possible(recording.description),
+        cover: settle_if_possible(recording.cover),
+        narrators: Enum.map(recording.narrators, &settle_credit/1)
+    }
+  end
+
+  # Takes the first proposal where there is one; leaves a required field with
+  # nothing behind it exactly as it was.
+  defp settle_if_possible(%Field{approved: true} = field), do: field
+
+  defp settle_if_possible(%Field{value: value} = field) when not is_nil(value),
+    do: %{field | approved: true}
+
+  defp settle_if_possible(%Field{candidates: [first | _rest]} = field),
+    do: %{field | value: first.value, source: first.source, approved: true}
+
+  defp settle_if_possible(%Field{required: false} = field), do: %{field | approved: true}
+  defp settle_if_possible(field), do: field
+
+  defp settle_credit(%Credit{} = credit) do
+    cond do
+      Credit.resolved?(credit) -> credit
+      credit.mode == :link and credit.identity_id -> %{credit | approved: true}
+      credit.people != [] -> %{credit | approved: true}
+      true -> %{credit | people: Credit.new_person_default(credit.name), approved: true}
+    end
+  end
+
+  # A number nobody supplied stays a question — this is the one thing the
+  # approve-everything button must not paper over.
+  defp settle_series(%SeriesLink{number: nil} = link), do: link
+  defp settle_series(%SeriesLink{} = link), do: %{link | approved: true}
+
+  ## plumbing
+
+  defp update_field(draft, :work, name, fun),
+    do: update_in(draft.work, &Map.update!(&1, name, fun))
+
+  defp update_field(draft, :recording, name, fun),
+    do: update_in(draft.recording, &Map.update!(&1, name, fun))
+
+  defp update_credit(draft, section, index, fun),
+    do: update_credits(draft, section, &List.update_at(&1, index, fun))
+
+  defp update_credits(draft, :work, fun), do: update_in(draft.work.authors, fun)
+  defp update_credits(draft, :recording, fun), do: update_in(draft.recording.narrators, fun)
+
+  defp update_series(draft, index, fun),
+    do: update_in(draft.work.series, &List.update_at(&1, index, fun))
+
+  defp presence(nil), do: nil
+  defp presence(string) when is_binary(string), do: with("" <- String.trim(string), do: nil)
+  defp presence(other), do: other
+end

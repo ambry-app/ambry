@@ -28,12 +28,16 @@ defmodule Ambry.Inbox do
 
   use Boundary,
     deps: [Ambry, Ambry.Library, Ambry.Media],
-    exports: [InboxItem]
+    # The draft tree is exported because it IS the import form's data model —
+    # the form renders and edits it directly. Approval stays internal.
+    exports: [InboxItem, {Draft, []}]
 
   import Ecto.Query
 
   alias Ambry.Inbox.Approval
   alias Ambry.Inbox.AutoMatch
+  alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.Progress
   alias Ambry.Inbox.RunDiscovery
@@ -60,6 +64,7 @@ defmodule Ambry.Inbox do
     items =
       InboxItem
       |> filter_by_status(opts[:status])
+      |> filter_by_ready(opts[:ready])
       |> filter_by_path(opts[:filter])
       |> order_by([i], desc: i.inserted_at, desc: i.id)
       |> offset(^Keyword.get(opts, :offset, 0))
@@ -80,6 +85,18 @@ defmodule Ambry.Inbox do
     |> select([i], {i.status, count(i.id)})
     |> Repo.all()
     |> Map.new()
+  end
+
+  @doc """
+  How many pending items are fully settled and waiting on a click.
+
+  Reads the denormalized flag rather than loading every draft — the whole
+  reason it's stored.
+  """
+  def count_ready do
+    InboxItem
+    |> where([i], i.status == :pending and i.ready == true)
+    |> Repo.aggregate(:count)
   end
 
   def get_item!(id), do: Repo.get!(InboxItem, id)
@@ -200,7 +217,11 @@ defmodule Ambry.Inbox do
   not a broken queue entry.
   """
   def match_item(%InboxItem{} = item) do
-    update_item(item, AutoMatch.match(item))
+    with {:ok, item} <- update_item(item, AutoMatch.match(item)) do
+      # Staging the import is the point of matching — proposals nothing turns
+      # into decisions are just data sitting in a column.
+      prepare_draft(item)
+    end
   end
 
   @doc """
@@ -209,6 +230,141 @@ defmodule Ambry.Inbox do
   def match_item_async(%InboxItem{} = item) do
     %{inbox_item_id: item.id} |> RunMatch.new() |> Oban.insert()
   end
+
+  @doc """
+  Stages the import: turns what we found into a tree of decisions.
+
+  Runs after matching, and is what the queue's Ready badge and the import
+  form both read. Rebuilding is destructive to curation by definition, so it
+  only ever happens when there is no draft yet — an operator's choices are
+  not something a background job may overwrite.
+  """
+  def prepare_draft(%InboxItem{draft: nil} = item), do: rebuild_draft(item)
+  def prepare_draft(%InboxItem{} = item), do: {:ok, item}
+
+  @doc """
+  Throws away the staged import and seeds a fresh one from current evidence.
+
+  The operator's escape hatch when a draft was built against the wrong match
+  and editing it would be more work than starting over. Never automatic.
+  """
+  def rebuild_draft(%InboxItem{} = item) do
+    item
+    |> InboxItem.put_draft(item |> Seed.build() |> dump())
+    |> Repo.update()
+  end
+
+  @doc """
+  Saves operator edits to the staged import.
+
+  Every save recomputes readiness, so the queue can never claim an item is
+  importable when its draft says otherwise.
+  """
+  def update_draft(%InboxItem{} = item, attrs) do
+    item
+    |> InboxItem.put_draft(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  A changeset for the staged import, for the form to render.
+  """
+  def change_draft(%InboxItem{} = item, attrs \\ %{}) do
+    InboxItem.put_draft(item, attrs)
+  end
+
+  @doc """
+  What approval will do with this item's bytes, decided before it's asked.
+
+  Placement can fail for reasons no amount of curation fixes — a downloads
+  folder on a different NAS from its library root, a destination already
+  occupied, no root registered at all. Those used to surface as an error at
+  the moment the operator clicked approve. Working them out up front is what
+  lets the form refuse to offer a button that fails, and it tells the
+  operator *where the file is going* before they commit to it.
+
+  Returns a map with `:custody`, a human `:summary`, and `:blocker` — nil when
+  placement will work.
+  """
+  def destination_preflight(%InboxItem{} = item) do
+    item = Repo.preload(item, :location)
+
+    case item.location do
+      %Location{kind: :downloads} = location -> downloads_preflight(item, location)
+      %Location{kind: :library_root} -> adopt_preflight("It's already inside a library root.")
+      %Location{kind: :external_collection} -> adopt_preflight("It's an external collection.")
+      nil -> adopt_preflight("It came from an ad-hoc scan with no location.")
+    end
+  end
+
+  defp adopt_preflight(why) do
+    %{
+      custody: :external,
+      summary: "Referenced where it lies — #{why} Ambry will never move, rename or delete it.",
+      blocker: nil
+    }
+  end
+
+  defp downloads_preflight(item, location) do
+    base = %{custody: :managed, blocker: nil, summary: nil}
+
+    case Library.target_root(location) do
+      {:error, reason} ->
+        %{base | blocker: describe_error(reason)}
+
+      {:ok, root} ->
+        %{
+          base
+          | summary: policy_summary(location.import_policy, root),
+            blocker: hardlink_blocker(item, location, root)
+        }
+    end
+  end
+
+  defp policy_summary(:hardlink, root),
+    do: "Hardlinked into #{root.path} — one copy of the bytes, the download keeps seeding."
+
+  defp policy_summary(:copy, root),
+    do: "Copied into #{root.path} — deliberately duplicating the bytes."
+
+  defp policy_summary(:move, root),
+    do: "Moved into #{root.path} — the downloads folder is left clean."
+
+  defp policy_summary(_unset, root), do: "Placed into #{root.path}."
+
+  # The refusal this whole phase exists for: a hardlink cannot cross a
+  # filesystem, and silently copying instead is the storage doubling the
+  # roadmap set out to eliminate. Worth knowing before the click, not after.
+  defp hardlink_blocker(
+         %InboxItem{files: [file | _rest]},
+         %Location{import_policy: :hardlink},
+         root
+       ) do
+    case Library.same_filesystem?(Path.dirname(file), root.path) do
+      {:ok, true} -> nil
+      {:ok, false} -> describe_error({:cross_filesystem, file, root.path})
+      {:error, _reason} -> "Couldn't tell whether these are on the same filesystem."
+    end
+  end
+
+  defp hardlink_blocker(_item, _location, _root), do: nil
+
+  @doc """
+  A draft as params, for staging it back onto an item.
+  """
+  def dump_draft(%Draft{} = draft), do: dump(draft)
+
+  # Embedded schema structs go back through `cast_embed`, which wants params.
+  defp dump(%Draft{} = draft) do
+    draft |> Ecto.embedded_dump(:json) |> stringify()
+  end
+
+  defp stringify(%{} = map) when not is_struct(map) do
+    Map.new(map, fn {key, value} -> {to_string(key), stringify(value)} end)
+  end
+
+  defp stringify(list) when is_list(list), do: Enum.map(list, &stringify/1)
+  defp stringify(other), do: other
 
   @doc """
   Approves an item into the library.
@@ -270,6 +426,17 @@ defmodule Ambry.Inbox do
     do: "There's more than one library root — say which one this folder imports into."
 
   def describe_error(:already_approved), do: "Already in the library."
+
+  # The invariant, phrased for a human. It names the count rather than the
+  # decisions because the form lists them properly — this is the flash you get
+  # if you somehow reached approval from the queue.
+  def describe_error({:unresolved, outstanding}) do
+    count = length(outstanding)
+
+    "#{count} thing#{if count > 1, do: "s"} still to settle before this can be imported. " <>
+      "Open it to see what."
+  end
+
   def describe_error(_reason), do: "Couldn't add this to the library."
 
   @doc """
@@ -304,6 +471,9 @@ defmodule Ambry.Inbox do
 
   defp filter_by_status(query, nil), do: query
   defp filter_by_status(query, status), do: where(query, [i], i.status == ^status)
+
+  defp filter_by_ready(query, nil), do: query
+  defp filter_by_ready(query, ready?), do: where(query, [i], i.ready == ^ready?)
 
   defp filter_by_path(query, blank) when blank in [nil, ""], do: query
 
@@ -426,9 +596,23 @@ defmodule Ambry.Inbox do
       :skipped
     else
       {:ok, item} = update_item(item, changes)
-      if item.status == :pending and Map.has_key?(changes, :files), do: probe_item_async(item)
+
+      if item.status == :pending and Map.has_key?(changes, :files) do
+        # The draft describes files that just moved under it. Say so; don't
+        # re-seed over whatever the operator already decided.
+        mark_draft_stale(item)
+        probe_item_async(item)
+      end
+
       :updated
     end
+  end
+
+  defp mark_draft_stale(%InboxItem{draft: nil}), do: :ok
+
+  defp mark_draft_stale(%InboxItem{} = item) do
+    item |> InboxItem.put_draft(item.draft |> Seed.restale(item) |> dump()) |> Repo.update()
+    :ok
   end
 
   defp put_if(map, _key, _value, false), do: map

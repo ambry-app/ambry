@@ -16,7 +16,7 @@
         <span
           phx-click="filter-status"
           phx-value-status=""
-          class={["cursor-pointer text-sm", !@status && "font-bold underline"]}
+          class={["cursor-pointer text-sm", !@status && !@ready && "font-bold underline"]}
         >
           All
         </span>
@@ -24,9 +24,19 @@
           :for={status <- @statuses}
           phx-click="filter-status"
           phx-value-status={status}
-          class={["cursor-pointer text-sm", @status == status && "font-bold underline"]}
+          class={["cursor-pointer text-sm", !@ready && @status == status && "font-bold underline"]}
         >
           {status} ({Map.get(@counts, status, 0)})
+        </span>
+
+        <%!-- Everything settled, waiting on a click. The point of the whole
+              form is that this bucket is where items end up. --%>
+        <span
+          phx-click="filter-ready"
+          class={["cursor-pointer text-sm text-lime-600", @ready && "font-bold underline"]}
+          data-role="ready-filter"
+        >
+          ready ({@ready_count})
         </span>
       </div>
     </div>
@@ -39,7 +49,11 @@
 
     <:row :let={item}>
       <div class="min-w-0 flex-grow overflow-hidden">
-        <p class="overflow-hidden text-ellipsis whitespace-nowrap">{item_name(item)}</p>
+        <.link navigate={~p"/admin/inbox/#{item}"} class="hover:underline">
+          <p class="overflow-hidden text-ellipsis whitespace-nowrap font-semibold">
+            {item_name(item)}
+          </p>
+        </.link>
 
         <p
           :if={tag_summary(item) != ""}
@@ -104,6 +118,9 @@
 
       <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
         <div class="flex items-center gap-2 pb-2">
+          <.badge :if={item.ready and item.status == :pending} color={:brand} class="text-xs">
+            ready
+          </.badge>
           <.badge color={status_color(item.status)} class="text-xs">{item.status}</.badge>
 
           <span phx-click="rematch" phx-value-id={item.id} title="Look for matches again">
@@ -113,15 +130,29 @@
             />
           </span>
 
+          <%!-- Only a settled item can be imported from here. Anything else
+                opens the form, because the queue has no way to say what's
+                outstanding and the form's whole job is to. --%>
           <span
-            :if={item.status == :pending}
+            :if={item.status == :pending and item.ready}
             phx-click="approve"
             phx-value-id={item.id}
-            title="Add to the library (files stay where they are)"
-            data-confirm="Add this to the library? Files are referenced where they are — nothing is moved or copied."
+            title="Add to the library"
+            data-confirm="Add this to the library?"
           >
             <.icon name="fa-check" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-lime-500" />
           </span>
+
+          <.link
+            :if={item.status == :pending and not item.ready}
+            navigate={~p"/admin/inbox/#{item}"}
+            title="Settle what's outstanding"
+          >
+            <.icon
+              name="fa-pen-to-square"
+              class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400"
+            />
+          </.link>
 
           <span phx-click="reprobe" phx-value-id={item.id} title="Re-read the files">
             <.icon name="fa-rotate" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400" />

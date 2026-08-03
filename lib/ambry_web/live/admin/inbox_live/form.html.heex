@@ -1,0 +1,334 @@
+<.layout title={@page_title} user={@current_user}>
+  <div class="max-w-4xl space-y-8 pb-16">
+    <%!-- the evidence: what was found, before anybody interpreted it --%>
+    <section class="space-y-1 rounded-sm border border-zinc-300 p-4 dark:border-zinc-700">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <p class="truncate font-bold">{@page_title}</p>
+          <p class="truncate text-sm dark:text-zinc-500">{@item.path}</p>
+          <p class="text-sm italic dark:text-zinc-500">{evidence(@item)}</p>
+        </div>
+
+        <div class="flex-none text-right">
+          <p class="text-sm">
+            <span class="font-bold">{@progress.resolved}</span> of {@progress.total} settled
+          </p>
+          <.button type="button" color={:zinc} class="mt-2" phx-click="rebuild">
+            Start over
+          </.button>
+        </div>
+      </div>
+
+      <p :if={@item.issue} class="pt-2 text-sm text-red-600">{@item.issue}</p>
+    </section>
+
+    <%!-- The invariant, rendered. Nothing here is a surprise at import time. --%>
+    <section
+      :if={@unresolved != []}
+      class="rounded-sm border border-amber-500 p-4"
+      data-role="unresolved"
+    >
+      <p class="font-bold">Still to settle</p>
+      <ul class="mt-2 space-y-1">
+        <li :for={decision <- @unresolved} class="flex items-center gap-2 text-sm">
+          <.badge color={elem(state_words(decision.state), 1)} class="text-xs">
+            {elem(state_words(decision.state), 0)}
+          </.badge>
+          <span>{decision.label}</span>
+        </li>
+      </ul>
+      <.button type="button" color={:zinc} class="mt-3" phx-click="approve-all">
+        Accept everything that's only waiting on a nod
+      </.button>
+    </section>
+
+    <%!-- ==================== THE WORK ==================== --%>
+    <section class="space-y-4">
+      <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">
+        The work
+      </h2>
+
+      <div class="space-y-2">
+        <div class="flex items-center gap-2">
+          <.label>Which book</.label>
+          <.badge
+            :if={!@item.draft.work.approved}
+            color={elem(state_words(:unconfirmed), 1)}
+            class="text-xs"
+          >
+            {elem(state_words(:unconfirmed), 0)}
+          </.badge>
+          <.badge
+            :if={@item.draft.work.confidence}
+            color={elem(confidence_label(@item.draft.work.confidence), 1)}
+            class="text-xs"
+          >
+            {elem(confidence_label(@item.draft.work.confidence), 0)}
+          </.badge>
+        </div>
+
+        <p :if={@item.draft.work.candidates == []} class="text-sm italic dark:text-zinc-500">
+          Nothing matched. A new book will be created from the fields below.
+        </p>
+
+        <div
+          :for={candidate <- @item.draft.work.candidates}
+          class={[
+            "flex cursor-pointer items-center gap-3 rounded-sm border p-2",
+            chosen_work?(@item.draft.work, candidate) && "border-brand dark:border-brand-dark",
+            !chosen_work?(@item.draft.work, candidate) && "border-zinc-300 dark:border-zinc-700"
+          ]}
+          phx-click="choose-work"
+          phx-value-source={candidate["source"]}
+          phx-value-id={candidate["id"]}
+        >
+          <.icon
+            :if={chosen_work?(@item.draft.work, candidate)}
+            name="fa-circle-check"
+            class="text-brand h-4 w-4 flex-none dark:text-brand-dark"
+          />
+          <div class="min-w-0">
+            <p class="truncate text-sm">{candidate_line(candidate)}</p>
+            <p class="text-xs dark:text-zinc-500">{candidate_origin(candidate)}</p>
+          </div>
+        </div>
+
+        <button
+          :if={!@item.draft.work.approved}
+          type="button"
+          phx-click="approve-work"
+          phx-value-approved="true"
+          class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
+        >
+          {if @item.draft.work.candidates == [], do: "Create a new book", else: "That's the one"}
+        </button>
+      </div>
+
+      <%!-- Linking inherits the book's own fields; only additive series
+            memberships remain to decide. --%>
+      <p
+        :if={@item.draft.work.mode == :link}
+        class="rounded-sm bg-zinc-100 p-3 text-sm dark:bg-zinc-800"
+      >
+        Using the book already in the library. Its title, date and authors are left exactly as they
+        are — an import fills blanks, it never overwrites curation.
+      </p>
+
+      <%!-- Typing lives in a form; choosing does not. They are kept apart
+            because a <form> inside a <form> is invalid HTML and the parser
+            silently drops the inner one — which is exactly how the credit
+            controls went missing the first time. --%>
+      <.simple_form
+        :if={@item.draft.work.mode == :create}
+        id="work-form"
+        for={@form}
+        phx-change="validate"
+        autocomplete="off"
+      >
+        <.inputs_for :let={draft} field={@form[:draft]}>
+          <.inputs_for :let={work} field={draft[:work]}>
+            <.decision_row
+              label="Title"
+              section="work"
+              name={:title}
+              form={work}
+              field={@item.draft.work.title}
+            />
+
+            <.decision_row
+              label="First published"
+              section="work"
+              name={:published}
+              form={work}
+              type="date"
+              field={@item.draft.work.published}
+            />
+
+            <.decision_row
+              label="Date display format"
+              section="work"
+              name={:published_format}
+              form={work}
+              type="select"
+              options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+              field={@item.draft.work.published_format}
+            />
+          </.inputs_for>
+        </.inputs_for>
+      </.simple_form>
+
+      <%!-- credits: "Credited as" / "Written by" --%>
+      <div :if={@item.draft.work.mode == :create} class="space-y-2">
+        <.label>Authors</.label>
+        <p :if={@item.draft.work.authors == []} class="text-sm italic dark:text-zinc-500">
+          No author was proposed.
+        </p>
+
+        <.credit_row
+          :for={{credit, index} <- Enum.with_index(@item.draft.work.authors)}
+          credit={credit}
+          index={index}
+          section="work"
+          identities={@authors}
+          people={@people}
+          verb="Written by"
+        />
+      </div>
+
+      <%!-- each series is its own decision, number included --%>
+      <div class="space-y-2">
+        <.label>
+          {if @item.draft.work.mode == :link, do: "Series to add", else: "Series"}
+        </.label>
+
+        <p
+          :if={@item.draft.work.mode == :link and @item.draft.work.series != []}
+          class="text-sm italic dark:text-zinc-500"
+        >
+          This book isn't in these yet. Adding is a blank being filled, not a change to what's
+          already there.
+        </p>
+
+        <p :if={@item.draft.work.series == []} class="text-sm italic dark:text-zinc-500">
+          No series was proposed.
+        </p>
+
+        <.series_row
+          :for={{link, index} <- Enum.with_index(@item.draft.work.series)}
+          link={link}
+          index={index}
+          options={@series}
+        />
+      </div>
+    </section>
+
+    <%!-- ==================== THE RECORDING ==================== --%>
+    <section class="space-y-4">
+      <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">
+        The recording
+      </h2>
+
+      <p class="text-sm italic dark:text-zinc-500">
+        A new recording of that work. (Replacing an existing recording's files is a later addition —
+        for now every import creates one.)
+      </p>
+
+      <.simple_form id="recording-form" for={@form} phx-change="validate" autocomplete="off">
+        <.inputs_for :let={draft} field={@form[:draft]}>
+          <.inputs_for :let={recording} field={draft[:recording]}>
+            <.decision_row
+              label="Recording title"
+              section="recording"
+              name={:title}
+              form={recording}
+              placeholder="only if it differs from the book's title"
+              field={@item.draft.recording.title}
+            />
+
+            <.decision_row
+              label="Release date"
+              section="recording"
+              name={:published}
+              form={recording}
+              type="date"
+              field={@item.draft.recording.published}
+            />
+
+            <.decision_row
+              label="Publisher"
+              section="recording"
+              name={:publisher}
+              form={recording}
+              field={@item.draft.recording.publisher}
+            />
+
+            <.decision_row
+              label="Cover image"
+              section="recording"
+              name={:cover}
+              form={recording}
+              placeholder="image URL"
+              field={@item.draft.recording.cover}
+            />
+
+            <.decision_row
+              label="Description"
+              section="recording"
+              name={:description}
+              form={recording}
+              type="textarea"
+              field={@item.draft.recording.description}
+            />
+          </.inputs_for>
+        </.inputs_for>
+      </.simple_form>
+
+      <div class="space-y-2">
+        <.label>Narrators</.label>
+        <p :if={@item.draft.recording.narrators == []} class="text-sm italic dark:text-zinc-500">
+          No narrator was proposed.
+        </p>
+
+        <.credit_row
+          :for={{credit, index} <- Enum.with_index(@item.draft.recording.narrators)}
+          credit={credit}
+          index={index}
+          section="recording"
+          identities={@narrators}
+          people={@people}
+          verb="Performed by"
+        />
+      </div>
+    </section>
+
+    <%!-- ==================== CHAPTERS ==================== --%>
+    <section class="space-y-2">
+      <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">Chapters</h2>
+      <p class="text-sm dark:text-zinc-400">{chapter_summary(@item)}</p>
+      <p class="text-sm italic dark:text-zinc-500">
+        Markers are taken from the file and never from a provider — provider timestamps describe
+        their own edition, not this rip.
+      </p>
+    </section>
+
+    <%!-- ==================== FILES & DESTINATION ==================== --%>
+    <section class="space-y-2">
+      <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">
+        Files &amp; destination
+      </h2>
+
+      <p class="text-sm">
+        <span class="font-bold">Custody:</span> {@destination.custody}
+      </p>
+      <p :if={@destination.summary} class="text-sm dark:text-zinc-400">{@destination.summary}</p>
+      <p :if={@destination.blocker} class="text-sm text-red-600" data-role="destination-blocker">
+        {@destination.blocker}
+      </p>
+
+      <ul class="pt-2">
+        <li :for={file <- @item.files} class="truncate text-xs dark:text-zinc-500">{file}</li>
+      </ul>
+    </section>
+
+    <%!-- ==================== THE BUTTON ==================== --%>
+    <section class="sticky bottom-0 border-t border-zinc-300 bg-white py-4 dark:border-zinc-700 dark:bg-zinc-900">
+      <div class="flex items-center gap-4">
+        <.button
+          phx-click="import"
+          disabled={@unresolved != [] or @destination.blocker != nil}
+          data-role="import"
+        >
+          Add to the library
+        </.button>
+
+        <.button type="button" color={:zinc} phx-click="dismiss">Dismiss</.button>
+
+        <.brand_link navigate={~p"/admin/inbox"}>Back to the inbox</.brand_link>
+
+        <p :if={@unresolved != []} class="text-sm dark:text-zinc-500">
+          {length(@unresolved)} decision{if length(@unresolved) > 1, do: "s"} still to settle.
+        </p>
+      </div>
+    </section>
+  </div>
+</.layout>

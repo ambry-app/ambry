@@ -253,6 +253,11 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
     {[item], false} = Inbox.list_items()
     {:ok, item} = Inbox.probe_item(item)
 
+    # Approval executes a resolved draft, so these tests arrange one the way
+    # the import form would leave it — what they're actually about is what
+    # happens to the bytes afterwards.
+    item = settle(item)
+
     %{item: item, root: root, source: source, location: location, downloads: downloads}
   end
 
