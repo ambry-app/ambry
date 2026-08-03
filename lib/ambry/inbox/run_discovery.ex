@@ -18,9 +18,13 @@ defmodule Ambry.Inbox.RunDiscovery do
         Logger.info(fn -> "Inbox discovery: #{inspect(counts)}" end)
         success
 
-      {:error, reason} = error ->
-        Logger.warning(fn -> "Inbox discovery failed: #{inspect(reason)}" end)
-        error
+      # Not a failure, and the only error `discover/0` can return: a location
+      # it couldn't read is counted as `unreachable` rather than failing the
+      # run. This runs hourly on a schedule, and an install that hasn't
+      # registered any locations yet would otherwise produce a warning and a
+      # discarded job every hour forever.
+      {:error, :no_watched_locations} ->
+        :ok
     end
   end
 end

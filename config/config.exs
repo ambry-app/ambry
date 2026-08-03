@@ -31,7 +31,21 @@ config :ambry, AmbryWeb.Endpoint,
 config :ambry, Oban,
   repo: Ambry.Repo,
   # Prune jobs older than 1 day
-  plugins: [{Oban.Plugins.Pruner, max_age: 86_400}],
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 86_400},
+    # Discovery hourly: a watched folder gains releases on its own schedule
+    # and the operator shouldn't have to press a button to find out.
+    #
+    # Reconciliation nightly at 04:00, an hour and a half after the backup,
+    # because it stats every playable file in the library and there's no
+    # reason for that to compete with anything. Files don't vanish often;
+    # noticing within a day is soon enough.
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 * * * *", Ambry.Inbox.RunDiscovery},
+       {"0 4 * * *", Ambry.Media.RunReconciliation}
+     ]}
+  ],
   # Keep number of media workers low to not starve the host of resources
   # `metadata` is deliberately serial: auto-matching a freshly scanned library
   # is hundreds of lookups against shared public instances that rate-limit.

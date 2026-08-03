@@ -14,6 +14,7 @@ defmodule Ambry.Media.MediaFlat do
     field :parts_total, :integer
     field :part_word, :string
     field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready]
+    field :missing_since, :utc_datetime
     field :full_cast, :boolean
     field :abridged, :boolean
     field :duration, :decimal

@@ -43,6 +43,13 @@ defmodule Ambry.Media.Media do
     field :full_cast, :boolean, default: false
     field :status, Ecto.Enum, values: @statuses, default: :pending
 
+    # When this recording's files stopped being readable. Deliberately not a
+    # `status` value: status is about processing and is what publishing keys
+    # on, while missing is orthogonal and — crucially — reversible. Set by
+    # the reconciliation sweep and cleared when the files come back, so an
+    # unplugged disk doesn't destroy what each recording's status used to be.
+    field :missing_since, :utc_datetime
+
     # what Ambry may do to these bytes: `managed` files are its own to
     # organize and delete, `external` files are read where they lie and never
     # touched (roadmap 3a)
