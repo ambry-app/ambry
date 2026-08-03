@@ -27,7 +27,7 @@ defmodule Ambry.Inbox do
   """
 
   use Boundary,
-    deps: [Ambry, Ambry.Media],
+    deps: [Ambry, Ambry.Library, Ambry.Media],
     exports: [InboxItem]
 
   import Ecto.Query
@@ -38,10 +38,11 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.RunDiscovery
   alias Ambry.Inbox.RunMatch
   alias Ambry.Inbox.RunProbe
+  alias Ambry.Library
+  alias Ambry.Library.Location
   alias Ambry.Media.Media
   alias Ambry.Media.MediaTrack
   alias Ambry.Media.Scanner
-  alias Ambry.Paths
   alias Ambry.Repo
 
   require Logger
@@ -84,23 +85,61 @@ defmodule Ambry.Inbox do
 
   def fetch_item(id), do: Repo.fetch(InboxItem, id)
 
+  @no_counts %{created: 0, updated: 0, skipped: 0, unreachable: 0}
+
   @doc """
-  Scans the watched location for candidates.
+  Scans every watched location for candidates.
 
   Idempotent by design: an item's path is its identity, so rescanning updates
   the files of a known item rather than duplicating it, never resurrects a
   dismissed one, and never re-offers files the library already has.
 
-  Returns `{:ok, %{created: n, updated: n, skipped: n}}`.
+  A location that can't be read doesn't fail the run — one unmounted NAS
+  shouldn't stop the others from being scanned — but it is counted, because
+  "found nothing" and "couldn't look" must not look the same to the operator.
+
+  Returns `{:ok, %{created: n, updated: n, skipped: n, unreachable: n}}`.
   """
   def discover do
-    case Paths.local_import_path() do
-      nil -> {:error, :no_watched_location}
-      root -> discover(root)
+    case Library.watched_locations() do
+      [] -> {:error, :no_watched_locations}
+      locations -> {:ok, Enum.reduce(locations, @no_counts, &merge_counts(&2, discover_one(&1)))}
     end
   end
 
-  def discover(root) do
+  @doc """
+  Scans one location, or one bare path.
+
+  The bare-path form is for ad-hoc scans and for exercising the walk itself;
+  items it creates have no location, so approval can't know what custody they
+  imply.
+  """
+  def discover(%Location{} = location) do
+    with {:ok, counts} <- scan(location.path, location) do
+      {:ok, _location} = Library.mark_scanned(location)
+      {:ok, counts}
+    end
+  end
+
+  def discover(root) when is_binary(root), do: scan(root, nil)
+
+  defp discover_one(%Location{} = location) do
+    case discover(location) do
+      {:ok, counts} ->
+        counts
+
+      {:error, reason} ->
+        Logger.warning(fn ->
+          "Couldn't scan location #{location.name} (#{location.path}): #{inspect(reason)}"
+        end)
+
+        %{unreachable: 1}
+    end
+  end
+
+  defp merge_counts(acc, counts), do: Map.merge(acc, counts, fn _key, a, b -> a + b end)
+
+  defp scan(root, location) do
     if File.dir?(root) do
       known = known_paths()
       imported = imported_files()
@@ -108,13 +147,14 @@ defmodule Ambry.Inbox do
       results =
         root
         |> candidates()
-        |> Enum.map(&record_candidate(&1, known, imported))
+        |> Enum.map(&record_candidate(&1, known, imported, location))
 
       {:ok,
        %{
          created: Enum.count(results, &(&1 == :created)),
          updated: Enum.count(results, &(&1 == :updated)),
-         skipped: Enum.count(results, &(&1 == :skipped))
+         skipped: Enum.count(results, &(&1 == :skipped)),
+         unreachable: 0
        }}
     else
       {:error, :watched_location_missing}
@@ -296,34 +336,48 @@ defmodule Ambry.Inbox do
     path |> Path.extname() |> String.downcase() |> Kernel.in(Scanner.extensions())
   end
 
-  defp record_candidate({path, files}, known, imported) do
+  defp record_candidate({path, files}, known, imported, location) do
     cond do
       Enum.any?(files, &MapSet.member?(imported, &1)) ->
         :skipped
 
       item = Map.get(known, path) ->
-        refresh_known(item, files)
+        refresh_known(item, files, location)
 
       true ->
-        create_item(path, files)
+        create_item(path, files, location)
     end
   end
 
   # A known item's files can legitimately change (a torrent finished, a file
   # was replaced). Its status is left alone: dismissed stays dismissed.
-  defp refresh_known(%InboxItem{} = item, files) do
-    if item.files == files do
+  #
+  # An item found under a location adopts it if it had none — that's a fact
+  # the scan just established, not a guess — but a location is never swapped
+  # out from under an item that already has one.
+  defp refresh_known(%InboxItem{} = item, files, location) do
+    adopts_location? = is_nil(item.location_id) and not is_nil(location)
+
+    changes =
+      %{}
+      |> put_if(:files, files, item.files != files)
+      |> put_if(:location_id, adopts_location? && location.id, adopts_location?)
+
+    if changes == %{} do
       :skipped
     else
-      {:ok, item} = update_item(item, %{files: files})
-      if item.status == :pending, do: probe_item_async(item)
+      {:ok, item} = update_item(item, changes)
+      if item.status == :pending and Map.has_key?(changes, :files), do: probe_item_async(item)
       :updated
     end
   end
 
-  defp create_item(path, files) do
+  defp put_if(map, _key, _value, false), do: map
+  defp put_if(map, key, value, _truthy), do: Map.put(map, key, value)
+
+  defp create_item(path, files, location) do
     %InboxItem{}
-    |> InboxItem.changeset(%{path: path, files: files})
+    |> InboxItem.changeset(%{path: path, files: files, location_id: location && location.id})
     |> Repo.insert()
     |> case do
       {:ok, item} ->

@@ -333,6 +333,71 @@ defmodule Ambry.InboxTest do
     end
   end
 
+  describe "discover/0 across registered locations" do
+    test "refuses to guess when nothing is registered" do
+      assert {:error, :no_watched_locations} = Inbox.discover()
+    end
+
+    test "scans every enabled location and records where each item came from" do
+      downloads = insert(:location, path: watched_root(), kind: :downloads)
+      collection = insert(:location, path: watched_root(), kind: :external_collection)
+
+      release_folder(downloads.path, "Leviathan Wakes", ["book.m4b"])
+      release_folder(collection.path, "Project Hail Mary", ["book.m4b"])
+
+      assert {:ok, %{created: 2, unreachable: 0}} = Inbox.discover()
+
+      {items, false} = Inbox.list_items()
+
+      assert Enum.map(items, & &1.location_id) |> Enum.sort() ==
+               Enum.sort([downloads.id, collection.id])
+    end
+
+    test "skips paused locations" do
+      paused = insert(:location, path: watched_root(), enabled: false)
+      release_folder(paused.path, "Leviathan Wakes", ["book.m4b"])
+
+      assert {:error, :no_watched_locations} = Inbox.discover()
+      assert {[], false} = Inbox.list_items()
+    end
+
+    # One unmounted NAS must not stop the others from being scanned, but it
+    # also must not read as "nothing new here".
+    @tag :capture_log
+    test "counts an unreachable location without failing the run" do
+      good = insert(:location, path: watched_root())
+      insert(:location, path: "/mnt/not-mounted")
+      release_folder(good.path, "Leviathan Wakes", ["book.m4b"])
+
+      assert {:ok, %{created: 1, unreachable: 1}} = Inbox.discover()
+    end
+
+    test "stamps the scan time on locations it reached" do
+      location = insert(:location, path: watched_root(), last_scanned_at: nil)
+
+      assert {:ok, _counts} = Inbox.discover()
+      assert %DateTime{} = Ambry.Library.get_location!(location.id).last_scanned_at
+    end
+
+    # An item found under a location adopts it: that's a fact the scan just
+    # established, not a guess about an item whose origin was never known.
+    test "backfills the location of an item discovered before locations existed" do
+      root = watched_root()
+      release = release_folder(root, "Leviathan Wakes", ["book.m4b"])
+
+      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {[item], false} = Inbox.list_items()
+      assert is_nil(item.location_id)
+
+      location = insert(:location, path: root)
+
+      assert {:ok, %{updated: 1}} = Inbox.discover()
+      assert {[item], false} = Inbox.list_items()
+      assert item.path == release
+      assert item.location_id == location.id
+    end
+  end
+
   # Nothing in the inbox may modify what it finds, so every test works
   # against a real throwaway tree of real audio files.
   defp watched_root do
