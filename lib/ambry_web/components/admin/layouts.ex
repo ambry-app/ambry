@@ -48,6 +48,10 @@ defmodule AmbryWeb.Admin.Layouts do
           <.icon name="fa-globe" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
           <p>Universes</p>
         </.link>
+        <.link navigate={~p"/admin/inbox"} class={nav_class(@active_path =~ "/admin/inbox")}>
+          <.icon name="fa-inbox" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
+          <p>Inbox</p>
+        </.link>
         <.link navigate={~p"/admin/media"} class={nav_class(@active_path =~ "/admin/media")}>
           <.icon name="fa-file-audio" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
           <p>Media</p>

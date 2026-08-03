@@ -65,7 +65,7 @@ defmodule Ambry.Media.Scanner.Tags do
 
     %Tags{
       title: get(tags, ~w(title)),
-      book_title: get(tags, ~w(album title)),
+      book_title: book_title(tags, opts),
       authors: get_list(tags, ~w(artist album_artist author authors)),
       narrators: get_list(tags, ~w(composer narrator narrators)),
       series: get(tags, ~w(series movement_name mvnm grouping)),
@@ -79,6 +79,33 @@ defmodule Ambry.Media.Scanner.Tags do
       raw: tags
     }
     |> put_published(tags)
+  end
+
+  # Which of `album` and `title` holds the book depends on how many files
+  # there are, and getting it backwards is expensive: it's the search query.
+  #
+  # The convention is album = book, title = this file's chapter — true for a
+  # folder of mp3s. But a single-file recording has no chapter to name, and
+  # measured across a real library `title` was the better book title in 11 of
+  # the 12 cases where the two differed ("Interdependency Book 1" vs "The
+  # Collapsing Empire"; "01 Electric Angel" vs "Electric Angel"): taggers put
+  # series and track numbers in `album`.
+  defp book_title(tags, opts) do
+    if Keyword.get(opts, :single_file, false) do
+      get(tags, ~w(title album))
+    else
+      get(tags, ~w(album title))
+    end
+    |> strip_track_number()
+  end
+
+  # "01 Electric Angel" — an ordering artifact, never part of the title.
+  defp strip_track_number(nil), do: nil
+
+  defp strip_track_number(title) do
+    stripped = String.replace(title, ~r/^\d{1,3}(\.\d+)?[-.\s]+(?=\D)/, "")
+
+    if !blank?(stripped), do: stripped
   end
 
   @doc """

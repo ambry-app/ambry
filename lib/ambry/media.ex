@@ -16,6 +16,8 @@ defmodule Ambry.Media do
       MediaNarrator,
       MediaTrack,
       RecordingGroup,
+      Scanner,
+      Scanner.Tags,
       PubSub.MediaCreated,
       PubSub.MediaDeleted,
       PubSub.MediaProgress,

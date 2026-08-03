@@ -1,0 +1,150 @@
+<.layout title={@page_title} user={@current_user}>
+  <:subheader>
+    <.list_controls
+      search_form={@search_form}
+      has_next={@has_next}
+      has_prev={@has_prev}
+      next_page_path={@next_page_path}
+      prev_page_path={@prev_page_path}
+    />
+    <div class="flex items-center gap-4 pt-2">
+      <.button phx-click="scan">
+        <.icon name="fa-magnifying-glass" class="mr-2 h-4 w-4" /> Scan for new
+      </.button>
+
+      <div class="flex gap-2">
+        <span
+          phx-click="filter-status"
+          phx-value-status=""
+          class={["cursor-pointer text-sm", !@status && "font-bold underline"]}
+        >
+          All
+        </span>
+        <span
+          :for={status <- @statuses}
+          phx-click="filter-status"
+          phx-value-status={status}
+          class={["cursor-pointer text-sm", @status == status && "font-bold underline"]}
+        >
+          {status} ({Map.get(@counts, status, 0)})
+        </span>
+      </div>
+    </div>
+  </:subheader>
+
+  <.flex_table rows={@items} filter={@list_opts.filter}>
+    <:empty>
+      Nothing waiting. Use <span class="font-bold">Scan for new</span> to look in the watched folder.
+    </:empty>
+
+    <:row :let={item}>
+      <div class="min-w-0 flex-grow overflow-hidden">
+        <p class="overflow-hidden text-ellipsis whitespace-nowrap">{item_name(item)}</p>
+
+        <p
+          :if={tag_summary(item) != ""}
+          class="overflow-hidden text-ellipsis whitespace-nowrap text-sm italic dark:text-zinc-500"
+        >
+          {tag_summary(item)}
+        </p>
+
+        <p
+          :if={probe_summary(item) != ""}
+          class="overflow-hidden text-ellipsis whitespace-nowrap text-sm italic dark:text-zinc-500"
+        >
+          {probe_summary(item)}
+        </p>
+
+        <div :for={match <- match_summary(item)} class="flex items-center gap-2 text-sm">
+          <span class="w-20 flex-none text-zinc-500 dark:text-zinc-500">{match.level}</span>
+          <.badge color={elem(confidence_label(match.confidence), 1)} class="text-xs">
+            {elem(confidence_label(match.confidence), 0)}
+          </.badge>
+          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+            {candidate_label(match.best)}
+          </span>
+          <span :if={candidate_origin(match.best)} class="flex-none text-xs text-zinc-500">
+            ({candidate_origin(match.best)})
+          </span>
+          <span :if={match.alternatives > 0} class="flex-none text-xs text-zinc-500">
+            +{match.alternatives} other{if match.alternatives > 1, do: "s"}
+          </span>
+        </div>
+
+        <p :if={item.issue} class="overflow-hidden text-ellipsis text-sm text-red-600">
+          {item.issue}
+        </p>
+
+        <p class="overflow-hidden text-ellipsis whitespace-nowrap text-xs dark:text-zinc-600">
+          {item.path}
+        </p>
+      </div>
+
+      <div class="hidden w-36 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
+        <div class="flex gap-4">
+          <span :if={file_count(item) > 1} title="Audio files">
+            {file_count(item)} <.icon name="fa-file-audio" class="inline h-4 w-4 text-current" />
+          </span>
+          <span :if={item.tags && item.tags["asin"]} title={"ASIN #{item.tags["asin"]}"}>
+            <.icon name="fa-tag" class="inline h-4 w-4 text-current" />
+          </span>
+          <span :if={item.tags && item.tags["has_cover_art"]} title="Embedded cover art">
+            <.icon name="fa-image" class="inline h-4 w-4 text-current" />
+          </span>
+        </div>
+      </div>
+
+      <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
+        <div class="flex items-center gap-2 pb-2">
+          <.badge color={status_color(item.status)} class="text-xs">{item.status}</.badge>
+
+          <span phx-click="rematch" phx-value-id={item.id} title="Look for matches again">
+            <.icon
+              name="fa-magnifying-glass"
+              class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400"
+            />
+          </span>
+
+          <span
+            :if={item.status == :pending}
+            phx-click="approve"
+            phx-value-id={item.id}
+            title="Add to the library (files stay where they are)"
+            data-confirm="Add this to the library? Files are referenced where they are — nothing is moved or copied."
+          >
+            <.icon name="fa-check" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-lime-500" />
+          </span>
+
+          <span phx-click="reprobe" phx-value-id={item.id} title="Re-read the files">
+            <.icon name="fa-rotate" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400" />
+          </span>
+
+          <span
+            :if={item.status != :dismissed}
+            phx-click="dismiss"
+            phx-value-id={item.id}
+            title="Dismiss (files are not touched)"
+          >
+            <.icon name="fa-xmark" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
+          </span>
+
+          <span
+            :if={item.status == :dismissed}
+            phx-click="restore"
+            phx-value-id={item.id}
+            title="Put back in the queue"
+          >
+            <.icon
+              name="fa-rotate-left"
+              class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-lime-500"
+            />
+          </span>
+        </div>
+
+        <p class="text-sm italic dark:text-zinc-500">
+          Found {Calendar.strftime(item.inserted_at, "%x")}
+        </p>
+      </div>
+    </:row>
+  </.flex_table>
+</.layout>

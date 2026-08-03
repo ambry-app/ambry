@@ -738,19 +738,36 @@ defmodule Ambry.MediaTest do
       assert length(updated_media.chapters) == 2
     end
 
+    # The two narrators are named explicitly rather than by the faker: search
+    # is fuzzy, so two randomly generated names occasionally resemble each
+    # other enough that the *replaced* narrator still matches, and the test
+    # fails on an unlucky seed for reasons that have nothing to do with it.
     test "updates the search index" do
-      %{book_id: book_id, media_narrators: [%{narrator: %{name: narrator_name}} | _]} =
+      narrator_name = "Xylophone Quarkmonger"
+      new_narrator_name = "Zeppelin Vortexbane"
+
+      %{book_id: book_id} =
         media =
         :media
         |> insert(
           book: build(:book),
           media_narrators: [
-            build(:media_narrator, narrator: build(:narrator, person: build(:person)))
+            build(:media_narrator,
+              narrator:
+                build(:narrator,
+                  name: narrator_name,
+                  person: build(:person, name: narrator_name)
+                )
+            )
           ]
         )
         |> with_search_index()
 
-      %{id: new_narrator_id, name: new_narrator_name} = insert(:narrator, person: build(:person))
+      %{id: new_narrator_id} =
+        insert(:narrator,
+          name: new_narrator_name,
+          person: build(:person, name: new_narrator_name)
+        )
 
       assert [%{id: ^book_id}] = Ambry.Search.search(narrator_name)
       assert [] = Ambry.Search.search(new_narrator_name)

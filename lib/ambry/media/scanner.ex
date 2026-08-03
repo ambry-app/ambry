@@ -30,7 +30,7 @@ defmodule Ambry.Media.Scanner do
   """
   def scan(%Media{} = media) do
     with {:ok, path} <- single_file(media),
-         {:ok, probe} <- Probe.run(path) do
+         {:ok, probe} <- Probe.run(path, single_file: true) do
       write_tracks(media, probe)
     end
   end
@@ -46,10 +46,18 @@ defmodule Ambry.Media.Scanner do
   """
   def tags(%Media{} = media) do
     with {:ok, path} <- single_file(media),
-         {:ok, probe} <- Probe.run(path) do
+         {:ok, probe} <- Probe.run(path, single_file: true) do
       {:ok, probe.tags}
     end
   end
+
+  @doc """
+  Probes a single file by path, without a media record.
+
+  This is what the inbox uses: a candidate is measured before anything about
+  it exists in the library.
+  """
+  defdelegate probe_file(path, opts \\ []), to: Probe, as: :run
 
   @doc """
   The audio file extensions direct-play can serve.

@@ -32,6 +32,28 @@ defmodule Ambry.Media.Scanner.TagsTest do
       assert tags.narrators == ["Ray Porter"]
     end
 
+    # Measured against a real library: where the two differed on a
+    # single-file recording, `title` was the better book title in 11 of 12
+    # cases — taggers park series names and track numbers in `album`.
+    test "prefers title for a single-file recording, which has no chapter to name" do
+      tags =
+        Tags.parse(%{"album" => "Interdependency Book 1", "title" => "The Collapsing Empire"},
+          single_file: true
+        )
+
+      assert tags.book_title == "The Collapsing Empire"
+    end
+
+    test "drops a leading track number from the book title" do
+      assert Tags.parse(%{"album" => "01 Electric Angel"}).book_title == "Electric Angel"
+      assert Tags.parse(%{"album" => "00.3 Machine Vendetta"}).book_title == "Machine Vendetta"
+    end
+
+    test "keeps a title that merely starts with a number" do
+      assert Tags.parse(%{"album" => "1984"}).book_title == "1984"
+      assert Tags.parse(%{"album" => "11/22/63"}).book_title == "11/22/63"
+    end
+
     test "prefers album over title for the book, since title is per-file" do
       tags = Tags.parse(%{"album" => "Dungeon Crawler Carl", "title" => "Chapter One"})
 
