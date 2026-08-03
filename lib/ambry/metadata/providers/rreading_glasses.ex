@@ -199,8 +199,7 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
       description: best["Description"] || first_present(editions, "Description"),
       cover_url:
         full_size_image(presence(best["ImageUrl"]) || first_present(editions, "ImageUrl")),
-      published:
-        Provider.PublishedDate.from_string(work["ReleaseDateRaw"] || best["ReleaseDateRaw"]),
+      published: work_published(work, editions),
       publisher: presence(best["Publisher"]),
       language: presence(best["Language"]),
       format: presence(best["Format"]),
@@ -209,6 +208,19 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
       series: series(work),
       editions: Enum.map(editions, &edition/1)
     }
+  end
+
+  # Book.published means the work's ORIGINAL publication date, never a
+  # specific edition's. The work-level ReleaseDateRaw carries it (verified
+  # live 2026-08-02: The Hobbit 1937-09-21, The Martian 2011-09-27 self-pub
+  # vs its 2014 Crown edition, Eragon 2002-06-01 vs 2005 hits); when a work
+  # lacks one, the earliest edition date is the closest safe approximation.
+  defp work_published(work, editions) do
+    Provider.PublishedDate.from_string(work["ReleaseDateRaw"]) ||
+      editions
+      |> Enum.map(&Provider.PublishedDate.from_string(&1["ReleaseDateRaw"]))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.min_by(& &1.date, Date, fn -> nil end)
   end
 
   defp best_edition(editions, preferred_edition_id, best_book_id) do

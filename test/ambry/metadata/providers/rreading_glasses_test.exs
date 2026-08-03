@@ -71,6 +71,56 @@ defmodule Ambry.Metadata.Providers.RreadingGlassesTest do
     end
   end
 
+  describe "published dates" do
+    # Book.published means the work's ORIGINAL publication date, never a
+    # specific edition's (ROADMAP hard rule)
+    test "prefers the work-level date over the chosen edition's" do
+      work = %{
+        "ForeignId" => 1,
+        "Title" => "The Martian",
+        "ReleaseDateRaw" => "2011-09-27",
+        "BestBookId" => 5,
+        "Books" => [%{"ForeignId" => 5, "ReleaseDateRaw" => "2014-02-11", "ImageUrl" => "x"}]
+      }
+
+      patch(Client, :get_json, fn _base, "/work/1", [] -> {:ok, work} end)
+
+      assert {:ok, %Provider.Book{published: published}} = RreadingGlasses.book_details("1", %{})
+      assert %Provider.PublishedDate{date: ~D[2011-09-27], display_format: :full} = published
+    end
+
+    test "falls back to the earliest edition date when the work carries none" do
+      work = %{
+        "ForeignId" => 1,
+        "Title" => "Undated Work",
+        "ReleaseDateRaw" => "",
+        "BestBookId" => 5,
+        "Books" => [
+          %{"ForeignId" => 5, "ReleaseDateRaw" => "2014-02-11", "ImageUrl" => "x"},
+          %{"ForeignId" => 6, "ReleaseDateRaw" => "2011-09-27"},
+          %{"ForeignId" => 7}
+        ]
+      }
+
+      patch(Client, :get_json, fn _base, "/work/1", [] -> {:ok, work} end)
+
+      assert {:ok, %Provider.Book{published: published}} = RreadingGlasses.book_details("1", %{})
+      assert %Provider.PublishedDate{date: ~D[2011-09-27]} = published
+    end
+
+    test "no date at all yields nil" do
+      work = %{
+        "ForeignId" => 1,
+        "Title" => "Undated Work",
+        "Books" => [%{"ForeignId" => 5}]
+      }
+
+      patch(Client, :get_json, fn _base, "/work/1", [] -> {:ok, work} end)
+
+      assert {:ok, %Provider.Book{published: nil}} = RreadingGlasses.book_details("1", %{})
+    end
+  end
+
   describe "search_authors/2" do
     test "hydrates distinct author ids from book search" do
       search = fixture("rreading_glasses_search.json")
