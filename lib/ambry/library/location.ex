@@ -29,6 +29,10 @@ defmodule Ambry.Library.Location do
   @import_policies [:hardlink, :copy, :move]
 
   schema "library_locations" do
+    # Which root a `:downloads` location imports into. Null means "the only
+    # root there is" — see `Ambry.Library.target_root/1`.
+    belongs_to :target_root, __MODULE__
+
     field :name, :string
     field :path, :string
     field :kind, Ecto.Enum, values: @kinds
@@ -61,11 +65,21 @@ defmodule Ambry.Library.Location do
   @doc false
   def changeset(location, attrs) do
     location
-    |> cast(attrs, [:name, :path, :kind, :import_policy, :enabled, :last_scanned_at])
+    |> cast(attrs, [
+      :name,
+      :path,
+      :kind,
+      :import_policy,
+      :enabled,
+      :last_scanned_at,
+      :target_root_id
+    ])
     |> update_change(:path, &normalize_path/1)
     |> validate_required([:name, :path, :kind])
     |> validate_absolute_path()
     |> put_import_policy()
+    |> put_target_root()
+    |> foreign_key_constraint(:target_root_id)
     |> unique_constraint(:path)
     |> unique_constraint(:name)
   end
@@ -101,6 +115,15 @@ defmodule Ambry.Library.Location do
     case get_field(changeset, :kind) do
       :downloads -> update_change_default(changeset, :import_policy, :hardlink)
       _other -> put_change(changeset, :import_policy, nil)
+    end
+  end
+
+  # Only a downloads folder imports anywhere, so only a downloads folder can
+  # name a destination.
+  defp put_target_root(changeset) do
+    case get_field(changeset, :kind) do
+      :downloads -> changeset
+      _other -> put_change(changeset, :target_root_id, nil)
     end
   end
 

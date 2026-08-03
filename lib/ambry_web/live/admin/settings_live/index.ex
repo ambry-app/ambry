@@ -5,6 +5,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
 
   use AmbryWeb, :admin_live_view
 
+  alias Ambry.Library.NamingTemplate
   alias Ambry.Settings
 
   @impl Phoenix.LiveView
@@ -48,6 +49,40 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
             </div>
           </div>
         </section>
+
+        <section>
+          <h2 class="mb-1 text-lg font-bold">Library naming</h2>
+          <p class="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+            How managed recordings are organized inside a library root. Files imported from a
+            downloads folder are placed here; external collections are never reorganized.
+          </p>
+
+          <.simple_form
+            id="naming-template-form"
+            for={@template_form}
+            phx-change="validate-template"
+            phx-submit="save-template"
+            autocomplete="off"
+          >
+            <.input field={@template_form[:template]} label="Folder template" />
+
+            <p class="text-sm text-zinc-500 dark:text-zinc-400">
+              Available: {Enum.map_join(NamingTemplate.tokens(), ", ", &"{#{&1}}")}. A book with
+              several authors or series uses the first one — reorder them on the book to change
+              which. Empty parts collapse, so a standalone book doesn't get an empty folder or a
+              leading dash.
+            </p>
+
+            <div class="rounded-sm border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+              <p class="mb-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">Preview</p>
+              <p class="font-mono break-all text-sm" data-role="template-preview">{@preview}</p>
+            </div>
+
+            <:actions>
+              <.button disabled={@template_error != nil}>Save</.button>
+            </:actions>
+          </.simple_form>
+        </section>
       </div>
     </.layout>
     """
@@ -60,9 +95,67 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
     {:noreply, assign_settings(socket)}
   end
 
-  defp assign_settings(socket) do
-    assign(socket, :direct_play_publishing, Settings.direct_play_publishing?())
+  def handle_event("validate-template", %{"settings" => %{"template" => template}}, socket) do
+    {:noreply, assign_template(socket, template)}
   end
+
+  def handle_event("save-template", %{"settings" => %{"template" => template}}, socket) do
+    case Settings.set_library_naming_template(template) do
+      {:ok, _setting} ->
+        {:noreply,
+         socket |> put_flash(:info, "Saved the naming template.") |> assign_template(template)}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Can't use that template: #{template_error(reason)}")
+         |> assign_template(template)}
+    end
+  end
+
+  defp assign_settings(socket) do
+    socket
+    |> assign(:direct_play_publishing, Settings.direct_play_publishing?())
+    |> assign_template(Settings.library_naming_template())
+  end
+
+  # A live preview against a worked example, because a template's failure mode
+  # is a folder tree you don't notice is wrong until it's full of files.
+  @example %{
+    author: "Brandon Sanderson",
+    series: "The Stormlight Archive",
+    series_book_number: "1",
+    narrator: "Michael Kramer",
+    title: "The Way of Kings",
+    year: 2010
+  }
+
+  defp assign_template(socket, template) do
+    error = with :ok <- NamingTemplate.validate(template), do: nil
+
+    preview =
+      case error do
+        nil ->
+          {:ok, folder} = NamingTemplate.render(template, @example)
+          {:ok, filename} = NamingTemplate.filename(@example, "book.m4b")
+          Path.join([folder, filename])
+
+        {:error, reason} ->
+          template_error(reason)
+      end
+
+    assign(socket,
+      template_form: to_form(%{"template" => template}, as: :settings),
+      template_error: error,
+      preview: preview
+    )
+  end
+
+  defp template_error(:blank), do: "it can't be empty"
+  defp template_error(:absolute), do: "it can't start with / — it's relative to a library root"
+  defp template_error(:traversal), do: "it can't contain .. — that would climb out of the root"
+  defp template_error(:no_title_token), do: "it needs {title}, or every book shares one folder"
+  defp template_error({:unknown_token, token}), do: "there's no {#{token}} token"
 
   defp publishing_blurb(true), do: "Scanned recordings can be made visible to clients."
 

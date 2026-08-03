@@ -431,6 +431,41 @@ defmodule Ambry.Factory do
     }
   end
 
+  @doc """
+  A real m4b carrying real embedded tags, since the inbox reads them.
+
+  Written into its own folder under `source_media` because the file-audit
+  tests list that directory and expect only folders.
+  """
+  def tagged_audio(opts \\ []) do
+    dir = Ambry.Paths.source_media_disk_path("fixture-#{Ecto.UUID.generate()}")
+    File.mkdir_p!(dir)
+    path = Path.join(dir, "tagged.m4b")
+
+    {_output, 0} =
+      System.cmd(
+        "ffmpeg",
+        [
+          "-v",
+          "quiet",
+          "-i",
+          valid_audio(:m4a),
+          "-c",
+          "copy",
+          "-metadata",
+          "album=#{Keyword.get(opts, :album, "The Way of Kings")}",
+          "-metadata",
+          "artist=#{Keyword.get(opts, :artist, "Brandon Sanderson")}",
+          "-metadata",
+          "composer=#{Keyword.get(opts, :composer, "Michael Kramer, Kate Reading")}"
+        ] ++
+          if(Keyword.get(opts, :dated, true), do: ["-metadata", "date=2010-08-31"], else: []) ++
+          [path]
+      )
+
+    path
+  end
+
   def valid_audio(:flac), do: "test/support/files/sample.flac"
   def valid_audio(:m4a), do: "test/support/files/sample.m4a"
   def valid_audio(:mp3), do: "test/support/files/sample.mp3"
