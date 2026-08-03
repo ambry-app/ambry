@@ -41,6 +41,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.RecordingGroup
   alias Ambry.Media.RunOrganize
   alias Ambry.Media.RunProcessor
+  alias Ambry.Media.RunPublishPending
   alias Ambry.Media.RunScan
   alias Ambry.Media.Scanner
   alias Ambry.Paths
@@ -73,6 +74,44 @@ defmodule Ambry.Media do
   def organize_book_async(book_id), do: enqueue_organize(%{"book_id" => book_id})
 
   defp enqueue_organize(args), do: args |> RunOrganize.new() |> Oban.insert()
+
+  @doc """
+  Publishes every direct-play recording that's only waiting on the switch.
+
+  The switch holds recordings back until the fleet can play them, so turning
+  it on has to release the ones that piled up behind it — otherwise the
+  operator would have to open and re-save every recording the inbox ever
+  approved.
+
+  Deliberately narrow. A recording qualifies only if it is `pending`, has
+  tracks, has **no** legacy transcoded paths, and isn't currently missing.
+  That last pair matters: a legacy recording sitting in `pending` is waiting
+  on transcoding, not on this switch, and publishing a recording whose files
+  have vanished would hand clients something unplayable.
+  """
+  def publish_pending_direct_play do
+    Media
+    |> where([m], m.status == :pending and is_nil(m.missing_since))
+    |> where([m], is_nil(m.mp4_path) and is_nil(m.hls_path) and is_nil(m.mpd_path))
+    |> join(:inner, [m], t in MediaTrack, on: t.media_id == m.id)
+    |> distinct(true)
+    |> preload(:media_tracks)
+    |> Repo.all()
+    |> Enum.reduce(%{published: 0, failed: 0}, fn media, counts ->
+      case update_media(media, %{status: :ready}) do
+        {:ok, _media} -> Map.update!(counts, :published, &(&1 + 1))
+        {:error, _changeset} -> Map.update!(counts, :failed, &(&1 + 1))
+      end
+    end)
+    |> then(&{:ok, &1})
+  end
+
+  @doc """
+  The same, in the background — the switch shouldn't block on a large library.
+  """
+  def publish_pending_direct_play_async do
+    %{} |> RunPublishPending.new() |> Oban.insert()
+  end
 
   @doc """
   Returns a limited list of media and whether or not there are more.

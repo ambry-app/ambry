@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
   use AmbryWeb, :admin_live_view
 
   alias Ambry.Library.NamingTemplate
+  alias Ambry.Media
   alias Ambry.Settings
 
   @impl Phoenix.LiveView
@@ -90,7 +91,13 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
 
   @impl Phoenix.LiveView
   def handle_event("toggle-direct-play-publishing", _params, socket) do
-    {:ok, _setting} = Settings.set_direct_play_publishing(!socket.assigns.direct_play_publishing)
+    enabled? = !socket.assigns.direct_play_publishing
+    {:ok, _setting} = Settings.set_direct_play_publishing(enabled?)
+
+    # Turning it on releases everything that piled up behind it. Turning it
+    # off deliberately does nothing to what's already published — the switch
+    # governs the act of publishing, not the recordings that got through.
+    if enabled?, do: {:ok, _job} = Media.publish_pending_direct_play_async()
 
     {:noreply, assign_settings(socket)}
   end

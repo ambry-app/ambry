@@ -96,10 +96,30 @@ defmodule Ambry.Inbox.Approval do
       with {:ok, book} <- resolve_book(item),
            {:ok, media} <- create_media(item, book, probe),
            {:ok, _item} <- link(item, media),
-           {:ok, media, placement} <- place(destination, book, media, file) do
+           {:ok, media, placement} <- place(destination, book, media, file),
+           {:ok, media} <- publish(media) do
         {:ok, {media, placement}}
       end
     end)
+  end
+
+  # An approved recording is finished, so it's published — unless the switch
+  # says the fleet can't play direct-play media yet, in which case it waits
+  # in `pending` and is released when the switch is turned on.
+  #
+  # The reload is load-bearing: `Media.changeset` reads tracks off the struct
+  # to decide whether the legacy paths are required, and an unloaded assoc
+  # reads as "no tracks" — which would demand an mp4 path this recording will
+  # never have.
+  defp publish(media) do
+    if Settings.direct_play_publishing?() do
+      media
+      |> Repo.reload()
+      |> Repo.preload(:media_tracks)
+      |> Media.update_media(%{status: :ready})
+    else
+      {:ok, media}
+    end
   end
 
   # What approval should do with the bytes, decided by where the item came
