@@ -66,15 +66,15 @@ defmodule Ambry.Media.Scanner.Probe do
   Returns `{:ok, %Probe{}}`, or `{:error, reason}` if the file can't be read
   or carries no audio stream we can measure.
   """
-  def run(path) do
+  def run(path, opts \\ []) do
     with {:ok, %File.Stat{size: size}} <- File.stat(path),
          {:ok, json} <- ffprobe(path),
          {:ok, data} <- decode(json) do
-      build(path, size, data)
+      build(path, size, data, opts)
     end
   end
 
-  defp build(path, size, data) do
+  defp build(path, size, data, opts) do
     format = data["format"] || %{}
 
     case duration(path, format) do
@@ -92,7 +92,7 @@ defmodule Ambry.Media.Scanner.Probe do
            duration: duration,
            seek_accuracy: seek_accuracy,
            chapters: chapters(data),
-           tags: tags(data, format)
+           tags: tags(data, format, opts)
          }}
     end
   end
@@ -128,8 +128,11 @@ defmodule Ambry.Media.Scanner.Probe do
     end
   end
 
-  defp tags(data, format) do
-    Tags.parse(format["tags"] || %{}, has_cover_art: cover_art?(data))
+  defp tags(data, format, opts) do
+    Tags.parse(
+      format["tags"] || %{},
+      Keyword.put(opts, :has_cover_art, cover_art?(data))
+    )
   end
 
   # Embedded cover art rides along as a video stream flagged `attached_pic`.

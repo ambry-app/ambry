@@ -186,6 +186,11 @@ defmodule Ambry.Inbox.AutoMatch do
       "series" => Enum.map(book.series || [], & &1.name),
       "published" =>
         book.published && book.published.date && Date.to_iso8601(book.published.date),
+      # carried alongside the date because it is not derivable from it:
+      # year-only knowledge arrives as a literal Jan 1st, and rendering that
+      # as a real release day is the exact bug the v1.9.0 punch list fixed
+      # for the import forms
+      "published_format" => book.published && to_string(book.published.display_format),
       "publisher" => book.publisher,
       "cover_url" => book.cover_url,
       "description" => book.description,

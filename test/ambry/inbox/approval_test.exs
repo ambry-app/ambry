@@ -107,6 +107,29 @@ defmodule Ambry.Inbox.ApprovalTest do
 
     # A work must have a publication date and the inbox has no business
     # inventing one — matching a work supplies it, as does tagging the file.
+    test "keeps a matched work's date granularity instead of inventing a release day" do
+      item = tagged_item(dated: false)
+
+      selection = %{
+        "source" => "provider:x",
+        "id" => "1",
+        "title" => "Project Hail Mary",
+        "published" => "2021-01-01",
+        "published_format" => "year"
+      }
+
+      {:ok, item} =
+        Inbox.update_item(item, %{
+          matches: %{"work" => %{"candidates" => [selection], "selected" => selection}}
+        })
+
+      assert {:ok, media} = Inbox.approve_item(item)
+
+      book = Books.get_book!(media.book_id)
+      assert book.published == ~D[2021-01-01]
+      assert book.published_format == :year
+    end
+
     test "refuses a release with no publication date anywhere" do
       item = tagged_item(dated: false)
 

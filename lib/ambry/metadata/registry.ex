@@ -88,24 +88,43 @@ defmodule Ambry.Metadata.Registry do
   """
   def update(provider_id, attrs) do
     with {:ok, entry} <- fetch(provider_id) do
-      known_keys = Enum.map(entry.module.config_fields(), &to_string(&1.key))
+      row = Repo.get(ProviderConfig, provider_id) || %ProviderConfig{}
 
-      config =
-        attrs
-        |> Map.get(:config, %{})
-        |> Map.new(fn {key, value} -> {to_string(key), value} end)
-        |> Map.take(known_keys)
-
-      attrs =
-        attrs
-        |> Map.take([:enabled, :priority])
-        |> Map.put(:config, config)
-        |> Map.put(:provider_id, provider_id)
-
-      (Repo.get(ProviderConfig, provider_id) || %ProviderConfig{})
-      |> ProviderConfig.changeset(attrs)
+      row
+      |> ProviderConfig.changeset(changes(entry, row, attrs, provider_id))
       |> Repo.insert_or_update()
     end
+  end
+
+  # Settings the caller didn't mention are left alone. This is not a detail:
+  # writing an empty config on every update meant that merely reordering
+  # providers — or toggling one off and on — silently destroyed the operator's
+  # API token, and the only symptom was a provider quietly going unavailable
+  # later.
+  defp changes(entry, row, attrs, provider_id) do
+    changes =
+      attrs
+      |> Map.take([:enabled, :priority])
+      |> Map.put(:provider_id, provider_id)
+
+    case Map.fetch(attrs, :config) do
+      :error -> changes
+      {:ok, config} -> Map.put(changes, :config, merged_config(entry, row, config))
+    end
+  end
+
+  # Supplied keys win; unsupplied ones keep whatever was stored, so a partial
+  # update can't clear a field it never mentioned. Clearing stays possible by
+  # sending the field empty — `build_config/2` reads "" as "use the default".
+  defp merged_config(entry, row, config) do
+    known_keys = Enum.map(entry.module.config_fields(), &to_string(&1.key))
+
+    supplied =
+      config
+      |> Map.new(fn {key, value} -> {to_string(key), value} end)
+      |> Map.take(known_keys)
+
+    row.config |> Kernel.||(%{}) |> Map.merge(supplied)
   end
 
   defp build_config(module, row) do

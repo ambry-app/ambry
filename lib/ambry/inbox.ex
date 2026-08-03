@@ -132,7 +132,7 @@ defmodule Ambry.Inbox do
   def probe_item(%InboxItem{} = item) do
     attrs =
       case item.files do
-        [file] -> probe_single(file)
+        [file] -> probe_single(file, single_file: true)
         [] -> %{issue: "no audio files found"}
         [file | _rest] -> file |> probe_single() |> Map.put(:issue, multi_file_issue(item))
       end
@@ -351,8 +351,8 @@ defmodule Ambry.Inbox do
     MapSet.new(track_paths ++ source_files)
   end
 
-  defp probe_single(file) do
-    case Scanner.probe_file(file) do
+  defp probe_single(file, opts \\ []) do
+    case Scanner.probe_file(file, opts) do
       {:ok, probe} ->
         %{probe: probe_map(probe), tags: tags_map(probe.tags), issue: nil}
 

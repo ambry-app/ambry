@@ -75,6 +75,39 @@ defmodule Ambry.Metadata.RegistryTest do
     assert {:error, :unknown_provider} = Registry.fetch("goodreads")
   end
 
+  # Reordering providers used to write an empty config, silently destroying
+  # the operator's API token — the only symptom being the provider quietly
+  # going unavailable later.
+  test "reordering a provider keeps its configured secrets" do
+    {:ok, _row} = Registry.update("hardcover", %{config: %{"api_token" => "h.p.s"}})
+
+    {:ok, _row} = Registry.update("hardcover", %{priority: 0})
+
+    {:ok, entry} = Registry.fetch("hardcover")
+    assert entry.config.api_token == "h.p.s"
+  end
+
+  test "toggling a provider keeps its configured secrets" do
+    {:ok, _row} = Registry.update("hardcover", %{config: %{"api_token" => "h.p.s"}})
+
+    {:ok, _row} = Registry.update("hardcover", %{enabled: false})
+    {:ok, _row} = Registry.update("hardcover", %{enabled: true})
+
+    {:ok, entry} = Registry.fetch("hardcover")
+    assert entry.config.api_token == "h.p.s"
+    assert "hardcover" in Enum.map(Registry.enabled(level: :work), & &1.id)
+  end
+
+  test "a partial config update leaves fields it didn't mention alone" do
+    {:ok, _row} =
+      Registry.update("rreading_glasses", %{config: %{"base_url" => "http://rg.local:8788"}})
+
+    {:ok, _row} = Registry.update("rreading_glasses", %{config: %{}})
+
+    {:ok, entry} = Registry.fetch("rreading_glasses")
+    assert entry.config.base_url == "http://rg.local:8788"
+  end
+
   test "priority overrides reorder providers" do
     {:ok, _row} = Registry.update("audnexus", %{priority: -1})
 

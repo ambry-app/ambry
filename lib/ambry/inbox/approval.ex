@@ -74,7 +74,7 @@ defmodule Ambry.Inbox.Approval do
   defp single_file(%InboxItem{}), do: {:error, :multi_file_unsupported}
 
   defp probe(file) do
-    case Scanner.probe_file(file) do
+    case Scanner.probe_file(file, single_file: true) do
       {:ok, probe} -> {:ok, probe}
       {:error, reason} -> {:error, {:unreadable, reason}}
     end
@@ -125,7 +125,7 @@ defmodule Ambry.Inbox.Approval do
   defp published(candidate, hints) do
     case date(candidate["published"]) do
       nil -> {date(hints["published"]), format(hints["published_format"]) || :year}
-      date -> {date, :full}
+      date -> {date, format(candidate["published_format"]) || :full}
     end
   end
 
