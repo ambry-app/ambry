@@ -7,7 +7,6 @@ defmodule Ambry.Media do
     deps: [Ambry],
     exports: [
       Audit,
-      Bookmark,
       Chapters,
       Editions,
       Editions.Edition,
@@ -27,13 +26,9 @@ defmodule Ambry.Media do
 
   alias Ambry.Books
   alias Ambry.Media.Audit
-  alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
   alias Ambry.Media.MediaFlat
   alias Ambry.Media.Processor
-  alias Ambry.Media.PubSub.BookmarkCreated
-  alias Ambry.Media.PubSub.BookmarkDeleted
-  alias Ambry.Media.PubSub.BookmarkUpdated
   alias Ambry.Media.PubSub.MediaCreated
   alias Ambry.Media.PubSub.MediaDeleted
   alias Ambry.Media.PubSub.MediaProgress
@@ -367,8 +362,8 @@ defmodule Ambry.Media do
   This is intended for swapping in corrected files for the *same*
   edition/recording (for example, fixing a corrupt, mistagged, or low-quality
   source) — not for switching to a different edition. Because the timeline is
-  expected to line up, chapters and listeners' saved positions and bookmarks are
-  deliberately left untouched.
+  expected to line up, chapters and listeners' saved positions are deliberately
+  left untouched.
 
   The streaming output files keep the same URLs (they are overwritten in place);
   `Plug.Static` serves them with mtime-based ETags, so clients revalidate and
@@ -582,149 +577,5 @@ defmodule Ambry.Media do
   """
   def subscribe_to_media_progress_messages do
     :ok = PubSub.subscribe(MediaProgress.wildcard_topic())
-  end
-
-  @doc """
-  Gets all bookmarks for a media for a user.
-  """
-  def list_bookmarks(user_id, media_id) do
-    Bookmark
-    |> where([b], b.media_id == ^media_id and b.user_id == ^user_id)
-    |> order_by(:position)
-    |> Repo.all()
-  end
-
-  @doc """
-  Lists bookmarks paginated.
-  """
-  def list_bookmarks(user_id, media_id, offset, limit) do
-    over_limit = limit + 1
-
-    query =
-      from b in Bookmark,
-        where: b.media_id == ^media_id and b.user_id == ^user_id,
-        order_by: b.position,
-        offset: ^offset,
-        limit: ^over_limit
-
-    bookmarks = Repo.all(query)
-
-    bookmarks_to_return = Enum.slice(bookmarks, 0, limit)
-
-    {bookmarks_to_return, bookmarks != bookmarks_to_return}
-  end
-
-  @doc """
-  Gets a single bookmark.
-
-  Raises `Ecto.NoResultsError` if the Bookmark does not exist.
-
-  ## Examples
-
-      iex> get_bookmark!(123)
-      %Bookmark{}
-
-      iex> get_bookmark!(456)
-      ** (Ecto.NoResultsError)
-
-  """
-  def get_bookmark!(id), do: Repo.get!(Bookmark, id)
-
-  @doc """
-  Creates a bookmark.
-
-  ## Examples
-
-      iex> create_bookmark(%{field: value})
-      {:ok, %Bookmark{}}
-
-      iex> create_bookmark(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def create_bookmark(attrs) do
-    Repo.transact(fn ->
-      changeset = Bookmark.changeset(%Bookmark{}, attrs)
-
-      with {:ok, bookmark} <- Repo.insert(changeset),
-           {:ok, _job} <- broadcast_bookmark_created(bookmark) do
-        {:ok, bookmark}
-      end
-    end)
-  end
-
-  defp broadcast_bookmark_created(%Bookmark{} = bookmark) do
-    bookmark
-    |> BookmarkCreated.new()
-    |> PubSub.broadcast_async()
-  end
-
-  @doc """
-  Updates a bookmark.
-
-  ## Examples
-
-      iex> update_bookmark(bookmark, %{field: new_value})
-      {:ok, %Bookmark{}}
-
-      iex> update_bookmark(bookmark, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def update_bookmark(%Bookmark{} = bookmark, attrs) do
-    Repo.transact(fn ->
-      changeset = Bookmark.changeset(bookmark, attrs)
-
-      with {:ok, updated_bookmark} <- Repo.update(changeset),
-           {:ok, _job} <- broadcast_bookmark_updated(updated_bookmark) do
-        {:ok, updated_bookmark}
-      end
-    end)
-  end
-
-  defp broadcast_bookmark_updated(%Bookmark{} = bookmark) do
-    bookmark
-    |> BookmarkUpdated.new()
-    |> PubSub.broadcast_async()
-  end
-
-  @doc """
-  Deletes a bookmark.
-
-  ## Examples
-
-      iex> delete_bookmark(bookmark)
-      {:ok, bookmark}
-
-      iex> delete_bookmark(bookmark)
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def delete_bookmark(%Bookmark{} = bookmark) do
-    Repo.transact(fn ->
-      with {:ok, deleted_bookmark} <- Repo.delete(bookmark),
-           {:ok, _job} <- broadcast_bookmark_deleted(deleted_bookmark) do
-        {:ok, deleted_bookmark}
-      end
-    end)
-  end
-
-  defp broadcast_bookmark_deleted(%Bookmark{} = bookmark) do
-    bookmark
-    |> BookmarkDeleted.new()
-    |> PubSub.broadcast_async()
-  end
-
-  @doc """
-  Returns an `%Ecto.Changeset{}` for tracking bookmark changes.
-
-  ## Examples
-
-      iex> change_bookmark(bookmark)
-      %Ecto.Changeset{data: %Bookmark{}}
-
-  """
-  def change_bookmark(%Bookmark{} = bookmark, attrs \\ %{}) do
-    Bookmark.changeset(bookmark, attrs)
   end
 end

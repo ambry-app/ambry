@@ -11,7 +11,6 @@ defmodule Ambry.Factory do
   alias Ambry.Books.SeriesBook
   alias Ambry.Books.Universe
   alias Ambry.Fake
-  alias Ambry.Media.Bookmark
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.RecordingGroup
@@ -277,15 +276,6 @@ defmodule Ambry.Factory do
       position: nil,
       playback_rate: nil
     )
-  end
-
-  # Bookmarks
-
-  def bookmark_factory do
-    %Bookmark{
-      position: (Fake.uniform() * 1000) |> Decimal.from_float() |> Decimal.round(1),
-      label: Fake.word()
-    }
   end
 
   # Search indexes
