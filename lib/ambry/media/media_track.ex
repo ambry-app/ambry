@@ -1,0 +1,72 @@
+defmodule Ambry.Media.MediaTrack do
+  @moduledoc """
+  One audio file belonging to a media, played directly by clients.
+
+  Tracks are ordered by `index` and laid end-to-end on the book's continuous
+  timeline: `start_offset` is where a track begins in absolute book-seconds.
+  Direct-play v1 only ever writes a single track per media (multi-file books
+  are deferred), but the model stays multi-file-shaped so that adding
+  multi-track playback later is a player-layer feature rather than a
+  data-model migration.
+
+  `format`, `codec` and `mime` are recorded exactly as probed — never assumed
+  playable — so a client can answer "can this device play this?" from synced
+  track metadata alone.
+  """
+
+  use Ecto.Schema
+
+  import Ecto.Changeset
+
+  alias Ambry.Media.Media
+  alias Ambry.Media.MediaTrack
+
+  @seek_accuracies [:exact, :approximate]
+
+  schema "media_tracks" do
+    belongs_to :media, Media
+
+    field :index, :integer
+    field :path, :string
+    field :size, :integer
+    field :mime, :string
+    field :format, :string
+    field :codec, :string
+    field :duration, :decimal
+    field :start_offset, :decimal, default: Decimal.new(0)
+    field :seek_accuracy, Ecto.Enum, values: @seek_accuracies, default: :exact
+
+    timestamps(type: :utc_datetime)
+  end
+
+  def seek_accuracies, do: @seek_accuracies
+
+  @doc false
+  def changeset(media_track, attrs) do
+    media_track
+    |> cast(attrs, [
+      :index,
+      :path,
+      :size,
+      :mime,
+      :format,
+      :codec,
+      :duration,
+      :start_offset,
+      :seek_accuracy
+    ])
+    |> validate_required([:index, :path, :size, :duration, :start_offset])
+    |> validate_number(:index, greater_than_or_equal_to: 0)
+    |> validate_number(:size, greater_than_or_equal_to: 0)
+    |> validate_number(:duration, greater_than: 0)
+    |> validate_number(:start_offset, greater_than_or_equal_to: 0)
+    |> unique_constraint([:media_id, :index])
+  end
+
+  @doc """
+  The absolute book-seconds range this track covers, as `{start, end}`.
+  """
+  def range(%MediaTrack{start_offset: start_offset, duration: duration}) do
+    {start_offset, Decimal.add(start_offset, duration)}
+  end
+end
