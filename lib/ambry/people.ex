@@ -36,7 +36,11 @@ defmodule Ambry.People do
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
 
-  @person_direct_assoc_preloads [:authors, :narrators, author_people: [author: :people]]
+  @person_direct_assoc_preloads [
+    :narrators,
+    authors: :people,
+    author_people: [author: :people]
+  ]
 
   def person_standard_preloads, do: @person_direct_assoc_preloads
 

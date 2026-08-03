@@ -36,12 +36,7 @@ defmodule AmbryWeb.AuthorLive do
             <% end %>
           </h1>
           <p :if={pen_name_people(@author) != []} class="mt-2 text-zinc-500">
-            a pen name of <.link
-              :for={person <- pen_name_people(@author)}
-              navigate={~p"/people/#{person}"}
-              class="hover:underline"
-              phx-no-format
-            ><%= person.name %></.link><span class="last:hidden">,</span>
+            a pen name of <.person_name_links people={pen_name_people(@author)} />
           </p>
         </div>
       </div>
