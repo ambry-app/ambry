@@ -4,6 +4,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   alias Ambry.Books
   alias Ambry.Books.Book
+  alias Ambry.Media
   alias Ambry.Metadata.Registry
   alias Ambry.People
   alias Ambry.Provenance
@@ -144,6 +145,10 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
     case Books.update_book(socket.assigns.book, book_params, opts) do
       {:ok, book} ->
+        # the title, primary author and primary series all appear in the path
+        # of every managed recording of this book
+        {:ok, _job} = Media.organize_book_async(book.id)
+
         {:noreply,
          socket
          |> put_flash(:info, "Updated #{book.title}")
