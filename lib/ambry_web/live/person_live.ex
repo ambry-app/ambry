@@ -129,9 +129,21 @@ defmodule AmbryWeb.PersonLive do
     """
   end
 
+  # "Ty Franck as James S.A. Corey" — or, when the pen name is shared,
+  # "Ty Franck with Daniel Abraham as James S.A. Corey"
   defp author_name(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :co_writers,
+        Enum.reject(assigns.author.people, &(&1.id == assigns.person.id))
+      )
+
     ~H"""
-    {@person.name} as <.link navigate={~p"/authors/#{@author}"} class="hover:underline">{@author.name}</.link>
+    {@person.name}<span :if={@co_writers != []} phx-no-format> with <.person_name_links
+        people={@co_writers}
+      /></span> as
+    <.link navigate={~p"/authors/#{@author}"} class="hover:underline">{@author.name}</.link>
     """
   end
 

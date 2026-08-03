@@ -1387,6 +1387,37 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
+  Renders links to people's person pages joined as prose: "A", "A and B",
+  "A, B, and C".
+  """
+  attr :people, :list, required: true
+
+  def person_name_links(assigns) do
+    count = length(assigns.people)
+
+    assigns =
+      assign(
+        assigns,
+        :separated_people,
+        Enum.with_index(assigns.people, fn person, index ->
+          {prose_separator(index, count), person}
+        end)
+      )
+
+    ~H"""
+    <span :for={{separator, person} <- @separated_people} phx-no-format><%= separator %><.link
+        navigate={~p"/people/#{person}"}
+        class="hover:underline"
+      ><%= person.name %></.link></span>
+    """
+  end
+
+  defp prose_separator(0, _count), do: ""
+  defp prose_separator(1, 2), do: " and "
+  defp prose_separator(index, count) when index == count - 1, do: ", and "
+  defp prose_separator(_index, _count), do: ", "
+
+  @doc """
   Renders a list of links to people (like authors or narrators) separated by
   commas.
 

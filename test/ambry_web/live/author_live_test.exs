@@ -28,6 +28,17 @@ defmodule AmbryWeb.AuthorLiveTest do
     assert html =~ html_escape(author.name)
   end
 
+  test "a composite author page joins its people's names in prose", %{conn: conn} do
+    abraham = insert(:person, name: "Daniel Abraham")
+    franck = insert(:person, name: "Ty Franck")
+    author = insert(:author, name: "James S.A. Corey", people: [abraham, franck])
+
+    {:ok, _view, html} = live(conn, ~p"/authors/#{author.id}")
+
+    text = html |> Floki.parse_document!() |> Floki.text() |> String.replace(~r/\s+/, " ")
+    assert text =~ "a pen name of Daniel Abraham and Ty Franck"
+  end
+
   test "renders a narrator page with no narrated media", %{conn: conn} do
     narrator = insert(:narrator, person: build(:person))
 
