@@ -156,6 +156,9 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert html =~ "Settled"
     refute html =~ "Outstanding"
     assert Inbox.count_ready() == 1
+    # the flag is stored, not recomputed per render — that's what lets the
+    # bucket be a plain SQL filter
+    assert Inbox.get_item!(ready.id).ready
   end
 
   test "filters by status", %{conn: conn} do
