@@ -36,6 +36,22 @@ defmodule Ambry.Media.Scanner do
   end
 
   @doc """
+  Reads a media's embedded tags without writing anything.
+
+  This is the tags-first half of discovery: what the file claims about
+  itself, for 1g auto-match to turn into a pre-filled inbox item. Nothing
+  here is applied to any record — tags propose, the operator confirms.
+
+  Returns `{:ok, %Tags{}}` or `{:error, reason}`.
+  """
+  def tags(%Media{} = media) do
+    with {:ok, path} <- single_file(media),
+         {:ok, probe} <- Probe.run(path) do
+      {:ok, probe.tags}
+    end
+  end
+
+  @doc """
   The audio file extensions direct-play can serve.
   """
   def extensions, do: @extensions

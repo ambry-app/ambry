@@ -134,6 +134,108 @@ defmodule Ambry.Media.ScannerTest do
     end
   end
 
+  describe "tags/1" do
+    test "reads embedded metadata off a real file" do
+      media = tagged_media()
+
+      assert {:ok, tags} = Scanner.tags(media)
+
+      assert tags.book_title == "The Way of Kings"
+      assert tags.authors == ["Brandon Sanderson"]
+      assert tags.narrators == ["Michael Kramer", "Kate Reading"]
+      assert tags.series == "The Stormlight Archive"
+      assert Decimal.equal?(tags.series_number, 1)
+      assert tags.asin == "B003ZWFO7E"
+      assert tags.published == ~D[2010-08-31]
+      assert tags.published_format == :full
+    end
+
+    test "notices embedded cover art" do
+      media = media_with_cover_art()
+
+      assert {:ok, tags} = Scanner.tags(media)
+      assert tags.has_cover_art
+      assert tags.book_title == "Illustrated Edition"
+    end
+
+    test "reports no cover art when there is none" do
+      media = tagged_media()
+
+      assert {:ok, tags} = Scanner.tags(media)
+      refute tags.has_cover_art
+    end
+
+    test "an untagged file yields an empty struct, not an error" do
+      media = scannable_media(:m4a)
+
+      assert {:ok, tags} = Scanner.tags(media)
+      refute Ambry.Media.Scanner.Tags.any?(tags)
+    end
+
+    test "reports a media with nothing to read" do
+      media = insert(:media, book: build(:book))
+
+      assert {:error, :no_audio_files} = Scanner.tags(media)
+    end
+  end
+
+  # Tagged the way a real rip is: freeform MP4 atoms for the things the
+  # container has no standard place for (ASIN, series), narrator in composer.
+  defp tagged_media do
+    retag(["-movflags", "use_metadata_tags"], [
+      "album=The Way of Kings",
+      "artist=Brandon Sanderson",
+      "composer=Michael Kramer, Kate Reading",
+      "SERIES=The Stormlight Archive",
+      "SERIES-PART=1",
+      "ASIN=B003ZWFO7E",
+      "date=2010-08-31"
+    ])
+  end
+
+  # Separate fixture because ffmpeg's mov muxer drops the attached-pic stream
+  # when asked to write freeform atoms — a quirk of *writing* these files, not
+  # of reading them, so real rips carry both happily.
+  defp media_with_cover_art do
+    retag(["-cover"], ["album=Illustrated Edition"])
+  end
+
+  defp retag(flags, metadata) do
+    media = scannable_media(:m4a)
+    [source_file] = media.source_files
+    dir = Path.dirname(source_file)
+    tagged_path = Path.join(dir, "tagged.m4b")
+
+    {inputs, flags} = cover_args(flags, dir, source_file)
+
+    args =
+      ["-v", "quiet"] ++
+        inputs ++
+        ["-c", "copy"] ++
+        flags ++
+        Enum.flat_map(metadata, &["-metadata", &1]) ++
+        [tagged_path]
+
+    {_output, 0} = System.cmd("ffmpeg", args)
+
+    File.rm!(source_file)
+
+    {:ok, media} = Media.update_media(media, %{source_files: [tagged_path]})
+    Media.get_media!(media.id)
+  end
+
+  defp cover_args(["-cover"], dir, source_file) do
+    cover = Path.join(dir, "cover.jpg")
+
+    {_output, 0} =
+      System.cmd("ffmpeg", ~w(-v quiet -f lavfi -i color=red:s=64x64:d=1 -frames:v 1) ++ [cover])
+
+    {["-i", source_file, "-i", cover, "-map", "0:a", "-map", "1:v"],
+     ["-disposition:v", "attached_pic"]}
+  end
+
+  defp cover_args(flags, _dir, source_file), do: {["-i", source_file], flags}
+
   defp scannable_media(type, count \\ 1, attrs \\ []) do
     :media
     |> build([book: build(:book)] ++ attrs)
