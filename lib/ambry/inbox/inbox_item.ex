@@ -24,6 +24,7 @@ defmodule Ambry.Inbox.InboxItem do
     field :status, Ecto.Enum, values: @statuses, default: :pending
     field :probe, :map
     field :tags, :map
+    field :matches, :map
     field :issue, :string
 
     timestamps(type: :utc_datetime)
@@ -34,7 +35,7 @@ defmodule Ambry.Inbox.InboxItem do
   @doc false
   def changeset(inbox_item, attrs) do
     inbox_item
-    |> cast(attrs, [:path, :files, :status, :probe, :tags, :issue, :media_id])
+    |> cast(attrs, [:path, :files, :status, :probe, :tags, :matches, :issue, :media_id])
     |> validate_required([:path, :status])
     |> unique_constraint(:path)
   end

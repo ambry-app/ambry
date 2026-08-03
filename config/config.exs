@@ -33,7 +33,9 @@ config :ambry, Oban,
   # Prune jobs older than 1 day
   plugins: [{Oban.Plugins.Pruner, max_age: 86_400}],
   # Keep number of media workers low to not starve the host of resources
-  queues: [default: 10, pub_sub: 10, media: 4, images: 4]
+  # `metadata` is deliberately serial: auto-matching a freshly scanned library
+  # is hundreds of lookups against shared public instances that rate-limit.
+  queues: [default: 10, pub_sub: 10, media: 4, images: 4, metadata: 1]
 
 config :ambry,
   ecto_repos: [Ambry.Repo],

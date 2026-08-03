@@ -32,8 +32,10 @@ defmodule Ambry.Inbox do
 
   import Ecto.Query
 
+  alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.RunDiscovery
+  alias Ambry.Inbox.RunMatch
   alias Ambry.Inbox.RunProbe
   alias Ambry.Media.Media
   alias Ambry.Media.MediaTrack
@@ -134,13 +136,36 @@ defmodule Ambry.Inbox do
         [file | _rest] -> file |> probe_single() |> Map.put(:issue, multi_file_issue(item))
       end
 
-    update_item(item, attrs)
+    with {:ok, item} <- update_item(item, attrs) do
+      # tags are what matching leans on, so it follows probing rather than
+      # racing it
+      {:ok, _job} = match_item_async(item)
+      {:ok, item}
+    end
   end
 
   def update_item(%InboxItem{} = item, attrs) do
     item
     |> InboxItem.changeset(attrs)
     |> Repo.update()
+  end
+
+  @doc """
+  Proposes what an item is: which work, and which recording.
+
+  Runs after probing, since the embedded tags it leans on come from there.
+  Never fails the item — providers being unreachable means fewer candidates,
+  not a broken queue entry.
+  """
+  def match_item(%InboxItem{} = item) do
+    update_item(item, AutoMatch.match(item))
+  end
+
+  @doc """
+  Proposes matches for one item in the background.
+  """
+  def match_item_async(%InboxItem{} = item) do
+    %{inbox_item_id: item.id} |> RunMatch.new() |> Oban.insert()
   end
 
   @doc """

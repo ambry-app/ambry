@@ -38,6 +38,50 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert html =~ item.path
   end
 
+  test "shows both matches with how sure each one is", %{conn: conn} do
+    item = probed_item()
+
+    {:ok, _item} =
+      Inbox.update_item(item, %{
+        matches: %{
+          "work" => %{
+            "confidence" => 0.95,
+            "query" => "The Way of Kings",
+            "candidates" => [
+              %{
+                "title" => "The Way of Kings",
+                "authors" => ["Brandon Sanderson"],
+                "source" => "local"
+              },
+              %{"title" => "The Way of Kings Prime", "authors" => [], "source" => "provider:x"}
+            ]
+          },
+          "recording" => %{"confidence" => 0.0, "query" => nil, "candidates" => []}
+        }
+      })
+
+    {:ok, _view, html} = live(conn, ~p"/admin/inbox")
+
+    assert html =~ "near-certain"
+    assert html =~ "The Way of Kings"
+    assert html =~ "already in library"
+    assert html =~ "+1 other"
+    # the recording level says so rather than going silent
+    assert html =~ "no match"
+  end
+
+  test "asks for a fresh match", %{conn: conn} do
+    item = probed_item()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+
+    html =
+      view |> element("span[phx-click='rematch'][phx-value-id='#{item.id}']") |> render_click()
+
+    assert html =~ "Looking for matches again"
+    assert_enqueued(worker: Ambry.Inbox.RunMatch, args: %{inbox_item_id: item.id})
+  end
+
   test "starts a scan", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 

@@ -55,6 +55,22 @@
           {probe_summary(item)}
         </p>
 
+        <div :for={match <- match_summary(item)} class="flex items-center gap-2 text-sm">
+          <span class="w-20 flex-none text-zinc-500 dark:text-zinc-500">{match.level}</span>
+          <.badge color={elem(confidence_label(match.confidence), 1)} class="text-xs">
+            {elem(confidence_label(match.confidence), 0)}
+          </.badge>
+          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+            {candidate_label(match.best)}
+          </span>
+          <span :if={candidate_origin(match.best)} class="flex-none text-xs text-zinc-500">
+            ({candidate_origin(match.best)})
+          </span>
+          <span :if={match.alternatives > 0} class="flex-none text-xs text-zinc-500">
+            +{match.alternatives} other{if match.alternatives > 1, do: "s"}
+          </span>
+        </div>
+
         <p :if={item.issue} class="overflow-hidden text-ellipsis text-sm text-red-600">
           {item.issue}
         </p>
@@ -81,6 +97,13 @@
       <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
         <div class="flex items-center gap-2 pb-2">
           <.badge color={status_color(item.status)} class="text-xs">{item.status}</.badge>
+
+          <span phx-click="rematch" phx-value-id={item.id} title="Look for matches again">
+            <.icon
+              name="fa-magnifying-glass"
+              class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400"
+            />
+          </span>
 
           <span phx-click="reprobe" phx-value-id={item.id} title="Re-read the files">
             <.icon name="fa-rotate" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400" />

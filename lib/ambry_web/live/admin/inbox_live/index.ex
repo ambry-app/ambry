@@ -61,6 +61,12 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     {:noreply, reload(socket)}
   end
 
+  def handle_event("rematch", %{"id" => id}, socket) do
+    {:ok, _job} = id |> Inbox.get_item!() |> Inbox.match_item_async()
+
+    {:noreply, put_flash(socket, :info, "Looking for matches again.")}
+  end
+
   def handle_event("reprobe", %{"id" => id}, socket) do
     {:ok, _job} = id |> Inbox.get_item!() |> Inbox.probe_item_async()
 
@@ -182,4 +188,47 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   def probe_summary(_item), do: ""
 
   def file_count(%InboxItem{files: files}), do: length(files)
+
+  @doc """
+  The proposed work and recording, each with how sure the match is.
+
+  Both are shown even when one is missing: knowing that nothing matched at
+  the recording level is itself the useful thing.
+  """
+  def match_summary(%InboxItem{matches: matches}) when is_map(matches) do
+    Enum.map(["work", "recording"], fn level ->
+      %{
+        level: level,
+        best: get_in(matches, [level, "candidates"]) |> List.first(),
+        alternatives: max(length(get_in(matches, [level, "candidates"]) || []) - 1, 0),
+        confidence: get_in(matches, [level, "confidence"]) || 0.0,
+        query: get_in(matches, [level, "query"])
+      }
+    end)
+  end
+
+  def match_summary(_item), do: []
+
+  def candidate_label(nil), do: "no match"
+
+  def candidate_label(candidate) do
+    [candidate["title"], join_names(candidate["authors"])]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" — ")
+  end
+
+  def candidate_origin(nil), do: nil
+  def candidate_origin(%{"source" => "local"}), do: "already in library"
+  def candidate_origin(%{"provider_name" => name}) when is_binary(name), do: name
+  def candidate_origin(%{"source" => "provider:" <> id}), do: id
+  def candidate_origin(_candidate), do: nil
+
+  @doc """
+  Confidence as a word. A number invites false precision; what the operator
+  needs is whether this one can be waved through.
+  """
+  def confidence_label(confidence) when confidence >= 0.85, do: {"near-certain", :brand}
+  def confidence_label(confidence) when confidence >= 0.6, do: {"likely", :blue}
+  def confidence_label(confidence) when confidence > 0.0, do: {"unsure", :yellow}
+  def confidence_label(_confidence), do: {"no match", :gray}
 end
