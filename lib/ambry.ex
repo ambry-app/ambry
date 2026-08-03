@@ -16,6 +16,7 @@ defmodule Ambry do
       {FileBrowser, []},
       {Inbox, []},
       {Hashids, []},
+      {Images, []},
       {Library, []},
       {Media, []},
       {Metadata, []},

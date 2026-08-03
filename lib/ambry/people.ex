@@ -433,4 +433,17 @@ defmodule Ambry.People do
 
     Repo.all(query)
   end
+
+  @doc """
+  Returns all people for use in `Select` components.
+
+  People rather than identities: this is what the import form's "who is behind
+  this credit" control picks from, where the answer is a human, not a name
+  they publish under.
+  """
+  def people_for_select do
+    query = from p in Person, select: {p.name, p.id}, order_by: p.name
+
+    Repo.all(query)
+  end
 end

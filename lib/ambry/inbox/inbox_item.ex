@@ -12,6 +12,7 @@ defmodule Ambry.Inbox.InboxItem do
 
   import Ecto.Changeset
 
+  alias Ambry.Inbox.Draft
   alias Ambry.Library.Location
   alias Ambry.Media.Media
 
@@ -32,6 +33,12 @@ defmodule Ambry.Inbox.InboxItem do
     field :tags, :map
     field :matches, :map
     field :issue, :string
+
+    # Derived from the draft, denormalized so the queue filters and counts in
+    # SQL. `put_draft/2` is its only writer.
+    field :ready, :boolean, default: false
+
+    embeds_one :draft, Draft, on_replace: :update
 
     timestamps(type: :utc_datetime)
   end
@@ -54,6 +61,22 @@ defmodule Ambry.Inbox.InboxItem do
     ])
     |> validate_required([:path, :status])
     |> unique_constraint(:path)
+  end
+
+  @doc """
+  Stages a draft, keeping the denormalized `ready` flag in step.
+
+  Readiness is *defined* by `Draft.resolved?/1` and merely *stored* here.
+  Routing every draft write through one function is what stops the column
+  drifting away from the function — there is no second place that may set it.
+  """
+  def put_draft(inbox_item, attrs) do
+    changeset =
+      inbox_item
+      |> cast(%{draft: attrs}, [])
+      |> cast_embed(:draft)
+
+    put_change(changeset, :ready, Draft.resolved?(fetch_field!(changeset, :draft)))
   end
 
   @doc """

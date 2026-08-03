@@ -25,6 +25,7 @@ defmodule Ambry.DataCase do
 
       import Ambry.DataCase
       import Ambry.Factory
+      import Ambry.InboxHelpers
       import Ecto
       import Ecto.Changeset
       import Ecto.Query

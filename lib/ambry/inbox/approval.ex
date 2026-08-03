@@ -1,12 +1,26 @@
 defmodule Ambry.Inbox.Approval do
   @moduledoc """
-  Turns a curated inbox item into real library records.
+  Turns a fully-resolved staged import into real library records.
 
-  Approval is the only thing that creates records — discovery and matching
-  only ever propose. It covers the whole entity graph in one transaction:
-  book, authors, narrators, series, the recording and its direct-play tracks.
-  Either all of it lands or none of it does, so a half-approved item can't
-  exist.
+  Approval is the only thing that creates records — discovery, matching and
+  the form only ever propose. It covers the whole entity graph in one
+  transaction: book, authors, narrators, series, the recording and its
+  direct-play tracks. Either all of it lands or none of it does, so a
+  half-approved item can't exist.
+
+  ## It executes a draft; it does not decide anything
+
+  Every choice was made in `Ambry.Inbox.Draft` and settled by the operator (or
+  by a seeding rule confident enough to settle it). This module refuses
+  outright unless `Draft.resolved?/1`, then does exactly what the draft says.
+  That is the point of the whole design: the form cannot offer a button that
+  fails here, because everything that could fail was a visible decision
+  before the button was pressed.
+
+  Consequently there are no fallbacks here. If the draft doesn't say what the
+  title is, that is a bug in the form's gating, not something to paper over
+  with a guess — and inventing a series number or a publication date is
+  exactly the confidently-wrong data the inbox exists to prevent.
 
   ## Custody
 
@@ -15,40 +29,33 @@ defmodule Ambry.Inbox.Approval do
     * from a **downloads** location, the file is brought into that location's
       library root under the naming template — hardlinked, copied or moved
       per the location's policy — and the recording becomes **managed**.
-      Ambry owns those bytes and may reorganize or delete them.
     * from an **external collection**, or from an item with no location at
       all, the file is referenced exactly where it lies and the recording is
-      **external**. Ambry never moves, copies, renames or deletes it, and
-      removing the recording later deletes records only. This is also the
-      only thing that can work against a read-only mount.
+      **external**. Ambry never moves, copies, renames or deletes it.
 
   A hardlink cannot cross a filesystem, and here the downloads folder and the
   library can easily be on different NAS boxes. Approval **refuses** in that
   case rather than falling back to a copy: a silent copy is the storage
-  doubling this whole phase exists to eliminate, and the operator would have
-  no way to know it happened.
+  doubling this whole phase exists to eliminate.
 
-  ## Publishing
+  ## Provenance
 
-  Approval does not publish. The recording is created `pending`, so clients
-  don't see it until the direct-play switch is on and it's marked ready —
-  the client-first rollout order the whole of Phase 2 is built around.
-
-  ## Re-probing
-
-  The files are probed again here rather than trusting what discovery
-  recorded. It costs one ffprobe and buys two things: the track data is
-  current at the moment it's written, and a file that vanished between
-  discovery and approval fails the approval instead of creating a recording
-  that points at nothing.
+  Every scalar the draft settled knows which source settled it, so
+  `field_provenance` is written by construction — a provider-accepted value
+  records that provider and stays unlocked so refresh can update it later, an
+  operator's typed value records `manual` and locks. This is what closes 1d's
+  loop for the inbox without a separate hint-collection layer.
   """
-
-  import Ecto.Query
 
   alias Ambry.Books
   alias Ambry.Books.Book
   alias Ambry.Books.Series
-  alias Ambry.Inbox.AutoMatch
+  alias Ambry.Images
+  alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Credit
+  alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library
   alias Ambry.Library.Location
@@ -58,6 +65,7 @@ defmodule Ambry.Inbox.Approval do
   alias Ambry.Media.Scanner
   alias Ambry.People
   alias Ambry.People.Author
+  alias Ambry.People.AuthorPerson
   alias Ambry.People.Narrator
   alias Ambry.Repo
   alias Ambry.Settings
@@ -65,7 +73,7 @@ defmodule Ambry.Inbox.Approval do
   require Logger
 
   @doc """
-  Approves an item, creating everything it implies.
+  Approves an item, creating everything its draft implies.
 
   Returns `{:ok, media}`, or `{:error, reason}` — leaving the item untouched
   and the library unchanged.
@@ -75,14 +83,29 @@ defmodule Ambry.Inbox.Approval do
   def approve(%InboxItem{} = item) do
     item = Repo.preload(item, :location)
 
+    # Facts about the files come first, then the draft, then placement. The
+    # order is the order the operator can act on them: a multi-file release or
+    # a vanished file is not something any amount of curation fixes, so
+    # reporting an unresolved decision on one would send them to the form to
+    # fix something the form can't fix.
     with {:ok, file} <- single_file(item),
          {:ok, probe} <- probe(file),
+         :ok <- resolved(item),
          {:ok, destination} <- destination(item),
          {:ok, {media, placement}} <- create(item, file, probe, destination) do
       # Only now, with the records committed, is it safe to remove a moved
       # file's source.
       log_finalize(Placement.finalize(placement), item)
       {:ok, media}
+    end
+  end
+
+  # The invariant, enforced at the one place it has teeth. Anything the
+  # operator hasn't settled is a refusal, not a default.
+  defp resolved(%InboxItem{draft: draft}) do
+    case Draft.unresolved(draft) do
+      [] -> :ok
+      outstanding -> {:error, {:unresolved, outstanding}}
     end
   end
 
@@ -93,7 +116,7 @@ defmodule Ambry.Inbox.Approval do
   # deleted and whose record didn't survive.
   defp create(item, file, probe, destination) do
     Repo.transact(fn ->
-      with {:ok, book} <- resolve_book(item),
+      with {:ok, book} <- resolve_book(item.draft.work),
            {:ok, media} <- create_media(item, book, probe),
            {:ok, _item} <- link(item, media),
            {:ok, media, placement} <- place(destination, book, media, file),
@@ -102,6 +125,226 @@ defmodule Ambry.Inbox.Approval do
       end
     end)
   end
+
+  ## the work
+
+  defp resolve_book(%{mode: :link, book_id: book_id} = work) do
+    case Repo.get(Book, book_id) do
+      nil -> {:error, :book_not_found}
+      book -> add_series(book, work.series)
+    end
+  end
+
+  defp resolve_book(%{mode: :create} = work) do
+    Books.create_book(
+      %{
+        title: Field.value(work.title),
+        published: Field.date(work.published),
+        published_format: Field.atom(work.published_format, :full),
+        book_authors: author_params(work.authors),
+        series_books: series_params(work.series)
+      },
+      provenance:
+        provenance(%{
+          "title" => work.title,
+          "published" => work.published,
+          "published_format" => work.published_format
+        })
+    )
+  end
+
+  # Fill-gaps on a linked book: an import may add a series membership the book
+  # doesn't have, never touch one it does. The seeder has already dropped
+  # memberships the book already carries, so anything left here is additive.
+  defp add_series(book, []), do: {:ok, book}
+
+  defp add_series(book, links) do
+    book = Repo.preload(book, series_books: :series)
+
+    existing =
+      Enum.map(book.series_books, &%{series_id: &1.series_id, book_number: &1.book_number})
+
+    case Books.update_book(book, %{series_books: existing ++ series_params(links)}) do
+      {:ok, book} -> {:ok, book}
+      {:error, _changeset} = error -> error
+    end
+  end
+
+  defp author_params(credits) do
+    Enum.map(credits, fn credit ->
+      {:ok, author} = resolve_identity(credit)
+      %{author_id: author.id}
+    end)
+  end
+
+  defp series_params(links) do
+    Enum.map(links, fn link ->
+      {:ok, series} = resolve_series(link)
+      %{series_id: series.id, book_number: SeriesLink.decimal(link)}
+    end)
+  end
+
+  defp resolve_series(%SeriesLink{mode: :link, series_id: id}), do: {:ok, Repo.get!(Series, id)}
+
+  defp resolve_series(%SeriesLink{mode: :create, name: name}),
+    do: Books.create_series(%{name: name})
+
+  ## credits
+
+  # The identity is what a credit resolves to — never a Person. Person appears
+  # only when creating, and how many of them there are is just the length of
+  # the list the operator left behind.
+  defp resolve_identity(%Credit{mode: :link, kind: :author, identity_id: id}),
+    do: {:ok, Repo.get!(Author, id)}
+
+  defp resolve_identity(%Credit{mode: :link, kind: :narrator, identity_id: id}),
+    do: {:ok, Repo.get!(Narrator, id)}
+
+  # An identity's own changeset only casts its name — identities are normally
+  # created *through* a Person, which can't express "this pen name is two
+  # people". So the link rows go in explicitly. Each `AuthorPerson` in the
+  # list is one human behind the credit; the list being longer than one is the
+  # entire composite-author case.
+  defp resolve_identity(%Credit{mode: :create, kind: :author} = credit) do
+    with {:ok, people} <- resolve_people(credit.people),
+         {:ok, author} <- %Author{} |> Author.changeset(%{name: credit.name}) |> Repo.insert() do
+      Enum.each(people, fn person ->
+        Repo.insert!(%AuthorPerson{author_id: author.id, person_id: person.id})
+      end)
+
+      {:ok, author}
+    end
+  end
+
+  # Narrators stay one-to-one with a Person by design — composite narrator
+  # identities aren't a real-world thing — so only the first reference is used
+  # and the form caps the control at one.
+  defp resolve_identity(%Credit{mode: :create, kind: :narrator} = credit) do
+    with {:ok, [person | _rest]} <- resolve_people(credit.people) do
+      %Narrator{}
+      |> Narrator.changeset(%{name: credit.name})
+      |> Ecto.Changeset.put_change(:person_id, person.id)
+      |> Repo.insert()
+    end
+  end
+
+  # A person reference is either somebody already here, or somebody to create
+  # alongside the credit. Creating one is the 1:1 default the form falls back
+  # to; two or more is a shared pen name, and needs no special handling beyond
+  # being a longer list.
+  defp resolve_people(refs) do
+    Enum.reduce_while(refs, {:ok, []}, fn ref, {:ok, acc} ->
+      case resolve_person(ref) do
+        {:ok, person} -> {:cont, {:ok, acc ++ [person]}}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp resolve_person(%PersonRef{person_id: id}) when not is_nil(id),
+    do: {:ok, Repo.get!(People.Person, id)}
+
+  defp resolve_person(%PersonRef{name: name}), do: People.create_person(%{name: name})
+
+  ## the recording
+
+  defp create_media(item, book, probe) do
+    recording = item.draft.recording
+
+    Media.create_media(
+      %{
+        book_id: book.id,
+        # external until placement says otherwise; a downloads item is
+        # repointed to its library copy below
+        custody: :external,
+        source_path: item.path,
+        source_files: item.files,
+        status: :pending,
+        duration: probe.duration,
+        chapters: probe.chapters,
+        media_narrators: narrator_params(recording.narrators),
+        media_tracks: [track_params(probe)],
+        title: Field.value(recording.title),
+        published: Field.date(recording.published),
+        publisher: Field.value(recording.publisher),
+        description: Field.value(recording.description),
+        image_path: cover(recording.cover)
+      },
+      provenance:
+        provenance(%{
+          "title" => recording.title,
+          "published" => recording.published,
+          "publisher" => recording.publisher,
+          "description" => recording.description,
+          "image_path" => recording.cover
+        })
+    )
+  end
+
+  defp narrator_params(credits) do
+    Enum.map(credits, fn credit ->
+      {:ok, narrator} = resolve_identity(credit)
+      %{narrator_id: narrator.id}
+    end)
+  end
+
+  # A cover that can't be fetched is not worth failing an import over — the
+  # recording is still correct without one, and the admin form can set it
+  # afterwards. It is worth saying so in the log.
+  defp cover(%Field{value: nil}), do: nil
+
+  defp cover(%Field{source: "embedded", value: audio_path}) do
+    case Images.extract_embedded(audio_path) do
+      {:ok, web_path} -> web_path
+      {:error, reason} -> log_cover(audio_path, reason)
+    end
+  end
+
+  defp cover(%Field{value: url}) do
+    case Images.import_url(url) do
+      {:ok, web_path} when is_binary(web_path) -> web_path
+      other -> log_cover(url, other)
+    end
+  end
+
+  defp log_cover(source, reason) do
+    Logger.warning(fn -> "Couldn't bring in the cover from #{source}: #{inspect(reason)}" end)
+    nil
+  end
+
+  defp track_params(probe) do
+    %{
+      index: 0,
+      path: probe.path,
+      size: probe.size,
+      mime: probe.mime,
+      format: probe.format,
+      codec: probe.codec,
+      duration: probe.duration,
+      start_offset: 0,
+      seek_accuracy: probe.seek_accuracy
+    }
+  end
+
+  ## provenance
+
+  # Each decision already knows where its value came from, so the provenance
+  # map is a projection of the draft rather than anything to collect
+  # separately. A field the operator typed records `manual` and locks; an
+  # accepted provider value records that provider and stays unlocked, so a
+  # future refresh may still update it.
+  defp provenance(fields) do
+    fields
+    |> Enum.flat_map(fn
+      {_name, nil} -> []
+      {_name, %Field{source: nil}} -> []
+      {_name, %Field{source: "manual"}} -> []
+      {name, %Field{source: source}} -> [{name, source}]
+    end)
+    |> Map.new()
+  end
+
+  ## publishing
 
   # An approved recording is finished, so it's published — unless the switch
   # says the fleet can't play direct-play media yet, in which case it waits
@@ -122,10 +365,11 @@ defmodule Ambry.Inbox.Approval do
     end
   end
 
+  ## placement
+
   # What approval should do with the bytes, decided by where the item came
   # from. Only a downloads folder imports; an external collection is adopted
-  # exactly where it lies (that is the entire promise of external custody),
-  # and a file already sitting in a library root is already home.
+  # exactly where it lies (that is the entire promise of external custody).
   defp destination(%InboxItem{location: %Location{kind: :downloads} = location}) do
     with {:ok, root} <- Library.target_root(location) do
       {:ok, {root, location.import_policy}}
@@ -186,179 +430,22 @@ defmodule Ambry.Inbox.Approval do
     end)
   end
 
+  ## files
+
   # Direct-play v1 is single-file, and a recording whose tracks can't be
   # described has no business in the library.
   defp single_file(%InboxItem{files: [file]}), do: {:ok, file}
   defp single_file(%InboxItem{files: []}), do: {:error, :no_audio_files}
   defp single_file(%InboxItem{}), do: {:error, :multi_file_unsupported}
 
+  # Re-probed rather than trusting what discovery recorded: it costs one
+  # ffprobe and buys current track data, plus a file that vanished between
+  # discovery and approval failing the approval instead of creating a
+  # recording that points at nothing.
   defp probe(file) do
     case Scanner.probe_file(file, single_file: true) do
       {:ok, probe} -> {:ok, probe}
       {:error, reason} -> {:error, {:unreadable, reason}}
-    end
-  end
-
-  # An existing Book is always preferred over a new one: reusing the work is
-  # what keeps a second recording of it from splitting the library in two.
-  defp resolve_book(%InboxItem{} = item) do
-    case selected(item, "work") do
-      %{"source" => "local", "id" => id} -> fetch_book(id)
-      candidate -> create_book(item, candidate)
-    end
-  end
-
-  defp fetch_book(id) do
-    case Repo.get(Book, id) do
-      nil -> {:error, :book_not_found}
-      book -> {:ok, book}
-    end
-  end
-
-  defp create_book(item, candidate) do
-    hints = hints(item)
-    title = presence(candidate["title"]) || hints["title"]
-    {published, format} = published(candidate, hints)
-
-    cond do
-      is_nil(title) ->
-        {:error, :no_title}
-
-      # A work has to have a publication date, and the inbox has no business
-      # inventing one — today's date would be worse than no import. Matching
-      # a work supplies it; so does tagging the file.
-      is_nil(published) ->
-        {:error, :no_published_date}
-
-      true ->
-        Books.create_book(%{
-          title: title,
-          published: published,
-          published_format: format,
-          book_authors: author_params(candidate, hints),
-          series_books: series_params(candidate, hints)
-        })
-    end
-  end
-
-  defp published(candidate, hints) do
-    case date(candidate["published"]) do
-      nil -> {date(hints["published"]), format(hints["published_format"]) || :year}
-      date -> {date, format(candidate["published_format"]) || :full}
-    end
-  end
-
-  defp format(format) when format in ["full", "year_month", "year"],
-    do: String.to_existing_atom(format)
-
-  defp format(format) when format in [:full, :year_month, :year], do: format
-  defp format(_other), do: nil
-
-  defp author_params(candidate, hints) do
-    names = names(candidate["authors"]) || names(hints["authors"]) || []
-
-    Enum.map(names, fn name ->
-      {:ok, author} = find_or_create_author(name)
-      %{author_id: author.id}
-    end)
-  end
-
-  defp series_params(candidate, hints) do
-    case candidate["series"] |> List.wrap() |> List.first() |> presence() ||
-           presence(hints["series"]) do
-      nil ->
-        []
-
-      name ->
-        {:ok, series} = find_or_create_series(name)
-        [%{series_id: series.id, book_number: decimal(hints["series_number"]) || Decimal.new(1)}]
-    end
-  end
-
-  defp create_media(item, book, probe) do
-    candidate = selected(item, "recording") || %{}
-    hints = hints(item)
-
-    Media.create_media(%{
-      book_id: book.id,
-      # external custody: referenced where they lie, never touched
-      custody: :external,
-      source_path: item.path,
-      source_files: item.files,
-      status: :pending,
-      duration: probe.duration,
-      chapters: chapter_params(probe),
-      media_narrators: narrator_params(candidate, hints),
-      media_tracks: [track_params(probe)],
-      published: date(candidate["published"]),
-      publisher: presence(candidate["publisher"]) || presence(hints["publisher"]),
-      description: presence(candidate["description"]) || presence(hints["description"])
-    })
-  end
-
-  defp track_params(probe) do
-    %{
-      index: 0,
-      path: probe.path,
-      size: probe.size,
-      mime: probe.mime,
-      format: probe.format,
-      codec: probe.codec,
-      duration: probe.duration,
-      start_offset: 0,
-      seek_accuracy: probe.seek_accuracy
-    }
-  end
-
-  defp chapter_params(%{chapters: chapters}), do: chapters
-
-  defp narrator_params(candidate, hints) do
-    names = names(candidate["narrators"]) || names(hints["narrators"]) || []
-
-    Enum.map(names, fn name ->
-      {:ok, narrator} = find_or_create_narrator(name)
-      %{narrator_id: narrator.id}
-    end)
-  end
-
-  # Attach-or-create, by exact name, case-insensitively. A brand-new credit
-  # brings a Person into being with it, because an Author or Narrator is an
-  # identity *of* somebody — there's no such thing as a free-floating one.
-  defp find_or_create_author(name) do
-    case Repo.one(from a in Author, where: fragment("lower(?)", a.name) == ^String.downcase(name)) do
-      %Author{} = author ->
-        {:ok, author}
-
-      nil ->
-        with {:ok, person} <-
-               People.create_person(%{name: name, author_people: [%{author: %{name: name}}]}) do
-          person = Repo.preload(person, :authors)
-          {:ok, hd(person.authors)}
-        end
-    end
-  end
-
-  defp find_or_create_narrator(name) do
-    query = from n in Narrator, where: fragment("lower(?)", n.name) == ^String.downcase(name)
-
-    case Repo.one(query) do
-      %Narrator{} = narrator ->
-        {:ok, narrator}
-
-      nil ->
-        with {:ok, person} <- People.create_person(%{name: name, narrators: [%{name: name}]}) do
-          person = Repo.preload(person, :narrators)
-          {:ok, hd(person.narrators)}
-        end
-    end
-  end
-
-  defp find_or_create_series(name) do
-    query = from s in Series, where: fragment("lower(?)", s.name) == ^String.downcase(name)
-
-    case Repo.one(query) do
-      %Series{} = series -> {:ok, series}
-      nil -> Books.create_series(%{name: name})
     end
   end
 
@@ -367,68 +454,4 @@ defmodule Ambry.Inbox.Approval do
     |> InboxItem.changeset(%{status: :approved, media_id: media.id})
     |> Repo.update()
   end
-
-  defp selected(%InboxItem{matches: matches}, level) when is_map(matches) do
-    candidates = get_in(matches, [level, "candidates"]) || []
-    selection = get_in(matches, [level, "selected"])
-
-    Enum.find(candidates, List.first(candidates), fn candidate ->
-      (selection && candidate["source"] == selection["source"]) and
-        candidate["id"] == selection["id"]
-    end)
-  end
-
-  defp selected(_item, _level), do: nil
-
-  # One hint builder, shared with matching, so approving an item that was
-  # never matched still knows what its files say it is.
-  defp hints(%InboxItem{} = item) do
-    parsed = AutoMatch.hints(item)
-    tags = item.tags || %{}
-
-    %{
-      "title" => parsed.title,
-      "authors" => names(tags["authors"]) || names(parsed.author) || [],
-      "narrators" => names(tags["narrators"]) || names(parsed.narrator) || [],
-      "series" => parsed.series,
-      "series_number" => tags["series_number"],
-      "published" => tags["published"],
-      "published_format" => tags["published_format"],
-      "publisher" => tags["publisher"],
-      "description" => tags["description"]
-    }
-  end
-
-  defp names(nil), do: nil
-  defp names([]), do: nil
-  defp names(names) when is_list(names), do: Enum.filter(names, &presence/1)
-  defp names(name) when is_binary(name), do: [name]
-
-  defp date(nil), do: nil
-
-  defp date(string) when is_binary(string) do
-    case Date.from_iso8601(string) do
-      {:ok, date} -> date
-      {:error, _reason} -> nil
-    end
-  end
-
-  defp date(%Date{} = date), do: date
-  defp date(_other), do: nil
-
-  defp decimal(nil), do: nil
-  defp decimal(%Decimal{} = decimal), do: decimal
-
-  defp decimal(string) when is_binary(string) do
-    case Decimal.parse(string) do
-      {decimal, ""} -> decimal
-      _unparseable -> nil
-    end
-  end
-
-  defp decimal(_other), do: nil
-
-  defp presence(nil), do: nil
-  defp presence(string) when is_binary(string), do: with("" <- String.trim(string), do: nil)
-  defp presence(other), do: other
 end

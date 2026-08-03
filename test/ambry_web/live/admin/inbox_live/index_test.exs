@@ -109,8 +109,8 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert Inbox.get_item!(item.id).status == :pending
   end
 
-  test "approves an item into the library, leaving files alone", %{conn: conn} do
-    item = probed_item()
+  test "approves a settled item into the library, leaving files alone", %{conn: conn} do
+    item = probed_item() |> settle()
     file = hd(item.files)
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
@@ -124,16 +124,38 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert File.exists?(file)
   end
 
-  test "explains a refusal instead of failing silently", %{conn: conn} do
-    item = probed_item(files: ["01.mp3", "02.mp3"])
+  # The queue can't say *what* is outstanding, so it doesn't offer a button
+  # that would fail — it sends you to the form, which can.
+  test "an unsettled item offers the form rather than an import button", %{conn: conn} do
+    item = probed_item()
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
-    html =
-      view |> element("span[phx-click='approve'][phx-value-id='#{item.id}']") |> render_click()
+    refute has_element?(view, "span[phx-click='approve'][phx-value-id='#{item.id}']")
+    assert has_element?(view, "a[href='/admin/inbox/#{item.id}']")
+  end
 
-    assert html =~ "single-file recordings"
+  test "a refusal no curation can fix is visible before anything is clicked", %{conn: conn} do
+    item = probed_item(files: ["01.mp3", "02.mp3"])
+
+    {:ok, view, html} = live(conn, ~p"/admin/inbox")
+
+    assert html =~ "direct play handles single-file recordings"
+    refute has_element?(view, "span[phx-click='approve'][phx-value-id='#{item.id}']")
     assert Inbox.get_item!(item.id).status == :pending
+  end
+
+  test "the ready bucket counts what is waiting on a click", %{conn: conn} do
+    ready = probed_item(name: "Settled") |> settle()
+    _outstanding = probed_item(name: "Outstanding")
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+
+    html = view |> element("span[data-role='ready-filter']") |> render_click()
+
+    assert html =~ "Settled"
+    refute html =~ "Outstanding"
+    assert Inbox.count_ready() == 1
   end
 
   test "filters by status", %{conn: conn} do
