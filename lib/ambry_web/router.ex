@@ -55,6 +55,12 @@ defmodule AmbryWeb.Router do
     pipe_through :downloads
 
     get "/download/media/:media_id/:file_id/*rest", AmbryWeb.DownloadController, :download_media
+
+    # Direct-play audio. Unlike /uploads these files have no single root —
+    # they're served from wherever they actually live — so the route resolves
+    # a track record instead of a path under a static root. `*rest` carries
+    # the file's real name so downloads keep their real extension.
+    get "/files/track/:id/*rest", AmbryWeb.TrackController, :show
   end
 
   scope "/gql" do

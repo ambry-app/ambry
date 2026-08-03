@@ -29,6 +29,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.Audit
   alias Ambry.Media.Media
   alias Ambry.Media.MediaFlat
+  alias Ambry.Media.MediaTrack
   alias Ambry.Media.Processor
   alias Ambry.Media.PubSub.MediaCreated
   alias Ambry.Media.PubSub.MediaDeleted
@@ -166,6 +167,13 @@ defmodule Ambry.Media do
 
   """
   def fetch_media(id), do: Repo.fetch(Media, id)
+
+  @doc """
+  Fetches a single direct-play track.
+
+  Returns `{:ok, media_track}` on success or `{:error, :not_found}`.
+  """
+  def fetch_media_track(id), do: Repo.fetch(MediaTrack, id)
 
   @doc """
   Creates a media.
