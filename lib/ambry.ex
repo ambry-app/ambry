@@ -14,6 +14,7 @@ defmodule Ambry do
       {Deletions, []},
       {Ecto, []},
       {FileBrowser, []},
+      {Inbox, []},
       {Hashids, []},
       {Media, []},
       {Metadata, []},

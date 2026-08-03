@@ -190,6 +190,8 @@ defmodule AmbryWeb.Router do
       live "/universes/new", UniverseLive.Form, :new
       live "/universes/:id/edit", UniverseLive.Form, :edit
 
+      live "/inbox", InboxLive.Index
+
       live "/media", MediaLive.Index
       live "/media/new", MediaLive.Form, :new
       live "/media/:id/edit", MediaLive.Form, :edit

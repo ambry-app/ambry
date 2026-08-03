@@ -52,6 +52,14 @@ defmodule Ambry.Media.Scanner do
   end
 
   @doc """
+  Probes a single file by path, without a media record.
+
+  This is what the inbox uses: a candidate is measured before anything about
+  it exists in the library.
+  """
+  defdelegate probe_file(path), to: Probe, as: :run
+
+  @doc """
   The audio file extensions direct-play can serve.
   """
   def extensions, do: @extensions
