@@ -23,6 +23,7 @@ defmodule Ambry.Media.Scanner.Probe do
   """
 
   alias Ambry.Media.Chapters.Utils
+  alias Ambry.Media.Scanner.Tags
 
   require Logger
 
@@ -35,6 +36,7 @@ defmodule Ambry.Media.Scanner.Probe do
     :mime,
     :duration,
     :seek_accuracy,
+    :tags,
     chapters: []
   ]
 
@@ -89,7 +91,8 @@ defmodule Ambry.Media.Scanner.Probe do
            mime: mime_type(path),
            duration: duration,
            seek_accuracy: seek_accuracy,
-           chapters: chapters(data)
+           chapters: chapters(data),
+           tags: tags(data, format)
          }}
     end
   end
@@ -123,6 +126,17 @@ defmodule Ambry.Media.Scanner.Probe do
     else
       :exact
     end
+  end
+
+  defp tags(data, format) do
+    Tags.parse(format["tags"] || %{}, has_cover_art: cover_art?(data))
+  end
+
+  # Embedded cover art rides along as a video stream flagged `attached_pic`.
+  defp cover_art?(data) do
+    data
+    |> Map.get("streams", [])
+    |> Enum.any?(&(&1["disposition"]["attached_pic"] == 1))
   end
 
   defp audio_codec(data) do
