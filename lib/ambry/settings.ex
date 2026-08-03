@@ -17,10 +17,36 @@ defmodule Ambry.Settings do
   step — making a recording that has *only* tracks visible to clients.
   """
 
+  alias Ambry.Library.NamingTemplate
   alias Ambry.Repo
   alias Ambry.Settings.Setting
 
   @direct_play_publishing "direct_play_publishing"
+  @library_naming_template "library_naming_template"
+
+  @doc """
+  The folder template managed recordings are organized into.
+
+  See `Ambry.Library.NamingTemplate` for the tokens and how empty ones
+  collapse.
+  """
+  def library_naming_template do
+    case Repo.get(Setting, @library_naming_template) do
+      %Setting{value: %{"template" => template}} when is_binary(template) -> template
+      _missing_or_malformed -> NamingTemplate.default_template()
+    end
+  end
+
+  @doc """
+  Sets the folder template, refusing one that can't produce a usable path.
+  """
+  def set_library_naming_template(template) when is_binary(template) do
+    with :ok <- NamingTemplate.validate(template) do
+      %Setting{}
+      |> Setting.changeset(%{key: @library_naming_template, value: %{"template" => template}})
+      |> Repo.insert(on_conflict: {:replace, [:value, :updated_at]}, conflict_target: :key)
+    end
+  end
 
   @doc """
   Whether the server may publish direct-play recordings to clients.

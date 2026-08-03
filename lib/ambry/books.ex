@@ -60,6 +60,66 @@ defmodule Ambry.Books do
   def book_standard_preloads, do: @book_direct_assoc_preloads
 
   @doc """
+  The values a library naming template renders from.
+
+  A folder can only sit under one author, so `author` and `series` resolve to
+  the **primary** credit — position 0, which the operator controls from the
+  book form. That designation is the entire reason credits carry a position.
+
+  Needs `book_authors: [:author]` and `series_books: [:series]` loaded, and
+  `media_narrators: [:narrator]` on the media; anything not loaded simply
+  resolves to nothing rather than raising, since a missing series is a normal
+  state and the template collapses empty segments anyway.
+  """
+  def naming_values(%Book{} = book, %Media{} = media) do
+    primary_series = primary(book.series_books)
+
+    %{
+      author: book.book_authors |> primary() |> credit_name(:author),
+      narrator: media.media_narrators |> primary() |> credit_name(:narrator),
+      series: primary_series && primary_series.series && primary_series.series.name,
+      series_book_number: primary_series && book_number(primary_series.book_number),
+      # the media's own title wins when set — that's what the title override
+      # is for — and the book's title is the fallback
+      title: presence(media.title) || book.title,
+      year: year(media.published || book.published)
+    }
+  end
+
+  # Position 0 is the operator's designated primary. The list arrives in
+  # position order via `preload_order`, but this is explicit rather than
+  # trusting whatever order a caller happened to load it in.
+  defp primary(entries) when is_list(entries),
+    do: Enum.min_by(entries, & &1.position, fn -> nil end)
+
+  defp primary(_not_loaded), do: nil
+
+  defp credit_name(nil, _key), do: nil
+
+  defp credit_name(entry, key) do
+    case Map.get(entry, key) do
+      %{name: name} -> name
+      _not_loaded -> nil
+    end
+  end
+
+  defp presence(nil), do: nil
+  defp presence(value) when is_binary(value), do: if(String.trim(value) != "", do: value)
+
+  defp year(nil), do: nil
+  defp year(%Date{year: year}), do: year
+
+  # Book numbers are decimals so half-books (1.5) work, but "1.0" in a folder
+  # name is noise.
+  defp book_number(nil), do: nil
+
+  defp book_number(decimal) do
+    if Decimal.equal?(decimal, Decimal.round(decimal, 0)),
+      do: decimal |> Decimal.round(0) |> Decimal.to_string(),
+      else: Decimal.to_string(decimal, :normal)
+  end
+
+  @doc """
   Returns a limited list of books and whether or not there are more.
 
   By default, it will limit to the first 10 results. Supply `offset` and `limit`

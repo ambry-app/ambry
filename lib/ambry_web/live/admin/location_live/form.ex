@@ -75,7 +75,17 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
     |> assign(:form, to_form(changeset))
     |> assign(:kind, Changeset.get_field(changeset, :kind))
     |> assign(:status, path_status(Changeset.get_field(changeset, :path)))
+    |> assign(:root_options, root_options())
   end
+
+  # Only roots can receive imports, so only roots are offered.
+  defp root_options do
+    Enum.map(Library.library_roots(), &{&1.name, &1.id})
+  end
+
+  defp root_prompt([]), do: "No library roots yet"
+  defp root_prompt([{name, _id}]), do: "#{name} (the only root)"
+  defp root_prompt(_several), do: "Choose a library root"
 
   # Checking the path as it's typed is worth the stat call: "that folder isn't
   # there" is the single most common way one of these rows is wrong, and

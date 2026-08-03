@@ -10,12 +10,23 @@ defmodule Ambry.Inbox.Approval do
 
   ## Custody
 
-  Recordings created here are **external**: the files are referenced exactly
-  where they lie and Ambry never moves, copies, renames or deletes them.
-  Removing such a recording later deletes records only. Hardlinking messy
-  sources into a managed library tree is the rest of 3a; external custody is
-  both the honest default for a watched folder and the only thing that can
-  work against a read-only mount.
+  Where an item came from decides what happens to its bytes:
+
+    * from a **downloads** location, the file is brought into that location's
+      library root under the naming template — hardlinked, copied or moved
+      per the location's policy — and the recording becomes **managed**.
+      Ambry owns those bytes and may reorganize or delete them.
+    * from an **external collection**, or from an item with no location at
+      all, the file is referenced exactly where it lies and the recording is
+      **external**. Ambry never moves, copies, renames or deletes it, and
+      removing the recording later deletes records only. This is also the
+      only thing that can work against a read-only mount.
+
+  A hardlink cannot cross a filesystem, and here the downloads folder and the
+  library can easily be on different NAS boxes. Approval **refuses** in that
+  case rather than falling back to a copy: a silent copy is the storage
+  doubling this whole phase exists to eliminate, and the operator would have
+  no way to know it happened.
 
   ## Publishing
 
@@ -39,12 +50,19 @@ defmodule Ambry.Inbox.Approval do
   alias Ambry.Books.Series
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Library
+  alias Ambry.Library.Location
+  alias Ambry.Library.NamingTemplate
+  alias Ambry.Library.Placement
   alias Ambry.Media
   alias Ambry.Media.Scanner
   alias Ambry.People
   alias Ambry.People.Author
   alias Ambry.People.Narrator
   alias Ambry.Repo
+  alias Ambry.Settings
+
+  require Logger
 
   @doc """
   Approves an item, creating everything it implies.
@@ -55,16 +73,97 @@ defmodule Ambry.Inbox.Approval do
   def approve(%InboxItem{status: :approved}), do: {:error, :already_approved}
 
   def approve(%InboxItem{} = item) do
+    item = Repo.preload(item, :location)
+
     with {:ok, file} <- single_file(item),
-         {:ok, probe} <- probe(file) do
-      Repo.transact(fn ->
-        with {:ok, book} <- resolve_book(item),
-             {:ok, media} <- create_media(item, book, probe),
-             {:ok, _item} <- link(item, media) do
-          {:ok, media}
-        end
-      end)
+         {:ok, probe} <- probe(file),
+         {:ok, destination} <- destination(item),
+         {:ok, {media, placement}} <- create(item, file, probe, destination) do
+      # Only now, with the records committed, is it safe to remove a moved
+      # file's source.
+      log_finalize(Placement.finalize(placement), item)
+      {:ok, media}
     end
+  end
+
+  # Placement is deliberately the LAST thing inside the transaction, with
+  # nothing but the commit after it. Fail earlier and no bytes have moved;
+  # fail at the commit and the worst case is a stray file in the library,
+  # which the audit tooling surfaces — never a file whose source was already
+  # deleted and whose record didn't survive.
+  defp create(item, file, probe, destination) do
+    Repo.transact(fn ->
+      with {:ok, book} <- resolve_book(item),
+           {:ok, media} <- create_media(item, book, probe),
+           {:ok, _item} <- link(item, media),
+           {:ok, media, placement} <- place(destination, book, media, file) do
+        {:ok, {media, placement}}
+      end
+    end)
+  end
+
+  # What approval should do with the bytes, decided by where the item came
+  # from. Only a downloads folder imports; an external collection is adopted
+  # exactly where it lies (that is the entire promise of external custody),
+  # and a file already sitting in a library root is already home.
+  defp destination(%InboxItem{location: %Location{kind: :downloads} = location}) do
+    with {:ok, root} <- Library.target_root(location) do
+      {:ok, {root, location.import_policy}}
+    end
+  end
+
+  defp destination(%InboxItem{}), do: {:ok, :adopt}
+
+  defp place(:adopt, _book, media, _file), do: {:ok, media, nil}
+
+  defp place({root, policy}, book, media, file) do
+    # Forced: a freshly-created book carries its `book_authors` as insert
+    # results with the nested `author` unloaded, and a reused one carries
+    # nothing at all. Without this every folder silently loses its author
+    # segment — the template collapses empty tokens, so it fails quietly
+    # rather than raising.
+    book = Repo.preload(book, [{:book_authors, :author}, {:series_books, :series}], force: true)
+    media = Repo.preload(media, [{:media_narrators, :narrator}], force: true)
+
+    values = Books.naming_values(book, media)
+
+    with {:ok, folder} <- NamingTemplate.render(Settings.library_naming_template(), values),
+         {:ok, filename} <- NamingTemplate.filename(values, file),
+         path = Path.join([root.path, folder, filename]),
+         {:ok, placement} <- Placement.place(file, path, policy),
+         {:ok, media} <- adopt_managed(media, path) do
+      {:ok, media, placement}
+    end
+  end
+
+  # The recording now points at the library copy and Ambry owns those bytes.
+  defp adopt_managed(media, path) do
+    with {:ok, _track} <- repoint_track(media, path) do
+      media
+      |> Ecto.Changeset.change(%{
+        custody: :managed,
+        source_path: Path.dirname(path),
+        source_files: [path]
+      })
+      |> Repo.update()
+    end
+  end
+
+  defp repoint_track(%{media_tracks: [track | _rest]}, path) do
+    track |> Ecto.Changeset.change(%{path: path}) |> Repo.update()
+  end
+
+  defp repoint_track(_no_tracks, _path), do: {:error, :no_tracks}
+
+  # A source that couldn't be removed is untidy, not broken: the library copy
+  # exists and is recorded. Failing the import here would be worse than
+  # saying so.
+  defp log_finalize(:ok, _item), do: :ok
+
+  defp log_finalize({:error, reason}, item) do
+    Logger.warning(fn ->
+      "Approved #{item.path} but couldn't remove the source: #{inspect(reason)}"
+    end)
   end
 
   # Direct-play v1 is single-file, and a recording whose tracks can't be

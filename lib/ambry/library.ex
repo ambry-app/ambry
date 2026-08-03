@@ -28,7 +28,7 @@ defmodule Ambry.Library do
 
   use Boundary,
     deps: [Ambry.Repo],
-    exports: [Location]
+    exports: [Location, NamingTemplate, Placement]
 
   import Ecto.Query
 
@@ -77,11 +77,59 @@ defmodule Ambry.Library do
   def get_location!(id), do: Repo.get!(Location, id)
 
   def create_location(attrs) do
-    %Location{} |> Location.changeset(attrs) |> Repo.insert()
+    %Location{} |> Location.changeset(attrs) |> validate_target_root() |> Repo.insert()
   end
 
   def update_location(%Location{} = location, attrs) do
-    location |> Location.changeset(attrs) |> Repo.update()
+    location |> Location.changeset(attrs) |> validate_target_root() |> Repo.update()
+  end
+
+  @doc """
+  The library root a downloads location imports into.
+
+  With a single root the answer is obvious and the location needn't say, so a
+  null `target_root_id` resolves to the only root there is. With several it
+  has to be explicit — guessing would be guessing about which NAS, and
+  therefore about whether hardlinking is possible at all.
+
+  Only `:downloads` locations import anywhere; everything else is adopted in
+  place, so asking is a caller error rather than a missing configuration.
+  """
+  def target_root(%Location{kind: kind}) when kind != :downloads, do: {:error, :not_importing}
+
+  def target_root(%Location{target_root_id: id}) when is_integer(id) do
+    case Repo.get(Location, id) do
+      %Location{kind: :library_root} = root -> {:ok, root}
+      %Location{} -> {:error, :target_not_a_root}
+      nil -> {:error, :target_root_missing}
+    end
+  end
+
+  def target_root(%Location{}) do
+    case library_roots() do
+      [root] -> {:ok, root}
+      [] -> {:error, :no_library_root}
+      _several -> {:error, :ambiguous_library_root}
+    end
+  end
+
+  # Pairing a downloads folder with something that isn't a root would produce
+  # imports landing in someone else's collection, which external custody
+  # exists to promise never happens.
+  defp validate_target_root(changeset) do
+    case Ecto.Changeset.get_field(changeset, :target_root_id) do
+      nil ->
+        changeset
+
+      id ->
+        case Repo.get(Location, id) do
+          %Location{kind: :library_root} ->
+            changeset
+
+          _missing_or_wrong_kind ->
+            Ecto.Changeset.add_error(changeset, :target_root_id, "must be a library root")
+        end
+    end
   end
 
   @doc """
