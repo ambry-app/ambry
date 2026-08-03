@@ -35,6 +35,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.Approval
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.Progress
   alias Ambry.Inbox.RunDiscovery
   alias Ambry.Inbox.RunMatch
   alias Ambry.Inbox.RunProbe
@@ -216,7 +217,65 @@ defmodule Ambry.Inbox do
   the recording and its tracks — with the files referenced where they lie.
   Nothing is published: the recording is created `pending`.
   """
-  defdelegate approve_item(item), to: Approval, as: :approve
+  def approve_item(%InboxItem{} = item) do
+    case Approval.approve(item) do
+      {:ok, media} ->
+        {:ok, media}
+
+      {:error, reason} = error ->
+        # A flash lasts one page load; these workers run `max_attempts: 1`,
+        # so a discarded job lasts a day. Neither tells the operator anything
+        # tomorrow, so the reason goes on the item itself.
+        update_item(item, %{issue: describe_error(reason)})
+        error
+    end
+  end
+
+  @doc """
+  Says what went wrong in a sentence the operator can act on.
+
+  Shared between the flash shown at the time and the `issue` recorded on the
+  item, so the row tomorrow says exactly what the toast said today.
+  """
+  def describe_error(:multi_file_unsupported),
+    do:
+      "Direct play handles single-file recordings for now — merge this one externally, or skip it."
+
+  def describe_error(:no_published_date),
+    do:
+      "No publication date, and one can't be invented. Match a work, or tag the file with a date."
+
+  def describe_error(:no_title),
+    do: "Nothing here says what this is. Match a work, or tag the file with a title."
+
+  def describe_error({:unreadable, _reason}),
+    do: "Couldn't read the file — it may have moved or gone away since it was found."
+
+  def describe_error({:source_missing, _path}), do: "The file has gone away since it was found."
+
+  # The refusal this whole phase is built around, so it says what to do
+  # rather than just what failed.
+  def describe_error({:cross_filesystem, _source, _destination}),
+    do:
+      "This folder and its library root are on different filesystems, so the file can't be " <>
+        "hardlinked. Point it at a root on the same disk, or set the location to copy or move."
+
+  def describe_error({:destination_exists, path}),
+    do: "Something is already at #{path}. Two recordings can't share one path."
+
+  def describe_error(:no_library_root),
+    do: "There's no library root to import into. Add one under Locations."
+
+  def describe_error(:ambiguous_library_root),
+    do: "There's more than one library root — say which one this folder imports into."
+
+  def describe_error(:already_approved), do: "Already in the library."
+  def describe_error(_reason), do: "Couldn't add this to the library."
+
+  @doc """
+  What is happening to each of these items in the background.
+  """
+  defdelegate progress(items), to: Progress, as: :statuses
 
   @doc """
   Takes an item out of the queue without touching its files.
