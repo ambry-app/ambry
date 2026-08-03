@@ -53,14 +53,24 @@
         <.label>Authors</.label>
         <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
           <.sort_input field={@form[:book_authors_sort]} index={book_author_form.index} />
+          <.position_input field={book_author_form[:position]} index={book_author_form.index} />
 
-          <div class="relative">
-            <.input field={book_author_form[:author_id]} type="autocomplete" options={@authors} list="authors" />
-            <.delete_button
-              field={@form[:book_authors_drop]}
+          <div class="relative flex items-start gap-2">
+            <.move_buttons
+              :if={@book_author_count > 1}
+              field={:book_authors}
               index={book_author_form.index}
-              class="absolute top-3 right-2"
+              count={@book_author_count}
+              class="mt-3 flex-none"
             />
+            <div class="relative grow">
+              <.input field={book_author_form[:author_id]} type="autocomplete" options={@authors} list="authors" />
+              <.delete_button
+                field={@form[:book_authors_drop]}
+                index={book_author_form.index}
+                class="absolute top-3 right-2"
+              />
+            </div>
           </div>
         </.inputs_for>
 
@@ -72,8 +82,16 @@
         <.label>Series</.label>
         <.inputs_for :let={series_book_form} field={@form[:series_books]}>
           <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
+          <.position_input field={series_book_form[:position]} index={series_book_form.index} />
 
           <div class="relative flex items-start gap-2">
+            <.move_buttons
+              :if={@series_book_count > 1}
+              field={:series_books}
+              index={series_book_form.index}
+              count={@series_book_count}
+              class="mt-3 flex-none"
+            />
             <.input
               field={series_book_form[:book_number]}
               placeholder="no."

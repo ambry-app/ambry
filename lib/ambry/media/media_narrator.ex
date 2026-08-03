@@ -14,13 +14,17 @@ defmodule Ambry.Media.MediaNarrator do
     belongs_to :media, Media
     belongs_to :narrator, Narrator
 
+    # Billing order. The first narrator is the one a single-narrator display
+    # shows, and the order every list of narrators is rendered in.
+    field :position, :integer, default: 0
+
     timestamps(type: :utc_datetime)
   end
 
   @doc false
   def changeset(media_narrator, attrs) do
     media_narrator
-    |> cast(attrs, [:narrator_id])
+    |> cast(attrs, [:narrator_id, :position])
     |> validate_required(:narrator_id)
   end
 end

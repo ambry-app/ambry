@@ -5,6 +5,7 @@ defmodule Ambry.Books.Book do
 
   use Ecto.Schema
 
+  import Ambry.Ecto.Positions
   import Ecto.Changeset
 
   alias Ambry.Books.BookUniverse
@@ -18,8 +19,8 @@ defmodule Ambry.Books.Book do
 
   schema "books" do
     has_many :media, Media, preload_order: [desc: :published]
-    has_many :series_books, SeriesBook, on_replace: :delete
-    has_many :book_authors, BookAuthor, on_replace: :delete
+    has_many :series_books, SeriesBook, on_replace: :delete, preload_order: [asc: :position]
+    has_many :book_authors, BookAuthor, on_replace: :delete, preload_order: [asc: :position]
     has_many :book_universes, BookUniverse, on_replace: :delete
     has_many :series, through: [:series_books, :series]
     has_many :authors, through: [:book_authors, :author]
@@ -54,6 +55,8 @@ defmodule Ambry.Books.Book do
       sort_param: :book_universes_sort,
       drop_param: :book_universes_drop
     )
+    |> put_positions(:book_authors)
+    |> put_positions(:series_books)
     |> validate_required([:title, :published])
     |> foreign_key_constraint(:media, name: "media_book_id_fkey")
     |> Provenance.track_changes(@provenance_fields, opts[:provenance] || %{})

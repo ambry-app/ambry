@@ -141,6 +141,9 @@ defmodule AmbrySchema.Media do
   end
 
   node object(:media_narrator) do
+    # Billing order: position 0 is the recording's lead narrator.
+    field :position, non_null(:integer)
+
     field :media, non_null(:media), resolve: dataloader(Resolvers, args: %{allow_all_media: true})
     field :narrator, non_null(:narrator), resolve: dataloader(Resolvers)
 

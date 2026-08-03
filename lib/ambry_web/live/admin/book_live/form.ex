@@ -9,6 +9,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   alias Ambry.Provenance
   alias AmbryWeb.Admin.BookLive.Form.ProviderImportForm
   alias AmbryWeb.Admin.ProvenanceHints
+  alias AmbryWeb.Admin.Reordering
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
@@ -109,6 +110,13 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     {:noreply, handle_import_form_params(socket, %{"import" => type})}
   end
 
+  def handle_event("move", params, socket) do
+    changeset = socket.assigns.form.source
+    book_params = Reordering.move(changeset, socket.assigns.form.params, params)
+
+    {:noreply, assign_form(socket, Books.change_book(socket.assigns.book, book_params))}
+  end
+
   @impl Phoenix.LiveView
   def handle_info({:import, %{"book" => book_params}, source}, socket) do
     # authors and/or series could have been created, reload the data-lists
@@ -162,7 +170,12 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   defp assign_form(socket, %Changeset{} = changeset) do
-    assign(socket, :form, to_form(changeset))
+    assign(socket,
+      form: to_form(changeset),
+      # the move buttons need to know where the ends of each list are
+      book_author_count: length(Changeset.get_assoc(changeset, :book_authors)),
+      series_book_count: length(Changeset.get_assoc(changeset, :series_books))
+    )
   end
 
   defp open_import_form(%Book{id: nil}, type), do: JS.patch(~p"/admin/books/new?import=#{type}")

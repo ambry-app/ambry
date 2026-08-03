@@ -80,14 +80,29 @@
         <.label>Narrated by</.label>
         <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
           <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
+          <.position_input field={media_narrator_form[:position]} index={media_narrator_form.index} />
 
-          <div class="relative">
-            <.input field={media_narrator_form[:narrator_id]} type="autocomplete" options={@narrators} list="narrators" />
-            <.delete_button
-              field={@form[:media_narrators_drop]}
+          <div class="relative flex items-start gap-2">
+            <.move_buttons
+              :if={@media_narrator_count > 1}
+              field={:media_narrators}
               index={media_narrator_form.index}
-              class="absolute top-3 right-2"
+              count={@media_narrator_count}
+              class="mt-3 flex-none"
             />
+            <div class="relative grow">
+              <.input
+                field={media_narrator_form[:narrator_id]}
+                type="autocomplete"
+                options={@narrators}
+                list="narrators"
+              />
+              <.delete_button
+                field={@form[:media_narrators_drop]}
+                index={media_narrator_form.index}
+                class="absolute top-3 right-2"
+              />
+            </div>
           </div>
         </.inputs_for>
 
