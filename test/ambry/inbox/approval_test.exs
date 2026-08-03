@@ -1,0 +1,193 @@
+defmodule Ambry.Inbox.ApprovalTest do
+  use Ambry.DataCase
+
+  alias Ambry.Books
+  alias Ambry.Books.Book
+  alias Ambry.Inbox
+  alias Ambry.Media
+  alias Ambry.People.Author
+  alias Ambry.People.Narrator
+
+  describe "approve/1" do
+    test "creates the whole graph from a tagged file" do
+      item = tagged_item()
+
+      assert {:ok, media} = Inbox.approve_item(item)
+
+      media = media.id |> Media.get_media!() |> Repo.preload(:narrators)
+      book = Books.get_book!(media.book_id)
+
+      assert book.title == "The Way of Kings"
+      assert [%{name: "Brandon Sanderson"}] = book.authors
+      assert [%{name: "Michael Kramer"}, %{name: "Kate Reading"}] = media.narrators
+      assert [track] = media.media_tracks
+      assert track.codec == "aac"
+      assert Decimal.compare(media.duration, 0) == :gt
+    end
+
+    test "references the files where they lie and never touches them" do
+      item = tagged_item()
+      [file] = item.files
+      before = File.stat!(file)
+
+      assert {:ok, media} = Inbox.approve_item(item)
+
+      assert media.custody == :external
+      assert media.source_files == item.files
+      assert [%{path: ^file}] = Media.get_media!(media.id).media_tracks
+
+      assert File.exists?(file)
+      assert File.stat!(file).size == before.size
+    end
+
+    test "does not publish" do
+      assert {:ok, media} = tagged_item() |> Inbox.approve_item()
+
+      assert media.status == :pending
+    end
+
+    test "marks the item approved and links it to what it became" do
+      item = tagged_item()
+
+      assert {:ok, media} = Inbox.approve_item(item)
+
+      item = Inbox.get_item!(item.id)
+      assert item.status == :approved
+      assert item.media_id == media.id
+    end
+
+    test "won't approve the same item twice" do
+      item = tagged_item()
+      {:ok, _media} = Inbox.approve_item(item)
+
+      assert {:error, :already_approved} = item.id |> Inbox.get_item!() |> Inbox.approve_item()
+    end
+  end
+
+  describe "approve/1 and existing records" do
+    test "reuses a Book already in the library rather than duplicating the work" do
+      existing = insert(:book, title: "The Way of Kings")
+      item = tagged_item(work_match: {"local", existing.id})
+
+      assert {:ok, media} = Inbox.approve_item(item)
+
+      assert media.book_id == existing.id
+      assert Repo.aggregate(Book, :count) == 1
+    end
+
+    test "reuses an existing author instead of creating a second one" do
+      person = insert(:person, name: "Brandon Sanderson")
+      author = insert(:author, person: person, name: "Brandon Sanderson")
+
+      assert {:ok, media} = tagged_item() |> Inbox.approve_item()
+
+      book = Books.get_book!(media.book_id)
+      assert [%{id: author_id}] = book.authors
+      assert author_id == author.id
+      assert Repo.aggregate(Author, :count) == 1
+    end
+
+    test "creates a person alongside a brand-new narrator credit" do
+      assert {:ok, media} = tagged_item() |> Inbox.approve_item()
+
+      media = media.id |> Media.get_media!() |> Repo.preload(:narrators)
+
+      assert [first | _rest] = media.narrators
+      assert Repo.get!(Narrator, first.id).person_id
+    end
+  end
+
+  describe "approve/1 refusals" do
+    test "refuses a multi-file release rather than importing half of it" do
+      item = tagged_item(files: ["01.mp3", "02.mp3"])
+
+      assert {:error, :multi_file_unsupported} = Inbox.approve_item(item)
+      assert Repo.aggregate(Book, :count) == 0
+    end
+
+    # A work must have a publication date and the inbox has no business
+    # inventing one — matching a work supplies it, as does tagging the file.
+    test "refuses a release with no publication date anywhere" do
+      item = tagged_item(dated: false)
+
+      assert {:error, :no_published_date} = Inbox.approve_item(item)
+      assert Repo.aggregate(Book, :count) == 0
+    end
+
+    @tag :capture_log
+    test "refuses a file that vanished between discovery and approval" do
+      item = tagged_item()
+      item.files |> hd() |> File.rm!()
+
+      assert {:error, {:unreadable, _reason}} = Inbox.approve_item(item)
+
+      # nothing half-created, and the item stays in the queue
+      assert Repo.aggregate(Book, :count) == 0
+      assert Inbox.get_item!(item.id).status == :pending
+    end
+  end
+
+  # A real tagged file discovered the way discovery would find it.
+  defp tagged_item(opts \\ []) do
+    root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
+    release = Path.join(root, "The Way of Kings [M4B]")
+    File.mkdir_p!(release)
+
+    case Keyword.get(opts, :files) do
+      nil ->
+        File.cp!(
+          tagged_fixture(Keyword.get(opts, :dated, true)),
+          Path.join(release, "book.m4b")
+        )
+
+      names ->
+        Enum.each(names, &File.cp!(valid_audio(:mp3), Path.join(release, &1)))
+    end
+
+    {:ok, _counts} = Inbox.discover(root)
+    {[item], false} = Inbox.list_items()
+    {:ok, item} = Inbox.probe_item(item)
+
+    case Keyword.get(opts, :work_match) do
+      {"local", id} ->
+        selection = %{"source" => "local", "id" => id}
+
+        {:ok, item} =
+          Inbox.update_item(item, %{
+            matches: %{"work" => %{"candidates" => [selection], "selected" => selection}}
+          })
+
+        item
+
+      nil ->
+        item
+    end
+  end
+
+  defp tagged_fixture(dated?) do
+    dir = Ambry.Paths.source_media_disk_path("fixture-#{Ecto.UUID.generate()}")
+    File.mkdir_p!(dir)
+    path = Path.join(dir, "tagged.m4b")
+
+    {_output, 0} =
+      System.cmd(
+        "ffmpeg",
+        [
+          "-v",
+          "quiet",
+          "-i",
+          valid_audio(:m4a),
+          "-c",
+          "copy",
+          "-metadata",
+          "album=The Way of Kings",
+          "-metadata",
+          "artist=Brandon Sanderson",
+          "-metadata",
+          "composer=Michael Kramer, Kate Reading"
+        ] ++ if(dated?, do: ["-metadata", "date=2010-08-31"], else: []) ++ [path]
+      )
+
+    path
+  end
+end

@@ -19,6 +19,7 @@ defmodule Ambry.Media.Media do
   alias Ambry.Thumbnails
 
   @statuses [:pending, :processing, :error, :ready]
+  @custodies [:managed, :external]
 
   # provider-fillable scalar fields tracked by field-level provenance
   @provenance_fields [:published, :published_format, :publisher, :description, :image_path]
@@ -40,6 +41,11 @@ defmodule Ambry.Media.Media do
 
     field :full_cast, :boolean, default: false
     field :status, Ecto.Enum, values: @statuses, default: :pending
+
+    # what Ambry may do to these bytes: `managed` files are its own to
+    # organize and delete, `external` files are read where they lie and never
+    # touched (roadmap 3a)
+    field :custody, Ecto.Enum, values: @custodies, default: :managed
     field :abridged, :boolean, default: false
 
     # display-title override: how this recording's title differs from the
@@ -82,6 +88,8 @@ defmodule Ambry.Media.Media do
 
   def statuses, do: @statuses
 
+  def custodies, do: @custodies
+
   def provenance_fields, do: @provenance_fields
 
   @doc false
@@ -99,6 +107,7 @@ defmodule Ambry.Media.Media do
       :recording_group_show_label,
       :source_path,
       :source_files,
+      :custody,
       :published,
       :published_format,
       :notes,

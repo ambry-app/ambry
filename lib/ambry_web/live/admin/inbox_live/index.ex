@@ -61,6 +61,22 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     {:noreply, reload(socket)}
   end
 
+  def handle_event("approve", %{"id" => id}, socket) do
+    id
+    |> Inbox.get_item!()
+    |> Inbox.approve_item()
+    |> case do
+      {:ok, _media} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Added to the library. Files were left where they are.")
+         |> reload()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, approval_error(reason))}
+    end
+  end
+
   def handle_event("rematch", %{"id" => id}, socket) do
     {:ok, _job} = id |> Inbox.get_item!() |> Inbox.match_item_async()
 
@@ -110,6 +126,24 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   end
 
   defp reload(socket), do: load_items(socket, patch(socket, []))
+
+  # Say what to do about it, not just what went wrong.
+  defp approval_error(:multi_file_unsupported),
+    do:
+      "Direct play handles single-file recordings for now — merge this one externally, or skip it."
+
+  defp approval_error(:no_published_date),
+    do:
+      "No publication date, and one can't be invented. Match a work, or tag the file with a date."
+
+  defp approval_error(:no_title),
+    do: "Nothing here says what this is. Match a work, or tag the file with a title."
+
+  defp approval_error({:unreadable, _reason}),
+    do: "Couldn't read the file — it may have moved or gone away since it was found."
+
+  defp approval_error(:already_approved), do: "Already in the library."
+  defp approval_error(_reason), do: "Couldn't add this to the library."
 
   # Blank values are dropped rather than passed as nil: the shared pagination
   # helpers read params with `Map.get(params, "filter", "")`, which only

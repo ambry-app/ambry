@@ -32,6 +32,7 @@ defmodule Ambry.Inbox do
 
   import Ecto.Query
 
+  alias Ambry.Inbox.Approval
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.RunDiscovery
@@ -167,6 +168,15 @@ defmodule Ambry.Inbox do
   def match_item_async(%InboxItem{} = item) do
     %{inbox_item_id: item.id} |> RunMatch.new() |> Oban.insert()
   end
+
+  @doc """
+  Approves an item into the library.
+
+  Creates the whole entity graph in one transaction — book, credits, series,
+  the recording and its tracks — with the files referenced where they lie.
+  Nothing is published: the recording is created `pending`.
+  """
+  defdelegate approve_item(item), to: Approval, as: :approve
 
   @doc """
   Takes an item out of the queue without touching its files.

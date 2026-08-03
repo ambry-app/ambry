@@ -105,6 +105,16 @@
             />
           </span>
 
+          <span
+            :if={item.status == :pending}
+            phx-click="approve"
+            phx-value-id={item.id}
+            title="Add to the library (files stay where they are)"
+            data-confirm="Add this to the library? Files are referenced where they are — nothing is moved or copied."
+          >
+            <.icon name="fa-check" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-lime-500" />
+          </span>
+
           <span phx-click="reprobe" phx-value-id={item.id} title="Re-read the files">
             <.icon name="fa-rotate" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400" />
           </span>

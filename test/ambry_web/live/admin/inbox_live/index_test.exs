@@ -109,6 +109,33 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert Inbox.get_item!(item.id).status == :pending
   end
 
+  test "approves an item into the library, leaving files alone", %{conn: conn} do
+    item = probed_item()
+    file = hd(item.files)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+
+    html =
+      view |> element("span[phx-click='approve'][phx-value-id='#{item.id}']") |> render_click()
+
+    assert html =~ "Files were left where they are"
+    assert %{status: :approved, media_id: media_id} = Inbox.get_item!(item.id)
+    assert media_id
+    assert File.exists?(file)
+  end
+
+  test "explains a refusal instead of failing silently", %{conn: conn} do
+    item = probed_item(files: ["01.mp3", "02.mp3"])
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+
+    html =
+      view |> element("span[phx-click='approve'][phx-value-id='#{item.id}']") |> render_click()
+
+    assert html =~ "single-file recordings"
+    assert Inbox.get_item!(item.id).status == :pending
+  end
+
   test "filters by status", %{conn: conn} do
     keeper = probed_item(name: "Keeper")
     reject = probed_item(name: "Reject")
@@ -163,6 +190,8 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
         "album=The Way of Kings",
         "-metadata",
         "artist=Brandon Sanderson",
+        "-metadata",
+        "date=2010-08-31",
         path
       ])
 
