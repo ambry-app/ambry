@@ -454,6 +454,67 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  @doc """
+  Carries a row's place in the list back to the server.
+
+  Not decoration: a reorder that changes no field is invisible to Ecto —
+  `cast_assoc` returns `:ignore` when every child changeset comes back empty,
+  and the new order is silently dropped. This input is what makes a moved row
+  a real change. See `AmbryWeb.Admin.Reordering`.
+  """
+  attr :field, FormField, required: true
+  attr :index, :integer, required: true
+
+  def position_input(assigns) do
+    ~H"""
+    <input type="hidden" name={@field.name} value={@index} />
+    """
+  end
+
+  @doc """
+  Up/down buttons for reordering one entry of an ordered association.
+
+  The button at each end of the list is rendered disabled rather than hidden,
+  so the controls don't shift horizontally as rows move past them.
+  """
+  attr :field, :atom, required: true, doc: "the association field being reordered"
+  attr :index, :integer, required: true
+  attr :count, :integer, required: true
+  attr :class, :string, default: nil
+
+  def move_buttons(assigns) do
+    ~H"""
+    <div class={["flex flex-col", @class]} data-role="move-buttons">
+      <button
+        type="button"
+        phx-click="move"
+        phx-value-field={@field}
+        phx-value-index={@index}
+        phx-value-direction="up"
+        disabled={@index == 0}
+        title="Move up"
+        data-role="move-up"
+        class="disabled:opacity-25"
+      >
+        <.icon name="fa-chevron-up" class="h-3 w-3 text-current transition-colors hover:text-blue-600" />
+      </button>
+      <button
+        type="button"
+        phx-click="move"
+        phx-value-field={@field}
+        phx-value-index={@index}
+        phx-value-direction="down"
+        disabled={@index == @count - 1}
+        title="Move down"
+        data-role="move-down"
+        class="disabled:opacity-25"
+      >
+        <.icon name="fa-chevron-down" class="h-3 w-3 text-current transition-colors hover:text-blue-600" />
+      </button>
+    </div>
+    """
+  end
+
   attr :field, FormField, required: true
   slot :inner_block, required: true
 

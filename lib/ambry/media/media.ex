@@ -5,6 +5,7 @@ defmodule Ambry.Media.Media do
 
   use Ecto.Schema
 
+  import Ambry.Ecto.Positions
   import Ecto.Changeset
 
   alias Ambry.Books.Book
@@ -27,7 +28,7 @@ defmodule Ambry.Media.Media do
   schema "media" do
     belongs_to :book, Book
     belongs_to :recording_group, RecordingGroup
-    has_many :media_narrators, MediaNarrator, on_replace: :delete
+    has_many :media_narrators, MediaNarrator, on_replace: :delete, preload_order: [asc: :position]
     has_many :authors, through: [:book, :authors]
     has_many :narrators, through: [:media_narrators, :narrator]
 
@@ -124,6 +125,7 @@ defmodule Ambry.Media.Media do
       sort_param: :media_narrators_sort,
       drop_param: :media_narrators_drop
     )
+    |> put_positions(:media_narrators)
     |> maybe_cast_tracks(attrs)
     |> cast_embed(:chapters,
       sort_param: :chapters_sort,

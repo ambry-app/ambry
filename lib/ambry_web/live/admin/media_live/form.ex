@@ -13,6 +13,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
   alias AmbryWeb.Admin.MediaLive.Form.ProviderImportForm
   alias AmbryWeb.Admin.ProvenanceHints
+  alias AmbryWeb.Admin.Reordering
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
@@ -159,6 +160,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   def handle_event("toggle-provenance-lock", %{"field" => field}, socket) do
     {:ok, media} = Provenance.toggle_lock(socket.assigns.media, field)
     {:noreply, assign(socket, media: media)}
+  end
+
+  def handle_event("move", params, socket) do
+    changeset = socket.assigns.form.source
+    media_params = Reordering.move(changeset, socket.assigns.form.params, params)
+
+    {:noreply, assign_form(socket, Media.change_media(socket.assigns.media, media_params))}
   end
 
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
@@ -329,7 +337,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp assign_form(socket, %Changeset{} = changeset) do
-    assign(socket, :form, to_form(changeset))
+    assign(socket,
+      form: to_form(changeset),
+      # the move buttons need to know where the ends of the list are
+      media_narrator_count: length(Changeset.get_assoc(changeset, :media_narrators))
+    )
   end
 
   defp maybe_start_processor!(media, media_params, :new) do

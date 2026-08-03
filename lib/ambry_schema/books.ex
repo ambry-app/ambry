@@ -17,6 +17,11 @@ defmodule AmbrySchema.Books do
   node object(:series_book) do
     field :book_number, non_null(:decimal)
 
+    # Which series comes first when a book is in several. Additive: clients
+    # that don't ask for it are unaffected, and one that does can order a
+    # book's series the way the operator did.
+    field :position, non_null(:integer)
+
     field :book, non_null(:book), resolve: dataloader(Resolvers)
     field :series, non_null(:series), resolve: dataloader(Resolvers)
 
@@ -78,6 +83,9 @@ defmodule AmbrySchema.Books do
   end
 
   node object(:book_author) do
+    # Billing order: position 0 is the book's primary author.
+    field :position, non_null(:integer)
+
     field :author, non_null(:author), resolve: dataloader(Resolvers)
     field :book, non_null(:book), resolve: dataloader(Resolvers)
 
