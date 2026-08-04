@@ -5,6 +5,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.InboxItem
   alias Ambry.Repo
 
   setup :register_and_log_in_admin_user
@@ -47,29 +48,29 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       # tag-derived credits are never auto-settled, so the narrators from the
       # fixture's `composer` tag are listed by name
       assert html =~ "Michael Kramer"
-      assert html =~ "needs a look"
+      assert html =~ "needs confirming"
     end
   end
 
   describe "settling decisions" do
-    test "accept-everything settles what's only waiting on a nod", %{conn: conn} do
+    test "take-the-top-suggestion settles everything that has one", %{conn: conn} do
       item = probed_item()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      html = view |> element("button", "Accept everything") |> render_click()
+      html = view |> element("button[phx-click='approve-all']") |> render_click()
 
       refute html =~ "Still to settle"
       assert Inbox.get_item!(item.id).ready
     end
 
-    test "accept-everything never invents a missing required value", %{conn: conn} do
+    test "take-the-top-suggestion never invents a missing required value", %{conn: conn} do
       item = probed_item(dated: false)
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
       assert html =~ "First published"
 
-      html = view |> element("button", "Accept everything") |> render_click()
+      html = view |> element("button[phx-click='approve-all']") |> render_click()
 
       # the date nobody supplied is still outstanding — this button settles
       # choices, it does not fabricate facts
@@ -209,6 +210,59 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "identity — one answer, not a shortlist" do
+    test "exactly one work candidate is marked as chosen", %{conn: conn} do
+      # Every provider row used to wear a checkmark the moment the work was
+      # approved, which said the release was all of them at once.
+      item = probed_item() |> with_work_candidates()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert view |> element("[data-role='candidate'][data-selected='true']") |> has_element?()
+      assert view |> render() |> selected_candidates() |> length() == 1
+    end
+
+    test "choosing another candidate moves the fields", %{conn: conn} do
+      item = probed_item() |> with_work_candidates()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert Inbox.get_item!(item.id).draft.work.title.value == "The Way of Kings"
+
+      view
+      |> element("[phx-click='choose-work'][phx-value-id='hc-2']")
+      |> render_click()
+
+      work = Inbox.get_item!(item.id).draft.work
+
+      assert work.selected_id == "hc-2"
+      assert "Words of Radiance" in Enum.map(work.title.candidates, & &1.value)
+
+      # and the new candidate genuinely contradicts the file's tags, so the
+      # title stops being settled rather than silently taking one side
+      refute work.title.approved
+      assert "2014-03-04" in Enum.map(work.published.candidates, & &1.value)
+    end
+
+    test "the search that produced the candidates is visible", %{conn: conn} do
+      item = probed_item() |> with_work_candidates()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "Searched for"
+      assert html =~ "The Way of Kings"
+    end
+
+    test "the file's own tags are visible", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "What the files say"
+      assert html =~ "Michael Kramer"
+    end
+  end
+
   describe "destination" do
     test "says where the file is going before anything is committed", %{conn: conn} do
       item = probed_item() |> settle()
@@ -218,6 +272,53 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert html =~ "Referenced where it lies"
       assert html =~ "never move, rename or delete"
     end
+  end
+
+  # Two plausible works from one provider, so the candidate list is a real
+  # question rather than a formality.
+  defp with_work_candidates(item) do
+    candidate = fn id, title, published ->
+      %{
+        "source" => "provider:hardcover",
+        "provider_name" => "Hardcover",
+        "id" => id,
+        "title" => title,
+        "authors" => ["Brandon Sanderson"],
+        "published" => published,
+        "published_format" => "full",
+        "score" => if(id == "hc-1", do: 0.95, else: 0.6)
+      }
+    end
+
+    {:ok, item} =
+      item
+      |> InboxItem.changeset(%{
+        matches: %{
+          "work" => %{
+            "candidates" => [
+              candidate.("hc-1", "The Way of Kings", "2010-08-31"),
+              candidate.("hc-2", "Words of Radiance", "2014-03-04")
+            ],
+            "confidence" => 0.95,
+            "query" => "The Way of Kings Brandon Sanderson",
+            "query_fields" => %{
+              "title" => "The Way of Kings",
+              "author" => "Brandon Sanderson"
+            }
+          },
+          "recording" => %{"candidates" => [], "confidence" => 0.0}
+        }
+      })
+      |> Repo.update()
+
+    {:ok, item} = Inbox.rebuild_draft(item)
+    item
+  end
+
+  defp selected_candidates(html) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find("[data-role='candidate'][data-selected='true']")
   end
 
   defp probed_item(opts \\ []) do

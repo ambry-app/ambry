@@ -28,6 +28,15 @@ defmodule Ambry.Inbox.Draft.Work do
     field :candidates, {:array, :map}, default: []
     field :confidence, :float
     field :query, :string
+    field :query_fields, :map, default: %{}
+
+    # WHICH candidate the fields below were filled from. Without it the form
+    # could only ask "is this a new book or an existing one?", so every
+    # provider row rendered as chosen and clicking one changed nothing
+    # visible. Ids are held as strings because a local candidate's is an
+    # integer and a provider's is not.
+    field :selected_source, :string
+    field :selected_id, :string
 
     embeds_one :title, Field, on_replace: :update
     embeds_one :published, Field, on_replace: :update
@@ -40,7 +49,17 @@ defmodule Ambry.Inbox.Draft.Work do
   @doc false
   def changeset(work, attrs) do
     work
-    |> cast(attrs, [:mode, :book_id, :approved, :candidates, :confidence, :query])
+    |> cast(attrs, [
+      :mode,
+      :book_id,
+      :approved,
+      :candidates,
+      :confidence,
+      :query,
+      :query_fields,
+      :selected_source,
+      :selected_id
+    ])
     |> cast_embed(:title)
     |> cast_embed(:published)
     |> cast_embed(:published_format)
@@ -98,4 +117,17 @@ defmodule Ambry.Inbox.Draft.Work do
 
   defp state_of(%Credit{} = credit), do: Credit.state(credit)
   defp state_of(%SeriesLink{} = link), do: SeriesLink.state(link)
+
+  @doc """
+  Whether a candidate is the one this work's fields were filled from.
+
+  Exactly one can be, which is the whole point: the candidate list is a
+  question with one right answer, not a set of things that all matched.
+  """
+  def selected?(%__MODULE__{selected_source: nil}, _candidate), do: false
+
+  def selected?(%__MODULE__{} = work, candidate) do
+    work.selected_source == candidate["source"] and
+      work.selected_id == to_string(candidate["id"])
+  end
 end

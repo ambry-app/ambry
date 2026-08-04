@@ -90,6 +90,45 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert matches["recording"]["query"] == "B003ZWFO7E"
     end
 
+    # Every provider we use reports a book's position in its series
+    # (Hardcover's `position`, rreading-glasses' `PositionInSeries`, Audible's
+    # `sequence`), and it was being dropped on the floor here — so the inbox
+    # asked the operator for a number nobody had to look up.
+    test "carries each series' number, not just its name" do
+      patch_work_results([
+        book("Leviathan Wakes", ["James S.A. Corey"],
+          series: [
+            %Provider.Series{id: "s1", name: "The Expanse", number: "1"},
+            %Provider.Series{id: "s2", name: "The Expanse (Chronological)", number: "2"}
+          ]
+        )
+      ])
+
+      %{matches: matches} = AutoMatch.match(item(title: "Leviathan Wakes"))
+
+      assert [best | _rest] = matches["work"]["candidates"]
+
+      assert best["series"] == [
+               %{"name" => "The Expanse", "number" => "1"},
+               %{"name" => "The Expanse (Chronological)", "number" => "2"}
+             ]
+    end
+
+    test "records the search's fields, not only its flattened string" do
+      patch_work_results([book("Neuromancer", ["William Gibson"])])
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Neuromancer", author: "William Gibson"))
+
+      # "what did you even search for?" is the first question a bad match
+      # raises, and the flattened string doesn't answer it — Audible matches
+      # `title` against the title alone
+      assert matches["work"]["query_fields"] == %{
+               "title" => "Neuromancer",
+               "author" => "William Gibson"
+             }
+    end
+
     test "ranks a book already in the library first" do
       insert(:book, title: "The Way of Kings")
       patch_work_results([book("The Way of Kings", ["Brandon Sanderson"])])
@@ -267,7 +306,8 @@ defmodule Ambry.Inbox.AutoMatchTest do
       asin: opts[:asin],
       authors: Enum.map(authors, &%Provider.Contributor{name: &1, role: "author"}),
       narrators:
-        Enum.map(opts[:narrators] || [], &%Provider.Contributor{name: &1, role: "narrator"})
+        Enum.map(opts[:narrators] || [], &%Provider.Contributor{name: &1, role: "narrator"}),
+      series: opts[:series] || []
     }
   end
 

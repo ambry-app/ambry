@@ -140,7 +140,7 @@ defmodule Ambry.Inbox.AutoMatch do
           "description" => presence(book.description),
           "cover_url" => presence(book.cover_url),
           "publisher" => presence(book.publisher),
-          "series" => book.series |> List.wrap() |> Enum.map(& &1.name)
+          "series" => series_refs(book.series)
         }
         |> Enum.reject(fn {_key, value} -> value in [nil, []] end)
         |> Map.new()
@@ -201,7 +201,7 @@ defmodule Ambry.Inbox.AutoMatch do
            true <- is_binary(ref["id"]),
            {:ok, %{capabilities: capabilities}} <- Registry.fetch(provider_id),
            true <- :editions in capabilities do
-        fetch_editions(provider_id, ref["id"], hints)
+        fetch_editions(provider_id, ref["id"], hints, work_ref(best))
       else
         _not_this_one -> nil
       end
@@ -210,11 +210,22 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp work_editions(_work, _hints), do: {[], []}
 
-  defp fetch_editions(provider_id, work_id, hints) do
+  # A recording is a recording of exactly one work, so an edition that came
+  # out of a work's own list carries that work with it. Choosing such a
+  # recording in the form settles the book too, instead of asking the operator
+  # the same question twice.
+  defp work_ref(%{"source" => source, "id" => id}), do: %{"source" => source, "id" => id}
+
+  defp fetch_editions(provider_id, work_id, hints, of_work) do
     case Providers.editions(provider_id, work_id, []) do
       {:ok, books} ->
         {:ok, entry} = Registry.fetch(provider_id)
-        candidates = Enum.map(books, &provider_candidate(&1, entry, hints))
+
+        candidates =
+          Enum.map(
+            books,
+            &(&1 |> provider_candidate(entry, hints) |> Map.put("of_work", of_work))
+          )
 
         {candidates,
          [
@@ -255,6 +266,10 @@ defmodule Ambry.Inbox.AutoMatch do
 
     %{
       "query" => query && to_string(query),
+      # The flattened string is what the cache keys on and what text-only
+      # providers see, but it isn't what was *asked* — the fields are, and
+      # they're what the operator needs to read when a match looks wrong.
+      "query_fields" => query_fields(query),
       "candidates" => candidates,
       # the operator confirms; this is only the suggestion
       "selected" => candidates |> List.first() |> selected_ref(),
@@ -268,6 +283,19 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp selected_ref(nil), do: nil
   defp selected_ref(candidate), do: %{"source" => candidate["source"], "id" => candidate["id"]}
+
+  defp query_fields(nil), do: %{}
+
+  defp query_fields(%Provider.Query{} = query) do
+    %{
+      "title" => presence(query.title),
+      "author" => presence(query.author),
+      "narrator" => presence(query.narrator),
+      "keywords" => presence(query.keywords)
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
 
   # Two providers returning the same work is the strongest signal available,
   # not a disagreement — but the runner-up penalty below read it as one and
@@ -346,7 +374,7 @@ defmodule Ambry.Inbox.AutoMatch do
         "id" => book.id,
         "title" => book.title,
         "authors" => Enum.map(book.authors || [], & &1.name),
-        "series" => Enum.map(book.series || [], & &1.name),
+        "series" => series_refs(book.series),
         "published" => book.published && Date.to_iso8601(book.published),
         # a work already in the library beats an equally-good provider hit:
         # reusing it is what prevents duplicate Books
@@ -419,7 +447,7 @@ defmodule Ambry.Inbox.AutoMatch do
       "title" => book.title,
       "authors" => authors,
       "narrators" => narrators,
-      "series" => Enum.map(book.series || [], & &1.name),
+      "series" => series_refs(book.series),
       "published" =>
         book.published && book.published.date && Date.to_iso8601(book.published.date),
       # carried alongside the date because it is not derivable from it:
@@ -433,6 +461,22 @@ defmodule Ambry.Inbox.AutoMatch do
       "score" => score(book.title, authors, narrators, book.asin, hints)
     }
   end
+
+  # A series membership is a name AND a position, and the position was being
+  # thrown away here — every provider we use reports it (Hardcover's
+  # `position`/`details`, rreading-glasses' `PositionInSeries`, Audible's
+  # `sequence`), and the inbox then asked the operator for a number nobody had
+  # to look up. Kept as maps rather than two parallel lists so a book that is
+  # #10.5 in one series and #3 in another survives the trip.
+  defp series_refs(series) do
+    for entry <- List.wrap(series), is_binary(entry.name) do
+      %{"name" => entry.name, "number" => number_string(entry.number)}
+    end
+  end
+
+  defp number_string(nil), do: nil
+  defp number_string(%Decimal{} = number), do: Decimal.to_string(number, :normal)
+  defp number_string(number), do: presence(to_string(number))
 
   # An ASIN match is identity, not similarity — nothing else can earn 1.0.
   defp score(_title, _authors, _narrators, asin, %{asin: asin}) when is_binary(asin), do: 1.0

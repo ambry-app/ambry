@@ -54,6 +54,141 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
+  attr :query, :string, default: nil
+  attr :fields, :map, default: %{}
+
+  @doc """
+  The search that produced this level's candidates.
+
+  Shown because the first question anyone asks a bad match is "what did you
+  even search for?" — and the answer is not obvious: the hints come from tags
+  first and the release name second, so a wrong author in an ID3 frame sends
+  the whole level somewhere strange with no visible cause.
+  """
+  def query_row(assigns) do
+    ~H"""
+    <div :if={@query || @fields != %{}} class="text-xs dark:text-zinc-500" data-role="query">
+      <span>Searched for</span>
+      <span :for={{key, value} <- ordered_fields(@fields)} class="ml-1">
+        <span class="dark:text-zinc-600">{key}:</span>
+        <span class="font-mono dark:text-zinc-400">{value}</span>
+      </span>
+      <span :if={@fields == %{}} class="font-mono ml-1 dark:text-zinc-400">{@query}</span>
+      <p class="italic">
+        A provider whose narrow search comes back empty may widen it, so what matched can be broader
+        than this.
+      </p>
+    </div>
+    """
+  end
+
+  # Same order every time, and the order the query is actually built in.
+  defp ordered_fields(fields) do
+    for key <- ~w(title author narrator keywords),
+        value = fields[key],
+        value not in [nil, ""],
+        do: {key, value}
+  end
+
+  attr :candidate, :map, required: true
+  attr :selected, :boolean, required: true
+  attr :event, :string, required: true
+  attr :subtitle, :string, default: nil
+
+  @doc """
+  One candidate for an identity decision — a book, or a catalogued recording.
+
+  A list where every row wore a checkmark was the clearest symptom of the
+  decision model not reaching the UI: the item is a recording of exactly ONE
+  work, so exactly one row can be the answer and the rest are what it isn't.
+  """
+  def candidate_option(assigns) do
+    ~H"""
+    <div
+      class={[
+        "flex cursor-pointer items-start gap-3 rounded-sm border p-2",
+        @selected && "border-brand bg-brand/5 dark:border-brand-dark dark:bg-brand-dark/10",
+        !@selected && "border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+      ]}
+      phx-click={@event}
+      phx-value-source={@candidate["source"]}
+      phx-value-id={@candidate["id"]}
+      data-role="candidate"
+      data-selected={@selected && "true"}
+    >
+      <.icon
+        name={if @selected, do: "fa-circle-check", else: "fa-circle"}
+        class={[
+          "mt-0.5 h-4 w-4 flex-none",
+          @selected && "text-brand dark:text-brand-dark",
+          !@selected && "text-zinc-300 dark:text-zinc-700"
+        ]}
+      />
+      <div class="min-w-0 flex-grow">
+        <p class="truncate text-sm">{candidate_title(@candidate)}</p>
+        <p class="truncate text-xs dark:text-zinc-500">{@subtitle || candidate_facts(@candidate)}</p>
+      </div>
+      <span :if={@candidate["score"]} class="flex-none pt-0.5 text-xs dark:text-zinc-600">
+        {round(@candidate["score"] * 100)}%
+      </span>
+    </div>
+    """
+  end
+
+  @doc "A candidate's headline: what it is."
+  def candidate_title(candidate) do
+    [candidate["title"], candidate["authors"] && Enum.join(candidate["authors"], ", ")]
+    |> Enum.reject(&(&1 in [nil, "", []]))
+    |> Enum.join(" — ")
+  end
+
+  @doc """
+  A candidate's distinguishing facts, in one line.
+
+  Narrator and year lead because they are what tell two recordings of one work
+  apart — the whole reason the recording level exists.
+  """
+  def candidate_facts(candidate) do
+    [
+      candidate["narrators"] not in [nil, []] &&
+        "read by #{Enum.join(candidate["narrators"], ", ")}",
+      year(candidate["published"]),
+      candidate["publisher"],
+      series_line(candidate["series"]),
+      candidate["asin"],
+      candidate_origin(candidate),
+      candidate["also_from"] not in [nil, []] &&
+        "also #{Enum.join(List.wrap(candidate["also_from"]), ", ")}"
+    ]
+    |> Enum.filter(&is_binary/1)
+    |> Enum.join(" · ")
+  end
+
+  defp year(nil), do: nil
+  defp year(published) when is_binary(published), do: String.slice(published, 0, 4)
+  defp year(_other), do: nil
+
+  # Series arrive as `%{"name", "number"}` now and as bare strings in matches
+  # stored before that; both render.
+  defp series_line(nil), do: nil
+  defp series_line([]), do: nil
+
+  defp series_line(series) when is_list(series) do
+    Enum.map_join(series, ", ", fn
+      %{"name" => name, "number" => number} when number not in [nil, ""] -> "#{name} ##{number}"
+      %{"name" => name} -> name
+      name when is_binary(name) -> name
+    end)
+  end
+
+  defp series_line(_other), do: nil
+
+  @doc "Where a candidate came from, in words rather than an id."
+  def candidate_origin(%{"source" => "local"}), do: "already in the library"
+  def candidate_origin(%{"provider_name" => name}) when is_binary(name), do: name
+  def candidate_origin(%{"source" => "provider:" <> id}), do: id
+  def candidate_origin(_candidate), do: nil
+
   attr :label, :string, required: true
   attr :section, :string, required: true
   attr :name, :atom, required: true
@@ -62,6 +197,8 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :type, :string, default: "text"
   attr :options, :list, default: nil
   attr :placeholder, :string, default: nil
+  attr :hint, :string, default: nil
+  attr :preview, :boolean, default: false
 
   @doc """
   One scalar decision: what the sources proposed, what it will be, and where
@@ -89,22 +226,48 @@ defmodule AmbryWeb.Admin.Decisions do
         <span :if={@field.approved && @field.source} class="text-xs dark:text-zinc-500">
           from {source_words(@field.source)}
         </span>
+
+        <span :if={@field.approved && is_nil(@field.source)} class="text-xs dark:text-zinc-500">
+          left empty on purpose
+        </span>
       </div>
 
-      <.inputs_for :let={decision} field={@form[@name]}>
-        <.input
-          :if={@type == "select"}
-          field={decision[:value]}
-          type="select"
-          options={@options}
+      <p :if={@hint} class="text-xs italic dark:text-zinc-500">{@hint}</p>
+
+      <div class="flex items-start gap-3">
+        <%!-- A URL in a text box is not a cover. Seeing the image is the only
+              way to catch a provider that returned the wrong edition's art,
+              and it costs one tag. --%>
+        <img
+          :if={@preview && @field.value not in [nil, ""] && web_image?(@field.value)}
+          src={@field.value}
+          alt=""
+          class="h-24 w-24 flex-none rounded-sm object-cover"
         />
-        <.input
-          :if={@type != "select"}
-          field={decision[:value]}
-          type={@type}
-          placeholder={@placeholder}
-        />
-      </.inputs_for>
+        <p
+          :if={@preview && @field.value not in [nil, ""] && !web_image?(@field.value)}
+          class="flex h-24 w-24 flex-none items-center justify-center rounded-sm border border-zinc-300 text-center text-xs dark:border-zinc-700 dark:text-zinc-500"
+        >
+          embedded in the file
+        </p>
+
+        <div class="min-w-0 flex-grow">
+          <.inputs_for :let={decision} field={@form[@name]}>
+            <.input
+              :if={@type == "select"}
+              field={decision[:value]}
+              type="select"
+              options={@options}
+            />
+            <.input
+              :if={@type != "select"}
+              field={decision[:value]}
+              type={@type}
+              placeholder={@placeholder}
+            />
+          </.inputs_for>
+        </div>
+      </div>
 
       <div :if={@field.candidates != []} class="flex flex-wrap items-center gap-2 pt-1">
         <span class="text-xs dark:text-zinc-500">Proposed:</span>
@@ -199,7 +362,7 @@ defmodule AmbryWeb.Admin.Decisions do
             phx-value-approved="true"
             class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
           >
-            Looks right
+            Confirm
           </button>
 
           <button
@@ -367,7 +530,7 @@ defmodule AmbryWeb.Admin.Decisions do
         phx-value-approved="true"
         class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
       >
-        Looks right
+        Confirm
       </button>
 
       <button type="button" phx-click="remove-series" phx-value-index={@index} title="Not in this series">
@@ -385,11 +548,16 @@ defmodule AmbryWeb.Admin.Decisions do
   Calling both "unresolved" throws that distinction away.
   """
   def state_words(:approved), do: {"settled", :brand}
-  def state_words(:missing), do: {"needs a value", :red}
+  def state_words(:missing), do: {"nothing proposed it", :red}
   def state_words(:ambiguous), do: {"sources disagree", :yellow}
-  def state_words(:unconfirmed), do: {"needs a look", :yellow}
+  def state_words(:unconfirmed), do: {"needs confirming", :yellow}
   def state_words(:stale), do: {"files changed", :red}
-  def state_words(_other), do: {"needs a look", :yellow}
+  def state_words(_other), do: {"needs confirming", :yellow}
+
+  @doc "Whether a cover value is something a browser can render inline."
+  def web_image?("http://" <> _rest), do: true
+  def web_image?("https://" <> _rest), do: true
+  def web_image?(_other), do: false
 
   @doc "Whose proposal this is, in words rather than an id."
   def source_words(nil), do: "nothing"
