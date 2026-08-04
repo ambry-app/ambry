@@ -69,6 +69,7 @@ defmodule Ambry.Inbox do
       |> order_by([i], desc: i.inserted_at, desc: i.id)
       |> offset(^Keyword.get(opts, :offset, 0))
       |> limit(^over_limit)
+      |> preload(:location)
       |> Repo.all()
 
     items_to_return = Enum.slice(items, 0, limit)

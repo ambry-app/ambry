@@ -14,6 +14,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   alias Ambry.Inbox
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Library.Location
 
   @statuses [:pending, :dismissed, :approved]
 
@@ -183,6 +184,19 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp status_color(:pending), do: :yellow
   defp status_color(:approved), do: :brand
   defp status_color(:dismissed), do: :gray
+
+  # Where an item came from is what decides its custody at approval — whether
+  # the file gets brought into the library or referenced where it lies — so
+  # it's worth reading off the row.
+  defp location_label(%Location{name: name, kind: kind}), do: "#{name} · #{kind_word(kind)}"
+  defp location_label(nil), do: "ad-hoc scan · adopted in place"
+
+  defp kind_word(:downloads), do: "imported"
+  defp kind_word(:external_collection), do: "adopted in place"
+  defp kind_word(:library_root), do: "already in the library tree"
+
+  defp location_color(%Location{kind: :downloads}), do: "bg-blue-100 dark:bg-blue-900"
+  defp location_color(_other), do: "bg-zinc-200 dark:bg-zinc-800"
 
   @doc """
   The candidate's name — usually the release name, and the most recognizable
