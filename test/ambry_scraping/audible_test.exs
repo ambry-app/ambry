@@ -12,7 +12,7 @@ defmodule AmbryScraping.AudibleTest do
 
   describe "search_books/1" do
     test "searches for books given a query" do
-      patch(Client, :get, fn _url, _params ->
+      patch(Client, :get, fn _url, _params, _opts ->
         {:ok,
          %{
            status: 200,
@@ -46,7 +46,7 @@ defmodule AmbryScraping.AudibleTest do
     end
 
     test "filters results by language, configurably" do
-      patch(Client, :get, fn _url, _params ->
+      patch(Client, :get, fn _url, _params, _opts ->
         {:ok,
          %{
            status: 200,

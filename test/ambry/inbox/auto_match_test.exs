@@ -93,10 +93,10 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert best["source"] == "local"
     end
 
-    test "reports low confidence when two candidates are equally good" do
+    test "reports low confidence when two different books are equally good" do
       patch_work_results([
         book("The Silent Patient", ["Alex Michaelides"]),
-        book("The Silent Patient", ["Alex Michaelides"])
+        book("The Silent Patients", ["Alexa Michaelides"])
       ])
 
       %{matches: matches} = AutoMatch.match(item(title: "The Silent Patient"))
@@ -106,6 +106,50 @@ defmodule Ambry.Inbox.AutoMatchTest do
       # a strong match with an equally strong runner-up is exactly what a
       # human should look at
       assert matches["work"]["confidence"] < 0.6
+    end
+
+    # Two providers returning the SAME work is corroboration, not conflict.
+    # Treating it as a tie dropped perfect double hits to 0.5 confidence and
+    # sent obviously-correct matches back to the operator to adjudicate.
+    test "two providers agreeing is corroboration, not a tie" do
+      patch_work_results([
+        book("The Silent Patient", ["Alex Michaelides"]),
+        book("The Silent Patient", ["Alex Michaelides"])
+      ])
+
+      %{matches: matches} = AutoMatch.match(item(title: "The Silent Patient"))
+
+      assert [only] = matches["work"]["candidates"]
+      assert only["also_from"] != []
+      assert matches["work"]["confidence"] > 0.9
+    end
+
+    test "records what each provider was asked and what it said" do
+      patch_work_results([book("The Silent Patient", ["Alex Michaelides"])])
+
+      %{matches: matches} = AutoMatch.match(item(title: "The Silent Patient"))
+
+      assert [outcome | _rest] = matches["work"]["providers"]
+      assert outcome["status"] == "ok"
+      assert outcome["count"] >= 1
+    end
+
+    # Jaro distance rewards shared substrings and cannot see *extra* content,
+    # so companion works scored ~0.7 against the book they discuss and sat
+    # near the top of the candidate list looking plausible.
+    test "companion works are pushed well below the real thing" do
+      patch_work_results([
+        book("Neuromancer", ["William Gibson"]),
+        book("A Study Guide for William Gibson's Neuromancer", ["Gale"]),
+        book("William Gibson's Neuromancer, the Graphic Novel", ["Tom De Haven"])
+      ])
+
+      %{matches: matches} = AutoMatch.match(item(title: "Neuromancer", author: "William Gibson"))
+
+      [best | rest] = matches["work"]["candidates"]
+
+      assert best["title"] == "Neuromancer"
+      assert Enum.all?(rest, &(&1["score"] < 0.4))
     end
 
     test "is confident when the winner stands alone" do

@@ -37,18 +37,75 @@ defmodule Ambry.Metadata.Providers.Audible do
           "Only show search results in this language (Audible's language names, e.g. " <>
             ~s{"english", "german"). Set to "any" to disable filtering. } <>
             "Clear the cache after changing so old results don't linger."
+      },
+      %Provider.ConfigField{
+        key: :marketplaces,
+        label: "Marketplaces",
+        type: :string,
+        default: "us",
+        help:
+          "Which regional Audible catalogs to search, comma-separated — " <>
+            "us, uk, ca, au, de, fr, es, it, in, jp. Editions are regional, so a UK-only " <>
+            "recording is invisible to the US catalog. Results are merged, and the same " <>
+            "recording appearing in several catalogs is collapsed. Each extra marketplace " <>
+            "is another request per lookup, and a first inbox scan is hundreds of lookups."
       }
     ]
   end
 
+  # A structured query is the whole point at this level: the catalog endpoint
+  # matches `title` against the title alone, so a concatenated
+  # "title author" string finds nothing — which is how the inbox's recording
+  # level came up empty on every item. `narrator` is what distinguishes two
+  # recordings of one work, and it's a real parameter here.
   @impl Provider
-  def search_books(query, config) do
-    with {:ok, products} <- Audible.search_books(query, language: language(config)) do
-      {:ok, Enum.map(products, &product_to_book/1)}
+  def search_books(%Provider.Query{} = query, config), do: widen(attempts(query), config)
+
+  def search_books(query, config) when is_binary(query), do: widen([%{keywords: query}], config)
+
+  # Every parameter here is an AND filter, so the most precise query is also
+  # the most fragile: asking for narrator "Jeff Harding" on a book whose only
+  # Audible edition is read by Robertson Dean returns nothing at all, rather
+  # than the edition that does exist. So the query is tried narrow first and
+  # widened until something comes back — precision when precision is
+  # available, recall when it isn't.
+  #
+  # Scoring still judges the narrator afterwards, which is what keeps a
+  # widened result from being mistaken for a confident one: the wrong
+  # narrator's edition comes back with a low score rather than being adopted.
+  defp attempts(%Provider.Query{} = query) do
+    [
+      %{title: query.title, author: query.author, narrator: query.narrator},
+      %{title: query.title, author: query.author},
+      %{title: query.title},
+      %{keywords: query.keywords || to_string(query)}
+    ]
+    |> Enum.map(&drop_blanks/1)
+    |> Enum.reject(&(map_size(&1) == 0))
+    |> Enum.uniq()
+  end
+
+  defp drop_blanks(params) do
+    params |> Enum.reject(fn {_key, value} -> value in [nil, ""] end) |> Map.new()
+  end
+
+  defp widen([], _config), do: {:ok, []}
+
+  defp widen([params | rest], config) do
+    opts = [language: language(config), marketplaces: marketplaces(config)]
+
+    case Audible.search_books(params, opts) do
+      {:ok, []} -> widen(rest, config)
+      {:ok, products} -> {:ok, Enum.map(products, &product_to_book/1)}
+      # A failure is not an empty result — widening past it would hide an
+      # outage behind a vaguer query that happens to succeed.
+      {:error, reason} -> {:error, reason}
     end
   end
 
   defp language(config), do: config[:language] || "english"
+
+  defp marketplaces(config), do: Audible.parse_marketplaces(config[:marketplaces])
 
   defp product_to_book(product) do
     %Provider.Book{

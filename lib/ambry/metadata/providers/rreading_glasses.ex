@@ -58,7 +58,8 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
 
   @impl Provider
   def search_books(query, config) do
-    with {:ok, results} <- Client.get_json(base_url(config), "/search", q: query) do
+    # Free text only; a structured query flattens to its rendering.
+    with {:ok, results} <- Client.get_json(base_url(config), "/search", q: to_string(query)) do
       results
       |> Enum.map(& &1["bookId"])
       |> Enum.reject(&is_nil/1)

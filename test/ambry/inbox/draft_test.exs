@@ -38,7 +38,12 @@ defmodule Ambry.Inbox.DraftTest do
         "confidence" => Keyword.get(opts, :confidence, 0.95),
         "query" => "q"
       },
-      "recording" => %{"candidates" => Keyword.get(opts, :recording, []), "confidence" => 0.0}
+      "recording" => %{
+        "candidates" => Keyword.get(opts, :recording, []),
+        # A recording match only gets to fill fields in when it's believed;
+        # tests that want its metadata used have to say so.
+        "confidence" => Keyword.get(opts, :recording_confidence, 0.0)
+      }
     }
   end
 
@@ -324,13 +329,52 @@ defmodule Ambry.Inbox.DraftTest do
       draft =
         Seed.build(
           item(%{
-            matches: matches(candidates, recording: recording),
+            matches: matches(candidates, recording: recording, recording_confidence: 0.95),
             tags: %{"has_cover_art" => true}
           })
         )
 
       refute draft.recording.cover.approved
       assert length(draft.recording.cover.candidates) == 2
+    end
+
+    # The wrong recording of the right book is the most common recording-level
+    # failure and the hardest to notice afterwards, so a candidate whose
+    # narrator disagrees with the file's is shown but never allowed to
+    # describe it.
+    test "a recording with the wrong narrator fills nothing in" do
+      recording = [
+        %{
+          "source" => "provider:audible",
+          "provider_name" => "Audible",
+          "id" => "B01",
+          "title" => "Neuromancer",
+          "narrators" => ["Robertson Dean"],
+          "publisher" => "Penguin Audio",
+          "published" => "2011-06-30",
+          "cover_url" => "https://example.test/cover.jpg",
+          "score" => 0.5
+        }
+      ]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches([provider_candidate(%{})],
+                recording: recording,
+                recording_confidence: 0.5
+              ),
+            tags: %{"narrators" => ["Jeff Harding"]}
+          })
+        )
+
+      # offered, so the operator can still choose it
+      assert length(draft.recording.candidates) == 1
+      # but nothing of its metadata was adopted
+      assert draft.recording.publisher.value == nil
+      assert draft.recording.published.value == nil
+      assert draft.recording.cover.value == nil
     end
   end
 

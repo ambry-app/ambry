@@ -72,7 +72,10 @@ defmodule Ambry.Metadata.Providers.Hardcover do
 
   @impl Provider
   def search_books(query, config) do
-    with {:ok, data} <- Client.query(config, @search_books_query, %{query: query}) do
+    # Free text only — the search endpoint takes one string, so a structured
+    # query flattens to its rendering and loses nothing.
+    with {:ok, data} <-
+           Client.query(config, @search_books_query, %{query: to_string(query)}) do
       hits = get_in(data, ["search", "results", "hits"]) || []
       {:ok, hits |> Enum.map(&search_hit_to_book/1) |> Enum.reject(&is_nil/1)}
     end

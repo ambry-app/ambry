@@ -13,6 +13,7 @@ defmodule Ambry.Metadata.Providers do
   """
 
   alias Ambry.Metadata.Cache
+  alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Registry
 
   @search_ttl 7 * 24 * 60 * 60
@@ -42,13 +43,26 @@ defmodule Ambry.Metadata.Providers do
          :ok <- check_available(entry),
          :ok <- check_capability(entry, capability) do
       Cache.fetch(
-        "#{entry.id}:#{fun}:#{arg}",
+        "#{entry.id}:#{fun}:#{cache_key(arg)}",
         fn -> apply(entry.module, fun, [arg, entry.config]) end,
         ttl: ttl,
         refresh: Keyword.get(opts, :refresh, false)
       )
     end
   end
+
+  # A structured query keys on its fields, not on its free-text rendering.
+  # They flatten to the same string, but they are not the same search — for
+  # Audible, `title: "Neuromancer", author: "William Gibson"` finds the book
+  # and the concatenated string finds nothing — so sharing a cache entry
+  # would serve one's results for the other.
+  defp cache_key(%Provider.Query{} = query) do
+    [query.keywords, query.title, query.author, query.narrator]
+    |> Enum.map_join("|", &(&1 || ""))
+    |> then(&("q:" <> &1))
+  end
+
+  defp cache_key(arg), do: to_string(arg)
 
   defp check_enabled(%{enabled: true}), do: :ok
   defp check_enabled(_entry), do: {:error, :provider_disabled}

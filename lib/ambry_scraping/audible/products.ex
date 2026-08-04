@@ -29,7 +29,14 @@ defmodule AmbryScraping.Audible.Products do
   )
 
   @doc """
-  Returns product details for a given title search query.
+  Searches the catalog.
+
+  `query` is either a plain string (searched as keywords) or a map of
+  `:title` / `:author` / `:narrator` / `:keywords`. **The distinction
+  matters**: this endpoint's `title` parameter matches against the title
+  alone, so passing `"Neuromancer William Gibson"` as a title finds nothing,
+  while `title: "Neuromancer", author: "William Gibson"` finds it. A bare
+  string therefore goes to `keywords`, which is the forgiving field.
 
   Options:
 
@@ -37,37 +44,92 @@ defmodule AmbryScraping.Audible.Products do
       case-insensitively against Audible's language names, which are
       English words like "english", "german"). Defaults to `"english"`;
       pass `"any"` (or `nil`) to disable filtering.
+    * `:marketplaces` — which regional catalogs to search, merged. Editions
+      are regional: a UK-only recording is invisible to the US catalog no
+      matter how it's queried.
   """
   def search(query, opts \\ [])
 
   def search("", _opts), do: {:ok, []}
 
-  def search(query, opts) do
-    params = %{
-      title: query,
-      response_groups: Enum.join(@response_groups, ","),
-      products_sort_by: "Relevance",
-      image_sizes: "900"
-    }
+  def search(query, opts) when is_binary(query), do: search(%{keywords: query}, opts)
 
-    case Client.get("/catalog/products", params) do
-      {:ok, %{status: status} = response} when status in 200..299 ->
-        parse_response(response.body, Keyword.get(opts, :language, "english"))
+  def search(query, opts) when is_map(query) do
+    case search_params(query) do
+      empty when map_size(empty) == 0 ->
+        {:ok, []}
 
-      {:ok, response} ->
-        {:error, response}
-
-      {:error, reason} ->
-        {:error, reason}
+      params ->
+        params
+        |> search_marketplaces(Keyword.get(opts, :marketplaces, Client.default_marketplaces()))
+        |> parse_all(Keyword.get(opts, :language, "english"))
     end
   end
 
-  defp parse_response(%{"products" => products}, language) do
-    {:ok, products |> Enum.map(&parse_product/1) |> filter_language(language)}
+  # Merged rather than first-hit-wins: the point of searching several
+  # marketplaces is recall, and which catalog a recording lives in is exactly
+  # what the operator doesn't know. Deduped by ASIN, keeping the first
+  # marketplace's copy, so the configured order is a preference order.
+  defp search_marketplaces(params, marketplaces) do
+    Enum.reduce(marketplaces, {[], []}, fn marketplace, {products, errors} ->
+      case Client.get("/catalog/products", params, marketplace: marketplace) do
+        {:ok, %{status: status, body: body}} when status in 200..299 ->
+          {products ++ List.wrap(body["products"]), errors}
+
+        {:ok, response} ->
+          {products, [{marketplace, response} | errors]}
+
+        {:error, reason} ->
+          {products, [{marketplace, reason} | errors]}
+      end
+    end)
   end
 
-  defp parse_response(_body, _language) do
-    {:error, :unexpected_response_payload}
+  # One reachable marketplace is a usable answer; all of them failing is not.
+  defp parse_all({[], [{_marketplace, reason} | _rest]}, _language), do: {:error, reason}
+
+  defp parse_all({products, _errors}, language) do
+    {:ok,
+     products
+     |> Enum.uniq_by(&dedupe_key/1)
+     |> Enum.map(&parse_product/1)
+     |> filter_language(language)}
+  end
+
+  # NOT by ASIN: the same recording carries a *different* ASIN in each
+  # regional catalog, so an ASIN key silently lets every merged marketplace
+  # contribute its own copy of the same book. Title, narrators and release
+  # date together identify the recording across regions; the ASIN is only a
+  # last resort for a product too sparse to key on.
+  defp dedupe_key(product) do
+    narrators = product["narrators"] |> List.wrap() |> Enum.map_join(",", & &1["name"])
+
+    case {product["title"], product["release_date"]} do
+      {nil, _date} -> product["asin"]
+      {title, date} -> {String.downcase(title), narrators, date}
+    end
+  end
+
+  defp search_params(query) do
+    %{
+      title: query[:title],
+      author: query[:author],
+      narrator: query[:narrator],
+      keywords: query[:keywords]
+    }
+    |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+    |> Map.new()
+    |> case do
+      empty when map_size(empty) == 0 ->
+        empty
+
+      params ->
+        Map.merge(params, %{
+          response_groups: Enum.join(@response_groups, ","),
+          products_sort_by: "Relevance",
+          image_sizes: "900"
+        })
+    end
   end
 
   defp filter_language(products, language) when language in [nil, "any"], do: products

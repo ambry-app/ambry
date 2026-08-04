@@ -51,6 +51,10 @@ defmodule Ambry.Inbox.Draft.Seed do
   @strong_match 0.90
   @weak_runner_up 0.70
 
+  # How sure a recording match must be before its metadata is allowed to
+  # describe this file.
+  @trusted_recording 0.75
+
   @doc """
   Builds a fresh draft for an item from its matches, tags and release name.
   """
@@ -168,9 +172,17 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## recording
 
-  defp recording(level, _hints, tags, item) do
+  defp recording(level, hints, tags, item) do
     candidates = Map.get(level, "candidates", []) || []
-    best = List.first(candidates)
+
+    # **Only a recording we actually believe in gets to fill anything in.**
+    # Audible's search widens when a narrow query finds nothing, so a book
+    # whose only catalogued edition has a different reader still returns that
+    # edition — and taking its publisher, release date and cover would quietly
+    # describe this file as a recording it is not. A doubted candidate stays
+    # in the list for the operator to pick; it just doesn't get to speak
+    # first.
+    best = if trusted?(candidates, level, hints), do: List.first(candidates)
 
     %Recording{
       candidates: candidates,
@@ -189,6 +201,33 @@ defmodule Ambry.Inbox.Draft.Seed do
       narrators: narrator_credits(best, tags)
     }
   end
+
+  # An ASIN hit is identity, so it needs no corroboration. Otherwise the
+  # narrator decides: when the file names a reader and the candidate names a
+  # different one, this is the wrong recording of the right book — the single
+  # most common way recording-level matching goes wrong, and the one the
+  # operator is least likely to notice after the fact.
+  defp trusted?([], _level, _hints), do: false
+
+  defp trusted?([best | _rest], level, hints) do
+    cond do
+      best["score"] == 1.0 -> true
+      narrator_conflict?(best, hints) -> false
+      (Map.get(level, "confidence") || 0.0) >= @trusted_recording -> true
+      true -> false
+    end
+  end
+
+  defp narrator_conflict?(_best, %{narrator: nil}), do: false
+
+  defp narrator_conflict?(best, %{narrator: narrator}) do
+    case names(best["narrators"]) do
+      nil -> false
+      names -> Enum.all?(names, &(String.jaro_distance(down(&1), down(narrator)) < 0.85))
+    end
+  end
+
+  defp down(string), do: String.downcase(String.trim(string))
 
   # Embedded art and a provider cover are both real answers, so two of them is
   # a choice rather than a winner. The embedded candidate carries the audio

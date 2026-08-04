@@ -161,6 +161,49 @@ defmodule Ambry.Metadata.Provider do
     @type t :: %__MODULE__{key: atom, label: String.t(), type: :string | :secret, default: term}
   end
 
+  defmodule Query do
+    @moduledoc """
+    A book search expressed as the fields it's actually made of.
+
+    A single concatenated string is lossy in a way that silently breaks
+    providers: Audible's catalog endpoint takes `title`, `author` and
+    `narrator` as separate parameters, so handing it `"Neuromancer William
+    Gibson"` searched for a book *titled* that and returned nothing at all —
+    which is why the inbox's whole recording level came up empty.
+
+    Providers that only do free text can call `to_string/1` (or interpolate,
+    via `String.Chars`) and lose nothing. Providers that can be precise get to
+    be precise. `narrator` is the field that distinguishes two recordings of
+    one work, so it exists here even though only recording-level providers
+    have any use for it.
+    """
+
+    @enforce_keys []
+    defstruct [:title, :author, :narrator, :keywords]
+
+    @type t :: %__MODULE__{
+            title: String.t() | nil,
+            author: String.t() | nil,
+            narrator: String.t() | nil,
+            keywords: String.t() | nil
+          }
+
+    @doc "Whether there is anything here to search for."
+    def blank?(%__MODULE__{} = query), do: to_string(query) == ""
+
+    defimpl String.Chars do
+      @doc """
+      The free-text rendering, which is also what the metadata cache keys on —
+      so two structurally different queries can never collide.
+      """
+      def to_string(query) do
+        [query.keywords, query.title, query.author, query.narrator]
+        |> Enum.reject(&(&1 in [nil, ""]))
+        |> Enum.join(" ")
+      end
+    end
+  end
+
   @type config :: %{optional(atom) => term}
   @type capability :: :book_search | :book_details | :author_search | :author_details | :chapters
 
@@ -196,7 +239,8 @@ defmodule Ambry.Metadata.Provider do
   """
   @callback config_notices(config()) :: [notice()]
 
-  @callback search_books(query :: String.t(), config()) :: {:ok, [Book.t()]} | {:error, term}
+  @callback search_books(query :: String.t() | Query.t(), config()) ::
+              {:ok, [Book.t()]} | {:error, term}
   @callback book_details(id :: String.t(), config()) :: {:ok, Book.t()} | {:error, term}
   @callback search_authors(query :: String.t(), config()) :: {:ok, [Author.t()]} | {:error, term}
   @callback author_details(id :: String.t(), config()) :: {:ok, Author.t()} | {:error, term}
