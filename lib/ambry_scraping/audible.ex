@@ -7,6 +7,7 @@ defmodule AmbryScraping.Audible do
     deps: [AmbryScraping.HTMLToMD],
     exports: [Author, Product, Narrator, Series]
 
+  alias AmbryScraping.Audible.Client
   alias AmbryScraping.Audible.Products
 
   defmodule Author do
@@ -42,10 +43,18 @@ defmodule AmbryScraping.Audible do
   end
 
   @doc """
-  Searches for audiobooks by name.
+  Searches for audiobooks.
 
-  This function uses the public Audible API to search for audiobooks.
-  See `AmbryScraping.Audible.Products.search/2` for options (`:language`).
+  `query` is a plain string (searched as keywords) or a map of `:title` /
+  `:author` / `:narrator` / `:keywords`. See
+  `AmbryScraping.Audible.Products.search/2` for options (`:language`,
+  `:marketplaces`).
   """
   def search_books(query, opts \\ []), do: Products.search(query, opts)
+
+  @doc "The regional marketplace codes that can be searched."
+  defdelegate marketplaces, to: Client
+
+  @doc "Parses an operator's marketplace setting into a list of codes."
+  defdelegate parse_marketplaces(setting), to: Client
 end

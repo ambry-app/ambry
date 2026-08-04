@@ -98,6 +98,11 @@
         </p>
 
         <p class="overflow-hidden text-ellipsis whitespace-nowrap text-xs dark:text-zinc-600">
+          <%!-- Where this came from decides what approving it does to the
+                bytes, so it belongs on the row rather than one click away. --%>
+          <span class={["mr-1 rounded-sm px-1 py-0.5", location_color(item.location)]}>
+            {location_label(item.location)}
+          </span>
           {item.path}
         </p>
       </div>

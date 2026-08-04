@@ -145,6 +145,15 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.approve_work(&1, params["approved"] == "true"))}
   end
 
+  def handle_event("choose-root", %{"root_id" => root_id}, socket) do
+    id = to_int(root_id)
+
+    {:noreply,
+     edit(socket, fn draft ->
+       update_in(draft.destination, &%{&1 | root_id: id, approved: not is_nil(id)})
+     end)}
+  end
+
   def handle_event("approve-all", _params, socket) do
     {:noreply, edit(socket, &Draft.Edit.approve_all/1)}
   end
@@ -198,7 +207,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),
-      destination: Inbox.destination_preflight(item)
+      destination: Inbox.destination_preflight(item),
+      # Roots are configuration and can change between seeding a draft and
+      # approving it, so they're read now rather than frozen into the draft.
+      roots: Ambry.Library.library_roots()
     )
   end
 
@@ -264,6 +276,27 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # Any non-local candidate means "create a new book"; which provider it came
   # from is recorded per-field as provenance, not as one winning row.
   def chosen_work?(%Work{mode: :create, approved: approved?}, _candidate), do: approved?
+
+  @doc """
+  Which providers were asked at this level, and what each said.
+
+  A provider that errors contributes nothing and used to leave no trace, so a
+  rate-limited or misconfigured source looked exactly like one that genuinely
+  had no answer — and the operator's only clue was a shorter list than they
+  expected.
+  """
+  def provider_outcomes(%InboxItem{matches: matches}, level) when is_map(matches) do
+    get_in(matches, [level, "providers"]) || []
+  end
+
+  def provider_outcomes(_item, _level), do: []
+
+  def outcome_label(%{"status" => "failed"} = outcome),
+    do: {"#{outcome["name"]} couldn't be reached", :red}
+
+  def outcome_label(%{"count" => 0} = outcome), do: {"#{outcome["name"]}: nothing", :gray}
+
+  def outcome_label(outcome), do: {"#{outcome["name"]}: #{outcome["count"]}", :gray}
 
   @doc "A work candidate as one readable line."
   def candidate_line(candidate) do

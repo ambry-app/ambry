@@ -6,6 +6,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
   alias Ambry.Inbox.InboxItem
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Providers
+  alias Ambry.Metadata.Registry
 
   describe "hints/1" do
     test "prefers tags over the release name" do
@@ -38,6 +39,12 @@ defmodule Ambry.Inbox.AutoMatchTest do
   describe "match/1" do
     setup do
       patch(Providers, :search_books, fn _id, _query, _opts -> {:ok, []} end)
+      # Matching also asks the matched work for its editions and hydrates the
+      # top candidate. Both are real HTTP unless stubbed — and the only reason
+      # this suite wasn't already making live calls is that the fake ids
+      # happen not to parse.
+      patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
+      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :not_stubbed} end)
       :ok
     end
 
@@ -93,10 +100,10 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert best["source"] == "local"
     end
 
-    test "reports low confidence when two candidates are equally good" do
+    test "reports low confidence when two different books are equally good" do
       patch_work_results([
         book("The Silent Patient", ["Alex Michaelides"]),
-        book("The Silent Patient", ["Alex Michaelides"])
+        book("The Silent Patients", ["Alexa Michaelides"])
       ])
 
       %{matches: matches} = AutoMatch.match(item(title: "The Silent Patient"))
@@ -106,6 +113,50 @@ defmodule Ambry.Inbox.AutoMatchTest do
       # a strong match with an equally strong runner-up is exactly what a
       # human should look at
       assert matches["work"]["confidence"] < 0.6
+    end
+
+    # Two providers returning the SAME work is corroboration, not conflict.
+    # Treating it as a tie dropped perfect double hits to 0.5 confidence and
+    # sent obviously-correct matches back to the operator to adjudicate.
+    test "two providers agreeing is corroboration, not a tie" do
+      patch_work_results([
+        book("The Silent Patient", ["Alex Michaelides"]),
+        book("The Silent Patient", ["Alex Michaelides"])
+      ])
+
+      %{matches: matches} = AutoMatch.match(item(title: "The Silent Patient"))
+
+      assert [only] = matches["work"]["candidates"]
+      assert only["also_from"] != []
+      assert matches["work"]["confidence"] > 0.9
+    end
+
+    test "records what each provider was asked and what it said" do
+      patch_work_results([book("The Silent Patient", ["Alex Michaelides"])])
+
+      %{matches: matches} = AutoMatch.match(item(title: "The Silent Patient"))
+
+      assert [outcome | _rest] = matches["work"]["providers"]
+      assert outcome["status"] == "ok"
+      assert outcome["count"] >= 1
+    end
+
+    # Jaro distance rewards shared substrings and cannot see *extra* content,
+    # so companion works scored ~0.7 against the book they discuss and sat
+    # near the top of the candidate list looking plausible.
+    test "companion works are pushed well below the real thing" do
+      patch_work_results([
+        book("Neuromancer", ["William Gibson"]),
+        book("A Study Guide for William Gibson's Neuromancer", ["Gale"]),
+        book("William Gibson's Neuromancer, the Graphic Novel", ["Tom De Haven"])
+      ])
+
+      %{matches: matches} = AutoMatch.match(item(title: "Neuromancer", author: "William Gibson"))
+
+      [best | rest] = matches["work"]["candidates"]
+
+      assert best["title"] == "Neuromancer"
+      assert Enum.all?(rest, &(&1["score"] < 0.4))
     end
 
     test "is confident when the winner stands alone" do
@@ -128,6 +179,61 @@ defmodule Ambry.Inbox.AutoMatchTest do
       %{matches: matches} = AutoMatch.match(item(title: "The Way of Kings"))
 
       assert [%{"source" => "local"} | _rest] = matches["work"]["candidates"]
+    end
+
+    # Audible's catalog API is a storefront, not a bibliography: when rights
+    # lapse the title vanishes from search AND from direct ASIN lookup, with
+    # no record it ever existed. A work-level provider that keeps editions
+    # still has it — so the matched work's own editions are a third key.
+    test "the matched work's editions become recording candidates" do
+      patch_work_results([book("Neuromancer", ["William Gibson"])])
+
+      # Hardcover is the provider that keeps editions, but it needs a token and
+      # so is unavailable in test — the capability is what matters here, not
+      # which provider happens to carry it.
+      entries = Map.new(Registry.all(), &{&1.id, &1})
+
+      patch(Registry, :fetch, fn id ->
+        case Map.fetch(entries, id) do
+          {:ok, entry} -> {:ok, %{entry | capabilities: [:editions | entry.capabilities]}}
+          :error -> {:error, :unknown_provider}
+        end
+      end)
+
+      patch(Providers, :editions, fn _id, _work_id, _opts ->
+        {:ok,
+         [
+           %Provider.Book{
+             provider: "hardcover",
+             id: "e1",
+             title: "Neuromancer",
+             publisher: "Books on Tape",
+             narrators: [%Provider.Contributor{name: "Arthur Addison", role: "narrator"}]
+           }
+         ]}
+      end)
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Neuromancer", author: "William Gibson"))
+
+      titles = Enum.map(matches["recording"]["candidates"], & &1["narrators"])
+      assert [["Arthur Addison"]] == titles
+
+      assert Enum.any?(matches["recording"]["providers"], &(&1["id"] =~ ":editions"))
+    end
+
+    # Two audiobooks of one work share a title and an author; they are not the
+    # same thing. Keying only on those collapsed the 1984 Books on Tape and
+    # 2011 Penguin editions of Neuromancer into a single candidate.
+    test "two recordings of one work are not merged" do
+      patch_recording_results([
+        book("Neuromancer", ["William Gibson"], narrators: ["Robertson Dean"], asin: "A1"),
+        book("Neuromancer", ["William Gibson"], narrators: ["Arthur Addison"], asin: "A2")
+      ])
+
+      %{matches: matches} = AutoMatch.match(item(title: "Neuromancer"))
+
+      assert length(matches["recording"]["candidates"]) == 2
     end
 
     test "an item with nothing to go on proposes nothing rather than guessing" do
@@ -159,7 +265,9 @@ defmodule Ambry.Inbox.AutoMatchTest do
       id: "id-#{:erlang.phash2(title)}",
       title: title,
       asin: opts[:asin],
-      authors: Enum.map(authors, &%Provider.Contributor{name: &1, role: "author"})
+      authors: Enum.map(authors, &%Provider.Contributor{name: &1, role: "author"}),
+      narrators:
+        Enum.map(opts[:narrators] || [], &%Provider.Contributor{name: &1, role: "narrator"})
     }
   end
 

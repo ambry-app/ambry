@@ -22,6 +22,38 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.SeriesLink
 
+  attr :outcomes, :list, required: true
+
+  @doc """
+  What each provider said when asked — including the ones that couldn't
+  answer.
+
+  Without this, a provider that errors is indistinguishable from one that
+  genuinely found nothing: both contribute zero candidates and say nothing
+  about why. That's how an enabled-but-rate-limited source looks like it was
+  never consulted.
+  """
+  def provider_outcomes_row(assigns) do
+    ~H"""
+    <div :if={@outcomes != []} class="flex flex-wrap items-center gap-2" data-role="provider-outcomes">
+      <span class="text-xs dark:text-zinc-500">Asked:</span>
+      <span
+        :for={outcome <- @outcomes}
+        class={[
+          "rounded-sm border px-2 py-0.5 text-xs",
+          outcome["status"] == "failed" && "border-red-500 text-red-600",
+          outcome["status"] != "failed" && "border-zinc-300 dark:border-zinc-700"
+        ]}
+        title={outcome["reason"]}
+      >
+        {outcome["name"]}: {if outcome["status"] == "failed",
+          do: "couldn't be reached",
+          else: outcome["count"]}
+      </span>
+    </div>
+    """
+  end
+
   attr :label, :string, required: true
   attr :section, :string, required: true
   attr :name, :atom, required: true

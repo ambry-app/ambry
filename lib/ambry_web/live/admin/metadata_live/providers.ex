@@ -76,7 +76,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
                   :for={capability <- entry.capabilities}
                   class="rounded-sm bg-zinc-200 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                 >
-                  {capability_label(capability)}
+                  {capability_label(capability, entry.level)}
                 </span>
               </div>
 
@@ -216,11 +216,29 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   defp notice_icon(:warning), do: "fa-triangle-exclamation"
   defp notice_icon(:error), do: "fa-circle-exclamation"
 
-  defp capability_label(:book_search), do: "book search"
-  defp capability_label(:book_details), do: "book details"
-  defp capability_label(:author_search), do: "author search"
-  defp capability_label(:author_details), do: "author details"
-  defp capability_label(:chapters), do: "chapters"
+  # A capability means something different at each level, and the level is
+  # what says which — a recording-level `:book_search` searches *audiobooks*,
+  # a work-level one searches works. Labelling both "book search" threw that
+  # away and made the provider list look like it couldn't tell them apart.
+  #
+  # Kept as display rather than split into `:work_search`/`:recording_search`
+  # atoms deliberately: the level already carries it, and separate atoms would
+  # let a provider claim recording-search at the work level — an illegal state
+  # the current pairing simply can't represent.
+  defp capability_label(:book_search, :recording), do: "audiobook search"
+  defp capability_label(:book_details, :recording), do: "audiobook details"
+  defp capability_label(:book_search, _level), do: "work search"
+  defp capability_label(:book_details, _level), do: "work details"
+  defp capability_label(:author_search, :person), do: "person search"
+  defp capability_label(:author_details, :person), do: "person details"
+  defp capability_label(:author_search, _level), do: "author search"
+  defp capability_label(:author_details, _level), do: "author details"
+  defp capability_label(:chapters, _level), do: "chapters"
+  defp capability_label(:editions, _level), do: "editions"
+
+  # A capability with no label must not take the settings page down with it —
+  # adding one to the behaviour shouldn't be able to break an unrelated screen.
+  defp capability_label(other, _level), do: other |> to_string() |> String.replace("_", " ")
 
   defp display_value(value, %{default: default}) when value == default, do: nil
   defp display_value(value, _field), do: value

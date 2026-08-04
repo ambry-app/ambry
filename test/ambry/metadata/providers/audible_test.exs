@@ -26,7 +26,11 @@ defmodule Ambry.Metadata.Providers.AudibleTest do
       language: "english"
     }
 
-    patch(AmbryScraping.Audible, :search_books, fn "dcc", _opts -> {:ok, [product]} end)
+    # The provider now sends structured params rather than one string:
+    # Audible's catalog matches `title` against the title alone.
+    patch(AmbryScraping.Audible, :search_books, fn %{keywords: "dcc"}, _opts ->
+      {:ok, [product]}
+    end)
 
     assert {:ok, [%Provider.Book{} = book]} = Audible.search_books("dcc", %{})
 
@@ -55,5 +59,64 @@ defmodule Ambry.Metadata.Providers.AudibleTest do
 
     assert {:ok, []} = Audible.search_books("q", %{language: "german"})
     assert_received {:language, "german"}
+  end
+
+  # The bug this exists to prevent: the catalog's `title` parameter matches
+  # against the title alone, so a concatenated "title author" string found
+  # nothing at all — which is why the inbox's whole recording level came up
+  # empty on every item.
+  test "sends a structured query as separate parameters" do
+    patch(AmbryScraping.Audible, :search_books, fn params, _opts ->
+      send(self(), {:params, params})
+      {:ok, []}
+    end)
+
+    query = %Provider.Query{
+      title: "Neuromancer",
+      author: "William Gibson",
+      narrator: "Jeff Harding"
+    }
+
+    assert {:ok, []} = Audible.search_books(query, %{})
+
+    assert_received {:params,
+                     %{title: "Neuromancer", author: "William Gibson", narrator: "Jeff Harding"}}
+  end
+
+  # Every parameter is an AND filter, so the most precise query is the most
+  # fragile: asking for a narrator the only catalogued edition doesn't have
+  # returns nothing rather than the edition that exists.
+  test "widens the query until something comes back" do
+    patch(AmbryScraping.Audible, :search_books, fn params, _opts ->
+      send(self(), {:tried, Map.keys(params) |> Enum.sort()})
+      if Map.has_key?(params, :narrator), do: {:ok, []}, else: {:ok, [product()]}
+    end)
+
+    query = %Provider.Query{title: "Neuromancer", author: "William Gibson", narrator: "Nobody"}
+    assert {:ok, [_book]} = Audible.search_books(query, %{})
+
+    assert_received {:tried, [:author, :narrator, :title]}
+    assert_received {:tried, [:author, :title]}
+  end
+
+  # A failure is not an empty result — widening past it would hide an outage
+  # behind a vaguer query that happens to succeed.
+  test "does not widen past a failure" do
+    patch(AmbryScraping.Audible, :search_books, fn _params, _opts -> {:error, :rate_limited} end)
+
+    query = %Provider.Query{title: "Neuromancer", author: "William Gibson", narrator: "Somebody"}
+    assert {:error, :rate_limited} = Audible.search_books(query, %{})
+  end
+
+  defp product do
+    %AmbryScraping.Audible.Product{
+      id: "B0057HR4E6",
+      title: "Neuromancer",
+      authors: [],
+      narrators: [],
+      series: [],
+      published: ~D[2011-06-30],
+      language: "english"
+    }
   end
 end

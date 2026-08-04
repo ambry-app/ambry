@@ -161,8 +161,57 @@ defmodule Ambry.Metadata.Provider do
     @type t :: %__MODULE__{key: atom, label: String.t(), type: :string | :secret, default: term}
   end
 
+  defmodule Query do
+    @moduledoc """
+    A book search expressed as the fields it's actually made of.
+
+    A single concatenated string is lossy in a way that silently breaks
+    providers: Audible's catalog endpoint takes `title`, `author` and
+    `narrator` as separate parameters, so handing it `"Neuromancer William
+    Gibson"` searched for a book *titled* that and returned nothing at all —
+    which is why the inbox's whole recording level came up empty.
+
+    Providers that only do free text can call `to_string/1` (or interpolate,
+    via `String.Chars`) and lose nothing. Providers that can be precise get to
+    be precise. `narrator` is the field that distinguishes two recordings of
+    one work, so it exists here even though only recording-level providers
+    have any use for it.
+    """
+
+    @enforce_keys []
+    defstruct [:title, :author, :narrator, :keywords]
+
+    @type t :: %__MODULE__{
+            title: String.t() | nil,
+            author: String.t() | nil,
+            narrator: String.t() | nil,
+            keywords: String.t() | nil
+          }
+
+    @doc "Whether there is anything here to search for."
+    def blank?(%__MODULE__{} = query), do: to_string(query) == ""
+
+    defimpl String.Chars do
+      @doc """
+      The free-text rendering, which is also what the metadata cache keys on —
+      so two structurally different queries can never collide.
+      """
+      def to_string(query) do
+        [query.keywords, query.title, query.author, query.narrator]
+        |> Enum.reject(&(&1 in [nil, ""]))
+        |> Enum.join(" ")
+      end
+    end
+  end
+
   @type config :: %{optional(atom) => term}
-  @type capability :: :book_search | :book_details | :author_search | :author_details | :chapters
+  @type capability ::
+          :book_search
+          | :book_details
+          | :author_search
+          | :author_details
+          | :chapters
+          | :editions
 
   @doc "Stable machine identifier, used in cache keys and settings rows."
   @callback id() :: String.t()
@@ -196,11 +245,22 @@ defmodule Ambry.Metadata.Provider do
   """
   @callback config_notices(config()) :: [notice()]
 
-  @callback search_books(query :: String.t(), config()) :: {:ok, [Book.t()]} | {:error, term}
+  @callback search_books(query :: String.t() | Query.t(), config()) ::
+              {:ok, [Book.t()]} | {:error, term}
   @callback book_details(id :: String.t(), config()) :: {:ok, Book.t()} | {:error, term}
   @callback search_authors(query :: String.t(), config()) :: {:ok, [Author.t()]} | {:error, term}
   @callback author_details(id :: String.t(), config()) :: {:ok, Author.t()} | {:error, term}
   @callback chapters(asin :: String.t(), config()) :: {:ok, Chapters.t()} | {:error, term}
+
+  @doc """
+  The audiobook editions of a work this provider already identified.
+
+  A third key, alongside "search for a work" and "search for a recording":
+  once the work is matched, its own edition list is the most direct route to
+  the recordings that exist — including ones a storefront has since delisted
+  and can no longer be searched for at all.
+  """
+  @callback editions(work_id :: String.t(), config()) :: {:ok, [Book.t()]} | {:error, term}
 
   @optional_callbacks available?: 1,
                       config_notices: 1,
@@ -208,7 +268,8 @@ defmodule Ambry.Metadata.Provider do
                       book_details: 2,
                       search_authors: 2,
                       author_details: 2,
-                      chapters: 2
+                      chapters: 2,
+                      editions: 2
 
   @doc "The default config for a provider module, derived from its config fields."
   def default_config(provider_module) do

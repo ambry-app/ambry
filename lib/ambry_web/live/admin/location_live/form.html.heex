@@ -61,10 +61,14 @@
           <.input
             field={@form[:target_root_id]}
             type="select"
-            label="Imports into"
+            label="Preferred library root"
             options={@root_options}
             prompt={root_prompt(@root_options)}
           />
+          <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            Optional. Any watched folder can import into any root — this only preselects one. With
+            a single root, imports never ask.
+          </p>
           <p :if={@root_options == []} class="mt-2 text-sm text-amber-600 dark:text-amber-400">
             There are no library roots yet, so nothing can be imported. Add a location of kind
             "Library root" first — until then, approving an item from this folder will refuse.

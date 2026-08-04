@@ -125,10 +125,14 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
       end
     end
 
+    # Which root an import goes to is a decision now, not a property of the
+    # watched folder — so "no root" and "several roots, none chosen" surface
+    # as outstanding decisions rather than as failures at the last moment.
     test "refuses when there is no library root to import into" do
       %{item: item} = downloads_item(root: :none)
 
-      assert {:error, :no_library_root} = Inbox.approve_item(item)
+      assert {:error, {:unresolved, outstanding}} = Inbox.approve_item(item)
+      assert Enum.any?(outstanding, &(&1.section == :destination))
 
       {[item], false} = Inbox.list_items()
       assert item.status == :pending
@@ -137,24 +141,53 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
     # With several roots the choice is about which NAS, and therefore about
     # whether hardlinking is possible at all. Guessing is not acceptable.
     test "refuses when several roots exist and none was chosen" do
-      %{item: item} = downloads_item()
       insert(:location, kind: :library_root, import_policy: nil, path: new_dir("second-root"))
+      %{item: item} = downloads_item()
 
-      assert {:error, :ambiguous_library_root} = Inbox.approve_item(item)
+      assert {:error, {:unresolved, outstanding}} = Inbox.approve_item(item)
+      assert Enum.any?(outstanding, &(&1.section == :destination))
     end
 
-    test "uses the explicitly chosen root when there are several" do
-      %{item: item, location: location} = downloads_item()
-
+    # Any input may feed any output: the operator picks per import, and a
+    # location's configured root only *preselects* one.
+    test "uses the root the draft settled on when there are several" do
       chosen =
         insert(:location, kind: :library_root, import_policy: nil, path: new_dir("chosen-root"))
 
-      {:ok, _location} = Library.update_location(location, %{target_root_id: chosen.id})
+      %{item: item} = downloads_item()
 
-      assert {:ok, media} = Inbox.approve_item(Repo.reload(item))
+      {:ok, item} =
+        Inbox.update_draft(item, %{
+          "destination" => %{
+            "custody" => "managed",
+            "root_id" => chosen.id,
+            "policy" => "hardlink",
+            "approved" => true
+          }
+        })
+
+      assert {:ok, media} = Inbox.approve_item(item)
 
       assert [placed] = Media.get_media!(media.id).source_files
       assert String.starts_with?(placed, chosen.path)
+    end
+
+    test "a location's preferred root preselects without binding" do
+      %{item: item, location: location} = downloads_item()
+
+      chosen =
+        insert(:location,
+          kind: :library_root,
+          import_policy: nil,
+          path: new_dir("preferred-root")
+        )
+
+      {:ok, _location} = Library.update_location(location, %{target_root_id: chosen.id})
+
+      {:ok, item} = Inbox.rebuild_draft(Repo.reload(item))
+
+      assert item.draft.destination.root_id == chosen.id
+      assert item.draft.destination.approved
     end
 
     # A collision means two recordings rendered to one path, which is a
