@@ -13,11 +13,16 @@ defmodule Ambry.Inbox.Draft.Edit do
   the params on the way back in.
   """
 
+  alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.Draft.Recording
+  alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
+  alias Ambry.Inbox.Draft.Work
+  alias Ambry.Inbox.InboxItem
 
   @doc """
   Accepts one of a scalar's proposed candidates.
@@ -34,15 +39,89 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   @doc """
-  Settles which Book this is — an existing one, or a new one.
+  Settles which Book this is, and fills the work's fields from that answer.
+
+  Choosing used to only flip `mode`, which is why every provider row rendered
+  as chosen and clicking one appeared to do nothing: the fields had been
+  seeded from the top hit at build time and no later choice could move them.
+  A release is a recording of exactly one work, so picking a different
+  candidate has to change what the book will say.
   """
-  def choose_work(draft, "local", id) do
-    update_in(draft.work, &%{&1 | mode: :link, book_id: id, approved: true})
+  def choose_work(draft, %InboxItem{} = item, source, id) do
+    case find_candidate(draft.work.candidates, source, id) do
+      nil ->
+        draft
+
+      candidate ->
+        # Clicking the row that's already chosen is a confirmation, not a
+        # change — re-seeding there would silently discard every credit and
+        # series the operator has settled since.
+        if Work.selected?(draft.work, candidate) do
+          update_in(draft.work, &%{&1 | approved: true})
+        else
+          update_in(draft.work, &Seed.reseed_work(&1, candidate, hints(item), tags(item)))
+        end
+    end
   end
 
-  def choose_work(draft, _provider_source, _id) do
-    update_in(draft.work, &%{&1 | mode: :create, book_id: nil, approved: true})
+  @doc """
+  Settles the work as a book nothing matched, described by the file alone.
+  """
+  def choose_new_work(draft, %InboxItem{} = item) do
+    update_in(draft.work, &Seed.reseed_new_work(&1, hints(item), tags(item)))
   end
+
+  @doc """
+  Settles which catalogued recording this release is.
+
+  Because a recording is a recording of exactly one work, a candidate that
+  came out of a work's own edition list answers the book question too — so
+  choosing it settles the work rather than asking again.
+  """
+  def choose_recording(draft, %InboxItem{} = item, source, id) do
+    case find_candidate(draft.recording.candidates, source, id) do
+      nil ->
+        draft
+
+      candidate ->
+        draft
+        |> update_in([Access.key(:recording)], fn recording ->
+          if Recording.selected?(recording, candidate),
+            do: %{recording | approved: true, doubt: :none, doubt_detail: nil},
+            else: Seed.reseed_recording(recording, candidate, tags(item), item)
+        end)
+        |> follow_work(item, candidate)
+    end
+  end
+
+  @doc """
+  Settles the recording as one no catalogue lists.
+
+  A real answer, not a failure: a delisted edition disappears from Audible's
+  search *and* from direct ASIN lookup, so plenty of perfectly good rips are
+  in no storefront at all.
+  """
+  def choose_uncatalogued(draft, %InboxItem{} = item) do
+    update_in(draft.recording, &Seed.reseed_uncatalogued(&1, tags(item), item))
+  end
+
+  defp follow_work(draft, item, %{"of_work" => %{"source" => source, "id" => id}})
+       when is_binary(source) do
+    if Work.selected?(draft.work, %{"source" => source, "id" => id}),
+      do: draft,
+      else: choose_work(draft, item, source, id)
+  end
+
+  defp follow_work(draft, _item, _candidate), do: draft
+
+  defp find_candidate(candidates, source, id) do
+    Enum.find(candidates, fn candidate ->
+      candidate["source"] == source and to_string(candidate["id"]) == to_string(id)
+    end)
+  end
+
+  defp hints(%InboxItem{} = item), do: AutoMatch.hints(item)
+  defp tags(%InboxItem{tags: tags}), do: tags || %{}
 
   @doc """
   Points a credit at an identity that already exists.
@@ -149,11 +228,12 @@ defmodule Ambry.Inbox.Draft.Edit do
     do: update_in(draft.recording.approved, fn _ -> approved? end)
 
   @doc """
-  Approves every decision that is only waiting on a nod.
+  Takes the leading suggestion for everything still outstanding.
 
-  The "looks right, take it" button. Deliberately does NOT invent values —
-  anything genuinely missing or contradictory stays outstanding, so this can
-  never turn a `:missing` title into an imported book with no title.
+  Three things it deliberately will not do, because each would be the system
+  writing a fact nobody actually has: invent a value nothing proposed, invent
+  a series number, or pick a recording we already said we doubt. Those stay
+  outstanding, which is the difference between a shortcut and a rubber stamp.
   """
   def approve_all(%Draft{} = draft) do
     draft
@@ -178,7 +258,11 @@ defmodule Ambry.Inbox.Draft.Edit do
   defp approve_all_recording(recording) do
     %{
       recording
-      | approved: true,
+      | # A doubted match is the one thing here that must stay a question. The
+        # leading candidate for a narrator conflict is, by construction, the
+        # wrong recording of the right book — precisely what nobody would
+        # notice after the fact.
+        approved: recording.approved or recording.doubt in [nil, :none, :nothing_found],
         title: settle_if_possible(recording.title),
         published: settle_if_possible(recording.published),
         publisher: settle_if_possible(recording.publisher),

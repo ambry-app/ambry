@@ -34,6 +34,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Books
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.People
@@ -72,7 +74,23 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def handle_event("choose-work", %{"source" => source} = params, socket) do
-    {:noreply, edit(socket, &Draft.Edit.choose_work(&1, source, to_int(params["id"])))}
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.choose_work(&1, item, source, params["id"]))}
+  end
+
+  def handle_event("new-work", _params, socket) do
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.choose_new_work(&1, item))}
+  end
+
+  def handle_event("choose-recording", %{"source" => source} = params, socket) do
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.choose_recording(&1, item, source, params["id"]))}
+  end
+
+  def handle_event("uncatalogued", _params, socket) do
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.choose_uncatalogued(&1, item))}
   end
 
   def handle_event("link-credit", %{"section" => section, "index" => i} = params, socket) do
@@ -267,15 +285,88 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def chapter_summary(_item), do: "Not read yet."
 
   @doc """
-  Whether this candidate is the one the work decision currently points at.
-  """
-  def chosen_work?(%Work{mode: :link, book_id: id}, %{"source" => "local", "id" => id}), do: true
-  def chosen_work?(%Work{mode: :link}, _candidate), do: false
-  def chosen_work?(%Work{mode: :create}, %{"source" => "local"}), do: false
+  What this import says the release is, in one line.
 
-  # Any non-local candidate means "create a new book"; which provider it came
-  # from is recorded per-field as provenance, not as one winning row.
-  def chosen_work?(%Work{mode: :create, approved: approved?}, _candidate), do: approved?
+  The form asks two questions — which book, which recording — but they are two
+  halves of one fact: a file is a recording of exactly one work. Stating the
+  answer as a sentence is how the operator checks it at a glance instead of
+  reassembling it from six fields.
+  """
+  def identity_summary(%Draft{} = draft) do
+    title = Field.value(draft.work.title) || "an unidentified book"
+    authors = names_of(draft.work.authors)
+    narrators = names_of(draft.recording.narrators)
+
+    [
+      title,
+      authors != "" && "by #{authors}",
+      narrators != "" && "read by #{narrators}"
+    ]
+    |> Enum.filter(&is_binary/1)
+    |> Enum.join(" ")
+  end
+
+  def identity_summary(_draft), do: nil
+
+  defp names_of(credits), do: Enum.map_join(credits, ", ", & &1.name)
+
+  @doc """
+  What the files themselves said, before anybody interpreted it.
+
+  The tags are the primary source — 98% of the operator's real releases carry
+  a usable one — so when a match goes somewhere strange this is where the
+  cause is, and it was previously visible nowhere in the form.
+  """
+  def tag_rows(%InboxItem{tags: tags}) when is_map(tags) do
+    for key <- ~w(book_title authors narrators series series_number published publisher asin),
+        value = tags[key],
+        value not in [nil, "", []] do
+      {tag_label(key), format_tag(value)}
+    end
+  end
+
+  def tag_rows(_item), do: []
+
+  defp tag_label("book_title"), do: "title"
+  defp tag_label("series_number"), do: "series no."
+  defp tag_label(key), do: String.replace(key, "_", " ")
+
+  defp format_tag(value) when is_list(value), do: Enum.join(value, ", ")
+  defp format_tag(value), do: to_string(value)
+
+  @doc """
+  The search terms auto-match derived, and where each came from.
+
+  Tags win over the release name because they're measurably more reliable, but
+  that means a wrong tag beats a right folder name — worth being able to see.
+  """
+  def hint_rows(%InboxItem{matches: %{"hints" => hints}}) when is_map(hints) do
+    for key <- ~w(title author narrator series asin),
+        value = hints[key],
+        value not in [nil, ""],
+        do: {key, value}
+  end
+
+  def hint_rows(_item), do: []
+
+  @doc """
+  Why nothing was filled in from a recording match.
+
+  "No provider listed this" and "a provider listed a different reader's
+  edition" want completely different things from the operator, and an empty
+  set of fields says neither.
+  """
+  def doubt_message(%Recording{doubt: :narrator_conflict, doubt_detail: detail}), do: detail
+
+  def doubt_message(%Recording{doubt: :low_confidence, doubt_detail: detail}), do: detail
+
+  def doubt_message(%Recording{doubt: :nothing_found, candidates: []}),
+    do:
+      "No provider had a recording matching this. That is common and not a problem — " <>
+        "a delisted edition vanishes from Audible's search and from ASIN lookup alike. " <>
+        "The fields below come from the file's own tags."
+
+  def doubt_message(_recording), do: nil
 
   @doc """
   Which providers were asked at this level, and what each said.
@@ -291,24 +382,23 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def provider_outcomes(_item, _level), do: []
 
-  def outcome_label(%{"status" => "failed"} = outcome),
-    do: {"#{outcome["name"]} couldn't be reached", :red}
-
-  def outcome_label(%{"count" => 0} = outcome), do: {"#{outcome["name"]}: nothing", :gray}
-
-  def outcome_label(outcome), do: {"#{outcome["name"]}: #{outcome["count"]}", :gray}
-
-  @doc "A work candidate as one readable line."
-  def candidate_line(candidate) do
-    [candidate["title"], candidate["authors"] && Enum.join(candidate["authors"], ", ")]
-    |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.join(" — ")
+  @doc "The candidate a decision's fields were filled from, if any."
+  def selected_candidate(%{candidates: candidates, selected_source: source, selected_id: id})
+      when is_binary(source) do
+    Enum.find(candidates, &(&1["source"] == source and to_string(&1["id"]) == id))
   end
 
-  def candidate_origin(%{"source" => "local"}), do: "already in the library"
-  def candidate_origin(%{"provider_name" => name}) when is_binary(name), do: name
-  def candidate_origin(%{"source" => "provider:" <> id}), do: id
-  def candidate_origin(_candidate), do: nil
+  def selected_candidate(_decision), do: nil
+
+  @doc """
+  How many decisions the bulk button would settle, so its label can say.
+
+  A button that might do fourteen things or nothing should not look the same
+  in both cases.
+  """
+  def settleable(unresolved) do
+    Enum.count(unresolved, &(&1.state != :missing))
+  end
 
   def confidence_label(nil), do: {"no match", :gray}
   def confidence_label(confidence) when confidence >= 0.85, do: {"near-certain", :brand}

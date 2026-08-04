@@ -375,6 +375,281 @@ defmodule Ambry.Inbox.DraftTest do
       assert draft.recording.publisher.value == nil
       assert draft.recording.published.value == nil
       assert draft.recording.cover.value == nil
+
+      # and the reason is recorded rather than left as an unexplained set of
+      # empty fields, which is indistinguishable from having found nothing
+      assert draft.recording.doubt == :narrator_conflict
+      assert draft.recording.doubt_detail =~ "Jeff Harding"
+      assert draft.recording.doubt_detail =~ "Robertson Dean"
+
+      # a doubted identity is a real question, so it stays open
+      refute draft.recording.approved
+
+      assert Enum.any?(
+               Draft.unresolved(draft),
+               &(&1.label == "Which recording this is" and &1.state == :unconfirmed)
+             )
+    end
+
+    test "finding nothing at all is settled, and says so" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      # plenty of perfectly good rips are in no catalogue — that's an answer,
+      # not an outstanding question
+      assert draft.recording.doubt == :nothing_found
+      assert draft.recording.approved
+    end
+  end
+
+  describe "choosing a candidate" do
+    test "picking a different book refills the work's fields from it" do
+      candidates = [
+        provider_candidate(%{"id" => "hc-1", "title" => "Leviathan Wakes"}),
+        provider_candidate(%{
+          "id" => "hc-2",
+          "title" => "Caliban's War",
+          "published" => "2012-06-26",
+          "score" => 0.6
+        })
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert item.draft.work.title.value == "Leviathan Wakes"
+      assert item.draft.work.selected_id == "hc-1"
+
+      draft = Draft.Edit.choose_work(item.draft, item, "provider:hardcover", "hc-2")
+
+      # the list is a question with one right answer, so choosing has to move
+      # the fields — it used to only flip `mode`, which is why every row
+      # rendered as chosen and clicking one did nothing visible
+      assert draft.work.title.value == "Caliban's War"
+      assert draft.work.published.value == "2012-06-26"
+      assert draft.work.selected_id == "hc-2"
+      assert draft.work.approved
+    end
+
+    test "a typed value survives choosing a different book" do
+      candidates = [
+        provider_candidate(%{"id" => "hc-1"}),
+        provider_candidate(%{"id" => "hc-2", "title" => "Caliban's War", "score" => 0.6})
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      {:ok, item} =
+        Inbox.update_draft(item, %{
+          "work" => %{"title" => %{"value" => "What I Actually Want"}}
+        })
+
+      draft = Draft.Edit.choose_work(item.draft, item, "provider:hardcover", "hc-2")
+
+      # 1d again: curation outranks any source, including a source the
+      # operator just picked
+      assert draft.work.title.value == "What I Actually Want"
+      assert draft.work.title.source == "manual"
+    end
+
+    test "clicking the already-chosen book confirms rather than resetting" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      touched = Draft.Edit.approve_credit(item.draft, :work, 0, true)
+      assert Enum.at(touched.work.authors, 0).approved
+
+      draft = Draft.Edit.choose_work(touched, item, "provider:hardcover", "hc-1")
+
+      assert Enum.at(draft.work.authors, 0).approved
+    end
+
+    test "choosing a recording settles the book it is known to be of" do
+      work = [
+        provider_candidate(%{"id" => "hc-1"}),
+        provider_candidate(%{"id" => "hc-2", "title" => "Caliban's War", "score" => 0.6})
+      ]
+
+      recording = [
+        %{
+          "source" => "provider:hardcover",
+          "provider_name" => "Hardcover editions",
+          "id" => "ed-9",
+          "title" => "Caliban's War",
+          "narrators" => ["Jefferson Mays"],
+          "publisher" => "Orbit",
+          "published" => "2012-06-26",
+          "score" => 0.4,
+          # editions come out of a work's own list, so which work is not a
+          # second question
+          "of_work" => %{"source" => "provider:hardcover", "id" => "hc-2"}
+        }
+      ]
+
+      item =
+        item(%{
+          matches: matches(work, recording: recording, recording_confidence: 0.4),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.work.selected_id == "hc-1"
+
+      draft = Draft.Edit.choose_recording(item.draft, item, "provider:hardcover", "ed-9")
+
+      assert draft.recording.selected_id == "ed-9"
+      assert draft.recording.publisher.value == "Orbit"
+      # a file is a recording of exactly one work, so identifying the
+      # recording answers the book question too
+      assert draft.work.selected_id == "hc-2"
+      assert draft.work.title.value == "Caliban's War"
+    end
+
+    test "a recording in no catalogue is a real answer" do
+      recording = [
+        %{
+          "source" => "provider:audible",
+          "id" => "B01",
+          "title" => "Neuromancer",
+          "narrators" => ["Robertson Dean"],
+          "score" => 0.5
+        }
+      ]
+
+      item =
+        item(%{
+          matches:
+            matches([provider_candidate(%{})], recording: recording, recording_confidence: 0.5),
+          tags: %{"narrators" => ["Jeff Harding"]}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute item.draft.recording.approved
+
+      draft = Draft.Edit.choose_uncatalogued(item.draft, item)
+
+      assert draft.recording.approved
+      assert draft.recording.selected_source == nil
+      assert Draft.Recording.uncatalogued?(draft.recording)
+    end
+
+    test "taking the top suggestion never adopts a doubted recording" do
+      recording = [
+        %{
+          "source" => "provider:audible",
+          "id" => "B01",
+          "title" => "Neuromancer",
+          "narrators" => ["Robertson Dean"],
+          "publisher" => "Penguin Audio",
+          "score" => 0.5
+        }
+      ]
+
+      item =
+        item(%{
+          matches:
+            matches([provider_candidate(%{})], recording: recording, recording_confidence: 0.5),
+          tags: %{"narrators" => ["Jeff Harding"]}
+        })
+
+      draft = item |> Seed.build() |> Draft.Edit.approve_all()
+
+      # the leading candidate here is, by construction, the wrong recording of
+      # the right book — the one thing this button must not paper over
+      refute draft.recording.approved
+      assert draft.recording.publisher.value == nil
+    end
+  end
+
+  describe "sources that agree" do
+    test "a format label is not a disagreement" do
+      # Audible titles carry "(Unabridged)" and work-level providers don't, so
+      # treating the two as rival answers made the operator arbitrate a
+      # non-question on a large share of imports
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches([provider_candidate(%{"title" => "Neuromancer (Unabridged)"})]),
+            tags: %{"book_title" => "Neuromancer"}
+          })
+        )
+
+      assert draft.work.title.approved
+      # and the clean spelling wins the field
+      assert draft.work.title.value == "Neuromancer"
+      # both are still offered, because the operator may want the other
+      assert length(draft.work.title.candidates) == 2
+    end
+
+    test "genuinely different titles still disagree" do
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches([provider_candidate(%{"title" => "Neuromancer"})]),
+            tags: %{"book_title" => "Count Zero"}
+          })
+        )
+
+      refute draft.work.title.approved
+      assert Draft.Field.state(draft.work.title) == :ambiguous
+    end
+  end
+
+  describe "series numbers" do
+    test "a number the provider supplied settles the membership" do
+      candidates = [
+        provider_candidate(%{
+          "series" => [%{"name" => "The Expanse", "number" => "1"}]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      # every provider we use reports the position; it was being thrown away
+      # between the search result and the draft, so the inbox asked the
+      # operator for a number nobody had to look up
+      assert [link] = draft.work.series
+      assert link.number == "1"
+      assert SeriesLink.resolved?(link)
+    end
+
+    test "each series keeps its own number" do
+      candidates = [
+        provider_candidate(%{
+          "series" => [
+            %{"name" => "The Expanse", "number" => "1"},
+            %{"name" => "The Expanse (Chronological)", "number" => "2"}
+          ]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [first, second] = draft.work.series
+      assert first.number == "1"
+      assert second.number == "2"
+    end
+
+    test "a tag's number is not applied to a series the tag didn't name" do
+      candidates = [
+        provider_candidate(%{
+          "series" => [%{"name" => "The Expanse"}, %{"name" => "Some Other Series"}]
+        })
+      ]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(candidates),
+            tags: %{"series" => "The Expanse", "series_number" => "1"}
+          })
+        )
+
+      assert [expanse, other] = draft.work.series
+      assert expanse.number == "1"
+      # the file said where this book sits in The Expanse and nothing at all
+      # about the other one; borrowing the number would be inventing a fact
+      assert other.number == nil
     end
   end
 

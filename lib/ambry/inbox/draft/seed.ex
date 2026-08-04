@@ -15,9 +15,16 @@ defmodule Ambry.Inbox.Draft.Seed do
       match, or a top score ≥ 0.90 whose runner-up is ≤ 0.70. Local books
       already outrank equal provider hits in `AutoMatch`, so "reuse the work"
       wins by default.
+    * **recording identity** — settled when an ASIN or a confident match says
+      which catalogue entry this is, and settled when nothing was found at all
+      (plenty of good rips are in no storefront). A *doubted* match settles
+      nothing and records why: the wrong recording of the right book is the
+      most expensive mistake available here and the hardest to notice later.
     * **scalar** — nothing proposed and optional: waived. One proposal: taken.
       Several that agree once normalized: taken. Several that disagree:
-      the operator's.
+      the operator's. Format labels are not a disagreement — "Neuromancer" and
+      "Neuromancer (Unabridged)" are one answer written two ways, and the
+      cleaner spelling wins.
     * **credit** — one exact identity match: linked. No match at all, name
       from a provider-matched work: created 1:1. A *Person* matches but the
       identity doesn't: always the operator's, because "is this the same
@@ -26,8 +33,18 @@ defmodule Ambry.Inbox.Draft.Seed do
       multi-value splitting 1b calls knowingly imperfect ("Sanderson,
       Brandon"). This is the rule that stops the inbox quietly filling the
       library with malformed people.
-    * **series number** — never invented. Only a number an actual source
-      supplied can settle it.
+    * **series number** — never invented, but every provider we use reports
+      one, so it usually arrives with the match. A tag's number belongs to the
+      series the tag named; it is borrowed for a provider's series only when
+      the file named none and there is exactly one proposal.
+
+  ## Re-seeding
+
+  The candidate list is a question with one right answer — the file is a
+  recording of exactly one work — so choosing a different candidate refills
+  the fields from it (`reseed_work/4`, `reseed_recording/4`). Anything the
+  operator typed survives, because 1d's whole point is that curation outranks
+  any source.
   """
 
   import Ecto.Query
@@ -150,13 +167,68 @@ defmodule Ambry.Inbox.Draft.Seed do
       candidates: candidates,
       confidence: confidence,
       query: Map.get(level, "query"),
-      title: title_field(best, hints, tags),
-      published: published_field(best, tags),
-      published_format: published_format_field(best, tags),
-      authors: author_credits(best, tags),
-      series: series_links(best, tags, book_id)
+      query_fields: Map.get(level, "query_fields") || %{},
+      selected_source: best && best["source"],
+      selected_id: best && to_string(best["id"])
+    }
+    |> put_work_fields(best, hints, tags)
+  end
+
+  @doc """
+  Fills a work's fields from one candidate, keeping anything the operator
+  typed.
+
+  This is what makes the candidate list a question rather than a display: a
+  release is a recording of exactly one work, so picking a different candidate
+  has to change what the book will say. Manual edits survive, because 1d's
+  whole point is that curation outranks any source.
+  """
+  def reseed_work(%Work{} = work, candidate, hints, tags) do
+    %{
+      work
+      | mode: if(candidate["source"] == "local", do: :link, else: :create),
+        book_id: if(candidate["source"] == "local", do: candidate["id"]),
+        approved: true,
+        selected_source: candidate["source"],
+        selected_id: to_string(candidate["id"])
+    }
+    |> put_work_fields(candidate, hints, tags)
+  end
+
+  @doc """
+  Detaches a work from every candidate — a book nothing matched, described by
+  the file alone.
+  """
+  def reseed_new_work(%Work{} = work, hints, tags) do
+    %{
+      work
+      | mode: :create,
+        book_id: nil,
+        approved: true,
+        selected_source: nil,
+        selected_id: nil
+    }
+    |> put_work_fields(nil, hints, tags)
+  end
+
+  defp put_work_fields(%Work{} = work, best, hints, tags) do
+    book_id = if best && best["source"] == "local", do: best["id"]
+
+    %{
+      work
+      | title: keep_manual(work.title, title_field(best, hints, tags)),
+        published: keep_manual(work.published, published_field(best, tags)),
+        published_format: keep_manual(work.published_format, published_format_field(best, tags)),
+        authors: author_credits(best, tags),
+        series: series_links(best, tags, book_id)
     }
   end
+
+  # A field the operator typed is theirs; re-seeding from another candidate
+  # must not quietly undo a correction. Everything else is provider data being
+  # replaced by other provider data, which is exactly what was asked for.
+  defp keep_manual(%Field{source: "manual"} = existing, _fresh), do: existing
+  defp keep_manual(_existing, fresh), do: fresh
 
   # An existing Book is the best outcome there is — it's what stops a second
   # recording of a work splitting the library — so a confident local hit links
@@ -188,8 +260,35 @@ defmodule Ambry.Inbox.Draft.Seed do
   # make nearly every import ambiguous on its title for no gain.
   defp title_field(best, hints, tags) do
     [candidate(best, "title"), tag_candidate(tags, "book_title")]
-    |> scalar(required: true, fallback: release_candidate(hints.title))
+    |> scalar(
+      required: true,
+      equivalence: &title_key/1,
+      fallback: release_candidate(hints.title)
+    )
   end
+
+  # "Neuromancer" and "Neuromancer (Unabridged)" are one answer written two
+  # ways, and treating that as a disagreement made the operator arbitrate a
+  # non-question on a large share of imports — Audible titles carry the format
+  # label and work-level providers don't. Only *format* labels are set aside,
+  # and only for deciding whether two proposals mean the same thing: both
+  # strings stay in the candidate list, and the shorter one wins the field.
+  #
+  # Deliberately not stripped: "Dramatized Adaptation", "(1 of 3)" and the
+  # like. Those name a genuinely different recording, and collapsing them
+  # would hide the very distinction the recording level exists to make.
+  @format_labels ~r/\b(?:un)?abridged(?:\s+edition)?\b|\baudio\s?book\b|\baudio\s+edition\b/iu
+
+  defp title_key(value) when is_binary(value) do
+    value
+    |> String.replace(@format_labels, " ")
+    # a bracket that held nothing but a format label is now empty
+    |> String.replace(~r/[(\[{]\s*[)\]}]/u, " ")
+    |> String.replace(~r/[^\p{L}\p{N}\s]/u, " ")
+    |> normalize()
+  end
+
+  defp title_key(other), do: normalize(other)
 
   defp published_field(best, tags) do
     [candidate(best, "published"), tag_candidate(tags, "published")]
@@ -223,23 +322,67 @@ defmodule Ambry.Inbox.Draft.Seed do
     # describe this file as a recording it is not. A doubted candidate stays
     # in the list for the operator to pick; it just doesn't get to speak
     # first.
-    best = if trusted?(candidates, level, hints), do: List.first(candidates)
+    {doubt, detail, best} = trust(candidates, level, hints)
 
     %Recording{
       candidates: candidates,
       confidence: Map.get(level, "confidence"),
       query: Map.get(level, "query"),
-      # A new recording is what an inbox item almost always is, and the
-      # skeleton has no other option to offer — so the identity is settled by
-      # construction. Replace-an-existing-recording is the option this grows.
-      approved: true,
-      title: [] |> scalar(required: false),
-      published: [candidate(best, "published")] |> scalar(required: false),
-      publisher: [candidate(best, "publisher"), tag_candidate(tags, "publisher")] |> scalar(),
-      description:
-        [candidate(best, "description"), tag_candidate(tags, "description")] |> scalar(),
-      cover: cover_field(best, tags, item),
-      narrators: narrator_credits(best, tags)
+      query_fields: Map.get(level, "query_fields") || %{},
+      doubt: doubt,
+      doubt_detail: detail,
+      selected_source: best && best["source"],
+      selected_id: best && to_string(best["id"]),
+      # Which recording this is is a fact with one right answer, so it settles
+      # only when we actually know it: a trusted match, or nothing to choose
+      # between. A doubted candidate leaves the question open rather than
+      # being adopted quietly — that ambiguity was previously invisible,
+      # showing up only as fields that mysteriously stayed empty.
+      approved: doubt in [:none, :nothing_found]
+    }
+    |> put_recording_fields(best, tags, item)
+  end
+
+  @doc """
+  Fills a recording's fields from one catalogue entry, keeping typed values.
+  """
+  def reseed_recording(%Recording{} = recording, candidate, tags, item) do
+    %{
+      recording
+      | approved: true,
+        selected_source: candidate["source"],
+        selected_id: to_string(candidate["id"]),
+        doubt: :none,
+        doubt_detail: nil
+    }
+    |> put_recording_fields(candidate, tags, item)
+  end
+
+  @doc """
+  Settles a recording as one no catalogue lists, described by the file alone.
+  """
+  def reseed_uncatalogued(%Recording{} = recording, tags, item) do
+    %{recording | approved: true, selected_source: nil, selected_id: nil}
+    |> put_recording_fields(nil, tags, item)
+  end
+
+  defp put_recording_fields(%Recording{} = recording, best, tags, item) do
+    %{
+      recording
+      | title: keep_manual(recording.title, scalar([], required: false)),
+        published: keep_manual(recording.published, scalar([candidate(best, "published")])),
+        publisher:
+          keep_manual(
+            recording.publisher,
+            scalar([candidate(best, "publisher"), tag_candidate(tags, "publisher")])
+          ),
+        description:
+          keep_manual(
+            recording.description,
+            scalar([candidate(best, "description"), tag_candidate(tags, "description")])
+          ),
+        cover: keep_manual(recording.cover, cover_field(best, tags, item)),
+        narrators: narrator_credits(best, tags)
     }
   end
 
@@ -248,23 +391,56 @@ defmodule Ambry.Inbox.Draft.Seed do
   # different one, this is the wrong recording of the right book — the single
   # most common way recording-level matching goes wrong, and the one the
   # operator is least likely to notice after the fact.
-  defp trusted?([], _level, _hints), do: false
+  #
+  # Returns why it isn't trusted as well as whether, because "no provider
+  # listed this" and "a provider listed a different reader's edition" call for
+  # completely different things from the operator, and an empty form says
+  # neither.
+  defp trust([], _level, _hints), do: {:nothing_found, nil, nil}
 
-  defp trusted?([best | _rest], level, hints) do
+  defp trust([best | _rest], level, hints) do
+    confidence = Map.get(level, "confidence") || 0.0
+
     cond do
-      best["score"] == 1.0 -> true
-      narrator_conflict?(best, hints) -> false
-      (Map.get(level, "confidence") || 0.0) >= @trusted_recording -> true
-      true -> false
+      best["score"] == 1.0 ->
+        {:none, nil, best}
+
+      conflict = narrator_conflict(best, hints) ->
+        {:narrator_conflict, conflict, nil}
+
+      confidence >= @trusted_recording ->
+        {:none, nil, best}
+
+      true ->
+        {:low_confidence, low_confidence_detail(best, confidence), nil}
     end
   end
 
-  defp narrator_conflict?(_best, %{narrator: nil}), do: false
+  defp low_confidence_detail(best, confidence) do
+    "The closest is #{best["title"]}#{narrated_by(best["narrators"])}, and it isn't a close " <>
+      "enough match (#{round(confidence * 100)}%) to describe this file."
+  end
 
-  defp narrator_conflict?(best, %{narrator: narrator}) do
+  defp narrated_by(narrators) do
+    case names(narrators) do
+      nil -> ""
+      names -> " read by #{Enum.join(names, ", ")}"
+    end
+  end
+
+  defp narrator_conflict(_best, %{narrator: nil}), do: nil
+
+  defp narrator_conflict(best, %{narrator: narrator}) do
     case names(best["narrators"]) do
-      nil -> false
-      names -> Enum.all?(names, &(String.jaro_distance(down(&1), down(narrator)) < 0.85))
+      nil ->
+        nil
+
+      names ->
+        if Enum.all?(names, &(String.jaro_distance(down(&1), down(narrator)) < 0.85)) do
+          "The file says #{narrator} reads this; the closest catalogue entry " <>
+            "(#{best["title"]}) is read by #{Enum.join(names, ", ")}. Those are " <>
+            "different recordings of the same book."
+        end
     end
   end
 
@@ -377,13 +553,68 @@ defmodule Ambry.Inbox.Draft.Seed do
   # book doesn't already have it: an import may fill a blank, never overwrite
   # curation.
   defp series_links(best, tags, book_id) do
-    names = names(best && best["series"]) || names(tags["series"]) || []
-    number = tags["series_number"]
-    source = if names == names(best && best["series"]), do: source_of(best), else: "tags"
+    {proposals, source} =
+      case series_proposals(best && best["series"]) do
+        [] -> {series_proposals_from_tags(tags), "tags"}
+        from_provider -> {from_provider, source_of(best)}
+      end
 
-    names
-    |> Enum.reject(&already_on_book?(&1, book_id))
-    |> Enum.map(&series_link(&1, number, source))
+    proposals
+    |> Enum.reject(&already_on_book?(&1.name, book_id))
+    |> then(fn kept ->
+      Enum.map(kept, &series_link(&1.name, &1.number || tag_number(&1.name, tags, kept), source))
+    end)
+  end
+
+  # The file's series number describes this book's position in the series the
+  # file names. Applying it to a series the file did NOT name is inventing a
+  # fact — safe only when the file named no series at all and there's exactly
+  # one proposal for it to have been about.
+  defp tag_number(name, tags, proposals) do
+    tagged = presence(tags["series"])
+
+    cond do
+      is_nil(tagged) and length(proposals) == 1 -> presence(tags["series_number"])
+      tagged && normalize(tagged) == normalize(name) -> presence(tags["series_number"])
+      true -> nil
+    end
+  end
+
+  # Candidates carry series as `%{"name", "number"}`. Older stored matches
+  # carry bare strings, and a rescan is not something to require just to read
+  # an item, so both shapes are accepted.
+  defp series_proposals(nil), do: []
+
+  defp series_proposals(entries) when is_list(entries) do
+    entries
+    |> Enum.map(&series_proposal/1)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp series_proposals(value) when is_binary(value), do: series_proposals([value])
+  defp series_proposals(_other), do: []
+
+  defp series_proposal(%{"name" => name} = entry) when is_binary(name) do
+    case presence(name) do
+      nil -> nil
+      name -> %{name: name, number: presence(entry["number"])}
+    end
+  end
+
+  defp series_proposal(name) when is_binary(name) do
+    case presence(name) do
+      nil -> nil
+      name -> %{name: name, number: nil}
+    end
+  end
+
+  defp series_proposal(_other), do: nil
+
+  defp series_proposals_from_tags(tags) do
+    case presence(tags["series"]) do
+      nil -> []
+      name -> [%{name: name, number: presence(tags["series_number"])}]
+    end
   end
 
   defp already_on_book?(_name, nil), do: false
@@ -436,24 +667,27 @@ defmodule Ambry.Inbox.Draft.Seed do
   # into a choice.
   defp scalar(candidates, opts \\ []) do
     required = Keyword.get(opts, :required, false)
+    same? = Keyword.get(opts, :equivalence, &normalize/1)
     candidates = Enum.reject(candidates, &is_nil/1)
 
     candidates =
-      case {distinct(candidates), Keyword.get(opts, :fallback)} do
+      case {groups(candidates, same?), Keyword.get(opts, :fallback)} do
         {[], fallback} when not is_nil(fallback) -> [fallback]
         _primary_had_something -> candidates
       end
 
     field = %Field{required: required, candidates: candidates}
 
-    case distinct(candidates) do
+    case groups(candidates, same?) do
       # nothing proposed it. Optional means waived — an explicit "none", which
       # is what makes "every piece resolved" reachable at all.
       [] ->
         %{field | approved: not required}
 
-      # one answer, whether from one source or several that agree
-      [value] ->
+      # one answer, whether from one source, several that agree exactly, or
+      # several that agree once format labels are set aside
+      [group] ->
+        value = preferred(group)
         %{field | value: value, source: source_for(candidates, value), approved: true}
 
       _several ->
@@ -461,12 +695,19 @@ defmodule Ambry.Inbox.Draft.Seed do
     end
   end
 
-  defp distinct(candidates) do
+  # Proposals that mean the same thing, gathered. Every group is one answer;
+  # more than one group is a genuine disagreement for the operator to settle.
+  defp groups(candidates, same?) do
     candidates
     |> Enum.map(& &1.value)
     |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.uniq_by(&normalize/1)
+    |> Enum.group_by(same?)
+    |> Map.values()
   end
+
+  # Given two spellings of one answer, the shorter is the title and the longer
+  # is the title with a format label bolted on.
+  defp preferred(values), do: values |> Enum.uniq() |> Enum.min_by(&String.length/1)
 
   defp source_for(candidates, value) do
     Enum.find_value(candidates, fn candidate ->

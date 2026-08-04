@@ -116,12 +116,22 @@ defmodule Ambry.Inbox.Draft.Field do
 
   `:missing` and `:ambiguous` are genuinely different problems — one needs a
   value from somewhere, the other needs a choice between values already in
-  hand — and the form should not describe them the same way.
+  hand — and the form should not describe them the same way. Which is exactly
+  why this counts *distinct* proposals: it used to report "sources disagree"
+  for a field with one proposal, and for a field with none at all.
   """
   def state(%__MODULE__{approved: true}), do: :approved
-  def state(%__MODULE__{candidates: [], required: true}), do: :missing
-  def state(%__MODULE__{candidates: [_one]}), do: :ambiguous
-  def state(%__MODULE__{}), do: :ambiguous
+
+  def state(%__MODULE__{} = field) do
+    field.candidates
+    |> Enum.map(& &1.value)
+    |> Enum.uniq()
+    |> case do
+      [] -> if field.required, do: :missing, else: :unconfirmed
+      [_one] -> :unconfirmed
+      _several -> :ambiguous
+    end
+  end
 
   @doc """
   The settled value, as the string it's staged as.

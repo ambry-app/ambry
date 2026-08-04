@@ -142,7 +142,6 @@ defmodule Ambry.Inbox.Draft.Credit do
     cond do
       resolved?(credit) -> :approved
       length(credit.candidates) > 1 -> :ambiguous
-      credit.candidates != [] -> :ambiguous
       true -> :unconfirmed
     end
   end
