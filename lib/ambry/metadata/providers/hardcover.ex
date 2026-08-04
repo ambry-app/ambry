@@ -35,7 +35,7 @@ defmodule Ambry.Metadata.Providers.Hardcover do
   def level, do: :work
 
   @impl Provider
-  def capabilities, do: [:book_search, :book_details, :author_search, :author_details]
+  def capabilities, do: [:book_search, :book_details, :author_search, :author_details, :editions]
 
   @impl Provider
   def config_fields do
@@ -115,6 +115,84 @@ defmodule Ambry.Metadata.Providers.Hardcover do
       {:ok, _other} -> {:error, :not_found}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  @editions_query """
+  query AudioEditions($id: Int!) {
+    editions(where: {book_id: {_eq: $id}}, limit: 60) {
+      id
+      title
+      release_date
+      asin
+      audio_seconds
+      reading_format_id
+      publisher { name }
+      image { url }
+      contributions { contribution author { id name } }
+    }
+  }
+  """
+
+  @doc """
+  The audiobook editions of a work.
+
+  This is the answer to recordings a storefront has delisted. Audible's
+  catalog API is a storefront, not a bibliography: when a publisher loses the
+  rights and the title is pulled, it disappears from search *and* from direct
+  ASIN lookup, leaving no trace that the recording ever existed. Hardcover
+  keeps the edition, its narrator and its cover.
+  """
+  @impl Provider
+  def editions(work_id, config) do
+    with {:ok, id} <- parse_id(work_id),
+         {:ok, %{"editions" => editions}} <-
+           Client.query(config, @editions_query, %{id: id}) do
+      {:ok, editions |> Enum.filter(&audio_edition?/1) |> Enum.map(&edition_to_book/1)}
+    else
+      {:ok, _other} -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # NOT `reading_format_id`: it is unreliable in exactly the cases that matter
+  # — several Neuromancer editions with explicit Narrator credits and audio
+  # publishers are stored as format 1 ("Read"). An explicit Narrator
+  # contribution is the honest signal that this is a recording, and an
+  # audio_seconds runtime corroborates it.
+  defp audio_edition?(edition) do
+    narrators(edition) != [] or not is_nil(edition["audio_seconds"])
+  end
+
+  defp narrators(edition) do
+    edition["contributions"]
+    |> List.wrap()
+    |> Enum.filter(&(&1["contribution"] == "Narrator"))
+    |> Enum.map(& &1["author"])
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp edition_to_book(edition) do
+    %Provider.Book{
+      provider: id(),
+      id: to_string(edition["id"]),
+      asin: presence(edition["asin"]),
+      title: edition["title"],
+      cover_url: get_in(edition, ["image", "url"]),
+      publisher: get_in(edition, ["publisher", "name"]),
+      # Old editions frequently carry the *work's* date rather than their own
+      # (four Neuromancer editions all claim 1984-07-01), so this is offered
+      # as a proposal like any other and is not to be trusted over a
+      # storefront's date when one exists.
+      published: published_date(edition["release_date"]),
+      narrators:
+        Enum.map(narrators(edition), fn narrator ->
+          %Provider.Contributor{
+            id: to_string(narrator["id"]),
+            name: narrator["name"],
+            role: "narrator"
+          }
+        end)
+    }
   end
 
   @search_authors_query """

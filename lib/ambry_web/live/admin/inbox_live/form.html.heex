@@ -302,6 +302,37 @@
       <p class="text-sm">
         <span class="font-bold">Custody:</span> {@destination.custody}
       </p>
+
+      <%!-- Any input may feed any output, so the root is chosen here rather
+            than fixed on the watched folder. With one root this never asks. --%>
+      <div :if={@item.draft.destination && @item.draft.destination.custody == :managed}>
+        <div class="flex items-center gap-2">
+          <.label>Library root</.label>
+          <.badge
+            :if={!@item.draft.destination.approved}
+            color={:yellow}
+            class="text-xs"
+          >
+            needs a look
+          </.badge>
+        </div>
+
+        <form id="destination-root" phx-change="choose-root" class="mt-1">
+          <select
+            name="root_id"
+            class="w-full max-w-md rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          >
+            <option value="">Choose a library root…</option>
+            <option
+              :for={root <- @roots}
+              value={root.id}
+              selected={@item.draft.destination.root_id == root.id}
+            >
+              {root.name} — {root.path}
+            </option>
+          </select>
+        </form>
+      </div>
       <p :if={@destination.summary} class="text-sm dark:text-zinc-400">{@destination.summary}</p>
       <p :if={@destination.blocker} class="text-sm text-red-600" data-role="destination-blocker">
         {@destination.blocker}

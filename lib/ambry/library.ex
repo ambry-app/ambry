@@ -95,6 +95,7 @@ defmodule Ambry.Library do
   Only `:downloads` locations import anywhere; everything else is adopted in
   place, so asking is a caller error rather than a missing configuration.
   """
+  @deprecated "Inputs and outputs are independent; the destination is a draft decision"
   def target_root(%Location{kind: kind}) when kind != :downloads, do: {:error, :not_importing}
 
   def target_root(%Location{target_root_id: id}) when is_integer(id) do

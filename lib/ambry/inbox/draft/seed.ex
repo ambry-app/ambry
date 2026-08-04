@@ -38,11 +38,14 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Candidate
   alias Ambry.Inbox.Draft.Credit
+  alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Library
+  alias Ambry.Library.Location
   alias Ambry.People.Author
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -70,7 +73,8 @@ defmodule Ambry.Inbox.Draft.Seed do
       evidence: evidence(item),
       stale: false,
       work: work(work_level, hints, tags),
-      recording: recording(recording_level, hints, tags, item)
+      recording: recording(recording_level, hints, tags, item),
+      destination: destination(item)
     }
   end
 
@@ -91,6 +95,43 @@ defmodule Ambry.Inbox.Draft.Seed do
   # and their probe. Neither a rename nor a replacement can slip past it.
   defp evidence(%InboxItem{} = item) do
     :erlang.phash2({item.files, item.probe}) |> Integer.to_string()
+  end
+
+  ## destination
+
+  # Any input may feed any output, so the root is chosen per import rather
+  # than fixed on the location. The single-root case — which is nearly all of
+  # them — resolves silently: being asked to pick from a list of one is not a
+  # decision, it's an interruption.
+  def destination(%InboxItem{} = item) do
+    item = Repo.preload(item, :location)
+
+    case item.location do
+      %Location{kind: :downloads} = location -> managed_destination(location)
+      _adopted_in_place -> %Destination{custody: :external, approved: true}
+    end
+  end
+
+  defp managed_destination(location) do
+    roots = Library.library_roots()
+
+    # A location may still *prefer* a root; it just doesn't bind to one.
+    preferred = Enum.find(roots, &(&1.id == location.target_root_id))
+
+    case {preferred, roots} do
+      {%Location{} = root, _several} -> settled(root, location)
+      {nil, [only]} -> settled(only, location)
+      {nil, _none_or_several} -> %Destination{custody: :managed, policy: location.import_policy}
+    end
+  end
+
+  defp settled(root, location) do
+    %Destination{
+      custody: :managed,
+      root_id: root.id,
+      policy: location.import_policy,
+      approved: true
+    }
   end
 
   ## work

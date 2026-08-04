@@ -57,7 +57,6 @@ defmodule Ambry.Inbox.Approval do
   alias Ambry.Inbox.Draft.PersonRef
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
-  alias Ambry.Library
   alias Ambry.Library.Location
   alias Ambry.Library.NamingTemplate
   alias Ambry.Library.Placement
@@ -370,9 +369,15 @@ defmodule Ambry.Inbox.Approval do
   # What approval should do with the bytes, decided by where the item came
   # from. Only a downloads folder imports; an external collection is adopted
   # exactly where it lies (that is the entire promise of external custody).
-  defp destination(%InboxItem{location: %Location{kind: :downloads} = location}) do
-    with {:ok, root} <- Library.target_root(location) do
-      {:ok, {root, location.import_policy}}
+  # Read off the draft rather than re-derived from the location: any input may
+  # feed any output, so which root this import goes to is a decision the
+  # operator made (or that resolved silently because there was only one), not
+  # a property of where the files were found.
+  defp destination(%InboxItem{draft: %{destination: %{custody: :managed} = destination}}) do
+    case Repo.get(Location, destination.root_id) do
+      %Location{kind: :library_root} = root -> {:ok, {root, destination.policy}}
+      %Location{} -> {:error, :target_not_a_root}
+      nil -> {:error, :no_library_root}
     end
   end
 

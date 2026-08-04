@@ -205,7 +205,13 @@ defmodule Ambry.Metadata.Provider do
   end
 
   @type config :: %{optional(atom) => term}
-  @type capability :: :book_search | :book_details | :author_search | :author_details | :chapters
+  @type capability ::
+          :book_search
+          | :book_details
+          | :author_search
+          | :author_details
+          | :chapters
+          | :editions
 
   @doc "Stable machine identifier, used in cache keys and settings rows."
   @callback id() :: String.t()
@@ -246,13 +252,24 @@ defmodule Ambry.Metadata.Provider do
   @callback author_details(id :: String.t(), config()) :: {:ok, Author.t()} | {:error, term}
   @callback chapters(asin :: String.t(), config()) :: {:ok, Chapters.t()} | {:error, term}
 
+  @doc """
+  The audiobook editions of a work this provider already identified.
+
+  A third key, alongside "search for a work" and "search for a recording":
+  once the work is matched, its own edition list is the most direct route to
+  the recordings that exist — including ones a storefront has since delisted
+  and can no longer be searched for at all.
+  """
+  @callback editions(work_id :: String.t(), config()) :: {:ok, [Book.t()]} | {:error, term}
+
   @optional_callbacks available?: 1,
                       config_notices: 1,
                       search_books: 2,
                       book_details: 2,
                       search_authors: 2,
                       author_details: 2,
-                      chapters: 2
+                      chapters: 2,
+                      editions: 2
 
   @doc "The default config for a provider module, derived from its config fields."
   def default_config(provider_module) do

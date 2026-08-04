@@ -38,6 +38,7 @@ defmodule Ambry.Inbox.Draft do
 
   import Ecto.Changeset
 
+  alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Work
 
@@ -46,6 +47,7 @@ defmodule Ambry.Inbox.Draft do
   embedded_schema do
     embeds_one :work, Work, on_replace: :update
     embeds_one :recording, Recording, on_replace: :update
+    embeds_one :destination, Destination, on_replace: :update
 
     # Bumped when discovery sees the underlying files change, so a draft built
     # against evidence that has since moved can say so instead of quietly
@@ -60,6 +62,7 @@ defmodule Ambry.Inbox.Draft do
     |> cast(attrs, [:evidence, :stale])
     |> cast_embed(:work)
     |> cast_embed(:recording)
+    |> cast_embed(:destination)
   end
 
   @doc """
@@ -72,7 +75,23 @@ defmodule Ambry.Inbox.Draft do
   def unresolved(nil), do: [%{section: :draft, label: "Not yet prepared", state: :missing}]
 
   def unresolved(%__MODULE__{} = draft) do
-    stale(draft) ++ work(draft) ++ recording(draft)
+    stale(draft) ++ work(draft) ++ recording(draft) ++ destination(draft)
+  end
+
+  # Absent means nothing was staged about the bytes, which for an adopt-in-
+  # place item is the normal case rather than an omission.
+  defp destination(%__MODULE__{destination: nil}), do: []
+
+  defp destination(%__MODULE__{destination: destination}) do
+    if Destination.resolved?(destination),
+      do: [],
+      else: [
+        %{
+          section: :destination,
+          label: "Which library root to import into",
+          state: Destination.state(destination)
+        }
+      ]
   end
 
   defp stale(%__MODULE__{stale: true}),
@@ -108,8 +127,13 @@ defmodule Ambry.Inbox.Draft do
   # stored: a stored total is a second source of truth waiting to drift from
   # the first.
   defp total(%__MODULE__{} = draft) do
-    work_total(draft.work) + recording_total(draft.recording)
+    work_total(draft.work) + recording_total(draft.recording) +
+      destination_total(draft.destination)
   end
+
+  defp destination_total(nil), do: 0
+  defp destination_total(%Destination{custody: :external}), do: 0
+  defp destination_total(%Destination{}), do: 1
 
   defp work_total(nil), do: 1
 

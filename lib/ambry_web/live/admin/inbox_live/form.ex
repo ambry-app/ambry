@@ -145,6 +145,15 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.approve_work(&1, params["approved"] == "true"))}
   end
 
+  def handle_event("choose-root", %{"root_id" => root_id}, socket) do
+    id = to_int(root_id)
+
+    {:noreply,
+     edit(socket, fn draft ->
+       update_in(draft.destination, &%{&1 | root_id: id, approved: not is_nil(id)})
+     end)}
+  end
+
   def handle_event("approve-all", _params, socket) do
     {:noreply, edit(socket, &Draft.Edit.approve_all/1)}
   end
@@ -198,7 +207,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),
-      destination: Inbox.destination_preflight(item)
+      destination: Inbox.destination_preflight(item),
+      # Roots are configuration and can change between seeding a draft and
+      # approving it, so they're read now rather than frozen into the draft.
+      roots: Ambry.Library.library_roots()
     )
   end
 

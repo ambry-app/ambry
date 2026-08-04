@@ -30,7 +30,9 @@ defmodule Ambry.Library.Location do
 
   schema "library_locations" do
     # Which root a `:downloads` location imports into. Null means "the only
-    # root there is" — see `Ambry.Library.target_root/1`.
+    # A *preferred* output, not a binding one: any input may feed any library
+    # root, and which one an import uses is decided per import (see
+    # `Ambry.Inbox.Draft.Destination`). This only seeds that choice.
     belongs_to :target_root, __MODULE__
 
     field :name, :string

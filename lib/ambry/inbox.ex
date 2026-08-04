@@ -309,7 +309,7 @@ defmodule Ambry.Inbox do
   defp downloads_preflight(item, location) do
     base = %{custody: :managed, blocker: nil, summary: nil}
 
-    case Library.target_root(location) do
+    case chosen_root(item) do
       {:error, reason} ->
         %{base | blocker: describe_error(reason)}
 
@@ -321,6 +321,17 @@ defmodule Ambry.Inbox do
         }
     end
   end
+
+  # The root the draft settled on, not one derived from the location: inputs
+  # and outputs are independent, so this is a decision rather than a lookup.
+  defp chosen_root(%InboxItem{draft: %{destination: %{root_id: id}}}) when is_integer(id) do
+    case Repo.get(Location, id) do
+      %Location{kind: :library_root} = root -> {:ok, root}
+      _other -> {:error, :no_library_root}
+    end
+  end
+
+  defp chosen_root(_item), do: {:error, :no_library_root}
 
   defp policy_summary(:hardlink, root),
     do: "Hardlinked into #{root.path} — one copy of the bytes, the download keeps seeding."

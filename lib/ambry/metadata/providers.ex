@@ -31,6 +31,9 @@ defmodule Ambry.Metadata.Providers do
   def author_details(provider_id, author_id, opts \\ []),
     do: call(provider_id, :author_details, :author_details, author_id, @details_ttl, opts)
 
+  def editions(provider_id, work_id, opts \\ []),
+    do: call(provider_id, :editions, :editions, work_id, @details_ttl, opts)
+
   def chapters(provider_id, asin, opts \\ []),
     do: call(provider_id, :chapters, :chapters, asin, @details_ttl, opts)
 

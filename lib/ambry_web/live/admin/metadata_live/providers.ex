@@ -234,6 +234,11 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   defp capability_label(:author_search, _level), do: "author search"
   defp capability_label(:author_details, _level), do: "author details"
   defp capability_label(:chapters, _level), do: "chapters"
+  defp capability_label(:editions, _level), do: "editions"
+
+  # A capability with no label must not take the settings page down with it —
+  # adding one to the behaviour shouldn't be able to break an unrelated screen.
+  defp capability_label(other, _level), do: other |> to_string() |> String.replace("_", " ")
 
   defp display_value(value, %{default: default}) when value == default, do: nil
   defp display_value(value, _field), do: value

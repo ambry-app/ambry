@@ -66,11 +66,16 @@ defmodule Ambry.Inbox.AutoMatch do
   """
   def match(%InboxItem{} = item) do
     hints = hints(item)
+    work = match_work(hints)
 
     %{
       matches: %{
-        "work" => match_work(hints),
-        "recording" => match_recording(hints),
+        "work" => work,
+        # The recording level is given the matched work, because a work's own
+        # edition list is a third key alongside searching: once we know which
+        # book this is, its editions are the most direct route to the
+        # recordings that exist — including ones no storefront will return.
+        "recording" => match_recording(hints, work),
         "hints" => stringify_hints(hints)
       }
     }
@@ -101,16 +106,66 @@ defmodule Ambry.Inbox.AutoMatch do
 
     {candidates, outcomes} = provider_books(:work, query, hints)
 
-    level_result(query, local_books(hints) ++ candidates, outcomes)
+    query
+    |> level_result(local_books(hints) ++ candidates, outcomes)
+    |> hydrate_best()
   end
+
+  # A search hit is a summary, not the record. Measured against
+  # rreading-glasses, `search_books` returns a work carrying **one** edition
+  # while `book_details` returns the same work with **seventeen** — along with
+  # the fuller description and a cover the search result may lack. Seeding the
+  # draft from the summary meant importing a thinner book than the provider
+  # actually knew about.
+  #
+  # Only the top candidate is fetched, and only when it's a provider hit: one
+  # extra request per item on a serial queue is affordable, one per candidate
+  # is not, and a local record is already the real thing.
+  defp hydrate_best(%{"candidates" => [best | rest]} = result) do
+    case details_for(best) do
+      nil -> result
+      fuller -> %{result | "candidates" => [Map.merge(best, fuller) | rest]}
+    end
+  end
+
+  defp hydrate_best(result), do: result
+
+  defp details_for(%{"source" => "provider:" <> provider_id, "id" => id}) when is_binary(id) do
+    case Providers.book_details(provider_id, id, []) do
+      {:ok, book} ->
+        # Only fields the summary can be *missing*. The title, authors and
+        # score stay as matched — re-deriving them here would silently move
+        # what the operator already saw ranked.
+        %{
+          "description" => presence(book.description),
+          "cover_url" => presence(book.cover_url),
+          "publisher" => presence(book.publisher),
+          "series" => book.series |> List.wrap() |> Enum.map(& &1.name)
+        }
+        |> Enum.reject(fn {_key, value} -> value in [nil, []] end)
+        |> Map.new()
+
+      {:error, reason} ->
+        # Never fatal: the summary is still a usable candidate, and an item
+        # that matched shouldn't fail because one enrichment call didn't.
+        Logger.warning(fn ->
+          "Auto-match: details for #{provider_id}/#{id}: #{inspect(reason)}"
+        end)
+
+        nil
+    end
+  end
+
+  defp details_for(_candidate), do: nil
 
   # An ASIN is a recording-level key, so when there is one it *is* the query:
   # a hit on it is definitive in a way no title match ever is.
-  defp match_recording(%{asin: asin} = hints) when is_binary(asin) do
+  defp match_recording(%{asin: asin} = hints, work) when is_binary(asin) do
     query = %Provider.Query{keywords: asin}
     {candidates, outcomes} = provider_books(:recording, query, hints)
+    {edition_candidates, edition_outcomes} = work_editions(work, hints)
 
-    level_result(query, candidates, outcomes)
+    level_result(query, candidates ++ edition_candidates, outcomes ++ edition_outcomes)
   end
 
   # Structured, not concatenated. Audible's catalog matches `title` against
@@ -118,7 +173,7 @@ defmodule Ambry.Inbox.AutoMatch do
   # book literally called that and returned nothing — the recording level came
   # up empty on every single item. The narrator goes in too: it is the field
   # that tells two recordings of one work apart.
-  defp match_recording(hints) do
+  defp match_recording(hints, work) do
     query = %Provider.Query{
       title: hints.title,
       author: hints.author,
@@ -126,8 +181,65 @@ defmodule Ambry.Inbox.AutoMatch do
     }
 
     {candidates, outcomes} = provider_books(:recording, query, hints)
+    {edition_candidates, edition_outcomes} = work_editions(work, hints)
 
-    level_result(query, candidates, outcomes)
+    level_result(query, candidates ++ edition_candidates, outcomes ++ edition_outcomes)
+  end
+
+  # The recordings a matched work is known to have. This is what finds an
+  # edition a storefront has erased: Audible's catalog API is a storefront,
+  # not a bibliography — when rights lapse and a title is pulled, it vanishes
+  # from search *and* from direct ASIN lookup, with no record that it ever
+  # existed. A work-level provider that keeps editions still has it.
+  defp work_editions(%{"candidates" => [best | _rest]}, hints) do
+    # Any provider that recognised this work will do — including one that
+    # lost the merge. The winner isn't necessarily the one that keeps
+    # editions.
+    [%{"source" => best["source"], "id" => best["id"]} | List.wrap(best["merged"])]
+    |> Enum.find_value({[], []}, fn ref ->
+      with "provider:" <> provider_id <- ref["source"],
+           true <- is_binary(ref["id"]),
+           {:ok, %{capabilities: capabilities}} <- Registry.fetch(provider_id),
+           true <- :editions in capabilities do
+        fetch_editions(provider_id, ref["id"], hints)
+      else
+        _not_this_one -> nil
+      end
+    end)
+  end
+
+  defp work_editions(_work, _hints), do: {[], []}
+
+  defp fetch_editions(provider_id, work_id, hints) do
+    case Providers.editions(provider_id, work_id, []) do
+      {:ok, books} ->
+        {:ok, entry} = Registry.fetch(provider_id)
+        candidates = Enum.map(books, &provider_candidate(&1, entry, hints))
+
+        {candidates,
+         [
+           %{
+             "id" => "#{provider_id}:editions",
+             "name" => "#{entry.display_name} editions",
+             "status" => "ok",
+             "count" => length(candidates)
+           }
+         ]}
+
+      {:error, reason} ->
+        Logger.warning(fn -> "Auto-match: editions for #{provider_id}: #{inspect(reason)}" end)
+
+        {[],
+         [
+           %{
+             "id" => "#{provider_id}:editions",
+             "name" => "editions",
+             "status" => "failed",
+             "count" => 0,
+             "reason" => describe(reason)
+           }
+         ]}
+    end
   end
 
   defp work_query(%{title: nil}), do: nil
@@ -173,6 +285,12 @@ defmodule Ambry.Inbox.AutoMatch do
         _corroborated ->
           first
           |> Map.put("also_from", Enum.map(rest, &(&1["provider_name"] || &1["source"])))
+          # The merged candidates' own ids are kept, not just their names:
+          # they are how the *other* providers refer to this work, and losing
+          # them means losing the ability to ask them anything else about it —
+          # which is exactly how the edition lookup came up empty when the
+          # corroborating provider happened to lose the merge.
+          |> Map.put("merged", Enum.map(rest, &%{"source" => &1["source"], "id" => &1["id"]}))
           |> Map.put("score", min(first["score"] + @agreement_bonus, 1.0))
       end
     end)
@@ -183,6 +301,16 @@ defmodule Ambry.Inbox.AutoMatch do
   # provider" are different outcomes, and the operator has to be able to see
   # both. Only provider-to-provider duplicates collapse.
   defp agreement_key(%{"source" => "local", "id" => id}), do: {:local, id}
+
+  # Recordings are keyed by what makes them *different recordings*. Title and
+  # author identify a work; two audiobooks of one work share both and are not
+  # the same thing — the 1984 Books on Tape and 2011 Penguin Audio editions of
+  # Neuromancer collapsed into one candidate until the narrator and ASIN went
+  # into the key.
+  defp agreement_key(%{"narrators" => narrators} = candidate) when narrators not in [nil, []] do
+    {:recording, normalize(candidate["title"] || ""),
+     Enum.sort(Enum.map(narrators, &normalize/1)), candidate["asin"]}
+  end
 
   defp agreement_key(candidate) do
     {:work, normalize(candidate["title"] || ""),
