@@ -482,7 +482,13 @@ defmodule Ambry.Inbox.Draft.Seed do
               from_records(describing, "description") ++ [tag_candidate(tags, "description")]
             )
           ),
-        cover: keep_manual(recording.cover, cover_field(describing, tags, item)),
+        # NOT `describing`: a work-level record's image is the *work's* cover,
+        # which is a portrait print jacket. Audiobook art is square by
+        # definition — the data model says so, Book carries no cover at all —
+        # so offering a print cover here is offering the wrong artifact. The
+        # same databases DO have square art, on their audio *editions*, and
+        # those arrive as recording records.
+        cover: keep_manual(recording.cover, cover_field(mine, tags, item)),
         narrators: keep_curated(recording.narrators, narrator_credits(mine, tags))
     }
   end
@@ -838,7 +844,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       # one answer, whether from one source or several that turned out to mean
       # the same thing
       [only] ->
-        %{field | value: only.value, source: only.source, approved: true}
+        %{field | value: only.value, source: only.source, chosen_key: only.key, approved: true}
 
       _several ->
         %{field | approved: false}

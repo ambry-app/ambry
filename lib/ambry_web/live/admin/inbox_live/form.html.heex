@@ -441,6 +441,8 @@
               form={recording}
               placeholder="image URL"
               preview={true}
+              embedded_src={~p"/admin/inbox/#{@item}/embedded-cover"}
+              hint="Audiobook art is square; a portrait jacket is a print cover."
               field={@item.draft.recording.cover}
             />
 
