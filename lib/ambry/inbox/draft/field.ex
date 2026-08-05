@@ -29,13 +29,18 @@ defmodule Ambry.Inbox.Draft.Field do
     field :approved, :boolean, default: false
     field :required, :boolean, default: false
 
+    # Which candidate was taken. `source` alone can't say: two records from
+    # one provider are two proposals with one source, and the form could
+    # neither highlight the right chip nor apply the second one.
+    field :chosen_key, :string
+
     embeds_many :candidates, Candidate, on_replace: :delete
   end
 
   @doc false
   def changeset(field, attrs) do
     field
-    |> cast(attrs, [:value, :source, :approved, :required])
+    |> cast(attrs, [:value, :source, :approved, :required, :chosen_key])
     |> cast_embed(:candidates)
     |> track_manual_edit(attrs)
     |> validate_settled()
@@ -52,7 +57,10 @@ defmodule Ambry.Inbox.Draft.Field do
 
     case fetch_change(changeset, :value) do
       {:ok, _value} when not explicit_source? ->
-        changeset |> put_change(:source, @manual) |> put_change(:approved, true)
+        changeset
+        |> put_change(:source, @manual)
+        |> put_change(:chosen_key, @manual)
+        |> put_change(:approved, true)
 
       _unchanged_or_sourced ->
         changeset
@@ -84,18 +92,31 @@ defmodule Ambry.Inbox.Draft.Field do
   deliberately.
   """
   def edit(%__MODULE__{} = field, value) do
-    %{field | value: presence(value), source: "manual", approved: true}
+    %{field | value: presence(value), source: "manual", chosen_key: "manual", approved: true}
   end
 
   @doc """
   Accepts one of the proposed candidates, recording which one.
   """
-  def choose(%__MODULE__{} = field, source) do
-    case Enum.find(field.candidates, &(&1.source == source)) do
-      nil -> field
-      candidate -> %{field | value: candidate.value, source: candidate.source, approved: true}
+  def choose(%__MODULE__{} = field, key) do
+    case Enum.find(field.candidates, &(&1.key == key)) do
+      nil ->
+        field
+
+      candidate ->
+        %{
+          field
+          | value: candidate.value,
+            source: candidate.source,
+            chosen_key: candidate.key,
+            approved: true
+        }
     end
   end
+
+  @doc "Whether this candidate is the one the field took."
+  def chose?(%__MODULE__{chosen_key: nil}, _candidate), do: false
+  def chose?(%__MODULE__{} = field, candidate), do: field.chosen_key == candidate.key
 
   @doc """
   Settles the field as deliberately empty.
@@ -103,7 +124,8 @@ defmodule Ambry.Inbox.Draft.Field do
   Waiving is an approval, not an omission — it's what makes "every piece is
   resolved" reachable on a record with optional fields nobody filled in.
   """
-  def waive(%__MODULE__{} = field), do: %{field | value: nil, source: nil, approved: true}
+  def waive(%__MODULE__{} = field),
+    do: %{field | value: nil, source: nil, chosen_key: nil, approved: true}
 
   @doc """
   Whether this field still needs a human.

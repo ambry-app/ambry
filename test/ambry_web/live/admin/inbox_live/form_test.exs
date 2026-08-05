@@ -5,6 +5,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.InboxItem
   alias Ambry.Repo
 
@@ -108,7 +109,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       view
       |> element(
-        "button[phx-click='choose-field'][phx-value-field='title'][phx-value-source='tags']"
+        "button[phx-click='choose-field'][phx-value-field='title'][phx-value-key='tags']"
       )
       |> render_click()
 
@@ -283,6 +284,30 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "fetching on demand" do
+    # The `with` here had no `else`, so ticking a RECORDING record returned a
+    # bare "recording" rather than {:ok, item} and the operator got an
+    # instant "couldn't be reached" for a call that had actually succeeded.
+    test "ticking a recording record does not report a failure", %{conn: conn} do
+      item = probed_item() |> with_recording_records()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html =
+        view
+        |> element("input[phx-click='toggle-source'][phx-value-id='B01']")
+        |> render_click()
+
+      refute html =~ "couldn&#39;t be reached"
+      assert render_async(view)
+
+      assert Recording.uses?(Inbox.get_item!(item.id).draft.recording, %{
+               "source" => "provider:audible",
+               "id" => "B01"
+             })
+    end
+  end
+
   describe "background work" do
     # Matching now backs off for minutes rather than giving up on the first
     # rate limit, so an item can be legitimately mid-work while the form looks
@@ -397,6 +422,34 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       ),
       set: [state: "retryable"]
     )
+  end
+
+  defp with_recording_records(item) do
+    {:ok, item} =
+      item
+      |> InboxItem.changeset(%{
+        matches: %{
+          "work" => %{"candidates" => [], "local" => []},
+          "recording" => %{
+            "candidates" => [
+              %{
+                "source" => "provider:audible",
+                "provider_name" => "Audible",
+                "id" => "B01",
+                "title" => "The Way of Kings",
+                "narrators" => ["Michael Kramer", "Kate Reading"],
+                "score" => 0.4,
+                "hydrated" => true
+              }
+            ],
+            "confidence" => 0.4
+          }
+        }
+      })
+      |> Repo.update()
+
+    {:ok, item} = Inbox.rebuild_draft(item)
+    item
   end
 
   defp used_records(html) do

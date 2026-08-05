@@ -86,7 +86,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def handle_event("choose-field", %{"section" => section, "field" => field} = params, socket) do
     {:noreply,
-     edit(socket, &Draft.Edit.choose_field(&1, atom(section), atom(field), params["source"]))}
+     edit(socket, &Draft.Edit.choose_field(&1, atom(section), atom(field), params["key"]))}
   end
 
   def handle_event("waive-field", %{"section" => section, "field" => field}, socket) do
@@ -328,30 +328,36 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   # Ticking a thin record is the moment its details start to matter; ticking a
   # work record is the moment its editions do.
+  # Ticking a thin record is the moment its details start to matter; ticking a
+  # work record is the moment its editions do. Both are provider calls, so
+  # they happen off the render and the row says it's working.
   defp enrich(socket, level, record) do
     item = socket.assigns.item
     ref = Inbox.record_ref(record)
 
     cond do
-      !record["hydrated"] and Draft.Edit.uses?(socket.assigns.item.draft, atom(level), record) ->
+      not Draft.Edit.uses?(item.draft, atom(level), record) ->
+        # un-ticking: nothing to fetch
         socket
-        |> assign(enriching: ref)
-        |> start_async({:enrich, ref}, fn ->
-          with {:ok, item} <- Inbox.hydrate_record(item, level, ref),
-               "work" <- level do
-            Inbox.fetch_editions(item, [ref])
-          end
-        end)
 
-      level == "work" and Draft.Edit.uses?(socket.assigns.item.draft, :work, record) ->
+      record["hydrated"] && level != "work" ->
         socket
-        |> assign(enriching: ref)
-        |> start_async({:enrich, ref}, fn -> Inbox.fetch_editions(item, [ref]) end)
 
       true ->
         socket
+        |> assign(enriching: ref)
+        |> start_async({:enrich, ref}, fn -> fetch(item, level, ref, record) end)
     end
   end
+
+  defp fetch(item, level, ref, record) do
+    with {:ok, item} <- hydrate_if_thin(item, level, ref, record) do
+      if level == "work", do: Inbox.fetch_editions(item, [ref]), else: {:ok, item}
+    end
+  end
+
+  defp hydrate_if_thin(item, _level, _ref, %{"hydrated" => true}), do: {:ok, item}
+  defp hydrate_if_thin(item, level, ref, _record), do: Inbox.hydrate_record(item, level, ref)
 
   defp edit(socket, fun) do
     draft = fun.(socket.assigns.item.draft)
@@ -543,6 +549,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def provider_outcomes(_item, _level), do: []
+
+  @doc "How a provider record is referred to."
+  defdelegate record_ref(record), to: Inbox
 
   @doc "The provider records found for a level."
   defdelegate records(item, level), to: Seed

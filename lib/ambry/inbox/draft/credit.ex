@@ -49,6 +49,13 @@ defmodule Ambry.Inbox.Draft.Credit do
     field :source, :string
     field :approved, :boolean, default: false
 
+    # Set the moment the operator touches this credit. Field values are cheap
+    # to re-derive when the ticked records change; a credit is not — it may
+    # carry a linked identity, a renamed pen name, two people behind it — and
+    # rebuilding it from proposals threw all of that away every time another
+    # record was ticked.
+    field :curated, :boolean, default: false
+
     # candidate identities that matched the name, so the operator can choose
     # rather than retype
     embeds_many :candidates, __MODULE__.Match, on_replace: :delete
@@ -87,7 +94,7 @@ defmodule Ambry.Inbox.Draft.Credit do
   @doc false
   def changeset(credit, attrs) do
     credit
-    |> cast(attrs, [:name, :kind, :mode, :identity_id, :source, :approved])
+    |> cast(attrs, [:name, :kind, :mode, :identity_id, :source, :approved, :curated])
     |> validate_required([:kind])
     |> cast_embed(:candidates)
     |> cast_embed(:people)
