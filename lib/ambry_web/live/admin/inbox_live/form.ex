@@ -369,6 +369,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),
       destination: Inbox.destination_preflight(item),
+      # Matching retries with a backoff measured in minutes, so an item can be
+      # legitimately mid-work while the form looks like nothing was found.
+      job: Inbox.job_status(item),
       # Roots are configuration and can change between seeding a draft and
       # approving it, so they're read now rather than frozen into the draft.
       roots: Ambry.Library.library_roots()
@@ -396,6 +399,22 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   ## rendering helpers
+
+  @doc """
+  What a background job is doing to this item, if anything.
+
+  The form is where somebody looks when a match seems wrong, and "still
+  working" is a completely different answer from "nothing was found" —
+  especially now that a rate-limited provider means minutes of backoff rather
+  than an immediate give-up.
+  """
+  def job_label(:working), do: {"Still matching…", :blue}
+  def job_label(:retrying), do: {"A provider couldn't be reached — waiting to try again", :yellow}
+  def job_label(:queued), do: {"Queued for matching", :blue}
+  def job_label(:failed), do: {"Matching gave up — try Start over", :red}
+  def job_label(:never_ran), do: {"The files were never read", :red}
+  def job_label(:incomplete), do: {"Never finished matching", :yellow}
+  def job_label(_settled), do: nil
 
   @doc "What the item's files say they are, for the evidence header."
   def evidence(%InboxItem{probe: probe}) when is_map(probe) do

@@ -283,6 +283,40 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "background work" do
+    # Matching now backs off for minutes rather than giving up on the first
+    # rate limit, so an item can be legitimately mid-work while the form looks
+    # like nothing was found. Those must not look the same.
+    test "says when matching is still pending", %{conn: conn} do
+      # discovery enqueues the probe and match jobs, so a fresh item has them
+      item = probed_item()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "Queued for matching"
+    end
+
+    test "says when a provider is being retried", %{conn: conn} do
+      item = probed_item()
+      retryable_jobs(item)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # "waiting out a rate limit" and "queued" are the same blank form and
+      # completely different situations
+      assert html =~ "waiting to try again"
+    end
+
+    test "an item nothing is happening to says nothing about jobs", %{conn: conn} do
+      item = probed_item() |> with_work_records()
+      forget_jobs(item)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "[data-role='job-status']")
+    end
+  end
+
   describe "destination" do
     test "says where the file is going before anything is committed", %{conn: conn} do
       item = probed_item() |> settle()
@@ -340,6 +374,29 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
     {:ok, item} = Inbox.rebuild_draft(item)
     item
+  end
+
+  # The Oban pruner deletes jobs after a day, so absence of a job is the
+  # normal state of an item that was matched last week.
+  defp forget_jobs(item) do
+    import Ecto.Query
+
+    Repo.delete_all(
+      from(j in "oban_jobs",
+        where: fragment("?->>'inbox_item_id'", j.args) == ^to_string(item.id)
+      )
+    )
+  end
+
+  defp retryable_jobs(item) do
+    import Ecto.Query
+
+    Repo.update_all(
+      from(j in "oban_jobs",
+        where: fragment("?->>'inbox_item_id'", j.args) == ^to_string(item.id)
+      ),
+      set: [state: "retryable"]
+    )
   end
 
   defp used_records(html) do
