@@ -20,6 +20,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.PersonRef
   alias Ambry.Inbox.Draft.SeriesLink
 
   attr :outcomes, :list, required: true
@@ -553,6 +554,20 @@ defmodule AmbryWeb.Admin.Decisions do
         </span>
       </form>
 
+      <%!-- The photo and bio belong to the credit itself while there is one
+            implied person behind it, which is nearly always. Putting them
+            inside the pen-name fold hid them behind a control nobody would
+            click to get a picture — they were, for practical purposes, not
+            there at all. --%>
+      <.person_face
+        :if={@credit.mode == :create and !@expanded and @credit.people != []}
+        person={hd(@credit.people)}
+        fallback_name={@credit.name}
+        section={@section}
+        index={@index}
+        person_index={0}
+      />
+
       <%!-- Folded away until it matters, and unfolded automatically the moment
             it does — a credit backed by somebody else, or by two people, can
             never be hiding behind a collapsed control. --%>
@@ -567,81 +582,60 @@ defmodule AmbryWeb.Admin.Decisions do
         {@reveal}
       </button>
 
-      <div :if={@credit.mode == :create and @expanded} class="space-y-1">
+      <div :if={@credit.mode == :create and @expanded} class="space-y-3">
         <.label class="text-xs">{@backing}</.label>
 
-        <form
-          :for={{person, person_index} <- Enum.with_index(@credit.people)}
-          id={"credit-#{@section}-#{@index}-person-#{person_index}"}
-          phx-change="person-change"
-          class="flex flex-wrap items-center gap-2"
-        >
-          <input type="hidden" name="section" value={@section} />
-          <input type="hidden" name="index" value={@index} />
-          <input type="hidden" name="person" value={person_index} />
-
-          <select
-            name="person_id"
-            class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-          >
-            <option value="">Create new…</option>
-            <option :for={{name, id} <- @people} value={id} selected={person.person_id == id}>
-              {name}
-            </option>
-          </select>
-
-          <input
-            :if={is_nil(person.person_id)}
-            type="text"
-            name="name"
-            value={person.name}
-            placeholder="the person's real name"
-            class="min-w-0 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-          />
-
-          <button
-            :if={length(@credit.people) > 1}
-            type="button"
-            phx-click="remove-person"
-            phx-value-section={@section}
-            phx-value-index={@index}
-            phx-value-person={person_index}
-          >
-            <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
-          </button>
-        </form>
-
-        <%!-- A person created bare is a trip to the person form afterwards,
-              which is the one thing 3b says the inbox shouldn't cost. --%>
         <div
           :for={{person, person_index} <- Enum.with_index(@credit.people)}
-          :if={is_nil(person.person_id)}
-          class="flex items-center gap-2"
+          class="space-y-1 border-l border-zinc-200 pl-3 dark:border-zinc-700"
         >
-          <.image_with_size
-            :if={person.image_url}
-            id={"person-#{@section}-#{@index}-#{person_index}-photo"}
-            src={proxied_remote_image_url(person.image_url)}
-            class="h-12 w-12 flex-none rounded-full object-cover object-top"
-          />
-
-          <button
-            type="button"
-            phx-click="find-person-images"
-            phx-value-section={@section}
-            phx-value-index={@index}
-            phx-value-person={person_index}
-            disabled={blank_name?(person, @credit)}
-            class="rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
+          <form
+            id={"credit-#{@section}-#{@index}-person-#{person_index}"}
+            phx-change="person-change"
+            class="flex flex-wrap items-center gap-2"
           >
-            {if person.image_url || person.description,
-              do: "Change photo or bio…",
-              else: "Find a photo and bio…"}
-          </button>
+            <input type="hidden" name="section" value={@section} />
+            <input type="hidden" name="index" value={@index} />
+            <input type="hidden" name="person" value={person_index} />
 
-          <p :if={person.description} class="line-clamp-2 min-w-0 text-xs dark:text-zinc-500">
-            {person.description}
-          </p>
+            <select
+              name="person_id"
+              class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+            >
+              <option value="">Create new…</option>
+              <option :for={{name, id} <- @people} value={id} selected={person.person_id == id}>
+                {name}
+              </option>
+            </select>
+
+            <input
+              :if={is_nil(person.person_id)}
+              type="text"
+              name="name"
+              value={person.name}
+              placeholder="the person's real name"
+              class="min-w-0 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+            />
+
+            <button
+              :if={length(@credit.people) > 1}
+              type="button"
+              phx-click="remove-person"
+              phx-value-section={@section}
+              phx-value-index={@index}
+              phx-value-person={person_index}
+            >
+              <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
+            </button>
+          </form>
+
+          <.person_face
+            person={person}
+            fallback_name={@credit.name}
+            section={@section}
+            index={@index}
+            person_index={person_index}
+          />
         </div>
 
         <%!-- Narrators stay one-to-one with a Person by design; only the
@@ -661,6 +655,58 @@ defmodule AmbryWeb.Admin.Decisions do
           A shared pen name — {@credit.name} will be one author credited to {Enum.count(@credit.people)} people.
         </p>
       </div>
+    </div>
+    """
+  end
+
+  attr :person, PersonRef, required: true
+  attr :fallback_name, :string, default: nil
+  attr :section, :string, required: true
+  attr :index, :integer, required: true
+  attr :person_index, :integer, required: true
+
+  @doc """
+  The face and bio a new person will be created with.
+
+  3b's promise is that the operator never leaves the inbox to finish a leaf
+  entity, and a person with no face is unfinished — every credit imported
+  without one was a trip to the person form afterwards.
+
+  Shown circular, because that is the frame it will appear in and the whole
+  reason the picker offers alternatives at all.
+  """
+  def person_face(assigns) do
+    ~H"""
+    <div :if={is_nil(@person.person_id)} class="flex items-center gap-2" data-role="person-face">
+      <.image_with_size
+        :if={@person.image_url}
+        id={"person-#{@section}-#{@index}-#{@person_index}-photo"}
+        src={proxied_remote_image_url(@person.image_url)}
+        class="h-12 w-12 flex-none rounded-full object-cover object-top"
+      />
+
+      <span
+        :if={is_nil(@person.image_url)}
+        class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-700"
+      />
+
+      <button
+        type="button"
+        phx-click="find-person-images"
+        phx-value-section={@section}
+        phx-value-index={@index}
+        phx-value-person={@person_index}
+        disabled={blank_name?(@person, @fallback_name)}
+        class="flex-none rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
+      >
+        {if @person.image_url || @person.description,
+          do: "Change photo or bio…",
+          else: "Find a photo and bio…"}
+      </button>
+
+      <p :if={@person.description} class="line-clamp-2 min-w-0 text-xs dark:text-zinc-500">
+        {@person.description}
+      </p>
     </div>
     """
   end
@@ -792,8 +838,8 @@ defmodule AmbryWeb.Admin.Decisions do
   def source_words("provider:" <> id), do: id
   def source_words(other), do: other
 
-  defp blank_name?(person, credit) do
-    (person.name || credit.name || "") |> String.trim() == ""
+  defp blank_name?(person, fallback) do
+    (person.name || fallback || "") |> String.trim() == ""
   end
 
   defp linked_people(%Credit{candidates: candidates, identity_id: id}) do

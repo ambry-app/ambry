@@ -309,14 +309,32 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   end
 
   describe "person photos and bios" do
-    test "a new person offers to go find a photo", %{conn: conn} do
+    # The offer has to be visible WITHOUT unfolding the pen-name control.
+    # Nested inside it, it was hidden behind a link nobody would click to get
+    # a picture — present in the markup and absent in practice.
+    test "a new credit offers to go find a photo without unfolding anything", %{conn: conn} do
       item = probed_item()
 
-      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      # the credit's person layer is folded away by default; the offer lives
-      # with the person, so unfold first
-      assert html =~ "Written by"
+      refute has_element?(view, "button[phx-click='toggle-people'][disabled]")
+
+      assert has_element?(
+               view,
+               "button[phx-click='find-person-images'][phx-value-section='work'][phx-value-index='0']"
+             )
+
+      # and the narrator credits get their own, since they create people too
+      assert has_element?(
+               view,
+               "button[phx-click='find-person-images'][phx-value-section='recording']"
+             )
+    end
+
+    test "each person behind a pen name gets their own photo", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
       view
       |> element(
@@ -324,7 +342,15 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       )
       |> render_click()
 
-      assert has_element?(view, "button[phx-click='find-person-images']")
+      view
+      |> element("button[phx-click='add-person'][phx-value-section='work'][phx-value-index='0']")
+      |> render_click()
+
+      assert view
+             |> render()
+             |> Floki.parse_document!()
+             |> Floki.find("[data-role='person-face']")
+             |> length() >= 2
     end
 
     test "a picked photo and bio are staged on the person", %{conn: conn} do
