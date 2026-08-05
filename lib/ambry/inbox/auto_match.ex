@@ -23,11 +23,15 @@ defmodule Ambry.Inbox.AutoMatch do
   alternatives instant — and leaves re-searching for the case it's actually
   for, where the right answer isn't in the list at all.
 
-  ## Local records outrank providers
+  ## Provider records are evidence, local Books are an outcome
 
-  A work already in the library is the best possible match: it's what stops a
-  second recording of a book from creating a duplicate Book. So local hits
-  are ranked ahead of provider results at equal confidence.
+  A record from Hardcover and a record from rreading-glasses for one book are
+  two databases describing the same thing, not two rival identities — they are
+  kept as separate records and both may feed the import. A Book already in the
+  library is categorically different: linking to it creates nothing, inherits
+  its curation, and is what stops a second recording splitting the library. So
+  local hits live in their own list (`"local"`), never ranked among the
+  provider records.
   """
 
   alias Ambry.Books
@@ -40,6 +44,12 @@ defmodule Ambry.Inbox.AutoMatch do
   require Logger
 
   @candidate_limit 8
+
+  # How many records about the *same* thing are worth a follow-up call each
+  # (details, editions). Two databases holding a record of one book is normal;
+  # eight of them saying it is not, and past a few the extra requests buy
+  # nothing.
+  @group_limit 4
 
   # Corroboration bonus when two providers independently return the same work.
   @agreement_bonus 0.05
@@ -82,6 +92,24 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   @doc """
+  The records that look like they're about the same thing as the best one.
+
+  Used for three things, none of which is merging: scoring (corroboration is
+  not a rival), deciding what to pre-tick, and deciding which records are
+  worth a details or editions call. The records themselves stay separate rows
+  — two databases holding a record of one book is the normal case.
+  """
+  def top_group([]), do: []
+
+  def top_group([best | _rest] = candidates) do
+    key = agreement_key(best)
+
+    candidates
+    |> Enum.filter(&(agreement_key(&1) == key))
+    |> Enum.take(@group_limit)
+  end
+
+  @doc """
   What we think the item is, from its tags first and its release name second.
 
   Tags win because they're vastly more reliable — measured across a real
@@ -101,14 +129,21 @@ defmodule Ambry.Inbox.AutoMatch do
     }
   end
 
+  # Local Books are kept in their own list, not ranked among the provider
+  # records. Reusing a Book you already have and importing one you don't are
+  # different *outcomes* — one creates nothing, inherits the book's curation
+  # and adds an alternate edition — while a provider record is *evidence*
+  # about a book. Ranking them together made the form ask one question that
+  # was really two.
   defp match_work(hints) do
     query = work_query(hints)
 
     {candidates, outcomes} = provider_books(:work, query, hints)
 
     query
-    |> level_result(local_books(hints) ++ candidates, outcomes)
-    |> hydrate_best()
+    |> level_result(candidates, outcomes)
+    |> Map.put("local", local_books(hints))
+    |> hydrate_top()
   end
 
   # A search hit is a summary, not the record. Measured against
@@ -118,17 +153,51 @@ defmodule Ambry.Inbox.AutoMatch do
   # draft from the summary meant importing a thinner book than the provider
   # actually knew about.
   #
-  # Only the top candidate is fetched, and only when it's a provider hit: one
-  # extra request per item on a serial queue is affordable, one per candidate
-  # is not, and a local record is already the real thing.
-  defp hydrate_best(%{"candidates" => [best | rest]} = result) do
-    case details_for(best) do
-      nil -> result
-      fuller -> %{result | "candidates" => [Map.merge(best, fuller) | rest]}
-    end
+  # Every record about the top work is hydrated, not just the single best one:
+  # they all feed the field candidates, so a thin one means the operator can't
+  # take rreading-glasses' description after all. Records about *other* works
+  # stay thin until ticked — nobody has said they're relevant yet.
+  defp hydrate_top(%{"candidates" => candidates} = result) do
+    wanted = candidates |> top_group() |> MapSet.new(&ref/1)
+
+    %{
+      result
+      | "candidates" =>
+          Enum.map(candidates, fn record ->
+            if MapSet.member?(wanted, ref(record)), do: details(record), else: record
+          end)
+    }
   end
 
-  defp hydrate_best(result), do: result
+  defp hydrate_top(result), do: result
+
+  @doc "How a record is referred to: its provider and that provider's id."
+  def ref(record), do: {record["source"], to_string(record["id"])}
+
+  @doc """
+  Marks a record as having had its full details fetched.
+
+  Records about the top work are hydrated while matching; the rest stay thin
+  until the operator ticks one, since nothing has suggested they're relevant
+  and their description and cover aren't wanted until they are.
+  """
+  def hydrated(record), do: Map.put(record, "hydrated", true)
+
+  @doc """
+  Everything a provider knows about one record, for filling in a thin search
+  hit.
+
+  A search result is a summary: measured against rreading-glasses, `search`
+  returns a work carrying **one** edition while `book_details` returns the same
+  work with **seventeen**, plus the fuller description and a cover the summary
+  may lack.
+  """
+  def details(record) do
+    case details_for(record) do
+      nil -> record
+      fuller -> record |> Map.merge(fuller) |> hydrated()
+    end
+  end
 
   defp details_for(%{"source" => "provider:" <> provider_id, "id" => id}) when is_binary(id) do
     case Providers.book_details(provider_id, id, []) do
@@ -163,9 +232,9 @@ defmodule Ambry.Inbox.AutoMatch do
   defp match_recording(%{asin: asin} = hints, work) when is_binary(asin) do
     query = %Provider.Query{keywords: asin}
     {candidates, outcomes} = provider_books(:recording, query, hints)
-    {edition_candidates, edition_outcomes} = work_editions(work, hints)
+    {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints)
 
-    level_result(query, candidates ++ edition_candidates, outcomes ++ edition_outcomes)
+    level_result(query, candidates ++ editions, outcomes ++ edition_outcomes)
   end
 
   # Structured, not concatenated. Audible's catalog matches `title` against
@@ -181,39 +250,56 @@ defmodule Ambry.Inbox.AutoMatch do
     }
 
     {candidates, outcomes} = provider_books(:recording, query, hints)
-    {edition_candidates, edition_outcomes} = work_editions(work, hints)
+    {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints)
 
-    level_result(query, candidates ++ edition_candidates, outcomes ++ edition_outcomes)
+    level_result(query, candidates ++ editions, outcomes ++ edition_outcomes)
   end
 
-  # The recordings a matched work is known to have. This is what finds an
-  # edition a storefront has erased: Audible's catalog API is a storefront,
-  # not a bibliography — when rights lapse and a title is pulled, it vanishes
-  # from search *and* from direct ASIN lookup, with no record that it ever
-  # existed. A work-level provider that keeps editions still has it.
-  defp work_editions(%{"candidates" => [best | _rest]}, hints) do
-    # Any provider that recognised this work will do — including one that
-    # lost the merge. The winner isn't necessarily the one that keeps
-    # editions.
-    [%{"source" => best["source"], "id" => best["id"]} | List.wrap(best["merged"])]
-    |> Enum.find_value({[], []}, fn ref ->
-      with "provider:" <> provider_id <- ref["source"],
-           true <- is_binary(ref["id"]),
-           {:ok, %{capabilities: capabilities}} <- Registry.fetch(provider_id),
-           true <- :editions in capabilities do
-        fetch_editions(provider_id, ref["id"], hints, work_ref(best))
-      else
-        _not_this_one -> nil
-      end
+  @doc """
+  The recordings the given work records are known to have.
+
+  This is what finds an edition a storefront has erased: Audible's catalog API
+  is a storefront, not a bibliography — when rights lapse and a title is
+  pulled, it vanishes from search *and* from direct ASIN lookup, with no record
+  that it ever existed. Hardcover and rreading-glasses are databases of
+  editions rather than shops, so they still have it. Measured for Neuromancer:
+  Audible 1 audio edition, Hardcover 7 — including a narrator Audible doesn't
+  list at all.
+
+  **Every capable record is asked**, not the first one. This used to be an
+  `Enum.find_value` that stopped at the first editions-capable provider even
+  when it returned nothing or errored, which is precisely backwards: the whole
+  value here is coverage across databases.
+
+  Run during matching over the records about the top work, and again from the
+  form whenever the operator ticks a work record that hasn't been asked yet.
+  The `metadata` queue is serial and retries, so a thorough match is allowed
+  to take as long as it takes.
+  """
+  def editions_for(records, hints) do
+    records
+    |> Enum.filter(&editions_capable?/1)
+    |> Enum.reduce({[], []}, fn record, {candidates, outcomes} ->
+      "provider:" <> provider_id = record["source"]
+      {found, outcome} = fetch_editions(provider_id, record["id"], hints, work_ref(record))
+      {candidates ++ found, outcomes ++ outcome}
     end)
   end
 
-  defp work_editions(_work, _hints), do: {[], []}
+  defp editions_capable?(%{"source" => "provider:" <> provider_id, "id" => id})
+       when is_binary(id) do
+    case Registry.fetch(provider_id) do
+      {:ok, entry} -> :editions in entry.capabilities
+      _unknown -> false
+    end
+  end
+
+  defp editions_capable?(_record), do: false
 
   # A recording is a recording of exactly one work, so an edition that came
-  # out of a work's own list carries that work with it. Choosing such a
-  # recording in the form settles the book too, instead of asking the operator
-  # the same question twice.
+  # out of a work's own list carries that work with it. Ticking such a
+  # recording settles the book too, instead of asking the operator the same
+  # question twice.
   defp work_ref(%{"source" => source, "id" => id}), do: %{"source" => source, "id" => id}
 
   defp fetch_editions(provider_id, work_id, hints, of_work) do
@@ -244,7 +330,7 @@ defmodule Ambry.Inbox.AutoMatch do
          [
            %{
              "id" => "#{provider_id}:editions",
-             "name" => "editions",
+             "name" => "#{provider_name(provider_id)} editions",
              "status" => "failed",
              "count" => 0,
              "reason" => describe(reason)
@@ -253,26 +339,25 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
+  defp provider_name(provider_id) do
+    case Registry.fetch(provider_id) do
+      {:ok, entry} -> entry.display_name
+      _unknown -> provider_id
+    end
+  end
+
   defp work_query(%{title: nil}), do: nil
 
   defp work_query(hints), do: %Provider.Query{title: hints.title, author: hints.author}
 
   defp level_result(query, candidates, outcomes) do
-    candidates =
-      candidates
-      |> merge_agreeing()
-      |> Enum.sort_by(& &1["score"], :desc)
-      |> Enum.take(@candidate_limit)
-
     %{
       "query" => query && to_string(query),
       # The flattened string is what the cache keys on and what text-only
       # providers see, but it isn't what was *asked* — the fields are, and
       # they're what the operator needs to read when a match looks wrong.
       "query_fields" => query_fields(query),
-      "candidates" => candidates,
-      # the operator confirms; this is only the suggestion
-      "selected" => candidates |> List.first() |> selected_ref(),
+      "candidates" => rank(candidates),
       "confidence" => confidence(candidates),
       # which providers were asked, and what each said. A provider that fails
       # used to vanish silently, leaving the operator to wonder why a source
@@ -281,8 +366,20 @@ defmodule Ambry.Inbox.AutoMatch do
     }
   end
 
-  defp selected_ref(nil), do: nil
-  defp selected_ref(candidate), do: %{"source" => candidate["source"], "id" => candidate["id"]}
+  @doc """
+  Orders records best-first and caps the list.
+
+  Records are **not** fused when two providers return the same thing. That is
+  the normal case, not a duplicate to clean up: they are two databases holding
+  a record of one book, and each knows things the other doesn't — one has the
+  better description, the other the better cover. Collapsing them deleted the
+  loser's payload and made the list look like a set of rival identities.
+  """
+  def rank(candidates) do
+    candidates
+    |> Enum.sort_by(& &1["score"], :desc)
+    |> Enum.take(@candidate_limit)
+  end
 
   defp query_fields(nil), do: %{}
 
@@ -296,42 +393,6 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()
   end
-
-  # Two providers returning the same work is the strongest signal available,
-  # not a disagreement — but the runner-up penalty below read it as one and
-  # dropped a perfect double hit to 0.5 confidence, which is why so many
-  # obviously-right matches asked to be looked at. Duplicates collapse into
-  # one candidate that remembers it was corroborated.
-  defp merge_agreeing(candidates) do
-    candidates
-    |> Enum.group_by(&agreement_key/1)
-    |> Enum.map(fn {_key, [first | rest]} ->
-      case rest do
-        [] ->
-          first
-
-        _corroborated ->
-          first
-          |> Map.put("also_from", Enum.map(rest, &(&1["provider_name"] || &1["source"])))
-          # The corroborating candidates are kept WHOLE, not reduced to a
-          # reference. Two providers agreeing on which work this is do not
-          # agree on everything about it — one has the better description, the
-          # other the better cover — and the loser's payload was being thrown
-          # away, so the operator could only ever see the winner's values.
-          # (Their ids matter too: they are how the other providers refer to
-          # this work, which is how the edition lookup finds an edition the
-          # merge winner doesn't keep.)
-          |> Map.put("merged", rest)
-          |> Map.put("score", min(first["score"] + @agreement_bonus, 1.0))
-      end
-    end)
-  end
-
-  # A local record and a provider hit for the same work are deliberately NOT
-  # merged: "reuse the book you already have" and "create it from this
-  # provider" are different outcomes, and the operator has to be able to see
-  # both. Only provider-to-provider duplicates collapse.
-  defp agreement_key(%{"source" => "local", "id" => id}), do: {:local, id}
 
   # Recordings are keyed by what makes them *different recordings*. Title and
   # author identify a work; two audiobooks of one work share both and are not
@@ -351,16 +412,37 @@ defmodule Ambry.Inbox.AutoMatch do
   # Confidence is about the *decision*, not just the top hit: a strong match
   # with a genuinely different runner-up is exactly the case a human should
   # look at, so a close second pulls it down.
-  defp confidence([]), do: 0.0
+  #
+  # Corroboration is not a rival. Records are no longer fused, so two providers
+  # returning the same work are two rows — and scoring them as rivals would
+  # read the best-corroborated match in the library as the most doubtful one,
+  # which is the bug #1186 fixed by merging. Grouping for the score keeps that
+  # fix without the merge.
+  defp confidence(candidates) do
+    candidates
+    |> Enum.group_by(&agreement_key/1)
+    |> Map.values()
+    |> Enum.map(&group_score/1)
+    |> Enum.sort(:desc)
+    |> decide()
+  end
 
-  defp confidence([best]), do: best["score"]
+  defp group_score(group) do
+    best = group |> Enum.map(&(&1["score"] || 0.0)) |> Enum.max()
+    bonus = if length(group) > 1, do: @agreement_bonus, else: 0.0
 
-  defp confidence([best, second | _rest]) do
-    penalty = 0.5 * second["score"] / max(best["score"], 0.001)
+    min(best + bonus, 1.0)
+  end
 
-    (best["score"] * (1.0 - penalty))
+  defp decide([]), do: 0.0
+  defp decide([only]), do: only
+
+  defp decide([best, second | _rest]) do
+    penalty = 0.5 * second / max(best, 0.001)
+
+    (best * (1.0 - penalty))
     |> max(0.0)
-    |> min(best["score"])
+    |> min(best)
     |> Float.round(3)
   end
 
@@ -379,10 +461,10 @@ defmodule Ambry.Inbox.AutoMatch do
         "authors" => Enum.map(book.authors || [], & &1.name),
         "series" => series_refs(book.series),
         "published" => book.published && Date.to_iso8601(book.published),
-        # a work already in the library beats an equally-good provider hit:
-        # reusing it is what prevents duplicate Books
-        "score" =>
-          score(book.title, Enum.map(book.authors || [], & &1.name), nil, nil, hints) + 0.05
+        # No thumb on the scale any more: local Books are their own list, so
+        # the score is plain similarity and is used only to decide whether the
+        # match is strong enough to offer as "this is an edition of that".
+        "score" => score(book.title, Enum.map(book.authors || [], & &1.name), nil, nil, hints)
       }
     end)
   end
@@ -436,6 +518,13 @@ defmodule Ambry.Inbox.AutoMatch do
   # instance being down, without leaking a whole HTTP response into jsonb.
   defp describe(reason) do
     reason |> inspect() |> String.slice(0, 200)
+  end
+
+  @doc """
+  Turns provider books into records, for a search run outside matching.
+  """
+  def records_from(books, entry, hints) do
+    books |> Enum.take(@candidate_limit) |> Enum.map(&provider_candidate(&1, entry, hints))
   end
 
   defp provider_candidate(book, entry, hints) do

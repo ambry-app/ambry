@@ -60,7 +60,6 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert [best | _rest] = matches["work"]["candidates"]
       assert best["title"] == "The Way of Kings"
       assert best["score"] > 0.9
-      assert matches["work"]["selected"]["source"] =~ "provider:"
     end
 
     test "keeps every candidate, not just the winner" do
@@ -114,6 +113,27 @@ defmodule Ambry.Inbox.AutoMatchTest do
              ]
     end
 
+    # Nothing waits on matching, so it is allowed to be thorough: every record
+    # about the top work gets its full details fetched, not just the single
+    # best one. They all feed the field candidates, so a thin one means the
+    # operator can't take the other database's description after all.
+    test "fetches full details for every record about the top work" do
+      patch_work_results([
+        book("Leviathan Wakes", ["James S.A. Corey"]),
+        book("Leviathan Wakes", ["James S.A. Corey"])
+      ])
+
+      patch(Providers, :book_details, fn _id, _book_id, _opts ->
+        {:ok, %Provider.Book{provider: "test", id: "x", description: "fetched"}}
+      end)
+
+      %{matches: matches} = AutoMatch.match(item(title: "Leviathan Wakes"))
+
+      assert length(matches["work"]["candidates"]) == 2
+      assert Enum.all?(matches["work"]["candidates"], & &1["hydrated"])
+      assert Enum.all?(matches["work"]["candidates"], &(&1["description"] == "fetched"))
+    end
+
     test "records the search's fields, not only its flattened string" do
       patch_work_results([book("Neuromancer", ["William Gibson"])])
 
@@ -129,14 +149,19 @@ defmodule Ambry.Inbox.AutoMatchTest do
              }
     end
 
-    test "ranks a book already in the library first" do
+    # A Book already in the library is a different KIND of answer from a
+    # provider record: linking to it creates nothing and inherits its
+    # curation. Ranking the two in one list made the form ask one question
+    # that was really two.
+    test "keeps books already in the library out of the provider records" do
       insert(:book, title: "The Way of Kings")
       patch_work_results([book("The Way of Kings", ["Brandon Sanderson"])])
 
       %{matches: matches} = AutoMatch.match(item(title: "The Way of Kings"))
 
-      assert [best | _rest] = matches["work"]["candidates"]
-      assert best["source"] == "local"
+      assert [local] = matches["work"]["local"]
+      assert local["title"] == "The Way of Kings"
+      assert Enum.all?(matches["work"]["candidates"], &(&1["source"] != "local"))
     end
 
     test "reports low confidence when two different books are equally good" do
@@ -157,6 +182,10 @@ defmodule Ambry.Inbox.AutoMatchTest do
     # Two providers returning the SAME work is corroboration, not conflict.
     # Treating it as a tie dropped perfect double hits to 0.5 confidence and
     # sent obviously-correct matches back to the operator to adjudicate.
+    # Records are NOT fused when two databases return the same thing — that's
+    # the normal case, and each knows things the other doesn't. But for
+    # *scoring* they're one answer, or the runner-up penalty reads the
+    # best-corroborated match in the library as the most doubtful one.
     test "two providers agreeing is corroboration, not a tie" do
       patch_work_results([
         book("The Silent Patient", ["Alex Michaelides"]),
@@ -165,8 +194,8 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
       %{matches: matches} = AutoMatch.match(item(title: "The Silent Patient"))
 
-      assert [only] = matches["work"]["candidates"]
-      assert only["also_from"] != []
+      # both records survive, so both can propose values
+      assert length(matches["work"]["candidates"]) == 2
       assert matches["work"]["confidence"] > 0.9
     end
 
@@ -217,7 +246,9 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
       %{matches: matches} = AutoMatch.match(item(title: "The Way of Kings"))
 
-      assert [%{"source" => "local"} | _rest] = matches["work"]["candidates"]
+      assert [%{"title" => "The Way of Kings"}] = matches["work"]["local"]
+      assert [outcome | _rest] = matches["work"]["providers"]
+      assert outcome["status"] == "failed"
     end
 
     # Audible's catalog API is a storefront, not a bibliography: when rights

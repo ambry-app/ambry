@@ -35,6 +35,7 @@ defmodule Ambry.Inbox.DraftTest do
     %{
       "work" => %{
         "candidates" => work_candidates,
+        "local" => Keyword.get(opts, :local, []),
         "confidence" => Keyword.get(opts, :confidence, 0.95),
         "query" => "q"
       },
@@ -53,7 +54,7 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Seed.build(item)
 
       refute Draft.resolved?(draft)
-      assert Enum.any?(Draft.unresolved(draft), &(&1.label == "Which book"))
+      assert Enum.any?(Draft.unresolved(draft), &(&1.label == "First published"))
     end
 
     test "unresolved names the missing decision rather than just failing" do
@@ -86,38 +87,43 @@ defmodule Ambry.Inbox.DraftTest do
   describe "work identity" do
     test "a strong local hit links the existing book rather than creating one" do
       book = insert(:book, title: "Leviathan Wakes")
+      local = [%{"id" => book.id, "title" => "Leviathan Wakes", "score" => 1.0}]
 
-      candidates = [
-        %{"source" => "local", "id" => book.id, "title" => "Leviathan Wakes", "score" => 1.0}
-      ]
-
-      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+      draft = Seed.build(item(%{matches: matches([], local: local), tags: %{}}))
 
       assert draft.work.mode == :link
       assert draft.work.book_id == book.id
       assert draft.work.approved
     end
 
-    test "a close runner-up leaves the identity for the operator" do
+    # Attaching a recording to the wrong existing book is worse than one
+    # duplicate Book, and much harder to notice afterwards.
+    test "a local book that only nearly matches is offered, never assumed" do
+      book = insert(:book, title: "Leviathan Wakes")
+      local = [%{"id" => book.id, "title" => "Leviathan Wakes", "score" => 0.8}]
+
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})], local: local)}))
+
+      assert draft.work.mode == :create
+      refute draft.work.approved
+    end
+
+    test "weak records leave the new-book answer for the operator" do
       candidates = [
-        provider_candidate(%{"id" => "a", "score" => 0.92}),
-        provider_candidate(%{"id" => "b", "score" => 0.91})
+        provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5})
       ]
 
       draft = Seed.build(item(%{matches: matches(candidates, confidence: 0.5), tags: %{}}))
 
       refute draft.work.approved
-      assert Enum.any?(Draft.unresolved(draft), &(&1.label == "Which book"))
+      assert Enum.any?(Draft.unresolved(draft), &(&1.label =~ "already have"))
     end
 
     test "linking a book does not re-decide the book's own fields" do
       book = insert(:book, title: "Leviathan Wakes")
+      local = [%{"id" => book.id, "title" => "Leviathan Wakes", "score" => 1.0}]
 
-      candidates = [
-        %{"source" => "local", "id" => book.id, "title" => "Leviathan Wakes", "score" => 1.0}
-      ]
-
-      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+      draft = Seed.build(item(%{matches: matches([], local: local), tags: %{}}))
 
       refute Enum.any?(Draft.unresolved(draft), &(&1.label == "Title"))
       refute Enum.any?(Draft.unresolved(draft), &(&1.section == :work and &1.label == "Author"))
@@ -264,14 +270,12 @@ defmodule Ambry.Inbox.DraftTest do
       series = insert(:series)
       book = insert(:book, series_books: [build(:series_book, series: series, book_number: 1)])
 
-      candidates = [
-        %{"source" => "local", "id" => book.id, "title" => book.title, "score" => 1.0}
-      ]
+      local = [%{"id" => book.id, "title" => book.title, "score" => 1.0}]
 
       draft =
         Seed.build(
           item(%{
-            matches: matches(candidates),
+            matches: matches([], local: local),
             tags: %{"series" => series.name, "series_number" => "1"}
           })
         )
@@ -369,9 +373,9 @@ defmodule Ambry.Inbox.DraftTest do
           })
         )
 
-      # offered, so the operator can still choose it
-      assert length(draft.recording.candidates) == 1
-      # but nothing of its metadata was adopted
+      # offered, so the operator can still tick it
+      assert draft.recording.sources == []
+      # and nothing of its metadata was adopted
       assert draft.recording.publisher.value == nil
       assert draft.recording.published.value == nil
       assert draft.recording.cover.value == nil
@@ -387,7 +391,7 @@ defmodule Ambry.Inbox.DraftTest do
 
       assert Enum.any?(
                Draft.unresolved(draft),
-               &(&1.label == "Which recording this is" and &1.state == :unconfirmed)
+               &(&1.label =~ "describe this recording" and &1.state == :unconfirmed)
              )
     end
 
@@ -401,40 +405,50 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
-  describe "choosing a candidate" do
-    test "picking a different book refills the work's fields from it" do
+  describe "ticking records" do
+    test "ticking a second record adds its values without replacing the first" do
       candidates = [
-        provider_candidate(%{"id" => "hc-1", "title" => "Leviathan Wakes"}),
+        provider_candidate(%{"id" => "hc-1", "description" => "Hardcover's"}),
         provider_candidate(%{
-          "id" => "hc-2",
-          "title" => "Caliban's War",
-          "published" => "2012-06-26",
-          "score" => 0.6
+          "source" => "provider:rreading_glasses",
+          "provider_name" => "rreading-glasses",
+          "id" => "rg-1",
+          "title" => "Something Else Entirely",
+          "description" => "rreading-glasses'",
+          "score" => 0.4
         })
       ]
 
       item = item(%{matches: matches(candidates), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
-      assert item.draft.work.title.value == "Leviathan Wakes"
-      assert item.draft.work.selected_id == "hc-1"
+      # only the top record is ticked to begin with
+      assert length(item.draft.work.sources) == 1
 
-      draft = Draft.Edit.choose_work(item.draft, item, "provider:hardcover", "hc-2")
+      draft = Draft.Edit.toggle_source(item.draft, item, :work, Enum.at(candidates, 1))
 
-      # the list is a question with one right answer, so choosing has to move
-      # the fields — it used to only flip `mode`, which is why every row
-      # rendered as chosen and clicking one did nothing visible
-      assert draft.work.title.value == "Caliban's War"
-      assert draft.work.published.value == "2012-06-26"
-      assert draft.work.selected_id == "hc-2"
-      assert draft.work.approved
+      assert length(draft.work.sources) == 2
+      values = Enum.map(draft.recording.description.candidates, & &1.value)
+      assert "Hardcover's" in values
+      assert "rreading-glasses'" in values
     end
 
-    test "a typed value survives choosing a different book" do
-      candidates = [
-        provider_candidate(%{"id" => "hc-1"}),
-        provider_candidate(%{"id" => "hc-2", "title" => "Caliban's War", "score" => 0.6})
-      ]
+    test "un-ticking a record takes its values back out" do
+      candidates = [provider_candidate(%{"description" => "Hardcover's"})]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert item.draft.recording.description.value == "Hardcover's"
+
+      draft = Draft.Edit.toggle_source(item.draft, item, :work, hd(candidates))
+
+      assert draft.work.sources == []
+      assert draft.recording.description.candidates == []
+    end
+
+    test "a typed value survives the ticked set changing" do
+      candidates = [provider_candidate(%{"id" => "hc-1"})]
 
       item = item(%{matches: matches(candidates), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
@@ -444,30 +458,46 @@ defmodule Ambry.Inbox.DraftTest do
           "work" => %{"title" => %{"value" => "What I Actually Want"}}
         })
 
-      draft = Draft.Edit.choose_work(item.draft, item, "provider:hardcover", "hc-2")
+      draft = Draft.Edit.toggle_source(item.draft, item, :work, hd(candidates))
 
-      # 1d again: curation outranks any source, including a source the
-      # operator just picked
+      # 1d again: curation outranks any source, including the absence of one
       assert draft.work.title.value == "What I Actually Want"
       assert draft.work.title.source == "manual"
     end
 
-    test "clicking the already-chosen book confirms rather than resetting" do
-      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+    test "linking an existing book settles the first decision" do
+      book = insert(:book, title: "Leviathan Wakes")
+      local = [%{"id" => book.id, "title" => "Leviathan Wakes", "score" => 0.8}]
+
+      item = item(%{matches: matches([provider_candidate(%{})], local: local)})
       {:ok, item} = Inbox.prepare_draft(item)
+      refute item.draft.work.approved
 
-      touched = Draft.Edit.approve_credit(item.draft, :work, 0, true)
-      assert Enum.at(touched.work.authors, 0).approved
+      draft = Draft.Edit.link_book(item.draft, item, book.id)
 
-      draft = Draft.Edit.choose_work(touched, item, "provider:hardcover", "hc-1")
-
-      assert Enum.at(draft.work.authors, 0).approved
+      assert draft.work.mode == :link
+      assert draft.work.book_id == book.id
+      assert draft.work.approved
     end
 
-    test "choosing a recording settles the book it is known to be of" do
+    test "saying it is a different book settles it as new" do
+      book = insert(:book, title: "Leviathan Wakes")
+      local = [%{"id" => book.id, "title" => "Leviathan Wakes", "score" => 0.8}]
+
+      item = item(%{matches: matches([provider_candidate(%{})], local: local)})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.new_book(item.draft, item)
+
+      assert draft.work.mode == :create
+      assert draft.work.book_id == nil
+      assert draft.work.approved
+    end
+
+    test "ticking an edition ticks the work it came from" do
       work = [
         provider_candidate(%{"id" => "hc-1"}),
-        provider_candidate(%{"id" => "hc-2", "title" => "Caliban's War", "score" => 0.6})
+        provider_candidate(%{"id" => "hc-2", "title" => "Caliban's War", "score" => 0.4})
       ]
 
       recording = [
@@ -478,7 +508,6 @@ defmodule Ambry.Inbox.DraftTest do
           "title" => "Caliban's War",
           "narrators" => ["Jefferson Mays"],
           "publisher" => "Orbit",
-          "published" => "2012-06-26",
           "score" => 0.4,
           # editions come out of a work's own list, so which work is not a
           # second question
@@ -493,16 +522,13 @@ defmodule Ambry.Inbox.DraftTest do
         })
 
       {:ok, item} = Inbox.prepare_draft(item)
-      assert item.draft.work.selected_id == "hc-1"
 
-      draft = Draft.Edit.choose_recording(item.draft, item, "provider:hardcover", "ed-9")
+      draft = Draft.Edit.toggle_source(item.draft, item, :recording, hd(recording))
 
-      assert draft.recording.selected_id == "ed-9"
       assert draft.recording.publisher.value == "Orbit"
       # a file is a recording of exactly one work, so identifying the
       # recording answers the book question too
-      assert draft.work.selected_id == "hc-2"
-      assert draft.work.title.value == "Caliban's War"
+      assert Enum.any?(draft.work.sources, &(&1.id == "hc-2"))
     end
 
     test "a recording in no catalogue is a real answer" do
@@ -526,10 +552,10 @@ defmodule Ambry.Inbox.DraftTest do
       {:ok, item} = Inbox.prepare_draft(item)
       refute item.draft.recording.approved
 
-      draft = Draft.Edit.choose_uncatalogued(item.draft, item)
+      draft = Draft.Edit.uncatalogued(item.draft, item)
 
       assert draft.recording.approved
-      assert draft.recording.selected_source == nil
+      assert draft.recording.sources == []
       assert Draft.Recording.uncatalogued?(draft.recording)
     end
 
@@ -554,48 +580,10 @@ defmodule Ambry.Inbox.DraftTest do
 
       draft = item |> Seed.build() |> Draft.Edit.approve_all()
 
-      # the leading candidate here is, by construction, the wrong recording of
+      # the leading record here is, by construction, the wrong recording of
       # the right book — the one thing this button must not paper over
       refute draft.recording.approved
       assert draft.recording.publisher.value == nil
-    end
-  end
-
-  describe "sources that agree" do
-    test "a format label is not a disagreement" do
-      # Audible titles carry "(Unabridged)" and work-level providers don't, so
-      # treating the two as rival answers made the operator arbitrate a
-      # non-question on a large share of imports
-      draft =
-        Seed.build(
-          item(%{
-            matches: matches([provider_candidate(%{"title" => "Neuromancer (Unabridged)"})]),
-            tags: %{"book_title" => "Neuromancer"}
-          })
-        )
-
-      assert draft.work.title.approved
-      # and the clean spelling wins the field
-      assert draft.work.title.value == "Neuromancer"
-
-      # one chip, crediting everybody who said it — two chips reading
-      # "Hardcover: Neuromancer" and "the file's tags: Neuromancer
-      # (Unabridged)" is a choice nobody wants to make
-      assert [only] = draft.work.title.candidates
-      assert only.label == "Hardcover, The file's tags"
-    end
-
-    test "genuinely different titles still disagree" do
-      draft =
-        Seed.build(
-          item(%{
-            matches: matches([provider_candidate(%{"title" => "Neuromancer"})]),
-            tags: %{"book_title" => "Count Zero"}
-          })
-        )
-
-      refute draft.work.title.approved
-      assert Draft.Field.state(draft.work.title) == :ambiguous
     end
   end
 
@@ -604,23 +592,21 @@ defmodule Ambry.Inbox.DraftTest do
     # about it. Collapsing them to a winner left the operator choosing between
     # one provider and the file's tags.
     test "a corroborating provider still gets to propose its own values" do
-      candidate =
+      candidates = [
         provider_candidate(%{
           "description" => "Hardcover's description",
-          "cover_url" => "https://example.test/hardcover.jpg",
-          "merged" => [
-            %{
-              "source" => "provider:rreading_glasses",
-              "provider_name" => "rreading-glasses",
-              "id" => "rg-1",
-              "title" => "Leviathan Wakes",
-              "description" => "rreading-glasses' description",
-              "cover_url" => "https://example.test/rg.jpg"
-            }
-          ]
+          "cover_url" => "https://example.test/hardcover.jpg"
+        }),
+        provider_candidate(%{
+          "source" => "provider:rreading_glasses",
+          "provider_name" => "rreading-glasses",
+          "id" => "rg-1",
+          "description" => "rreading-glasses' description",
+          "cover_url" => "https://example.test/rg.jpg"
         })
+      ]
 
-      draft = Seed.build(item(%{matches: matches([candidate]), tags: %{}}))
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
 
       values = Enum.map(draft.recording.description.candidates, & &1.value)
       assert "Hardcover's description" in values

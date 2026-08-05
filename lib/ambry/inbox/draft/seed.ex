@@ -59,6 +59,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.SeriesLink
+  alias Ambry.Inbox.Draft.SourceRef
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library
@@ -69,7 +70,12 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Repo
 
   @strong_match 0.90
-  @weak_runner_up 0.70
+
+  # How closely an existing Book has to match before the import proposes
+  # linking to it rather than creating one. Deliberately high: attaching a
+  # recording to the wrong book is a worse outcome than one duplicate Book,
+  # and it's much harder to notice.
+  @strong_local 0.95
 
   # How sure a recording match must be before its metadata is allowed to
   # describe this file.
@@ -86,11 +92,13 @@ defmodule Ambry.Inbox.Draft.Seed do
     work_level = Map.get(matches, "work", %{})
     recording_level = Map.get(matches, "recording", %{})
 
+    work = work(work_level, hints, tags)
+
     %Draft{
       evidence: evidence(item),
       stale: false,
-      work: work(work_level, hints, tags),
-      recording: recording(recording_level, work_level, hints, tags, item),
+      work: work,
+      recording: recording(recording_level, work, hints, tags, item),
       destination: destination(item)
     }
   end
@@ -153,67 +161,44 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## work
 
+  # The first decision is not "which of these records", it is **is this a book
+  # you already have, or a new one**. Those are different outcomes — linking
+  # creates nothing and inherits the book's curation — and mixing them into
+  # one ranked list made the form ask one question that was really two.
   defp work(level, hints, tags) do
-    candidates = Map.get(level, "candidates", []) || []
-    best = List.first(candidates)
+    records = records(level)
+    local = Map.get(level, "local", []) || []
     confidence = Map.get(level, "confidence")
 
-    {mode, book_id, approved} = work_identity(candidates, confidence)
+    {mode, book_id, approved} = work_identity(local, records, confidence)
 
     %Work{
       mode: mode,
       book_id: book_id,
       approved: approved,
-      candidates: candidates,
       confidence: confidence,
       query: Map.get(level, "query"),
       query_fields: Map.get(level, "query_fields") || %{},
-      selected_source: best && best["source"],
-      selected_id: best && to_string(best["id"])
+      sources: Enum.map(AutoMatch.top_group(records), &SourceRef.of/1)
     }
-    |> put_work_fields(best, hints, tags)
+    |> put_work_fields(records, hints, tags)
   end
 
   @doc """
-  Fills a work's fields from one candidate, keeping anything the operator
-  typed.
+  Re-derives a work's fields from whichever records are currently ticked.
 
-  This is what makes the candidate list a question rather than a display: a
-  release is a recording of exactly one work, so picking a different candidate
-  has to change what the book will say. Manual edits survive, because 1d's
-  whole point is that curation outranks any source.
+  Ticking a record is what makes it speak: every scalar draws its candidates
+  from the ticked set plus the file's tags, which is how the description can
+  come from one database and the cover from another. Anything the operator
+  typed survives — 1d's whole point is that curation outranks any source.
   """
-  def reseed_work(%Work{} = work, candidate, hints, tags) do
-    %{
-      work
-      | mode: if(candidate["source"] == "local", do: :link, else: :create),
-        book_id: if(candidate["source"] == "local", do: candidate["id"]),
-        approved: true,
-        selected_source: candidate["source"],
-        selected_id: to_string(candidate["id"])
-    }
-    |> put_work_fields(candidate, hints, tags)
+  def reseed_work(%Work{} = work, %InboxItem{} = item) do
+    put_work_fields(work, records(item, "work"), AutoMatch.hints(item), item.tags || %{})
   end
 
-  @doc """
-  Detaches a work from every candidate — a book nothing matched, described by
-  the file alone.
-  """
-  def reseed_new_work(%Work{} = work, hints, tags) do
-    %{
-      work
-      | mode: :create,
-        book_id: nil,
-        approved: true,
-        selected_source: nil,
-        selected_id: nil
-    }
-    |> put_work_fields(nil, hints, tags)
-  end
-
-  defp put_work_fields(%Work{} = work, best, hints, tags) do
-    book_id = if best && best["source"] == "local", do: best["id"]
-    sources = chain(best)
+  defp put_work_fields(%Work{} = work, records, hints, tags) do
+    sources = used(records, work.sources)
+    book_id = if work.mode == :link, do: work.book_id
 
     published = keep_manual(work.published, published_field(sources, tags))
 
@@ -222,36 +207,37 @@ defmodule Ambry.Inbox.Draft.Seed do
       | title: keep_manual(work.title, title_field(sources, hints, tags)),
         published: published,
         published_format:
-          keep_manual(
-            work.published_format,
-            published_format_field(sources, tags, published)
-          ),
-        authors: author_credits(best, tags),
-        series: series_links(best, tags, book_id)
+          keep_manual(work.published_format, published_format_field(sources, tags, published)),
+        authors: author_credits(sources, tags),
+        series: series_links(sources, tags, book_id)
     }
   end
 
-  # A candidate and everybody who corroborated it.
-  #
-  # Two providers agreeing on which work this is do NOT agree on everything
-  # about it — one has the better description, another the better cover — and
-  # collapsing them into a winner left the operator choosing between one
-  # provider and the file's tags. Identity is still one answer; *where each
-  # field's value comes from* is a separate question per field.
-  def chain(nil), do: []
-  def chain(candidate), do: [candidate | List.wrap(candidate["merged"])]
+  @doc """
+  The provider records stored for a level.
+  """
+  def records(%InboxItem{matches: matches}, level) when is_map(matches),
+    do: matches |> Map.get(level, %{}) |> records()
+
+  def records(%InboxItem{}, _level), do: []
+  def records(level) when is_map(level), do: Map.get(level, "candidates", []) || []
+  def records(_level), do: []
 
   @doc """
-  The candidate a decision's fields were filled from, if any.
+  The existing Books that might be this work.
   """
-  def selected_candidate(%{candidates: candidates, selected_source: source, selected_id: id})
-      when is_binary(source) do
-    Enum.find(candidates, &(&1["source"] == source and to_string(&1["id"]) == id))
+  def local_records(%InboxItem{matches: matches}, level) when is_map(matches),
+    do: matches |> Map.get(level, %{}) |> Map.get("local", []) |> List.wrap()
+
+  def local_records(%InboxItem{}, _level), do: []
+
+  # The ticked records, in the order they're listed rather than the order they
+  # were ticked, so the chip order in the form is stable.
+  defp used(records, refs) do
+    Enum.filter(records, fn record -> Enum.any?(refs, &SourceRef.points_at?(&1, record)) end)
   end
 
-  def selected_candidate(_decision), do: nil
-
-  defp from_chain(sources, key), do: Enum.map(sources, &candidate(&1, key))
+  defp from_records(records, key), do: Enum.map(records, &candidate(&1, key))
 
   # A field the operator typed is theirs; re-seeding from another candidate
   # must not quietly undo a correction. Everything else is provider data being
@@ -259,28 +245,34 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp keep_manual(%Field{source: "manual"} = existing, _fresh), do: existing
   defp keep_manual(_existing, fresh), do: fresh
 
-  # An existing Book is the best outcome there is — it's what stops a second
-  # recording of a work splitting the library — so a confident local hit links
-  # rather than creating a near-duplicate.
-  defp work_identity([], _confidence), do: {:create, nil, false}
+  # Reusing a Book already in the library is the best outcome there is — it's
+  # what stops a second recording of a work splitting the library — so a
+  # convincing local hit is proposed as a link. Anything else is a new book,
+  # which is also what an item with no matches at all is: "create a new book"
+  # was never a separate answer, just the absence of an existing one.
+  defp work_identity(local, records, confidence) do
+    case Enum.max_by(local, &(&1["score"] || 0.0), fn -> nil end) do
+      %{"id" => id, "score" => score} when score >= @strong_local ->
+        {:link, id, true}
 
-  defp work_identity([best | rest], confidence) do
-    strong? = strong?(best, rest, confidence)
+      %{} ->
+        # A local book close enough to show but not to assume: the operator
+        # has to say, because attaching a recording to the wrong existing book
+        # is worse than creating one book too many.
+        {:create, nil, false}
 
-    case best do
-      %{"source" => "local", "id" => id} when is_integer(id) -> {:link, id, strong?}
-      _provider -> {:create, nil, strong?}
+      nil ->
+        {:create, nil, settled_new_book?(records, confidence)}
     end
   end
 
-  defp strong?(best, rest, confidence) do
-    runner_up = rest |> List.first() |> then(&(&1 && &1["score"])) || 0.0
+  # With no local book in the running, "new book" is the only answer there is;
+  # it still needs a nod when the records are too weak to have filled the
+  # fields convincingly.
+  defp settled_new_book?([], _confidence), do: true
 
-    cond do
-      best["score"] == 1.0 -> true
-      (confidence || 0.0) >= @strong_match and runner_up <= @weak_runner_up -> true
-      true -> false
-    end
+  defp settled_new_book?([best | _rest], confidence) do
+    best["score"] == 1.0 or (confidence || 0.0) >= @strong_match
   end
 
   # The release name is a fallback, not a peer. Measured across the real
@@ -288,7 +280,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   # other ~2% rely on — so letting the folder name argue with a provider would
   # make nearly every import ambiguous on its title for no gain.
   defp title_field(sources, hints, tags) do
-    (from_chain(sources, "title") ++ [tag_candidate(tags, "book_title")])
+    (from_records(sources, "title") ++ [tag_candidate(tags, "book_title")])
     |> scalar(
       required: true,
       equivalence: &(title_key(&1) == title_key(&2)),
@@ -376,7 +368,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp follow_date_source(format, _published), do: format
 
   defp published_field(sources, tags) do
-    (from_chain(sources, "published") ++ [tag_candidate(tags, "published")])
+    (from_records(sources, "published") ++ [tag_candidate(tags, "published")])
     |> scalar(required: true, equivalence: &same_date?/2, prefer: &more_precise/2)
   end
 
@@ -384,7 +376,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   # Jan 1st, and rendering that as a real release day is the exact bug the
   # v1.9.0 punch list fixed for the import forms.
   defp published_format_field(sources, tags, published) do
-    (from_chain(sources, "published_format") ++ [tag_candidate(tags, "published_format")])
+    (from_records(sources, "published_format") ++ [tag_candidate(tags, "published_format")])
     |> scalar(required: false)
     |> follow_date_source(published)
     |> default_to("full")
@@ -398,91 +390,76 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## recording
 
-  defp recording(level, work_level, hints, tags, item) do
-    candidates = Map.get(level, "candidates", []) || []
-    work_chain = work_level |> Map.get("candidates", []) |> List.first() |> chain()
+  defp recording(level, work, hints, tags, item) do
+    records = records(level)
 
     # **Only a recording we actually believe in gets to fill anything in.**
     # Audible's search widens when a narrow query finds nothing, so a book
     # whose only catalogued edition has a different reader still returns that
     # edition — and taking its publisher, release date and cover would quietly
-    # describe this file as a recording it is not. A doubted candidate stays
-    # in the list for the operator to pick; it just doesn't get to speak
-    # first.
-    {doubt, detail, best} = trust(candidates, level, hints)
+    # describe this file as a recording it is not. A doubted record stays in
+    # the list to be ticked; it just isn't ticked for you.
+    {doubt, detail, best} = trust(records, level, hints)
 
     %Recording{
-      candidates: candidates,
       confidence: Map.get(level, "confidence"),
       query: Map.get(level, "query"),
       query_fields: Map.get(level, "query_fields") || %{},
       doubt: doubt,
       doubt_detail: detail,
-      selected_source: best && best["source"],
-      selected_id: best && to_string(best["id"]),
-      # Which recording this is is a fact with one right answer, so it settles
-      # only when we actually know it: a trusted match, or nothing to choose
-      # between. A doubted candidate leaves the question open rather than
-      # being adopted quietly — that ambiguity was previously invisible,
-      # showing up only as fields that mysteriously stayed empty.
+      sources: if(best, do: Enum.map(AutoMatch.top_group(records), &SourceRef.of/1), else: []),
+      # Settled when we actually know which recording this is — a trusted
+      # match — or when there was nothing to choose between. A doubted record
+      # leaves the question open rather than being adopted quietly; that
+      # ambiguity used to be invisible, showing up only as fields that
+      # mysteriously stayed empty.
       approved: doubt in [:none, :nothing_found]
     }
-    |> put_recording_fields(best, work_chain, tags, item)
+    |> put_recording_fields(records, work, tags, item)
   end
 
   @doc """
-  Fills a recording's fields from one catalogue entry, keeping typed values.
+  Re-derives a recording's fields from whichever records are currently ticked.
   """
-  def reseed_recording(%Recording{} = recording, candidate, work_chain, tags, item) do
-    %{
-      recording
-      | approved: true,
-        selected_source: candidate["source"],
-        selected_id: to_string(candidate["id"]),
-        doubt: :none,
-        doubt_detail: nil
-    }
-    |> put_recording_fields(candidate, work_chain, tags, item)
+  def reseed_recording(%Recording{} = recording, %Work{} = work, %InboxItem{} = item) do
+    put_recording_fields(recording, records(item, "recording"), work, item.tags || %{}, item)
   end
 
-  @doc """
-  Settles a recording as one no catalogue lists, described by the file alone.
-  """
-  def reseed_uncatalogued(%Recording{} = recording, work_chain, tags, item) do
-    %{recording | approved: true, selected_source: nil, selected_id: nil}
-    |> put_recording_fields(nil, work_chain, tags, item)
-  end
-
-  # The work's sources get a say in the recording's *descriptive* fields —
-  # description, cover, publisher are facts about the book that a work-level
-  # provider often has better than a storefront does, and the operator has to
-  # be able to take the description from one and the cover from another.
+  # The work's records get a say in the recording's *descriptive* fields —
+  # description, cover and publisher are facts about the book that a database
+  # often has better than a storefront does, and the operator has to be able to
+  # take the description from one and the cover from another.
   #
   # The release date deliberately does NOT draw from them: a work-level
-  # provider's date is the work's original publication date, which is a
+  # record's date is the work's original publication date, which is a
   # different fact wearing the same name.
-  defp put_recording_fields(%Recording{} = recording, best, work_chain, tags, item) do
-    chain = chain(best)
-    describing = chain ++ work_chain
+  defp put_recording_fields(%Recording{} = recording, records, work, tags, item) do
+    mine = used(records, recording.sources)
+    describing = mine ++ work_records(work, item)
 
     %{
       recording
       | title: keep_manual(recording.title, scalar([], required: false)),
-        published: keep_manual(recording.published, scalar(from_chain(chain, "published"))),
+        published: keep_manual(recording.published, scalar(from_records(mine, "published"))),
         publisher:
           keep_manual(
             recording.publisher,
-            scalar(from_chain(describing, "publisher") ++ [tag_candidate(tags, "publisher")])
+            scalar(from_records(describing, "publisher") ++ [tag_candidate(tags, "publisher")])
           ),
         description:
           keep_manual(
             recording.description,
-            scalar(from_chain(describing, "description") ++ [tag_candidate(tags, "description")])
+            scalar(
+              from_records(describing, "description") ++ [tag_candidate(tags, "description")]
+            )
           ),
         cover: keep_manual(recording.cover, cover_field(describing, tags, item)),
-        narrators: narrator_credits(best, tags)
+        narrators: narrator_credits(mine, tags)
     }
   end
+
+  defp work_records(%Work{} = work, %InboxItem{} = item),
+    do: item |> records("work") |> used(work.sources)
 
   # An ASIN hit is identity, so it needs no corroboration. Otherwise the
   # narrator decides: when the file names a reader and the candidate names a
@@ -557,24 +534,44 @@ defmodule Ambry.Inbox.Draft.Seed do
         }
       end
 
-    (from_chain(sources, "cover_url") ++ [embedded]) |> scalar(required: false)
+    (from_records(sources, "cover_url") ++ [embedded]) |> scalar(required: false)
   end
 
   ## credits
 
-  defp author_credits(best, tags) do
-    names = names(best && best["authors"]) || names(tags["authors"]) || []
-    source = if names == names(best && best["authors"]), do: source_of(best), else: "tags"
-
-    Enum.map(names, &credit(&1, :author, source))
+  defp author_credits(records, tags) do
+    records
+    |> proposed_names("authors")
+    |> or_from_tags(tags, "authors")
+    |> Enum.map(fn {name, source} -> credit(name, :author, source) end)
   end
 
-  defp narrator_credits(best, tags) do
-    names = names(best && best["narrators"]) || names(tags["narrators"]) || []
-    source = if names == names(best && best["narrators"]), do: source_of(best), else: "tags"
-
-    Enum.map(names, &credit(&1, :narrator, source))
+  defp narrator_credits(records, tags) do
+    records
+    |> proposed_names("narrators")
+    |> or_from_tags(tags, "narrators")
+    |> Enum.map(fn {name, source} -> credit(name, :narrator, source) end)
   end
+
+  # Names across every ticked record, in first-mentioned order and deduped
+  # case-insensitively: two databases listing the same author is one credit,
+  # not two.
+  defp proposed_names(records, key) do
+    records
+    |> Enum.flat_map(fn record ->
+      record |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{&1, source_of(record)})
+    end)
+    |> Enum.uniq_by(fn {name, _source} -> down(name) end)
+  end
+
+  # The file only gets a say when no record proposed anybody. A tag name is a
+  # weaker proposal — 1b's multi-value splitting is knowingly imperfect — so it
+  # never argues with a record, it just fills a silence.
+  defp or_from_tags([], tags, key) do
+    tags |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{&1, "tags"})
+  end
+
+  defp or_from_tags(proposed, _tags, _key), do: proposed
 
   defp credit(name, kind, source) do
     matches = identity_matches(name, kind)
@@ -650,17 +647,38 @@ defmodule Ambry.Inbox.Draft.Seed do
   # When linking to an existing book, a proposed series is only offered if the
   # book doesn't already have it: an import may fill a blank, never overwrite
   # curation.
-  defp series_links(best, tags, book_id) do
-    {proposals, source} =
-      case series_proposals(best && best["series"]) do
-        [] -> {series_proposals_from_tags(tags), "tags"}
-        from_provider -> {from_provider, source_of(best)}
-      end
-
-    proposals
+  defp series_links(records, tags, book_id) do
+    records
+    |> Enum.flat_map(fn record ->
+      record
+      |> Map.get("series")
+      |> series_proposals()
+      |> Enum.map(&Map.put(&1, :source, source_of(record)))
+    end)
+    |> merge_by_name()
+    |> case do
+      [] -> series_proposals_from_tags(tags)
+      proposed -> proposed
+    end
     |> Enum.reject(&already_on_book?(&1.name, book_id))
     |> then(fn kept ->
-      Enum.map(kept, &series_link(&1.name, &1.number || tag_number(&1.name, tags, kept), source))
+      Enum.map(
+        kept,
+        &series_link(&1.name, &1.number || tag_number(&1.name, tags, kept), &1.source)
+      )
+    end)
+  end
+
+  # One series named by two databases is one membership. Whichever of them
+  # supplied a number wins, because a number nobody supplied is a question the
+  # operator has to answer and this is the cheapest way not to ask it.
+  defp merge_by_name(proposals) do
+    proposals
+    |> Enum.group_by(&down(&1.name))
+    |> Map.values()
+    |> Enum.map(fn group -> Enum.find(group, List.first(group), & &1.number) end)
+    |> Enum.sort_by(fn proposal ->
+      Enum.find_index(proposals, &(down(&1.name) == down(proposal.name)))
     end)
   end
 
@@ -695,14 +713,14 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp series_proposal(%{"name" => name} = entry) when is_binary(name) do
     case presence(name) do
       nil -> nil
-      name -> %{name: name, number: presence(entry["number"])}
+      name -> %{name: name, number: presence(entry["number"]), source: nil}
     end
   end
 
   defp series_proposal(name) when is_binary(name) do
     case presence(name) do
       nil -> nil
-      name -> %{name: name, number: nil}
+      name -> %{name: name, number: nil, source: nil}
     end
   end
 
@@ -711,7 +729,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp series_proposals_from_tags(tags) do
     case presence(tags["series"]) do
       nil -> []
-      name -> [%{name: name, number: presence(tags["series_number"])}]
+      name -> [%{name: name, number: presence(tags["series_number"]), source: "tags"}]
     end
   end
 
@@ -860,7 +878,6 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp release_candidate(value),
     do: %Candidate{value: value, source: "release_name", label: "The release name"}
 
-  defp source_of(nil), do: nil
   defp source_of(%{"source" => source}), do: source
   defp source_of(_other), do: nil
 

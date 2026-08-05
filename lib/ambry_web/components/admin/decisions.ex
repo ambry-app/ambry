@@ -23,6 +23,8 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.SeriesLink
 
   attr :outcomes, :list, required: true
+  attr :level, :string, default: nil
+  attr :retrying, :any, default: nil
 
   @doc """
   What each provider said when asked — including the ones that couldn't
@@ -37,19 +39,33 @@ defmodule AmbryWeb.Admin.Decisions do
     ~H"""
     <div :if={@outcomes != []} class="flex flex-wrap items-center gap-2" data-role="provider-outcomes">
       <span class="text-xs dark:text-zinc-500">Asked:</span>
+
       <span
         :for={outcome <- @outcomes}
-        class={[
-          "rounded-sm border px-2 py-0.5 text-xs",
-          outcome["status"] == "failed" && "border-red-500 text-red-600",
-          outcome["status"] != "failed" && "border-zinc-300 dark:border-zinc-700"
-        ]}
-        title={outcome["reason"]}
+        :if={outcome["status"] != "failed"}
+        class="rounded-sm border border-zinc-300 px-2 py-0.5 text-xs dark:border-zinc-700"
       >
-        {outcome["name"]}: {if outcome["status"] == "failed",
-          do: "couldn't be reached",
-          else: outcome["count"]}
+        {outcome["name"]}: {outcome["count"]}
       </span>
+
+      <%!-- A provider that was rate-limited during matching used to cost this
+            item its records until somebody re-ran the whole match. The chip is
+            the retry. --%>
+      <button
+        :for={outcome <- @outcomes}
+        :if={outcome["status"] == "failed"}
+        type="button"
+        phx-click="retry-provider"
+        phx-value-level={@level}
+        phx-value-provider={outcome["id"]}
+        disabled={@retrying == outcome["id"]}
+        title={outcome["reason"]}
+        class="rounded-sm border border-red-500 px-2 py-0.5 text-xs text-red-600 disabled:opacity-50"
+      >
+        {outcome["name"]}: {if @retrying == outcome["id"],
+          do: "asking again…",
+          else: "couldn't be reached — retry"}
+      </button>
     </div>
     """
   end
@@ -90,48 +106,149 @@ defmodule AmbryWeb.Admin.Decisions do
         do: {key, value}
   end
 
-  attr :candidate, :map, required: true
-  attr :selected, :boolean, required: true
-  attr :event, :string, required: true
-  attr :subtitle, :string, default: nil
+  attr :record, :map, required: true
+  attr :used, :boolean, required: true
+  attr :level, :string, required: true
 
   @doc """
-  One candidate for an identity decision — a book, or a catalogued recording.
+  One provider record, and whether it counts.
 
-  A list where every row wore a checkmark was the clearest symptom of the
-  decision model not reaching the UI: the item is a recording of exactly ONE
-  work, so exactly one row can be the answer and the rest are what it isn't.
+  Not an identity — evidence. Hardcover and rreading-glasses both holding a
+  record of one book is the normal case, not a duplicate to clean up, and each
+  knows things the other doesn't. Ticking both is how the description comes
+  from one and the cover from the other.
   """
-  def candidate_option(assigns) do
+  def record_row(assigns) do
+    ~H"""
+    <label
+      class={[
+        "flex cursor-pointer items-start gap-3 rounded-sm border p-2",
+        @used && "border-brand bg-brand/5 dark:border-brand-dark dark:bg-brand-dark/10",
+        !@used && "border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+      ]}
+      data-role="record"
+      data-used={@used && "true"}
+    >
+      <input
+        type="checkbox"
+        checked={@used}
+        phx-click="toggle-source"
+        phx-value-level={@level}
+        phx-value-source={@record["source"]}
+        phx-value-id={@record["id"]}
+        class="mt-1 h-4 w-4 flex-none rounded-sm"
+      />
+      <div class="min-w-0 flex-grow">
+        <p class="truncate text-sm">{candidate_title(@record)}</p>
+        <p class="truncate text-xs dark:text-zinc-500">{candidate_facts(@record)}</p>
+      </div>
+      <span :if={@record["score"]} class="flex-none pt-0.5 text-xs dark:text-zinc-600">
+        {round(@record["score"] * 100)}%
+      </span>
+    </label>
+    """
+  end
+
+  attr :book, :map, required: true
+  attr :linked, :boolean, required: true
+
+  @doc """
+  An existing Book this release might be another edition of.
+
+  Kept well away from the provider records, because it answers a different
+  question. Linking creates nothing, inherits the book's curation and adds an
+  alternate edition; importing a provider record creates a Book. Ranking the
+  two together made the form ask one question that was really two.
+  """
+  def local_book_row(assigns) do
     ~H"""
     <div
       class={[
-        "flex cursor-pointer items-start gap-3 rounded-sm border p-2",
-        @selected && "border-brand bg-brand/5 dark:border-brand-dark dark:bg-brand-dark/10",
-        !@selected && "border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+        "flex items-start gap-3 rounded-sm border p-3",
+        @linked && "border-brand bg-brand/5 dark:border-brand-dark dark:bg-brand-dark/10",
+        !@linked && "border-zinc-300 dark:border-zinc-700"
       ]}
-      phx-click={@event}
-      phx-value-source={@candidate["source"]}
-      phx-value-id={@candidate["id"]}
-      data-role="candidate"
-      data-selected={@selected && "true"}
+      data-role="local-book"
+      data-linked={@linked && "true"}
     >
-      <.icon
-        name={if @selected, do: "fa-circle-check", else: "fa-circle"}
-        class={[
-          "mt-0.5 h-4 w-4 flex-none",
-          @selected && "text-brand dark:text-brand-dark",
-          !@selected && "text-zinc-300 dark:text-zinc-700"
-        ]}
-      />
       <div class="min-w-0 flex-grow">
-        <p class="truncate text-sm">{candidate_title(@candidate)}</p>
-        <p class="truncate text-xs dark:text-zinc-500">{@subtitle || candidate_facts(@candidate)}</p>
+        <p class="truncate text-sm font-semibold">{candidate_title(@book)}</p>
+        <p class="truncate text-xs dark:text-zinc-500">{candidate_facts(@book)}</p>
       </div>
-      <span :if={@candidate["score"]} class="flex-none pt-0.5 text-xs dark:text-zinc-600">
-        {round(@candidate["score"] * 100)}%
-      </span>
+
+      <button
+        :if={!@linked}
+        type="button"
+        phx-click="link-book"
+        phx-value-id={@book["id"]}
+        class="flex-none rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
+      >
+        Yes — another edition of this
+      </button>
+
+      <span :if={@linked} class="flex-none text-xs dark:text-zinc-500">using this book</span>
     </div>
+    """
+  end
+
+  attr :level, :string, required: true
+  attr :fields, :map, required: true
+  attr :running, :boolean, default: false
+
+  @doc """
+  An editable version of the search that produced these records.
+
+  The stored candidate list makes "show me the alternatives" free; this is for
+  the case the list exists for — the right answer isn't in it at all, usually
+  because a wrong tag sent the search somewhere strange.
+  """
+  def research_form(assigns) do
+    ~H"""
+    <form
+      id={"research-#{@level}"}
+      phx-submit="research"
+      class="flex flex-wrap items-end gap-2"
+    >
+      <input type="hidden" name="level" value={@level} />
+
+      <label class="text-xs dark:text-zinc-500">
+        title
+        <input
+          type="text"
+          name="title"
+          value={@fields["title"]}
+          class="mt-1 block rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+        />
+      </label>
+
+      <label class="text-xs dark:text-zinc-500">
+        author
+        <input
+          type="text"
+          name="author"
+          value={@fields["author"]}
+          class="mt-1 block rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+        />
+      </label>
+
+      <label :if={@level == "recording"} class="text-xs dark:text-zinc-500">
+        narrator
+        <input
+          type="text"
+          name="narrator"
+          value={@fields["narrator"]}
+          class="mt-1 block rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+        />
+      </label>
+
+      <button
+        type="submit"
+        disabled={@running}
+        class="rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
+      >
+        {if @running, do: "Searching…", else: "Search again"}
+      </button>
+    </form>
     """
   end
 

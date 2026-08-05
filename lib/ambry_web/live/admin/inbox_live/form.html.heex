@@ -103,9 +103,13 @@
         The work — which book this is a recording of
       </h2>
 
-      <div class="space-y-2">
+      <%!-- The first question, and a different KIND of question from the
+            records below: linking creates nothing and inherits the book's
+            curation, importing a record creates a Book. Ranking the two
+            together made the form ask one question that was really two. --%>
+      <div :if={local_records(@item, "work") != []} class="space-y-2" data-role="local-books">
         <div class="flex items-center gap-2">
-          <.label>Which book</.label>
+          <.label>Is this a book you already have?</.label>
           <.badge
             :if={!@item.draft.work.approved}
             color={elem(state_words(:unconfirmed), 1)}
@@ -113,6 +117,39 @@
           >
             {elem(state_words(:unconfirmed), 0)}
           </.badge>
+        </div>
+
+        <p class="text-sm dark:text-zinc-400">
+          If so this becomes another edition of it — no second book, and its existing details are
+          left alone.
+        </p>
+
+        <.local_book_row
+          :for={book <- local_records(@item, "work")}
+          book={book}
+          linked={@item.draft.work.mode == :link and @item.draft.work.book_id == book["id"]}
+        />
+
+        <button
+          type="button"
+          phx-click="new-book"
+          class={[
+            "rounded-sm border px-2 py-1 text-xs",
+            (@item.draft.work.mode == :create and @item.draft.work.approved) && "border-brand dark:border-brand-dark",
+            !(@item.draft.work.mode == :create and @item.draft.work.approved) && "border-zinc-300 dark:border-zinc-700"
+          ]}
+        >
+          No — this is a different book
+        </button>
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex items-center gap-2">
+          <.label>
+            {if @item.draft.work.mode == :link,
+              do: "Records that could fill blanks",
+              else: "Records describing this book"}
+          </.label>
           <.badge
             :if={@item.draft.work.confidence}
             color={elem(confidence_label(@item.draft.work.confidence), 1)}
@@ -123,71 +160,52 @@
           </.badge>
         </div>
 
-        <.query_row query={@item.draft.work.query} fields={@item.draft.work.query_fields} />
-        <.provider_outcomes_row outcomes={provider_outcomes(@item, "work")} />
-
-        <p :if={@item.draft.work.candidates != []} class="text-sm dark:text-zinc-400">
-          Exactly one of these is the book. Picking one fills the fields below from it.
+        <p :if={records(@item, "work") != []} class="text-sm dark:text-zinc-400">
+          Tick every record that's about this book. Two databases having a record of it is normal —
+          and each knows things the other doesn't, so the description can come from one and the
+          cover from another.
         </p>
 
-        <p :if={@item.draft.work.candidates == []} class="text-sm italic dark:text-zinc-500">
-          Nothing matched. A new book will be created from the fields below.
+        <p :if={records(@item, "work") == []} class="text-sm italic dark:text-zinc-500">
+          No provider had a record of this. The fields below come from the file's own tags.
         </p>
 
-        <.candidate_option
-          :for={candidate <- @item.draft.work.candidates}
-          candidate={candidate}
-          selected={Work.selected?(@item.draft.work, candidate)}
-          event="choose-work"
+        <.record_row
+          :for={record <- records(@item, "work")}
+          record={record}
+          level="work"
+          used={Work.uses?(@item.draft.work, record)}
         />
 
-        <div class="flex flex-wrap items-center gap-2 pt-1">
-          <%!-- "None of these" is a real answer and has to be reachable, or an
-                unlisted book can never be settled. --%>
-          <button
-            :if={@item.draft.work.candidates != []}
-            type="button"
-            phx-click="new-work"
-            class={[
-              "rounded-sm border px-2 py-1 text-xs",
-              is_nil(@item.draft.work.selected_source) && "border-brand dark:border-brand-dark",
-              @item.draft.work.selected_source && "border-zinc-300 dark:border-zinc-700"
-            ]}
-          >
-            None of these — create a new book
-          </button>
+        <.provider_outcomes_row
+          outcomes={provider_outcomes(@item, "work")}
+          level="work"
+          retrying={@retrying}
+        />
 
-          <button
-            :if={!@item.draft.work.approved}
-            type="button"
-            phx-click="approve-work"
-            phx-value-approved="true"
-            class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
-          >
-            {if @item.draft.work.candidates == [],
-              do: "Confirm — create a new book",
-              else: "Confirm the highlighted one"}
-          </button>
-        </div>
+        <details>
+          <summary class="cursor-pointer text-xs dark:text-zinc-400">
+            Not what you're looking for? Search again
+          </summary>
+          <div class="pt-2">
+            <.research_form
+              level="work"
+              fields={@item.draft.work.query_fields}
+              running={@researching == "work"}
+            />
+          </div>
+        </details>
       </div>
 
       <%!-- Linking inherits the book's own fields; only additive series
-            memberships remain to decide. The book's own facts are still shown,
-            because "is this the right book?" can't be answered against a
-            title alone. --%>
-      <div
+            memberships remain to decide. --%>
+      <p
         :if={@item.draft.work.mode == :link}
-        class="space-y-1 rounded-sm bg-zinc-100 p-3 text-sm dark:bg-zinc-800"
+        class="rounded-sm bg-zinc-100 p-3 text-sm dark:bg-zinc-800"
       >
-        <p class="font-bold">{candidate_title(selected_candidate(@item.draft.work) || %{})}</p>
-        <p class="text-xs dark:text-zinc-400">
-          {candidate_facts(selected_candidate(@item.draft.work) || %{})}
-        </p>
-        <p class="pt-1">
-          Using the book already in the library. Its title, date and authors are left exactly as they
-          are — an import fills blanks, it never overwrites curation.
-        </p>
-      </div>
+        Using the book already in the library. Its title, date and authors are left exactly as they
+        are — an import fills blanks, it never overwrites curation.
+      </p>
 
       <%!-- Typing lives in a form; choosing does not. They are kept apart
             because a <form> inside a <form> is invalid HTML and the parser
@@ -289,7 +307,7 @@
 
       <div class="space-y-2">
         <div class="flex items-center gap-2">
-          <.label>Which recording</.label>
+          <.label>Records describing this recording</.label>
           <.badge
             :if={!@item.draft.recording.approved}
             color={elem(state_words(:unconfirmed), 1)}
@@ -307,15 +325,9 @@
           </.badge>
         </div>
 
-        <.query_row
-          query={@item.draft.recording.query}
-          fields={@item.draft.recording.query_fields}
-        />
-        <.provider_outcomes_row outcomes={provider_outcomes(@item, "recording")} />
-
         <%!-- A doubted match used to be indistinguishable from no match at
               all: both left every field empty and said nothing. The reason is
-              the whole difference between "pick one" and "type it in". --%>
+              the whole difference between "tick one" and "type it in". --%>
         <p
           :if={doubt_message(@item.draft.recording)}
           class="rounded-sm border border-amber-500 p-3 text-sm"
@@ -324,21 +336,27 @@
           {doubt_message(@item.draft.recording)}
         </p>
 
-        <p :if={@item.draft.recording.candidates != []} class="text-sm dark:text-zinc-400">
-          These files are one recording. Picking it fills publisher, release date and cover from
-          that catalogue entry — and settles the book above when the two are known to go together.
+        <p :if={records(@item, "recording") != []} class="text-sm dark:text-zinc-400">
+          Tick every record of <em>this reading</em> — the narrator is what tells two recordings of
+          one book apart, so check it before ticking. Databases keep editions the storefront has
+          delisted, which is often the only place an older reading still exists.
         </p>
 
-        <.candidate_option
-          :for={candidate <- @item.draft.recording.candidates}
-          candidate={candidate}
-          selected={Recording.selected?(@item.draft.recording, candidate)}
-          event="choose-recording"
+        <.record_row
+          :for={record <- records(@item, "recording")}
+          record={record}
+          level="recording"
+          used={Recording.uses?(@item.draft.recording, record)}
+        />
+
+        <.provider_outcomes_row
+          outcomes={provider_outcomes(@item, "recording")}
+          level="recording"
+          retrying={@retrying}
         />
 
         <div class="flex flex-wrap items-center gap-2 pt-1">
           <button
-            :if={@item.draft.recording.candidates != []}
             type="button"
             phx-click="uncatalogued"
             class={[
@@ -350,6 +368,19 @@
             None of these — it's in no catalogue
           </button>
         </div>
+
+        <details>
+          <summary class="cursor-pointer text-xs dark:text-zinc-400">
+            Not what you're looking for? Search again
+          </summary>
+          <div class="pt-2">
+            <.research_form
+              level="recording"
+              fields={@item.draft.recording.query_fields}
+              running={@researching == "recording"}
+            />
+          </div>
+        </details>
 
         <p class="text-xs italic dark:text-zinc-500">
           Every import creates a new recording. Pointing one at an existing recording's files —

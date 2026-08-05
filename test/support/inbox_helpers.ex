@@ -43,7 +43,7 @@ defmodule Ambry.InboxHelpers do
       "mode" => to_string(work.mode),
       "book_id" => work.book_id,
       "approved" => true,
-      "candidates" => work.candidates,
+      "sources" => Enum.map(work.sources, &Map.from_struct/1),
       "title" => settled_field(work.title, opts[:title]),
       "published" => settled_field(work.published, opts[:published]),
       "published_format" => settled_field(work.published_format, nil),
@@ -55,7 +55,7 @@ defmodule Ambry.InboxHelpers do
   defp settled_recording(recording, opts) do
     %{
       "approved" => true,
-      "candidates" => recording.candidates,
+      "sources" => Enum.map(recording.sources, &Map.from_struct/1),
       "title" => settled_field(recording.title, nil),
       "published" => settled_field(recording.published, nil),
       "publisher" => settled_field(recording.publisher, nil),
