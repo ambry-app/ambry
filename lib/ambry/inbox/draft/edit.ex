@@ -274,6 +274,31 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   @doc """
+  Gives one of the people behind a credit a photo, or a bio, from the picker.
+
+  Recorded with the provider that supplied it, so approval writes 1d
+  provenance for the created Person by construction — the same way every
+  other decision in the draft does.
+  """
+  def set_person_image(draft, section, index, person_index, url, source) do
+    update_person(draft, section, index, person_index, fn person ->
+      %{person | image_url: url, image_source: source}
+    end)
+  end
+
+  def set_person_bio(draft, section, index, person_index, description, source) do
+    update_person(draft, section, index, person_index, fn person ->
+      %{person | description: description, description_source: source}
+    end)
+  end
+
+  defp update_person(draft, section, index, person_index, fun) do
+    update_credit(draft, section, index, fn credit ->
+      %{credit | curated: true, people: List.update_at(credit.people, person_index, fun)}
+    end)
+  end
+
+  @doc """
   Marks a credit settled, or unsettles it for another look.
   """
   def approve_credit(draft, section, index, approved?) do

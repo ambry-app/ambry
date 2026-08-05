@@ -62,7 +62,10 @@ defmodule Ambry.Metadata.Providers.TmdbTest do
     test "returns biography and original-size profile image" do
       person = fixture("tmdb_person.json")
 
-      patch(Client, :get_json, fn "/person/1252351", [], _config -> {:ok, person} end)
+      patch(Client, :get_json, fn
+        "/person/1252351", [], _config -> {:ok, person}
+        "/person/1252351/images", [], _config -> {:error, :not_stubbed}
+      end)
 
       assert {:ok, author} = Tmdb.author_details("1252351", %{api_key: "k"})
 
@@ -71,10 +74,57 @@ defmodule Ambry.Metadata.Providers.TmdbTest do
       assert author.image_url == "https://image.tmdb.org/t/p/original/tyfranck-profile.jpg"
     end
 
+    # TMDB keeps every headshot anyone has uploaded, and this is the richest
+    # source of *alternatives* in the stack — which matters because a profile
+    # photo has to survive a circular crop and the primary one frequently
+    # doesn't.
+    test "offers every headshot, best-voted first, with the primary included" do
+      person = fixture("tmdb_person.json")
+
+      patch(Client, :get_json, fn
+        "/person/1252351", [], _config ->
+          {:ok, person}
+
+        "/person/1252351/images", [], _config ->
+          {:ok,
+           %{
+             "profiles" => [
+               %{"file_path" => "/meh.jpg", "vote_average" => 1.0},
+               %{"file_path" => "/great.jpg", "vote_average" => 9.0}
+             ]
+           }}
+      end)
+
+      assert {:ok, author} = Tmdb.author_details("1252351", %{api_key: "k"})
+
+      assert author.image_urls == [
+               "https://image.tmdb.org/t/p/original/tyfranck-profile.jpg",
+               "https://image.tmdb.org/t/p/original/great.jpg",
+               "https://image.tmdb.org/t/p/original/meh.jpg"
+             ]
+    end
+
+    # Losing the extras must never cost the profile: the primary path is
+    # already in hand from the person endpoint.
+    test "an images failure costs the alternatives, not the person" do
+      person = fixture("tmdb_person.json")
+
+      patch(Client, :get_json, fn
+        "/person/1252351", [], _config -> {:ok, person}
+        "/person/1252351/images", [], _config -> {:error, :rate_limited}
+      end)
+
+      assert {:ok, author} = Tmdb.author_details("1252351", %{api_key: "k"})
+      assert author.image_url == "https://image.tmdb.org/t/p/original/tyfranck-profile.jpg"
+    end
+
     test "empty biography becomes nil" do
       person = fixture("tmdb_person.json") |> Map.put("biography", "")
 
-      patch(Client, :get_json, fn "/person/1252351", [], _config -> {:ok, person} end)
+      patch(Client, :get_json, fn
+        "/person/1252351", [], _config -> {:ok, person}
+        "/person/1252351/images", [], _config -> {:error, :not_stubbed}
+      end)
 
       assert {:ok, %Provider.Author{description: nil}} =
                Tmdb.author_details("1252351", %{api_key: "k"})

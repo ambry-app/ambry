@@ -59,7 +59,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(authors: People.authors_for_select(), narrators: People.narrators_for_select())
      |> assign(people: People.people_for_select())
      |> assign(expanded: MapSet.new())
-     |> assign(researching: nil, retrying: nil, enriching: nil)
+     |> assign(researching: nil, retrying: nil, enriching: nil, picker: nil)
      |> load(item)}
   end
 
@@ -175,6 +175,24 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      end)}
   end
 
+  def handle_event("find-person-images", params, socket) do
+    %{"section" => section, "index" => index, "person" => person} = params
+    credit = credit_at(socket.assigns.item.draft, atom(section), to_int(index))
+    person_ref = Enum.at(credit.people, to_int(person))
+
+    {:noreply,
+     assign(socket,
+       picker: %{
+         section: section,
+         index: to_int(index),
+         person: to_int(person),
+         query: person_ref.name || credit.name
+       }
+     )}
+  end
+
+  def handle_event("close-picker", _params, socket), do: {:noreply, assign(socket, picker: nil)}
+
   def handle_event("add-person", %{"section" => section, "index" => i}, socket) do
     {:noreply, edit(socket, &Draft.Edit.add_person(&1, atom(section), to_int(i)))}
   end
@@ -288,6 +306,39 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      socket
      |> put_flash(:info, "Dismissed. Files untouched.")
      |> push_navigate(to: ~p"/admin/inbox")}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_info({:person_image_picked, context, url, source}, socket) do
+    {:noreply,
+     socket
+     |> assign(picker: nil)
+     |> edit(
+       &Draft.Edit.set_person_image(
+         &1,
+         atom(context.section),
+         context.index,
+         context.person,
+         url,
+         source
+       )
+     )}
+  end
+
+  def handle_info({:person_bio_picked, context, description, source}, socket) do
+    {:noreply,
+     socket
+     |> assign(picker: nil)
+     |> edit(
+       &Draft.Edit.set_person_bio(
+         &1,
+         atom(context.section),
+         context.index,
+         context.person,
+         description,
+         source
+       )
+     )}
   end
 
   @impl Phoenix.LiveView
@@ -549,6 +600,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def provider_outcomes(_item, _level), do: []
+
+  defp credit_at(draft, :work, index), do: Enum.at(draft.work.authors, index)
+  defp credit_at(draft, :recording, index), do: Enum.at(draft.recording.narrators, index)
 
   @doc "How a provider record is referred to."
   defdelegate record_ref(record), to: Inbox

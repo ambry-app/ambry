@@ -10,7 +10,11 @@
   </.modal>
 
   <.modal :if={@image_picker} id="image-picker-modal" show on_cancel={JS.push("close-image-picker")}>
-    <.live_component id="image-picker" module={ImagePicker} query={picker_query(@form, @person)} />
+    <.live_component
+      id="image-picker"
+      module={PersonPicker}
+      query={picker_query(@form, @person)}
+    />
   </.modal>
 
   <div class="max-w-3xl">
