@@ -655,6 +655,16 @@ defmodule Ambry.Inbox.DraftTest do
   end
 
   describe "choosing between chips" do
+    # A settled field is one somebody already answered; its chip has to look
+    # answered, or the form says "sources disagree" in green and nothing else.
+    test "an auto-settled field arrives with its chip already chosen" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      assert draft.work.title.approved
+      assert [chip] = draft.work.title.candidates
+      assert Draft.Field.chose?(draft.work.title, chip)
+    end
+
     # Two records from ONE provider both propose a release date. Keying the
     # choice on the provider selected both chips and could only ever apply
     # the first — the other value was unreachable.
@@ -721,10 +731,38 @@ defmodule Ambry.Inbox.DraftTest do
       values = Enum.map(draft.recording.description.candidates, & &1.value)
       assert "Hardcover's description" in values
       assert "rreading-glasses' description" in values
+    end
+
+    # A work-level record's image is the *work's* cover — a portrait print
+    # jacket. Audiobook art is square by definition; Book carries no cover at
+    # all in this data model. The same databases DO have square art, on their
+    # audio editions, and those arrive as recording records.
+    test "a work record's cover is never offered as the recording's" do
+      work = [provider_candidate(%{"cover_url" => "https://example.test/print-jacket.jpg"})]
+
+      recording = [
+        %{
+          "source" => "provider:hardcover",
+          "provider_name" => "Hardcover editions",
+          "id" => "ed-1",
+          "title" => "Leviathan Wakes",
+          "narrators" => ["Jefferson Mays"],
+          "cover_url" => "https://example.test/square-audio.jpg",
+          "score" => 1.0
+        }
+      ]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(work, recording: recording, recording_confidence: 1.0),
+            tags: %{}
+          })
+        )
 
       covers = Enum.map(draft.recording.cover.candidates, & &1.value)
-      assert "https://example.test/hardcover.jpg" in covers
-      assert "https://example.test/rg.jpg" in covers
+      assert "https://example.test/square-audio.jpg" in covers
+      refute "https://example.test/print-jacket.jpg" in covers
     end
 
     # The operator's example: description from a work-level provider, cover

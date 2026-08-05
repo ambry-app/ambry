@@ -308,6 +308,36 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "cover previews" do
+    test "the file's own art is served rather than described in words", %{conn: conn} do
+      item = probed_item(cover_art: true)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # the embedded candidate's value is the audio file, not a URL, so it
+      # needs an endpoint that extracts it — a line of text saying art exists
+      # is the wrong answer for the one decision that is entirely visual
+      assert html =~ "/admin/inbox/#{item.id}/embedded-cover"
+    end
+
+    test "the endpoint returns the extracted image", %{conn: conn} do
+      item = probed_item(cover_art: true)
+
+      conn = get(conn, ~p"/admin/inbox/#{item}/embedded-cover")
+
+      assert response_content_type(conn, :jpg) =~ "image/jpeg"
+      assert byte_size(response(conn, 200)) > 0
+    end
+
+    test "an item with no embedded art 404s rather than erroring", %{conn: conn} do
+      item = probed_item()
+
+      conn = get(conn, ~p"/admin/inbox/#{item}/embedded-cover")
+
+      assert response(conn, 404)
+    end
+  end
+
   describe "background work" do
     # Matching now backs off for minutes rather than giving up on the first
     # rate limit, so an item can be legitimately mid-work while the form looks
@@ -464,7 +494,11 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
     release = Path.join(root, name)
     File.mkdir_p!(release)
-    File.cp!(tagged_fixture(Keyword.get(opts, :dated, true)), Path.join(release, "book.m4b"))
+
+    File.cp!(
+      tagged_fixture(Keyword.get(opts, :dated, true), Keyword.get(opts, :cover_art, false)),
+      Path.join(release, "book.m4b")
+    )
 
     {:ok, _counts} = Inbox.discover(root)
     {items, _more} = Inbox.list_items(filter: name)
@@ -473,7 +507,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     item
   end
 
-  defp tagged_fixture(dated?) do
+  defp tagged_fixture(dated?, cover_art?) do
     dir = Ambry.Paths.source_media_disk_path("tagged-#{Ecto.UUID.generate()}")
     File.mkdir_p!(dir)
     path = Path.join(dir, "tagged.m4b")
@@ -494,9 +528,63 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
           "artist=Brandon Sanderson",
           "-metadata",
           "composer=Michael Kramer, Kate Reading"
-        ] ++ if(dated?, do: ["-metadata", "date=2010-08-31"], else: []) ++ [path]
+        ] ++
+          if(dated?, do: ["-metadata", "date=2010-08-31"], else: []) ++
+          [path]
       )
 
-    path
+    if cover_art?, do: attach_cover(path), else: path
+  end
+
+  # Cover art rides along as an attached_pic video stream. ffmpeg's mov muxer
+  # is fussy about writing one, so the art goes into an mp3 — which the probe
+  # and the extractor treat identically.
+  defp attach_cover(path) do
+    art = Path.rootname(path) <> ".jpg"
+    with_art = Path.rootname(path) <> "-art.mp3"
+
+    {_output, 0} =
+      System.cmd("ffmpeg", [
+        "-v",
+        "quiet",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=red:s=64x64:d=1",
+        "-frames:v",
+        "1",
+        art
+      ])
+
+    {_output, 0} =
+      System.cmd("ffmpeg", [
+        "-v",
+        "quiet",
+        "-y",
+        "-i",
+        valid_audio(:mp3),
+        "-i",
+        art,
+        "-map",
+        "0:a",
+        "-map",
+        "1:v",
+        "-c",
+        "copy",
+        "-id3v2_version",
+        "3",
+        "-metadata",
+        "album=The Way of Kings",
+        "-metadata",
+        "artist=Brandon Sanderson",
+        "-metadata",
+        "composer=Michael Kramer, Kate Reading",
+        "-metadata",
+        "date=2010-08-31",
+        with_art
+      ])
+
+    with_art
   end
 end

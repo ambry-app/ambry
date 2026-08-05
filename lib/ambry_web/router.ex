@@ -217,6 +217,7 @@ defmodule AmbryWeb.Router do
     end
 
     get "/image-proxy", ImageProxyController, :show
+    get "/inbox/:id/embedded-cover", InboxCoverController, :show
 
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
     oban_dashboard "/oban"

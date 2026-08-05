@@ -72,10 +72,40 @@ defmodule Ambry.Images do
     end
   end
 
-  defp ffmpeg(source, destination) do
+  @doc """
+  Reads an audio file's embedded cover art into memory.
+
+  `extract_embedded/1` writes into the uploads directory because its caller is
+  importing. A *preview* must not: looking at an inbox item you then dismiss
+  would leave an orphaned image behind every time.
+  """
+  def read_embedded(audio_path) do
+    destination = Path.join(System.tmp_dir!(), "ambry-cover-#{Ecto.UUID.generate()}")
+
+    try do
+      with {_output, 0} <- ffmpeg(audio_path, destination, ["-f", "image2"]),
+           {:ok, binary} <- File.read(destination),
+           {:ok, mime} <- sniff(binary) do
+        {:ok, binary, mime}
+      else
+        _no_image -> {:error, :no_embedded_image}
+      end
+    after
+      File.rm(destination)
+    end
+  end
+
+  # The attached picture keeps its original encoding under `-c:v copy`, so the
+  # bytes say what it is and the filename can't.
+  defp sniff(<<0xFF, 0xD8, _rest::binary>>), do: {:ok, "image/jpeg"}
+  defp sniff(<<0x89, "PNG\r\n", 0x1A, "\n", _rest::binary>>), do: {:ok, "image/png"}
+  defp sniff(_other), do: :error
+
+  defp ffmpeg(source, destination, extra \\ []) do
     System.cmd(
       "ffmpeg",
-      ["-nostdin", "-y", "-i", source, "-an", "-c:v", "copy", "-frames:v", "1", destination],
+      ["-nostdin", "-y", "-i", source, "-an", "-c:v", "copy", "-frames:v", "1"] ++
+        extra ++ [destination],
       stderr_to_stdout: true
     )
   rescue

@@ -320,6 +320,7 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :placeholder, :string, default: nil
   attr :hint, :string, default: nil
   attr :preview, :boolean, default: false
+  attr :embedded_src, :string, default: nil, doc: "where the file's own art can be seen"
 
   @doc """
   One scalar decision: what the sources proposed, what it will be, and where
@@ -363,17 +364,11 @@ defmodule AmbryWeb.Admin.Decisions do
               Routed through the admin proxy like every other import preview,
               or tracking protection blocks the provider CDN. --%>
         <.image_with_size
-          :if={@preview && @field.value not in [nil, ""] && web_image?(@field.value)}
+          :if={@preview && preview_src(@field.value, @embedded_src)}
           id={"#{@section}-#{@name}"}
-          src={proxied_remote_image_url(@field.value)}
+          src={preview_src(@field.value, @embedded_src)}
           class="h-24 w-24 flex-none rounded-sm object-cover"
         />
-        <p
-          :if={@preview && @field.value not in [nil, ""] && !web_image?(@field.value)}
-          class="flex h-24 w-24 flex-none items-center justify-center rounded-sm border border-zinc-300 text-center text-xs dark:border-zinc-700 dark:text-zinc-500"
-        >
-          embedded in the file
-        </p>
 
         <div class="min-w-0 flex-grow">
           <.inputs_for :let={decision} field={@form[@name]}>
@@ -414,12 +409,11 @@ defmodule AmbryWeb.Admin.Decisions do
 
           <%!-- Choosing between two covers by URL is choosing blind. --%>
           <.image_with_size
-            :if={@preview && web_image?(candidate.value)}
+            :if={@preview && preview_src(candidate.value, @embedded_src)}
             id={"#{@section}-#{@name}-#{candidate.key}"}
-            src={proxied_remote_image_url(candidate.value)}
+            src={preview_src(candidate.value, @embedded_src)}
             class="mt-1 h-20 w-20 rounded-sm object-cover"
           />
-          <span :if={@preview && !web_image?(candidate.value)} class="block">the file's own art</span>
         </button>
 
         <%!-- Choosing "none" is an approval, not an omission. It's what makes
@@ -741,10 +735,18 @@ defmodule AmbryWeb.Admin.Decisions do
   def state_words(:stale), do: {"files changed", :red}
   def state_words(_other), do: {"needs confirming", :yellow}
 
-  @doc "Whether a cover value is something a browser can render inline."
-  def web_image?("http://" <> _rest), do: true
-  def web_image?("https://" <> _rest), do: true
-  def web_image?(_other), do: false
+  @doc """
+  Where a cover value can actually be looked at.
+
+  A provider URL goes through the admin proxy, because tracking protection
+  blocks the CDNs directly. The file's own art isn't a URL at all — the value
+  is the audio file to extract from — so it gets an endpoint that extracts it
+  on demand rather than a line of text saying it exists.
+  """
+  def preview_src(nil, _embedded), do: nil
+  def preview_src("", _embedded), do: nil
+  def preview_src("http" <> _rest = url, _embedded), do: proxied_remote_image_url(url)
+  def preview_src(_local_path, embedded), do: embedded
 
   @doc "Whose proposal this is, in words rather than an id."
   def source_words(nil), do: "nothing"
