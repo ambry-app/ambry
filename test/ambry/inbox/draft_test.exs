@@ -31,6 +31,20 @@ defmodule Ambry.Inbox.DraftTest do
     )
   end
 
+  defp recording_record(attrs) do
+    Map.merge(
+      %{
+        "source" => "provider:audible",
+        "provider_name" => "Audible",
+        "id" => "B01",
+        "title" => "Leviathan Wakes",
+        "narrators" => ["Jefferson Mays"],
+        "score" => 1.0
+      },
+      attrs
+    )
+  end
+
   defp matches(work_candidates, opts \\ []) do
     %{
       "work" => %{
@@ -317,7 +331,7 @@ defmodule Ambry.Inbox.DraftTest do
       refute Enum.any?(Draft.unresolved(draft), &(&1.label == "Publisher"))
     end
 
-    test "embedded art and a provider cover is a choice, not a winner" do
+    test "embedded art and a provider cover: the provider's is taken, both offered" do
       candidates = [provider_candidate(%{})]
 
       recording = [
@@ -338,7 +352,12 @@ defmodule Ambry.Inbox.DraftTest do
           })
         )
 
-      refute draft.recording.cover.approved
+      # Two cover URLs are two pictures nothing here can compare. Calling that
+      # "sources disagree" made the operator arbitrate a non-question on every
+      # import with embedded art — so the provider's is taken and the file's
+      # own stays one click away.
+      assert draft.recording.cover.approved
+      assert draft.recording.cover.value == "https://example.test/cover.jpg"
       assert length(draft.recording.cover.candidates) == 2
     end
 
@@ -408,13 +427,13 @@ defmodule Ambry.Inbox.DraftTest do
   describe "ticking records" do
     test "ticking a second record adds its values without replacing the first" do
       candidates = [
-        provider_candidate(%{"id" => "hc-1", "description" => "Hardcover's"}),
+        provider_candidate(%{"id" => "hc-1", "published" => "2011-06-15"}),
         provider_candidate(%{
           "source" => "provider:rreading_glasses",
           "provider_name" => "rreading-glasses",
           "id" => "rg-1",
           "title" => "Something Else Entirely",
-          "description" => "rreading-glasses'",
+          "published" => "2012-01-20",
           "score" => 0.4
         })
       ]
@@ -428,23 +447,23 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Draft.Edit.toggle_source(item.draft, item, :work, Enum.at(candidates, 1))
 
       assert length(draft.work.sources) == 2
-      values = Enum.map(draft.recording.description.candidates, & &1.value)
-      assert "Hardcover's" in values
-      assert "rreading-glasses'" in values
+      values = Enum.map(draft.work.published.candidates, & &1.value)
+      assert "2011-06-15" in values
+      assert "2012-01-20" in values
     end
 
     test "un-ticking a record takes its values back out" do
-      candidates = [provider_candidate(%{"description" => "Hardcover's"})]
+      candidates = [provider_candidate(%{"published" => "2011-06-15"})]
 
       item = item(%{matches: matches(candidates), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
-      assert item.draft.recording.description.value == "Hardcover's"
+      assert item.draft.work.published.value == "2011-06-15"
 
       draft = Draft.Edit.toggle_source(item.draft, item, :work, hd(candidates))
 
       assert draft.work.sources == []
-      assert draft.recording.description.candidates == []
+      assert draft.work.published.candidates == []
     end
 
     test "a typed value survives the ticked set changing" do
@@ -708,49 +727,53 @@ defmodule Ambry.Inbox.DraftTest do
   end
 
   describe "mixing sources" do
-    # Two providers agreeing on WHICH work this is do not agree on everything
-    # about it. Collapsing them to a winner left the operator choosing between
-    # one provider and the file's tags.
+    # Two databases agreeing on WHICH recording this is do not agree on
+    # everything about it. Collapsing them to a winner left the operator
+    # choosing between one provider and the file's tags.
     test "a corroborating provider still gets to propose its own values" do
-      candidates = [
-        provider_candidate(%{
-          "description" => "Hardcover's description",
-          "cover_url" => "https://example.test/hardcover.jpg"
-        }),
-        provider_candidate(%{
-          "source" => "provider:rreading_glasses",
-          "provider_name" => "rreading-glasses",
-          "id" => "rg-1",
-          "description" => "rreading-glasses' description",
-          "cover_url" => "https://example.test/rg.jpg"
-        })
-      ]
-
-      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
-
-      values = Enum.map(draft.recording.description.candidates, & &1.value)
-      assert "Hardcover's description" in values
-      assert "rreading-glasses' description" in values
-    end
-
-    # A work-level record's image is the *work's* cover — a portrait print
-    # jacket. Audiobook art is square by definition; Book carries no cover at
-    # all in this data model. The same databases DO have square art, on their
-    # audio editions, and those arrive as recording records.
-    test "a work record's cover is never offered as the recording's" do
-      work = [provider_candidate(%{"cover_url" => "https://example.test/print-jacket.jpg"})]
-
       recording = [
-        %{
+        recording_record(%{"id" => "B01", "publisher" => "Audible Studios"}),
+        recording_record(%{
           "source" => "provider:hardcover",
           "provider_name" => "Hardcover editions",
           "id" => "ed-1",
-          "title" => "Leviathan Wakes",
-          "narrators" => ["Jefferson Mays"],
-          "cover_url" => "https://example.test/square-audio.jpg",
-          "score" => 1.0
-        }
+          "publisher" => "Recorded Books",
+          "score" => 0.99
+        })
       ]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches([provider_candidate(%{})], recording: recording, recording_confidence: 1.0),
+            tags: %{}
+          })
+        )
+
+      publishers = Enum.map(draft.recording.publisher.candidates, & &1.value)
+      assert "Audible Studios" in publishers
+      assert "Recorded Books" in publishers
+      # two audio publishers IS a real disagreement, unlike a description
+      refute draft.recording.publisher.approved
+    end
+
+    # `publisher` on a recording means who is responsible for the *audiobook*
+    # — Audible Studios, Graphic Audio, Soundbooth Theater. A work record's
+    # publisher is whoever printed the book: a different company answering a
+    # different question. Same for the description, which on an audio edition
+    # carries the performance and the narrator, and for the cover, which is a
+    # portrait print jacket.
+    test "a work record never describes the recording" do
+      work = [
+        provider_candidate(%{
+          "publisher" => "Orbit",
+          "description" => "The print blurb",
+          "cover_url" => "https://example.test/print-jacket.jpg"
+        })
+      ]
+
+      recording = [recording_record(%{"publisher" => "Recorded Books"})]
 
       draft =
         Seed.build(
@@ -760,62 +783,20 @@ defmodule Ambry.Inbox.DraftTest do
           })
         )
 
-      covers = Enum.map(draft.recording.cover.candidates, & &1.value)
-      assert "https://example.test/square-audio.jpg" in covers
-      refute "https://example.test/print-jacket.jpg" in covers
-    end
+      assert draft.recording.publisher.value == "Recorded Books"
+      refute "Orbit" in Enum.map(draft.recording.publisher.candidates, & &1.value)
+      refute "The print blurb" in Enum.map(draft.recording.description.candidates, & &1.value)
 
-    # The operator's example: description from a work-level provider, cover
-    # from the recording-level one.
-    test "the work's sources describe the recording too" do
-      recording = [
-        %{
-          "source" => "provider:audible",
-          "provider_name" => "Audible",
-          "id" => "B01",
-          "title" => "Leviathan Wakes",
-          "narrators" => ["Jefferson Mays"],
-          "cover_url" => "https://example.test/audible.jpg",
-          "score" => 1.0
-        }
-      ]
-
-      draft =
-        Seed.build(
-          item(%{
-            matches:
-              matches([provider_candidate(%{"description" => "The work-level description"})],
-                recording: recording,
-                recording_confidence: 1.0
-              ),
-            tags: %{}
-          })
-        )
-
-      assert "The work-level description" in Enum.map(
-               draft.recording.description.candidates,
-               & &1.value
-             )
-
-      assert "https://example.test/audible.jpg" in Enum.map(
+      refute "https://example.test/print-jacket.jpg" in Enum.map(
                draft.recording.cover.candidates,
                & &1.value
              )
     end
 
-    # A work-level provider's date is the work's ORIGINAL publication date,
+    # A work-level record's date is the work's ORIGINAL publication date,
     # which is a different fact wearing the same name.
     test "the work's date is never offered as the recording's release date" do
-      recording = [
-        %{
-          "source" => "provider:audible",
-          "id" => "B01",
-          "title" => "Leviathan Wakes",
-          "narrators" => ["Jefferson Mays"],
-          "published" => "2011-06-15",
-          "score" => 1.0
-        }
-      ]
+      recording = [recording_record(%{"published" => "2011-06-15"})]
 
       draft =
         Seed.build(
@@ -830,6 +811,34 @@ defmodule Ambry.Inbox.DraftTest do
         )
 
       refute "1999-01-02" in Enum.map(draft.recording.published.candidates, & &1.value)
+    end
+
+    # Two databases never write the same description, so treating them as
+    # rival claims made this ambiguous on essentially every import.
+    test "descriptions are alternatives, not a disagreement" do
+      recording = [
+        recording_record(%{"id" => "B01", "description" => "Audible's blurb"}),
+        recording_record(%{
+          "source" => "provider:hardcover",
+          "id" => "ed-1",
+          "description" => "Hardcover's blurb",
+          "score" => 0.99
+        })
+      ]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches([provider_candidate(%{})], recording: recording, recording_confidence: 1.0),
+            tags: %{"description" => "the file's own blurb"}
+          })
+        )
+
+      assert draft.recording.description.approved
+      assert draft.recording.description.value == "Audible's blurb"
+      # and the others stay one click away
+      assert length(draft.recording.description.candidates) == 3
     end
   end
 

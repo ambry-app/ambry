@@ -161,7 +161,7 @@ defmodule Ambry.Inbox.Draft.Edit do
         do: Seed.reseed_work(draft.work, item),
         else: draft.work
 
-    %{draft | work: work, recording: Seed.reseed_recording(draft.recording, work, item)}
+    %{draft | work: work, recording: Seed.reseed_recording(draft.recording, item)}
   end
 
   defp records(item, level), do: Seed.records(item, level)

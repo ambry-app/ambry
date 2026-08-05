@@ -98,7 +98,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       evidence: evidence(item),
       stale: false,
       work: work,
-      recording: recording(recording_level, work, hints, tags, item),
+      recording: recording(recording_level, hints, tags, item),
       destination: destination(item)
     }
   end
@@ -419,7 +419,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## recording
 
-  defp recording(level, work, hints, tags, item) do
+  defp recording(level, hints, tags, item) do
     records = records(level)
 
     # **Only a recording we actually believe in gets to fill anything in.**
@@ -444,27 +444,33 @@ defmodule Ambry.Inbox.Draft.Seed do
       # mysteriously stayed empty.
       approved: doubt in [:none, :nothing_found]
     }
-    |> put_recording_fields(records, work, tags, item)
+    |> put_recording_fields(records, tags, item)
   end
 
   @doc """
   Re-derives a recording's fields from whichever records are currently ticked.
   """
-  def reseed_recording(%Recording{} = recording, %Work{} = work, %InboxItem{} = item) do
-    put_recording_fields(recording, records(item, "recording"), work, item.tags || %{}, item)
+  def reseed_recording(%Recording{} = recording, %InboxItem{} = item) do
+    put_recording_fields(recording, records(item, "recording"), item.tags || %{}, item)
   end
 
-  # The work's records get a say in the recording's *descriptive* fields —
-  # description, cover and publisher are facts about the book that a database
-  # often has better than a storefront does, and the operator has to be able to
-  # take the description from one and the cover from another.
+  # **Only records of this recording describe this recording.** Work-level
+  # records used to feed description, publisher and cover, and all three were
+  # wrong:
   #
-  # The release date deliberately does NOT draw from them: a work-level
-  # record's date is the work's original publication date, which is a
-  # different fact wearing the same name.
-  defp put_recording_fields(%Recording{} = recording, records, work, tags, item) do
+  #   * `publisher` means who is responsible for the *audiobook* — Audible
+  #     Studios, Macmillan Audio, Graphic Audio, Soundbooth Theater. A work
+  #     record's publisher is whoever printed the book, which is a different
+  #     company answering a different question.
+  #   * `description` from an audio edition carries what the print blurb
+  #     doesn't: the performance, the narrator, awards it won for the reading.
+  #   * `cover` from a work record is a portrait print jacket, and audiobook
+  #     art is square.
+  #
+  # A database's audio *editions* answer all three properly, and those arrive
+  # as recording records.
+  defp put_recording_fields(%Recording{} = recording, records, tags, item) do
     mine = used(records, recording.sources)
-    describing = mine ++ work_records(work, item)
 
     %{
       recording
@@ -473,28 +479,24 @@ defmodule Ambry.Inbox.Draft.Seed do
         publisher:
           keep_manual(
             recording.publisher,
-            scalar(from_records(describing, "publisher") ++ [tag_candidate(tags, "publisher")])
+            scalar(from_records(mine, "publisher") ++ [tag_candidate(tags, "publisher")])
           ),
+        # Two databases will never write the same description, and two cover
+        # URLs are two pictures nothing here can compare without fetching and
+        # looking at them. Reporting either as "sources disagree" asks the
+        # operator to arbitrate a non-question on every single import — these
+        # are alternatives, so one is taken and the rest stay one click away.
         description:
           keep_manual(
             recording.description,
-            scalar(
-              from_records(describing, "description") ++ [tag_candidate(tags, "description")]
+            scalar(from_records(mine, "description") ++ [tag_candidate(tags, "description")],
+              alternatives: true
             )
           ),
-        # NOT `describing`: a work-level record's image is the *work's* cover,
-        # which is a portrait print jacket. Audiobook art is square by
-        # definition — the data model says so, Book carries no cover at all —
-        # so offering a print cover here is offering the wrong artifact. The
-        # same databases DO have square art, on their audio *editions*, and
-        # those arrive as recording records.
         cover: keep_manual(recording.cover, cover_field(mine, tags, item)),
         narrators: keep_curated(recording.narrators, narrator_credits(mine, tags))
     }
   end
-
-  defp work_records(%Work{} = work, %InboxItem{} = item),
-    do: item |> records("work") |> used(work.sources)
 
   # An ASIN hit is identity, so it needs no corroboration. Otherwise the
   # narrator decides: when the file names a reader and the candidate names a
@@ -570,7 +572,8 @@ defmodule Ambry.Inbox.Draft.Seed do
         }
       end
 
-    (from_records(sources, "cover_url") ++ [embedded]) |> scalar(required: false)
+    (from_records(sources, "cover_url") ++ [embedded])
+    |> scalar(required: false, alternatives: true)
   end
 
   ## credits
@@ -821,6 +824,7 @@ defmodule Ambry.Inbox.Draft.Seed do
     required = Keyword.get(opts, :required, false)
     same? = Keyword.get(opts, :equivalence, &(normalize(&1) == normalize(&2)))
     prefer = Keyword.get(opts, :prefer, fn held, _incoming -> held end)
+    alternatives? = Keyword.get(opts, :alternatives, false)
 
     candidates =
       candidates
@@ -844,11 +848,29 @@ defmodule Ambry.Inbox.Draft.Seed do
       # one answer, whether from one source or several that turned out to mean
       # the same thing
       [only] ->
-        %{field | value: only.value, source: only.source, chosen_key: only.key, approved: true}
+        take(field, only)
+
+      # Several *alternatives* rather than several claims about one fact. Two
+      # databases never write the same description, and two cover URLs are two
+      # pictures nothing here can compare — calling either "sources disagree"
+      # makes the operator arbitrate a non-question on every import. The best
+      # record's answer is taken; the rest stay one click away.
+      [first | _rest] when alternatives? ->
+        take(field, first)
 
       _several ->
         %{field | approved: false}
     end
+  end
+
+  defp take(field, candidate) do
+    %{
+      field
+      | value: candidate.value,
+        source: candidate.source,
+        chosen_key: candidate.key,
+        approved: true
+    }
   end
 
   # Proposals that mean the same thing become one chip, crediting everybody
