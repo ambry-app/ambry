@@ -187,6 +187,7 @@
           record={record}
           level="work"
           used={Work.uses?(@item.draft.work, record)}
+          working={@enriching == record_ref(record)}
         />
 
         <.provider_outcomes_row
@@ -359,6 +360,7 @@
           record={record}
           level="recording"
           used={Recording.uses?(@item.draft.recording, record)}
+          working={@enriching == record_ref(record)}
         />
 
         <.provider_outcomes_row

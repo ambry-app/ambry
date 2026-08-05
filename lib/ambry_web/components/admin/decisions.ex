@@ -109,6 +109,7 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :record, :map, required: true
   attr :used, :boolean, required: true
   attr :level, :string, required: true
+  attr :working, :boolean, default: false
 
   @doc """
   One provider record, and whether it counts.
@@ -142,7 +143,10 @@ defmodule AmbryWeb.Admin.Decisions do
         <p class="truncate text-sm">{candidate_title(@record)}</p>
         <p class="truncate text-xs dark:text-zinc-500">{candidate_facts(@record)}</p>
       </div>
-      <span :if={@record["score"]} class="flex-none pt-0.5 text-xs dark:text-zinc-600">
+      <span :if={@working} class="flex-none pt-0.5 text-xs dark:text-zinc-400">
+        fetching…
+      </span>
+      <span :if={!@working && @record["score"]} class="flex-none pt-0.5 text-xs dark:text-zinc-600">
         {round(@record["score"] * 100)}%
       </span>
     </label>
@@ -353,12 +357,15 @@ defmodule AmbryWeb.Admin.Decisions do
 
       <div class="flex items-start gap-3">
         <%!-- A URL in a text box is not a cover. Seeing the image is the only
-              way to catch a provider that returned the wrong edition's art,
-              and it costs one tag. --%>
-        <img
+              way to catch a provider that returned the wrong edition's art —
+              and its dimensions, because a thumbnail and a full-size cover
+              look identical here and only one of them is worth importing.
+              Routed through the admin proxy like every other import preview,
+              or tracking protection blocks the provider CDN. --%>
+        <.image_with_size
           :if={@preview && @field.value not in [nil, ""] && web_image?(@field.value)}
-          src={@field.value}
-          alt=""
+          id={"#{@section}-#{@name}"}
+          src={proxied_remote_image_url(@field.value)}
           class="h-24 w-24 flex-none rounded-sm object-cover"
         />
         <p
@@ -395,15 +402,24 @@ defmodule AmbryWeb.Admin.Decisions do
           phx-click="choose-field"
           phx-value-section={@section}
           phx-value-field={@name}
-          phx-value-source={candidate.source}
+          phx-value-key={candidate.key}
           class={[
             "rounded-sm border px-2 py-1 text-left text-xs",
-            @field.source == candidate.source && "border-brand dark:border-brand-dark",
-            @field.source != candidate.source && "border-zinc-300 dark:border-zinc-700"
+            Field.chose?(@field, candidate) && "border-brand dark:border-brand-dark",
+            !Field.chose?(@field, candidate) && "border-zinc-300 dark:border-zinc-700"
           ]}
         >
           <span class="dark:text-zinc-500">{candidate.label || source_words(candidate.source)}:</span>
-          <span>{truncate(candidate.value)}</span>
+          <span :if={!@preview}>{truncate(candidate.value)}</span>
+
+          <%!-- Choosing between two covers by URL is choosing blind. --%>
+          <.image_with_size
+            :if={@preview && web_image?(candidate.value)}
+            id={"#{@section}-#{@name}-#{candidate.key}"}
+            src={proxied_remote_image_url(candidate.value)}
+            class="mt-1 h-20 w-20 rounded-sm object-cover"
+          />
+          <span :if={@preview && !web_image?(candidate.value)} class="block">the file's own art</span>
         </button>
 
         <%!-- Choosing "none" is an approval, not an omission. It's what makes

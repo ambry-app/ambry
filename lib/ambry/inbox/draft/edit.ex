@@ -28,8 +28,8 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Accepts one of a scalar's proposed candidates.
   """
-  def choose_field(draft, section, name, source) do
-    update_field(draft, section, name, &Field.choose(&1, source))
+  def choose_field(draft, section, name, key) do
+    update_field(draft, section, name, &Field.choose(&1, key))
   end
 
   @doc """
@@ -50,7 +50,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   def link_book(draft, %InboxItem{} = item, book_id) do
     draft
     |> update_in([Access.key(:work)], &%{&1 | mode: :link, book_id: book_id, approved: true})
-    |> reseed(item)
+    |> reseed(item, :both)
   end
 
   @doc """
@@ -63,7 +63,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   def new_book(draft, %InboxItem{} = item) do
     draft
     |> update_in([Access.key(:work)], &%{&1 | mode: :create, book_id: nil, approved: true})
-    |> reseed(item)
+    |> reseed(item, :both)
   end
 
   @doc """
@@ -87,7 +87,7 @@ defmodule Ambry.Inbox.Draft.Edit do
       settle(%{decision | sources: sources}, level)
     end)
     |> follow_work(item, level, record)
-    |> reseed(item)
+    |> reseed(item, scope(level, record))
   end
 
   @doc """
@@ -102,7 +102,7 @@ defmodule Ambry.Inbox.Draft.Edit do
     |> update_in([Access.key(:recording)], fn recording ->
       %{recording | sources: [], approved: true, doubt: :none, doubt_detail: nil}
     end)
-    |> reseed(item)
+    |> reseed(item, :recording)
   end
 
   # Ticking a record answers the question the level was asking, and a doubt
@@ -128,6 +128,12 @@ defmodule Ambry.Inbox.Draft.Edit do
 
   defp follow_work(draft, _item, _level, _record), do: draft
 
+  # Which levels a change has to re-derive. Ticking a recording record that
+  # named its work has moved the work's ticked set too.
+  defp scope(:work, _record), do: :work
+  defp scope(:recording, %{"of_work" => %{"source" => source}}) when is_binary(source), do: :both
+  defp scope(:recording, _record), do: :recording
+
   @doc """
   Re-derives every field from the currently ticked records.
 
@@ -135,7 +141,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   — because a record that was a summary when it was ticked may now have a
   description and a cover to offer.
   """
-  def resettle(draft, item), do: reseed(draft, item)
+  def resettle(draft, item), do: reseed(draft, item, :both)
 
   @doc """
   Whether a level currently counts this record.
@@ -144,9 +150,16 @@ defmodule Ambry.Inbox.Draft.Edit do
   def uses?(draft, :recording, record), do: Recording.uses?(draft.recording, record)
 
   # Fields are derived from whichever records are ticked, so every change to
-  # the ticked set re-derives them. Typed values survive.
-  defp reseed(draft, item) do
-    work = Seed.reseed_work(draft.work, item)
+  # the ticked set re-derives them. Typed values and curated credits survive.
+  #
+  # Ticking a *recording* record leaves the work alone unless the record said
+  # which work it belongs to — otherwise choosing an edition rebuilt the
+  # authors the operator had just finished curating.
+  defp reseed(draft, item, level) do
+    work =
+      if level in [:work, :both],
+        do: Seed.reseed_work(draft.work, item),
+        else: draft.work
 
     %{draft | work: work, recording: Seed.reseed_recording(draft.recording, work, item)}
   end
@@ -158,7 +171,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   """
   def link_credit(draft, section, index, identity_id) do
     update_credit(draft, section, index, fn credit ->
-      %{credit | mode: :link, identity_id: identity_id, approved: true}
+      %{credit | mode: :link, identity_id: identity_id, approved: true, curated: true}
     end)
   end
 
@@ -173,7 +186,7 @@ defmodule Ambry.Inbox.Draft.Edit do
       people =
         if credit.people == [], do: Credit.new_person_default(credit.name), else: credit.people
 
-      %{credit | mode: :create, identity_id: nil, people: people}
+      %{credit | mode: :create, identity_id: nil, people: people, curated: true}
     end)
   end
 
@@ -200,7 +213,13 @@ defmodule Ambry.Inbox.Draft.Edit do
       # Clearing the box un-confirms: a credit cannot stay settled with
       # nothing to create. Any other rename keeps the confirmation, so fixing
       # a typo doesn't cost a second click.
-      %{credit | name: name, people: people, approved: credit.approved and blank?(name) == false}
+      %{
+        credit
+        | name: name,
+          people: people,
+          curated: true,
+          approved: credit.approved and blank?(name) == false
+      }
     end)
   end
 
@@ -211,7 +230,11 @@ defmodule Ambry.Inbox.Draft.Edit do
   Renames the series a link will create.
   """
   def rename_series(draft, index, name) do
-    update_series(draft, index, &%{&1 | name: name, approved: &1.approved and not blank?(name)})
+    update_series(
+      draft,
+      index,
+      &%{&1 | name: name, curated: true, approved: &1.approved and not blank?(name)}
+    )
   end
 
   @doc """
@@ -222,13 +245,13 @@ defmodule Ambry.Inbox.Draft.Edit do
   """
   def add_person(draft, section, index) do
     update_credit(draft, section, index, fn credit ->
-      %{credit | mode: :create, people: credit.people ++ [%PersonRef{name: ""}]}
+      %{credit | mode: :create, curated: true, people: credit.people ++ [%PersonRef{name: ""}]}
     end)
   end
 
   def remove_person(draft, section, index, person_index) do
     update_credit(draft, section, index, fn credit ->
-      %{credit | people: List.delete_at(credit.people, person_index)}
+      %{credit | curated: true, people: List.delete_at(credit.people, person_index)}
     end)
   end
 
@@ -246,7 +269,7 @@ defmodule Ambry.Inbox.Draft.Edit do
           }
         end)
 
-      %{credit | people: people}
+      %{credit | people: people, curated: true}
     end)
   end
 
@@ -254,7 +277,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   Marks a credit settled, or unsettles it for another look.
   """
   def approve_credit(draft, section, index, approved?) do
-    update_credit(draft, section, index, &%{&1 | approved: approved?})
+    update_credit(draft, section, index, &%{&1 | approved: approved?, curated: true})
   end
 
   @doc """
@@ -268,19 +291,19 @@ defmodule Ambry.Inbox.Draft.Edit do
   ## series
 
   def set_series_number(draft, index, number) do
-    update_series(draft, index, &%{&1 | number: presence(number)})
+    update_series(draft, index, &%{&1 | number: presence(number), curated: true})
   end
 
   def approve_series(draft, index, approved?) do
-    update_series(draft, index, &%{&1 | approved: approved?})
+    update_series(draft, index, &%{&1 | approved: approved?, curated: true})
   end
 
   def link_series(draft, index, series_id) do
-    update_series(draft, index, &%{&1 | mode: :link, series_id: series_id})
+    update_series(draft, index, &%{&1 | mode: :link, series_id: series_id, curated: true})
   end
 
   def create_series(draft, index) do
-    update_series(draft, index, &%{&1 | mode: :create, series_id: nil})
+    update_series(draft, index, &%{&1 | mode: :create, series_id: nil, curated: true})
   end
 
   def remove_series(draft, index) do

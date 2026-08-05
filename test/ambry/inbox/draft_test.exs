@@ -587,6 +587,116 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  describe "curation survives re-derivation" do
+    # Field values are cheap to recompute; a credit is not. It may carry a
+    # linked identity, a renamed pen name, or two people behind it — and
+    # ticking any other record was rebuilding it from proposals and throwing
+    # all of that away.
+    test "ticking a recording record leaves curated authors alone" do
+      work = [provider_candidate(%{"authors" => ["David Wong"]})]
+
+      recording = [
+        %{
+          "source" => "provider:audible",
+          "provider_name" => "Audible",
+          "id" => "B01",
+          "title" => "What the Hell Did I Just Read",
+          "narrators" => ["Kirby Heyborne"],
+          "score" => 0.9
+        }
+      ]
+
+      item = item(%{matches: matches(work, recording: recording), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # the operator sets up the pen name: one author, a differently-named
+      # person behind it
+      draft =
+        item.draft
+        |> Draft.Edit.set_person(:work, 0, 0, %{name: "Jason Pargin", person_id: nil})
+        |> Draft.Edit.approve_credit(:work, 0, true)
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      after_tick = Draft.Edit.toggle_source(item.draft, item, :recording, hd(recording))
+
+      assert [credit] = after_tick.work.authors
+      assert credit.name == "David Wong"
+      assert [%{name: "Jason Pargin"}] = credit.people
+      assert credit.approved
+    end
+
+    test "un-ticking a work record leaves a curated credit behind" do
+      work = [provider_candidate(%{"authors" => ["David Wong"]})]
+
+      item = item(%{matches: matches(work), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.rename_credit(item.draft, :work, 0, "Jason Pargin")
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      after_untick = Draft.Edit.toggle_source(item.draft, item, :work, hd(work))
+
+      assert [%{name: "Jason Pargin"}] = after_untick.work.authors
+    end
+
+    test "an untouched credit still follows the records" do
+      work = [provider_candidate(%{"authors" => ["David Wong"]})]
+
+      item = item(%{matches: matches(work), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert [_credit] = item.draft.work.authors
+
+      after_untick = Draft.Edit.toggle_source(item.draft, item, :work, hd(work))
+
+      # nobody curated it, so it goes when its source does
+      assert after_untick.work.authors == []
+    end
+  end
+
+  describe "choosing between chips" do
+    # Two records from ONE provider both propose a release date. Keying the
+    # choice on the provider selected both chips and could only ever apply
+    # the first — the other value was unreachable.
+    test "two proposals from one provider are separately choosable" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "published" => "2017-10-03"}),
+        provider_candidate(%{"id" => "b", "published" => "2018-05-01", "score" => 0.94})
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [first, second] = draft.work.published.candidates
+      assert first.key != second.key
+
+      chosen = Draft.Field.choose(draft.work.published, second.key)
+
+      assert chosen.value == second.value
+      assert Draft.Field.chose?(chosen, second)
+      refute Draft.Field.chose?(chosen, first)
+    end
+
+    test "a chosen chip stays chosen when the ticked set changes" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "published" => "2017-10-03"}),
+        provider_candidate(%{"id" => "b", "published" => "2018-05-01", "score" => 0.94})
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      [_first, second] = item.draft.work.published.candidates
+      draft = Draft.Edit.choose_field(item.draft, :work, :published, second.key)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+      assert item.draft.work.published.value == "2018-05-01"
+
+      # re-deriving because something else was ticked must not move a value
+      # the operator picked
+      after_reseed = Draft.Edit.resettle(item.draft, item)
+      assert after_reseed.work.published.value == "2018-05-01"
+    end
+  end
+
   describe "mixing sources" do
     # Two providers agreeing on WHICH work this is do not agree on everything
     # about it. Collapsing them to a winner left the operator choosing between

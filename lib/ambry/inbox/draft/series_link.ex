@@ -30,6 +30,10 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
     field :source, :string
     field :approved, :boolean, default: false
 
+    # Touched by the operator — a number they supplied, a series they renamed
+    # or pointed elsewhere. Survives re-derivation.
+    field :curated, :boolean, default: false
+
     embeds_many :candidates, __MODULE__.Match, on_replace: :delete
   end
 
@@ -55,7 +59,7 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
   @doc false
   def changeset(series_link, attrs) do
     series_link
-    |> cast(attrs, [:name, :mode, :series_id, :number, :source, :approved])
+    |> cast(attrs, [:name, :mode, :series_id, :number, :source, :approved, :curated])
     |> cast_embed(:candidates)
     |> validate_number()
     |> validate_link()

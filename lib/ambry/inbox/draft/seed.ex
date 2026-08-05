@@ -208,8 +208,8 @@ defmodule Ambry.Inbox.Draft.Seed do
         published: published,
         published_format:
           keep_manual(work.published_format, published_format_field(sources, tags, published)),
-        authors: author_credits(sources, tags),
-        series: series_links(sources, tags, book_id)
+        authors: keep_curated(work.authors, author_credits(sources, tags)),
+        series: keep_curated(work.series, series_links(sources, tags, book_id))
     }
   end
 
@@ -239,10 +239,39 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp from_records(records, key), do: Enum.map(records, &candidate(&1, key))
 
+  # A credit or series the operator has touched survives re-derivation
+  # untouched. A field value is cheap to recompute; a credit is not — it may
+  # carry a linked identity, a renamed pen name, or two people behind it, and
+  # rebuilding it from proposals threw all of that away the moment another
+  # record was ticked.
+  #
+  # Fresh proposals that nothing curated already covers are appended, so
+  # ticking a record still brings its people in.
+  defp keep_curated(existing, fresh) do
+    curated = Enum.filter(existing, & &1.curated)
+    taken = MapSet.new(curated, &down(&1.name || ""))
+
+    curated ++ Enum.reject(fresh, &MapSet.member?(taken, down(&1.name || "")))
+  end
+
   # A field the operator typed is theirs; re-seeding from another candidate
   # must not quietly undo a correction. Everything else is provider data being
   # replaced by other provider data, which is exactly what was asked for.
   defp keep_manual(%Field{source: "manual"} = existing, _fresh), do: existing
+
+  # A chip the operator picked stays picked while its proposal is still on
+  # offer — re-deriving because some other record was ticked must not quietly
+  # move a value they chose.
+  defp keep_manual(%Field{chosen_key: key}, fresh) when is_binary(key) do
+    case Enum.find(fresh.candidates, &(&1.key == key)) do
+      nil ->
+        fresh
+
+      chosen ->
+        %{fresh | value: chosen.value, source: chosen.source, chosen_key: key, approved: true}
+    end
+  end
+
   defp keep_manual(_existing, fresh), do: fresh
 
   # Reusing a Book already in the library is the best outcome there is — it's
@@ -454,7 +483,7 @@ defmodule Ambry.Inbox.Draft.Seed do
             )
           ),
         cover: keep_manual(recording.cover, cover_field(describing, tags, item)),
-        narrators: narrator_credits(mine, tags)
+        narrators: keep_curated(recording.narrators, narrator_credits(mine, tags))
     }
   end
 
@@ -530,7 +559,8 @@ defmodule Ambry.Inbox.Draft.Seed do
         %Candidate{
           value: List.first(item.files),
           source: "embedded",
-          label: "Embedded in the file"
+          label: "Embedded in the file",
+          key: "embedded"
         }
       end
 
@@ -561,7 +591,7 @@ defmodule Ambry.Inbox.Draft.Seed do
     |> Enum.flat_map(fn record ->
       record |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{&1, source_of(record)})
     end)
-    |> Enum.uniq_by(fn {name, _source} -> down(name) end)
+    |> Enum.uniq_by(fn {name, _source} -> normalize(name) end)
   end
 
   # The file only gets a say when no record proposed anybody. A tag name is a
@@ -835,7 +865,9 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp combine(held, incoming, prefer) do
     winner = if prefer.(held.value, incoming.value) == incoming.value, do: incoming, else: held
 
-    %{winner | label: join_labels(held.label, incoming.label)}
+    # The surviving chip keeps the key it had when it was held, so a choice
+    # already made doesn't come unstuck when another source agrees with it.
+    %{winner | label: join_labels(held.label, incoming.label), key: held.key}
   end
 
   defp join_labels(one, one), do: one
@@ -861,22 +893,43 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp candidate(best, key) do
     case presence(best[key]) do
-      nil -> nil
-      value -> %Candidate{value: to_string(value), source: source_of(best), label: label_of(best)}
+      nil ->
+        nil
+
+      value ->
+        %Candidate{
+          value: to_string(value),
+          source: source_of(best),
+          label: label_of(best),
+          key: Candidate.key_for(best)
+        }
     end
   end
 
   defp tag_candidate(tags, key) do
     case presence(tags[key]) do
-      nil -> nil
-      value -> %Candidate{value: to_string(value), source: "tags", label: "The file's tags"}
+      nil ->
+        nil
+
+      value ->
+        %Candidate{
+          value: to_string(value),
+          source: "tags",
+          label: "The file's tags",
+          key: "tags"
+        }
     end
   end
 
   defp release_candidate(nil), do: nil
 
   defp release_candidate(value),
-    do: %Candidate{value: value, source: "release_name", label: "The release name"}
+    do: %Candidate{
+      value: value,
+      source: "release_name",
+      label: "The release name",
+      key: "release_name"
+    }
 
   defp source_of(%{"source" => source}), do: source
   defp source_of(_other), do: nil
