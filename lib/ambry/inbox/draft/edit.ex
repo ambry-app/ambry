@@ -88,7 +88,7 @@ defmodule Ambry.Inbox.Draft.Edit do
         |> update_in([Access.key(:recording)], fn recording ->
           if Recording.selected?(recording, candidate),
             do: %{recording | approved: true, doubt: :none, doubt_detail: nil},
-            else: Seed.reseed_recording(recording, candidate, tags(item), item)
+            else: Seed.reseed_recording(recording, candidate, work_chain(draft), tags(item), item)
         end)
         |> follow_work(item, candidate)
     end
@@ -102,8 +102,12 @@ defmodule Ambry.Inbox.Draft.Edit do
   in no storefront at all.
   """
   def choose_uncatalogued(draft, %InboxItem{} = item) do
-    update_in(draft.recording, &Seed.reseed_uncatalogued(&1, tags(item), item))
+    update_in(draft.recording, &Seed.reseed_uncatalogued(&1, work_chain(draft), tags(item), item))
   end
+
+  # The chosen book's sources, which get a say in the recording's descriptive
+  # fields.
+  defp work_chain(draft), do: draft.work |> Seed.selected_candidate() |> Seed.chain()
 
   defp follow_work(draft, item, %{"of_work" => %{"source" => source, "id" => id}})
        when is_binary(source) do
@@ -145,6 +149,43 @@ defmodule Ambry.Inbox.Draft.Edit do
 
       %{credit | mode: :create, identity_id: nil, people: people}
     end)
+  end
+
+  @doc """
+  Renames the identity a credit will create.
+
+  A provider's spelling is a proposal like any other, and there was no way to
+  overrule it — so "David Wong" could only ever be imported as a person called
+  David Wong, when the human is Jason Pargin.
+
+  The default person's name follows along while it is still tracking the
+  credit, which is what makes that case two edits instead of a special mode:
+  rename the credit, reveal the pen name, rename the person.
+  """
+  def rename_credit(draft, section, index, name) do
+    update_credit(draft, section, index, fn credit ->
+      people =
+        Enum.map(credit.people, fn person ->
+          if is_nil(person.person_id) and person.name == credit.name,
+            do: %{person | name: name},
+            else: person
+        end)
+
+      # Clearing the box un-confirms: a credit cannot stay settled with
+      # nothing to create. Any other rename keeps the confirmation, so fixing
+      # a typo doesn't cost a second click.
+      %{credit | name: name, people: people, approved: credit.approved and blank?(name) == false}
+    end)
+  end
+
+  defp blank?(nil), do: true
+  defp blank?(name) when is_binary(name), do: String.trim(name) == ""
+
+  @doc """
+  Renames the series a link will create.
+  """
+  def rename_series(draft, index, name) do
+    update_series(draft, index, &%{&1 | name: name, approved: &1.approved and not blank?(name)})
   end
 
   @doc """

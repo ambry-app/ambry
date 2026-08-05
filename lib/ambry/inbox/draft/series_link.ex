@@ -56,7 +56,6 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
   def changeset(series_link, attrs) do
     series_link
     |> cast(attrs, [:name, :mode, :series_id, :number, :source, :approved])
-    |> validate_required([:name])
     |> cast_embed(:candidates)
     |> validate_number()
     |> validate_link()
@@ -90,7 +89,12 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
   number in this series" is a real answer, and waiving it is an approval.
   """
   def resolved?(%__MODULE__{approved: true, mode: :link, series_id: id}), do: not is_nil(id)
-  def resolved?(%__MODULE__{approved: true, mode: :create, name: name}), do: not is_nil(name)
+
+  # A blank name is storable — clearing the box to retype is the first half of
+  # renaming — but it is never resolved.
+  def resolved?(%__MODULE__{approved: true, mode: :create, name: name}) when is_binary(name),
+    do: String.trim(name) != ""
+
   def resolved?(%__MODULE__{}), do: false
 
   def state(%__MODULE__{} = link) do

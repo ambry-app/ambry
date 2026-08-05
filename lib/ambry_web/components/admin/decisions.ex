@@ -312,16 +312,29 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :section, :string, required: true
   attr :identities, :list, required: true
   attr :people, :list, required: true
-  attr :verb, :string, required: true
+  attr :verb, :string, required: true, doc: ~s(the visible label — "Written by")
+  attr :reveal, :string, required: true, doc: ~s(the unfold link — "This is a pen name")
+  attr :backing, :string, required: true, doc: ~s(the unfolded label — "Pen name of")
+  attr :expanded, :boolean, required: true
 
   @doc """
   One credit, resolved to an identity.
 
-  The vocabulary is doing the teaching: **Credited as** is the name on the
-  book, **Written by** / **Performed by** are the humans behind it. Two or more
-  people is a shared pen name — the whole of the composite-author case,
-  expressed as a longer list rather than a separate mode, which is what stops
-  the case space exploding.
+  ## One control by default
+
+  A credited name IS an identity. How many humans stand behind it is a fact
+  about the *person* — not about this book — and no provider reports it, so
+  asking on every import buried the two cases where the answer is interesting
+  under dozens where it isn't. The person layer is therefore folded away
+  behind "This is a pen name" / "This is a stage name", and unfolds itself
+  whenever the credit is anything but the 1:1 default (`Credit.simple?/1`).
+
+  ## The name is editable
+
+  A provider's spelling is a proposal like any other. Without a box to
+  overrule it, "David Wong" could only be imported as a person called David
+  Wong — the human is Jason Pargin, and that import is one author plus one
+  differently-named person, which is now two edits rather than impossible.
 
   A link decision always targets an identity, never a Person. That is the
   generalized fix for the pen-name bug where matching found a Person and
@@ -337,7 +350,7 @@ defmodule AmbryWeb.Admin.Decisions do
             name="fa-circle-check"
             class="text-brand h-4 w-4 flex-none dark:text-brand-dark"
           />
-          <span class="truncate font-semibold">{@credit.name}</span>
+          <.label class="text-xs">{@verb}</.label>
 
           <.badge
             :if={!Credit.resolved?(@credit)}
@@ -377,85 +390,115 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
       </div>
 
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div>
-          <.label class="text-xs">Credited as</.label>
-          <form id={"credit-#{@section}-#{@index}-identity"} phx-change="link-credit">
-            <input type="hidden" name="section" value={@section} />
-            <input type="hidden" name="index" value={@index} />
-            <select
-              name="identity_id"
-              class="mt-1 w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-            >
-              <option value="">Create "{@credit.name}"</option>
-              <option
-                :for={{name, id} <- @identities}
-                value={id}
-                selected={@credit.mode == :link and @credit.identity_id == id}
-              >
-                {name}
-              </option>
-            </select>
-          </form>
-        </div>
+      <form
+        id={"credit-#{@section}-#{@index}-identity"}
+        phx-change="credit-change"
+        class="flex flex-wrap items-center gap-2"
+      >
+        <input type="hidden" name="section" value={@section} />
+        <input type="hidden" name="index" value={@index} />
 
-        <div :if={@credit.mode == :create}>
-          <.label class="text-xs">{@verb}</.label>
+        <select
+          name="identity_id"
+          class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+        >
+          <option value="">Create new…</option>
+          <option
+            :for={{name, id} <- @identities}
+            value={id}
+            selected={@credit.mode == :link and @credit.identity_id == id}
+          >
+            {name}
+          </option>
+        </select>
 
-          <div class="mt-1 space-y-1">
-            <form
-              :for={{person, person_index} <- Enum.with_index(@credit.people)}
-              id={"credit-#{@section}-#{@index}-person-#{person_index}"}
-              phx-change="set-person"
-              class="flex items-center gap-1"
-            >
-              <input type="hidden" name="section" value={@section} />
-              <input type="hidden" name="index" value={@index} />
-              <input type="hidden" name="person" value={person_index} />
+        <input
+          :if={@credit.mode == :create}
+          type="text"
+          name="name"
+          value={@credit.name}
+          placeholder="name"
+          class="min-w-0 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+        />
 
-              <select
-                name="person_id"
-                class="w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-              >
-                <option value="">New person: {person.name || @credit.name}</option>
-                <option :for={{name, id} <- @people} value={id} selected={person.person_id == id}>
-                  {name}
-                </option>
-              </select>
-
-              <button
-                :if={length(@credit.people) > 1}
-                type="button"
-                phx-click="remove-person"
-                phx-value-section={@section}
-                phx-value-index={@index}
-                phx-value-person={person_index}
-              >
-                <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
-              </button>
-            </form>
-
-            <%!-- Narrators stay one-to-one with a Person by design; only the
-                  author control grows a second entry. --%>
-            <button
-              :if={@section == "work"}
-              type="button"
-              phx-click="add-person"
-              phx-value-section={@section}
-              phx-value-index={@index}
-              class="text-xs underline dark:text-zinc-400"
-            >
-              Add another person
-            </button>
-
-            <p :if={length(@credit.people) > 1} class="text-xs italic dark:text-zinc-500">
-              A shared pen name — {@credit.name} will be one author credited to {Enum.count(@credit.people)} people.
-            </p>
-          </div>
-        </div>
-
-        <p :if={@credit.mode == :link} class="self-end text-xs italic dark:text-zinc-500">
+        <span :if={@credit.mode == :link} class="text-xs italic dark:text-zinc-500">
           {linked_people(@credit) || "Already in the library."}
+        </span>
+      </form>
+
+      <%!-- Folded away until it matters, and unfolded automatically the moment
+            it does — a credit backed by somebody else, or by two people, can
+            never be hiding behind a collapsed control. --%>
+      <button
+        :if={@credit.mode == :create and !@expanded}
+        type="button"
+        phx-click="toggle-people"
+        phx-value-section={@section}
+        phx-value-index={@index}
+        class="text-xs underline dark:text-zinc-400"
+      >
+        {@reveal}
+      </button>
+
+      <div :if={@credit.mode == :create and @expanded} class="space-y-1">
+        <.label class="text-xs">{@backing}</.label>
+
+        <form
+          :for={{person, person_index} <- Enum.with_index(@credit.people)}
+          id={"credit-#{@section}-#{@index}-person-#{person_index}"}
+          phx-change="person-change"
+          class="flex flex-wrap items-center gap-2"
+        >
+          <input type="hidden" name="section" value={@section} />
+          <input type="hidden" name="index" value={@index} />
+          <input type="hidden" name="person" value={person_index} />
+
+          <select
+            name="person_id"
+            class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          >
+            <option value="">Create new…</option>
+            <option :for={{name, id} <- @people} value={id} selected={person.person_id == id}>
+              {name}
+            </option>
+          </select>
+
+          <input
+            :if={is_nil(person.person_id)}
+            type="text"
+            name="name"
+            value={person.name}
+            placeholder="the person's real name"
+            class="min-w-0 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          />
+
+          <button
+            :if={length(@credit.people) > 1}
+            type="button"
+            phx-click="remove-person"
+            phx-value-section={@section}
+            phx-value-index={@index}
+            phx-value-person={person_index}
+          >
+            <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
+          </button>
+        </form>
+
+        <%!-- Narrators stay one-to-one with a Person by design; only the
+              author control grows a second entry. --%>
+        <button
+          :if={@section == "work"}
+          type="button"
+          phx-click="add-person"
+          phx-value-section={@section}
+          phx-value-index={@index}
+          class="text-xs underline dark:text-zinc-400"
+        >
+          Add another person
+        </button>
+
+        <p :if={length(@credit.people) > 1} class="text-xs italic dark:text-zinc-500">
+          A shared pen name — {@credit.name} will be one author credited to {Enum.count(@credit.people)} people.
         </p>
       </div>
     </div>
@@ -483,7 +526,7 @@ defmodule AmbryWeb.Admin.Decisions do
         class="text-brand h-4 w-4 flex-none dark:text-brand-dark"
       />
 
-      <span class="font-semibold">{@link.name}</span>
+      <span :if={@link.mode == :link} class="font-semibold">{@link.name}</span>
 
       <.badge
         :if={!SeriesLink.resolved?(@link)}
@@ -505,13 +548,13 @@ defmodule AmbryWeb.Admin.Decisions do
         />
       </form>
 
-      <form id={"series-#{@index}-link"} phx-change="link-series">
+      <form id={"series-#{@index}-link"} phx-change="link-series" class="flex items-center gap-2">
         <input type="hidden" name="index" value={@index} />
         <select
           name="series_id"
           class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
         >
-          <option value="">Create "{@link.name}"</option>
+          <option value="">Create new…</option>
           <option
             :for={{name, id} <- @options}
             value={id}
@@ -520,6 +563,17 @@ defmodule AmbryWeb.Admin.Decisions do
             {name}
           </option>
         </select>
+
+        <%!-- A provider's spelling of a series name is a proposal, not a
+              decree. "The Expanse" vs "Expanse" is the operator's call. --%>
+        <input
+          :if={@link.mode == :create}
+          type="text"
+          name="name"
+          value={@link.name}
+          placeholder="series name"
+          class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+        />
       </form>
 
       <button

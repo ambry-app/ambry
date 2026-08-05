@@ -248,6 +248,9 @@
           identities={@authors}
           people={@people}
           verb="Written by"
+          reveal="This is a pen name"
+          backing="Pen name of"
+          expanded={expanded?(@expanded, "work", index, credit)}
         />
       </div>
 
@@ -421,7 +424,10 @@
           section="recording"
           identities={@narrators}
           people={@people}
-          verb="Performed by"
+          verb="Narrated by"
+          reveal="This is a stage name"
+          backing="Stage name of"
+          expanded={expanded?(@expanded, "recording", index, credit)}
         />
       </div>
     </section>

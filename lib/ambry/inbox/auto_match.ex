@@ -313,12 +313,15 @@ defmodule Ambry.Inbox.AutoMatch do
         _corroborated ->
           first
           |> Map.put("also_from", Enum.map(rest, &(&1["provider_name"] || &1["source"])))
-          # The merged candidates' own ids are kept, not just their names:
-          # they are how the *other* providers refer to this work, and losing
-          # them means losing the ability to ask them anything else about it —
-          # which is exactly how the edition lookup came up empty when the
-          # corroborating provider happened to lose the merge.
-          |> Map.put("merged", Enum.map(rest, &%{"source" => &1["source"], "id" => &1["id"]}))
+          # The corroborating candidates are kept WHOLE, not reduced to a
+          # reference. Two providers agreeing on which work this is do not
+          # agree on everything about it — one has the better description, the
+          # other the better cover — and the loser's payload was being thrown
+          # away, so the operator could only ever see the winner's values.
+          # (Their ids matter too: they are how the other providers refer to
+          # this work, which is how the edition lookup finds an edition the
+          # merge winner doesn't keep.)
+          |> Map.put("merged", rest)
           |> Map.put("score", min(first["score"] + @agreement_bonus, 1.0))
       end
     end)
