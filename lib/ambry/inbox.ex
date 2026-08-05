@@ -483,6 +483,11 @@ defmodule Ambry.Inbox do
   defdelegate progress(items), to: Progress, as: :statuses
 
   @doc """
+  What a background job is doing to one item.
+  """
+  defdelegate job_status(item), to: Progress, as: :status
+
+  @doc """
   Takes an item out of the queue without touching its files.
 
   Dismissals are remembered by path, so a rescan doesn't offer it again.

@@ -19,10 +19,17 @@ defmodule Ambry.Inbox.Progress do
 
   ## Failures outlive their jobs
 
-  These workers run `max_attempts: 1`, so a failure goes straight to
-  `discarded` — visible for a day and then gone forever. Anything worth
+  A failure is visible for a day and then gone forever, so anything worth
   telling the operator about tomorrow is written onto the item's `issue`
   instead, and that's what the `:issue` status reflects.
+
+  ## Retrying is not the same as queued
+
+  Matching retries with a backoff measured in minutes, because the shared
+  metadata instances rate-limit with a ~30s `Retry-After` and spending the
+  immediate retry on being told no again is waste. An item mid-backoff looks
+  exactly like one that was never matched — blank — so `:retrying` is its own
+  status rather than being folded into `:queued`.
   """
 
   import Ecto.Query
@@ -42,6 +49,7 @@ defmodule Ambry.Inbox.Progress do
   Statuses:
 
     * `:working` — a job is executing right now
+    * `:retrying` — a job failed and is waiting to try again
     * `:queued` — a job is waiting to run
     * `:failed` — a job gave up, and recently enough to still be in the table
     * `:issue` — the item itself records a problem, which outlives the job
@@ -64,7 +72,8 @@ defmodule Ambry.Inbox.Progress do
   defp status(%InboxItem{} = item, states) do
     cond do
       "executing" in states -> :working
-      Enum.any?(states, &(&1 in ~w(available scheduled retryable))) -> :queued
+      "retryable" in states -> :retrying
+      Enum.any?(states, &(&1 in ~w(available scheduled))) -> :queued
       Enum.any?(states, &(&1 in ~w(discarded cancelled))) -> :failed
       item.issue -> :issue
       is_nil(item.probe) -> :never_ran

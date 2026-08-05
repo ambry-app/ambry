@@ -7,6 +7,18 @@
           <p class="truncate font-bold">{@page_title}</p>
           <p class="truncate text-sm dark:text-zinc-500">{@item.path}</p>
           <p class="text-sm italic dark:text-zinc-500">{evidence(@item)}</p>
+
+          <%!-- "Still working" and "found nothing" look identical in a form
+                full of empty fields, and matching now backs off for minutes
+                rather than giving up on the first rate limit. --%>
+          <.badge
+            :if={job_label(@job)}
+            color={elem(job_label(@job), 1)}
+            class="mt-1 text-xs"
+            data-role="job-status"
+          >
+            {elem(job_label(@job), 0)}
+          </.badge>
         </div>
 
         <div class="flex-none text-right">

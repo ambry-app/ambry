@@ -149,6 +149,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # here — the row already shows its matches or its issue, and repeating
   # "done" on every settled row is noise that hides the rows that aren't.
   defp progress_label(:working), do: "Working on it…"
+  defp progress_label(:retrying), do: "A provider couldn't be reached — waiting to try again."
+
   defp progress_label(:queued), do: "Queued"
   defp progress_label(:failed), do: "A background job failed — try re-probing or re-matching."
 
