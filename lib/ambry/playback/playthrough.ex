@@ -69,7 +69,7 @@ defmodule Ambry.Playback.Playthrough do
   end
 
   # Lifecycle events
-  defp apply_event_type(state, %{type: :start} = event) do
+  defp apply_event_type(%{started_at: nil} = state, %{type: :start} = event) do
     %{
       state
       | status: :in_progress,
@@ -78,6 +78,10 @@ defmodule Ambry.Playback.Playthrough do
         position: event.position,
         rate: event.playback_rate
     }
+  end
+
+  defp apply_event_type(state, %{type: :start} = event) do
+    %{state | status: :in_progress, media_id: event.media_id}
   end
 
   defp apply_event_type(state, %{type: :finish} = event) do

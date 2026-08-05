@@ -101,6 +101,53 @@ defmodule Ambry.PlaybackTest do
 
       assert {:ok, 3} = Playback.record_events(events, playthrough.user_id)
     end
+
+    test "a duplicate start event does not reset progress made since the real start" do
+      playthrough = insert(:playthrough)
+
+      real_start = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+      progress_made = DateTime.add(real_start, 60, :second)
+      reopened = DateTime.add(real_start, 3600, :second)
+
+      initial_events = [
+        %{
+          id: Ecto.UUID.generate(),
+          playthrough_id: playthrough.id,
+          type: :start,
+          timestamp: real_start,
+          position: Decimal.new("0"),
+          playback_rate: Decimal.new("1.0"),
+          media_id: playthrough.media_id
+        },
+        %{
+          id: Ecto.UUID.generate(),
+          playthrough_id: playthrough.id,
+          type: :pause,
+          timestamp: progress_made,
+          position: Decimal.new("100"),
+          playback_rate: Decimal.new("1.0")
+        }
+      ]
+
+      {:ok, 2} = Playback.record_events(initial_events, playthrough.user_id)
+      assert Decimal.equal?(Playback.get_playthrough(playthrough.id).position, Decimal.new("100"))
+
+      reopen_event = [
+        %{
+          id: Ecto.UUID.generate(),
+          playthrough_id: playthrough.id,
+          type: :start,
+          timestamp: reopened,
+          position: Decimal.new("0"),
+          playback_rate: Decimal.new("1.0"),
+          media_id: playthrough.media_id
+        }
+      ]
+
+      {:ok, 1} = Playback.record_events(reopen_event, playthrough.user_id)
+
+      assert Decimal.equal?(Playback.get_playthrough(playthrough.id).position, Decimal.new("100"))
+    end
   end
 
   describe "list_events_changed_since/2" do
