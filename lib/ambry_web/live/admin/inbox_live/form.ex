@@ -19,11 +19,14 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   ## Vocabulary
 
-  Credits read "Credited as" / "Written by" (or "Performed by"), which is what
-  makes the two-level identity model legible without explaining it: the
-  identity is what the book credits, the people are the humans behind it, and
-  two or more of them is a shared pen name. That is the entire composite-author
-  case — a longer list, not a different mode.
+  A credit reads as one line — "Written by" / "Narrated by" — and the person
+  layer is folded away behind "This is a pen name" / "This is a stage name".
+  An earlier version showed both levels always, on the theory that "Credited
+  as / Written by" teaches the model for free; in practice it charged every
+  ordinary import for a question about personhood that only two imports in a
+  hundred have an interesting answer to. The fold unfolds itself whenever the
+  credit is anything but one new person of the same name, so nothing
+  interesting can hide inside it.
   """
 
   use AmbryWeb, :admin_live_view
@@ -34,6 +37,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Books
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Work
@@ -51,7 +55,19 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(series: Books.series_for_select())
      |> assign(authors: People.authors_for_select(), narrators: People.narrators_for_select())
      |> assign(people: People.people_for_select())
+     |> assign(expanded: MapSet.new())
      |> load(item)}
+  end
+
+  @doc """
+  Whether a credit's person layer should be showing.
+
+  Folded away for the ordinary case — one new person of the same name — and
+  unfolded whenever the credit is anything else, so a pen name can never be
+  hiding behind a collapsed control.
+  """
+  def expanded?(expanded, section, index, credit) do
+    MapSet.member?(expanded, {section, index}) or not Credit.simple?(credit)
   end
 
   @impl Phoenix.LiveView
@@ -93,14 +109,33 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.choose_uncatalogued(&1, item))}
   end
 
-  def handle_event("link-credit", %{"section" => section, "index" => i} = params, socket) do
+  def handle_event("credit-change", %{"section" => section, "index" => i} = params, socket) do
+    section = atom(section)
+    index = to_int(i)
     id = to_int(params["identity_id"])
 
     {:noreply,
      edit(socket, fn draft ->
-       if id,
-         do: Draft.Edit.link_credit(draft, atom(section), to_int(i), id),
-         else: Draft.Edit.create_credit(draft, atom(section), to_int(i))
+       if id do
+         Draft.Edit.link_credit(draft, section, index, id)
+       else
+         draft
+         |> Draft.Edit.create_credit(section, index)
+         |> Draft.Edit.rename_credit(section, index, params["name"] || "")
+       end
+     end)}
+  end
+
+  # Whether the person layer is unfolded is view state, not a decision — it
+  # has no business in the stored draft.
+  def handle_event("toggle-people", %{"section" => section, "index" => index}, socket) do
+    {:noreply,
+     update(socket, :expanded, fn expanded ->
+       key = {section, to_int(index)}
+
+       if MapSet.member?(expanded, key),
+         do: MapSet.delete(expanded, key),
+         else: MapSet.put(expanded, key)
      end)}
   end
 
@@ -112,11 +147,15 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.remove_person(&1, atom(s), to_int(i), to_int(p)))}
   end
 
-  def handle_event("set-person", %{"section" => s, "index" => i, "person" => p} = params, socket) do
+  def handle_event(
+        "person-change",
+        %{"section" => s, "index" => i, "person" => p} = params,
+        socket
+      ) do
     # An existing person is chosen by id; anything else is a name to create.
     attrs =
       case to_int(params["person_id"]) do
-        nil -> %{name: params["name"], person_id: nil}
+        nil -> %{name: params["name"] || "", person_id: nil}
         id -> %{person_id: id, name: nil}
       end
 
@@ -145,13 +184,18 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def handle_event("link-series", %{"index" => i} = params, socket) do
+    index = to_int(i)
     id = to_int(params["series_id"])
 
     {:noreply,
      edit(socket, fn draft ->
-       if id,
-         do: Draft.Edit.link_series(draft, to_int(i), id),
-         else: Draft.Edit.create_series(draft, to_int(i))
+       if id do
+         Draft.Edit.link_series(draft, index, id)
+       else
+         draft
+         |> Draft.Edit.create_series(index)
+         |> Draft.Edit.rename_series(index, params["name"] || "")
+       end
      end)}
   end
 
@@ -383,12 +427,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def provider_outcomes(_item, _level), do: []
 
   @doc "The candidate a decision's fields were filled from, if any."
-  def selected_candidate(%{candidates: candidates, selected_source: source, selected_id: id})
-      when is_binary(source) do
-    Enum.find(candidates, &(&1["source"] == source and to_string(&1["id"]) == id))
-  end
-
-  def selected_candidate(_decision), do: nil
+  defdelegate selected_candidate(decision), to: Ambry.Inbox.Draft.Seed
 
   @doc """
   How many decisions the bulk button would settle, so its label can say.

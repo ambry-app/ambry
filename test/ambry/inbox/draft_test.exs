@@ -577,8 +577,12 @@ defmodule Ambry.Inbox.DraftTest do
       assert draft.work.title.approved
       # and the clean spelling wins the field
       assert draft.work.title.value == "Neuromancer"
-      # both are still offered, because the operator may want the other
-      assert length(draft.work.title.candidates) == 2
+
+      # one chip, crediting everybody who said it — two chips reading
+      # "Hardcover: Neuromancer" and "the file's tags: Neuromancer
+      # (Unabridged)" is a choice nobody wants to make
+      assert [only] = draft.work.title.candidates
+      assert only.label == "Hardcover, The file's tags"
     end
 
     test "genuinely different titles still disagree" do
@@ -592,6 +596,235 @@ defmodule Ambry.Inbox.DraftTest do
 
       refute draft.work.title.approved
       assert Draft.Field.state(draft.work.title) == :ambiguous
+    end
+  end
+
+  describe "mixing sources" do
+    # Two providers agreeing on WHICH work this is do not agree on everything
+    # about it. Collapsing them to a winner left the operator choosing between
+    # one provider and the file's tags.
+    test "a corroborating provider still gets to propose its own values" do
+      candidate =
+        provider_candidate(%{
+          "description" => "Hardcover's description",
+          "cover_url" => "https://example.test/hardcover.jpg",
+          "merged" => [
+            %{
+              "source" => "provider:rreading_glasses",
+              "provider_name" => "rreading-glasses",
+              "id" => "rg-1",
+              "title" => "Leviathan Wakes",
+              "description" => "rreading-glasses' description",
+              "cover_url" => "https://example.test/rg.jpg"
+            }
+          ]
+        })
+
+      draft = Seed.build(item(%{matches: matches([candidate]), tags: %{}}))
+
+      values = Enum.map(draft.recording.description.candidates, & &1.value)
+      assert "Hardcover's description" in values
+      assert "rreading-glasses' description" in values
+
+      covers = Enum.map(draft.recording.cover.candidates, & &1.value)
+      assert "https://example.test/hardcover.jpg" in covers
+      assert "https://example.test/rg.jpg" in covers
+    end
+
+    # The operator's example: description from a work-level provider, cover
+    # from the recording-level one.
+    test "the work's sources describe the recording too" do
+      recording = [
+        %{
+          "source" => "provider:audible",
+          "provider_name" => "Audible",
+          "id" => "B01",
+          "title" => "Leviathan Wakes",
+          "narrators" => ["Jefferson Mays"],
+          "cover_url" => "https://example.test/audible.jpg",
+          "score" => 1.0
+        }
+      ]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches([provider_candidate(%{"description" => "The work-level description"})],
+                recording: recording,
+                recording_confidence: 1.0
+              ),
+            tags: %{}
+          })
+        )
+
+      assert "The work-level description" in Enum.map(
+               draft.recording.description.candidates,
+               & &1.value
+             )
+
+      assert "https://example.test/audible.jpg" in Enum.map(
+               draft.recording.cover.candidates,
+               & &1.value
+             )
+    end
+
+    # A work-level provider's date is the work's ORIGINAL publication date,
+    # which is a different fact wearing the same name.
+    test "the work's date is never offered as the recording's release date" do
+      recording = [
+        %{
+          "source" => "provider:audible",
+          "id" => "B01",
+          "title" => "Leviathan Wakes",
+          "narrators" => ["Jefferson Mays"],
+          "published" => "2011-06-15",
+          "score" => 1.0
+        }
+      ]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches([provider_candidate(%{"published" => "1999-01-02"})],
+                recording: recording,
+                recording_confidence: 1.0
+              ),
+            tags: %{}
+          })
+        )
+
+      refute "1999-01-02" in Enum.map(draft.recording.published.candidates, & &1.value)
+    end
+  end
+
+  describe "date precision" do
+    # Year-only knowledge arrives as a literal January 1st from every source
+    # that has it, so the tag date and the provider date were being reported
+    # as rival opinions on a large share of imports.
+    test "a January 1st date defers to a precise one in the same year" do
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches([provider_candidate(%{"published" => "2017-10-03"})]),
+            tags: %{"published" => "2017-01-01"}
+          })
+        )
+
+      assert draft.work.published.approved
+      assert draft.work.published.value == "2017-10-03"
+    end
+
+    test "the display format follows whichever source won the date" do
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches([
+                provider_candidate(%{
+                  "published" => "2017-10-03",
+                  "published_format" => "full"
+                })
+              ]),
+            tags: %{"published" => "2017-01-01", "published_format" => "year"}
+          })
+        )
+
+      # otherwise the two columns describing one fact disagree with each other
+      assert draft.work.published_format.approved
+      assert draft.work.published_format.value == "full"
+    end
+
+    test "two precise dates in one year genuinely disagree" do
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches([provider_candidate(%{"published" => "2017-10-03"})]),
+            tags: %{"published" => "2017-03-08"}
+          })
+        )
+
+      refute draft.work.published.approved
+    end
+
+    test "different years disagree" do
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches([provider_candidate(%{"published" => "2017-10-03"})]),
+            tags: %{"published" => "2011-01-01"}
+          })
+        )
+
+      refute draft.work.published.approved
+    end
+  end
+
+  describe "naming what gets created" do
+    # The motivating case: "David Wong" is a pen name of Jason Pargin, and
+    # importing it as a new author needed a new person under a DIFFERENT name.
+    test "a credit's identity and its person can be named separately" do
+      item = item(%{matches: matches([provider_candidate(%{"authors" => ["David Wong"]})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.rename_credit(:work, 0, "David Wong")
+        |> Draft.Edit.set_person(:work, 0, 0, %{name: "Jason Pargin", person_id: nil})
+
+      credit = hd(draft.work.authors)
+      assert credit.name == "David Wong"
+      assert [%{name: "Jason Pargin", person_id: nil}] = credit.people
+      refute Credit.simple?(credit)
+    end
+
+    test "the default person follows the credit's name until it is customised" do
+      item = item(%{matches: matches([provider_candidate(%{"authors" => ["Jmes S.A. Corey"]})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.rename_credit(item.draft, :work, 0, "James S.A. Corey")
+
+      # fixing a typo in the credited name shouldn't leave a person behind
+      # still carrying it
+      credit = hd(draft.work.authors)
+      assert credit.name == "James S.A. Corey"
+      assert [%{name: "James S.A. Corey"}] = credit.people
+      assert Credit.simple?(credit)
+
+      # but once the person is somebody else, renaming the credit leaves them
+      # alone
+      draft = Draft.Edit.set_person(draft, :work, 0, 0, %{name: "Ty Franck", person_id: nil})
+      draft = Draft.Edit.rename_credit(draft, :work, 0, "J.S.A. Corey")
+
+      assert [%{name: "Ty Franck"}] = hd(draft.work.authors).people
+    end
+
+    test "a half-typed name is storable but never resolved" do
+      item = item(%{matches: matches([provider_candidate(%{})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.rename_credit(item.draft, :work, 0, "")
+
+      # clearing the box to retype must not fail the changeset — validation
+      # gates saving, the invariant gates importing
+      assert {:ok, saved} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+      assert hd(saved.draft.work.authors).name in [nil, ""]
+      refute Credit.resolved?(hd(saved.draft.work.authors))
+      refute hd(saved.draft.work.authors).approved
+    end
+
+    test "a created series can be renamed" do
+      candidates = [
+        provider_candidate(%{"series" => [%{"name" => "Expanse", "number" => "1"}]})
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.rename_series(item.draft, 0, "The Expanse")
+
+      assert hd(draft.work.series).name == "The Expanse"
     end
   end
 

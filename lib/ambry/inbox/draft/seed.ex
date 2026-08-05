@@ -90,7 +90,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       evidence: evidence(item),
       stale: false,
       work: work(work_level, hints, tags),
-      recording: recording(recording_level, hints, tags, item),
+      recording: recording(recording_level, work_level, hints, tags, item),
       destination: destination(item)
     }
   end
@@ -213,16 +213,45 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp put_work_fields(%Work{} = work, best, hints, tags) do
     book_id = if best && best["source"] == "local", do: best["id"]
+    sources = chain(best)
+
+    published = keep_manual(work.published, published_field(sources, tags))
 
     %{
       work
-      | title: keep_manual(work.title, title_field(best, hints, tags)),
-        published: keep_manual(work.published, published_field(best, tags)),
-        published_format: keep_manual(work.published_format, published_format_field(best, tags)),
+      | title: keep_manual(work.title, title_field(sources, hints, tags)),
+        published: published,
+        published_format:
+          keep_manual(
+            work.published_format,
+            published_format_field(sources, tags, published)
+          ),
         authors: author_credits(best, tags),
         series: series_links(best, tags, book_id)
     }
   end
+
+  # A candidate and everybody who corroborated it.
+  #
+  # Two providers agreeing on which work this is do NOT agree on everything
+  # about it — one has the better description, another the better cover — and
+  # collapsing them into a winner left the operator choosing between one
+  # provider and the file's tags. Identity is still one answer; *where each
+  # field's value comes from* is a separate question per field.
+  def chain(nil), do: []
+  def chain(candidate), do: [candidate | List.wrap(candidate["merged"])]
+
+  @doc """
+  The candidate a decision's fields were filled from, if any.
+  """
+  def selected_candidate(%{candidates: candidates, selected_source: source, selected_id: id})
+      when is_binary(source) do
+    Enum.find(candidates, &(&1["source"] == source and to_string(&1["id"]) == id))
+  end
+
+  def selected_candidate(_decision), do: nil
+
+  defp from_chain(sources, key), do: Enum.map(sources, &candidate(&1, key))
 
   # A field the operator typed is theirs; re-seeding from another candidate
   # must not quietly undo a correction. Everything else is provider data being
@@ -258,11 +287,12 @@ defmodule Ambry.Inbox.Draft.Seed do
   # library, 96% of releases carry a title in tags and the parser is what the
   # other ~2% rely on — so letting the folder name argue with a provider would
   # make nearly every import ambiguous on its title for no gain.
-  defp title_field(best, hints, tags) do
-    [candidate(best, "title"), tag_candidate(tags, "book_title")]
+  defp title_field(sources, hints, tags) do
+    (from_chain(sources, "title") ++ [tag_candidate(tags, "book_title")])
     |> scalar(
       required: true,
-      equivalence: &title_key/1,
+      equivalence: &(title_key(&1) == title_key(&2)),
+      prefer: &shorter/2,
       fallback: release_candidate(hints.title)
     )
   end
@@ -290,17 +320,73 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp title_key(other), do: normalize(other)
 
-  defp published_field(best, tags) do
-    [candidate(best, "published"), tag_candidate(tags, "published")]
-    |> scalar(required: true)
+  # **Year-only knowledge arrives as a literal January 1st.** Every source
+  # does it — the ROADMAP records it for Goodreads-shaped data, and the
+  # operator's own files carry it too, which is why the tag date and the
+  # provider date were being reported as rival opinions on a large share of
+  # imports. "2017-01-01" and "2017-10-03" are not two answers; they are one
+  # fact at two precisions, and the precise one is the answer.
+  #
+  # Two *precise* dates in one year genuinely do disagree, and so do two
+  # different years. Both stay the operator's.
+  defp same_date?(one, other) do
+    case {parse_date(one), parse_date(other)} do
+      {%Date{} = a, %Date{} = b} ->
+        a == b or (a.year == b.year and (year_only?(a) or year_only?(b)))
+
+      _unparseable ->
+        normalize(one) == normalize(other)
+    end
+  end
+
+  defp more_precise(held, incoming) do
+    case {parse_date(held), parse_date(incoming)} do
+      {%Date{} = a, %Date{} = b} ->
+        if year_only?(a) and not year_only?(b), do: incoming, else: held
+
+      _unparseable ->
+        held
+    end
+  end
+
+  defp year_only?(%Date{month: 1, day: 1}), do: true
+  defp year_only?(%Date{}), do: false
+
+  defp parse_date(value) when is_binary(value) do
+    case Date.from_iso8601(value) do
+      {:ok, date} -> date
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp parse_date(_other), do: nil
+
+  # The display format is not an opinion of its own — it says how much of the
+  # date is real, so it belongs to whichever source won the date. Left to
+  # decide itself it would report "sources disagree" on exactly the imports
+  # the rule above just settled: the tag says year, the provider says full.
+  defp follow_date_source(%Field{} = format, %Field{approved: true, source: source})
+       when is_binary(source) do
+    case Enum.find(format.candidates, &(&1.source == source)) do
+      nil -> format
+      winner -> %{format | value: winner.value, source: winner.source, approved: true}
+    end
+  end
+
+  defp follow_date_source(format, _published), do: format
+
+  defp published_field(sources, tags) do
+    (from_chain(sources, "published") ++ [tag_candidate(tags, "published")])
+    |> scalar(required: true, equivalence: &same_date?/2, prefer: &more_precise/2)
   end
 
   # Not derivable from the date: year-only knowledge arrives as a literal
   # Jan 1st, and rendering that as a real release day is the exact bug the
   # v1.9.0 punch list fixed for the import forms.
-  defp published_format_field(best, tags) do
-    [candidate(best, "published_format"), tag_candidate(tags, "published_format")]
+  defp published_format_field(sources, tags, published) do
+    (from_chain(sources, "published_format") ++ [tag_candidate(tags, "published_format")])
     |> scalar(required: false)
+    |> follow_date_source(published)
     |> default_to("full")
   end
 
@@ -312,8 +398,9 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## recording
 
-  defp recording(level, hints, tags, item) do
+  defp recording(level, work_level, hints, tags, item) do
     candidates = Map.get(level, "candidates", []) || []
+    work_chain = work_level |> Map.get("candidates", []) |> List.first() |> chain()
 
     # **Only a recording we actually believe in gets to fill anything in.**
     # Audible's search widens when a narrow query finds nothing, so a book
@@ -340,13 +427,13 @@ defmodule Ambry.Inbox.Draft.Seed do
       # showing up only as fields that mysteriously stayed empty.
       approved: doubt in [:none, :nothing_found]
     }
-    |> put_recording_fields(best, tags, item)
+    |> put_recording_fields(best, work_chain, tags, item)
   end
 
   @doc """
   Fills a recording's fields from one catalogue entry, keeping typed values.
   """
-  def reseed_recording(%Recording{} = recording, candidate, tags, item) do
+  def reseed_recording(%Recording{} = recording, candidate, work_chain, tags, item) do
     %{
       recording
       | approved: true,
@@ -355,33 +442,44 @@ defmodule Ambry.Inbox.Draft.Seed do
         doubt: :none,
         doubt_detail: nil
     }
-    |> put_recording_fields(candidate, tags, item)
+    |> put_recording_fields(candidate, work_chain, tags, item)
   end
 
   @doc """
   Settles a recording as one no catalogue lists, described by the file alone.
   """
-  def reseed_uncatalogued(%Recording{} = recording, tags, item) do
+  def reseed_uncatalogued(%Recording{} = recording, work_chain, tags, item) do
     %{recording | approved: true, selected_source: nil, selected_id: nil}
-    |> put_recording_fields(nil, tags, item)
+    |> put_recording_fields(nil, work_chain, tags, item)
   end
 
-  defp put_recording_fields(%Recording{} = recording, best, tags, item) do
+  # The work's sources get a say in the recording's *descriptive* fields —
+  # description, cover, publisher are facts about the book that a work-level
+  # provider often has better than a storefront does, and the operator has to
+  # be able to take the description from one and the cover from another.
+  #
+  # The release date deliberately does NOT draw from them: a work-level
+  # provider's date is the work's original publication date, which is a
+  # different fact wearing the same name.
+  defp put_recording_fields(%Recording{} = recording, best, work_chain, tags, item) do
+    chain = chain(best)
+    describing = chain ++ work_chain
+
     %{
       recording
       | title: keep_manual(recording.title, scalar([], required: false)),
-        published: keep_manual(recording.published, scalar([candidate(best, "published")])),
+        published: keep_manual(recording.published, scalar(from_chain(chain, "published"))),
         publisher:
           keep_manual(
             recording.publisher,
-            scalar([candidate(best, "publisher"), tag_candidate(tags, "publisher")])
+            scalar(from_chain(describing, "publisher") ++ [tag_candidate(tags, "publisher")])
           ),
         description:
           keep_manual(
             recording.description,
-            scalar([candidate(best, "description"), tag_candidate(tags, "description")])
+            scalar(from_chain(describing, "description") ++ [tag_candidate(tags, "description")])
           ),
-        cover: keep_manual(recording.cover, cover_field(best, tags, item)),
+        cover: keep_manual(recording.cover, cover_field(describing, tags, item)),
         narrators: narrator_credits(best, tags)
     }
   end
@@ -449,7 +547,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   # Embedded art and a provider cover are both real answers, so two of them is
   # a choice rather than a winner. The embedded candidate carries the audio
   # file to extract from; approval does the extracting.
-  defp cover_field(best, tags, item) do
+  defp cover_field(sources, tags, item) do
     embedded =
       if tags["has_cover_art"] && item.files != [] do
         %Candidate{
@@ -459,7 +557,7 @@ defmodule Ambry.Inbox.Draft.Seed do
         }
       end
 
-    [candidate(best, "cover_url"), embedded] |> scalar(required: false)
+    (from_chain(sources, "cover_url") ++ [embedded]) |> scalar(required: false)
   end
 
   ## credits
@@ -667,52 +765,70 @@ defmodule Ambry.Inbox.Draft.Seed do
   # into a choice.
   defp scalar(candidates, opts \\ []) do
     required = Keyword.get(opts, :required, false)
-    same? = Keyword.get(opts, :equivalence, &normalize/1)
-    candidates = Enum.reject(candidates, &is_nil/1)
+    same? = Keyword.get(opts, :equivalence, &(normalize(&1) == normalize(&2)))
+    prefer = Keyword.get(opts, :prefer, fn held, _incoming -> held end)
 
     candidates =
-      case {groups(candidates, same?), Keyword.get(opts, :fallback)} do
+      candidates
+      |> Enum.reject(&(is_nil(&1) or &1.value in [nil, ""]))
+      |> collapse(same?, prefer)
+
+    candidates =
+      case {candidates, Keyword.get(opts, :fallback)} do
         {[], fallback} when not is_nil(fallback) -> [fallback]
         _primary_had_something -> candidates
       end
 
     field = %Field{required: required, candidates: candidates}
 
-    case groups(candidates, same?) do
+    case candidates do
       # nothing proposed it. Optional means waived — an explicit "none", which
       # is what makes "every piece resolved" reachable at all.
       [] ->
         %{field | approved: not required}
 
-      # one answer, whether from one source, several that agree exactly, or
-      # several that agree once format labels are set aside
-      [group] ->
-        value = preferred(group)
-        %{field | value: value, source: source_for(candidates, value), approved: true}
+      # one answer, whether from one source or several that turned out to mean
+      # the same thing
+      [only] ->
+        %{field | value: only.value, source: only.source, approved: true}
 
       _several ->
         %{field | approved: false}
     end
   end
 
-  # Proposals that mean the same thing, gathered. Every group is one answer;
-  # more than one group is a genuine disagreement for the operator to settle.
-  defp groups(candidates, same?) do
-    candidates
-    |> Enum.map(& &1.value)
-    |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.group_by(same?)
-    |> Map.values()
+  # Proposals that mean the same thing become one chip, crediting everybody
+  # who said it.
+  #
+  # `same?` is a binary predicate rather than a key function because the
+  # interesting equivalences aren't groupable: a year-only date matches any
+  # date in that year, but two full dates in that year don't match each other.
+  # `prefer` then decides which spelling survives — the cleaner title, the
+  # more precise date.
+  defp collapse(candidates, same?, prefer) do
+    Enum.reduce(candidates, [], fn candidate, kept ->
+      case Enum.find_index(kept, &same?.(&1.value, candidate.value)) do
+        nil -> kept ++ [candidate]
+        index -> List.update_at(kept, index, &combine(&1, candidate, prefer))
+      end
+    end)
   end
 
-  # Given two spellings of one answer, the shorter is the title and the longer
-  # is the title with a format label bolted on.
-  defp preferred(values), do: values |> Enum.uniq() |> Enum.min_by(&String.length/1)
+  defp combine(held, incoming, prefer) do
+    winner = if prefer.(held.value, incoming.value) == incoming.value, do: incoming, else: held
 
-  defp source_for(candidates, value) do
-    Enum.find_value(candidates, fn candidate ->
-      candidate.value == value && candidate.source
-    end)
+    %{winner | label: join_labels(held.label, incoming.label)}
+  end
+
+  defp join_labels(one, one), do: one
+  defp join_labels(nil, other), do: other
+  defp join_labels(one, nil), do: one
+  defp join_labels(one, other), do: "#{one}, #{other}"
+
+  # Two spellings of one title: the shorter is the title, the longer is the
+  # title with a format label bolted on.
+  defp shorter(held, incoming) do
+    if String.length(incoming) < String.length(held), do: incoming, else: held
   end
 
   defp normalize(string) when is_binary(string) do

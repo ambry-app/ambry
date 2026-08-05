@@ -140,6 +140,14 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
+      # the person layer is folded away for the ordinary case, so the pen-name
+      # path starts by saying that this isn't one
+      view
+      |> element(
+        "button[phx-click='toggle-people'][phx-value-section='work'][phx-value-index='0']"
+      )
+      |> render_click()
+
       html =
         view
         |> element(
@@ -157,6 +165,12 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       item = probed_item()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element(
+        "button[phx-click='toggle-people'][phx-value-section='work'][phx-value-index='0']"
+      )
+      |> render_click()
 
       view
       |> element("button[phx-click='add-person'][phx-value-section='work'][phx-value-index='0']")

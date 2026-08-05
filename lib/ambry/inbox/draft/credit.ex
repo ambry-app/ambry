@@ -88,7 +88,7 @@ defmodule Ambry.Inbox.Draft.Credit do
   def changeset(credit, attrs) do
     credit
     |> cast(attrs, [:name, :kind, :mode, :identity_id, :source, :approved])
-    |> validate_required([:name, :kind])
+    |> validate_required([:kind])
     |> cast_embed(:candidates)
     |> cast_embed(:people)
     |> validate_resolution()
@@ -96,8 +96,9 @@ defmodule Ambry.Inbox.Draft.Credit do
 
   # Only what can never be legitimate is rejected: an *approved* credit with
   # nothing behind it. An unapproved one is allowed to be half-made, because
-  # that's what the operator is doing while they make it — `resolved?/1`
-  # reports it instead, and the import button reads that.
+  # that's what the operator is doing while they make it — including a blank
+  # name, since clearing the box to retype is the first half of renaming.
+  # `resolved?/1` reports it instead, and the import button reads that.
   defp validate_resolution(changeset) do
     approved? = get_field(changeset, :approved)
 
@@ -108,6 +109,9 @@ defmodule Ambry.Inbox.Draft.Credit do
       get_field(changeset, :mode) == :link ->
         validate_required(changeset, [:identity_id])
 
+      blank?(get_field(changeset, :name)) ->
+        add_error(changeset, :name, "is needed before this can be imported")
+
       get_field(changeset, :people) == [] ->
         add_error(changeset, :people, "needs at least one person behind it")
 
@@ -116,20 +120,42 @@ defmodule Ambry.Inbox.Draft.Credit do
     end
   end
 
+  defp blank?(nil), do: true
+  defp blank?(name) when is_binary(name), do: String.trim(name) == ""
+
   @doc """
   Whether this credit still needs a human.
   """
   def resolved?(%__MODULE__{approved: true, mode: :link, identity_id: id}), do: not is_nil(id)
+
+  def resolved?(%__MODULE__{approved: true, mode: :create, name: name}) when not is_binary(name),
+    do: false
+
   def resolved?(%__MODULE__{approved: true, mode: :create, people: []}), do: false
 
   # Every person behind the credit has to actually say who they are. A blank
   # row the operator added and hasn't filled in yet is stored happily and
   # reported here — which is what lets them add two people and name them one
   # at a time.
-  def resolved?(%__MODULE__{approved: true, mode: :create, people: people}),
-    do: Enum.all?(people, &PersonRef.complete?/1)
+  def resolved?(%__MODULE__{approved: true, mode: :create, name: name, people: people}),
+    do: String.trim(name) != "" and Enum.all?(people, &PersonRef.complete?/1)
 
   def resolved?(%__MODULE__{}), do: false
+
+  @doc """
+  Whether this credit is the ordinary case: one new person of the same name.
+
+  The form collapses to a single control when it is, because "who is behind
+  this name" is a question about the *person* that almost never has an
+  interesting answer — and asking it on every import buried the two cases
+  where it does.
+  """
+  def simple?(%__MODULE__{mode: :link}), do: true
+
+  def simple?(%__MODULE__{mode: :create, name: name, people: [%PersonRef{} = person]}),
+    do: is_nil(person.person_id) and person.name == name
+
+  def simple?(%__MODULE__{}), do: false
 
   @doc """
   Why it isn't resolved.
