@@ -1,5 +1,6 @@
 defmodule Ambry.Inbox.ApprovalTest do
   use Ambry.DataCase
+  use Patch
 
   alias Ambry.Books
   alias Ambry.Books.Book
@@ -85,6 +86,50 @@ defmodule Ambry.Inbox.ApprovalTest do
       assert [%{id: author_id}] = book.authors
       assert author_id == author.id
       assert Repo.aggregate(Author, :count) == 1
+    end
+
+    # 3b's promise is that the operator never leaves the inbox to finish a
+    # leaf entity, and a person with no face is unfinished.
+    test "a new person arrives with the bio and photo picked in the inbox" do
+      %{web_path: web_path} = Ambry.Factory.valid_image(:person)
+      patch(Ambry.Images, :import_url, fn _url -> {:ok, web_path} end)
+
+      item = tagged_item() |> Inbox.prepare_draft() |> then(fn {:ok, item} -> item end)
+
+      item =
+        update_in(item.draft.work.authors, fn [credit | rest] ->
+          [
+            %{
+              credit
+              | people: [
+                  %Ambry.Inbox.Draft.PersonRef{
+                    name: "Brandon Sanderson",
+                    description: "An American author of epic fantasy.",
+                    description_source: "provider:wikidata",
+                    image_url: "https://example.test/headshot.jpg",
+                    image_source: "provider:tmdb"
+                  }
+                ]
+            }
+            | rest
+          ]
+        end)
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(item.draft))
+
+      assert {:ok, media} = item |> settle() |> Inbox.approve_item()
+
+      book = media.book_id |> Books.get_book!() |> Repo.preload(authors: :people)
+      assert [%{people: [person]}] = book.authors
+      assert person.description == "An American author of epic fantasy."
+      assert person.image_path == web_path
+
+      # picked from a provider: that provider's source, and unlocked so a
+      # later refresh may still improve it
+      assert %{"source" => "provider:tmdb", "locked" => false} =
+               Ambry.Provenance.entry(person, :image_path)
+
+      assert %{"source" => "provider:wikidata"} = Ambry.Provenance.entry(person, :description)
     end
 
     test "creates a person alongside a brand-new narrator credit" do

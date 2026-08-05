@@ -1,4 +1,13 @@
 <.layout title={@page_title} user={@current_user}>
+  <.modal :if={@picker} id="person-picker-modal" show on_cancel={JS.push("close-picker")}>
+    <.live_component
+      id="person-picker"
+      module={AmbryWeb.Admin.PersonPicker}
+      query={@picker.query}
+      context={@picker}
+    />
+  </.modal>
+
   <div class="max-w-4xl space-y-8 pb-16">
     <%!-- the evidence: what was found, before anybody interpreted it --%>
     <section class="space-y-1 rounded-sm border border-zinc-300 p-4 dark:border-zinc-700">

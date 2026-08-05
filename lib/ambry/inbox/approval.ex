@@ -243,7 +243,38 @@ defmodule Ambry.Inbox.Approval do
   defp resolve_person(%PersonRef{person_id: id}) when not is_nil(id),
     do: {:ok, Repo.get!(People.Person, id)}
 
-  defp resolve_person(%PersonRef{name: name}), do: People.create_person(%{name: name})
+  # A new person arrives complete when the operator gave them a face and a
+  # bio in the picker — 3b's "never has to leave the inbox" is about exactly
+  # this, and a person created bare is a trip to the person form afterwards.
+  #
+  # A photo that won't fetch doesn't fail the import, for the same reason a
+  # cover doesn't: the credit is still correct without it.
+  defp resolve_person(%PersonRef{} = ref) do
+    People.create_person(
+      %{
+        name: ref.name,
+        description: ref.description,
+        image_path: person_image(ref)
+      },
+      provenance: person_provenance(ref)
+    )
+  end
+
+  # String keys: `Provenance.track_changes/3` looks sources up by field name.
+  defp person_provenance(%PersonRef{} = ref) do
+    %{"image_path" => ref.image_source, "description" => ref.description_source}
+    |> Enum.reject(fn {_field, source} -> is_nil(source) end)
+    |> Map.new()
+  end
+
+  defp person_image(%PersonRef{image_url: nil}), do: nil
+
+  defp person_image(%PersonRef{image_url: url}) do
+    case Images.import_url(url) do
+      {:ok, web_path} when is_binary(web_path) -> web_path
+      other -> log_cover(url, other)
+    end
+  end
 
   ## the recording
 

@@ -114,8 +114,10 @@ defmodule Ambry.InboxHelpers do
   defp people_for(%Credit{people: []} = credit),
     do: [%{"name" => credit.name, "person_id" => nil}]
 
-  defp people_for(%Credit{people: people}),
-    do: Enum.map(people, &%{"name" => &1.name, "person_id" => &1.person_id})
+  # Everything the operator staged for a new person travels with them — a bio
+  # and a photo picked in the inbox are the difference between a person who
+  # arrives complete and one who needs a trip to the person form.
+  defp people_for(%Credit{people: people}), do: Enum.map(people, &Map.from_struct/1)
 
   defp settled_series(%SeriesLink{} = link, number) do
     %{

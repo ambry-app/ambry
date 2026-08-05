@@ -76,26 +76,48 @@ defmodule Ambry.Metadata.Providers.Tmdb do
   def author_details(person_id, config) do
     with {:ok, person} <- Client.get_json("/person/#{person_id}", [], config) do
       {:ok,
-       %Provider.Author{
+       Provider.Author.new(%{
          provider: id(),
          id: to_string(person["id"]),
          name: person["name"],
          description: presence(person["biography"]),
-         image_url: image_url(person["profile_path"])
-       }}
+         image_url: image_url(person["profile_path"]),
+         image_urls: profile_images(person_id, config)
+       })}
+    end
+  end
+
+  # TMDB keeps every headshot anyone has uploaded, not just the primary one,
+  # and this is the single richest source of *alternatives* in the stack — a
+  # working actor often has a dozen. Which matters because the primary is
+  # frequently a wide shot or a red-carpet group photo that loses the face to
+  # a circular crop.
+  #
+  # A failure here costs the extras, never the profile: the primary
+  # `profile_path` is already in hand.
+  defp profile_images(person_id, config) do
+    case Client.get_json("/person/#{person_id}/images", [], config) do
+      {:ok, %{"profiles" => profiles}} when is_list(profiles) ->
+        profiles
+        |> Enum.sort_by(&(&1["vote_average"] || 0), :desc)
+        |> Enum.map(&image_url(&1["file_path"]))
+        |> Enum.reject(&is_nil/1)
+
+      _no_extras ->
+        []
     end
   end
 
   # search listing: the person's known-for credits are the disambiguator
   # ("Acting — The Expanse, Avenue 5")
   defp result_summary(result) do
-    %Provider.Author{
+    Provider.Author.new(%{
       provider: id(),
       id: to_string(result["id"]),
       name: result["name"],
       description: known_for(result),
       image_url: image_url(result["profile_path"])
-    }
+    })
   end
 
   defp known_for(result) do

@@ -611,6 +611,39 @@ defmodule AmbryWeb.Admin.Decisions do
           </button>
         </form>
 
+        <%!-- A person created bare is a trip to the person form afterwards,
+              which is the one thing 3b says the inbox shouldn't cost. --%>
+        <div
+          :for={{person, person_index} <- Enum.with_index(@credit.people)}
+          :if={is_nil(person.person_id)}
+          class="flex items-center gap-2"
+        >
+          <.image_with_size
+            :if={person.image_url}
+            id={"person-#{@section}-#{@index}-#{person_index}-photo"}
+            src={proxied_remote_image_url(person.image_url)}
+            class="h-12 w-12 flex-none rounded-full object-cover object-top"
+          />
+
+          <button
+            type="button"
+            phx-click="find-person-images"
+            phx-value-section={@section}
+            phx-value-index={@index}
+            phx-value-person={person_index}
+            disabled={blank_name?(person, @credit)}
+            class="rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
+          >
+            {if person.image_url || person.description,
+              do: "Change photo or bio…",
+              else: "Find a photo and bio…"}
+          </button>
+
+          <p :if={person.description} class="line-clamp-2 min-w-0 text-xs dark:text-zinc-500">
+            {person.description}
+          </p>
+        </div>
+
         <%!-- Narrators stay one-to-one with a Person by design; only the
               author control grows a second entry. --%>
         <button
@@ -758,6 +791,10 @@ defmodule AmbryWeb.Admin.Decisions do
   def source_words("local"), do: "the library"
   def source_words("provider:" <> id), do: id
   def source_words(other), do: other
+
+  defp blank_name?(person, credit) do
+    (person.name || credit.name || "") |> String.trim() == ""
+  end
 
   defp linked_people(%Credit{candidates: candidates, identity_id: id}) do
     case Enum.find(candidates, &(&1.identity_id == id)) do

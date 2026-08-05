@@ -18,6 +18,16 @@ defmodule Ambry.Inbox.Draft.PersonRef do
     # set = an existing Person; nil = create one with this name
     field :person_id, :id
     field :name, :string
+
+    # What a *new* person will be created with. 3b's promise is that the
+    # operator never has to leave the inbox to finish a leaf entity, and a
+    # person with no face is unfinished — every credit imported without these
+    # was a trip to the person form afterwards.
+    field :description, :string
+    field :image_url, :string
+    # which provider the photo and bio came from, for 1d provenance
+    field :image_source, :string
+    field :description_source, :string
   end
 
   # Deliberately permissive: a draft has to be *storable* while it's still
@@ -26,7 +36,16 @@ defmodule Ambry.Inbox.Draft.PersonRef do
   # `Draft.unresolved/1` — validation gates saving, the invariant gates
   # importing, and conflating the two makes the form unusable.
   @doc false
-  def changeset(person_ref, attrs), do: cast(person_ref, attrs, [:person_id, :name])
+  def changeset(person_ref, attrs) do
+    cast(person_ref, attrs, [
+      :person_id,
+      :name,
+      :description,
+      :image_url,
+      :image_source,
+      :description_source
+    ])
+  end
 
   @doc "Whether this reference actually says who it means."
   def complete?(%__MODULE__{person_id: id}) when not is_nil(id), do: true

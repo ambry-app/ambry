@@ -9,8 +9,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People.Author
   alias Ambry.People.Person
   alias Ambry.Provenance
-  alias AmbryWeb.Admin.PersonLive.Form.ImagePicker
   alias AmbryWeb.Admin.PersonLive.Form.ImportForm
+  alias AmbryWeb.Admin.PersonPicker
   alias AmbryWeb.Admin.ProvenanceHints
   alias Ecto.Changeset
 
@@ -140,7 +140,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   @impl Phoenix.LiveView
-  def handle_info({:image_picked, url, source}, socket) do
+  def handle_info({:person_image_picked, _context, url, source}, socket) do
     picked = %{"image_path" => "", "image_type" => "url_import", "image_import_url" => url}
     hints = ProvenanceHints.from_import(picked, source)
     new_params = Map.merge(socket.assigns.form.params, picked)
@@ -153,6 +153,13 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
        image_picker: false,
        provenance_hints: Map.merge(socket.assigns.provenance_hints, hints)
      )}
+  end
+
+  # A bio is picked the same way a photo is; the person form already knows how
+  # to take an imported field, so this rides the existing import path.
+  def handle_info({:person_bio_picked, _context, description, source}, socket) do
+    send(self(), {:import, %{"person" => %{"description" => description}}, source})
+    {:noreply, assign(socket, image_picker: false)}
   end
 
   def handle_info({:import, %{"person" => person_params}, source}, socket) do

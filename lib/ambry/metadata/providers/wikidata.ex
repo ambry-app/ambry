@@ -144,13 +144,20 @@ defmodule Ambry.Metadata.Providers.Wikidata do
   defp entity_details(entity) do
     summary = fetch_summary(get_in(entity, ["sitelinks", "enwiki", "title"]))
 
-    %Provider.Author{
+    # Wikipedia genuinely has TWO candidate photos per person and they are
+    # often different pictures: the article's lead image and the Commons P18
+    # portrait. The lead is preferred for fetch reliability, but the P18 is
+    # frequently the better *portrait* — and which one survives a circular
+    # crop is not something anything here can judge. Both are offered.
+    lead = get_in(summary, ["originalimage", "source"])
+
+    Provider.Author.new(%{
       provider: id(),
       id: entity["id"],
       name: label(entity),
       description: presence(summary["extract"]) || description(entity),
-      image_url: get_in(summary, ["originalimage", "source"]) || p18_image_url(entity)
-    }
+      image_urls: Enum.reject([lead, p18_image_url(entity)], &is_nil/1)
+    })
   end
 
   defp label(entity), do: get_in(entity, ["labels", "en", "value"]) || entity["id"]

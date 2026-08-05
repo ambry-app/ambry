@@ -11,6 +11,7 @@ defmodule Ambry.Metadata do
     deps: [Ambry.Repo, Ambry.Utils, AmbryScraping],
     exports: [
       {Provider, []},
+      PersonSearch,
       Providers,
       Registry
     ]

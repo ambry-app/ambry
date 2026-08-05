@@ -134,10 +134,44 @@ defmodule Ambry.Metadata.Provider do
   end
 
   defmodule Author do
-    @moduledoc "A normalized author (or narrator) profile."
-    defstruct [:provider, :id, :name, :description, :image_url]
+    @moduledoc """
+    A normalized author (or narrator) profile.
+
+    `image_urls` is every photo the provider has of this person, best first;
+    `image_url` is the first of them, kept because most callers want one
+    picture and shouldn't have to say so.
+
+    Several matters because a profile photo has to survive a **circular
+    crop**. The obvious portrait — Wikipedia's lead image, TMDB's primary
+    headshot — is frequently the one that doesn't: a head at the edge of a
+    wide shot, a group photo, a book jacket with the face bottom-left. The
+    alternative three rows down is often the one that works, and a picker
+    showing one image per provider can't offer it.
+    """
+    defstruct [:provider, :id, :name, :description, :image_url, image_urls: []]
 
     @type t :: %__MODULE__{}
+
+    @doc """
+    Every photo this profile has, best first.
+
+    Falls back to `image_url` because `image_urls` is additive: a provider
+    that only ever had one photo per person still builds the struct the old
+    way, and must keep contributing that photo.
+    """
+    def images(%__MODULE__{image_urls: [_ | _] = urls}), do: urls
+    def images(%__MODULE__{image_url: url}) when is_binary(url) and url != "", do: [url]
+    def images(%__MODULE__{}), do: []
+
+    @doc """
+    Builds a profile, keeping `image_url` and `image_urls` consistent.
+    """
+    def new(attrs) do
+      urls = attrs |> Map.get(:image_urls, []) |> List.wrap() |> Enum.uniq()
+      urls = if attrs[:image_url], do: Enum.uniq([attrs[:image_url] | urls]), else: urls
+
+      struct!(__MODULE__, Map.merge(attrs, %{image_url: List.first(urls), image_urls: urls}))
+    end
   end
 
   defmodule Chapter do

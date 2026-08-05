@@ -308,6 +308,52 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "person photos and bios" do
+    test "a new person offers to go find a photo", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # the credit's person layer is folded away by default; the offer lives
+      # with the person, so unfold first
+      assert html =~ "Written by"
+
+      view
+      |> element(
+        "button[phx-click='toggle-people'][phx-value-section='work'][phx-value-index='0']"
+      )
+      |> render_click()
+
+      assert has_element?(view, "button[phx-click='find-person-images']")
+    end
+
+    test "a picked photo and bio are staged on the person", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      send(
+        view.pid,
+        {:person_image_picked, %{section: "work", index: 0, person: 0},
+         "https://example.test/face.jpg", "provider:tmdb"}
+      )
+
+      send(
+        view.pid,
+        {:person_bio_picked, %{section: "work", index: 0, person: 0}, "A bio.",
+         "provider:wikidata"}
+      )
+
+      render(view)
+
+      assert [%{people: [person]}] = Inbox.get_item!(item.id).draft.work.authors
+      assert person.image_url == "https://example.test/face.jpg"
+      assert person.image_source == "provider:tmdb"
+      assert person.description == "A bio."
+      assert person.description_source == "provider:wikidata"
+    end
+  end
+
   describe "cover previews" do
     test "the file's own art is served rather than described in words", %{conn: conn} do
       item = probed_item(cover_art: true)
