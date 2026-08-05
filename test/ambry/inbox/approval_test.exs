@@ -194,18 +194,24 @@ defmodule Ambry.Inbox.ApprovalTest do
           item
 
         match ->
-          candidate =
+          # A Book already in the library is a different kind of answer from a
+          # provider record, so it goes in its own list.
+          work =
             case match do
-              {"local", id} -> %{"source" => "local", "id" => id, "score" => 1.0}
-              %{} = provider -> provider
+              {"local", id} ->
+                %{
+                  "candidates" => [],
+                  "local" => [%{"id" => id, "score" => 1.0}],
+                  "confidence" => 1.0
+                }
+
+              %{} = provider ->
+                %{"candidates" => [provider], "local" => [], "confidence" => 1.0}
             end
 
           {:ok, item} =
             Inbox.update_item(item, %{
-              matches: %{
-                "work" => %{"candidates" => [candidate], "confidence" => 1.0},
-                "recording" => %{"candidates" => []}
-              }
+              matches: %{"work" => work, "recording" => %{"candidates" => []}}
             })
 
           item

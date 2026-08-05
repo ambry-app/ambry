@@ -224,47 +224,53 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
-  describe "identity — one answer, not a shortlist" do
-    test "exactly one work candidate is marked as chosen", %{conn: conn} do
-      # Every provider row used to wear a checkmark the moment the work was
-      # approved, which said the release was all of them at once.
-      item = probed_item() |> with_work_candidates()
+  describe "records are evidence, not identities" do
+    test "the top record is ticked and the rest are not", %{conn: conn} do
+      item = probed_item() |> with_work_records()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert view |> element("[data-role='candidate'][data-selected='true']") |> has_element?()
-      assert view |> render() |> selected_candidates() |> length() == 1
+      assert view |> render() |> used_records() |> length() == 1
     end
 
-    test "choosing another candidate moves the fields", %{conn: conn} do
-      item = probed_item() |> with_work_candidates()
+    test "ticking a second record adds its values to the field chips", %{conn: conn} do
+      item = probed_item() |> with_work_records()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert Inbox.get_item!(item.id).draft.work.title.value == "The Way of Kings"
-
       view
-      |> element("[phx-click='choose-work'][phx-value-id='hc-2']")
+      |> element("input[phx-click='toggle-source'][phx-value-id='hc-2']")
       |> render_click()
 
       work = Inbox.get_item!(item.id).draft.work
 
-      assert work.selected_id == "hc-2"
+      assert length(work.sources) == 2
+      # both databases now get a say, which is the whole point
       assert "Words of Radiance" in Enum.map(work.title.candidates, & &1.value)
-
-      # and the new candidate genuinely contradicts the file's tags, so the
-      # title stops being settled rather than silently taking one side
-      refute work.title.approved
-      assert "2014-03-04" in Enum.map(work.published.candidates, & &1.value)
     end
 
-    test "the search that produced the candidates is visible", %{conn: conn} do
-      item = probed_item() |> with_work_candidates()
+    test "an existing book is asked about separately from the records", %{conn: conn} do
+      book = insert(:book, title: "The Way of Kings")
+      item = probed_item() |> with_work_records(local: book)
 
-      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert html =~ "Searched for"
-      assert html =~ "The Way of Kings"
+      assert html =~ "Is this a book you already have?"
+
+      view |> element("button[phx-click='link-book']") |> render_click()
+
+      work = Inbox.get_item!(item.id).draft.work
+      assert work.mode == :link
+      assert work.book_id == book.id
+    end
+
+    test "the search that produced the records can be re-run", %{conn: conn} do
+      item = probed_item() |> with_work_records()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "Search again"
+      assert has_element?(view, "form#research-work input[name='title']")
     end
 
     test "the file's own tags are visible", %{conn: conn} do
@@ -288,9 +294,9 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
-  # Two plausible works from one provider, so the candidate list is a real
+  # Two plausible works from one provider, so the record list is a real
   # question rather than a formality.
-  defp with_work_candidates(item) do
+  defp with_work_records(item, opts \\ []) do
     candidate = fn id, title, published ->
       %{
         "source" => "provider:hardcover",
@@ -304,6 +310,12 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       }
     end
 
+    local =
+      case Keyword.get(opts, :local) do
+        nil -> []
+        book -> [%{"id" => book.id, "title" => book.title, "score" => 0.8}]
+      end
+
     {:ok, item} =
       item
       |> InboxItem.changeset(%{
@@ -313,6 +325,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
               candidate.("hc-1", "The Way of Kings", "2010-08-31"),
               candidate.("hc-2", "Words of Radiance", "2014-03-04")
             ],
+            "local" => local,
             "confidence" => 0.95,
             "query" => "The Way of Kings Brandon Sanderson",
             "query_fields" => %{
@@ -329,10 +342,10 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     item
   end
 
-  defp selected_candidates(html) do
+  defp used_records(html) do
     html
     |> Floki.parse_document!()
-    |> Floki.find("[data-role='candidate'][data-selected='true']")
+    |> Floki.find("[data-role='record'][data-used='true']")
   end
 
   defp probed_item(opts \\ []) do

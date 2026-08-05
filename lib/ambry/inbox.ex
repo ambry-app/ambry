@@ -39,6 +39,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.Lookup
   alias Ambry.Inbox.Progress
   alias Ambry.Inbox.RunDiscovery
   alias Ambry.Inbox.RunMatch
@@ -266,6 +267,31 @@ defmodule Ambry.Inbox do
     |> InboxItem.put_draft(attrs)
     |> Repo.update()
   end
+
+  @doc """
+  How a provider record is referred to: its provider and that provider's id.
+  """
+  defdelegate record_ref(record), to: AutoMatch, as: :ref
+
+  @doc """
+  Fetches the full record behind a thin search hit.
+  """
+  defdelegate hydrate_record(item, level, ref), to: Lookup, as: :hydrate
+
+  @doc """
+  Asks every editions-capable database what recordings a work is known to have.
+  """
+  defdelegate fetch_editions(item, work_refs), to: Lookup, as: :editions
+
+  @doc """
+  Runs an operator-written search and adds whatever it returns.
+  """
+  defdelegate research(item, level, fields), to: Lookup
+
+  @doc """
+  Asks one provider again — the one that was unreachable during matching.
+  """
+  defdelegate retry_provider(item, level, provider_id), to: Lookup
 
   @doc """
   A changeset for the staged import, for the form to render.

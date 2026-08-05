@@ -16,6 +16,7 @@ defmodule Ambry.Inbox.Draft.Work do
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.SeriesLink
+  alias Ambry.Inbox.Draft.SourceRef
 
   @primary_key false
 
@@ -24,19 +25,14 @@ defmodule Ambry.Inbox.Draft.Work do
     field :book_id, :id
     field :approved, :boolean, default: false
 
-    # the ranked work-level candidate list from auto-match, kept whole
-    field :candidates, {:array, :map}, default: []
     field :confidence, :float
     field :query, :string
     field :query_fields, :map, default: %{}
 
-    # WHICH candidate the fields below were filled from. Without it the form
-    # could only ask "is this a new book or an existing one?", so every
-    # provider row rendered as chosen and clicking one changed nothing
-    # visible. Ids are held as strings because a local candidate's is an
-    # integer and a provider's is not.
-    field :selected_source, :string
-    field :selected_id, :string
+    # Which provider records describe this book. The records live on the
+    # item's `matches` because they're evidence; which of them count is a
+    # decision, so it lives here.
+    embeds_many :sources, SourceRef, on_replace: :delete
 
     embeds_one :title, Field, on_replace: :update
     embeds_one :published, Field, on_replace: :update
@@ -49,17 +45,8 @@ defmodule Ambry.Inbox.Draft.Work do
   @doc false
   def changeset(work, attrs) do
     work
-    |> cast(attrs, [
-      :mode,
-      :book_id,
-      :approved,
-      :candidates,
-      :confidence,
-      :query,
-      :query_fields,
-      :selected_source,
-      :selected_id
-    ])
+    |> cast(attrs, [:mode, :book_id, :approved, :confidence, :query, :query_fields])
+    |> cast_embed(:sources)
     |> cast_embed(:title)
     |> cast_embed(:published)
     |> cast_embed(:published_format)
@@ -99,7 +86,9 @@ defmodule Ambry.Inbox.Draft.Work do
   end
 
   defp identity(%__MODULE__{approved: true}), do: []
-  defp identity(%__MODULE__{}), do: [%{section: :work, label: "Which book", state: :unconfirmed}]
+
+  defp identity(%__MODULE__{}),
+    do: [%{section: :work, label: "Whether this is a book you already have", state: :unconfirmed}]
 
   defp unresolved_field(nil, _label), do: []
 
@@ -119,15 +108,8 @@ defmodule Ambry.Inbox.Draft.Work do
   defp state_of(%SeriesLink{} = link), do: SeriesLink.state(link)
 
   @doc """
-  Whether a candidate is the one this work's fields were filled from.
-
-  Exactly one can be, which is the whole point: the candidate list is a
-  question with one right answer, not a set of things that all matched.
+  Whether the operator has said this provider record describes the book.
   """
-  def selected?(%__MODULE__{selected_source: nil}, _candidate), do: false
-
-  def selected?(%__MODULE__{} = work, candidate) do
-    work.selected_source == candidate["source"] and
-      work.selected_id == to_string(candidate["id"])
-  end
+  def uses?(%__MODULE__{sources: sources}, record),
+    do: Enum.any?(sources, &SourceRef.points_at?(&1, record))
 end

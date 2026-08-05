@@ -40,9 +40,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
+  alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.People
+
+  require Logger
 
   @impl Phoenix.LiveView
   def mount(%{"id" => id}, _session, socket) do
@@ -56,6 +59,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(authors: People.authors_for_select(), narrators: People.narrators_for_select())
      |> assign(people: People.people_for_select())
      |> assign(expanded: MapSet.new())
+     |> assign(researching: nil, retrying: nil, enriching: nil)
      |> load(item)}
   end
 
@@ -89,24 +93,56 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.waive_field(&1, atom(section), atom(field)))}
   end
 
-  def handle_event("choose-work", %{"source" => source} = params, socket) do
+  def handle_event("link-book", %{"id" => id}, socket) do
     item = socket.assigns.item
-    {:noreply, edit(socket, &Draft.Edit.choose_work(&1, item, source, params["id"]))}
+    {:noreply, edit(socket, &Draft.Edit.link_book(&1, item, to_int(id)))}
   end
 
-  def handle_event("new-work", _params, socket) do
+  def handle_event("new-book", _params, socket) do
     item = socket.assigns.item
-    {:noreply, edit(socket, &Draft.Edit.choose_new_work(&1, item))}
+    {:noreply, edit(socket, &Draft.Edit.new_book(&1, item))}
   end
 
-  def handle_event("choose-recording", %{"source" => source} = params, socket) do
+  def handle_event("toggle-source", %{"level" => level} = params, socket) do
     item = socket.assigns.item
-    {:noreply, edit(socket, &Draft.Edit.choose_recording(&1, item, source, params["id"]))}
+    ref = {params["source"], to_string(params["id"])}
+
+    case Enum.find(Seed.records(item, level), &(Inbox.record_ref(&1) == ref)) do
+      nil ->
+        {:noreply, socket}
+
+      record ->
+        socket = edit(socket, &Draft.Edit.toggle_source(&1, item, atom(level), record))
+
+        # A record nobody had asked about is a summary. Ticking it is the
+        # moment its description and cover start to matter, so that's when
+        # they're fetched — and when it's a work record, when its editions
+        # become worth asking for.
+        {:noreply, enrich(socket, level, record)}
+    end
   end
 
   def handle_event("uncatalogued", _params, socket) do
     item = socket.assigns.item
-    {:noreply, edit(socket, &Draft.Edit.choose_uncatalogued(&1, item))}
+    {:noreply, edit(socket, &Draft.Edit.uncatalogued(&1, item))}
+  end
+
+  def handle_event("research", %{"level" => level} = params, socket) do
+    item = socket.assigns.item
+
+    {:noreply,
+     socket
+     |> assign(researching: level)
+     |> start_async({:research, level}, fn -> Inbox.research(item, level, params) end)}
+  end
+
+  def handle_event("retry-provider", %{"level" => level, "provider" => provider}, socket) do
+    item = socket.assigns.item
+
+    {:noreply,
+     socket
+     |> assign(retrying: provider)
+     |> start_async({:retry, level}, fn -> Inbox.retry_provider(item, level, provider) end)}
   end
 
   def handle_event("credit-change", %{"section" => section, "index" => i} = params, socket) do
@@ -252,6 +288,69 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      socket
      |> put_flash(:info, "Dismissed. Files untouched.")
      |> push_navigate(to: ~p"/admin/inbox")}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_async({:research, _level}, {:ok, {:ok, item}}, socket) do
+    {:noreply, socket |> assign(researching: nil) |> load(item) |> resettle()}
+  end
+
+  def handle_async({:retry, _level}, {:ok, {:ok, item}}, socket) do
+    {:noreply, socket |> assign(retrying: nil) |> load(item) |> resettle()}
+  end
+
+  def handle_async({:enrich, _ref}, {:ok, {:ok, item}}, socket) do
+    {:noreply, socket |> assign(enriching: nil) |> load(item) |> resettle()}
+  end
+
+  # A provider being unreachable at this moment is a thing to report, not a
+  # thing to crash on — the operator is mid-edit and the rest of the form is
+  # still perfectly usable.
+  def handle_async(_name, result, socket) do
+    Logger.warning(fn -> "Inbox form lookup failed: #{inspect(result)}" end)
+
+    {:noreply,
+     socket
+     |> assign(researching: nil, retrying: nil, enriching: nil)
+     |> put_flash(:error, "That provider couldn't be reached just now.")}
+  end
+
+  # New evidence has arrived; the ticked records may now say more than they
+  # did. Re-deriving is what turns a freshly hydrated record into chips.
+  defp resettle(socket) do
+    item = socket.assigns.item
+
+    case Inbox.update_draft(item, Inbox.dump_draft(Draft.Edit.resettle(item.draft, item))) do
+      {:ok, item} -> load(socket, item)
+      {:error, _changeset} -> socket
+    end
+  end
+
+  # Ticking a thin record is the moment its details start to matter; ticking a
+  # work record is the moment its editions do.
+  defp enrich(socket, level, record) do
+    item = socket.assigns.item
+    ref = Inbox.record_ref(record)
+
+    cond do
+      !record["hydrated"] and Draft.Edit.uses?(socket.assigns.item.draft, atom(level), record) ->
+        socket
+        |> assign(enriching: ref)
+        |> start_async({:enrich, ref}, fn ->
+          with {:ok, item} <- Inbox.hydrate_record(item, level, ref),
+               "work" <- level do
+            Inbox.fetch_editions(item, [ref])
+          end
+        end)
+
+      level == "work" and Draft.Edit.uses?(socket.assigns.item.draft, :work, record) ->
+        socket
+        |> assign(enriching: ref)
+        |> start_async({:enrich, ref}, fn -> Inbox.fetch_editions(item, [ref]) end)
+
+      true ->
+        socket
+    end
   end
 
   defp edit(socket, fun) do
@@ -404,7 +503,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def doubt_message(%Recording{doubt: :low_confidence, doubt_detail: detail}), do: detail
 
-  def doubt_message(%Recording{doubt: :nothing_found, candidates: []}),
+  def doubt_message(%Recording{doubt: :nothing_found}),
     do:
       "No provider had a recording matching this. That is common and not a problem — " <>
         "a delisted edition vanishes from Audible's search and from ASIN lookup alike. " <>
@@ -426,8 +525,11 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def provider_outcomes(_item, _level), do: []
 
-  @doc "The candidate a decision's fields were filled from, if any."
-  defdelegate selected_candidate(decision), to: Ambry.Inbox.Draft.Seed
+  @doc "The provider records found for a level."
+  defdelegate records(item, level), to: Seed
+
+  @doc "Existing Books this release might be another edition of."
+  defdelegate local_records(item, level), to: Seed
 
   @doc """
   How many decisions the bulk button would settle, so its label can say.

@@ -21,6 +21,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
+  alias Ambry.Inbox.Draft.SourceRef
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
 
@@ -39,93 +40,118 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   @doc """
-  Settles which Book this is, and fills the work's fields from that answer.
+  Settles that this release is an edition of a Book already in the library.
 
-  Choosing used to only flip `mode`, which is why every provider row rendered
-  as chosen and clicking one appeared to do nothing: the fields had been
-  seeded from the top hit at build time and no later choice could move them.
-  A release is a recording of exactly one work, so picking a different
-  candidate has to change what the book will say.
+  Nothing is created: the book's title, date and authors stay exactly as they
+  are, and only the *additive* proposals — a series it isn't in yet — remain
+  to decide. This is what stops a second recording of a work splitting the
+  library in two, which is why it's the first question the form asks.
   """
-  def choose_work(draft, %InboxItem{} = item, source, id) do
-    case find_candidate(draft.work.candidates, source, id) do
-      nil ->
-        draft
+  def link_book(draft, %InboxItem{} = item, book_id) do
+    draft
+    |> update_in([Access.key(:work)], &%{&1 | mode: :link, book_id: book_id, approved: true})
+    |> reseed(item)
+  end
 
-      candidate ->
-        # Clicking the row that's already chosen is a confirmation, not a
-        # change — re-seeding there would silently discard every credit and
-        # series the operator has settled since.
-        if Work.selected?(draft.work, candidate) do
-          update_in(draft.work, &%{&1 | approved: true})
+  @doc """
+  Settles that this is a book the library doesn't have yet.
+
+  Not a separate answer from "import this provider record" — importing a
+  record IS creating a book. This is the answer to "is it one you already
+  have", and it's no.
+  """
+  def new_book(draft, %InboxItem{} = item) do
+    draft
+    |> update_in([Access.key(:work)], &%{&1 | mode: :create, book_id: nil, approved: true})
+    |> reseed(item)
+  end
+
+  @doc """
+  Adds or removes a provider record from those describing this import.
+
+  Records are evidence, not identities: Hardcover and rreading-glasses both
+  having a record of one book is the normal case, and each knows things the
+  other doesn't. Ticking both is how the description comes from one and the
+  cover from the other.
+  """
+  def toggle_source(draft, %InboxItem{} = item, level, record) do
+    draft
+    |> update_in([Access.key(level)], fn decision ->
+      sources =
+        if Enum.any?(decision.sources, &SourceRef.points_at?(&1, record)) do
+          Enum.reject(decision.sources, &SourceRef.points_at?(&1, record))
         else
-          update_in(draft.work, &Seed.reseed_work(&1, candidate, hints(item), tags(item)))
+          decision.sources ++ [SourceRef.of(record)]
         end
-    end
-  end
 
-  @doc """
-  Settles the work as a book nothing matched, described by the file alone.
-  """
-  def choose_new_work(draft, %InboxItem{} = item) do
-    update_in(draft.work, &Seed.reseed_new_work(&1, hints(item), tags(item)))
-  end
-
-  @doc """
-  Settles which catalogued recording this release is.
-
-  Because a recording is a recording of exactly one work, a candidate that
-  came out of a work's own edition list answers the book question too — so
-  choosing it settles the work rather than asking again.
-  """
-  def choose_recording(draft, %InboxItem{} = item, source, id) do
-    case find_candidate(draft.recording.candidates, source, id) do
-      nil ->
-        draft
-
-      candidate ->
-        draft
-        |> update_in([Access.key(:recording)], fn recording ->
-          if Recording.selected?(recording, candidate),
-            do: %{recording | approved: true, doubt: :none, doubt_detail: nil},
-            else: Seed.reseed_recording(recording, candidate, work_chain(draft), tags(item), item)
-        end)
-        |> follow_work(item, candidate)
-    end
-  end
-
-  @doc """
-  Settles the recording as one no catalogue lists.
-
-  A real answer, not a failure: a delisted edition disappears from Audible's
-  search *and* from direct ASIN lookup, so plenty of perfectly good rips are
-  in no storefront at all.
-  """
-  def choose_uncatalogued(draft, %InboxItem{} = item) do
-    update_in(draft.recording, &Seed.reseed_uncatalogued(&1, work_chain(draft), tags(item), item))
-  end
-
-  # The chosen book's sources, which get a say in the recording's descriptive
-  # fields.
-  defp work_chain(draft), do: draft.work |> Seed.selected_candidate() |> Seed.chain()
-
-  defp follow_work(draft, item, %{"of_work" => %{"source" => source, "id" => id}})
-       when is_binary(source) do
-    if Work.selected?(draft.work, %{"source" => source, "id" => id}),
-      do: draft,
-      else: choose_work(draft, item, source, id)
-  end
-
-  defp follow_work(draft, _item, _candidate), do: draft
-
-  defp find_candidate(candidates, source, id) do
-    Enum.find(candidates, fn candidate ->
-      candidate["source"] == source and to_string(candidate["id"]) == to_string(id)
+      settle(%{decision | sources: sources}, level)
     end)
+    |> follow_work(item, level, record)
+    |> reseed(item)
   end
 
-  defp hints(%InboxItem{} = item), do: AutoMatch.hints(item)
-  defp tags(%InboxItem{tags: tags}), do: tags || %{}
+  @doc """
+  Settles the recording as one no catalogue lists, described by the file alone.
+
+  A real answer rather than a failure: a delisted edition disappears from
+  Audible's search *and* from direct ASIN lookup, so plenty of perfectly good
+  rips are in no storefront at all.
+  """
+  def uncatalogued(draft, %InboxItem{} = item) do
+    draft
+    |> update_in([Access.key(:recording)], fn recording ->
+      %{recording | sources: [], approved: true, doubt: :none, doubt_detail: nil}
+    end)
+    |> reseed(item)
+  end
+
+  # Ticking a record answers the question the level was asking, and a doubt
+  # the operator has now overruled stops being a doubt.
+  defp settle(decision, :recording),
+    do: %{decision | approved: true, doubt: :none, doubt_detail: nil}
+
+  defp settle(decision, :work), do: decision
+
+  # A recording is a recording of exactly one work, so an edition record that
+  # came out of a work's own list carries that work with it — ticking the
+  # edition ticks the work rather than asking the same question twice.
+  defp follow_work(draft, item, :recording, %{"of_work" => %{"source" => source, "id" => id}})
+       when is_binary(source) do
+    record = Enum.find(records(item, "work"), &(AutoMatch.ref(&1) == {source, to_string(id)}))
+
+    cond do
+      is_nil(record) -> draft
+      Work.uses?(draft.work, record) -> draft
+      true -> update_in(draft.work.sources, &(&1 ++ [SourceRef.of(record)]))
+    end
+  end
+
+  defp follow_work(draft, _item, _level, _record), do: draft
+
+  @doc """
+  Re-derives every field from the currently ticked records.
+
+  Called after new evidence arrives — a hydrated record, fresh search results
+  — because a record that was a summary when it was ticked may now have a
+  description and a cover to offer.
+  """
+  def resettle(draft, item), do: reseed(draft, item)
+
+  @doc """
+  Whether a level currently counts this record.
+  """
+  def uses?(draft, :work, record), do: Work.uses?(draft.work, record)
+  def uses?(draft, :recording, record), do: Recording.uses?(draft.recording, record)
+
+  # Fields are derived from whichever records are ticked, so every change to
+  # the ticked set re-derives them. Typed values survive.
+  defp reseed(draft, item) do
+    work = Seed.reseed_work(draft.work, item)
+
+    %{draft | work: work, recording: Seed.reseed_recording(draft.recording, work, item)}
+  end
+
+  defp records(item, level), do: Seed.records(item, level)
 
   @doc """
   Points a credit at an identity that already exists.
