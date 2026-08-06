@@ -39,6 +39,7 @@ defmodule Ambry.Inbox.Draft do
   import Ecto.Changeset
 
   alias Ambry.Inbox.Draft.Destination
+  alias Ambry.Inbox.Draft.PersonRef
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Work
 
@@ -112,6 +113,30 @@ defmodule Ambry.Inbox.Draft do
   Whether this draft can be imported.
   """
   def resolved?(draft), do: unresolved(draft) == []
+
+  @doc """
+  Which credits each pending person is behind, keyed by `PersonRef.key/1`.
+
+  Almost always one, and the interesting answer is two: an author who reads
+  their own book is one human with an Author identity and a Narrator identity,
+  and the two credits proposing to create them have no idea about each other.
+  Approval already resolves them to one Person — this is what lets the form
+  *say* so before the operator presses import, which is the difference between
+  a sensible default and a surprise.
+  """
+  def sharing(nil), do: %{}
+
+  def sharing(%__MODULE__{} = draft) do
+    (tagged(draft.work && draft.work.authors, :author) ++
+       tagged(draft.recording && draft.recording.narrators, :narrator))
+    |> Enum.filter(fn {_kind, credit} -> credit.mode == :create end)
+    |> Enum.flat_map(fn {kind, credit} -> Enum.map(credit.people, &{PersonRef.key(&1), kind}) end)
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+    |> Map.new(fn {key, kinds} -> {key, Enum.uniq(kinds)} end)
+  end
+
+  defp tagged(nil, _kind), do: []
+  defp tagged(credits, kind), do: Enum.map(credits, &{kind, &1})
 
   @doc """
   How far along the operator is, for the queue and the form header.

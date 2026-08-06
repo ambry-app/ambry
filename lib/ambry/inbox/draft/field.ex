@@ -100,17 +100,84 @@ defmodule Ambry.Inbox.Draft.Field do
   """
   def choose(%__MODULE__{} = field, key) do
     case Enum.find(field.candidates, &(&1.key == key)) do
-      nil ->
-        field
+      nil -> field
+      candidate -> take(field, candidate)
+    end
+  end
 
-      candidate ->
-        %{
-          field
-          | value: candidate.value,
-            source: candidate.source,
-            chosen_key: candidate.key,
-            approved: true
-        }
+  @doc """
+  Settles the field on a proposal.
+
+  The one place a candidate becomes a field's value, because keeping it in one
+  place is the only thing that works: hand-rolled versions of these four
+  assignments in the seeder and in `Draft.Edit` have each forgotten
+  `chosen_key` at least once, and a value whose candidate the field can't name
+  renders as a filled box with no chip highlighted — settled to the model,
+  unsettled to the eye.
+  """
+  def take(%__MODULE__{} = field, %Candidate{} = candidate) do
+    %{
+      field
+      | value: candidate.value,
+        source: candidate.source,
+        chosen_key: candidate.key,
+        approved: true
+    }
+  end
+
+  @doc """
+  Aligns a display-format field with the date it describes.
+
+  The format is not an opinion of its own — it says how much of the date is
+  real — so it is never a question the operator should be left holding while
+  the date beside it is already settled. Two rules, and the order between them
+  is the whole of it:
+
+    * **Most dates answer this themselves.** Year-only knowledge arrives as a
+      literal January 1st and month-only knowledge as the 1st of the month, so
+      an imprecise date always lands on a 1st. Any other day is a full date,
+      and a proposal saying otherwise is not about this value — nothing
+      records October 3rd to mean "2017". So the date outranks the records
+      here, which it does nowhere else in the form.
+    * **A date on a 1st is genuinely ambiguous**, and takes the format from
+      whichever record won the date. Matched on the candidate **key**, because
+      source can't do this job: two records from one provider share a source,
+      and proposals that agree are collapsed to a single one carrying a single
+      source, so matching by source finds the wrong proposal or — far more
+      often — none at all. That was this rule quietly not running.
+
+  Only ever fills a format nobody has settled. An approved format was settled
+  by the seeder or chosen by the operator, and re-deriving over the top of
+  either is the curation-outranks-re-derivation rule broken.
+  """
+  def follow_date(%__MODULE__{approved: true} = format, _date), do: format
+
+  def follow_date(%__MODULE__{} = format, %__MODULE__{approved: true} = date) do
+    case date(date) do
+      %Date{day: day} when day != 1 -> full(format)
+      _ambiguous_or_unparseable -> follow_proposal(format, date)
+    end
+  end
+
+  def follow_date(%__MODULE__{} = format, _date), do: format
+
+  defp follow_proposal(format, date) do
+    candidate =
+      Enum.find(format.candidates, &(is_binary(date.chosen_key) and &1.key == date.chosen_key)) ||
+        Enum.find(format.candidates, &(is_binary(date.source) and &1.source == date.source))
+
+    case candidate do
+      %Candidate{} = candidate -> take(format, candidate)
+      nil -> format
+    end
+  end
+
+  # Points the chip at the record that said so where one did, so the operator
+  # sees an answer with a provider behind it rather than a bare value.
+  defp full(format) do
+    case Enum.find(format.candidates, &(&1.value == "full")) do
+      %Candidate{} = candidate -> take(format, candidate)
+      nil -> %{format | value: "full", source: "date", chosen_key: "date", approved: true}
     end
   end
 

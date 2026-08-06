@@ -726,6 +726,124 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  # The display format says how much of the date is real, so it is never a
+  # question the operator should be left holding while the date beside it is
+  # settled. It was matched to the date by *source*, which two records from one
+  # provider make ambiguous and which collapsing agreeing proposals makes
+  # unfindable — so the rule routinely did nothing at all.
+  describe "the date's display format" do
+    test "settles as full when the settled date can only be a full one" do
+      # the reported bug: the records disagree about the format, so the field
+      # was left reported as undecided beside a date that had plainly already
+      # decided it — October 3rd is not a year in disguise
+      candidates = [
+        provider_candidate(%{
+          "id" => "a",
+          "published" => "2017-10-03",
+          "published_format" => "year"
+        }),
+        provider_candidate(%{
+          "source" => "provider:rreading_glasses",
+          "id" => "rg-1",
+          "published" => "2017-10-03",
+          "published_format" => "full",
+          "score" => 0.94
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert draft.work.published.value == "2017-10-03"
+      assert draft.work.published_format.value == "full"
+      assert draft.work.published_format.approved
+    end
+
+    test "takes the winning record's format when the date lands on a 1st" do
+      # year-only knowledge arrives as a literal Jan 1st and month-only as the
+      # 1st of the month, so a date on a 1st really is undecidable by itself
+      # and the derivation must not overrule the record that proposed it
+      candidates = [
+        provider_candidate(%{
+          "id" => "a",
+          "published" => "2017-01-01",
+          "published_format" => "year"
+        }),
+        provider_candidate(%{
+          "source" => "provider:rreading_glasses",
+          "id" => "rg-1",
+          "published" => "2017-01-01",
+          "published_format" => "full",
+          "score" => 0.94
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert draft.work.published.value == "2017-01-01"
+      assert draft.work.published_format.value == "year"
+    end
+
+    test "an auto-settled format highlights the chip it took" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      assert [chip] = draft.work.published_format.candidates
+      assert Draft.Field.chose?(draft.work.published_format, chip)
+    end
+
+    test "follows a date the operator picks by hand" do
+      # two years apart, so the date can't settle itself and the operator has
+      # to choose — at which point the format has to follow, and only the
+      # seeder knew how to do that
+      candidates = [
+        provider_candidate(%{
+          "id" => "a",
+          "published" => "2016-01-01",
+          "published_format" => "year"
+        }),
+        provider_candidate(%{
+          "id" => "b",
+          "published" => "2017-10-03",
+          "published_format" => "full",
+          "score" => 0.94
+        })
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      refute item.draft.work.published.approved
+
+      [_first, second] = item.draft.work.published.candidates
+      draft = Draft.Edit.choose_field(item.draft, :work, :published, second.key)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert item.draft.work.published.value == "2017-10-03"
+      assert item.draft.work.published_format.value == "full"
+      assert item.draft.work.published_format.approved
+    end
+
+    test "never overrules a format the operator settled themselves" do
+      candidates = [
+        provider_candidate(%{"published" => "2017-10-03", "published_format" => "full"})
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        update_in(
+          item.draft,
+          [Access.key(:work), Access.key(:published_format)],
+          &Draft.Field.edit(&1, "year")
+        )
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert item.draft.work.published_format.value == "year"
+      assert item.draft.work.published_format.source == "manual"
+    end
+  end
+
   describe "mixing sources" do
     # Two databases agreeing on WHICH recording this is do not agree on
     # everything about it. Collapsing them to a winner left the operator

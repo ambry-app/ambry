@@ -44,6 +44,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.People
+  alias Ambry.Provenance
 
   require Logger
 
@@ -60,6 +61,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(people: People.people_for_select())
      |> assign(expanded: MapSet.new())
      |> assign(researching: nil, retrying: nil, enriching: nil, picker: nil)
+     # What the person search turned up, keyed by the credit and person it was
+     # run for. Evidence about a human rather than a decision about this
+     # import, and nothing outlives the page — so assigns, not the draft.
+     |> assign(person_bios: %{})
      |> load(item)}
   end
 
@@ -72,6 +77,15 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   """
   def expanded?(expanded, section, index, credit) do
     MapSet.member?(expanded, {section, index}) or not Credit.simple?(credit)
+  end
+
+  @doc """
+  The bios found for each person behind one credit, by their position in it.
+  """
+  def bios_for(person_bios, section, index) do
+    for {{s, i, person}, bios} <- person_bios, s == section, i == index, into: %{} do
+      {person, bios}
+    end
   end
 
   @impl Phoenix.LiveView
@@ -192,6 +206,46 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def handle_event("close-picker", _params, socket), do: {:noreply, assign(socket, picker: nil)}
+
+  def handle_event("pick-person-bio", params, socket) do
+    %{"section" => section, "index" => index, "person" => person} = params
+    key = {section, to_int(index), to_int(person)}
+
+    case Enum.find(Map.get(socket.assigns.person_bios, key, []), &(&1.id == params["bio"])) do
+      nil ->
+        {:noreply, socket}
+
+      bio ->
+        {:noreply,
+         edit(
+           socket,
+           &Draft.Edit.set_person_bio(
+             &1,
+             atom(section),
+             to_int(index),
+             to_int(person),
+             bio.description,
+             Provenance.provider_source(bio.provider_id)
+           )
+         )}
+    end
+  end
+
+  def handle_event("person-distinct", params, socket) do
+    %{"section" => section, "index" => index, "person" => person} = params
+
+    {:noreply,
+     edit(
+       socket,
+       &Draft.Edit.set_person_distinct(
+         &1,
+         atom(section),
+         to_int(index),
+         to_int(person),
+         params["distinct"] == "true"
+       )
+     )}
+  end
 
   def handle_event("add-person", %{"section" => section, "index" => i}, socket) do
     {:noreply, edit(socket, &Draft.Edit.add_person(&1, atom(section), to_int(i)))}
@@ -325,20 +379,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      )}
   end
 
-  def handle_info({:person_bio_picked, context, description, source}, socket) do
+  # Arrives while the operator is looking at the photo grid, provider by
+  # provider, and is kept for the row rather than the modal — so choosing a
+  # photo and choosing a bio stop being the same click twice over.
+  def handle_info({:person_bios_found, context, bios}, socket) do
+    key = {context.section, context.index, context.person}
+
     {:noreply,
-     socket
-     |> assign(picker: nil)
-     |> edit(
-       &Draft.Edit.set_person_bio(
-         &1,
-         atom(context.section),
-         context.index,
-         context.person,
-         description,
-         source
-       )
-     )}
+     update(socket, :person_bios, fn found ->
+       Map.update(found, key, bios, &Enum.uniq_by(&1 ++ bios, fn bio -> bio.description end))
+     end)}
   end
 
   @impl Phoenix.LiveView
@@ -425,6 +475,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),
+      # Which pending people are behind more than one credit — a self-narrated
+      # book is one human, and the credits can't see each other.
+      sharing: Draft.sharing(item.draft),
       destination: Inbox.destination_preflight(item),
       # Matching retries with a backoff measured in minutes, so an item can be
       # legitimately mid-work while the form looks like nothing was found.

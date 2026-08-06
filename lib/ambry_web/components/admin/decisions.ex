@@ -444,6 +444,9 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :reveal, :string, required: true, doc: ~s(the unfold link — "This is a pen name")
   attr :backing, :string, required: true, doc: ~s(the unfolded label — "Pen name of")
   attr :expanded, :boolean, required: true
+  attr :kind, :atom, required: true, doc: ":author or :narrator"
+  attr :sharing, :map, default: %{}, doc: "PersonRef key => the credits behind it"
+  attr :bios, :map, default: %{}, doc: "person index => bios the picker found"
 
   @doc """
   One credit, resolved to an identity.
@@ -566,6 +569,9 @@ defmodule AmbryWeb.Admin.Decisions do
         section={@section}
         index={@index}
         person_index={0}
+        kind={@kind}
+        sharing={@sharing}
+        bios={@bios[0]}
       />
 
       <%!-- Folded away until it matters, and unfolded automatically the moment
@@ -635,6 +641,9 @@ defmodule AmbryWeb.Admin.Decisions do
             section={@section}
             index={@index}
             person_index={person_index}
+            kind={@kind}
+            sharing={@sharing}
+            bios={@bios[person_index]}
           />
         </div>
 
@@ -664,6 +673,9 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :section, :string, required: true
   attr :index, :integer, required: true
   attr :person_index, :integer, required: true
+  attr :kind, :atom, required: true, doc: "which credit this row hangs off"
+  attr :sharing, :map, default: %{}, doc: "PersonRef key => the credits behind it"
+  attr :bios, :any, default: nil, doc: "bios the picker found for this person, or nil"
 
   @doc """
   The face and bio a new person will be created with.
@@ -672,44 +684,127 @@ defmodule AmbryWeb.Admin.Decisions do
   entity, and a person with no face is unfinished — every credit imported
   without one was a trip to the person form afterwards.
 
-  Shown circular, because that is the frame it will appear in and the whole
-  reason the picker offers alternatives at all.
+  ## A photo is picked by looking; a bio is picked by reading
+
+  They are two different decisions and they were sharing one modal, which
+  meant picking a photo dismissed the bios and picking a bio meant opening the
+  thing again. So only the photo — the decision that genuinely needs a grid of
+  alternatives at display size, in the circular frame — opens anything. The
+  bios come back from the same search and land here as chips, exactly the way
+  a description's proposals do on a decision row, and picking one opens and
+  closes nothing.
   """
   def person_face(assigns) do
     ~H"""
-    <div :if={is_nil(@person.person_id)} class="flex items-center gap-2" data-role="person-face">
-      <.image_with_size
-        :if={@person.image_url}
-        id={"person-#{@section}-#{@index}-#{@person_index}-photo"}
-        src={proxied_remote_image_url(@person.image_url)}
-        class="h-12 w-12 flex-none rounded-full object-cover object-top"
-      />
+    <div :if={is_nil(@person.person_id)} class="space-y-1" data-role="person-face">
+      <div class="flex items-center gap-2">
+        <.image_with_size
+          :if={@person.image_url}
+          id={"person-#{@section}-#{@index}-#{@person_index}-photo"}
+          src={proxied_remote_image_url(@person.image_url)}
+          class="h-12 w-12 flex-none rounded-full object-cover object-top"
+        />
 
-      <span
-        :if={is_nil(@person.image_url)}
-        class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-700"
-      />
+        <span
+          :if={is_nil(@person.image_url)}
+          class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-700"
+        />
 
-      <button
-        type="button"
-        phx-click="find-person-images"
-        phx-value-section={@section}
-        phx-value-index={@index}
-        phx-value-person={@person_index}
-        disabled={blank_name?(@person, @fallback_name)}
-        class="flex-none rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
-      >
-        {if @person.image_url || @person.description,
-          do: "Change photo or bio…",
-          else: "Find a photo and bio…"}
-      </button>
+        <button
+          type="button"
+          phx-click="find-person-images"
+          phx-value-section={@section}
+          phx-value-index={@index}
+          phx-value-person={@person_index}
+          disabled={blank_name?(@person, @fallback_name)}
+          class="flex-none rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
+        >
+          {if @person.image_url || @person.description,
+            do: "Change photo or bio…",
+            else: "Find a photo and bio…"}
+        </button>
 
-      <p :if={@person.description} class="line-clamp-2 min-w-0 text-xs dark:text-zinc-500">
-        {@person.description}
+        <p :if={@person.description} class="line-clamp-2 min-w-0 text-xs dark:text-zinc-500">
+          {@person.description}
+        </p>
+      </div>
+
+      <%!-- The same human on two credits: an author reading their own book.
+            Approval creates them once; this is where the form says so, on the
+            row that would otherwise look like it was about to make a second
+            person of the same name. --%>
+      <p :if={shared_with(@sharing, @person, @kind)} class="text-xs italic dark:text-zinc-500">
+        Same person as the {shared_with(@sharing, @person, @kind)} — one {@person.name || @fallback_name} will be created.
+        <button
+          type="button"
+          phx-click="person-distinct"
+          phx-value-section={@section}
+          phx-value-index={@index}
+          phx-value-person={@person_index}
+          phx-value-distinct="true"
+          class="underline"
+        >
+          Not the same person?
+        </button>
       </p>
+
+      <p :if={@person.distinct} class="text-xs italic dark:text-zinc-500">
+        A different person who happens to share the name.
+        <button
+          type="button"
+          phx-click="person-distinct"
+          phx-value-section={@section}
+          phx-value-index={@index}
+          phx-value-person={@person_index}
+          phx-value-distinct="false"
+          class="underline"
+        >
+          Undo
+        </button>
+      </p>
+
+      <div :if={@bios not in [nil, []]} class="flex flex-wrap items-center gap-2 pt-1">
+        <span class="text-xs dark:text-zinc-500">Bio:</span>
+
+        <button
+          :for={bio <- @bios}
+          type="button"
+          phx-click="pick-person-bio"
+          phx-value-section={@section}
+          phx-value-index={@index}
+          phx-value-person={@person_index}
+          phx-value-provider={bio.provider_id}
+          phx-value-bio={bio.id}
+          title={bio.description}
+          class={[
+            "max-w-full rounded-sm border px-2 py-1 text-left text-xs",
+            if(@person.description == bio.description,
+              do: "border-brand dark:border-brand-dark",
+              else: "border-zinc-300 dark:border-zinc-700"
+            )
+          ]}
+        >
+          <span class="dark:text-zinc-500">{bio.provider_name}:</span>
+          <span class="line-clamp-1">{truncate(bio.description)}</span>
+        </button>
+      </div>
     </div>
     """
   end
+
+  # Which *other* credit the same human is behind, in the words the row needs.
+  defp shared_with(sharing, %PersonRef{distinct: false} = person, kind) do
+    sharing
+    |> Map.get(PersonRef.key(person), [])
+    |> List.delete(kind)
+    |> case do
+      [:author] -> "author"
+      [:narrator] -> "narrator"
+      _only_this_one -> nil
+    end
+  end
+
+  defp shared_with(_sharing, %PersonRef{}, _kind), do: nil
 
   attr :link, SeriesLink, required: true
   attr :index, :integer, required: true
@@ -834,6 +929,7 @@ defmodule AmbryWeb.Admin.Decisions do
   def source_words("release_name"), do: "the release name"
   def source_words("embedded"), do: "the file's embedded art"
   def source_words("default"), do: "the default"
+  def source_words("date"), do: "the date itself"
   def source_words("local"), do: "the library"
   def source_words("provider:" <> id), do: id
   def source_words(other), do: other

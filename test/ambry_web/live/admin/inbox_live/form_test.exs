@@ -7,6 +7,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Metadata.PersonSearch
   alias Ambry.Repo
 
   setup :register_and_log_in_admin_user
@@ -205,6 +206,30 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert Enum.map(author.people, & &1.name) |> Enum.sort() == ["Daniel Abraham", "Ty Franck"]
     end
 
+    # Reachable from the DEFAULT state, not after unfolding: a self-narrated
+    # import is the ordinary case, and a note explaining what is about to
+    # happen is no use inside a control nobody would open.
+    test "a self-narrated book says it will create one person", %{conn: conn} do
+      item = probed_item(narrator: "Brandon Sanderson")
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "Same person as the author"
+
+      # and the escape hatch is right there when two humans really do share a
+      # name
+      html =
+        view
+        |> element(
+          ~s{button[phx-click='person-distinct'][phx-value-section='recording'][phx-value-distinct='true']}
+        )
+        |> render_click()
+
+      assert html =~ "A different person who happens to share the name"
+      assert [%{people: [person]}] = Inbox.get_item!(item.id).draft.recording.narrators
+      assert person.distinct
+    end
+
     test "an existing identity is linked rather than duplicated", %{conn: conn} do
       author = insert(:author, name: "Brandon Sanderson")
       item = probed_item()
@@ -353,7 +378,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
              |> length() >= 2
     end
 
-    test "a picked photo and bio are staged on the person", %{conn: conn} do
+    test "a picked photo is staged on the person", %{conn: conn} do
       item = probed_item()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
@@ -364,18 +389,48 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
          "https://example.test/face.jpg", "provider:tmdb"}
       )
 
-      send(
-        view.pid,
-        {:person_bio_picked, %{section: "work", index: 0, person: 0}, "A bio.",
-         "provider:wikidata"}
-      )
-
       render(view)
 
       assert [%{people: [person]}] = Inbox.get_item!(item.id).draft.work.authors
       assert person.image_url == "https://example.test/face.jpg"
       assert person.image_source == "provider:tmdb"
-      assert person.description == "A bio."
+    end
+
+    # A photo is picked by looking and a bio by reading. Sharing one modal
+    # meant each dismissed the other, so the bios come back to the row as
+    # chips and picking one opens and closes nothing.
+    test "bios land on the credit row and are picked without a modal", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      send(
+        view.pid,
+        {:person_bios_found, %{section: "work", index: 0, person: 0},
+         [
+           %PersonSearch.Match{
+             provider_id: "wikidata",
+             provider_name: "Wikidata",
+             id: "Q1",
+             name: "Brandon Sanderson",
+             description: "An American author of epic fantasy."
+           }
+         ]}
+      )
+
+      html = render(view)
+
+      assert html =~ "An American author of epic fantasy."
+      refute html =~ "A photo for"
+
+      view
+      |> element(
+        ~s{button[phx-click='pick-person-bio'][phx-value-section='work'][phx-value-bio='Q1']}
+      )
+      |> render_click()
+
+      assert [%{people: [person]}] = Inbox.get_item!(item.id).draft.work.authors
+      assert person.description == "An American author of epic fantasy."
       assert person.description_source == "provider:wikidata"
     end
   end
@@ -568,7 +623,11 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     File.mkdir_p!(release)
 
     File.cp!(
-      tagged_fixture(Keyword.get(opts, :dated, true), Keyword.get(opts, :cover_art, false)),
+      tagged_fixture(
+        Keyword.get(opts, :dated, true),
+        Keyword.get(opts, :cover_art, false),
+        Keyword.get(opts, :narrator)
+      ),
       Path.join(release, "book.m4b")
     )
 
@@ -579,7 +638,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     item
   end
 
-  defp tagged_fixture(dated?, cover_art?) do
+  defp tagged_fixture(dated?, cover_art?, narrator) do
     dir = Ambry.Paths.source_media_disk_path("tagged-#{Ecto.UUID.generate()}")
     File.mkdir_p!(dir)
     path = Path.join(dir, "tagged.m4b")
@@ -599,7 +658,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
           "-metadata",
           "artist=Brandon Sanderson",
           "-metadata",
-          "composer=Michael Kramer, Kate Reading"
+          "composer=#{narrator || "Michael Kramer, Kate Reading"}"
         ] ++
           if(dated?, do: ["-metadata", "date=2010-08-31"], else: []) ++
           [path]

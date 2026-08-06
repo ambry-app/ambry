@@ -292,6 +292,19 @@ defmodule Ambry.Inbox.Draft.Edit do
     end)
   end
 
+  @doc """
+  Says whether an identically-named person elsewhere in this draft is the same
+  human.
+
+  The default is that they are, because an author reading their own book is
+  the ordinary reason one name turns up on two credits and two humans of one
+  name on a single audiobook is not. Saying otherwise is the escape hatch, and
+  it counts as curation like every other operator judgement here.
+  """
+  def set_person_distinct(draft, section, index, person_index, distinct?) do
+    update_person(draft, section, index, person_index, &%{&1 | distinct: distinct?})
+  end
+
   defp update_person(draft, section, index, person_index, fun) do
     update_credit(draft, section, index, fn credit ->
       %{credit | curated: true, people: List.update_at(credit.people, person_index, fun)}
@@ -395,7 +408,7 @@ defmodule Ambry.Inbox.Draft.Edit do
     do: %{field | approved: true}
 
   defp settle_if_possible(%Field{candidates: [first | _rest]} = field),
-    do: %{field | value: first.value, source: first.source, approved: true}
+    do: Field.take(field, first)
 
   defp settle_if_possible(%Field{required: false} = field), do: %{field | approved: true}
   defp settle_if_possible(field), do: field
