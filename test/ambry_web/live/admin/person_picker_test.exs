@@ -148,8 +148,10 @@ defmodule AmbryWeb.Admin.PersonPickerTest do
 
     html = render(view)
 
-    # modal closed, form switched to url_import with the picked URL staged
-    refute html =~ "A photo for"
+    # The picker STAYS OPEN: a photo and a bio are two decisions off one
+    # search, and closing on the first made getting both mean running the whole
+    # search again.
+    assert html =~ "A photo for"
 
     assert view |> element("#person-form input[name='person[image_import_url]']") |> render() =~
              "Special:FilePath"

@@ -382,32 +382,20 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp parse_date(_other), do: nil
 
-  # The display format is not an opinion of its own — it says how much of the
-  # date is real, so it belongs to whichever source won the date. Left to
-  # decide itself it would report "sources disagree" on exactly the imports
-  # the rule above just settled: the tag says year, the provider says full.
-  defp follow_date_source(%Field{} = format, %Field{approved: true, source: source})
-       when is_binary(source) do
-    case Enum.find(format.candidates, &(&1.source == source)) do
-      nil -> format
-      winner -> %{format | value: winner.value, source: winner.source, approved: true}
-    end
-  end
-
-  defp follow_date_source(format, _published), do: format
-
   defp published_field(sources, tags) do
     (from_records(sources, "published") ++ [tag_candidate(tags, "published")])
     |> scalar(required: true, equivalence: &same_date?/2, prefer: &more_precise/2)
   end
 
-  # Not derivable from the date: year-only knowledge arrives as a literal
-  # Jan 1st, and rendering that as a real release day is the exact bug the
-  # v1.9.0 punch list fixed for the import forms.
+  # Not derivable from the date *upwards*: year-only knowledge arrives as a
+  # literal Jan 1st, and rendering that as a real release day is the exact bug
+  # the v1.9.0 punch list fixed for the import forms. Derivable downwards,
+  # though — see `Field.follow_date/2`, which is what stops the format sitting
+  # unanswered beside a date that has plainly already answered it.
   defp published_format_field(sources, tags, published) do
     (from_records(sources, "published_format") ++ [tag_candidate(tags, "published_format")])
     |> scalar(required: false)
-    |> follow_date_source(published)
+    |> Field.follow_date(published)
     |> default_to("full")
   end
 
@@ -863,15 +851,7 @@ defmodule Ambry.Inbox.Draft.Seed do
     end
   end
 
-  defp take(field, candidate) do
-    %{
-      field
-      | value: candidate.value,
-        source: candidate.source,
-        chosen_key: candidate.key,
-        approved: true
-    }
-  end
+  defp take(field, candidate), do: Field.take(field, candidate)
 
   # Proposals that mean the same thing become one chip, crediting everybody
   # who said it.

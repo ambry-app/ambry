@@ -115,8 +115,12 @@ defmodule Ambry.Inbox.Approval do
   # deleted and whose record didn't survive.
   defp create(item, file, probe, destination) do
     Repo.transact(fn ->
-      with {:ok, book} <- resolve_book(item.draft.work),
-           {:ok, media} <- create_media(item, book, probe),
+      # People first, and for the whole draft at once: the same human can be
+      # behind two credits, and each credit creating its own left a
+      # self-narrated book with two Person rows of one name.
+      with {:ok, people} <- resolve_people(item.draft),
+           {:ok, book} <- resolve_book(item.draft.work, people),
+           {:ok, media} <- create_media(item, book, probe, people),
            {:ok, _item} <- link(item, media),
            {:ok, media, placement} <- place(destination, book, media, file),
            {:ok, media} <- publish(media) do
@@ -127,20 +131,20 @@ defmodule Ambry.Inbox.Approval do
 
   ## the work
 
-  defp resolve_book(%{mode: :link, book_id: book_id} = work) do
+  defp resolve_book(%{mode: :link, book_id: book_id} = work, _people) do
     case Repo.get(Book, book_id) do
       nil -> {:error, :book_not_found}
       book -> add_series(book, work.series)
     end
   end
 
-  defp resolve_book(%{mode: :create} = work) do
+  defp resolve_book(%{mode: :create} = work, people) do
     Books.create_book(
       %{
         title: Field.value(work.title),
         published: Field.date(work.published),
         published_format: Field.atom(work.published_format, :full),
-        book_authors: author_params(work.authors),
+        book_authors: author_params(work.authors, people),
         series_books: series_params(work.series)
       },
       provenance:
@@ -169,9 +173,9 @@ defmodule Ambry.Inbox.Approval do
     end
   end
 
-  defp author_params(credits) do
+  defp author_params(credits, people) do
     Enum.map(credits, fn credit ->
-      {:ok, author} = resolve_identity(credit)
+      {:ok, author} = resolve_identity(credit, people)
       %{author_id: author.id}
     end)
   end
@@ -193,10 +197,10 @@ defmodule Ambry.Inbox.Approval do
   # The identity is what a credit resolves to — never a Person. Person appears
   # only when creating, and how many of them there are is just the length of
   # the list the operator left behind.
-  defp resolve_identity(%Credit{mode: :link, kind: :author, identity_id: id}),
+  defp resolve_identity(%Credit{mode: :link, kind: :author, identity_id: id}, _people),
     do: {:ok, Repo.get!(Author, id)}
 
-  defp resolve_identity(%Credit{mode: :link, kind: :narrator, identity_id: id}),
+  defp resolve_identity(%Credit{mode: :link, kind: :narrator, identity_id: id}, _people),
     do: {:ok, Repo.get!(Narrator, id)}
 
   # An identity's own changeset only casts its name — identities are normally
@@ -204,10 +208,9 @@ defmodule Ambry.Inbox.Approval do
   # people". So the link rows go in explicitly. Each `AuthorPerson` in the
   # list is one human behind the credit; the list being longer than one is the
   # entire composite-author case.
-  defp resolve_identity(%Credit{mode: :create, kind: :author} = credit) do
-    with {:ok, people} <- resolve_people(credit.people),
-         {:ok, author} <- %Author{} |> Author.changeset(%{name: credit.name}) |> Repo.insert() do
-      Enum.each(people, fn person ->
+  defp resolve_identity(%Credit{mode: :create, kind: :author} = credit, people) do
+    with {:ok, author} <- %Author{} |> Author.changeset(%{name: credit.name}) |> Repo.insert() do
+      Enum.each(behind(credit, people), fn person ->
         Repo.insert!(%AuthorPerson{author_id: author.id, person_id: person.id})
       end)
 
@@ -218,24 +221,50 @@ defmodule Ambry.Inbox.Approval do
   # Narrators stay one-to-one with a Person by design — composite narrator
   # identities aren't a real-world thing — so only the first reference is used
   # and the form caps the control at one.
-  defp resolve_identity(%Credit{mode: :create, kind: :narrator} = credit) do
-    with {:ok, [person | _rest]} <- resolve_people(credit.people) do
-      %Narrator{}
-      |> Narrator.changeset(%{name: credit.name})
-      |> Ecto.Changeset.put_change(:person_id, person.id)
-      |> Repo.insert()
-    end
+  defp resolve_identity(%Credit{mode: :create, kind: :narrator} = credit, people) do
+    [person | _rest] = behind(credit, people)
+
+    %Narrator{}
+    |> Narrator.changeset(%{name: credit.name})
+    |> Ecto.Changeset.put_change(:person_id, person.id)
+    |> Repo.insert()
   end
 
+  defp behind(%Credit{} = credit, people),
+    do: Enum.map(credit.people, &Map.fetch!(people, PersonRef.key(&1)))
+
+  # Every human the draft implies, created once each and looked up by
+  # `PersonRef.key/1`.
+  #
   # A person reference is either somebody already here, or somebody to create
-  # alongside the credit. Creating one is the 1:1 default the form falls back
-  # to; two or more is a shared pen name, and needs no special handling beyond
-  # being a longer list.
-  defp resolve_people(refs) do
-    Enum.reduce_while(refs, {:ok, []}, fn ref, {:ok, acc} ->
+  # alongside the credit. Two or more on one credit is a shared pen name; the
+  # same one on two credits is an author who reads their own work, and that
+  # second case is why this is resolved for the whole draft rather than per
+  # credit — the two credits are independent, the human is not.
+  defp resolve_people(%Draft{} = draft) do
+    draft
+    |> pending_refs()
+    |> Enum.reduce_while({:ok, %{}}, fn {key, ref}, {:ok, resolved} ->
       case resolve_person(ref) do
-        {:ok, person} -> {:cont, {:ok, acc ++ [person]}}
+        {:ok, person} -> {:cont, {:ok, Map.put(resolved, key, person)}}
         {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  # One entry per distinct human, in the order the form lists them, with the
+  # photo and bio folded together across every reference to them.
+  defp pending_refs(%Draft{} = draft) do
+    creating = Enum.filter(draft.work.authors ++ draft.recording.narrators, &(&1.mode == :create))
+
+    creating
+    |> Enum.flat_map(& &1.people)
+    |> Enum.reduce([], fn ref, kept ->
+      key = PersonRef.key(ref)
+
+      case Enum.find_index(kept, fn {held, _ref} -> held == key end) do
+        nil -> kept ++ [{key, ref}]
+        index -> List.update_at(kept, index, fn {k, held} -> {k, PersonRef.merge(held, ref)} end)
       end
     end)
   end
@@ -278,7 +307,7 @@ defmodule Ambry.Inbox.Approval do
 
   ## the recording
 
-  defp create_media(item, book, probe) do
+  defp create_media(item, book, probe, people) do
     recording = item.draft.recording
 
     Media.create_media(
@@ -292,7 +321,7 @@ defmodule Ambry.Inbox.Approval do
         status: :pending,
         duration: probe.duration,
         chapters: probe.chapters,
-        media_narrators: narrator_params(recording.narrators),
+        media_narrators: narrator_params(recording.narrators, people),
         media_tracks: [track_params(probe)],
         title: Field.value(recording.title),
         published: Field.date(recording.published),
@@ -311,9 +340,9 @@ defmodule Ambry.Inbox.Approval do
     )
   end
 
-  defp narrator_params(credits) do
+  defp narrator_params(credits, people) do
     Enum.map(credits, fn credit ->
-      {:ok, narrator} = resolve_identity(credit)
+      {:ok, narrator} = resolve_identity(credit, people)
       %{narrator_id: narrator.id}
     end)
   end

@@ -146,21 +146,25 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     new_params = Map.merge(socket.assigns.form.params, picked)
     changeset = People.change_person(socket.assigns.person, new_params)
 
+    # The picker stays open: a photo and a bio are two decisions off one
+    # search, and closing on the first made getting both mean running the
+    # search twice. It closes when the operator says so.
     {:noreply,
      socket
      |> assign_form(changeset)
-     |> assign(
-       image_picker: false,
-       provenance_hints: Map.merge(socket.assigns.provenance_hints, hints)
-     )}
+     |> assign(provenance_hints: Map.merge(socket.assigns.provenance_hints, hints))}
   end
 
   # A bio is picked the same way a photo is; the person form already knows how
   # to take an imported field, so this rides the existing import path.
   def handle_info({:person_bio_picked, _context, description, source}, socket) do
     send(self(), {:import, %{"person" => %{"description" => description}}, source})
-    {:noreply, assign(socket, image_picker: false)}
+    {:noreply, socket}
   end
+
+  # This surface shows its bios inside the picker, so it has nowhere else to
+  # put them.
+  def handle_info({:person_bios_found, _context, _bios}, socket), do: {:noreply, socket}
 
   def handle_info({:import, %{"person" => person_params}, source}, socket) do
     hints = ProvenanceHints.from_import(person_params, source)

@@ -5,6 +5,7 @@
       module={AmbryWeb.Admin.PersonPicker}
       query={@picker.query}
       context={@picker}
+      bios={false}
     />
   </.modal>
 
@@ -291,6 +292,9 @@
           reveal="This is a pen name"
           backing="Pen name of"
           expanded={expanded?(@expanded, "work", index, credit)}
+          kind={:author}
+          sharing={@sharing}
+          bios={bios_for(@person_bios, "work", index)}
         />
       </div>
 
@@ -484,6 +488,9 @@
           reveal="This is a stage name"
           backing="Stage name of"
           expanded={expanded?(@expanded, "recording", index, credit)}
+          kind={:narrator}
+          sharing={@sharing}
+          bios={bios_for(@person_bios, "recording", index)}
         />
       </div>
     </section>

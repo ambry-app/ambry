@@ -27,6 +27,17 @@ defmodule AmbryWeb.Admin.PersonPicker do
   Bios come from the same fan-out and are picked separately: Wikipedia's lead
   paragraph, TMDB's biography and a book database's author blurb are three
   different texts about one person.
+
+  ## Where the bios are shown is the caller's business
+
+  A photo is picked by *looking* and a bio by *reading*, and putting both in
+  one modal made each one dismiss the other — picking a photo closed the sheet
+  on the bios you hadn't read yet, so getting both meant opening the same
+  search twice. So a caller that has somewhere better to put them says
+  `bios={false}` and takes them from the `{:person_bios_found, context, bios}`
+  message this sends as soon as a provider answers. Everything found while the
+  operator was choosing a photo is theirs to render, whether or not the modal
+  is still open by then.
   """
 
   use AmbryWeb, :live_component
@@ -44,6 +55,7 @@ defmodule AmbryWeb.Admin.PersonPicker do
       socket
       |> assign(assigns)
       |> assign_new(:context, fn -> nil end)
+      |> assign_new(:bios, fn -> true end)
       |> assign(
         providers: providers,
         matches: Map.new(providers, &{&1.id, AsyncResult.loading()})
@@ -108,7 +120,7 @@ defmodule AmbryWeb.Admin.PersonPicker do
             </button>
           </div>
 
-          <div :if={match.description} class="flex items-start gap-3">
+          <div :if={@bios && match.description} class="flex items-start gap-3">
             <button
               type="button"
               phx-click="pick-bio"
@@ -165,6 +177,16 @@ defmodule AmbryWeb.Admin.PersonPicker do
   end
 
   defp put_matches(socket, provider_id, matches) do
+    # Sent whether or not this picker renders them, and as each provider
+    # answers rather than once at the end — a caller showing bios elsewhere
+    # should get the fast provider's straight away rather than waiting on the
+    # slow one, exactly as the grid does.
+    bios = Enum.filter(matches, & &1.description)
+
+    if bios != [] do
+      send(self(), {:person_bios_found, socket.assigns.context, bios})
+    end
+
     assign(
       socket,
       matches: Map.update!(socket.assigns.matches, provider_id, &AsyncResult.ok(&1, matches))

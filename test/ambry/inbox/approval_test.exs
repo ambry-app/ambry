@@ -5,9 +5,11 @@ defmodule Ambry.Inbox.ApprovalTest do
   alias Ambry.Books
   alias Ambry.Books.Book
   alias Ambry.Inbox
+  alias Ambry.Inbox.Draft
   alias Ambry.Media
   alias Ambry.People.Author
   alias Ambry.People.Narrator
+  alias Ambry.People.Person
 
   describe "approve/1" do
     test "creates the whole graph from a tagged file" do
@@ -140,6 +142,67 @@ defmodule Ambry.Inbox.ApprovalTest do
       assert [first | _rest] = media.narrators
       assert Repo.get!(Narrator, first.id).person_id
     end
+
+    # An author reading their own book is one human wearing two hats. The
+    # author credit and the narrator credit have no idea about each other, so
+    # each created its own Person and the library got two Brandon Sandersons —
+    # one with the photo and bio, one without.
+    test "an author who narrates their own book is created once" do
+      item = tagged_item(narrator: "Brandon Sanderson")
+
+      assert {:ok, media} = Inbox.approve_item(item)
+
+      assert [person] = Repo.all(where(Person, name: "Brandon Sanderson"))
+
+      book = Books.get_book!(media.book_id)
+      assert [author] = book.authors
+
+      assert [author_person] =
+               Repo.get!(Author, author.id) |> Repo.preload(:people) |> Map.get(:people)
+
+      assert author_person.id == person.id
+
+      media = media.id |> Media.get_media!() |> Repo.preload(:narrators)
+      assert [narrator] = media.narrators
+      assert Repo.get!(Narrator, narrator.id).person_id == person.id
+    end
+
+    test "saying they are two different people of one name creates both" do
+      item = tagged_item(narrator: "Brandon Sanderson")
+
+      draft = Draft.Edit.set_person_distinct(item.draft, :recording, 0, 0, true)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert {:ok, _media} = Inbox.approve_item(item)
+
+      assert [_one, _other] = Repo.all(where(Person, name: "Brandon Sanderson"))
+    end
+
+    # Whichever row the operator went looking on, the one person gets what was
+    # found — they were finding a photo of a human, not decorating a row.
+    test "a photo found on one credit reaches the person created for both" do
+      item = tagged_item(narrator: "Brandon Sanderson")
+
+      draft =
+        Draft.Edit.set_person_image(
+          item.draft,
+          :recording,
+          0,
+          0,
+          "https://example.test/face.jpg",
+          "provider:tmdb"
+        )
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      %{web_path: web_path} = Ambry.Factory.valid_image(:person)
+      patch(Ambry.Images, :import_url, fn _url -> {:ok, web_path} end)
+
+      assert {:ok, _media} = Inbox.approve_item(item)
+
+      assert [person] = Repo.all(where(Person, name: "Brandon Sanderson"))
+      assert person.image_path == web_path
+    end
   end
 
   describe "approve/1 refusals" do
@@ -221,7 +284,7 @@ defmodule Ambry.Inbox.ApprovalTest do
     case Keyword.get(opts, :files) do
       nil ->
         File.cp!(
-          tagged_fixture(Keyword.get(opts, :dated, true)),
+          tagged_fixture(Keyword.get(opts, :dated, true), Keyword.get(opts, :narrator)),
           Path.join(release, "book.m4b")
         )
 
@@ -269,7 +332,7 @@ defmodule Ambry.Inbox.ApprovalTest do
     if Keyword.get(opts, :settle, true), do: settle(item), else: item
   end
 
-  defp tagged_fixture(dated?) do
+  defp tagged_fixture(dated?, narrator) do
     dir = Ambry.Paths.source_media_disk_path("fixture-#{Ecto.UUID.generate()}")
     File.mkdir_p!(dir)
     path = Path.join(dir, "tagged.m4b")
@@ -289,7 +352,7 @@ defmodule Ambry.Inbox.ApprovalTest do
           "-metadata",
           "artist=Brandon Sanderson",
           "-metadata",
-          "composer=Michael Kramer, Kate Reading"
+          "composer=#{narrator || "Michael Kramer, Kate Reading"}"
         ] ++ if(dated?, do: ["-metadata", "date=2010-08-31"], else: []) ++ [path]
       )
 
