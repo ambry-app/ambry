@@ -209,9 +209,12 @@ defmodule Ambry.Inbox.DraftTest do
       # with both on offer — rather than staying silently stuck on the label.
       refute ticked.work.title.approved
 
+      # the file's own name rides along as an advisory chip — offered, and
+      # not counted among the sources that disagree
       assert Enum.map(ticked.work.title.candidates, & &1.value) == [
                "Something Else",
-               "Shelf Label"
+               "Shelf Label",
+               "Some Release"
              ]
 
       # and taking the leading suggestion takes the ticked record's, not the
@@ -882,6 +885,63 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  # Measured on the operator's real library: the tag title and the release
+  # name disagree on 105 of 198 releases, and neither is reliably the better
+  # one — the Wayfarers books are tagged "Wayfarers, Book 1" and named "The
+  # Long Way to a Small, Angry Planet", while The Wild Robot's release name
+  # yields "Peter Brown" and "Out of Spite, Out of Mind: Magic 2.0, Book 5"
+  # truncates to "Out of Spite". So the name is *offered*, never preferred.
+  describe "the file's own name is a proposal, not a rival" do
+    test "it is offered as a chip without making the field a question" do
+      item =
+        %InboxItem{path: "/downloads/The Long Way to a Small, Angry Planet"}
+        |> Map.merge(%{
+          matches: matches([]),
+          tags: %{"book_title" => "Wayfarers, Book 1", "published" => "2014-01-01"}
+        })
+        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
+
+      draft = Seed.build(item)
+
+      # settled on the tags, exactly as before — the name did not argue
+      assert draft.work.title.value == "Wayfarers, Book 1"
+      assert draft.work.title.approved
+
+      # but the right answer is on the form, one click away
+      assert %{value: "The Long Way to a Small, Angry Planet", source: "release_name"} =
+               Enum.find(draft.work.title.candidates, &(&1.source == "release_name"))
+    end
+
+    # The old `fallback:` behaviour, kept: with nothing else on offer the name
+    # stops being advisory and answers the question.
+    test "it settles the field when nothing else proposed anything" do
+      item =
+        %InboxItem{path: "/downloads/Leviathan Wakes"}
+        |> Map.merge(%{matches: matches([]), tags: %{"published" => "2011-06-15"}})
+        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
+
+      draft = Seed.build(item)
+
+      assert draft.work.title.value == "Leviathan Wakes"
+      assert draft.work.title.approved
+    end
+
+    test "it is not repeated as a second chip when it agrees" do
+      item =
+        %InboxItem{path: "/downloads/Leviathan Wakes"}
+        |> Map.merge(%{
+          matches: matches([provider_candidate(%{})]),
+          tags: %{"book_title" => "Leviathan Wakes"}
+        })
+        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
+
+      draft = Seed.build(item)
+
+      refute Enum.any?(draft.work.title.candidates, &(&1.source == "release_name"))
+      assert draft.work.title.approved
+    end
+  end
+
   describe "choosing between chips" do
     # A settled field is one somebody already answered; its chip has to look
     # answered, or the form says "sources disagree" in green and nothing else.
@@ -889,8 +949,14 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
 
       assert draft.work.title.approved
-      assert [chip] = draft.work.title.candidates
+
+      # the record's proposal is the one taken; the file's own name rides
+      # along as an advisory chip that never argued
+      assert [chip, advisory] = draft.work.title.candidates
       assert Draft.Field.chose?(draft.work.title, chip)
+      assert chip.source == "provider:hardcover"
+      assert advisory.source == "release_name"
+      refute Draft.Field.chose?(draft.work.title, advisory)
     end
 
     # Two records from ONE provider both propose a release date. Keying the

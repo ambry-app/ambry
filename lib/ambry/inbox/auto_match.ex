@@ -443,7 +443,14 @@ defmodule Ambry.Inbox.AutoMatch do
       author: first(tags["authors"]) || parsed.author,
       narrator: stated_narrator(tags["narrators"]) || parsed.narrator,
       series: presence(tags["series"]) || parsed.series,
-      asin: presence(tags["asin"]) || parsed.asin
+      asin: presence(tags["asin"]) || parsed.asin,
+      # Kept **beside** `title` rather than folded into it. The tags win the
+      # hint because they are the more reliable field, but the name is a real
+      # second opinion and the form has to be able to offer it — measured on
+      # the operator's library, the two disagree on 105 of 198 releases, and
+      # neither is reliably the better one. `title` is what gets searched and
+      # scored; this is what gets proposed.
+      release_title: parsed.title
     }
   end
 
@@ -854,8 +861,14 @@ defmodule Ambry.Inbox.AutoMatch do
   defp local_books(%{title: nil}), do: []
 
   defp local_books(hints) do
+    # The file's name goes in too. A term that misses costs nothing here —
+    # that is the whole reason this is keyword matching rather than a
+    # substring search — so asking under both titles is free recall, and it is
+    # the difference between finding and not finding a book whose tags call it
+    # "Wayfarers, Book 1". The `@offer_local` floor still decides what is
+    # worth *showing*.
     books =
-      [hints.title, hints.author, hints.series]
+      [hints.title, hints.release_title, hints.author, hints.series]
       |> Enum.flat_map(&Books.match_keywords/1)
       |> Enum.uniq()
       |> Books.match_books(@candidate_limit)

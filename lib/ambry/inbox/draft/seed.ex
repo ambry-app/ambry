@@ -361,13 +361,32 @@ defmodule Ambry.Inbox.Draft.Seed do
   # library, 96% of releases carry a title in tags and the parser is what the
   # other ~2% rely on — so letting the folder name argue with a provider would
   # make nearly every import ambiguous on its title for no gain.
+  # **The file's name is a third opinion about the title, and it was never on
+  # offer.** It used to be a `fallback` — visible only when nothing else
+  # proposed anything — and it was handed `hints.title`, which *is* the tag
+  # title whenever the tags carry one. So the chip could only ever repeat the
+  # tags while claiming to come from the release name, and the name's own
+  # answer was unreachable on a form that had one.
+  #
+  # Measured across the operator's real library (198 releases probed): the tag
+  # title and the release name disagree on **105** of them, and for a
+  # meaningful minority the name is the one telling the truth — the Wayfarers
+  # books are tagged `Wayfarers, Book 1` and named
+  # `The Long Way to a Small, Angry Planet`.
+  #
+  # It is offered rather than *preferred*, deliberately. The same measurement
+  # kills every rule that would rank one above the other: the name is better
+  # for the Wayfarers books and catastrophically worse elsewhere — The Wild
+  # Robot's release name yields "Peter Brown", and
+  # "Out of Spite, Out of Mind: Magic 2.0, Book 5" truncates to "Out of Spite".
+  # Which is right is a judgement, and a judgement belongs on a chip.
   defp title_field(sources, hints, tags) do
     (from_records(sources, "title") ++ [tag_candidate(tags, "book_title")])
     |> scalar(
       required: true,
       equivalence: &(title_key(&1) == title_key(&2)),
       prefer: &shorter/2,
-      fallback: release_candidate(hints.title)
+      advisory: release_candidate(hints.release_title)
     )
   end
 
@@ -1084,27 +1103,50 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## scalars
 
-  # `fallback` is a weaker source that only gets a say when the primary ones
-  # said nothing — it never argues with them, and never turns a settled field
-  # into a choice.
+  # `advisory` is a weaker source: **offered, but never argues.** It shows up
+  # as a chip the operator can click, and it is left out of the count that
+  # decides whether the sources disagree — so it can rescue a field nobody
+  # else answered without turning every field it merely differs from into a
+  # question.
+  #
+  # That distinction is the whole reason it exists. The file's own name is a
+  # real third opinion about the title and disagrees with the tags on 105 of
+  # the operator's 198 releases; counted as a rival it would put "pick a
+  # title" on over half of all imports, for a source that is right a minority
+  # of the time. Counted as a proposal, it costs nothing and is one click away
+  # exactly when the tags turn out to be a shelf label.
   defp scalar(candidates, opts \\ []) do
     required = Keyword.get(opts, :required, false)
     same? = Keyword.get(opts, :equivalence, &(normalize(&1) == normalize(&2)))
     prefer = Keyword.get(opts, :prefer, fn held, _incoming -> held end)
     alternatives? = Keyword.get(opts, :alternatives, false)
 
-    candidates =
+    usable = fn list ->
+      list |> List.wrap() |> Enum.reject(&(is_nil(&1) or &1.value in [nil, ""]))
+    end
+
+    advisory = opts |> Keyword.get(:advisory) |> usable.()
+
+    deciding =
       candidates
-      |> Enum.reject(&(is_nil(&1) or &1.value in [nil, ""]))
+      |> usable.()
       |> collapse(same?, prefer)
 
-    candidates =
-      case {candidates, Keyword.get(opts, :fallback)} do
-        {[], fallback} when not is_nil(fallback) -> [fallback]
-        _primary_had_something -> candidates
+    # Nobody else answered, so the advisory one stops being advisory — this is
+    # what the old `fallback` did, and the only case where it gets a vote.
+    {deciding, advisory} =
+      case {deciding, advisory} do
+        {[], [first | rest]} -> {[first], rest}
+        _primary_had_something -> {deciding, advisory}
       end
 
-    field = %Field{required: required, candidates: candidates}
+    # Shown, but only where it actually adds something: an advisory that means
+    # the same as a real proposal is that proposal, not a second chip saying
+    # the same words.
+    extra = Enum.reject(advisory, fn a -> Enum.any?(deciding, &same?.(&1.value, a.value)) end)
+
+    field = %Field{required: required, candidates: deciding ++ extra}
+    candidates = deciding
 
     case candidates do
       # nothing proposed it. Optional means waived — an explicit "none", which
