@@ -45,6 +45,19 @@ defmodule Ambry.Inbox.AutoMatch do
 
   @candidate_limit 8
 
+  # How similar a Book has to be before it is worth *showing* as "you may
+  # already have this". Keyword matching recalls far more than the old
+  # substring search did, so without a floor the question came with plausible
+  # nonsense attached — Anne of Green Gables offered as a candidate for
+  # Leviathan Wakes, on the strength of one shared word.
+  #
+  # Tuned for precision rather than recall on purpose: the form now has a
+  # library search the operator can drive by hand, so a miss costs a search
+  # and a false offer costs trust in the whole list. It deliberately does NOT
+  # reach far enough to connect a file tagged "Philosopher's Stone" to a Book
+  # called "Sorcerer's Stone" — that is a real case, and the operator's call.
+  @offer_local 0.5
+
   # How many records about the *same* thing are worth a follow-up call each
   # (details, editions). Two databases holding a record of one book is normal;
   # eight of them saying it is not, and past a few the extra requests buy
@@ -74,9 +87,9 @@ defmodule Ambry.Inbox.AutoMatch do
   Returns the attrs to store; never raises, and degrades to whatever it could
   find — a provider being down means fewer candidates, not a failed item.
   """
-  def match(%InboxItem{} = item) do
+  def match(%InboxItem{} = item, opts \\ []) do
     hints = hints(item)
-    work = match_work(hints)
+    work = match_work(hints, opts)
 
     %{
       matches: %{
@@ -85,7 +98,7 @@ defmodule Ambry.Inbox.AutoMatch do
         # edition list is a third key alongside searching: once we know which
         # book this is, its editions are the most direct route to the
         # recordings that exist — including ones no storefront will return.
-        "recording" => match_recording(hints, work),
+        "recording" => match_recording(hints, work, opts),
         "hints" => stringify_hints(hints)
       }
     }
@@ -102,12 +115,51 @@ defmodule Ambry.Inbox.AutoMatch do
   def top_group([]), do: []
 
   def top_group([best | _rest] = candidates) do
-    key = agreement_key(best)
-
     candidates
-    |> Enum.filter(&(agreement_key(&1) == key))
+    |> Enum.filter(&agrees?(&1, best))
     |> Enum.take(@group_limit)
   end
+
+  @doc """
+  Whether a narrator value names nobody in particular.
+
+  "Full Cast" is not a person and not a rival to one — it is a *label for* the
+  cast a full-cast production credits. Taken literally it manufactured a
+  narrator conflict on every dramatized edition: measured on the operator's
+  Harry Potter and the Philosopher's Stone, the file's tag says `Full Cast`,
+  Hardcover lists all fifteen actors, and the form reported "The file says
+  Full Cast reads this; the closest catalogue entry is read by Hugh Laurie,
+  Matthew Macfadyen, … Those are different recordings of the same book."
+  They are the same recording, described two ways.
+
+  Same principle as `agrees?/2`: **a placeholder is "didn't say", not "said
+  something different"** — so it stops arguing with the catalogue instead of
+  being scored against it, and it never becomes a Person either.
+  """
+  def placeholder_narrator?(name) when is_binary(name) do
+    normalize(name) in [
+      "full cast",
+      "full cast recording",
+      "a full cast",
+      "cast",
+      "cast recording",
+      "multi cast",
+      "multicast",
+      "multi-cast",
+      "dramatized",
+      "dramatised",
+      "various",
+      "various narrators",
+      "various artists",
+      "multiple narrators",
+      "multiple",
+      "uncredited",
+      "unknown",
+      "n/a"
+    ]
+  end
+
+  def placeholder_narrator?(_other), do: false
 
   @doc """
   What we think the item is, from its tags first and its release name second.
@@ -123,7 +175,7 @@ defmodule Ambry.Inbox.AutoMatch do
     %{
       title: presence(tags["book_title"]) || parsed.title,
       author: first(tags["authors"]) || parsed.author,
-      narrator: first(tags["narrators"]) || parsed.narrator,
+      narrator: stated_narrator(tags["narrators"]) || parsed.narrator,
       series: presence(tags["series"]) || parsed.series,
       asin: presence(tags["asin"]) || parsed.asin
     }
@@ -135,15 +187,15 @@ defmodule Ambry.Inbox.AutoMatch do
   # and adds an alternate edition — while a provider record is *evidence*
   # about a book. Ranking them together made the form ask one question that
   # was really two.
-  defp match_work(hints) do
+  defp match_work(hints, opts) do
     query = work_query(hints)
 
-    {candidates, outcomes} = provider_books(:work, query, hints)
+    {candidates, outcomes} = provider_books(:work, query, hints, opts)
 
     query
     |> level_result(candidates, outcomes)
     |> Map.put("local", local_books(hints))
-    |> hydrate_top()
+    |> hydrate_top(opts)
   end
 
   # A search hit is a summary, not the record. Measured against
@@ -157,19 +209,19 @@ defmodule Ambry.Inbox.AutoMatch do
   # they all feed the field candidates, so a thin one means the operator can't
   # take rreading-glasses' description after all. Records about *other* works
   # stay thin until ticked — nobody has said they're relevant yet.
-  defp hydrate_top(%{"candidates" => candidates} = result) do
+  defp hydrate_top(%{"candidates" => candidates} = result, opts) do
     wanted = candidates |> top_group() |> MapSet.new(&ref/1)
 
     %{
       result
       | "candidates" =>
           Enum.map(candidates, fn record ->
-            if MapSet.member?(wanted, ref(record)), do: details(record), else: record
+            if MapSet.member?(wanted, ref(record)), do: details(record, opts), else: record
           end)
     }
   end
 
-  defp hydrate_top(result), do: result
+  defp hydrate_top(result, _opts), do: result
 
   @doc "How a record is referred to: its provider and that provider's id."
   def ref(record), do: {record["source"], to_string(record["id"])}
@@ -192,15 +244,16 @@ defmodule Ambry.Inbox.AutoMatch do
   work with **seventeen**, plus the fuller description and a cover the summary
   may lack.
   """
-  def details(record) do
-    case details_for(record) do
+  def details(record, opts \\ []) do
+    case details_for(record, opts) do
       nil -> record
       fuller -> record |> Map.merge(fuller) |> hydrated()
     end
   end
 
-  defp details_for(%{"source" => "provider:" <> provider_id, "id" => id}) when is_binary(id) do
-    case Providers.book_details(provider_id, id, []) do
+  defp details_for(%{"source" => "provider:" <> provider_id, "id" => id}, opts)
+       when is_binary(id) do
+    case Providers.book_details(provider_id, id, opts) do
       {:ok, book} ->
         # Only fields the summary can be *missing*. The title, authors and
         # score stay as matched — re-deriving them here would silently move
@@ -225,14 +278,14 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
-  defp details_for(_candidate), do: nil
+  defp details_for(_candidate, _opts), do: nil
 
   # An ASIN is a recording-level key, so when there is one it *is* the query:
   # a hit on it is definitive in a way no title match ever is.
-  defp match_recording(%{asin: asin} = hints, work) when is_binary(asin) do
+  defp match_recording(%{asin: asin} = hints, work, opts) when is_binary(asin) do
     query = %Provider.Query{keywords: asin}
-    {candidates, outcomes} = provider_books(:recording, query, hints)
-    {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints)
+    {candidates, outcomes} = provider_books(:recording, query, hints, opts)
+    {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints, opts)
 
     level_result(query, candidates ++ editions, outcomes ++ edition_outcomes)
   end
@@ -242,15 +295,15 @@ defmodule Ambry.Inbox.AutoMatch do
   # book literally called that and returned nothing — the recording level came
   # up empty on every single item. The narrator goes in too: it is the field
   # that tells two recordings of one work apart.
-  defp match_recording(hints, work) do
+  defp match_recording(hints, work, opts) do
     query = %Provider.Query{
       title: hints.title,
       author: hints.author,
       narrator: hints.narrator
     }
 
-    {candidates, outcomes} = provider_books(:recording, query, hints)
-    {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints)
+    {candidates, outcomes} = provider_books(:recording, query, hints, opts)
+    {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints, opts)
 
     level_result(query, candidates ++ editions, outcomes ++ edition_outcomes)
   end
@@ -276,12 +329,12 @@ defmodule Ambry.Inbox.AutoMatch do
   The `metadata` queue is serial and retries, so a thorough match is allowed
   to take as long as it takes.
   """
-  def editions_for(records, hints) do
+  def editions_for(records, hints, opts \\ []) do
     records
     |> Enum.filter(&editions_capable?/1)
     |> Enum.reduce({[], []}, fn record, {candidates, outcomes} ->
       "provider:" <> provider_id = record["source"]
-      {found, outcome} = fetch_editions(provider_id, record["id"], hints, work_ref(record))
+      {found, outcome} = fetch_editions(provider_id, record["id"], hints, work_ref(record), opts)
       {candidates ++ found, outcomes ++ outcome}
     end)
   end
@@ -302,8 +355,8 @@ defmodule Ambry.Inbox.AutoMatch do
   # question twice.
   defp work_ref(%{"source" => source, "id" => id}), do: %{"source" => source, "id" => id}
 
-  defp fetch_editions(provider_id, work_id, hints, of_work) do
-    case Providers.editions(provider_id, work_id, []) do
+  defp fetch_editions(provider_id, work_id, hints, of_work, opts) do
+    case Providers.editions(provider_id, work_id, opts) do
       {:ok, books} ->
         {:ok, entry} = Registry.fetch(provider_id)
 
@@ -399,15 +452,48 @@ defmodule Ambry.Inbox.AutoMatch do
   # the same thing — the 1984 Books on Tape and 2011 Penguin Audio editions of
   # Neuromancer collapsed into one candidate until the narrator and ASIN went
   # into the key.
-  defp agreement_key(%{"narrators" => narrators} = candidate) when narrators not in [nil, []] do
-    {:recording, normalize(candidate["title"] || ""),
-     Enum.sort(Enum.map(narrators, &normalize/1)), candidate["asin"]}
+  @doc """
+  Whether two records describe the same thing.
+
+  **Everything they both say has to agree; a field one of them doesn't carry
+  is not a disagreement.** That is the whole rule, and it has to be a binary
+  predicate rather than a key — the same shape `scalar/2`'s date equivalence
+  needed, and for the same reason: "didn't say" is compatible with every
+  answer, which no key function can express.
+
+  Measured on Legends & Lattes, where the correct 84% Audible match was being
+  reported as 54% "unsure" and left un-ticked, taking the publisher, release
+  date and description down with it. Two separate reasons, both of them a
+  catalogue being scored as a rival of the very audiobook it describes:
+
+    * **A storefront id is not an identity.** Audible's record carries ASIN
+      `B0B3GB64T1` and Hardcover's record of the same reading carries
+      `B0B3G97QY1` — a regional variant. The ASIN used to be part of the key.
+      It still *confirms* a match when it agrees (that's `score/5`'s job); it
+      no longer denies one when it differs.
+    * **Two of Hardcover's edition records list no narrator at all.** Keyed,
+      they fell through to the work clause and could never corroborate a
+      recording — so the audiobook was its own runner-up.
+
+  Callers pass one level's candidates at a time, which is why there's no
+  work/recording tag: at the work level nobody carries narrators and the
+  authors decide, at the recording level the narrators do.
+  """
+  def agrees?(one, other) do
+    normalize(one["title"] || "") == normalize(other["title"] || "") and
+      compatible?(one["narrators"], other["narrators"]) and
+      compatible?(one["authors"], other["authors"])
   end
 
-  defp agreement_key(candidate) do
-    {:work, normalize(candidate["title"] || ""),
-     candidate["authors"] |> List.wrap() |> Enum.map(&normalize/1) |> Enum.sort()}
+  defp compatible?(one, other) do
+    case {name_set(one), name_set(other)} do
+      {[], _unstated} -> true
+      {_unstated, []} -> true
+      {one, other} -> one == other
+    end
   end
+
+  defp name_set(names), do: names |> List.wrap() |> Enum.map(&normalize/1) |> Enum.sort()
 
   # Confidence is about the *decision*, not just the top hit: a strong match
   # with a genuinely different runner-up is exactly the case a human should
@@ -420,11 +506,22 @@ defmodule Ambry.Inbox.AutoMatch do
   # fix without the merge.
   defp confidence(candidates) do
     candidates
-    |> Enum.group_by(&agreement_key/1)
-    |> Map.values()
+    |> group_agreeing()
     |> Enum.map(&group_score/1)
     |> Enum.sort(:desc)
     |> decide()
+  end
+
+  # Folded rather than grouped by key, because agreement is a predicate and
+  # not an equivalence a key can capture — a record that names no narrator
+  # agrees with one that does, and with another that doesn't.
+  defp group_agreeing(candidates) do
+    Enum.reduce(candidates, [], fn candidate, groups ->
+      case Enum.find_index(groups, fn [held | _rest] -> agrees?(held, candidate) end) do
+        nil -> groups ++ [[candidate]]
+        index -> List.update_at(groups, index, &(&1 ++ [candidate]))
+      end
+    end)
   end
 
   defp group_score(group) do
@@ -434,11 +531,36 @@ defmodule Ambry.Inbox.AutoMatch do
     min(best + bonus, 1.0)
   end
 
+  # How far ahead the best has to be for the runner-up to stop counting as
+  # doubt at all.
+  @decisive 0.3
+
   defp decide([]), do: 0.0
   defp decide([only]), do: only
 
+  # **A close second is doubt; a distant one is just the rest of the list.**
+  # The penalty used to be `0.5 * second / best`, which is a ratio and so
+  # charged *every* runner-up something — measured on Legends & Lattes, a
+  # doubly-corroborated 0.854 was cut to 0.576 by a different book in the same
+  # series by the same author scoring 0.556. That put it under the doubt bar,
+  # so nothing was adopted and the publication date fell back to the file's
+  # tags, discarding the real date rreading-glasses had just supplied.
+  #
+  # Keyed on the *gap* instead, which is what "close" means and what the old
+  # comment already claimed this did.
+  # The curve matters as much as the switch to gaps. A near-tie has to stay
+  # firmly doubted — "The Silent Patient" against "The Silent Patients" by
+  # "Alexa Michaelides" is two different books and exactly the case for a
+  # human — so the penalty holds near its full value while the gap is small
+  # and falls away only as the gap approaches decisive. A straight ramp let a
+  # 0.12 gap through at 0.69, over the bar that adopts a match.
   defp decide([best, second | _rest]) do
-    penalty = 0.5 * second / max(best, 0.001)
+    gap = best - second
+
+    penalty =
+      if gap >= @decisive,
+        do: 0.0,
+        else: 0.5 * (1.0 - :math.pow(gap / @decisive, 2))
 
     (best * (1.0 - penalty))
     |> max(0.0)
@@ -446,12 +568,31 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Float.round(3)
   end
 
+  # **Matching the library is a different question from searching it.** The
+  # substring search behind `list_books` asks whether one whole string appears
+  # inside one field, which is right for a person typing and wrong here: a tag
+  # title is rarely the library's title. Measured on the operator's own
+  # uploads, the file for Harry Potter and the Philosopher's Stone is tagged
+  # `HP1 - The Philosopher's Stone` — a shelf label — and no substring of it
+  # appears in the book's real title.
+  #
+  # Worse, this used to search the flattened `title author` string, which is
+  # not a substring of any single field and so matched **nothing, on every
+  # item carrying an author in its tags** — 96% of them, per 1b. Exactly
+  # #1186's bug (a structured query flattened for something that wants one
+  # field), repeated here and invisible because an empty local list looks
+  # identical to "you don't have this book".
+  #
+  # Keywords fix both directions: a term that misses costs nothing, and the
+  # author's name goes from breaking the search to improving the ranking.
   defp local_books(%{title: nil}), do: []
 
   defp local_books(hints) do
-    query = to_string(%Provider.Query{title: hints.title, author: hints.author})
-
-    {books, _more} = Books.list_books(0, @candidate_limit, %{search: query})
+    books =
+      [hints.title, hints.author, hints.series]
+      |> Enum.flat_map(&Books.match_keywords/1)
+      |> Enum.uniq()
+      |> Books.match_books(@candidate_limit)
 
     Enum.map(books, fn book ->
       %{
@@ -467,14 +608,16 @@ defmodule Ambry.Inbox.AutoMatch do
         "score" => score(book.title, Enum.map(book.authors || [], & &1.name), nil, nil, hints)
       }
     end)
+    |> Enum.filter(&(&1["score"] >= @offer_local))
+    |> Enum.sort_by(& &1["score"], :desc)
   end
 
-  defp provider_books(_level, nil, _hints), do: {[], []}
+  defp provider_books(_level, nil, _hints, _opts), do: {[], []}
 
-  defp provider_books(level, query, hints) do
+  defp provider_books(level, query, hints, opts) do
     [level: level, capability: :book_search]
     |> Registry.enabled()
-    |> Enum.map(&search_provider(&1, query, hints))
+    |> Enum.map(&search_provider(&1, query, hints, opts))
     |> Enum.reduce({[], []}, fn {candidates, outcome}, {all, outcomes} ->
       {all ++ candidates, outcomes ++ [outcome]}
     end)
@@ -484,8 +627,19 @@ defmodule Ambry.Inbox.AutoMatch do
   # rate-limited or slow costs its results only — but the outcome is recorded
   # either way, so "this provider found nothing" and "this provider was
   # unreachable" don't look identical in the inbox.
-  defp search_provider(entry, query, hints) do
-    case Providers.search_books(entry.id, query, []) do
+  # **A provider that finds nothing is asked again with a plainer title.**
+  # Tag titles carry things catalogue titles don't: measured on the operator's
+  # own library, `"Legends and Lattes: A Novel of High Fantasy and Low Stakes"`
+  # returns **nothing** from rreading-glasses while `"Legends and Lattes"`
+  # returns the book — with a real publication date of 2022-02-22, where the
+  # only provider that did answer knew nothing but the year. So the subtitle
+  # cost the import its date, not just a candidate.
+  #
+  # Tried second rather than first because a subtitle is sometimes the only
+  # thing telling two books apart; this widens a search that failed, which is
+  # the same thing providers do internally.
+  defp search_provider(entry, query, hints, opts) do
+    case search_books(entry, query, opts) do
       {:ok, books} ->
         candidates =
           books |> Enum.take(@candidate_limit) |> Enum.map(&provider_candidate(&1, entry, hints))
@@ -512,6 +666,36 @@ defmodule Ambry.Inbox.AutoMatch do
            "reason" => describe(reason)
          }}
     end
+  end
+
+  defp search_books(entry, query, opts) do
+    case Providers.search_books(entry.id, query, opts) do
+      {:ok, []} -> retry_plainer(entry, query, opts)
+      other -> other
+    end
+  end
+
+  defp retry_plainer(entry, %Provider.Query{title: title} = query, opts) when is_binary(title) do
+    case plainer_title(title) do
+      nil -> {:ok, []}
+      plainer -> Providers.search_books(entry.id, %{query | title: plainer}, opts)
+    end
+  end
+
+  defp retry_plainer(_entry, _query, _opts), do: {:ok, []}
+
+  # An edition suffix or a subtitle, both of which a catalogue title rarely
+  # carries. Returns nil when there was nothing to drop, so a failed search
+  # isn't repeated verbatim.
+  defp plainer_title(title) do
+    plainer =
+      title
+      |> String.replace(~r/\s*\([^)]*\)\s*$/u, "")
+      |> String.split(~r/\s*:\s+/u, parts: 2)
+      |> hd()
+      |> String.trim()
+
+    if plainer != "" and plainer != String.trim(title), do: plainer
   end
 
   # Enough for the operator to tell a rate limit from a bad token from an
@@ -707,6 +891,15 @@ defmodule Ambry.Inbox.AutoMatch do
   defp first([]), do: nil
   defp first([value | _rest]), do: presence(value)
   defp first(value), do: presence(value)
+
+  # A cast label is not a reader. Left out of the hints entirely, so it can
+  # neither cost a candidate its narrator score nor raise a conflict.
+  defp stated_narrator(narrators) do
+    narrators
+    |> List.wrap()
+    |> Enum.reject(&placeholder_narrator?/1)
+    |> first()
+  end
 
   defp presence(nil), do: nil
   defp presence(string) when is_binary(string), do: with("" <- String.trim(string), do: nil)

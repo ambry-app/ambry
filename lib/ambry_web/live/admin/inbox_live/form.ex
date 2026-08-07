@@ -43,6 +43,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Metadata.PersonSearch
   alias Ambry.People
   alias Ambry.Provenance
 
@@ -60,11 +61,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(authors: People.authors_for_select(), narrators: People.narrators_for_select())
      |> assign(people: People.people_for_select())
      |> assign(expanded: MapSet.new())
-     |> assign(researching: nil, retrying: nil, enriching: nil, picker: nil)
+     |> assign(researching: nil, retrying: nil, enriching: nil)
      # What the person search turned up, keyed by the credit and person it was
      # run for. Evidence about a human rather than a decision about this
      # import, and nothing outlives the page — so assigns, not the draft.
-     |> assign(person_bios: %{})
+     |> assign(person_search: %{}, photos_expanded: %{})
+     |> assign(library_query: nil, library_results: [])
      |> load(item)}
   end
 
@@ -80,12 +82,56 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   @doc """
-  The bios found for each person behind one credit, by their position in it.
+  What the person search found for each person behind one credit, by their
+  position in it.
   """
-  def bios_for(person_bios, section, index) do
-    for {{s, i, person}, bios} <- person_bios, s == section, i == index, into: %{} do
-      {person, bios}
+  def found_for(person_search, section, index) do
+    for {{s, i, person}, found} <- person_search, s == section, i == index, into: %{} do
+      {person, found}
     end
+  end
+
+  @doc """
+  Whether each person behind one credit is showing their whole photo set.
+  """
+  def photos_expanded_for(photos_expanded, section, index) do
+    for {{s, i, person}, on?} <- photos_expanded, s == section, i == index, into: %{} do
+      {person, on?}
+    end
+  end
+
+  # Results land provider by provider rather than all at once: the fast one's
+  # photos are worth looking at while the slow one is still thinking.
+  defp searching(pending), do: %{photos: [], bios: [], searching: pending > 0, pending: pending}
+
+  defp found(socket, key),
+    do: Map.get(socket.assigns.person_search, key, %{photos: [], bios: [], searching: false})
+
+  # Photos are flattened across the people a provider matched — the operator
+  # is choosing a face, and which of two same-named humans a headshot came
+  # from is a question they answer BY looking at it. Bios stay per person,
+  # because the text says who it's about.
+  defp put_person_matches(socket, key, matches) do
+    photos =
+      for match <- matches,
+          url <- match.images,
+          do: %{url: url, provider_id: match.provider_id, name: match.name}
+
+    bios = Enum.filter(matches, & &1.description)
+
+    update(socket, :person_search, fn all ->
+      Map.update(all, key, searching(0), fn held ->
+        pending = max((held.pending || 1) - 1, 0)
+
+        %{
+          held
+          | photos: Enum.uniq_by(held.photos ++ photos, & &1.url),
+            bios: Enum.uniq_by(held.bios ++ bios, & &1.description),
+            searching: pending > 0,
+            pending: pending
+        }
+      end)
+    end)
   end
 
   @impl Phoenix.LiveView
@@ -110,6 +156,21 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def handle_event("link-book", %{"id" => id}, socket) do
     item = socket.assigns.item
     {:noreply, edit(socket, &Draft.Edit.link_book(&1, item, to_int(id)))}
+  end
+
+  # The escape hatch. Matching finds the ordinary case and cannot be expected
+  # to find every one: a file tagged "HP1 - The Philosopher's Stone" and a book
+  # called "Harry Potter and the Sorcerer's Stone" are the same work and no
+  # string comparison should be asked to know that. Rather than chase it, give
+  # the operator a way to go and look.
+  def handle_event("search-library", %{"query" => query}, socket) do
+    results =
+      case Books.match_keywords(query) do
+        [] -> []
+        terms -> terms |> Books.match_books(10) |> Enum.map(&local_book/1)
+      end
+
+    {:noreply, assign(socket, library_query: query, library_results: results)}
   end
 
   def handle_event("new-book", _params, socket) do
@@ -189,29 +250,59 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      end)}
   end
 
+  # Runs the fan-out here rather than in a modal. The photos and the bios come
+  # out of one search and are two different decisions — a face is judged by
+  # looking and a bio by reading — so they belong beside the credit, not
+  # stacked in a sheet where choosing either dismissed the other.
   def handle_event("find-person-images", params, socket) do
     %{"section" => section, "index" => index, "person" => person} = params
+    key = {section, to_int(index), to_int(person)}
     credit = credit_at(socket.assigns.item.draft, atom(section), to_int(index))
     person_ref = Enum.at(credit.people, to_int(person))
+    query = person_ref.name || credit.name
+
+    providers = PersonSearch.providers()
+    socket = update(socket, :person_search, &Map.put(&1, key, searching(length(providers))))
 
     {:noreply,
-     assign(socket,
-       picker: %{
-         section: section,
-         index: to_int(index),
-         person: to_int(person),
-         query: person_ref.name || credit.name
-       }
-     )}
+     Enum.reduce(providers, socket, fn provider, socket ->
+       start_async(socket, {:person_search, key, provider.id}, fn ->
+         PersonSearch.matches(provider, query)
+       end)
+     end)}
   end
 
-  def handle_event("close-picker", _params, socket), do: {:noreply, assign(socket, picker: nil)}
+  # A dozen headshots is normal for a working actor and would push the rest of
+  # the credit off screen. View state, so it stays out of the draft.
+  def handle_event("toggle-photos", params, socket) do
+    %{"section" => section, "index" => index, "person" => person} = params
+    key = {section, to_int(index), to_int(person)}
+
+    {:noreply, update(socket, :photos_expanded, &Map.update(&1, key, true, fn was -> !was end))}
+  end
+
+  def handle_event("pick-person-image", params, socket) do
+    %{"section" => section, "index" => index, "person" => person} = params
+
+    {:noreply,
+     edit(
+       socket,
+       &Draft.Edit.set_person_image(
+         &1,
+         atom(section),
+         to_int(index),
+         to_int(person),
+         params["url"],
+         Provenance.provider_source(params["provider"])
+       )
+     )}
+  end
 
   def handle_event("pick-person-bio", params, socket) do
     %{"section" => section, "index" => index, "person" => person} = params
     key = {section, to_int(index), to_int(person)}
 
-    case Enum.find(Map.get(socket.assigns.person_bios, key, []), &(&1.id == params["bio"])) do
+    case Enum.find(found(socket, key).bios, &(&1.id == params["bio"])) do
       nil ->
         {:noreply, socket}
 
@@ -229,6 +320,25 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
            )
          )}
     end
+  end
+
+  # A person's description is a description like any other: an imported blurb
+  # is a starting point, and the recording's has been an editable box since
+  # the form existed.
+  def handle_event("person-bio", params, socket) do
+    %{"section" => section, "index" => index, "person" => person} = params
+
+    {:noreply,
+     edit(
+       socket,
+       &Draft.Edit.edit_person_bio(
+         &1,
+         atom(section),
+         to_int(index),
+         to_int(person),
+         params["description"]
+       )
+     )}
   end
 
   def handle_event("person-distinct", params, socket) do
@@ -379,19 +489,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      )}
   end
 
-  # Arrives while the operator is looking at the photo grid, provider by
-  # provider, and is kept for the row rather than the modal — so choosing a
-  # photo and choosing a bio stop being the same click twice over.
-  def handle_info({:person_bios_found, context, bios}, socket) do
-    key = {context.section, context.index, context.person}
-
-    {:noreply,
-     update(socket, :person_bios, fn found ->
-       Map.update(found, key, bios, &Enum.uniq_by(&1 ++ bios, fn bio -> bio.description end))
-     end)}
+  @impl Phoenix.LiveView
+  def handle_async({:person_search, key, _provider_id}, {:ok, matches}, socket) do
+    {:noreply, put_person_matches(socket, key, matches)}
   end
 
-  @impl Phoenix.LiveView
+  # A provider being down costs its column and nothing else.
+  def handle_async({:person_search, key, _provider_id}, {:exit, _reason}, socket) do
+    {:noreply, put_person_matches(socket, key, [])}
+  end
+
   def handle_async({:research, _level}, {:ok, {:ok, item}}, socket) do
     {:noreply, socket |> assign(researching: nil) |> load(item) |> resettle()}
   end
@@ -628,6 +735,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   edition" want completely different things from the operator, and an empty
   set of fields says neither.
   """
+  def doubt_message(%Work{doubt: :low_confidence, doubt_detail: detail}), do: detail
+
+  def doubt_message(%Work{}), do: nil
+
   def doubt_message(%Recording{doubt: :narrator_conflict, doubt_detail: detail}), do: detail
 
   def doubt_message(%Recording{doubt: :low_confidence, doubt_detail: detail}), do: detail
@@ -653,6 +764,17 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def provider_outcomes(_item, _level), do: []
+
+  # Shaped like a stored local record, so the row component can't tell a
+  # searched-for book from a matched one — they are the same answer.
+  defp local_book(book) do
+    %{
+      "id" => book.id,
+      "title" => book.title,
+      "authors" => Enum.map(book.authors || [], & &1.name),
+      "published" => book.published && Date.to_iso8601(book.published)
+    }
+  end
 
   defp credit_at(draft, :work, index), do: Enum.at(draft.work.authors, index)
   defp credit_at(draft, :recording, index), do: Enum.at(draft.recording.narrators, index)

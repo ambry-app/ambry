@@ -40,6 +40,14 @@ defmodule Ambry.Inbox.Draft.Recording do
 
     embeds_one :title, Field, on_replace: :update
     embeds_one :published, Field, on_replace: :update
+
+    # A recording's release date is as capable of being year-only as a work's,
+    # and Media has carried the column all along — the draft simply never
+    # decided it, so approval fell back to the schema default of `:full` and
+    # a date known only to the year rendered as a real release day. That is
+    # the exact bug the v1.9.0 punch list fixed for the import forms, still
+    # live on this side of the form.
+    embeds_one :published_format, Field, on_replace: :update
     embeds_one :publisher, Field, on_replace: :update
     embeds_one :description, Field, on_replace: :update
     embeds_one :cover, Field, on_replace: :update
@@ -54,6 +62,7 @@ defmodule Ambry.Inbox.Draft.Recording do
     |> cast_embed(:sources)
     |> cast_embed(:title)
     |> cast_embed(:published)
+    |> cast_embed(:published_format)
     |> cast_embed(:publisher)
     |> cast_embed(:description)
     |> cast_embed(:cover)
@@ -67,6 +76,7 @@ defmodule Ambry.Inbox.Draft.Recording do
     identity(recording) ++
       field(recording.title, "Recording title") ++
       field(recording.published, "Release date") ++
+      field(recording.published_format, "Release date display format") ++
       field(recording.publisher, "Publisher") ++
       field(recording.description, "Description") ++
       field(recording.cover, "Cover image") ++

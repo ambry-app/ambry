@@ -189,7 +189,7 @@ defmodule Ambry.Inbox do
   its place in the queue with an `issue` explaining why, because the operator
   needs to see it to act on it.
   """
-  def probe_item(%InboxItem{} = item) do
+  def probe_item(%InboxItem{} = item, opts \\ []) do
     attrs =
       case item.files do
         [file] -> probe_single(file, single_file: true)
@@ -200,8 +200,69 @@ defmodule Ambry.Inbox do
     with {:ok, item} <- update_item(item, attrs) do
       # tags are what matching leans on, so it follows probing rather than
       # racing it
-      {:ok, _job} = match_item_async(item)
+      {:ok, _job} = match_item_async(item, opts)
       {:ok, item}
+    end
+  end
+
+  @doc """
+  Re-reads one item from disk and re-asks every provider about it.
+
+  The operator's "this is wrong, look at it again" action, and it has to mean
+  all three of the things it sounds like it means. It replaced two buttons
+  that between them did none of them:
+
+    * **Re-read the files.** "Re-probe" ran ffprobe over the file list
+      captured at *discovery*, so a release the operator had since fixed on
+      disk — parts joined into one m4b, a stray file removed — probed exactly
+      the same way forever. Only a full location scan refreshed the list.
+    * **Ask the providers again, for real.** Provider answers are cached for
+      thirty days, so re-matching re-derived identical records from identical
+      cached responses and finished in milliseconds. The button could not
+      find anything new by construction. This one passes `refresh: true` all
+      the way down to `Metadata.Cache`.
+    * **Actually run.** `RunMatch` is `unique` over a 60-second window, and
+      Oban answers a uniqueness conflict with `{:ok, %{job | conflict?: true}}`
+      — an insert that looks successful and does nothing. Since re-probing
+      also enqueues a match, the two old buttons in sequence were *guaranteed*
+      to no-op with a cheerful flash. Operator-initiated work opts out of
+      uniqueness and reports what really happened.
+
+  What it deliberately does NOT do is re-seed the draft: `prepare_draft/1`
+  leaves an existing one alone, so new evidence appears in the form as
+  un-ticked records rather than overwriting a decision. Curation outranks
+  re-derivation — but the caller should say so, or "nothing happened" is the
+  only available reading.
+  """
+  def rescan_item(%InboxItem{} = item) do
+    with {:ok, item} <- refresh_files(item) do
+      probe_item(item, refresh: true)
+    end
+  end
+
+  @doc """
+  Re-reads and re-queries one item in the background.
+  """
+  def rescan_item_async(%InboxItem{} = item) do
+    %{inbox_item_id: item.id, refresh: true} |> RunProbe.new() |> Oban.insert()
+  end
+
+  # The files on disk, now, rather than the ones discovery happened to see.
+  #
+  # Left alone when the walk comes back empty: an NFS mount that is briefly
+  # away must not be recorded as "this release has no audio in it", and a
+  # genuinely empty folder is reported by probing instead.
+  defp refresh_files(%InboxItem{path: path} = item) do
+    case candidate(path) do
+      [{_path, files}] when files != [] and files != item.files ->
+        with {:ok, item} <- update_item(item, %{files: files}) do
+          # the draft describes files that just moved under it
+          mark_draft_stale(item)
+          {:ok, item}
+        end
+
+      _unchanged_or_unreachable ->
+        {:ok, item}
     end
   end
 
@@ -218,8 +279,8 @@ defmodule Ambry.Inbox do
   Never fails the item — providers being unreachable means fewer candidates,
   not a broken queue entry.
   """
-  def match_item(%InboxItem{} = item) do
-    with {:ok, item} <- update_item(item, AutoMatch.match(item)) do
+  def match_item(%InboxItem{} = item, opts \\ []) do
+    with {:ok, item} <- update_item(item, AutoMatch.match(item, opts)) do
       # Staging the import is the point of matching — proposals nothing turns
       # into decisions are just data sitting in a column.
       prepare_draft(item)
@@ -228,9 +289,20 @@ defmodule Ambry.Inbox do
 
   @doc """
   Proposes matches for one item in the background.
+
+  A refreshing run opts out of `RunMatch`'s uniqueness window. That window
+  exists to collapse the storm of duplicate jobs a rescan of a whole location
+  produces; an operator who clicked a button meant it, and silently dropping
+  their job is how "look for matches again" came to do nothing at all.
   """
-  def match_item_async(%InboxItem{} = item) do
-    %{inbox_item_id: item.id} |> RunMatch.new() |> Oban.insert()
+  def match_item_async(%InboxItem{} = item, opts \\ []) do
+    if Keyword.get(opts, :refresh, false) do
+      %{inbox_item_id: item.id, refresh: true}
+      |> RunMatch.new(unique: false)
+      |> Oban.insert()
+    else
+      %{inbox_item_id: item.id} |> RunMatch.new() |> Oban.insert()
+    end
   end
 
   @doc """

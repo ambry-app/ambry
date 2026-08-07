@@ -262,10 +262,13 @@ defmodule Ambry.Inbox.Draft.Edit do
     update_credit(draft, section, index, fn credit ->
       people =
         List.update_at(credit.people, person_index, fn person ->
+          renamed? = Map.has_key?(attrs, :name) and Map.get(attrs, :name) != person.name
+
           %{
             person
             | name: Map.get(attrs, :name, person.name),
-              person_id: Map.get(attrs, :person_id, person.person_id)
+              person_id: Map.get(attrs, :person_id, person.person_id),
+              name_source: if(renamed?, do: "manual", else: person.name_source)
           }
         end)
 
@@ -293,6 +296,55 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   @doc """
+  Types a bio directly, as the operator's own words.
+
+  A person's description is a description like any other — the one on the
+  recording has been an editable text box since the form existed, and there
+  is no reason a provider's blurb about a human should be the one piece of
+  prose in this form you can only take or leave. Recorded as `manual`, which
+  is what stops a later refresh overwriting the edit.
+  """
+  def edit_person_bio(draft, section, index, person_index, description) do
+    update_person(draft, section, index, person_index, fn person ->
+      %{person | description: presence(description), description_source: "manual"}
+    end)
+  end
+
+  # Every reference to the same human moves together.
+  #
+  # A person behind two credits is ONE person — approval creates them once —
+  # so letting the two rows hold different photos is the form describing a
+  # state that cannot exist. It also made the second row offer to go looking
+  # for a picture of somebody already settled on the row above.
+  defp update_person(draft, section, index, person_index, fun) do
+    here = {to_string(section), index, person_index}
+    elsewhere = Enum.reject(Draft.sharing(draft)[here] || [], &(loc(&1) == here))
+
+    draft
+    |> update_credit(section, index, fn credit ->
+      %{credit | curated: true, people: List.update_at(credit.people, person_index, fun)}
+    end)
+    |> mirror_person(elsewhere, fun)
+  end
+
+  # Every other place the same human appears. Computed BEFORE the edit,
+  # because an edit that changes the name changes who the row is about — the
+  # group is what it was when the operator clicked, not what it becomes.
+  defp mirror_person(draft, places, fun) do
+    Enum.reduce(places, draft, fn place, draft ->
+      update_credit(draft, atom(place.section), place.index, fn credit ->
+        %{credit | people: List.update_at(credit.people, place.person_index, fun)}
+      end)
+    end)
+  end
+
+  defp loc(%{section: section, index: index, person_index: person_index}),
+    do: {section, index, person_index}
+
+  defp atom("work"), do: :work
+  defp atom("recording"), do: :recording
+
+  @doc """
   Says whether an identically-named person elsewhere in this draft is the same
   human.
 
@@ -302,12 +354,16 @@ defmodule Ambry.Inbox.Draft.Edit do
   it counts as curation like every other operator judgement here.
   """
   def set_person_distinct(draft, section, index, person_index, distinct?) do
-    update_person(draft, section, index, person_index, &%{&1 | distinct: distinct?})
-  end
-
-  defp update_person(draft, section, index, person_index, fun) do
+    # Deliberately does NOT propagate: this is the edit that *breaks* the
+    # sharing, so mirroring it onto the other row would mark both people
+    # distinct and leave them indistinguishable — merging them straight back
+    # together, which is the opposite of what was asked.
     update_credit(draft, section, index, fn credit ->
-      %{credit | curated: true, people: List.update_at(credit.people, person_index, fun)}
+      %{
+        credit
+        | curated: true,
+          people: List.update_at(credit.people, person_index, &%{&1 | distinct: distinct?})
+      }
     end)
   end
 

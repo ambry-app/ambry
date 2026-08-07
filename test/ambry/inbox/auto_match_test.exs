@@ -62,6 +62,61 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert best["score"] > 0.9
     end
 
+    # The library search is a substring ILIKE over one field at a time, so
+    # `"#{title} #{author}"` is not a substring of any title and matched
+    # nothing — on every item whose tags name an author, which 1b measured at
+    # 96% of them. "Is this a book you already have" could not find an answer
+    # to offer, which is exactly #1186's bug repeated in the local search.
+    test "finds a book already in the library despite the author in the hints" do
+      book = insert(:book, title: "Leviathan Wakes")
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Leviathan Wakes", author: "James S.A. Corey"))
+
+      assert [%{"id" => id}] = matches["work"]["local"]
+      assert id == book.id
+    end
+
+    # A tag title is rarely the library's title: editions and subtitles get
+    # bolted on, and typographic apostrophes are a coin flip between the file
+    # and the record.
+    test "finds it through an edition suffix, a subtitle and a curly apostrophe" do
+      stone = insert(:book, title: "Harry Potter and the Philosopher's Stone")
+      lattes = insert(:book, title: "Legends and Lattes")
+
+      %{matches: full_cast} =
+        AutoMatch.match(
+          item(
+            title: "Harry Potter and the Philosopher\u2019s Stone (Full-Cast Edition)",
+            author: "J.K. Rowling"
+          )
+        )
+
+      %{matches: subtitled} =
+        AutoMatch.match(item(title: "Legends and Lattes: A Novel of High Fantasy and Low Stakes"))
+
+      assert [%{"id" => stone_id}] = full_cast["work"]["local"]
+      assert stone_id == stone.id
+
+      assert [%{"id" => lattes_id}] = subtitled["work"]["local"]
+      assert lattes_id == lattes.id
+    end
+
+    # Keywords recall far more than the substring search did, and one shared
+    # word is not a reason to ask "do you already have this?" — measured on the
+    # operator's library, Anne of Green Gables was being offered as a candidate
+    # for Leviathan Wakes.
+    test "one shared word is not enough to offer a book" do
+      insert(:book, title: "Anne of Green Gables")
+      wakes = insert(:book, title: "Leviathan Wakes")
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Leviathan Wakes", author: "James S.A. Corey"))
+
+      assert [%{"id" => id}] = matches["work"]["local"]
+      assert id == wakes.id
+    end
+
     test "keeps every candidate, not just the winner" do
       patch_work_results([
         book("The Way of Kings", ["Brandon Sanderson"]),

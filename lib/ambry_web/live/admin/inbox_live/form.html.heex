@@ -1,14 +1,4 @@
 <.layout title={@page_title} user={@current_user}>
-  <.modal :if={@picker} id="person-picker-modal" show on_cancel={JS.push("close-picker")}>
-    <.live_component
-      id="person-picker"
-      module={AmbryWeb.Admin.PersonPicker}
-      query={@picker.query}
-      context={@picker}
-      bios={false}
-    />
-  </.modal>
-
   <div class="max-w-4xl space-y-8 pb-16">
     <%!-- the evidence: what was found, before anybody interpreted it --%>
     <section class="space-y-1 rounded-sm border border-zinc-300 p-4 dark:border-zinc-700">
@@ -129,7 +119,7 @@
             records below: linking creates nothing and inherits the book's
             curation, importing a record creates a Book. Ranking the two
             together made the form ask one question that was really two. --%>
-      <div :if={local_records(@item, "work") != []} class="space-y-2" data-role="local-books">
+      <div class="space-y-2" data-role="local-books">
         <div class="flex items-center gap-2">
           <.label>Is this a book you already have?</.label>
           <.badge
@@ -148,6 +138,44 @@
 
         <.local_book_row
           :for={book <- local_records(@item, "work")}
+          book={book}
+          linked={@item.draft.work.mode == :link and @item.draft.work.book_id == book["id"]}
+        />
+
+        <%!-- Matching is keyword-based and good enough for the ordinary case,
+              but a file's idea of its title can be anything: the operator's own
+              copy of Philosopher's Stone is tagged "HP1 - The Philosopher's
+              Stone", and the US edition of the same work is called Sorcerer's
+              Stone, which no amount of string cleverness should be expected to
+              connect. So there is always a way to go and look. --%>
+        <form
+          phx-submit="search-library"
+          phx-change="search-library"
+          id="library-search"
+          class="flex flex-wrap items-center gap-2 pt-1"
+        >
+          <input
+            type="text"
+            name="query"
+            value={@library_query}
+            placeholder="search the library by title, author or series"
+            phx-debounce="300"
+            class="min-w-64 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          />
+          <button type="submit" class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700">
+            Search
+          </button>
+        </form>
+
+        <p
+          :if={@library_query not in [nil, ""] and @library_results == []}
+          class="text-sm italic dark:text-zinc-500"
+        >
+          Nothing in the library matches that.
+        </p>
+
+        <.local_book_row
+          :for={book <- @library_results}
           book={book}
           linked={@item.draft.work.mode == :link and @item.draft.work.book_id == book["id"]}
         />
@@ -181,6 +209,17 @@
             {elem(confidence_label(@item.draft.work.confidence), 0)}
           </.badge>
         </div>
+
+        <%!-- Same as the recording level: a doubted match adopts nothing, and
+              "found nothing" versus "found something we don't believe" have to
+              look different or the empty fields below are unexplained. --%>
+        <p
+          :if={doubt_message(@item.draft.work)}
+          class="rounded-sm border border-amber-500 p-3 text-sm"
+          data-role="work-doubt"
+        >
+          {doubt_message(@item.draft.work)}
+        </p>
 
         <p :if={records(@item, "work") != []} class="text-sm dark:text-zinc-400">
           Tick every record that's about this book. Two databases having a record of it is normal —
@@ -294,7 +333,8 @@
           expanded={expanded?(@expanded, "work", index, credit)}
           kind={:author}
           sharing={@sharing}
-          bios={bios_for(@person_bios, "work", index)}
+          found={found_for(@person_search, "work", index)}
+          photos_expanded={photos_expanded_for(@photos_expanded, "work", index)}
         />
       </div>
 
@@ -490,7 +530,8 @@
           expanded={expanded?(@expanded, "recording", index, credit)}
           kind={:narrator}
           sharing={@sharing}
-          bios={bios_for(@person_bios, "recording", index)}
+          found={found_for(@person_search, "recording", index)}
+          photos_expanded={photos_expanded_for(@photos_expanded, "recording", index)}
         />
       </div>
     </section>

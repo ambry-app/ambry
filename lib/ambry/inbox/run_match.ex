@@ -28,9 +28,9 @@ defmodule Ambry.Inbox.RunMatch do
   alias Ambry.Inbox
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"inbox_item_id" => id}}) do
+  def perform(%Oban.Job{args: %{"inbox_item_id" => id} = args}) do
     case Inbox.fetch_item(id) do
-      {:ok, item} -> Inbox.match_item(item)
+      {:ok, item} -> Inbox.match_item(item, refresh: !!args["refresh"])
       # the operator deleted it while the job was queued
       {:error, :not_found} -> :ok
     end

@@ -11,10 +11,13 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## The rules
 
-    * **work identity** — auto on ASIN identity, an exact local title+author
-      match, or a top score ≥ 0.90 whose runner-up is ≤ 0.70. Local books
-      already outrank equal provider hits in `AutoMatch`, so "reuse the work"
-      wins by default.
+    * **work identity** — the question is only ever "is this a book you
+      already have". A local title+author match at ≥ 0.95 settles it as *that*
+      book; a weaker local hit is offered and never assumed, because attaching
+      a recording to the wrong existing book is worse than one duplicate Book
+      and much harder to notice. **No local hit at all settles it as a new
+      book**, because that is what the local search just answered — how good
+      the provider records are is a separate question the fields report.
     * **recording identity** — settled when an ASIN or a confident match says
       which catalogue entry this is, and settled when nothing was found at all
       (plenty of good rips are in no storefront). A *doubted* match settles
@@ -69,8 +72,6 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.People.Person
   alias Ambry.Repo
 
-  @strong_match 0.90
-
   # How closely an existing Book has to match before the import proposes
   # linking to it rather than creating one. Deliberately high: attaching a
   # recording to the wrong book is a worse outcome than one duplicate Book,
@@ -80,6 +81,13 @@ defmodule Ambry.Inbox.Draft.Seed do
   # How sure a recording match must be before its metadata is allowed to
   # describe this file.
   @trusted_recording 0.75
+
+  # And the same for a work. Lower than the recording's bar on purpose: the
+  # cost of being wrong is different. A wrong recording is the wrong reading of
+  # the right book and is nearly invisible afterwards; a wrong work is a
+  # visibly wrong title sitting on the form, in front of an operator who is
+  # already looking at it.
+  @trusted_work 0.65
 
   @doc """
   Builds a fresh draft for an item from its matches, tags and release name.
@@ -170,18 +178,54 @@ defmodule Ambry.Inbox.Draft.Seed do
     local = Map.get(level, "local", []) || []
     confidence = Map.get(level, "confidence")
 
-    {mode, book_id, approved} = work_identity(local, records, confidence)
+    {mode, book_id, approved} = work_identity(local)
+
+    # **Only a work we actually believe in gets to fill anything in**, exactly
+    # as the recording level has always done. Ticking the top record whatever
+    # its score meant a weak match quietly supplied the title, the publication
+    # date and the authors of a book it wasn't about — the operator's only
+    # clue being fields that looked settled and were wrong, which is far worse
+    # than fields that are visibly empty.
+    {doubt, detail, best} = trust_work(records, level)
 
     %Work{
       mode: mode,
       book_id: book_id,
       approved: approved,
       confidence: confidence,
+      doubt: doubt,
+      doubt_detail: detail,
       query: Map.get(level, "query"),
       query_fields: Map.get(level, "query_fields") || %{},
-      sources: Enum.map(AutoMatch.top_group(records), &SourceRef.of/1)
+      sources: if(best, do: Enum.map(AutoMatch.top_group(records), &SourceRef.of/1), else: [])
     }
     |> put_work_fields(records, hints, tags)
+  end
+
+  # Linking to a Book is a different answer and answers itself: the book's own
+  # fields are inherited, so there is nothing for a doubted record to spoil.
+  defp trust_work([], _level), do: {:nothing_found, nil, nil}
+
+  defp trust_work([best | _rest], level) do
+    confidence = Map.get(level, "confidence") || 0.0
+
+    cond do
+      best["score"] == 1.0 -> {:none, nil, best}
+      confidence >= @trusted_work -> {:none, nil, best}
+      true -> {:low_confidence, weak_work_detail(best, confidence), nil}
+    end
+  end
+
+  defp weak_work_detail(best, confidence) do
+    "The closest is #{best["title"]}#{written_by(best["authors"])}, and it isn't a close " <>
+      "enough match (#{round(confidence * 100)}%) to describe this book."
+  end
+
+  defp written_by(authors) do
+    case names(authors) do
+      nil -> ""
+      names -> " by #{Enum.join(names, ", ")}"
+    end
   end
 
   @doc """
@@ -279,7 +323,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   # convincing local hit is proposed as a link. Anything else is a new book,
   # which is also what an item with no matches at all is: "create a new book"
   # was never a separate answer, just the absence of an existing one.
-  defp work_identity(local, records, confidence) do
+  defp work_identity(local) do
     case Enum.max_by(local, &(&1["score"] || 0.0), fn -> nil end) do
       %{"id" => id, "score" => score} when score >= @strong_local ->
         {:link, id, true}
@@ -290,18 +334,23 @@ defmodule Ambry.Inbox.Draft.Seed do
         # is worse than creating one book too many.
         {:create, nil, false}
 
+      # **Nothing in the library could be this book, so it isn't a question.**
+      # This used to need a nod whenever the *provider* match was weak, which
+      # conflated two unrelated things: how good the records are is what the
+      # field decisions report, and it says nothing about whether the library
+      # already has the work — that's what the local search just answered, and
+      # it answered no.
+      #
+      # Worse, the control lives inside the "Is this a book you already have?"
+      # block, which only renders when there ARE local candidates. So an
+      # ordinary import with no local hit showed an outstanding decision, a
+      # disabled import button, and **nothing on the page to settle it with**.
+      # Same lesson as the photo affordance inside the pen-name fold: a
+      # decision the form asks for has to have a control the operator can
+      # reach from where they're standing.
       nil ->
-        {:create, nil, settled_new_book?(records, confidence)}
+        {:create, nil, true}
     end
-  end
-
-  # With no local book in the running, "new book" is the only answer there is;
-  # it still needs a nod when the records are too weak to have filled the
-  # fields convincingly.
-  defp settled_new_book?([], _confidence), do: true
-
-  defp settled_new_book?([best | _rest], confidence) do
-    best["score"] == 1.0 or (confidence || 0.0) >= @strong_match
   end
 
   # The release name is a fallback, not a peer. Measured across the real
@@ -399,6 +448,16 @@ defmodule Ambry.Inbox.Draft.Seed do
     |> default_to("full")
   end
 
+  # Same rule as the work's, on the recording's own records: the format says
+  # how much of the release date is real, and follows whichever record won it.
+  defp recording_format_field(records, published) do
+    records
+    |> from_records("published_format")
+    |> scalar(required: false)
+    |> Field.follow_date(published)
+    |> default_to("full")
+  end
+
   defp default_to(%Field{value: nil, candidates: []} = field, value) do
     %{field | value: value, source: "default", approved: true}
   end
@@ -459,11 +518,17 @@ defmodule Ambry.Inbox.Draft.Seed do
   # as recording records.
   defp put_recording_fields(%Recording{} = recording, records, tags, item) do
     mine = used(records, recording.sources)
+    published = keep_manual(recording.published, scalar(from_records(mine, "published")))
 
     %{
       recording
       | title: keep_manual(recording.title, scalar([], required: false)),
-        published: keep_manual(recording.published, scalar(from_records(mine, "published"))),
+        published: published,
+        published_format:
+          keep_manual(
+            recording.published_format,
+            recording_format_field(mine, published)
+          ),
         publisher:
           keep_manual(
             recording.publisher,
@@ -573,10 +638,15 @@ defmodule Ambry.Inbox.Draft.Seed do
     |> Enum.map(fn {name, source} -> credit(name, :author, source) end)
   end
 
+  # A cast label is not a person to create. When a record is ticked its real
+  # cast supplies the credits anyway; this is for the case where nothing is,
+  # and "Full Cast" would otherwise be proposed as a human to add to the
+  # library.
   defp narrator_credits(records, tags) do
     records
     |> proposed_names("narrators")
     |> or_from_tags(tags, "narrators")
+    |> Enum.reject(fn {name, _source} -> AutoMatch.placeholder_narrator?(name) end)
     |> Enum.map(fn {name, source} -> credit(name, :narrator, source) end)
   end
 
@@ -618,18 +688,18 @@ defmodule Ambry.Inbox.Draft.Seed do
         %{
           base
           | mode: :create,
-            people: Credit.new_person_default(name),
+            people: Credit.new_person_default(name, source),
             approved: provider?(source)
         }
 
       # a Person exists but this identity doesn't — "is this the same human?"
       # is never automated
       {[], _people} ->
-        %{base | mode: :create, people: Credit.new_person_default(name), approved: false}
+        %{base | mode: :create, people: Credit.new_person_default(name, source), approved: false}
 
       # more than one identity shares this name; two people really can
       {_several, _people} ->
-        %{base | mode: :create, people: Credit.new_person_default(name), approved: false}
+        %{base | mode: :create, people: Credit.new_person_default(name, source), approved: false}
     end
   end
 
@@ -726,12 +796,21 @@ defmodule Ambry.Inbox.Draft.Seed do
   # Candidates carry series as `%{"name", "number"}`. Older stored matches
   # carry bare strings, and a rescan is not something to require just to read
   # an item, so both shapes are accepted.
+  # Reader-created orderings of a series that already exists — "Legends &
+  # Lattes (Chronological)" arriving alongside "Legends & Lattes", which is
+  # how Goodreads-derived data models "read these in story order". They are
+  # not canon and nobody browses them, but the form proposed them exactly like
+  # a real series, so one careless import creates a duplicate series with one
+  # book in it. Filtered as a *proposal*: the record still says what it said,
+  # and evidence is never edited to make a decision come out differently.
+  @order_variant ~r/\(\s*(?:chronological|publication|reading|internal|story)(?:\s+order)?\s*\)\s*$/iu
+
   defp series_proposals(nil), do: []
 
   defp series_proposals(entries) when is_list(entries) do
     entries
     |> Enum.map(&series_proposal/1)
-    |> Enum.reject(&is_nil/1)
+    |> Enum.reject(&(is_nil(&1) or Regex.match?(@order_variant, &1.name)))
   end
 
   defp series_proposals(value) when is_binary(value), do: series_proposals([value])
@@ -870,8 +949,17 @@ defmodule Ambry.Inbox.Draft.Seed do
     end)
   end
 
+  # `prefer` returns a *value*, so it cannot say which candidate won when both
+  # proposed the same one — and comparing its answer to `incoming.value` calls
+  # every tie for whoever came last. Records are collected before the file's
+  # tags, so a provider and the tags agreeing on a date credited the tags, and
+  # the form said "from the file's tags" about a value Hardcover had
+  # corroborated. Measured on a real import; provenance is written from this.
   defp combine(held, incoming, prefer) do
-    winner = if prefer.(held.value, incoming.value) == incoming.value, do: incoming, else: held
+    winner =
+      if held.value != incoming.value and prefer.(held.value, incoming.value) == incoming.value,
+        do: incoming,
+        else: held
 
     # The surviving chip keeps the key it had when it was held, so a choice
     # already made doesn't come unstuck when another source agrees with it.

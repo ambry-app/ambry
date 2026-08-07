@@ -115,28 +115,70 @@ defmodule Ambry.Inbox.Draft do
   def resolved?(draft), do: unresolved(draft) == []
 
   @doc """
-  Which credits each pending person is behind, keyed by `PersonRef.key/1`.
+  The people this draft will create, one entry per distinct human.
 
-  Almost always one, and the interesting answer is two: an author who reads
-  their own book is one human with an Author identity and a Narrator identity,
-  and the two credits proposing to create them have no idea about each other.
-  Approval already resolves them to one Person — this is what lets the form
-  *say* so before the operator presses import, which is the difference between
-  a sensible default and a surprise.
+  Returns `[{key, [%{place:, ref:}]}]` in the order the form lists them. A
+  group with two entries is one human behind two credits — an author who reads
+  their own book — which is the whole reason this exists: the credits have no
+  idea about each other, so resolving each in isolation created the same person
+  twice, and curating each in isolation offered to go find a second photo of
+  somebody already settled.
+
+  Grouping happens **here**, where the positions are known, rather than in
+  `PersonRef.key/1`. A reference the operator marked `distinct` has to be its
+  own group, and two identical rows both marked distinct are distinguishable
+  only by where they are — keying on the struct alone silently merged them
+  back together, which is the exact opposite of what the operator asked for.
   """
-  def sharing(nil), do: %{}
+  def people_groups(nil), do: []
 
-  def sharing(%__MODULE__{} = draft) do
-    (tagged(draft.work && draft.work.authors, :author) ++
-       tagged(draft.recording && draft.recording.narrators, :narrator))
-    |> Enum.filter(fn {_kind, credit} -> credit.mode == :create end)
-    |> Enum.flat_map(fn {kind, credit} -> Enum.map(credit.people, &{PersonRef.key(&1), kind}) end)
-    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
-    |> Map.new(fn {key, kinds} -> {key, Enum.uniq(kinds)} end)
+  def people_groups(%__MODULE__{} = draft) do
+    draft
+    |> person_entries()
+    |> Enum.reduce([], fn entry, groups ->
+      case Enum.find_index(groups, fn {key, _entries} -> key == entry.key end) do
+        nil -> groups ++ [{entry.key, [entry]}]
+        index -> List.update_at(groups, index, fn {key, es} -> {key, es ++ [entry]} end)
+      end
+    end)
   end
 
-  defp tagged(nil, _kind), do: []
-  defp tagged(credits, kind), do: Enum.map(credits, &{kind, &1})
+  @doc """
+  Where each person appears, keyed by `{section, index, person_index}`.
+
+  What the form reads: every place maps to the list of places the same human
+  appears in, itself included and **first place first**. The first is where
+  they are curated — one human is one photo and one bio, decided once.
+  """
+  def sharing(draft) do
+    for {_key, entries} <- people_groups(draft), entry <- entries, into: %{} do
+      {loc(entry.place), Enum.map(entries, & &1.place)}
+    end
+  end
+
+  defp person_entries(%__MODULE__{} = draft) do
+    for {kind, section, index, credit} <-
+          tagged(draft.work && draft.work.authors, :author, "work") ++
+            tagged(draft.recording && draft.recording.narrators, :narrator, "recording"),
+        credit.mode == :create,
+        {ref, person_index} <- Enum.with_index(credit.people) do
+      place = %{kind: kind, section: section, index: index, person_index: person_index}
+      %{key: group_key(ref, place), place: place, ref: ref}
+    end
+  end
+
+  # The escape hatch, and the only thing that can break a group.
+  defp group_key(%PersonRef{distinct: true}, place), do: {:distinct, loc(place)}
+  defp group_key(%PersonRef{} = ref, _place), do: PersonRef.key(ref)
+
+  defp loc(%{section: section, index: index, person_index: person_index}),
+    do: {section, index, person_index}
+
+  defp tagged(nil, _kind, _section), do: []
+
+  defp tagged(credits, kind, section) do
+    credits |> Enum.with_index() |> Enum.map(fn {c, i} -> {kind, section, i, c} end)
+  end
 
   @doc """
   How far along the operator is, for the queue and the form header.

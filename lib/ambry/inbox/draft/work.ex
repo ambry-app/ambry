@@ -29,6 +29,14 @@ defmodule Ambry.Inbox.Draft.Work do
     field :query, :string
     field :query_fields, :map, default: %{}
 
+    # Why no record was adopted, mirroring the recording level. The work level
+    # used to tick its top record whatever the score said, so a weak match
+    # filled in the title, date and authors of a book it wasn't about — and
+    # said nothing. The recording level has refused to do that since it was
+    # built; this is the same rule, arriving late.
+    field :doubt, Ecto.Enum, values: [:none, :nothing_found, :low_confidence]
+    field :doubt_detail, :string
+
     # Which provider records describe this book. The records live on the
     # item's `matches` because they're evidence; which of them count is a
     # decision, so it lives here.
@@ -45,7 +53,16 @@ defmodule Ambry.Inbox.Draft.Work do
   @doc false
   def changeset(work, attrs) do
     work
-    |> cast(attrs, [:mode, :book_id, :approved, :confidence, :query, :query_fields])
+    |> cast(attrs, [
+      :mode,
+      :book_id,
+      :approved,
+      :confidence,
+      :query,
+      :query_fields,
+      :doubt,
+      :doubt_detail
+    ])
     |> cast_embed(:sources)
     |> cast_embed(:title)
     |> cast_embed(:published)
@@ -112,12 +129,21 @@ defmodule Ambry.Inbox.Draft.Work do
 
   def unresolved(%__MODULE__{mode: :create} = work) do
     identity(work) ++
+      doubted(work) ++
       unresolved_field(work.title, "Title") ++
       unresolved_field(work.published, "First published") ++
       unresolved_field(work.published_format, "Date display format") ++
       unresolved_in(work.authors, &Credit.resolved?/1, "Author") ++
       unresolved_in(work.series, &SeriesLink.resolved?/1, "Series")
   end
+
+  # A doubted match adopts nothing, so the fields below it are empty or
+  # tag-derived. Saying so is what stops "the provider found nothing" and "the
+  # provider found something we don't believe" looking identical.
+  defp doubted(%__MODULE__{doubt: :low_confidence}),
+    do: [%{section: :work, label: "Which records describe this book", state: :unconfirmed}]
+
+  defp doubted(%__MODULE__{}), do: []
 
   defp identity(%__MODULE__{approved: true}), do: []
 

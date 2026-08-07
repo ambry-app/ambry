@@ -174,8 +174,10 @@ defmodule Ambry.Inbox.Approval do
   end
 
   defp author_params(credits, people) do
-    Enum.map(credits, fn credit ->
-      {:ok, author} = resolve_identity(credit, people)
+    credits
+    |> Enum.with_index()
+    |> Enum.map(fn {credit, index} ->
+      {:ok, author} = resolve_identity(credit, {"work", index}, people)
       %{author_id: author.id}
     end)
   end
@@ -197,10 +199,10 @@ defmodule Ambry.Inbox.Approval do
   # The identity is what a credit resolves to — never a Person. Person appears
   # only when creating, and how many of them there are is just the length of
   # the list the operator left behind.
-  defp resolve_identity(%Credit{mode: :link, kind: :author, identity_id: id}, _people),
+  defp resolve_identity(%Credit{mode: :link, kind: :author, identity_id: id}, _at, _people),
     do: {:ok, Repo.get!(Author, id)}
 
-  defp resolve_identity(%Credit{mode: :link, kind: :narrator, identity_id: id}, _people),
+  defp resolve_identity(%Credit{mode: :link, kind: :narrator, identity_id: id}, _at, _people),
     do: {:ok, Repo.get!(Narrator, id)}
 
   # An identity's own changeset only casts its name — identities are normally
@@ -208,9 +210,9 @@ defmodule Ambry.Inbox.Approval do
   # people". So the link rows go in explicitly. Each `AuthorPerson` in the
   # list is one human behind the credit; the list being longer than one is the
   # entire composite-author case.
-  defp resolve_identity(%Credit{mode: :create, kind: :author} = credit, people) do
+  defp resolve_identity(%Credit{mode: :create, kind: :author} = credit, at, people) do
     with {:ok, author} <- %Author{} |> Author.changeset(%{name: credit.name}) |> Repo.insert() do
-      Enum.each(behind(credit, people), fn person ->
+      Enum.each(behind(credit, at, people), fn person ->
         Repo.insert!(%AuthorPerson{author_id: author.id, person_id: person.id})
       end)
 
@@ -221,8 +223,8 @@ defmodule Ambry.Inbox.Approval do
   # Narrators stay one-to-one with a Person by design — composite narrator
   # identities aren't a real-world thing — so only the first reference is used
   # and the form caps the control at one.
-  defp resolve_identity(%Credit{mode: :create, kind: :narrator} = credit, people) do
-    [person | _rest] = behind(credit, people)
+  defp resolve_identity(%Credit{mode: :create, kind: :narrator} = credit, at, people) do
+    [person | _rest] = behind(credit, at, people)
 
     %Narrator{}
     |> Narrator.changeset(%{name: credit.name})
@@ -230,8 +232,13 @@ defmodule Ambry.Inbox.Approval do
     |> Repo.insert()
   end
 
-  defp behind(%Credit{} = credit, people),
-    do: Enum.map(credit.people, &Map.fetch!(people, PersonRef.key(&1)))
+  defp behind(%Credit{} = credit, {section, index}, people) do
+    credit.people
+    |> Enum.with_index()
+    |> Enum.map(fn {_ref, person_index} ->
+      Map.fetch!(people, {section, index, person_index})
+    end)
+  end
 
   # Every human the draft implies, created once each and looked up by
   # `PersonRef.key/1`.
@@ -243,31 +250,29 @@ defmodule Ambry.Inbox.Approval do
   # credit — the two credits are independent, the human is not.
   defp resolve_people(%Draft{} = draft) do
     draft
-    |> pending_refs()
-    |> Enum.reduce_while({:ok, %{}}, fn {key, ref}, {:ok, resolved} ->
-      case resolve_person(ref) do
-        {:ok, person} -> {:cont, {:ok, Map.put(resolved, key, person)}}
-        {:error, _reason} = error -> {:halt, error}
+    |> Draft.people_groups()
+    |> Enum.reduce_while({:ok, %{}}, fn {_key, entries}, {:ok, resolved} ->
+      # The photo and bio fold together across every reference to one human:
+      # the operator went looking for a picture of a person, not for a
+      # decoration on a row.
+      merged = entries |> Enum.map(& &1.ref) |> Enum.reduce(&PersonRef.merge(&2, &1))
+
+      case resolve_person(merged) do
+        {:ok, person} ->
+          {:cont,
+           {:ok,
+            Enum.reduce(entries, resolved, fn entry, acc ->
+              Map.put(acc, place_key(entry.place), person)
+            end)}}
+
+        {:error, _reason} = error ->
+          {:halt, error}
       end
     end)
   end
 
-  # One entry per distinct human, in the order the form lists them, with the
-  # photo and bio folded together across every reference to them.
-  defp pending_refs(%Draft{} = draft) do
-    creating = Enum.filter(draft.work.authors ++ draft.recording.narrators, &(&1.mode == :create))
-
-    creating
-    |> Enum.flat_map(& &1.people)
-    |> Enum.reduce([], fn ref, kept ->
-      key = PersonRef.key(ref)
-
-      case Enum.find_index(kept, fn {held, _ref} -> held == key end) do
-        nil -> kept ++ [{key, ref}]
-        index -> List.update_at(kept, index, fn {k, held} -> {k, PersonRef.merge(held, ref)} end)
-      end
-    end)
-  end
+  defp place_key(%{section: section, index: index, person_index: person_index}),
+    do: {section, index, person_index}
 
   defp resolve_person(%PersonRef{person_id: id}) when not is_nil(id),
     do: {:ok, Repo.get!(People.Person, id)}
@@ -290,8 +295,16 @@ defmodule Ambry.Inbox.Approval do
   end
 
   # String keys: `Provenance.track_changes/3` looks sources up by field name.
+  # The name is provenanced too. Without it `track_changes/3` sees a changed
+  # field with no source and records the only thing left — **manual, locked** —
+  # so every person the inbox created claimed to have been typed by hand, and
+  # was locked against the refresh that would have improved it.
   defp person_provenance(%PersonRef{} = ref) do
-    %{"image_path" => ref.image_source, "description" => ref.description_source}
+    %{
+      "name" => ref.name_source,
+      "image_path" => ref.image_source,
+      "description" => ref.description_source
+    }
     |> Enum.reject(fn {_field, source} -> is_nil(source) end)
     |> Map.new()
   end
@@ -325,6 +338,7 @@ defmodule Ambry.Inbox.Approval do
         media_tracks: [track_params(probe)],
         title: Field.value(recording.title),
         published: Field.date(recording.published),
+        published_format: Field.atom(recording.published_format, :full),
         publisher: Field.value(recording.publisher),
         description: Field.value(recording.description),
         image_path: cover(recording.cover)
@@ -333,6 +347,7 @@ defmodule Ambry.Inbox.Approval do
         provenance(%{
           "title" => recording.title,
           "published" => recording.published,
+          "published_format" => recording.published_format,
           "publisher" => recording.publisher,
           "description" => recording.description,
           "image_path" => recording.cover
@@ -341,8 +356,10 @@ defmodule Ambry.Inbox.Approval do
   end
 
   defp narrator_params(credits, people) do
-    Enum.map(credits, fn credit ->
-      {:ok, narrator} = resolve_identity(credit, people)
+    credits
+    |> Enum.with_index()
+    |> Enum.map(fn {credit, index} ->
+      {:ok, narrator} = resolve_identity(credit, {"recording", index}, people)
       %{narrator_id: narrator.id}
     end)
   end

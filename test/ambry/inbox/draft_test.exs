@@ -122,15 +122,51 @@ defmodule Ambry.Inbox.DraftTest do
       refute draft.work.approved
     end
 
-    test "weak records leave the new-book answer for the operator" do
+    # The recording level has refused to adopt a doubted match since it was
+    # built; the work level ticked its top record whatever the score said, so a
+    # weak match quietly supplied the title, date and authors of a book it
+    # wasn't about. Fields that look settled and are wrong beat visibly empty
+    # ones every time — which is why this is the one thing the removed
+    # "confirm it's a new book" gate was really protecting.
+    test "a doubted work match fills nothing in and says why" do
       candidates = [
         provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5})
       ]
 
       draft = Seed.build(item(%{matches: matches(candidates, confidence: 0.5), tags: %{}}))
 
-      refute draft.work.approved
-      assert Enum.any?(Draft.unresolved(draft), &(&1.label =~ "already have"))
+      assert draft.work.doubt == :low_confidence
+      assert draft.work.doubt_detail =~ "Something Else"
+      assert draft.work.sources == []
+      # nothing was adopted, so the title is a decision rather than a wrong answer
+      refute draft.work.title.value == "Something Else"
+      assert Enum.any?(Draft.unresolved(draft), &(&1.label =~ "records describe this book"))
+    end
+
+    test "a believed work match still adopts its records" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      assert draft.work.doubt == :none
+      assert draft.work.sources != []
+      assert draft.work.title.value == "Leviathan Wakes"
+    end
+
+    # "Is this a book you already have" is answered by the LOCAL search, and
+    # nothing local matched. Gating it on how good the *provider* records are
+    # conflated two questions and left the operator with an outstanding
+    # decision whose only control lives in a block that renders solely when
+    # there are local candidates to show — so there was nothing on the page to
+    # settle it with.
+    test "no local hit settles the identity as a new book" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5})
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates, confidence: 0.5), tags: %{}}))
+
+      assert draft.work.mode == :create
+      assert draft.work.approved
+      refute Enum.any?(Draft.unresolved(draft), &(&1.label =~ "already have"))
     end
 
     test "linking a book does not re-decide the book's own fields" do
@@ -271,7 +307,7 @@ defmodule Ambry.Inbox.DraftTest do
 
     test "each series is its own decision" do
       candidates = [
-        provider_candidate(%{"series" => ["The Expanse", "The Expanse (Chronological)"]})
+        provider_candidate(%{"series" => ["The Expanse", "Expanse Novellas"]})
       ]
 
       draft =
@@ -783,6 +819,30 @@ defmodule Ambry.Inbox.DraftTest do
       assert draft.work.published_format.value == "year"
     end
 
+    # Measured on a real import (Legends & Lattes): Hardcover and the file's
+    # tags both said 2022-01-01, and the merged chip was credited to the tags —
+    # so the form said "from the file's tags" about a value a provider had
+    # corroborated, and approval wrote that as provenance. `prefer` returns a
+    # value, which cannot break a tie between two candidates proposing the same
+    # one, and comparing its answer to `incoming.value` called every tie for
+    # whoever came last.
+    test "a value two sources agree on is credited to the provider, not the tags" do
+      item =
+        item(%{
+          matches: matches([provider_candidate(%{"published" => "2022-01-01"})]),
+          tags: %{"published" => "2022-01-01", "published_format" => "year"}
+        })
+
+      draft = Seed.build(item)
+
+      assert [chip] = draft.work.published.candidates
+      assert chip.source == "provider:hardcover"
+      assert draft.work.published.source == "provider:hardcover"
+      # and both are still credited on the chip
+      assert chip.label =~ "Hardcover"
+      assert chip.label =~ "tags"
+    end
+
     test "an auto-settled format highlights the chip it took" do
       draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
 
@@ -1112,7 +1172,7 @@ defmodule Ambry.Inbox.DraftTest do
         provider_candidate(%{
           "series" => [
             %{"name" => "The Expanse", "number" => "1"},
-            %{"name" => "The Expanse (Chronological)", "number" => "2"}
+            %{"name" => "Expanse Novellas", "number" => "2"}
           ]
         })
       ]
@@ -1122,6 +1182,38 @@ defmodule Ambry.Inbox.DraftTest do
       assert [first, second] = draft.work.series
       assert first.number == "1"
       assert second.number == "2"
+    end
+
+    # Goodreads-derived data models "read these in story order" as a second
+    # series sitting beside the real one. Seen repeatedly on the operator's
+    # own library — Legends & Lattes arrives in both "Legends & Lattes" and
+    # "Legends & Lattes (Chronological)" — and the form proposed them
+    # identically, so one careless import creates a duplicate series with one
+    # book in it that nobody will ever browse.
+    test "a reader-created ordering is not proposed as a series" do
+      candidates = [
+        provider_candidate(%{
+          "series" => [
+            %{"name" => "Legends & Lattes", "number" => "1"},
+            %{"name" => "Legends & Lattes (Chronological)", "number" => "2"}
+          ]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [link] = draft.work.series
+      assert link.name == "Legends & Lattes"
+    end
+
+    test "a lone ordering variant is dropped rather than imported alone" do
+      candidates = [
+        provider_candidate(%{"series" => [%{"name" => "Discworld (Publication Order)"}]})
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert draft.work.series == []
     end
 
     test "a tag's number is not applied to a series the tag didn't name" do

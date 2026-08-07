@@ -187,5 +187,5 @@ defmodule Ambry.Inbox.Draft.Credit do
   by creating the real people and linking this identity to each — which is
   what earns the right to default here rather than stopping to ask.
   """
-  def new_person_default(name), do: [%PersonRef{name: name}]
+  def new_person_default(name, source \\ nil), do: [%PersonRef{name: name, name_source: source}]
 end

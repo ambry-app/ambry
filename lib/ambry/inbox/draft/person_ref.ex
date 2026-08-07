@@ -40,9 +40,10 @@ defmodule Ambry.Inbox.Draft.PersonRef do
     # was a trip to the person form afterwards.
     field :description, :string
     field :image_url, :string
-    # which provider the photo and bio came from, for 1d provenance
+    # which provider the photo, bio and name came from, for 1d provenance
     field :image_source, :string
     field :description_source, :string
+    field :name_source, :string
 
     # "the identically-named person on the other credit is somebody else".
     # The escape hatch from the same-person default, and the only thing here
@@ -64,6 +65,7 @@ defmodule Ambry.Inbox.Draft.PersonRef do
       :image_url,
       :image_source,
       :description_source,
+      :name_source,
       :distinct
     ])
   end
@@ -76,13 +78,14 @@ defmodule Ambry.Inbox.Draft.PersonRef do
   because a name is all an import has to go on and two credits proposing to
   create "Andy Weir" mean the one Andy Weir.
 
-  A reference the operator has marked `distinct` is keyed by itself, so it can
-  never join a group — which is the whole of the escape hatch.
+  A reference the operator has marked `distinct` never joins a group, but that
+  is decided by `Draft.people_groups/1` rather than here: two identical rows
+  both marked distinct are told apart only by *where they are*, and a key
+  computed from the struct alone silently merged them back together.
   """
   def key(%__MODULE__{person_id: id}) when not is_nil(id), do: {:person, id}
-  def key(%__MODULE__{distinct: true} = ref), do: {:distinct, ref}
   def key(%__MODULE__{name: name}) when is_binary(name), do: {:new, normalize(name)}
-  def key(%__MODULE__{} = ref), do: {:distinct, ref}
+  def key(%__MODULE__{}), do: :unnamed
 
   defp normalize(name),
     do: name |> String.downcase() |> String.replace(~r/\s+/, " ") |> String.trim()
@@ -98,7 +101,8 @@ defmodule Ambry.Inbox.Draft.PersonRef do
   def merge(%__MODULE__{} = held, %__MODULE__{} = other) do
     %{
       held
-      | description: held.description || other.description,
+      | name_source: held.name_source || other.name_source,
+        description: held.description || other.description,
         description_source: held.description_source || other.description_source,
         image_url: held.image_url || other.image_url,
         image_source: held.image_source || other.image_source

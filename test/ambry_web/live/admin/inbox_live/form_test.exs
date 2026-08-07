@@ -1,6 +1,8 @@
 defmodule AmbryWeb.Admin.InboxLive.FormTest do
-  use AmbryWeb.ConnCase, async: true
+  use AmbryWeb.ConnCase, async: false
+  use Patch
 
+  import Phoenix.ConnTest, except: [patch: 3]
   import Phoenix.LiveViewTest
 
   alias Ambry.Inbox
@@ -136,6 +138,47 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "the escape hatch" do
+    # Matching is keyword-based and good enough for the ordinary case, but a
+    # file's idea of its title can be anything — the operator's own copy of
+    # Philosopher's Stone is tagged "HP1 - The Philosopher's Stone", and the US
+    # edition of the same work is called Sorcerer's Stone. No string comparison
+    # should be asked to connect those, so there is always a way to go and look.
+    test "the library can be searched by hand and linked", %{conn: conn} do
+      book = insert(:book, title: "Harry Potter and the Sorcerer's Stone")
+      item = probed_item()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # reachable from the default state, with nothing matched
+      assert html =~ "search the library by title, author or series"
+
+      html =
+        view |> form("#library-search") |> render_change(%{"query" => "sorcerer stone"})
+
+      assert html =~ "Harry Potter and the Sorcerer&#39;s Stone"
+
+      view
+      |> element("button[phx-click='link-book'][phx-value-id='#{book.id}']")
+      |> render_click()
+
+      draft = Inbox.get_item!(item.id).draft
+      assert draft.work.mode == :link
+      assert draft.work.book_id == book.id
+    end
+
+    test "says so when the library has nothing like it", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html =
+        view |> form("#library-search") |> render_change(%{"query" => "nothing like this"})
+
+      assert html =~ "Nothing in the library matches that"
+    end
+  end
+
   describe "credits — credited as / written by" do
     test "the composite case is two people behind one credit", %{conn: conn} do
       item = probed_item()
@@ -228,6 +271,77 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert html =~ "A different person who happens to share the name"
       assert [%{people: [person]}] = Inbox.get_item!(item.id).draft.recording.narrators
       assert person.distinct
+    end
+
+    # One human is one photo and one bio. Offering a second "find a photo" for
+    # somebody already settled on the row above is the form contradicting
+    # itself about what it is going to create.
+    test "a shared person is curated in one place only", %{conn: conn} do
+      item = probed_item(narrator: "Brandon Sanderson")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(
+               view,
+               ~s{button[phx-click='find-person-images'][phx-value-section='work'][phx-value-index='0']}
+             )
+
+      refute has_element?(
+               view,
+               ~s{button[phx-click='find-person-images'][phx-value-section='recording'][phx-value-index='0']}
+             )
+
+      assert render(view) =~ "Photo and bio come from the author credit"
+    end
+
+    # They are the same person, so they cannot hold different photos — the two
+    # rows used to merge only at approval, which let the form show a state that
+    # could never exist.
+    test "a photo found on one credit lands on both rows", %{conn: conn} do
+      item = probed_item(narrator: "Brandon Sanderson")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      send(
+        view.pid,
+        {:person_image_picked, %{section: "work", index: 0, person: 0},
+         "https://example.test/face.jpg", "provider:tmdb"}
+      )
+
+      render(view)
+      draft = Inbox.get_item!(item.id).draft
+
+      assert [%{people: [author]}] = draft.work.authors
+      assert [%{people: [narrator]}] = draft.recording.narrators
+      assert author.image_url == "https://example.test/face.jpg"
+      assert narrator.image_url == "https://example.test/face.jpg"
+    end
+
+    # Marking them distinct is the one edit that must NOT propagate: mirroring
+    # it would mark both distinct and leave them indistinguishable, merging
+    # them straight back together.
+    test "saying they are different people gives the narrator its own controls",
+         %{conn: conn} do
+      item = probed_item(narrator: "Brandon Sanderson")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element(
+        ~s{button[phx-click='person-distinct'][phx-value-section='recording'][phx-value-distinct='true']}
+      )
+      |> render_click()
+
+      assert has_element?(
+               view,
+               ~s{button[phx-click='find-person-images'][phx-value-section='recording'][phx-value-index='0']}
+             )
+
+      draft = Inbox.get_item!(item.id).draft
+      assert [%{people: [author]}] = draft.work.authors
+      assert [%{people: [narrator]}] = draft.recording.narrators
+      refute author.distinct
+      assert narrator.distinct
     end
 
     test "an existing identity is linked rather than duplicated", %{conn: conn} do
@@ -396,32 +510,27 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert person.image_source == "provider:tmdb"
     end
 
-    # A photo is picked by looking and a bio by reading. Sharing one modal
-    # meant each dismissed the other, so the bios come back to the row as
-    # chips and picking one opens and closes nothing.
-    test "bios land on the credit row and are picked without a modal", %{conn: conn} do
+    # A photo is picked by looking and a bio by reading. Sharing one modal meant
+    # each dismissed the other, and a button labelled "find a photo and bio"
+    # showed no bios at all until it closed. Both land on the row instead.
+    test "photos and bios land on the credit row, with no modal", %{conn: conn} do
+      patch_person_search()
       item = probed_item()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      send(
-        view.pid,
-        {:person_bios_found, %{section: "work", index: 0, person: 0},
-         [
-           %PersonSearch.Match{
-             provider_id: "wikidata",
-             provider_name: "Wikidata",
-             id: "Q1",
-             name: "Brandon Sanderson",
-             description: "An American author of epic fantasy."
-           }
-         ]}
+      view
+      |> element(
+        ~s{button[phx-click='find-person-images'][phx-value-section='work'][phx-value-index='0']}
       )
+      |> render_click()
 
-      html = render(view)
+      html = render_async(view)
 
-      assert html =~ "An American author of epic fantasy."
+      # nothing opened, and BOTH halves of what the button promised are here
       refute html =~ "A photo for"
+      assert html =~ "An American author of epic fantasy."
+      assert has_element?(view, ~s{button[phx-click='pick-person-image']})
 
       view
       |> element(
@@ -432,6 +541,81 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert [%{people: [person]}] = Inbox.get_item!(item.id).draft.work.authors
       assert person.description == "An American author of epic fantasy."
       assert person.description_source == "provider:wikidata"
+    end
+
+    # A person's description is a description like any other: the recording's
+    # has been an editable box since the form existed, and a provider's blurb
+    # about a human is a starting point too.
+    test "a bio can be typed over, and records as the operator's", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> form("#person-bio-work-0-0")
+      |> render_change(%{
+        "section" => "work",
+        "index" => "0",
+        "person" => "0",
+        "description" => "Sanderson writes very fast."
+      })
+
+      assert [%{people: [person]}] = Inbox.get_item!(item.id).draft.work.authors
+      assert person.description == "Sanderson writes very fast."
+      assert person.description_source == "manual"
+    end
+
+    # A photo-heavy provider would otherwise push the rest of the credit off
+    # screen; the point is that alternatives exist, not that all of them show.
+    test "a large photo set folds away behind an expander", %{conn: conn} do
+      patch_person_search(images: Enum.map(1..9, &"https://example.test/#{&1}.jpg"))
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element(
+        ~s{button[phx-click='find-person-images'][phx-value-section='work'][phx-value-index='0']}
+      )
+      |> render_click()
+
+      render_async(view)
+
+      assert shown_photos(view) == 5
+      assert has_element?(view, ~s{button[phx-click='toggle-photos']}, "show all 9 photos")
+
+      view |> element(~s{button[phx-click='toggle-photos']}) |> render_click()
+
+      assert shown_photos(view) == 9
+    end
+
+    defp shown_photos(view) do
+      view
+      |> render()
+      |> Floki.parse_document!()
+      |> Floki.find("button[phx-click='pick-person-image']")
+      |> length()
+    end
+
+    defp patch_person_search(opts \\ []) do
+      images = Keyword.get(opts, :images, ["https://example.test/face.jpg"])
+
+      patch(PersonSearch, :providers, fn ->
+        [%{id: "wikidata", display_name: "Wikidata"}]
+      end)
+
+      patch(PersonSearch, :matches, fn _provider, _query ->
+        [
+          %PersonSearch.Match{
+            provider_id: "wikidata",
+            provider_name: "Wikidata",
+            id: "Q1",
+            name: "Brandon Sanderson",
+            description: "An American author of epic fantasy.",
+            images: images
+          }
+        ]
+      end)
     end
   end
 

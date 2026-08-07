@@ -128,13 +128,6 @@
           </.badge>
           <.badge color={status_color(item.status)} class="text-xs">{item.status}</.badge>
 
-          <span phx-click="rematch" phx-value-id={item.id} title="Look for matches again">
-            <.icon
-              name="fa-magnifying-glass"
-              class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400"
-            />
-          </span>
-
           <%!-- Only a settled item can be imported from here. Anything else
                 opens the form, because the queue has no way to say what's
                 outstanding and the form's whole job is to. --%>
@@ -159,7 +152,16 @@
             />
           </.link>
 
-          <span phx-click="reprobe" phx-value-id={item.id} title="Re-read the files">
+          <%!-- One action, because "re-read the files" and "look for matches
+                again" were never separable: the tags matching leans on come
+                out of the probe, so asking again without re-reading asks the
+                same question. Re-reads the folder, re-probes, and re-queries
+                every provider with the cache bypassed. --%>
+          <span
+            phx-click="rescan"
+            phx-value-id={item.id}
+            title="Re-read the files and ask the providers again"
+          >
             <.icon name="fa-rotate" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400" />
           </span>
 

@@ -78,16 +78,19 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     end
   end
 
-  def handle_event("rematch", %{"id" => id}, socket) do
-    {:ok, _job} = id |> Inbox.get_item!() |> Inbox.match_item_async()
+  # Reports what actually happened. Oban answers a uniqueness conflict with
+  # `{:ok, %{job | conflict?: true}}` — an insert that looks successful and
+  # discards the job — so the old handlers matched `{:ok, _job}` and flashed
+  # success for work that was never queued.
+  def handle_event("rescan", %{"id" => id}, socket) do
+    {:ok, job} = id |> Inbox.get_item!() |> Inbox.rescan_item_async()
 
-    {:noreply, put_flash(socket, :info, "Looking for matches again.")}
-  end
+    message =
+      if job.conflict?,
+        do: "Already re-reading this one.",
+        else: "Re-reading the files and asking the providers again — this one is slow on purpose."
 
-  def handle_event("reprobe", %{"id" => id}, socket) do
-    {:ok, _job} = id |> Inbox.get_item!() |> Inbox.probe_item_async()
-
-    {:noreply, put_flash(socket, :info, "Re-reading the files.")}
+    {:noreply, put_flash(socket, :info, message)}
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
@@ -152,9 +155,9 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp progress_label(:retrying), do: "A provider couldn't be reached — waiting to try again."
 
   defp progress_label(:queued), do: "Queued"
-  defp progress_label(:failed), do: "A background job failed — try re-probing or re-matching."
+  defp progress_label(:failed), do: "A background job failed — try re-scanning."
 
-  defp progress_label(:incomplete), do: "Never finished matching. Try re-matching."
+  defp progress_label(:incomplete), do: "Never finished matching. Try re-scanning."
 
   defp progress_label(:never_ran), do: "Never read. Try re-probing."
   defp progress_label(_settled), do: nil
