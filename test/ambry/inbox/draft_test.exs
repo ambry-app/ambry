@@ -458,6 +458,49 @@ defmodule Ambry.Inbox.DraftTest do
   end
 
   describe "series numbers are never invented" do
+    # `book_number` is a decimal column, so `SeriesLink` refuses a number that
+    # won't cast — but the seeder proposed one anyway, which made the whole
+    # draft changeset invalid. `RunMatch` then failed, retried and failed
+    # again until Oban gave up, so the item never got a draft at all and
+    # nothing in the app said why. Found importing the operator's own
+    # `01 Wool [128k]`: rreading-glasses answers "1A" and Hardcover "1-5".
+    test "a position that isn't a number never reaches the draft" do
+      candidates = [
+        provider_candidate(%{
+          "series" => [
+            %{"name" => "Silo", "number" => "1A"},
+            %{"name" => "Wool", "number" => "1-5"},
+            %{"name" => "The Expanse", "number" => "2"}
+          ]
+        })
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+
+      # the whole point: this used to be invalid and kill the match job
+      assert {:ok, item} = Inbox.prepare_draft(item)
+
+      numbers = Map.new(item.draft.work.series, &{&1.name, &1.number})
+      assert numbers["Silo"] == nil
+      assert numbers["Wool"] == nil
+      assert numbers["The Expanse"] == "2"
+
+      # the memberships survive; the missing numbers are ordinary questions
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label =~ "Series: Silo"))
+    end
+
+    test "a tag's unparseable number is dropped too" do
+      item =
+        item(%{
+          matches: matches([provider_candidate(%{"series" => []})]),
+          tags: %{"series" => "Silo", "series_number" => "1-5"}
+        })
+
+      assert {:ok, item} = Inbox.prepare_draft(item)
+      assert [link] = item.draft.work.series
+      assert link.number == nil
+    end
+
     test "a series with no number anywhere stays unresolved" do
       candidates = [provider_candidate(%{"series" => ["The Expanse"]})]
       draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))

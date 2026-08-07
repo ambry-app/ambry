@@ -877,16 +877,30 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp proposed_names(records, key) do
     records
     |> Enum.flat_map(fn record ->
-      record |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{&1, source_of(record)})
+      record |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{tidy(&1), source_of(record)})
     end)
     |> Enum.uniq_by(fn {name, _source} -> normalize(name) end)
   end
+
+  # **Doubled spaces in a credited name are not a different human.**
+  # rreading-glasses answers "Jim  Butcher" for The Dresden Files, and the name
+  # is stored verbatim — so the library gets a person spelled with two spaces,
+  # and `identity_matches/2` (an exact `lower(name)` comparison) will not match
+  # the next import that spells it with one. That is a duplicate author waiting
+  # to happen, and it is invisible: the two render identically in HTML, which
+  # collapses whitespace.
+  #
+  # Tidied at the *proposal* stage, like the unparseable series numbers — the
+  # record still says what it said.
+  defp tidy(name) when is_binary(name), do: name |> String.replace(~r/\s+/u, " ") |> String.trim()
+
+  defp tidy(other), do: other
 
   # The file only gets a say when no record proposed anybody. A tag name is a
   # weaker proposal — 1b's multi-value splitting is knowingly imperfect — so it
   # never argues with a record, it just fills a silence.
   defp or_from_tags([], tags, key) do
-    tags |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{&1, "tags"})
+    tags |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{tidy(&1), "tags"})
   end
 
   defp or_from_tags(proposed, _tags, _key), do: proposed
@@ -1006,8 +1020,8 @@ defmodule Ambry.Inbox.Draft.Seed do
     tagged = presence(tags["series"])
 
     cond do
-      is_nil(tagged) and length(proposals) == 1 -> presence(tags["series_number"])
-      tagged && normalize(tagged) == normalize(name) -> presence(tags["series_number"])
+      is_nil(tagged) and length(proposals) == 1 -> numeric(tags["series_number"])
+      tagged && normalize(tagged) == normalize(name) -> numeric(tags["series_number"])
       true -> nil
     end
   end
@@ -1038,7 +1052,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp series_proposal(%{"name" => name} = entry) when is_binary(name) do
     case presence(name) do
       nil -> nil
-      name -> %{name: name, number: presence(entry["number"]), source: nil}
+      name -> %{name: name, number: numeric(entry["number"]), source: nil}
     end
   end
 
@@ -1051,10 +1065,33 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp series_proposal(_other), do: nil
 
+  # **A position that isn't a number is not a position.** `book_number` is a
+  # decimal column, so `SeriesLink` rightly refuses to store one that won't
+  # cast — but proposing it anyway turned a provider quirk into a hard failure
+  # with no way out: the draft changeset was invalid, so `RunMatch` failed,
+  # retried, and failed again until Oban gave up. The item simply never got a
+  # draft, and with no in-app view of background work there was nothing to
+  # tell the operator why.
+  #
+  # Found importing the operator's own `01 Wool [128k]`, where real answers
+  # include rreading-glasses' **"1A"** and Hardcover's **"1-5"** — a letter
+  # suffix and an omnibus range. Dropped at the *proposal* stage, exactly like
+  # the reader-created series orderings: the record still says what it said,
+  # and the membership survives with no number, which is already a supported
+  # state and an ordinary outstanding decision.
+  defp numeric(value) do
+    with number when is_binary(number) <- presence(value),
+         {_decimal, ""} <- Decimal.parse(number) do
+      number
+    else
+      _not_a_number -> nil
+    end
+  end
+
   defp series_proposals_from_tags(tags) do
     case presence(tags["series"]) do
       nil -> []
-      name -> [%{name: name, number: presence(tags["series_number"]), source: "tags"}]
+      name -> [%{name: name, number: numeric(tags["series_number"]), source: "tags"}]
     end
   end
 
