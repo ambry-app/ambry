@@ -17,7 +17,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
-  alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
@@ -110,7 +110,19 @@ defmodule Ambry.Inbox.Draft.Edit do
   defp settle(decision, :recording),
     do: %{decision | approved: true, doubt: :none, doubt_detail: nil}
 
-  defp settle(decision, :work), do: decision
+  # The work level was given doubt after the recording level already had it,
+  # and this half was missed: ticking a record left `doubt: :low_confidence`
+  # standing, so "Which records describe this book" stayed outstanding
+  # forever and **a doubted work could never be settled at all** — there was
+  # no control on the page that cleared it. Found by importing the operator's
+  # own Chambers and Harry Potter files end to end.
+  #
+  # `approved` is deliberately NOT touched here, unlike the recording's: at
+  # this level it answers "is this a book you already have", which is a
+  # different question that ticking a provider record does not answer.
+  defp settle(%Work{sources: []} = decision, :work), do: decision
+
+  defp settle(decision, :work), do: %{decision | doubt: :none, doubt_detail: nil}
 
   # A recording is a recording of exactly one work, so an edition record that
   # came out of a work's own list carries that work with it — ticking the
@@ -162,6 +174,7 @@ defmodule Ambry.Inbox.Draft.Edit do
         else: draft.work
 
     %{draft | work: work, recording: Seed.reseed_recording(draft.recording, item)}
+    |> Seed.reseed_people(item)
   end
 
   defp records(item, level), do: Seed.records(item, level)
@@ -183,10 +196,12 @@ defmodule Ambry.Inbox.Draft.Edit do
   """
   def create_credit(draft, section, index) do
     update_credit(draft, section, index, fn credit ->
-      people =
-        if credit.people == [], do: Credit.new_person_default(credit.name), else: credit.people
+      keys =
+        if credit.person_keys == [],
+          do: Credit.new_person_default(credit.name),
+          else: credit.person_keys
 
-      %{credit | mode: :create, identity_id: nil, people: people, curated: true}
+      %{credit | mode: :create, identity_id: nil, person_keys: keys, curated: true}
     end)
   end
 
@@ -202,24 +217,32 @@ defmodule Ambry.Inbox.Draft.Edit do
   rename the credit, reveal the pen name, rename the person.
   """
   def rename_credit(draft, section, index, name) do
-    update_credit(draft, section, index, fn credit ->
-      people =
-        Enum.map(credit.people, fn person ->
-          if is_nil(person.person_id) and person.name == credit.name,
-            do: %{person | name: name},
-            else: person
-        end)
+    was = Enum.at(credits_in(draft, section), index)
 
+    draft
+    |> update_credit(section, index, fn credit ->
       # Clearing the box un-confirms: a credit cannot stay settled with
       # nothing to create. Any other rename keeps the confirmation, so fixing
       # a typo doesn't cost a second click.
-      %{
-        credit
-        | name: name,
-          people: people,
-          curated: true,
-          approved: credit.approved and blank?(name) == false
-      }
+      %{credit | name: name, curated: true, approved: credit.approved and not blank?(name)}
+    end)
+    |> follow_credit_name(was, name)
+  end
+
+  # A person still called what the credit called them is still tracking it, so
+  # they follow the rename. One the operator has already named is theirs and
+  # is left alone — which is what makes the pen-name case two ordinary edits
+  # rather than a special mode: rename the credit, reveal the pen name, rename
+  # the person.
+  defp follow_credit_name(draft, nil, _name), do: draft
+
+  defp follow_credit_name(draft, %Credit{} = was, name) do
+    Enum.reduce(was.person_keys, draft, fn key, draft ->
+      update_person(draft, key, fn person ->
+        if person.mode == :create and Field.value(person.name) == was.name,
+          do: %{person | name: Field.edit(person.name, name)},
+          else: person
+      end)
     end)
   end
 
@@ -241,59 +264,81 @@ defmodule Ambry.Inbox.Draft.Edit do
   Adds another human behind a credit.
 
   Two or more is a shared pen name — the whole of the composite-author case,
-  expressed as a longer list rather than a different mode.
+  expressed as a longer list rather than a different mode. The new person gets
+  a key of their own straight away, because an unnamed human is still a
+  distinct human and keying them by their (blank) name would merge every
+  unnamed row into one.
   """
-  def add_person(draft, section, index) do
-    update_credit(draft, section, index, fn credit ->
-      %{credit | mode: :create, curated: true, people: credit.people ++ [%PersonRef{name: ""}]}
+  def add_person(draft, %InboxItem{} = item, section, index) do
+    key = PersonDecision.split_key("person", keys(draft))
+
+    draft
+    |> update_credit(section, index, fn credit ->
+      %{credit | mode: :create, curated: true, person_keys: credit.person_keys ++ [key]}
     end)
+    |> Seed.reseed_people(item)
   end
 
-  def remove_person(draft, section, index, person_index) do
-    update_credit(draft, section, index, fn credit ->
-      %{credit | curated: true, people: List.delete_at(credit.people, person_index)}
+  def remove_person(draft, %InboxItem{} = item, section, index, person_index) do
+    draft
+    |> update_credit(section, index, fn credit ->
+      %{credit | curated: true, person_keys: List.delete_at(credit.person_keys, person_index)}
+    end)
+    |> Seed.reseed_people(item)
+  end
+
+  @doc """
+  Points a credit's person at somebody already in the library.
+
+  The whole reference moves, not a name on it: linking means the library's own
+  Person, with the name, photo and biography they already have, and an import
+  may never overwrite that curation.
+  """
+  def link_person(draft, key, person_id) do
+    update_person(draft, key, fn person ->
+      %{person | mode: :link, person_id: person_id, approved: true, curated: true}
     end)
   end
 
   @doc """
-  Names one of the people behind a credit, or points at an existing person.
+  Switches a person back to one this import will create.
   """
-  def set_person(draft, section, index, person_index, attrs) do
-    update_credit(draft, section, index, fn credit ->
-      people =
-        List.update_at(credit.people, person_index, fn person ->
-          renamed? = Map.has_key?(attrs, :name) and Map.get(attrs, :name) != person.name
-
-          %{
-            person
-            | name: Map.get(attrs, :name, person.name),
-              person_id: Map.get(attrs, :person_id, person.person_id),
-              name_source: if(renamed?, do: "manual", else: person.name_source)
-          }
-        end)
-
-      %{credit | people: people, curated: true}
+  def create_person(draft, key) do
+    update_person(draft, key, fn person ->
+      %{person | mode: :create, person_id: nil, curated: true}
     end)
   end
 
   @doc """
-  Gives one of the people behind a credit a photo, or a bio, from the picker.
+  Renames the person this import will create.
+
+  A provider's spelling is a proposal like any other, and there was no way to
+  overrule it — so "David Wong" could only ever be imported as a person called
+  David Wong, when the human is Jason Pargin.
+  """
+  def rename_person(draft, key, name) do
+    update_person(draft, key, fn person ->
+      %{person | name: Field.edit(person.name, name), curated: true}
+    end)
+  end
+
+  @doc """
+  Gives a person a photo, or a bio, from the picker.
 
   Recorded with the provider that supplied it, so approval writes 1d
   provenance for the created Person by construction — the same way every
   other decision in the draft does.
-  """
-  def set_person_image(draft, section, index, person_index, url, source) do
-    update_person(draft, section, index, person_index, fn person ->
-      %{person | image_url: url, image_source: source}
-    end)
-  end
 
-  def set_person_bio(draft, section, index, person_index, description, source) do
-    update_person(draft, section, index, person_index, fn person ->
-      %{person | description: description, description_source: source}
-    end)
-  end
+  **No mirroring.** A person behind two credits used to be two records kept in
+  step by hand, and every operation here had to remember to walk the other
+  places the same human appeared. One human is one record now, so setting
+  their photo is setting their photo.
+  """
+  def choose_person_image(draft, key, candidate_key),
+    do: update_person_field(draft, key, :image, &Field.choose(&1, candidate_key))
+
+  def choose_person_bio(draft, key, candidate_key),
+    do: update_person_field(draft, key, :description, &Field.choose(&1, candidate_key))
 
   @doc """
   Types a bio directly, as the operator's own words.
@@ -304,68 +349,75 @@ defmodule Ambry.Inbox.Draft.Edit do
   prose in this form you can only take or leave. Recorded as `manual`, which
   is what stops a later refresh overwriting the edit.
   """
-  def edit_person_bio(draft, section, index, person_index, description) do
-    update_person(draft, section, index, person_index, fn person ->
-      %{person | description: presence(description), description_source: "manual"}
-    end)
-  end
-
-  # Every reference to the same human moves together.
-  #
-  # A person behind two credits is ONE person — approval creates them once —
-  # so letting the two rows hold different photos is the form describing a
-  # state that cannot exist. It also made the second row offer to go looking
-  # for a picture of somebody already settled on the row above.
-  defp update_person(draft, section, index, person_index, fun) do
-    here = {to_string(section), index, person_index}
-    elsewhere = Enum.reject(Draft.sharing(draft)[here] || [], &(loc(&1) == here))
-
-    draft
-    |> update_credit(section, index, fn credit ->
-      %{credit | curated: true, people: List.update_at(credit.people, person_index, fun)}
-    end)
-    |> mirror_person(elsewhere, fun)
-  end
-
-  # Every other place the same human appears. Computed BEFORE the edit,
-  # because an edit that changes the name changes who the row is about — the
-  # group is what it was when the operator clicked, not what it becomes.
-  defp mirror_person(draft, places, fun) do
-    Enum.reduce(places, draft, fn place, draft ->
-      update_credit(draft, atom(place.section), place.index, fn credit ->
-        %{credit | people: List.update_at(credit.people, place.person_index, fun)}
-      end)
-    end)
-  end
-
-  defp loc(%{section: section, index: index, person_index: person_index}),
-    do: {section, index, person_index}
-
-  defp atom("work"), do: :work
-  defp atom("recording"), do: :recording
+  def edit_person_bio(draft, key, description),
+    do: update_person_field(draft, key, :description, &Field.edit(&1, description))
 
   @doc """
-  Says whether an identically-named person elsewhere in this draft is the same
-  human.
-
-  The default is that they are, because an author reading their own book is
-  the ordinary reason one name turns up on two credits and two humans of one
-  name on a single audiobook is not. Saying otherwise is the escape hatch, and
-  it counts as curation like every other operator judgement here.
+  Settles a person's photo or bio as deliberately empty.
   """
-  def set_person_distinct(draft, section, index, person_index, distinct?) do
-    # Deliberately does NOT propagate: this is the edit that *breaks* the
-    # sharing, so mirroring it onto the other row would mark both people
-    # distinct and leave them indistinguishable — merging them straight back
-    # together, which is the opposite of what was asked.
-    update_credit(draft, section, index, fn credit ->
-      %{
-        credit
-        | curated: true,
-          people: List.update_at(credit.people, person_index, &%{&1 | distinct: distinct?})
-      }
+  def waive_person_field(draft, key, name),
+    do: update_person_field(draft, key, name, &Field.waive/1)
+
+  @doc """
+  Marks a person settled, or unsettles them for another look.
+  """
+  def approve_person(draft, key, approved?),
+    do: update_person(draft, key, &%{&1 | approved: approved?, curated: true})
+
+  @doc """
+  Says that the identically-named person on another credit is somebody else.
+
+  The default is that they are the same human, because an author reading their
+  own book is the ordinary reason one name turns up on two credits and two
+  humans of one name on a single audiobook is not.
+
+  Splitting mints a **new key** rather than setting a flag. The old `distinct`
+  boolean could not express the case it was for: two rows both marked distinct
+  were told apart only by where they sat, so grouping had to happen where the
+  positions were known and a key computed from the struct silently merged them
+  straight back together. Two people is two keys.
+  """
+  def split_person(draft, %InboxItem{} = item, section, index, person_index) do
+    case at(draft, section, index, person_index) do
+      nil ->
+        draft
+
+      old_key ->
+        new_key = PersonDecision.split_key(old_key, keys(draft))
+
+        draft
+        |> update_credit(section, index, fn credit ->
+          %{
+            credit
+            | curated: true,
+              person_keys: List.replace_at(credit.person_keys, person_index, new_key)
+          }
+        end)
+        |> Seed.reseed_people(item)
+    end
+  end
+
+  defp at(draft, section, index, person_index) do
+    credits = credits_in(draft, section)
+
+    with %Credit{} = credit <- Enum.at(credits, index) do
+      Enum.at(credit.person_keys, person_index)
+    end
+  end
+
+  defp credits_in(draft, :work), do: (draft.work && draft.work.authors) || []
+  defp credits_in(draft, :recording), do: (draft.recording && draft.recording.narrators) || []
+
+  defp keys(%Draft{} = draft), do: Enum.map(draft.people, & &1.key)
+
+  defp update_person(draft, key, fun) do
+    update_in(draft.people, fn people ->
+      Enum.map(people, fn person -> if person.key == key, do: fun.(person), else: person end)
     end)
   end
+
+  defp update_person_field(draft, key, name, fun),
+    do: update_person(draft, key, &Map.update!(&1, name, fun))
 
   @doc """
   Marks a credit settled, or unsettles it for another look.
@@ -423,6 +475,21 @@ defmodule Ambry.Inbox.Draft.Edit do
     draft
     |> update_in([Access.key(:work)], &approve_all_work/1)
     |> update_in([Access.key(:recording)], &approve_all_recording/1)
+    |> update_in([Access.key(:people)], &Enum.map(&1, fn p -> settle_person(p) end))
+  end
+
+  # A person needs a name and nothing else — the photo and the bio are
+  # genuinely optional, since plenty of narrators are in no database at all.
+  # One with no name is the same case as a required field nobody proposed:
+  # left outstanding, because this button settles choices and does not invent
+  # facts.
+  defp settle_person(%PersonDecision{} = person) do
+    person = %{person | image: settle_if_possible(person.image)}
+    person = %{person | description: settle_if_possible(person.description)}
+
+    if PersonDecision.named?(person),
+      do: %{person | name: settle_if_possible(person.name), approved: true},
+      else: %{person | name: settle_if_possible(person.name)}
   end
 
   defp approve_all_work(work) do
@@ -473,8 +540,8 @@ defmodule Ambry.Inbox.Draft.Edit do
     cond do
       Credit.resolved?(credit) -> credit
       credit.mode == :link and credit.identity_id -> %{credit | approved: true}
-      credit.people != [] -> %{credit | approved: true}
-      true -> %{credit | people: Credit.new_person_default(credit.name), approved: true}
+      credit.person_keys != [] -> %{credit | approved: true}
+      true -> %{credit | person_keys: Credit.new_person_default(credit.name), approved: true}
     end
   end
 

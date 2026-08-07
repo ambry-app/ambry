@@ -332,9 +332,10 @@
           backing="Pen name of"
           expanded={expanded?(@expanded, "work", index, credit)}
           kind={:author}
-          sharing={@sharing}
-          found={found_for(@person_search, "work", index)}
-          photos_expanded={photos_expanded_for(@photos_expanded, "work", index)}
+          persons={Draft.people_for(@item.draft, credit)}
+          appearances={@appearances}
+          searching_person={@searching_person}
+          photos_expanded={@photos_expanded}
         />
       </div>
 
@@ -529,9 +530,10 @@
           backing="Stage name of"
           expanded={expanded?(@expanded, "recording", index, credit)}
           kind={:narrator}
-          sharing={@sharing}
-          found={found_for(@person_search, "recording", index)}
-          photos_expanded={photos_expanded_for(@photos_expanded, "recording", index)}
+          persons={Draft.people_for(@item.draft, credit)}
+          appearances={@appearances}
+          searching_person={@searching_person}
+          photos_expanded={@photos_expanded}
         />
       </div>
     </section>

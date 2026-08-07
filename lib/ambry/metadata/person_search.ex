@@ -53,30 +53,60 @@ defmodule Ambry.Metadata.PersonSearch do
   limited or simply has nobody by that name all mean the same thing to the
   operator looking at the grid — no photos from that column.
   """
-  def matches(entry, query) do
-    case Providers.search_authors(entry.id, query, []) do
+  def matches(entry, query, opts \\ []) do
+    {matches, _outcome} = matches_with_outcome(entry, query, opts)
+    matches
+  end
+
+  @doc """
+  The same search, plus what the provider actually did.
+
+  The picker doesn't care — an operator staring at an empty column has the
+  same problem whether the provider was down or simply had nobody. Matching
+  does: it runs unattended, and "this provider found nobody" and "this
+  provider was unreachable" have to be told apart afterwards, which is the
+  same rule the work and recording levels already follow.
+  """
+  def matches_with_outcome(entry, query, opts \\ []) do
+    case Providers.search_authors(entry.id, query, opts) do
       {:ok, results} ->
-        results
-        |> Enum.filter(&plausible?(query, &1.name))
-        |> Enum.take(@hits)
-        |> Enum.map(&hydrate(entry, &1))
-        |> Enum.reject(&(&1.images == [] and is_nil(&1.description)))
+        matches =
+          results
+          |> Enum.filter(&plausible?(query, &1.name))
+          |> Enum.take(@hits)
+          |> Enum.map(&hydrate(entry, &1, opts))
+          |> Enum.reject(&(&1.images == [] and is_nil(&1.description)))
+
+        {matches,
+         %{
+           "id" => entry.id,
+           "name" => entry.display_name,
+           "status" => "ok",
+           "count" => length(matches)
+         }}
 
       {:error, reason} ->
         Logger.info(fn ->
           "Person search: #{entry.id} for #{inspect(query)}: #{inspect(reason)}"
         end)
 
-        []
+        {[],
+         %{
+           "id" => entry.id,
+           "name" => entry.display_name,
+           "status" => "failed",
+           "count" => 0,
+           "reason" => reason |> inspect() |> String.slice(0, 200)
+         }}
     end
   end
 
   # The search hit is a summary; the details call is where the biography and
   # the full set of headshots live. Worth one request per plausible hit — this
   # runs for a single person with somebody waiting on it, not across a scan.
-  defp hydrate(entry, %Provider.Author{} = summary) do
+  defp hydrate(entry, %Provider.Author{} = summary, opts) do
     detailed =
-      case Providers.author_details(entry.id, summary.id, []) do
+      case Providers.author_details(entry.id, summary.id, opts) do
         {:ok, %Provider.Author{} = full} -> full
         _no_details -> summary
       end

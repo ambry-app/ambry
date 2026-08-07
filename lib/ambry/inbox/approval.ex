@@ -54,7 +54,7 @@ defmodule Ambry.Inbox.Approval do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
-  alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library.Location
@@ -175,9 +175,8 @@ defmodule Ambry.Inbox.Approval do
 
   defp author_params(credits, people) do
     credits
-    |> Enum.with_index()
-    |> Enum.map(fn {credit, index} ->
-      {:ok, author} = resolve_identity(credit, {"work", index}, people)
+    |> Enum.map(fn credit ->
+      {:ok, author} = resolve_identity(credit, people)
       %{author_id: author.id}
     end)
   end
@@ -199,10 +198,10 @@ defmodule Ambry.Inbox.Approval do
   # The identity is what a credit resolves to — never a Person. Person appears
   # only when creating, and how many of them there are is just the length of
   # the list the operator left behind.
-  defp resolve_identity(%Credit{mode: :link, kind: :author, identity_id: id}, _at, _people),
+  defp resolve_identity(%Credit{mode: :link, kind: :author, identity_id: id}, _people),
     do: {:ok, Repo.get!(Author, id)}
 
-  defp resolve_identity(%Credit{mode: :link, kind: :narrator, identity_id: id}, _at, _people),
+  defp resolve_identity(%Credit{mode: :link, kind: :narrator, identity_id: id}, _people),
     do: {:ok, Repo.get!(Narrator, id)}
 
   # An identity's own changeset only casts its name — identities are normally
@@ -210,9 +209,9 @@ defmodule Ambry.Inbox.Approval do
   # people". So the link rows go in explicitly. Each `AuthorPerson` in the
   # list is one human behind the credit; the list being longer than one is the
   # entire composite-author case.
-  defp resolve_identity(%Credit{mode: :create, kind: :author} = credit, at, people) do
+  defp resolve_identity(%Credit{mode: :create, kind: :author} = credit, people) do
     with {:ok, author} <- %Author{} |> Author.changeset(%{name: credit.name}) |> Repo.insert() do
-      Enum.each(behind(credit, at, people), fn person ->
+      Enum.each(behind(credit, people), fn person ->
         Repo.insert!(%AuthorPerson{author_id: author.id, person_id: person.id})
       end)
 
@@ -223,8 +222,8 @@ defmodule Ambry.Inbox.Approval do
   # Narrators stay one-to-one with a Person by design — composite narrator
   # identities aren't a real-world thing — so only the first reference is used
   # and the form caps the control at one.
-  defp resolve_identity(%Credit{mode: :create, kind: :narrator} = credit, at, people) do
-    [person | _rest] = behind(credit, at, people)
+  defp resolve_identity(%Credit{mode: :create, kind: :narrator} = credit, people) do
+    [person | _rest] = behind(credit, people)
 
     %Narrator{}
     |> Narrator.changeset(%{name: credit.name})
@@ -232,65 +231,43 @@ defmodule Ambry.Inbox.Approval do
     |> Repo.insert()
   end
 
-  defp behind(%Credit{} = credit, {section, index}, people) do
-    credit.people
-    |> Enum.with_index()
-    |> Enum.map(fn {_ref, person_index} ->
-      Map.fetch!(people, {section, index, person_index})
-    end)
-  end
+  defp behind(%Credit{} = credit, people),
+    do: Enum.map(credit.person_keys, &Map.fetch!(people, &1))
 
-  # Every human the draft implies, created once each and looked up by
-  # `PersonRef.key/1`.
+  # Every human the draft implies, created once each and returned by key.
   #
-  # A person reference is either somebody already here, or somebody to create
-  # alongside the credit. Two or more on one credit is a shared pen name; the
-  # same one on two credits is an author who reads their own work, and that
-  # second case is why this is resolved for the whole draft rather than per
-  # credit — the two credits are independent, the human is not.
+  # One decision per human is now the model's own guarantee rather than
+  # something reconstructed here: credits reference people by key, so an
+  # author who reads their own book is one `PersonDecision` referenced twice
+  # and there is nothing left to fold together. The merge this used to do
+  # existed only because the two credits each held their own copy.
   defp resolve_people(%Draft{} = draft) do
-    draft
-    |> Draft.people_groups()
-    |> Enum.reduce_while({:ok, %{}}, fn {_key, entries}, {:ok, resolved} ->
-      # The photo and bio fold together across every reference to one human:
-      # the operator went looking for a picture of a person, not for a
-      # decoration on a row.
-      merged = entries |> Enum.map(& &1.ref) |> Enum.reduce(&PersonRef.merge(&2, &1))
-
-      case resolve_person(merged) do
-        {:ok, person} ->
-          {:cont,
-           {:ok,
-            Enum.reduce(entries, resolved, fn entry, acc ->
-              Map.put(acc, place_key(entry.place), person)
-            end)}}
-
-        {:error, _reason} = error ->
-          {:halt, error}
+    Enum.reduce_while(draft.people, {:ok, %{}}, fn person, {:ok, resolved} ->
+      case resolve_person(person) do
+        {:ok, created} -> {:cont, {:ok, Map.put(resolved, person.key, created)}}
+        {:error, _reason} = error -> {:halt, error}
       end
     end)
   end
 
-  defp place_key(%{section: section, index: index, person_index: person_index}),
-    do: {section, index, person_index}
-
-  defp resolve_person(%PersonRef{person_id: id}) when not is_nil(id),
+  defp resolve_person(%PersonDecision{mode: :link, person_id: id}) when not is_nil(id),
     do: {:ok, Repo.get!(People.Person, id)}
 
-  # A new person arrives complete when the operator gave them a face and a
-  # bio in the picker — 3b's "never has to leave the inbox" is about exactly
-  # this, and a person created bare is a trip to the person form afterwards.
+  # A new person arrives complete when matching found them a face and a bio,
+  # or the operator picked one — 3b's "never has to leave the inbox" is about
+  # exactly this, and a person created bare is a trip to the person form
+  # afterwards.
   #
   # A photo that won't fetch doesn't fail the import, for the same reason a
   # cover doesn't: the credit is still correct without it.
-  defp resolve_person(%PersonRef{} = ref) do
+  defp resolve_person(%PersonDecision{} = person) do
     People.create_person(
       %{
-        name: ref.name,
-        description: ref.description,
-        image_path: person_image(ref)
+        name: Field.value(person.name),
+        description: Field.value(person.description),
+        image_path: person_image(Field.value(person.image))
       },
-      provenance: person_provenance(ref)
+      provenance: person_provenance(person)
     )
   end
 
@@ -299,19 +276,19 @@ defmodule Ambry.Inbox.Approval do
   # field with no source and records the only thing left — **manual, locked** —
   # so every person the inbox created claimed to have been typed by hand, and
   # was locked against the refresh that would have improved it.
-  defp person_provenance(%PersonRef{} = ref) do
+  defp person_provenance(%PersonDecision{} = person) do
     %{
-      "name" => ref.name_source,
-      "image_path" => ref.image_source,
-      "description" => ref.description_source
+      "name" => person.name && person.name.source,
+      "image_path" => person.image && person.image.source,
+      "description" => person.description && person.description.source
     }
     |> Enum.reject(fn {_field, source} -> is_nil(source) end)
     |> Map.new()
   end
 
-  defp person_image(%PersonRef{image_url: nil}), do: nil
+  defp person_image(nil), do: nil
 
-  defp person_image(%PersonRef{image_url: url}) do
+  defp person_image(url) when is_binary(url) do
     case Images.import_url(url) do
       {:ok, web_path} when is_binary(web_path) -> web_path
       other -> log_cover(url, other)
@@ -356,10 +333,8 @@ defmodule Ambry.Inbox.Approval do
   end
 
   defp narrator_params(credits, people) do
-    credits
-    |> Enum.with_index()
-    |> Enum.map(fn {credit, index} ->
-      {:ok, narrator} = resolve_identity(credit, {"recording", index}, people)
+    Enum.map(credits, fn credit ->
+      {:ok, narrator} = resolve_identity(credit, people)
       %{narrator_id: narrator.id}
     end)
   end

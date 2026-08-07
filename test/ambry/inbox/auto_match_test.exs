@@ -45,6 +45,12 @@ defmodule Ambry.Inbox.AutoMatchTest do
       # happen not to parse.
       patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
       patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :not_stubbed} end)
+      # The people level asks every person-capable provider about every
+      # credited human, which is real HTTP unless stubbed — and unlike the
+      # book calls there is no fake id to save us, because a person is
+      # searched by name.
+      patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
+      patch(Providers, :author_details, fn _id, _author_id, _opts -> {:error, :not_stubbed} end)
       :ok
     end
 
@@ -370,6 +376,183 @@ defmodule Ambry.Inbox.AutoMatchTest do
     end
   end
 
+  # The third level. Everything the form does well it does by asking outcome,
+  # evidence and preference; people used to get a name string and nothing
+  # else, which is why proposed people arrived with no face and no biography
+  # and every import ended with a trip to the person form.
+  describe "match/1 people" do
+    setup do
+      patch(Providers, :search_books, fn _id, _query, _opts -> {:ok, []} end)
+      patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
+      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :not_stubbed} end)
+      patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
+      patch(Providers, :author_details, fn _id, _author_id, _opts -> {:error, :not_stubbed} end)
+      :ok
+    end
+
+    test "asks about the authors the work names and the narrators the recording names" do
+      patch_work_results([book("Neuromancer", ["William Gibson"])])
+      patch_people(%{"William Gibson" => author("William Gibson", "Wrote it")})
+
+      %{matches: matches} =
+        AutoMatch.match(
+          item(title: "Neuromancer", author: "William Gibson", narrator: "Robertson Dean")
+        )
+
+      assert %{"william gibson" => gibson} = matches["people"]
+      assert gibson["roles"] == ["author"]
+      assert [candidate | _rest] = gibson["candidates"]
+      assert candidate["name"] == "William Gibson"
+
+      # the file named the reader, so the reader is a question too
+      assert %{"robertson dean" => dean} = matches["people"]
+      assert dean["roles"] == ["narrator"]
+    end
+
+    # One human, two credits — the self-narrated case. The draft stores them
+    # as one `PersonDecision`; searching them twice would be the same bug on
+    # the matching side.
+    test "an author who reads their own book is one person with two roles" do
+      # both levels at once: the work names the author, the recording names
+      # the reader, and they are the same human
+      patch_results(
+        work: [book("Legends & Lattes", ["Travis Baldree"])],
+        recording: [book("Legends & Lattes", ["Travis Baldree"], narrators: ["Travis Baldree"])]
+      )
+
+      patch_people(%{"Travis Baldree" => author("Travis Baldree", "Wrote and read it")})
+
+      %{matches: matches} = AutoMatch.match(item(title: "Legends & Lattes"))
+
+      assert map_size(matches["people"]) == 1
+      assert %{"travis baldree" => baldree} = matches["people"]
+      assert baldree["roles"] == ["author", "narrator"]
+    end
+
+    # The rule that makes searching people during matching affordable at all:
+    # the operator's full-cast Harry Potter credits fifteen actors who recur
+    # across seven books, so without this every import re-asks every provider
+    # about the same fifteen humans.
+    test "somebody already in the library is never searched" do
+      insert(:person, name: "William Gibson")
+      patch_work_results([book("Neuromancer", ["William Gibson"])])
+      patch_people(%{"William Gibson" => author("William Gibson", "Wrote it")})
+
+      %{matches: matches} = AutoMatch.match(item(title: "Neuromancer", author: "William Gibson"))
+
+      assert %{"william gibson" => gibson} = matches["people"]
+      assert [%{"source" => "local"}] = gibson["local"]
+      assert gibson["candidates"] == []
+      # not "found nothing" — never asked
+      assert gibson["providers"] == []
+      refute_called(Providers.search_authors(_id, "William Gibson", _opts))
+    end
+
+    # A doubted level ticks no record, so `Seed` credits the *tags'* narrator
+    # — measured on the operator's Becky Chambers file, where the recording
+    # match is 12% and the file says "Patricia Rodriguez" while the top record
+    # says "Rachel Dulude". Deriving from records alone searched the wrong
+    # human and left the one actually created with no photo at all.
+    test "asks about the tags' narrator too, not only the record's" do
+      patch_recording_results([
+        book("The Long Way to a Small, Angry Planet", ["Becky Chambers"],
+          narrators: ["Rachel Dulude"]
+        )
+      ])
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Wayfarers, Book 1", narrator: "Patricia Rodriguez"))
+
+      assert Map.has_key?(matches["people"], "patricia rodriguez")
+      assert Map.has_key?(matches["people"], "rachel dulude")
+    end
+
+    test "a cast label is never a person to go and find" do
+      %{matches: matches} =
+        AutoMatch.match(
+          item(title: "Harry Potter and the Sorcerer's Stone", narrator: "Full Cast")
+        )
+
+      refute Map.has_key?(matches["people"], "full cast")
+    end
+
+    test "records what each provider was asked and what it said" do
+      patch_work_results([book("Neuromancer", ["William Gibson"])])
+
+      patch(Providers, :search_authors, fn _id, _query, _opts -> {:error, :rate_limited} end)
+
+      %{matches: matches} = AutoMatch.match(item(title: "Neuromancer", author: "William Gibson"))
+
+      assert %{"william gibson" => gibson} = matches["people"]
+      assert Enum.all?(gibson["providers"], &(&1["status"] == "failed"))
+    end
+  end
+
+  describe "person_proposal/1" do
+    # Person search is recall-first on purpose — anything sharing a name token
+    # is offered, which is right for a grid a human reads and wrong for an
+    # automatic choice. Measured on the operator's library: Audnexus answers
+    # "Rachel Dulude" with Rachel Aukes first, and "Jefferson Mays" with
+    # Jefferson Morley, Jefferson Bethke and Thomas Jefferson before Wikidata's
+    # actual actor.
+    test "only a candidate who is actually that person may be proposed" do
+      person = %{
+        "name" => "Rachel Dulude",
+        "candidates" => [
+          candidate("audnexus", "Rachel Aukes", ["aukes.jpg"], "Bestselling author"),
+          candidate("audnexus", "Rachel Coles", ["coles.jpg"], "Lives in Denver")
+        ]
+      }
+
+      assert AutoMatch.person_proposal(person) == %{}
+    end
+
+    test "takes the first provider that has one, in the operator's priority order" do
+      person = %{
+        "name" => "Jefferson Mays",
+        "candidates" => [
+          candidate("audnexus", "Jefferson Morley", ["morley.jpg"], "Wrote Scorpions' Dance"),
+          candidate("wikidata", "Jefferson Mays", ["mays.jpg"], "An American actor")
+        ]
+      }
+
+      assert %{
+               image_url: "mays.jpg",
+               image_source: "provider:wikidata",
+               description: "An American actor",
+               description_source: "provider:wikidata"
+             } = AutoMatch.person_proposal(person)
+    end
+
+    # The database with the best portrait is routinely not the one with the
+    # best prose — measured on James S.A. Corey, whose photo comes from
+    # rreading-glasses and whose biography has to come from Hardcover.
+    test "the photo and the biography are chosen independently" do
+      person = %{
+        "name" => "James S. A. Corey",
+        "candidates" => [
+          # rreading-glasses returns the literal string "N/A" where it has no
+          # biography; storing that as somebody's life story is worse than
+          # leaving it blank, because blank is visibly unfinished
+          candidate("rreading_glasses", "James S.A. Corey", ["goodreads.jpg"], "N/A"),
+          candidate("hardcover", "James S. A. Corey", [], "The pen name of two authors")
+        ]
+      }
+
+      assert %{
+               image_url: "goodreads.jpg",
+               image_source: "provider:rreading_glasses",
+               description: "The pen name of two authors",
+               description_source: "provider:hardcover"
+             } = AutoMatch.person_proposal(person)
+    end
+
+    test "nothing found is nothing proposed" do
+      assert AutoMatch.person_proposal(nil) == %{}
+      assert AutoMatch.person_proposal(%{"name" => "Nobody", "candidates" => []}) == %{}
+    end
+  end
+
   defp item(opts) do
     %InboxItem{
       path: "/downloads/#{Keyword.get(opts, :title, "Unknown")}",
@@ -377,10 +560,45 @@ defmodule Ambry.Inbox.AutoMatchTest do
         %{
           "book_title" => opts[:title],
           "authors" => (opts[:author] && [opts[:author]]) || [],
+          "narrators" => (opts[:narrator] && [opts[:narrator]]) || [],
           "asin" => opts[:asin]
         }
         |> Enum.reject(fn {_k, v} -> is_nil(v) end)
         |> Map.new()
+    }
+  end
+
+  defp author(name, description, images \\ ["photo.jpg"]) do
+    %Provider.Author{
+      provider: "test",
+      id: "a-#{:erlang.phash2(name)}",
+      name: name,
+      description: description,
+      image_urls: images
+    }
+  end
+
+  # Person search hydrates every plausible hit, so both calls need answering.
+  defp patch_people(by_name) do
+    patch(Providers, :search_authors, fn _id, query, _opts ->
+      {:ok, by_name |> Map.get(query, []) |> List.wrap()}
+    end)
+
+    patch(Providers, :author_details, fn _id, id, _opts ->
+      case Enum.find(Map.values(by_name), &(&1.id == id)) do
+        nil -> {:error, :not_found}
+        found -> {:ok, found}
+      end
+    end)
+  end
+
+  defp candidate(provider_id, name, images, description) do
+    %{
+      "source" => "provider:#{provider_id}",
+      "provider_name" => provider_id,
+      "name" => name,
+      "images" => images,
+      "description" => description
     }
   end
 
@@ -408,6 +626,17 @@ defmodule Ambry.Inbox.AutoMatchTest do
   defp patch_recording_results(books) do
     patch(Providers, :search_books, fn id, _query, _opts ->
       if work_provider?(id), do: {:ok, []}, else: {:ok, books}
+    end)
+  end
+
+  # Both levels in one call. The two helpers above each patch `search_books`
+  # outright, so calling them in turn silently keeps only the second — which
+  # is never what a test wanting results at both levels meant.
+  defp patch_results(opts) do
+    patch(Providers, :search_books, fn id, _query, _opts ->
+      if work_provider?(id),
+        do: {:ok, Keyword.get(opts, :work, [])},
+        else: {:ok, Keyword.get(opts, :recording, [])}
     end)
   end
 

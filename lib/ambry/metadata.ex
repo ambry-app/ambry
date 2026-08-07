@@ -11,7 +11,9 @@ defmodule Ambry.Metadata do
     deps: [Ambry.Repo, Ambry.Utils, AmbryScraping],
     exports: [
       {Provider, []},
-      PersonSearch,
+      # with its submodules: `Match` is the shape every caller pattern-matches
+      # on, the same reason `Provider`'s normalized structs are exported
+      {PersonSearch, []},
       Providers,
       Registry
     ]

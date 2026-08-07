@@ -60,6 +60,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.SourceRef
@@ -100,7 +101,7 @@ defmodule Ambry.Inbox.Draft.Seed do
     work_level = Map.get(matches, "work", %{})
     recording_level = Map.get(matches, "recording", %{})
 
-    work = work(work_level, hints, tags)
+    work = work(work_level, hints, tags, item)
 
     %Draft{
       evidence: evidence(item),
@@ -109,6 +110,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       recording: recording(recording_level, hints, tags, item),
       destination: destination(item)
     }
+    |> reseed_people(item)
   end
 
   @doc """
@@ -173,7 +175,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   # you already have, or a new one**. Those are different outcomes — linking
   # creates nothing and inherits the book's curation — and mixing them into
   # one ranked list made the form ask one question that was really two.
-  defp work(level, hints, tags) do
+  defp work(level, hints, tags, item) do
     records = records(level)
     local = Map.get(level, "local", []) || []
     confidence = Map.get(level, "confidence")
@@ -199,7 +201,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       query_fields: Map.get(level, "query_fields") || %{},
       sources: if(best, do: Enum.map(AutoMatch.top_group(records), &SourceRef.of/1), else: [])
     }
-    |> put_work_fields(records, hints, tags)
+    |> put_work_fields(records, hints, tags, item)
   end
 
   # Linking to a Book is a different answer and answers itself: the book's own
@@ -237,10 +239,10 @@ defmodule Ambry.Inbox.Draft.Seed do
   typed survives — 1d's whole point is that curation outranks any source.
   """
   def reseed_work(%Work{} = work, %InboxItem{} = item) do
-    put_work_fields(work, records(item, "work"), AutoMatch.hints(item), item.tags || %{})
+    put_work_fields(work, records(item, "work"), AutoMatch.hints(item), item.tags || %{}, item)
   end
 
-  defp put_work_fields(%Work{} = work, records, hints, tags) do
+  defp put_work_fields(%Work{} = work, records, hints, tags, _item) do
     sources = used(records, work.sources)
     book_id = if work.mode == :link, do: work.book_id
 
@@ -305,8 +307,10 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   # A chip the operator picked stays picked while its proposal is still on
   # offer — re-deriving because some other record was ticked must not quietly
-  # move a value they chose.
-  defp keep_manual(%Field{chosen_key: key}, fresh) when is_binary(key) do
+  # move a value they chose. Gated on `curated`, NOT on `chosen_key`: the
+  # seeder sets a chosen_key too, so keying on it froze every auto-settled
+  # field against all later evidence.
+  defp keep_manual(%Field{curated: true, chosen_key: key}, fresh) when is_binary(key) do
     case Enum.find(fresh.candidates, &(&1.key == key)) do
       nil ->
         fresh
@@ -650,6 +654,204 @@ defmodule Ambry.Inbox.Draft.Seed do
     |> Enum.map(fn {name, source} -> credit(name, :narrator, source) end)
   end
 
+  ## people
+
+  @doc """
+  Brings the draft's people into line with whoever the credits now reference.
+
+  Runs after every change that can move a credit, which is why it is one
+  function rather than seed-time and edit-time copies: a person nobody credits
+  any more has no reason to sit on the form, and a credit naming somebody new
+  needs a decision minted for them.
+
+  **A curated person is never rebuilt.** They are the one thing here the
+  operator may have gone and found a photo for, and re-deriving over the top of
+  that is the curation-outranks-re-derivation rule broken — the same rule
+  `keep_curated/2` applies to credits.
+  """
+  def reseed_people(%Draft{} = draft, %InboxItem{} = item) do
+    matched = people_matches(item)
+    existing = Map.new(draft.people, &{&1.key, &1})
+    named = credited_names(draft)
+
+    people =
+      draft
+      |> Draft.referenced_keys()
+      |> Enum.map(fn key ->
+        case Map.get(existing, key) do
+          %PersonDecision{curated: true} = curated -> curated
+          _fresh_or_uncurated -> person_decision(key, named[key], Map.get(matched, key))
+        end
+      end)
+
+    %{draft | people: people}
+  end
+
+  # What each credited human is called and who said so, taken from the credit
+  # that references them. The credit is the only thing that knows: a key is a
+  # normalised string and a provider record may spell the name differently.
+  defp credited_names(%Draft{} = draft) do
+    for credit <- credits_of(draft),
+        credit.mode == :create,
+        key <- credit.person_keys,
+        into: %{},
+        do: {key, {credit.name, credit.source}}
+  end
+
+  defp credits_of(%Draft{} = draft) do
+    ((draft.work && draft.work.authors) || []) ++
+      ((draft.recording && draft.recording.narrators) || [])
+  end
+
+  # One human, asked the same three questions as a work or a recording:
+  # which one is this (identity), which records describe them (evidence), and
+  # which record each field takes its value from (preference).
+  defp person_decision(key, named, matched) do
+    {name, source} = named || {key, nil}
+    candidates = named_candidates(matched, name)
+
+    {doubt, detail} = person_doubt(matched, candidates, name)
+
+    %PersonDecision{
+      key: key,
+      mode: :create,
+      doubt: doubt,
+      doubt_detail: detail,
+      sources: Enum.map(candidates, &SourceRef.of/1),
+      name: person_name_field(name, source, candidates),
+      image: person_image_field(candidates),
+      description: person_description_field(candidates),
+      # Same bar the credit clears: a provider-matched name is settled, a
+      # tag-derived one is a proposal. A person we found nobody for has
+      # nothing left to decide beyond the name, so it doesn't add a question;
+      # one we found the *wrong* people for does.
+      approved: provider?(source) and doubt != :low_confidence
+    }
+  end
+
+  # Only records that are actually about this human may propose anything.
+  # Person search is recall-first — anything sharing a name token is offered —
+  # which is right for a grid the operator reads and wrong for a field's
+  # candidate list. See `AutoMatch.person_proposal/1` for what that recall
+  # looks like on the operator's real library.
+  defp named_candidates(nil, _name), do: []
+
+  defp named_candidates(matched, name) do
+    matched
+    |> Map.get("candidates", [])
+    |> Enum.filter(&same_human?(&1["name"], name))
+  end
+
+  defp same_human?(one, other) when is_binary(one) and is_binary(other),
+    do: normalize(one) == normalize(other)
+
+  defp same_human?(_one, _other), do: false
+
+  # What the operator reads beside the credited spelling. The credit carries a
+  # provider *id*, not a sentence.
+  defp credited_label("provider:" <> id), do: id
+  defp credited_label("tags"), do: "The file's tags"
+  defp credited_label(_other), do: "The file's tags"
+
+  defp person_doubt(nil, _candidates, _name), do: {:nothing_found, nil}
+
+  defp person_doubt(matched, candidates, name) do
+    offered = Map.get(matched, "candidates", [])
+
+    cond do
+      candidates != [] ->
+        {:none, nil}
+
+      offered == [] ->
+        {:nothing_found, nil}
+
+      # Found people, none of them this one. Worth saying out loud rather than
+      # reporting "nothing found": the difference is whether looking again is
+      # likely to help.
+      true ->
+        {:low_confidence,
+         "No database has anybody called #{name}. The closest were " <>
+           (offered |> Enum.map(& &1["name"]) |> Enum.uniq() |> Enum.take(3) |> Enum.join(", ")) <>
+           "."}
+    end
+  end
+
+  defp person_name_field(name, source, candidates) do
+    # The credited spelling leads, because that is what the book itself says.
+    # A provider spelling it differently is an alternative, not a correction.
+    [
+      %Candidate{
+        value: name,
+        source: source || "tags",
+        label: credited_label(source),
+        key: "credit"
+      }
+    ]
+    |> Enum.concat(
+      Enum.map(candidates, fn candidate ->
+        %Candidate{
+          value: candidate["name"],
+          source: candidate["source"],
+          label: candidate["provider_name"],
+          key: Candidate.key_for(candidate)
+        }
+      end)
+    )
+    |> scalar(required: true, alternatives: true)
+  end
+
+  # Every photo every database has of them, because the job is not "find a
+  # photo" but "find one that survives a circular crop" — the obvious portrait
+  # is frequently the one that doesn't. One candidate per image, so the
+  # alternatives are reachable in one click.
+  defp person_image_field(candidates) do
+    for candidate <- candidates,
+        {url, index} <- Enum.with_index(List.wrap(candidate["images"])),
+        is_binary(url) and url != "" do
+      %Candidate{
+        value: url,
+        source: candidate["source"],
+        label: candidate["provider_name"],
+        key: "#{Candidate.key_for(candidate)}##{index}"
+      }
+    end
+    |> scalar(alternatives: true)
+  end
+
+  # Wikipedia's lead paragraph, TMDB's biography and a book database's blurb
+  # are three different texts about one person, so they are alternatives too —
+  # never a disagreement to arbitrate.
+  defp person_description_field(candidates) do
+    for candidate <- candidates, text = usable_bio(candidate["description"]) do
+      %Candidate{
+        value: text,
+        source: candidate["source"],
+        label: candidate["provider_name"],
+        key: Candidate.key_for(candidate)
+      }
+    end
+    |> scalar(alternatives: true)
+  end
+
+  # rreading-glasses returns the literal string "N/A" where it has no
+  # biography, and storing that as somebody's life story is worse than leaving
+  # it blank — blank is visibly unfinished, "N/A" looks decided.
+  @nonsense_bios ["n/a", "na", "none", "unknown", "no description", "-", "."]
+
+  defp usable_bio(text) when is_binary(text) do
+    trimmed = String.trim(text)
+    if trimmed != "" and String.downcase(trimmed) not in @nonsense_bios, do: trimmed
+  end
+
+  defp usable_bio(_other), do: nil
+
+  # What matching found out about the humans this item credits, keyed by
+  # `AutoMatch.person_key/1`.
+  defp people_matches(%InboxItem{matches: matches}) when is_map(matches),
+    do: Map.get(matches, "people") || %{}
+
+  defp people_matches(_item), do: %{}
+
   # Names across every ticked record, in first-mentioned order and deduped
   # case-insensitively: two databases listing the same author is one credit,
   # not two.
@@ -675,6 +877,9 @@ defmodule Ambry.Inbox.Draft.Seed do
     people = person_matches(name)
 
     base = %Credit{name: name, kind: kind, source: source, candidates: matches}
+    # Who is behind the credit is a reference now, not an embed — the human
+    # themselves is decided once, in `draft.people`.
+    keys = Credit.new_person_default(name)
 
     case {matches, people} do
       # exactly one existing identity by that name — link it and move on
@@ -685,21 +890,16 @@ defmodule Ambry.Inbox.Draft.Seed do
       # Auto only when a provider-matched work supplied the name — tag names
       # are split by a knowingly imperfect rule.
       {[], []} ->
-        %{
-          base
-          | mode: :create,
-            people: Credit.new_person_default(name, source),
-            approved: provider?(source)
-        }
+        %{base | mode: :create, person_keys: keys, approved: provider?(source)}
 
       # a Person exists but this identity doesn't — "is this the same human?"
       # is never automated
       {[], _people} ->
-        %{base | mode: :create, people: Credit.new_person_default(name, source), approved: false}
+        %{base | mode: :create, person_keys: keys, approved: false}
 
       # more than one identity shares this name; two people really can
       {_several, _people} ->
-        %{base | mode: :create, people: Credit.new_person_default(name, source), approved: false}
+        %{base | mode: :create, person_keys: keys, approved: false}
     end
   end
 

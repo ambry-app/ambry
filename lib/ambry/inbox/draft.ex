@@ -38,8 +38,9 @@ defmodule Ambry.Inbox.Draft do
 
   import Ecto.Changeset
 
+  alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Destination
-  alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Work
 
@@ -49,6 +50,11 @@ defmodule Ambry.Inbox.Draft do
     embeds_one :work, Work, on_replace: :update
     embeds_one :recording, Recording, on_replace: :update
     embeds_one :destination, Destination, on_replace: :update
+
+    # The humans this import will create or reuse, one record each. Credits at
+    # both levels reference them by key, which is what makes an author who
+    # reads their own book one person rather than two kept in step by hand.
+    embeds_many :people, PersonDecision, on_replace: :delete
 
     # Bumped when discovery sees the underlying files change, so a draft built
     # against evidence that has since moved can say so instead of quietly
@@ -64,6 +70,7 @@ defmodule Ambry.Inbox.Draft do
     |> cast_embed(:work)
     |> cast_embed(:recording)
     |> cast_embed(:destination)
+    |> cast_embed(:people)
   end
 
   @doc """
@@ -76,7 +83,23 @@ defmodule Ambry.Inbox.Draft do
   def unresolved(nil), do: [%{section: :draft, label: "Not yet prepared", state: :missing}]
 
   def unresolved(%__MODULE__{} = draft) do
-    stale(draft) ++ work(draft) ++ recording(draft) ++ destination(draft)
+    stale(draft) ++ work(draft) ++ recording(draft) ++ people(draft) ++ destination(draft)
+  end
+
+  # Asked once per human rather than once per credit. A self-narrated book
+  # reported the same outstanding person twice when the credits each owned
+  # their own copy — the invariant counts decisions, and one human is one
+  # decision.
+  defp people(%__MODULE__{people: people}) do
+    people
+    |> Enum.reject(&PersonDecision.resolved?/1)
+    |> Enum.map(
+      &%{
+        section: :people,
+        label: "Person: #{PersonDecision.label(&1)}",
+        state: PersonDecision.state(&1)
+      }
+    )
   end
 
   # Absent means nothing was staged about the bytes, which for an adopt-in-
@@ -115,69 +138,66 @@ defmodule Ambry.Inbox.Draft do
   def resolved?(draft), do: unresolved(draft) == []
 
   @doc """
-  The people this draft will create, one entry per distinct human.
-
-  Returns `[{key, [%{place:, ref:}]}]` in the order the form lists them. A
-  group with two entries is one human behind two credits — an author who reads
-  their own book — which is the whole reason this exists: the credits have no
-  idea about each other, so resolving each in isolation created the same person
-  twice, and curating each in isolation offered to go find a second photo of
-  somebody already settled.
-
-  Grouping happens **here**, where the positions are known, rather than in
-  `PersonRef.key/1`. A reference the operator marked `distinct` has to be its
-  own group, and two identical rows both marked distinct are distinguishable
-  only by where they are — keying on the struct alone silently merged them
-  back together, which is the exact opposite of what the operator asked for.
+  One person by key, or nil.
   """
-  def people_groups(nil), do: []
+  def person(nil, _key), do: nil
 
-  def people_groups(%__MODULE__{} = draft) do
-    draft
-    |> person_entries()
-    |> Enum.reduce([], fn entry, groups ->
-      case Enum.find_index(groups, fn {key, _entries} -> key == entry.key end) do
-        nil -> groups ++ [{entry.key, [entry]}]
-        index -> List.update_at(groups, index, fn {key, es} -> {key, es ++ [entry]} end)
-      end
-    end)
-  end
+  def person(%__MODULE__{people: people}, key), do: Enum.find(people, &(&1.key == key))
 
   @doc """
-  Where each person appears, keyed by `{section, index, person_index}`.
+  The people a credit is backed by, in the order it lists them.
 
-  What the form reads: every place maps to the list of places the same human
-  appears in, itself included and **first place first**. The first is where
-  they are curated — one human is one photo and one bio, decided once.
+  A key with no decision behind it is skipped rather than crashing: a draft is
+  operator input held in jsonb, and a dangling reference is a data problem to
+  render as an incomplete credit, not a 500 on the form.
   """
-  def sharing(draft) do
-    for {_key, entries} <- people_groups(draft), entry <- entries, into: %{} do
-      {loc(entry.place), Enum.map(entries, & &1.place)}
-    end
-  end
+  def people_for(draft, %Credit{} = credit),
+    do: credit.person_keys |> Enum.map(&person(draft, &1)) |> Enum.reject(&is_nil/1)
 
-  defp person_entries(%__MODULE__{} = draft) do
-    for {kind, section, index, credit} <-
-          tagged(draft.work && draft.work.authors, :author, "work") ++
-            tagged(draft.recording && draft.recording.narrators, :narrator, "recording"),
+  @doc """
+  Which credits reference each person, so the form can say where they appear.
+
+  Returns `%{key => [%{kind:, section:, index:, name:}]}`. This is display
+  only — it is derived from the credits every time rather than stored, because
+  a second copy of "who is where" is exactly the thing that used to drift.
+  """
+  def appearances(nil), do: %{}
+
+  def appearances(%__MODULE__{} = draft) do
+    for {kind, section, index, credit} <- credits(draft),
         credit.mode == :create,
-        {ref, person_index} <- Enum.with_index(credit.people) do
-      place = %{kind: kind, section: section, index: index, person_index: person_index}
-      %{key: group_key(ref, place), place: place, ref: ref}
+        key <- credit.person_keys,
+        reduce: %{} do
+      acc ->
+        place = %{kind: kind, section: section, index: index, name: credit.name}
+        Map.update(acc, key, [place], &(&1 ++ [place]))
     end
   end
 
-  # The escape hatch, and the only thing that can break a group.
-  defp group_key(%PersonRef{distinct: true}, place), do: {:distinct, loc(place)}
-  defp group_key(%PersonRef{} = ref, _place), do: PersonRef.key(ref)
-
-  defp loc(%{section: section, index: index, person_index: person_index}),
-    do: {section, index, person_index}
+  defp credits(%__MODULE__{} = draft) do
+    tagged(draft.work && draft.work.authors, :author, "work") ++
+      tagged(draft.recording && draft.recording.narrators, :narrator, "recording")
+  end
 
   defp tagged(nil, _kind, _section), do: []
 
   defp tagged(credits, kind, section) do
     credits |> Enum.with_index() |> Enum.map(fn {c, i} -> {kind, section, i, c} end)
+  end
+
+  @doc """
+  Every person key the credits currently reference, in form order.
+
+  What `Seed` reconciles against: a person nobody credits any more has no
+  reason to stay on the form, and a credit naming somebody new needs a
+  decision minting for them.
+  """
+  def referenced_keys(%__MODULE__{} = draft) do
+    for {_kind, _section, _index, credit} <- credits(draft),
+        credit.mode == :create,
+        key <- credit.person_keys,
+        uniq: true,
+        do: key
   end
 
   @doc """
@@ -195,7 +215,7 @@ defmodule Ambry.Inbox.Draft do
   # the first.
   defp total(%__MODULE__{} = draft) do
     work_total(draft.work) + recording_total(draft.recording) +
-      destination_total(draft.destination)
+      length(draft.people) + destination_total(draft.destination)
   end
 
   defp destination_total(nil), do: 0

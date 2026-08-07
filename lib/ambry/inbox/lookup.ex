@@ -20,6 +20,7 @@ defmodule Ambry.Inbox.Lookup do
 
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Metadata.PersonSearch
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Providers
   alias Ambry.Metadata.Registry
@@ -114,6 +115,71 @@ defmodule Ambry.Inbox.Lookup do
       {:error, _reason} ->
         {:ok, item}
     end
+  end
+
+  @doc """
+  Asks every person-capable database about one human again.
+
+  Matching already searched everybody the credits named, so this is for the
+  case the name has *changed* since — the operator renamed a credit, revealed
+  a pen name, or split one person into two — where the key has no evidence
+  behind it because nobody had heard of that name when the item was matched.
+
+  Writes into `matches["people"][key]` exactly as matching does, so the
+  person's photo and bio fields pick the results up on the next reseed. The
+  same rule as everywhere else here: **evidence is added, never replaced**, so
+  a re-search cannot un-choose a photo the operator already picked.
+  """
+  def research_person(%InboxItem{} = item, key, name) do
+    case String.trim(name || "") do
+      "" ->
+        {:ok, item}
+
+      name ->
+        {found, outcomes} =
+          Enum.reduce(PersonSearch.providers(), {[], []}, fn entry, {found, outcomes} ->
+            {matches, outcome} = PersonSearch.matches_with_outcome(entry, name, refresh: true)
+            {found ++ Enum.map(matches, &person_record/1), outcomes ++ [outcome]}
+          end)
+
+        update_person(item, key, name, found, outcomes)
+    end
+  end
+
+  defp person_record(match) do
+    %{
+      "source" => "provider:#{match.provider_id}",
+      "provider_name" => match.provider_name,
+      "id" => to_string(match.id),
+      "name" => match.name,
+      "description" => match.description,
+      "note" => match.note,
+      "images" => match.images
+    }
+  end
+
+  defp update_person(%InboxItem{} = item, key, name, found, outcomes) do
+    matches = item.matches || %{}
+    people = Map.get(matches, "people") || %{}
+    held = Map.get(people, key) || %{"name" => name, "roles" => [], "local" => []}
+
+    known = MapSet.new(Map.get(held, "candidates", []) || [], &AutoMatch.ref/1)
+
+    updated =
+      held
+      |> Map.put("name", name)
+      |> Map.put(
+        "candidates",
+        (Map.get(held, "candidates", []) || []) ++
+          Enum.reject(found, &MapSet.member?(known, AutoMatch.ref(&1)))
+      )
+      |> Map.put("providers", outcomes)
+
+    item
+    |> InboxItem.changeset(%{
+      matches: Map.put(matches, "people", Map.put(people, key, updated))
+    })
+    |> Repo.update()
   end
 
   ## plumbing

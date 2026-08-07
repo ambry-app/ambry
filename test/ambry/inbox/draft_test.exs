@@ -4,6 +4,8 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
+  alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
@@ -14,6 +16,9 @@ defmodule Ambry.Inbox.DraftTest do
     |> Map.merge(attrs)
     |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
   end
+
+  # A settled name field, for the hand-built drafts below.
+  defp named(value), do: %Field{value: value, source: "test", approved: true, required: true}
 
   defp provider_candidate(attrs) do
     Map.merge(
@@ -58,7 +63,8 @@ defmodule Ambry.Inbox.DraftTest do
         # A recording match only gets to fill fields in when it's believed;
         # tests that want its metadata used have to say so.
         "confidence" => Keyword.get(opts, :recording_confidence, 0.0)
-      }
+      },
+      "people" => Keyword.get(opts, :people, %{})
     }
   end
 
@@ -143,6 +149,99 @@ defmodule Ambry.Inbox.DraftTest do
       assert Enum.any?(Draft.unresolved(draft), &(&1.label =~ "records describe this book"))
     end
 
+    # The doubt asks "which records describe this book". Ticking one is the
+    # answer, and it used to leave the doubt standing — so the decision stayed
+    # outstanding forever and the item could never be imported, with no
+    # control on the page able to clear it. The recording level has cleared
+    # its own doubt on a tick since it was built; the work level was given
+    # doubt later and this half was missed. Found by a real end-to-end import.
+    test "ticking a record settles a doubted work" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5}),
+        provider_candidate(%{"id" => "b", "title" => "The Real One", "score" => 0.45})
+      ]
+
+      item = item(%{matches: matches(candidates, confidence: 0.5), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert item.draft.work.doubt == :low_confidence
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label =~ "records describe this book"))
+
+      ticked =
+        Draft.Edit.toggle_source(item.draft, item, :work, Enum.at(candidates, 1))
+
+      assert ticked.work.doubt == :none
+      refute Enum.any?(Draft.unresolved(ticked), &(&1.label =~ "records describe this book"))
+
+      # and un-ticking the last one puts the question back
+      untangled = Draft.Edit.toggle_source(ticked, item, :work, Enum.at(candidates, 1))
+      assert untangled.work.sources == []
+    end
+
+    # The seeder sets `chosen_key` too, so keying re-derivation on it froze
+    # every auto-settled field against all later evidence. Measured end to end
+    # on the operator's Becky Chambers file: the work is doubted, so at seed
+    # time the only title on offer is the tags' shelf label and it settles —
+    # and then ticking the correct record could not dislodge it. The book
+    # imported as "Wayfarers, Book 1" with the real title sitting un-chosen in
+    # its own candidate list.
+    test "a value the seeder settled follows a record the operator ticks" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5})
+      ]
+
+      item =
+        item(%{
+          matches: matches(candidates, confidence: 0.5),
+          tags: %{"book_title" => "Shelf Label", "published" => "2011-06-15"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # doubted, so nothing but the tags proposed a title and it settled
+      assert item.draft.work.title.value == "Shelf Label"
+      assert item.draft.work.title.approved
+      refute item.draft.work.title.curated
+
+      ticked = Draft.Edit.toggle_source(item.draft, item, :work, hd(candidates))
+
+      # The record and the tags now disagree, so it becomes an open question
+      # with both on offer — rather than staying silently stuck on the label.
+      refute ticked.work.title.approved
+
+      assert Enum.map(ticked.work.title.candidates, & &1.value) == [
+               "Something Else",
+               "Shelf Label"
+             ]
+
+      # and taking the leading suggestion takes the ticked record's, not the
+      # file's, because records outrank tags in the candidate order
+      assert Draft.Edit.approve_all(ticked).work.title.value == "Something Else"
+    end
+
+    # The other half of the same rule: a chip a human picked must NOT move.
+    test "a value the operator chose survives a record being ticked" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5}),
+        provider_candidate(%{"id" => "b", "title" => "The Other One", "score" => 0.45})
+      ]
+
+      item =
+        item(%{
+          matches: matches(candidates, confidence: 0.5),
+          tags: %{"book_title" => "Shelf Label", "published" => "2011-06-15"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      chosen = Draft.Edit.choose_field(item.draft, :work, :title, "tags")
+      assert chosen.work.title.value == "Shelf Label"
+      assert chosen.work.title.curated
+
+      ticked = Draft.Edit.toggle_source(chosen, item, :work, hd(candidates))
+      assert ticked.work.title.value == "Shelf Label"
+    end
+
     test "a believed work match still adopts its records" do
       draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
 
@@ -199,9 +298,11 @@ defmodule Ambry.Inbox.DraftTest do
 
       assert [credit] = draft.work.authors
       assert credit.mode == :create
-      assert [person_ref] = credit.people
-      assert person_ref.person_id == nil
-      assert person_ref.name == "Nobody In This Library"
+      assert [key] = credit.person_keys
+      assert [person] = draft.people
+      assert person.key == key
+      assert person.person_id == nil
+      assert Field.value(person.name) == "Nobody In This Library"
       assert credit.approved
     end
 
@@ -228,22 +329,73 @@ defmodule Ambry.Inbox.DraftTest do
       assert credit.mode == :create
     end
 
+    # 3b's promise is that the operator never leaves the inbox to finish a
+    # leaf entity, and a person with no face is unfinished. Matching asks
+    # every person-level provider in the background, so the photo and the
+    # biography are here to be proposed rather than fetched with somebody
+    # waiting on them.
+    test "a new person arrives with the photo and biography matching found" do
+      candidates = [provider_candidate(%{"authors" => ["Travis Baldree"]})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches(candidates,
+                people: %{
+                  "travis baldree" => %{
+                    "name" => "Travis Baldree",
+                    "candidates" => [
+                      %{
+                        "source" => "provider:hardcover",
+                        "id" => "hc-9",
+                        "name" => "Travis Baldree",
+                        "images" => ["https://example.test/baldree.jpg"],
+                        "description" => "An American author and audiobook narrator."
+                      }
+                    ]
+                  }
+                }
+              ),
+            tags: %{}
+          })
+        )
+
+      assert [person] = draft.people
+      assert Field.value(person.image) == "https://example.test/baldree.jpg"
+      assert person.image.source == "provider:hardcover"
+      assert Field.value(person.description) == "An American author and audiobook narrator."
+      assert person.description.source == "provider:hardcover"
+    end
+
+    # An import with no photo is the previous behaviour, not a failure — and
+    # every draft built before the people level existed has no such key.
+    test "a person nothing was found for is still the plain proposal" do
+      candidates = [provider_candidate(%{"authors" => ["Nobody In This Library"]})]
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [person] = draft.people
+      assert Field.value(person.name) == "Nobody In This Library"
+      assert Field.value(person.image) == nil
+      assert Field.value(person.description) == nil
+      # nothing to decide, so it doesn't become a question
+      assert person.doubt == :nothing_found
+      assert PersonDecision.resolved?(person)
+    end
+
     test "two or more people behind one credit is just a longer list" do
       # the composite case, which needs no special pathway: one Author, two
-      # People, expressed as two entries in the same control
+      # People, expressed as two keys on the same credit
       credit = %Credit{
         name: "James S.A. Corey",
         kind: :author,
         mode: :create,
         approved: true,
-        people: [
-          %Draft.PersonRef{name: "Daniel Abraham"},
-          %Draft.PersonRef{name: "Ty Franck"}
-        ]
+        person_keys: ["daniel abraham", "ty franck"]
       }
 
       assert Credit.resolved?(credit)
-      assert length(credit.people) == 2
+      assert length(credit.person_keys) == 2
     end
 
     # Validation gates *saving*, the invariant gates *importing*. A half-made
@@ -251,7 +403,12 @@ defmodule Ambry.Inbox.DraftTest do
     # person and then name them — so only an approved one is rejected.
     test "a half-made credit saves; an approved one with nobody behind it does not" do
       in_progress =
-        Credit.changeset(%Credit{}, %{name: "Somebody", kind: :author, mode: :create, people: []})
+        Credit.changeset(%Credit{}, %{
+          name: "Somebody",
+          kind: :author,
+          mode: :create,
+          person_keys: []
+        })
 
       assert in_progress.valid?
       refute Credit.resolved?(Ecto.Changeset.apply_changes(in_progress))
@@ -261,24 +418,39 @@ defmodule Ambry.Inbox.DraftTest do
           name: "Somebody",
           kind: :author,
           mode: :create,
-          people: [],
+          person_keys: [],
           approved: true
         })
 
       refute approved.valid?
-      assert %{people: ["needs at least one person behind it"]} = errors_on(approved)
+      assert %{person_keys: ["needs at least one person behind it"]} = errors_on(approved)
     end
 
-    test "a person row nobody has named yet keeps the credit unresolved" do
-      credit = %Credit{
-        name: "James S.A. Corey",
-        kind: :author,
-        mode: :create,
-        approved: true,
-        people: [%Draft.PersonRef{name: "Daniel Abraham"}, %Draft.PersonRef{name: ""}]
+    # The credit is resolved; the *person* is the one still needing a name, and
+    # that is reported once for the human rather than once per credit — which
+    # is the whole reason people became their own level.
+    test "a person nobody has named yet keeps the import unresolved" do
+      draft = %Draft{
+        work: %Draft.Work{
+          mode: :create,
+          approved: true,
+          authors: [
+            %Credit{
+              name: "James S.A. Corey",
+              kind: :author,
+              mode: :create,
+              approved: true,
+              person_keys: ["daniel abraham", "unnamed"]
+            }
+          ]
+        },
+        people: [
+          %PersonDecision{key: "daniel abraham", approved: true, name: named("Daniel Abraham")},
+          %PersonDecision{key: "unnamed", approved: true, name: named(nil)}
+        ]
       }
 
-      refute Credit.resolved?(credit)
+      assert Enum.any?(Draft.unresolved(draft), &(&1.section == :people and &1.state == :missing))
     end
   end
 
@@ -668,7 +840,7 @@ defmodule Ambry.Inbox.DraftTest do
       # person behind it
       draft =
         item.draft
-        |> Draft.Edit.set_person(:work, 0, 0, %{name: "Jason Pargin", person_id: nil})
+        |> Draft.Edit.rename_person("david wong", "Jason Pargin")
         |> Draft.Edit.approve_credit(:work, 0, true)
 
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
@@ -677,7 +849,8 @@ defmodule Ambry.Inbox.DraftTest do
 
       assert [credit] = after_tick.work.authors
       assert credit.name == "David Wong"
-      assert [%{name: "Jason Pargin"}] = credit.people
+      assert [person] = Draft.people_for(after_tick, credit)
+      assert Field.value(person.name) == "Jason Pargin"
       assert credit.approved
     end
 
@@ -1092,12 +1265,13 @@ defmodule Ambry.Inbox.DraftTest do
       draft =
         item.draft
         |> Draft.Edit.rename_credit(:work, 0, "David Wong")
-        |> Draft.Edit.set_person(:work, 0, 0, %{name: "Jason Pargin", person_id: nil})
+        |> Draft.Edit.rename_person("david wong", "Jason Pargin")
 
       credit = hd(draft.work.authors)
       assert credit.name == "David Wong"
-      assert [%{name: "Jason Pargin", person_id: nil}] = credit.people
-      refute Credit.simple?(credit)
+      assert [person] = Draft.people_for(draft, credit)
+      assert Field.value(person.name) == "Jason Pargin"
+      assert person.person_id == nil
     end
 
     test "the default person follows the credit's name until it is customised" do
@@ -1110,15 +1284,17 @@ defmodule Ambry.Inbox.DraftTest do
       # still carrying it
       credit = hd(draft.work.authors)
       assert credit.name == "James S.A. Corey"
-      assert [%{name: "James S.A. Corey"}] = credit.people
+      assert [person] = Draft.people_for(draft, credit)
+      assert Field.value(person.name) == "James S.A. Corey"
       assert Credit.simple?(credit)
 
       # but once the person is somebody else, renaming the credit leaves them
       # alone
-      draft = Draft.Edit.set_person(draft, :work, 0, 0, %{name: "Ty Franck", person_id: nil})
+      draft = Draft.Edit.rename_person(draft, "jmes s.a. corey", "Ty Franck")
       draft = Draft.Edit.rename_credit(draft, :work, 0, "J.S.A. Corey")
 
-      assert [%{name: "Ty Franck"}] = hd(draft.work.authors).people
+      assert [person] = Draft.people_for(draft, hd(draft.work.authors))
+      assert Field.value(person.name) == "Ty Franck"
     end
 
     test "a half-typed name is storable but never resolved" do

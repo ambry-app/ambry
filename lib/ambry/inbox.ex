@@ -359,6 +359,7 @@ defmodule Ambry.Inbox do
   Runs an operator-written search and adds whatever it returns.
   """
   defdelegate research(item, level, fields), to: Lookup
+  defdelegate research_person(item, key, name), to: Lookup
 
   @doc """
   Asks one provider again — the one that was unreachable during matching.

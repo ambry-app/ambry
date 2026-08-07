@@ -97,7 +97,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   # and drops the job. The old handler matched `{:ok, _job}` and flashed
   # success either way, which is how "look for matches again" came to do
   # nothing at all.
-  test "a re-query is not silently swallowed by the uniqueness window", %{conn: conn} do
+  test "a re-query is not silently swallowed by the uniqueness window", %{conn: _conn} do
     item = probed_item()
 
     {:ok, item} = Inbox.rescan_item(item)

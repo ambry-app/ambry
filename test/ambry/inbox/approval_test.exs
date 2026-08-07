@@ -99,22 +99,18 @@ defmodule Ambry.Inbox.ApprovalTest do
       item = tagged_item() |> Inbox.prepare_draft() |> then(fn {:ok, item} -> item end)
 
       item =
-        update_in(item.draft.work.authors, fn [credit | rest] ->
-          [
-            %{
-              credit
-              | people: [
-                  %Ambry.Inbox.Draft.PersonRef{
-                    name: "Brandon Sanderson",
-                    description: "An American author of epic fantasy.",
-                    description_source: "provider:wikidata",
-                    image_url: "https://example.test/headshot.jpg",
-                    image_source: "provider:tmdb"
-                  }
-                ]
-            }
-            | rest
-          ]
+        update_in(item.draft.people, fn people ->
+          Enum.map(people, fn person ->
+            if person.key == "brandon sanderson" do
+              %{
+                person
+                | description: picked("An American author of epic fantasy.", "provider:wikidata"),
+                  image: picked("https://example.test/headshot.jpg", "provider:tmdb")
+              }
+            else
+              person
+            end
+          end)
         end)
 
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(item.draft))
@@ -170,8 +166,9 @@ defmodule Ambry.Inbox.ApprovalTest do
     test "saying they are two different people of one name creates both" do
       item = tagged_item(narrator: "Brandon Sanderson")
 
-      draft = Draft.Edit.set_person_distinct(item.draft, :recording, 0, 0, true)
+      draft = Draft.Edit.split_person(item.draft, item, :recording, 0, 0)
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+      item = settle(item)
 
       assert {:ok, _media} = Inbox.approve_item(item)
 
@@ -183,17 +180,15 @@ defmodule Ambry.Inbox.ApprovalTest do
     test "a photo found on one credit reaches the person created for both" do
       item = tagged_item(narrator: "Brandon Sanderson")
 
-      draft =
-        Draft.Edit.set_person_image(
-          item.draft,
-          :recording,
-          0,
-          0,
-          "https://example.test/face.jpg",
-          "provider:tmdb"
-        )
+      item =
+        update_in(item.draft.people, fn people ->
+          Enum.map(
+            people,
+            &%{&1 | image: picked("https://example.test/face.jpg", "provider:tmdb")}
+          )
+        end)
 
-      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(item.draft))
 
       %{web_path: web_path} = Ambry.Factory.valid_image(:person)
       patch(Ambry.Images, :import_url, fn _url -> {:ok, web_path} end)
@@ -203,6 +198,17 @@ defmodule Ambry.Inbox.ApprovalTest do
       assert [person] = Repo.all(where(Person, name: "Brandon Sanderson"))
       assert person.image_path == web_path
     end
+  end
+
+  # A settled field the operator picked from a provider, which is what the
+  # picker leaves behind.
+  defp picked(value, source) do
+    %Ambry.Inbox.Draft.Field{
+      value: value,
+      source: source,
+      chosen_key: source,
+      approved: true
+    }
   end
 
   describe "approve/1 refusals" do

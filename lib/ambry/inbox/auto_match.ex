@@ -2,15 +2,22 @@ defmodule Ambry.Inbox.AutoMatch do
   @moduledoc """
   Proposes what an inbox item is, so confirming it can be one click.
 
-  ## Two matches, not one
+  ## Three matches, not one
 
-  An item needs a **work** match (which Book — title, authors, series) and a
-  **recording** match (which Media — narrators, cover, chapters, release
-  date). They use different keys and fail independently: an ASIN identifies a
-  recording outright, title-and-author identifies a work fuzzily, and you can
-  land the right work with the wrong recording — a dramatized adaptation
-  instead of the standard narration — or the right recording under the wrong
-  work. So each gets its own ranked candidates and its own score.
+  An item needs a **work** match (which Book — title, authors, series), a
+  **recording** match (which Media — narrators, cover, chapters, release date)
+  and a **people** match (who the credited humans are — face, biography).
+  They use different keys and fail independently: an ASIN identifies a
+  recording outright, title-and-author identifies a work fuzzily, a name
+  identifies a person and nothing else does — and you can land the right work
+  with the wrong recording (a dramatized adaptation instead of the standard
+  narration) or the right recording under the wrong work. So each gets its own
+  candidates and its own failure mode.
+
+  The three run in that order because each one's answer is the next one's
+  question. The work's editions are the most direct route to its recordings;
+  the work names its authors and the recording names its readers, and until a
+  record has been found there is no cast to ask about at all.
 
   Nothing is applied. This writes proposals onto the inbox item; the operator
   approves, and approval is what creates records.
@@ -37,9 +44,11 @@ defmodule Ambry.Inbox.AutoMatch do
   alias Ambry.Books
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.ReleaseName
+  alias Ambry.Metadata.PersonSearch
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Providers
   alias Ambry.Metadata.Registry
+  alias Ambry.People
 
   require Logger
 
@@ -91,17 +100,274 @@ defmodule Ambry.Inbox.AutoMatch do
     hints = hints(item)
     work = match_work(hints, opts)
 
+    # The recording level is given the matched work, because a work's own
+    # edition list is a third key alongside searching: once we know which book
+    # this is, its editions are the most direct route to the recordings that
+    # exist — including ones no storefront will return.
+    recording = match_recording(hints, work, opts)
+
     %{
       matches: %{
         "work" => work,
-        # The recording level is given the matched work, because a work's own
-        # edition list is a third key alongside searching: once we know which
-        # book this is, its editions are the most direct route to the
-        # recordings that exist — including ones no storefront will return.
-        "recording" => match_recording(hints, work, opts),
+        "recording" => recording,
+        # People are the third level, and they come last because they are the
+        # one thing neither of the others could ask about first: a file's tags
+        # name a narrator, but the *cast* only exists once a record has been
+        # found. The work names its authors, the recording names its readers.
+        "people" => match_people(work, recording, item.tags || %{}, opts),
         "hints" => stringify_hints(hints)
       }
     }
+  end
+
+  @doc """
+  Everything known about each human this import will credit.
+
+  Keyed by `person_key/1`, one entry per distinct human — the same set the
+  draft's `people` decisions cover, derived here from the records rather than
+  from the draft, so an import arrives with a face and a biography already
+  proposed instead of sending the operator to the person form afterwards.
+
+  ## Local first, which is why there is no cap
+
+  A person already in the library is never searched. That is not an
+  optimisation bolted on afterwards, it is what makes searching people during
+  matching affordable at all: the operator's full-cast Harry Potter credits
+  fifteen actors who recur across all seven books, so without it every import
+  would re-ask every provider about the same fifteen humans. With it, a
+  repeating cast costs one lookup on the first book and nothing on the rest.
+
+  The check is an exact name match, deliberately. "Do we already have them"
+  has to be *certain* before it is allowed to skip asking, because being wrong
+  here doesn't produce a bad candidate the operator can see and reject — it
+  produces a silence, and a silence is indistinguishable from a provider
+  having nobody.
+
+  ## The same shape as the other two levels
+
+  Records are evidence, never decisions: every plausible person from every
+  provider is kept with all their photos and biographies, and which one is
+  right stays a judgement. `Ambry.Metadata.PersonSearch` already gathers them
+  for the form's picker — this runs the same fan-out ahead of time, in the
+  background job, where nobody is waiting.
+  """
+  def match_people(work, recording, tags, opts \\ []) do
+    work
+    |> credited_people(recording, tags)
+    |> Map.new(fn {name, roles} -> {person_key(name), person_result(name, roles, opts)} end)
+  end
+
+  @doc """
+  How a human is referred to across the matches and the draft.
+
+  Deliberately a whitespace-and-case rule only, and **not** `normalize/1`: the
+  title normaliser also strips punctuation, so it folds "J.K. Rowling" to
+  "j k rowling" and the draft would look the person up under a key matching
+  never wrote. `Draft.PersonDecision` keys are these strings.
+  """
+  def person_key(name) when is_binary(name),
+    do: name |> String.downcase() |> String.replace(~r/\s+/, " ") |> String.trim()
+
+  @doc """
+  The photo and biography to propose for one credited human.
+
+  Everything the providers returned is kept as evidence; this is the
+  *proposal* laid on top of it, so an import arrives with a face already
+  chosen instead of a grid to work through. The operator overrides it in the
+  picker, which is why it is allowed to choose at all.
+
+  Two rules, both of them about not proposing confident nonsense:
+
+    * **Only a candidate whose name is actually the credited name.** Provider
+      person-search is recall-first — `PersonSearch.plausible?/2` admits
+      anything sharing a name token, which is right for a grid a human is
+      reading and wrong for an automatic choice. Measured on the operator's
+      own files: Audnexus answers "Rachel Dulude" with *Rachel Aukes* first,
+      and "Jefferson Mays" with Jefferson Morley, Jefferson Bethke and Thomas
+      Jefferson before Wikidata's actual actor. Taking the top hit would have
+      put a stranger's face on three of seven people.
+    * **First provider that has something usable wins, in the operator's own
+      priority order** — which is what `Registry.enabled/1` returns, so this
+      inherits their preference rather than inventing one. Photo and biography
+      are chosen independently, because the provider with the best portrait is
+      routinely not the one with the best prose.
+
+  An exact name is still not an identity — Wikidata knows three Jim Dales, a
+  film producer, a meteorologist and a marketing adviser, none of them the
+  actor who read Harry Potter. That is why this proposes rather than settles,
+  and why every candidate stays on the record.
+  """
+  def person_proposal(nil), do: %{}
+
+  def person_proposal(person) do
+    named =
+      person
+      |> Map.get("candidates", [])
+      |> Enum.filter(&same_human?(&1["name"], person["name"]))
+
+    %{}
+    |> put_proposal(:image_url, :image_source, pick(named, &first(&1["images"])))
+    |> put_proposal(
+      :description,
+      :description_source,
+      pick(named, &usable_bio(&1["description"]))
+    )
+  end
+
+  # The first candidate that has one, carrying which provider it came from —
+  # 1d provenance is written from this, so the value and its source have to
+  # travel together or the person is recorded as hand-typed and locked.
+  defp pick(candidates, take) do
+    Enum.find_value(candidates, fn candidate ->
+      case take.(candidate) do
+        nil -> nil
+        value -> {value, candidate["source"]}
+      end
+    end)
+  end
+
+  defp put_proposal(map, _value_key, _source_key, nil), do: map
+
+  defp put_proposal(map, value_key, source_key, {value, source}),
+    do: map |> Map.put(value_key, value) |> Map.put(source_key, source)
+
+  # Punctuation-insensitive on purpose, and so **not** `person_key/1`: the
+  # databases disagree about the spaces in "James S.A. Corey" and none of that
+  # is a different human. `person_key/1` has to stay byte-comparable with the
+  # draft's own key, which is a different job.
+  defp same_human?(one, other) when is_binary(one) and is_binary(other),
+    do: normalize(one) == normalize(other)
+
+  defp same_human?(_one, _other), do: false
+
+  # rreading-glasses returns the literal string "N/A" where it has no
+  # biography, and storing that as somebody's life story is worse than leaving
+  # it blank — blank is visibly unfinished, "N/A" looks decided.
+  @nonsense_bios ["n/a", "na", "none", "unknown", "no description", "-", "."]
+
+  defp usable_bio(text) when is_binary(text) do
+    trimmed = String.trim(text)
+    if trimmed != "" and String.downcase(trimmed) not in @nonsense_bios, do: trimmed
+  end
+
+  defp usable_bio(_other), do: nil
+
+  defp person_result(name, roles, opts) do
+    case People.people_named(name) do
+      # Already ours. Nothing is searched, and nothing needs to be: the
+      # library's own photo and biography are what an existing person is for.
+      [_first | _rest] = people ->
+        %{
+          "name" => name,
+          "roles" => roles,
+          "local" => Enum.map(people, &local_person/1),
+          "candidates" => [],
+          "providers" => []
+        }
+
+      [] ->
+        {candidates, outcomes} = search_person(name, opts)
+
+        %{
+          "name" => name,
+          "roles" => roles,
+          "local" => [],
+          "candidates" => candidates,
+          "providers" => outcomes
+        }
+    end
+  end
+
+  defp local_person(person) do
+    %{
+      "source" => "local",
+      "id" => person.id,
+      "name" => person.name,
+      # what the form needs to say "you already have them, and they already
+      # have a face" without loading the person itself
+      "has_image" => is_binary(person.image_path),
+      "has_description" => not is_nil(presence(person.description))
+    }
+  end
+
+  defp search_person(name, opts) do
+    Enum.reduce(PersonSearch.providers(), {[], []}, fn entry, {candidates, outcomes} ->
+      {matches, outcome} = PersonSearch.matches_with_outcome(entry, name, opts)
+      {candidates ++ Enum.map(matches, &person_candidate/1), outcomes ++ [outcome]}
+    end)
+  end
+
+  defp person_candidate(%PersonSearch.Match{} = match) do
+    %{
+      "source" => "provider:#{match.provider_id}",
+      "provider_name" => match.provider_name,
+      "id" => to_string(match.id),
+      "name" => match.name,
+      "description" => presence(match.description),
+      # what tells two same-named humans apart in a grid — TMDB's known-for
+      # credits, mostly
+      "note" => presence(match.note),
+      "images" => match.images
+    }
+  end
+
+  # **Everyone any plausible reading of the evidence would credit**, which is
+  # the union of what the records name and what the file's tags name — not
+  # the records-else-tags fallback `Seed` applies when it builds the credits.
+  #
+  # The two differ exactly when a level is doubted, and that is the case this
+  # has to get right. `Seed` ticks no record it doesn't believe, so a doubted
+  # recording credits the *tags'* narrator: measured on the operator's Becky
+  # Chambers file, the recording match is 12% and the credit created is
+  # "Patricia Rodriguez" from the tags, while the top record reads "Rachel
+  # Dulude". Deriving from records alone searched the wrong human and left the
+  # one actually being created with no photo and no biography — the exact
+  # failure this level exists to fix.
+  #
+  # Taking the union rather than reproducing the trust rule keeps the
+  # thresholds in one place: they are `Seed`'s to own, and a second copy here
+  # is the diffusion that made one invariant keep getting forgotten somewhere
+  # new. Over-searching costs one cached provider call for somebody who ends
+  # up uncredited; under-searching costs the import its faces.
+  defp credited_people(work, recording, tags) do
+    authors = names(work, "authors") ++ tag_names(tags, "authors")
+
+    narrators =
+      (names(recording, "narrators") ++ tag_names(tags, "narrators"))
+      |> Enum.reject(&placeholder_narrator?/1)
+
+    merge_roles(Enum.map(authors, &{&1, "author"}) ++ Enum.map(narrators, &{&1, "narrator"}))
+  end
+
+  defp names(level, key) do
+    level
+    |> Map.get("candidates", [])
+    |> top_group()
+    |> Enum.flat_map(&(&1 |> Map.get(key) |> stated_names()))
+  end
+
+  defp tag_names(tags, key), do: tags |> Map.get(key) |> stated_names()
+
+  defp stated_names(value) do
+    value
+    |> List.wrap()
+    |> Enum.filter(&is_binary/1)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp merge_roles(pairs) do
+    Enum.reduce(pairs, [], fn {name, role}, acc ->
+      key = person_key(name)
+
+      case Enum.find_index(acc, fn {held, _roles} -> person_key(held) == key end) do
+        nil ->
+          acc ++ [{name, [role]}]
+
+        index ->
+          List.update_at(acc, index, fn {held, roles} -> {held, Enum.uniq(roles ++ [role])} end)
+      end
+    end)
   end
 
   @doc """
