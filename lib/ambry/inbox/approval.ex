@@ -99,6 +99,23 @@ defmodule Ambry.Inbox.Approval do
     end
   end
 
+  # Approval is claimed under a row lock before anything is created or any
+  # byte moves. The status check at the door reads the *caller's* copy of
+  # the item, so two concurrent approvals both walked through it — measured
+  # live: the loser's transaction rolled back AFTER its 834MB copy had
+  # landed, and the orphan then refused the item forever with a message
+  # blaming a phantom second recording. Under the lock the second approval
+  # waits, sees the committed status, and refuses cleanly.
+  defp claim(%InboxItem{id: id}) do
+    import Ecto.Query, only: [from: 2]
+
+    case Repo.one(from(i in InboxItem, where: i.id == ^id, lock: "FOR UPDATE")) do
+      %InboxItem{status: :pending} = item -> {:ok, Repo.preload(item, :location)}
+      %InboxItem{} -> {:error, :already_approved}
+      nil -> {:error, :already_approved}
+    end
+  end
+
   # The invariant, enforced at the one place it has teeth. Anything the
   # operator hasn't settled is a refusal, not a default.
   defp resolved(%InboxItem{draft: draft}) do
@@ -118,7 +135,8 @@ defmodule Ambry.Inbox.Approval do
       # People first, and for the whole draft at once: the same human can be
       # behind two credits, and each credit creating its own left a
       # self-narrated book with two Person rows of one name.
-      with {:ok, people} <- resolve_people(item.draft),
+      with {:ok, item} <- claim(item),
+           {:ok, people} <- resolve_people(item.draft),
            {:ok, book} <- resolve_book(item.draft.work, people),
            {:ok, media} <- create_media(item, book, probe, people),
            {:ok, _item} <- link(item, media),

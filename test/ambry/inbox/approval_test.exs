@@ -65,6 +65,34 @@ defmodule Ambry.Inbox.ApprovalTest do
 
       assert {:error, :already_approved} = item.id |> Inbox.get_item!() |> Inbox.approve_item()
     end
+
+    # The status check at the door reads the caller's copy of the item, so a
+    # caller holding a stale :pending struct walked straight through it —
+    # measured live as two concurrent approvals, where the loser rolled back
+    # AFTER its 834MB copy landed and the orphan refused the item forever.
+    # The claim under the row lock is what actually decides.
+    test "a stale caller cannot approve an already-approved item" do
+      item = tagged_item()
+      stale = item
+
+      {:ok, _media} = Inbox.approve_item(item)
+
+      assert {:error, :already_approved} = Inbox.approve_item(stale)
+    end
+
+    # Occupied-by-a-recording and occupied-by-a-leftover need opposite
+    # advice, and the old message sent the operator hunting for a second
+    # recording that did not exist.
+    test "an occupied destination says whether the occupant is an orphan" do
+      {:ok, media} = tagged_item() |> Inbox.approve_item()
+      [track] = Media.get_media!(media.id).media_tracks
+
+      assert Inbox.describe_error({:destination_exists, track.path}) =~
+               "can't share one path"
+
+      assert Inbox.describe_error({:destination_exists, "/library/nowhere.m4b"}) =~
+               "nothing in the library references"
+    end
   end
 
   describe "approve/1 and existing records" do

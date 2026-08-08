@@ -652,8 +652,19 @@ defmodule Ambry.Inbox do
       "This folder and its library root are on different filesystems, so the file can't be " <>
         "hardlinked. Point it at a root on the same disk, or set the location to copy or move."
 
-  def describe_error({:destination_exists, path}),
-    do: "Something is already at #{path}. Two recordings can't share one path."
+  # Occupied by a recording is a curation problem; occupied by a file no
+  # record references is a leftover — an interrupted import's copy landed and
+  # its transaction rolled back, which is placement's documented worst case.
+  # The two need opposite advice, and the old message sent the operator
+  # hunting for a second recording that did not exist.
+  def describe_error({:destination_exists, path}) do
+    if file_in_use?(path) do
+      "Something is already at #{path}. Two recordings can't share one path."
+    else
+      "A file nothing in the library references is at #{path} — likely left " <>
+        "behind by an interrupted import. Delete it and approve again."
+    end
+  end
 
   def describe_error(:no_library_root),
     do: "There's no library root to import into. Add one under Locations."
@@ -674,6 +685,8 @@ defmodule Ambry.Inbox do
   end
 
   def describe_error(_reason), do: "Couldn't add this to the library."
+
+  defp file_in_use?(path), do: Repo.exists?(where(MediaTrack, path: ^path))
 
   @doc """
   What is happening to each of these items in the background.
