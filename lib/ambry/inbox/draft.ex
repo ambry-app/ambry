@@ -201,6 +201,43 @@ defmodule Ambry.Inbox.Draft do
   end
 
   @doc """
+  Whether a human has answered anything in this draft yet.
+
+  What tells "matched but untouched" from "the operator has been working on
+  it", which is the difference between a draft that may be thrown away and
+  rebuilt from fresh evidence and one that may only be re-derived around what
+  they decided. A retry that finally reaches a provider needs the first: its
+  new record isn't *ticked*, so re-deriving from the ticked set would ignore
+  it entirely and the retry would buy nothing.
+  """
+  def curated?(nil), do: false
+
+  def curated?(%__MODULE__{} = draft) do
+    Enum.any?(fields(draft), &(&1 && &1.curated)) or
+      Enum.any?(credits(draft), fn {_kind, _section, _index, credit} -> credit.curated end) or
+      Enum.any?((draft.work && draft.work.series) || [], & &1.curated) or
+      Enum.any?(draft.people, & &1.curated)
+  end
+
+  defp fields(%__MODULE__{work: work, recording: recording}) do
+    work_fields = if work, do: [work.title, work.published, work.published_format], else: []
+
+    recording_fields =
+      if recording,
+        do: [
+          recording.title,
+          recording.published,
+          recording.published_format,
+          recording.publisher,
+          recording.description,
+          recording.cover
+        ],
+        else: []
+
+    work_fields ++ recording_fields
+  end
+
+  @doc """
   How far along the operator is, for the queue and the form header.
   """
   def progress(nil), do: %{resolved: 0, total: 0}

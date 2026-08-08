@@ -283,9 +283,51 @@ defmodule Ambry.Inbox do
     with {:ok, item} <- update_item(item, AutoMatch.match(item, opts)) do
       # Staging the import is the point of matching — proposals nothing turns
       # into decisions are just data sitting in a column.
-      prepare_draft(item)
+      #
+      # A draft that already exists is **brought up to date**, not left alone:
+      # matching has just replaced the evidence, and a retry that finally
+      # reaches a provider buys nothing if the records it returns never reach
+      # the form.
+      #
+      # Which update depends on whether a human has been here. An untouched
+      # draft is rebuilt outright, because the retry's new record is not
+      # *ticked* and re-deriving from the ticked set would ignore it. Once the
+      # operator has decided anything, their draft is re-derived around them
+      # instead — `resettle/2` keeps every curated choice.
+      cond do
+        is_nil(item.draft) ->
+          rebuild_draft(item)
+
+        Draft.curated?(item.draft) ->
+          update_draft(item, item.draft |> Draft.Edit.resettle(item) |> dump())
+
+        true ->
+          rebuild_draft(item)
+      end
     end
   end
+
+  @doc """
+  Which providers were asked about this item and couldn't answer.
+
+  Not "found nothing" — that is an answer. This is the provider that was down,
+  rate-limited or misconfigured, across every level: the work, the recording,
+  and each person. `RunMatch` reads it to decide whether it is actually
+  finished, because a match that reached three of four databases has not got
+  what it set out to get.
+  """
+  def unreached_providers(%InboxItem{matches: matches}) when is_map(matches) do
+    people = matches |> Map.get("people", %{}) |> Map.values()
+
+    [Map.get(matches, "work"), Map.get(matches, "recording") | people]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.flat_map(&(Map.get(&1, "providers") || []))
+    |> Enum.filter(&(&1["status"] == "failed"))
+    |> Enum.map(& &1["id"])
+    |> Enum.uniq()
+  end
+
+  def unreached_providers(_item), do: []
 
   @doc """
   Proposes matches for one item in the background.
