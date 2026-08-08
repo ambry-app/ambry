@@ -180,16 +180,22 @@ defmodule Ambry.Inbox.Draft.Field do
       source, so matching by source finds the wrong proposal or — far more
       often — none at all. That was this rule quietly not running.
 
-  Only ever fills a format nobody has settled. An approved format was settled
-  by the seeder or chosen by the operator, and re-deriving over the top of
-  either is the curation-outranks-re-derivation rule broken.
+  The first rule outranks a format the *seeder* settled: nobody records June
+  2nd to mean "2011", so a seeded format still saying year against a day≠1
+  date is a leftover from the date it used to describe — measured on the
+  operator's Leviathan Wakes, where typing the real 2011-06-02 over a
+  year-only tag date left the book rendering as bare "2011". A format the
+  operator settled *themselves* is curation and stays, day be damned — the
+  same `curated`-not-`approved` distinction re-derivation keys on
+  everywhere. The 1st-day case keeps whatever was settled either way.
   """
-  def follow_date(%__MODULE__{approved: true} = format, _date), do: format
-
   def follow_date(%__MODULE__{} = format, %__MODULE__{approved: true} = date) do
     case date(date) do
-      %Date{day: day} when day != 1 -> full(format)
-      _ambiguous_or_unparseable -> follow_proposal(format, date)
+      %Date{day: day} when day != 1 ->
+        if format.curated or value(format) == "full", do: format, else: full(format)
+
+      _ambiguous_or_unparseable ->
+        if format.approved, do: format, else: follow_proposal(format, date)
     end
   end
 

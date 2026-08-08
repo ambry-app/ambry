@@ -79,7 +79,8 @@ defmodule Ambry.Inbox.Draft.Work do
   # aligned at seed time, which left choosing a date by hand settling one half
   # of a two-column fact and leaving the other half reported as undecided.
   #
-  # Only fills a format nobody has settled; see `Field.follow_date/2`.
+  # A day≠1 date forces `full` whoever settled the format; a 1st-day date
+  # only fills a format nobody has settled. See `Field.follow_date/2`.
   defp align_published_format(changeset) do
     case {get_field(changeset, :published), get_field(changeset, :published_format)} do
       {%Field{} = published, %Field{} = format} ->

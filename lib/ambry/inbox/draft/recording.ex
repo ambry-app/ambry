@@ -67,6 +67,32 @@ defmodule Ambry.Inbox.Draft.Recording do
     |> cast_embed(:description)
     |> cast_embed(:cover)
     |> cast_embed(:narrators)
+    |> align_published_format()
+  end
+
+  # Same aligner as `Work.changeset/2`, for the same reason: every route into
+  # the draft ends here, so this is the one place the format can be kept in
+  # step with the date. The work side had it and this side didn't, so typing
+  # a release date by hand settled one half of a two-column fact.
+  defp align_published_format(changeset) do
+    case {get_field(changeset, :published), get_field(changeset, :published_format)} do
+      {%Field{} = published, %Field{} = format} ->
+        case Field.follow_date(format, published) do
+          ^format -> changeset
+          aligned -> settle_format(changeset, aligned)
+        end
+
+      _nothing_to_align ->
+        changeset
+    end
+  end
+
+  defp settle_format(changeset, aligned) do
+    put_change(
+      changeset,
+      :published_format,
+      Map.take(aligned, [:value, :source, :chosen_key, :approved])
+    )
   end
 
   @doc """

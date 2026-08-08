@@ -1473,6 +1473,57 @@ defmodule Ambry.Inbox.DraftTest do
       assert item.draft.work.published_format.approved
     end
 
+    # Nobody records June 2nd to mean "2011". The format had already settled
+    # as year (from a year-only tag date), and the settled-format guard then
+    # left a full-precision typed date rendering as a bare year — measured on
+    # the operator's Leviathan Wakes.
+    test "a typed full date overrides a settled year format" do
+      item =
+        item(%{
+          matches: matches([]),
+          tags: %{
+            "book_title" => "Leviathan Wakes",
+            "published" => "2011-01-01",
+            "published_format" => "year"
+          }
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.work.published_format.value == "year"
+
+      draft = item.draft
+      draft = put_in(draft.work.published, Field.edit(draft.work.published, "2011-06-02"))
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert item.draft.work.published.value == "2011-06-02"
+      assert item.draft.work.published_format.value == "full"
+    end
+
+    # The work side had the aligner and the recording side didn't, so typing
+    # a release date by hand settled one half of a two-column fact.
+    test "the recording's format follows its date too" do
+      recording = [recording_record(%{"published" => "2019-01-01", "published_format" => "year"})]
+
+      item =
+        item(%{
+          matches: matches([], recording: recording, recording_confidence: 0.9),
+          tags: %{"book_title" => "Leviathan Wakes", "published" => "2011-01-01"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.recording.published_format.value == "year"
+
+      draft = item.draft
+
+      draft =
+        put_in(draft.recording.published, Field.edit(draft.recording.published, "2019-08-06"))
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert item.draft.recording.published.value == "2019-08-06"
+      assert item.draft.recording.published_format.value == "full"
+    end
+
     test "never overrules a format the operator settled themselves" do
       candidates = [
         provider_candidate(%{"published" => "2017-10-03", "published_format" => "full"})
