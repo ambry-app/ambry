@@ -128,6 +128,17 @@ defmodule Ambry.Inbox.ReleaseNameTest do
       assert ReleaseName.strip_noise("(Unabridged)") == nil
       assert ReleaseName.strip_noise(nil) == nil
     end
+
+    # With ": A Novel" attached, neither provider returned the actual
+    # Jurassic Park — and because they returned junk rather than nothing,
+    # the zero-result retry never fired.
+    test "drops a marketing subtitle but keeps a real one" do
+      assert ReleaseName.strip_noise("Jurassic Park: A Novel") == "Jurassic Park"
+      assert ReleaseName.strip_noise("Wool: A Memoir") == "Wool"
+
+      assert ReleaseName.strip_noise("A Deadly Education: Lessons") ==
+               "A Deadly Education: Lessons"
+    end
   end
 
   describe "query/1" do

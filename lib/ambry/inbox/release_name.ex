@@ -78,11 +78,22 @@ defmodule Ambry.Inbox.ReleaseName do
     title
     |> remove_noise_brackets()
     |> remove_noise_parens()
+    |> remove_noise_subtitle()
     |> collapse_spaces()
     |> presence()
   end
 
   def strip_noise(_other), do: nil
+
+  # "Jurassic Park: A Novel" — a marketing subtitle that carries no
+  # information and sends provider search sideways: with it, neither
+  # provider returned the actual book (The Lost World and Jurassic Park III
+  # led instead), and because they returned *something*, the zero-result
+  # plainer-title retry never fired. Only these known pure-noise phrases go;
+  # a real subtitle disambiguates and stays.
+  @noise_subtitle ~r/\s*[:—-]\s+an?\s+(novel|memoir|thriller|mystery|novella)\s*$/i
+
+  defp remove_noise_subtitle(title), do: Regex.replace(@noise_subtitle, title, "")
 
   @doc """
   The best search string for a provider: title and author when both are
