@@ -521,6 +521,102 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert matches["work"]["confidence"] > 0.9
     end
 
+    # The loop's proving case, measured live on the operator's Wayfarers
+    # file: the tag says "Wayfarers, Book 1", round 1's "winner" is a
+    # single-source series omnibus at 0.594, and Hardcover's work record and
+    # Audible's recording record independently answer "The Long Way to a
+    # Small, Angry Planet". Corroboration — not similarity — is what
+    # qualifies a record to contribute the round-2 query (0.368 → 1.0 live).
+    test "cross-level consensus refines the query and settles a shelf label" do
+      omnibus = book("The Complete Wayfarers Series Collection", ["Becky Chambers"])
+      long_way = book("The Long Way to a Small, Angry Planet", ["Becky Chambers"])
+
+      long_way_rec =
+        book("The Long Way to a Small, Angry Planet", ["Becky Chambers"],
+          narrators: ["Rachel Dulude"]
+        )
+
+      patch(Providers, :search_books, fn id, query, _opts ->
+        label? = String.contains?(to_string(query), "Wayfarers")
+
+        cond do
+          work_provider?(id) and label? -> {:ok, [omnibus, long_way]}
+          work_provider?(id) -> {:ok, [long_way]}
+          true -> {:ok, [long_way_rec]}
+        end
+      end)
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Wayfarers, Book 1", author: "Becky Chambers"))
+
+      work = matches["work"]
+      assert [best | _rest] = work["candidates"]
+      assert best["title"] == "The Long Way to a Small, Angry Planet"
+      assert work["confidence"] > 0.8
+
+      # the form reports the search that produced the winning evidence
+      assert work["query"] =~ "The Long Way"
+
+      # and round 1's evidence is still on the record — rounds add, never
+      # remove, so nothing an operator might tick can vanish
+      assert Enum.any?(
+               work["candidates"],
+               &(&1["title"] == "The Complete Wayfarers Series Collection")
+             )
+    end
+
+    # A lone provider's hit is not consensus, however bad round 1 looks:
+    # refining from an uncorroborated record is how a bad round-1 match
+    # becomes a confidently wrong round-2 query.
+    test "a lone unconfident hit refines nothing" do
+      junk = book("01 Mistrunner", ["M.R. Ghanoonparvar"])
+
+      patch(Providers, :search_books, fn id, _query, _opts ->
+        if work_provider?(id), do: {:ok, [junk]}, else: {:ok, []}
+      end)
+
+      %{matches: matches} = AutoMatch.match(item(title: "Some Obscure Book", author: "Nobody"))
+
+      assert matches["work"]["query_fields"]["title"] == "Some Obscure Book"
+      assert [%{"title" => "01 Mistrunner"}] = matches["work"]["candidates"]
+    end
+
+    # Measured on the operator's Limitless: the right book at 0.938 sat
+    # doubted at 0.583 under Jim Kwik's identically-titled self-help book.
+    # The query's author adjudicates a same-title tie.
+    test "a same-titled book by a plainly different author is not doubt" do
+      patch_work_results([book("Limitless", ["Alan Glynn"]), book("Limitless", ["Jim Kwik"])])
+
+      %{matches: matches} = AutoMatch.match(item(title: "Limitless", author: "Alan Glynn"))
+
+      assert matches["work"]["confidence"] > 0.8
+    end
+
+    test "two same-titled books with no author in hand stay ambiguous" do
+      patch_work_results([book("Origin", ["Dan Brown"]), book("Origin", ["Jessica Khoury"])])
+
+      %{matches: matches} = AutoMatch.match(item(title: "Origin"))
+
+      assert matches["work"]["confidence"] < 0.65
+    end
+
+    # "Spark Notes" spelled the marker as two words and evaded it — it sat
+    # at 0.698 as the only thing keeping the right work under the bar.
+    test "a companion marker split into words still subtracts" do
+      patch_work_results([
+        book("Harry Potter and the Sorcerer's Stone", ["J.K. Rowling"]),
+        book("Spark Notes Harry Potter and the Sorcerer's Stone", ["J.K. Rowling"])
+      ])
+
+      %{matches: matches} =
+        AutoMatch.match(
+          item(title: "Harry Potter and the Sorcerer's Stone", author: "J.K. Rowling")
+        )
+
+      assert [_best, sparknotes] = matches["work"]["candidates"]
+      assert sparknotes["score"] < 0.4
+    end
+
     test "is confident when the winner stands alone" do
       patch_work_results([
         book("The Silent Patient", ["Alex Michaelides"]),

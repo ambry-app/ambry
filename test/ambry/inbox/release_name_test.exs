@@ -129,6 +129,20 @@ defmodule Ambry.Inbox.ReleaseNameTest do
       assert ReleaseName.strip_noise(nil) == nil
     end
 
+    # Album tags carry shelf ordering the way folder names do: "01 Mr.
+    # Mercedes" sent the search into junk ("01 Mistrunner" led), and
+    # "Limitless 01" the same. A trailing number only goes when zero-padded:
+    # "Judicator Jane 4" and "Fahrenheit 451" are titles.
+    test "strips shelf ordering but not numbers that are the title" do
+      assert ReleaseName.strip_noise("01 Mr. Mercedes") == "Mr. Mercedes"
+      assert ReleaseName.strip_noise("Limitless 01") == "Limitless"
+      assert ReleaseName.strip_noise("01 Superworld") == "Superworld"
+      assert ReleaseName.strip_noise("Judicator Jane 4") == "Judicator Jane 4"
+      assert ReleaseName.strip_noise("Fahrenheit 451") == "Fahrenheit 451"
+      assert ReleaseName.strip_noise("1984") == "1984"
+      assert ReleaseName.strip_noise("Catch-22") == "Catch-22"
+    end
+
     # With ": A Novel" attached, neither provider returned the actual
     # Jurassic Park — and because they returned junk rather than nothing,
     # the zero-result retry never fired.

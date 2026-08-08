@@ -79,11 +79,24 @@ defmodule Ambry.Inbox.ReleaseName do
     |> remove_noise_brackets()
     |> remove_noise_parens()
     |> remove_noise_subtitle()
+    |> remove_sequence_numbers()
     |> collapse_spaces()
     |> presence()
   end
 
   def strip_noise(_other), do: nil
+
+  # Album tags carry shelf ordering the way folder names do: the operator's
+  # Mr. Mercedes is tagged "01 Mr. Mercedes" and Limitless "Limitless 01",
+  # and both sent the provider search into junk ("01 Mistrunner" led at
+  # 0.569, the right book absent). A leading track number mirrors the
+  # parser's rule; a trailing one only goes when zero-padded — "Limitless
+  # 01" is ordering, "Judicator Jane 4" and "Fahrenheit 451" are titles.
+  defp remove_sequence_numbers(title) do
+    title
+    |> String.replace(~r/^\d{1,3}[-.\s]+(?=\D)/, "")
+    |> String.replace(~r/[-.\s]+0\d\s*$/, "")
+  end
 
   # "Jurassic Park: A Novel" — a marketing subtitle that carries no
   # information and sends provider search sideways: with it, neither

@@ -98,13 +98,7 @@ defmodule Ambry.Inbox.AutoMatch do
   """
   def match(%InboxItem{} = item, opts \\ []) do
     hints = hints(item)
-    work = match_work(hints, opts)
-
-    # The recording level is given the matched work, because a work's own
-    # edition list is a third key alongside searching: once we know which book
-    # this is, its editions are the most direct route to the recordings that
-    # exist — including ones no storefront will return.
-    recording = match_recording(hints, work, opts)
+    {work, recording} = settle_levels(hints, opts)
 
     %{
       matches: %{
@@ -118,6 +112,151 @@ defmodule Ambry.Inbox.AutoMatch do
         "hints" => stringify_hints(hints)
       }
     }
+  end
+
+  # **Matching is a loop, not a pipeline: evidence changes the question.**
+  # A round's records can hold a better query than the one they were found
+  # with — the file's label was never the book's title — and re-asking with
+  # it is what settles the shelf-label releases nothing else rescues.
+  #
+  # The refinement gate is the loop's whole safety argument, and it is
+  # **corroboration, not similarity**: gating on the score is circular,
+  # because scoring low is exactly what a shelf-label title causes. Measured
+  # on the operator's Wayfarers file: round 1's "winner" is a single-source
+  # series omnibus at 0.594, while Hardcover's work record and Audible's
+  # recording record — independent databases, independently queried — both
+  # answer "The Long Way to a Small, Angry Planet", at 0.245 and 0.123. Two
+  # search engines doing semantic work and landing on one answer is evidence
+  # the scorer cannot see; one provider's top hit is not. Refined, the round
+  # 2 query returns the work at 1.0 (measured: confidence 0.368 → 1.0).
+  #
+  # Rounds only ever add evidence, questions are deduped against `seen`, and
+  # `@max_rounds` is the backstop — in practice one refinement settles it.
+  @max_rounds 3
+
+  # Refinement only runs for a work still under Seed's adoption bar: a
+  # confident round 1 has nothing to fix.
+  @refine_below 0.65
+
+  defp settle_levels(hints, opts) do
+    work = match_work(hints, opts)
+
+    # The recording level is given the matched work, because a work's own
+    # edition list is a third key alongside searching: once we know which
+    # book this is, its editions are the most direct route to the recordings
+    # that exist — including ones no storefront will return.
+    recording = match_recording(hints, work, opts)
+
+    refine({work, recording}, hints, MapSet.new([consensus_key(hints.title)]), 1, opts)
+  end
+
+  defp refine({work, recording} = settled, hints, seen, round, opts) do
+    with true <- round < @max_rounds,
+         true <- (work["confidence"] || 0.0) < @refine_below,
+         %{} = refined <- consensus_hints(work, recording, hints),
+         false <- MapSet.member?(seen, consensus_key(refined.title)) do
+      work2 = match_work(refined, opts)
+      recording2 = match_recording(refined, work2, opts)
+      merged = {merge_level(work, work2, refined), merge_level(recording, recording2, refined)}
+
+      refine(merged, refined, MapSet.put(seen, consensus_key(refined.title)), round + 1, opts)
+    else
+      _settled_or_no_consensus -> settled
+    end
+  end
+
+  # The better query, when the evidence in hand agrees on one. Grouped
+  # across BOTH levels and narrator-blind on purpose: two different
+  # recordings of one work — Jim Dale's and the full cast's — corroborate
+  # the WORK, and requiring their narrators to agree hid exactly that.
+  defp consensus_hints(work, recording, hints) do
+    current = consensus_key(hints.title)
+
+    ((work["candidates"] || []) ++ (recording["candidates"] || []))
+    |> Enum.reduce([], fn candidate, groups ->
+      case Enum.find_index(groups, fn [held | _rest] -> works_agree?(held, candidate) end) do
+        nil -> groups ++ [[candidate]]
+        index -> List.update_at(groups, index, &(&1 ++ [candidate]))
+      end
+    end)
+    |> Enum.map(fn group ->
+      {group, group |> Enum.map(& &1["source"]) |> Enum.uniq() |> length()}
+    end)
+    |> Enum.filter(fn {[held | _rest], sources} ->
+      sources >= 2 and consensus_key(held["title"]) not in [nil, current]
+    end)
+    |> Enum.sort_by(fn {group, sources} -> {-sources, -best_score(group)} end)
+    |> case do
+      [] ->
+        nil
+
+      [{group, _sources} | _rest] ->
+        best = Enum.min_by(group, &String.length(&1["title"] || ""))
+
+        %{
+          hints
+          | title: strip_ordinal(best["title"]),
+            author: List.first(best["authors"] || []) || hints.author
+        }
+    end
+  end
+
+  defp works_agree?(one, other) do
+    consensus_key(one["title"]) == consensus_key(other["title"]) and
+      compatible?(one["authors"], other["authors"])
+  end
+
+  # ", Book 1" stripped so Audible's "…Sorcerer's Stone, Book 1" and the
+  # editions' bare title count as one answer.
+  defp consensus_key(nil), do: nil
+  defp consensus_key(title), do: title |> strip_ordinal() |> title_key() |> presence()
+
+  defp strip_ordinal(title),
+    do: String.replace(title || "", ~r/,?\s+(?:book|bk\.?|vol\.?|volume)\s+\d+\s*$/i, "")
+
+  defp best_score(group), do: group |> Enum.map(&(&1["score"] || 0.0)) |> Enum.max()
+
+  # Rounds add evidence, never remove it: records and local hits merge
+  # add-only under their stable refs, so nothing a human may have ticked can
+  # vanish. The level's *description* — query, confidence, provider outcomes
+  # — follows the latest round, which is also what the form's evidence
+  # header shows via `follow_query/3`.
+  defp merge_level(old, new, hints) do
+    candidates = add_records(old["candidates"] || [], new["candidates"] || [])
+
+    new
+    |> Map.put("candidates", candidates)
+    |> Map.put("local", add_records(old["local"] || [], new["local"] || []))
+    |> Map.put("providers", merge_outcomes(old["providers"] || [], new["providers"] || []))
+    |> Map.put("confidence", confidence(candidates, hints.author))
+  end
+
+  # Identity is the ref; the payload may be refreshed by a later round, and
+  # the score is *derived* — a record re-found by a better query keeps the
+  # better score, not the one its worse query earned it. Keeping the round-1
+  # payload wholesale left the refined winner sitting at its shelf-label
+  # score, and the refinement changed nothing.
+  defp add_records(existing, found) do
+    found
+    |> Enum.reduce(existing, fn record, acc ->
+      case Enum.find_index(acc, &(ref(&1) == ref(record))) do
+        nil -> acc ++ [record]
+        index -> List.update_at(acc, index, &merge_record(&1, record))
+      end
+    end)
+    |> Enum.sort_by(&(&1["score"] || 0.0), :desc)
+  end
+
+  defp merge_record(old, new) do
+    Map.merge(old, new, fn
+      "score", held, fresh -> max(held || 0.0, fresh || 0.0)
+      _key, held, fresh -> fresh || held
+    end)
+  end
+
+  defp merge_outcomes(existing, fresh) do
+    fresh_ids = MapSet.new(fresh, & &1["id"])
+    Enum.reject(existing, &MapSet.member?(fresh_ids, &1["id"])) ++ fresh
   end
 
   @doc """
@@ -478,7 +617,7 @@ defmodule Ambry.Inbox.AutoMatch do
     {candidates, outcomes} = provider_books(:work, query, hints, opts)
 
     query
-    |> level_result(candidates, outcomes)
+    |> level_result(candidates, outcomes, hints.author)
     |> Map.put("local", local_books(hints))
     |> hydrate_top(opts)
   end
@@ -572,7 +711,7 @@ defmodule Ambry.Inbox.AutoMatch do
     {candidates, outcomes} = provider_books(:recording, query, hints, opts)
     {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints, opts)
 
-    level_result(query, candidates ++ editions, outcomes ++ edition_outcomes)
+    level_result(query, candidates ++ editions, outcomes ++ edition_outcomes, hints.author)
   end
 
   # Structured, not concatenated. Audible's catalog matches `title` against
@@ -590,7 +729,7 @@ defmodule Ambry.Inbox.AutoMatch do
     {candidates, outcomes} = provider_books(:recording, query, hints, opts)
     {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints, opts)
 
-    level_result(query, candidates ++ editions, outcomes ++ edition_outcomes)
+    level_result(query, candidates ++ editions, outcomes ++ edition_outcomes, hints.author)
   end
 
   @doc """
@@ -688,7 +827,7 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp work_query(hints), do: %Provider.Query{title: hints.title, author: hints.author}
 
-  defp level_result(query, candidates, outcomes) do
+  defp level_result(query, candidates, outcomes, author) do
     %{
       "query" => query && to_string(query),
       # The flattened string is what the cache keys on and what text-only
@@ -696,7 +835,7 @@ defmodule Ambry.Inbox.AutoMatch do
       # they're what the operator needs to read when a match looks wrong.
       "query_fields" => query_fields(query),
       "candidates" => rank(candidates),
-      "confidence" => confidence(candidates),
+      "confidence" => confidence(candidates, author),
       # which providers were asked, and what each said. A provider that fails
       # used to vanish silently, leaving the operator to wonder why a source
       # they had enabled contributed nothing.
@@ -814,12 +953,12 @@ defmodule Ambry.Inbox.AutoMatch do
   # read the best-corroborated match in the library as the most doubtful one,
   # which is the bug #1186 fixed by merging. Grouping for the score keeps that
   # fix without the merge.
-  defp confidence(candidates) do
+  defp confidence(candidates, author) do
     candidates
     |> group_agreeing()
     |> Enum.map(fn [held | _rest] = group -> {group_score(group), held} end)
     |> Enum.sort_by(&elem(&1, 0), :desc)
-    |> decide()
+    |> decide(author)
   end
 
   # Folded rather than grouped by key, because agreement is a predicate and
@@ -858,8 +997,8 @@ defmodule Ambry.Inbox.AutoMatch do
   # re-spelled; below it they are different words.
   @confusable_word 0.84
 
-  defp decide([]), do: 0.0
-  defp decide([{only, _held}]), do: only
+  defp decide([], _author), do: 0.0
+  defp decide([{only, _held}], _author), do: only
 
   # **A close second is doubt; a distant one is just the rest of the list.**
   # The penalty used to be `0.5 * second / best`, which is a ratio and so
@@ -888,7 +1027,7 @@ defmodule Ambry.Inbox.AutoMatch do
   # discounted — *provided* the best decisively answered the query, because
   # when nothing matched well the runner-up is genuine ambiguity whatever its
   # title says.
-  defp decide([{best, best_held}, {second, second_held} | _rest]) do
+  defp decide([{best, best_held}, {second, second_held} | _rest], author) do
     gap = best - second
 
     penalty =
@@ -897,7 +1036,7 @@ defmodule Ambry.Inbox.AutoMatch do
         else: 0.5 * (1.0 - :math.pow(gap / @decisive, 2))
 
     penalty =
-      if rival?(best, best_held, second_held),
+      if rival?(best, best_held, second_held, author),
         do: penalty,
         else: penalty * @sibling_discount
 
@@ -907,9 +1046,31 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Float.round(3)
   end
 
-  defp rival?(best_score, best_held, second_held) do
+  defp rival?(best_score, best_held, second_held, author) do
     best_score < @settled_score or
-      confusable?(best_held["title"], second_held["title"])
+      (confusable?(best_held["title"], second_held["title"]) and
+         not author_adjudicated?(best_held, second_held, author))
+  end
+
+  # Two same-titled books by plainly different authors are told apart by the
+  # query's author: the operator's Limitless (Alan Glynn) sat doubted at
+  # 0.583 under Jim Kwik's identically-titled self-help book. With no author
+  # in hand the tie is genuine ambiguity and stays doubted; and "Alex" vs
+  # "Alexa" Michaelides is NOT plainly different — that near-tie must stay
+  # doubted too, which is what the cross-similarity floor is for.
+  @distinct_author 0.7
+
+  defp author_adjudicated?(best, second, author) do
+    is_binary(author) and
+      author_similarity(best["authors"] || [], author) >= @narrator_match and
+      cross_author_similarity(best, second) < @distinct_author
+  end
+
+  defp cross_author_similarity(one, other) do
+    for a <- one["authors"] || [], b <- other["authors"] || [] do
+      similarity(a, b)
+    end
+    |> Enum.max(fn -> 1.0 end)
   end
 
   # Whether two titles could be one title written two ways — a plural, a
@@ -1337,10 +1498,13 @@ defmodule Ambry.Inbox.AutoMatch do
     "unofficial"
   ]
 
+  # Matched with spaces removed on both sides: "Spark Notes Harry Potter…"
+  # spelled the marker as two words and evaded it, and sat at 0.698 as the
+  # only thing keeping the right work under the adoption bar.
   defp companion_penalty(title) do
-    normalized = normalize(title)
+    condensed = title |> normalize() |> String.replace(" ", "")
 
-    if Enum.any?(@companion_markers, &String.contains?(normalized, &1)),
+    if Enum.any?(@companion_markers, &String.contains?(condensed, String.replace(&1, " ", ""))),
       do: @companion_factor,
       else: 1.0
   end
