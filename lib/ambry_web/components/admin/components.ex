@@ -316,6 +316,43 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  attr :busy, :boolean, required: true
+  attr :label, :string, required: true
+  attr :rest, :global
+
+  @doc """
+  Covers whatever it sits in while a background job owns it.
+
+  The inbox does everything in background jobs, and a form whose draft is
+  about to be rebuilt under the operator looked exactly like one waiting for
+  them to type in it. Matching now keeps retrying until every provider has
+  answered, so that window is minutes rather than moments, and anything typed
+  into it would be silently discarded by work nobody could see.
+
+  So it is deliberately a **scrim over the whole thing**, not a badge in a
+  corner: the point is that the row or the form is not yours right now, and
+  that reads at a glance from across the page in a way a status chip does not.
+
+  Must be placed inside a `relative` container. The scrim swallows clicks by
+  covering them; `inert` on the content beside it is what actually stops
+  keyboard focus, and the LiveView refuses the events anyway — the overlay is
+  the explanation, not the enforcement.
+  """
+  def busy_overlay(assigns) do
+    ~H"""
+    <div
+      :if={@busy}
+      class="bg-zinc-200/75 absolute inset-0 z-20 flex items-center justify-center gap-2 rounded-sm dark:bg-zinc-900/80"
+      data-role="busy-overlay"
+      aria-live="polite"
+      {@rest}
+    >
+      <.icon name="fa-rotate" class="h-4 w-4 animate-spin text-zinc-600 dark:text-zinc-300" />
+      <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{@label}</span>
+    </div>
+    """
+  end
+
   slot :inner_block, required: true
 
   def sort_button_bar(assigns) do

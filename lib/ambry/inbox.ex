@@ -684,6 +684,8 @@ defmodule Ambry.Inbox do
   What a background job is doing to one item.
   """
   defdelegate job_status(item), to: Progress, as: :status
+  defdelegate job_statuses(items), to: Progress, as: :statuses
+  defdelegate busy?(status), to: Progress
 
   @doc """
   Takes an item out of the queue without touching its files.

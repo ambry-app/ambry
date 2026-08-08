@@ -210,6 +210,44 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert Inbox.get_item!(keeper.id).status == :pending
   end
 
+  # Every row the inbox does work on gets covered, for the same reason the
+  # form does: a job is about to change it, and a row that looks readable but
+  # is about to be rewritten invites a click that goes nowhere.
+  describe "rows a job is working on" do
+    test "a queued row is covered and inert", %{conn: conn} do
+      # discovery enqueues the match job, so a fresh item has one
+      _item = probed_item()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox")
+
+      assert has_element?(view, "[data-role='busy-overlay']")
+      assert html =~ "Queued"
+      assert html =~ "inert"
+    end
+
+    test "a row with nothing working on it is not covered", %{conn: conn} do
+      _item = probed_item()
+      Ambry.Repo.delete_all(Oban.Job)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+
+      refute has_element?(view, "[data-role='busy-overlay']")
+    end
+
+    test "the cover comes off once the job is gone", %{conn: conn} do
+      _item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+      assert has_element?(view, "[data-role='busy-overlay']")
+
+      Ambry.Repo.delete_all(Oban.Job)
+      send(view.pid, :refresh_progress)
+      render(view)
+
+      refute has_element?(view, "[data-role='busy-overlay']")
+    end
+  end
+
   defp probed_item(opts \\ []) do
     name = Keyword.get(opts, :name, "The Way of Kings [M4B]")
     files = Keyword.get(opts, :files, ["book.m4b"])

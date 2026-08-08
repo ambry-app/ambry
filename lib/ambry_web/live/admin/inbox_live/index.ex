@@ -22,7 +22,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   def mount(params, _session, socket) do
     {:ok,
      socket
-     |> assign(page_title: "Inbox", show_header_search: true)
+     |> assign(page_title: "Inbox", show_header_search: true, ticking: false)
      |> load_items(params)}
   end
 
@@ -144,9 +144,38 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       prev_page_path: ~p"/admin/inbox?#{patch_opts(prev_opts(list_opts))}"
     )
     |> assign(:statuses, @statuses)
+    |> schedule_tick()
   end
 
   defp reload(socket), do: load_items(socket, patch(socket, []))
+
+  # How often a busy row looks again. Only ticks while something is actually
+  # working, so an idle queue costs nothing.
+  @tick 2_000
+
+  @impl Phoenix.LiveView
+  def handle_info(:refresh_progress, socket) do
+    {:noreply, socket |> assign(ticking: false) |> reload()}
+  end
+
+  # Without this the overlay is a one-way door: it appears on load and never
+  # comes back off, because nothing on this page ever asked again.
+  defp schedule_tick(socket) do
+    busy? = Enum.any?(socket.assigns.progress, fn {_id, status} -> Inbox.busy?(status) end)
+
+    if busy? and not socket.assigns.ticking do
+      Process.send_after(self(), :refresh_progress, @tick)
+      assign(socket, ticking: true)
+    else
+      socket
+    end
+  end
+
+  @doc """
+  Whether a job currently owns this row, so it can say so and refuse to be
+  clicked.
+  """
+  def busy?(status), do: Inbox.busy?(status)
 
   # What the row's background work is doing. `:done` and `:issue` say nothing
   # here — the row already shows its matches or its issue, and repeating

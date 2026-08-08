@@ -64,9 +64,55 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      # in full. Both are view state keyed by person key — the results
      # themselves are evidence and live on the item.
      |> assign(searching_person: nil, photos_expanded: %{})
-     |> assign(library_query: nil, library_results: [])
+     |> assign(library_query: nil, library_results: [], ticking: false)
+     |> attach_hook(:refuse_while_busy, :handle_event, &refuse_while_busy/3)
      |> load(item)}
   end
+
+  # **The overlay explains; this enforces.** `inert` and a scrim are markup,
+  # and markup is advisory — a stale tab, a keyboard, or a reconnect can all
+  # still send an event. Matching rebuilds an untouched draft when a retried
+  # provider finally answers, so an edit accepted here would be thrown away by
+  # work the operator couldn't see.
+  defp refuse_while_busy(event, _params, socket) do
+    if socket.assigns.busy do
+      Logger.debug(fn -> "Inbox form: refusing #{event} while a job owns item" end)
+      {:halt, socket}
+    else
+      {:cont, socket}
+    end
+  end
+
+  # How often a busy form looks again. Only ticks while a job is actually on
+  # this item, so an idle form costs nothing.
+  @tick 2_000
+
+  @impl Phoenix.LiveView
+  def handle_info(:refresh_job, socket) do
+    # Reload rather than just re-reading the status: the job that finished may
+    # have rebuilt this very draft, and the form has to show what it built.
+    {:noreply,
+     socket
+     |> assign(ticking: false)
+     |> load(Inbox.get_item!(socket.assigns.item.id))}
+  end
+
+  defp schedule_tick(socket) do
+    if socket.assigns.busy and not socket.assigns.ticking do
+      Process.send_after(self(), :refresh_job, @tick)
+      assign(socket, ticking: true)
+    else
+      socket
+    end
+  end
+
+  @doc """
+  What the job on this item is doing, in the words the overlay uses.
+  """
+  def busy_label(:working), do: "Matching…"
+  def busy_label(:retrying), do: "A provider couldn't be reached — waiting to try again…"
+  def busy_label(:queued), do: "Queued for matching…"
+  def busy_label(_idle), do: "Working…"
 
   @doc """
   Whether a credit's person layer should be showing.
@@ -463,6 +509,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   defp load(socket, item) do
+    job = Inbox.job_status(item)
+
     assign(socket,
       item: item,
       form: to_form(Inbox.change_draft(item)),
@@ -475,11 +523,14 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       destination: Inbox.destination_preflight(item),
       # Matching retries with a backoff measured in minutes, so an item can be
       # legitimately mid-work while the form looks like nothing was found.
-      job: Inbox.job_status(item),
+      job: job,
+      # a job is going to change this draft, so the form is not editable yet
+      busy: Inbox.busy?(job),
       # Roots are configuration and can change between seeding a draft and
       # approving it, so they're read now rather than frozen into the draft.
       roots: Ambry.Library.library_roots()
     )
+    |> schedule_tick()
   end
 
   defp atom("work"), do: :work

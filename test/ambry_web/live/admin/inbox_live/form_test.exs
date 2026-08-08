@@ -600,7 +600,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     # like nothing was found. Those must not look the same.
     test "says when matching is still pending", %{conn: conn} do
       # discovery enqueues the probe and match jobs, so a fresh item has them
-      item = probed_item()
+      item = probed_item(busy: true)
 
       {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
@@ -608,7 +608,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
 
     test "says when a provider is being retried", %{conn: conn} do
-      item = probed_item()
+      item = probed_item(busy: true)
       retryable_jobs(item)
 
       {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
@@ -616,6 +616,51 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       # "waiting out a rate limit" and "queued" are the same blank form and
       # completely different situations
       assert html =~ "waiting to try again"
+    end
+
+    # Matching keeps retrying until every provider has answered, and rebuilds
+    # an untouched draft when one finally comes back — so a form with a job on
+    # it is not the operator's to edit, and an edit accepted here would be
+    # thrown away by work they couldn't see.
+    test "a form with a job on it is covered and cannot be edited", %{conn: conn} do
+      item = probed_item(busy: true)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # said over the whole form, not in a badge in the corner
+      assert has_element?(view, "[data-role='busy-overlay']")
+      assert html =~ "Queued for matching"
+      assert html =~ "inert"
+    end
+
+    # `inert` and a scrim are markup, and markup is advisory: a stale tab or a
+    # reconnect can still send an event. The refusal is the enforcement.
+    test "events are refused while a job owns the item", %{conn: conn} do
+      item = probed_item(busy: true) |> with_work_records()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      before = Inbox.get_item!(item.id).draft
+
+      render_click(view, "approve-all", %{})
+      render_click(view, "waive-field", %{"section" => "work", "field" => "published"})
+
+      assert Inbox.get_item!(item.id).draft == before
+    end
+
+    test "the cover comes off once nothing is working on it", %{conn: conn} do
+      item = probed_item(busy: true) |> with_work_records()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      assert has_element?(view, "[data-role='busy-overlay']")
+
+      # the job finishes; the form polls and lets go
+      forget_jobs(item)
+      send(view.pid, :refresh_job)
+
+      render(view)
+
+      refute has_element?(view, "[data-role='busy-overlay']")
     end
 
     test "an item nothing is happening to says nothing about jobs", %{conn: conn} do
@@ -767,6 +812,13 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     {:ok, _counts} = Inbox.discover(root)
     {items, _more} = Inbox.list_items(filter: name)
     {:ok, item} = items |> hd() |> Inbox.probe_item()
+
+    # Probing enqueues matching, and `testing: :manual` means it never runs —
+    # so the item would look permanently *busy* and the form would refuse
+    # every event. Clearing the job is what "matching has finished" looks
+    # like from `Progress`'s point of view. Tests that care about the busy
+    # state put a job back.
+    if !Keyword.get(opts, :busy, false), do: Repo.delete_all(Oban.Job)
 
     with_person_matches(item, Keyword.get(opts, :person_photo))
   end
