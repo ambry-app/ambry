@@ -65,6 +65,34 @@ defmodule Ambry.Inbox.ApprovalTest do
 
       assert {:error, :already_approved} = item.id |> Inbox.get_item!() |> Inbox.approve_item()
     end
+
+    # The status check at the door reads the caller's copy of the item, so a
+    # caller holding a stale :pending struct walked straight through it —
+    # measured live as two concurrent approvals, where the loser rolled back
+    # AFTER its 834MB copy landed and the orphan refused the item forever.
+    # The claim under the row lock is what actually decides.
+    test "a stale caller cannot approve an already-approved item" do
+      item = tagged_item()
+      stale = item
+
+      {:ok, _media} = Inbox.approve_item(item)
+
+      assert {:error, :already_approved} = Inbox.approve_item(stale)
+    end
+
+    # Occupied-by-a-recording and occupied-by-a-leftover need opposite
+    # advice, and the old message sent the operator hunting for a second
+    # recording that did not exist.
+    test "an occupied destination says whether the occupant is an orphan" do
+      {:ok, media} = tagged_item() |> Inbox.approve_item()
+      [track] = Media.get_media!(media.id).media_tracks
+
+      assert Inbox.describe_error({:destination_exists, track.path}) =~
+               "can't share one path"
+
+      assert Inbox.describe_error({:destination_exists, "/library/nowhere.m4b"}) =~
+               "nothing in the library references"
+    end
   end
 
   describe "approve/1 and existing records" do
@@ -99,22 +127,18 @@ defmodule Ambry.Inbox.ApprovalTest do
       item = tagged_item() |> Inbox.prepare_draft() |> then(fn {:ok, item} -> item end)
 
       item =
-        update_in(item.draft.work.authors, fn [credit | rest] ->
-          [
-            %{
-              credit
-              | people: [
-                  %Ambry.Inbox.Draft.PersonRef{
-                    name: "Brandon Sanderson",
-                    description: "An American author of epic fantasy.",
-                    description_source: "provider:wikidata",
-                    image_url: "https://example.test/headshot.jpg",
-                    image_source: "provider:tmdb"
-                  }
-                ]
-            }
-            | rest
-          ]
+        update_in(item.draft.people, fn people ->
+          Enum.map(people, fn person ->
+            if person.key == "brandonsanderson" do
+              %{
+                person
+                | description: picked("An American author of epic fantasy.", "provider:wikidata"),
+                  image: picked("https://example.test/headshot.jpg", "provider:tmdb")
+              }
+            else
+              person
+            end
+          end)
         end)
 
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(item.draft))
@@ -170,8 +194,9 @@ defmodule Ambry.Inbox.ApprovalTest do
     test "saying they are two different people of one name creates both" do
       item = tagged_item(narrator: "Brandon Sanderson")
 
-      draft = Draft.Edit.set_person_distinct(item.draft, :recording, 0, 0, true)
+      draft = Draft.Edit.split_person(item.draft, item, :recording, 0, 0)
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+      item = settle(item)
 
       assert {:ok, _media} = Inbox.approve_item(item)
 
@@ -183,17 +208,15 @@ defmodule Ambry.Inbox.ApprovalTest do
     test "a photo found on one credit reaches the person created for both" do
       item = tagged_item(narrator: "Brandon Sanderson")
 
-      draft =
-        Draft.Edit.set_person_image(
-          item.draft,
-          :recording,
-          0,
-          0,
-          "https://example.test/face.jpg",
-          "provider:tmdb"
-        )
+      item =
+        update_in(item.draft.people, fn people ->
+          Enum.map(
+            people,
+            &%{&1 | image: picked("https://example.test/face.jpg", "provider:tmdb")}
+          )
+        end)
 
-      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(item.draft))
 
       %{web_path: web_path} = Ambry.Factory.valid_image(:person)
       patch(Ambry.Images, :import_url, fn _url -> {:ok, web_path} end)
@@ -202,6 +225,93 @@ defmodule Ambry.Inbox.ApprovalTest do
 
       assert [person] = Repo.all(where(Person, name: "Brandon Sanderson"))
       assert person.image_path == web_path
+    end
+  end
+
+  # A settled field the operator picked from a provider, which is what the
+  # picker leaves behind.
+  defp picked(value, source) do
+    %Ambry.Inbox.Draft.Field{
+      value: value,
+      source: source,
+      chosen_key: source,
+      approved: true
+    }
+  end
+
+  # A draft is a snapshot of the library taken when the item was matched, and
+  # approval executes it exactly — so two queued items implying the same new
+  # human each created their own. Measured on a real batch of seven: Em
+  # Grosland narrates both Monk & Robot books and arrived as two People and
+  # two Narrators, and "Monk and Robot" arrived as two Series.
+  describe "two queued items that share a new entity" do
+    test "the second links what the first created, rather than duplicating it" do
+      first = tagged_item(narrator: "Em Grosland")
+      second = tagged_item(name: "Another Release", narrator: "Em Grosland")
+
+      assert {:ok, _media} = Inbox.approve_item(first)
+
+      # the refresh has re-derived the sibling: its narrator credit now points
+      # at the identity that exists, and says so on the form
+      second = Inbox.get_item!(second.id)
+      assert [credit] = second.draft.recording.narrators
+      assert credit.mode == :link
+      assert credit.identity_id
+
+      assert {:ok, _media} = Inbox.approve_item(settle(second))
+
+      assert [_only_one] = Repo.all(where(Person, name: "Em Grosland"))
+      assert [_only_one] = Repo.all(where(Narrator, name: "Em Grosland"))
+    end
+
+    # The same rule for the work itself — the split-library case the whole
+    # work-identity design exists to prevent. Two queued releases of one book
+    # each matched against a library that didn't have it; importing the first
+    # must re-point the second at the Book that now exists.
+    test "the second recording of one work links the book the first created" do
+      first = tagged_item(narrator: "Em Grosland")
+      second = tagged_item(name: "A Better Rip", narrator: "Em Grosland")
+
+      assert {:ok, _media} = Inbox.approve_item(first)
+
+      second = Inbox.get_item!(second.id)
+      assert second.draft.work.mode == :link
+      assert second.draft.work.book_id
+
+      assert {:ok, _media} = Inbox.approve_item(settle(second))
+      assert Repo.aggregate(Book, :count) == 1
+    end
+
+    test "an identity the operator settled as new stays new" do
+      first = tagged_item(narrator: "Em Grosland")
+      second = tagged_item(name: "A Deliberate Twin", narrator: "Em Grosland")
+
+      {:ok, second} = Inbox.prepare_draft(second)
+      draft = Draft.Edit.new_book(second.draft, second)
+      {:ok, _} = Inbox.update_draft(second, Inbox.dump_draft(draft))
+
+      assert {:ok, _media} = Inbox.approve_item(first)
+
+      second = Inbox.get_item!(second.id)
+      assert second.draft.work.mode == :create
+    end
+
+    # Anything a human touched is theirs. Re-derivation may not quietly
+    # relink a credit the operator deliberately set to create.
+    test "a curated credit is left exactly as the operator left it" do
+      first = tagged_item(narrator: "Em Grosland")
+      second = tagged_item(name: "Another Release", narrator: "Em Grosland")
+
+      {:ok, second} = Inbox.prepare_draft(second)
+      draft = Draft.Edit.approve_credit(second.draft, :recording, 0, true)
+      {:ok, _} = Inbox.update_draft(second, Inbox.dump_draft(draft))
+
+      assert {:ok, _media} = Inbox.approve_item(first)
+
+      second = Inbox.get_item!(second.id)
+      assert [credit] = second.draft.recording.narrators
+      assert credit.curated
+      assert credit.mode == :create
     end
   end
 
@@ -278,7 +388,8 @@ defmodule Ambry.Inbox.ApprovalTest do
   # A real tagged file discovered the way discovery would find it.
   defp tagged_item(opts \\ []) do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
-    release = Path.join(root, "The Way of Kings [M4B]")
+    name = Keyword.get(opts, :name, "The Way of Kings [M4B]")
+    release = Path.join(root, name)
     File.mkdir_p!(release)
 
     case Keyword.get(opts, :files) do
@@ -293,7 +404,7 @@ defmodule Ambry.Inbox.ApprovalTest do
     end
 
     {:ok, _counts} = Inbox.discover(root)
-    {[item], false} = Inbox.list_items()
+    {[item], false} = Inbox.list_items(filter: name)
     {:ok, item} = Inbox.probe_item(item)
 
     item =

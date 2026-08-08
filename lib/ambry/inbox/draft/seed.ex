@@ -11,10 +11,13 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## The rules
 
-    * **work identity** — auto on ASIN identity, an exact local title+author
-      match, or a top score ≥ 0.90 whose runner-up is ≤ 0.70. Local books
-      already outrank equal provider hits in `AutoMatch`, so "reuse the work"
-      wins by default.
+    * **work identity** — the question is only ever "is this a book you
+      already have". A local title+author match at ≥ 0.95 settles it as *that*
+      book; a weaker local hit is offered and never assumed, because attaching
+      a recording to the wrong existing book is worse than one duplicate Book
+      and much harder to notice. **No local hit at all settles it as a new
+      book**, because that is what the local search just answered — how good
+      the provider records are is a separate question the fields report.
     * **recording identity** — settled when an ASIN or a confident match says
       which catalogue entry this is, and settled when nothing was found at all
       (plenty of good rips are in no storefront). A *doubted* match settles
@@ -49,6 +52,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   import Ecto.Query
 
+  alias Ambry.Books
   alias Ambry.Books.Book
   alias Ambry.Books.Series
   alias Ambry.Inbox.AutoMatch
@@ -57,6 +61,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.SourceRef
@@ -69,8 +74,6 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.People.Person
   alias Ambry.Repo
 
-  @strong_match 0.90
-
   # How closely an existing Book has to match before the import proposes
   # linking to it rather than creating one. Deliberately high: attaching a
   # recording to the wrong book is a worse outcome than one duplicate Book,
@@ -80,6 +83,13 @@ defmodule Ambry.Inbox.Draft.Seed do
   # How sure a recording match must be before its metadata is allowed to
   # describe this file.
   @trusted_recording 0.75
+
+  # And the same for a work. Lower than the recording's bar on purpose: the
+  # cost of being wrong is different. A wrong recording is the wrong reading of
+  # the right book and is nearly invisible afterwards; a wrong work is a
+  # visibly wrong title sitting on the form, in front of an operator who is
+  # already looking at it.
+  @trusted_work 0.65
 
   @doc """
   Builds a fresh draft for an item from its matches, tags and release name.
@@ -92,7 +102,7 @@ defmodule Ambry.Inbox.Draft.Seed do
     work_level = Map.get(matches, "work", %{})
     recording_level = Map.get(matches, "recording", %{})
 
-    work = work(work_level, hints, tags)
+    work = work(work_level, hints, tags, item)
 
     %Draft{
       evidence: evidence(item),
@@ -101,6 +111,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       recording: recording(recording_level, hints, tags, item),
       destination: destination(item)
     }
+    |> reseed_people(item)
   end
 
   @doc """
@@ -165,23 +176,59 @@ defmodule Ambry.Inbox.Draft.Seed do
   # you already have, or a new one**. Those are different outcomes — linking
   # creates nothing and inherits the book's curation — and mixing them into
   # one ranked list made the form ask one question that was really two.
-  defp work(level, hints, tags) do
+  defp work(level, hints, tags, item) do
     records = records(level)
     local = Map.get(level, "local", []) || []
     confidence = Map.get(level, "confidence")
 
-    {mode, book_id, approved} = work_identity(local, records, confidence)
+    {mode, book_id, approved} = work_identity(local)
+
+    # **Only a work we actually believe in gets to fill anything in**, exactly
+    # as the recording level has always done. Ticking the top record whatever
+    # its score meant a weak match quietly supplied the title, the publication
+    # date and the authors of a book it wasn't about — the operator's only
+    # clue being fields that looked settled and were wrong, which is far worse
+    # than fields that are visibly empty.
+    {doubt, detail, best} = trust_work(records, level)
 
     %Work{
       mode: mode,
       book_id: book_id,
       approved: approved,
       confidence: confidence,
+      doubt: doubt,
+      doubt_detail: detail,
       query: Map.get(level, "query"),
       query_fields: Map.get(level, "query_fields") || %{},
-      sources: Enum.map(AutoMatch.top_group(records), &SourceRef.of/1)
+      sources: if(best, do: Enum.map(AutoMatch.top_group(records), &SourceRef.of/1), else: [])
     }
-    |> put_work_fields(records, hints, tags)
+    |> put_work_fields(records, hints, tags, item)
+  end
+
+  # Linking to a Book is a different answer and answers itself: the book's own
+  # fields are inherited, so there is nothing for a doubted record to spoil.
+  defp trust_work([], _level), do: {:nothing_found, nil, nil}
+
+  defp trust_work([best | _rest], level) do
+    confidence = Map.get(level, "confidence") || 0.0
+
+    cond do
+      best["score"] == 1.0 -> {:none, nil, best}
+      confidence >= @trusted_work -> {:none, nil, best}
+      true -> {:low_confidence, weak_work_detail(best, confidence), nil}
+    end
+  end
+
+  defp weak_work_detail(best, confidence) do
+    "The closest is #{best["title"]}#{written_by(best["authors"])}, and it isn't a close " <>
+      "enough match (#{round(confidence * 100)}%) to describe this book."
+  end
+
+  defp written_by(authors) do
+    case names(authors) do
+      nil -> ""
+      names -> " by #{Enum.join(names, ", ")}"
+    end
   end
 
   @doc """
@@ -193,10 +240,28 @@ defmodule Ambry.Inbox.Draft.Seed do
   typed survives — 1d's whole point is that curation outranks any source.
   """
   def reseed_work(%Work{} = work, %InboxItem{} = item) do
-    put_work_fields(work, records(item, "work"), AutoMatch.hints(item), item.tags || %{})
+    work
+    |> follow_query(item, "work")
+    |> put_work_fields(records(item, "work"), AutoMatch.hints(item), item.tags || %{}, item)
   end
 
-  defp put_work_fields(%Work{} = work, records, hints, tags) do
+  # What was asked of the providers is evidence, not a decision — nobody
+  # curates a query string. A curated draft survives a re-match via resettle
+  # rather than a rebuild, and its evidence header kept reporting the search
+  # from its first seeding while the records below it came from a newer one.
+  defp follow_query(struct, %InboxItem{matches: matches}, level) when is_map(matches) do
+    case Map.get(matches, level) do
+      %{"query" => query} = held ->
+        %{struct | query: query, query_fields: Map.get(held, "query_fields") || %{}}
+
+      _unmatched ->
+        struct
+    end
+  end
+
+  defp follow_query(struct, _item, _level), do: struct
+
+  defp put_work_fields(%Work{} = work, records, hints, tags, _item) do
     sources = used(records, work.sources)
     book_id = if work.mode == :link, do: work.book_id
 
@@ -261,14 +326,36 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   # A chip the operator picked stays picked while its proposal is still on
   # offer — re-deriving because some other record was ticked must not quietly
-  # move a value they chose.
-  defp keep_manual(%Field{chosen_key: key}, fresh) when is_binary(key) do
-    case Enum.find(fresh.candidates, &(&1.key == key)) do
+  # move a value they chose. Gated on `curated`, NOT on `chosen_key`: the
+  # seeder sets a chosen_key too, so keying on it froze every auto-settled
+  # field against all later evidence.
+  defp keep_manual(%Field{curated: true} = existing, fresh) when is_binary(existing.chosen_key) do
+    # **By key first, then by value.** A key can legitimately disappear while
+    # the answer stays on offer: the operator picks the release-name chip,
+    # then ticks a record whose title turns out to be identical, and the
+    # advisory chip is dropped as a duplicate of it. Looking only for the key
+    # then found nothing and silently threw the choice away — measured on the
+    # Chambers book, which went from ready to "pick a title" in the middle of
+    # a batch import, with no one having touched it.
+    chosen =
+      Enum.find(fresh.candidates, &(&1.key == existing.chosen_key)) ||
+        Enum.find(fresh.candidates, &(&1.value == existing.value))
+
+    case chosen do
       nil ->
         fresh
 
       chosen ->
-        %{fresh | value: chosen.value, source: chosen.source, chosen_key: key, approved: true}
+        # `curated` has to be carried too, or a choice survives exactly one
+        # re-derivation and is movable by the next.
+        %{
+          fresh
+          | value: chosen.value,
+            source: chosen.source,
+            chosen_key: chosen.key,
+            approved: true,
+            curated: true
+        }
     end
   end
 
@@ -279,7 +366,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   # convincing local hit is proposed as a link. Anything else is a new book,
   # which is also what an item with no matches at all is: "create a new book"
   # was never a separate answer, just the absence of an existing one.
-  defp work_identity(local, records, confidence) do
+  defp work_identity(local) do
     case Enum.max_by(local, &(&1["score"] || 0.0), fn -> nil end) do
       %{"id" => id, "score" => score} when score >= @strong_local ->
         {:link, id, true}
@@ -290,33 +377,96 @@ defmodule Ambry.Inbox.Draft.Seed do
         # is worse than creating one book too many.
         {:create, nil, false}
 
+      # **Nothing in the library could be this book, so it isn't a question.**
+      # This used to need a nod whenever the *provider* match was weak, which
+      # conflated two unrelated things: how good the records are is what the
+      # field decisions report, and it says nothing about whether the library
+      # already has the work — that's what the local search just answered, and
+      # it answered no.
+      #
+      # Worse, the control lives inside the "Is this a book you already have?"
+      # block, which only renders when there ARE local candidates. So an
+      # ordinary import with no local hit showed an outstanding decision, a
+      # disabled import button, and **nothing on the page to settle it with**.
+      # Same lesson as the photo affordance inside the pen-name fold: a
+      # decision the form asks for has to have a control the operator can
+      # reach from where they're standing.
       nil ->
-        {:create, nil, settled_new_book?(records, confidence)}
+        {:create, nil, true}
     end
-  end
-
-  # With no local book in the running, "new book" is the only answer there is;
-  # it still needs a nod when the records are too weak to have filled the
-  # fields convincingly.
-  defp settled_new_book?([], _confidence), do: true
-
-  defp settled_new_book?([best | _rest], confidence) do
-    best["score"] == 1.0 or (confidence || 0.0) >= @strong_match
   end
 
   # The release name is a fallback, not a peer. Measured across the real
   # library, 96% of releases carry a title in tags and the parser is what the
   # other ~2% rely on — so letting the folder name argue with a provider would
   # make nearly every import ambiguous on its title for no gain.
+  # **The file's name is a third opinion about the title, and it was never on
+  # offer.** It used to be a `fallback` — visible only when nothing else
+  # proposed anything — and it was handed `hints.title`, which *is* the tag
+  # title whenever the tags carry one. So the chip could only ever repeat the
+  # tags while claiming to come from the release name, and the name's own
+  # answer was unreachable on a form that had one.
+  #
+  # Measured across the operator's real library (198 releases probed): the tag
+  # title and the release name disagree on **105** of them, and for a
+  # meaningful minority the name is the one telling the truth — the Wayfarers
+  # books are tagged `Wayfarers, Book 1` and named
+  # `The Long Way to a Small, Angry Planet`.
+  #
+  # It is offered rather than *preferred*, deliberately. The same measurement
+  # kills every rule that would rank one above the other: the name is better
+  # for the Wayfarers books and catastrophically worse elsewhere — The Wild
+  # Robot's release name yields "Peter Brown", and
+  # "Out of Spite, Out of Mind: Magic 2.0, Book 5" truncates to "Out of Spite".
+  # Which is right is a judgement, and a judgement belongs on a chip.
   defp title_field(sources, hints, tags) do
     (from_records(sources, "title") ++ [tag_candidate(tags, "book_title")])
     |> scalar(
       required: true,
-      equivalence: &(title_key(&1) == title_key(&2)),
+      equivalence: &same_title?/2,
       prefer: &shorter/2,
-      fallback: release_candidate(hints.title)
+      advisory: release_candidate(hints.release_title)
     )
   end
+
+  # **A title and that same title carrying a subtitle are one answer written
+  # two ways.** The dominant real-world tag shape is `Title: Series, Book N` —
+  # measured across the operator's library, most of the tag titles that look
+  # like shelf labels are exactly that — while the catalogues answer with the
+  # bare title. Scored as rivals they put "pick a title" on a large share of
+  # imports, every time for the same mechanical reason: three of the seven
+  # books in one real batch (Battle Ground, A Psalm for the Wild-Built,
+  # A Prayer for the Crown-Shy) asked the identical question.
+  #
+  # This is **asymmetric containment, not a shared prefix**, which is the
+  # whole subtlety. Comparing the part before the colon on both sides would
+  # merge "The Expanse: Leviathan Wakes" with "The Expanse: Caliban's War" —
+  # two different books. One title has to be the *whole* of the other's head:
+  #
+  #     "Battle Ground: The Dresden Files, Book 17" ≡ "Battle Ground"
+  #     "The Expanse: Leviathan Wakes"              ≢ "The Expanse: Caliban's War"
+  #     "Dune"                                     ≢ "Dune Messiah"
+  #
+  # The last one matters: a subtitle is separated by punctuation, so plain
+  # word-prefix containment is never enough. `prefer: &shorter/2` then keeps
+  # the bare title, which is what the catalogues and the library want.
+  defp same_title?(one, other) do
+    a = title_key(one)
+    b = title_key(other)
+
+    a == b or title_head(one) == b or title_head(other) == a
+  end
+
+  # Everything before the first subtitle separator — a colon, or a dash with
+  # space around it. A hyphen inside a word ("Wild-Built") is not a separator.
+  defp title_head(value) when is_binary(value) do
+    value
+    |> String.split(~r/\s*:\s|\s+[-–—]\s+/u, parts: 2)
+    |> hd()
+    |> title_key()
+  end
+
+  defp title_head(other), do: title_key(other)
 
   # "Neuromancer" and "Neuromancer (Unabridged)" are one answer written two
   # ways, and treating that as a disagreement made the operator arbitrate a
@@ -330,13 +480,25 @@ defmodule Ambry.Inbox.Draft.Seed do
   # would hide the very distinction the recording level exists to make.
   @format_labels ~r/\b(?:un)?abridged(?:\s+edition)?\b|\baudio\s?book\b|\baudio\s+edition\b/iu
 
+  # ", Vol. 1" and its kin fold away for equivalence: Hardcover writes
+  # "Demon World Boba Shop:, Vol. 1" (that punctuation is theirs) where
+  # rreading-glasses writes the bare title, and the two were offered as
+  # rival answers. A trailing *labelled* ordinal is the same title; a bare
+  # trailing number ("All the Skills 3") is the title and stays.
+  @trailing_ordinal ~r/,?\s+(?:book|bk\.?|vol\.?|volume)\s+\d+(?:\.\d+)?\s*$/i
+
   defp title_key(value) when is_binary(value) do
     value
+    |> String.replace(@trailing_ordinal, " ")
     |> String.replace(@format_labels, " ")
     # a bracket that held nothing but a format label is now empty
     |> String.replace(~r/[(\[{]\s*[)\]}]/u, " ")
     |> String.replace(~r/[^\p{L}\p{N}\s]/u, " ")
     |> normalize()
+    # A leading article is not a different title: the operator's Cerulean
+    # Sea file is tagged "house in the cerulean sea" against the catalogue's
+    # "The House in the Cerulean Sea", and the form asked which was right.
+    |> String.replace(~r/^(the|a|an)\s+/u, "")
   end
 
   defp title_key(other), do: normalize(other)
@@ -399,6 +561,16 @@ defmodule Ambry.Inbox.Draft.Seed do
     |> default_to("full")
   end
 
+  # Same rule as the work's, on the recording's own records: the format says
+  # how much of the release date is real, and follows whichever record won it.
+  defp recording_format_field(records, published) do
+    records
+    |> from_records("published_format")
+    |> scalar(required: false)
+    |> Field.follow_date(published)
+    |> default_to("full")
+  end
+
   defp default_to(%Field{value: nil, candidates: []} = field, value) do
     %{field | value: value, source: "default", approved: true}
   end
@@ -439,7 +611,9 @@ defmodule Ambry.Inbox.Draft.Seed do
   Re-derives a recording's fields from whichever records are currently ticked.
   """
   def reseed_recording(%Recording{} = recording, %InboxItem{} = item) do
-    put_recording_fields(recording, records(item, "recording"), item.tags || %{}, item)
+    recording
+    |> follow_query(item, "recording")
+    |> put_recording_fields(records(item, "recording"), item.tags || %{}, item)
   end
 
   # **Only records of this recording describe this recording.** Work-level
@@ -459,11 +633,17 @@ defmodule Ambry.Inbox.Draft.Seed do
   # as recording records.
   defp put_recording_fields(%Recording{} = recording, records, tags, item) do
     mine = used(records, recording.sources)
+    published = keep_manual(recording.published, scalar(from_records(mine, "published")))
 
     %{
       recording
       | title: keep_manual(recording.title, scalar([], required: false)),
-        published: keep_manual(recording.published, scalar(from_records(mine, "published"))),
+        published: published,
+        published_format:
+          keep_manual(
+            recording.published_format,
+            recording_format_field(mine, published)
+          ),
         publisher:
           keep_manual(
             recording.publisher,
@@ -573,29 +753,510 @@ defmodule Ambry.Inbox.Draft.Seed do
     |> Enum.map(fn {name, source} -> credit(name, :author, source) end)
   end
 
+  # A cast label is not a person to create. When a record is ticked its real
+  # cast supplies the credits anyway; this is for the case where nothing is,
+  # and "Full Cast" would otherwise be proposed as a human to add to the
+  # library.
   defp narrator_credits(records, tags) do
     records
     |> proposed_names("narrators")
     |> or_from_tags(tags, "narrators")
+    |> Enum.reject(fn {name, _source} -> AutoMatch.placeholder_narrator?(name) end)
     |> Enum.map(fn {name, source} -> credit(name, :narrator, source) end)
   end
 
-  # Names across every ticked record, in first-mentioned order and deduped
-  # case-insensitively: two databases listing the same author is one credit,
-  # not two.
+  ## people
+
+  @doc """
+  Re-points a draft's references at rows that exist now.
+
+  For when the library moved under a queued item — another item that shared a
+  person, an identity or a series was approved in between. **Deliberately not
+  a re-seed.** Re-deriving the whole draft also re-opens questions the
+  operator already answered: measured on a real batch, the Chambers item was
+  ready, a *different* import committed, and its tag-derived narrator credit
+  silently went back to unapproved because a fresh credit from tags is never
+  auto-approved. Nobody had touched it.
+
+  So this changes exactly one thing and only in one direction: a credit,
+  series, or the work identity itself that meant to **create** something,
+  and now finds exactly one thing of that name already there, becomes a
+  **link** to it. Approval state, values, chips and curation are all left as
+  they were — the question stays answered, the answer just resolves to a row
+  that exists.
+
+  Anything the operator curated is skipped outright, and an *ambiguous* result
+  (two identities of one name) is left alone too: that is a real question, and
+  inventing an answer to it is the judgement this whole form exists not to
+  make.
+  """
+  def relink(%Draft{} = draft, %InboxItem{} = item) do
+    draft
+    |> relink_work(item)
+    |> update_in([Access.key(:work), Access.key(:authors)], &relink_credits(&1, :author))
+    |> update_in([Access.key(:recording), Access.key(:narrators)], &relink_credits(&1, :narrator))
+    |> update_in(
+      [Access.key(:work), Access.key(:series)],
+      &Enum.map(&1 || [], fn s -> relink_series(s) end)
+    )
+    |> reconcile_people(item)
+    |> reopen_new_person_questions()
+  end
+
+  # The one case where relink *reopens* a question rather than resolving one.
+  # A credit auto-approves on the premise "nobody by that name at all" — and
+  # a sibling import can invalidate it: Joyland created the person Stephen
+  # King, and Holly's NARRATOR credit for him (an identity Joyland didn't
+  # make) then sailed through approval and created a second Stephen King.
+  # The seeder never automates "is this the same human?", so the sibling
+  # import may not either: the credit goes back to unapproved, exactly the
+  # shape the seeder would have produced had the person existed at seed
+  # time. Curated credits and people are the operator's and stay put — so
+  # answering the reopened question is final.
+  defp reopen_new_person_questions(%Draft{} = draft) do
+    people = Map.new(draft.people, &{&1.key, &1})
+
+    draft
+    |> update_in(
+      [Access.key(:work), Access.key(:authors)],
+      &Enum.map(&1, fn credit -> reopen_personhood(credit, people) end)
+    )
+    |> update_in(
+      [Access.key(:recording), Access.key(:narrators)],
+      &Enum.map(&1, fn credit -> reopen_personhood(credit, people) end)
+    )
+  end
+
+  defp reopen_personhood(%Credit{mode: :create, curated: false, approved: true} = credit, people) do
+    reopen? =
+      Enum.any?(credit.person_keys, fn key ->
+        case people[key] do
+          %PersonDecision{mode: :create, curated: false} = person ->
+            name = Field.value(person.name)
+            is_binary(name) and person_matches(name) != []
+
+          _linked_curated_or_missing ->
+            false
+        end
+      end)
+
+    if reopen?, do: %{credit | approved: false}, else: credit
+  end
+
+  defp reopen_personhood(credit, _people), do: credit
+
+  # Two queued recordings of one work: importing the first creates the Book
+  # and the second still says "create" — the split library the module doc
+  # above names as the same bug waiting for Books, now closed the same way.
+  # A work the seeder settled as new, whose title now matches exactly one
+  # Book with an overlapping author, becomes a link to it; the fields are
+  # then re-derived for link mode (series already on the book stop being
+  # proposed), with `keep_manual`/`keep_curated` holding every answered
+  # question. An identity the operator chose is curated and never touched,
+  # and anything short of exactly-one-with-matching-author is left alone —
+  # linking a recording to the wrong existing book is the worst outcome this
+  # form can produce.
+  defp relink_work(%Draft{work: %Work{mode: :create, curated: false} = work} = draft, item) do
+    with title when is_binary(title) <- Field.value(work.title),
+         [book] <- books_titled(title),
+         true <- authors_overlap?(book, work) do
+      linked = %{work | mode: :link, book_id: book.id, approved: true}
+      %{draft | work: reseed_work(linked, item)}
+    else
+      _no_single_certain_match -> draft
+    end
+  end
+
+  defp relink_work(draft, _item), do: draft
+
+  # Fetched by keyword and filtered on `title_key/1` — exact identity, but
+  # case, punctuation and leading articles don't make a different book: the
+  # operator's two Princess Bride releases are titled "Princess Bride" and
+  # "The Princess Bride", and a lower(=) comparison left the twin unlinked
+  # over the article.
+  defp books_titled(title) do
+    key = AutoMatch.title_key(title)
+
+    title
+    |> Books.match_keywords()
+    |> Books.match_books(25)
+    |> Enum.filter(&(AutoMatch.title_key(&1.title) == key))
+  end
+
+  defp authors_overlap?(book, %Work{authors: credits}) do
+    credited =
+      for %Credit{name: name} <- credits || [],
+          is_binary(name),
+          into: MapSet.new(),
+          do: AutoMatch.person_key(name)
+
+    held = MapSet.new(book.authors, &AutoMatch.person_key(&1.name))
+
+    # A draft with no author credits at all has nothing to disagree with —
+    # but then the title alone is not identity enough to link on.
+    not MapSet.disjoint?(credited, held)
+  end
+
+  # Membership only: a decision whose key is still referenced is left exactly
+  # as it is. `reseed_people/2` would *rebuild* the uncurated ones, which is
+  # right after a record tick (new records mean new candidates) and wrong
+  # here — it re-opened a person the operator had already settled, and the
+  # Chambers item went from ready to "Person: Patricia Rodriguez" in the
+  # middle of a batch with nobody having touched it.
+  defp reconcile_people(%Draft{} = draft, %InboxItem{} = item) do
+    matched = people_matches(item)
+    existing = Map.new(draft.people, &{&1.key, &1})
+    named = credited_names(draft)
+
+    people =
+      draft
+      |> Draft.referenced_keys()
+      |> Enum.map(fn key ->
+        Map.get(existing, key) || person_decision(key, named[key], matched_for(matched, key))
+      end)
+
+    %{draft | people: people}
+  end
+
+  defp relink_credits(credits, kind), do: Enum.map(credits || [], &relink_credit(&1, kind))
+
+  defp relink_credit(%Credit{curated: true} = credit, _kind), do: credit
+
+  defp relink_credit(%Credit{mode: :create, name: name} = credit, kind) when is_binary(name) do
+    case identity_matches(name, kind) do
+      # Exactly one identity of this name now exists — the same rule the
+      # seeder applies, running against facts it didn't have. The person
+      # reference goes with it: a linked identity already has its human, so
+      # `reseed_people/2` drops the decision that would have made a second.
+      [%{exact: true} = match] ->
+        %{
+          credit
+          | mode: :link,
+            identity_id: match.identity_id,
+            candidates: [match],
+            person_keys: []
+        }
+
+      _none_or_several ->
+        credit
+    end
+  end
+
+  defp relink_credit(credit, _kind), do: credit
+
+  defp relink_series(%SeriesLink{curated: true} = link), do: link
+
+  defp relink_series(%SeriesLink{mode: :create, name: name} = link) when is_binary(name) do
+    case matching_series(name) do
+      [one] ->
+        %{
+          link
+          | mode: :link,
+            series_id: one.id,
+            candidates: [%SeriesLink.Match{series_id: one.id, name: one.name, exact: true}]
+        }
+
+      _none_or_several ->
+        link
+    end
+  end
+
+  defp relink_series(link), do: link
+
+  # Fetched whole and compared by `same_series?/2` rather than a lower(=) in
+  # SQL: the table is small, and the exact comparison is what filed one real
+  # batch's Bill Hodges books under "Bill Hodges" AND "Bill Hodges Trilogy",
+  # with a Kushiel accent variant making a third.
+  defp matching_series(name) do
+    Series
+    |> Repo.all()
+    |> Enum.filter(&same_series?(&1.name, name))
+  end
+
+  @doc """
+  Brings the draft's people into line with whoever the credits now reference.
+
+  Runs after every change that can move a credit, which is why it is one
+  function rather than seed-time and edit-time copies: a person nobody credits
+  any more has no reason to sit on the form, and a credit naming somebody new
+  needs a decision minted for them.
+
+  **A curated person keeps their decisions, not their evidence.** Skipping
+  them wholesale meant "look again" wrote fresh candidates into `matches` and
+  the form showed nothing new — for exactly the people the button exists for,
+  since renaming a person is what marks them curated. So their candidate lists
+  are rebuilt like everyone else's, while `keep_manual/2` pins whatever the
+  operator settled — the same field-level rule the work and the recording
+  already follow.
+  """
+  def reseed_people(%Draft{} = draft, %InboxItem{} = item) do
+    matched = people_matches(item)
+    existing = Map.new(draft.people, &{&1.key, &1})
+    named = credited_names(draft)
+
+    people =
+      draft
+      |> Draft.referenced_keys()
+      |> Enum.map(fn key ->
+        case Map.get(existing, key) do
+          %PersonDecision{curated: true} = curated ->
+            refreshed_person(curated, named[key], matched_for(matched, key))
+
+          untouched_or_new ->
+            keep_person_fields(
+              untouched_or_new,
+              person_decision(key, named[key], matched_for(matched, key))
+            )
+        end
+      end)
+
+    %{draft | people: people}
+  end
+
+  # An untouched person is rebuilt wholesale, but a field the operator settled
+  # inside one survives the rebuild: picking a photo curates the *field*, not
+  # the person, and re-derivation moving a picked photo is the same broken
+  # rule whichever level it happens at.
+  defp keep_person_fields(nil, fresh), do: fresh
+
+  defp keep_person_fields(%PersonDecision{} = was, fresh) do
+    %{
+      fresh
+      | name: keep_manual(was.name, fresh.name),
+        image: keep_manual(was.image, fresh.image),
+        description: keep_manual(was.description, fresh.description)
+    }
+  end
+
+  # Evidence is matched against what the person is called *now*, not what the
+  # credit says: the credit holds the pen name, and the human behind it being
+  # renamed is precisely when somebody searches again. Mode, link, approval
+  # and every settled field stay the operator's.
+  defp refreshed_person(%PersonDecision{} = person, named, matched) do
+    {credited, source} = named || {person.key, nil}
+    name = Field.value(person.name) || credited
+    candidates = named_candidates(matched, name)
+    {doubt, detail} = person_doubt(matched, candidates, name)
+
+    %{
+      person
+      | doubt: doubt,
+        doubt_detail: detail,
+        sources: Enum.map(candidates, &SourceRef.of/1),
+        name: keep_manual(person.name, person_name_field(credited, source, candidates)),
+        image: keep_manual(person.image, person_image_field(candidates)),
+        description: keep_manual(person.description, person_description_field(candidates))
+    }
+  end
+
+  # What each credited human is called and who said so, taken from the credit
+  # that references them. The credit is the only thing that knows: a key is a
+  # normalised string and a provider record may spell the name differently.
+  defp credited_names(%Draft{} = draft) do
+    for credit <- credits_of(draft),
+        credit.mode == :create,
+        key <- credit.person_keys,
+        into: %{},
+        do: {key, {credit.name, credit.source}}
+  end
+
+  defp credits_of(%Draft{} = draft) do
+    ((draft.work && draft.work.authors) || []) ++
+      ((draft.recording && draft.recording.narrators) || [])
+  end
+
+  # One human, asked the same three questions as a work or a recording:
+  # which one is this (identity), which records describe them (evidence), and
+  # which record each field takes its value from (preference).
+  defp person_decision(key, named, matched) do
+    {name, source} = named || {key, nil}
+    candidates = named_candidates(matched, name)
+
+    {doubt, detail} = person_doubt(matched, candidates, name)
+
+    %PersonDecision{
+      key: key,
+      mode: :create,
+      doubt: doubt,
+      doubt_detail: detail,
+      sources: Enum.map(candidates, &SourceRef.of/1),
+      name: person_name_field(name, source, candidates),
+      image: person_image_field(candidates),
+      description: person_description_field(candidates),
+      # Same bar the credit clears: a provider-matched name is settled, a
+      # tag-derived one is a proposal. A person we found nobody for has
+      # nothing left to decide beyond the name, so it doesn't add a question;
+      # one we found the *wrong* people for does.
+      approved: provider?(source) and doubt != :low_confidence
+    }
+  end
+
+  # Only records that are actually about this human may propose anything.
+  # Person search is recall-first — anything sharing a name token is offered —
+  # which is right for a grid the operator reads and wrong for a field's
+  # candidate list. See `AutoMatch.person_proposal/1` for what that recall
+  # looks like on the operator's real library.
+  defp named_candidates(nil, _name), do: []
+
+  defp named_candidates(matched, name) do
+    matched
+    |> Map.get("candidates", [])
+    |> Enum.filter(&same_human?(&1["name"], name))
+  end
+
+  defp same_human?(one, other) when is_binary(one) and is_binary(other),
+    do: AutoMatch.person_key(one) == AutoMatch.person_key(other)
+
+  defp same_human?(_one, _other), do: false
+
+  # What the operator reads beside the credited spelling. The credit carries a
+  # provider *id*, not a sentence.
+  defp credited_label("provider:" <> id), do: id
+  defp credited_label("tags"), do: "The file's tags"
+  defp credited_label(_other), do: "The file's tags"
+
+  defp person_doubt(nil, _candidates, _name), do: {:nothing_found, nil}
+
+  defp person_doubt(matched, candidates, name) do
+    offered = Map.get(matched, "candidates", [])
+
+    cond do
+      candidates != [] ->
+        {:none, nil}
+
+      offered == [] ->
+        {:nothing_found, nil}
+
+      # Found people, none of them this one. Worth saying out loud rather than
+      # reporting "nothing found": the difference is whether looking again is
+      # likely to help.
+      true ->
+        {:low_confidence,
+         "No database has anybody called #{name}. The closest were " <>
+           (offered |> Enum.map(& &1["name"]) |> Enum.uniq() |> Enum.take(3) |> Enum.join(", ")) <>
+           "."}
+    end
+  end
+
+  defp person_name_field(name, source, candidates) do
+    # The credited spelling leads, because that is what the book itself says.
+    # A provider spelling it differently is an alternative, not a correction.
+    [
+      %Candidate{
+        value: name,
+        source: source || "tags",
+        label: credited_label(source),
+        key: "credit"
+      }
+    ]
+    |> Enum.concat(
+      Enum.map(candidates, fn candidate ->
+        %Candidate{
+          value: candidate["name"],
+          source: candidate["source"],
+          label: candidate["provider_name"],
+          key: Candidate.key_for(candidate)
+        }
+      end)
+    )
+    |> scalar(required: true, alternatives: true)
+  end
+
+  # Every photo every database has of them, because the job is not "find a
+  # photo" but "find one that survives a circular crop" — the obvious portrait
+  # is frequently the one that doesn't. One candidate per image, so the
+  # alternatives are reachable in one click.
+  defp person_image_field(candidates) do
+    for candidate <- candidates,
+        {url, index} <- Enum.with_index(List.wrap(candidate["images"])),
+        is_binary(url) and url != "" do
+      %Candidate{
+        value: url,
+        source: candidate["source"],
+        label: candidate["provider_name"],
+        key: "#{Candidate.key_for(candidate)}##{index}"
+      }
+    end
+    |> scalar(alternatives: true)
+  end
+
+  # Wikipedia's lead paragraph, TMDB's biography and a book database's blurb
+  # are three different texts about one person, so they are alternatives too —
+  # never a disagreement to arbitrate.
+  defp person_description_field(candidates) do
+    for candidate <- candidates, text = usable_bio(candidate["description"]) do
+      %Candidate{
+        value: text,
+        source: candidate["source"],
+        label: candidate["provider_name"],
+        key: Candidate.key_for(candidate)
+      }
+    end
+    |> scalar(alternatives: true)
+  end
+
+  # rreading-glasses returns the literal string "N/A" where it has no
+  # biography, and storing that as somebody's life story is worse than leaving
+  # it blank — blank is visibly unfinished, "N/A" looks decided.
+  @nonsense_bios ["n/a", "na", "none", "unknown", "no description", "-", "."]
+
+  defp usable_bio(text) when is_binary(text) do
+    trimmed = String.trim(text)
+    if trimmed != "" and String.downcase(trimmed) not in @nonsense_bios, do: trimmed
+  end
+
+  defp usable_bio(_other), do: nil
+
+  # What matching found out about the humans this item credits, keyed by
+  # `AutoMatch.person_key/1`.
+  defp people_matches(%InboxItem{matches: matches}) when is_map(matches),
+    do: Map.get(matches, "people") || %{}
+
+  defp people_matches(_item), do: %{}
+
+  # By key first, then by key *equivalence*: items matched before the person
+  # key became punctuation-insensitive stored their evidence under the older
+  # spelling-sensitive keys, and that evidence should not go dark because the
+  # sameness rule improved.
+  defp matched_for(matched, key) do
+    Map.get(matched, key) ||
+      Enum.find_value(matched, fn {held, evidence} ->
+        if AutoMatch.person_key(held) == AutoMatch.person_key(key), do: evidence
+      end)
+  end
+
+  # Names across every ticked record, in first-mentioned order and deduped by
+  # `person_key/1` — the sameness rule for humans, so "James S.A. Corey" and
+  # "James S. A. Corey" from two databases are one credit, not two. Deduping
+  # only case-insensitively left both, and approval would have made a
+  # duplicate library author out of a spelling difference.
   defp proposed_names(records, key) do
     records
     |> Enum.flat_map(fn record ->
-      record |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{&1, source_of(record)})
+      record |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{tidy(&1), source_of(record)})
     end)
-    |> Enum.uniq_by(fn {name, _source} -> normalize(name) end)
+    |> Enum.uniq_by(fn {name, _source} -> AutoMatch.person_key(name) end)
   end
+
+  # **Doubled spaces in a credited name are not a different human.**
+  # rreading-glasses answers "Jim  Butcher" for The Dresden Files, and the name
+  # is stored verbatim — so the library gets a person spelled with two spaces,
+  # and `identity_matches/2` (an exact `lower(name)` comparison) will not match
+  # the next import that spells it with one. That is a duplicate author waiting
+  # to happen, and it is invisible: the two render identically in HTML, which
+  # collapses whitespace.
+  #
+  # Tidied at the *proposal* stage, like the unparseable series numbers — the
+  # record still says what it said.
+  defp tidy(name) when is_binary(name), do: name |> String.replace(~r/\s+/u, " ") |> String.trim()
+
+  defp tidy(other), do: other
 
   # The file only gets a say when no record proposed anybody. A tag name is a
   # weaker proposal — 1b's multi-value splitting is knowingly imperfect — so it
   # never argues with a record, it just fills a silence.
   defp or_from_tags([], tags, key) do
-    tags |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{&1, "tags"})
+    tags |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{tidy(&1), "tags"})
   end
 
   defp or_from_tags(proposed, _tags, _key), do: proposed
@@ -605,6 +1266,9 @@ defmodule Ambry.Inbox.Draft.Seed do
     people = person_matches(name)
 
     base = %Credit{name: name, kind: kind, source: source, candidates: matches}
+    # Who is behind the credit is a reference now, not an embed — the human
+    # themselves is decided once, in `draft.people`.
+    keys = Credit.new_person_default(name)
 
     case {matches, people} do
       # exactly one existing identity by that name — link it and move on
@@ -615,27 +1279,31 @@ defmodule Ambry.Inbox.Draft.Seed do
       # Auto only when a provider-matched work supplied the name — tag names
       # are split by a knowingly imperfect rule.
       {[], []} ->
-        %{
-          base
-          | mode: :create,
-            people: Credit.new_person_default(name),
-            approved: provider?(source)
-        }
+        %{base | mode: :create, person_keys: keys, approved: provider?(source)}
 
       # a Person exists but this identity doesn't — "is this the same human?"
       # is never automated
       {[], _people} ->
-        %{base | mode: :create, people: Credit.new_person_default(name), approved: false}
+        %{base | mode: :create, person_keys: keys, approved: false}
 
       # more than one identity shares this name; two people really can
       {_several, _people} ->
-        %{base | mode: :create, people: Credit.new_person_default(name), approved: false}
+        %{base | mode: :create, person_keys: keys, approved: false}
     end
   end
 
+  # The SQL twin of `AutoMatch.person_key/1`, so "James S.A. Corey" in a
+  # record finds the library's "James S. A. Corey", "T.J. Klune" finds
+  # "TJ Klune", and "Patricia Rodriguez" finds "Patricia Rodríguez"
+  # (`unaccent` — enabled by migration — mirrors the NFD fold on the Elixir
+  # side). Still identity, not similarity — a spelling difference in
+  # punctuation, spacing or accents is the same name, a different word is
+  # not.
+  @name_key_sql "regexp_replace(lower(unaccent(?)), '[^[:alnum:]]+', '', 'g')"
+
   defp identity_matches(name, :author) do
     Author
-    |> where([a], fragment("lower(?)", a.name) == ^String.downcase(name))
+    |> where([a], fragment(@name_key_sql, a.name) == ^AutoMatch.person_key(name))
     |> preload(:people)
     |> Repo.all()
     |> Enum.map(fn author ->
@@ -650,7 +1318,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp identity_matches(name, :narrator) do
     Narrator
-    |> where([n], fragment("lower(?)", n.name) == ^String.downcase(name))
+    |> where([n], fragment(@name_key_sql, n.name) == ^AutoMatch.person_key(name))
     |> preload(:person)
     |> Repo.all()
     |> Enum.map(fn narrator ->
@@ -665,7 +1333,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp person_matches(name) do
     Person
-    |> where([p], fragment("lower(?)", p.name) == ^String.downcase(name))
+    |> where([p], fragment(@name_key_sql, p.name) == ^AutoMatch.person_key(name))
     |> Repo.all()
   end
 
@@ -687,7 +1355,9 @@ defmodule Ambry.Inbox.Draft.Seed do
       [] -> series_proposals_from_tags(tags)
       proposed -> proposed
     end
-    |> Enum.reject(&already_on_book?(&1.name, book_id))
+    |> Enum.reject(
+      &(already_on_book?(&1.name, book_id) or author_named_series?(&1.name, records, tags))
+    )
     |> then(fn kept ->
       Enum.map(
         kept,
@@ -696,17 +1366,67 @@ defmodule Ambry.Inbox.Draft.Seed do
     end)
   end
 
+  # Goodreads-derived data models an author's whole bibliography as a series
+  # named after them, so Joyland arrived in a series called "Stephen King"
+  # and Un Lun Dun in one called "China Miéville" — two of ten releases in a
+  # real batch, each asking a series question with a junk answer. A series
+  # named exactly after a credited author is a shelf, not a series; dropped
+  # as a *proposal*, like the reader-created orderings below — the record
+  # still says what it said.
+  defp author_named_series?(name, records, tags) do
+    key = AutoMatch.person_key(name)
+
+    records
+    |> proposed_names("authors")
+    |> or_from_tags(tags, "authors")
+    |> Enum.any?(fn {author, _source} -> AutoMatch.person_key(author) == key end)
+  end
+
   # One series named by two databases is one membership. Whichever of them
   # supplied a number wins, because a number nobody supplied is a question the
   # operator has to answer and this is the cheapest way not to ask it.
+  # Grouped by `same_series?/2`, not by exact name: "Bill Hodges" and "Bill
+  # Hodges Trilogy" are one series spelled two ways, and grouping on the
+  # exact string filed a real batch's Bill Hodges books under both — plus a
+  # third membership from an accent variant. Same family as titles: dots,
+  # fillers, accents and subtitles are spellings, not different series.
   defp merge_by_name(proposals) do
     proposals
-    |> Enum.group_by(&down(&1.name))
-    |> Map.values()
-    |> Enum.map(fn group -> Enum.find(group, List.first(group), & &1.number) end)
-    |> Enum.sort_by(fn proposal ->
-      Enum.find_index(proposals, &(down(&1.name) == down(proposal.name)))
+    |> Enum.reduce([], fn proposal, groups ->
+      case Enum.find_index(groups, fn [held | _rest] -> same_series?(held.name, proposal.name) end) do
+        nil -> groups ++ [[proposal]]
+        index -> List.update_at(groups, index, &(&1 ++ [proposal]))
+      end
     end)
+    |> Enum.map(fn group -> Enum.find(group, List.first(group), & &1.number) end)
+  end
+
+  # Two spellings of one series. Filler words (Trilogy, Saga, Series),
+  # punctuation, accents and articles fold; a subtitle head counts the same
+  # way it does for titles, so "Kushiel's Legacy: Phedre Trilogy" is
+  # "Kushiel's Legacy".
+  @series_filler ~w(trilogy series saga duology quartet quintet cycle sequence collection books novels)
+
+  defp same_series?(one, other) when is_binary(one) and is_binary(other) do
+    a = series_key(one)
+    b = series_key(other)
+
+    a == b or series_key(series_head(one)) == b or series_key(series_head(other)) == a
+  end
+
+  defp same_series?(_one, _other), do: false
+
+  defp series_head(name), do: name |> String.split(~r/\s*:\s/u, parts: 2) |> hd()
+
+  defp series_key(name) do
+    name
+    |> String.normalize(:nfd)
+    |> String.replace(~r/\p{Mn}/u, "")
+    |> String.downcase()
+    |> String.replace(~r/[^\p{L}\p{N}]+/u, " ")
+    |> String.split(" ", trim: true)
+    |> Enum.reject(&(&1 in ["the", "a", "an"] or &1 in @series_filler))
+    |> Enum.join(" ")
   end
 
   # The file's series number describes this book's position in the series the
@@ -717,8 +1437,8 @@ defmodule Ambry.Inbox.Draft.Seed do
     tagged = presence(tags["series"])
 
     cond do
-      is_nil(tagged) and length(proposals) == 1 -> presence(tags["series_number"])
-      tagged && normalize(tagged) == normalize(name) -> presence(tags["series_number"])
+      is_nil(tagged) and length(proposals) == 1 -> numeric(tags["series_number"])
+      tagged && normalize(tagged) == normalize(name) -> numeric(tags["series_number"])
       true -> nil
     end
   end
@@ -726,12 +1446,21 @@ defmodule Ambry.Inbox.Draft.Seed do
   # Candidates carry series as `%{"name", "number"}`. Older stored matches
   # carry bare strings, and a rescan is not something to require just to read
   # an item, so both shapes are accepted.
+  # Reader-created orderings of a series that already exists — "Legends &
+  # Lattes (Chronological)" arriving alongside "Legends & Lattes", which is
+  # how Goodreads-derived data models "read these in story order". They are
+  # not canon and nobody browses them, but the form proposed them exactly like
+  # a real series, so one careless import creates a duplicate series with one
+  # book in it. Filtered as a *proposal*: the record still says what it said,
+  # and evidence is never edited to make a decision come out differently.
+  @order_variant ~r/\(\s*(?:chronological|publication|reading|internal|story)(?:\s+order)?\s*\)\s*$/iu
+
   defp series_proposals(nil), do: []
 
   defp series_proposals(entries) when is_list(entries) do
     entries
     |> Enum.map(&series_proposal/1)
-    |> Enum.reject(&is_nil/1)
+    |> Enum.reject(&(is_nil(&1) or Regex.match?(@order_variant, &1.name)))
   end
 
   defp series_proposals(value) when is_binary(value), do: series_proposals([value])
@@ -740,7 +1469,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp series_proposal(%{"name" => name} = entry) when is_binary(name) do
     case presence(name) do
       nil -> nil
-      name -> %{name: name, number: presence(entry["number"]), source: nil}
+      name -> %{name: name, number: numeric(entry["number"]), source: nil}
     end
   end
 
@@ -753,10 +1482,33 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp series_proposal(_other), do: nil
 
+  # **A position that isn't a number is not a position.** `book_number` is a
+  # decimal column, so `SeriesLink` rightly refuses to store one that won't
+  # cast — but proposing it anyway turned a provider quirk into a hard failure
+  # with no way out: the draft changeset was invalid, so `RunMatch` failed,
+  # retried, and failed again until Oban gave up. The item simply never got a
+  # draft, and with no in-app view of background work there was nothing to
+  # tell the operator why.
+  #
+  # Found importing the operator's own `01 Wool [128k]`, where real answers
+  # include rreading-glasses' **"1A"** and Hardcover's **"1-5"** — a letter
+  # suffix and an omnibus range. Dropped at the *proposal* stage, exactly like
+  # the reader-created series orderings: the record still says what it said,
+  # and the membership survives with no number, which is already a supported
+  # state and an ordinary outstanding decision.
+  defp numeric(value) do
+    with number when is_binary(number) <- presence(value),
+         {_decimal, ""} <- Decimal.parse(number) do
+      number
+    else
+      _not_a_number -> nil
+    end
+  end
+
   defp series_proposals_from_tags(tags) do
     case presence(tags["series"]) do
       nil -> []
-      name -> [%{name: name, number: presence(tags["series_number"]), source: "tags"}]
+      name -> [%{name: name, number: numeric(tags["series_number"]), source: "tags"}]
     end
   end
 
@@ -767,15 +1519,15 @@ defmodule Ambry.Inbox.Draft.Seed do
     |> where([b], b.id == ^book_id)
     |> join(:inner, [b], sb in assoc(b, :series_books))
     |> join(:inner, [_b, sb], s in assoc(sb, :series))
-    |> where([_b, _sb, s], fragment("lower(?)", s.name) == ^String.downcase(name))
-    |> Repo.exists?()
+    |> select([_b, _sb, s], s.name)
+    |> Repo.all()
+    |> Enum.any?(&same_series?(&1, name))
   end
 
   defp series_link(name, number, source) do
     matches =
-      Series
-      |> where([s], fragment("lower(?)", s.name) == ^String.downcase(name))
-      |> Repo.all()
+      name
+      |> matching_series()
       |> Enum.map(&%SeriesLink.Match{series_id: &1.id, name: &1.name, exact: true})
 
     base = %SeriesLink{name: name, number: presence(number), source: source, candidates: matches}
@@ -805,27 +1557,50 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## scalars
 
-  # `fallback` is a weaker source that only gets a say when the primary ones
-  # said nothing — it never argues with them, and never turns a settled field
-  # into a choice.
+  # `advisory` is a weaker source: **offered, but never argues.** It shows up
+  # as a chip the operator can click, and it is left out of the count that
+  # decides whether the sources disagree — so it can rescue a field nobody
+  # else answered without turning every field it merely differs from into a
+  # question.
+  #
+  # That distinction is the whole reason it exists. The file's own name is a
+  # real third opinion about the title and disagrees with the tags on 105 of
+  # the operator's 198 releases; counted as a rival it would put "pick a
+  # title" on over half of all imports, for a source that is right a minority
+  # of the time. Counted as a proposal, it costs nothing and is one click away
+  # exactly when the tags turn out to be a shelf label.
   defp scalar(candidates, opts \\ []) do
     required = Keyword.get(opts, :required, false)
     same? = Keyword.get(opts, :equivalence, &(normalize(&1) == normalize(&2)))
     prefer = Keyword.get(opts, :prefer, fn held, _incoming -> held end)
     alternatives? = Keyword.get(opts, :alternatives, false)
 
-    candidates =
+    usable = fn list ->
+      list |> List.wrap() |> Enum.reject(&(is_nil(&1) or &1.value in [nil, ""]))
+    end
+
+    advisory = opts |> Keyword.get(:advisory) |> usable.()
+
+    deciding =
       candidates
-      |> Enum.reject(&(is_nil(&1) or &1.value in [nil, ""]))
+      |> usable.()
       |> collapse(same?, prefer)
 
-    candidates =
-      case {candidates, Keyword.get(opts, :fallback)} do
-        {[], fallback} when not is_nil(fallback) -> [fallback]
-        _primary_had_something -> candidates
+    # Nobody else answered, so the advisory one stops being advisory — this is
+    # what the old `fallback` did, and the only case where it gets a vote.
+    {deciding, advisory} =
+      case {deciding, advisory} do
+        {[], [first | rest]} -> {[first], rest}
+        _primary_had_something -> {deciding, advisory}
       end
 
-    field = %Field{required: required, candidates: candidates}
+    # Shown, but only where it actually adds something: an advisory that means
+    # the same as a real proposal is that proposal, not a second chip saying
+    # the same words.
+    extra = Enum.reject(advisory, fn a -> Enum.any?(deciding, &same?.(&1.value, a.value)) end)
+
+    field = %Field{required: required, candidates: deciding ++ extra}
+    candidates = deciding
 
     case candidates do
       # nothing proposed it. Optional means waived — an explicit "none", which
@@ -870,8 +1645,17 @@ defmodule Ambry.Inbox.Draft.Seed do
     end)
   end
 
+  # `prefer` returns a *value*, so it cannot say which candidate won when both
+  # proposed the same one — and comparing its answer to `incoming.value` calls
+  # every tie for whoever came last. Records are collected before the file's
+  # tags, so a provider and the tags agreeing on a date credited the tags, and
+  # the form said "from the file's tags" about a value Hardcover had
+  # corroborated. Measured on a real import; provenance is written from this.
   defp combine(held, incoming, prefer) do
-    winner = if prefer.(held.value, incoming.value) == incoming.value, do: incoming, else: held
+    winner =
+      if held.value != incoming.value and prefer.(held.value, incoming.value) == incoming.value,
+        do: incoming,
+        else: held
 
     # The surviving chip keeps the key it had when it was held, so a choice
     # already made doesn't come unstuck when another source agrees with it.
@@ -883,11 +1667,43 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp join_labels(one, nil), do: one
   defp join_labels(one, other), do: "#{one}, #{other}"
 
-  # Two spellings of one title: the shorter is the title, the longer is the
-  # title with a format label bolted on.
+  # Two spellings of one title. The junk-free spelling wins first —
+  # "Artemis" over "Artemis (Unabridged)" — and this arm must come before
+  # the caps tie-break, which briefly preferred the junk-carrying spelling
+  # because "(Unabridged)" adds a capital: the old prefer-shorter rule's
+  # whole point, relearned on three Expanse imports. Then a *head*
+  # reduction (a subtitle bolted on) prefers the bare title, and same-word
+  # spellings (an article, casing) prefer the better-cased one — the
+  # operator's Cerulean Sea tag says "house in the cerulean sea" against
+  # the catalogue's proper casing.
   defp shorter(held, incoming) do
-    if String.length(incoming) < String.length(held), do: incoming, else: held
+    cond do
+      junky?(held) and not junky?(incoming) -> incoming
+      junky?(incoming) and not junky?(held) -> held
+      head_reduction?(held, incoming) -> incoming
+      head_reduction?(incoming, held) -> held
+      caps(incoming) > caps(held) -> incoming
+      true -> held
+    end
   end
+
+  defp junky?(value) when is_binary(value) do
+    Regex.match?(@format_labels, value) or Regex.match?(@trailing_ordinal, value)
+  end
+
+  defp junky?(_other), do: false
+
+  defp head_reduction?(long, short) when is_binary(long) and is_binary(short) do
+    title_key(long) != title_key(short) and title_head(long) == title_key(short)
+  end
+
+  defp head_reduction?(_long, _short), do: false
+
+  defp caps(value) when is_binary(value) do
+    value |> String.graphemes() |> Enum.count(&(&1 != String.downcase(&1)))
+  end
+
+  defp caps(_other), do: 0
 
   defp normalize(string) when is_binary(string) do
     string |> String.downcase() |> String.replace(~r/\s+/, " ") |> String.trim()

@@ -147,6 +147,26 @@ defmodule Ambry.Books do
   end
 
   @doc """
+  Books ranked by how many of the given keywords they match.
+
+  A different question from `list_books/4`'s search, which asks whether one
+  whole string appears inside one field. That is right for a person typing and
+  wrong for matching a file against the library, where the file's idea of the
+  title routinely isn't the library's — a term that misses should cost
+  nothing, and a term that hits should earn a point.
+  """
+  @spec match_books([String.t()], pos_integer()) :: [struct()]
+  def match_books(terms, limit \\ 10) do
+    terms |> BookFlat.by_keywords(limit) |> Repo.all()
+  end
+
+  @doc """
+  Splits a phrase into the keywords `match_books/2` should be given.
+  """
+  @spec match_keywords(String.t() | nil) :: [String.t()]
+  defdelegate match_keywords(phrase), to: BookFlat, as: :keywords
+
+  @doc """
   Returns the number of books.
 
   ## Examples

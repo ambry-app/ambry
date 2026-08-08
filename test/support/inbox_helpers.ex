@@ -34,7 +34,24 @@ defmodule Ambry.InboxHelpers do
   defp settled(%Draft{} = draft, opts) do
     %{
       "work" => settled_work(draft.work, opts),
-      "recording" => settled_recording(draft.recording, opts)
+      "recording" => settled_recording(draft.recording, opts),
+      "people" => Enum.map(draft.people, &settled_person/1)
+    }
+  end
+
+  # People are their own level now, so settling one is settling a decision
+  # rather than filling in a field on a credit. A person needs only a name;
+  # the photo and bio are genuinely optional, since plenty of narrators are in
+  # no database at all.
+  defp settled_person(person) do
+    %{
+      "key" => person.key,
+      "mode" => to_string(person.mode),
+      "person_id" => person.person_id,
+      "approved" => true,
+      "name" => settled_field(person.name, nil),
+      "image" => settled_field(person.image, nil),
+      "description" => settled_field(person.description, nil)
     }
   end
 
@@ -104,20 +121,9 @@ defmodule Ambry.InboxHelpers do
       "identity_id" => credit.identity_id,
       "source" => credit.source,
       "approved" => true,
-      "people" => people_for(credit)
+      "person_keys" => credit.person_keys
     }
   end
-
-  # Linking needs nobody behind it — the identity already has whoever it has.
-  defp people_for(%Credit{mode: :link}), do: []
-
-  defp people_for(%Credit{people: []} = credit),
-    do: [%{"name" => credit.name, "person_id" => nil}]
-
-  # Everything the operator staged for a new person travels with them — a bio
-  # and a photo picked in the inbox are the difference between a person who
-  # arrives complete and one who needs a trip to the person form.
-  defp people_for(%Credit{people: people}), do: Enum.map(people, &Map.from_struct/1)
 
   defp settled_series(%SeriesLink{} = link, number) do
     %{

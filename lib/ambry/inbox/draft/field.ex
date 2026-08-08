@@ -34,13 +34,28 @@ defmodule Ambry.Inbox.Draft.Field do
     # neither highlight the right chip nor apply the second one.
     field :chosen_key, :string
 
+    # Whether a *human* settled this, as opposed to the seeder settling it
+    # because there was only one thing on offer. The same distinction `Credit`
+    # and `SeriesLink` already draw, and for the same reason: re-derivation
+    # must not move a value somebody chose, and must be free to move one
+    # nobody did.
+    #
+    # `chosen_key` cannot answer this — the seeder sets it too — so keying
+    # re-derivation on it made every auto-settled field permanently sticky.
+    # Measured on the operator's Becky Chambers file: the title settled from
+    # the tags at seed time (nothing else was on offer, the work being
+    # doubted), and then ticking the correct record could not dislodge it. The
+    # book imported as **"Wayfarers, Book 1"** with the real title sitting
+    # un-chosen in the candidate list.
+    field :curated, :boolean, default: false
+
     embeds_many :candidates, Candidate, on_replace: :delete
   end
 
   @doc false
   def changeset(field, attrs) do
     field
-    |> cast(attrs, [:value, :source, :approved, :required, :chosen_key])
+    |> cast(attrs, [:value, :source, :approved, :required, :chosen_key, :curated])
     |> cast_embed(:candidates)
     |> track_manual_edit(attrs)
     |> validate_settled()
@@ -61,6 +76,7 @@ defmodule Ambry.Inbox.Draft.Field do
         |> put_change(:source, @manual)
         |> put_change(:chosen_key, @manual)
         |> put_change(:approved, true)
+        |> put_change(:curated, true)
 
       _unchanged_or_sourced ->
         changeset
@@ -92,7 +108,22 @@ defmodule Ambry.Inbox.Draft.Field do
   deliberately.
   """
   def edit(%__MODULE__{} = field, value) do
-    %{field | value: presence(value), source: "manual", chosen_key: "manual", approved: true}
+    value = presence(value)
+
+    %{
+      field
+      | value: value,
+        source: "manual",
+        chosen_key: "manual",
+        curated: true,
+        # Clearing the box is the first half of retyping, and a *required*
+        # field cannot be settled as blank — so it un-settles rather than
+        # becoming an approved-and-empty value the changeset then refuses to
+        # save. Validation gates saving; the invariant gates importing, and
+        # conflating the two makes the form unusable. Clearing an optional
+        # field is a real answer ("no bio") and stays settled.
+        approved: not (field.required and is_nil(value))
+    }
   end
 
   @doc """
@@ -101,7 +132,10 @@ defmodule Ambry.Inbox.Draft.Field do
   def choose(%__MODULE__{} = field, key) do
     case Enum.find(field.candidates, &(&1.key == key)) do
       nil -> field
-      candidate -> take(field, candidate)
+      # Picking a chip is a human answering the question, which is what makes
+      # it survive re-derivation — `take/2` alone is the seeder settling a
+      # field and stays movable.
+      candidate -> %{take(field, candidate) | curated: true}
     end
   end
 
@@ -146,16 +180,22 @@ defmodule Ambry.Inbox.Draft.Field do
       source, so matching by source finds the wrong proposal or — far more
       often — none at all. That was this rule quietly not running.
 
-  Only ever fills a format nobody has settled. An approved format was settled
-  by the seeder or chosen by the operator, and re-deriving over the top of
-  either is the curation-outranks-re-derivation rule broken.
+  The first rule outranks a format the *seeder* settled: nobody records June
+  2nd to mean "2011", so a seeded format still saying year against a day≠1
+  date is a leftover from the date it used to describe — measured on the
+  operator's Leviathan Wakes, where typing the real 2011-06-02 over a
+  year-only tag date left the book rendering as bare "2011". A format the
+  operator settled *themselves* is curation and stays, day be damned — the
+  same `curated`-not-`approved` distinction re-derivation keys on
+  everywhere. The 1st-day case keeps whatever was settled either way.
   """
-  def follow_date(%__MODULE__{approved: true} = format, _date), do: format
-
   def follow_date(%__MODULE__{} = format, %__MODULE__{approved: true} = date) do
     case date(date) do
-      %Date{day: day} when day != 1 -> full(format)
-      _ambiguous_or_unparseable -> follow_proposal(format, date)
+      %Date{day: day} when day != 1 ->
+        if format.curated or value(format) == "full", do: format, else: full(format)
+
+      _ambiguous_or_unparseable ->
+        if format.approved, do: format, else: follow_proposal(format, date)
     end
   end
 
@@ -192,7 +232,7 @@ defmodule Ambry.Inbox.Draft.Field do
   resolved" reachable on a record with optional fields nobody filled in.
   """
   def waive(%__MODULE__{} = field),
-    do: %{field | value: nil, source: nil, chosen_key: nil, approved: true}
+    do: %{field | value: nil, source: nil, chosen_key: nil, approved: true, curated: true}
 
   @doc """
   Whether this field still needs a human.

@@ -20,7 +20,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
-  alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
 
   attr :outcomes, :list, required: true
@@ -445,8 +445,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :backing, :string, required: true, doc: ~s(the unfolded label — "Pen name of")
   attr :expanded, :boolean, required: true
   attr :kind, :atom, required: true, doc: ":author or :narrator"
-  attr :sharing, :map, default: %{}, doc: "PersonRef key => the credits behind it"
-  attr :bios, :map, default: %{}, doc: "person index => bios the picker found"
+  attr :persons, :list, required: true, doc: "the PersonDecisions this credit references"
+  attr :appearances, :map, default: %{}, doc: "person key => every credit referencing them"
+  attr :searching_person, :string, default: nil, doc: "the person being looked up again"
+  attr :photos_expanded, :map, default: %{}, doc: "person key => whether all photos show"
 
   @doc """
   One credit, resolved to an identity.
@@ -562,16 +564,16 @@ defmodule AmbryWeb.Admin.Decisions do
             inside the pen-name fold hid them behind a control nobody would
             click to get a picture — they were, for practical purposes, not
             there at all. --%>
-      <.person_face
-        :if={@credit.mode == :create and !@expanded and @credit.people != []}
-        person={hd(@credit.people)}
-        fallback_name={@credit.name}
+      <.person_curation
+        :if={@credit.mode == :create and !@expanded and @persons != []}
+        person={hd(@persons)}
         section={@section}
         index={@index}
         person_index={0}
         kind={@kind}
-        sharing={@sharing}
-        bios={@bios[0]}
+        appears={@appearances[hd(@persons).key] || []}
+        searching={@searching_person == hd(@persons).key}
+        expanded={@photos_expanded[hd(@persons).key] || false}
       />
 
       <%!-- Folded away until it matters, and unfolded automatically the moment
@@ -592,7 +594,7 @@ defmodule AmbryWeb.Admin.Decisions do
         <.label class="text-xs">{@backing}</.label>
 
         <div
-          :for={{person, person_index} <- Enum.with_index(@credit.people)}
+          :for={{person, person_index} <- Enum.with_index(@persons)}
           class="space-y-1 border-l border-zinc-200 pl-3 dark:border-zinc-700"
         >
           <form
@@ -600,9 +602,7 @@ defmodule AmbryWeb.Admin.Decisions do
             phx-change="person-change"
             class="flex flex-wrap items-center gap-2"
           >
-            <input type="hidden" name="section" value={@section} />
-            <input type="hidden" name="index" value={@index} />
-            <input type="hidden" name="person" value={person_index} />
+            <input type="hidden" name="key" value={person.key} />
 
             <select
               name="person_id"
@@ -615,16 +615,16 @@ defmodule AmbryWeb.Admin.Decisions do
             </select>
 
             <input
-              :if={is_nil(person.person_id)}
+              :if={person.mode == :create}
               type="text"
               name="name"
-              value={person.name}
+              value={Field.value(person.name)}
               placeholder="the person's real name"
               class="min-w-0 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
             />
 
             <button
-              :if={length(@credit.people) > 1}
+              :if={length(@persons) > 1}
               type="button"
               phx-click="remove-person"
               phx-value-section={@section}
@@ -635,15 +635,15 @@ defmodule AmbryWeb.Admin.Decisions do
             </button>
           </form>
 
-          <.person_face
+          <.person_curation
             person={person}
-            fallback_name={@credit.name}
             section={@section}
             index={@index}
             person_index={person_index}
             kind={@kind}
-            sharing={@sharing}
-            bios={@bios[person_index]}
+            appears={@appearances[person.key] || []}
+            searching={@searching_person == person.key}
+            expanded={@photos_expanded[person.key] || false}
           />
         </div>
 
@@ -660,22 +660,27 @@ defmodule AmbryWeb.Admin.Decisions do
           Add another person
         </button>
 
-        <p :if={length(@credit.people) > 1} class="text-xs italic dark:text-zinc-500">
-          A shared pen name — {@credit.name} will be one author credited to {Enum.count(@credit.people)} people.
+        <p :if={length(@persons) > 1} class="text-xs italic dark:text-zinc-500">
+          A shared pen name — {@credit.name} will be one author credited to {length(@persons)} people.
         </p>
       </div>
     </div>
     """
   end
 
-  attr :person, PersonRef, required: true
-  attr :fallback_name, :string, default: nil
+  attr :person, PersonDecision, required: true
   attr :section, :string, required: true
   attr :index, :integer, required: true
   attr :person_index, :integer, required: true
   attr :kind, :atom, required: true, doc: "which credit this row hangs off"
-  attr :sharing, :map, default: %{}, doc: "PersonRef key => the credits behind it"
-  attr :bios, :any, default: nil, doc: "bios the picker found for this person, or nil"
+  attr :appears, :list, default: [], doc: "every credit referencing this person"
+  attr :searching, :boolean, default: false
+  attr :expanded, :boolean, default: false, doc: "whether the whole photo set is showing"
+
+  # Enough to see there are alternatives without the row becoming a contact
+  # sheet. TMDB keeps every headshot anyone has uploaded and a working actor
+  # can have dozens.
+  @photo_preview 5
 
   @doc """
   The face and bio a new person will be created with.
@@ -684,118 +689,194 @@ defmodule AmbryWeb.Admin.Decisions do
   entity, and a person with no face is unfinished — every credit imported
   without one was a trip to the person form afterwards.
 
-  ## A photo is picked by looking; a bio is picked by reading
+  ## A description is a description
 
-  They are two different decisions and they were sharing one modal, which
-  meant picking a photo dismissed the bios and picking a bio meant opening the
-  thing again. So only the photo — the decision that genuinely needs a grid of
-  alternatives at display size, in the circular frame — opens anything. The
-  bios come back from the same search and land here as chips, exactly the way
-  a description's proposals do on a decision row, and picking one opens and
-  closes nothing.
+  This used to be a modal. Two of them, in effect: a photo grid and a bio list
+  sharing one sheet, where choosing either dismissed the other, and where a
+  button labelled "find a photo and bio" showed you no bios at all until it
+  closed. A person's description is not a different kind of thing from a
+  recording's — it wants the same editable text box with the same proposals
+  underneath it, because a provider's blurb is a starting point you tweak, not
+  a thing you take or leave.
+
+  So there is no modal. The photos are chips too, circular and at the size
+  they'll be seen, because **the decision is whether a face survives a circular
+  crop** — which is why the alternatives matter and why the obvious portrait is
+  so often the wrong one. Past the first few they fold away rather than pushing
+  the rest of the credit off screen.
+
+  ## One human is one record
+
+  A person behind two credits — an author reading their own book — is created
+  once and is now *stored* once: both credits reference the same
+  `PersonDecision` by key. The row therefore shows the same photo in both
+  places because it is the same photo, not because two copies are being kept
+  in step. Editing either edits the person.
+
+  ## The photos are already here
+
+  Matching asks every person-level provider about every credited human, so the
+  candidates arrive with the item and the grid renders with nothing to click
+  first. "Look again" is the escape hatch for a name that has *changed* since
+  — a rename, a pen name revealed — where nobody has searched for who this now
+  is.
   """
-  def person_face(assigns) do
+  def person_curation(assigns) do
+    assigns =
+      assign(assigns,
+        # One person can be rendered in two places — an author who reads their
+        # own book — so DOM ids are keyed by WHERE this is, not by who it is.
+        # The person key travels in the form's hidden field, where it belongs:
+        # the edit targets the human, the id targets the element.
+        at: "#{assigns.section}-#{assigns.index}-#{assigns.person_index}",
+        image: Field.value(assigns.person.image),
+        description: Field.value(assigns.person.description),
+        photos: assigns.person.image.candidates,
+        bios: assigns.person.description.candidates,
+        shared_with: shared_with(assigns.appears, assigns.kind)
+      )
+
     ~H"""
-    <div :if={is_nil(@person.person_id)} class="space-y-1" data-role="person-face">
+    <div :if={@person.mode == :create} class="space-y-2" data-role="person-face">
       <div class="flex items-center gap-2">
         <.image_with_size
-          :if={@person.image_url}
-          id={"person-#{@section}-#{@index}-#{@person_index}-photo"}
-          src={proxied_remote_image_url(@person.image_url)}
+          :if={@image}
+          id={"person-#{@at}-photo"}
+          src={proxied_remote_image_url(@image)}
           class="h-12 w-12 flex-none rounded-full object-cover object-top"
         />
 
         <span
-          :if={is_nil(@person.image_url)}
+          :if={is_nil(@image)}
           class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-700"
         />
 
         <button
           type="button"
-          phx-click="find-person-images"
-          phx-value-section={@section}
-          phx-value-index={@index}
-          phx-value-person={@person_index}
-          disabled={blank_name?(@person, @fallback_name)}
+          phx-click="find-person"
+          phx-value-key={@person.key}
+          disabled={is_nil(Field.value(@person.name)) or @searching}
           class="flex-none rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
         >
-          {if @person.image_url || @person.description,
-            do: "Change photo or bio…",
-            else: "Find a photo and bio…"}
+          {cond do
+            @searching -> "Looking…"
+            @photos != [] or @bios != [] -> "Look again"
+            true -> "Find a photo and bio…"
+          end}
         </button>
 
-        <p :if={@person.description} class="line-clamp-2 min-w-0 text-xs dark:text-zinc-500">
-          {@person.description}
+        <%!-- The same human on two credits: an author reading their own book.
+              Approval creates them once, so this is where the form says so —
+              on the row that would otherwise look like it was about to make a
+              second person of the same name. --%>
+        <p :if={@shared_with} class="min-w-0 text-xs italic dark:text-zinc-500">
+          Same person as the {@shared_with} — one {Field.value(@person.name)} will be created.
+          <button
+            type="button"
+            phx-click="split-person"
+            phx-value-section={@section}
+            phx-value-index={@index}
+            phx-value-person={@person_index}
+            class="underline"
+          >
+            Not the same person?
+          </button>
         </p>
       </div>
 
-      <%!-- The same human on two credits: an author reading their own book.
-            Approval creates them once; this is where the form says so, on the
-            row that would otherwise look like it was about to make a second
-            person of the same name. --%>
-      <p :if={shared_with(@sharing, @person, @kind)} class="text-xs italic dark:text-zinc-500">
-        Same person as the {shared_with(@sharing, @person, @kind)} — one {@person.name || @fallback_name} will be created.
-        <button
-          type="button"
-          phx-click="person-distinct"
-          phx-value-section={@section}
-          phx-value-index={@index}
-          phx-value-person={@person_index}
-          phx-value-distinct="true"
-          class="underline"
-        >
-          Not the same person?
-        </button>
+      <%!-- Nothing found is a normal outcome, not a failure — plenty of
+            narrators are in no database at all — but it should say so rather
+            than looking like an empty grid nobody filled in. --%>
+      <p :if={@person.doubt == :low_confidence} class="text-xs italic dark:text-zinc-500">
+        {@person.doubt_detail}
       </p>
 
-      <p :if={@person.distinct} class="text-xs italic dark:text-zinc-500">
-        A different person who happens to share the name.
-        <button
-          type="button"
-          phx-click="person-distinct"
-          phx-value-section={@section}
-          phx-value-index={@index}
-          phx-value-person={@person_index}
-          phx-value-distinct="false"
-          class="underline"
-        >
-          Undo
-        </button>
-      </p>
+      <div :if={@photos != []} class="flex flex-wrap items-center gap-2">
+        <span class="text-xs dark:text-zinc-500">Photos:</span>
 
-      <div :if={@bios not in [nil, []]} class="flex flex-wrap items-center gap-2 pt-1">
-        <span class="text-xs dark:text-zinc-500">Bio:</span>
+        <.proposal_chip
+          :for={photo <- shown_photos(@photos, @expanded)}
+          chosen={Field.chose?(@person.image, photo)}
+          event="pick-person-image"
+          values={%{"key" => @person.key, "candidate" => photo.key}}
+          title={photo.label}
+          shape="circle"
+        >
+          <.image_with_size
+            id={"photo-#{@at}-#{:erlang.phash2(photo.value)}"}
+            src={proxied_remote_image_url(photo.value)}
+            class="h-16 w-16 rounded-full object-cover object-top"
+          />
+        </.proposal_chip>
+
+        <%!-- A dozen headshots is normal and would push the rest of the credit
+              off the screen; the point is that alternatives EXIST, not that
+              they're all on show. --%>
+        <button
+          :if={length(@photos) > photo_preview()}
+          type="button"
+          phx-click="toggle-photos"
+          phx-value-key={@person.key}
+          class="text-xs underline dark:text-zinc-400"
+        >
+          {if @expanded, do: "show fewer", else: "show all #{length(@photos)} photos"}
+        </button>
 
         <button
-          :for={bio <- @bios}
+          :if={@image}
           type="button"
-          phx-click="pick-person-bio"
-          phx-value-section={@section}
-          phx-value-index={@index}
-          phx-value-person={@person_index}
-          phx-value-provider={bio.provider_id}
-          phx-value-bio={bio.id}
-          title={bio.description}
-          class={[
-            "max-w-full rounded-sm border px-2 py-1 text-left text-xs",
-            if(@person.description == bio.description,
-              do: "border-brand dark:border-brand-dark",
-              else: "border-zinc-300 dark:border-zinc-700"
-            )
-          ]}
+          phx-click="waive-person-field"
+          phx-value-key={@person.key}
+          phx-value-field="image"
+          class="text-xs underline dark:text-zinc-400"
         >
-          <span class="dark:text-zinc-500">{bio.provider_name}:</span>
-          <span class="line-clamp-1">{truncate(bio.description)}</span>
+          no photo
         </button>
+      </div>
+
+      <%!-- The same text box the recording's description gets, for the same
+            reason: an imported blurb is a starting point. --%>
+      <div class="space-y-1">
+        <form id={"person-bio-#{@at}"} phx-change="person-bio" phx-submit="person-bio">
+          <input type="hidden" name="key" value={@person.key} />
+          <textarea
+            name="description"
+            rows="3"
+            placeholder="a short bio"
+            phx-debounce="500"
+            class="block w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          >{@description}</textarea>
+        </form>
+
+        <div :if={@bios != []} class="flex flex-wrap items-center gap-2">
+          <span class="text-xs dark:text-zinc-500">Proposed:</span>
+
+          <.proposal_chip
+            :for={bio <- @bios}
+            chosen={Field.chose?(@person.description, bio)}
+            event="pick-person-bio"
+            values={%{"key" => @person.key, "candidate" => bio.key}}
+            title={bio.value}
+          >
+            <span class="dark:text-zinc-500">{bio.label}:</span>
+            <span class="line-clamp-1">{truncate(bio.value)}</span>
+          </.proposal_chip>
+        </div>
       </div>
     </div>
     """
   end
 
+  defp photo_preview, do: @photo_preview
+
+  defp shown_photos(photos, true), do: photos
+  defp shown_photos(photos, _collapsed), do: Enum.take(photos, @photo_preview)
+
   # Which *other* credit the same human is behind, in the words the row needs.
-  defp shared_with(sharing, %PersonRef{distinct: false} = person, kind) do
-    sharing
-    |> Map.get(PersonRef.key(person), [])
+  defp shared_with(appears, kind) do
+    appears
+    |> Enum.map(& &1.kind)
+    |> Enum.uniq()
     |> List.delete(kind)
     |> case do
       [:author] -> "author"
@@ -804,7 +885,43 @@ defmodule AmbryWeb.Admin.Decisions do
     end
   end
 
-  defp shared_with(_sharing, %PersonRef{}, _kind), do: nil
+  attr :chosen, :boolean, required: true
+  attr :event, :string, required: true
+  attr :values, :map, default: %{}
+  attr :title, :string, default: nil
+  attr :shape, :string, default: "text"
+  slot :inner_block, required: true
+
+  @doc """
+  One proposal, and whether it's the one in use.
+
+  Shared by every place the form offers alternatives — a scalar's candidates, a
+  person's photos, a person's bios — because they are the same interaction and
+  were being hand-written each time, which is how one of them ended up with no
+  way to tell which chip was chosen.
+  """
+  def proposal_chip(assigns) do
+    ~H"""
+    <button
+      type="button"
+      phx-click={@event}
+      {chip_values(@values)}
+      title={@title}
+      class={[
+        "max-w-full rounded-sm border text-left text-xs",
+        @shape == "circle" && "rounded-full p-0.5",
+        @shape != "circle" && "px-2 py-1",
+        @chosen && "border-brand dark:border-brand-dark",
+        !@chosen && "border-zinc-300 dark:border-zinc-700"
+      ]}
+    >
+      {render_slot(@inner_block)}
+    </button>
+    """
+  end
+
+  defp chip_values(values),
+    do: Map.new(values, fn {key, value} -> {"phx-value-#{key}", value} end)
 
   attr :link, SeriesLink, required: true
   attr :index, :integer, required: true
@@ -933,10 +1050,6 @@ defmodule AmbryWeb.Admin.Decisions do
   def source_words("local"), do: "the library"
   def source_words("provider:" <> id), do: id
   def source_words(other), do: other
-
-  defp blank_name?(person, fallback) do
-    (person.name || fallback || "") |> String.trim() == ""
-  end
 
   defp linked_people(%Credit{candidates: candidates, identity_id: id}) do
     case Enum.find(candidates, &(&1.identity_id == id)) do

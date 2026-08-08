@@ -42,6 +42,23 @@ defmodule Ambry.Inbox.Progress do
   @workers [RunProbe, RunMatch]
 
   @doc """
+  Whether a background job currently owns this item.
+
+  The three states where something is going to change underneath the operator:
+  a job running, a job waiting to run, and a job waiting to run *again*. All
+  three mean the same thing to somebody looking at the form — don't touch it,
+  it isn't yours yet — which is why they answer one question rather than
+  three.
+
+  `:retrying` belongs here and it is the reason this matters more than it used
+  to. Matching keeps going until every provider has answered, so an item can
+  sit mid-backoff for minutes and then **rebuild its own draft** when the
+  provider finally comes back. Anything typed into it in the meantime would be
+  thrown away by a job the operator couldn't see.
+  """
+  def busy?(status), do: status in [:working, :queued, :retrying]
+
+  @doc """
   The status of each given item, as a map of item id to status.
 
   One query for the whole page rather than one per row.

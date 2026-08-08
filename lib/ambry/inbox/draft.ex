@@ -38,8 +38,9 @@ defmodule Ambry.Inbox.Draft do
 
   import Ecto.Changeset
 
+  alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Destination
-  alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Work
 
@@ -49,6 +50,11 @@ defmodule Ambry.Inbox.Draft do
     embeds_one :work, Work, on_replace: :update
     embeds_one :recording, Recording, on_replace: :update
     embeds_one :destination, Destination, on_replace: :update
+
+    # The humans this import will create or reuse, one record each. Credits at
+    # both levels reference them by key, which is what makes an author who
+    # reads their own book one person rather than two kept in step by hand.
+    embeds_many :people, PersonDecision, on_replace: :delete
 
     # Bumped when discovery sees the underlying files change, so a draft built
     # against evidence that has since moved can say so instead of quietly
@@ -64,6 +70,7 @@ defmodule Ambry.Inbox.Draft do
     |> cast_embed(:work)
     |> cast_embed(:recording)
     |> cast_embed(:destination)
+    |> cast_embed(:people)
   end
 
   @doc """
@@ -76,7 +83,23 @@ defmodule Ambry.Inbox.Draft do
   def unresolved(nil), do: [%{section: :draft, label: "Not yet prepared", state: :missing}]
 
   def unresolved(%__MODULE__{} = draft) do
-    stale(draft) ++ work(draft) ++ recording(draft) ++ destination(draft)
+    stale(draft) ++ work(draft) ++ recording(draft) ++ people(draft) ++ destination(draft)
+  end
+
+  # Asked once per human rather than once per credit. A self-narrated book
+  # reported the same outstanding person twice when the credits each owned
+  # their own copy — the invariant counts decisions, and one human is one
+  # decision.
+  defp people(%__MODULE__{people: people}) do
+    people
+    |> Enum.reject(&PersonDecision.resolved?/1)
+    |> Enum.map(
+      &%{
+        section: :people,
+        label: "Person: #{PersonDecision.label(&1)}",
+        state: PersonDecision.state(&1)
+      }
+    )
   end
 
   # Absent means nothing was staged about the bytes, which for an adopt-in-
@@ -115,28 +138,104 @@ defmodule Ambry.Inbox.Draft do
   def resolved?(draft), do: unresolved(draft) == []
 
   @doc """
-  Which credits each pending person is behind, keyed by `PersonRef.key/1`.
-
-  Almost always one, and the interesting answer is two: an author who reads
-  their own book is one human with an Author identity and a Narrator identity,
-  and the two credits proposing to create them have no idea about each other.
-  Approval already resolves them to one Person — this is what lets the form
-  *say* so before the operator presses import, which is the difference between
-  a sensible default and a surprise.
+  One person by key, or nil.
   """
-  def sharing(nil), do: %{}
+  def person(nil, _key), do: nil
 
-  def sharing(%__MODULE__{} = draft) do
-    (tagged(draft.work && draft.work.authors, :author) ++
-       tagged(draft.recording && draft.recording.narrators, :narrator))
-    |> Enum.filter(fn {_kind, credit} -> credit.mode == :create end)
-    |> Enum.flat_map(fn {kind, credit} -> Enum.map(credit.people, &{PersonRef.key(&1), kind}) end)
-    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
-    |> Map.new(fn {key, kinds} -> {key, Enum.uniq(kinds)} end)
+  def person(%__MODULE__{people: people}, key), do: Enum.find(people, &(&1.key == key))
+
+  @doc """
+  The people a credit is backed by, in the order it lists them.
+
+  A key with no decision behind it is skipped rather than crashing: a draft is
+  operator input held in jsonb, and a dangling reference is a data problem to
+  render as an incomplete credit, not a 500 on the form.
+  """
+  def people_for(draft, %Credit{} = credit),
+    do: credit.person_keys |> Enum.map(&person(draft, &1)) |> Enum.reject(&is_nil/1)
+
+  @doc """
+  Which credits reference each person, so the form can say where they appear.
+
+  Returns `%{key => [%{kind:, section:, index:, name:}]}`. This is display
+  only — it is derived from the credits every time rather than stored, because
+  a second copy of "who is where" is exactly the thing that used to drift.
+  """
+  def appearances(nil), do: %{}
+
+  def appearances(%__MODULE__{} = draft) do
+    for {kind, section, index, credit} <- credits(draft),
+        credit.mode == :create,
+        key <- credit.person_keys,
+        reduce: %{} do
+      acc ->
+        place = %{kind: kind, section: section, index: index, name: credit.name}
+        Map.update(acc, key, [place], &(&1 ++ [place]))
+    end
   end
 
-  defp tagged(nil, _kind), do: []
-  defp tagged(credits, kind), do: Enum.map(credits, &{kind, &1})
+  defp credits(%__MODULE__{} = draft) do
+    tagged(draft.work && draft.work.authors, :author, "work") ++
+      tagged(draft.recording && draft.recording.narrators, :narrator, "recording")
+  end
+
+  defp tagged(nil, _kind, _section), do: []
+
+  defp tagged(credits, kind, section) do
+    credits |> Enum.with_index() |> Enum.map(fn {c, i} -> {kind, section, i, c} end)
+  end
+
+  @doc """
+  Every person key the credits currently reference, in form order.
+
+  What `Seed` reconciles against: a person nobody credits any more has no
+  reason to stay on the form, and a credit naming somebody new needs a
+  decision minting for them.
+  """
+  def referenced_keys(%__MODULE__{} = draft) do
+    for {_kind, _section, _index, credit} <- credits(draft),
+        credit.mode == :create,
+        key <- credit.person_keys,
+        uniq: true,
+        do: key
+  end
+
+  @doc """
+  Whether a human has answered anything in this draft yet.
+
+  What tells "matched but untouched" from "the operator has been working on
+  it", which is the difference between a draft that may be thrown away and
+  rebuilt from fresh evidence and one that may only be re-derived around what
+  they decided. A retry that finally reaches a provider needs the first: its
+  new record isn't *ticked*, so re-deriving from the ticked set would ignore
+  it entirely and the retry would buy nothing.
+  """
+  def curated?(nil), do: false
+
+  def curated?(%__MODULE__{} = draft) do
+    Enum.any?(fields(draft), &(&1 && &1.curated)) or
+      Enum.any?(credits(draft), fn {_kind, _section, _index, credit} -> credit.curated end) or
+      Enum.any?((draft.work && draft.work.series) || [], & &1.curated) or
+      Enum.any?(draft.people, & &1.curated)
+  end
+
+  defp fields(%__MODULE__{work: work, recording: recording}) do
+    work_fields = if work, do: [work.title, work.published, work.published_format], else: []
+
+    recording_fields =
+      if recording,
+        do: [
+          recording.title,
+          recording.published,
+          recording.published_format,
+          recording.publisher,
+          recording.description,
+          recording.cover
+        ],
+        else: []
+
+    work_fields ++ recording_fields
+  end
 
   @doc """
   How far along the operator is, for the queue and the form header.
@@ -153,7 +252,7 @@ defmodule Ambry.Inbox.Draft do
   # the first.
   defp total(%__MODULE__{} = draft) do
     work_total(draft.work) + recording_total(draft.recording) +
-      destination_total(draft.destination)
+      length(draft.people) + destination_total(draft.destination)
   end
 
   defp destination_total(nil), do: 0

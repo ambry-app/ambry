@@ -61,6 +61,54 @@ defmodule Ambry.Inbox.ReleaseName do
   end
 
   @doc """
+  Strips release junk from a title that arrived by some other road — embedded
+  tags, mostly.
+
+  Tag titles carry the same noise folder names do ("Children of Time
+  (Unabridged)", "Project Hail Mary [m4b]"), but unlike a zero-result search a
+  noisy one *succeeds*, with sub-par results — so the plainer-title retry that
+  rescues failed searches never fires. Parentheticals carrying real title
+  material ("(A Court of Thorns and Roses #2)") are kept, by the same noise
+  test the parser applies.
+
+  Returns nil when nothing but noise remains, so callers fall back exactly as
+  they would for a missing tag.
+  """
+  def strip_noise(title) when is_binary(title) do
+    title
+    |> remove_noise_brackets()
+    |> remove_noise_parens()
+    |> remove_noise_subtitle()
+    |> remove_sequence_numbers()
+    |> collapse_spaces()
+    |> presence()
+  end
+
+  def strip_noise(_other), do: nil
+
+  # Album tags carry shelf ordering the way folder names do: the operator's
+  # Mr. Mercedes is tagged "01 Mr. Mercedes" and Limitless "Limitless 01",
+  # and both sent the provider search into junk ("01 Mistrunner" led at
+  # 0.569, the right book absent). A leading track number mirrors the
+  # parser's rule; a trailing one only goes when zero-padded — "Limitless
+  # 01" is ordering, "Judicator Jane 4" and "Fahrenheit 451" are titles.
+  defp remove_sequence_numbers(title) do
+    title
+    |> String.replace(~r/^\d{1,3}[-.\s]+(?=\D)/, "")
+    |> String.replace(~r/[-.\s]+0\d\s*$/, "")
+  end
+
+  # "Jurassic Park: A Novel" — a marketing subtitle that carries no
+  # information and sends provider search sideways: with it, neither
+  # provider returned the actual book (The Lost World and Jurassic Park III
+  # led instead), and because they returned *something*, the zero-result
+  # plainer-title retry never fired. Only these known pure-noise phrases go;
+  # a real subtitle disambiguates and stays.
+  @noise_subtitle ~r/\s*[:—-]\s+an?\s+(novel|memoir|thriller|mystery|novella)\s*$/i
+
+  defp remove_noise_subtitle(title), do: Regex.replace(@noise_subtitle, title, "")
+
+  @doc """
   The best search string for a provider: title and author when both are
   known, title alone otherwise.
   """
@@ -115,6 +163,14 @@ defmodule Ambry.Inbox.ReleaseName do
     base
     |> String.replace(~r/\[[^\]]*\]|\{[^}]*\}/, " ")
     |> remove_noise_parens()
+  end
+
+  # A release name's brackets are junk wholesale (`strip_bracketed/1`); a tag
+  # title's are junk only when they say so — "[Unabridged]", "[m4b]".
+  defp remove_noise_brackets(base) do
+    Regex.replace(~r/\[([^\]]*)\]|\{([^}]*)\}/, base, fn match, bracket, brace ->
+      if noise?(bracket <> brace), do: " ", else: match
+    end)
   end
 
   # Parens carry both noise ("(Unabridged)", "(M4b)") and real title material

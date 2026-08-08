@@ -54,7 +54,7 @@ defmodule Ambry.Inbox.Approval do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
-  alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library.Location
@@ -99,6 +99,23 @@ defmodule Ambry.Inbox.Approval do
     end
   end
 
+  # Approval is claimed under a row lock before anything is created or any
+  # byte moves. The status check at the door reads the *caller's* copy of
+  # the item, so two concurrent approvals both walked through it — measured
+  # live: the loser's transaction rolled back AFTER its 834MB copy had
+  # landed, and the orphan then refused the item forever with a message
+  # blaming a phantom second recording. Under the lock the second approval
+  # waits, sees the committed status, and refuses cleanly.
+  defp claim(%InboxItem{id: id}) do
+    import Ecto.Query, only: [from: 2]
+
+    case Repo.one(from(i in InboxItem, where: i.id == ^id, lock: "FOR UPDATE")) do
+      %InboxItem{status: :pending} = item -> {:ok, Repo.preload(item, :location)}
+      %InboxItem{} -> {:error, :already_approved}
+      nil -> {:error, :already_approved}
+    end
+  end
+
   # The invariant, enforced at the one place it has teeth. Anything the
   # operator hasn't settled is a refusal, not a default.
   defp resolved(%InboxItem{draft: draft}) do
@@ -118,7 +135,8 @@ defmodule Ambry.Inbox.Approval do
       # People first, and for the whole draft at once: the same human can be
       # behind two credits, and each credit creating its own left a
       # self-narrated book with two Person rows of one name.
-      with {:ok, people} <- resolve_people(item.draft),
+      with {:ok, item} <- claim(item),
+           {:ok, people} <- resolve_people(item.draft),
            {:ok, book} <- resolve_book(item.draft.work, people),
            {:ok, media} <- create_media(item, book, probe, people),
            {:ok, _item} <- link(item, media),
@@ -174,7 +192,8 @@ defmodule Ambry.Inbox.Approval do
   end
 
   defp author_params(credits, people) do
-    Enum.map(credits, fn credit ->
+    credits
+    |> Enum.map(fn credit ->
       {:ok, author} = resolve_identity(credit, people)
       %{author_id: author.id}
     end)
@@ -231,74 +250,63 @@ defmodule Ambry.Inbox.Approval do
   end
 
   defp behind(%Credit{} = credit, people),
-    do: Enum.map(credit.people, &Map.fetch!(people, PersonRef.key(&1)))
+    do: Enum.map(credit.person_keys, &Map.fetch!(people, &1))
 
-  # Every human the draft implies, created once each and looked up by
-  # `PersonRef.key/1`.
+  # Every human the draft implies, created once each and returned by key.
   #
-  # A person reference is either somebody already here, or somebody to create
-  # alongside the credit. Two or more on one credit is a shared pen name; the
-  # same one on two credits is an author who reads their own work, and that
-  # second case is why this is resolved for the whole draft rather than per
-  # credit — the two credits are independent, the human is not.
+  # One decision per human is now the model's own guarantee rather than
+  # something reconstructed here: credits reference people by key, so an
+  # author who reads their own book is one `PersonDecision` referenced twice
+  # and there is nothing left to fold together. The merge this used to do
+  # existed only because the two credits each held their own copy.
   defp resolve_people(%Draft{} = draft) do
-    draft
-    |> pending_refs()
-    |> Enum.reduce_while({:ok, %{}}, fn {key, ref}, {:ok, resolved} ->
-      case resolve_person(ref) do
-        {:ok, person} -> {:cont, {:ok, Map.put(resolved, key, person)}}
+    Enum.reduce_while(draft.people, {:ok, %{}}, fn person, {:ok, resolved} ->
+      case resolve_person(person) do
+        {:ok, created} -> {:cont, {:ok, Map.put(resolved, person.key, created)}}
         {:error, _reason} = error -> {:halt, error}
       end
     end)
   end
 
-  # One entry per distinct human, in the order the form lists them, with the
-  # photo and bio folded together across every reference to them.
-  defp pending_refs(%Draft{} = draft) do
-    creating = Enum.filter(draft.work.authors ++ draft.recording.narrators, &(&1.mode == :create))
-
-    creating
-    |> Enum.flat_map(& &1.people)
-    |> Enum.reduce([], fn ref, kept ->
-      key = PersonRef.key(ref)
-
-      case Enum.find_index(kept, fn {held, _ref} -> held == key end) do
-        nil -> kept ++ [{key, ref}]
-        index -> List.update_at(kept, index, fn {k, held} -> {k, PersonRef.merge(held, ref)} end)
-      end
-    end)
-  end
-
-  defp resolve_person(%PersonRef{person_id: id}) when not is_nil(id),
+  defp resolve_person(%PersonDecision{mode: :link, person_id: id}) when not is_nil(id),
     do: {:ok, Repo.get!(People.Person, id)}
 
-  # A new person arrives complete when the operator gave them a face and a
-  # bio in the picker — 3b's "never has to leave the inbox" is about exactly
-  # this, and a person created bare is a trip to the person form afterwards.
+  # A new person arrives complete when matching found them a face and a bio,
+  # or the operator picked one — 3b's "never has to leave the inbox" is about
+  # exactly this, and a person created bare is a trip to the person form
+  # afterwards.
   #
   # A photo that won't fetch doesn't fail the import, for the same reason a
   # cover doesn't: the credit is still correct without it.
-  defp resolve_person(%PersonRef{} = ref) do
+  defp resolve_person(%PersonDecision{} = person) do
     People.create_person(
       %{
-        name: ref.name,
-        description: ref.description,
-        image_path: person_image(ref)
+        name: Field.value(person.name),
+        description: Field.value(person.description),
+        image_path: person_image(Field.value(person.image))
       },
-      provenance: person_provenance(ref)
+      provenance: person_provenance(person)
     )
   end
 
   # String keys: `Provenance.track_changes/3` looks sources up by field name.
-  defp person_provenance(%PersonRef{} = ref) do
-    %{"image_path" => ref.image_source, "description" => ref.description_source}
+  # The name is provenanced too. Without it `track_changes/3` sees a changed
+  # field with no source and records the only thing left — **manual, locked** —
+  # so every person the inbox created claimed to have been typed by hand, and
+  # was locked against the refresh that would have improved it.
+  defp person_provenance(%PersonDecision{} = person) do
+    %{
+      "name" => person.name && person.name.source,
+      "image_path" => person.image && person.image.source,
+      "description" => person.description && person.description.source
+    }
     |> Enum.reject(fn {_field, source} -> is_nil(source) end)
     |> Map.new()
   end
 
-  defp person_image(%PersonRef{image_url: nil}), do: nil
+  defp person_image(nil), do: nil
 
-  defp person_image(%PersonRef{image_url: url}) do
+  defp person_image(url) when is_binary(url) do
     case Images.import_url(url) do
       {:ok, web_path} when is_binary(web_path) -> web_path
       other -> log_cover(url, other)
@@ -325,6 +333,7 @@ defmodule Ambry.Inbox.Approval do
         media_tracks: [track_params(probe)],
         title: Field.value(recording.title),
         published: Field.date(recording.published),
+        published_format: Field.atom(recording.published_format, :full),
         publisher: Field.value(recording.publisher),
         description: Field.value(recording.description),
         image_path: cover(recording.cover)
@@ -333,6 +342,7 @@ defmodule Ambry.Inbox.Approval do
         provenance(%{
           "title" => recording.title,
           "published" => recording.published,
+          "published_format" => recording.published_format,
           "publisher" => recording.publisher,
           "description" => recording.description,
           "image_path" => recording.cover

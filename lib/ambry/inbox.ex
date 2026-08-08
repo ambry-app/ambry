@@ -189,7 +189,7 @@ defmodule Ambry.Inbox do
   its place in the queue with an `issue` explaining why, because the operator
   needs to see it to act on it.
   """
-  def probe_item(%InboxItem{} = item) do
+  def probe_item(%InboxItem{} = item, opts \\ []) do
     attrs =
       case item.files do
         [file] -> probe_single(file, single_file: true)
@@ -200,8 +200,69 @@ defmodule Ambry.Inbox do
     with {:ok, item} <- update_item(item, attrs) do
       # tags are what matching leans on, so it follows probing rather than
       # racing it
-      {:ok, _job} = match_item_async(item)
+      {:ok, _job} = match_item_async(item, opts)
       {:ok, item}
+    end
+  end
+
+  @doc """
+  Re-reads one item from disk and re-asks every provider about it.
+
+  The operator's "this is wrong, look at it again" action, and it has to mean
+  all three of the things it sounds like it means. It replaced two buttons
+  that between them did none of them:
+
+    * **Re-read the files.** "Re-probe" ran ffprobe over the file list
+      captured at *discovery*, so a release the operator had since fixed on
+      disk — parts joined into one m4b, a stray file removed — probed exactly
+      the same way forever. Only a full location scan refreshed the list.
+    * **Ask the providers again, for real.** Provider answers are cached for
+      thirty days, so re-matching re-derived identical records from identical
+      cached responses and finished in milliseconds. The button could not
+      find anything new by construction. This one passes `refresh: true` all
+      the way down to `Metadata.Cache`.
+    * **Actually run.** `RunMatch` is `unique` over a 60-second window, and
+      Oban answers a uniqueness conflict with `{:ok, %{job | conflict?: true}}`
+      — an insert that looks successful and does nothing. Since re-probing
+      also enqueues a match, the two old buttons in sequence were *guaranteed*
+      to no-op with a cheerful flash. Operator-initiated work opts out of
+      uniqueness and reports what really happened.
+
+  What it deliberately does NOT do is re-seed the draft: `prepare_draft/1`
+  leaves an existing one alone, so new evidence appears in the form as
+  un-ticked records rather than overwriting a decision. Curation outranks
+  re-derivation — but the caller should say so, or "nothing happened" is the
+  only available reading.
+  """
+  def rescan_item(%InboxItem{} = item) do
+    with {:ok, item} <- refresh_files(item) do
+      probe_item(item, refresh: true)
+    end
+  end
+
+  @doc """
+  Re-reads and re-queries one item in the background.
+  """
+  def rescan_item_async(%InboxItem{} = item) do
+    %{inbox_item_id: item.id, refresh: true} |> RunProbe.new() |> Oban.insert()
+  end
+
+  # The files on disk, now, rather than the ones discovery happened to see.
+  #
+  # Left alone when the walk comes back empty: an NFS mount that is briefly
+  # away must not be recorded as "this release has no audio in it", and a
+  # genuinely empty folder is reported by probing instead.
+  defp refresh_files(%InboxItem{path: path} = item) do
+    case candidate(path) do
+      [{_path, files}] when files != [] and files != item.files ->
+        with {:ok, item} <- update_item(item, %{files: files}) do
+          # the draft describes files that just moved under it
+          mark_draft_stale(item)
+          {:ok, item}
+        end
+
+      _unchanged_or_unreachable ->
+        {:ok, item}
     end
   end
 
@@ -218,19 +279,154 @@ defmodule Ambry.Inbox do
   Never fails the item — providers being unreachable means fewer candidates,
   not a broken queue entry.
   """
-  def match_item(%InboxItem{} = item) do
-    with {:ok, item} <- update_item(item, AutoMatch.match(item)) do
+  def match_item(%InboxItem{} = item, opts \\ []) do
+    with {:ok, item} <- update_item(item, AutoMatch.match(item, opts)) do
       # Staging the import is the point of matching — proposals nothing turns
       # into decisions are just data sitting in a column.
-      prepare_draft(item)
+      #
+      # A draft that already exists is **brought up to date**, not left alone:
+      # matching has just replaced the evidence, and a retry that finally
+      # reaches a provider buys nothing if the records it returns never reach
+      # the form.
+      #
+      # Which update depends on whether a human has been here. An untouched
+      # draft is rebuilt outright, because the retry's new record is not
+      # *ticked* and re-deriving from the ticked set would ignore it. Once the
+      # operator has decided anything, their draft is re-derived around them
+      # instead — `resettle/2` keeps every curated choice.
+      cond do
+        is_nil(item.draft) ->
+          rebuild_draft(item)
+
+        Draft.curated?(item.draft) ->
+          update_draft(item, item.draft |> Draft.Edit.resettle(item) |> dump())
+
+        true ->
+          rebuild_draft(item)
+      end
     end
   end
 
   @doc """
-  Proposes matches for one item in the background.
+  Which providers were asked about this item and couldn't answer.
+
+  Not "found nothing" — that is an answer. This is the provider that was down,
+  rate-limited or misconfigured, across every level: the work, the recording,
+  and each person. `RunMatch` reads it to decide whether it is actually
+  finished, because a match that reached three of four databases has not got
+  what it set out to get.
   """
-  def match_item_async(%InboxItem{} = item) do
-    %{inbox_item_id: item.id} |> RunMatch.new() |> Oban.insert()
+  def unreached_providers(%InboxItem{matches: matches}) when is_map(matches) do
+    people = matches |> Map.get("people", %{}) |> Map.values()
+
+    [Map.get(matches, "work"), Map.get(matches, "recording") | people]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.flat_map(&(Map.get(&1, "providers") || []))
+    |> Enum.filter(&(&1["status"] == "failed"))
+    |> Enum.map(& &1["id"])
+    |> Enum.uniq()
+  end
+
+  def unreached_providers(_item), do: []
+
+  @doc """
+  Proposes matches for one item in the background.
+
+  A refreshing run opts out of `RunMatch`'s uniqueness window. That window
+  exists to collapse the storm of duplicate jobs a rescan of a whole location
+  produces; an operator who clicked a button meant it, and silently dropping
+  their job is how "look for matches again" came to do nothing at all.
+  """
+  def match_item_async(%InboxItem{} = item, opts \\ []) do
+    if Keyword.get(opts, :refresh, false) do
+      %{inbox_item_id: item.id, refresh: true}
+      |> RunMatch.new(unique: false)
+      |> Oban.insert()
+    else
+      %{inbox_item_id: item.id} |> RunMatch.new() |> Oban.insert()
+    end
+  end
+
+  @doc """
+  Re-derives queued drafts that the library just moved under.
+
+  **A draft is a snapshot of the library taken when the item was matched**, and
+  approval executes it exactly. So two queued items implying the same new
+  person, identity or series each created their own: measured on a real batch
+  of seven, Em Grosland narrates both Monk & Robot books and arrived as two
+  People and two Narrators, and "Monk and Robot" arrived as two Series. Books
+  are the same bug waiting for two recordings of one work — the split library
+  the whole work-identity design exists to prevent.
+
+  The seeder's rule was never wrong; it ran against stale facts. So this
+  re-points references rather than deciding: `Seed.relink/2` turns a credit or
+  series that meant to *create* something into a *link* when exactly one thing
+  of that name now exists, and changes nothing else. The affected credit
+  visibly becomes "link the existing Em Grosland" **before** the operator
+  approves it, so approval still executes only what the form showed.
+
+  Deliberately narrower than a re-seed, which would also re-open questions the
+  operator had already answered — see `Seed.relink/2`.
+  """
+  def refresh_siblings(%InboxItem{} = approved) do
+    case sibling_names(approved.draft) do
+      [] -> :ok
+      names -> names |> siblings_of(approved) |> Enum.each(&refresh_draft/1)
+    end
+  end
+
+  # Everything this import just put into the library that another queued item
+  # might also be about to create.
+  defp sibling_names(nil), do: []
+
+  defp sibling_names(%Draft{} = draft) do
+    work = draft.work || %{}
+    recording = draft.recording || %{}
+
+    [
+      Enum.map(Map.get(work, :authors) || [], & &1.name),
+      Enum.map(Map.get(recording, :narrators) || [], & &1.name),
+      Enum.map(Map.get(work, :series) || [], & &1.name),
+      Enum.map(draft.people || [], &Draft.Field.value(&1.name))
+    ]
+    |> List.flatten()
+    |> Enum.reject(&(is_nil(&1) or String.trim(&1) == ""))
+    |> Enum.uniq()
+  end
+
+  # A cheap candidate filter over the stored draft, not a precise one — a
+  # false positive costs an idempotent re-derivation that changes nothing,
+  # while scanning every pending item would cost a full rebuild each on a
+  # queue that is hundreds long during a cold start.
+  defp siblings_of(names, %InboxItem{} = approved) do
+    condition =
+      Enum.reduce(names, dynamic(false), fn name, acc ->
+        dynamic(
+          [i],
+          ^acc or ilike(fragment("?::text", i.draft), ^"%#{escape_like(name)}%")
+        )
+      end)
+
+    InboxItem
+    |> where([i], i.status == :pending and i.id != ^approved.id and not is_nil(i.draft))
+    |> where(^condition)
+    |> Repo.all()
+  end
+
+  defp escape_like(value), do: String.replace(value, ~r/[\\%_]/, "\\\\\\0")
+
+  # Never fatal: the import succeeded, and a sibling that won't re-derive is a
+  # stale proposal to fix on the form, not a reason to fail the approval that
+  # already committed.
+  defp refresh_draft(%InboxItem{} = item) do
+    case update_draft(item, item.draft |> Seed.relink(item) |> dump()) do
+      {:ok, _item} ->
+        :ok
+
+      {:error, _changeset} ->
+        Logger.warning(fn -> "Inbox: couldn't refresh draft for item #{item.id}" end)
+        :ok
+    end
   end
 
   @doc """
@@ -287,6 +483,7 @@ defmodule Ambry.Inbox do
   Runs an operator-written search and adds whatever it returns.
   """
   defdelegate research(item, level, fields), to: Lookup
+  defdelegate research_person(item, key, name), to: Lookup
 
   @doc """
   Asks one provider again — the one that was unreachable during matching.
@@ -414,6 +611,7 @@ defmodule Ambry.Inbox do
   def approve_item(%InboxItem{} = item) do
     case Approval.approve(item) do
       {:ok, media} ->
+        refresh_siblings(item)
         {:ok, media}
 
       {:error, reason} = error ->
@@ -454,8 +652,19 @@ defmodule Ambry.Inbox do
       "This folder and its library root are on different filesystems, so the file can't be " <>
         "hardlinked. Point it at a root on the same disk, or set the location to copy or move."
 
-  def describe_error({:destination_exists, path}),
-    do: "Something is already at #{path}. Two recordings can't share one path."
+  # Occupied by a recording is a curation problem; occupied by a file no
+  # record references is a leftover — an interrupted import's copy landed and
+  # its transaction rolled back, which is placement's documented worst case.
+  # The two need opposite advice, and the old message sent the operator
+  # hunting for a second recording that did not exist.
+  def describe_error({:destination_exists, path}) do
+    if file_in_use?(path) do
+      "Something is already at #{path}. Two recordings can't share one path."
+    else
+      "A file nothing in the library references is at #{path} — likely left " <>
+        "behind by an interrupted import. Delete it and approve again."
+    end
+  end
 
   def describe_error(:no_library_root),
     do: "There's no library root to import into. Add one under Locations."
@@ -477,6 +686,8 @@ defmodule Ambry.Inbox do
 
   def describe_error(_reason), do: "Couldn't add this to the library."
 
+  defp file_in_use?(path), do: Repo.exists?(where(MediaTrack, path: ^path))
+
   @doc """
   What is happening to each of these items in the background.
   """
@@ -486,6 +697,8 @@ defmodule Ambry.Inbox do
   What a background job is doing to one item.
   """
   defdelegate job_status(item), to: Progress, as: :status
+  defdelegate job_statuses(items), to: Progress, as: :statuses
+  defdelegate busy?(status), to: Progress
 
   @doc """
   Takes an item out of the queue without touching its files.

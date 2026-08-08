@@ -4,6 +4,8 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
+  alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
@@ -14,6 +16,9 @@ defmodule Ambry.Inbox.DraftTest do
     |> Map.merge(attrs)
     |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
   end
+
+  # A settled name field, for the hand-built drafts below.
+  defp named(value), do: %Field{value: value, source: "test", approved: true, required: true}
 
   defp provider_candidate(attrs) do
     Map.merge(
@@ -45,6 +50,22 @@ defmodule Ambry.Inbox.DraftTest do
     )
   end
 
+  # What a person-level provider's hit looks like in `matches["people"]`,
+  # whether written by matching or by `Lookup.research_person/3`.
+  defp person_evidence(attrs) do
+    Map.merge(
+      %{
+        "source" => "provider:wikipedia",
+        "provider_name" => "Wikipedia",
+        "id" => "Q1",
+        "name" => "Somebody",
+        "images" => [],
+        "description" => nil
+      },
+      attrs
+    )
+  end
+
   defp matches(work_candidates, opts \\ []) do
     %{
       "work" => %{
@@ -58,7 +79,8 @@ defmodule Ambry.Inbox.DraftTest do
         # A recording match only gets to fill fields in when it's believed;
         # tests that want its metadata used have to say so.
         "confidence" => Keyword.get(opts, :recording_confidence, 0.0)
-      }
+      },
+      "people" => Keyword.get(opts, :people, %{})
     }
   end
 
@@ -122,15 +144,182 @@ defmodule Ambry.Inbox.DraftTest do
       refute draft.work.approved
     end
 
-    test "weak records leave the new-book answer for the operator" do
+    # The recording level has refused to adopt a doubted match since it was
+    # built; the work level ticked its top record whatever the score said, so a
+    # weak match quietly supplied the title, date and authors of a book it
+    # wasn't about. Fields that look settled and are wrong beat visibly empty
+    # ones every time — which is why this is the one thing the removed
+    # "confirm it's a new book" gate was really protecting.
+    test "a doubted work match fills nothing in and says why" do
       candidates = [
         provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5})
       ]
 
       draft = Seed.build(item(%{matches: matches(candidates, confidence: 0.5), tags: %{}}))
 
-      refute draft.work.approved
-      assert Enum.any?(Draft.unresolved(draft), &(&1.label =~ "already have"))
+      assert draft.work.doubt == :low_confidence
+      assert draft.work.doubt_detail =~ "Something Else"
+      assert draft.work.sources == []
+      # nothing was adopted, so the title is a decision rather than a wrong answer
+      refute draft.work.title.value == "Something Else"
+      assert Enum.any?(Draft.unresolved(draft), &(&1.label =~ "records describe this book"))
+    end
+
+    # The doubt asks "which records describe this book". Ticking one is the
+    # answer, and it used to leave the doubt standing — so the decision stayed
+    # outstanding forever and the item could never be imported, with no
+    # control on the page able to clear it. The recording level has cleared
+    # its own doubt on a tick since it was built; the work level was given
+    # doubt later and this half was missed. Found by a real end-to-end import.
+    test "ticking a record settles a doubted work" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5}),
+        provider_candidate(%{"id" => "b", "title" => "The Real One", "score" => 0.45})
+      ]
+
+      item = item(%{matches: matches(candidates, confidence: 0.5), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert item.draft.work.doubt == :low_confidence
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label =~ "records describe this book"))
+
+      ticked =
+        Draft.Edit.toggle_source(item.draft, item, :work, Enum.at(candidates, 1))
+
+      assert ticked.work.doubt == :none
+      refute Enum.any?(Draft.unresolved(ticked), &(&1.label =~ "records describe this book"))
+
+      # and un-ticking the last one puts the question back
+      untangled = Draft.Edit.toggle_source(ticked, item, :work, Enum.at(candidates, 1))
+      assert untangled.work.sources == []
+    end
+
+    # The seeder sets `chosen_key` too, so keying re-derivation on it froze
+    # every auto-settled field against all later evidence. Measured end to end
+    # on the operator's Becky Chambers file: the work is doubted, so at seed
+    # time the only title on offer is the tags' shelf label and it settles —
+    # and then ticking the correct record could not dislodge it. The book
+    # imported as "Wayfarers, Book 1" with the real title sitting un-chosen in
+    # its own candidate list.
+    test "a value the seeder settled follows a record the operator ticks" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5})
+      ]
+
+      item =
+        item(%{
+          matches: matches(candidates, confidence: 0.5),
+          tags: %{"book_title" => "Shelf Label", "published" => "2011-06-15"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # doubted, so nothing but the tags proposed a title and it settled
+      assert item.draft.work.title.value == "Shelf Label"
+      assert item.draft.work.title.approved
+      refute item.draft.work.title.curated
+
+      ticked = Draft.Edit.toggle_source(item.draft, item, :work, hd(candidates))
+
+      # The record and the tags now disagree, so it becomes an open question
+      # with both on offer — rather than staying silently stuck on the label.
+      refute ticked.work.title.approved
+
+      # the file's own name rides along as an advisory chip — offered, and
+      # not counted among the sources that disagree
+      assert Enum.map(ticked.work.title.candidates, & &1.value) == [
+               "Something Else",
+               "Shelf Label",
+               "Some Release"
+             ]
+
+      # and taking the leading suggestion takes the ticked record's, not the
+      # file's, because records outrank tags in the candidate order
+      assert Draft.Edit.approve_all(ticked).work.title.value == "Something Else"
+    end
+
+    # A key can legitimately disappear while the answer stays on offer: the
+    # operator picks the release-name chip, then ticks a record whose title
+    # turns out to be identical, so the advisory chip is dropped as a
+    # duplicate of it. Looking the choice up by key alone found nothing and
+    # silently threw it away — measured on the Chambers book, which went from
+    # ready to "pick a title" in the middle of a batch import with nobody
+    # having touched it.
+    test "a chosen value survives its candidate key disappearing" do
+      candidates = [provider_candidate(%{"title" => "The Long Way to a Small, Angry Planet"})]
+
+      item =
+        %InboxItem{path: "/downloads/The Long Way to a Small, Angry Planet"}
+        |> Map.merge(%{
+          matches: matches(candidates, confidence: 0.5),
+          tags: %{"book_title" => "Wayfarers, Book 1", "published" => "2014-01-01"}
+        })
+        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # doubted, so nothing is ticked and the file's name is on offer
+      chosen = Draft.Edit.choose_field(item.draft, :work, :title, "release_name")
+      assert chosen.work.title.value == "The Long Way to a Small, Angry Planet"
+      assert chosen.work.title.curated
+
+      # ticking the record makes its title identical, so the advisory chip is
+      # dropped — the choice must survive on its value
+      ticked = Draft.Edit.toggle_source(chosen, item, :work, hd(candidates))
+
+      assert ticked.work.title.value == "The Long Way to a Small, Angry Planet"
+      assert ticked.work.title.approved
+      # and stays curated, or it would be movable by the next re-derivation
+      assert ticked.work.title.curated
+    end
+
+    # The other half of the same rule: a chip a human picked must NOT move.
+    test "a value the operator chose survives a record being ticked" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5}),
+        provider_candidate(%{"id" => "b", "title" => "The Other One", "score" => 0.45})
+      ]
+
+      item =
+        item(%{
+          matches: matches(candidates, confidence: 0.5),
+          tags: %{"book_title" => "Shelf Label", "published" => "2011-06-15"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      chosen = Draft.Edit.choose_field(item.draft, :work, :title, "tags")
+      assert chosen.work.title.value == "Shelf Label"
+      assert chosen.work.title.curated
+
+      ticked = Draft.Edit.toggle_source(chosen, item, :work, hd(candidates))
+      assert ticked.work.title.value == "Shelf Label"
+    end
+
+    test "a believed work match still adopts its records" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      assert draft.work.doubt == :none
+      assert draft.work.sources != []
+      assert draft.work.title.value == "Leviathan Wakes"
+    end
+
+    # "Is this a book you already have" is answered by the LOCAL search, and
+    # nothing local matched. Gating it on how good the *provider* records are
+    # conflated two questions and left the operator with an outstanding
+    # decision whose only control lives in a block that renders solely when
+    # there are local candidates to show — so there was nothing on the page to
+    # settle it with.
+    test "no local hit settles the identity as a new book" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Something Else", "score" => 0.5})
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates, confidence: 0.5), tags: %{}}))
+
+      assert draft.work.mode == :create
+      assert draft.work.approved
+      refute Enum.any?(Draft.unresolved(draft), &(&1.label =~ "already have"))
     end
 
     test "linking a book does not re-decide the book's own fields" do
@@ -163,9 +352,11 @@ defmodule Ambry.Inbox.DraftTest do
 
       assert [credit] = draft.work.authors
       assert credit.mode == :create
-      assert [person_ref] = credit.people
-      assert person_ref.person_id == nil
-      assert person_ref.name == "Nobody In This Library"
+      assert [key] = credit.person_keys
+      assert [person] = draft.people
+      assert person.key == key
+      assert person.person_id == nil
+      assert Field.value(person.name) == "Nobody In This Library"
       assert credit.approved
     end
 
@@ -192,22 +383,151 @@ defmodule Ambry.Inbox.DraftTest do
       assert credit.mode == :create
     end
 
+    # 3b's promise is that the operator never leaves the inbox to finish a
+    # leaf entity, and a person with no face is unfinished. Matching asks
+    # every person-level provider in the background, so the photo and the
+    # biography are here to be proposed rather than fetched with somebody
+    # waiting on them.
+    test "a new person arrives with the photo and biography matching found" do
+      candidates = [provider_candidate(%{"authors" => ["Travis Baldree"]})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches(candidates,
+                people: %{
+                  "travis baldree" => %{
+                    "name" => "Travis Baldree",
+                    "candidates" => [
+                      %{
+                        "source" => "provider:hardcover",
+                        "id" => "hc-9",
+                        "name" => "Travis Baldree",
+                        "images" => ["https://example.test/baldree.jpg"],
+                        "description" => "An American author and audiobook narrator."
+                      }
+                    ]
+                  }
+                }
+              ),
+            tags: %{}
+          })
+        )
+
+      assert [person] = draft.people
+      assert Field.value(person.image) == "https://example.test/baldree.jpg"
+      assert person.image.source == "provider:hardcover"
+      assert Field.value(person.description) == "An American author and audiobook narrator."
+      assert person.description.source == "provider:hardcover"
+    end
+
+    # An import with no photo is the previous behaviour, not a failure — and
+    # every draft built before the people level existed has no such key.
+    test "a person nothing was found for is still the plain proposal" do
+      candidates = [provider_candidate(%{"authors" => ["Nobody In This Library"]})]
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [person] = draft.people
+      assert Field.value(person.name) == "Nobody In This Library"
+      assert Field.value(person.image) == nil
+      assert Field.value(person.description) == nil
+      # nothing to decide, so it doesn't become a question
+      assert person.doubt == :nothing_found
+      assert PersonDecision.resolved?(person)
+    end
+
+    # The databases disagree about the dots and spaces in "James S.A. Corey",
+    # and none of those spellings is a different human. Deduping only
+    # case-insensitively left one credit per spelling — two credits, two
+    # person decisions, and a duplicate library author waiting at approval.
+    test "two spellings of one author are one credit" do
+      candidates = [
+        provider_candidate(%{
+          "id" => "rg",
+          "source" => "provider:rreading_glasses",
+          "provider_name" => "rreading-glasses",
+          "authors" => ["James S.A. Corey"]
+        }),
+        provider_candidate(%{"id" => "hc", "authors" => ["James S. A. Corey"]})
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [credit] = draft.work.authors
+      assert [_one_person] = draft.people
+      assert [_one_key] = credit.person_keys
+    end
+
+    test "a punctuation variant of a name links the existing identity" do
+      person = insert(:person, name: "James S. A. Corey")
+      insert(:author, name: "James S. A. Corey", person: person)
+
+      candidates = [provider_candidate(%{"authors" => ["James S.A. Corey"]})]
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [%{mode: :link} = credit] = draft.work.authors
+      assert credit.identity_id
+    end
+
+    # The library's "Patricia Rodríguez" came from a record; the next file's
+    # tags say "Patricia Rodriguez". One narrator — the accent was one
+    # approval away from a second person of the same name.
+    test "an accent variant of a name links the existing identity" do
+      person = insert(:person, name: "Patricia Rodríguez")
+      insert(:author, name: "Patricia Rodríguez", person: person)
+
+      candidates = [provider_candidate(%{"authors" => ["Patricia Rodriguez"]})]
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [%{mode: :link} = credit] = draft.work.authors
+      assert credit.identity_id
+    end
+
+    # Items matched before the person key became punctuation-insensitive
+    # stored their evidence under the older spelling-sensitive keys; that
+    # evidence must not go dark because the sameness rule improved.
+    test "evidence stored under an older key still reaches the person" do
+      candidates = [provider_candidate(%{"authors" => ["James S.A. Corey"]})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches(candidates,
+                people: %{
+                  "james s. a. corey" => %{
+                    "name" => "James S. A. Corey",
+                    "candidates" => [
+                      person_evidence(%{
+                        "name" => "James S. A. Corey",
+                        "images" => ["https://example.test/corey.jpg"]
+                      })
+                    ]
+                  }
+                }
+              ),
+            tags: %{}
+          })
+        )
+
+      assert [person] = draft.people
+      assert Field.value(person.image) == "https://example.test/corey.jpg"
+    end
+
     test "two or more people behind one credit is just a longer list" do
       # the composite case, which needs no special pathway: one Author, two
-      # People, expressed as two entries in the same control
+      # People, expressed as two keys on the same credit
       credit = %Credit{
         name: "James S.A. Corey",
         kind: :author,
         mode: :create,
         approved: true,
-        people: [
-          %Draft.PersonRef{name: "Daniel Abraham"},
-          %Draft.PersonRef{name: "Ty Franck"}
-        ]
+        person_keys: ["daniel abraham", "ty franck"]
       }
 
       assert Credit.resolved?(credit)
-      assert length(credit.people) == 2
+      assert length(credit.person_keys) == 2
     end
 
     # Validation gates *saving*, the invariant gates *importing*. A half-made
@@ -215,7 +535,12 @@ defmodule Ambry.Inbox.DraftTest do
     # person and then name them — so only an approved one is rejected.
     test "a half-made credit saves; an approved one with nobody behind it does not" do
       in_progress =
-        Credit.changeset(%Credit{}, %{name: "Somebody", kind: :author, mode: :create, people: []})
+        Credit.changeset(%Credit{}, %{
+          name: "Somebody",
+          kind: :author,
+          mode: :create,
+          person_keys: []
+        })
 
       assert in_progress.valid?
       refute Credit.resolved?(Ecto.Changeset.apply_changes(in_progress))
@@ -225,28 +550,195 @@ defmodule Ambry.Inbox.DraftTest do
           name: "Somebody",
           kind: :author,
           mode: :create,
-          people: [],
+          person_keys: [],
           approved: true
         })
 
       refute approved.valid?
-      assert %{people: ["needs at least one person behind it"]} = errors_on(approved)
+      assert %{person_keys: ["needs at least one person behind it"]} = errors_on(approved)
     end
 
-    test "a person row nobody has named yet keeps the credit unresolved" do
-      credit = %Credit{
-        name: "James S.A. Corey",
-        kind: :author,
-        mode: :create,
-        approved: true,
-        people: [%Draft.PersonRef{name: "Daniel Abraham"}, %Draft.PersonRef{name: ""}]
+    # The credit is resolved; the *person* is the one still needing a name, and
+    # that is reported once for the human rather than once per credit — which
+    # is the whole reason people became their own level.
+    test "a person nobody has named yet keeps the import unresolved" do
+      draft = %Draft{
+        work: %Draft.Work{
+          mode: :create,
+          approved: true,
+          authors: [
+            %Credit{
+              name: "James S.A. Corey",
+              kind: :author,
+              mode: :create,
+              approved: true,
+              person_keys: ["daniel abraham", "unnamed"]
+            }
+          ]
+        },
+        people: [
+          %PersonDecision{key: "daniel abraham", approved: true, name: named("Daniel Abraham")},
+          %PersonDecision{key: "unnamed", approved: true, name: named(nil)}
+        ]
       }
 
-      refute Credit.resolved?(credit)
+      assert Enum.any?(Draft.unresolved(draft), &(&1.section == :people and &1.state == :missing))
+    end
+  end
+
+  # A credit auto-approves on the premise "nobody by that name at all", and a
+  # sibling import can invalidate it: Joyland created the person Stephen
+  # King, and Holly's narrator credit for him then sailed through approval
+  # and created a second Stephen King. "Is this the same human?" is never
+  # automated, so the sibling import reopens the question instead.
+  describe "a sibling import that creates a person reopens the question" do
+    test "an auto-approved credit for a person who now exists goes back to unapproved" do
+      recording = [recording_record(%{"narrators" => ["Stephen King"]})]
+
+      item =
+        item(%{
+          matches: matches([], recording: recording, recording_confidence: 0.9),
+          tags: %{"book_title" => "Holly", "published" => "2023-09-05"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert [%{approved: true}] = item.draft.recording.narrators
+
+      insert(:person, name: "Stephen King")
+
+      relinked = Seed.relink(item.draft, item)
+      assert [%{approved: false}] = relinked.recording.narrators
+    end
+
+    test "answering the reopened question is final" do
+      recording = [recording_record(%{"narrators" => ["Stephen King"]})]
+
+      item =
+        item(%{
+          matches: matches([], recording: recording, recording_confidence: 0.9),
+          tags: %{"book_title" => "Holly", "published" => "2023-09-05"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      insert(:person, name: "Stephen King")
+
+      answered =
+        item.draft
+        |> Seed.relink(item)
+        |> Draft.Edit.approve_credit(:recording, 0, true)
+        |> Seed.relink(item)
+
+      assert [%{approved: true}] = answered.recording.narrators
+    end
+  end
+
+  # "Bill Hodges" and "Bill Hodges Trilogy" are one series spelled two ways,
+  # and a real batch filed End of Watch under both — plus "Phèdre's Trilogy"
+  # as an accent variant of "Kushiel's Legacy: Phedre Trilogy". Same family
+  # as titles and people: fillers, punctuation, accents and subtitle heads
+  # are spellings, not different series.
+  describe "series spellings collapse" do
+    test "a filler-word variant is one series membership" do
+      candidates = [
+        provider_candidate(%{
+          "id" => "a",
+          "series" => [%{"name" => "Bill Hodges", "number" => "3"}]
+        }),
+        provider_candidate(%{
+          "id" => "b",
+          "series" => [%{"name" => "Bill Hodges Trilogy", "number" => "3"}]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [series] = draft.work.series
+      assert to_string(series.number) == "3"
+    end
+
+    test "a filler-word variant links the series already in the library" do
+      existing = insert(:series, name: "Bill Hodges")
+
+      candidates = [
+        provider_candidate(%{
+          "series" => [%{"name" => "Bill Hodges Trilogy", "number" => "3"}]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [%{mode: :link, series_id: id}] = draft.work.series
+      assert id == existing.id
+    end
+  end
+
+  describe "junk series stay off the form" do
+    # Goodreads-derived data models an author's whole bibliography as a
+    # series named after them — Joyland arrived in a series called "Stephen
+    # King", Un Lun Dun in one called "China Miéville", two of ten releases
+    # in one real batch.
+    test "a series named after a credited author is a shelf, not a series" do
+      candidates = [
+        provider_candidate(%{
+          "authors" => ["Stephen King"],
+          "series" => [
+            %{"name" => "Stephen King", "number" => "37"},
+            %{"name" => "The Hard Case Crime Series", "number" => "1"}
+          ]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [series] = draft.work.series
+      assert series.name == "The Hard Case Crime Series"
     end
   end
 
   describe "series numbers are never invented" do
+    # `book_number` is a decimal column, so `SeriesLink` refuses a number that
+    # won't cast — but the seeder proposed one anyway, which made the whole
+    # draft changeset invalid. `RunMatch` then failed, retried and failed
+    # again until Oban gave up, so the item never got a draft at all and
+    # nothing in the app said why. Found importing the operator's own
+    # `01 Wool [128k]`: rreading-glasses answers "1A" and Hardcover "1-5".
+    test "a position that isn't a number never reaches the draft" do
+      candidates = [
+        provider_candidate(%{
+          "series" => [
+            %{"name" => "Silo", "number" => "1A"},
+            %{"name" => "Wool", "number" => "1-5"},
+            %{"name" => "The Expanse", "number" => "2"}
+          ]
+        })
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+
+      # the whole point: this used to be invalid and kill the match job
+      assert {:ok, item} = Inbox.prepare_draft(item)
+
+      numbers = Map.new(item.draft.work.series, &{&1.name, &1.number})
+      assert numbers["Silo"] == nil
+      assert numbers["Wool"] == nil
+      assert numbers["The Expanse"] == "2"
+
+      # the memberships survive; the missing numbers are ordinary questions
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label =~ "Series: Silo"))
+    end
+
+    test "a tag's unparseable number is dropped too" do
+      item =
+        item(%{
+          matches: matches([provider_candidate(%{"series" => []})]),
+          tags: %{"series" => "Silo", "series_number" => "1-5"}
+        })
+
+      assert {:ok, item} = Inbox.prepare_draft(item)
+      assert [link] = item.draft.work.series
+      assert link.number == nil
+    end
+
     test "a series with no number anywhere stays unresolved" do
       candidates = [provider_candidate(%{"series" => ["The Expanse"]})]
       draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
@@ -271,7 +763,7 @@ defmodule Ambry.Inbox.DraftTest do
 
     test "each series is its own decision" do
       candidates = [
-        provider_candidate(%{"series" => ["The Expanse", "The Expanse (Chronological)"]})
+        provider_candidate(%{"series" => ["The Expanse", "Expanse Novellas"]})
       ]
 
       draft =
@@ -632,7 +1124,7 @@ defmodule Ambry.Inbox.DraftTest do
       # person behind it
       draft =
         item.draft
-        |> Draft.Edit.set_person(:work, 0, 0, %{name: "Jason Pargin", person_id: nil})
+        |> Draft.Edit.rename_person("davidwong", "Jason Pargin")
         |> Draft.Edit.approve_credit(:work, 0, true)
 
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
@@ -641,7 +1133,8 @@ defmodule Ambry.Inbox.DraftTest do
 
       assert [credit] = after_tick.work.authors
       assert credit.name == "David Wong"
-      assert [%{name: "Jason Pargin"}] = credit.people
+      assert [person] = Draft.people_for(after_tick, credit)
+      assert Field.value(person.name) == "Jason Pargin"
       assert credit.approved
     end
 
@@ -671,6 +1164,369 @@ defmodule Ambry.Inbox.DraftTest do
       # nobody curated it, so it goes when its source does
       assert after_untick.work.authors == []
     end
+
+    # A curated draft survives a re-match via resettle rather than a rebuild —
+    # but the query is evidence, not a decision, and the evidence header kept
+    # reporting the search from the draft's first seeding while the records
+    # below it came from a newer one.
+    test "a re-match's query reaches a resettled draft's evidence header" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.rename_credit(item.draft, :work, 0, "Somebody Else")
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      item =
+        update_in(
+          item.matches["work"],
+          &Map.merge(&1, %{
+            "query" => "a plainer title",
+            "query_fields" => %{"title" => "a plainer title"}
+          })
+        )
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+
+      assert reseeded.work.query == "a plainer title"
+      assert reseeded.work.query_fields == %{"title" => "a plainer title"}
+    end
+  end
+
+  # The reported flow: the operator reveals a pen name, renames the person
+  # behind it (which marks them curated), and clicks "look again". The results
+  # land in `matches` — and a reseed that skipped curated people wholesale
+  # showed nothing new for exactly the people the button exists for.
+  describe "a re-search reaches a curated person" do
+    test "a renamed person drops the old face and picks up what a re-search finds" do
+      work = [provider_candidate(%{"authors" => ["James S.A. Corey"]})]
+
+      item =
+        item(%{
+          matches:
+            matches(work,
+              people: %{
+                "james s.a. corey" => %{
+                  "name" => "James S.A. Corey",
+                  "candidates" => [
+                    person_evidence(%{
+                      "id" => "corey",
+                      "name" => "James S.A. Corey",
+                      "images" => ["https://example.test/corey.jpg"]
+                    })
+                  ]
+                }
+              }
+            ),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # the pen name's own photo arrived with the item
+      assert [person] = item.draft.people
+      assert Field.value(person.image) == "https://example.test/corey.jpg"
+
+      draft = Draft.Edit.rename_person(item.draft, person.key, "Daniel Abraham")
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      # nobody has searched the new name yet: the pen name's face stops being
+      # offered rather than posing as evidence about Daniel Abraham, and the
+      # doubt says looking again is what would help
+      reseeded = Draft.Edit.resettle(item.draft, item)
+      assert [person] = reseeded.people
+      assert Field.value(person.name) == "Daniel Abraham"
+      assert person.image.candidates == []
+      assert person.doubt == :low_confidence
+
+      # "look again" adds evidence about the new name — added, never
+      # replaced, exactly as Lookup.research_person writes it
+      item =
+        update_in(item.matches["people"]["james s.a. corey"], fn held ->
+          held
+          |> Map.put("name", "Daniel Abraham")
+          |> Map.update!(
+            "candidates",
+            &(&1 ++
+                [
+                  person_evidence(%{
+                    "id" => "abraham",
+                    "name" => "Daniel Abraham",
+                    "images" => ["https://example.test/abraham.jpg"],
+                    "description" => "An American author."
+                  })
+                ])
+          )
+        end)
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+      assert [person] = reseeded.people
+
+      # the new evidence is on the form, and the typed name stays the
+      # operator's
+      assert Field.value(person.image) == "https://example.test/abraham.jpg"
+      assert Field.value(person.description) == "An American author."
+      assert Field.value(person.name) == "Daniel Abraham"
+      assert person.name.source == "manual"
+      assert person.doubt == :none
+    end
+
+    test "a person added to a credit gets their search results once named" do
+      work = [provider_candidate(%{"authors" => ["James S.A. Corey"]})]
+      item = item(%{matches: matches(work), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # the operator adds the second half of the pen name and names them
+      draft = Draft.Edit.add_person(item.draft, item, :work, 0)
+      assert [_first, key] = hd(draft.work.authors).person_keys
+      draft = Draft.Edit.rename_person(draft, key, "Ty Franck")
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      # "find a photo and bio" writes under the minted key
+      item =
+        update_in(item.matches["people"], fn people ->
+          Map.put(people || %{}, key, %{
+            "name" => "Ty Franck",
+            "candidates" => [
+              person_evidence(%{
+                "id" => "franck",
+                "name" => "Ty Franck",
+                "images" => ["https://example.test/franck.jpg"],
+                "description" => "An American writer."
+              })
+            ]
+          })
+        end)
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+      person = Enum.find(reseeded.people, &(&1.key == key))
+
+      assert Field.value(person.image) == "https://example.test/franck.jpg"
+      assert Field.value(person.description) == "An American writer."
+      assert Field.value(person.name) == "Ty Franck"
+      assert person.doubt == :none
+    end
+
+    # Picking a photo curates the *field*, not the person — and a picked photo
+    # moving because some record got ticked is the same broken rule at a
+    # different level.
+    test "a picked photo survives re-derivation" do
+      work = [provider_candidate(%{"authors" => ["Travis Baldree"]})]
+
+      item =
+        item(%{
+          matches:
+            matches(work,
+              people: %{
+                "travis baldree" => %{
+                  "name" => "Travis Baldree",
+                  "candidates" => [
+                    person_evidence(%{
+                      "id" => "tb-1",
+                      "name" => "Travis Baldree",
+                      "images" => ["https://example.test/first.jpg"]
+                    }),
+                    person_evidence(%{
+                      "id" => "tb-2",
+                      "name" => "Travis Baldree",
+                      "images" => ["https://example.test/second.jpg"]
+                    })
+                  ]
+                }
+              }
+            ),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # auto-settled on the first; the operator picks the second
+      assert [person] = item.draft.people
+      assert Field.value(person.image) == "https://example.test/first.jpg"
+
+      second =
+        Enum.find(person.image.candidates, &(&1.value == "https://example.test/second.jpg"))
+
+      draft = Draft.Edit.choose_person_image(item.draft, "travisbaldree", second.key)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+      assert [person] = reseeded.people
+      assert Field.value(person.image) == "https://example.test/second.jpg"
+      assert person.image.curated
+    end
+  end
+
+  # Measured on the operator's real library: the tag title and the release
+  # name disagree on 105 of 198 releases, and neither is reliably the better
+  # one — the Wayfarers books are tagged "Wayfarers, Book 1" and named "The
+  # Long Way to a Small, Angry Planet", while The Wild Robot's release name
+  # yields "Peter Brown" and "Out of Spite, Out of Mind: Magic 2.0, Book 5"
+  # truncates to "Out of Spite". So the name is *offered*, never preferred.
+  # `Title: Series, Book N` is the dominant real-world tag shape, and scored
+  # as a rival to the catalogue's bare title it asked "pick a title" on three
+  # of seven books in one real batch — always for the same mechanical reason.
+  describe "a subtitle is not a different title" do
+    test "the tag's subtitle collapses into the record's bare title" do
+      candidates = [provider_candidate(%{"title" => "Battle Ground"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(candidates),
+            tags: %{"book_title" => "Battle Ground: The Dresden Files, Book 17"}
+          })
+        )
+
+      # one answer, settled, and the bare title is the one kept
+      assert draft.work.title.value == "Battle Ground"
+      assert draft.work.title.approved
+    end
+
+    test "a dash separates a subtitle too" do
+      candidates = [provider_candidate(%{"title" => "A Prayer for the Crown-Shy"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(candidates),
+            tags: %{"book_title" => "A Prayer for the Crown-Shy - 01"}
+          })
+        )
+
+      assert draft.work.title.value == "A Prayer for the Crown-Shy"
+      assert draft.work.title.approved
+    end
+
+    # The subtlety this rule exists to survive: comparing the head on BOTH
+    # sides would merge two different books that share a series prefix.
+    test "two books sharing a prefix still disagree" do
+      candidates = [provider_candidate(%{"title" => "The Expanse: Caliban's War"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(candidates),
+            tags: %{"book_title" => "The Expanse: Leviathan Wakes"}
+          })
+        )
+
+      refute draft.work.title.approved
+      # both survive as rival answers (plus the advisory release-name chip)
+      assert "The Expanse: Caliban's War" in Enum.map(draft.work.title.candidates, & &1.value)
+      assert "The Expanse: Leviathan Wakes" in Enum.map(draft.work.title.candidates, & &1.value)
+    end
+
+    # A tag lowercases what a catalogue capitalizes, and drops the article
+    # too. One answer written two ways — and the catalogue's spelling is the
+    # title as written, so prefer-shorter must not pick the lowercase one.
+    test "a leading article and casing are one title, spelled the catalogue's way" do
+      candidates = [provider_candidate(%{"title" => "The House in the Cerulean Sea"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(candidates),
+            tags: %{"book_title" => "house in the cerulean sea"}
+          })
+        )
+
+      assert draft.work.title.value == "The House in the Cerulean Sea"
+      assert draft.work.title.approved
+    end
+
+    # The caps tie-break briefly preferred "Artemis (Unabridged)" over
+    # "Artemis" — the parenthetical adds a capital. The junk-free spelling
+    # wins first, always.
+    test "the junk-free spelling wins the collapse" do
+      candidates = [provider_candidate(%{"title" => "Artemis"})]
+
+      draft =
+        Seed.build(
+          item(%{matches: matches(candidates), tags: %{"book_title" => "Artemis (Unabridged)"}})
+        )
+
+      assert draft.work.title.value == "Artemis"
+      assert draft.work.title.approved
+    end
+
+    # Hardcover writes "Demon World Boba Shop:, Vol. 1" (their punctuation)
+    # where rreading-glasses writes the bare title; offered as rivals, the
+    # operator arbitrated a non-question.
+    test "a labelled trailing ordinal folds into the bare title" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Demon World Boba Shop"}),
+        provider_candidate(%{"id" => "b", "title" => "Demon World Boba Shop:, Vol. 1"})
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert draft.work.title.value == "Demon World Boba Shop"
+      assert draft.work.title.approved
+    end
+
+    # A subtitle is punctuated. Plain word-prefix containment would merge
+    # these, and they are two different books.
+    test "a longer title that merely starts the same is not a subtitle" do
+      candidates = [provider_candidate(%{"title" => "Dune Messiah"})]
+
+      draft =
+        Seed.build(item(%{matches: matches(candidates), tags: %{"book_title" => "Dune"}}))
+
+      refute draft.work.title.approved
+      assert "Dune" in Enum.map(draft.work.title.candidates, & &1.value)
+      assert "Dune Messiah" in Enum.map(draft.work.title.candidates, & &1.value)
+    end
+  end
+
+  describe "the file's own name is a proposal, not a rival" do
+    test "it is offered as a chip without making the field a question" do
+      item =
+        %InboxItem{path: "/downloads/The Long Way to a Small, Angry Planet"}
+        |> Map.merge(%{
+          matches: matches([]),
+          tags: %{"book_title" => "Wayfarers, Book 1", "published" => "2014-01-01"}
+        })
+        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
+
+      draft = Seed.build(item)
+
+      # settled on the tags, exactly as before — the name did not argue
+      assert draft.work.title.value == "Wayfarers, Book 1"
+      assert draft.work.title.approved
+
+      # but the right answer is on the form, one click away
+      assert %{value: "The Long Way to a Small, Angry Planet", source: "release_name"} =
+               Enum.find(draft.work.title.candidates, &(&1.source == "release_name"))
+    end
+
+    # The old `fallback:` behaviour, kept: with nothing else on offer the name
+    # stops being advisory and answers the question.
+    test "it settles the field when nothing else proposed anything" do
+      item =
+        %InboxItem{path: "/downloads/Leviathan Wakes"}
+        |> Map.merge(%{matches: matches([]), tags: %{"published" => "2011-06-15"}})
+        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
+
+      draft = Seed.build(item)
+
+      assert draft.work.title.value == "Leviathan Wakes"
+      assert draft.work.title.approved
+    end
+
+    test "it is not repeated as a second chip when it agrees" do
+      item =
+        %InboxItem{path: "/downloads/Leviathan Wakes"}
+        |> Map.merge(%{
+          matches: matches([provider_candidate(%{})]),
+          tags: %{"book_title" => "Leviathan Wakes"}
+        })
+        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
+
+      draft = Seed.build(item)
+
+      refute Enum.any?(draft.work.title.candidates, &(&1.source == "release_name"))
+      assert draft.work.title.approved
+    end
   end
 
   describe "choosing between chips" do
@@ -680,8 +1536,14 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
 
       assert draft.work.title.approved
-      assert [chip] = draft.work.title.candidates
+
+      # the record's proposal is the one taken; the file's own name rides
+      # along as an advisory chip that never argued
+      assert [chip, advisory] = draft.work.title.candidates
       assert Draft.Field.chose?(draft.work.title, chip)
+      assert chip.source == "provider:hardcover"
+      assert advisory.source == "release_name"
+      refute Draft.Field.chose?(draft.work.title, advisory)
     end
 
     # Two records from ONE provider both propose a release date. Keying the
@@ -783,6 +1645,30 @@ defmodule Ambry.Inbox.DraftTest do
       assert draft.work.published_format.value == "year"
     end
 
+    # Measured on a real import (Legends & Lattes): Hardcover and the file's
+    # tags both said 2022-01-01, and the merged chip was credited to the tags —
+    # so the form said "from the file's tags" about a value a provider had
+    # corroborated, and approval wrote that as provenance. `prefer` returns a
+    # value, which cannot break a tie between two candidates proposing the same
+    # one, and comparing its answer to `incoming.value` called every tie for
+    # whoever came last.
+    test "a value two sources agree on is credited to the provider, not the tags" do
+      item =
+        item(%{
+          matches: matches([provider_candidate(%{"published" => "2022-01-01"})]),
+          tags: %{"published" => "2022-01-01", "published_format" => "year"}
+        })
+
+      draft = Seed.build(item)
+
+      assert [chip] = draft.work.published.candidates
+      assert chip.source == "provider:hardcover"
+      assert draft.work.published.source == "provider:hardcover"
+      # and both are still credited on the chip
+      assert chip.label =~ "Hardcover"
+      assert chip.label =~ "tags"
+    end
+
     test "an auto-settled format highlights the chip it took" do
       draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
 
@@ -820,6 +1706,57 @@ defmodule Ambry.Inbox.DraftTest do
       assert item.draft.work.published.value == "2017-10-03"
       assert item.draft.work.published_format.value == "full"
       assert item.draft.work.published_format.approved
+    end
+
+    # Nobody records June 2nd to mean "2011". The format had already settled
+    # as year (from a year-only tag date), and the settled-format guard then
+    # left a full-precision typed date rendering as a bare year — measured on
+    # the operator's Leviathan Wakes.
+    test "a typed full date overrides a settled year format" do
+      item =
+        item(%{
+          matches: matches([]),
+          tags: %{
+            "book_title" => "Leviathan Wakes",
+            "published" => "2011-01-01",
+            "published_format" => "year"
+          }
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.work.published_format.value == "year"
+
+      draft = item.draft
+      draft = put_in(draft.work.published, Field.edit(draft.work.published, "2011-06-02"))
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert item.draft.work.published.value == "2011-06-02"
+      assert item.draft.work.published_format.value == "full"
+    end
+
+    # The work side had the aligner and the recording side didn't, so typing
+    # a release date by hand settled one half of a two-column fact.
+    test "the recording's format follows its date too" do
+      recording = [recording_record(%{"published" => "2019-01-01", "published_format" => "year"})]
+
+      item =
+        item(%{
+          matches: matches([], recording: recording, recording_confidence: 0.9),
+          tags: %{"book_title" => "Leviathan Wakes", "published" => "2011-01-01"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.recording.published_format.value == "year"
+
+      draft = item.draft
+
+      draft =
+        put_in(draft.recording.published, Field.edit(draft.recording.published, "2019-08-06"))
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert item.draft.recording.published.value == "2019-08-06"
+      assert item.draft.recording.published_format.value == "full"
     end
 
     test "never overrules a format the operator settled themselves" do
@@ -1032,12 +1969,13 @@ defmodule Ambry.Inbox.DraftTest do
       draft =
         item.draft
         |> Draft.Edit.rename_credit(:work, 0, "David Wong")
-        |> Draft.Edit.set_person(:work, 0, 0, %{name: "Jason Pargin", person_id: nil})
+        |> Draft.Edit.rename_person("davidwong", "Jason Pargin")
 
       credit = hd(draft.work.authors)
       assert credit.name == "David Wong"
-      assert [%{name: "Jason Pargin", person_id: nil}] = credit.people
-      refute Credit.simple?(credit)
+      assert [person] = Draft.people_for(draft, credit)
+      assert Field.value(person.name) == "Jason Pargin"
+      assert person.person_id == nil
     end
 
     test "the default person follows the credit's name until it is customised" do
@@ -1050,15 +1988,18 @@ defmodule Ambry.Inbox.DraftTest do
       # still carrying it
       credit = hd(draft.work.authors)
       assert credit.name == "James S.A. Corey"
-      assert [%{name: "James S.A. Corey"}] = credit.people
+      assert [person] = Draft.people_for(draft, credit)
+      assert Field.value(person.name) == "James S.A. Corey"
       assert Credit.simple?(credit)
 
       # but once the person is somebody else, renaming the credit leaves them
       # alone
-      draft = Draft.Edit.set_person(draft, :work, 0, 0, %{name: "Ty Franck", person_id: nil})
+      [person_key] = credit.person_keys
+      draft = Draft.Edit.rename_person(draft, person_key, "Ty Franck")
       draft = Draft.Edit.rename_credit(draft, :work, 0, "J.S.A. Corey")
 
-      assert [%{name: "Ty Franck"}] = hd(draft.work.authors).people
+      assert [person] = Draft.people_for(draft, hd(draft.work.authors))
+      assert Field.value(person.name) == "Ty Franck"
     end
 
     test "a half-typed name is storable but never resolved" do
@@ -1112,7 +2053,7 @@ defmodule Ambry.Inbox.DraftTest do
         provider_candidate(%{
           "series" => [
             %{"name" => "The Expanse", "number" => "1"},
-            %{"name" => "The Expanse (Chronological)", "number" => "2"}
+            %{"name" => "Expanse Novellas", "number" => "2"}
           ]
         })
       ]
@@ -1122,6 +2063,38 @@ defmodule Ambry.Inbox.DraftTest do
       assert [first, second] = draft.work.series
       assert first.number == "1"
       assert second.number == "2"
+    end
+
+    # Goodreads-derived data models "read these in story order" as a second
+    # series sitting beside the real one. Seen repeatedly on the operator's
+    # own library — Legends & Lattes arrives in both "Legends & Lattes" and
+    # "Legends & Lattes (Chronological)" — and the form proposed them
+    # identically, so one careless import creates a duplicate series with one
+    # book in it that nobody will ever browse.
+    test "a reader-created ordering is not proposed as a series" do
+      candidates = [
+        provider_candidate(%{
+          "series" => [
+            %{"name" => "Legends & Lattes", "number" => "1"},
+            %{"name" => "Legends & Lattes (Chronological)", "number" => "2"}
+          ]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [link] = draft.work.series
+      assert link.name == "Legends & Lattes"
+    end
+
+    test "a lone ordering variant is dropped rather than imported alone" do
+      candidates = [
+        provider_candidate(%{"series" => [%{"name" => "Discworld (Publication Order)"}]})
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert draft.work.series == []
     end
 
     test "a tag's number is not applied to a series the tag didn't name" do

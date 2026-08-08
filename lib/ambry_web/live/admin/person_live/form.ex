@@ -162,10 +162,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:noreply, socket}
   end
 
-  # This surface shows its bios inside the picker, so it has nowhere else to
-  # put them.
-  def handle_info({:person_bios_found, _context, _bios}, socket), do: {:noreply, socket}
-
   def handle_info({:import, %{"person" => person_params}, source}, socket) do
     hints = ProvenanceHints.from_import(person_params, source)
     new_params = Map.merge(socket.assigns.form.params, person_params)

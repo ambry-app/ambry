@@ -119,6 +119,31 @@ defmodule Ambry.People do
   def get_person!(id), do: Person |> preload(^@person_direct_assoc_preloads) |> Repo.get!(id)
 
   @doc """
+  The people already in the library carrying exactly this name.
+
+  Case-insensitive and exact — a *name* is the only handle an import has on a
+  human, and anything fuzzier answers the wrong question: "who might this be"
+  is a judgement for the operator, while "do we already have them" has to be
+  certain before it's allowed to skip asking the providers.
+
+  Returns a list rather than one person because two humans really can share a
+  name, and that is precisely the case nothing should resolve automatically.
+
+  ## Examples
+
+      iex> people_named("Andy Weir")
+      [%Person{}]
+
+  """
+  def people_named(name) when is_binary(name) do
+    Person
+    |> where([p], fragment("lower(?)", p.name) == ^String.downcase(String.trim(name)))
+    |> Repo.all()
+  end
+
+  def people_named(_other), do: []
+
+  @doc """
   Creates a person.
 
   ## Examples

@@ -50,5 +50,10 @@ defmodule Ambry.Inbox.Draft.Candidate do
   The record's id is what makes it distinct — the provider alone isn't enough
   when a provider returned more than one record.
   """
-  def key_for(%{"source" => source, "id" => id}), do: "#{source}##{id}"
+  def key_for(%{"source" => source, "id" => id}) when not is_nil(id), do: "#{source}##{id}"
+
+  # These come out of jsonb a provider filled in, so an id is not something to
+  # rely on being there — and a missing one is a proposal that can't be told
+  # apart from its provider's others, not a reason to fail building the draft.
+  def key_for(%{"source" => source}), do: source
 end

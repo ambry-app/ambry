@@ -14,7 +14,7 @@ defmodule Ambry.Inbox.Draft.Credit do
   it defaults to one new person of the same name and makes the interesting
   case reachable.
 
-  Four cases, one control (`people`):
+  Four cases, one control (`person_keys`):
 
     * the identity already exists — link it, personhood already settled
     * a brand-new name — new identity, one new person, 1:1
@@ -27,13 +27,21 @@ defmodule Ambry.Inbox.Draft.Credit do
   is what stops the case space exploding. Importing The Expanse into an empty
   library is the fourth case with two brand-new people: one Author, two
   People, no special composite pathway anywhere.
+
+  ## The people are referenced, not embedded
+
+  `person_keys` points into `Draft.people`, where each human is decided once.
+  Credits used to embed a `PersonRef` each, so an author who read their own
+  book produced two records of one person that `Draft.Edit` had to mirror
+  every edit across. One human is now one `PersonDecision` by construction —
+  see that module for why that deletes the mirroring rather than fixing it.
   """
 
   use Ecto.Schema
 
   import Ecto.Changeset
 
-  alias Ambry.Inbox.Draft.PersonRef
+  alias Ambry.Inbox.AutoMatch
 
   @primary_key false
 
@@ -60,8 +68,9 @@ defmodule Ambry.Inbox.Draft.Credit do
     # rather than retype
     embeds_many :candidates, __MODULE__.Match, on_replace: :delete
 
-    # who is behind this credit — only meaningful when creating the identity
-    embeds_many :people, PersonRef, on_replace: :delete
+    # who is behind this credit, as keys into `Draft.people` — only meaningful
+    # when creating the identity
+    field :person_keys, {:array, :string}, default: []
   end
 
   defmodule Match do
@@ -94,10 +103,18 @@ defmodule Ambry.Inbox.Draft.Credit do
   @doc false
   def changeset(credit, attrs) do
     credit
-    |> cast(attrs, [:name, :kind, :mode, :identity_id, :source, :approved, :curated])
+    |> cast(attrs, [
+      :name,
+      :kind,
+      :mode,
+      :identity_id,
+      :source,
+      :approved,
+      :curated,
+      :person_keys
+    ])
     |> validate_required([:kind])
     |> cast_embed(:candidates)
-    |> cast_embed(:people)
     |> validate_resolution()
   end
 
@@ -119,8 +136,8 @@ defmodule Ambry.Inbox.Draft.Credit do
       blank?(get_field(changeset, :name)) ->
         add_error(changeset, :name, "is needed before this can be imported")
 
-      get_field(changeset, :people) == [] ->
-        add_error(changeset, :people, "needs at least one person behind it")
+      get_field(changeset, :person_keys) == [] ->
+        add_error(changeset, :person_keys, "needs at least one person behind it")
 
       true ->
         changeset
@@ -132,20 +149,22 @@ defmodule Ambry.Inbox.Draft.Credit do
 
   @doc """
   Whether this credit still needs a human.
+
+  Only the credit itself is judged here. Whether the people behind it are
+  finished is `PersonDecision.resolved?/1`'s question, reported separately by
+  `Draft.unresolved/1` — one human is one decision now, so asking about them
+  once per credit would report the same outstanding person twice on a
+  self-narrated book.
   """
   def resolved?(%__MODULE__{approved: true, mode: :link, identity_id: id}), do: not is_nil(id)
 
   def resolved?(%__MODULE__{approved: true, mode: :create, name: name}) when not is_binary(name),
     do: false
 
-  def resolved?(%__MODULE__{approved: true, mode: :create, people: []}), do: false
+  def resolved?(%__MODULE__{approved: true, mode: :create, person_keys: []}), do: false
 
-  # Every person behind the credit has to actually say who they are. A blank
-  # row the operator added and hasn't filled in yet is stored happily and
-  # reported here — which is what lets them add two people and name them one
-  # at a time.
-  def resolved?(%__MODULE__{approved: true, mode: :create, name: name, people: people}),
-    do: String.trim(name) != "" and Enum.all?(people, &PersonRef.complete?/1)
+  def resolved?(%__MODULE__{approved: true, mode: :create, name: name}),
+    do: String.trim(name) != ""
 
   def resolved?(%__MODULE__{}), do: false
 
@@ -158,10 +177,7 @@ defmodule Ambry.Inbox.Draft.Credit do
   where it does.
   """
   def simple?(%__MODULE__{mode: :link}), do: true
-
-  def simple?(%__MODULE__{mode: :create, name: name, people: [%PersonRef{} = person]}),
-    do: is_nil(person.person_id) and person.name == name
-
+  def simple?(%__MODULE__{mode: :create, person_keys: [_only]}), do: true
   def simple?(%__MODULE__{}), do: false
 
   @doc """
@@ -187,5 +203,5 @@ defmodule Ambry.Inbox.Draft.Credit do
   by creating the real people and linking this identity to each — which is
   what earns the right to default here rather than stopping to ask.
   """
-  def new_person_default(name), do: [%PersonRef{name: name}]
+  def new_person_default(name), do: [AutoMatch.person_key(name)]
 end

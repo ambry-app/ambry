@@ -44,7 +44,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.People
-  alias Ambry.Provenance
 
   require Logger
 
@@ -60,13 +59,60 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(authors: People.authors_for_select(), narrators: People.narrators_for_select())
      |> assign(people: People.people_for_select())
      |> assign(expanded: MapSet.new())
-     |> assign(researching: nil, retrying: nil, enriching: nil, picker: nil)
-     # What the person search turned up, keyed by the credit and person it was
-     # run for. Evidence about a human rather than a decision about this
-     # import, and nothing outlives the page — so assigns, not the draft.
-     |> assign(person_bios: %{})
+     |> assign(researching: nil, retrying: nil, enriching: nil)
+     # Which person is being looked up again, and whose photo strip is showing
+     # in full. Both are view state keyed by person key — the results
+     # themselves are evidence and live on the item.
+     |> assign(searching_person: nil, photos_expanded: %{})
+     |> assign(library_query: nil, library_results: [], ticking: false)
+     |> attach_hook(:refuse_while_busy, :handle_event, &refuse_while_busy/3)
      |> load(item)}
   end
+
+  # **The overlay explains; this enforces.** `inert` and a scrim are markup,
+  # and markup is advisory — a stale tab, a keyboard, or a reconnect can all
+  # still send an event. Matching rebuilds an untouched draft when a retried
+  # provider finally answers, so an edit accepted here would be thrown away by
+  # work the operator couldn't see.
+  defp refuse_while_busy(event, _params, socket) do
+    if socket.assigns.busy do
+      Logger.debug(fn -> "Inbox form: refusing #{event} while a job owns item" end)
+      {:halt, socket}
+    else
+      {:cont, socket}
+    end
+  end
+
+  # How often a busy form looks again. Only ticks while a job is actually on
+  # this item, so an idle form costs nothing.
+  @tick 2_000
+
+  @impl Phoenix.LiveView
+  def handle_info(:refresh_job, socket) do
+    # Reload rather than just re-reading the status: the job that finished may
+    # have rebuilt this very draft, and the form has to show what it built.
+    {:noreply,
+     socket
+     |> assign(ticking: false)
+     |> load(Inbox.get_item!(socket.assigns.item.id))}
+  end
+
+  defp schedule_tick(socket) do
+    if socket.assigns.busy and not socket.assigns.ticking do
+      Process.send_after(self(), :refresh_job, @tick)
+      assign(socket, ticking: true)
+    else
+      socket
+    end
+  end
+
+  @doc """
+  What the job on this item is doing, in the words the overlay uses.
+  """
+  def busy_label(:working), do: "Matching…"
+  def busy_label(:retrying), do: "A provider couldn't be reached — waiting to try again…"
+  def busy_label(:queued), do: "Queued for matching…"
+  def busy_label(_idle), do: "Working…"
 
   @doc """
   Whether a credit's person layer should be showing.
@@ -79,12 +125,11 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     MapSet.member?(expanded, {section, index}) or not Credit.simple?(credit)
   end
 
-  @doc """
-  The bios found for each person behind one credit, by their position in it.
-  """
-  def bios_for(person_bios, section, index) do
-    for {{s, i, person}, bios} <- person_bios, s == section, i == index, into: %{} do
-      {person, bios}
+  # What a person is currently called, which is what a re-search asks about.
+  defp person_name(draft, key) do
+    case Draft.person(draft, key) do
+      nil -> nil
+      person -> Field.value(person.name)
     end
   end
 
@@ -110,6 +155,21 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def handle_event("link-book", %{"id" => id}, socket) do
     item = socket.assigns.item
     {:noreply, edit(socket, &Draft.Edit.link_book(&1, item, to_int(id)))}
+  end
+
+  # The escape hatch. Matching finds the ordinary case and cannot be expected
+  # to find every one: a file tagged "HP1 - The Philosopher's Stone" and a book
+  # called "Harry Potter and the Sorcerer's Stone" are the same work and no
+  # string comparison should be asked to know that. Rather than chase it, give
+  # the operator a way to go and look.
+  def handle_event("search-library", %{"query" => query}, socket) do
+    results =
+      case Books.match_keywords(query) do
+        [] -> []
+        terms -> terms |> Books.match_books(10) |> Enum.map(&local_book/1)
+      end
+
+    {:noreply, assign(socket, library_query: query, library_results: results)}
   end
 
   def handle_event("new-book", _params, socket) do
@@ -189,85 +249,83 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      end)}
   end
 
-  def handle_event("find-person-images", params, socket) do
-    %{"section" => section, "index" => index, "person" => person} = params
-    credit = credit_at(socket.assigns.item.draft, atom(section), to_int(index))
-    person_ref = Enum.at(credit.people, to_int(person))
+  # The photos and bios matching already found are in the person's own fields,
+  # so there is nothing to fetch to show them. This is the escape hatch for
+  # when the *name* has moved since — a rename, a pen name revealed, a person
+  # split in two — where nobody has ever searched for who this now is.
+  #
+  # Writes evidence into `matches`, exactly as the work-level re-search does,
+  # rather than into page assigns: results that vanish on reload were fine
+  # when nothing else knew about people, and are now just a second place for
+  # the same thing to live.
+  def handle_event("find-person", %{"key" => key}, socket) do
+    item = socket.assigns.item
+    name = person_name(item.draft, key)
 
     {:noreply,
-     assign(socket,
-       picker: %{
-         section: section,
-         index: to_int(index),
-         person: to_int(person),
-         query: person_ref.name || credit.name
-       }
-     )}
+     socket
+     |> assign(searching_person: key)
+     |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
-  def handle_event("close-picker", _params, socket), do: {:noreply, assign(socket, picker: nil)}
-
-  def handle_event("pick-person-bio", params, socket) do
-    %{"section" => section, "index" => index, "person" => person} = params
-    key = {section, to_int(index), to_int(person)}
-
-    case Enum.find(Map.get(socket.assigns.person_bios, key, []), &(&1.id == params["bio"])) do
-      nil ->
-        {:noreply, socket}
-
-      bio ->
-        {:noreply,
-         edit(
-           socket,
-           &Draft.Edit.set_person_bio(
-             &1,
-             atom(section),
-             to_int(index),
-             to_int(person),
-             bio.description,
-             Provenance.provider_source(bio.provider_id)
-           )
-         )}
-    end
+  # A dozen headshots is normal for a working actor and would push the rest of
+  # the credit off screen. View state, so it stays out of the draft.
+  def handle_event("toggle-photos", %{"key" => key}, socket) do
+    {:noreply, update(socket, :photos_expanded, &Map.update(&1, key, true, fn was -> !was end))}
   end
 
-  def handle_event("person-distinct", params, socket) do
-    %{"section" => section, "index" => index, "person" => person} = params
+  def handle_event("pick-person-image", %{"key" => key} = params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.choose_person_image(&1, key, params["candidate"]))}
+  end
 
-    {:noreply,
-     edit(
-       socket,
-       &Draft.Edit.set_person_distinct(
-         &1,
-         atom(section),
-         to_int(index),
-         to_int(person),
-         params["distinct"] == "true"
-       )
-     )}
+  def handle_event("pick-person-bio", %{"key" => key} = params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.choose_person_bio(&1, key, params["candidate"]))}
+  end
+
+  def handle_event("waive-person-field", %{"key" => key, "field" => field}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.waive_person_field(&1, key, atom(field)))}
+  end
+
+  # A person's description is a description like any other: an imported blurb
+  # is a starting point, and the recording's has been an editable box since
+  # the form existed.
+  def handle_event("person-bio", %{"key" => key} = params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.edit_person_bio(&1, key, params["description"]))}
+  end
+
+  def handle_event("split-person", %{"section" => s, "index" => i, "person" => p}, socket) do
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.split_person(&1, item, atom(s), to_int(i), to_int(p)))}
   end
 
   def handle_event("add-person", %{"section" => section, "index" => i}, socket) do
-    {:noreply, edit(socket, &Draft.Edit.add_person(&1, atom(section), to_int(i)))}
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.add_person(&1, item, atom(section), to_int(i)))}
   end
 
   def handle_event("remove-person", %{"section" => s, "index" => i, "person" => p}, socket) do
-    {:noreply, edit(socket, &Draft.Edit.remove_person(&1, atom(s), to_int(i), to_int(p)))}
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.remove_person(&1, item, atom(s), to_int(i), to_int(p)))}
   end
 
-  def handle_event(
-        "person-change",
-        %{"section" => s, "index" => i, "person" => p} = params,
-        socket
-      ) do
+  def handle_event("person-change", %{"key" => key} = params, socket) do
     # An existing person is chosen by id; anything else is a name to create.
-    attrs =
-      case to_int(params["person_id"]) do
-        nil -> %{name: params["name"] || "", person_id: nil}
-        id -> %{person_id: id, name: nil}
-      end
+    {:noreply,
+     edit(socket, fn draft ->
+       case to_int(params["person_id"]) do
+         nil ->
+           draft
+           |> Draft.Edit.create_person(key)
+           |> Draft.Edit.rename_person(key, params["name"] || "")
 
-    {:noreply, edit(socket, &Draft.Edit.set_person(&1, atom(s), to_int(i), to_int(p), attrs))}
+         id ->
+           Draft.Edit.link_person(draft, key, id)
+       end
+     end)}
+  end
+
+  def handle_event("approve-person", %{"key" => key} = params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.approve_person(&1, key, params["approved"] == "true"))}
   end
 
   def handle_event("approve-credit", %{"section" => s, "index" => i} = params, socket) do
@@ -363,35 +421,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   @impl Phoenix.LiveView
-  def handle_info({:person_image_picked, context, url, source}, socket) do
-    {:noreply,
-     socket
-     |> assign(picker: nil)
-     |> edit(
-       &Draft.Edit.set_person_image(
-         &1,
-         atom(context.section),
-         context.index,
-         context.person,
-         url,
-         source
-       )
-     )}
+  def handle_async({:person_search, _key}, {:ok, {:ok, item}}, socket) do
+    {:noreply, socket |> assign(searching_person: nil) |> load(item) |> resettle()}
   end
 
-  # Arrives while the operator is looking at the photo grid, provider by
-  # provider, and is kept for the row rather than the modal — so choosing a
-  # photo and choosing a bio stop being the same click twice over.
-  def handle_info({:person_bios_found, context, bios}, socket) do
-    key = {context.section, context.index, context.person}
-
-    {:noreply,
-     update(socket, :person_bios, fn found ->
-       Map.update(found, key, bios, &Enum.uniq_by(&1 ++ bios, fn bio -> bio.description end))
-     end)}
+  # A provider being down costs its results and nothing else — the person is
+  # still perfectly importable without a face.
+  def handle_async({:person_search, _key}, _failed, socket) do
+    {:noreply, assign(socket, searching_person: nil)}
   end
 
-  @impl Phoenix.LiveView
   def handle_async({:research, _level}, {:ok, {:ok, item}}, socket) do
     {:noreply, socket |> assign(researching: nil) |> load(item) |> resettle()}
   end
@@ -470,22 +509,28 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   defp load(socket, item) do
+    job = Inbox.job_status(item)
+
     assign(socket,
       item: item,
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),
-      # Which pending people are behind more than one credit — a self-narrated
-      # book is one human, and the credits can't see each other.
-      sharing: Draft.sharing(item.draft),
+      # Where each person is credited, so a row can say "same person as the
+      # author". Derived, never stored — one human is one record now, and a
+      # second copy of "who is where" is what used to drift.
+      appearances: Draft.appearances(item.draft),
       destination: Inbox.destination_preflight(item),
       # Matching retries with a backoff measured in minutes, so an item can be
       # legitimately mid-work while the form looks like nothing was found.
-      job: Inbox.job_status(item),
+      job: job,
+      # a job is going to change this draft, so the form is not editable yet
+      busy: Inbox.busy?(job),
       # Roots are configuration and can change between seeding a draft and
       # approving it, so they're read now rather than frozen into the draft.
       roots: Ambry.Library.library_roots()
     )
+    |> schedule_tick()
   end
 
   defp atom("work"), do: :work
@@ -628,6 +673,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   edition" want completely different things from the operator, and an empty
   set of fields says neither.
   """
+  def doubt_message(%Work{doubt: :low_confidence, doubt_detail: detail}), do: detail
+
+  def doubt_message(%Work{}), do: nil
+
   def doubt_message(%Recording{doubt: :narrator_conflict, doubt_detail: detail}), do: detail
 
   def doubt_message(%Recording{doubt: :low_confidence, doubt_detail: detail}), do: detail
@@ -654,8 +703,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def provider_outcomes(_item, _level), do: []
 
-  defp credit_at(draft, :work, index), do: Enum.at(draft.work.authors, index)
-  defp credit_at(draft, :recording, index), do: Enum.at(draft.recording.narrators, index)
+  # Shaped like a stored local record, so the row component can't tell a
+  # searched-for book from a matched one — they are the same answer.
+  defp local_book(book) do
+    %{
+      "id" => book.id,
+      "title" => book.title,
+      "authors" => Enum.map(book.authors || [], & &1.name),
+      "published" => book.published && Date.to_iso8601(book.published)
+    }
+  end
 
   @doc "How a provider record is referred to."
   defdelegate record_ref(record), to: Inbox

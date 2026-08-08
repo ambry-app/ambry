@@ -70,16 +70,51 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert html =~ "no match"
   end
 
-  test "asks for a fresh match", %{conn: conn} do
+  # One button, because the two it replaced were never separable: matching
+  # leans on the tags the probe produces, so asking again without re-reading
+  # asks the same question of the same cache.
+  test "re-reads and re-queries an item", %{conn: conn} do
     item = probed_item()
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
     html =
-      view |> element("span[phx-click='rematch'][phx-value-id='#{item.id}']") |> render_click()
+      view |> element("span[phx-click='rescan'][phx-value-id='#{item.id}']") |> render_click()
 
-    assert html =~ "Looking for matches again"
-    assert_enqueued(worker: Ambry.Inbox.RunMatch, args: %{inbox_item_id: item.id})
+    assert html =~ "Re-reading the files and asking the providers again"
+
+    # `refresh` is what makes the difference between this and the old button:
+    # it re-walks the folder and bypasses the 30-day provider cache, which the
+    # rest of the chain reads off the job's args.
+    assert_enqueued(
+      worker: Ambry.Inbox.RunProbe,
+      args: %{inbox_item_id: item.id, refresh: true}
+    )
+  end
+
+  # `RunMatch` is unique over a 60-second window and Oban answers a conflict
+  # with `{:ok, %{job | conflict?: true}}` — an insert that looks successful
+  # and drops the job. The old handler matched `{:ok, _job}` and flashed
+  # success either way, which is how "look for matches again" came to do
+  # nothing at all.
+  test "a re-query is not silently swallowed by the uniqueness window", %{conn: _conn} do
+    item = probed_item()
+
+    {:ok, item} = Inbox.rescan_item(item)
+
+    assert_enqueued(
+      worker: Ambry.Inbox.RunMatch,
+      args: %{inbox_item_id: item.id, refresh: true}
+    )
+
+    # a second one goes through too, rather than colliding with the first
+    {:ok, _item} = Inbox.rescan_item(item)
+
+    assert 2 ==
+             Enum.count(
+               all_enqueued(worker: Ambry.Inbox.RunMatch),
+               &(&1.args["refresh"] == true)
+             )
   end
 
   test "starts a scan", %{conn: conn} do
@@ -173,6 +208,44 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert html =~ "Keeper"
     refute html =~ "Reject"
     assert Inbox.get_item!(keeper.id).status == :pending
+  end
+
+  # Every row the inbox does work on gets covered, for the same reason the
+  # form does: a job is about to change it, and a row that looks readable but
+  # is about to be rewritten invites a click that goes nowhere.
+  describe "rows a job is working on" do
+    test "a queued row is covered and inert", %{conn: conn} do
+      # discovery enqueues the match job, so a fresh item has one
+      _item = probed_item()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox")
+
+      assert has_element?(view, "[data-role='busy-overlay']")
+      assert html =~ "Queued"
+      assert html =~ "inert"
+    end
+
+    test "a row with nothing working on it is not covered", %{conn: conn} do
+      _item = probed_item()
+      Ambry.Repo.delete_all(Oban.Job)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+
+      refute has_element?(view, "[data-role='busy-overlay']")
+    end
+
+    test "the cover comes off once the job is gone", %{conn: conn} do
+      _item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+      assert has_element?(view, "[data-role='busy-overlay']")
+
+      Ambry.Repo.delete_all(Oban.Job)
+      send(view.pid, :refresh_progress)
+      render(view)
+
+      refute has_element?(view, "[data-role='busy-overlay']")
+    end
   end
 
   defp probed_item(opts \\ []) do
