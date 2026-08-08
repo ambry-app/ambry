@@ -22,6 +22,7 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
+  alias AmbryWeb.Components.EntityResolver
 
   attr :outcomes, :list, required: true
   attr :level, :string, default: nil
@@ -531,27 +532,16 @@ defmodule AmbryWeb.Admin.Decisions do
         <input type="hidden" name="section" value={@section} />
         <input type="hidden" name="index" value={@index} />
 
-        <select
+        <.live_component
+          module={EntityResolver}
+          id={"credit-#{@section}-#{@index}-resolver"}
           name="identity_id"
-          class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-        >
-          <option value="">Create new…</option>
-          <option
-            :for={{name, id} <- @identities}
-            value={id}
-            selected={@credit.mode == :link and @credit.identity_id == id}
-          >
-            {name}
-          </option>
-        </select>
-
-        <input
-          :if={@credit.mode == :create}
-          type="text"
-          name="name"
-          value={@credit.name}
+          text_name="name"
+          options={@identities}
+          value={if @credit.mode == :link, do: @credit.identity_id}
+          text={@credit.name || ""}
           placeholder="name"
-          class="min-w-0 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class="w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
         />
 
         <span :if={@credit.mode == :link} class="text-xs italic dark:text-zinc-500">
@@ -604,23 +594,16 @@ defmodule AmbryWeb.Admin.Decisions do
           >
             <input type="hidden" name="key" value={person.key} />
 
-            <select
+            <.live_component
+              module={EntityResolver}
+              id={"credit-#{@section}-#{@index}-person-#{person_index}-resolver"}
               name="person_id"
-              class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-            >
-              <option value="">Create new…</option>
-              <option :for={{name, id} <- @people} value={id} selected={person.person_id == id}>
-                {name}
-              </option>
-            </select>
-
-            <input
-              :if={person.mode == :create}
-              type="text"
-              name="name"
-              value={Field.value(person.name)}
+              text_name="name"
+              options={@people}
+              value={if person.mode == :link, do: person.person_id}
+              text={Field.value(person.name) || ""}
               placeholder="the person's real name"
-              class="min-w-0 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+              class="w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
             />
 
             <button
@@ -944,8 +927,6 @@ defmodule AmbryWeb.Admin.Decisions do
         class="text-brand h-4 w-4 flex-none dark:text-brand-dark"
       />
 
-      <span :if={@link.mode == :link} class="font-semibold">{@link.name}</span>
-
       <.badge
         :if={!SeriesLink.resolved?(@link)}
         color={elem(state_words(SeriesLink.state(@link)), 1)}
@@ -966,31 +947,24 @@ defmodule AmbryWeb.Admin.Decisions do
         />
       </form>
 
-      <form id={"series-#{@index}-link"} phx-change="link-series" class="flex items-center gap-2">
+      <form
+        id={"series-#{@index}-link"}
+        phx-change="link-series"
+        class="min-w-48 flex flex-grow items-center gap-2"
+      >
         <input type="hidden" name="index" value={@index} />
-        <select
-          name="series_id"
-          class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-        >
-          <option value="">Create new…</option>
-          <option
-            :for={{name, id} <- @options}
-            value={id}
-            selected={@link.mode == :link and @link.series_id == id}
-          >
-            {name}
-          </option>
-        </select>
-
         <%!-- A provider's spelling of a series name is a proposal, not a
               decree. "The Expanse" vs "Expanse" is the operator's call. --%>
-        <input
-          :if={@link.mode == :create}
-          type="text"
-          name="name"
-          value={@link.name}
+        <.live_component
+          module={EntityResolver}
+          id={"series-#{@index}-resolver"}
+          name="series_id"
+          text_name="name"
+          options={@options}
+          value={if @link.mode == :link, do: @link.series_id}
+          text={@link.name || ""}
           placeholder="series name"
-          class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class="w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
         />
       </form>
 

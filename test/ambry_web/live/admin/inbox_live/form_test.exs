@@ -326,6 +326,97 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "the entity resolver" do
+    # One control for "attach to existing or create new": typing filters the
+    # existing records — accent-blind, since "Rodriguez" must find
+    # "Patricia Rodríguez" — while simultaneously offering to create what was
+    # typed.
+    test "typing offers matching records and a create row at once", %{conn: conn} do
+      patricia = insert(:author, name: "Patricia Rodríguez")
+      sanderson = insert(:author, name: "Brandon Sanderson")
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html =
+        view
+        |> element("#credit-work-0-resolver-input")
+        |> render_change(%{"resolver" => %{"credit-work-0-resolver" => "rodrig"}})
+
+      assert has_element?(view, "#credit-work-0-resolver-option-#{patricia.id}")
+      refute has_element?(view, "#credit-work-0-resolver-option-#{sanderson.id}")
+      assert html =~ "Create “rodrig”"
+    end
+
+    # Picking an option sets the hidden id; in the browser the value-change
+    # hook then fires the surrounding form's change event, which the test
+    # fires by hand the way the person-form tests always have.
+    test "picking a record links it", %{conn: conn} do
+      author = insert(:author, name: "Brandon Sanderson")
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#credit-work-0-resolver-input")
+      |> render_change(%{"resolver" => %{"credit-work-0-resolver" => "sander"}})
+
+      view |> element("#credit-work-0-resolver-option-#{author.id}") |> render_click()
+      view |> form("#credit-work-0-identity") |> render_change()
+
+      credit = hd(Inbox.get_item!(item.id).draft.work.authors)
+      assert credit.mode == :link
+      assert credit.identity_id == author.id
+    end
+
+    # What's typed IS the new record's name until something is picked — the
+    # behaviour the old bare text input had, kept.
+    test "typed text becomes the create-name", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#credit-work-0-resolver-input")
+      |> render_change(%{"resolver" => %{"credit-work-0-resolver" => "Jason Pargin"}})
+
+      view |> form("#credit-work-0-identity") |> render_change()
+
+      credit = hd(Inbox.get_item!(item.id).draft.work.authors)
+      assert credit.mode == :create
+      assert credit.name == "Jason Pargin"
+    end
+
+    test "a series can be attached or created through the same control", %{conn: conn} do
+      series = insert(:series, name: "The Expanse")
+      item = probed_item()
+
+      # stage a proposed membership the way matching would have
+      {:ok, item} = Inbox.prepare_draft(item)
+      params = Inbox.dump_draft(item.draft)
+
+      params =
+        put_in(params["work"]["series"], [
+          %{"name" => "Expanse", "mode" => "create", "number" => "1", "source" => "tags"}
+        ])
+
+      {:ok, item} = Inbox.update_draft(item, params)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#series-0-resolver-input")
+      |> render_change(%{"resolver" => %{"series-0-resolver" => "expanse"}})
+
+      view |> element("#series-0-resolver-option-#{series.id}") |> render_click()
+      view |> form("#series-0-link") |> render_change()
+
+      link = hd(Inbox.get_item!(item.id).draft.work.series)
+      assert link.mode == :link
+      assert link.series_id == series.id
+    end
+  end
+
   describe "records are evidence, not identities" do
     test "the top record is ticked and the rest are not", %{conn: conn} do
       item = probed_item() |> with_work_records()

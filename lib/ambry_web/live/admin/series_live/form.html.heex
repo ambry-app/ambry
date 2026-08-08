@@ -1,6 +1,4 @@
 <.layout title={@page_title} user={@current_user}>
-  <.datalist id="books" options={@books} />
-
   <div class="max-w-3xl">
     <.simple_form id="series-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <.input field={@form[:name]} label="Name" />
@@ -21,7 +19,6 @@
               field={series_book_form[:book_id]}
               type="autocomplete"
               options={@books}
-              list="books"
               container_class="grow"
             />
             <.delete_button
