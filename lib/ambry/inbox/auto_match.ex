@@ -785,8 +785,8 @@ defmodule Ambry.Inbox.AutoMatch do
   defp confidence(candidates) do
     candidates
     |> group_agreeing()
-    |> Enum.map(&group_score/1)
-    |> Enum.sort(:desc)
+    |> Enum.map(fn [held | _rest] = group -> {group_score(group), held} end)
+    |> Enum.sort_by(&elem(&1, 0), :desc)
     |> decide()
   end
 
@@ -813,8 +813,21 @@ defmodule Ambry.Inbox.AutoMatch do
   # doubt at all.
   @decisive 0.3
 
+  # A best at or above this has decisively answered the query, which is what
+  # lets a distinct-titled runner-up stop being a rival (below).
+  @settled_score 0.95
+
+  # What remains of the runner-up penalty when the runner-up is a catalogue
+  # sibling rather than a rival. Not zero: a similarity match should still
+  # rank under an ASIN's flat 1.0.
+  @sibling_discount 0.25
+
+  # Word pairs at or above this could be one word misspelled, pluralized or
+  # re-spelled; below it they are different words.
+  @confusable_word 0.84
+
   defp decide([]), do: 0.0
-  defp decide([only]), do: only
+  defp decide([{only, _held}]), do: only
 
   # **A close second is doubt; a distant one is just the rest of the list.**
   # The penalty used to be `0.5 * second / best`, which is a ratio and so
@@ -832,7 +845,18 @@ defmodule Ambry.Inbox.AutoMatch do
   # human — so the penalty holds near its full value while the gap is small
   # and falls away only as the gap approaches decisive. A straight ramp let a
   # 0.12 gap through at 0.69, over the bar that adopts a match.
-  defp decide([best, second | _rest]) do
+  #
+  # But the gap alone cannot tell a rival from a catalogue sibling. Series
+  # books share most of their words by construction, so "Children of Strife"
+  # sat 0.133 behind an exact, doubly-corroborated "Children of Time" — all
+  # but the same gap as the Silent Patients near-tie — and dragged a certain
+  # match under the doubt bar. What distinguishes them is whether the
+  # operator could actually mistake one for the other (`rival?/3`): a
+  # confusable title keeps the full penalty, a plainly different one is
+  # discounted — *provided* the best decisively answered the query, because
+  # when nothing matched well the runner-up is genuine ambiguity whatever its
+  # title says.
+  defp decide([{best, best_held}, {second, second_held} | _rest]) do
     gap = best - second
 
     penalty =
@@ -840,10 +864,47 @@ defmodule Ambry.Inbox.AutoMatch do
         do: 0.0,
         else: 0.5 * (1.0 - :math.pow(gap / @decisive, 2))
 
+    penalty =
+      if rival?(best, best_held, second_held),
+        do: penalty,
+        else: penalty * @sibling_discount
+
     (best * (1.0 - penalty))
     |> max(0.0)
     |> min(best)
     |> Float.round(3)
+  end
+
+  defp rival?(best_score, best_held, second_held) do
+    best_score < @settled_score or
+      confusable?(best_held["title"], second_held["title"])
+  end
+
+  # Whether two titles could be one title written two ways — a plural, a
+  # typo, a re-spelling — as opposed to two books that merely share most of
+  # their words. Jaro over the whole string cannot make this distinction:
+  # a shared prefix dominates it, so "children of time" vs "children of
+  # strife" scores 0.924 — HIGHER than plenty of true retitlings. Word by
+  # word the difference is stark: time/strife is 0.58 while
+  # patient/patients is 0.96. Articles are dropped first so "The Martian"
+  # and "Martian" still align.
+  defp confusable?(one, other) when is_binary(one) and is_binary(other) do
+    a = title_words(one)
+    b = title_words(other)
+
+    length(a) == length(b) and
+      Enum.zip(a, b)
+      |> Enum.all?(fn {x, y} -> String.jaro_distance(x, y) >= @confusable_word end)
+  end
+
+  # A candidate with no title stated is not evidence the titles differ.
+  defp confusable?(_one, _other), do: true
+
+  defp title_words(title) do
+    title
+    |> normalize()
+    |> String.split(" ", trim: true)
+    |> Enum.reject(&(&1 in ["the", "a", "an"]))
   end
 
   # **Matching the library is a different question from searching it.** The

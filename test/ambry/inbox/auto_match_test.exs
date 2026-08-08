@@ -311,6 +311,39 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert Enum.all?(rest, &(&1["score"] < 0.4))
     end
 
+    # Series books share most of their words by construction, so a same-author
+    # sibling sat all but the same gap behind an exact match as the Silent
+    # Patients near-tie — and dragged a certain, doubly-corroborated match
+    # under the doubt bar. Measured on the operator's Children of Time.
+    test "a catalogue sibling is not doubt when the best is exact" do
+      patch_work_results([
+        book("Children of Time", ["Adrian Tchaikovsky"]),
+        book("Children of Strife", ["Adrian Tchaikovsky"]),
+        book("Children of Memory", ["Adrian Tchaikovsky"])
+      ])
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Children of Time", author: "Adrian Tchaikovsky"))
+
+      assert [best | _rest] = matches["work"]["candidates"]
+      assert best["title"] == "Children of Time"
+      assert matches["work"]["confidence"] > 0.8
+    end
+
+    # The discount only applies when the best decisively answered the query.
+    # When nothing matched well, a close runner-up is genuine ambiguity no
+    # matter how different its title is.
+    test "distinct titles still doubt each other when nothing matched well" do
+      patch_work_results([
+        book("Children of Time", ["Adrian Tchaikovsky"]),
+        book("Children of Ruin", ["Adrian Tchaikovsky"])
+      ])
+
+      %{matches: matches} = AutoMatch.match(item(title: "Children of the Fleet"))
+
+      assert matches["work"]["confidence"] < 0.65
+    end
+
     test "is confident when the winner stands alone" do
       patch_work_results([
         book("The Silent Patient", ["Alex Michaelides"]),
