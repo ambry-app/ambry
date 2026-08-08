@@ -340,6 +340,7 @@
             backing="Pen name of"
             expanded={expanded?(@expanded, "work", index, credit)}
             kind={:author}
+            identity_backing={@author_backing}
             persons={Draft.people_for(@item.draft, credit)}
             appearances={@appearances}
             searching_person={@searching_person}
@@ -538,6 +539,7 @@
             backing="Stage name of"
             expanded={expanded?(@expanded, "recording", index, credit)}
             kind={:narrator}
+            identity_backing={@narrator_backing}
             persons={Draft.people_for(@item.draft, credit)}
             appearances={@appearances}
             searching_person={@searching_person}

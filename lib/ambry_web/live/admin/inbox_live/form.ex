@@ -57,6 +57,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(page_title: InboxItem.name(item))
      |> assign(series: Books.series_for_select())
      |> assign(authors: People.authors_for_select(), narrators: People.narrators_for_select())
+     |> assign(author_backing: People.author_backing_names())
+     |> assign(narrator_backing: People.narrator_backing_names())
      |> assign(people: People.people_for_select())
      |> assign(expanded: MapSet.new())
      |> assign(researching: nil, retrying: nil, enriching: nil)

@@ -464,6 +464,11 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :backing, :string, required: true, doc: ~s(the unfolded label — "Pen name of")
   attr :expanded, :boolean, required: true
   attr :kind, :atom, required: true, doc: ":author or :narrator"
+
+  attr :identity_backing, :map,
+    default: %{},
+    doc: "identity id => the backing people's names, where they add something"
+
   attr :persons, :list, required: true, doc: "the PersonDecisions this credit references"
   attr :appearances, :map, default: %{}, doc: "person key => every credit referencing them"
   attr :searching_person, :string, default: nil, doc: "the person being looked up again"
@@ -567,10 +572,11 @@ defmodule AmbryWeb.Admin.Decisions do
               name's real names are worth a line, "already in the library"
               twice is not. --%>
         <span
-          :if={@credit.mode == :link && linked_people(@credit)}
+          :if={@credit.mode == :link && @identity_backing[@credit.identity_id]}
           class="text-xs italic dark:text-zinc-500"
+          data-role="identity-backing"
         >
-          {linked_people(@credit)}
+          {@identity_backing[@credit.identity_id]}
         </span>
       </form>
 
@@ -1049,13 +1055,6 @@ defmodule AmbryWeb.Admin.Decisions do
   def source_words("local"), do: "the library"
   def source_words("provider:" <> id), do: id
   def source_words(other), do: other
-
-  defp linked_people(%Credit{candidates: candidates, identity_id: id}) do
-    case Enum.find(candidates, &(&1.identity_id == id)) do
-      %{people: people} when is_binary(people) -> people
-      _none -> nil
-    end
-  end
 
   defp truncate(nil), do: "—"
 

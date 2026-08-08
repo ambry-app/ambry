@@ -55,7 +55,7 @@ defmodule AmbryWeb.Components.EntityResolver do
       <div class="flex">
         <span
           :if={@text_name}
-          class="inline-flex w-20 flex-none items-center justify-center rounded-l-sm border border-r-0 border-zinc-300 bg-zinc-100 text-xs text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+          class="flex w-24 flex-none items-center justify-center rounded-l-sm border border-r-0 border-zinc-300 bg-zinc-100 px-2 text-sm font-semibold text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
         >
           {if @value, do: "Existing", else: "Create"}
         </span>
@@ -74,7 +74,7 @@ defmodule AmbryWeb.Components.EntityResolver do
           phx-focus="open"
           phx-target={@myself}
           phx-debounce="150"
-          class={[@class, @text_name && "rounded-l-none"]}
+          class={[@class, @text_name && "rounded-l-none border-l-0"]}
         />
       </div>
       <ul

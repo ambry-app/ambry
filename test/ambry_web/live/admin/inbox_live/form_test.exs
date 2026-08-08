@@ -387,6 +387,40 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert credit.name == "Jason Pargin"
     end
 
+    # The note beside a linked credit speaks only when the backing humans add
+    # something the identity name doesn't — a pen name's real names. An
+    # identity backed by a same-named person stays silent, and the lookup has
+    # to work for identities picked at form time, not only seed-time matches.
+    test "a linked pen name says who's behind it; a plain identity doesn't", %{conn: conn} do
+      abraham =
+        insert(:person,
+          name: "Daniel Abraham",
+          authors: [build(:author, name: "James S.A. Corey")]
+        )
+
+      [corey] = Ambry.Repo.preload(abraham, :authors).authors
+      franck = insert(:person, name: "Ty Franck")
+      {:ok, _} = Ambry.People.update_person(franck, %{author_people: [%{author_id: corey.id}]})
+
+      solo = insert(:person, name: "Robin Sloan", authors: [build(:author, name: "Robin Sloan")])
+      [sloan] = Ambry.Repo.preload(solo, :authors).authors
+
+      item = probed_item()
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      link = fn id ->
+        view
+        |> element("#credit-work-0-identity")
+        |> render_change(%{"section" => "work", "index" => "0", "identity_id" => to_string(id)})
+      end
+
+      link.(corey.id)
+      assert has_element?(view, "[data-role='identity-backing']", "Daniel Abraham and Ty Franck")
+
+      link.(sloan.id)
+      refute has_element?(view, "[data-role='identity-backing']")
+    end
+
     # A filled field that opens must never list records that don't match what
     # it holds; and the prefix segment names the outcome the field currently
     # carries.
