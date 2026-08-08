@@ -55,7 +55,7 @@ defmodule AmbryWeb.Components.EntityResolver do
       <div class="flex">
         <span
           :if={@text_name}
-          class="flex w-24 flex-none items-center justify-center rounded-l-sm border border-r-0 border-zinc-300 bg-zinc-100 px-2 text-sm font-semibold text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+          class="flex w-24 flex-none items-center justify-end rounded-l-sm border border-r-0 border-zinc-300 bg-zinc-100 px-3 text-sm font-semibold text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
         >
           {if @value, do: "Existing", else: "Create"}
         </span>
