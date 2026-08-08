@@ -749,6 +749,22 @@ defmodule Ambry.Inbox.DraftTest do
       assert SeriesLink.state(link) == :missing
     end
 
+    # `book_number` is a required column, so an approved-but-numberless
+    # membership is not storable — approving it read as resolved and the
+    # refusal surfaced at insert time as "Couldn't add this to the library."
+    # (Memory's Legion, whose Expanse membership arrives unnumbered).
+    test "approving a numberless membership does not settle it" do
+      candidates = [provider_candidate(%{"series" => ["The Expanse"]})]
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      draft = Ambry.Inbox.Draft.Edit.approve_series(draft, 0, true)
+
+      assert [link] = draft.work.series
+      assert link.approved
+      refute SeriesLink.resolved?(link)
+      assert SeriesLink.state(link) == :missing
+    end
+
     test "a number from the tags settles it" do
       candidates = [provider_candidate(%{"series" => ["The Expanse"]})]
 
