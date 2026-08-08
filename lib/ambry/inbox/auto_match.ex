@@ -912,6 +912,15 @@ defmodule Ambry.Inbox.AutoMatch do
   # A candidate with no title stated is not evidence the titles differ.
   defp confusable?(_one, _other), do: true
 
+  @doc """
+  The exact-identity form of a title: case, punctuation, edition words and
+  leading articles do not make a different book — the operator's two
+  Princess Bride releases are titled "Princess Bride" and "The Princess
+  Bride". Deliberately EXACT beyond that ("Dune Messiah" and "Dune" differ
+  by it); for use where linking demands identity, not similarity.
+  """
+  def title_key(title) when is_binary(title), do: title |> title_words() |> Enum.join(" ")
+
   defp title_words(title) do
     title
     |> normalize()

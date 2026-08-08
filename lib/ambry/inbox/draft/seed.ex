@@ -52,6 +52,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   import Ecto.Query
 
+  alias Ambry.Books
   alias Ambry.Books.Book
   alias Ambry.Books.Series
   alias Ambry.Inbox.AutoMatch
@@ -813,11 +814,18 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp relink_work(draft, _item), do: draft
 
+  # Fetched by keyword and filtered on `title_key/1` — exact identity, but
+  # case, punctuation and leading articles don't make a different book: the
+  # operator's two Princess Bride releases are titled "Princess Bride" and
+  # "The Princess Bride", and a lower(=) comparison left the twin unlinked
+  # over the article.
   defp books_titled(title) do
-    Book
-    |> where([b], fragment("lower(?)", b.title) == ^String.downcase(title))
-    |> preload(:authors)
-    |> Repo.all()
+    key = AutoMatch.title_key(title)
+
+    title
+    |> Books.match_keywords()
+    |> Books.match_books(25)
+    |> Enum.filter(&(AutoMatch.title_key(&1.title) == key))
   end
 
   defp authors_overlap?(book, %Work{authors: credits}) do
