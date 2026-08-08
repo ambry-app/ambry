@@ -1214,9 +1214,15 @@ defmodule Ambry.Inbox.AutoMatch do
   # short name, at least two of a long one — which keeps Wool findable from
   # "01 Wool" and the Wayfarers books findable through their series, and
   # keeps a single shared noun from re-opening the identity question.
+  # Title evidence comes from what the file calls the BOOK — title and
+  # release name, never the series tag. A series named after its first book
+  # smuggled that book's whole title into this set: "Children of Memory"
+  # (series-tagged "Children of Time") offered the shelved Children of Time
+  # as "a book you already have". Series words belong to the series arm,
+  # which has its own label and volume guards.
   defp title_evidence?(candidate, hints) do
     wanted =
-      [hints.title, hints.release_title, hints.series]
+      [hints.title, hints.release_title]
       |> Enum.flat_map(&Books.match_keywords/1)
       |> MapSet.new()
 

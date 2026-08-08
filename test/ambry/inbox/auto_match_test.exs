@@ -619,6 +619,73 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert [%{"title" => "The Long Way to a Small, Angry Planet"}] = first["work"]["local"]
     end
 
+    # The series is named after its first book, so the series TAG smuggled
+    # book 1's whole title into the title-evidence word set: "Children of
+    # Memory" (series-tagged "Children of Time") offered the shelved
+    # Children of Time as "a book you already have". Title evidence must
+    # come from what the file calls the BOOK; series words belong to the
+    # series arm, which has its own label and volume guards.
+    test "a series named after book one does not offer book one for its siblings" do
+      insert(:book,
+        title: "Children of Time",
+        book_authors: [
+          build(:book_author,
+            author: build(:author, name: "Adrian Tchaikovsky", person: build(:person))
+          )
+        ],
+        series_books: [
+          build(:series_book, book_number: 1, series: build(:series, name: "Children of Time"))
+        ]
+      )
+
+      item = %InboxItem{
+        path: "/downloads/03 Children of Memory",
+        tags: %{
+          "book_title" => "Children of Memory",
+          "authors" => ["Adrian Tchaikovsky"],
+          "series" => "Children of Time",
+          "asin" => nil
+        }
+      }
+
+      %{matches: matches} = AutoMatch.match(item)
+
+      assert matches["work"]["local"] == []
+    end
+
+    test "a numbered folder does not offer the wrong Kushiel volume" do
+      insert(:book,
+        title: "Kushiel's Dart",
+        book_authors: [
+          build(:book_author,
+            author: build(:author, name: "Jacqueline Carey", person: build(:person))
+          )
+        ],
+        series_books: [
+          build(:series_book,
+            book_number: 1,
+            series: build(:series, name: "Kushiel's Legacy: Phedre Trilogy")
+          ),
+          build(:series_book, book_number: 1, series: build(:series, name: "Kushiel's Universe"))
+        ]
+      )
+
+      item = %InboxItem{
+        path: "/downloads/2 - Kushiel's Chosen",
+        tags: %{
+          "book_title" => "Kushiel's Chosen",
+          "authors" => ["Jacqueline Carey"],
+          "series" => "Kushiel's Legacy",
+          "series_number" => "2",
+          "asin" => nil
+        }
+      }
+
+      %{matches: matches} = AutoMatch.match(item)
+
+      assert matches["work"]["local"] == []
+    end
+
     # A lone provider's hit is not consensus, however bad round 1 looks:
     # refining from an uncorroborated record is how a bad round-1 match
     # becomes a confidently wrong round-2 query.
