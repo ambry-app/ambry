@@ -315,9 +315,17 @@ defmodule Ambry.Inbox.AutoMatch do
   # itself still left "TJ Klune" and "T.J. Klune" apart ("tj klune" vs
   # "t j klune"), and initials are exactly where providers disagree. With
   # spacing gone too, "J.K.", "J. K." and "JK" Rowling are one key — and the
-  # SQL twin stays a single regexp_replace.
-  def person_key(name) when is_binary(name),
-    do: name |> String.downcase() |> String.replace(~r/[^\p{L}\p{N}]+/u, "")
+  # SQL twin stays a single regexp_replace. Accents fold as well (NFD, marks
+  # stripped; `unaccent()` on the SQL side): the library's "Patricia
+  # Rodríguez" and a file's "Patricia Rodriguez" are one narrator, and the
+  # accent was one approval away from a second person of the same name.
+  def person_key(name) when is_binary(name) do
+    name
+    |> String.normalize(:nfd)
+    |> String.replace(~r/\p{Mn}/u, "")
+    |> String.downcase()
+    |> String.replace(~r/[^\p{L}\p{N}]+/u, "")
+  end
 
   @doc """
   The photo and biography to propose for one credited human.

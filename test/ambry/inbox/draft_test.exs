@@ -470,6 +470,20 @@ defmodule Ambry.Inbox.DraftTest do
       assert credit.identity_id
     end
 
+    # The library's "Patricia Rodríguez" came from a record; the next file's
+    # tags say "Patricia Rodriguez". One narrator — the accent was one
+    # approval away from a second person of the same name.
+    test "an accent variant of a name links the existing identity" do
+      person = insert(:person, name: "Patricia Rodríguez")
+      insert(:author, name: "Patricia Rodríguez", person: person)
+
+      candidates = [provider_candidate(%{"authors" => ["Patricia Rodriguez"]})]
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [%{mode: :link} = credit] = draft.work.authors
+      assert credit.identity_id
+    end
+
     # Items matched before the person key became punctuation-insensitive
     # stored their evidence under the older spelling-sensitive keys; that
     # evidence must not go dark because the sameness rule improved.
