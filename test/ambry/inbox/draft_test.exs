@@ -1070,7 +1070,7 @@ defmodule Ambry.Inbox.DraftTest do
       # person behind it
       draft =
         item.draft
-        |> Draft.Edit.rename_person("david wong", "Jason Pargin")
+        |> Draft.Edit.rename_person("davidwong", "Jason Pargin")
         |> Draft.Edit.approve_credit(:work, 0, true)
 
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
@@ -1292,7 +1292,7 @@ defmodule Ambry.Inbox.DraftTest do
       second =
         Enum.find(person.image.candidates, &(&1.value == "https://example.test/second.jpg"))
 
-      draft = Draft.Edit.choose_person_image(item.draft, "travis baldree", second.key)
+      draft = Draft.Edit.choose_person_image(item.draft, "travisbaldree", second.key)
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
       reseeded = Draft.Edit.resettle(item.draft, item)
@@ -1867,7 +1867,7 @@ defmodule Ambry.Inbox.DraftTest do
       draft =
         item.draft
         |> Draft.Edit.rename_credit(:work, 0, "David Wong")
-        |> Draft.Edit.rename_person("david wong", "Jason Pargin")
+        |> Draft.Edit.rename_person("davidwong", "Jason Pargin")
 
       credit = hd(draft.work.authors)
       assert credit.name == "David Wong"

@@ -1271,10 +1271,10 @@ defmodule Ambry.Inbox.Draft.Seed do
   end
 
   # The SQL twin of `AutoMatch.person_key/1`, so "James S.A. Corey" in a
-  # record finds the library's "James S. A. Corey". Still identity, not
-  # similarity — a spelling difference in punctuation is the same name, a
-  # different word is not.
-  @name_key_sql "trim(regexp_replace(lower(?), '[^[:alnum:]]+', ' ', 'g'))"
+  # record finds the library's "James S. A. Corey" and "T.J. Klune" finds
+  # "TJ Klune". Still identity, not similarity — a spelling difference in
+  # punctuation or spacing is the same name, a different word is not.
+  @name_key_sql "regexp_replace(lower(?), '[^[:alnum:]]+', '', 'g')"
 
   defp identity_matches(name, :author) do
     Author

@@ -169,8 +169,13 @@ defmodule Ambry.Inbox.AutoMatch do
   asking whether two spellings mean one person must go through it. (The
   title normaliser is a different job — it also strips edition words.)
   """
+  # Condensed to letters and digits alone: punctuation-insensitivity by
+  # itself still left "TJ Klune" and "T.J. Klune" apart ("tj klune" vs
+  # "t j klune"), and initials are exactly where providers disagree. With
+  # spacing gone too, "J.K.", "J. K." and "JK" Rowling are one key — and the
+  # SQL twin stays a single regexp_replace.
   def person_key(name) when is_binary(name),
-    do: name |> String.downcase() |> String.replace(~r/[^\p{L}\p{N}]+/u, " ") |> String.trim()
+    do: name |> String.downcase() |> String.replace(~r/[^\p{L}\p{N}]+/u, "")
 
   @doc """
   The photo and biography to propose for one credited human.
@@ -760,9 +765,24 @@ defmodule Ambry.Inbox.AutoMatch do
   authors decide, at the recording level the narrators do.
   """
   def agrees?(one, other) do
-    normalize(one["title"] || "") == normalize(other["title"] || "") and
+    same_stated_title?(one["title"] || "", other["title"] || "") and
       compatible?(one["narrators"], other["narrators"]) and
       compatible?(one["authors"], other["authors"])
+  end
+
+  # A title and that same title carrying its subtitle are one answer written
+  # two ways: rreading-glasses says "Cast Under an Alien Sun" where Hardcover
+  # writes "Cast Under an Alien Sun: Destiny's Crucible, Book 1", and exact
+  # equality read the two records of one book as rivals — near-tied, so the
+  # doubt penalty fired on a doubly-corroborated match. Asymmetric
+  # containment, same as the seeder's `same_title?/2` and for the same
+  # reason: one title has to be the WHOLE of the other's head, or "The
+  # Expanse: Leviathan Wakes" agrees with "The Expanse: Caliban's War".
+  defp same_stated_title?(one, other) do
+    a = normalize(one)
+    b = normalize(other)
+
+    a == b or normalize(title_head(one)) == b or normalize(title_head(other)) == a
   end
 
   # A record that names fewer of the same people is compatible with one that

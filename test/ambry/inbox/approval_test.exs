@@ -101,7 +101,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       item =
         update_in(item.draft.people, fn people ->
           Enum.map(people, fn person ->
-            if person.key == "brandon sanderson" do
+            if person.key == "brandonsanderson" do
               %{
                 person
                 | description: picked("An American author of epic fantasy.", "provider:wikidata"),

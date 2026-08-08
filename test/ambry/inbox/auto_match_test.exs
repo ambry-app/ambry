@@ -454,6 +454,36 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert companion["score"] < 0.4
     end
 
+    # rreading-glasses says "Cast Under an Alien Sun" where Hardcover writes
+    # the subtitle out; exact title equality read two records of one book as
+    # near-tied rivals and the doubt penalty fired on a corroborated match.
+    test "a subtitle variant of one book corroborates rather than rivals" do
+      patch_work_results([
+        book("Cast Under an Alien Sun", ["Olan Thorensen"]),
+        book("Cast Under an Alien Sun: Destiny's Crucible, Book 1", ["Olan Thorensen"])
+      ])
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Cast Under an Alien Sun", author: "Olan Thorensen"))
+
+      assert matches["work"]["confidence"] > 0.9
+    end
+
+    # "TJ Klune" and "T.J. Klune" are two providers' spellings of one human,
+    # and treating them as different authors kept two records of one book
+    # from corroborating each other.
+    test "initials with and without dots are one person" do
+      patch_work_results([
+        book("The House in the Cerulean Sea", ["TJ Klune"]),
+        book("The House in the Cerulean Sea", ["T.J. Klune"])
+      ])
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "The House in the Cerulean Sea", author: "TJ Klune"))
+
+      assert matches["work"]["confidence"] > 0.9
+    end
+
     # rreading-glasses credits As You Wish to "Cary Elwes" and Hardcover to
     # "Cary Elwes, Joe Layden". Strict set equality read that as a rival and
     # doubted a match both databases had confirmed.
@@ -579,13 +609,13 @@ defmodule Ambry.Inbox.AutoMatchTest do
           item(title: "Neuromancer", author: "William Gibson", narrator: "Robertson Dean")
         )
 
-      assert %{"william gibson" => gibson} = matches["people"]
+      assert %{"williamgibson" => gibson} = matches["people"]
       assert gibson["roles"] == ["author"]
       assert [candidate | _rest] = gibson["candidates"]
       assert candidate["name"] == "William Gibson"
 
       # the file named the reader, so the reader is a question too
-      assert %{"robertson dean" => dean} = matches["people"]
+      assert %{"robertsondean" => dean} = matches["people"]
       assert dean["roles"] == ["narrator"]
     end
 
@@ -605,7 +635,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
       %{matches: matches} = AutoMatch.match(item(title: "Legends & Lattes"))
 
       assert map_size(matches["people"]) == 1
-      assert %{"travis baldree" => baldree} = matches["people"]
+      assert %{"travisbaldree" => baldree} = matches["people"]
       assert baldree["roles"] == ["author", "narrator"]
     end
 
@@ -620,7 +650,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
       %{matches: matches} = AutoMatch.match(item(title: "Neuromancer", author: "William Gibson"))
 
-      assert %{"william gibson" => gibson} = matches["people"]
+      assert %{"williamgibson" => gibson} = matches["people"]
       assert [%{"source" => "local"}] = gibson["local"]
       assert gibson["candidates"] == []
       # not "found nothing" — never asked
@@ -643,8 +673,8 @@ defmodule Ambry.Inbox.AutoMatchTest do
       %{matches: matches} =
         AutoMatch.match(item(title: "Wayfarers, Book 1", narrator: "Patricia Rodriguez"))
 
-      assert Map.has_key?(matches["people"], "patricia rodriguez")
-      assert Map.has_key?(matches["people"], "rachel dulude")
+      assert Map.has_key?(matches["people"], "patriciarodriguez")
+      assert Map.has_key?(matches["people"], "racheldulude")
     end
 
     test "a cast label is never a person to go and find" do
@@ -663,7 +693,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
       %{matches: matches} = AutoMatch.match(item(title: "Neuromancer", author: "William Gibson"))
 
-      assert %{"william gibson" => gibson} = matches["people"]
+      assert %{"williamgibson" => gibson} = matches["people"]
       assert Enum.all?(gibson["providers"], &(&1["status"] == "failed"))
     end
   end

@@ -290,7 +290,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
       item = Inbox.get_item!(item.id)
-      key = "brandon sanderson"
+      key = "brandonsanderson"
 
       draft = Draft.Edit.choose_person_bio(item.draft, key, "credit")
       {:ok, _saved} = Inbox.update_draft(item, Inbox.dump_draft(draft))
@@ -461,7 +461,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, _view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      person = person_keyed(item, "brandon sanderson")
+      person = person_keyed(item, "brandonsanderson")
       assert Field.value(person.image) == "https://example.test/face.jpg"
       assert person.image.source == "provider:wikidata"
     end
@@ -476,7 +476,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
       view
-      |> element(~s{button[phx-click='find-person'][phx-value-key='brandon sanderson']})
+      |> element(~s{button[phx-click='find-person'][phx-value-key='brandonsanderson']})
       |> render_click()
 
       html = render_async(view)
@@ -488,7 +488,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       view |> element(~s{button[phx-click='pick-person-bio']}) |> render_click()
 
-      person = person_keyed(item, "brandon sanderson")
+      person = person_keyed(item, "brandonsanderson")
       assert Field.value(person.description) == "An American author of epic fantasy."
       assert person.description.source == "provider:wikidata"
     end
@@ -501,13 +501,13 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      key = "brandon sanderson"
+      key = "brandonsanderson"
 
       view
       |> form("#person-bio-work-0-0")
       |> render_change(%{"key" => key, "description" => "Sanderson writes very fast."})
 
-      person = person_keyed(item, "brandon sanderson")
+      person = person_keyed(item, "brandonsanderson")
       assert Field.value(person.description) == "Sanderson writes very fast."
       assert person.description.source == "manual"
     end
@@ -521,7 +521,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
       view
-      |> element(~s{button[phx-click='find-person'][phx-value-key='brandon sanderson']})
+      |> element(~s{button[phx-click='find-person'][phx-value-key='brandonsanderson']})
       |> render_click()
 
       render_async(view)
@@ -830,7 +830,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
   defp with_person_matches(item, photo) do
     people = %{
-      "brandon sanderson" => %{
+      "brandonsanderson" => %{
         "name" => "Brandon Sanderson",
         "roles" => ["author"],
         "local" => [],
