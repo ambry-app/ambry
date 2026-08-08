@@ -983,10 +983,15 @@ defmodule Ambry.Inbox.AutoMatch do
   # library held one William Gibson, Pattern Recognition offered Neuromancer
   # as "a book you already have" at 0.68, and every further import by an
   # author already on the shelf re-opened an identity question about a book
-  # it plainly isn't. Similarity is not evidence of identity here; a word of
-  # the book's own title or series appearing in what the file calls itself
-  # is. Stopwords and single letters are already gone from
-  # `Books.match_keywords/1`.
+  # it plainly isn't. Similarity is not evidence of identity here; the
+  # book's own name appearing in what the file calls itself is.
+  #
+  # And one word of it is not enough: "Elysium Fire" was offered for The
+  # Consuming Fire on the strength of "fire". The book's title (or one of
+  # its series names) must be *substantially* present — every word of a
+  # short name, at least two of a long one — which keeps Wool findable from
+  # "01 Wool" and the Wayfarers books findable through their series, and
+  # keeps a single shared noun from re-opening the identity question.
   defp title_evidence?(candidate, hints) do
     wanted =
       [hints.title, hints.release_title, hints.series]
@@ -994,8 +999,11 @@ defmodule Ambry.Inbox.AutoMatch do
       |> MapSet.new()
 
     [candidate["title"] | Enum.map(candidate["series"] || [], & &1["name"])]
-    |> Enum.flat_map(&Books.match_keywords/1)
-    |> Enum.any?(&MapSet.member?(wanted, &1))
+    |> Enum.any?(fn name ->
+      words = Books.match_keywords(name)
+      shared = Enum.count(words, &MapSet.member?(wanted, &1))
+      words != [] and shared >= min(2, length(words))
+    end)
   end
 
   defp provider_books(_level, nil, _hints, _opts), do: {[], []}

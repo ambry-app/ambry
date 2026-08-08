@@ -152,6 +152,26 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert matches["work"]["local"] == []
     end
 
+    # One word of a title is not evidence of identity: "Elysium Fire" was
+    # offered for The Consuming Fire on the strength of "fire". A one-word
+    # title fully present still counts — Wool must stay findable from
+    # "01 Wool".
+    test "a single shared title word is not evidence of identity" do
+      insert(:book, title: "Elysium Fire")
+      wool = insert(:book, title: "Wool")
+
+      %{matches: fire} =
+        AutoMatch.match(
+          item(title: "The Consuming Fire: The Interdependency, Book 2", author: "John Scalzi")
+        )
+
+      %{matches: wool_match} = AutoMatch.match(item(title: "Wool", author: "Hugh Howey"))
+
+      assert fire["work"]["local"] == []
+      assert [%{"id" => id}] = wool_match["work"]["local"]
+      assert id == wool.id
+    end
+
     # Keywords recall far more than the substring search did, and one shared
     # word is not a reason to ask "do you already have this?" — measured on the
     # operator's library, Anne of Green Gables was being offered as a candidate
