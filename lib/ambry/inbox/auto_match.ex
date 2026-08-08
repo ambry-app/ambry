@@ -90,6 +90,9 @@ defmodule Ambry.Inbox.AutoMatch do
   @narrator_match 0.85
   @narrator_mismatch 0.5
 
+  # What it costs to sit at a different number in the series the label named.
+  @series_mismatch 0.5
+
   @doc """
   Builds work and recording proposals for an item.
 
@@ -594,6 +597,16 @@ defmodule Ambry.Inbox.AutoMatch do
       author: first(tags["authors"]) || parsed.author,
       narrator: stated_narrator(tags["narrators"]) || parsed.narrator,
       series: presence(tags["series"]) || parsed.series,
+      # The number beside the label, wherever it was written: the tags'
+      # series_number field, the tag title's own tail ("Wayfarers, Book 4"),
+      # or the folder name. A label naming a series and a number is an
+      # *identity* — see `series_identity/2` — and it is also the only thing
+      # that stops a label-tagged later volume matching the series' famous
+      # first book.
+      series_number:
+        presence_number(tags["series_number"]) ||
+          ReleaseName.parse(tags["book_title"] || "").series_number ||
+          parsed.series_number,
       asin: presence(tags["asin"]) || parsed.asin,
       # Kept **beside** `title` rather than folded into it. The tags win the
       # hint because they are the more reliable field, but the name is a real
@@ -1152,7 +1165,15 @@ defmodule Ambry.Inbox.AutoMatch do
         # No thumb on the scale any more: local Books are their own list, so
         # the score is plain similarity and is used only to decide whether the
         # match is strong enough to offer as "this is an edition of that".
-        "score" => score(book.title, Enum.map(book.authors || [], & &1.name), nil, nil, hints)
+        "score" =>
+          score(
+            book.title,
+            Enum.map(book.authors || [], & &1.name),
+            nil,
+            nil,
+            series_refs(book.series),
+            hints
+          )
       }
     end)
     |> Enum.filter(&offer?(&1, hints))
@@ -1202,9 +1223,23 @@ defmodule Ambry.Inbox.AutoMatch do
 
     Enum.any?(
       candidate["series"] || [],
-      &(substantial?(&1["name"], wanted) and series_label?(&1["name"], hints))
+      &(substantial?(&1["name"], wanted) and series_label?(&1["name"], hints) and
+          not wrong_volume?(&1, hints))
     )
   end
+
+  # "Wayfarers, Book 4" is a label for the series' FOURTH book: the first
+  # book being on the shelf is not a reason to offer it, however famous it
+  # is. A label with no number, or a membership with no single number, stays
+  # neutral.
+  defp wrong_volume?(entry, %{series_number: number}) when not is_nil(number) do
+    case single_number(entry["number"]) do
+      nil -> false
+      position -> not same_number?(position, number)
+    end
+  end
+
+  defp wrong_volume?(_entry, _hints), do: false
 
   defp substantial?(name, wanted) do
     words = Books.match_keywords(name)
@@ -1338,6 +1373,7 @@ defmodule Ambry.Inbox.AutoMatch do
   defp provider_candidate(book, entry, hints) do
     authors = Enum.map(book.authors || [], & &1.name)
     narrators = Enum.map(book.narrators || [], & &1.name)
+    series = series_refs(book.series)
 
     %{
       "source" => "provider:#{entry.id}",
@@ -1347,7 +1383,7 @@ defmodule Ambry.Inbox.AutoMatch do
       "title" => book.title,
       "authors" => authors,
       "narrators" => narrators,
-      "series" => series_refs(book.series),
+      "series" => series,
       "published" =>
         book.published && book.published.date && Date.to_iso8601(book.published.date),
       # carried alongside the date because it is not derivable from it:
@@ -1358,7 +1394,7 @@ defmodule Ambry.Inbox.AutoMatch do
       "publisher" => book.publisher,
       "cover_url" => book.cover_url,
       "description" => book.description,
-      "score" => score(book.title, authors, narrators, book.asin, hints)
+      "score" => score(book.title, authors, narrators, book.asin, series, hints)
     }
   end
 
@@ -1379,10 +1415,29 @@ defmodule Ambry.Inbox.AutoMatch do
   defp number_string(number), do: presence(to_string(number))
 
   # An ASIN match is identity, not similarity — nothing else can earn 1.0.
-  defp score(_title, _authors, _narrators, asin, %{asin: asin}) when is_binary(asin), do: 1.0
+  defp score(_title, _authors, _narrators, asin, _series, %{asin: asin}) when is_binary(asin),
+    do: 1.0
 
-  defp score(title, authors, narrators, _asin, hints) do
-    {title_similarity, penalty} = title_parts(title, hints.title)
+  defp score(title, authors, narrators, _asin, series, hints) do
+    {title_similarity, penalty} =
+      case series_identity(series, hints) do
+        # The label names a series and a number, and this candidate IS that
+        # series at that number: identity, not similarity — the label was
+        # never the title, so its title score is noise. Companion markers
+        # still subtract.
+        :match ->
+          {1.0, companion_penalty(title)}
+
+        # And a candidate at a DIFFERENT number is the wrong sibling no
+        # matter how the strings score: "Wayfarers, Book 4" must not match
+        # the series' famous first book.
+        :conflict ->
+          {sim, penalty} = title_parts(title, hints.title)
+          {sim, penalty * @series_mismatch}
+
+        :unstated ->
+          title_parts(title, hints.title)
+      end
 
     base =
       case author_similarity(authors, hints.author) do
@@ -1439,6 +1494,62 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   defp title_head(other), do: other
+
+  # Whether the file's label and this candidate's series membership answer
+  # each other. Three-valued, like every "didn't say" in this module:
+  #
+  #   :match     the label names a series and a number, and the candidate is
+  #              at that number in a series whose name the label contains
+  #   :conflict  same series, single-number position, different number — the
+  #              wrong sibling, whatever the strings score
+  #   :unstated  no label number, no matching series entry, or a position
+  #              that isn't a single number ("1-4" box sets stay neutral)
+  defp series_identity(series, %{series_number: number} = hints) when not is_nil(number) do
+    label_words =
+      [hints.title, hints.series]
+      |> Enum.flat_map(&Books.match_keywords/1)
+      |> MapSet.new()
+
+    series
+    |> List.wrap()
+    |> Enum.find(fn entry ->
+      words = Books.match_keywords(entry["name"])
+      words != [] and Enum.all?(words, &MapSet.member?(label_words, &1))
+    end)
+    |> case do
+      nil ->
+        :unstated
+
+      entry ->
+        case single_number(entry["number"]) do
+          nil -> :unstated
+          position -> if same_number?(position, number), do: :match, else: :conflict
+        end
+    end
+  end
+
+  defp series_identity(_series, _hints), do: :unstated
+
+  defp single_number(value) do
+    case Decimal.parse(to_string(value || "")) do
+      {decimal, ""} -> decimal
+      _range_or_junk -> nil
+    end
+  end
+
+  defp same_number?(one, other) do
+    case single_number(other) do
+      nil -> false
+      decimal -> Decimal.equal?(one, decimal)
+    end
+  end
+
+  defp presence_number(value) do
+    case single_number(value) do
+      nil -> nil
+      decimal -> decimal
+    end
+  end
 
   defp apply_narrator(score, narrators, narrator) when narrators in [nil, []] or is_nil(narrator),
     do: score

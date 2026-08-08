@@ -565,6 +565,60 @@ defmodule Ambry.Inbox.AutoMatchTest do
              )
     end
 
+    # The operator's fear, verified live before this existed: a series is
+    # matched by its famous first book, so "Wayfarers, Book 4" offered and
+    # scored book 1. A label naming a series and a number is an IDENTITY —
+    # the candidate at that number wins, siblings at other numbers sink, and
+    # box-set ranges ("1-4") stay neutral.
+    test "a numbered series label matches its own volume, not the famous first book" do
+      patch_work_results([
+        book("The Long Way to a Small, Angry Planet", ["Becky Chambers"],
+          series: [%Provider.Series{name: "Wayfarers", number: Decimal.new(1)}]
+        ),
+        book("The Galaxy, and the Ground Within", ["Becky Chambers"],
+          series: [%Provider.Series{name: "Wayfarers", number: Decimal.new(4)}]
+        ),
+        book("The Wayfarers Series", ["Becky Chambers"],
+          series: [%Provider.Series{name: "Wayfarers", number: "1-4"}]
+        )
+      ])
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Wayfarers, Book 4", author: "Becky Chambers"))
+
+      assert [best | rest] = matches["work"]["candidates"]
+      assert best["title"] == "The Galaxy, and the Ground Within"
+      assert best["score"] == 1.0
+      assert matches["work"]["confidence"] > 0.65
+
+      first_book = Enum.find(rest, &(&1["title"] == "The Long Way to a Small, Angry Planet"))
+      assert first_book["score"] < 0.4
+    end
+
+    test "a label-tagged later volume never offers the first book from the shelf" do
+      insert(:book,
+        title: "The Long Way to a Small, Angry Planet",
+        book_authors: [
+          build(:book_author,
+            author: build(:author, name: "Becky Chambers", person: build(:person))
+          )
+        ],
+        series_books: [
+          build(:series_book, book_number: 1, series: build(:series, name: "Wayfarers"))
+        ]
+      )
+
+      %{matches: labeled} =
+        AutoMatch.match(item(title: "Wayfarers, Book 4", author: "Becky Chambers"))
+
+      %{matches: first} =
+        AutoMatch.match(item(title: "Wayfarers, Book 1", author: "Becky Chambers"))
+
+      # the wrong sibling is not offered; the right one still is
+      assert labeled["work"]["local"] == []
+      assert [%{"title" => "The Long Way to a Small, Angry Planet"}] = first["work"]["local"]
+    end
+
     # A lone provider's hit is not consensus, however bad round 1 looks:
     # refining from an uncorroborated record is how a bad round-1 match
     # becomes a confidently wrong round-2 query.
