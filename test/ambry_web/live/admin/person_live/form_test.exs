@@ -87,16 +87,28 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
 
   describe "linking an existing author (composite pen names)" do
     test "links a shared author through the autocomplete", %{conn: conn} do
-      insert(:person, name: "Daniel Abraham", authors: [build(:author, name: "James S.A. Corey")])
+      abraham =
+        insert(:person,
+          name: "Daniel Abraham",
+          authors: [build(:author, name: "James S.A. Corey")]
+        )
+
+      [corey] = Ambry.Repo.preload(abraham, :authors).authors
       person = insert(:person, name: "Ty Franck")
 
       {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
-      # pick the author in the "link an existing author" autocomplete; in the
-      # browser the value-change hook then fires a form change event
-      view
-      |> element("input[name='autocomplete[person_link_author_id]']")
-      |> render_change(%{"autocomplete" => %{"person_link_author_id" => "James S.A. Corey"}})
+      # type to filter, then pick the option; in the browser the value-change
+      # hook then fires a form change event
+      html =
+        view
+        |> element("#person_link_author_id-input")
+        |> render_change(%{"resolver" => %{"person_link_author_id" => "James"}})
+
+      # an edit form is a pure picker — no new-record support
+      refute html =~ "Create “"
+
+      view |> element("#person_link_author_id-option-#{corey.id}") |> render_click()
 
       html = view |> form("#person-form", %{"person" => %{}}) |> render_change()
       assert html =~ "James S.A. Corey"
@@ -126,15 +138,23 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
     end
 
     test "linking the same author twice adds only one row", %{conn: conn} do
-      insert(:person, name: "Daniel Abraham", authors: [build(:author, name: "James S.A. Corey")])
+      abraham =
+        insert(:person,
+          name: "Daniel Abraham",
+          authors: [build(:author, name: "James S.A. Corey")]
+        )
+
+      [corey] = Ambry.Repo.preload(abraham, :authors).authors
       person = insert(:person, name: "Ty Franck")
 
       {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
       for _try <- 1..2 do
         view
-        |> element("input[name='autocomplete[person_link_author_id]']")
-        |> render_change(%{"autocomplete" => %{"person_link_author_id" => "James S.A. Corey"}})
+        |> element("#person_link_author_id-input")
+        |> render_change(%{"resolver" => %{"person_link_author_id" => "James"}})
+
+        view |> element("#person_link_author_id-option-#{corey.id}") |> render_click()
 
         view |> form("#person-form", %{"person" => %{}}) |> render_change()
       end

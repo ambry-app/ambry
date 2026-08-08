@@ -21,6 +21,7 @@ import "phoenix_html"
 import { LiveSocket } from "phoenix_live_view"
 import topbar from "topbar"
 
+import { ComboboxNavHook } from "./hooks/combobox-nav"
 import { DispatchValueChangeHook } from "./hooks/dispatch-value-change"
 import { HeaderScrollspyHook } from "./hooks/header-scrollspy"
 import { ImageSizeHook } from "./hooks/image-size"
@@ -43,6 +44,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "scroll-into-view": ScrollIntoViewHook,
     "maintain-attrs": MainTainAttrsHook,
     "infinite-scroll": InfiniteScrollHook,
+    "combobox-nav": ComboboxNavHook,
     "dispatch-value-change": DispatchValueChangeHook,
     "image-size": ImageSizeHook,
     "scroll-match": ScrollMatchHook,

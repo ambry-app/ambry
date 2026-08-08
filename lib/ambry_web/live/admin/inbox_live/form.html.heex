@@ -167,7 +167,7 @@
               value={@library_query}
               placeholder="search the library by title, author or series"
               phx-debounce="300"
-              class="min-w-64 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+              class={input_classes("min-w-64 flex-grow")}
             />
             <button type="submit" class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700">
               Search
@@ -340,6 +340,7 @@
             backing="Pen name of"
             expanded={expanded?(@expanded, "work", index, credit)}
             kind={:author}
+            identity_backing={@author_backing}
             persons={Draft.people_for(@item.draft, credit)}
             appearances={@appearances}
             searching_person={@searching_person}
@@ -538,6 +539,7 @@
             backing="Stage name of"
             expanded={expanded?(@expanded, "recording", index, credit)}
             kind={:narrator}
+            identity_backing={@narrator_backing}
             persons={Draft.people_for(@item.draft, credit)}
             appearances={@appearances}
             searching_person={@searching_person}
@@ -583,7 +585,7 @@
           <form id="destination-root" phx-change="choose-root" class="mt-1">
             <select
               name="root_id"
-              class="w-full max-w-md rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+              class={input_classes("w-full max-w-md")}
             >
               <option value="">Choose a library root…</option>
               <option

@@ -22,7 +22,7 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Media.RecordingGroup
   alias Ambry.People.Author
   alias AmbryWeb.Admin.UploadHelpers
-  alias AmbryWeb.Components.Autocomplete
+  alias AmbryWeb.Components.EntityResolver
   alias Phoenix.HTML.Form
   alias Phoenix.HTML.FormField
   alias Phoenix.LiveView.JS
@@ -413,12 +413,15 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  # A picker over existing records — the entity resolver with new-record
+  # support off, which is what an edit form wants. Custom listbox rather than
+  # a `<datalist>`, which mobile Firefox does not support.
   def input(%{type: "autocomplete"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}>{@label}</.label>
       <.live_component
-        module={Autocomplete}
+        module={EntityResolver}
         id={@id}
         name={@name}
         options={@options}
@@ -427,7 +430,6 @@ defmodule AmbryWeb.CoreComponents do
           ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
             input_color_classes(@errors) ++ [@class]
         }
-        {@rest}
       />
       <.error :for={msg <- @errors} :if={@show_errors}>{msg}</.error>
     </div>
@@ -709,20 +711,6 @@ defmodule AmbryWeb.CoreComponents do
         />
       </div>
     </div>
-    """
-  end
-
-  @doc """
-  Generates a datalist for the given options.
-  """
-  attr :id, :string, required: true
-  attr :options, :list, required: true
-
-  def datalist(assigns) do
-    ~H"""
-    <datalist id={@id}>
-      <option :for={option <- @options} value={elem(option, 0)} />
-    </datalist>
     """
   end
 

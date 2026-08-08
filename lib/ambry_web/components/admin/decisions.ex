@@ -22,6 +22,25 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
+  alias AmbryWeb.Components.EntityResolver
+
+  @doc """
+  The app-standard input styling, for the controls the import form builds by
+  hand.
+
+  The admin forms get this through `<.input>`; a bare `<input>` or `<select>`
+  rendered here has to carry it itself or it falls back to the browser's blue
+  focus ring, which is exactly what happened.
+  """
+  def input_classes(extra \\ nil) do
+    [
+      "rounded-sm text-sm focus:outline-none focus:ring-4",
+      "bg-white text-zinc-900 placeholder:text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300",
+      "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
+      "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
+      extra
+    ]
+  end
 
   attr :outcomes, :list, required: true
   attr :level, :string, default: nil
@@ -222,7 +241,7 @@ defmodule AmbryWeb.Admin.Decisions do
           type="text"
           name="title"
           value={@fields["title"]}
-          class="mt-1 block rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("mt-1 block")}
         />
       </label>
 
@@ -232,7 +251,7 @@ defmodule AmbryWeb.Admin.Decisions do
           type="text"
           name="author"
           value={@fields["author"]}
-          class="mt-1 block rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("mt-1 block")}
         />
       </label>
 
@@ -242,7 +261,7 @@ defmodule AmbryWeb.Admin.Decisions do
           type="text"
           name="narrator"
           value={@fields["narrator"]}
-          class="mt-1 block rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("mt-1 block")}
         />
       </label>
 
@@ -445,6 +464,11 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :backing, :string, required: true, doc: ~s(the unfolded label — "Pen name of")
   attr :expanded, :boolean, required: true
   attr :kind, :atom, required: true, doc: ":author or :narrator"
+
+  attr :identity_backing, :map,
+    default: %{},
+    doc: "identity id => the backing people's names, where they add something"
+
   attr :persons, :list, required: true, doc: "the PersonDecisions this credit references"
   attr :appearances, :map, default: %{}, doc: "person key => every credit referencing them"
   attr :searching_person, :string, default: nil, doc: "the person being looked up again"
@@ -531,31 +555,28 @@ defmodule AmbryWeb.Admin.Decisions do
         <input type="hidden" name="section" value={@section} />
         <input type="hidden" name="index" value={@index} />
 
-        <select
+        <.live_component
+          module={EntityResolver}
+          id={"credit-#{@section}-#{@index}-resolver"}
           name="identity_id"
-          class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-        >
-          <option value="">Create new…</option>
-          <option
-            :for={{name, id} <- @identities}
-            value={id}
-            selected={@credit.mode == :link and @credit.identity_id == id}
-          >
-            {name}
-          </option>
-        </select>
-
-        <input
-          :if={@credit.mode == :create}
-          type="text"
-          name="name"
-          value={@credit.name}
+          text_name="name"
+          options={@identities}
+          value={if @credit.mode == :link, do: @credit.identity_id}
+          text={@credit.name || ""}
           placeholder="name"
-          class="min-w-0 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("w-full")}
         />
 
-        <span :if={@credit.mode == :link} class="text-xs italic dark:text-zinc-500">
-          {linked_people(@credit) || "Already in the library."}
+        <%!-- The prefix segment already says "Existing"; this only speaks
+              when the linked identity is backed by other humans — a pen
+              name's real names are worth a line, "already in the library"
+              twice is not. --%>
+        <span
+          :if={@credit.mode == :link && @identity_backing[@credit.identity_id]}
+          class="text-xs italic dark:text-zinc-500"
+          data-role="identity-backing"
+        >
+          {@identity_backing[@credit.identity_id]}
         </span>
       </form>
 
@@ -604,23 +625,16 @@ defmodule AmbryWeb.Admin.Decisions do
           >
             <input type="hidden" name="key" value={person.key} />
 
-            <select
+            <.live_component
+              module={EntityResolver}
+              id={"credit-#{@section}-#{@index}-person-#{person_index}-resolver"}
               name="person_id"
-              class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-            >
-              <option value="">Create new…</option>
-              <option :for={{name, id} <- @people} value={id} selected={person.person_id == id}>
-                {name}
-              </option>
-            </select>
-
-            <input
-              :if={person.mode == :create}
-              type="text"
-              name="name"
-              value={Field.value(person.name)}
+              text_name="name"
+              options={@people}
+              value={if person.mode == :link, do: person.person_id}
+              text={Field.value(person.name) || ""}
               placeholder="the person's real name"
-              class="min-w-0 flex-grow rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+              class={input_classes("w-full")}
             />
 
             <button
@@ -844,7 +858,7 @@ defmodule AmbryWeb.Admin.Decisions do
             rows="3"
             placeholder="a short bio"
             phx-debounce="500"
-            class="block w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+            class={input_classes("block w-full")}
           >{@description}</textarea>
         </form>
 
@@ -944,8 +958,6 @@ defmodule AmbryWeb.Admin.Decisions do
         class="text-brand h-4 w-4 flex-none dark:text-brand-dark"
       />
 
-      <span :if={@link.mode == :link} class="font-semibold">{@link.name}</span>
-
       <.badge
         :if={!SeriesLink.resolved?(@link)}
         color={elem(state_words(SeriesLink.state(@link)), 1)}
@@ -962,35 +974,28 @@ defmodule AmbryWeb.Admin.Decisions do
           name="number"
           value={@link.number}
           placeholder="?"
-          class="w-16 rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("w-16")}
         />
       </form>
 
-      <form id={"series-#{@index}-link"} phx-change="link-series" class="flex items-center gap-2">
+      <form
+        id={"series-#{@index}-link"}
+        phx-change="link-series"
+        class="min-w-48 flex flex-grow items-center gap-2"
+      >
         <input type="hidden" name="index" value={@index} />
-        <select
-          name="series_id"
-          class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
-        >
-          <option value="">Create new…</option>
-          <option
-            :for={{name, id} <- @options}
-            value={id}
-            selected={@link.mode == :link and @link.series_id == id}
-          >
-            {name}
-          </option>
-        </select>
-
         <%!-- A provider's spelling of a series name is a proposal, not a
               decree. "The Expanse" vs "Expanse" is the operator's call. --%>
-        <input
-          :if={@link.mode == :create}
-          type="text"
-          name="name"
-          value={@link.name}
+        <.live_component
+          module={EntityResolver}
+          id={"series-#{@index}-resolver"}
+          name="series_id"
+          text_name="name"
+          options={@options}
+          value={if @link.mode == :link, do: @link.series_id}
+          text={@link.name || ""}
           placeholder="series name"
-          class="rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("w-full")}
         />
       </form>
 
@@ -1050,13 +1055,6 @@ defmodule AmbryWeb.Admin.Decisions do
   def source_words("local"), do: "the library"
   def source_words("provider:" <> id), do: id
   def source_words(other), do: other
-
-  defp linked_people(%Credit{candidates: candidates, identity_id: id}) do
-    case Enum.find(candidates, &(&1.identity_id == id)) do
-      %{people: people} when is_binary(people) -> "Already in the library — #{people}."
-      _none -> nil
-    end
-  end
 
   defp truncate(nil), do: "—"
 

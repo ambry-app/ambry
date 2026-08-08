@@ -9,10 +9,6 @@
     />
   </.modal>
 
-  <.datalist id="authors" options={@authors} />
-  <.datalist id="series" options={@series} />
-  <.datalist id="universes" options={@universes} />
-
   <div class="max-w-3xl">
     <.simple_form id="book-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
@@ -64,7 +60,7 @@
               class="mt-3 flex-none"
             />
             <div class="relative grow">
-              <.input field={book_author_form[:author_id]} type="autocomplete" options={@authors} list="authors" />
+              <.input field={book_author_form[:author_id]} type="autocomplete" options={@authors} />
               <.delete_button
                 field={@form[:book_authors_drop]}
                 index={book_author_form.index}
@@ -102,7 +98,6 @@
               field={series_book_form[:series_id]}
               type="autocomplete"
               options={@series}
-              list="series"
               container_class="grow"
             />
             <.delete_button
@@ -123,7 +118,7 @@
           <.sort_input field={@form[:book_universes_sort]} index={book_universe_form.index} />
 
           <div class="relative">
-            <.input field={book_universe_form[:universe_id]} type="autocomplete" options={@universes} list="universes" />
+            <.input field={book_universe_form[:universe_id]} type="autocomplete" options={@universes} />
             <.delete_button
               field={@form[:book_universes_drop]}
               index={book_universe_form.index}
