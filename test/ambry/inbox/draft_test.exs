@@ -1394,6 +1394,36 @@ defmodule Ambry.Inbox.DraftTest do
       assert draft.work.title.approved
     end
 
+    # The caps tie-break briefly preferred "Artemis (Unabridged)" over
+    # "Artemis" — the parenthetical adds a capital. The junk-free spelling
+    # wins first, always.
+    test "the junk-free spelling wins the collapse" do
+      candidates = [provider_candidate(%{"title" => "Artemis"})]
+
+      draft =
+        Seed.build(
+          item(%{matches: matches(candidates), tags: %{"book_title" => "Artemis (Unabridged)"}})
+        )
+
+      assert draft.work.title.value == "Artemis"
+      assert draft.work.title.approved
+    end
+
+    # Hardcover writes "Demon World Boba Shop:, Vol. 1" (their punctuation)
+    # where rreading-glasses writes the bare title; offered as rivals, the
+    # operator arbitrated a non-question.
+    test "a labelled trailing ordinal folds into the bare title" do
+      candidates = [
+        provider_candidate(%{"id" => "a", "title" => "Demon World Boba Shop"}),
+        provider_candidate(%{"id" => "b", "title" => "Demon World Boba Shop:, Vol. 1"})
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert draft.work.title.value == "Demon World Boba Shop"
+      assert draft.work.title.approved
+    end
+
     # A subtitle is punctuated. Plain word-prefix containment would merge
     # these, and they are two different books.
     test "a longer title that merely starts the same is not a subtitle" do

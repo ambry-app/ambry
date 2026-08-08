@@ -480,8 +480,16 @@ defmodule Ambry.Inbox.Draft.Seed do
   # would hide the very distinction the recording level exists to make.
   @format_labels ~r/\b(?:un)?abridged(?:\s+edition)?\b|\baudio\s?book\b|\baudio\s+edition\b/iu
 
+  # ", Vol. 1" and its kin fold away for equivalence: Hardcover writes
+  # "Demon World Boba Shop:, Vol. 1" (that punctuation is theirs) where
+  # rreading-glasses writes the bare title, and the two were offered as
+  # rival answers. A trailing *labelled* ordinal is the same title; a bare
+  # trailing number ("All the Skills 3") is the title and stays.
+  @trailing_ordinal ~r/,?\s+(?:book|bk\.?|vol\.?|volume)\s+\d+(?:\.\d+)?\s*$/i
+
   defp title_key(value) when is_binary(value) do
     value
+    |> String.replace(@trailing_ordinal, " ")
     |> String.replace(@format_labels, " ")
     # a bracket that held nothing but a format label is now empty
     |> String.replace(~r/[(\[{]\s*[)\]}]/u, " ")
@@ -1615,20 +1623,31 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp join_labels(one, nil), do: one
   defp join_labels(one, other), do: "#{one}, #{other}"
 
-  # Two spellings of one title. When one is the other's *head* — a subtitle
-  # or format label bolted on — the bare title is the title. When they carry
-  # the same words (an article, casing), the better-cased spelling is the
-  # title as written: the operator's Cerulean Sea tag says "house in the
-  # cerulean sea", and length alone preferred it over the catalogue's
-  # properly-cased "The House in the Cerulean Sea".
+  # Two spellings of one title. The junk-free spelling wins first —
+  # "Artemis" over "Artemis (Unabridged)" — and this arm must come before
+  # the caps tie-break, which briefly preferred the junk-carrying spelling
+  # because "(Unabridged)" adds a capital: the old prefer-shorter rule's
+  # whole point, relearned on three Expanse imports. Then a *head*
+  # reduction (a subtitle bolted on) prefers the bare title, and same-word
+  # spellings (an article, casing) prefer the better-cased one — the
+  # operator's Cerulean Sea tag says "house in the cerulean sea" against
+  # the catalogue's proper casing.
   defp shorter(held, incoming) do
     cond do
+      junky?(held) and not junky?(incoming) -> incoming
+      junky?(incoming) and not junky?(held) -> held
       head_reduction?(held, incoming) -> incoming
       head_reduction?(incoming, held) -> held
       caps(incoming) > caps(held) -> incoming
       true -> held
     end
   end
+
+  defp junky?(value) when is_binary(value) do
+    Regex.match?(@format_labels, value) or Regex.match?(@trailing_ordinal, value)
+  end
+
+  defp junky?(_other), do: false
 
   defp head_reduction?(long, short) when is_binary(long) and is_binary(short) do
     title_key(long) != title_key(short) and title_head(long) == title_key(short)
