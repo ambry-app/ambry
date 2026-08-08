@@ -686,6 +686,33 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert matches["work"]["local"] == []
     end
 
+    # When the strongest corroborated answer AGREES with the question, the
+    # loop is done — refining from the next-best agreement down the list
+    # turned a confirmed "Kushiel's Chosen" into a boxed-set omnibus query
+    # whose title swallowed the whole trilogy's words.
+    test "consensus that confirms the query refines nothing" do
+      chosen = book("Kushiel's Chosen", ["Jacqueline Carey"])
+
+      omnibus =
+        book("Kushiel's Legacy: Kushiel's Dart / Kushiel's Chosen / Kushiel's Avatar", [
+          "Jacqueline Carey"
+        ])
+
+      chosen_rec =
+        book("Kushiel's Chosen", ["Jacqueline Carey"], narrators: ["Anne Flosnik"])
+
+      patch(Providers, :search_books, fn id, _query, _opts ->
+        if work_provider?(id), do: {:ok, [chosen, omnibus]}, else: {:ok, [chosen_rec]}
+      end)
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Kushiel's Chosen", author: "Jacqueline Carey"))
+
+      assert matches["work"]["query_fields"]["title"] == "Kushiel's Chosen"
+      assert [best | _rest] = matches["work"]["candidates"]
+      assert best["title"] == "Kushiel's Chosen"
+    end
+
     # A lone provider's hit is not consensus, however bad round 1 looks:
     # refining from an uncorroborated record is how a bad round-1 match
     # becomes a confidently wrong round-2 query.

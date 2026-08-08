@@ -186,21 +186,30 @@ defmodule Ambry.Inbox.AutoMatch do
       {group, group |> Enum.map(& &1["source"]) |> Enum.uniq() |> length()}
     end)
     |> Enum.filter(fn {[held | _rest], sources} ->
-      sources >= 2 and consensus_key(held["title"]) not in [nil, current]
+      sources >= 2 and consensus_key(held["title"]) != nil
     end)
     |> Enum.sort_by(fn {group, sources} -> {-sources, -best_score(group)} end)
     |> case do
       [] ->
         nil
 
-      [{group, _sources} | _rest] ->
-        best = Enum.min_by(group, &String.length(&1["title"] || ""))
+      # The STRONGEST corroborated answer decides, and only a disagreeing
+      # one refines. Excluding the current-query group before ranking meant
+      # that when the databases confirmed the question — "Kushiel's Chosen"
+      # corroborated at 1.0 — the loop refined anyway, from the next-best
+      # agreement down the list: a boxed-set omnibus both providers carry,
+      # whose title then swallowed the whole trilogy's words and offered
+      # book 1 as a local match. Agreement WITH the question ends the loop.
+      [{[held | _rest] = group, _sources} | _rest_groups] ->
+        if consensus_key(held["title"]) != current do
+          best = Enum.min_by(group, &String.length(&1["title"] || ""))
 
-        %{
-          hints
-          | title: strip_ordinal(best["title"]),
-            author: List.first(best["authors"] || []) || hints.author
-        }
+          %{
+            hints
+            | title: strip_ordinal(best["title"]),
+              author: List.first(best["authors"] || []) || hints.author
+          }
+        end
     end
   end
 
