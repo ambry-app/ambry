@@ -25,6 +25,13 @@ defmodule Ambry.Inbox.Draft.Work do
     field :book_id, :id
     field :approved, :boolean, default: false
 
+    # Whether a human settled the identity, as opposed to the seeder settling
+    # it because there was no local hit at the time. The same distinction
+    # `Field` and `Credit` draw, for the same reason: `Seed.relink/2` must be
+    # free to re-point an identity the seeder defaulted when the library
+    # gains the book, and must never move one the operator chose.
+    field :curated, :boolean, default: false
+
     field :confidence, :float
     field :query, :string
     field :query_fields, :map, default: %{}
@@ -57,6 +64,7 @@ defmodule Ambry.Inbox.Draft.Work do
       :mode,
       :book_id,
       :approved,
+      :curated,
       :confidence,
       :query,
       :query_fields,

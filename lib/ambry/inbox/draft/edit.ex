@@ -49,7 +49,10 @@ defmodule Ambry.Inbox.Draft.Edit do
   """
   def link_book(draft, %InboxItem{} = item, book_id) do
     draft
-    |> update_in([Access.key(:work)], &%{&1 | mode: :link, book_id: book_id, approved: true})
+    |> update_in(
+      [Access.key(:work)],
+      &%{&1 | mode: :link, book_id: book_id, approved: true, curated: true}
+    )
     |> reseed(item, :both)
   end
 
@@ -62,7 +65,10 @@ defmodule Ambry.Inbox.Draft.Edit do
   """
   def new_book(draft, %InboxItem{} = item) do
     draft
-    |> update_in([Access.key(:work)], &%{&1 | mode: :create, book_id: nil, approved: true})
+    |> update_in(
+      [Access.key(:work)],
+      &%{&1 | mode: :create, book_id: nil, approved: true, curated: true}
+    )
     |> reseed(item, :both)
   end
 

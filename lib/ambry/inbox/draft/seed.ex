@@ -765,11 +765,12 @@ defmodule Ambry.Inbox.Draft.Seed do
   silently went back to unapproved because a fresh credit from tags is never
   auto-approved. Nobody had touched it.
 
-  So this changes exactly one thing and only in one direction: a credit or
-  series that meant to **create** something, and now finds exactly one thing
-  of that name already there, becomes a **link** to it. Approval state,
-  values, chips and curation are all left as they were — the question stays
-  answered, the answer just resolves to a row that exists.
+  So this changes exactly one thing and only in one direction: a credit,
+  series, or the work identity itself that meant to **create** something,
+  and now finds exactly one thing of that name already there, becomes a
+  **link** to it. Approval state, values, chips and curation are all left as
+  they were — the question stays answered, the answer just resolves to a row
+  that exists.
 
   Anything the operator curated is skipped outright, and an *ambiguous* result
   (two identities of one name) is left alone too: that is a real question, and
@@ -778,6 +779,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   """
   def relink(%Draft{} = draft, %InboxItem{} = item) do
     draft
+    |> relink_work(item)
     |> update_in([Access.key(:work), Access.key(:authors)], &relink_credits(&1, :author))
     |> update_in([Access.key(:recording), Access.key(:narrators)], &relink_credits(&1, :narrator))
     |> update_in(
@@ -785,6 +787,51 @@ defmodule Ambry.Inbox.Draft.Seed do
       &Enum.map(&1 || [], fn s -> relink_series(s) end)
     )
     |> reconcile_people(item)
+  end
+
+  # Two queued recordings of one work: importing the first creates the Book
+  # and the second still says "create" — the split library the module doc
+  # above names as the same bug waiting for Books, now closed the same way.
+  # A work the seeder settled as new, whose title now matches exactly one
+  # Book with an overlapping author, becomes a link to it; the fields are
+  # then re-derived for link mode (series already on the book stop being
+  # proposed), with `keep_manual`/`keep_curated` holding every answered
+  # question. An identity the operator chose is curated and never touched,
+  # and anything short of exactly-one-with-matching-author is left alone —
+  # linking a recording to the wrong existing book is the worst outcome this
+  # form can produce.
+  defp relink_work(%Draft{work: %Work{mode: :create, curated: false} = work} = draft, item) do
+    with title when is_binary(title) <- Field.value(work.title),
+         [book] <- books_titled(title),
+         true <- authors_overlap?(book, work) do
+      linked = %{work | mode: :link, book_id: book.id, approved: true}
+      %{draft | work: reseed_work(linked, item)}
+    else
+      _no_single_certain_match -> draft
+    end
+  end
+
+  defp relink_work(draft, _item), do: draft
+
+  defp books_titled(title) do
+    Book
+    |> where([b], fragment("lower(?)", b.title) == ^String.downcase(title))
+    |> preload(:authors)
+    |> Repo.all()
+  end
+
+  defp authors_overlap?(book, %Work{authors: credits}) do
+    credited =
+      for %Credit{name: name} <- credits || [],
+          is_binary(name),
+          into: MapSet.new(),
+          do: AutoMatch.person_key(name)
+
+    held = MapSet.new(book.authors, &AutoMatch.person_key(&1.name))
+
+    # A draft with no author credits at all has nothing to disagree with —
+    # but then the title alone is not identity enough to link on.
+    not MapSet.disjoint?(credited, held)
   end
 
   # Membership only: a decision whose key is still referenced is left exactly

@@ -236,6 +236,38 @@ defmodule Ambry.Inbox.ApprovalTest do
       assert [_only_one] = Repo.all(where(Narrator, name: "Em Grosland"))
     end
 
+    # The same rule for the work itself — the split-library case the whole
+    # work-identity design exists to prevent. Two queued releases of one book
+    # each matched against a library that didn't have it; importing the first
+    # must re-point the second at the Book that now exists.
+    test "the second recording of one work links the book the first created" do
+      first = tagged_item(narrator: "Em Grosland")
+      second = tagged_item(name: "A Better Rip", narrator: "Em Grosland")
+
+      assert {:ok, _media} = Inbox.approve_item(first)
+
+      second = Inbox.get_item!(second.id)
+      assert second.draft.work.mode == :link
+      assert second.draft.work.book_id
+
+      assert {:ok, _media} = Inbox.approve_item(settle(second))
+      assert Repo.aggregate(Book, :count) == 1
+    end
+
+    test "an identity the operator settled as new stays new" do
+      first = tagged_item(narrator: "Em Grosland")
+      second = tagged_item(name: "A Deliberate Twin", narrator: "Em Grosland")
+
+      {:ok, second} = Inbox.prepare_draft(second)
+      draft = Draft.Edit.new_book(second.draft, second)
+      {:ok, _} = Inbox.update_draft(second, Inbox.dump_draft(draft))
+
+      assert {:ok, _media} = Inbox.approve_item(first)
+
+      second = Inbox.get_item!(second.id)
+      assert second.draft.work.mode == :create
+    end
+
     # Anything a human touched is theirs. Re-derivation may not quietly
     # relink a credit the operator deliberately set to create.
     test "a curated credit is left exactly as the operator left it" do
