@@ -934,6 +934,74 @@ defmodule Ambry.Inbox.DraftTest do
   # Long Way to a Small, Angry Planet", while The Wild Robot's release name
   # yields "Peter Brown" and "Out of Spite, Out of Mind: Magic 2.0, Book 5"
   # truncates to "Out of Spite". So the name is *offered*, never preferred.
+  # `Title: Series, Book N` is the dominant real-world tag shape, and scored
+  # as a rival to the catalogue's bare title it asked "pick a title" on three
+  # of seven books in one real batch — always for the same mechanical reason.
+  describe "a subtitle is not a different title" do
+    test "the tag's subtitle collapses into the record's bare title" do
+      candidates = [provider_candidate(%{"title" => "Battle Ground"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(candidates),
+            tags: %{"book_title" => "Battle Ground: The Dresden Files, Book 17"}
+          })
+        )
+
+      # one answer, settled, and the bare title is the one kept
+      assert draft.work.title.value == "Battle Ground"
+      assert draft.work.title.approved
+    end
+
+    test "a dash separates a subtitle too" do
+      candidates = [provider_candidate(%{"title" => "A Prayer for the Crown-Shy"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(candidates),
+            tags: %{"book_title" => "A Prayer for the Crown-Shy - 01"}
+          })
+        )
+
+      assert draft.work.title.value == "A Prayer for the Crown-Shy"
+      assert draft.work.title.approved
+    end
+
+    # The subtlety this rule exists to survive: comparing the head on BOTH
+    # sides would merge two different books that share a series prefix.
+    test "two books sharing a prefix still disagree" do
+      candidates = [provider_candidate(%{"title" => "The Expanse: Caliban's War"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(candidates),
+            tags: %{"book_title" => "The Expanse: Leviathan Wakes"}
+          })
+        )
+
+      refute draft.work.title.approved
+      # both survive as rival answers (plus the advisory release-name chip)
+      assert "The Expanse: Caliban's War" in Enum.map(draft.work.title.candidates, & &1.value)
+      assert "The Expanse: Leviathan Wakes" in Enum.map(draft.work.title.candidates, & &1.value)
+    end
+
+    # A subtitle is punctuated. Plain word-prefix containment would merge
+    # these, and they are two different books.
+    test "a longer title that merely starts the same is not a subtitle" do
+      candidates = [provider_candidate(%{"title" => "Dune Messiah"})]
+
+      draft =
+        Seed.build(item(%{matches: matches(candidates), tags: %{"book_title" => "Dune"}}))
+
+      refute draft.work.title.approved
+      assert "Dune" in Enum.map(draft.work.title.candidates, & &1.value)
+      assert "Dune Messiah" in Enum.map(draft.work.title.candidates, & &1.value)
+    end
+  end
+
   describe "the file's own name is a proposal, not a rival" do
     test "it is offered as a chip without making the field a question" do
       item =

@@ -384,11 +384,50 @@ defmodule Ambry.Inbox.Draft.Seed do
     (from_records(sources, "title") ++ [tag_candidate(tags, "book_title")])
     |> scalar(
       required: true,
-      equivalence: &(title_key(&1) == title_key(&2)),
+      equivalence: &same_title?/2,
       prefer: &shorter/2,
       advisory: release_candidate(hints.release_title)
     )
   end
+
+  # **A title and that same title carrying a subtitle are one answer written
+  # two ways.** The dominant real-world tag shape is `Title: Series, Book N` —
+  # measured across the operator's library, most of the tag titles that look
+  # like shelf labels are exactly that — while the catalogues answer with the
+  # bare title. Scored as rivals they put "pick a title" on a large share of
+  # imports, every time for the same mechanical reason: three of the seven
+  # books in one real batch (Battle Ground, A Psalm for the Wild-Built,
+  # A Prayer for the Crown-Shy) asked the identical question.
+  #
+  # This is **asymmetric containment, not a shared prefix**, which is the
+  # whole subtlety. Comparing the part before the colon on both sides would
+  # merge "The Expanse: Leviathan Wakes" with "The Expanse: Caliban's War" —
+  # two different books. One title has to be the *whole* of the other's head:
+  #
+  #     "Battle Ground: The Dresden Files, Book 17" ≡ "Battle Ground"
+  #     "The Expanse: Leviathan Wakes"              ≢ "The Expanse: Caliban's War"
+  #     "Dune"                                     ≢ "Dune Messiah"
+  #
+  # The last one matters: a subtitle is separated by punctuation, so plain
+  # word-prefix containment is never enough. `prefer: &shorter/2` then keeps
+  # the bare title, which is what the catalogues and the library want.
+  defp same_title?(one, other) do
+    a = title_key(one)
+    b = title_key(other)
+
+    a == b or title_head(one) == b or title_head(other) == a
+  end
+
+  # Everything before the first subtitle separator — a colon, or a dash with
+  # space around it. A hyphen inside a word ("Wild-Built") is not a separator.
+  defp title_head(value) when is_binary(value) do
+    value
+    |> String.split(~r/\s*:\s|\s+[-–—]\s+/u, parts: 2)
+    |> hd()
+    |> title_key()
+  end
+
+  defp title_head(other), do: title_key(other)
 
   # "Neuromancer" and "Neuromancer (Unabridged)" are one answer written two
   # ways, and treating that as a disagreement made the operator arbitrate a
