@@ -211,6 +211,50 @@ defmodule Ambry.Inbox.ApprovalTest do
     }
   end
 
+  # A draft is a snapshot of the library taken when the item was matched, and
+  # approval executes it exactly — so two queued items implying the same new
+  # human each created their own. Measured on a real batch of seven: Em
+  # Grosland narrates both Monk & Robot books and arrived as two People and
+  # two Narrators, and "Monk and Robot" arrived as two Series.
+  describe "two queued items that share a new entity" do
+    test "the second links what the first created, rather than duplicating it" do
+      first = tagged_item(narrator: "Em Grosland")
+      second = tagged_item(name: "Another Release", narrator: "Em Grosland")
+
+      assert {:ok, _media} = Inbox.approve_item(first)
+
+      # the refresh has re-derived the sibling: its narrator credit now points
+      # at the identity that exists, and says so on the form
+      second = Inbox.get_item!(second.id)
+      assert [credit] = second.draft.recording.narrators
+      assert credit.mode == :link
+      assert credit.identity_id
+
+      assert {:ok, _media} = Inbox.approve_item(settle(second))
+
+      assert [_only_one] = Repo.all(where(Person, name: "Em Grosland"))
+      assert [_only_one] = Repo.all(where(Narrator, name: "Em Grosland"))
+    end
+
+    # Anything a human touched is theirs. Re-derivation may not quietly
+    # relink a credit the operator deliberately set to create.
+    test "a curated credit is left exactly as the operator left it" do
+      first = tagged_item(narrator: "Em Grosland")
+      second = tagged_item(name: "Another Release", narrator: "Em Grosland")
+
+      {:ok, second} = Inbox.prepare_draft(second)
+      draft = Draft.Edit.approve_credit(second.draft, :recording, 0, true)
+      {:ok, _} = Inbox.update_draft(second, Inbox.dump_draft(draft))
+
+      assert {:ok, _media} = Inbox.approve_item(first)
+
+      second = Inbox.get_item!(second.id)
+      assert [credit] = second.draft.recording.narrators
+      assert credit.curated
+      assert credit.mode == :create
+    end
+  end
+
   describe "approve/1 refusals" do
     test "refuses a multi-file release rather than importing half of it" do
       # Checked before the draft: no amount of curation makes a multi-file
@@ -284,7 +328,8 @@ defmodule Ambry.Inbox.ApprovalTest do
   # A real tagged file discovered the way discovery would find it.
   defp tagged_item(opts \\ []) do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
-    release = Path.join(root, "The Way of Kings [M4B]")
+    name = Keyword.get(opts, :name, "The Way of Kings [M4B]")
+    release = Path.join(root, name)
     File.mkdir_p!(release)
 
     case Keyword.get(opts, :files) do
@@ -299,7 +344,7 @@ defmodule Ambry.Inbox.ApprovalTest do
     end
 
     {:ok, _counts} = Inbox.discover(root)
-    {[item], false} = Inbox.list_items()
+    {[item], false} = Inbox.list_items(filter: name)
     {:ok, item} = Inbox.probe_item(item)
 
     item =

@@ -222,6 +222,41 @@ defmodule Ambry.Inbox.DraftTest do
       assert Draft.Edit.approve_all(ticked).work.title.value == "Something Else"
     end
 
+    # A key can legitimately disappear while the answer stays on offer: the
+    # operator picks the release-name chip, then ticks a record whose title
+    # turns out to be identical, so the advisory chip is dropped as a
+    # duplicate of it. Looking the choice up by key alone found nothing and
+    # silently threw it away — measured on the Chambers book, which went from
+    # ready to "pick a title" in the middle of a batch import with nobody
+    # having touched it.
+    test "a chosen value survives its candidate key disappearing" do
+      candidates = [provider_candidate(%{"title" => "The Long Way to a Small, Angry Planet"})]
+
+      item =
+        %InboxItem{path: "/downloads/The Long Way to a Small, Angry Planet"}
+        |> Map.merge(%{
+          matches: matches(candidates, confidence: 0.5),
+          tags: %{"book_title" => "Wayfarers, Book 1", "published" => "2014-01-01"}
+        })
+        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # doubted, so nothing is ticked and the file's name is on offer
+      chosen = Draft.Edit.choose_field(item.draft, :work, :title, "release_name")
+      assert chosen.work.title.value == "The Long Way to a Small, Angry Planet"
+      assert chosen.work.title.curated
+
+      # ticking the record makes its title identical, so the advisory chip is
+      # dropped — the choice must survive on its value
+      ticked = Draft.Edit.toggle_source(chosen, item, :work, hd(candidates))
+
+      assert ticked.work.title.value == "The Long Way to a Small, Angry Planet"
+      assert ticked.work.title.approved
+      # and stays curated, or it would be movable by the next re-derivation
+      assert ticked.work.title.curated
+    end
+
     # The other half of the same rule: a chip a human picked must NOT move.
     test "a value the operator chose survives a record being ticked" do
       candidates = [

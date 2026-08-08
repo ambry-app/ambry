@@ -306,6 +306,88 @@ defmodule Ambry.Inbox do
   end
 
   @doc """
+  Re-derives queued drafts that the library just moved under.
+
+  **A draft is a snapshot of the library taken when the item was matched**, and
+  approval executes it exactly. So two queued items implying the same new
+  person, identity or series each created their own: measured on a real batch
+  of seven, Em Grosland narrates both Monk & Robot books and arrived as two
+  People and two Narrators, and "Monk and Robot" arrived as two Series. Books
+  are the same bug waiting for two recordings of one work — the split library
+  the whole work-identity design exists to prevent.
+
+  The seeder's rule was never wrong; it ran against stale facts. So this
+  re-points references rather than deciding: `Seed.relink/2` turns a credit or
+  series that meant to *create* something into a *link* when exactly one thing
+  of that name now exists, and changes nothing else. The affected credit
+  visibly becomes "link the existing Em Grosland" **before** the operator
+  approves it, so approval still executes only what the form showed.
+
+  Deliberately narrower than a re-seed, which would also re-open questions the
+  operator had already answered — see `Seed.relink/2`.
+  """
+  def refresh_siblings(%InboxItem{} = approved) do
+    case sibling_names(approved.draft) do
+      [] -> :ok
+      names -> names |> siblings_of(approved) |> Enum.each(&refresh_draft/1)
+    end
+  end
+
+  # Everything this import just put into the library that another queued item
+  # might also be about to create.
+  defp sibling_names(nil), do: []
+
+  defp sibling_names(%Draft{} = draft) do
+    work = draft.work || %{}
+    recording = draft.recording || %{}
+
+    [
+      Enum.map(Map.get(work, :authors) || [], & &1.name),
+      Enum.map(Map.get(recording, :narrators) || [], & &1.name),
+      Enum.map(Map.get(work, :series) || [], & &1.name),
+      Enum.map(draft.people || [], &Draft.Field.value(&1.name))
+    ]
+    |> List.flatten()
+    |> Enum.reject(&(is_nil(&1) or String.trim(&1) == ""))
+    |> Enum.uniq()
+  end
+
+  # A cheap candidate filter over the stored draft, not a precise one — a
+  # false positive costs an idempotent re-derivation that changes nothing,
+  # while scanning every pending item would cost a full rebuild each on a
+  # queue that is hundreds long during a cold start.
+  defp siblings_of(names, %InboxItem{} = approved) do
+    condition =
+      Enum.reduce(names, dynamic(false), fn name, acc ->
+        dynamic(
+          [i],
+          ^acc or ilike(fragment("?::text", i.draft), ^"%#{escape_like(name)}%")
+        )
+      end)
+
+    InboxItem
+    |> where([i], i.status == :pending and i.id != ^approved.id and not is_nil(i.draft))
+    |> where(^condition)
+    |> Repo.all()
+  end
+
+  defp escape_like(value), do: String.replace(value, ~r/[\\%_]/, "\\\\\\0")
+
+  # Never fatal: the import succeeded, and a sibling that won't re-derive is a
+  # stale proposal to fix on the form, not a reason to fail the approval that
+  # already committed.
+  defp refresh_draft(%InboxItem{} = item) do
+    case update_draft(item, item.draft |> Seed.relink(item) |> dump()) do
+      {:ok, _item} ->
+        :ok
+
+      {:error, _changeset} ->
+        Logger.warning(fn -> "Inbox: couldn't refresh draft for item #{item.id}" end)
+        :ok
+    end
+  end
+
+  @doc """
   Stages the import: turns what we found into a tree of decisions.
 
   Runs after matching, and is what the queue's Ready badge and the import
@@ -487,6 +569,7 @@ defmodule Ambry.Inbox do
   def approve_item(%InboxItem{} = item) do
     case Approval.approve(item) do
       {:ok, media} ->
+        refresh_siblings(item)
         {:ok, media}
 
       {:error, reason} = error ->

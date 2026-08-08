@@ -310,13 +310,33 @@ defmodule Ambry.Inbox.Draft.Seed do
   # move a value they chose. Gated on `curated`, NOT on `chosen_key`: the
   # seeder sets a chosen_key too, so keying on it froze every auto-settled
   # field against all later evidence.
-  defp keep_manual(%Field{curated: true, chosen_key: key}, fresh) when is_binary(key) do
-    case Enum.find(fresh.candidates, &(&1.key == key)) do
+  defp keep_manual(%Field{curated: true} = existing, fresh) when is_binary(existing.chosen_key) do
+    # **By key first, then by value.** A key can legitimately disappear while
+    # the answer stays on offer: the operator picks the release-name chip,
+    # then ticks a record whose title turns out to be identical, and the
+    # advisory chip is dropped as a duplicate of it. Looking only for the key
+    # then found nothing and silently threw the choice away — measured on the
+    # Chambers book, which went from ready to "pick a title" in the middle of
+    # a batch import, with no one having touched it.
+    chosen =
+      Enum.find(fresh.candidates, &(&1.key == existing.chosen_key)) ||
+        Enum.find(fresh.candidates, &(&1.value == existing.value))
+
+    case chosen do
       nil ->
         fresh
 
       chosen ->
-        %{fresh | value: chosen.value, source: chosen.source, chosen_key: key, approved: true}
+        # `curated` has to be carried too, or a choice survives exactly one
+        # re-derivation and is movable by the next.
+        %{
+          fresh
+          | value: chosen.value,
+            source: chosen.source,
+            chosen_key: chosen.key,
+            approved: true,
+            curated: true
+        }
     end
   end
 
@@ -713,6 +733,105 @@ defmodule Ambry.Inbox.Draft.Seed do
   end
 
   ## people
+
+  @doc """
+  Re-points a draft's references at rows that exist now.
+
+  For when the library moved under a queued item — another item that shared a
+  person, an identity or a series was approved in between. **Deliberately not
+  a re-seed.** Re-deriving the whole draft also re-opens questions the
+  operator already answered: measured on a real batch, the Chambers item was
+  ready, a *different* import committed, and its tag-derived narrator credit
+  silently went back to unapproved because a fresh credit from tags is never
+  auto-approved. Nobody had touched it.
+
+  So this changes exactly one thing and only in one direction: a credit or
+  series that meant to **create** something, and now finds exactly one thing
+  of that name already there, becomes a **link** to it. Approval state,
+  values, chips and curation are all left as they were — the question stays
+  answered, the answer just resolves to a row that exists.
+
+  Anything the operator curated is skipped outright, and an *ambiguous* result
+  (two identities of one name) is left alone too: that is a real question, and
+  inventing an answer to it is the judgement this whole form exists not to
+  make.
+  """
+  def relink(%Draft{} = draft, %InboxItem{} = item) do
+    draft
+    |> update_in([Access.key(:work), Access.key(:authors)], &relink_credits(&1, :author))
+    |> update_in([Access.key(:recording), Access.key(:narrators)], &relink_credits(&1, :narrator))
+    |> update_in(
+      [Access.key(:work), Access.key(:series)],
+      &Enum.map(&1 || [], fn s -> relink_series(s) end)
+    )
+    |> reconcile_people(item)
+  end
+
+  # Membership only: a decision whose key is still referenced is left exactly
+  # as it is. `reseed_people/2` would *rebuild* the uncurated ones, which is
+  # right after a record tick (new records mean new candidates) and wrong
+  # here — it re-opened a person the operator had already settled, and the
+  # Chambers item went from ready to "Person: Patricia Rodriguez" in the
+  # middle of a batch with nobody having touched it.
+  defp reconcile_people(%Draft{} = draft, %InboxItem{} = item) do
+    matched = people_matches(item)
+    existing = Map.new(draft.people, &{&1.key, &1})
+    named = credited_names(draft)
+
+    people =
+      draft
+      |> Draft.referenced_keys()
+      |> Enum.map(fn key ->
+        Map.get(existing, key) || person_decision(key, named[key], Map.get(matched, key))
+      end)
+
+    %{draft | people: people}
+  end
+
+  defp relink_credits(credits, kind), do: Enum.map(credits || [], &relink_credit(&1, kind))
+
+  defp relink_credit(%Credit{curated: true} = credit, _kind), do: credit
+
+  defp relink_credit(%Credit{mode: :create, name: name} = credit, kind) when is_binary(name) do
+    case identity_matches(name, kind) do
+      # Exactly one identity of this name now exists — the same rule the
+      # seeder applies, running against facts it didn't have. The person
+      # reference goes with it: a linked identity already has its human, so
+      # `reseed_people/2` drops the decision that would have made a second.
+      [%{exact: true} = match] ->
+        %{
+          credit
+          | mode: :link,
+            identity_id: match.identity_id,
+            candidates: [match],
+            person_keys: []
+        }
+
+      _none_or_several ->
+        credit
+    end
+  end
+
+  defp relink_credit(credit, _kind), do: credit
+
+  defp relink_series(%SeriesLink{curated: true} = link), do: link
+
+  defp relink_series(%SeriesLink{mode: :create, name: name} = link) when is_binary(name) do
+    case Repo.all(where(Series, [s], fragment("lower(?)", s.name) == ^String.downcase(name))) do
+      [one] ->
+        %{
+          link
+          | mode: :link,
+            series_id: one.id,
+            candidates: [%SeriesLink.Match{series_id: one.id, name: one.name, exact: true}]
+        }
+
+      _none_or_several ->
+        link
+    end
+  end
+
+  defp relink_series(link), do: link
 
   @doc """
   Brings the draft's people into line with whoever the credits now reference.
