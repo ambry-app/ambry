@@ -844,6 +844,27 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert length(matches["recording"]["candidates"]) == 2
     end
 
+    # Audible writes "Path of Daggers" where every other catalogue keeps the
+    # article. An article is not a rival spelling: read as one, the same
+    # Kramer/Reading recording split into two groups and the doubt penalty
+    # cut a five-record consensus to 0.437, while the sibling item whose
+    # titles happened to match verbatim sat at 0.951.
+    test "a title differing only by a leading article corroborates, not rivals" do
+      patch_recording_results([
+        book("The Path of Daggers", ["Robert Jordan"],
+          narrators: ["Kate Reading", "Michael Kramer"]
+        ),
+        book("Path of Daggers", ["Robert Jordan"], narrators: ["Michael Kramer", "Kate Reading"])
+      ])
+
+      %{matches: matches} =
+        AutoMatch.match(
+          item(title: "The Path of Daggers", author: "Robert Jordan", narrator: "Kate Reading")
+        )
+
+      assert matches["recording"]["confidence"] > 0.8
+    end
+
     test "an item with nothing to go on proposes nothing rather than guessing" do
       %{matches: matches} = AutoMatch.match(%InboxItem{path: "/downloads/", tags: %{}})
 

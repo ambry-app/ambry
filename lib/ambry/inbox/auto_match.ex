@@ -947,11 +947,18 @@ defmodule Ambry.Inbox.AutoMatch do
   # containment, same as the seeder's `same_title?/2` and for the same
   # reason: one title has to be the WHOLE of the other's head, or "The
   # Expanse: Leviathan Wakes" agrees with "The Expanse: Caliban's War".
+  #
+  # Compared as `title_key/1`, not `normalize/1`: Audible says "Path of
+  # Daggers" where every other catalogue says "The Path of Daggers", and the
+  # bare-normalized compare read the article as a rival spelling — the
+  # corroborated recording split into two groups and the doubt penalty cut a
+  # five-record consensus to 0.437 while its sibling item, whose titles
+  # happened to match verbatim, sat at 0.951.
   defp same_stated_title?(one, other) do
-    a = normalize(one)
-    b = normalize(other)
+    a = title_key(one)
+    b = title_key(other)
 
-    a == b or normalize(title_head(one)) == b or normalize(title_head(other)) == a
+    a == b or title_key(title_head(one)) == b or title_key(title_head(other)) == a
   end
 
   # A record that names fewer of the same people is compatible with one that

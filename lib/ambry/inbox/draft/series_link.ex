@@ -89,9 +89,17 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
   @doc """
   Whether this membership still needs a human.
 
-  A number is required to be *settled*, not to be present: "this book has no
-  number in this series" is a real answer, and waiving it is an approval.
+  A membership needs a number to settle. "Unnumbered member of this series"
+  reads like a real answer, but `books_series.book_number` is a required
+  column, so it is not one the library can store — approving without a
+  number only moved the refusal to approval time, where it surfaced as a
+  changeset error behind the generic couldn't-add message (found on
+  Memory's Legion, whose providers propose the Expanse membership with no
+  number). The storable answers are a number or removing the membership;
+  making memberships genuinely unnumberable is a data-model change (nullable
+  column, every ordered surface, sync), deliberately not made here.
   """
+  def resolved?(%__MODULE__{number: nil}), do: false
   def resolved?(%__MODULE__{approved: true, mode: :link, series_id: id}), do: not is_nil(id)
 
   # A blank name is storable — clearing the box to retype is the first half of
