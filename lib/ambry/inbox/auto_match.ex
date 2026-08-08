@@ -965,8 +965,28 @@ defmodule Ambry.Inbox.AutoMatch do
         "score" => score(book.title, Enum.map(book.authors || [], & &1.name), nil, nil, hints)
       }
     end)
-    |> Enum.filter(&(&1["score"] >= @offer_local))
+    |> Enum.filter(&(&1["score"] >= @offer_local and title_evidence?(&1, hints)))
     |> Enum.sort_by(& &1["score"], :desc)
+  end
+
+  # Jaro gives ~0.5 to entirely unrelated titles, and a local book by the
+  # same author collects the author's quarter-share on top — so once the
+  # library held one William Gibson, Pattern Recognition offered Neuromancer
+  # as "a book you already have" at 0.68, and every further import by an
+  # author already on the shelf re-opened an identity question about a book
+  # it plainly isn't. Similarity is not evidence of identity here; a word of
+  # the book's own title or series appearing in what the file calls itself
+  # is. Stopwords and single letters are already gone from
+  # `Books.match_keywords/1`.
+  defp title_evidence?(candidate, hints) do
+    wanted =
+      [hints.title, hints.release_title, hints.series]
+      |> Enum.flat_map(&Books.match_keywords/1)
+      |> MapSet.new()
+
+    [candidate["title"] | Enum.map(candidate["series"] || [], & &1["name"])]
+    |> Enum.flat_map(&Books.match_keywords/1)
+    |> Enum.any?(&MapSet.member?(wanted, &1))
   end
 
   defp provider_books(_level, nil, _hints, _opts), do: {[], []}

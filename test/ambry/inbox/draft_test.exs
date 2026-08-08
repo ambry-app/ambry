@@ -572,6 +572,29 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  describe "junk series stay off the form" do
+    # Goodreads-derived data models an author's whole bibliography as a
+    # series named after them — Joyland arrived in a series called "Stephen
+    # King", Un Lun Dun in one called "China Miéville", two of ten releases
+    # in one real batch.
+    test "a series named after a credited author is a shelf, not a series" do
+      candidates = [
+        provider_candidate(%{
+          "authors" => ["Stephen King"],
+          "series" => [
+            %{"name" => "Stephen King", "number" => "37"},
+            %{"name" => "The Hard Case Crime Series", "number" => "1"}
+          ]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [series] = draft.work.series
+      assert series.name == "The Hard Case Crime Series"
+    end
+  end
+
   describe "series numbers are never invented" do
     # `book_number` is a decimal column, so `SeriesLink` refuses a number that
     # won't cast — but the seeder proposed one anyway, which made the whole

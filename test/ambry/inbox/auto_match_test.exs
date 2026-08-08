@@ -131,6 +131,27 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert lattes_id == lattes.id
     end
 
+    # Jaro gives ~0.5 to entirely unrelated titles and the author match adds
+    # a quarter-share on top — so once the library held one William Gibson,
+    # Pattern Recognition offered Neuromancer as "a book you already have" at
+    # 0.68, re-opening the identity question on every import by an author
+    # already on the shelf.
+    test "a same-author book with an unrelated title is not offered" do
+      insert(:book,
+        title: "Neuromancer",
+        book_authors: [
+          build(:book_author,
+            author: build(:author, name: "William Gibson", person: build(:person))
+          )
+        ]
+      )
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Pattern Recognition", author: "William Gibson"))
+
+      assert matches["work"]["local"] == []
+    end
+
     # Keywords recall far more than the substring search did, and one shared
     # word is not a reason to ask "do you already have this?" — measured on the
     # operator's library, Anne of Green Gables was being offered as a candidate

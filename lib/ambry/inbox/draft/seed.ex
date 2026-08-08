@@ -1279,13 +1279,31 @@ defmodule Ambry.Inbox.Draft.Seed do
       [] -> series_proposals_from_tags(tags)
       proposed -> proposed
     end
-    |> Enum.reject(&already_on_book?(&1.name, book_id))
+    |> Enum.reject(
+      &(already_on_book?(&1.name, book_id) or author_named_series?(&1.name, records, tags))
+    )
     |> then(fn kept ->
       Enum.map(
         kept,
         &series_link(&1.name, &1.number || tag_number(&1.name, tags, kept), &1.source)
       )
     end)
+  end
+
+  # Goodreads-derived data models an author's whole bibliography as a series
+  # named after them, so Joyland arrived in a series called "Stephen King"
+  # and Un Lun Dun in one called "China Miéville" — two of ten releases in a
+  # real batch, each asking a series question with a junk answer. A series
+  # named exactly after a credited author is a shelf, not a series; dropped
+  # as a *proposal*, like the reader-created orderings below — the record
+  # still says what it said.
+  defp author_named_series?(name, records, tags) do
+    key = AutoMatch.person_key(name)
+
+    records
+    |> proposed_names("authors")
+    |> or_from_tags(tags, "authors")
+    |> Enum.any?(fn {author, _source} -> AutoMatch.person_key(author) == key end)
   end
 
   # One series named by two databases is one membership. Whichever of them
