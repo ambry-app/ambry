@@ -24,6 +24,24 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.SeriesLink
   alias AmbryWeb.Components.EntityResolver
 
+  @doc """
+  The app-standard input styling, for the controls the import form builds by
+  hand.
+
+  The admin forms get this through `<.input>`; a bare `<input>` or `<select>`
+  rendered here has to carry it itself or it falls back to the browser's blue
+  focus ring, which is exactly what happened.
+  """
+  def input_classes(extra \\ nil) do
+    [
+      "rounded-sm text-sm focus:outline-none focus:ring-4",
+      "bg-white text-zinc-900 placeholder:text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300",
+      "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
+      "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
+      extra
+    ]
+  end
+
   attr :outcomes, :list, required: true
   attr :level, :string, default: nil
   attr :retrying, :any, default: nil
@@ -223,7 +241,7 @@ defmodule AmbryWeb.Admin.Decisions do
           type="text"
           name="title"
           value={@fields["title"]}
-          class="mt-1 block rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("mt-1 block")}
         />
       </label>
 
@@ -233,7 +251,7 @@ defmodule AmbryWeb.Admin.Decisions do
           type="text"
           name="author"
           value={@fields["author"]}
-          class="mt-1 block rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("mt-1 block")}
         />
       </label>
 
@@ -243,7 +261,7 @@ defmodule AmbryWeb.Admin.Decisions do
           type="text"
           name="narrator"
           value={@fields["narrator"]}
-          class="mt-1 block rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("mt-1 block")}
         />
       </label>
 
@@ -541,11 +559,18 @@ defmodule AmbryWeb.Admin.Decisions do
           value={if @credit.mode == :link, do: @credit.identity_id}
           text={@credit.name || ""}
           placeholder="name"
-          class="w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("w-full")}
         />
 
-        <span :if={@credit.mode == :link} class="text-xs italic dark:text-zinc-500">
-          {linked_people(@credit) || "Already in the library."}
+        <%!-- The prefix segment already says "Existing"; this only speaks
+              when the linked identity is backed by other humans — a pen
+              name's real names are worth a line, "already in the library"
+              twice is not. --%>
+        <span
+          :if={@credit.mode == :link && linked_people(@credit)}
+          class="text-xs italic dark:text-zinc-500"
+        >
+          {linked_people(@credit)}
         </span>
       </form>
 
@@ -603,7 +628,7 @@ defmodule AmbryWeb.Admin.Decisions do
               value={if person.mode == :link, do: person.person_id}
               text={Field.value(person.name) || ""}
               placeholder="the person's real name"
-              class="w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+              class={input_classes("w-full")}
             />
 
             <button
@@ -827,7 +852,7 @@ defmodule AmbryWeb.Admin.Decisions do
             rows="3"
             placeholder="a short bio"
             phx-debounce="500"
-            class="block w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+            class={input_classes("block w-full")}
           >{@description}</textarea>
         </form>
 
@@ -943,7 +968,7 @@ defmodule AmbryWeb.Admin.Decisions do
           name="number"
           value={@link.number}
           placeholder="?"
-          class="w-16 rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("w-16")}
         />
       </form>
 
@@ -964,7 +989,7 @@ defmodule AmbryWeb.Admin.Decisions do
           value={if @link.mode == :link, do: @link.series_id}
           text={@link.name || ""}
           placeholder="series name"
-          class="w-full rounded-sm border-zinc-300 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          class={input_classes("w-full")}
         />
       </form>
 
@@ -1027,7 +1052,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
   defp linked_people(%Credit{candidates: candidates, identity_id: id}) do
     case Enum.find(candidates, &(&1.identity_id == id)) do
-      %{people: people} when is_binary(people) -> "Already in the library — #{people}."
+      %{people: people} when is_binary(people) -> people
       _none -> nil
     end
   end

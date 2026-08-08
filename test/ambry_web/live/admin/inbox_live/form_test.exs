@@ -387,6 +387,29 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert credit.name == "Jason Pargin"
     end
 
+    # A filled field that opens must never list records that don't match what
+    # it holds; and the prefix segment names the outcome the field currently
+    # carries.
+    test "an open filled field lists only what matches it", %{conn: conn} do
+      sagan = insert(:author, name: "Carl Sagan")
+      sanderson = insert(:author, name: "Brandon Sanderson")
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#credit-work-0-resolver-input")
+      |> render_change(%{"resolver" => %{"credit-work-0-resolver" => "sagan"}})
+
+      view |> element("#credit-work-0-resolver-option-#{sagan.id}") |> render_click()
+      view |> form("#credit-work-0-identity") |> render_change()
+
+      html = view |> element("#credit-work-0-resolver-input") |> render_focus()
+      assert html =~ "Existing"
+      assert has_element?(view, "#credit-work-0-resolver-option-#{sagan.id}")
+      refute has_element?(view, "#credit-work-0-resolver-option-#{sanderson.id}")
+    end
+
     test "a series can be attached or created through the same control", %{conn: conn} do
       series = insert(:series, name: "The Expanse")
       item = probed_item()

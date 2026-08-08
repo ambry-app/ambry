@@ -25,7 +25,10 @@ defmodule AmbryWeb.Components.EntityResolver do
 
   @impl Phoenix.LiveComponent
   def render(assigns) do
-    assigns = assign(assigns, :matches, matches(assigns))
+    assigns =
+      assigns
+      |> assign(:equery, effective_query(assigns))
+      |> then(&assign(&1, :matches, matches(&1)))
 
     ~H"""
     <div
@@ -49,28 +52,36 @@ defmodule AmbryWeb.Components.EntityResolver do
         value={@text}
         phx-hook="dispatch-value-change"
       />
-      <input
-        type="text"
-        id={"#{@id}-input"}
-        name={"resolver[#{@id}]"}
-        value={display_value(assigns)}
-        placeholder={@placeholder}
-        role="combobox"
-        aria-expanded={to_string(@open)}
-        aria-controls={"#{@id}-list"}
-        aria-autocomplete="list"
-        autocomplete="off"
-        phx-change="filter"
-        phx-focus="open"
-        phx-target={@myself}
-        phx-debounce="150"
-        class={@class}
-      />
+      <div class="flex">
+        <span
+          :if={@text_name}
+          class="inline-flex w-20 flex-none items-center justify-center rounded-l-sm border border-r-0 border-zinc-300 bg-zinc-100 text-xs text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+        >
+          {if @value, do: "Existing", else: "Create"}
+        </span>
+        <input
+          type="text"
+          id={"#{@id}-input"}
+          name={"resolver[#{@id}]"}
+          value={display_value(assigns)}
+          placeholder={@placeholder}
+          role="combobox"
+          aria-expanded={to_string(@open)}
+          aria-controls={"#{@id}-list"}
+          aria-autocomplete="list"
+          autocomplete="off"
+          phx-change="filter"
+          phx-focus="open"
+          phx-target={@myself}
+          phx-debounce="150"
+          class={[@class, @text_name && "rounded-l-none"]}
+        />
+      </div>
       <ul
         :if={@open}
         id={"#{@id}-list"}
         role="listbox"
-        class="min-w-48 absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-sm border border-zinc-300 bg-white text-sm shadow-lg dark:border-zinc-600 dark:bg-zinc-800"
+        class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-sm border border-zinc-300 bg-white text-sm shadow-lg dark:border-zinc-600 dark:bg-zinc-800"
       >
         <li
           :for={{label, id} <- @matches}
@@ -85,17 +96,17 @@ defmodule AmbryWeb.Components.EntityResolver do
           {label}
         </li>
         <li
-          :if={@text_name && present?(@query)}
+          :if={@text_name && present?(@equery)}
           id={"#{@id}-option-create"}
           role="option"
           phx-click="create"
           phx-target={@myself}
           class="cursor-pointer border-t border-zinc-200 px-3 py-2 italic data-[active]:bg-zinc-100 hover:bg-zinc-100 dark:border-zinc-700 dark:data-[active]:bg-zinc-700 dark:hover:bg-zinc-700"
         >
-          Create “{@query}”
+          Create “{@equery}”
         </li>
         <li
-          :if={@matches == [] and not (@text_name && present?(@query))}
+          :if={@matches == [] and not (@text_name && present?(@equery))}
           class="px-3 py-2 italic text-zinc-500"
         >
           No matches
@@ -152,7 +163,12 @@ defmodule AmbryWeb.Components.EntityResolver do
 
   def handle_event("create", _params, socket) do
     {:noreply,
-     assign(socket, value: nil, text: socket.assigns.query || "", open: false, query: nil)}
+     assign(socket,
+       value: nil,
+       text: effective_query(socket.assigns) || "",
+       open: false,
+       query: nil
+     )}
   end
 
   # While typing, show the query; otherwise the picked record's label, or the
@@ -171,7 +187,13 @@ defmodule AmbryWeb.Components.EntityResolver do
     end
   end
 
-  defp matches(%{query: query, options: options}) when is_binary(query) and query != "" do
+  # What the list filters on: the query while typing, otherwise whatever the
+  # field currently holds — an open filled field must never list records that
+  # don't match what's in it.
+  defp effective_query(%{query: query}) when is_binary(query), do: query
+  defp effective_query(assigns), do: display_value(assigns)
+
+  defp matches(%{equery: query, options: options}) when is_binary(query) and query != "" do
     folded = fold(query)
 
     options
