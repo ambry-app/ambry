@@ -572,6 +572,52 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  # A credit auto-approves on the premise "nobody by that name at all", and a
+  # sibling import can invalidate it: Joyland created the person Stephen
+  # King, and Holly's narrator credit for him then sailed through approval
+  # and created a second Stephen King. "Is this the same human?" is never
+  # automated, so the sibling import reopens the question instead.
+  describe "a sibling import that creates a person reopens the question" do
+    test "an auto-approved credit for a person who now exists goes back to unapproved" do
+      recording = [recording_record(%{"narrators" => ["Stephen King"]})]
+
+      item =
+        item(%{
+          matches: matches([], recording: recording, recording_confidence: 0.9),
+          tags: %{"book_title" => "Holly", "published" => "2023-09-05"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert [%{approved: true}] = item.draft.recording.narrators
+
+      insert(:person, name: "Stephen King")
+
+      relinked = Seed.relink(item.draft, item)
+      assert [%{approved: false}] = relinked.recording.narrators
+    end
+
+    test "answering the reopened question is final" do
+      recording = [recording_record(%{"narrators" => ["Stephen King"]})]
+
+      item =
+        item(%{
+          matches: matches([], recording: recording, recording_confidence: 0.9),
+          tags: %{"book_title" => "Holly", "published" => "2023-09-05"}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      insert(:person, name: "Stephen King")
+
+      answered =
+        item.draft
+        |> Seed.relink(item)
+        |> Draft.Edit.approve_credit(:recording, 0, true)
+        |> Seed.relink(item)
+
+      assert [%{approved: true}] = answered.recording.narrators
+    end
+  end
+
   describe "junk series stay off the form" do
     # Goodreads-derived data models an author's whole bibliography as a
     # series named after them — Joyland arrived in a series called "Stephen

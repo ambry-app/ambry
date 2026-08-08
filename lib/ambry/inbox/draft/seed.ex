@@ -788,7 +788,50 @@ defmodule Ambry.Inbox.Draft.Seed do
       &Enum.map(&1 || [], fn s -> relink_series(s) end)
     )
     |> reconcile_people(item)
+    |> reopen_new_person_questions()
   end
+
+  # The one case where relink *reopens* a question rather than resolving one.
+  # A credit auto-approves on the premise "nobody by that name at all" — and
+  # a sibling import can invalidate it: Joyland created the person Stephen
+  # King, and Holly's NARRATOR credit for him (an identity Joyland didn't
+  # make) then sailed through approval and created a second Stephen King.
+  # The seeder never automates "is this the same human?", so the sibling
+  # import may not either: the credit goes back to unapproved, exactly the
+  # shape the seeder would have produced had the person existed at seed
+  # time. Curated credits and people are the operator's and stay put — so
+  # answering the reopened question is final.
+  defp reopen_new_person_questions(%Draft{} = draft) do
+    people = Map.new(draft.people, &{&1.key, &1})
+
+    draft
+    |> update_in(
+      [Access.key(:work), Access.key(:authors)],
+      &Enum.map(&1, fn credit -> reopen_personhood(credit, people) end)
+    )
+    |> update_in(
+      [Access.key(:recording), Access.key(:narrators)],
+      &Enum.map(&1, fn credit -> reopen_personhood(credit, people) end)
+    )
+  end
+
+  defp reopen_personhood(%Credit{mode: :create, curated: false, approved: true} = credit, people) do
+    reopen? =
+      Enum.any?(credit.person_keys, fn key ->
+        case people[key] do
+          %PersonDecision{mode: :create, curated: false} = person ->
+            name = Field.value(person.name)
+            is_binary(name) and person_matches(name) != []
+
+          _linked_curated_or_missing ->
+            false
+        end
+      end)
+
+    if reopen?, do: %{credit | approved: false}, else: credit
+  end
+
+  defp reopen_personhood(credit, _people), do: credit
 
   # Two queued recordings of one work: importing the first creates the Book
   # and the second still says "create" — the split library the module doc
