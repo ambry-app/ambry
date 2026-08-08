@@ -974,8 +974,20 @@ defmodule Ambry.Inbox.AutoMatch do
         "score" => score(book.title, Enum.map(book.authors || [], & &1.name), nil, nil, hints)
       }
     end)
-    |> Enum.filter(&(&1["score"] >= @offer_local and title_evidence?(&1, hints)))
+    |> Enum.filter(&offer?(&1, hints))
     |> Enum.sort_by(& &1["score"], :desc)
+  end
+
+  # Two roads onto the form. A candidate over the similarity floor still
+  # needs its name substantially present in what the file calls itself —
+  # jaro noise plus a shared author put Neuromancer over the floor for
+  # Pattern Recognition. And a candidate found through a series *label* is
+  # offered regardless of its score, because there the score is noise in the
+  # other direction: "Wayfarers, Book 1" scores ~0.24 against "The Long Way
+  # to a Small, Angry Planet" while being exactly that book.
+  defp offer?(candidate, hints) do
+    (candidate["score"] >= @offer_local and title_evidence?(candidate, hints)) or
+      series_label_evidence?(candidate, hints)
   end
 
   # Jaro gives ~0.5 to entirely unrelated titles, and a local book by the
@@ -998,11 +1010,48 @@ defmodule Ambry.Inbox.AutoMatch do
       |> Enum.flat_map(&Books.match_keywords/1)
       |> MapSet.new()
 
-    [candidate["title"] | Enum.map(candidate["series"] || [], & &1["name"])]
-    |> Enum.any?(fn name ->
-      words = Books.match_keywords(name)
-      shared = Enum.count(words, &MapSet.member?(wanted, &1))
-      words != [] and shared >= min(2, length(words))
+    substantial?(candidate["title"], wanted) or series_label_evidence?(candidate, hints)
+  end
+
+  defp series_label_evidence?(candidate, hints) do
+    wanted =
+      [hints.title, hints.release_title, hints.series]
+      |> Enum.flat_map(&Books.match_keywords/1)
+      |> MapSet.new()
+
+    Enum.any?(
+      candidate["series"] || [],
+      &(substantial?(&1["name"], wanted) and series_label?(&1["name"], hints))
+    )
+  end
+
+  defp substantial?(name, wanted) do
+    words = Books.match_keywords(name)
+    shared = Enum.count(words, &MapSet.member?(wanted, &1))
+    words != [] and shared >= min(2, length(words))
+  end
+
+  # A series name is only evidence when the file's label IS the series —
+  # "Wayfarers, Book 1" carries no title of its own, so the series is the
+  # only road to the book. When the label has its own title words ("The
+  # Consuming Fire The Interdependency, Book 2"), the candidate has to match
+  # on those: same-series siblings share the series name by construction,
+  # and The Collapsing Empire was being offered for every later volume.
+  @label_filler ~w(book books bk vol volume volumes part parts no saga series)
+
+  defp series_label?(series_name, hints) do
+    series_words = series_name |> Books.match_keywords() |> MapSet.new()
+
+    [hints.title, hints.release_title]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.any?(fn label ->
+      label
+      |> Books.match_keywords()
+      |> Enum.reject(
+        &(MapSet.member?(series_words, &1) or &1 in @label_filler or
+            Regex.match?(~r/^\d+$/, &1))
+      )
+      |> Kernel.==([])
     end)
   end
 

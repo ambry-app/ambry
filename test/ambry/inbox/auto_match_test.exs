@@ -172,6 +172,48 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert id == wool.id
     end
 
+    # Same-series siblings share the series name by construction, so The
+    # Collapsing Empire was offered as "a book you already have" for The
+    # Consuming Fire. A series name is only evidence when the file's label IS
+    # the series — "Wayfarers, Book 1" carries no title of its own, so there
+    # the series is the only road to the book.
+    test "a same-series sibling is not offered through the series name" do
+      insert(:book,
+        title: "The Collapsing Empire",
+        series_books: [
+          build(:series_book,
+            book_number: 1,
+            series: build(:series, name: "The Interdependency")
+          )
+        ]
+      )
+
+      wayfarer =
+        insert(:book,
+          title: "The Long Way to a Small, Angry Planet",
+          book_authors: [
+            build(:book_author,
+              author: build(:author, name: "Becky Chambers", person: build(:person))
+            )
+          ],
+          series_books: [
+            build(:series_book, book_number: 1, series: build(:series, name: "Wayfarers"))
+          ]
+        )
+
+      %{matches: fire} =
+        AutoMatch.match(
+          item(title: "The Consuming Fire The Interdependency, Book 2", author: "John Scalzi")
+        )
+
+      %{matches: label} =
+        AutoMatch.match(item(title: "Wayfarers, Book 1", author: "Becky Chambers"))
+
+      assert fire["work"]["local"] == []
+      assert [%{"id" => id}] = label["work"]["local"]
+      assert id == wayfarer.id
+    end
+
     # Keywords recall far more than the substring search did, and one shared
     # word is not a reason to ask "do you already have this?" — measured on the
     # operator's library, Anne of Green Gables was being offered as a candidate
