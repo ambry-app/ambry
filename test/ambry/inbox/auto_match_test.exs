@@ -24,6 +24,29 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert %{title: "The Bezzle", author: "Cory Doctorow"} = AutoMatch.hints(item)
     end
 
+    # The operator's Children of Time is tagged "Children of Time
+    # (Unabridged)", and that parenthetical measurably worsens the provider
+    # search — without failing it, so the zero-result plainer-title retry
+    # never rescued it. The verbatim tag still reaches the form as a chip;
+    # only the question is cleaned.
+    test "strips release junk from the tag title" do
+      item = %InboxItem{
+        path: "/downloads/Adrian Tchaikovsky - Children of Time (m4b)",
+        tags: %{"book_title" => "Children of Time (Unabridged)"}
+      }
+
+      assert %{title: "Children of Time"} = AutoMatch.hints(item)
+    end
+
+    test "a tag title that is nothing but junk falls back to the release name" do
+      item = %InboxItem{
+        path: "/downloads/Cory Doctorow - The Bezzle [m4b]",
+        tags: %{"book_title" => "(Unabridged)"}
+      }
+
+      assert %{title: "The Bezzle"} = AutoMatch.hints(item)
+    end
+
     test "takes an ASIN from wherever it appears" do
       assert %{asin: "B0D6PCZ98M"} =
                AutoMatch.hints(%InboxItem{

@@ -439,7 +439,12 @@ defmodule Ambry.Inbox.AutoMatch do
     parsed = ReleaseName.parse(item.path)
 
     %{
-      title: presence(tags["book_title"]) || parsed.title,
+      # The tag title is stripped of release junk before it becomes a query:
+      # "Children of Time (Unabridged)" searches measurably worse than the
+      # bare title, and because it still returns *something*, the zero-result
+      # plainer-title retry never rescues it. The verbatim tag stays on offer
+      # as a chip — this cleans the question, not the evidence.
+      title: ReleaseName.strip_noise(tags["book_title"]) || parsed.title,
       author: first(tags["authors"]) || parsed.author,
       narrator: stated_narrator(tags["narrators"]) || parsed.narrator,
       series: presence(tags["series"]) || parsed.series,

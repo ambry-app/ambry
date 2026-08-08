@@ -107,6 +107,29 @@ defmodule Ambry.Inbox.ReleaseNameTest do
     end
   end
 
+  # For titles that arrived from tags rather than a folder name — same junk,
+  # different road. Parse-only cleaning left "Children of Time (Unabridged)"
+  # searching providers with the parenthetical attached.
+  describe "strip_noise/1" do
+    test "drops a noise parenthetical" do
+      assert ReleaseName.strip_noise("Children of Time (Unabridged)") == "Children of Time"
+    end
+
+    test "drops noise brackets" do
+      assert ReleaseName.strip_noise("Project Hail Mary [m4b]") == "Project Hail Mary"
+    end
+
+    test "keeps parenthetical title material" do
+      assert ReleaseName.strip_noise("A Court of Mist and Fury (A Court of Thorns and Roses #2)") ==
+               "A Court of Mist and Fury (A Court of Thorns and Roses #2)"
+    end
+
+    test "a title that is nothing but noise strips to nil" do
+      assert ReleaseName.strip_noise("(Unabridged)") == nil
+      assert ReleaseName.strip_noise(nil) == nil
+    end
+  end
+
   describe "query/1" do
     test "combines title and author when both are known" do
       assert "The Bezzle Cory Doctorow" =

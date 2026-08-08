@@ -61,6 +61,30 @@ defmodule Ambry.Inbox.ReleaseName do
   end
 
   @doc """
+  Strips release junk from a title that arrived by some other road — embedded
+  tags, mostly.
+
+  Tag titles carry the same noise folder names do ("Children of Time
+  (Unabridged)", "Project Hail Mary [m4b]"), but unlike a zero-result search a
+  noisy one *succeeds*, with sub-par results — so the plainer-title retry that
+  rescues failed searches never fires. Parentheticals carrying real title
+  material ("(A Court of Thorns and Roses #2)") are kept, by the same noise
+  test the parser applies.
+
+  Returns nil when nothing but noise remains, so callers fall back exactly as
+  they would for a missing tag.
+  """
+  def strip_noise(title) when is_binary(title) do
+    title
+    |> remove_noise_brackets()
+    |> remove_noise_parens()
+    |> collapse_spaces()
+    |> presence()
+  end
+
+  def strip_noise(_other), do: nil
+
+  @doc """
   The best search string for a provider: title and author when both are
   known, title alone otherwise.
   """
@@ -115,6 +139,14 @@ defmodule Ambry.Inbox.ReleaseName do
     base
     |> String.replace(~r/\[[^\]]*\]|\{[^}]*\}/, " ")
     |> remove_noise_parens()
+  end
+
+  # A release name's brackets are junk wholesale (`strip_bracketed/1`); a tag
+  # title's are junk only when they say so — "[Unabridged]", "[m4b]".
+  defp remove_noise_brackets(base) do
+    Regex.replace(~r/\[([^\]]*)\]|\{([^}]*)\}/, base, fn match, bracket, brace ->
+      if noise?(bracket <> brace), do: " ", else: match
+    end)
   end
 
   # Parens carry both noise ("(Unabridged)", "(M4b)") and real title material
