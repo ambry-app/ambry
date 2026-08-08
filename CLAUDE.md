@@ -101,7 +101,26 @@ Relay-compatible GraphQL schema for mobile app. Uses Dataloader for batching.
 
 ## Tidewave MCP Server
 
-When the dev server is running (`iex -S mix phx.server`), the Tidewave MCP server provides direct access to the running application. Available tools:
+When the dev server is running (`iex -S mix phx.server`), the Tidewave MCP
+server provides direct access to the running application.
+
+**If the `mcp__tidewave__*` tools are missing, the config is almost certainly
+fine.** The MCP client connects once, at editor startup, so a server that
+wasn't running at that moment leaves the tools absent for the whole session —
+starting it later does not make them appear. Start the dev server first, or
+reconnect the `tidewave` server afterwards.
+
+Without restarting anything, it is also a plain HTTP MCP server and can be
+driven directly:
+
+```bash
+curl -s -X POST http://localhost:4000/tidewave/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
+       "params":{"name":"project_eval","arguments":{"code":"1 + 1"}}}'
+```
+
+Available tools:
 
 | Tool | Description |
 |------|-------------|
