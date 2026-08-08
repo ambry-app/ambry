@@ -437,6 +437,70 @@ defmodule Ambry.Inbox.DraftTest do
       assert PersonDecision.resolved?(person)
     end
 
+    # The databases disagree about the dots and spaces in "James S.A. Corey",
+    # and none of those spellings is a different human. Deduping only
+    # case-insensitively left one credit per spelling — two credits, two
+    # person decisions, and a duplicate library author waiting at approval.
+    test "two spellings of one author are one credit" do
+      candidates = [
+        provider_candidate(%{
+          "id" => "rg",
+          "source" => "provider:rreading_glasses",
+          "provider_name" => "rreading-glasses",
+          "authors" => ["James S.A. Corey"]
+        }),
+        provider_candidate(%{"id" => "hc", "authors" => ["James S. A. Corey"]})
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [credit] = draft.work.authors
+      assert [_one_person] = draft.people
+      assert [_one_key] = credit.person_keys
+    end
+
+    test "a punctuation variant of a name links the existing identity" do
+      person = insert(:person, name: "James S. A. Corey")
+      insert(:author, name: "James S. A. Corey", person: person)
+
+      candidates = [provider_candidate(%{"authors" => ["James S.A. Corey"]})]
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [%{mode: :link} = credit] = draft.work.authors
+      assert credit.identity_id
+    end
+
+    # Items matched before the person key became punctuation-insensitive
+    # stored their evidence under the older spelling-sensitive keys; that
+    # evidence must not go dark because the sameness rule improved.
+    test "evidence stored under an older key still reaches the person" do
+      candidates = [provider_candidate(%{"authors" => ["James S.A. Corey"]})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches(candidates,
+                people: %{
+                  "james s. a. corey" => %{
+                    "name" => "James S. A. Corey",
+                    "candidates" => [
+                      person_evidence(%{
+                        "name" => "James S. A. Corey",
+                        "images" => ["https://example.test/corey.jpg"]
+                      })
+                    ]
+                  }
+                }
+              ),
+            tags: %{}
+          })
+        )
+
+      assert [person] = draft.people
+      assert Field.value(person.image) == "https://example.test/corey.jpg"
+    end
+
     test "two or more people behind one credit is just a longer list" do
       # the composite case, which needs no special pathway: one Author, two
       # People, expressed as two keys on the same credit
@@ -1039,7 +1103,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert [person] = item.draft.people
       assert Field.value(person.image) == "https://example.test/corey.jpg"
 
-      draft = Draft.Edit.rename_person(item.draft, "james s.a. corey", "Daniel Abraham")
+      draft = Draft.Edit.rename_person(item.draft, person.key, "Daniel Abraham")
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
       # nobody has searched the new name yet: the pen name's face stops being
@@ -1759,7 +1823,8 @@ defmodule Ambry.Inbox.DraftTest do
 
       # but once the person is somebody else, renaming the credit leaves them
       # alone
-      draft = Draft.Edit.rename_person(draft, "jmes s.a. corey", "Ty Franck")
+      [person_key] = credit.person_keys
+      draft = Draft.Edit.rename_person(draft, person_key, "Ty Franck")
       draft = Draft.Edit.rename_credit(draft, :work, 0, "J.S.A. Corey")
 
       assert [person] = Draft.people_for(draft, hd(draft.work.authors))

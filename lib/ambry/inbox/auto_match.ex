@@ -160,13 +160,17 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   How a human is referred to across the matches and the draft.
 
-  Deliberately a whitespace-and-case rule only, and **not** `normalize/1`: the
-  title normaliser also strips punctuation, so it folds "J.K. Rowling" to
-  "j k rowling" and the draft would look the person up under a key matching
-  never wrote. `Draft.PersonDecision` keys are these strings.
+  Punctuation-insensitive: the databases disagree about the dots and spaces
+  in "James S.A. Corey" and none of those spellings is a different human —
+  measured on the operator's Caliban's War, two providers' spellings of the
+  one pen name made two author credits, two person decisions, and a
+  duplicate library author waiting at approval. `Draft.PersonDecision` keys
+  are these strings, so the key IS the sameness rule for humans; anything
+  asking whether two spellings mean one person must go through it. (The
+  title normaliser is a different job — it also strips edition words.)
   """
   def person_key(name) when is_binary(name),
-    do: name |> String.downcase() |> String.replace(~r/\s+/, " ") |> String.trim()
+    do: name |> String.downcase() |> String.replace(~r/[^\p{L}\p{N}]+/u, " ") |> String.trim()
 
   @doc """
   The photo and biography to propose for one credited human.
@@ -231,12 +235,10 @@ defmodule Ambry.Inbox.AutoMatch do
   defp put_proposal(map, value_key, source_key, {value, source}),
     do: map |> Map.put(value_key, value) |> Map.put(source_key, source)
 
-  # Punctuation-insensitive on purpose, and so **not** `person_key/1`: the
-  # databases disagree about the spaces in "James S.A. Corey" and none of that
-  # is a different human. `person_key/1` has to stay byte-comparable with the
-  # draft's own key, which is a different job.
+  # `person_key/1` is the sameness rule for humans, and this is that rule
+  # applied to two names in hand.
   defp same_human?(one, other) when is_binary(one) and is_binary(other),
-    do: normalize(one) == normalize(other)
+    do: person_key(one) == person_key(other)
 
   defp same_human?(_one, _other), do: false
 

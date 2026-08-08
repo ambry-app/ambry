@@ -802,7 +802,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       draft
       |> Draft.referenced_keys()
       |> Enum.map(fn key ->
-        Map.get(existing, key) || person_decision(key, named[key], Map.get(matched, key))
+        Map.get(existing, key) || person_decision(key, named[key], matched_for(matched, key))
       end)
 
     %{draft | people: people}
@@ -880,12 +880,12 @@ defmodule Ambry.Inbox.Draft.Seed do
       |> Enum.map(fn key ->
         case Map.get(existing, key) do
           %PersonDecision{curated: true} = curated ->
-            refreshed_person(curated, named[key], Map.get(matched, key))
+            refreshed_person(curated, named[key], matched_for(matched, key))
 
           untouched_or_new ->
             keep_person_fields(
               untouched_or_new,
-              person_decision(key, named[key], Map.get(matched, key))
+              person_decision(key, named[key], matched_for(matched, key))
             )
         end
       end)
@@ -985,7 +985,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   end
 
   defp same_human?(one, other) when is_binary(one) and is_binary(other),
-    do: normalize(one) == normalize(other)
+    do: AutoMatch.person_key(one) == AutoMatch.person_key(other)
 
   defp same_human?(_one, _other), do: false
 
@@ -1094,15 +1094,28 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp people_matches(_item), do: %{}
 
-  # Names across every ticked record, in first-mentioned order and deduped
-  # case-insensitively: two databases listing the same author is one credit,
-  # not two.
+  # By key first, then by key *equivalence*: items matched before the person
+  # key became punctuation-insensitive stored their evidence under the older
+  # spelling-sensitive keys, and that evidence should not go dark because the
+  # sameness rule improved.
+  defp matched_for(matched, key) do
+    Map.get(matched, key) ||
+      Enum.find_value(matched, fn {held, evidence} ->
+        if AutoMatch.person_key(held) == AutoMatch.person_key(key), do: evidence
+      end)
+  end
+
+  # Names across every ticked record, in first-mentioned order and deduped by
+  # `person_key/1` — the sameness rule for humans, so "James S.A. Corey" and
+  # "James S. A. Corey" from two databases are one credit, not two. Deduping
+  # only case-insensitively left both, and approval would have made a
+  # duplicate library author out of a spelling difference.
   defp proposed_names(records, key) do
     records
     |> Enum.flat_map(fn record ->
       record |> Map.get(key) |> names() |> List.wrap() |> Enum.map(&{tidy(&1), source_of(record)})
     end)
-    |> Enum.uniq_by(fn {name, _source} -> normalize(name) end)
+    |> Enum.uniq_by(fn {name, _source} -> AutoMatch.person_key(name) end)
   end
 
   # **Doubled spaces in a credited name are not a different human.**
@@ -1159,9 +1172,15 @@ defmodule Ambry.Inbox.Draft.Seed do
     end
   end
 
+  # The SQL twin of `AutoMatch.person_key/1`, so "James S.A. Corey" in a
+  # record finds the library's "James S. A. Corey". Still identity, not
+  # similarity — a spelling difference in punctuation is the same name, a
+  # different word is not.
+  @name_key_sql "trim(regexp_replace(lower(?), '[^[:alnum:]]+', ' ', 'g'))"
+
   defp identity_matches(name, :author) do
     Author
-    |> where([a], fragment("lower(?)", a.name) == ^String.downcase(name))
+    |> where([a], fragment(@name_key_sql, a.name) == ^AutoMatch.person_key(name))
     |> preload(:people)
     |> Repo.all()
     |> Enum.map(fn author ->
@@ -1176,7 +1195,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp identity_matches(name, :narrator) do
     Narrator
-    |> where([n], fragment("lower(?)", n.name) == ^String.downcase(name))
+    |> where([n], fragment(@name_key_sql, n.name) == ^AutoMatch.person_key(name))
     |> preload(:person)
     |> Repo.all()
     |> Enum.map(fn narrator ->
@@ -1191,7 +1210,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp person_matches(name) do
     Person
-    |> where([p], fragment("lower(?)", p.name) == ^String.downcase(name))
+    |> where([p], fragment(@name_key_sql, p.name) == ^AutoMatch.person_key(name))
     |> Repo.all()
   end
 
