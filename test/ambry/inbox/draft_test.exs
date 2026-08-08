@@ -1362,6 +1362,24 @@ defmodule Ambry.Inbox.DraftTest do
       assert "The Expanse: Leviathan Wakes" in Enum.map(draft.work.title.candidates, & &1.value)
     end
 
+    # A tag lowercases what a catalogue capitalizes, and drops the article
+    # too. One answer written two ways — and the catalogue's spelling is the
+    # title as written, so prefer-shorter must not pick the lowercase one.
+    test "a leading article and casing are one title, spelled the catalogue's way" do
+      candidates = [provider_candidate(%{"title" => "The House in the Cerulean Sea"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(candidates),
+            tags: %{"book_title" => "house in the cerulean sea"}
+          })
+        )
+
+      assert draft.work.title.value == "The House in the Cerulean Sea"
+      assert draft.work.title.approved
+    end
+
     # A subtitle is punctuated. Plain word-prefix containment would merge
     # these, and they are two different books.
     test "a longer title that merely starts the same is not a subtitle" do

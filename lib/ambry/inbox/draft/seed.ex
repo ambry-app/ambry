@@ -487,6 +487,10 @@ defmodule Ambry.Inbox.Draft.Seed do
     |> String.replace(~r/[(\[{]\s*[)\]}]/u, " ")
     |> String.replace(~r/[^\p{L}\p{N}\s]/u, " ")
     |> normalize()
+    # A leading article is not a different title: the operator's Cerulean
+    # Sea file is tagged "house in the cerulean sea" against the catalogue's
+    # "The House in the Cerulean Sea", and the form asked which was right.
+    |> String.replace(~r/^(the|a|an)\s+/u, "")
   end
 
   defp title_key(other), do: normalize(other)
@@ -1608,11 +1612,32 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp join_labels(one, nil), do: one
   defp join_labels(one, other), do: "#{one}, #{other}"
 
-  # Two spellings of one title: the shorter is the title, the longer is the
-  # title with a format label bolted on.
+  # Two spellings of one title. When one is the other's *head* — a subtitle
+  # or format label bolted on — the bare title is the title. When they carry
+  # the same words (an article, casing), the better-cased spelling is the
+  # title as written: the operator's Cerulean Sea tag says "house in the
+  # cerulean sea", and length alone preferred it over the catalogue's
+  # properly-cased "The House in the Cerulean Sea".
   defp shorter(held, incoming) do
-    if String.length(incoming) < String.length(held), do: incoming, else: held
+    cond do
+      head_reduction?(held, incoming) -> incoming
+      head_reduction?(incoming, held) -> held
+      caps(incoming) > caps(held) -> incoming
+      true -> held
+    end
   end
+
+  defp head_reduction?(long, short) when is_binary(long) and is_binary(short) do
+    title_key(long) != title_key(short) and title_head(long) == title_key(short)
+  end
+
+  defp head_reduction?(_long, _short), do: false
+
+  defp caps(value) when is_binary(value) do
+    value |> String.graphemes() |> Enum.count(&(&1 != String.downcase(&1)))
+  end
+
+  defp caps(_other), do: 0
 
   defp normalize(string) when is_binary(string) do
     string |> String.downcase() |> String.replace(~r/\s+/, " ") |> String.trim()

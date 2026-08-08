@@ -445,6 +445,29 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert best["score"] > 0.9
     end
 
+    # The other direction of the same rule: the tags carry the subtitle
+    # ("House of Earth and Blood: The Crescent City, Book 1" is the dominant
+    # real-world tag shape) and the catalogue is bare.
+    test "a bare catalogue title scores exact against a subtitled tag" do
+      patch_work_results([
+        book("House of Earth and Blood", ["Sarah J. Maas"]),
+        book("House of Earth and Blood, House of Sky and Breath", ["Sarah J. Maas"])
+      ])
+
+      %{matches: matches} =
+        AutoMatch.match(
+          item(
+            title: "House of Earth and Blood: The Crescent City, Book 1",
+            author: "Sarah J. Maas"
+          )
+        )
+
+      assert [best | _rest] = matches["work"]["candidates"]
+      assert best["title"] == "House of Earth and Blood"
+      assert best["score"] > 0.95
+      assert matches["work"]["confidence"] > 0.8
+    end
+
     test "a summary with the right head is still not the book" do
       patch_work_results([book("As You Wish: Summary and Analysis", ["Somebody Else"])])
 

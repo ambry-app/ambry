@@ -1252,12 +1252,23 @@ defmodule Ambry.Inbox.AutoMatch do
   # for "The Expanse: Leviathan Wakes". Companion markers still subtract —
   # "As You Wish: Summary & Analysis" has the right head and is still not
   # the book.
+  # In both directions, same as the seeder's `same_title?/2`: the catalogue
+  # may write the subtitle out where the tags are bare (As You Wish), or the
+  # tags may carry it where the catalogue is bare — "House of Earth and
+  # Blood: The Crescent City, Book 1" is the dominant real-world tag shape,
+  # and the record titled exactly its head IS the book the file means.
   defp title_parts(title, wanted) do
-    head = title_head(title)
-
-    if is_binary(wanted) and head != title and normalize(head) == normalize(wanted),
+    if is_binary(wanted) and head_match?(title, wanted),
       do: {1.0, companion_penalty(title)},
       else: {similarity(title, wanted), title_penalty(title, wanted)}
+  end
+
+  defp head_match?(title, wanted) do
+    head = title_head(title)
+    wanted_head = title_head(wanted)
+
+    (head != title and normalize(head) == normalize(wanted)) or
+      (wanted_head != wanted and normalize(wanted_head) == normalize(title))
   end
 
   # Everything before the first subtitle separator — a colon, or a dash with
