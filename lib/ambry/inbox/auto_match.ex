@@ -765,15 +765,25 @@ defmodule Ambry.Inbox.AutoMatch do
       compatible?(one["authors"], other["authors"])
   end
 
+  # A record that names fewer of the same people is compatible with one that
+  # names more: rreading-glasses credits As You Wish to "Cary Elwes" and
+  # Hardcover to "Cary Elwes, Joe Layden", and reading that as a rival
+  # doubted a match both databases had confirmed. Disjoint or crossing sets
+  # stay incompatible — "said less" corroborates, "said different" does not.
   defp compatible?(one, other) do
     case {name_set(one), name_set(other)} do
       {[], _unstated} -> true
       {_unstated, []} -> true
-      {one, other} -> one == other
+      {one, other} -> MapSet.subset?(one, other) or MapSet.subset?(other, one)
     end
   end
 
-  defp name_set(names), do: names |> List.wrap() |> Enum.map(&normalize/1) |> Enum.sort()
+  defp name_set(names) do
+    case List.wrap(names) do
+      [] -> []
+      names -> MapSet.new(names, &person_key/1)
+    end
+  end
 
   # Confidence is about the *decision*, not just the top hit: a strong match
   # with a genuinely different runner-up is exactly the case a human should
@@ -1105,10 +1115,12 @@ defmodule Ambry.Inbox.AutoMatch do
   defp score(_title, _authors, _narrators, asin, %{asin: asin}) when is_binary(asin), do: 1.0
 
   defp score(title, authors, narrators, _asin, hints) do
+    {title_similarity, penalty} = title_parts(title, hints.title)
+
     base =
       case author_similarity(authors, hints.author) do
-        nil -> similarity(title, hints.title)
-        author_score -> similarity(title, hints.title) * 0.75 + author_score * 0.25
+        nil -> title_similarity
+        author_score -> title_similarity * 0.75 + author_score * 0.25
       end
 
     # The narrator only speaks when both sides have one. Recording-level hits
@@ -1118,9 +1130,37 @@ defmodule Ambry.Inbox.AutoMatch do
     # distinguishes two recordings of the same book.
     base
     |> apply_narrator(narrators, hints.narrator)
-    |> Kernel.*(title_penalty(title, hints.title))
+    |> Kernel.*(penalty)
     |> Float.round(3)
   end
+
+  # "As You Wish: Inconceivable Tales from the Making of The Princess Bride"
+  # against a file's bare "As You Wish": every subtitle word counted as
+  # content the query didn't ask for, and the length penalty scored the right
+  # book like a study guide (0.316, measured). A candidate whose *head* — the
+  # part before a subtitle separator — IS the queried title is that title
+  # written out in full, so it scores as an exact title with no length
+  # penalty. The same asymmetric-containment rule the seeder's
+  # `same_title?/2` applies, and asymmetric for the same reason: a shared
+  # PREFIX must not match, or "The Expanse: Caliban's War" answers a search
+  # for "The Expanse: Leviathan Wakes". Companion markers still subtract —
+  # "As You Wish: Summary & Analysis" has the right head and is still not
+  # the book.
+  defp title_parts(title, wanted) do
+    head = title_head(title)
+
+    if is_binary(wanted) and head != title and normalize(head) == normalize(wanted),
+      do: {1.0, companion_penalty(title)},
+      else: {similarity(title, wanted), title_penalty(title, wanted)}
+  end
+
+  # Everything before the first subtitle separator — a colon, or a dash with
+  # space around it. A hyphen inside a word ("Wild-Built") is not a separator.
+  defp title_head(title) when is_binary(title) do
+    title |> String.split(~r/\s*:\s|\s+[-–—]\s+/u, parts: 2) |> hd()
+  end
+
+  defp title_head(other), do: other
 
   defp apply_narrator(score, narrators, narrator) when narrators in [nil, []] or is_nil(narrator),
     do: score

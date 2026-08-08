@@ -344,6 +344,47 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert matches["work"]["confidence"] < 0.65
     end
 
+    # The catalogue writes the title out in full and the file's tags carry the
+    # bare one. Every subtitle word counted as content the query didn't ask
+    # for, and the length penalty scored the right book like a study guide —
+    # 0.316, measured on the operator's As You Wish.
+    test "a catalogue subtitle is not junk when its head is the queried title" do
+      patch_work_results([
+        book(
+          "As You Wish: Inconceivable Tales from the Making of The Princess Bride",
+          ["Cary Elwes"]
+        )
+      ])
+
+      %{matches: matches} = AutoMatch.match(item(title: "As You Wish", author: "Cary Elwes"))
+
+      assert [best] = matches["work"]["candidates"]
+      assert best["score"] > 0.9
+    end
+
+    test "a summary with the right head is still not the book" do
+      patch_work_results([book("As You Wish: Summary and Analysis", ["Somebody Else"])])
+
+      %{matches: matches} = AutoMatch.match(item(title: "As You Wish", author: "Cary Elwes"))
+
+      assert [companion] = matches["work"]["candidates"]
+      assert companion["score"] < 0.4
+    end
+
+    # rreading-glasses credits As You Wish to "Cary Elwes" and Hardcover to
+    # "Cary Elwes, Joe Layden". Strict set equality read that as a rival and
+    # doubted a match both databases had confirmed.
+    test "a record naming fewer of the same authors corroborates" do
+      patch_work_results([
+        book("As You Wish", ["Cary Elwes"]),
+        book("As You Wish", ["Cary Elwes", "Joe Layden"])
+      ])
+
+      %{matches: matches} = AutoMatch.match(item(title: "As You Wish", author: "Cary Elwes"))
+
+      assert matches["work"]["confidence"] > 0.9
+    end
+
     test "is confident when the winner stands alone" do
       patch_work_results([
         book("The Silent Patient", ["Alex Michaelides"]),
