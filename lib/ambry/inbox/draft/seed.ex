@@ -239,8 +239,26 @@ defmodule Ambry.Inbox.Draft.Seed do
   typed survives — 1d's whole point is that curation outranks any source.
   """
   def reseed_work(%Work{} = work, %InboxItem{} = item) do
-    put_work_fields(work, records(item, "work"), AutoMatch.hints(item), item.tags || %{}, item)
+    work
+    |> follow_query(item, "work")
+    |> put_work_fields(records(item, "work"), AutoMatch.hints(item), item.tags || %{}, item)
   end
+
+  # What was asked of the providers is evidence, not a decision — nobody
+  # curates a query string. A curated draft survives a re-match via resettle
+  # rather than a rebuild, and its evidence header kept reporting the search
+  # from its first seeding while the records below it came from a newer one.
+  defp follow_query(struct, %InboxItem{matches: matches}, level) when is_map(matches) do
+    case Map.get(matches, level) do
+      %{"query" => query} = held ->
+        %{struct | query: query, query_fields: Map.get(held, "query_fields") || %{}}
+
+      _unmatched ->
+        struct
+    end
+  end
+
+  defp follow_query(struct, _item, _level), do: struct
 
   defp put_work_fields(%Work{} = work, records, hints, tags, _item) do
     sources = used(records, work.sources)
@@ -580,7 +598,9 @@ defmodule Ambry.Inbox.Draft.Seed do
   Re-derives a recording's fields from whichever records are currently ticked.
   """
   def reseed_recording(%Recording{} = recording, %InboxItem{} = item) do
-    put_recording_fields(recording, records(item, "recording"), item.tags || %{}, item)
+    recording
+    |> follow_query(item, "recording")
+    |> put_recording_fields(records(item, "recording"), item.tags || %{}, item)
   end
 
   # **Only records of this recording describe this recording.** Work-level
@@ -841,10 +861,13 @@ defmodule Ambry.Inbox.Draft.Seed do
   any more has no reason to sit on the form, and a credit naming somebody new
   needs a decision minted for them.
 
-  **A curated person is never rebuilt.** They are the one thing here the
-  operator may have gone and found a photo for, and re-deriving over the top of
-  that is the curation-outranks-re-derivation rule broken — the same rule
-  `keep_curated/2` applies to credits.
+  **A curated person keeps their decisions, not their evidence.** Skipping
+  them wholesale meant "look again" wrote fresh candidates into `matches` and
+  the form showed nothing new — for exactly the people the button exists for,
+  since renaming a person is what marks them curated. So their candidate lists
+  are rebuilt like everyone else's, while `keep_manual/2` pins whatever the
+  operator settled — the same field-level rule the work and the recording
+  already follow.
   """
   def reseed_people(%Draft{} = draft, %InboxItem{} = item) do
     matched = people_matches(item)
@@ -856,12 +879,54 @@ defmodule Ambry.Inbox.Draft.Seed do
       |> Draft.referenced_keys()
       |> Enum.map(fn key ->
         case Map.get(existing, key) do
-          %PersonDecision{curated: true} = curated -> curated
-          _fresh_or_uncurated -> person_decision(key, named[key], Map.get(matched, key))
+          %PersonDecision{curated: true} = curated ->
+            refreshed_person(curated, named[key], Map.get(matched, key))
+
+          untouched_or_new ->
+            keep_person_fields(
+              untouched_or_new,
+              person_decision(key, named[key], Map.get(matched, key))
+            )
         end
       end)
 
     %{draft | people: people}
+  end
+
+  # An untouched person is rebuilt wholesale, but a field the operator settled
+  # inside one survives the rebuild: picking a photo curates the *field*, not
+  # the person, and re-derivation moving a picked photo is the same broken
+  # rule whichever level it happens at.
+  defp keep_person_fields(nil, fresh), do: fresh
+
+  defp keep_person_fields(%PersonDecision{} = was, fresh) do
+    %{
+      fresh
+      | name: keep_manual(was.name, fresh.name),
+        image: keep_manual(was.image, fresh.image),
+        description: keep_manual(was.description, fresh.description)
+    }
+  end
+
+  # Evidence is matched against what the person is called *now*, not what the
+  # credit says: the credit holds the pen name, and the human behind it being
+  # renamed is precisely when somebody searches again. Mode, link, approval
+  # and every settled field stay the operator's.
+  defp refreshed_person(%PersonDecision{} = person, named, matched) do
+    {credited, source} = named || {person.key, nil}
+    name = Field.value(person.name) || credited
+    candidates = named_candidates(matched, name)
+    {doubt, detail} = person_doubt(matched, candidates, name)
+
+    %{
+      person
+      | doubt: doubt,
+        doubt_detail: detail,
+        sources: Enum.map(candidates, &SourceRef.of/1),
+        name: keep_manual(person.name, person_name_field(credited, source, candidates)),
+        image: keep_manual(person.image, person_image_field(candidates)),
+        description: keep_manual(person.description, person_description_field(candidates))
+    }
   end
 
   # What each credited human is called and who said so, taken from the credit

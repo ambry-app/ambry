@@ -50,6 +50,22 @@ defmodule Ambry.Inbox.DraftTest do
     )
   end
 
+  # What a person-level provider's hit looks like in `matches["people"]`,
+  # whether written by matching or by `Lookup.research_person/3`.
+  defp person_evidence(attrs) do
+    Map.merge(
+      %{
+        "source" => "provider:wikipedia",
+        "provider_name" => "Wikipedia",
+        "id" => "Q1",
+        "name" => "Somebody",
+        "images" => [],
+        "description" => nil
+      },
+      attrs
+    )
+  end
+
   defp matches(work_candidates, opts \\ []) do
     %{
       "work" => %{
@@ -960,6 +976,196 @@ defmodule Ambry.Inbox.DraftTest do
 
       # nobody curated it, so it goes when its source does
       assert after_untick.work.authors == []
+    end
+
+    # A curated draft survives a re-match via resettle rather than a rebuild —
+    # but the query is evidence, not a decision, and the evidence header kept
+    # reporting the search from the draft's first seeding while the records
+    # below it came from a newer one.
+    test "a re-match's query reaches a resettled draft's evidence header" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.rename_credit(item.draft, :work, 0, "Somebody Else")
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      item =
+        update_in(
+          item.matches["work"],
+          &Map.merge(&1, %{
+            "query" => "a plainer title",
+            "query_fields" => %{"title" => "a plainer title"}
+          })
+        )
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+
+      assert reseeded.work.query == "a plainer title"
+      assert reseeded.work.query_fields == %{"title" => "a plainer title"}
+    end
+  end
+
+  # The reported flow: the operator reveals a pen name, renames the person
+  # behind it (which marks them curated), and clicks "look again". The results
+  # land in `matches` — and a reseed that skipped curated people wholesale
+  # showed nothing new for exactly the people the button exists for.
+  describe "a re-search reaches a curated person" do
+    test "a renamed person drops the old face and picks up what a re-search finds" do
+      work = [provider_candidate(%{"authors" => ["James S.A. Corey"]})]
+
+      item =
+        item(%{
+          matches:
+            matches(work,
+              people: %{
+                "james s.a. corey" => %{
+                  "name" => "James S.A. Corey",
+                  "candidates" => [
+                    person_evidence(%{
+                      "id" => "corey",
+                      "name" => "James S.A. Corey",
+                      "images" => ["https://example.test/corey.jpg"]
+                    })
+                  ]
+                }
+              }
+            ),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # the pen name's own photo arrived with the item
+      assert [person] = item.draft.people
+      assert Field.value(person.image) == "https://example.test/corey.jpg"
+
+      draft = Draft.Edit.rename_person(item.draft, "james s.a. corey", "Daniel Abraham")
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      # nobody has searched the new name yet: the pen name's face stops being
+      # offered rather than posing as evidence about Daniel Abraham, and the
+      # doubt says looking again is what would help
+      reseeded = Draft.Edit.resettle(item.draft, item)
+      assert [person] = reseeded.people
+      assert Field.value(person.name) == "Daniel Abraham"
+      assert person.image.candidates == []
+      assert person.doubt == :low_confidence
+
+      # "look again" adds evidence about the new name — added, never
+      # replaced, exactly as Lookup.research_person writes it
+      item =
+        update_in(item.matches["people"]["james s.a. corey"], fn held ->
+          held
+          |> Map.put("name", "Daniel Abraham")
+          |> Map.update!(
+            "candidates",
+            &(&1 ++
+                [
+                  person_evidence(%{
+                    "id" => "abraham",
+                    "name" => "Daniel Abraham",
+                    "images" => ["https://example.test/abraham.jpg"],
+                    "description" => "An American author."
+                  })
+                ])
+          )
+        end)
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+      assert [person] = reseeded.people
+
+      # the new evidence is on the form, and the typed name stays the
+      # operator's
+      assert Field.value(person.image) == "https://example.test/abraham.jpg"
+      assert Field.value(person.description) == "An American author."
+      assert Field.value(person.name) == "Daniel Abraham"
+      assert person.name.source == "manual"
+      assert person.doubt == :none
+    end
+
+    test "a person added to a credit gets their search results once named" do
+      work = [provider_candidate(%{"authors" => ["James S.A. Corey"]})]
+      item = item(%{matches: matches(work), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # the operator adds the second half of the pen name and names them
+      draft = Draft.Edit.add_person(item.draft, item, :work, 0)
+      assert [_first, key] = hd(draft.work.authors).person_keys
+      draft = Draft.Edit.rename_person(draft, key, "Ty Franck")
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      # "find a photo and bio" writes under the minted key
+      item =
+        update_in(item.matches["people"], fn people ->
+          Map.put(people || %{}, key, %{
+            "name" => "Ty Franck",
+            "candidates" => [
+              person_evidence(%{
+                "id" => "franck",
+                "name" => "Ty Franck",
+                "images" => ["https://example.test/franck.jpg"],
+                "description" => "An American writer."
+              })
+            ]
+          })
+        end)
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+      person = Enum.find(reseeded.people, &(&1.key == key))
+
+      assert Field.value(person.image) == "https://example.test/franck.jpg"
+      assert Field.value(person.description) == "An American writer."
+      assert Field.value(person.name) == "Ty Franck"
+      assert person.doubt == :none
+    end
+
+    # Picking a photo curates the *field*, not the person — and a picked photo
+    # moving because some record got ticked is the same broken rule at a
+    # different level.
+    test "a picked photo survives re-derivation" do
+      work = [provider_candidate(%{"authors" => ["Travis Baldree"]})]
+
+      item =
+        item(%{
+          matches:
+            matches(work,
+              people: %{
+                "travis baldree" => %{
+                  "name" => "Travis Baldree",
+                  "candidates" => [
+                    person_evidence(%{
+                      "id" => "tb-1",
+                      "name" => "Travis Baldree",
+                      "images" => ["https://example.test/first.jpg"]
+                    }),
+                    person_evidence(%{
+                      "id" => "tb-2",
+                      "name" => "Travis Baldree",
+                      "images" => ["https://example.test/second.jpg"]
+                    })
+                  ]
+                }
+              }
+            ),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # auto-settled on the first; the operator picks the second
+      assert [person] = item.draft.people
+      assert Field.value(person.image) == "https://example.test/first.jpg"
+
+      second =
+        Enum.find(person.image.candidates, &(&1.value == "https://example.test/second.jpg"))
+
+      draft = Draft.Edit.choose_person_image(item.draft, "travis baldree", second.key)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+      assert [person] = reseeded.people
+      assert Field.value(person.image) == "https://example.test/second.jpg"
+      assert person.image.curated
     end
   end
 
