@@ -947,7 +947,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp relink_series(%SeriesLink{curated: true} = link), do: link
 
   defp relink_series(%SeriesLink{mode: :create, name: name} = link) when is_binary(name) do
-    case Repo.all(where(Series, [s], fragment("lower(?)", s.name) == ^String.downcase(name))) do
+    case matching_series(name) do
       [one] ->
         %{
           link
@@ -962,6 +962,16 @@ defmodule Ambry.Inbox.Draft.Seed do
   end
 
   defp relink_series(link), do: link
+
+  # Fetched whole and compared by `same_series?/2` rather than a lower(=) in
+  # SQL: the table is small, and the exact comparison is what filed one real
+  # batch's Bill Hodges books under "Bill Hodges" AND "Bill Hodges Trilogy",
+  # with a Kushiel accent variant making a third.
+  defp matching_series(name) do
+    Series
+    |> Repo.all()
+    |> Enum.filter(&same_series?(&1.name, name))
+  end
 
   @doc """
   Brings the draft's people into line with whoever the credits now reference.
@@ -1375,14 +1385,48 @@ defmodule Ambry.Inbox.Draft.Seed do
   # One series named by two databases is one membership. Whichever of them
   # supplied a number wins, because a number nobody supplied is a question the
   # operator has to answer and this is the cheapest way not to ask it.
+  # Grouped by `same_series?/2`, not by exact name: "Bill Hodges" and "Bill
+  # Hodges Trilogy" are one series spelled two ways, and grouping on the
+  # exact string filed a real batch's Bill Hodges books under both — plus a
+  # third membership from an accent variant. Same family as titles: dots,
+  # fillers, accents and subtitles are spellings, not different series.
   defp merge_by_name(proposals) do
     proposals
-    |> Enum.group_by(&down(&1.name))
-    |> Map.values()
-    |> Enum.map(fn group -> Enum.find(group, List.first(group), & &1.number) end)
-    |> Enum.sort_by(fn proposal ->
-      Enum.find_index(proposals, &(down(&1.name) == down(proposal.name)))
+    |> Enum.reduce([], fn proposal, groups ->
+      case Enum.find_index(groups, fn [held | _rest] -> same_series?(held.name, proposal.name) end) do
+        nil -> groups ++ [[proposal]]
+        index -> List.update_at(groups, index, &(&1 ++ [proposal]))
+      end
     end)
+    |> Enum.map(fn group -> Enum.find(group, List.first(group), & &1.number) end)
+  end
+
+  # Two spellings of one series. Filler words (Trilogy, Saga, Series),
+  # punctuation, accents and articles fold; a subtitle head counts the same
+  # way it does for titles, so "Kushiel's Legacy: Phedre Trilogy" is
+  # "Kushiel's Legacy".
+  @series_filler ~w(trilogy series saga duology quartet quintet cycle sequence collection books novels)
+
+  defp same_series?(one, other) when is_binary(one) and is_binary(other) do
+    a = series_key(one)
+    b = series_key(other)
+
+    a == b or series_key(series_head(one)) == b or series_key(series_head(other)) == a
+  end
+
+  defp same_series?(_one, _other), do: false
+
+  defp series_head(name), do: name |> String.split(~r/\s*:\s/u, parts: 2) |> hd()
+
+  defp series_key(name) do
+    name
+    |> String.normalize(:nfd)
+    |> String.replace(~r/\p{Mn}/u, "")
+    |> String.downcase()
+    |> String.replace(~r/[^\p{L}\p{N}]+/u, " ")
+    |> String.split(" ", trim: true)
+    |> Enum.reject(&(&1 in ["the", "a", "an"] or &1 in @series_filler))
+    |> Enum.join(" ")
   end
 
   # The file's series number describes this book's position in the series the
@@ -1475,15 +1519,15 @@ defmodule Ambry.Inbox.Draft.Seed do
     |> where([b], b.id == ^book_id)
     |> join(:inner, [b], sb in assoc(b, :series_books))
     |> join(:inner, [_b, sb], s in assoc(sb, :series))
-    |> where([_b, _sb, s], fragment("lower(?)", s.name) == ^String.downcase(name))
-    |> Repo.exists?()
+    |> select([_b, _sb, s], s.name)
+    |> Repo.all()
+    |> Enum.any?(&same_series?(&1, name))
   end
 
   defp series_link(name, number, source) do
     matches =
-      Series
-      |> where([s], fragment("lower(?)", s.name) == ^String.downcase(name))
-      |> Repo.all()
+      name
+      |> matching_series()
       |> Enum.map(&%SeriesLink.Match{series_id: &1.id, name: &1.name, exact: true})
 
     base = %SeriesLink{name: name, number: presence(number), source: source, candidates: matches}

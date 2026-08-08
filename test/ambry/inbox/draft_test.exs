@@ -632,6 +632,46 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  # "Bill Hodges" and "Bill Hodges Trilogy" are one series spelled two ways,
+  # and a real batch filed End of Watch under both — plus "Phèdre's Trilogy"
+  # as an accent variant of "Kushiel's Legacy: Phedre Trilogy". Same family
+  # as titles and people: fillers, punctuation, accents and subtitle heads
+  # are spellings, not different series.
+  describe "series spellings collapse" do
+    test "a filler-word variant is one series membership" do
+      candidates = [
+        provider_candidate(%{
+          "id" => "a",
+          "series" => [%{"name" => "Bill Hodges", "number" => "3"}]
+        }),
+        provider_candidate(%{
+          "id" => "b",
+          "series" => [%{"name" => "Bill Hodges Trilogy", "number" => "3"}]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [series] = draft.work.series
+      assert to_string(series.number) == "3"
+    end
+
+    test "a filler-word variant links the series already in the library" do
+      existing = insert(:series, name: "Bill Hodges")
+
+      candidates = [
+        provider_candidate(%{
+          "series" => [%{"name" => "Bill Hodges Trilogy", "number" => "3"}]
+        })
+      ]
+
+      draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
+
+      assert [%{mode: :link, series_id: id}] = draft.work.series
+      assert id == existing.id
+    end
+  end
+
   describe "junk series stay off the form" do
     # Goodreads-derived data models an author's whole bibliography as a
     # series named after them — Joyland arrived in a series called "Stephen
