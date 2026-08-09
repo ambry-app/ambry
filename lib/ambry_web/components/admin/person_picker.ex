@@ -70,7 +70,7 @@ defmodule AmbryWeb.Admin.PersonPicker do
     <div class="mx-auto max-w-4xl space-y-6 p-6">
       <div>
         <h2 class="text-2xl font-bold">A photo for {@query}</h2>
-        <p class="text-sm text-zinc-600 dark:text-zinc-400">
+        <p class="text-sm text-zinc-400">
           Shown in the circular frame they'll be displayed in — the biggest photo often isn't the
           one that survives the crop. Picking stages it as a URL import.
         </p>
@@ -81,7 +81,7 @@ defmodule AmbryWeb.Admin.PersonPicker do
 
         <div :if={found.loading} class="flex items-center gap-3">
           <span class="text-sm font-semibold">{provider.display_name}</span>
-          <span class="h-20 w-20 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-800" />
+          <span class="h-20 w-20 animate-pulse rounded-full bg-zinc-800" />
         </div>
 
         <div :if={!found.loading && found.result in [nil, []]} class="flex items-center gap-3">
@@ -122,25 +122,25 @@ defmodule AmbryWeb.Admin.PersonPicker do
               phx-target={@myself}
               phx-value-provider={match.provider_id}
               phx-value-index={match.id}
-              class="flex-none rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
+              class="flex-none rounded-sm border border-zinc-700 px-2 py-1 text-xs"
             >
               Use this bio
             </button>
-            <p class="line-clamp-3 text-xs text-zinc-600 dark:text-zinc-400">
+            <p class="line-clamp-3 text-xs text-zinc-400">
               {match.description}
             </p>
           </div>
         </div>
       </div>
 
-      <div class="space-y-1 border-t border-zinc-200 pt-4 text-sm dark:border-zinc-800">
+      <div class="space-y-1 border-t border-zinc-800 pt-4 text-sm">
         <p class="font-semibold">Search the web instead:</p>
         <div class="flex gap-4">
           <a
             href={"https://www.google.com/search?tbm=isch&q=#{URI.encode_www_form(@query)}"}
             target="_blank"
             rel="noopener"
-            class="text-brand hover:underline dark:text-brand-dark"
+            class="text-brand-dark hover:underline"
           >
             Google Images
           </a>
@@ -148,7 +148,7 @@ defmodule AmbryWeb.Admin.PersonPicker do
             href={"https://duckduckgo.com/?ia=images&iax=images&q=#{URI.encode_www_form(@query)}"}
             target="_blank"
             rel="noopener"
-            class="text-brand hover:underline dark:text-brand-dark"
+            class="text-brand-dark hover:underline"
           >
             DuckDuckGo Images
           </a>

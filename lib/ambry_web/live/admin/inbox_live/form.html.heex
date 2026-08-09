@@ -6,14 +6,14 @@
           over the whole thing rather than in a badge. --%>
     <.busy_overlay busy={@busy} label={busy_label(@job)} class="sticky top-0 h-screen" />
 
-    <div class="max-w-4xl space-y-8 pb-16" inert={@busy}>
+    <div class="max-w-4xl space-y-14 pb-16" inert={@busy}>
       <%!-- the evidence: what was found, before anybody interpreted it --%>
-      <section class="space-y-1 rounded-sm border border-zinc-300 p-4 dark:border-zinc-700">
+      <section class="space-y-1 rounded-lg bg-zinc-900 p-4">
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
             <p class="truncate font-bold">{@page_title}</p>
-            <p class="truncate text-sm dark:text-zinc-500">{@item.path}</p>
-            <p class="text-sm italic dark:text-zinc-500">{evidence(@item)}</p>
+            <p class="font-mono truncate text-xs text-zinc-400">{@item.path}</p>
+            <p class="text-sm text-zinc-400">{evidence(@item)}</p>
 
             <%!-- "Still working" and "found nothing" look identical in a form
                 full of empty fields, and matching now backs off for minutes
@@ -48,43 +48,46 @@
             one) and the form used to show none of them, so a match that went
             somewhere strange had no visible cause. --%>
         <details :if={tag_rows(@item) != [] or hint_rows(@item) != []} class="pt-2">
-          <summary class="cursor-pointer text-sm dark:text-zinc-400">What the files say</summary>
+          <summary class="cursor-pointer pl-3 text-sm text-zinc-400">What the files say</summary>
 
           <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
             <div :if={tag_rows(@item) != []} data-role="tags">
-              <p class="text-xs font-bold dark:text-zinc-400">Embedded tags</p>
-              <p :for={{label, value} <- tag_rows(@item)} class="text-xs dark:text-zinc-500">
-                <span class="dark:text-zinc-600">{label}:</span> {value}
+              <p class="text-xs font-bold text-zinc-300">Embedded tags</p>
+              <p :for={{label, value} <- tag_rows(@item)} class="text-xs text-zinc-400">
+                <span class="text-zinc-400">{label}:</span> {value}
               </p>
             </div>
 
             <div :if={hint_rows(@item) != []} data-role="hints">
-              <p class="text-xs font-bold dark:text-zinc-400">Used to search</p>
-              <p :for={{label, value} <- hint_rows(@item)} class="text-xs dark:text-zinc-500">
-                <span class="dark:text-zinc-600">{label}:</span> {value}
+              <p class="text-xs font-bold text-zinc-300">Used to search</p>
+              <p :for={{label, value} <- hint_rows(@item)} class="text-xs text-zinc-400">
+                <span class="text-zinc-400">{label}:</span> {value}
               </p>
-              <p class="pt-1 text-xs italic dark:text-zinc-600">
+              <p class="pt-1 text-xs text-zinc-400">
                 Taken from the tags first and the release name second.
               </p>
             </div>
           </div>
         </details>
 
-        <p :if={@item.issue} class="pt-2 text-sm text-red-600">{@item.issue}</p>
+        <p :if={@item.issue} class="flex items-baseline gap-1.5 pt-2 text-sm text-red-400">
+          <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
+          {@item.issue}
+        </p>
       </section>
 
       <%!-- The one fact this whole form is deciding, said as a sentence. Two
           questions, but a file is a recording of exactly one work — so there
           is one answer to check at a glance. --%>
       <section :if={identity_summary(@item.draft)} class="space-y-1" data-role="identity-summary">
-        <p class="text-xs uppercase tracking-wide dark:text-zinc-500">This release is</p>
-        <p class="text-lg font-bold">{identity_summary(@item.draft)}</p>
+        <.microlabel class="pl-3">This release is</.microlabel>
+        <p class="pl-3 text-lg font-bold">{identity_summary(@item.draft)}</p>
       </section>
 
       <%!-- The invariant, rendered. Nothing here is a surprise at import time. --%>
       <section
         :if={@unresolved != []}
-        class="rounded-sm border border-amber-500 p-4"
+        class="border-amber-400/80 rounded-lg border-l-4 bg-zinc-900 p-4"
         data-role="unresolved"
       >
         <p class="font-bold">Still to settle</p>
@@ -110,15 +113,15 @@
           Take the top suggestion for {settleable(@unresolved)} of these
         </.button>
 
-        <p class="pt-2 text-xs italic dark:text-zinc-500">
+        <p class="pt-2 text-xs text-zinc-400">
           Anything nothing proposed, any series without a number, and any recording match we doubt is
           left alone — those need a real answer, not a shortcut.
         </p>
       </section>
 
       <%!-- ==================== THE WORK ==================== --%>
-      <section id="work" class="space-y-4">
-        <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">
+      <section id="work" class="space-y-7">
+        <h2 class="text-xl font-bold text-zinc-100">
           The work — which book this is a recording of
         </h2>
 
@@ -126,8 +129,14 @@
             records below: linking creates nothing and inherits the book's
             curation, importing a record creates a Book. Ranking the two
             together made the form ask one question that was really two. --%>
-        <div class="space-y-2" data-role="local-books">
-          <div class="flex items-center gap-2">
+        <div
+          class={[
+            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+            (@item.draft.work.approved && "border-brand-dark/60") || "border-amber-400/70"
+          ]}
+          data-role="local-books"
+        >
+          <div class="flex items-center gap-2 pl-3">
             <.label>Is this a book you already have?</.label>
             <.badge
               :if={!@item.draft.work.approved}
@@ -138,7 +147,7 @@
             </.badge>
           </div>
 
-          <p class="text-sm dark:text-zinc-400">
+          <p class="max-w-prose pl-3 text-sm text-zinc-400">
             If so this becomes another edition of it — no second book, and its existing details are
             left alone.
           </p>
@@ -167,16 +176,14 @@
               value={@library_query}
               placeholder="search the library by title, author or series"
               phx-debounce="300"
-              class={input_classes("min-w-64 flex-grow")}
+              class={input_classes("min-w-64 px-[11px] max-w-xl flex-grow py-2 leading-6")}
             />
-            <button type="submit" class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700">
-              Search
-            </button>
+            <.button type="submit" color={:zinc}>Search</.button>
           </form>
 
           <p
             :if={@library_query not in [nil, ""] and @library_results == []}
-            class="text-sm italic dark:text-zinc-500"
+            class="text-sm text-zinc-400"
           >
             Nothing in the library matches that.
           </p>
@@ -191,18 +198,23 @@
             type="button"
             phx-click="new-book"
             class={[
-              "rounded-sm border px-2 py-1 text-xs",
-              (@item.draft.work.mode == :create and @item.draft.work.approved) && "border-brand dark:border-brand-dark",
+              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm",
+              (@item.draft.work.mode == :create and @item.draft.work.approved) &&
+                "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
               !(@item.draft.work.mode == :create and @item.draft.work.approved) &&
-                "border-zinc-300 dark:border-zinc-700"
+                "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
             ]}
           >
-            No — this is a different book
+            <.icon
+              :if={@item.draft.work.mode == :create and @item.draft.work.approved}
+              name="fa-check"
+              class="text-brand-dark h-3 w-3 flex-none"
+            /> No — this is a different book
           </button>
         </div>
 
-        <div class="space-y-2">
-          <div class="flex items-center gap-2">
+        <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
+          <div class="flex items-center gap-2 pl-3">
             <.label>
               {if @item.draft.work.mode == :link,
                 do: "Records that could fill blanks",
@@ -223,19 +235,19 @@
               look different or the empty fields below are unexplained. --%>
           <p
             :if={doubt_message(@item.draft.work)}
-            class="rounded-sm border border-amber-500 p-3 text-sm"
+            class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
             data-role="work-doubt"
           >
             {doubt_message(@item.draft.work)}
           </p>
 
-          <p :if={records(@item, "work") != []} class="text-sm dark:text-zinc-400">
+          <p :if={records(@item, "work") != []} class="max-w-prose pl-3 text-sm text-zinc-400">
             Tick every record that's about this book. Two databases having a record of it is normal —
             and each knows things the other doesn't, so the description can come from one and the
             cover from another.
           </p>
 
-          <p :if={records(@item, "work") == []} class="text-sm italic dark:text-zinc-500">
+          <p :if={records(@item, "work") == []} class="text-sm text-zinc-400">
             No provider had a record of this. The fields below come from the file's own tags.
           </p>
 
@@ -254,7 +266,7 @@
           />
 
           <details>
-            <summary class="cursor-pointer text-xs dark:text-zinc-400">
+            <summary class="cursor-pointer pl-3 text-xs text-zinc-400">
               Not what you're looking for? Search again
             </summary>
             <div class="pt-2">
@@ -271,7 +283,7 @@
             memberships remain to decide. --%>
         <p
           :if={@item.draft.work.mode == :link}
-          class="rounded-sm bg-zinc-100 p-3 text-sm dark:bg-zinc-800"
+          class="rounded-lg bg-zinc-900 p-4 text-sm"
         >
           Using the book already in the library. Its title, date and authors are left exactly as they
           are — an import fills blanks, it never overwrites curation.
@@ -287,6 +299,7 @@
           for={@form}
           phx-change="validate"
           autocomplete="off"
+          container_class="!space-y-7"
         >
           <.inputs_for :let={draft} field={@form[:draft]}>
             <.inputs_for :let={work} field={draft[:work]}>
@@ -295,6 +308,7 @@
                 section="work"
                 name={:title}
                 form={work}
+                control_class="max-w-xl"
                 field={@item.draft.work.title}
               />
 
@@ -304,6 +318,7 @@
                 name={:published}
                 form={work}
                 type="date"
+                control_class="max-w-48"
                 hint="The work's original publication date, not this recording's release date."
                 field={@item.draft.work.published}
               />
@@ -314,6 +329,7 @@
                 name={:published_format}
                 form={work}
                 type="select"
+                control_class="max-w-56"
                 options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
                 field={@item.draft.work.published_format}
               />
@@ -323,8 +339,8 @@
 
         <%!-- credits: "Credited as" / "Written by" --%>
         <div :if={@item.draft.work.mode == :create} class="space-y-2">
-          <.label>Authors</.label>
-          <p :if={@item.draft.work.authors == []} class="text-sm italic dark:text-zinc-500">
+          <.label class="pl-3">Authors</.label>
+          <p :if={@item.draft.work.authors == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
             No author was proposed.
           </p>
 
@@ -352,19 +368,19 @@
 
         <%!-- each series is its own decision, number included --%>
         <div class="space-y-2">
-          <.label>
+          <.label class="pl-3">
             {if @item.draft.work.mode == :link, do: "Series to add", else: "Series"}
           </.label>
 
           <p
             :if={@item.draft.work.mode == :link and @item.draft.work.series != []}
-            class="text-sm italic dark:text-zinc-500"
+            class="text-sm text-zinc-400"
           >
             This book isn't in these yet. Adding is a blank being filled, not a change to what's
             already there.
           </p>
 
-          <p :if={@item.draft.work.series == []} class="text-sm italic dark:text-zinc-500">
+          <p :if={@item.draft.work.series == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
             No series was proposed.
           </p>
 
@@ -378,13 +394,16 @@
       </section>
 
       <%!-- ==================== THE RECORDING ==================== --%>
-      <section id="recording" class="space-y-4">
-        <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">
+      <section id="recording" class="space-y-7">
+        <h2 class="text-xl font-bold text-zinc-100">
           The recording — which reading of it these files are
         </h2>
 
-        <div class="space-y-2">
-          <div class="flex items-center gap-2">
+        <div class={[
+          "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+          (@item.draft.recording.approved && "border-brand-dark/60") || "border-amber-400/70"
+        ]}>
+          <div class="flex items-center gap-2 pl-3">
             <.label>Records describing this recording</.label>
             <.badge
               :if={!@item.draft.recording.approved}
@@ -408,14 +427,15 @@
               the whole difference between "tick one" and "type it in". --%>
           <p
             :if={doubt_message(@item.draft.recording)}
-            class="rounded-sm border border-amber-500 p-3 text-sm"
+            class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
             data-role="doubt"
           >
             {doubt_message(@item.draft.recording)}
           </p>
 
-          <p :if={records(@item, "recording") != []} class="text-sm dark:text-zinc-400">
-            Tick every record of <em>this reading</em> — the narrator is what tells two recordings of
+          <p :if={records(@item, "recording") != []} class="text-sm text-zinc-400">
+            Tick every record of <span class="font-semibold">this reading</span>
+            — the narrator is what tells two recordings of
             one book apart, so check it before ticking. Databases keep editions the storefront has
             delisted, which is often the only place an older reading still exists.
           </p>
@@ -439,9 +459,11 @@
               type="button"
               phx-click="uncatalogued"
               class={[
-                "rounded-sm border px-2 py-1 text-xs",
-                Recording.uncatalogued?(@item.draft.recording) && "border-brand dark:border-brand-dark",
-                !Recording.uncatalogued?(@item.draft.recording) && "border-zinc-300 dark:border-zinc-700"
+                "rounded-md px-2 py-1 text-xs",
+                Recording.uncatalogued?(@item.draft.recording) &&
+                  "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
+                !Recording.uncatalogued?(@item.draft.recording) &&
+                  "border border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
               ]}
             >
               None of these — it's in no catalogue
@@ -449,7 +471,7 @@
           </div>
 
           <details>
-            <summary class="cursor-pointer text-xs dark:text-zinc-400">
+            <summary class="cursor-pointer pl-3 text-xs text-zinc-400">
               Not what you're looking for? Search again
             </summary>
             <div class="pt-2">
@@ -461,13 +483,19 @@
             </div>
           </details>
 
-          <p class="text-xs italic dark:text-zinc-500">
+          <p class="pl-3 text-xs text-zinc-400">
             Every import creates a new recording. Pointing one at an existing recording's files —
             the upgrade/replace case — is a later addition.
           </p>
         </div>
 
-        <.simple_form id="recording-form" for={@form} phx-change="validate" autocomplete="off">
+        <.simple_form
+          id="recording-form"
+          for={@form}
+          phx-change="validate"
+          autocomplete="off"
+          container_class="!space-y-7"
+        >
           <.inputs_for :let={draft} field={@form[:draft]}>
             <.inputs_for :let={recording} field={draft[:recording]}>
               <.decision_row
@@ -475,6 +503,7 @@
                 section="recording"
                 name={:title}
                 form={recording}
+                control_class="max-w-xl"
                 placeholder="only if it differs from the book's title"
                 hint={"Leave empty unless this reading is titled differently — " <>
                 "\"The Way of Kings (1 of 3)\", say."}
@@ -487,6 +516,7 @@
                 name={:published}
                 form={recording}
                 type="date"
+                control_class="max-w-48"
                 hint="When this reading was published, which is rarely the work's own date."
                 field={@item.draft.recording.published}
               />
@@ -496,6 +526,7 @@
                 section="recording"
                 name={:publisher}
                 form={recording}
+                control_class="max-w-md"
                 field={@item.draft.recording.publisher}
               />
 
@@ -524,8 +555,8 @@
         </.simple_form>
 
         <div class="space-y-2">
-          <.label>Narrators</.label>
-          <p :if={@item.draft.recording.narrators == []} class="text-sm italic dark:text-zinc-500">
+          <.label class="pl-3">Narrators</.label>
+          <p :if={@item.draft.recording.narrators == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
             No narrator was proposed.
           </p>
 
@@ -554,17 +585,19 @@
 
       <%!-- ==================== CHAPTERS ==================== --%>
       <section class="space-y-2">
-        <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">Chapters</h2>
-        <p class="text-sm dark:text-zinc-400">{chapter_summary(@item)}</p>
-        <p class="text-sm italic dark:text-zinc-500">
-          Markers are taken from the file and never from a provider — provider timestamps describe
-          their own edition, not this rip.
-        </p>
+        <h2 class="text-xl font-bold text-zinc-100">Chapters</h2>
+        <div class="space-y-1 rounded-lg bg-zinc-900 p-4">
+          <p class="text-sm text-zinc-300">{chapter_summary(@item)}</p>
+          <p class="text-sm text-zinc-400">
+            Markers are taken from the file and never from a provider — provider timestamps describe
+            their own edition, not this rip.
+          </p>
+        </div>
       </section>
 
       <%!-- ==================== FILES & DESTINATION ==================== --%>
       <section id="destination" class="space-y-2">
-        <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">
+        <h2 class="text-xl font-bold text-zinc-100">
           Files &amp; destination
         </h2>
 
@@ -574,8 +607,14 @@
 
         <%!-- Any input may feed any output, so the root is chosen here rather
             than fixed on the watched folder. With one root this never asks. --%>
-        <div :if={@item.draft.destination && @item.draft.destination.custody == :managed}>
-          <div class="flex items-center gap-2">
+        <div
+          :if={@item.draft.destination && @item.draft.destination.custody == :managed}
+          class={[
+            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+            (@item.draft.destination.approved && "border-brand-dark/60") || "border-amber-400/70"
+          ]}
+        >
+          <div class="flex items-center gap-2 pl-3">
             <.label>Library root</.label>
             <.badge
               :if={!@item.draft.destination.approved}
@@ -602,19 +641,22 @@
             </select>
           </form>
         </div>
-        <p :if={@destination.summary} class="text-sm dark:text-zinc-400">{@destination.summary}</p>
-        <p :if={@destination.blocker} class="text-sm text-red-600" data-role="destination-blocker">
+        <p :if={@destination.summary} class="text-sm text-zinc-400">{@destination.summary}</p>
+        <p
+          :if={@destination.blocker}
+          class="flex items-baseline gap-1.5 pl-3 text-sm text-red-400"
+          data-role="destination-blocker"
+        >
+          <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
           {@destination.blocker}
         </p>
 
-        <ul class="pt-2">
-          <li :for={file <- @item.files} class="truncate text-xs dark:text-zinc-500">{file}</li>
-        </ul>
+        <.file_list files={@item.files} />
       </section>
 
       <%!-- ==================== THE BUTTON ==================== --%>
-      <section class="sticky bottom-0 border-t border-zinc-300 bg-white py-4 dark:border-zinc-700 dark:bg-zinc-900">
-        <div class="flex items-center gap-4">
+      <section class="shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 rounded-t-lg bg-zinc-900 p-4">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
           <.button
             phx-click="import"
             disabled={@unresolved != [] or @destination.blocker != nil}
@@ -625,16 +667,18 @@
 
           <.button type="button" color={:zinc} phx-click="dismiss">Dismiss</.button>
 
-          <.brand_link navigate={~p"/admin/inbox"}>Back to the inbox</.brand_link>
+          <.brand_link navigate={~p"/admin/inbox"} class="whitespace-nowrap">
+            Back to the inbox
+          </.brand_link>
 
           <%!-- Why the button is off, always. A blocker that only showed up as a
               red line further up the page could leave this disabled while the
               outstanding count read zero. --%>
-          <p :if={@unresolved != []} class="text-sm dark:text-zinc-500">
+          <p :if={@unresolved != []} class="text-sm text-zinc-400">
             {length(@unresolved)} decision{if length(@unresolved) > 1, do: "s"} still to settle.
           </p>
 
-          <p :if={@unresolved == [] and @destination.blocker} class="text-sm text-red-600">
+          <p :if={@unresolved == [] and @destination.blocker} class="text-sm text-red-400">
             Everything is settled, but the files can't be placed yet — see Files &amp; destination.
           </p>
         </div>

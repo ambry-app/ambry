@@ -4,7 +4,7 @@
   </.modal>
 
   <div class="max-w-3xl space-y-6">
-    <div class="flex gap-3 rounded-sm border border-yellow-400 bg-yellow-50 p-4 text-yellow-800 dark:border-yellow-600 dark:bg-yellow-950 dark:text-yellow-200">
+    <div class="flex gap-3 rounded-sm border border-yellow-600 bg-yellow-950 p-4 text-yellow-200">
       <.icon name="fa-triangle-exclamation" class="mt-1 h-5 w-5 flex-none text-current" />
       <div class="space-y-2 text-sm">
         <p class="font-semibold">Replacing audio is disruptive.</p>
@@ -25,10 +25,10 @@
     <div class="space-y-2">
       <.label>Current audio file(s)</.label>
       <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
-        <p :if={@media.source_files == []} class="text-sm italic text-zinc-500">
+        <p :if={@media.source_files == []} class="text-sm text-zinc-400">
           No source files on record.
         </p>
-        <p :for={file <- @media.source_files} class="text-sm italic">
+        <p :for={file <- @media.source_files} class="text-sm">
           {Path.basename(file)}
         </p>
       </div>
@@ -62,7 +62,7 @@
 
         <div :if={@form[:source_type].value == "local_import"} class="space-y-2">
           <div>
-            <div class="flex items-center rounded-sm rounded-b-none border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 sm:text-sm sm:leading-6">
+            <div class="flex items-center rounded-sm rounded-b-none border border-zinc-600 bg-zinc-800 text-zinc-300 sm:text-sm sm:leading-6">
               <button
                 class="py-[7px] px-[11px] bg-zinc-600 font-bold text-zinc-100 hover:bg-zinc-500"
                 type="button"

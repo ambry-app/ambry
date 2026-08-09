@@ -12,14 +12,14 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.EventsModal do
     <div class="flex h-full flex-col p-6">
       <div class="mb-4">
         <h2 class="text-2xl font-bold">Playback Events</h2>
-        <p class="text-zinc-600 dark:text-zinc-400">
+        <p class="text-zinc-400">
           {@playthrough.media.book.title} (ID: {@playthrough.id})
         </p>
       </div>
 
-      <div class="flex-1 overflow-auto rounded border border-zinc-200 dark:border-zinc-700">
+      <div class="flex-1 overflow-auto rounded border border-zinc-700">
         <table class="w-full text-left text-sm">
-          <thead class="sticky top-0 border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
+          <thead class="sticky top-0 border-b border-zinc-700 bg-zinc-800">
             <tr>
               <th class="px-4 py-2 font-medium">Type</th>
               <th class="px-4 py-2 font-medium">Timestamp</th>
@@ -31,8 +31,8 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.EventsModal do
               <th class="px-4 py-2 font-medium">ID</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-            <tr :for={event <- @events} class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+          <tbody class="divide-y divide-zinc-700">
+            <tr :for={event <- @events} class="hover:bg-zinc-800/50">
               <td class="px-4 py-2">
                 <span class={event_type_badge_class(event.type)}>
                   {event.type}
@@ -104,14 +104,12 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.EventsModal do
   end
 
   defp event_type_badge_class(type) when type in [:play, :pause, :seek, :rate_change],
-    do: "rounded px-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+    do: "rounded px-1 text-xs bg-blue-900 text-blue-200"
 
   defp event_type_badge_class(type) when type in [:start, :finish, :abandon, :resume],
-    do:
-      "rounded px-1 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+    do: "rounded px-1 text-xs bg-purple-900 text-purple-200"
 
-  defp event_type_badge_class(_type),
-    do: "rounded px-1 text-xs bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200"
+  defp event_type_badge_class(_type), do: "rounded px-1 text-xs bg-zinc-700 text-zinc-200"
 
   # Device display helpers
 

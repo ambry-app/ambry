@@ -7,6 +7,10 @@ const path = require("path")
 
 module.exports = {
   content: ["./js/**/*.js", "../lib/*_web.ex", "../lib/*_web/**/*.*ex"],
+  // The app is dark-only: every color class is absolute and no dark: variants
+  // exist. The "class" strategy (with no .dark anywhere) makes any dark:
+  // class that sneaks back in a visible no-op rather than an OS-dependent one.
+  darkMode: "class",
   theme: {
     extend: {
       colors: {

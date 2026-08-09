@@ -54,13 +54,13 @@
         <div :for={{imported_author, existing_author} <- @matching_authors}>
           <%= if existing_author do %>
             <p class="flex items-center gap-2">
-              <.icon name="fa-circle-check" class="text-brand h-4 w-4 flex-none dark:text-brand-dark" />
+              <.icon name="fa-circle-check" class="text-brand-dark h-4 w-4 flex-none" />
               <span class="font-semibold">Existing author</span>
               {existing_author_label(existing_author, imported_author)}
             </p>
           <% else %>
             <p class="flex items-center gap-2">
-              <.icon name="fa-triangle-exclamation" class="h-4 w-4 flex-none text-amber-600 dark:text-amber-500" />
+              <.icon name="fa-triangle-exclamation" class="h-4 w-4 flex-none text-amber-500" />
               <span class="font-semibold">Missing author</span>
               {imported_author.name}
             </p>
@@ -77,13 +77,13 @@
         <div :for={{imported_series, existing_series} <- @matching_series}>
           <%= if existing_series do %>
             <p class="flex items-center gap-2">
-              <.icon name="fa-circle-check" class="text-brand h-4 w-4 flex-none dark:text-brand-dark" />
+              <.icon name="fa-circle-check" class="text-brand-dark h-4 w-4 flex-none" />
               <span class="font-semibold">Existing series</span>
               {existing_series.name} #{imported_series.number}
             </p>
           <% else %>
             <p class="flex items-center gap-2">
-              <.icon name="fa-triangle-exclamation" class="h-4 w-4 flex-none text-amber-600 dark:text-amber-500" />
+              <.icon name="fa-triangle-exclamation" class="h-4 w-4 flex-none text-amber-500" />
               <span class="font-semibold">New series</span>
               {imported_series.name} #{imported_series.number}
             </p>

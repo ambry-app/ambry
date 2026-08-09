@@ -24,7 +24,7 @@ defmodule AmbryWeb.AuthorLive do
           </.link>
         <% end %>
         <div>
-          <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
+          <h1 class="text-3xl font-bold text-zinc-100 sm:text-4xl xl:text-5xl">
             Written by
             <%= case @author.people do %>
               <% [person] -> %>

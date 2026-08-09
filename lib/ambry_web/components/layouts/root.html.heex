@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" style="scrollbar-gutter: stable;">
+<%!-- Ambry is dark-only, everywhere, by decision (2026-08-09): one theme,
+      half the styling overhead. There is no theme machinery left — every
+      class is an absolute color; color-scheme keeps native controls dark. --%>
+<html lang="en" style="scrollbar-gutter: stable; color-scheme: dark;">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -40,7 +43,7 @@
       // end viewport fix
     </script>
   </head>
-  <body class="bg-white text-zinc-800 selection:bg-brand selection:text-white dark:bg-black dark:text-zinc-200 dark:selection:bg-brand-dark dark:selection:text-black">
+  <body class="bg-black text-zinc-200 selection:bg-brand-dark selection:text-black">
     <%= if @current_user do %>
       <%!-- Root layout for the app --%>
       <div class="flex h-screen flex-col">

@@ -61,13 +61,13 @@
         <div :for={{imported_narrator, existing_narrator} <- @matching_narrators}>
           <%= if existing_narrator do %>
             <p class="flex items-center gap-2">
-              <.icon name="fa-circle-check" class="text-brand h-4 w-4 flex-none dark:text-brand-dark" />
+              <.icon name="fa-circle-check" class="text-brand-dark h-4 w-4 flex-none" />
               <span class="font-semibold">Existing narrator</span>
               {existing_narrator_label(existing_narrator, imported_narrator)}
             </p>
           <% else %>
             <p class="flex items-center gap-2">
-              <.icon name="fa-triangle-exclamation" class="h-4 w-4 flex-none text-amber-600 dark:text-amber-500" />
+              <.icon name="fa-triangle-exclamation" class="h-4 w-4 flex-none text-amber-500" />
               <span class="font-semibold">Missing narrator</span>
               {imported_narrator.name}
             </p>

@@ -33,7 +33,7 @@ defmodule AmbryWeb.SearchLive.Components do
     <div class="text-center">
       <div class="group">
         <.link navigate={~p"/people/#{@person}"}>
-          <span class={["block aspect-1", if(!@person.thumbnails, do: "rounded-full bg-zinc-200 dark:bg-zinc-800")]}>
+          <span class={["block aspect-1", if(!@person.thumbnails, do: "rounded-full bg-zinc-800")]}>
             <img
               :if={@person.thumbnails}
               src={@person.thumbnails.large}
@@ -41,12 +41,12 @@ defmodule AmbryWeb.SearchLive.Components do
             />
           </span>
         </.link>
-        <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+        <p class="font-bold text-zinc-100 group-hover:underline sm:text-lg">
           <.link navigate={~p"/people/#{@person}"}>
             {@person.name}
           </.link>
         </p>
-        <p :if={@person.authors != []} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        <p :if={@person.authors != []} class="text-sm text-zinc-200 sm:text-base">
           Author
           <%= case aliases(@person, :authors) do %>
             <% "" -> %>
@@ -54,7 +54,7 @@ defmodule AmbryWeb.SearchLive.Components do
               <span>({aliases})</span>
           <% end %>
         </p>
-        <p :if={@person.narrators != []} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+        <p :if={@person.narrators != []} class="text-sm text-zinc-200 sm:text-base">
           Narrator
           <%= case aliases(@person, :narrators) do %>
             <% "" -> %>
@@ -81,13 +81,13 @@ defmodule AmbryWeb.SearchLive.Components do
         <.link navigate={~p"/series/#{@series}"}>
           <.book_multi_image thumbnails={thumbnails(@series)} />
         </.link>
-        <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+        <p class="font-bold text-zinc-100 group-hover:underline sm:text-lg">
           <.link navigate={~p"/series/#{@series}"}>
             {@series.name} (Series)
           </.link>
         </p>
       </div>
-      <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+      <p class="text-sm text-zinc-200 sm:text-base">
         by <.people_links people={@series.series_books |> Enum.flat_map(& &1.book.authors) |> Enum.uniq()} />
       </p>
     </div>

@@ -15,7 +15,7 @@ defmodule AmbryWeb.Admin.Decisions do
   use Phoenix.Component
   use AmbryWeb, :verified_routes
 
-  import AmbryWeb.Admin.Components, only: [badge: 1]
+  import AmbryWeb.Admin.Components, only: [badge: 1, microlabel: 1]
   import AmbryWeb.CoreComponents
 
   alias Ambry.Inbox.Draft.Credit
@@ -36,9 +36,8 @@ defmodule AmbryWeb.Admin.Decisions do
   def input_classes(extra \\ nil) do
     [
       "rounded-sm text-sm focus:outline-none focus:ring-4",
-      "bg-white text-zinc-900 placeholder:text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300",
-      "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
-      "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
+      "bg-zinc-800 text-zinc-200 placeholder:text-zinc-500",
+      "focus:ring-brand-dark/20 border-transparent focus:border-transparent",
       extra
     ]
   end
@@ -62,44 +61,52 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def provider_outcomes_row(assigns) do
     ~H"""
-    <div :if={@outcomes != []} class="flex flex-wrap items-center gap-2" data-role="provider-outcomes">
-      <span class="text-xs dark:text-zinc-500">Asked:</span>
+    <div
+      :if={@outcomes != []}
+      class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3"
+      data-role="provider-outcomes"
+    >
+      <.microlabel class="pt-1">Asked</.microlabel>
 
-      <span
-        :for={outcome <- @outcomes}
-        :if={outcome["status"] != "failed"}
-        class="rounded-sm border border-zinc-300 px-2 py-0.5 text-xs dark:border-zinc-700"
-      >
-        {outcome["name"]}: {outcome["count"]}
-      </span>
+      <div class="flex flex-wrap items-center gap-1.5">
+        <%!-- A count is information, not an option — filled and quiet, so it
+            can't be mistaken for the clickable proposal chips nearby. --%>
+        <span
+          :for={outcome <- @outcomes}
+          :if={outcome["status"] != "failed"}
+          class="bg-white/10 rounded-sm px-2 py-0.5 text-xs tabular-nums text-zinc-300"
+        >
+          {outcome["name"]}: {outcome["count"]}
+        </span>
 
-      <%!-- A provider that was rate-limited during matching used to cost this
+        <%!-- A provider that was rate-limited during matching used to cost this
             item its records until somebody re-ran the whole match. The chip is
             the retry. --%>
-      <button
-        :for={outcome <- @outcomes}
-        :if={outcome["status"] == "failed" and @retryable}
-        type="button"
-        phx-click="retry-provider"
-        phx-value-level={@level}
-        phx-value-provider={outcome["id"]}
-        disabled={@retrying == outcome["id"]}
-        title={outcome["reason"]}
-        class="rounded-sm border border-red-500 px-2 py-0.5 text-xs text-red-600 disabled:opacity-50"
-      >
-        {outcome["name"]}: {if @retrying == outcome["id"],
-          do: "asking again…",
-          else: "couldn't be reached — retry"}
-      </button>
+        <button
+          :for={outcome <- @outcomes}
+          :if={outcome["status"] == "failed" and @retryable}
+          type="button"
+          phx-click="retry-provider"
+          phx-value-level={@level}
+          phx-value-provider={outcome["id"]}
+          disabled={@retrying == outcome["id"]}
+          title={outcome["reason"]}
+          class="bg-red-400/10 rounded-sm px-2 py-0.5 text-xs text-red-300 hover:bg-red-400/20 disabled:opacity-50"
+        >
+          {outcome["name"]}: {if @retrying == outcome["id"],
+            do: "asking again…",
+            else: "couldn't be reached — retry"}
+        </button>
 
-      <span
-        :for={outcome <- @outcomes}
-        :if={outcome["status"] == "failed" and not @retryable}
-        title={outcome["reason"]}
-        class="rounded-sm border border-red-500 px-2 py-0.5 text-xs text-red-600"
-      >
-        {outcome["name"]}: couldn't be reached
-      </span>
+        <span
+          :for={outcome <- @outcomes}
+          :if={outcome["status"] == "failed" and not @retryable}
+          title={outcome["reason"]}
+          class="bg-red-400/10 rounded-sm px-2 py-0.5 text-xs text-red-300"
+        >
+          {outcome["name"]}: couldn't be reached
+        </span>
+      </div>
     </div>
     """
   end
@@ -117,14 +124,14 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def query_row(assigns) do
     ~H"""
-    <div :if={@query || @fields != %{}} class="text-xs dark:text-zinc-500" data-role="query">
+    <div :if={@query || @fields != %{}} class="pl-3 text-xs text-zinc-400" data-role="query">
       <span>Searched for</span>
       <span :for={{key, value} <- ordered_fields(@fields)} class="ml-1">
-        <span class="dark:text-zinc-600">{key}:</span>
-        <span class="font-mono dark:text-zinc-400">{value}</span>
+        <span class="text-zinc-400">{key}:</span>
+        <span class="font-mono text-zinc-400">{value}</span>
       </span>
-      <span :if={@fields == %{}} class="font-mono ml-1 dark:text-zinc-400">{@query}</span>
-      <p class="italic">
+      <span :if={@fields == %{}} class="font-mono ml-1 text-zinc-400">{@query}</span>
+      <p class="pt-0.5">
         A provider whose narrow search comes back empty may widen it, so what matched can be broader
         than this.
       </p>
@@ -159,9 +166,9 @@ defmodule AmbryWeb.Admin.Decisions do
     ~H"""
     <label
       class={[
-        "flex cursor-pointer items-start gap-3 rounded-sm border p-2",
-        @used && "border-brand bg-brand/5 dark:border-brand-dark dark:bg-brand-dark/10",
-        !@used && "border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+        "flex cursor-pointer items-start gap-3 rounded-md p-2.5",
+        @used && "bg-brand-dark/10 ring-brand-dark/50 ring-2 ring-inset",
+        !@used && "bg-zinc-800/60 hover:bg-zinc-800"
       ]}
       data-role="record"
       data-used={@used && "true"}
@@ -174,21 +181,38 @@ defmodule AmbryWeb.Admin.Decisions do
         phx-value-key={@person_key}
         phx-value-source={@record["source"]}
         phx-value-id={@record["id"]}
-        class="mt-1 h-4 w-4 flex-none rounded-sm"
+        class="mt-1 h-4 w-4 flex-none rounded-sm border-zinc-600 bg-zinc-700 text-lime-600 focus:ring-lime-500"
       />
       <div class="min-w-0 flex-grow">
-        <p class="truncate text-sm">{candidate_title(@record)}</p>
-        <p class="truncate text-xs dark:text-zinc-500">{candidate_facts(@record)}</p>
+        <p class="truncate text-sm font-medium">{candidate_title(@record)}</p>
+        <p class="truncate text-xs text-zinc-400">{candidate_facts(@record)}</p>
       </div>
-      <span :if={@working} class="flex-none pt-0.5 text-xs dark:text-zinc-400">
+      <span :if={@working} class="flex-none pt-0.5 text-xs text-zinc-400">
         fetching…
       </span>
-      <span :if={!@working && @record["score"]} class="flex-none pt-0.5 text-xs dark:text-zinc-600">
-        {round(@record["score"] * 100)}%
+      <%!-- The meter makes the ranking visible before the number is read —
+            eight cards with bare percentages all carried identical visual
+            weight whether they were a 100% match or a 6% study guide. --%>
+      <span :if={!@working && @record["score"]} class="flex flex-none flex-col items-end gap-1 pt-0.5">
+        <span class="text-xs tabular-nums text-zinc-400">
+          {round(@record["score"] * 100)}%
+        </span>
+        <span class="h-1 w-16 overflow-hidden rounded-full bg-zinc-700">
+          <span
+            class={["block h-full rounded-full", meter_color(@record["score"])]}
+            style={"width: #{round(@record["score"] * 100)}%"}
+          />
+        </span>
       </span>
     </label>
     """
   end
+
+  # High reads as the accent, the murky middle as a warning, and junk as
+  # neutral — the same bands the matcher's own trust thresholds use.
+  defp meter_color(score) when score >= 0.75, do: "bg-brand-dark"
+  defp meter_color(score) when score >= 0.4, do: "bg-amber-400"
+  defp meter_color(_score), do: "bg-zinc-600"
 
   attr :book, :map, required: true
   attr :linked, :boolean, required: true
@@ -205,16 +229,16 @@ defmodule AmbryWeb.Admin.Decisions do
     ~H"""
     <div
       class={[
-        "flex items-start gap-3 rounded-sm border p-3",
-        @linked && "border-brand bg-brand/5 dark:border-brand-dark dark:bg-brand-dark/10",
-        !@linked && "border-zinc-300 dark:border-zinc-700"
+        "flex items-start gap-3 rounded-md p-3",
+        @linked && "bg-brand-dark/10 ring-brand-dark/50 ring-2 ring-inset",
+        !@linked && "bg-zinc-800/60"
       ]}
       data-role="local-book"
       data-linked={@linked && "true"}
     >
       <div class="min-w-0 flex-grow">
         <p class="truncate text-sm font-semibold">{candidate_title(@book)}</p>
-        <p class="truncate text-xs dark:text-zinc-500">{candidate_facts(@book)}</p>
+        <p class="truncate text-xs text-zinc-400">{candidate_facts(@book)}</p>
       </div>
 
       <button
@@ -222,12 +246,12 @@ defmodule AmbryWeb.Admin.Decisions do
         type="button"
         phx-click="link-book"
         phx-value-id={@book["id"]}
-        class="flex-none rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
+        class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
       >
         Yes — another edition of this
       </button>
 
-      <span :if={@linked} class="flex-none text-xs dark:text-zinc-500">using this book</span>
+      <span :if={@linked} class="flex-none text-xs text-zinc-400">using this book</span>
     </div>
     """
   end
@@ -250,14 +274,14 @@ defmodule AmbryWeb.Admin.Decisions do
     >
       <input type="hidden" name="key" value={@person_key} />
 
-      <label class="text-xs dark:text-zinc-500">
+      <label class="text-xs text-zinc-400">
         name <input type="text" name="name" value={@name} class={input_classes("mt-1 block")} />
       </label>
 
       <button
         type="submit"
         disabled={@running}
-        class="rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
+        class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50"
       >
         {if @running, do: "Searching…", else: "Search again"}
       </button>
@@ -285,7 +309,7 @@ defmodule AmbryWeb.Admin.Decisions do
     >
       <input type="hidden" name="level" value={@level} />
 
-      <label class="text-xs dark:text-zinc-500">
+      <label class="text-xs text-zinc-400">
         title
         <input
           type="text"
@@ -295,7 +319,7 @@ defmodule AmbryWeb.Admin.Decisions do
         />
       </label>
 
-      <label class="text-xs dark:text-zinc-500">
+      <label class="text-xs text-zinc-400">
         author
         <input
           type="text"
@@ -305,7 +329,7 @@ defmodule AmbryWeb.Admin.Decisions do
         />
       </label>
 
-      <label :if={@level == "recording"} class="text-xs dark:text-zinc-500">
+      <label :if={@level == "recording"} class="text-xs text-zinc-400">
         narrator
         <input
           type="text"
@@ -318,7 +342,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <button
         type="submit"
         disabled={@running}
-        class="rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
+        class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50"
       >
         {if @running, do: "Searching…", else: "Search again"}
       </button>
@@ -408,6 +432,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :preview, :boolean, default: false
   attr :embedded_src, :string, default: nil, doc: "where the file's own art can be seen"
 
+  attr :control_class, :string,
+    default: nil,
+    doc: "sizes the control to its content — a date doesn't get a 900px box"
+
   @doc """
   One scalar decision: what the sources proposed, what it will be, and where
   that came from.
@@ -419,8 +447,13 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def decision_row(assigns) do
     ~H"""
-    <div class="space-y-1">
-      <div class="flex items-center gap-2">
+    <%!-- One slot order for every field — label row, control, hint, options —
+          with an 8px beat inside the cluster. All bare text (label, hint,
+          option row) sits on the text rail (pl-3), aligned with the text
+          INSIDE the control; only boxes touch the margin edge. See
+          docs/admin-design-language.md §1. --%>
+    <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", decision_rail(@field)]}>
+      <div class="flex items-center gap-2 pl-3">
         <.label>{@label}</.label>
 
         <.badge
@@ -431,16 +464,14 @@ defmodule AmbryWeb.Admin.Decisions do
           {elem(state_words(Field.state(@field)), 0)}
         </.badge>
 
-        <span :if={@field.approved && @field.source} class="text-xs dark:text-zinc-500">
+        <span :if={@field.approved && @field.source} class="text-xs text-zinc-400">
           from {source_words(@field.source)}
         </span>
 
-        <span :if={@field.approved && is_nil(@field.source)} class="text-xs dark:text-zinc-500">
+        <span :if={@field.approved && is_nil(@field.source)} class="text-xs text-zinc-400">
           left empty on purpose
         </span>
       </div>
-
-      <p :if={@hint} class="text-xs italic dark:text-zinc-500">{@hint}</p>
 
       <div class="flex items-start gap-3">
         <%!-- A URL in a text box is not a cover. Seeing the image is the only
@@ -463,12 +494,14 @@ defmodule AmbryWeb.Admin.Decisions do
               field={decision[:value]}
               type="select"
               options={@options}
+              class={@control_class}
             />
             <.input
               :if={@type not in ["select", "textarea"]}
               field={decision[:value]}
               type={@type}
               placeholder={@placeholder}
+              class={@control_class}
             />
             <%!-- A description is markdown, and markdown in a plain box is
                   written blind — the same textarea/preview pair the person
@@ -487,7 +520,7 @@ defmodule AmbryWeb.Admin.Decisions do
                   id={"#{@section}-#{@name}-preview"}
                   phx-hook="scroll-match"
                   data-target={"#{@section}-#{@name}-input"}
-                  class="absolute inset-0 hidden overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800 sm:block"
+                  class="bg-zinc-800/50 absolute inset-0 hidden overflow-auto rounded-sm sm:block"
                 >
                   <.markdown content={@field.value || ""} class="p-2" />
                 </div>
@@ -497,47 +530,58 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
       </div>
 
-      <div :if={@field.candidates != []} class="flex flex-wrap items-center gap-2 pt-1">
-        <span class="text-xs dark:text-zinc-500">Proposed:</span>
+      <p :if={@hint} class="pl-3 text-xs text-zinc-400">{@hint}</p>
 
-        <button
-          :for={candidate <- @field.candidates}
-          type="button"
-          phx-click="choose-field"
-          phx-value-section={@section}
-          phx-value-field={@name}
-          phx-value-key={candidate.key}
-          class={[
-            "rounded-sm border px-2 py-1 text-left text-xs",
-            Field.chose?(@field, candidate) && "border-brand dark:border-brand-dark",
-            !Field.chose?(@field, candidate) && "border-zinc-300 dark:border-zinc-700"
-          ]}
-        >
-          <span class="dark:text-zinc-500">{candidate.label || source_words(candidate.source)}:</span>
-          <span :if={!@preview}>{truncate(candidate.value)}</span>
+      <%!-- The options row is a two-column grid — microlabel | chips — so a
+            wrapping chip row stays in the chip column instead of falling
+            back under the label, and every chip starts on one rail. --%>
+      <div
+        :if={@field.candidates != []}
+        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3"
+      >
+        <.microlabel class="pt-1.5">Proposed</.microlabel>
 
-          <%!-- Choosing between two covers by URL is choosing blind. --%>
-          <.image_with_size
-            :if={@preview && preview_src(candidate.value, @embedded_src)}
-            id={"#{@section}-#{@name}-#{candidate.key}"}
-            src={preview_src(candidate.value, @embedded_src)}
-            class="mt-1 h-20 w-20 rounded-sm object-cover"
-          />
-        </button>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <.proposal_chip
+            :for={candidate <- @field.candidates}
+            chosen={Field.chose?(@field, candidate)}
+            event="choose-field"
+            values={%{section: @section, field: @name, key: candidate.key}}
+          >
+            <%!-- Only the chosen chip is loud: its source tag fills lime. A
+                  filled tag on every chip made the whole row heavy. --%>
+            <span class={[
+              "text-[10px] flex-none uppercase tracking-wide",
+              Field.chose?(@field, candidate) && "bg-brand-dark rounded-sm px-1 text-zinc-900",
+              !Field.chose?(@field, candidate) && "text-zinc-500"
+            ]}>
+              {candidate.label || source_words(candidate.source)}
+            </span>
+            <span :if={!@preview}>{truncate(candidate.value)}</span>
 
-        <%!-- Choosing "none" is an approval, not an omission. It's what makes
-              "every piece is settled" reachable on a record with optional
-              fields nobody filled in. --%>
-        <button
-          :if={!@field.required}
-          type="button"
-          phx-click="waive-field"
-          phx-value-section={@section}
-          phx-value-field={@name}
-          class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
-        >
-          None
-        </button>
+            <%!-- Choosing between two covers by URL is choosing blind. --%>
+            <.image_with_size
+              :if={@preview && preview_src(candidate.value, @embedded_src)}
+              id={"#{@section}-#{@name}-#{candidate.key}"}
+              src={preview_src(candidate.value, @embedded_src)}
+              class="mt-1 h-20 w-20 rounded-sm object-cover"
+            />
+          </.proposal_chip>
+
+          <%!-- Choosing "none" is an approval, not an omission. It's what makes
+                "every piece is settled" reachable on a record with optional
+                fields nobody filled in. Ghost, because it's the escape hatch,
+                not a peer value. --%>
+          <.proposal_chip
+            :if={!@field.required}
+            chosen={@field.approved && is_nil(@field.source)}
+            event="waive-field"
+            values={%{section: @section, field: @name}}
+            ghost
+          >
+            None
+          </.proposal_chip>
+        </div>
       </div>
     </div>
     """
@@ -596,13 +640,13 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def credit_row(assigns) do
     ~H"""
-    <div class="space-y-2 rounded-sm border border-zinc-300 p-3 dark:border-zinc-700">
+    <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
       <div class="flex items-center justify-between gap-2">
         <div class="flex min-w-0 items-center gap-2">
           <.icon
             :if={Credit.resolved?(@credit)}
             name="fa-circle-check"
-            class="text-brand h-4 w-4 flex-none dark:text-brand-dark"
+            class="text-brand-dark h-4 w-4 flex-none"
           />
           <.label class="text-xs">{@verb}</.label>
 
@@ -614,7 +658,7 @@ defmodule AmbryWeb.Admin.Decisions do
             {elem(state_words(Credit.state(@credit)), 0)}
           </.badge>
 
-          <span :if={@credit.source} class="text-xs dark:text-zinc-500">
+          <span :if={@credit.source} class="text-xs text-zinc-400">
             from {source_words(@credit.source)}
           </span>
         </div>
@@ -627,7 +671,7 @@ defmodule AmbryWeb.Admin.Decisions do
             phx-value-section={@section}
             phx-value-index={@index}
             phx-value-approved="true"
-            class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
+            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
           >
             Confirm
           </button>
@@ -670,7 +714,7 @@ defmodule AmbryWeb.Admin.Decisions do
               twice is not. --%>
         <span
           :if={@credit.mode == :link && @identity_backing[@credit.identity_id]}
-          class="text-xs italic dark:text-zinc-500"
+          class="text-xs text-zinc-400"
           data-role="identity-backing"
         >
           {@identity_backing[@credit.identity_id]}
@@ -705,7 +749,7 @@ defmodule AmbryWeb.Admin.Decisions do
         phx-click="toggle-people"
         phx-value-section={@section}
         phx-value-index={@index}
-        class="text-xs underline dark:text-zinc-400"
+        class="text-xs text-zinc-400 underline"
       >
         {@reveal}
       </button>
@@ -715,7 +759,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
         <div
           :for={{person, person_index} <- Enum.with_index(@persons)}
-          class="space-y-1 border-l border-zinc-200 pl-3 dark:border-zinc-700"
+          class="space-y-1 border-l-2 border-zinc-700 pl-3"
         >
           <form
             id={"credit-#{@section}-#{@index}-person-#{person_index}"}
@@ -770,12 +814,12 @@ defmodule AmbryWeb.Admin.Decisions do
           phx-click="add-person"
           phx-value-section={@section}
           phx-value-index={@index}
-          class="text-xs underline dark:text-zinc-400"
+          class="text-xs text-zinc-400 underline"
         >
           Add another person
         </button>
 
-        <p :if={length(@persons) > 1} class="text-xs italic dark:text-zinc-500">
+        <p :if={length(@persons) > 1} class="text-xs text-zinc-400">
           A shared pen name — {@credit.name} will be one author credited to {length(@persons)} people.
         </p>
       </div>
@@ -865,14 +909,14 @@ defmodule AmbryWeb.Admin.Decisions do
 
         <span
           :if={is_nil(@image)}
-          class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-700"
+          class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-700"
         />
 
         <%!-- The same human on two credits: an author reading their own book.
               Approval creates them once, so this is where the form says so —
               on the row that would otherwise look like it was about to make a
               second person of the same name. --%>
-        <p :if={@shared_with} class="min-w-0 text-xs italic dark:text-zinc-500">
+        <p :if={@shared_with} class="min-w-0 text-xs text-zinc-400">
           Same person as the {@shared_with} — one {Field.value(@person.name)} will be created.
           <button
             type="button"
@@ -890,7 +934,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <%!-- Nothing found is a normal outcome, not a failure — plenty of
             narrators are in no database at all — but it should say so rather
             than looking like an empty grid nobody filled in. --%>
-      <p :if={@person.doubt == :low_confidence} class="text-xs italic dark:text-zinc-500">
+      <p :if={@person.doubt == :low_confidence} class="text-xs text-zinc-400">
         {@person.doubt_detail}
       </p>
 
@@ -899,8 +943,8 @@ defmodule AmbryWeb.Admin.Decisions do
             the photo and bio pools draw from the ticked set. The exact-name
             gate decides the initial ticks; a differently-spelled record of
             the right person is exactly what the checkbox is for. --%>
-      <p :if={@records != []} class="text-xs dark:text-zinc-400">
-        Tick every record of <em>this person</em> — the photos and bios on offer come from the
+      <p :if={@records != []} class="text-xs text-zinc-400">
+        Tick every record of <span class="font-semibold">this person</span> — the photos and bios on offer come from the
         ticked ones. Databases know several people by many names, so check before ticking.
       </p>
 
@@ -915,7 +959,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <.provider_outcomes_row outcomes={@outcomes} retryable={false} />
 
       <details>
-        <summary class="cursor-pointer text-xs dark:text-zinc-400">
+        <summary class="cursor-pointer text-xs text-zinc-400">
           Not the right person? Search again
         </summary>
         <div class="pt-2">
@@ -928,47 +972,49 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
       </details>
 
-      <div :if={@photos != []} class="flex flex-wrap items-center gap-2">
-        <span class="text-xs dark:text-zinc-500">Photos:</span>
+      <div :if={@photos != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
+        <.microlabel class="pt-1">Photos</.microlabel>
 
-        <.proposal_chip
-          :for={photo <- shown_photos(@photos, @expanded)}
-          chosen={Field.chose?(@person.image, photo)}
-          event="pick-person-image"
-          values={%{"key" => @person.key, "candidate" => photo.key}}
-          title={photo.label}
-          shape="circle"
-        >
-          <.image_with_size
-            id={"photo-#{@at}-#{:erlang.phash2(photo.value)}"}
-            src={proxied_remote_image_url(photo.value)}
-            class="h-16 w-16 rounded-full object-cover object-top"
-          />
-        </.proposal_chip>
+        <div class="flex flex-wrap items-center gap-2">
+          <.proposal_chip
+            :for={photo <- shown_photos(@photos, @expanded)}
+            chosen={Field.chose?(@person.image, photo)}
+            event="pick-person-image"
+            values={%{"key" => @person.key, "candidate" => photo.key}}
+            title={photo.label}
+            shape="circle"
+          >
+            <.image_with_size
+              id={"photo-#{@at}-#{:erlang.phash2(photo.value)}"}
+              src={proxied_remote_image_url(photo.value)}
+              class="h-16 w-16 rounded-full object-cover object-top"
+            />
+          </.proposal_chip>
 
-        <%!-- A dozen headshots is normal and would push the rest of the credit
+          <%!-- A dozen headshots is normal and would push the rest of the credit
               off the screen; the point is that alternatives EXIST, not that
               they're all on show. --%>
-        <button
-          :if={length(@photos) > photo_preview()}
-          type="button"
-          phx-click="toggle-photos"
-          phx-value-key={@person.key}
-          class="text-xs underline dark:text-zinc-400"
-        >
-          {if @expanded, do: "show fewer", else: "show all #{length(@photos)} photos"}
-        </button>
+          <button
+            :if={length(@photos) > photo_preview()}
+            type="button"
+            phx-click="toggle-photos"
+            phx-value-key={@person.key}
+            class="text-xs text-zinc-400 underline"
+          >
+            {if @expanded, do: "show fewer", else: "show all #{length(@photos)} photos"}
+          </button>
 
-        <button
-          :if={@image}
-          type="button"
-          phx-click="waive-person-field"
-          phx-value-key={@person.key}
-          phx-value-field="image"
-          class="text-xs underline dark:text-zinc-400"
-        >
-          no photo
-        </button>
+          <button
+            :if={@image}
+            type="button"
+            phx-click="waive-person-field"
+            phx-value-key={@person.key}
+            phx-value-field="image"
+            class="self-center rounded-sm border border-dashed border-zinc-600 px-2 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+          >
+            no photo
+          </button>
+        </div>
       </div>
 
       <%!-- The same text box the recording's description gets, for the same
@@ -993,26 +1039,34 @@ defmodule AmbryWeb.Admin.Decisions do
               id={"person-bio-#{@at}-preview"}
               phx-hook="scroll-match"
               data-target={"person-bio-#{@at}-input"}
-              class="absolute inset-0 hidden overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800 sm:block"
+              class="bg-zinc-800/50 absolute inset-0 hidden overflow-auto rounded-sm sm:block"
             >
               <.markdown content={@description || ""} class="p-2" />
             </div>
           </div>
         </div>
 
-        <div :if={@bios != []} class="flex flex-wrap items-center gap-2">
-          <span class="text-xs dark:text-zinc-500">Proposed:</span>
+        <div :if={@bios != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
+          <.microlabel class="pt-1.5">Proposed</.microlabel>
 
-          <.proposal_chip
-            :for={bio <- @bios}
-            chosen={Field.chose?(@person.description, bio)}
-            event="pick-person-bio"
-            values={%{"key" => @person.key, "candidate" => bio.key}}
-            title={bio.value}
-          >
-            <span class="dark:text-zinc-500">{bio.label}:</span>
-            <span class="line-clamp-1">{truncate(bio.value)}</span>
-          </.proposal_chip>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <.proposal_chip
+              :for={bio <- @bios}
+              chosen={Field.chose?(@person.description, bio)}
+              event="pick-person-bio"
+              values={%{"key" => @person.key, "candidate" => bio.key}}
+              title={bio.value}
+            >
+              <span class={[
+                "text-[10px] flex-none uppercase tracking-wide",
+                Field.chose?(@person.description, bio) && "bg-brand-dark rounded-sm px-1 text-zinc-900",
+                !Field.chose?(@person.description, bio) && "text-zinc-400"
+              ]}>
+                {bio.label}
+              </span>
+              <span class="line-clamp-1">{truncate(bio.value)}</span>
+            </.proposal_chip>
+          </div>
         </div>
       </div>
     </div>
@@ -1042,6 +1096,7 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :values, :map, default: %{}
   attr :title, :string, default: nil
   attr :shape, :string, default: "text"
+  attr :ghost, :boolean, default: false, doc: ~s(escape hatches like "None" — dashed and quiet)
   slot :inner_block, required: true
 
   @doc """
@@ -1060,13 +1115,22 @@ defmodule AmbryWeb.Admin.Decisions do
       {chip_values(@values)}
       title={@title}
       class={[
-        "max-w-full rounded-sm border text-left text-xs",
+        "max-w-full rounded-md text-left text-xs",
         @shape == "circle" && "rounded-full p-0.5",
-        @shape != "circle" && "px-2 py-1",
-        @chosen && "border-brand dark:border-brand-dark",
-        !@chosen && "border-zinc-300 dark:border-zinc-700"
+        @shape != "circle" && "inline-flex items-center gap-1.5 px-2 py-1",
+        @chosen && "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
+        !@chosen && !@ghost && "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100",
+        !@chosen && @ghost && "border border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
       ]}
     >
+      <%!-- The chosen chip is the single most important state on the form, and
+            a 1px border-hue change was nearly invisible — so it says so three
+            ways: border, tint, and a check. --%>
+      <.icon
+        :if={@chosen && @shape != "circle"}
+        name="fa-check"
+        class="text-brand-dark h-3 w-3 flex-none"
+      />
       {render_slot(@inner_block)}
     </button>
     """
@@ -1089,11 +1153,14 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def series_row(assigns) do
     ~H"""
-    <div class="flex flex-wrap items-center gap-2 rounded-sm border border-zinc-300 p-3 dark:border-zinc-700">
+    <div class={[
+      "flex flex-wrap items-center gap-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+      (SeriesLink.resolved?(@link) && "border-brand-dark/60") || "border-amber-400/70"
+    ]}>
       <.icon
         :if={SeriesLink.resolved?(@link)}
         name="fa-circle-check"
-        class="text-brand h-4 w-4 flex-none dark:text-brand-dark"
+        class="text-brand-dark h-4 w-4 flex-none"
       />
 
       <.badge
@@ -1106,7 +1173,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
       <form id={"series-#{@index}-number"} phx-change="set-series-number" class="flex items-center gap-1">
         <input type="hidden" name="index" value={@index} />
-        <label class="text-xs dark:text-zinc-500">Book no.</label>
+        <label class="text-xs text-zinc-400">Book no.</label>
         <input
           type="text"
           name="number"
@@ -1143,7 +1210,7 @@ defmodule AmbryWeb.Admin.Decisions do
         phx-click="approve-series"
         phx-value-index={@index}
         phx-value-approved="true"
-        class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
+        class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
       >
         Confirm
       </button>
@@ -1153,6 +1220,17 @@ defmodule AmbryWeb.Admin.Decisions do
       </button>
     </div>
     """
+  end
+
+  # The block's left rail is the decision's state, readable from a scroll:
+  # lime = settled, amber = waiting on the operator, red = blocked. A 4px
+  # rail renders crisp at any DPI where a tinted hairline goes mushy.
+  defp decision_rail(field) do
+    cond do
+      field.approved -> "border-brand-dark/60"
+      Field.state(field) == :missing -> "border-red-400/70"
+      true -> "border-amber-400/70"
+    end
   end
 
   @doc """

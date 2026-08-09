@@ -15,6 +15,8 @@ defmodule Ambry.Metadata do
       # on, the same reason `Provider`'s normalized structs are exported
       {PersonSearch, []},
       Providers,
-      Registry
+      Registry,
+      # the multi-provider fan-out — the piece the admin forms converge on
+      Search
     ]
 end

@@ -151,19 +151,19 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
   defp status_badge_class(playthrough) do
     case playthrough.status do
       :deleted ->
-        "rounded px-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+        "rounded px-1 bg-red-900 text-red-200"
 
       :in_progress ->
-        "rounded px-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+        "rounded px-1 bg-blue-900 text-blue-200"
 
       :finished ->
-        "rounded px-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+        "rounded px-1 bg-green-900 text-green-200"
 
       :abandoned ->
-        "rounded px-1 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+        "rounded px-1 bg-orange-900 text-orange-200"
 
       _ ->
-        "rounded px-1 bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200"
+        "rounded px-1 bg-zinc-700 text-zinc-200"
     end
   end
 

@@ -4,7 +4,7 @@
       <.button :if={@locations != []} phx-click="scan" color={:zinc}>Scan all</.button>
       <.link
         navigate={~p"/admin/locations/new"}
-        class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400"
+        class="flex items-center font-bold text-lime-400 hover:underline"
       >
         Add location <.icon name="fa-plus" class="ml-2 h-4 w-4 text-current" />
       </.link>
@@ -12,21 +12,21 @@
   </:subheader>
 
   <div class="max-w-4xl space-y-4">
-    <p class="text-sm text-zinc-500 dark:text-zinc-400">
+    <p class="text-sm text-zinc-400">
       Every location feeds the inbox — nothing bypasses it. Hardlinks can't cross a filesystem,
       so a downloads folder can only hardlink into a library root sharing its
       <span class="font-semibold">filesystem</span>
       tag below.
     </p>
 
-    <div :if={@locations == []} class="rounded-sm border border-zinc-200 p-8 text-center dark:border-zinc-800">
-      <p class="text-zinc-500 dark:text-zinc-400">No locations yet.</p>
+    <div :if={@locations == []} class="rounded-sm border border-zinc-800 p-8 text-center">
+      <p class="text-zinc-400">No locations yet.</p>
       <.brand_link navigate={~p"/admin/locations/new"}>Add the first one.</.brand_link>
     </div>
 
     <div
       :for={location <- @locations}
-      class="rounded-sm border border-zinc-200 p-4 dark:border-zinc-800"
+      class="rounded-sm border border-zinc-800 p-4"
       data-role="location"
     >
       <div class="flex items-start gap-3">
@@ -40,7 +40,7 @@
 
             <span
               :if={policy_label(location.import_policy)}
-              class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800"
+              class="rounded-full bg-zinc-800 px-2 py-0.5 text-xs"
               title="What approval does with the files"
             >
               {policy_label(location.import_policy)}
@@ -48,7 +48,7 @@
 
             <span
               :if={fs = @filesystems[@statuses[location.id].device]}
-              class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800"
+              class="rounded-full bg-zinc-800 px-2 py-0.5 text-xs"
               title="Locations sharing this tag are on the same filesystem and can be hardlinked between"
               data-role="location-filesystem"
             >
@@ -57,27 +57,27 @@
 
             <span
               :if={!location.enabled}
-              class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800"
+              class="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-500"
             >
               paused
             </span>
           </div>
 
-          <p class="font-mono mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400" data-role="location-path">
+          <p class="font-mono mt-1 truncate text-sm text-zinc-400" data-role="location-path">
             {location.path}
           </p>
 
-          <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{kind_blurb(location.kind)}</p>
+          <p class="mt-1 text-sm text-zinc-400">{kind_blurb(location.kind)}</p>
 
           <p
             :if={problem = status_problem(@statuses[location.id], location.kind)}
-            class="mt-1 text-sm font-semibold text-red-600 dark:text-red-400"
+            class="mt-1 text-sm font-semibold text-red-400"
             data-role="location-problem"
           >
             {problem}
           </p>
 
-          <p class="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+          <p class="mt-1 text-xs text-zinc-500">
             {scanned_label(location.last_scanned_at)}
           </p>
         </div>
@@ -92,12 +92,15 @@
           >
             <.icon
               name={(location.enabled && "fa-eye") || "fa-eye-slash"}
-              class="h-4 w-4 text-current transition-colors hover:text-blue-600"
+              class="h-4 w-4 text-current transition-colors hover:text-lime-400"
             />
           </span>
 
           <.link navigate={~p"/admin/locations/#{location}/edit"} data-role="edit-location">
-            <.icon name="fa-pencil" class="h-4 w-4 text-current transition-colors hover:text-blue-600" />
+            <.icon
+              name="fa-pencil"
+              class="h-4 w-4 text-current transition-colors hover:text-lime-400"
+            />
           </.link>
 
           <span

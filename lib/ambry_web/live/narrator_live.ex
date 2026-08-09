@@ -21,7 +21,7 @@ defmodule AmbryWeb.NarratorLive do
             class="hidden rounded-full object-cover object-top shadow-lg sm:block sm:h-16 sm:w-16 xl:h-24 xl:w-24"
           />
         </.link>
-        <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
+        <h1 class="text-3xl font-bold text-zinc-100 sm:text-4xl xl:text-5xl">
           Narrated by
           <.link navigate={~p"/people/#{@narrator.person}"} class="hover:underline">
             {@narrator.name}

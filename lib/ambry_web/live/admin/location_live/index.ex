@@ -90,13 +90,11 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
   defp kind_blurb(:library_root),
     do: "Ambry's own tree, organized by the naming template. Watched for hand-placed files."
 
-  defp kind_class(:downloads), do: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+  defp kind_class(:downloads), do: "bg-blue-950 text-blue-300"
 
-  defp kind_class(:external_collection),
-    do: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+  defp kind_class(:external_collection), do: "bg-amber-950 text-amber-300"
 
-  defp kind_class(:library_root),
-    do: "bg-lime-100 text-lime-800 dark:bg-lime-950 dark:text-lime-300"
+  defp kind_class(:library_root), do: "bg-lime-950 text-lime-300"
 
   defp policy_label(:hardlink), do: "hardlink"
   defp policy_label(:copy), do: "copy"
