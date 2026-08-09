@@ -63,12 +63,16 @@ defmodule AmbryWeb.Admin.Decisions do
   def provider_outcomes_row(assigns) do
     ~H"""
     <div :if={@outcomes != []} class="flex flex-wrap items-center gap-2" data-role="provider-outcomes">
-      <span class="text-xs dark:text-zinc-500">Asked:</span>
+      <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        Asked
+      </span>
 
+      <%!-- A count is information, not an option — filled and quiet, so it
+            can't be mistaken for the clickable proposal chips nearby. --%>
       <span
         :for={outcome <- @outcomes}
         :if={outcome["status"] != "failed"}
-        class="rounded-sm border border-zinc-300 px-2 py-0.5 text-xs dark:border-zinc-700"
+        class="rounded-sm bg-zinc-100 px-2 py-0.5 text-xs tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
       >
         {outcome["name"]}: {outcome["count"]}
       </span>
@@ -177,18 +181,35 @@ defmodule AmbryWeb.Admin.Decisions do
         class="mt-1 h-4 w-4 flex-none rounded-sm"
       />
       <div class="min-w-0 flex-grow">
-        <p class="truncate text-sm">{candidate_title(@record)}</p>
+        <p class="truncate text-sm font-medium">{candidate_title(@record)}</p>
         <p class="truncate text-xs dark:text-zinc-500">{candidate_facts(@record)}</p>
       </div>
       <span :if={@working} class="flex-none pt-0.5 text-xs dark:text-zinc-400">
         fetching…
       </span>
-      <span :if={!@working && @record["score"]} class="flex-none pt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-        {round(@record["score"] * 100)}%
+      <%!-- The meter makes the ranking visible before the number is read —
+            eight cards with bare percentages all carried identical visual
+            weight whether they were a 100% match or a 6% study guide. --%>
+      <span :if={!@working && @record["score"]} class="flex flex-none flex-col items-end gap-1 pt-0.5">
+        <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+          {round(@record["score"] * 100)}%
+        </span>
+        <span class="h-1 w-16 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+          <span
+            class={["block h-full rounded-full", meter_color(@record["score"])]}
+            style={"width: #{round(@record["score"] * 100)}%"}
+          />
+        </span>
       </span>
     </label>
     """
   end
+
+  # High reads as the accent, the murky middle as a warning, and junk as
+  # neutral — the same bands the matcher's own trust thresholds use.
+  defp meter_color(score) when score >= 0.75, do: "bg-brand dark:bg-brand-dark"
+  defp meter_color(score) when score >= 0.4, do: "bg-amber-500 dark:bg-amber-400"
+  defp meter_color(_score), do: "bg-zinc-400 dark:bg-zinc-600"
 
   attr :book, :map, required: true
   attr :linked, :boolean, required: true
@@ -419,7 +440,11 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def decision_row(assigns) do
     ~H"""
-    <div class="space-y-1">
+    <%!-- One slot order for every field — label row, control, options, hint —
+          with an 8px beat inside the cluster. The 28px to the *next* field
+          comes from the section, so the ratio between "mine" and "not mine"
+          stays legible (see the admin design review, rhythm rules). --%>
+    <div class="space-y-2">
       <div class="flex items-center gap-2">
         <.label>{@label}</.label>
 
@@ -431,16 +456,14 @@ defmodule AmbryWeb.Admin.Decisions do
           {elem(state_words(Field.state(@field)), 0)}
         </.badge>
 
-        <span :if={@field.approved && @field.source} class="text-xs dark:text-zinc-500">
+        <span :if={@field.approved && @field.source} class="text-xs text-zinc-500 dark:text-zinc-400">
           from {source_words(@field.source)}
         </span>
 
-        <span :if={@field.approved && is_nil(@field.source)} class="text-xs dark:text-zinc-500">
+        <span :if={@field.approved && is_nil(@field.source)} class="text-xs text-zinc-500 dark:text-zinc-400">
           left empty on purpose
         </span>
       </div>
-
-      <p :if={@hint} class="text-xs italic dark:text-zinc-500">{@hint}</p>
 
       <div class="flex items-start gap-3">
         <%!-- A URL in a text box is not a cover. Seeing the image is the only
@@ -497,23 +520,27 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
       </div>
 
-      <div :if={@field.candidates != []} class="flex flex-wrap items-center gap-2 pt-1">
-        <span class="text-xs dark:text-zinc-500">Proposed:</span>
+      <%!-- Options hang visibly *inside* their field: indented to the
+            control's inner padding, so a wrapped chip row still reads as
+            belonging to the input above it and not to the next label. --%>
+      <div :if={@field.candidates != []} class="flex flex-wrap items-center gap-2 pl-3">
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          Proposed
+        </span>
 
-        <button
+        <.proposal_chip
           :for={candidate <- @field.candidates}
-          type="button"
-          phx-click="choose-field"
-          phx-value-section={@section}
-          phx-value-field={@name}
-          phx-value-key={candidate.key}
-          class={[
-            "rounded-sm border px-2 py-1 text-left text-xs",
-            Field.chose?(@field, candidate) && "border-brand dark:border-brand-dark",
-            !Field.chose?(@field, candidate) && "border-zinc-300 dark:border-zinc-700"
-          ]}
+          chosen={Field.chose?(@field, candidate)}
+          event="choose-field"
+          values={%{section: @section, field: @name, key: candidate.key}}
         >
-          <span class="dark:text-zinc-500">{candidate.label || source_words(candidate.source)}:</span>
+          <span class={[
+            "text-[10px] flex-none rounded-sm px-1 uppercase tracking-wide",
+            Field.chose?(@field, candidate) && "bg-brand/90 text-zinc-900 dark:bg-brand-dark",
+            !Field.chose?(@field, candidate) && "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+          ]}>
+            {candidate.label || source_words(candidate.source)}
+          </span>
           <span :if={!@preview}>{truncate(candidate.value)}</span>
 
           <%!-- Choosing between two covers by URL is choosing blind. --%>
@@ -523,22 +550,22 @@ defmodule AmbryWeb.Admin.Decisions do
             src={preview_src(candidate.value, @embedded_src)}
             class="mt-1 h-20 w-20 rounded-sm object-cover"
           />
-        </button>
+        </.proposal_chip>
 
         <%!-- Choosing "none" is an approval, not an omission. It's what makes
               "every piece is settled" reachable on a record with optional
               fields nobody filled in. --%>
-        <button
+        <.proposal_chip
           :if={!@field.required}
-          type="button"
-          phx-click="waive-field"
-          phx-value-section={@section}
-          phx-value-field={@name}
-          class="rounded-sm border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
+          chosen={@field.approved && is_nil(@field.source)}
+          event="waive-field"
+          values={%{section: @section, field: @name}}
         >
           None
-        </button>
+        </.proposal_chip>
       </div>
+
+      <p :if={@hint} class="pl-3 text-xs text-zinc-500 dark:text-zinc-400">{@hint}</p>
     </div>
     """
   end
@@ -1062,11 +1089,19 @@ defmodule AmbryWeb.Admin.Decisions do
       class={[
         "max-w-full rounded-sm border text-left text-xs",
         @shape == "circle" && "rounded-full p-0.5",
-        @shape != "circle" && "px-2 py-1",
-        @chosen && "border-brand dark:border-brand-dark",
-        !@chosen && "border-zinc-300 dark:border-zinc-700"
+        @shape != "circle" && "inline-flex items-center gap-1.5 px-2 py-1",
+        @chosen && "border-brand bg-brand/10 dark:border-brand-dark dark:bg-brand-dark/10",
+        !@chosen && "border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
       ]}
     >
+      <%!-- The chosen chip is the single most important state on the form, and
+            a 1px border-hue change was nearly invisible — so it says so three
+            ways: border, tint, and a check. --%>
+      <.icon
+        :if={@chosen && @shape != "circle"}
+        name="fa-check"
+        class="h-3 w-3 flex-none text-lime-700 dark:text-brand-dark"
+      />
       {render_slot(@inner_block)}
     </button>
     """
