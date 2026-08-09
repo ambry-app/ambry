@@ -222,7 +222,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # click affordance pattern used across this page) stay put.
   defp segment_class(active?) do
     [
-      "flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1 font-semibold",
+      "flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 font-semibold",
       if(active?,
         do: "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100",
         else: "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -252,7 +252,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # touch target, and the queue's actions are consequential enough to name.
   defp action_class(tone) do
     [
-      "flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-sm border px-2 py-0.5 text-xs font-semibold transition-colors",
+      "flex cursor-pointer items-center justify-center gap-1 whitespace-nowrap rounded-sm border px-2 py-0.5 text-xs font-semibold transition-colors sm:w-28",
       case tone do
         :brand ->
           "border-lime-600/60 text-lime-700 hover:bg-lime-600/10 dark:border-lime-400/60 dark:text-lime-400 dark:hover:bg-lime-400/10"

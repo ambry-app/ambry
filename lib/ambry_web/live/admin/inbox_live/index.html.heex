@@ -57,62 +57,75 @@
           </p>
         </.link>
 
+        <%!-- One meta line, not two: what the tags say and what the probe
+              measured are both identity, and each extra line raises the
+              card's density for free. --%>
         <p
-          :if={tag_summary(item) != ""}
-          class="overflow-hidden text-ellipsis whitespace-nowrap text-sm italic dark:text-zinc-500"
+          :if={Enum.any?([tag_summary(item), probe_summary(item)], &(&1 != ""))}
+          class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400"
         >
-          {tag_summary(item)}
+          {[tag_summary(item), probe_summary(item)] |> Enum.reject(&(&1 == "")) |> Enum.join(" · ")}
         </p>
 
-        <p
-          :if={probe_summary(item) != ""}
-          class="overflow-hidden text-ellipsis whitespace-nowrap text-sm italic dark:text-zinc-500"
-        >
-          {probe_summary(item)}
-        </p>
+        <%!-- The annotated rows — matches and the files' source — share one
+              label column, so every badge and chip starts on the same rail
+              (design language §1). The value cell owns its own wrapping: when
+              width runs out the meta drops a line INSIDE the column, and the
+              candidate title is the last thing to ellipsize. --%>
+        <div class="mt-2 space-y-0.5">
+          <div
+            :for={match <- match_summary(item)}
+            class="grid-cols-[5rem_minmax(0,1fr)] grid items-baseline gap-x-2 text-sm"
+          >
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">{match.level}</span>
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <.badge color={elem(confidence_label(match.confidence), 1)} class="text-xs">
+                {elem(confidence_label(match.confidence), 0)}
+              </.badge>
+              <%!-- basis-48 + grow keeps the title from being shrunk out of
+                    existence (meta wraps down instead); max-w-fit stops the grow
+                    at the title's own width so the provenance stays beside it. --%>
+              <span class="min-w-0 max-w-fit grow basis-48 overflow-hidden text-ellipsis whitespace-nowrap">
+                {candidate_label(match.best)}
+              </span>
+              <span :if={candidate_origin(match.best)} class="flex-none text-xs text-zinc-500 dark:text-zinc-400">
+                ({candidate_origin(match.best)})
+              </span>
+              <span :if={match.alternatives > 0} class="flex-none text-xs text-zinc-500 dark:text-zinc-400">
+                +{match.alternatives} other{if match.alternatives > 1, do: "s"}
+              </span>
+            </div>
+          </div>
 
-        <%!-- flex-wrap so that when width runs out the meta pieces drop to a
-              second line instead of the candidate title (the answer) being
-              the first thing to ellipsize. --%>
-        <div :for={match <- match_summary(item)} class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-          <span class="w-20 flex-none text-zinc-500 dark:text-zinc-500">{match.level}</span>
-          <.badge color={elem(confidence_label(match.confidence), 1)} class="text-xs">
-            {elem(confidence_label(match.confidence), 0)}
-          </.badge>
-          <%!-- basis-48 + grow keeps the title from being shrunk out of
-                existence (meta wraps down instead); max-w-fit stops the grow
-                at the title's own width so the provenance stays beside it. --%>
-          <span class="min-w-0 max-w-fit grow basis-48 overflow-hidden text-ellipsis whitespace-nowrap">
-            {candidate_label(match.best)}
-          </span>
-          <span :if={candidate_origin(match.best)} class="flex-none text-xs text-zinc-500">
-            ({candidate_origin(match.best)})
-          </span>
-          <span :if={match.alternatives > 0} class="flex-none text-xs text-zinc-500">
-            +{match.alternatives} other{if match.alternatives > 1, do: "s"}
-          </span>
-        </div>
+          <p
+            :if={item.issue}
+            class="mt-2 flex items-baseline gap-1.5 overflow-hidden text-ellipsis text-sm text-red-600 dark:text-red-400"
+          >
+            <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
+            <span class="min-w-0">{item.issue}</span>
+          </p>
 
-        <p :if={item.issue} class="overflow-hidden text-ellipsis text-sm text-red-600">
-          {item.issue}
-        </p>
+          <p
+            :if={progress_label(@progress[item.id])}
+            class="text-xs text-zinc-500 dark:text-zinc-400"
+            data-role="item-progress"
+          >
+            {progress_label(@progress[item.id])}
+          </p>
 
-        <p
-          :if={progress_label(@progress[item.id])}
-          class="text-xs text-zinc-500 dark:text-zinc-400"
-          data-role="item-progress"
-        >
-          {progress_label(@progress[item.id])}
-        </p>
-
-        <p class="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-500">
           <%!-- Where this came from decides what approving it does to the
-                bytes, so it belongs on the row rather than one click away. --%>
-          <span class={["mr-1 rounded-sm px-1 py-0.5", location_color(item.location)]}>
-            {location_label(item.location)}
-          </span>
-          {item.path}
-        </p>
+                bytes, so it belongs on the row rather than one click away —
+                and on the same rail as the match badges above it. --%>
+          <div class="grid-cols-[5rem_minmax(0,1fr)] grid items-baseline gap-x-2">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">source</span>
+            <p class="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
+              <span class={["mr-1 rounded-sm px-1 py-0.5", location_color(item.location)]}>
+                {location_label(item.location)}
+              </span>
+              <span class="font-mono">{item.path}</span>
+            </p>
+          </div>
+        </div>
       </div>
 
       <%!-- One rail with fixed slots — status, meta, actions, date — instead
@@ -120,94 +133,100 @@
             bottom line (the row container wraps) rather than squeezing the
             titles; the actions carry words because a 16px icon is neither a
             label nor a touch target. --%>
+      <%!-- The rail's corners share the card's baselines: status aligns with
+            the title line, the date with the content's last line
+            (self-stretch + justify-between). Actions are uniform width so
+            the right edge reads as a column, not a rag. --%>
       <div
-        class="flex w-full flex-none flex-wrap items-center gap-x-3 gap-y-2 sm:w-44 sm:flex-col sm:items-end"
+        class="flex w-full flex-none flex-wrap items-center gap-x-3 gap-y-2 sm:w-44 sm:flex-col sm:items-end sm:justify-between sm:self-stretch"
         inert={busy?(@progress[item.id])}
       >
-        <div class="flex items-center gap-2">
-          <.badge :if={item.ready and item.status == :pending} color={:brand} class="text-xs">
-            ready
-          </.badge>
-          <.badge color={status_color(item.status)} class="text-xs">{item.status}</.badge>
-        </div>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:flex-col sm:items-end">
+          <div class="flex items-center gap-2">
+            <.badge :if={item.ready and item.status == :pending} color={:brand} class="text-xs">
+              ready
+            </.badge>
+            <.badge color={status_color(item.status)} class="text-xs">{item.status}</.badge>
+          </div>
 
-        <div class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <span
-            :if={file_count(item) > 1}
-            title="Audio files"
-            class="rounded-sm bg-zinc-100 px-1.5 py-0.5 tabular-nums dark:bg-zinc-800"
-          >
-            <span class="font-bold text-zinc-700 dark:text-zinc-300">{file_count(item)}</span> files
-          </span>
-          <span :if={item.tags && item.tags["asin"]} title={"ASIN #{item.tags["asin"]}"}>
-            <.icon name="fa-tag" class="inline h-3.5 w-3.5 text-current" />
-          </span>
-          <span :if={item.tags && item.tags["has_cover_art"]} title="Embedded cover art">
-            <.icon name="fa-image" class="inline h-3.5 w-3.5 text-current" />
-          </span>
-        </div>
+          <div class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <span
+              :if={file_count(item) > 1}
+              title="Audio files"
+              class="rounded-sm bg-zinc-100 px-1.5 py-0.5 tabular-nums dark:bg-zinc-800"
+            >
+              <span class="font-bold text-zinc-700 dark:text-zinc-300">{file_count(item)}</span> files
+            </span>
+            <span :if={item.tags && item.tags["asin"]} title={"ASIN #{item.tags["asin"]}"}>
+              <.icon name="fa-tag" class="inline h-3.5 w-3.5 text-current" />
+            </span>
+            <span :if={item.tags && item.tags["has_cover_art"]} title="Embedded cover art">
+              <.icon name="fa-image" class="inline h-3.5 w-3.5 text-current" />
+            </span>
+          </div>
 
-        <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
-          <%!-- Only a settled item can be imported from here. Anything else
+          <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
+            <%!-- Only a settled item can be imported from here. Anything else
                 opens the form, because the queue has no way to say what's
                 outstanding and the form's whole job is to. --%>
-          <span
-            :if={item.status == :pending and item.ready}
-            role="button"
-            phx-click="approve"
-            phx-value-id={item.id}
-            title="Add to the library"
-            data-confirm="Add this to the library?"
-            class={action_class(:brand)}
-          >
-            <.icon name="fa-check" class="h-3 w-3 text-current" /> Approve
-          </span>
+            <span
+              :if={item.status == :pending and item.ready}
+              role="button"
+              phx-click="approve"
+              phx-value-id={item.id}
+              title="Add to the library"
+              data-confirm="Add this to the library?"
+              class={action_class(:brand)}
+            >
+              <.icon name="fa-check" class="h-3 w-3 text-current" /> Approve
+            </span>
 
-          <.link
-            :if={item.status == :pending and not item.ready}
-            navigate={~p"/admin/inbox/#{item}"}
-            title="Settle what's outstanding"
-            class={action_class(:neutral)}
-          >
-            <.icon name="fa-pen-to-square" class="h-3 w-3 text-current" /> Open
-          </.link>
+            <.link
+              :if={item.status == :pending and not item.ready}
+              navigate={~p"/admin/inbox/#{item}"}
+              title="Settle what's outstanding"
+              class={action_class(:neutral)}
+            >
+              <.icon name="fa-pen-to-square" class="h-3 w-3 text-current" /> Open
+            </.link>
 
-          <%!-- One action, because "re-read the files" and "look for matches
+            <%!-- One action, because "re-read the files" and "look for matches
                 again" were never separable: the tags matching leans on come
                 out of the probe, so asking again without re-reading asks the
                 same question. Re-reads the folder, re-probes, and re-queries
                 every provider with the cache bypassed. --%>
-          <span
-            role="button"
-            phx-click="rescan"
-            phx-value-id={item.id}
-            title="Re-read the files and ask the providers again"
-            class={action_class(:neutral)}
-          >
-            <.icon name="fa-rotate" class="h-3 w-3 text-current" /> Re-match
-          </span>
+            <span
+              role="button"
+              phx-click="rescan"
+              phx-value-id={item.id}
+              title="Re-read the files and ask the providers again"
+              class={action_class(:neutral)}
+            >
+              <.icon name="fa-rotate" class="h-3 w-3 text-current" /> Re-match
+            </span>
 
-          <span
-            :if={item.status != :dismissed}
-            role="button"
-            phx-click="dismiss"
-            phx-value-id={item.id}
-            title="Dismiss (files are not touched)"
-            class={action_class(:danger)}
-          >
-            <.icon name="fa-xmark" class="h-3 w-3 text-current" /> Dismiss
-          </span>
+            <span
+              :if={item.status != :dismissed}
+              role="button"
+              phx-click="dismiss"
+              phx-value-id={item.id}
+              title="Dismiss (files are not touched)"
+              class={action_class(:danger)}
+            >
+              <.icon name="fa-xmark" class="h-3 w-3 text-current" /> Dismiss
+            </span>
 
-          <span
-            :if={item.status == :dismissed}
-            role="button"
-            phx-click="restore"
-            phx-value-id={item.id}
-            title="Put back in the queue"
-            class={action_class(:brand)}
-          >
-            <.icon name="fa-rotate-left" class="h-3 w-3 text-current" /> Restore
-          </span>
+            <span
+              :if={item.status == :dismissed}
+              role="button"
+              phx-click="restore"
+              phx-value-id={item.id}
+              title="Put back in the queue"
+              class={action_class(:brand)}
+            >
+              <.icon name="fa-rotate-left" class="h-3 w-3 text-current" /> Restore
+            </span>
+          </div>
         </div>
 
         <p class="text-xs text-zinc-500 dark:text-zinc-400">

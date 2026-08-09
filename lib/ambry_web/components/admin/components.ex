@@ -459,6 +459,22 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  @doc """
+  A microlabel — the quiet uppercase word that names a row of things
+  (`Proposed`, `Asked`, an eyebrow). One spec everywhere, per the admin
+  design language (docs/admin-design-language.md §2).
+  """
+  attr :class, :string, default: nil
+  slot :inner_block, required: true
+
+  def microlabel(assigns) do
+    ~H"""
+    <span class={["text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400", @class]}>
+      {render_slot(@inner_block)}
+    </span>
+    """
+  end
+
   defp badge_color(:yellow),
     do: "border-yellow-200 bg-yellow-50 dark:border-yellow-400 dark:bg-yellow-400"
 
