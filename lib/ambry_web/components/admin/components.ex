@@ -151,14 +151,22 @@ defmodule AmbryWeb.Admin.Components do
   defp admin_table_search_form(assigns) do
     ~H"""
     <.form for={@search_form} phx-submit="search" data-role="search-form">
-      <input
-        id={@search_form.id}
-        type="search"
-        name={@search_form[:query].name}
-        value={@search_form[:query].value}
-        placeholder="Search"
-        class="w-full border-0 border-b border-zinc-200 bg-transparent px-0 placeholder:font-bold placeholder:text-zinc-500 focus:border-0 focus:border-b focus:border-lime-500 focus:outline-none focus:ring-0 dark:border-zinc-800 dark:focus:border-lime-400"
-      />
+      <%!-- A real field, not a bare underline — the search is an interactive
+            control and should look like one before it's focused. --%>
+      <div class="relative max-w-md">
+        <.icon
+          name="fa-magnifying-glass"
+          class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500"
+        />
+        <input
+          id={@search_form.id}
+          type="search"
+          name={@search_form[:query].name}
+          value={@search_form[:query].value}
+          placeholder="Search"
+          class="w-full rounded-sm border border-zinc-300 bg-white py-1.5 pr-3 pl-9 text-sm text-zinc-900 placeholder:text-zinc-500 focus:ring-lime-500/20 focus:border-lime-500 focus:outline-none focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-lime-400"
+        />
+      </div>
     </.form>
     """
   end
@@ -318,7 +326,9 @@ defmodule AmbryWeb.Admin.Components do
 
   defp admin_table_row(assigns) do
     ~H"""
-    <div class="relative flex cursor-pointer items-center gap-4 p-4" {@rest}>
+    <%!-- flex-wrap below sm lets a row's right rail drop to a full-width
+          bottom line instead of squeezing the content column on phones. --%>
+    <div class="relative flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 p-4 sm:flex-nowrap" {@rest}>
       {render_slot(@inner_block)}
     </div>
     """

@@ -217,6 +217,55 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp parse_ready("true"), do: true
   defp parse_ready(_anything), do: nil
 
+  # The segmented filter: the active segment reads as a raised tab, the rest
+  # recede. Spans rather than buttons so the existing test selectors (and the
+  # click affordance pattern used across this page) stay put.
+  defp segment_class(active?) do
+    [
+      "flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1 font-semibold",
+      if(active?,
+        do: "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100",
+        else: "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+      )
+    ]
+  end
+
+  defp segment_label(:pending), do: "Pending"
+  defp segment_label(:dismissed), do: "Dismissed"
+  defp segment_label(:approved), do: "Approved"
+
+  # Pending work glows amber and settled-but-unimported glows lime — but only
+  # while there IS any; a zero is just a zero.
+  defp segment_count_class(status, count) do
+    [
+      "rounded-full px-1.5 text-xs font-bold tabular-nums",
+      case {status, count} do
+        {_status, 0} -> "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500"
+        {:pending, _n} -> "bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300"
+        {:ready, _n} -> "bg-lime-100 text-lime-700 dark:bg-lime-900/60 dark:text-lime-300"
+        _other -> "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+      end
+    ]
+  end
+
+  # Row actions wear words. An unlabeled 16px icon is neither a label nor a
+  # touch target, and the queue's actions are consequential enough to name.
+  defp action_class(tone) do
+    [
+      "flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-sm border px-2 py-0.5 text-xs font-semibold transition-colors",
+      case tone do
+        :brand ->
+          "border-lime-600/60 text-lime-700 hover:bg-lime-600/10 dark:border-lime-400/60 dark:text-lime-400 dark:hover:bg-lime-400/10"
+
+        :danger ->
+          "border-zinc-300 text-zinc-600 hover:border-red-500 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-red-400 dark:hover:text-red-400"
+
+        :neutral ->
+          "border-zinc-300 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
+      end
+    ]
+  end
+
   defp status_color(:pending), do: :yellow
   defp status_color(:approved), do: :brand
   defp status_color(:dismissed), do: :gray
