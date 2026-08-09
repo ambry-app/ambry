@@ -219,9 +219,13 @@ defmodule Ambry.Inbox.Draft.Seed do
     end
   end
 
+  # The candidate's own score and the decision's confidence are different
+  # numbers — confidence sinks when rivals score nearly as well — and quoting
+  # the confidence as if it were the candidate's match ("38%" under a list
+  # whose top row says 73%) read as a contradiction. Name both, and say what
+  # the gap means.
   defp weak_work_detail(best, confidence) do
-    "The closest is #{best["title"]}#{written_by(best["authors"])}, and it isn't a close " <>
-      "enough match (#{round(confidence * 100)}%) to describe this book."
+    doubt_detail(best, confidence, "#{best["title"]}#{written_by(best["authors"])}", "book")
   end
 
   defp written_by(authors) do
@@ -697,8 +701,22 @@ defmodule Ambry.Inbox.Draft.Seed do
   end
 
   defp low_confidence_detail(best, confidence) do
-    "The closest is #{best["title"]}#{narrated_by(best["narrators"])}, and it isn't a close " <>
-      "enough match (#{round(confidence * 100)}%) to describe this file."
+    doubt_detail(best, confidence, "#{best["title"]}#{narrated_by(best["narrators"])}", "file")
+  end
+
+  # Shared by the work and recording doubts; `what` is "book" or "file".
+  defp doubt_detail(best, confidence, described, what) do
+    score = round((best["score"] || 0.0) * 100)
+    conf = round(confidence * 100)
+    lead = "The closest is #{described} at #{score}%"
+
+    if conf < score - 5 do
+      lead <>
+        ", but other candidates score nearly as well — only #{conf}% sure overall, " <>
+        "not enough to describe this #{what} unconfirmed."
+    else
+      lead <> " — not a close enough match to describe this #{what}."
+    end
   end
 
   defp narrated_by(narrators) do
@@ -1031,22 +1049,54 @@ defmodule Ambry.Inbox.Draft.Seed do
   # Evidence is matched against what the person is called *now*, not what the
   # credit says: the credit holds the pen name, and the human behind it being
   # renamed is precisely when somebody searches again. Mode, link, approval
-  # and every settled field stay the operator's.
+  # and every settled field stay the operator's — and so is the ticked set,
+  # once they've touched it: a person whose evidence the operator curated
+  # keeps their ticks through a refresh, exactly as a work's do.
   defp refreshed_person(%PersonDecision{} = person, named, matched) do
     {credited, source} = named || {person.key, nil}
     name = Field.value(person.name) || credited
     candidates = named_candidates(matched, name)
     {doubt, detail} = person_doubt(matched, candidates, name)
 
+    {sources, pool} =
+      if person.evidence_curated,
+        do: {person.sources, ticked_candidates(matched, person.sources)},
+        else: {Enum.map(candidates, &SourceRef.of/1), candidates}
+
     %{
       person
       | doubt: doubt,
         doubt_detail: detail,
-        sources: Enum.map(candidates, &SourceRef.of/1),
-        name: keep_manual(person.name, person_name_field(credited, source, candidates)),
-        image: keep_manual(person.image, person_image_field(candidates)),
-        description: keep_manual(person.description, person_description_field(candidates))
+        sources: sources,
+        name: keep_manual(person.name, person_name_field(credited, source, pool)),
+        image: keep_manual(person.image, person_image_field(pool)),
+        description: keep_manual(person.description, person_description_field(pool))
     }
+  end
+
+  @doc """
+  Re-derives a person's photo and bio pools from their ticked records.
+
+  Ticking a record is what makes it speak — the same rule the work and
+  recording levels live by. The exact-name gate decides the initial ticks;
+  from there the operator's checkbox does, which is also how a
+  differently-spelled record of the right human (the gate can't admit it)
+  gets to contribute a face after all.
+  """
+  def rederive_person_evidence(%PersonDecision{} = person, matched) do
+    pool = ticked_candidates(matched, person.sources)
+
+    %{
+      person
+      | image: keep_manual(person.image, person_image_field(pool)),
+        description: keep_manual(person.description, person_description_field(pool))
+    }
+  end
+
+  defp ticked_candidates(matched, sources) do
+    candidates = (matched && Map.get(matched, "candidates")) || []
+
+    Enum.filter(candidates, fn record -> Enum.any?(sources, &SourceRef.points_at?(&1, record)) end)
   end
 
   # What each credited human is called and who said so, taken from the credit

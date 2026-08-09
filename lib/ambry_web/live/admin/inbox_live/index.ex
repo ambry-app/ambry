@@ -198,8 +198,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     %{
       "filter" => Keyword.get(overrides, :filter, socket.assigns.list_opts.filter),
       "page" => Keyword.get(overrides, :page, to_string(socket.assigns.list_opts.page)),
-      "status" =>
-        Keyword.get(overrides, :status, socket.assigns.status && to_string(socket.assigns.status)),
+      "status" => Keyword.get(overrides, :status, to_string(socket.assigns.status || "all")),
       "ready" =>
         Keyword.get(overrides, :ready, socket.assigns.ready && to_string(socket.assigns.ready))
     }
@@ -210,7 +209,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp parse_status(status) when status in ["pending", "dismissed", "approved"],
     do: String.to_existing_atom(status)
 
-  defp parse_status(_anything), do: nil
+  # "all" is the explicit choice; the DEFAULT is pending — the inbox is a
+  # work queue, and opening it means "what needs me", not "everything ever".
+  defp parse_status("all"), do: nil
+  defp parse_status(_anything), do: :pending
 
   defp parse_ready("true"), do: true
   defp parse_ready(_anything), do: nil

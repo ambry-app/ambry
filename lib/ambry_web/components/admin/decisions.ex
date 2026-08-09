@@ -22,6 +22,7 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
+  alias Ambry.Inbox.Draft.SourceRef
   alias AmbryWeb.Components.EntityResolver
 
   @doc """
@@ -45,6 +46,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :outcomes, :list, required: true
   attr :level, :string, default: nil
   attr :retrying, :any, default: nil
+
+  attr :retryable, :boolean,
+    default: true,
+    doc: "person-level outcomes have no per-provider retry yet"
 
   @doc """
   What each provider said when asked — including the ones that couldn't
@@ -73,7 +78,7 @@ defmodule AmbryWeb.Admin.Decisions do
             the retry. --%>
       <button
         :for={outcome <- @outcomes}
-        :if={outcome["status"] == "failed"}
+        :if={outcome["status"] == "failed" and @retryable}
         type="button"
         phx-click="retry-provider"
         phx-value-level={@level}
@@ -86,6 +91,15 @@ defmodule AmbryWeb.Admin.Decisions do
           do: "asking again…",
           else: "couldn't be reached — retry"}
       </button>
+
+      <span
+        :for={outcome <- @outcomes}
+        :if={outcome["status"] == "failed" and not @retryable}
+        title={outcome["reason"]}
+        class="rounded-sm border border-red-500 px-2 py-0.5 text-xs text-red-600"
+      >
+        {outcome["name"]}: couldn't be reached
+      </span>
     </div>
     """
   end
@@ -128,7 +142,9 @@ defmodule AmbryWeb.Admin.Decisions do
 
   attr :record, :map, required: true
   attr :used, :boolean, required: true
-  attr :level, :string, required: true
+  attr :level, :string, default: nil
+  attr :event, :string, default: "toggle-source"
+  attr :person_key, :string, default: nil, doc: "set for person records — routes the toggle"
   attr :working, :boolean, default: false
 
   @doc """
@@ -153,8 +169,9 @@ defmodule AmbryWeb.Admin.Decisions do
       <input
         type="checkbox"
         checked={@used}
-        phx-click="toggle-source"
+        phx-click={@event}
         phx-value-level={@level}
+        phx-value-key={@person_key}
         phx-value-source={@record["source"]}
         phx-value-id={@record["id"]}
         class="mt-1 h-4 w-4 flex-none rounded-sm"
@@ -212,6 +229,39 @@ defmodule AmbryWeb.Admin.Decisions do
 
       <span :if={@linked} class="flex-none text-xs dark:text-zinc-500">using this book</span>
     </div>
+    """
+  end
+
+  attr :at, :string, required: true, doc: "where this renders — DOM ids key on place, not person"
+  attr :person_key, :string, required: true
+  attr :name, :string, default: nil
+  attr :running, :boolean, default: false
+
+  @doc """
+  The person level's search-again form — the work-level pattern with a name
+  where the work has title and author.
+  """
+  def person_research_form(assigns) do
+    ~H"""
+    <form
+      id={"research-person-#{@at}"}
+      phx-submit="research-person"
+      class="flex flex-wrap items-end gap-2"
+    >
+      <input type="hidden" name="key" value={@person_key} />
+
+      <label class="text-xs dark:text-zinc-500">
+        name <input type="text" name="name" value={@name} class={input_classes("mt-1 block")} />
+      </label>
+
+      <button
+        type="submit"
+        disabled={@running}
+        class="rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
+      >
+        {if @running, do: "Searching…", else: "Search again"}
+      </button>
+    </form>
     """
   end
 
@@ -278,7 +328,10 @@ defmodule AmbryWeb.Admin.Decisions do
 
   @doc "A candidate's headline: what it is."
   def candidate_title(candidate) do
-    [candidate["title"], candidate["authors"] && Enum.join(candidate["authors"], ", ")]
+    [
+      candidate["title"] || candidate["name"],
+      candidate["authors"] && Enum.join(candidate["authors"], ", ")
+    ]
     |> Enum.reject(&(&1 in [nil, "", []]))
     |> Enum.join(" — ")
   end
@@ -293,6 +346,10 @@ defmodule AmbryWeb.Admin.Decisions do
     [
       candidate["narrators"] not in [nil, []] &&
         "read by #{Enum.join(candidate["narrators"], ", ")}",
+      # person records: whether it brings a face, and the words that tell a
+      # namesake apart
+      candidate["images"] not in [nil, []] && "has a photo",
+      is_binary(candidate["name"]) && bio_snippet(candidate["description"]),
       year(candidate["published"]),
       candidate["publisher"],
       series_line(candidate["series"]),
@@ -308,6 +365,15 @@ defmodule AmbryWeb.Admin.Decisions do
   defp year(nil), do: nil
   defp year(published) when is_binary(published), do: String.slice(published, 0, 4)
   defp year(_other), do: nil
+
+  defp bio?(description), do: is_binary(description) and String.trim(description) != ""
+
+  # The first words of the bio are what tells a namesake apart — "an English
+  # professional footballer" is a sentence the operator must get to read
+  # before ticking.
+  defp bio_snippet(description) do
+    if bio?(description), do: String.slice(description, 0, 90)
+  end
 
   # Series arrive as `%{"name", "number"}` now and as bare strings in matches
   # stored before that; both render.
@@ -399,11 +465,34 @@ defmodule AmbryWeb.Admin.Decisions do
               options={@options}
             />
             <.input
-              :if={@type != "select"}
+              :if={@type not in ["select", "textarea"]}
               field={decision[:value]}
               type={@type}
               placeholder={@placeholder}
             />
+            <%!-- A description is markdown, and markdown in a plain box is
+                  written blind — the same textarea/preview pair the person
+                  form has had all along. --%>
+            <div :if={@type == "textarea"} class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <.input
+                id={"#{@section}-#{@name}-input"}
+                field={decision[:value]}
+                type="textarea"
+                placeholder={@placeholder}
+                phx-hook="maintain-attrs"
+                data-attrs="style"
+              />
+              <div class="relative">
+                <div
+                  id={"#{@section}-#{@name}-preview"}
+                  phx-hook="scroll-match"
+                  data-target={"#{@section}-#{@name}-input"}
+                  class="absolute inset-0 hidden overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800 sm:block"
+                >
+                  <.markdown content={@field.value || ""} class="p-2" />
+                </div>
+              </div>
+            </div>
           </.inputs_for>
         </div>
       </div>
@@ -468,6 +557,14 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :identity_backing, :map,
     default: %{},
     doc: "identity id => the backing people's names, where they add something"
+
+  attr :person_records, :map,
+    default: %{},
+    doc: "person key => the provider records of people by that name"
+
+  attr :person_outcomes, :map,
+    default: %{},
+    doc: "person key => what each person provider said when asked"
 
   attr :persons, :list, required: true, doc: "the PersonDecisions this credit references"
   attr :appearances, :map, default: %{}, doc: "person key => every credit referencing them"
@@ -595,6 +692,8 @@ defmodule AmbryWeb.Admin.Decisions do
         appears={@appearances[hd(@persons).key] || []}
         searching={@searching_person == hd(@persons).key}
         expanded={@photos_expanded[hd(@persons).key] || false}
+        records={@person_records[hd(@persons).key] || []}
+        outcomes={@person_outcomes[hd(@persons).key] || []}
       />
 
       <%!-- Folded away until it matters, and unfolded automatically the moment
@@ -658,6 +757,8 @@ defmodule AmbryWeb.Admin.Decisions do
             appears={@appearances[person.key] || []}
             searching={@searching_person == person.key}
             expanded={@photos_expanded[person.key] || false}
+            records={@person_records[person.key] || []}
+            outcomes={@person_outcomes[person.key] || []}
           />
         </div>
 
@@ -690,6 +791,8 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :appears, :list, default: [], doc: "every credit referencing this person"
   attr :searching, :boolean, default: false
   attr :expanded, :boolean, default: false, doc: "whether the whole photo set is showing"
+  attr :records, :list, default: [], doc: "the provider records of people by this name"
+  attr :outcomes, :list, default: [], doc: "what each person provider said when asked"
 
   # Enough to see there are alternatives without the row becoming a contact
   # sheet. TMDB keeps every headshot anyone has uploaded and a working actor
@@ -765,20 +868,6 @@ defmodule AmbryWeb.Admin.Decisions do
           class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-300 dark:border-zinc-700"
         />
 
-        <button
-          type="button"
-          phx-click="find-person"
-          phx-value-key={@person.key}
-          disabled={is_nil(Field.value(@person.name)) or @searching}
-          class="flex-none rounded-sm border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700"
-        >
-          {cond do
-            @searching -> "Looking…"
-            @photos != [] or @bios != [] -> "Look again"
-            true -> "Find a photo and bio…"
-          end}
-        </button>
-
         <%!-- The same human on two credits: an author reading their own book.
               Approval creates them once, so this is where the form says so —
               on the row that would otherwise look like it was about to make a
@@ -804,6 +893,40 @@ defmodule AmbryWeb.Admin.Decisions do
       <p :if={@person.doubt == :low_confidence} class="text-xs italic dark:text-zinc-500">
         {@person.doubt_detail}
       </p>
+
+      <%!-- The same evidence rule as the work and recording levels, one
+            paradigm across all three: tick every record of THIS human, and
+            the photo and bio pools draw from the ticked set. The exact-name
+            gate decides the initial ticks; a differently-spelled record of
+            the right person is exactly what the checkbox is for. --%>
+      <p :if={@records != []} class="text-xs dark:text-zinc-400">
+        Tick every record of <em>this person</em> — the photos and bios on offer come from the
+        ticked ones. Databases know several people by many names, so check before ticking.
+      </p>
+
+      <.record_row
+        :for={record <- @records}
+        record={record}
+        event="toggle-person-source"
+        person_key={@person.key}
+        used={Enum.any?(@person.sources, &SourceRef.points_at?(&1, record))}
+      />
+
+      <.provider_outcomes_row outcomes={@outcomes} retryable={false} />
+
+      <details>
+        <summary class="cursor-pointer text-xs dark:text-zinc-400">
+          Not the right person? Search again
+        </summary>
+        <div class="pt-2">
+          <.person_research_form
+            at={@at}
+            person_key={@person.key}
+            name={Field.value(@person.name)}
+            running={@searching}
+          />
+        </div>
+      </details>
 
       <div :if={@photos != []} class="flex flex-wrap items-center gap-2">
         <span class="text-xs dark:text-zinc-500">Photos:</span>
@@ -851,16 +974,31 @@ defmodule AmbryWeb.Admin.Decisions do
       <%!-- The same text box the recording's description gets, for the same
             reason: an imported blurb is a starting point. --%>
       <div class="space-y-1">
-        <form id={"person-bio-#{@at}"} phx-change="person-bio" phx-submit="person-bio">
-          <input type="hidden" name="key" value={@person.key} />
-          <textarea
-            name="description"
-            rows="3"
-            placeholder="a short bio"
-            phx-debounce="500"
-            class={input_classes("block w-full")}
-          >{@description}</textarea>
-        </form>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <form id={"person-bio-#{@at}"} phx-change="person-bio" phx-submit="person-bio">
+            <input type="hidden" name="key" value={@person.key} />
+            <textarea
+              id={"person-bio-#{@at}-input"}
+              name="description"
+              rows="3"
+              placeholder="a short bio"
+              phx-debounce="500"
+              phx-hook="maintain-attrs"
+              data-attrs="style"
+              class={input_classes("block w-full")}
+            >{@description}</textarea>
+          </form>
+          <div class="relative">
+            <div
+              id={"person-bio-#{@at}-preview"}
+              phx-hook="scroll-match"
+              data-target={"person-bio-#{@at}-input"}
+              class="absolute inset-0 hidden overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800 sm:block"
+            >
+              <.markdown content={@description || ""} class="p-2" />
+            </div>
+          </div>
+        </div>
 
         <div :if={@bios != []} class="flex flex-wrap items-center gap-2">
           <span class="text-xs dark:text-zinc-500">Proposed:</span>

@@ -139,6 +139,11 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert Inbox.get_item!(item.id).status == :dismissed
     assert File.exists?(file)
 
+    # the default view is pending, so the dismissed item has left it
+    refute has_element?(view, "span[phx-click='restore'][phx-value-id='#{item.id}']")
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=dismissed")
+
     view |> element("span[phx-click='restore'][phx-value-id='#{item.id}']") |> render_click()
 
     assert Inbox.get_item!(item.id).status == :pending
