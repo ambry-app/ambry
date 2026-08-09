@@ -290,12 +290,14 @@ defmodule AmbryWeb.CoreComponents do
     "border-transparent bg-yellow-500 text-zinc-900 hover:bg-yellow-600 dark:bg-yellow-400 dark:hover:bg-yellow-500"
   end
 
+  # In dark themes the secondary/danger costumes are quiet fills rather than
+  # outlines — outlined buttons put yet more 1px lines on a dark ground.
   defp button_color_classes(:red) do
-    "border-red-600 bg-transparent text-red-600 hover:bg-red-600/10 dark:border-red-400 dark:text-red-400 dark:hover:bg-red-400/10"
+    "dark:bg-red-400/10 dark:hover:bg-red-400/20 border-red-600 bg-transparent text-red-600 hover:bg-red-600/10 dark:border-transparent dark:text-red-300"
   end
 
   defp button_color_classes(:zinc) do
-    "border-zinc-400 bg-transparent text-zinc-900 hover:bg-zinc-900/5 dark:border-zinc-500 dark:text-zinc-100 dark:hover:bg-white/10"
+    "border-zinc-400 bg-transparent text-zinc-900 hover:bg-zinc-900/5 dark:border-transparent dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
   end
 
   @doc """
@@ -365,8 +367,8 @@ defmodule AmbryWeb.CoreComponents do
           checked={@checked}
           class={[
             "rounded",
-            "border-zinc-300 bg-white text-zinc-900 focus:ring-zinc-900",
-            "dark:border-none dark:bg-zinc-800 dark:text-zinc-800 dark:focus:ring-zinc-900",
+            "border-zinc-300 bg-white text-lime-600 focus:ring-lime-600",
+            "dark:border-zinc-600 dark:bg-zinc-800 dark:text-lime-600 dark:focus:ring-lime-500",
             @class
           ]}
           {@rest}
@@ -507,14 +509,15 @@ defmodule AmbryWeb.CoreComponents do
               "!text-zinc-500 block w-full rounded-sm rounded-b-none border p-0",
               "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
               "file:p-[11px] file:cursor-pointer file:rounded-none file:border-0",
-              "file:bg-zinc-600 file:font-bold file:text-zinc-100 hover:file:bg-zinc-500"
+              "file:bg-zinc-200 file:font-bold file:text-zinc-800 hover:file:bg-zinc-300",
+              "dark:file:bg-zinc-600 dark:file:text-zinc-100 dark:hover:file:bg-zinc-500"
             ] ++ input_color_classes(@errors) ++ [@class]
           }
         />
       </div>
       <div
         id={"#{@upload.ref}-drop-area"}
-        class="space-y-4 rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4"
+        class="space-y-4 rounded-b-sm border-2 border-t-0 border-dashed border-zinc-300 bg-zinc-50 p-4 text-zinc-500 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-400"
         phx-drop-target={@upload.ref}
         phx-hook={if @paste_upload, do: "paste-image"}
         data-upload-name={if @paste_upload, do: @upload.name}
@@ -571,7 +574,10 @@ defmodule AmbryWeb.CoreComponents do
         placeholder="https://some-image.com/url"
         class={if @show_preview, do: "rounded-b-none"}
       />
-      <div :if={@show_preview} class="rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
+      <div
+        :if={@show_preview}
+        class="rounded-b-sm border-2 border-t-0 border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-950"
+      >
         <.image_with_size id={@field.id} src={proxied_remote_image_url(@field.value)} class={@image_preview_class} />
       </div>
     </div>
@@ -581,11 +587,14 @@ defmodule AmbryWeb.CoreComponents do
   defp input_color_classes(errors) do
     [
       "bg-white text-zinc-900 placeholder:text-zinc-500",
-      "dark:bg-zinc-800 dark:text-zinc-300",
+      "dark:bg-zinc-800 dark:text-zinc-200 dark:placeholder:text-zinc-500",
       "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
-      "dark:border-zinc-600 dark:focus:border-zinc-400 dark:focus:ring-zinc-200/5",
+      # Dark controls are filled, not outlined: a transparent border keeps the
+      # box size, the fill separates it from the surface, and focus is a soft
+      # brand ring — no 1px hairlines fighting high-DPI subpixel rendering.
+      "dark:focus:ring-brand-dark/20 dark:border-transparent dark:focus:border-transparent",
       "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
-      "phx-no-feedback:dark:border-zinc-600 phx-no-feedback:dark:focus:border-zinc-400 phx-no-feedback:dark:focus:ring-zinc-200/5"
+      "phx-no-feedback:dark:focus:ring-brand-dark/20 phx-no-feedback:dark:border-transparent phx-no-feedback:dark:focus:border-transparent"
     ] ++
       if errors == [],
         do: [],
@@ -615,7 +624,7 @@ defmodule AmbryWeb.CoreComponents do
         <:separator>
           <span class="cursor-default select-none text-sm">•</span>
         </:separator>
-        <label class="cursor-pointer select-none whitespace-nowrap text-sm italic leading-6 has-[:checked]:font-semibold has-[:checked]:not-italic has-[:checked]:underline">
+        <label class="cursor-pointer select-none whitespace-nowrap text-sm leading-6 text-zinc-500 has-[:checked]:font-semibold has-[:checked]:text-zinc-800 has-[:checked]:underline dark:text-zinc-400 dark:has-[:checked]:text-zinc-200">
           <input type="radio" name={@field.name} value={value} checked={@field.value == value} class="hidden" /> {label}
         </label>
       </.intersperse>
@@ -986,7 +995,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def note(assigns) do
     ~H"""
-    <p class={["border-l-4 border-zinc-400 pl-4 italic text-zinc-500 dark:border-zinc-500 dark:text-zinc-400", @class]}>
+    <p class={["border-l-4 border-zinc-300 pl-4 text-sm text-zinc-500 dark:border-zinc-600 dark:text-zinc-400", @class]}>
       <%= if @label != [] do %>
         <strong>{render_slot(@label)}:</strong>
       <% else %>

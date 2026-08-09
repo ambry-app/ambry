@@ -333,7 +333,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
 
   defp disallowed_file_node(assigns) do
     ~H"""
-    <.row level={@level} class="italic text-slate-600">
+    <.row level={@level} class="text-zinc-500 dark:text-zinc-400">
       <div class="w-4 flex-none" />
       <.filename title={@file.path}>{@file.path}</.filename>
       <.mtime timestamp={@file.mtime} />
@@ -373,7 +373,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
 
   defp mtime(assigns) do
     ~H"""
-    <div class="w-48 flex-none text-right text-sm italic text-zinc-500">
+    <div class="w-48 flex-none text-right text-sm text-zinc-500 dark:text-zinc-400">
       {@timestamp |> Calendar.strftime("%c")}
     </div>
     """

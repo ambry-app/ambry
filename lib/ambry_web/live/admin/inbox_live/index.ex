@@ -222,10 +222,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # click affordance pattern used across this page) stay put.
   defp segment_class(active?) do
     [
-      "flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 font-semibold",
+      "flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 font-semibold",
       if(active?,
-        do: "bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100",
-        else: "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+        do: "bg-zinc-700 text-zinc-100",
+        else: "text-zinc-400 hover:text-zinc-100"
       )
     ]
   end
@@ -240,10 +240,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     [
       "rounded-full px-1.5 text-xs font-bold tabular-nums",
       case {status, count} do
-        {_status, 0} -> "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500"
-        {:pending, _n} -> "bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300"
-        {:ready, _n} -> "bg-lime-100 text-lime-700 dark:bg-lime-900/60 dark:text-lime-300"
-        _other -> "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+        {_status, 0} -> "bg-white/5 text-zinc-500"
+        {:pending, _n} -> "bg-amber-400/15 text-amber-300"
+        {:ready, _n} -> "bg-brand-dark/15 text-lime-300"
+        _other -> "bg-white/10 text-zinc-400"
       end
     ]
   end
@@ -252,16 +252,16 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # touch target, and the queue's actions are consequential enough to name.
   defp action_class(tone) do
     [
-      "flex cursor-pointer items-center justify-center gap-1 whitespace-nowrap rounded-sm border px-2 py-0.5 text-xs font-semibold transition-colors sm:w-28",
+      "flex cursor-pointer items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold transition-colors sm:w-28",
       case tone do
         :brand ->
-          "border-lime-600/60 text-lime-700 hover:bg-lime-600/10 dark:border-lime-400/60 dark:text-lime-400 dark:hover:bg-lime-400/10"
+          "bg-brand-dark/10 text-lime-300 hover:bg-brand-dark/20"
 
         :danger ->
-          "border-zinc-300 text-zinc-600 hover:border-red-500 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-red-400 dark:hover:text-red-400"
+          "bg-white/5 text-zinc-400 hover:bg-red-400/10 hover:text-red-300"
 
         :neutral ->
-          "border-zinc-300 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
+          "bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
       end
     ]
   end
@@ -269,6 +269,14 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp status_color(:pending), do: :yellow
   defp status_color(:approved), do: :brand
   defp status_color(:dismissed), do: :gray
+
+  # The card's left edge carries the item's state — a 4px rail reads from
+  # across the room and renders crisp at any DPI, unlike hairline borders.
+  # Amber = needs the operator, lime = ready/done, dim = out of the queue.
+  defp rail_class(%{status: :pending, ready: true}), do: "border-l-4 border-brand-dark"
+  defp rail_class(%{status: :pending}), do: "border-l-4 border-amber-400"
+  defp rail_class(%{status: :approved}), do: "border-brand-dark/40 border-l-4"
+  defp rail_class(_item), do: "border-l-4 border-zinc-700"
 
   # Where an item came from is what decides its custody at approval — whether
   # the file gets brought into the library or referenced where it lies — so
@@ -280,10 +288,9 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp kind_word(:external_collection), do: "adopted in place"
   defp kind_word(:library_root), do: "already in the library tree"
 
-  defp location_color(%Location{kind: :downloads}),
-    do: "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300"
+  defp location_color(%Location{kind: :downloads}), do: "bg-blue-400/15 text-blue-300"
 
-  defp location_color(_other), do: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+  defp location_color(_other), do: "bg-white/10 text-zinc-300"
 
   @doc """
   The candidate's name — usually the release name, and the most recognizable

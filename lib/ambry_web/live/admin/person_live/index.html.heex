@@ -37,7 +37,7 @@
       </div>
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
         <p class="overflow-hidden text-ellipsis" data-role="person-name">{person.name}</p>
-        <p class="overflow-hidden text-ellipsis text-sm italic dark:text-zinc-500" data-role="person-aliases">
+        <p class="overflow-hidden text-ellipsis text-sm text-zinc-500 dark:text-zinc-400" data-role="person-aliases">
           {(person.writing_as ++ person.narrating_as) |> Enum.filter(&(&1 != person.name)) |> Enum.join(", ")}
         </p>
       </div>
@@ -57,13 +57,16 @@
       <div class="flex w-32 flex-none flex-col items-end justify-between whitespace-nowrap">
         <div class="flex gap-2 pb-2">
           <.link navigate={~p"/admin/people/#{person}/edit"} data-role="edit-person">
-            <.icon name="fa-pencil" class="h-4 w-4 text-current transition-colors hover:text-blue-600" />
+            <.icon
+              name="fa-pencil"
+              class="h-4 w-4 text-current transition-colors hover:text-lime-600 dark:hover:text-lime-400"
+            />
           </.link>
           <span phx-click="delete" phx-value-id={person.id} data-confirm="Are you sure?" data-role="delete-person">
             <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
           </span>
         </div>
-        <p class="text-sm italic dark:text-zinc-500" data-role="person-added">
+        <p class="text-sm text-zinc-500 dark:text-zinc-400" data-role="person-added">
           Added {Calendar.strftime(person.inserted_at, "%x")}
         </p>
       </div>

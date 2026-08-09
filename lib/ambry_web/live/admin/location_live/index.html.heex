@@ -4,7 +4,7 @@
       <.button :if={@locations != []} phx-click="scan" color={:zinc}>Scan all</.button>
       <.link
         navigate={~p"/admin/locations/new"}
-        class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400"
+        class="flex items-center font-bold text-lime-700 hover:underline dark:text-lime-400"
       >
         Add location <.icon name="fa-plus" class="ml-2 h-4 w-4 text-current" />
       </.link>
@@ -92,12 +92,15 @@
           >
             <.icon
               name={(location.enabled && "fa-eye") || "fa-eye-slash"}
-              class="h-4 w-4 text-current transition-colors hover:text-blue-600"
+              class="h-4 w-4 text-current transition-colors hover:text-lime-600 dark:hover:text-lime-400"
             />
           </span>
 
           <.link navigate={~p"/admin/locations/#{location}/edit"} data-role="edit-location">
-            <.icon name="fa-pencil" class="h-4 w-4 text-current transition-colors hover:text-blue-600" />
+            <.icon
+              name="fa-pencil"
+              class="h-4 w-4 text-current transition-colors hover:text-lime-600 dark:hover:text-lime-400"
+            />
           </.link>
 
           <span

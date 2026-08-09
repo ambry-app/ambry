@@ -16,7 +16,7 @@ defmodule AmbryWeb.Admin.Layouts do
     <div id="side-bar-scrim" class="z-[9] bg-black/40 fixed inset-0 hidden lg:hidden" aria-hidden="true" />
     <nav
       id="side-bar"
-      class="absolute inset-0 z-10 h-screen w-64 shrink-0 -translate-x-full transform divide-y divide-zinc-200 border-r border-zinc-200 bg-zinc-50 opacity-0 duration-100 ease-out dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 lg:relative lg:transform-none lg:opacity-100"
+      class="absolute inset-0 z-10 h-screen w-64 shrink-0 -translate-x-full transform bg-zinc-900 opacity-0 duration-100 ease-out lg:relative lg:transform-none lg:opacity-100"
       phx-click-away={Components.close_sidebar()}
       phx-window-keydown={Components.close_sidebar()}
       phx-key="escape"
@@ -115,13 +115,12 @@ defmodule AmbryWeb.Admin.Layouts do
 
   defp nav_class(true),
     do:
-      "flex items-center gap-3 border-l-[3px] border-brand bg-brand/10 px-4 py-2 text-sm font-semibold dark:border-brand-dark dark:bg-brand-dark/10"
+      "border-l-[3px] border-brand-dark bg-brand-dark/10 flex items-center gap-3 px-4 py-2 text-sm font-semibold text-zinc-100"
 
   defp nav_class(false),
     do:
-      "flex items-center gap-3 border-l-[3px] border-transparent px-4 py-2 text-sm hover:bg-zinc-200 dark:hover:bg-zinc-800"
+      "hover:bg-white/5 flex items-center gap-3 border-l-[3px] border-transparent px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200"
 
   defp group_class,
-    do:
-      "px-4 pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400"
+    do: "px-4 pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500"
 end

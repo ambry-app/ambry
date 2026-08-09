@@ -40,7 +40,7 @@ defmodule AmbryWeb.Admin.Components do
 
   defp layout_header(assigns) do
     ~H"""
-    <header id="nav-header" class="space-y-4 border-zinc-100 p-4 dark:border-zinc-900">
+    <header id="nav-header" class="space-y-4 p-4">
       <div class="flex items-center gap-3">
         <span class="cursor-pointer lg:hidden" phx-click={open_sidebar()}>
           <.icon name="fa-bars" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
@@ -49,7 +49,7 @@ defmodule AmbryWeb.Admin.Components do
           <.logo class="h-6 w-6 lg:h-7 lg:w-7" />
           <.title class="hidden h-6 sm:block lg:h-7" />
         </.link>
-        <div class="grow overflow-hidden text-ellipsis whitespace-nowrap pl-0 text-2xl font-bold sm:pl-4 lg:pl-0">
+        <div class="grow overflow-hidden text-ellipsis whitespace-nowrap pl-0 text-2xl font-bold text-zinc-100 sm:pl-4 lg:pl-0">
           {@title}
         </div>
         <div
@@ -88,7 +88,7 @@ defmodule AmbryWeb.Admin.Components do
         <.admin_table_search_form search_form={@search_form} />
       </div>
       <div :if={@new_path}>
-        <.link navigate={@new_path} class="flex items-center font-bold text-lime-500 hover:underline dark:text-lime-400">
+        <.link navigate={@new_path} class="flex items-center font-bold text-lime-700 hover:underline dark:text-lime-400">
           {@new_text} <.icon name="fa-plus" class="ml-2 h-4 w-4 text-current" />
         </.link>
       </div>
@@ -288,6 +288,10 @@ defmodule AmbryWeb.Admin.Components do
   attr :filter, :string, default: nil
   attr :row_click, :any, default: nil
 
+  attr :row_class, :any,
+    default: nil,
+    doc: "optional fun row -> extra classes; how a row wears per-item state (e.g. a state rail)"
+
   slot :empty
   slot :row, required: true
 
@@ -303,7 +307,11 @@ defmodule AmbryWeb.Admin.Components do
       </p>
     <% else %>
       <.admin_table_container>
-        <.admin_table_row :for={row <- @rows} phx-click={@row_click && @row_click.(row)}>
+        <.admin_table_row
+          :for={row <- @rows}
+          class={@row_class && @row_class.(row)}
+          phx-click={@row_click && @row_click.(row)}
+        >
           {render_slot(@row, row)}
         </.admin_table_row>
       </.admin_table_container>
@@ -315,12 +323,15 @@ defmodule AmbryWeb.Admin.Components do
 
   defp admin_table_container(assigns) do
     ~H"""
-    <div class="divide-y divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+    <%!-- Rows are separate raised cards on the ground, not one bordered slab
+          sliced by hairline dividers — elevation and gaps do the separating. --%>
+    <div class="space-y-3">
       {render_slot(@inner_block)}
     </div>
     """
   end
 
+  attr :class, :any, default: nil
   attr :rest, :global
   slot :inner_block, required: true
 
@@ -328,7 +339,13 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <%!-- flex-wrap below sm lets a row's right rail drop to a full-width
           bottom line instead of squeezing the content column on phones. --%>
-    <div class="relative flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 p-4 sm:flex-nowrap" {@rest}>
+    <div
+      class={[
+        "relative flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-zinc-900 p-4 sm:flex-nowrap",
+        @class
+      ]}
+      {@rest}
+    >
       {render_slot(@inner_block)}
     </div>
     """
@@ -360,7 +377,7 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <div
       :if={@busy}
-      class="bg-zinc-200/75 absolute inset-0 z-20 flex items-center justify-center gap-2 rounded-sm dark:bg-zinc-900/80"
+      class="bg-zinc-950/70 backdrop-blur-[1px] absolute inset-0 z-20 flex items-center justify-center gap-2 rounded-lg"
       data-role="busy-overlay"
       aria-live="polite"
       {@rest}
@@ -375,7 +392,7 @@ defmodule AmbryWeb.Admin.Components do
 
   def sort_button_bar(assigns) do
     ~H"""
-    <div class="flex flex-wrap justify-between divide-zinc-200 rounded-sm border border-zinc-200 bg-zinc-50 font-bold dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+    <div class="flex flex-wrap justify-between rounded-lg bg-zinc-900 font-bold">
       {render_slot(@inner_block)}
     </div>
     """
@@ -450,8 +467,11 @@ defmodule AmbryWeb.Admin.Components do
 
   def badge(assigns) do
     ~H"""
+    <%!-- A soft tint with colored text, not a solid bright pill: status is
+          information, and a page of solid chips shouts. Borderless — the
+          admin separates by fill, not hairlines. --%>
     <div
-      class={["inline-block whitespace-nowrap rounded-sm border px-1 text-zinc-900", badge_color(@color), @class]}
+      class={["inline-block whitespace-nowrap rounded-sm px-1.5", badge_color(@color), @class]}
       {@rest}
     >
       {render_slot(@inner_block)}
@@ -475,13 +495,11 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  defp badge_color(:yellow),
-    do: "border-yellow-200 bg-yellow-50 dark:border-yellow-400 dark:bg-yellow-400"
-
-  defp badge_color(:blue), do: "border-blue-200 bg-blue-50 dark:border-blue-400 dark:bg-blue-400"
-  defp badge_color(:red), do: "border-red-200 bg-red-50 dark:border-red-400 dark:bg-red-400"
-  defp badge_color(:brand), do: "border-lime-200 bg-lime-50 dark:border-lime-400 dark:bg-lime-400"
-  defp badge_color(:gray), do: "border-zinc-200 bg-zinc-100 dark:border-zinc-400 dark:bg-zinc-400"
+  defp badge_color(:yellow), do: "bg-amber-400/15 text-amber-300"
+  defp badge_color(:blue), do: "bg-blue-400/15 text-blue-300"
+  defp badge_color(:red), do: "bg-red-400/15 text-red-300"
+  defp badge_color(:brand), do: "bg-brand-dark/15 text-lime-300"
+  defp badge_color(:gray), do: "bg-white/10 text-zinc-300"
 
   attr :field, FormField, required: true
 
@@ -571,7 +589,10 @@ defmodule AmbryWeb.Admin.Components do
         data-role="move-up"
         class="disabled:opacity-25"
       >
-        <.icon name="fa-chevron-up" class="h-3 w-3 text-current transition-colors hover:text-blue-600" />
+        <.icon
+          name="fa-chevron-up"
+          class="h-3 w-3 text-current transition-colors hover:text-lime-600 dark:hover:text-lime-400"
+        />
       </button>
       <button
         type="button"
@@ -584,7 +605,10 @@ defmodule AmbryWeb.Admin.Components do
         data-role="move-down"
         class="disabled:opacity-25"
       >
-        <.icon name="fa-chevron-down" class="h-3 w-3 text-current transition-colors hover:text-blue-600" />
+        <.icon
+          name="fa-chevron-down"
+          class="h-3 w-3 text-current transition-colors hover:text-lime-600 dark:hover:text-lime-400"
+        />
       </button>
     </div>
     """
@@ -600,7 +624,7 @@ defmodule AmbryWeb.Admin.Components do
       name={@field.name <> "[]"}
       value="new"
       phx-click={JS.dispatch("change")}
-      class="text-brand flex cursor-pointer items-center gap-1 hover:underline dark:text-brand-dark"
+      class="flex cursor-pointer items-center gap-1 text-lime-700 hover:underline dark:text-brand-dark"
     >
       {render_slot(@inner_block)}
       <.icon name="fa-plus" class="h-4 w-4 text-current" />

@@ -15,7 +15,7 @@
         <.input field={@form[:title]} label="Title" />
 
         <div :if={@import_providers != []} class="row-start-1 space-y-2 sm:col-start-2">
-          <.label>Import from:</.label>
+          <.label>Import from</.label>
           <div class="flex flex-wrap items-center gap-2">
             <.button
               :for={provider <- @import_providers}
@@ -39,7 +39,7 @@
             label="Date display format"
             options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
           />
-          <span class="text-sm italic dark:text-zinc-500">
+          <span class="text-sm text-zinc-500 dark:text-zinc-400">
             {preview_date_format(@form)}
           </span>
         </div>

@@ -47,6 +47,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
 
                 <.button
                   :if={length(providers_for_level(@providers, level)) > 1}
+                  color={:zinc}
                   phx-click="move"
                   phx-value-id={entry.id}
                   phx-value-direction="up"
@@ -57,6 +58,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
                 </.button>
                 <.button
                   :if={length(providers_for_level(@providers, level)) > 1}
+                  color={:zinc}
                   phx-click="move"
                   phx-value-id={entry.id}
                   phx-value-direction="down"
@@ -66,7 +68,12 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
                   <.icon name="fa-chevron-down" class="h-3 w-3" />
                 </.button>
 
-                <.button phx-click="toggle" phx-value-id={entry.id} class="!px-2 !py-1">
+                <.button
+                  color={(entry.enabled && :zinc) || :brand}
+                  phx-click="toggle"
+                  phx-value-id={entry.id}
+                  class="!px-2 !py-1"
+                >
                   {(entry.enabled && "Disable") || "Enable"}
                 </.button>
               </div>
@@ -110,6 +117,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
                   <.button type="submit">Save</.button>
                   <.button
                     type="button"
+                    color={:zinc}
                     phx-click="clear-cache"
                     phx-value-id={entry.id}
                     data-confirm={"Clear all cached #{entry.display_name} responses?"}
@@ -122,6 +130,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
               <div :if={entry.module.config_fields() == []} class="mt-4">
                 <.button
                   type="button"
+                  color={:zinc}
                   phx-click="clear-cache"
                   phx-value-id={entry.id}
                   data-confirm={"Clear all cached #{entry.display_name} responses?"}

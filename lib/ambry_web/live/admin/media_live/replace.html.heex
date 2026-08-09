@@ -24,11 +24,11 @@
 
     <div class="space-y-2">
       <.label>Current audio file(s)</.label>
-      <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
-        <p :if={@media.source_files == []} class="text-sm italic text-zinc-500">
+      <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-950">
+        <p :if={@media.source_files == []} class="text-sm text-zinc-500 dark:text-zinc-400">
           No source files on record.
         </p>
-        <p :for={file <- @media.source_files} class="text-sm italic">
+        <p :for={file <- @media.source_files} class="text-sm">
           {Path.basename(file)}
         </p>
       </div>
@@ -64,7 +64,7 @@
           <div>
             <div class="flex items-center rounded-sm rounded-b-none border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 sm:text-sm sm:leading-6">
               <button
-                class="py-[7px] px-[11px] bg-zinc-600 font-bold text-zinc-100 hover:bg-zinc-500"
+                class="py-[7px] px-[11px] bg-zinc-200 font-bold text-zinc-800 hover:bg-zinc-300 dark:bg-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-500"
                 type="button"
                 phx-click={open_file_browser(@media)}
               >
@@ -74,7 +74,7 @@
                 {Enum.count(@selected_files)} File(s) selected
               </p>
             </div>
-            <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
+            <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-950">
               <.icon
                 :if={Enum.empty?(@selected_files)}
                 name="fa-file-circle-exclamation"

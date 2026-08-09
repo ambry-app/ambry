@@ -23,7 +23,7 @@
         <.input field={@form[:name]} label="Name" />
 
         <div :if={@providers != []} class="row-start-1 space-y-2 sm:col-start-2">
-          <.label>Import from:</.label>
+          <.label>Import from</.label>
           <div class="flex items-center gap-2">
             <.button
               :for={provider <- @providers}

@@ -15,7 +15,7 @@
       <%!-- The filters are the queue's primary navigation — a segmented
             control, not a row of text links. Counts ride along so the state
             of the queue is readable without clicking anything. --%>
-      <div class="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-sm border border-zinc-300 bg-zinc-100 p-0.5 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div class="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-zinc-900 p-1 text-sm">
         <span phx-click="filter-status" phx-value-status="all" class={segment_class(!@status && !@ready)}>
           All
         </span>
@@ -40,7 +40,7 @@
     </div>
   </:subheader>
 
-  <.flex_table rows={@items} filter={@list_opts.filter}>
+  <.flex_table rows={@items} filter={@list_opts.filter} row_class={&rail_class/1}>
     <:empty>
       Nothing waiting. Use <span class="font-bold">Scan for new</span> to look in the watched folder.
     </:empty>
@@ -153,9 +153,9 @@
             <span
               :if={file_count(item) > 1}
               title="Audio files"
-              class="rounded-sm bg-zinc-100 px-1.5 py-0.5 tabular-nums dark:bg-zinc-800"
+              class="bg-white/10 rounded-sm px-1.5 py-0.5 tabular-nums"
             >
-              <span class="font-bold text-zinc-700 dark:text-zinc-300">{file_count(item)}</span> files
+              <span class="font-bold text-zinc-300">{file_count(item)}</span> files
             </span>
             <span :if={item.tags && item.tags["asin"]} title={"ASIN #{item.tags["asin"]}"}>
               <.icon name="fa-tag" class="inline h-3.5 w-3.5 text-current" />

@@ -8,7 +8,7 @@
 
     <div class="max-w-4xl space-y-14 pb-16" inert={@busy}>
       <%!-- the evidence: what was found, before anybody interpreted it --%>
-      <section class="space-y-1 rounded-sm border border-zinc-300 p-4 dark:border-zinc-700">
+      <section class="space-y-1 rounded-lg bg-zinc-900 p-4">
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
             <p class="truncate font-bold">{@page_title}</p>
@@ -87,7 +87,7 @@
       <%!-- The invariant, rendered. Nothing here is a surprise at import time. --%>
       <section
         :if={@unresolved != []}
-        class="bg-amber-500/5 border-amber-500/70 rounded-sm border p-4"
+        class="border-amber-400/80 rounded-lg border-l-4 bg-zinc-900 p-4"
         data-role="unresolved"
       >
         <p class="font-bold">Still to settle</p>
@@ -121,7 +121,7 @@
 
       <%!-- ==================== THE WORK ==================== --%>
       <section id="work" class="space-y-7">
-        <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">
+        <h2 class="text-xl font-bold text-zinc-100">
           The work — which book this is a recording of
         </h2>
 
@@ -129,7 +129,13 @@
             records below: linking creates nothing and inherits the book's
             curation, importing a record creates a Book. Ranking the two
             together made the form ask one question that was really two. --%>
-        <div class="space-y-2" data-role="local-books">
+        <div
+          class={[
+            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+            (@item.draft.work.approved && "border-brand-dark/60") || "border-amber-400/70"
+          ]}
+          data-role="local-books"
+        >
           <div class="flex items-center gap-2 pl-3">
             <.label>Is this a book you already have?</.label>
             <.badge
@@ -192,22 +198,22 @@
             type="button"
             phx-click="new-book"
             class={[
-              "flex items-center gap-1.5 rounded-sm border px-2.5 py-1.5 text-sm",
+              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm",
               (@item.draft.work.mode == :create and @item.draft.work.approved) &&
-                "border-brand bg-brand/10 dark:border-brand-dark dark:bg-brand-dark/10",
+                "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
               !(@item.draft.work.mode == :create and @item.draft.work.approved) &&
-                "border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+                "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
             ]}
           >
             <.icon
               :if={@item.draft.work.mode == :create and @item.draft.work.approved}
               name="fa-check"
-              class="h-3 w-3 flex-none text-lime-700 dark:text-brand-dark"
+              class="text-brand-dark h-3 w-3 flex-none"
             /> No — this is a different book
           </button>
         </div>
 
-        <div class="space-y-2">
+        <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
           <div class="flex items-center gap-2 pl-3">
             <.label>
               {if @item.draft.work.mode == :link,
@@ -229,7 +235,7 @@
               look different or the empty fields below are unexplained. --%>
           <p
             :if={doubt_message(@item.draft.work)}
-            class="bg-amber-500/10 border-amber-500/70 rounded-sm border p-3 text-sm"
+            class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
             data-role="work-doubt"
           >
             {doubt_message(@item.draft.work)}
@@ -277,7 +283,7 @@
             memberships remain to decide. --%>
         <p
           :if={@item.draft.work.mode == :link}
-          class="rounded-sm bg-zinc-100 p-3 text-sm dark:bg-zinc-800"
+          class="rounded-lg bg-zinc-900 p-4 text-sm"
         >
           Using the book already in the library. Its title, date and authors are left exactly as they
           are — an import fills blanks, it never overwrites curation.
@@ -334,7 +340,7 @@
         <%!-- credits: "Credited as" / "Written by" --%>
         <div :if={@item.draft.work.mode == :create} class="space-y-2">
           <.label class="pl-3">Authors</.label>
-          <p :if={@item.draft.work.authors == []} class="text-sm text-zinc-500 dark:text-zinc-400">
+          <p :if={@item.draft.work.authors == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
             No author was proposed.
           </p>
 
@@ -374,7 +380,7 @@
             already there.
           </p>
 
-          <p :if={@item.draft.work.series == []} class="text-sm text-zinc-500 dark:text-zinc-400">
+          <p :if={@item.draft.work.series == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
             No series was proposed.
           </p>
 
@@ -389,12 +395,15 @@
 
       <%!-- ==================== THE RECORDING ==================== --%>
       <section id="recording" class="space-y-7">
-        <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">
+        <h2 class="text-xl font-bold text-zinc-100">
           The recording — which reading of it these files are
         </h2>
 
-        <div class="space-y-2">
-          <div class="flex items-center gap-2">
+        <div class={[
+          "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+          (@item.draft.recording.approved && "border-brand-dark/60") || "border-amber-400/70"
+        ]}>
+          <div class="flex items-center gap-2 pl-3">
             <.label>Records describing this recording</.label>
             <.badge
               :if={!@item.draft.recording.approved}
@@ -418,14 +427,15 @@
               the whole difference between "tick one" and "type it in". --%>
           <p
             :if={doubt_message(@item.draft.recording)}
-            class="bg-amber-500/10 border-amber-500/70 rounded-sm border p-3 text-sm"
+            class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
             data-role="doubt"
           >
             {doubt_message(@item.draft.recording)}
           </p>
 
           <p :if={records(@item, "recording") != []} class="text-sm text-zinc-500 dark:text-zinc-400">
-            Tick every record of <em>this reading</em> — the narrator is what tells two recordings of
+            Tick every record of <span class="font-semibold">this reading</span>
+            — the narrator is what tells two recordings of
             one book apart, so check it before ticking. Databases keep editions the storefront has
             delisted, which is often the only place an older reading still exists.
           </p>
@@ -449,9 +459,11 @@
               type="button"
               phx-click="uncatalogued"
               class={[
-                "rounded-sm border px-2 py-1 text-xs",
-                Recording.uncatalogued?(@item.draft.recording) && "border-brand dark:border-brand-dark",
-                !Recording.uncatalogued?(@item.draft.recording) && "border-zinc-300 dark:border-zinc-700"
+                "rounded-md px-2 py-1 text-xs",
+                Recording.uncatalogued?(@item.draft.recording) &&
+                  "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
+                !Recording.uncatalogued?(@item.draft.recording) &&
+                  "border border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
               ]}
             >
               None of these — it's in no catalogue
@@ -544,7 +556,7 @@
 
         <div class="space-y-2">
           <.label class="pl-3">Narrators</.label>
-          <p :if={@item.draft.recording.narrators == []} class="text-sm text-zinc-500 dark:text-zinc-400">
+          <p :if={@item.draft.recording.narrators == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
             No narrator was proposed.
           </p>
 
@@ -573,17 +585,19 @@
 
       <%!-- ==================== CHAPTERS ==================== --%>
       <section class="space-y-2">
-        <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">Chapters</h2>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400">{chapter_summary(@item)}</p>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400">
-          Markers are taken from the file and never from a provider — provider timestamps describe
-          their own edition, not this rip.
-        </p>
+        <h2 class="text-xl font-bold text-zinc-100">Chapters</h2>
+        <div class="space-y-1 rounded-lg bg-zinc-900 p-4">
+          <p class="text-sm text-zinc-300">{chapter_summary(@item)}</p>
+          <p class="text-sm text-zinc-400">
+            Markers are taken from the file and never from a provider — provider timestamps describe
+            their own edition, not this rip.
+          </p>
+        </div>
       </section>
 
       <%!-- ==================== FILES & DESTINATION ==================== --%>
       <section id="destination" class="space-y-2">
-        <h2 class="border-b border-zinc-300 pb-1 text-xl font-bold dark:border-zinc-700">
+        <h2 class="text-xl font-bold text-zinc-100">
           Files &amp; destination
         </h2>
 
@@ -593,8 +607,14 @@
 
         <%!-- Any input may feed any output, so the root is chosen here rather
             than fixed on the watched folder. With one root this never asks. --%>
-        <div :if={@item.draft.destination && @item.draft.destination.custody == :managed}>
-          <div class="flex items-center gap-2">
+        <div
+          :if={@item.draft.destination && @item.draft.destination.custody == :managed}
+          class={[
+            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+            (@item.draft.destination.approved && "border-brand-dark/60") || "border-amber-400/70"
+          ]}
+        >
+          <div class="flex items-center gap-2 pl-3">
             <.label>Library root</.label>
             <.badge
               :if={!@item.draft.destination.approved}
@@ -631,13 +651,11 @@
           {@destination.blocker}
         </p>
 
-        <ul class="pt-2">
-          <li :for={file <- @item.files} class="font-mono truncate text-xs text-zinc-500 dark:text-zinc-400">{file}</li>
-        </ul>
+        <.file_list files={@item.files} />
       </section>
 
       <%!-- ==================== THE BUTTON ==================== --%>
-      <section class="sticky bottom-0 border-t border-zinc-300 bg-white py-4 dark:border-zinc-700 dark:bg-zinc-900">
+      <section class="shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 rounded-t-lg bg-zinc-900 p-4">
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
           <.button
             phx-click="import"

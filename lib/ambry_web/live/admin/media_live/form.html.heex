@@ -19,7 +19,7 @@
         <.input field={@form[:book_id]} label="Book" type="autocomplete" options={@books} />
 
         <div class="row-start-1 space-y-2 sm:col-start-2">
-          <.label>Import from:</.label>
+          <.label>Import from</.label>
           <div class="flex flex-wrap items-center gap-2">
             <.button
               :for={provider <- @recording_providers}
@@ -45,7 +45,7 @@
             label="Date display format"
             options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
           />
-          <span class="text-sm italic dark:text-zinc-500">
+          <span class="text-sm text-zinc-500 dark:text-zinc-400">
             {preview_date_format(@form)}
           </span>
         </div>
@@ -220,8 +220,8 @@
 
       <div :if={@live_action == :edit} class="space-y-2">
         <.label>Audio file(s)</.label>
-        <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
-          <p :for={file <- @media.source_files} class="text-sm italic">
+        <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-950">
+          <p :for={file <- @media.source_files} class="text-sm">
             {Path.basename(file)}
           </p>
         </div>
@@ -257,7 +257,7 @@
           <div>
             <div class="flex items-center rounded-sm rounded-b-none border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 sm:text-sm sm:leading-6">
               <button
-                class="py-[7px] px-[11px] bg-zinc-600 font-bold text-zinc-100 hover:bg-zinc-500"
+                class="py-[7px] px-[11px] bg-zinc-200 font-bold text-zinc-800 hover:bg-zinc-300 dark:bg-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-500"
                 type="button"
                 phx-click={open_file_browser(@media)}
               >
@@ -267,7 +267,7 @@
                 {Enum.count(@selected_files)} File(s) selected
               </p>
             </div>
-            <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
+            <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-950">
               <.icon
                 :if={Enum.empty?(@selected_files)}
                 name="fa-file-circle-exclamation"
@@ -286,7 +286,7 @@
           <.label>Streaming files</.label>
           <button
             type="button"
-            class="flex grow items-center text-lime-500 hover:underline"
+            class="flex grow items-center text-lime-700 hover:underline dark:text-lime-400"
             phx-click={JS.toggle(to: ".files-list-toggle")}
           >
             <span class="files-list-toggle">show</span>
@@ -330,7 +330,7 @@
             <div>
               <button
                 type="button"
-                class="flex items-center pt-2 text-lime-500 hover:underline"
+                class="flex items-center pt-2 text-lime-700 hover:underline dark:text-lime-400"
                 phx-click={JS.toggle(to: ".source-list-toggle")}
               >
                 <span class="source-list-toggle">show source files</span>
