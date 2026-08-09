@@ -27,7 +27,7 @@ defmodule AmbryWeb.PersonLive do
           />
         </section>
         <section :if={@person.description} id="description" class="sm:ml-10 md:ml-12 lg:ml-16">
-          <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl xl:text-5xl">
+          <h1 class="text-3xl font-bold text-zinc-100 sm:text-4xl xl:text-5xl">
             {@person.name}
           </h1>
           <div
@@ -39,10 +39,10 @@ defmodule AmbryWeb.PersonLive do
           >
             <div class="markdown relative mt-4 max-h-44 max-w-md overflow-y-hidden sm:max-h-56">
               <.markdown content={@person.description} />
-              <div class="absolute bottom-0 hidden h-4 w-full bg-gradient-to-b from-transparent to-white dark:to-black" />
+              <div class="absolute bottom-0 hidden h-4 w-full bg-gradient-to-b from-transparent to-black" />
             </div>
             <p class="text-right">
-              <span class="text-brand cursor-pointer font-semibold hover:underline dark:text-brand-dark" />
+              <span class="text-brand-dark cursor-pointer font-semibold hover:underline" />
             </p>
           </div>
         </section>

@@ -1,22 +1,12 @@
 <!DOCTYPE html>
-<html lang="en" style="scrollbar-gutter: stable;">
+<%!-- Ambry is dark-only, everywhere, by decision (2026-08-09): one theme,
+      half the styling overhead. There is no theme machinery left — every
+      class is an absolute color; color-scheme keeps native controls dark. --%>
+<html lang="en" style="scrollbar-gutter: stable; color-scheme: dark;">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <script type="text/javascript">
-      // Tailwind runs dark mode off a class (so the admin can force it);
-      // out here the class just mirrors the OS preference. Runs inline,
-      // before first paint, to avoid a flash of the wrong theme.
-      (function () {
-        var media = window.matchMedia("(prefers-color-scheme: dark)")
-        var apply = function () {
-          document.documentElement.classList.toggle("dark", media.matches)
-        }
-        apply()
-        media.addEventListener("change", apply)
-      })();
-    </script>
     <link rel="icon" type="image/svg+xml" href={~p"/favicon.svg"} />
     <link rel="icon" type="image/png" href={~p"/favicon.png"} sizes="16x16" />
     <link rel="icon" type="image/png" href={~p"/favicon-32x32.png"} sizes="32x32" />
@@ -53,7 +43,7 @@
       // end viewport fix
     </script>
   </head>
-  <body class="bg-white text-zinc-800 selection:bg-brand selection:text-white dark:bg-black dark:text-zinc-200 dark:selection:bg-brand-dark dark:selection:text-black">
+  <body class="bg-black text-zinc-200 selection:bg-brand-dark selection:text-black">
     <%= if @current_user do %>
       <%!-- Root layout for the app --%>
       <div class="flex h-screen flex-col">

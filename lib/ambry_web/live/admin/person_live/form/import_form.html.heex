@@ -38,7 +38,7 @@
 
       <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
         <.import_form_row :if={author.name != ""} field={@form[:use_name]} label="Name">
-          <div class="py-[7px] px-[11px] rounded-sm border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+          <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
             {author.name}
           </div>
         </.import_form_row>
@@ -46,7 +46,7 @@
         <.import_form_row :if={author.description} field={@form[:use_description]} label="Description">
           <.markdown
             content={author.description}
-            class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-300 bg-white p-2 dark:border-zinc-600 dark:bg-zinc-800"
+            class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-600 bg-zinc-800 p-2"
           />
         </.import_form_row>
 

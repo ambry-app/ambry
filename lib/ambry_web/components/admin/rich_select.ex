@@ -59,7 +59,7 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
     ~H"""
     <div class="cursor-pointer" phx-click-away="close" phx-target={@myself}>
       <div
-        class="py-[7px] px-[11px] flex items-center rounded-sm border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+        class="py-[7px] px-[11px] flex items-center rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300"
         phx-click="toggle"
         phx-target={@myself}
       >
@@ -75,15 +75,12 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
 
       <div class="relative w-full">
         <div class={[
-          "absolute top-0 right-0 left-0 max-h-96 overflow-y-auto rounded-sm border border-t-0 border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-950",
+          "absolute top-0 right-0 left-0 max-h-96 overflow-y-auto rounded-sm border border-t-0 border-zinc-600 bg-zinc-950 shadow-lg",
           if(!@open, do: "hidden")
         ]}>
           <div
             :for={option <- @options}
-            class={[
-              "relative hover:bg-zinc-100 dark:hover:bg-zinc-900",
-              if(option == @selected_option, do: "bg-zinc-100 dark:bg-zinc-900")
-            ]}
+            class={["relative hover:bg-zinc-900", if(option == @selected_option, do: "bg-zinc-900")]}
           >
             <label class="absolute inset-0 cursor-pointer">
               <.radio_input field={@field} value={@option_value.(option)} />

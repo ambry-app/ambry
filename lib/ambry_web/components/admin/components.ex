@@ -88,7 +88,7 @@ defmodule AmbryWeb.Admin.Components do
         <.admin_table_search_form search_form={@search_form} />
       </div>
       <div :if={@new_path}>
-        <.link navigate={@new_path} class="flex items-center font-bold text-lime-700 hover:underline dark:text-lime-400">
+        <.link navigate={@new_path} class="flex items-center font-bold text-lime-400 hover:underline">
           {@new_text} <.icon name="fa-plus" class="ml-2 h-4 w-4 text-current" />
         </.link>
       </div>
@@ -106,14 +106,14 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <.menu_wrapper id="admin-user-menu" user={@user}>
       <div class="py-3">
-        <.link navigate={~p"/"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
+        <.link navigate={~p"/"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-700">
           <.icon name="fa-arrow-right-from-bracket" class="scale-[-1] h-5 w-5 text-current" />
           <p>Exit Admin</p>
         </.link>
         <.link
           href={~p"/users/log_out"}
           method="delete"
-          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
+          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-700"
         >
           <.icon name="fa-arrow-right-from-bracket" class="h-5 w-5 text-current" />
           <p>Log out</p>
@@ -156,7 +156,7 @@ defmodule AmbryWeb.Admin.Components do
       <div class="relative max-w-md">
         <.icon
           name="fa-magnifying-glass"
-          class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500"
+          class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500"
         />
         <input
           id={@search_form.id}
@@ -164,7 +164,7 @@ defmodule AmbryWeb.Admin.Components do
           name={@search_form[:query].name}
           value={@search_form[:query].value}
           placeholder="Search"
-          class="w-full rounded-sm border border-zinc-300 bg-white py-1.5 pr-3 pl-9 text-sm text-zinc-900 placeholder:text-zinc-500 focus:ring-lime-500/20 focus:border-lime-500 focus:outline-none focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-lime-400"
+          class="w-full rounded-sm border border-zinc-700 bg-zinc-800 py-1.5 pr-3 pl-9 text-sm text-zinc-200 placeholder:text-zinc-500 focus:ring-lime-500/20 focus:border-lime-400 focus:outline-none focus:ring-2"
         />
       </div>
     </.form>
@@ -181,11 +181,11 @@ defmodule AmbryWeb.Admin.Components do
       <.link patch={@to} class="cursor-pointer">
         <.icon
           name={@name}
-          class="h-5 w-5 text-current text-zinc-600 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-100"
+          class="h-5 w-5 text-zinc-500 hover:text-zinc-100"
         />
       </.link>
     <% else %>
-      <.icon name={@name} class="h-5 w-5 text-current dark:text-zinc-900" />
+      <.icon name={@name} class="h-5 w-5 text-zinc-900" />
     <% end %>
     """
   end
@@ -217,9 +217,8 @@ defmodule AmbryWeb.Admin.Components do
 
     row_class =
       if assigns.row_click,
-        do:
-          "border-t border-zinc-200 hover:bg-zinc-200 dark:border-zinc-800 dark:hover:bg-zinc-700",
-        else: "border-t border-zinc-200 dark:border-zinc-800"
+        do: "border-t border-zinc-800 hover:bg-zinc-700",
+        else: "border-t border-zinc-800"
 
     assigns =
       assign(assigns,
@@ -229,7 +228,7 @@ defmodule AmbryWeb.Admin.Components do
       )
 
     ~H"""
-    <div class="rounded-sm border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
+    <div class="rounded-sm border border-zinc-800 bg-zinc-900">
       <%= if @rows == [] do %>
         <div class="p-3">
           {render_slot(@no_results)}
@@ -382,8 +381,8 @@ defmodule AmbryWeb.Admin.Components do
       aria-live="polite"
       {@rest}
     >
-      <.icon name="fa-rotate" class="h-4 w-4 animate-spin text-zinc-600 dark:text-zinc-300" />
-      <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{@label}</span>
+      <.icon name="fa-rotate" class="h-4 w-4 animate-spin text-zinc-300" />
+      <span class="text-sm font-semibold text-zinc-200">{@label}</span>
     </div>
     """
   end
@@ -489,7 +488,7 @@ defmodule AmbryWeb.Admin.Components do
 
   def microlabel(assigns) do
     ~H"""
-    <span class={["text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400", @class]}>
+    <span class={["text-[11px] font-medium uppercase tracking-wider text-zinc-400", @class]}>
       {render_slot(@inner_block)}
     </span>
     """
@@ -591,7 +590,7 @@ defmodule AmbryWeb.Admin.Components do
       >
         <.icon
           name="fa-chevron-up"
-          class="h-3 w-3 text-current transition-colors hover:text-lime-600 dark:hover:text-lime-400"
+          class="h-3 w-3 text-current transition-colors hover:text-lime-400"
         />
       </button>
       <button
@@ -607,7 +606,7 @@ defmodule AmbryWeb.Admin.Components do
       >
         <.icon
           name="fa-chevron-down"
-          class="h-3 w-3 text-current transition-colors hover:text-lime-600 dark:hover:text-lime-400"
+          class="h-3 w-3 text-current transition-colors hover:text-lime-400"
         />
       </button>
     </div>
@@ -624,7 +623,7 @@ defmodule AmbryWeb.Admin.Components do
       name={@field.name <> "[]"}
       value="new"
       phx-click={JS.dispatch("change")}
-      class="flex cursor-pointer items-center gap-1 text-lime-700 hover:underline dark:text-brand-dark"
+      class="text-brand-dark flex cursor-pointer items-center gap-1 hover:underline"
     >
       {render_slot(@inner_block)}
       <.icon name="fa-plus" class="h-4 w-4 text-current" />
@@ -643,7 +642,7 @@ defmodule AmbryWeb.Admin.Components do
         <.input type="checkbox" field={@field} />
       </div>
       <label for={@field.id} class="grow cursor-pointer space-y-2">
-        <span class="text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200">
+        <span class="text-sm font-semibold leading-6 text-zinc-200">
           {@label}
         </span>
         {render_slot(@inner_block)}
@@ -672,16 +671,16 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <div :if={@record.id} class="max-w-lg space-y-2">
       <.label>Metadata provenance</.label>
-      <div class="divide-y divide-zinc-200 rounded-sm border border-zinc-200 text-sm dark:divide-zinc-800 dark:border-zinc-800">
+      <div class="divide-y divide-zinc-800 rounded-sm border border-zinc-800 text-sm">
         <div :for={field <- @fields} class="flex items-center gap-2 px-3 py-2">
-          <span class="w-36 shrink-0 font-semibold text-zinc-800 dark:text-zinc-200">
+          <span class="w-36 shrink-0 font-semibold text-zinc-200">
             {Phoenix.Naming.humanize(field)}
           </span>
-          <span class="grow text-zinc-600 dark:text-zinc-400">
+          <span class="grow text-zinc-400">
             {provenance_description(@record, field)}
             <span
               :if={pending = provenance_pending(@record, @changeset, @pending_sources, field)}
-              class="text-amber-600 dark:text-amber-500"
+              class="text-amber-500"
             >
               → after save: {provenance_source_label(pending["source"])} ({(pending["locked"] &&
                                                                               "locked") ||
@@ -778,30 +777,30 @@ defmodule AmbryWeb.Admin.Components do
       />
       <div>
         <p class="font-bold">{@book.title}</p>
-        <p :if={@book.authors != []} class="text-zinc-600 dark:text-zinc-400">
+        <p :if={@book.authors != []} class="text-zinc-400">
           by
           <span :for={author <- @book.authors} class="group">
             <span>{author.name}</span>
             <br class="group-last:hidden" />
           </span>
         </p>
-        <p :if={@book.narrators != []} class="text-zinc-600 dark:text-zinc-400">
+        <p :if={@book.narrators != []} class="text-zinc-400">
           Narrated by
           <span :for={narrator <- @book.narrators} class="group">
             <span>{narrator.name}</span>
             <br class="group-last:hidden" />
           </span>
         </p>
-        <p :if={@book.series != []} class="text-xs text-zinc-600 dark:text-zinc-400">
+        <p :if={@book.series != []} class="text-xs text-zinc-400">
           <span :for={series <- @book.series} class="group">
             <span>{series.name} #{series.number}</span>
             <br class="group-last:hidden" />
           </span>
         </p>
-        <p :if={@book.published} class="text-xs text-zinc-600 dark:text-zinc-400">
+        <p :if={@book.published} class="text-xs text-zinc-400">
           Published {display_date(@book.published)}<span :if={@book.publisher}> by {@book.publisher}</span>
         </p>
-        <p :if={@book.format} class="text-xs text-zinc-600 dark:text-zinc-400">{@book.format}</p>
+        <p :if={@book.format} class="text-xs text-zinc-400">{@book.format}</p>
         <div :for={action <- @actions}>
           {render_slot(action)}
         </div>
@@ -825,7 +824,7 @@ defmodule AmbryWeb.Admin.Components do
 
   def multi_image(%{paths: []} = assigns) do
     ~H"""
-    <div class="h-16 w-16 bg-zinc-200 dark:bg-zinc-800" />
+    <div class="h-16 w-16 bg-zinc-800" />
     """
   end
 
@@ -847,7 +846,7 @@ defmodule AmbryWeb.Admin.Components do
       <img src={@path2} class="translate-x-[2px] translate-y-[2px] absolute top-0 left-0 h-full w-full scale-95" />
       <img
         src={@path1}
-        class="-translate-x-[2px] -translate-y-[2px] absolute top-0 left-0 h-full w-full scale-95 border border-zinc-200 shadow-md dark:border-zinc-800"
+        class="-translate-x-[2px] -translate-y-[2px] absolute top-0 left-0 h-full w-full scale-95 border border-zinc-800 shadow-md"
       />
     </div>
     """
@@ -861,11 +860,11 @@ defmodule AmbryWeb.Admin.Components do
       <img src={@path3} class="absolute top-0 left-0 h-full w-full translate-x-1 translate-y-1 scale-90" />
       <img
         src={@path2}
-        class="absolute top-0 left-0 h-full w-full scale-90 border border-zinc-200 shadow-md dark:border-zinc-800"
+        class="absolute top-0 left-0 h-full w-full scale-90 border border-zinc-800 shadow-md"
       />
       <img
         src={@path1}
-        class="absolute top-0 left-0 h-full w-full -translate-x-1 -translate-y-1 scale-90 border border-zinc-200 shadow-md dark:border-zinc-800"
+        class="absolute top-0 left-0 h-full w-full -translate-x-1 -translate-y-1 scale-90 border border-zinc-800 shadow-md"
       />
     </div>
     """

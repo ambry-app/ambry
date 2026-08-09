@@ -17,7 +17,7 @@ defmodule AmbryWeb.FirstTimeSetup.SetupLive do
       <.header>
         First Time Setup
         <:subtitle>
-          Welcome to <span class="text-brand font-semibold dark:text-brand-dark">Ambry</span>!
+          Welcome to <span class="text-brand-dark font-semibold">Ambry</span>!
           To get started, let's create the admin user account that will be managing this server.
         </:subtitle>
       </.header>

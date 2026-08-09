@@ -84,7 +84,7 @@ defmodule AmbryWeb.CoreComponents do
     >
       <div
         id={"#{@id}-bg"}
-        class="border-brand bg-white/90 fixed inset-0 border-l-4 backdrop-blur transition-opacity dark:border-brand-dark dark:bg-black/90"
+        class="border-brand-dark bg-black/90 fixed inset-0 border-l-4 backdrop-blur transition-opacity"
         aria-hidden="true"
       />
       <div
@@ -148,8 +148,8 @@ defmodule AmbryWeb.CoreComponents do
       class={[
         "fixed top-2 right-2 z-50 w-80 rounded-sm p-3 shadow-md ring-1 sm:w-96",
         "shadow-zinc-900/5 fill-zinc-900 text-zinc-900",
-        @kind == :info && "bg-lime-50 ring-lime-200 dark:bg-lime-400 dark:ring-lime-400",
-        @kind == :error && "bg-red-50 ring-red-200 dark:bg-red-400 dark:ring-red-400"
+        @kind == :info && "bg-lime-400 ring-lime-400",
+        @kind == :error && "bg-red-400 ring-red-400"
       ]}
       {@rest}
     >
@@ -283,21 +283,21 @@ defmodule AmbryWeb.CoreComponents do
   # actions are outlined red — visible without shouting. Every variant carries
   # a border so the variants line up at the same height.
   defp button_color_classes(:brand) do
-    "border-transparent bg-brand text-zinc-900 hover:bg-lime-600 dark:bg-brand-dark dark:hover:bg-lime-500"
+    "border-transparent text-zinc-900 bg-brand-dark hover:bg-lime-500"
   end
 
   defp button_color_classes(:yellow) do
-    "border-transparent bg-yellow-500 text-zinc-900 hover:bg-yellow-600 dark:bg-yellow-400 dark:hover:bg-yellow-500"
+    "border-transparent text-zinc-900 bg-yellow-400 hover:bg-yellow-500"
   end
 
   # In dark themes the secondary/danger costumes are quiet fills rather than
   # outlines — outlined buttons put yet more 1px lines on a dark ground.
   defp button_color_classes(:red) do
-    "dark:bg-red-400/10 dark:hover:bg-red-400/20 border-red-600 bg-transparent text-red-600 hover:bg-red-600/10 dark:border-transparent dark:text-red-300"
+    "bg-red-400/10 hover:bg-red-400/20 border-transparent text-red-300"
   end
 
   defp button_color_classes(:zinc) do
-    "border-zinc-400 bg-transparent text-zinc-900 hover:bg-zinc-900/5 dark:border-transparent dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+    "border-transparent bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
   end
 
   @doc """
@@ -365,12 +365,7 @@ defmodule AmbryWeb.CoreComponents do
           name={@name}
           value="true"
           checked={@checked}
-          class={[
-            "rounded",
-            "border-zinc-300 bg-white text-lime-600 focus:ring-lime-600",
-            "dark:border-zinc-600 dark:bg-zinc-800 dark:text-lime-600 dark:focus:ring-lime-500",
-            @class
-          ]}
+          class={["rounded", "border-zinc-600 bg-zinc-800 text-lime-600 focus:ring-lime-500", @class]}
           {@rest}
         />
         {@label}
@@ -509,15 +504,14 @@ defmodule AmbryWeb.CoreComponents do
               "!text-zinc-500 block w-full rounded-sm rounded-b-none border p-0",
               "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
               "file:p-[11px] file:cursor-pointer file:rounded-none file:border-0",
-              "file:bg-zinc-200 file:font-bold file:text-zinc-800 hover:file:bg-zinc-300",
-              "dark:file:bg-zinc-600 dark:file:text-zinc-100 dark:hover:file:bg-zinc-500"
+              "file:bg-zinc-600 file:font-bold file:text-zinc-100 hover:file:bg-zinc-500"
             ] ++ input_color_classes(@errors) ++ [@class]
           }
         />
       </div>
       <div
         id={"#{@upload.ref}-drop-area"}
-        class="space-y-4 rounded-b-sm border-2 border-t-0 border-dashed border-zinc-300 bg-zinc-50 p-4 text-zinc-500 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-400"
+        class="space-y-4 rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4 text-zinc-400"
         phx-drop-target={@upload.ref}
         phx-hook={if @paste_upload, do: "paste-image"}
         data-upload-name={if @paste_upload, do: @upload.name}
@@ -540,18 +534,18 @@ defmodule AmbryWeb.CoreComponents do
             <progress value={entry.progress} max="100">{entry.progress}%</progress>
 
             <span
-              class="cursor-pointer text-2xl transition-colors hover:text-red-600 dark:hover:text-red-500"
+              class="cursor-pointer text-2xl transition-colors hover:text-red-500"
               phx-click={JS.push(@on_cancel, value: %{ref: entry.ref})}
             >
               &times;
             </span>
 
-            <p :for={err <- upload_errors(@upload, entry)} class="text-red-600 dark:text-red-500">
+            <p :for={err <- upload_errors(@upload, entry)} class="text-red-500">
               {UploadHelpers.upload_error_to_string(err)}
             </p>
           </article>
         </div>
-        <p :for={err <- upload_errors(@upload)} class="text-red-600 dark:text-red-500">
+        <p :for={err <- upload_errors(@upload)} class="text-red-500">
           {UploadHelpers.upload_error_to_string(err)}
         </p>
       </div>
@@ -576,7 +570,7 @@ defmodule AmbryWeb.CoreComponents do
       />
       <div
         :if={@show_preview}
-        class="rounded-b-sm border-2 border-t-0 border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-950"
+        class="rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4"
       >
         <.image_with_size id={@field.id} src={proxied_remote_image_url(@field.value)} class={@image_preview_class} />
       </div>
@@ -586,21 +580,18 @@ defmodule AmbryWeb.CoreComponents do
 
   defp input_color_classes(errors) do
     [
-      "bg-white text-zinc-900 placeholder:text-zinc-500",
-      "dark:bg-zinc-800 dark:text-zinc-200 dark:placeholder:text-zinc-500",
-      "border-zinc-300 focus:border-zinc-400 focus:ring-zinc-800/5",
-      # Dark controls are filled, not outlined: a transparent border keeps the
+      # Controls are filled, not outlined: a transparent border keeps the
       # box size, the fill separates it from the surface, and focus is a soft
       # brand ring — no 1px hairlines fighting high-DPI subpixel rendering.
-      "dark:focus:ring-brand-dark/20 dark:border-transparent dark:focus:border-transparent",
-      "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
-      "phx-no-feedback:dark:focus:ring-brand-dark/20 phx-no-feedback:dark:border-transparent phx-no-feedback:dark:focus:border-transparent"
+      "bg-zinc-800 text-zinc-200 placeholder:text-zinc-500",
+      "focus:ring-brand-dark/20 border-transparent focus:border-transparent",
+      "phx-no-feedback:focus:ring-brand-dark/20 phx-no-feedback:border-transparent phx-no-feedback:focus:border-transparent"
     ] ++
       if errors == [],
         do: [],
         else: [
           "border-rose-400 focus:border-rose-400 focus:ring-rose-400/10",
-          "dark:border-red-400 dark:focus:border-red-400 dark:focus:ring-red-400/10"
+          "border-red-400 focus:border-red-400 focus:ring-red-400/10"
         ]
   end
 
@@ -624,7 +615,7 @@ defmodule AmbryWeb.CoreComponents do
         <:separator>
           <span class="cursor-default select-none text-sm">•</span>
         </:separator>
-        <label class="cursor-pointer select-none whitespace-nowrap text-sm leading-6 text-zinc-500 has-[:checked]:font-semibold has-[:checked]:text-zinc-800 has-[:checked]:underline dark:text-zinc-400 dark:has-[:checked]:text-zinc-200">
+        <label class="cursor-pointer select-none whitespace-nowrap text-sm leading-6 text-zinc-400 has-[:checked]:font-semibold has-[:checked]:text-zinc-200 has-[:checked]:underline">
           <input type="radio" name={@field.name} value={value} checked={@field.value == value} class="hidden" /> {label}
         </label>
       </.intersperse>
@@ -643,7 +634,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <label
       for={@for}
-      class={["block whitespace-nowrap text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-200", @class]}
+      class={["block whitespace-nowrap text-sm font-semibold leading-6 text-zinc-200", @class]}
     >
       {render_slot(@inner_block)}
     </label>
@@ -657,7 +648,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def error(assigns) do
     ~H"""
-    <p class="flex items-center gap-3 text-sm leading-6 text-red-600 phx-no-feedback:hidden dark:text-red-500">
+    <p class="flex items-center gap-3 text-sm leading-6 text-red-500 phx-no-feedback:hidden">
       <.icon name="fa-circle-exclamation" class="h-4 w-4 flex-none text-red-500" />
       {render_slot(@inner_block)}
     </p>
@@ -669,7 +660,7 @@ defmodule AmbryWeb.CoreComponents do
   def loading(assigns) do
     ~H"""
     <p class="flex items-center gap-3 text-sm font-semibold leading-6">
-      <.icon name="fa-rotate" class="h-4 w-4 flex-none animate-spin text-zinc-800 dark:text-zinc-200" />
+      <.icon name="fa-rotate" class="h-4 w-4 flex-none animate-spin text-zinc-200" />
       {render_slot(@inner_block)}
     </p>
     """
@@ -741,139 +732,15 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <header class={[@actions != [] && "flex items-center justify-between gap-6", @class]}>
       <div>
-        <h1 class="text-center text-xl font-extrabold leading-8 text-zinc-900 dark:text-zinc-50 sm:text-2xl">
+        <h1 class="text-center text-xl font-extrabold leading-8 text-zinc-50 sm:text-2xl">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="mt-4 leading-6 text-zinc-800 dark:text-zinc-200">
+        <p :if={@subtitle != []} class="mt-4 leading-6 text-zinc-200">
           {render_slot(@subtitle)}
         </p>
       </div>
       <div class="flex-none">{render_slot(@actions)}</div>
     </header>
-    """
-  end
-
-  @doc ~S"""
-  Renders a table with generic styling.
-
-  ## Examples
-
-      <.table id="users" rows={@users}>
-        <:col :let={user} label="id"><%= user.id %></:col>
-        <:col :let={user} label="username"><%= user.username %></:col>
-      </.table>
-  """
-  attr :id, :string, required: true
-  attr :rows, :list, required: true
-  attr :row_id, :any, default: nil, doc: "the function for generating the row id"
-  attr :row_click, :any, default: nil, doc: "the function for handling phx-click on each row"
-
-  attr :row_item, :any,
-    default: &Function.identity/1,
-    doc: "the function for mapping each row before calling the :col and :action slots"
-
-  slot :col, required: true do
-    attr :label, :string
-  end
-
-  slot :action, doc: "the slot for showing user actions in the last table column"
-
-  def table(assigns) do
-    assigns =
-      with %{rows: %Phoenix.LiveView.LiveStream{}} <- assigns do
-        assign(assigns, row_id: assigns.row_id || fn {id, _item} -> id end)
-      end
-
-    ~H"""
-    <div class="overflow-y-auto px-4 sm:overflow-visible sm:px-0">
-      <table class="w-[40rem] mt-11 sm:w-full">
-        <thead class="text-left text-sm leading-6 text-zinc-500">
-          <tr>
-            <th :for={col <- @col} class="p-0 pr-6 pb-4 font-normal">{col[:label]}</th>
-            <th class="relative p-0 pb-4"><span class="sr-only">{gettext("Actions")}</span></th>
-          </tr>
-        </thead>
-        <tbody
-          id={@id}
-          phx-update={match?(%Phoenix.LiveView.LiveStream{}, @rows) && "stream"}
-          class="relative divide-y divide-zinc-100 border-t border-zinc-200 text-sm leading-6 text-zinc-700"
-        >
-          <tr :for={row <- @rows} id={@row_id && @row_id.(row)} class="group hover:bg-zinc-50">
-            <td
-              :for={{col, i} <- Enum.with_index(@col)}
-              phx-click={@row_click && @row_click.(row)}
-              class={["relative p-0", @row_click && "hover:cursor-pointer"]}
-            >
-              <div class="block py-4 pr-6">
-                <span class="absolute -inset-y-px right-0 -left-4 group-hover:bg-zinc-50 sm:rounded-l-xl" />
-                <span class={["relative", i == 0 && "font-semibold text-zinc-900"]}>
-                  {render_slot(col, @row_item.(row))}
-                </span>
-              </div>
-            </td>
-            <td :if={@action != []} class="relative w-14 p-0">
-              <div class="relative whitespace-nowrap py-4 text-right text-sm font-medium">
-                <span class="absolute -inset-y-px -right-4 left-0 group-hover:bg-zinc-50 sm:rounded-r-xl" />
-                <span
-                  :for={action <- @action}
-                  class="relative ml-4 font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
-                >
-                  {render_slot(action, @row_item.(row))}
-                </span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    """
-  end
-
-  @doc """
-  Renders a data list.
-
-  ## Examples
-
-      <.list>
-        <:item title="Title"><%= @post.title %></:item>
-        <:item title="Views"><%= @post.views %></:item>
-      </.list>
-  """
-  slot :item, required: true do
-    attr :title, :string, required: true
-  end
-
-  def list(assigns) do
-    ~H"""
-    <div class="mt-14">
-      <dl class="-my-4 divide-y divide-zinc-100">
-        <div :for={item <- @item} class="flex gap-4 py-4 text-sm leading-6 sm:gap-8">
-          <dt class="w-1/4 flex-none text-zinc-500">{item.title}</dt>
-          <dd class="text-zinc-700">{render_slot(item)}</dd>
-        </div>
-      </dl>
-    </div>
-    """
-  end
-
-  @doc """
-  Renders a back navigation link.
-
-  ## Examples
-
-      <.back navigate={~p"/posts"}>Back to posts</.back>
-  """
-  attr :navigate, :any, required: true
-  slot :inner_block, required: true
-
-  def back(assigns) do
-    ~H"""
-    <div class="mt-16">
-      <.link navigate={@navigate} class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700">
-        <.icon name="fa-arrow-left" class="inline h-3 w-3 stroke-current" />
-        {render_slot(@inner_block)}
-      </.link>
-    </div>
     """
   end
 
@@ -886,7 +753,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def brand_link(assigns) do
     ~H"""
-    <.link class={["text-brand font-semibold hover:underline dark:text-brand-dark", @class]} {@rest} phx-no-format><%= render_slot(@inner_block) %></.link>
+    <.link class={["text-brand-dark font-semibold hover:underline", @class]} {@rest} phx-no-format><%= render_slot(@inner_block) %></.link>
     """
   end
 
@@ -897,7 +764,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def auth_form_card(assigns) do
     ~H"""
-    <div class="flex flex-col space-y-6 rounded-sm bg-white p-10 shadow-lg dark:bg-zinc-900">
+    <div class="flex flex-col space-y-6 rounded-sm bg-zinc-900 p-10 shadow-lg">
       {render_slot(@inner_block)}
     </div>
     """
@@ -918,7 +785,7 @@ defmodule AmbryWeb.CoreComponents do
         <.title class="h-12" />
       </div>
 
-      <p class="font-semibold text-zinc-500 dark:text-zinc-400">
+      <p class="font-semibold text-zinc-400">
         Personal Audiobook Streaming
       </p>
     </div>
@@ -937,7 +804,7 @@ defmodule AmbryWeb.CoreComponents do
   def logo(assigns) do
     ~H"""
     <svg
-      class={["text-brand dark:text-brand-dark", @class]}
+      class={["text-brand-dark", @class]}
       version="1.1"
       viewBox="0 0 512 512"
       xmlns="http://www.w3.org/2000/svg"
@@ -968,7 +835,7 @@ defmodule AmbryWeb.CoreComponents do
   def title(assigns) do
     ~H"""
     <svg
-      class={["text-zinc-900 dark:text-zinc-100", @class]}
+      class={["text-zinc-100", @class]}
       version="1.1"
       viewBox="0 0 1536 512"
       xmlns="http://www.w3.org/2000/svg"
@@ -995,7 +862,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def note(assigns) do
     ~H"""
-    <p class={["border-l-4 border-zinc-300 pl-4 text-sm text-zinc-500 dark:border-zinc-600 dark:text-zinc-400", @class]}>
+    <p class={["border-l-4 border-zinc-600 pl-4 text-sm text-zinc-400", @class]}>
       <%= if @label != [] do %>
         <strong>{render_slot(@label)}:</strong>
       <% else %>
@@ -1123,23 +990,23 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div id={@id} class="text-center">
       <%= if @number do %>
-        <p class="font-bold text-zinc-900 dark:text-zinc-100 sm:text-lg">Book {@number}</p>
+        <p class="font-bold text-zinc-100 sm:text-lg">Book {@number}</p>
       <% end %>
       <div class="group">
         <.link navigate={@link}>
           <.book_multi_image thumbnails={@tile_thumbnails} />
         </.link>
-        <p class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+        <p class="font-bold text-zinc-100 group-hover:underline sm:text-lg">
           <.link navigate={@link}>
             {@book.title}
           </.link>
         </p>
       </div>
-      <p class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+      <p class="text-sm text-zinc-200 sm:text-base">
         by <.people_links people={@book.authors} />
       </p>
 
-      <div class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+      <div class="text-xs text-zinc-400 sm:text-sm">
         <.series_book_links series_books={@book.series_books} />
       </div>
     </div>
@@ -1197,7 +1064,7 @@ defmodule AmbryWeb.CoreComponents do
         <.link navigate={~p"/audiobooks/#{@edition.representative}"}>
           <.book_multi_image thumbnails={Enum.flat_map(@edition.media, &if(&1.thumbnails, do: [&1.thumbnails], else: []))} />
         </.link>
-        <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+        <p :if={@show_title} class="font-bold text-zinc-100 group-hover:underline sm:text-lg">
           <.link navigate={~p"/audiobooks/#{@edition.representative}"}>
             {@edition.representative.book.title}
           </.link>
@@ -1206,20 +1073,20 @@ defmodule AmbryWeb.CoreComponents do
 
       <p
         :if={@edition.group && @edition.group.show_label && @edition.group.name}
-        class="text-sm text-zinc-800 dark:text-zinc-200"
+        class="text-sm text-zinc-200"
       >
         {@edition.group.name}
       </p>
 
-      <p class="text-sm text-zinc-600 dark:text-zinc-400">
+      <p class="text-sm text-zinc-400">
         {part_set_label(@edition.group, @edition.media)}
       </p>
 
-      <p :if={@show_authors} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+      <p :if={@show_authors} class="text-sm text-zinc-200 sm:text-base">
         by <.people_links people={@edition.representative.book.authors} />
       </p>
 
-      <div :if={@show_series} class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+      <div :if={@show_series} class="text-xs text-zinc-400 sm:text-sm">
         <.series_book_links series_books={@edition.representative.book.series_books} />
       </div>
     </div>
@@ -1242,14 +1109,14 @@ defmodule AmbryWeb.CoreComponents do
         <.link navigate={~p"/audiobooks/#{@media}"}>
           <.book_multi_image thumbnails={if @media.thumbnails, do: [@media.thumbnails], else: []} />
         </.link>
-        <p :if={@show_title} class="font-bold text-zinc-900 group-hover:underline dark:text-zinc-100 sm:text-lg">
+        <p :if={@show_title} class="font-bold text-zinc-100 group-hover:underline sm:text-lg">
           <.link navigate={~p"/audiobooks/#{@media}"}>
             {media_display_title(@media)}
           </.link>
         </p>
         <p
           :if={!@show_title && media_distinguisher(@media)}
-          class="text-sm text-zinc-800 group-hover:underline dark:text-zinc-200"
+          class="text-sm text-zinc-200 group-hover:underline"
         >
           <.link navigate={~p"/audiobooks/#{@media}"}>
             {media_distinguisher(@media)}
@@ -1257,19 +1124,19 @@ defmodule AmbryWeb.CoreComponents do
         </p>
       </div>
 
-      <p :if={@show_authors} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+      <p :if={@show_authors} class="text-sm text-zinc-200 sm:text-base">
         by <.people_links people={@media.book.authors} />
       </p>
 
-      <p :if={@show_narrators} class="text-sm text-zinc-800 dark:text-zinc-200 sm:text-base">
+      <p :if={@show_narrators} class="text-sm text-zinc-200 sm:text-base">
         Narrated by <.people_links people={@media.narrators} full_cast={@media.full_cast} />
       </p>
 
-      <div :if={@show_series} class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+      <div :if={@show_series} class="text-xs text-zinc-400 sm:text-sm">
         <.series_book_links series_books={@media.book.series_books} />
       </div>
 
-      <div :if={@show_published && @media.published} class="text-xs text-zinc-600 dark:text-zinc-400 sm:text-sm">
+      <div :if={@show_published && @media.published} class="text-xs text-zinc-400 sm:text-sm">
         Published {format_published(@media)}
         <p :if={@media.publisher}>
           by {@media.publisher}
@@ -1283,7 +1150,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def book_multi_image(%{thumbnails: []} = assigns) do
     ~H"""
-    <span class="block aspect-1 h-full w-full bg-zinc-100 dark:bg-zinc-900" />
+    <span class="block aspect-1 h-full w-full bg-zinc-900" />
     """
   end
 
@@ -1310,7 +1177,7 @@ defmodule AmbryWeb.CoreComponents do
         src={@thumbnail1.large}
         class={[
           "absolute top-0 h-full w-full object-cover object-center",
-          "border border-zinc-200 shadow-md dark:border-zinc-800",
+          "border border-zinc-800 shadow-md",
           "-translate-x-1 -translate-y-1",
           "scale-95"
         ]}
@@ -1331,17 +1198,13 @@ defmodule AmbryWeb.CoreComponents do
       />
       <img
         src={@thumbnail2.large}
-        class={[
-          "absolute top-0 h-full w-full object-cover object-center",
-          "border border-zinc-200 shadow-md dark:border-zinc-800",
-          "scale-90"
-        ]}
+        class={["absolute top-0 h-full w-full object-cover object-center", "border border-zinc-800 shadow-md", "scale-90"]}
       />
       <img
         src={@thumbnail1.large}
         class={[
           "absolute top-0 h-full w-full object-cover object-center",
-          "border border-zinc-200 shadow-md dark:border-zinc-800",
+          "border border-zinc-800 shadow-md",
           "-translate-x-2 -translate-y-2",
           "scale-90"
         ]}
@@ -1566,7 +1429,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def section_header(assigns) do
     ~H"""
-    <h1 class="mb-6 text-3xl font-bold text-zinc-900 dark:text-zinc-100 md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
+    <h1 class="mb-6 text-3xl font-bold text-zinc-100 md:mb-8 md:text-4xl lg:mb-12 lg:text-5xl">
       {render_slot(@inner_block)}
     </h1>
     """
@@ -1592,7 +1455,7 @@ defmodule AmbryWeb.CoreComponents do
 
   def markdown(assigns) do
     ~H"""
-    <article class={["prose prose-zinc dark:prose-invert", @class]}>
+    <article class={["prose prose-invert prose-zinc", @class]}>
       {raw(AmbryWeb.Markdown.to_html!(@content))}
     </article>
     """
@@ -1602,9 +1465,9 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div
       id={@id}
-      class="max-w-80 bg-zinc-50/90 absolute top-12 right-4 z-50 hidden text-zinc-800 shadow-md backdrop-blur transition-opacity dark:bg-zinc-900/90 dark:text-zinc-200"
+      class="max-w-80 bg-zinc-900/90 absolute top-12 right-4 z-50 hidden text-zinc-200 shadow-md backdrop-blur transition-opacity"
     >
-      <div class="h-full w-full divide-y divide-zinc-200 rounded-sm border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+      <div class="h-full w-full divide-y divide-zinc-800 rounded-sm border border-zinc-800">
         <div class="flex items-center gap-4 p-4">
           <img class="h-10 w-10 rounded-full" src={gravatar_url(@user.email)} />
           <p class="overflow-hidden text-ellipsis whitespace-nowrap">{@user.email}</p>
@@ -1622,14 +1485,14 @@ defmodule AmbryWeb.CoreComponents do
   def book_header(assigns) do
     ~H"""
     <div>
-      <h1 class={["text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl", @class]}>
+      <h1 class={["text-3xl font-bold text-zinc-100 sm:text-4xl", @class]}>
         {@title_override || @book.title}
       </h1>
-      <p class="text-zinc-800 dark:text-zinc-200 sm:text-lg xl:text-xl">
+      <p class="text-zinc-200 sm:text-lg xl:text-xl">
         <span>by <.all_people_links people={@book.authors} /></span>
       </p>
 
-      <div class="text-sm text-zinc-600 dark:text-zinc-400 sm:text-base">
+      <div class="text-sm text-zinc-400 sm:text-base">
         <.series_book_links series_books={@book.series_books} />
       </div>
     </div>

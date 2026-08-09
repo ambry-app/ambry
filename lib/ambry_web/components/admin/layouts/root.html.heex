@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<%!-- The admin is dark-only, by decision: one operator, one theme, half the
-      styling overhead. The hardcoded class is what forces it (Tailwind runs
-      dark mode off the class); color-scheme keeps native controls dark. --%>
-<html lang="en" class="dark" style="scrollbar-gutter: stable; color-scheme: dark;">
+<%!-- Ambry is dark-only, everywhere, by decision (2026-08-09): every class
+      is an absolute color, there is no theme machinery, and color-scheme
+      keeps native controls (date pickers, scrollbars) dark. --%>
+<html lang="en" style="scrollbar-gutter: stable; color-scheme: dark;">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />

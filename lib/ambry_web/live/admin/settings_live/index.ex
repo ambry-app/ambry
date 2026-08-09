@@ -24,22 +24,22 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
       <div class="mx-auto max-w-3xl space-y-8">
         <section>
           <h2 class="mb-1 text-lg font-bold">Direct play</h2>
-          <p class="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+          <p class="mb-4 text-sm text-zinc-400">
             Direct-play recordings are served as their original files, with no transcoding or
             packaging. Publishing them has to wait for the apps: a client that predates track
             support can't play one, so leave this off until every device in the fleet is on a
             build that understands tracks.
           </p>
 
-          <div class="rounded-sm border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div class="rounded-sm border border-zinc-800 bg-zinc-900 p-4">
             <div class="flex items-center gap-3">
               <span class={[
                 "inline-block h-2.5 w-2.5 rounded-full",
-                (@direct_play_publishing && "bg-lime-500") || "bg-zinc-400 dark:bg-zinc-600"
+                (@direct_play_publishing && "bg-lime-500") || "bg-zinc-600"
               ]} />
               <div class="grow">
                 <h3 class="font-semibold">Publish direct-play recordings</h3>
-                <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                <p class="text-sm text-zinc-400">
                   {publishing_blurb(@direct_play_publishing)}
                 </p>
               </div>
@@ -53,7 +53,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
 
         <section>
           <h2 class="mb-1 text-lg font-bold">Library naming</h2>
-          <p class="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+          <p class="mb-4 text-sm text-zinc-400">
             How managed recordings are organized inside a library root. Files imported from a
             downloads folder are placed here; external collections are never reorganized.
           </p>
@@ -67,15 +67,15 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
           >
             <.input field={@template_form[:template]} label="Folder template" />
 
-            <p class="text-sm text-zinc-500 dark:text-zinc-400">
+            <p class="text-sm text-zinc-400">
               Available: {Enum.map_join(NamingTemplate.tokens(), ", ", &"{#{&1}}")}. A book with
               several authors or series uses the first one — reorder them on the book to change
               which. Empty parts collapse, so a standalone book doesn't get an empty folder or a
               leading dash.
             </p>
 
-            <div class="rounded-sm border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <p class="mb-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">Preview</p>
+            <div class="rounded-sm border border-zinc-800 bg-zinc-900 p-4">
+              <p class="mb-1 text-xs font-semibold text-zinc-400">Preview</p>
               <p class="font-mono break-all text-sm" data-role="template-preview">{@preview}</p>
             </div>
 

@@ -31,8 +31,8 @@ defmodule AmbryWeb.Layouts do
 
   def nav_header(assigns) do
     ~H"""
-    <header id="nav-header" class="border-zinc-100 dark:border-zinc-900">
-      <div class="flex p-4 text-zinc-600 dark:text-zinc-500">
+    <header id="nav-header" class="border-zinc-900">
+      <div class="flex p-4 text-zinc-500">
         <div class="flex-1">
           <.link navigate={~p"/"} class="flex">
             <.ambry_icon />
@@ -92,7 +92,7 @@ defmodule AmbryWeb.Layouts do
   def ambry_icon(assigns) do
     ~H"""
     <svg
-      class="text-brand mt-1 h-6 w-6 dark:text-brand-dark lg:h-7 lg:w-7"
+      class="text-brand-dark mt-1 h-6 w-6 lg:h-7 lg:w-7"
       version="1.1"
       viewBox="0 0 512 512"
       xmlns="http://www.w3.org/2000/svg"
@@ -116,7 +116,7 @@ defmodule AmbryWeb.Layouts do
   def ambry_title(assigns) do
     ~H"""
     <svg
-      class="mt-1 hidden h-6 text-zinc-900 dark:text-zinc-100 md:block lg:h-7"
+      class="mt-1 hidden h-6 text-zinc-100 md:block lg:h-7"
       version="1.1"
       viewBox="0 0 1536 512"
       xmlns="http://www.w3.org/2000/svg"
@@ -135,8 +135,8 @@ defmodule AmbryWeb.Layouts do
   end
 
   defp nav_class(active?, extra \\ "")
-  defp nav_class(true, extra), do: "text-zinc-900 dark:text-zinc-100 #{extra}"
-  defp nav_class(false, extra), do: "hover:text-zinc-900 dark:hover:text-zinc-100 #{extra}"
+  defp nav_class(true, extra), do: "text-zinc-100 #{extra}"
+  defp nav_class(false, extra), do: "hover:text-zinc-100 #{extra}"
 
   attr :user, User, required: true
 
@@ -145,14 +145,14 @@ defmodule AmbryWeb.Layouts do
     <.menu_wrapper id="user-menu" user={@user}>
       <div class="py-3">
         <%= if @user.admin do %>
-          <.link navigate={~p"/admin"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700">
+          <.link navigate={~p"/admin"} class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-700">
             <.icon name="fa-screwdriver-wrench" class="h-5 w-5 text-current" />
             <p>Admin</p>
           </.link>
         <% end %>
         <.link
           navigate={~p"/users/settings"}
-          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
+          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-700"
         >
           <.icon name="fa-user-gear" class="h-5 w-5 text-current" />
           <p>Account Settings</p>
@@ -160,7 +160,7 @@ defmodule AmbryWeb.Layouts do
         <.link
           href={~p"/users/log_out"}
           method="delete"
-          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700"
+          class="flex items-center gap-4 px-4 py-2 hover:bg-zinc-700"
         >
           <.icon name="fa-arrow-right-from-bracket" class="h-5 w-5 text-current" />
           <p>Log out</p>

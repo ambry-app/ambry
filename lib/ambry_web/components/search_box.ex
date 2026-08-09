@@ -17,7 +17,7 @@ defmodule AmbryWeb.Components.SearchBox do
       phx-key="escape"
       phx-hook="search-box"
     >
-      <div class="mx-4 flex rounded-sm border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 sm:mx-0">
+      <div class="mx-4 flex rounded-sm border border-zinc-800 bg-zinc-900 sm:mx-0">
         <span phx-click={@hide_search} title="Back" class="ml-4 flex-none cursor-pointer self-center">
           <.icon name="fa-arrow-left" class="h-5 w-5 text-zinc-500" />
         </span>

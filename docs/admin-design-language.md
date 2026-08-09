@@ -9,18 +9,17 @@ touched, it follows this document; when a rule has to bend, this document
 gets amended, not silently ignored.
 
 The public-facing app shares the brand tokens but not the composition rules —
-it's a reading surface, not an operating one, and it still has a light mode.
+it's a reading surface, not an operating one.
 
 ## 0. One theme
 
-**The admin is dark-only, by decision** (2026-08-09): one operator, one
-theme, half the styling overhead. `class="dark"` is hardcoded on the admin
-root layout's `<html>` (Tailwind runs dark mode off the class; the public
-root layout mirrors the OS preference onto the class with an inline script),
-plus `color-scheme: dark` so native controls follow. Admin surfaces write
-**absolute colors** — no `dark:` prefixes in new admin code. Existing
-`dark:` classes still work (the class is always present); strip them to
-absolute values whenever a surface is touched.
+**The whole app is dark-only, by decision** (2026-08-09): one theme, half
+the styling overhead. Every color class is an **absolute value** — there are
+no `dark:` variants anywhere and no theme machinery; both root layouts carry
+`color-scheme: dark` so native controls follow. Don't write `dark:` prefixes:
+Tailwind's dark mode is set to the class strategy with no `.dark` element in
+the tree, so any `dark:` class that sneaks in is a visible no-op instead of
+an OS-dependent surprise.
 
 ## 1. Elevation, not borders
 

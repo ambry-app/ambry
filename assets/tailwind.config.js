@@ -7,9 +7,9 @@ const path = require("path")
 
 module.exports = {
   content: ["./js/**/*.js", "../lib/*_web.ex", "../lib/*_web/**/*.*ex"],
-  // Class strategy so the admin can force dark regardless of OS preference —
-  // the public root layout mirrors the OS preference onto <html> with an
-  // inline script, so the public app behaves exactly as it did under "media".
+  // The app is dark-only: every color class is absolute and no dark: variants
+  // exist. The "class" strategy (with no .dark anywhere) makes any dark:
+  // class that sneaks back in a visible no-op rather than an OS-dependent one.
   darkMode: "class",
   theme: {
     extend: {

@@ -11,7 +11,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
     <div class="h-screen p-6">
       <div class="mx-auto flex h-full max-w-3xl flex-col space-y-4">
         <div class="text-2xl font-bold">Import files from server file-system</div>
-        <div class="flex-1 overflow-auto border-t border-b border-zinc-200 dark:border-zinc-800">
+        <div class="flex-1 overflow-auto border-t border-b border-zinc-800">
           <.tree_node
             :for={file_or_folder <- @browser.tree}
             level={0}
@@ -264,7 +264,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   defp open_folder_node(assigns) do
     ~H"""
     <.row level={@level} phx-click={JS.push("toggle-folder", value: %{id: @folder_node.folder.id})} phx-target={@target}>
-      <div class="w-4 flex-none"><.icon name="fa-folder-minus" class="text-brand h-4 w-4 dark:text-brand-dark" /></div>
+      <div class="w-4 flex-none"><.icon name="fa-folder-minus" class="text-brand-dark h-4 w-4" /></div>
       <.filename title={@folder_node.folder.path}>{@folder_node.folder.path}</.filename>
       <.mtime timestamp={@folder_node.folder.mtime} />
     </.row>
@@ -304,7 +304,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
   defp closed_folder_node(assigns) do
     ~H"""
     <.row level={@level} phx-click={JS.push("toggle-folder", value: %{id: @folder_node.folder.id})} phx-target={@target}>
-      <div class="w-4 flex-none"><.icon name="fa-folder-plus" class="text-brand h-4 w-4 dark:text-brand-dark" /></div>
+      <div class="w-4 flex-none"><.icon name="fa-folder-plus" class="text-brand-dark h-4 w-4" /></div>
       <.filename title={@folder_node.folder.path}>{@folder_node.folder.path}</.filename>
       <.mtime timestamp={@folder_node.folder.mtime} />
     </.row>
@@ -333,7 +333,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
 
   defp disallowed_file_node(assigns) do
     ~H"""
-    <.row level={@level} class="text-zinc-500 dark:text-zinc-400">
+    <.row level={@level} class="text-zinc-400">
       <div class="w-4 flex-none" />
       <.filename title={@file.path}>{@file.path}</.filename>
       <.mtime timestamp={@file.mtime} />
@@ -373,7 +373,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form.FileBrowser do
 
   defp mtime(assigns) do
     ~H"""
-    <div class="w-48 flex-none text-right text-sm text-zinc-500 dark:text-zinc-400">
+    <div class="w-48 flex-none text-right text-sm text-zinc-400">
       {@timestamp |> Calendar.strftime("%c")}
     </div>
     """

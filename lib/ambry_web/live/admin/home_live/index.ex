@@ -65,8 +65,8 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
     ~H"""
     <div class="relative">
       <.link class="absolute top-0 left-0 h-full w-full" navigate={@navigate}></.link>
-      <div class="rounded-sm border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <.icon name={@icon} class="block h-5 w-5 text-zinc-400 dark:text-zinc-500" />
+      <div class="rounded-sm border border-zinc-800 bg-zinc-900 p-4">
+        <.icon name={@icon} class="block h-5 w-5 text-zinc-500" />
         <div class="flex gap-8 pt-3">
           {render_slot(@inner_block)}
         </div>
@@ -81,7 +81,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   defp stat(assigns) do
     ~H"""
     <div>
-      <h2 class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+      <h2 class="text-sm font-semibold text-zinc-400">
         {render_slot(@title)}
       </h2>
       <p class="text-2xl font-bold tabular-nums">

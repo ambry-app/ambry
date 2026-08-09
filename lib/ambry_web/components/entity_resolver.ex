@@ -55,7 +55,7 @@ defmodule AmbryWeb.Components.EntityResolver do
       <div class="flex">
         <span
           :if={@text_name}
-          class="flex w-24 flex-none items-center justify-end rounded-l-sm border border-r-0 border-zinc-300 bg-zinc-100 px-3 text-sm font-semibold text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+          class="flex w-24 flex-none items-center justify-end rounded-l-sm border border-r-0 border-zinc-600 bg-zinc-900 px-3 text-sm font-semibold text-zinc-400"
         >
           {if @value, do: "Existing", else: "Create"}
         </span>
@@ -81,7 +81,7 @@ defmodule AmbryWeb.Components.EntityResolver do
         :if={@open}
         id={"#{@id}-list"}
         role="listbox"
-        class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-sm border border-zinc-300 bg-white text-sm shadow-lg dark:border-zinc-600 dark:bg-zinc-800"
+        class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-sm border border-zinc-600 bg-zinc-800 text-sm shadow-lg"
       >
         <li
           :for={{label, id} <- @matches}
@@ -91,7 +91,7 @@ defmodule AmbryWeb.Components.EntityResolver do
           phx-click="pick"
           phx-value-id={id}
           phx-target={@myself}
-          class="cursor-pointer px-3 py-2 data-[active]:bg-zinc-100 hover:bg-zinc-100 dark:data-[active]:bg-zinc-700 dark:hover:bg-zinc-700"
+          class="cursor-pointer px-3 py-2 data-[active]:bg-zinc-700 hover:bg-zinc-700"
         >
           {label}
         </li>
@@ -101,7 +101,7 @@ defmodule AmbryWeb.Components.EntityResolver do
           role="option"
           phx-click="create"
           phx-target={@myself}
-          class="cursor-pointer border-t border-zinc-200 px-3 py-2 italic data-[active]:bg-zinc-100 hover:bg-zinc-100 dark:border-zinc-700 dark:data-[active]:bg-zinc-700 dark:hover:bg-zinc-700"
+          class="cursor-pointer border-t border-zinc-700 px-3 py-2 italic data-[active]:bg-zinc-700 hover:bg-zinc-700"
         >
           Create “{@equery}”
         </li>

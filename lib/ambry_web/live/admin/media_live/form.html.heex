@@ -45,7 +45,7 @@
             label="Date display format"
             options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
           />
-          <span class="text-sm text-zinc-500 dark:text-zinc-400">
+          <span class="text-sm text-zinc-400">
             {preview_date_format(@form)}
           </span>
         </div>
@@ -66,7 +66,7 @@
             id="description-preview"
             phx-hook="scroll-match"
             data-target="description-input"
-            class="absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm border border-zinc-300 dark:border-zinc-800 sm:block"
+            class="absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm border border-zinc-800 sm:block"
           >
             <.markdown content={@form[:description].value || ""} class="p-2" />
           </div>
@@ -220,7 +220,7 @@
 
       <div :if={@live_action == :edit} class="space-y-2">
         <.label>Audio file(s)</.label>
-        <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-950">
+        <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
           <p :for={file <- @media.source_files} class="text-sm">
             {Path.basename(file)}
           </p>
@@ -255,9 +255,9 @@
 
         <div :if={@form[:source_type].value == "local_import"} class="space-y-2">
           <div>
-            <div class="flex items-center rounded-sm rounded-b-none border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 sm:text-sm sm:leading-6">
+            <div class="flex items-center rounded-sm rounded-b-none border border-zinc-600 bg-zinc-800 text-zinc-300 sm:text-sm sm:leading-6">
               <button
-                class="py-[7px] px-[11px] bg-zinc-200 font-bold text-zinc-800 hover:bg-zinc-300 dark:bg-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-500"
+                class="py-[7px] px-[11px] bg-zinc-600 font-bold text-zinc-100 hover:bg-zinc-500"
                 type="button"
                 phx-click={open_file_browser(@media)}
               >
@@ -267,7 +267,7 @@
                 {Enum.count(@selected_files)} File(s) selected
               </p>
             </div>
-            <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-600 dark:bg-zinc-950">
+            <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
               <.icon
                 :if={Enum.empty?(@selected_files)}
                 name="fa-file-circle-exclamation"
@@ -286,7 +286,7 @@
           <.label>Streaming files</.label>
           <button
             type="button"
-            class="flex grow items-center text-lime-700 hover:underline dark:text-lime-400"
+            class="flex grow items-center text-lime-400 hover:underline"
             phx-click={JS.toggle(to: ".files-list-toggle")}
           >
             <span class="files-list-toggle">show</span>
@@ -296,8 +296,8 @@
           </button>
         </div>
 
-        <div class="files-list-toggle mt-2 hidden rounded-sm border border-zinc-200 bg-zinc-50 p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
-          <div class="space-y-2 divide-y divide-zinc-200 dark:divide-zinc-800">
+        <div class="files-list-toggle mt-2 hidden rounded-sm border border-zinc-800 bg-zinc-900 p-4 shadow-lg">
+          <div class="space-y-2 divide-y divide-zinc-800">
             <.file_stat_row label="mp4" file={@file_stats.mp4_file} />
             <.file_stat_row label="mpd" file={@file_stats.mpd_file} />
             <.file_stat_row label="hls" file={@file_stats.hls_master} />
@@ -330,7 +330,7 @@
             <div>
               <button
                 type="button"
-                class="flex items-center pt-2 text-lime-700 hover:underline dark:text-lime-400"
+                class="flex items-center pt-2 text-lime-400 hover:underline"
                 phx-click={JS.toggle(to: ".source-list-toggle")}
               >
                 <span class="source-list-toggle">show source files</span>

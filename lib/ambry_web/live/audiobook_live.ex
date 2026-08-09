@@ -30,11 +30,11 @@ defmodule AmbryWeb.AudiobookLive do
             </p>
           </div>
 
-          <div class={["aspect-1", if(!@media.thumbnails, do: "bg-zinc-200 dark:bg-zinc-800")]}>
+          <div class={["aspect-1", if(!@media.thumbnails, do: "bg-zinc-800")]}>
             <img
               :if={@media.thumbnails}
               src={@media.thumbnails.extra_large}
-              class="h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:w-80"
+              class="h-full w-full rounded-sm border border-zinc-900 object-cover object-center shadow-md sm:w-80"
             />
           </div>
 
@@ -42,14 +42,14 @@ defmodule AmbryWeb.AudiobookLive do
             First published {format_published(@media.book)}
           </p>
 
-          <div class="mt-6 divide-y divide-zinc-300 rounded-sm border border-zinc-200 bg-zinc-50 px-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
+          <div class="mt-6 divide-y divide-zinc-800 rounded-sm border border-zinc-800 bg-zinc-900 px-3 text-zinc-200 shadow-md">
             <div class="flex items-center gap-4 py-3">
               <div class="grow">
                 <p>{media_display_title(@media)}</p>
-                <p :if={part_set_line(@media)} class="text-zinc-600 dark:text-zinc-400">
+                <p :if={part_set_line(@media)} class="text-zinc-400">
                   {part_set_line(@media)}
                 </p>
-                <p class="text-zinc-600 dark:text-zinc-400">
+                <p class="text-zinc-400">
                   {duration_display(@media.duration)}
                 </p>
               </div>
@@ -80,30 +80,30 @@ defmodule AmbryWeb.AudiobookLive do
 
           <%= if @part_set do %>
             <%= if @part_set.show_label && @part_set.name do %>
-              <h2 class="mt-6 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              <h2 class="mt-6 text-2xl font-bold text-zinc-100">
                 {@part_set.name}
               </h2>
-              <p class="mb-2 text-sm text-zinc-600 dark:text-zinc-400">
+              <p class="mb-2 text-sm text-zinc-400">
                 {part_set_label(@part_set)}
               </p>
             <% else %>
-              <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-100">
                 {part_set_label(@part_set)}
               </h2>
             <% end %>
             <div class="grid grid-cols-3 gap-4 sm:gap-6">
               <div :for={part <- @part_set.media} class="text-center">
                 <%= if part.id == @media.id do %>
-                  <div class="ring-brand rounded-sm ring-2 dark:ring-brand-dark">
+                  <div class="ring-brand-dark rounded-sm ring-2">
                     <.book_multi_image thumbnails={if part.thumbnails, do: [part.thumbnails], else: []} />
                   </div>
-                  <p class="mt-1 text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  <p class="mt-1 text-sm font-bold text-zinc-100">
                     {part_chip_label(part, @part_set)}
                   </p>
                 <% else %>
                   <.link navigate={~p"/audiobooks/#{part}"} class="group">
                     <.book_multi_image thumbnails={if part.thumbnails, do: [part.thumbnails], else: []} />
-                    <p class="mt-1 text-sm text-zinc-800 group-hover:underline dark:text-zinc-200">
+                    <p class="mt-1 text-sm text-zinc-200 group-hover:underline">
                       {part_chip_label(part, @part_set)}
                     </p>
                   </.link>
@@ -113,7 +113,7 @@ defmodule AmbryWeb.AudiobookLive do
           <% end %>
 
           <%= if @other_editions != [] do %>
-            <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            <h2 class="mt-6 mb-2 text-2xl font-bold text-zinc-100">
               Other Editions
             </h2>
             <div class="grid grid-cols-2 gap-4 sm:gap-6 md:gap-8">
@@ -141,7 +141,7 @@ defmodule AmbryWeb.AudiobookLive do
           <.markdown
             :if={@media.description}
             content={@media.description}
-            class="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-900"
+            class="mt-4 border-t border-zinc-900 pt-4"
           />
         </section>
       </div>

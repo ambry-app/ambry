@@ -12,8 +12,8 @@
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
             <p class="truncate font-bold">{@page_title}</p>
-            <p class="font-mono truncate text-xs text-zinc-500 dark:text-zinc-400">{@item.path}</p>
-            <p class="text-sm text-zinc-500 dark:text-zinc-400">{evidence(@item)}</p>
+            <p class="font-mono truncate text-xs text-zinc-400">{@item.path}</p>
+            <p class="text-sm text-zinc-400">{evidence(@item)}</p>
 
             <%!-- "Still working" and "found nothing" look identical in a form
                 full of empty fields, and matching now backs off for minutes
@@ -48,29 +48,29 @@
             one) and the form used to show none of them, so a match that went
             somewhere strange had no visible cause. --%>
         <details :if={tag_rows(@item) != [] or hint_rows(@item) != []} class="pt-2">
-          <summary class="cursor-pointer pl-3 text-sm text-zinc-500 dark:text-zinc-400">What the files say</summary>
+          <summary class="cursor-pointer pl-3 text-sm text-zinc-400">What the files say</summary>
 
           <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
             <div :if={tag_rows(@item) != []} data-role="tags">
-              <p class="text-xs font-bold text-zinc-600 dark:text-zinc-300">Embedded tags</p>
-              <p :for={{label, value} <- tag_rows(@item)} class="text-xs text-zinc-500 dark:text-zinc-400">
-                <span class="text-zinc-500 dark:text-zinc-400">{label}:</span> {value}
+              <p class="text-xs font-bold text-zinc-300">Embedded tags</p>
+              <p :for={{label, value} <- tag_rows(@item)} class="text-xs text-zinc-400">
+                <span class="text-zinc-400">{label}:</span> {value}
               </p>
             </div>
 
             <div :if={hint_rows(@item) != []} data-role="hints">
-              <p class="text-xs font-bold text-zinc-600 dark:text-zinc-300">Used to search</p>
-              <p :for={{label, value} <- hint_rows(@item)} class="text-xs text-zinc-500 dark:text-zinc-400">
-                <span class="text-zinc-500 dark:text-zinc-400">{label}:</span> {value}
+              <p class="text-xs font-bold text-zinc-300">Used to search</p>
+              <p :for={{label, value} <- hint_rows(@item)} class="text-xs text-zinc-400">
+                <span class="text-zinc-400">{label}:</span> {value}
               </p>
-              <p class="pt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p class="pt-1 text-xs text-zinc-400">
                 Taken from the tags first and the release name second.
               </p>
             </div>
           </div>
         </details>
 
-        <p :if={@item.issue} class="flex items-baseline gap-1.5 pt-2 text-sm text-red-600 dark:text-red-400">
+        <p :if={@item.issue} class="flex items-baseline gap-1.5 pt-2 text-sm text-red-400">
           <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
           {@item.issue}
         </p>
@@ -113,7 +113,7 @@
           Take the top suggestion for {settleable(@unresolved)} of these
         </.button>
 
-        <p class="pt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p class="pt-2 text-xs text-zinc-400">
           Anything nothing proposed, any series without a number, and any recording match we doubt is
           left alone — those need a real answer, not a shortcut.
         </p>
@@ -147,7 +147,7 @@
             </.badge>
           </div>
 
-          <p class="max-w-prose pl-3 text-sm text-zinc-500 dark:text-zinc-400">
+          <p class="max-w-prose pl-3 text-sm text-zinc-400">
             If so this becomes another edition of it — no second book, and its existing details are
             left alone.
           </p>
@@ -183,7 +183,7 @@
 
           <p
             :if={@library_query not in [nil, ""] and @library_results == []}
-            class="text-sm text-zinc-500 dark:text-zinc-400"
+            class="text-sm text-zinc-400"
           >
             Nothing in the library matches that.
           </p>
@@ -241,13 +241,13 @@
             {doubt_message(@item.draft.work)}
           </p>
 
-          <p :if={records(@item, "work") != []} class="max-w-prose pl-3 text-sm text-zinc-500 dark:text-zinc-400">
+          <p :if={records(@item, "work") != []} class="max-w-prose pl-3 text-sm text-zinc-400">
             Tick every record that's about this book. Two databases having a record of it is normal —
             and each knows things the other doesn't, so the description can come from one and the
             cover from another.
           </p>
 
-          <p :if={records(@item, "work") == []} class="text-sm text-zinc-500 dark:text-zinc-400">
+          <p :if={records(@item, "work") == []} class="text-sm text-zinc-400">
             No provider had a record of this. The fields below come from the file's own tags.
           </p>
 
@@ -266,7 +266,7 @@
           />
 
           <details>
-            <summary class="cursor-pointer pl-3 text-xs text-zinc-500 dark:text-zinc-400">
+            <summary class="cursor-pointer pl-3 text-xs text-zinc-400">
               Not what you're looking for? Search again
             </summary>
             <div class="pt-2">
@@ -374,7 +374,7 @@
 
           <p
             :if={@item.draft.work.mode == :link and @item.draft.work.series != []}
-            class="text-sm text-zinc-500 dark:text-zinc-400"
+            class="text-sm text-zinc-400"
           >
             This book isn't in these yet. Adding is a blank being filled, not a change to what's
             already there.
@@ -433,7 +433,7 @@
             {doubt_message(@item.draft.recording)}
           </p>
 
-          <p :if={records(@item, "recording") != []} class="text-sm text-zinc-500 dark:text-zinc-400">
+          <p :if={records(@item, "recording") != []} class="text-sm text-zinc-400">
             Tick every record of <span class="font-semibold">this reading</span>
             — the narrator is what tells two recordings of
             one book apart, so check it before ticking. Databases keep editions the storefront has
@@ -471,7 +471,7 @@
           </div>
 
           <details>
-            <summary class="cursor-pointer pl-3 text-xs text-zinc-500 dark:text-zinc-400">
+            <summary class="cursor-pointer pl-3 text-xs text-zinc-400">
               Not what you're looking for? Search again
             </summary>
             <div class="pt-2">
@@ -483,7 +483,7 @@
             </div>
           </details>
 
-          <p class="pl-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <p class="pl-3 text-xs text-zinc-400">
             Every import creates a new recording. Pointing one at an existing recording's files —
             the upgrade/replace case — is a later addition.
           </p>
@@ -641,10 +641,10 @@
             </select>
           </form>
         </div>
-        <p :if={@destination.summary} class="text-sm text-zinc-500 dark:text-zinc-400">{@destination.summary}</p>
+        <p :if={@destination.summary} class="text-sm text-zinc-400">{@destination.summary}</p>
         <p
           :if={@destination.blocker}
-          class="flex items-baseline gap-1.5 pl-3 text-sm text-red-600 dark:text-red-400"
+          class="flex items-baseline gap-1.5 pl-3 text-sm text-red-400"
           data-role="destination-blocker"
         >
           <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
@@ -674,11 +674,11 @@
           <%!-- Why the button is off, always. A blocker that only showed up as a
               red line further up the page could leave this disabled while the
               outstanding count read zero. --%>
-          <p :if={@unresolved != []} class="text-sm text-zinc-500 dark:text-zinc-400">
+          <p :if={@unresolved != []} class="text-sm text-zinc-400">
             {length(@unresolved)} decision{if length(@unresolved) > 1, do: "s"} still to settle.
           </p>
 
-          <p :if={@unresolved == [] and @destination.blocker} class="text-sm text-red-600 dark:text-red-400">
+          <p :if={@unresolved == [] and @destination.blocker} class="text-sm text-red-400">
             Everything is settled, but the files can't be placed yet — see Files &amp; destination.
           </p>
         </div>

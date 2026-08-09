@@ -10,11 +10,11 @@
           <% end %>
         </p>
       </div>
-      <div class={["aspect-1", if(!@media.thumbnails, do: "bg-zinc-200 dark:bg-zinc-800")]}>
+      <div class={["aspect-1", if(!@media.thumbnails, do: "bg-zinc-800")]}>
         <img
           :if={@media.thumbnails}
           src={@media.thumbnails.extra_large}
-          class="h-full w-full rounded-sm border border-zinc-200 object-cover object-center shadow-md dark:border-zinc-900 sm:w-80"
+          class="h-full w-full rounded-sm border border-zinc-900 object-cover object-center shadow-md sm:w-80"
         />
       </div>
       <p class="mt-1 text-sm text-zinc-500">
@@ -24,7 +24,7 @@
         This edition published {format_published(@media)}
       </p>
       <p :if={@media.publisher} class="text-xs text-zinc-500">by {@media.publisher}</p>
-      <div class="mt-4 rounded-sm border border-zinc-200 bg-zinc-50 p-3 text-zinc-800 shadow-md dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
+      <div class="mt-4 divide-zinc-800 rounded-sm border border-zinc-800 bg-zinc-900 p-3 text-zinc-200 shadow-md">
         <.brand_link href={~p"/users/log_in"}>Sign in</.brand_link> to Ambry to listen to this audiobook!
       </div>
     </section>
@@ -41,7 +41,7 @@
       <.markdown
         :if={@media.description}
         content={@media.description}
-        class="mt-4 pt-4 sm:border-t sm:border-zinc-200 sm:dark:border-zinc-900"
+        class="mt-4 pt-4 sm:border-t sm:border-zinc-900"
       />
     </section>
   </div>
