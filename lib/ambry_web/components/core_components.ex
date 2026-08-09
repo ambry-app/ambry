@@ -264,9 +264,9 @@ defmodule AmbryWeb.CoreComponents do
     <button
       type={@type}
       class={[
-        "rounded-sm px-3 py-2 phx-submit-loading:opacity-75",
+        "rounded-sm border px-3 py-2 phx-submit-loading:opacity-75",
         "whitespace-nowrap text-sm font-semibold leading-6",
-        "text-white active:text-white/80 dark:text-zinc-900 dark:active:text-zinc-800",
+        "active:opacity-80 disabled:pointer-events-none disabled:opacity-40",
         button_color_classes(@color),
         @class
       ]}
@@ -277,20 +277,25 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  # One identity in both themes: the primary action is the brand fill with
+  # near-black text everywhere, secondary actions are outlined (a solid gray
+  # fill is the universal costume of a *disabled* button), and destructive
+  # actions are outlined red — visible without shouting. Every variant carries
+  # a border so the variants line up at the same height.
   defp button_color_classes(:brand) do
-    "bg-zinc-900 hover:bg-zinc-700 dark:bg-brand-dark dark:hover:bg-lime-600"
+    "border-transparent bg-brand text-zinc-900 hover:bg-lime-600 dark:bg-brand-dark dark:hover:bg-lime-500"
   end
 
   defp button_color_classes(:yellow) do
-    "bg-yellow-500 hover:bg-yellow-700 dark:bg-yellow-400 dark:hover:bg-yellow-600"
+    "border-transparent bg-yellow-500 text-zinc-900 hover:bg-yellow-600 dark:bg-yellow-400 dark:hover:bg-yellow-500"
   end
 
   defp button_color_classes(:red) do
-    "bg-red-500 hover:bg-red-700 dark:bg-red-400 dark:hover:bg-red-600"
+    "border-red-600 bg-transparent text-red-600 hover:bg-red-600/10 dark:border-red-400 dark:text-red-400 dark:hover:bg-red-400/10"
   end
 
   defp button_color_classes(:zinc) do
-    "bg-zinc-600 hover:bg-zinc-800 dark:bg-zinc-400 dark:hover:bg-zinc-600"
+    "border-zinc-400 bg-transparent text-zinc-900 hover:bg-zinc-900/5 dark:border-zinc-500 dark:text-zinc-100 dark:hover:bg-white/10"
   end
 
   @doc """
