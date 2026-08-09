@@ -568,16 +568,9 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       refute has_element?(view, "button[phx-click='toggle-people'][disabled]")
 
-      assert has_element?(
-               view,
-               "button[phx-click='find-person']"
-             )
-
-      # and the narrator credits get their own, since they create people too
-      assert has_element?(
-               view,
-               "button[phx-click='find-person']"
-             )
+      # the search-again form is the person level's re-search, same pattern
+      # as the work and recording levels
+      assert has_element?(view, "form[phx-submit='research-person']")
     end
 
     test "each person behind a pen name gets their own photo", %{conn: conn} do
@@ -624,8 +617,8 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
       view
-      |> element(~s{button[phx-click='find-person'][phx-value-key='brandonsanderson']})
-      |> render_click()
+      |> element("form#research-person-work-0-0")
+      |> render_submit(%{"key" => "brandonsanderson", "name" => "Brandon Sanderson"})
 
       html = render_async(view)
 
@@ -639,6 +632,29 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       person = person_keyed(item, "brandonsanderson")
       assert Field.value(person.description) == "An American author of epic fantasy."
       assert person.description.source == "provider:wikidata"
+    end
+
+    # The person level's records are evidence with checkboxes, the same rule
+    # as the work and recording levels. Unticking the only record of a
+    # namesake — the goalkeeper who shares a narrator's name — takes his face
+    # and bio out of the pools instead of leaving them as the leading
+    # suggestions.
+    test "unticking a person record takes its face out of the pools", %{conn: conn} do
+      item = probed_item(person_photo: "https://example.test/face.jpg")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("input[phx-click='toggle-person-source'][phx-value-key='brandonsanderson']")
+      |> render_click()
+
+      person = person_keyed(item, "brandonsanderson")
+      assert person.sources == []
+      assert person.image.candidates == []
+      assert Field.value(person.image) == nil
+
+      # and the tick survives a rebuild of the rest of the draft
+      assert person.evidence_curated
     end
 
     # A person's description is a description like any other: the recording's
@@ -669,8 +685,8 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
       view
-      |> element(~s{button[phx-click='find-person'][phx-value-key='brandonsanderson']})
-      |> render_click()
+      |> element("form#research-person-work-0-0")
+      |> render_submit(%{"key" => "brandonsanderson", "name" => "Brandon Sanderson"})
 
       render_async(view)
 

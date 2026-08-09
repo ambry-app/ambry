@@ -135,6 +135,20 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
+  # The person level's records and provider outcomes, keyed by person, for
+  # the same evidence rows the work and recording sections render.
+  defp person_records(item) do
+    for {key, matched} <- item.matches["people"] || %{}, into: %{} do
+      {key, matched["candidates"] || []}
+    end
+  end
+
+  defp person_outcomes(item) do
+    for {key, matched} <- item.matches["people"] || %{}, into: %{} do
+      {key, matched["providers"] || []}
+    end
+  end
+
   @impl Phoenix.LiveView
   def handle_event("validate", %{"inbox_item" => params}, socket) do
     # Autosave: the form and the stored draft are never allowed to disagree,
@@ -328,6 +342,38 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def handle_event("approve-person", %{"key" => key} = params, socket) do
     {:noreply, edit(socket, &Draft.Edit.approve_person(&1, key, params["approved"] == "true"))}
+  end
+
+  # The person level's record checkboxes — the same evidence rule the work
+  # and recording levels have, one paradigm across all three.
+  def handle_event("toggle-person-source", %{"key" => key} = params, socket) do
+    item = socket.assigns.item
+
+    record =
+      Enum.find(
+        get_in(item.matches, ["people", key, "candidates"]) || [],
+        &(&1["source"] == params["source"] and to_string(&1["id"]) == to_string(params["id"]))
+      )
+
+    if record do
+      {:noreply, edit(socket, &Draft.Edit.toggle_person_source(&1, item, key, record))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # The person level's search-again form — the work-level pattern, with a
+  # name instead of title/author fields. A blank name falls back to what the
+  # draft currently calls them.
+  def handle_event("research-person", %{"key" => key} = params, socket) do
+    item = socket.assigns.item
+    typed = params["name"] |> to_string() |> String.trim()
+    name = if typed == "", do: person_name(item.draft, key), else: typed
+
+    {:noreply,
+     socket
+     |> assign(searching_person: key)
+     |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
   def handle_event("approve-credit", %{"section" => s, "index" => i} = params, socket) do

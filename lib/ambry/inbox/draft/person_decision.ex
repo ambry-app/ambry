@@ -65,6 +65,11 @@ defmodule Ambry.Inbox.Draft.PersonDecision do
     # changed record set never discards a photo they went and found.
     field :curated, :boolean, default: false
 
+    # Set when the operator ticks or unticks a record — evidence curation is
+    # its own act: adding or renaming a person must not freeze their ticks
+    # (that's `curated`), but a hand-picked ticked set must survive a refresh.
+    field :evidence_curated, :boolean, default: false
+
     # Why nothing was adopted, mirroring the work and recording levels. A
     # person nobody could find is a normal outcome, not a failure — plenty of
     # narrators are in no database at all.
@@ -90,6 +95,7 @@ defmodule Ambry.Inbox.Draft.PersonDecision do
       :person_id,
       :approved,
       :curated,
+      :evidence_curated,
       :doubt,
       :doubt_detail
     ])

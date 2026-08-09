@@ -97,6 +97,34 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   @doc """
+  Adds or removes a person record from those describing this human.
+
+  The same rule as `toggle_source/4`, at the third level: the exact-name gate
+  decides the initial ticks, and from there the checkbox does. The photo and
+  bio pools re-derive from the ticked set — with anything the operator chose
+  or typed surviving, as always — which is also how a differently-spelled
+  record of the right human gets to contribute a face the gate couldn't
+  auto-admit.
+  """
+  def toggle_person_source(draft, %InboxItem{} = item, key, record) do
+    matched = get_in(item.matches, ["people", key])
+
+    update_person(draft, key, fn person ->
+      sources =
+        if Enum.any?(person.sources, &SourceRef.points_at?(&1, record)) do
+          Enum.reject(person.sources, &SourceRef.points_at?(&1, record))
+        else
+          person.sources ++ [SourceRef.of(record)]
+        end
+
+      Seed.rederive_person_evidence(
+        %{person | sources: sources, curated: true, evidence_curated: true},
+        matched
+      )
+    end)
+  end
+
+  @doc """
   Settles the recording as one no catalogue lists, described by the file alone.
 
   A real answer rather than a failure: a delisted edition disappears from
