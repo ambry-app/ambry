@@ -225,6 +225,38 @@ defmodule Ambry.Metadata.Provider do
     @doc "Whether there is anything here to search for."
     def blank?(%__MODULE__{} = query), do: to_string(query) == ""
 
+    @doc """
+    A query from operator-typed fields — string keys, blanks dropped.
+
+    This is the shape every "search again" form submits, inbox or not.
+    """
+    def from_fields(fields) when is_map(fields) do
+      %__MODULE__{
+        title: blank_to_nil(fields["title"]),
+        author: blank_to_nil(fields["author"]),
+        narrator: blank_to_nil(fields["narrator"]),
+        keywords: blank_to_nil(fields["keywords"])
+      }
+    end
+
+    @doc """
+    The non-blank fields as a string-keyed map — the storable/displayable
+    inverse of `from_fields/1`, used to show "what did you even search for".
+    """
+    def non_blank_fields(%__MODULE__{} = query) do
+      %{
+        "title" => query.title,
+        "author" => query.author,
+        "narrator" => query.narrator,
+        "keywords" => query.keywords
+      }
+      |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+      |> Map.new()
+    end
+
+    defp blank_to_nil(nil), do: nil
+    defp blank_to_nil(value) when is_binary(value), do: with("" <- String.trim(value), do: nil)
+
     defimpl String.Chars do
       @doc """
       The free-text rendering, which is also what the metadata cache keys on —

@@ -16,17 +16,18 @@ defmodule Ambry.Inbox.Lookup do
   Records are added, never replaced. A record the draft already points at
   keeps its identity across a re-search — otherwise re-searching would
   silently un-tick whatever the operator had chosen.
-  """
 
+  The provider fan-out itself lives in `Ambry.Metadata.Search` — it was never
+  inbox-specific, and the legacy admin forms converge on it. What stays here
+  is what IS inbox-specific: normalizing hits against the item's hints
+  (scoring), and writing evidence into `inbox_items.matches`.
+  """
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.InboxItem
-  alias Ambry.Metadata.PersonSearch
   alias Ambry.Metadata.Provider
-  alias Ambry.Metadata.Providers
   alias Ambry.Metadata.Registry
+  alias Ambry.Metadata.Search
   alias Ambry.Repo
-
-  require Logger
 
   @doc """
   Fetches the full record behind a thin search hit.
@@ -106,10 +107,10 @@ defmodule Ambry.Inbox.Lookup do
 
     case Registry.fetch(provider_id) do
       {:ok, entry} ->
-        {found, outcome} = search_one(entry, query, hints)
+        {books, outcome} = Search.books_one(entry, query)
 
         item
-        |> update_records(level, &add(&1, found))
+        |> update_records(level, &add(&1, AutoMatch.records_from(books, entry, hints)))
         |> update_outcomes(level, [outcome])
 
       {:error, _reason} ->
@@ -136,13 +137,8 @@ defmodule Ambry.Inbox.Lookup do
         {:ok, item}
 
       name ->
-        {found, outcomes} =
-          Enum.reduce(PersonSearch.providers(), {[], []}, fn entry, {found, outcomes} ->
-            {matches, outcome} = PersonSearch.matches_with_outcome(entry, name, refresh: true)
-            {found ++ Enum.map(matches, &person_record/1), outcomes ++ [outcome]}
-          end)
-
-        update_person(item, key, name, found, outcomes)
+        {matches, outcomes} = Search.people(name)
+        update_person(item, key, name, Enum.map(matches, &person_record/1), outcomes)
     end
   end
 
@@ -184,38 +180,15 @@ defmodule Ambry.Inbox.Lookup do
 
   ## plumbing
 
+  # The fan-out is Metadata.Search's; scoring the hits against this item's
+  # hints is ours.
   defp search(level, query, hints) do
-    [level: level_atom(level), capability: :book_search]
-    |> Registry.enabled()
-    |> Enum.reduce({[], []}, fn entry, {records, outcomes} ->
-      {found, outcome} = search_one(entry, query, hints)
-      {records ++ found, outcomes ++ [outcome]}
-    end)
-  end
+    {found, outcomes} = Search.books(query, level: level_atom(level))
 
-  defp search_one(entry, query, hints) do
-    case Providers.search_books(entry.id, query, refresh: true) do
-      {:ok, books} ->
-        {AutoMatch.records_from(books, entry, hints),
-         %{
-           "id" => entry.id,
-           "name" => entry.display_name,
-           "status" => "ok",
-           "count" => length(books)
-         }}
+    records =
+      Enum.flat_map(found, fn {entry, books} -> AutoMatch.records_from(books, entry, hints) end)
 
-      {:error, reason} ->
-        Logger.warning(fn -> "Inbox lookup: #{entry.id} failed: #{inspect(reason)}" end)
-
-        {[],
-         %{
-           "id" => entry.id,
-           "name" => entry.display_name,
-           "status" => "failed",
-           "count" => 0,
-           "reason" => reason |> inspect() |> String.slice(0, 200)
-         }}
-    end
+    {records, outcomes}
   end
 
   # New records join the list; ones already there keep their place and their
@@ -269,32 +242,14 @@ defmodule Ambry.Inbox.Lookup do
       matches
       |> Map.get(level, %{})
       |> Map.put("query", to_string(query))
-      |> Map.put("query_fields", non_blank(query))
+      |> Map.put("query_fields", Provider.Query.non_blank_fields(query))
 
     item
     |> InboxItem.changeset(%{matches: Map.put(matches, level, updated)})
     |> Repo.update()
   end
 
-  defp non_blank(%Provider.Query{} = query) do
-    %{
-      "title" => query.title,
-      "author" => query.author,
-      "narrator" => query.narrator,
-      "keywords" => query.keywords
-    }
-    |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
-    |> Map.new()
-  end
-
-  defp query_from(fields) do
-    %Provider.Query{
-      title: blank_to_nil(fields["title"]),
-      author: blank_to_nil(fields["author"]),
-      narrator: blank_to_nil(fields["narrator"]),
-      keywords: blank_to_nil(fields["keywords"])
-    }
-  end
+  defp query_from(fields), do: Provider.Query.from_fields(fields)
 
   defp stored_query(%InboxItem{matches: matches}, level) when is_map(matches) do
     case get_in(matches, [level, "query_fields"]) do
@@ -304,9 +259,6 @@ defmodule Ambry.Inbox.Lookup do
   end
 
   defp stored_query(_item, _level), do: nil
-
-  defp blank_to_nil(nil), do: nil
-  defp blank_to_nil(value) when is_binary(value), do: with("" <- String.trim(value), do: nil)
 
   defp records(%InboxItem{matches: matches}, level) when is_map(matches),
     do: get_in(matches, [level, "candidates"]) || []
