@@ -231,8 +231,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp kind_word(:external_collection), do: "adopted in place"
   defp kind_word(:library_root), do: "already in the library tree"
 
-  defp location_color(%Location{kind: :downloads}), do: "bg-blue-100 dark:bg-blue-900"
-  defp location_color(_other), do: "bg-zinc-200 dark:bg-zinc-800"
+  defp location_color(%Location{kind: :downloads}),
+    do: "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300"
+
+  defp location_color(_other), do: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
 
   @doc """
   The candidate's name — usually the release name, and the most recognizable

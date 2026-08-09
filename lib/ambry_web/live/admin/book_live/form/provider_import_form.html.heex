@@ -39,13 +39,13 @@
       container_class="!space-y-0"
     >
       <.import_form_row :if={@selected_book.title} field={@form[:use_title]} label="Title">
-        <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
+        <div class="py-[7px] px-[11px] rounded-sm border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
           {@selected_book.title}
         </div>
       </.import_form_row>
 
       <.import_form_row :if={@selected_book.published} field={@form[:use_published]} label="First published">
-        <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
+        <div class="py-[7px] px-[11px] rounded-sm border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
           {display_date(@selected_book.published)}
         </div>
       </.import_form_row>

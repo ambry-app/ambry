@@ -265,7 +265,7 @@ defmodule AmbryWeb.CoreComponents do
       type={@type}
       class={[
         "rounded-sm px-3 py-2 phx-submit-loading:opacity-75",
-        "text-sm font-semibold leading-6",
+        "whitespace-nowrap text-sm font-semibold leading-6",
         "text-white active:text-white/80 dark:text-zinc-900 dark:active:text-zinc-800",
         button_color_classes(@color),
         @class

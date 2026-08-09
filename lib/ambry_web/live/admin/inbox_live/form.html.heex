@@ -54,16 +54,16 @@
             <div :if={tag_rows(@item) != []} data-role="tags">
               <p class="text-xs font-bold dark:text-zinc-400">Embedded tags</p>
               <p :for={{label, value} <- tag_rows(@item)} class="text-xs dark:text-zinc-500">
-                <span class="dark:text-zinc-600">{label}:</span> {value}
+                <span class="text-zinc-500 dark:text-zinc-400">{label}:</span> {value}
               </p>
             </div>
 
             <div :if={hint_rows(@item) != []} data-role="hints">
               <p class="text-xs font-bold dark:text-zinc-400">Used to search</p>
               <p :for={{label, value} <- hint_rows(@item)} class="text-xs dark:text-zinc-500">
-                <span class="dark:text-zinc-600">{label}:</span> {value}
+                <span class="text-zinc-500 dark:text-zinc-400">{label}:</span> {value}
               </p>
-              <p class="pt-1 text-xs italic dark:text-zinc-600">
+              <p class="pt-1 text-xs italic text-zinc-500 dark:text-zinc-400">
                 Taken from the tags first and the release name second.
               </p>
             </div>
@@ -614,7 +614,7 @@
 
       <%!-- ==================== THE BUTTON ==================== --%>
       <section class="sticky bottom-0 border-t border-zinc-300 bg-white py-4 dark:border-zinc-700 dark:bg-zinc-900">
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
           <.button
             phx-click="import"
             disabled={@unresolved != [] or @destination.blocker != nil}
@@ -625,7 +625,9 @@
 
           <.button type="button" color={:zinc} phx-click="dismiss">Dismiss</.button>
 
-          <.brand_link navigate={~p"/admin/inbox"}>Back to the inbox</.brand_link>
+          <.brand_link navigate={~p"/admin/inbox"} class="whitespace-nowrap">
+            Back to the inbox
+          </.brand_link>
 
           <%!-- Why the button is off, always. A blocker that only showed up as a
               red line further up the page could leave this disabled while the

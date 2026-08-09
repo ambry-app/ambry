@@ -11,6 +11,9 @@ defmodule AmbryWeb.Admin.Layouts do
 
   def side_nav(assigns) do
     ~H"""
+    <%!-- Scrim behind the drawer on small screens — without it the drawer
+          floats over full-brightness content and doesn't read as a layer. --%>
+    <div id="side-bar-scrim" class="z-[9] bg-black/40 fixed inset-0 hidden lg:hidden" aria-hidden="true" />
     <nav
       id="side-bar"
       class="absolute inset-0 z-10 h-screen w-64 shrink-0 -translate-x-full transform divide-y divide-zinc-200 border-r border-zinc-200 bg-zinc-50 opacity-0 duration-100 ease-out dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 lg:relative lg:transform-none lg:opacity-100"

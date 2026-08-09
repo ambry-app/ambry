@@ -130,12 +130,20 @@ defmodule AmbryWeb.Admin.Components do
     %JS{}
     |> JS.remove_class(@side_bar_open_classes, to: "#side-bar")
     |> JS.add_class(@side_bar_closed_classes, to: "#side-bar")
+    |> JS.hide(
+      to: "#side-bar-scrim",
+      transition: {"transition-opacity ease-out duration-100", "opacity-100", "opacity-0"}
+    )
   end
 
   defp open_sidebar do
     %JS{}
     |> JS.remove_class(@side_bar_closed_classes, to: "#side-bar")
     |> JS.add_class(@side_bar_open_classes, to: "#side-bar")
+    |> JS.show(
+      to: "#side-bar-scrim",
+      transition: {"transition-opacity ease-in duration-100", "opacity-0", "opacity-100"}
+    )
   end
 
   attr :search_form, Form, required: true
@@ -720,30 +728,30 @@ defmodule AmbryWeb.Admin.Components do
       />
       <div>
         <p class="font-bold">{@book.title}</p>
-        <p :if={@book.authors != []} class="text-zinc-400">
+        <p :if={@book.authors != []} class="text-zinc-600 dark:text-zinc-400">
           by
           <span :for={author <- @book.authors} class="group">
             <span>{author.name}</span>
             <br class="group-last:hidden" />
           </span>
         </p>
-        <p :if={@book.narrators != []} class="text-zinc-400">
+        <p :if={@book.narrators != []} class="text-zinc-600 dark:text-zinc-400">
           Narrated by
           <span :for={narrator <- @book.narrators} class="group">
             <span>{narrator.name}</span>
             <br class="group-last:hidden" />
           </span>
         </p>
-        <p :if={@book.series != []} class="text-xs text-zinc-400">
+        <p :if={@book.series != []} class="text-xs text-zinc-600 dark:text-zinc-400">
           <span :for={series <- @book.series} class="group">
             <span>{series.name} #{series.number}</span>
             <br class="group-last:hidden" />
           </span>
         </p>
-        <p :if={@book.published} class="text-xs text-zinc-400">
+        <p :if={@book.published} class="text-xs text-zinc-600 dark:text-zinc-400">
           Published {display_date(@book.published)}<span :if={@book.publisher}> by {@book.publisher}</span>
         </p>
-        <p :if={@book.format} class="text-xs text-zinc-400">{@book.format}</p>
+        <p :if={@book.format} class="text-xs text-zinc-600 dark:text-zinc-400">{@book.format}</p>
         <div :for={action <- @actions}>
           {render_slot(action)}
         </div>

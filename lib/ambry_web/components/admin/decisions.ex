@@ -120,7 +120,7 @@ defmodule AmbryWeb.Admin.Decisions do
     <div :if={@query || @fields != %{}} class="text-xs dark:text-zinc-500" data-role="query">
       <span>Searched for</span>
       <span :for={{key, value} <- ordered_fields(@fields)} class="ml-1">
-        <span class="dark:text-zinc-600">{key}:</span>
+        <span class="text-zinc-500 dark:text-zinc-400">{key}:</span>
         <span class="font-mono dark:text-zinc-400">{value}</span>
       </span>
       <span :if={@fields == %{}} class="font-mono ml-1 dark:text-zinc-400">{@query}</span>
@@ -183,7 +183,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <span :if={@working} class="flex-none pt-0.5 text-xs dark:text-zinc-400">
         fetching…
       </span>
-      <span :if={!@working && @record["score"]} class="flex-none pt-0.5 text-xs dark:text-zinc-600">
+      <span :if={!@working && @record["score"]} class="flex-none pt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
         {round(@record["score"] * 100)}%
       </span>
     </label>

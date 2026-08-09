@@ -73,12 +73,18 @@
           {probe_summary(item)}
         </p>
 
-        <div :for={match <- match_summary(item)} class="flex items-center gap-2 text-sm">
+        <%!-- flex-wrap so that when width runs out the meta pieces drop to a
+              second line instead of the candidate title (the answer) being
+              the first thing to ellipsize. --%>
+        <div :for={match <- match_summary(item)} class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
           <span class="w-20 flex-none text-zinc-500 dark:text-zinc-500">{match.level}</span>
           <.badge color={elem(confidence_label(match.confidence), 1)} class="text-xs">
             {elem(confidence_label(match.confidence), 0)}
           </.badge>
-          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+          <%!-- basis-48 + grow keeps the title from being shrunk out of
+                existence (meta wraps down instead); max-w-fit stops the grow
+                at the title's own width so the provenance stays beside it. --%>
+          <span class="min-w-0 max-w-fit grow basis-48 overflow-hidden text-ellipsis whitespace-nowrap">
             {candidate_label(match.best)}
           </span>
           <span :if={candidate_origin(match.best)} class="flex-none text-xs text-zinc-500">
@@ -101,7 +107,7 @@
           {progress_label(@progress[item.id])}
         </p>
 
-        <p class="overflow-hidden text-ellipsis whitespace-nowrap text-xs dark:text-zinc-600">
+        <p class="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-500">
           <%!-- Where this came from decides what approving it does to the
                 bytes, so it belongs on the row rather than one click away. --%>
           <span class={["mr-1 rounded-sm px-1 py-0.5", location_color(item.location)]}>
