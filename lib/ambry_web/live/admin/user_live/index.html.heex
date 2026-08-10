@@ -38,7 +38,7 @@
       <div class="hidden w-44 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
         <div class="flex gap-4">
           <span :if={user.admin} title="Admin" data-role="is-admin">
-            <.icon name="fa-lock" class="inline h-4 w-4 text-current" />
+            <.icon name="fa-lock" class="h-4 w-4 text-current" />
           </span>
 
           <span
@@ -47,16 +47,16 @@
           >
             <.icon
               name={if user.confirmed, do: "fa-envelope-open", else: "fa-envelope"}
-              class="inline h-4 w-4 text-current"
+              class="h-4 w-4 text-current"
             />
           </span>
 
           <span :if={user.media_in_progress > 0} title="# of in-progress books" data-role="user-in-progress">
-            {user.media_in_progress} <.icon name="fa-book-bookmark" class="inline h-4 w-4 text-current" />
+            {user.media_in_progress} <.icon name="fa-book-bookmark" class="h-4 w-4 text-current" />
           </span>
 
           <span :if={user.media_finished > 0} title="# of finished books" data-role="user-finished">
-            {user.media_finished} <.icon name="fa-book" class="inline h-4 w-4 text-current" />
+            {user.media_finished} <.icon name="fa-book" class="h-4 w-4 text-current" />
           </span>
         </div>
       </div>
