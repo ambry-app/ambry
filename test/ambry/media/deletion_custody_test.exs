@@ -76,7 +76,7 @@ defmodule Ambry.Media.DeletionCustodyTest do
     # folders isn't organized for long.
     test "prunes the folders left empty behind it" do
       root = new_dir("root")
-      insert(:location, kind: :library_root, import_policy: nil, path: root)
+      insert(:root, path: root)
 
       folder =
         Path.join([root, "Brandon Sanderson", "The Stormlight Archive", "The Way of Kings"])
@@ -107,7 +107,7 @@ defmodule Ambry.Media.DeletionCustodyTest do
 
     test "stops pruning at a folder that still holds another book" do
       root = new_dir("root")
-      insert(:location, kind: :library_root, import_policy: nil, path: root)
+      insert(:root, path: root)
 
       author = Path.join(root, "Brandon Sanderson")
       keeper = Path.join([author, "Warbreaker", "Warbreaker.m4b"])

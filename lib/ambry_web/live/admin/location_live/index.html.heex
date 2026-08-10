@@ -1,119 +1,189 @@
 <.layout title={@page_title} user={@current_user}>
   <:subheader>
     <div class="flex items-center justify-end gap-4">
-      <.button :if={@locations != []} phx-click="scan" color={:zinc}>Scan all</.button>
-      <.link
-        navigate={~p"/admin/locations/new"}
-        class="flex items-center font-bold text-lime-400 hover:underline"
-      >
-        Add location <.icon name="fa-plus" class="ml-2 h-4 w-4 text-current" />
-      </.link>
+      <.button :if={@sources != []} phx-click="scan" color={:zinc}>Scan all</.button>
     </div>
   </:subheader>
 
-  <div class="max-w-4xl space-y-4">
-    <p class="text-sm text-zinc-400">
-      Every location feeds the inbox — nothing bypasses it. Hardlinks can't cross a filesystem,
-      so a downloads folder can only hardlink into a library root sharing its
-      <span class="font-semibold">filesystem</span>
-      tag below.
-    </p>
+  <div class="max-w-4xl space-y-14">
+    <section class="space-y-3">
+      <div class="flex items-baseline justify-between gap-4">
+        <h2 class="text-xl font-bold text-zinc-100">Sources</h2>
+        <.brand_link navigate={~p"/admin/locations/sources/new"}>
+          Add source <.icon name="fa-plus" class="ml-1 h-3.5 w-3.5 text-current" />
+        </.brand_link>
+      </div>
 
-    <div :if={@locations == []} class="rounded-sm border border-zinc-800 p-8 text-center">
-      <p class="text-zinc-400">No locations yet.</p>
-      <.brand_link navigate={~p"/admin/locations/new"}>Add the first one.</.brand_link>
-    </div>
+      <p class="max-w-prose pl-3 text-sm text-zinc-400">
+        Watched folders audiobooks arrive from — everything they hold reaches the library through
+        the inbox, nothing bypasses it. Each one makes a single promise: whether its files can be
+        trusted to stay.
+      </p>
 
-    <div
-      :for={location <- @locations}
-      class="rounded-sm border border-zinc-800 p-4"
-      data-role="location"
-    >
-      <div class="flex items-start gap-3">
-        <div class="min-w-0 grow">
-          <div class="flex flex-wrap items-center gap-2">
-            <h3 class="font-semibold" data-role="location-name">{location.name}</h3>
+      <div :if={@sources == []} class="rounded-lg bg-zinc-900 p-8 text-center">
+        <p class="text-zinc-400">No sources yet, so there is nothing to scan.</p>
+        <.brand_link navigate={~p"/admin/locations/sources/new"}>Add the first one.</.brand_link>
+      </div>
 
-            <span class={["rounded-full px-2 py-0.5 text-xs font-semibold", kind_class(location.kind)]}>
-              {kind_label(location.kind)}
-            </span>
+      <div :for={source <- @sources} class="rounded-lg bg-zinc-900 p-4" data-role="source">
+        <div class="flex items-start gap-3">
+          <div class="min-w-0 grow pl-3">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <h3 class="font-semibold" data-role="source-name">{source.name}</h3>
 
-            <span
-              :if={policy_label(location.import_policy)}
-              class="rounded-full bg-zinc-800 px-2 py-0.5 text-xs"
-              title="What approval does with the files"
+              <span class={["rounded-sm px-1.5 text-xs", on_import_class(source.on_import)]}>
+                {on_import_label(source.on_import)}
+              </span>
+
+              <span
+                :if={policy_label(source.import_policy)}
+                class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-300"
+                title="How import brings the files in"
+              >
+                {policy_label(source.import_policy)}
+              </span>
+
+              <span
+                :if={fs = @filesystems[@statuses[{:source, source.id}].device]}
+                class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-300"
+                title="Paths sharing this tag are on the same filesystem and can be hardlinked between"
+                data-role="source-filesystem"
+              >
+                <.icon name="fa-hard-drive" class="h-3 w-3 text-current" /> {fs}
+              </span>
+
+              <span :if={!source.enabled} class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-500">
+                paused
+              </span>
+            </div>
+
+            <p class="font-mono mt-1 truncate text-sm text-zinc-400" data-role="source-path">
+              {source.path}
+            </p>
+
+            <p class="mt-1 text-sm text-zinc-400">{on_import_blurb(source.on_import)}</p>
+
+            <p
+              :if={problem = source_problem(@statuses[{:source, source.id}])}
+              class="mt-1 text-sm font-semibold text-red-400"
+              data-role="source-problem"
             >
-              {policy_label(location.import_policy)}
-            </span>
+              {problem}
+            </p>
 
-            <span
-              :if={fs = @filesystems[@statuses[location.id].device]}
-              class="rounded-full bg-zinc-800 px-2 py-0.5 text-xs"
-              title="Locations sharing this tag are on the same filesystem and can be hardlinked between"
-              data-role="location-filesystem"
-            >
-              <.icon name="fa-hard-drive" class="h-3 w-3 text-current" /> {fs}
-            </span>
-
-            <span
-              :if={!location.enabled}
-              class="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-500"
-            >
-              paused
-            </span>
+            <p class="mt-1 text-xs text-zinc-500">
+              {scanned_label(source.last_scanned_at)}
+            </p>
           </div>
 
-          <p class="font-mono mt-1 truncate text-sm text-zinc-400" data-role="location-path">
-            {location.path}
-          </p>
+          <div class="flex flex-none gap-3">
+            <span
+              phx-click="toggle"
+              phx-value-id={source.id}
+              class="cursor-pointer"
+              title={(source.enabled && "Pause") || "Resume"}
+              data-role="toggle-source"
+            >
+              <.icon
+                name={(source.enabled && "fa-eye") || "fa-eye-slash"}
+                class="h-4 w-4 text-current transition-colors hover:text-lime-400"
+              />
+            </span>
 
-          <p class="mt-1 text-sm text-zinc-400">{kind_blurb(location.kind)}</p>
+            <.link navigate={~p"/admin/locations/sources/#{source}/edit"} data-role="edit-source">
+              <.icon
+                name="fa-pencil"
+                class="h-4 w-4 text-current transition-colors hover:text-lime-400"
+              />
+            </.link>
 
-          <p
-            :if={problem = status_problem(@statuses[location.id], location.kind)}
-            class="mt-1 text-sm font-semibold text-red-400"
-            data-role="location-problem"
-          >
-            {problem}
-          </p>
-
-          <p class="mt-1 text-xs text-zinc-500">
-            {scanned_label(location.last_scanned_at)}
-          </p>
-        </div>
-
-        <div class="flex flex-none gap-3">
-          <span
-            phx-click="toggle"
-            phx-value-id={location.id}
-            class="cursor-pointer"
-            title={(location.enabled && "Pause") || "Resume"}
-            data-role="toggle-location"
-          >
-            <.icon
-              name={(location.enabled && "fa-eye") || "fa-eye-slash"}
-              class="h-4 w-4 text-current transition-colors hover:text-lime-400"
-            />
-          </span>
-
-          <.link navigate={~p"/admin/locations/#{location}/edit"} data-role="edit-location">
-            <.icon
-              name="fa-pencil"
-              class="h-4 w-4 text-current transition-colors hover:text-lime-400"
-            />
-          </.link>
-
-          <span
-            phx-click="delete"
-            phx-value-id={location.id}
-            data-confirm="Remove this location? Files on disk are left alone."
-            class="cursor-pointer"
-            data-role="delete-location"
-          >
-            <.icon name="fa-trash" class="h-4 w-4 text-current transition-colors hover:text-red-600" />
-          </span>
+            <span
+              phx-click="delete-source"
+              phx-value-id={source.id}
+              data-confirm="Remove this source? Files on disk are left alone."
+              class="cursor-pointer"
+              data-role="delete-source"
+            >
+              <.icon name="fa-trash" class="h-4 w-4 text-current transition-colors hover:text-red-600" />
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
+
+    <section class="space-y-3">
+      <div class="flex items-baseline justify-between gap-4">
+        <h2 class="text-xl font-bold text-zinc-100">Library roots</h2>
+        <.brand_link navigate={~p"/admin/locations/roots/new"}>
+          Add root <.icon name="fa-plus" class="ml-1 h-3.5 w-3.5 text-current" />
+        </.brand_link>
+      </div>
+
+      <p class="max-w-prose pl-3 text-sm text-zinc-400">
+        The folders managed audio is organized into, by the naming template. Ambry writes here
+        and nowhere else. Hardlinks can't cross a filesystem, so a source can only hardlink into
+        a root sharing its <span class="font-semibold">filesystem</span> tag.
+      </p>
+
+      <%!-- Roots are optional by design: a setup whose sources all leave
+          files in place imports nothing into a tree of its own. --%>
+      <div :if={@roots == []} class="rounded-lg bg-zinc-900 p-8 text-center">
+        <p class="mx-auto max-w-prose text-zinc-400">
+          No roots. That's fine while every source leaves its files in place — add one when a
+          source needs to bring files in.
+        </p>
+        <.brand_link navigate={~p"/admin/locations/roots/new"}>Add a root.</.brand_link>
+      </div>
+
+      <div :for={root <- @roots} class="rounded-lg bg-zinc-900 p-4" data-role="root">
+        <div class="flex items-start gap-3">
+          <div class="min-w-0 grow pl-3">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <h3 class="font-semibold" data-role="root-name">{root.name}</h3>
+
+              <span
+                :if={fs = @filesystems[@statuses[{:root, root.id}].device]}
+                class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-300"
+                title="Paths sharing this tag are on the same filesystem and can be hardlinked between"
+                data-role="root-filesystem"
+              >
+                <.icon name="fa-hard-drive" class="h-3 w-3 text-current" /> {fs}
+              </span>
+            </div>
+
+            <p class="font-mono mt-1 truncate text-sm text-zinc-400" data-role="root-path">
+              {root.path}
+            </p>
+
+            <p
+              :if={problem = root_problem(@statuses[{:root, root.id}])}
+              class="mt-1 text-sm font-semibold text-red-400"
+              data-role="root-problem"
+            >
+              {problem}
+            </p>
+          </div>
+
+          <div class="flex flex-none gap-3">
+            <.link navigate={~p"/admin/locations/roots/#{root}/edit"} data-role="edit-root">
+              <.icon
+                name="fa-pencil"
+                class="h-4 w-4 text-current transition-colors hover:text-lime-400"
+              />
+            </.link>
+
+            <span
+              phx-click="delete-root"
+              phx-value-id={root.id}
+              data-confirm="Remove this root? Files on disk are left alone."
+              class="cursor-pointer"
+              data-role="delete-root"
+            >
+              <.icon name="fa-trash" class="h-4 w-4 text-current transition-colors hover:text-red-600" />
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </.layout>

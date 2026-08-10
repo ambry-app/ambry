@@ -13,7 +13,7 @@ defmodule Ambry.Inbox.InboxItem do
   import Ecto.Changeset
 
   alias Ambry.Inbox.Draft
-  alias Ambry.Library.Location
+  alias Ambry.Library.Source
   alias Ambry.Media.Media
 
   @statuses [:pending, :ignored, :imported]
@@ -23,8 +23,8 @@ defmodule Ambry.Inbox.InboxItem do
 
     # Where this was found, which is what says whether importing it should
     # bring the files into a library root or adopt them where they lie.
-    # Nullable: items from an ad-hoc scan have no location to speak for them.
-    belongs_to :location, Location
+    # Nullable: items from an ad-hoc scan have no source to speak for them.
+    belongs_to :source, Source
 
     field :path, :string
     field :files, {:array, :string}, default: []
@@ -57,7 +57,7 @@ defmodule Ambry.Inbox.InboxItem do
       :matches,
       :issue,
       :media_id,
-      :location_id
+      :source_id
     ])
     |> validate_required([:path, :status])
     |> unique_constraint(:path)

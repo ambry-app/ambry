@@ -14,7 +14,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   alias Ambry.Inbox
   alias Ambry.Inbox.InboxItem
-  alias Ambry.Library.Location
+  alias Ambry.Library.Source
 
   @statuses [:pending, :ignored, :imported]
 
@@ -308,18 +308,17 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # Where an item came from is what decides its custody at import — whether
   # the file gets brought into the library or referenced where it lies — so
   # it's worth reading off the row.
-  defp location_label(%Location{name: name, kind: kind}), do: "#{name} · #{kind_word(kind)}"
-  defp location_label(nil), do: "ad-hoc scan · adopted in place"
+  defp source_label(%Source{name: name, on_import: on_import}),
+    do: "#{name} · #{custody_word(on_import)}"
 
-  # "imported" would now read as the item status; this is custody — what
-  # import will do with the bytes.
-  defp kind_word(:downloads), do: "brought in on import"
-  defp kind_word(:external_collection), do: "adopted in place"
-  defp kind_word(:library_root), do: "already in the library tree"
+  defp source_label(nil), do: "ad-hoc scan · adopted in place"
 
-  defp location_color(%Location{kind: :downloads}), do: "bg-blue-400/15 text-blue-300"
+  defp custody_word(:bring_in), do: "brought in on import"
+  defp custody_word(:leave_in_place), do: "referenced in place"
 
-  defp location_color(_other), do: "bg-white/10 text-zinc-300"
+  defp source_color(%Source{on_import: :bring_in}), do: "bg-blue-400/15 text-blue-300"
+
+  defp source_color(_other), do: "bg-white/10 text-zinc-300"
 
   @doc """
   The candidate's name — usually the release name, and the most recognizable

@@ -99,7 +99,7 @@ defmodule Ambry.Media.Organization do
   # this is about where the bytes are now, and a rename never moves a
   # recording between roots.
   defp root_for(%Media{custody: :managed, source_path: path}) when is_binary(path) do
-    case Enum.find(Library.library_roots(), &inside?(path, &1.path)) do
+    case Enum.find(Library.list_roots(), &inside?(path, &1.path)) do
       nil -> :noop
       root -> {:ok, root}
     end
@@ -183,6 +183,6 @@ defmodule Ambry.Media.Organization do
   # than at the folder's parent. Stops at any registered location — a root's
   # existence is configuration, not a consequence of holding a book.
   defp prune(from) do
-    Utils.try_prune_empty_parents([from], Enum.map(Library.list_locations(), & &1.path))
+    Utils.try_prune_empty_parents([from], Library.registered_paths())
   end
 end

@@ -26,12 +26,13 @@ defmodule Ambry.Inbox.Importer do
 
   Where an item came from decides what happens to its bytes:
 
-    * from a **downloads** location, the file is brought into that location's
-      library root under the naming template — hardlinked, copied or moved
-      per the location's policy — and the recording becomes **managed**.
-    * from an **external collection**, or from an item with no location at
-      all, the file is referenced exactly where it lies and the recording is
-      **external**. Ambry never moves, copies, renames or deletes it.
+    * from a **bring-in** source, the file is placed into a library root
+      under the naming template — hardlinked, copied or moved per the
+      source's policy — and the recording becomes **managed**.
+    * from a **trusted** source, from inside a library root, or from an item
+      with no source at all, the file is referenced exactly where it lies
+      and the recording is **external**. Ambry never moves, copies, renames
+      or deletes it.
 
   A hardlink cannot cross a filesystem, and here the downloads folder and the
   library can easily be on different NAS boxes. Import **refuses** in that
@@ -57,9 +58,9 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
-  alias Ambry.Library.Location
   alias Ambry.Library.NamingTemplate
   alias Ambry.Library.Placement
+  alias Ambry.Library.Root
   alias Ambry.Media
   alias Ambry.Media.Scanner
   alias Ambry.People
@@ -80,7 +81,7 @@ defmodule Ambry.Inbox.Importer do
   def import_item(%InboxItem{status: :imported}), do: {:error, :already_imported}
 
   def import_item(%InboxItem{} = item) do
-    item = Repo.preload(item, :location)
+    item = Repo.preload(item, :source)
 
     # Facts about the files come first, then the draft, then placement. The
     # order is the order the operator can act on them: a multi-file release or
@@ -110,7 +111,7 @@ defmodule Ambry.Inbox.Importer do
     import Ecto.Query, only: [from: 2]
 
     case Repo.one(from(i in InboxItem, where: i.id == ^id, lock: "FOR UPDATE")) do
-      %InboxItem{status: :pending} = item -> {:ok, Repo.preload(item, :location)}
+      %InboxItem{status: :pending} = item -> {:ok, Repo.preload(item, :source)}
       %InboxItem{} -> {:error, :already_imported}
       nil -> {:error, :already_imported}
     end
@@ -436,17 +437,16 @@ defmodule Ambry.Inbox.Importer do
 
   ## placement
 
-  # What import should do with the bytes, decided by where the item came
-  # from. Only a downloads folder imports; an external collection is adopted
-  # exactly where it lies (that is the entire promise of external custody).
-  # Read off the draft rather than re-derived from the location: any input may
-  # feed any output, so which root this import goes to is a decision the
-  # operator made (or that resolved silently because there was only one), not
-  # a property of where the files were found.
+  # What import should do with the bytes, decided by the draft's custody:
+  # only a bring-in source's item is placed; a trusted source's files are
+  # adopted exactly where they lie (that is the entire promise of external
+  # custody). Read off the draft rather than re-derived from the source: any
+  # input may feed any output, so which root this import goes to is a
+  # decision the operator made (or that resolved silently because there was
+  # only one), not a property of where the files were found.
   defp destination(%InboxItem{draft: %{destination: %{custody: :managed} = destination}}) do
-    case Repo.get(Location, destination.root_id) do
-      %Location{kind: :library_root} = root -> {:ok, {root, destination.policy}}
-      %Location{} -> {:error, :target_not_a_root}
+    case Repo.get(Root, destination.root_id) do
+      %Root{} = root -> {:ok, {root, destination.policy}}
       nil -> {:error, :no_library_root}
     end
   end

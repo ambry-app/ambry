@@ -168,7 +168,7 @@ defmodule Ambry.InboxTest do
     end
 
     test "reports a watched location that isn't there" do
-      assert {:error, :watched_location_missing} = Inbox.discover("/nope/not/here")
+      assert {:error, :watched_source_missing} = Inbox.discover("/nope/not/here")
     end
   end
 
@@ -333,14 +333,16 @@ defmodule Ambry.InboxTest do
     end
   end
 
-  describe "discover/0 across registered locations" do
+  describe "discover/0 across registered sources" do
     test "refuses to guess when nothing is registered" do
-      assert {:error, :no_watched_locations} = Inbox.discover()
+      assert {:error, :no_watched_sources} = Inbox.discover()
     end
 
-    test "scans every enabled location and records where each item came from" do
-      downloads = insert(:location, path: watched_root(), kind: :downloads)
-      collection = insert(:location, path: watched_root(), kind: :external_collection)
+    test "scans every enabled source and records where each item came from" do
+      downloads = insert(:source, path: watched_root())
+
+      collection =
+        insert(:source, path: watched_root(), on_import: :leave_in_place, import_policy: nil)
 
       release_folder(downloads.path, "Leviathan Wakes", ["book.m4b"])
       release_folder(collection.path, "Project Hail Mary", ["book.m4b"])
@@ -349,52 +351,52 @@ defmodule Ambry.InboxTest do
 
       {items, false} = Inbox.list_items()
 
-      assert Enum.map(items, & &1.location_id) |> Enum.sort() ==
+      assert Enum.map(items, & &1.source_id) |> Enum.sort() ==
                Enum.sort([downloads.id, collection.id])
     end
 
-    test "skips paused locations" do
-      paused = insert(:location, path: watched_root(), enabled: false)
+    test "skips paused sources" do
+      paused = insert(:source, path: watched_root(), enabled: false)
       release_folder(paused.path, "Leviathan Wakes", ["book.m4b"])
 
-      assert {:error, :no_watched_locations} = Inbox.discover()
+      assert {:error, :no_watched_sources} = Inbox.discover()
       assert {[], false} = Inbox.list_items()
     end
 
     # One unmounted NAS must not stop the others from being scanned, but it
     # also must not read as "nothing new here".
     @tag :capture_log
-    test "counts an unreachable location without failing the run" do
-      good = insert(:location, path: watched_root())
-      insert(:location, path: "/mnt/not-mounted")
+    test "counts an unreachable source without failing the run" do
+      good = insert(:source, path: watched_root())
+      insert(:source, path: "/mnt/not-mounted")
       release_folder(good.path, "Leviathan Wakes", ["book.m4b"])
 
       assert {:ok, %{created: 1, unreachable: 1}} = Inbox.discover()
     end
 
-    test "stamps the scan time on locations it reached" do
-      location = insert(:location, path: watched_root(), last_scanned_at: nil)
+    test "stamps the scan time on sources it reached" do
+      source = insert(:source, path: watched_root(), last_scanned_at: nil)
 
       assert {:ok, _counts} = Inbox.discover()
-      assert %DateTime{} = Ambry.Library.get_location!(location.id).last_scanned_at
+      assert %DateTime{} = Ambry.Library.get_source!(source.id).last_scanned_at
     end
 
-    # An item found under a location adopts it: that's a fact the scan just
+    # An item found under a source adopts it: that's a fact the scan just
     # established, not a guess about an item whose origin was never known.
-    test "backfills the location of an item discovered before locations existed" do
+    test "backfills the source of an item discovered before sources existed" do
       root = watched_root()
       release = release_folder(root, "Leviathan Wakes", ["book.m4b"])
 
       assert {:ok, %{created: 1}} = Inbox.discover(root)
       assert {[item], false} = Inbox.list_items()
-      assert is_nil(item.location_id)
+      assert is_nil(item.source_id)
 
-      location = insert(:location, path: root)
+      source = insert(:source, path: root)
 
       assert {:ok, %{updated: 1}} = Inbox.discover()
       assert {[item], false} = Inbox.list_items()
       assert item.path == release
-      assert item.location_id == location.id
+      assert item.source_id == source.id
     end
   end
 

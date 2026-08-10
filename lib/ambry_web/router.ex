@@ -194,8 +194,10 @@ defmodule AmbryWeb.Router do
       live "/inbox/:id", InboxLive.Form
 
       live "/locations", LocationLive.Index
-      live "/locations/new", LocationLive.Form, :new
-      live "/locations/:id/edit", LocationLive.Form, :edit
+      live "/locations/sources/new", LocationLive.Form, :new_source
+      live "/locations/sources/:id/edit", LocationLive.Form, :edit_source
+      live "/locations/roots/new", LocationLive.Form, :new_root
+      live "/locations/roots/:id/edit", LocationLive.Form, :edit_root
 
       live "/media", MediaLive.Index
       live "/media/new", MediaLive.Form, :new

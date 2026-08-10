@@ -3,7 +3,8 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
   use AmbryWeb, :admin_live_view
 
   alias Ambry.Library
-  alias Ambry.Library.Location
+  alias Ambry.Library.Root
+  alias Ambry.Library.Source
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
@@ -14,73 +15,110 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
-  defp apply_action(socket, :edit, %{"id" => id}) do
-    location = Library.get_location!(id)
+  defp apply_action(socket, :new_source, _params) do
+    source = %Source{on_import: :bring_in, import_policy: :hardlink}
 
     socket
-    |> assign(page_title: location.name, location: location)
-    |> assign_form(Library.change_location(location))
+    |> assign(page_title: "New Source", entity: source)
+    |> assign_source_form(Library.change_source(source))
   end
 
-  defp apply_action(socket, :new, _params) do
-    location = %Location{kind: :downloads, import_policy: :hardlink}
+  defp apply_action(socket, :edit_source, %{"id" => id}) do
+    source = Library.get_source!(id)
 
     socket
-    |> assign(page_title: "New Location", location: location)
-    |> assign_form(Library.change_location(location))
+    |> assign(page_title: source.name, entity: source)
+    |> assign_source_form(Library.change_source(source))
+  end
+
+  defp apply_action(socket, :new_root, _params) do
+    root = %Root{}
+
+    socket
+    |> assign(page_title: "New Library Root", entity: root)
+    |> assign_root_form(Library.change_root(root))
+  end
+
+  defp apply_action(socket, :edit_root, %{"id" => id}) do
+    root = Library.get_root!(id)
+
+    socket
+    |> assign(page_title: root.name, entity: root)
+    |> assign_root_form(Library.change_root(root))
   end
 
   @impl Phoenix.LiveView
-  def handle_event("validate", %{"location" => location_params}, socket) do
+  def handle_event("validate", %{"source" => params}, socket) do
     changeset =
-      socket.assigns.location
-      |> Library.change_location(location_params)
+      socket.assigns.entity
+      |> Library.change_source(params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign_form(socket, changeset)}
+    {:noreply, assign_source_form(socket, changeset)}
   end
 
-  def handle_event("submit", %{"location" => location_params}, socket) do
-    save_location(socket, socket.assigns.live_action, location_params)
+  def handle_event("validate", %{"root" => params}, socket) do
+    changeset =
+      socket.assigns.entity
+      |> Library.change_root(params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign_root_form(socket, changeset)}
   end
 
-  defp save_location(socket, :edit, location_params) do
-    case Library.update_location(socket.assigns.location, location_params) do
-      {:ok, location} ->
+  def handle_event("submit", %{"source" => params}, socket) do
+    result =
+      case socket.assigns.live_action do
+        :new_source -> Library.create_source(params)
+        :edit_source -> Library.update_source(socket.assigns.entity, params)
+      end
+
+    saved(result, socket, &assign_source_form/2)
+  end
+
+  def handle_event("submit", %{"root" => params}, socket) do
+    result =
+      case socket.assigns.live_action do
+        :new_root -> Library.create_root(params)
+        :edit_root -> Library.update_root(socket.assigns.entity, params)
+      end
+
+    saved(result, socket, &assign_root_form/2)
+  end
+
+  defp saved(result, socket, assign_form) do
+    case result do
+      {:ok, saved} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Updated #{location.name}")
+         |> put_flash(:info, "Saved #{saved.name}")
          |> push_navigate(to: ~p"/admin/locations")}
 
       {:error, %Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
+        {:noreply, assign_form.(socket, changeset)}
     end
   end
 
-  defp save_location(socket, :new, location_params) do
-    case Library.create_location(location_params) do
-      {:ok, location} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Added #{location.name}")
-         |> push_navigate(to: ~p"/admin/locations")}
-
-      {:error, %Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
-    end
-  end
-
-  defp assign_form(socket, %Changeset{} = changeset) do
+  defp assign_source_form(socket, %Changeset{} = changeset) do
     socket
     |> assign(:form, to_form(changeset))
-    |> assign(:kind, Changeset.get_field(changeset, :kind))
+    |> assign(:type, :source)
+    |> assign(:on_import, Changeset.get_field(changeset, :on_import))
     |> assign(:status, path_status(Changeset.get_field(changeset, :path)))
     |> assign(:root_options, root_options())
   end
 
-  # Only roots can receive imports, so only roots are offered.
+  defp assign_root_form(socket, %Changeset{} = changeset) do
+    socket
+    |> assign(:form, to_form(changeset))
+    |> assign(:type, :root)
+    |> assign(:on_import, nil)
+    |> assign(:status, path_status(Changeset.get_field(changeset, :path)))
+    |> assign(:root_options, [])
+  end
+
   defp root_options do
-    Enum.map(Library.library_roots(), &{&1.name, &1.id})
+    Enum.map(Library.list_roots(), &{&1.name, &1.id})
   end
 
   defp root_prompt([]), do: "No library roots yet"
@@ -96,11 +134,14 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
 
   defp path_status(_blank), do: nil
 
-  defp kind_options do
+  # The one question a source answers, asked in the operator's terms. What
+  # the folder is called or how tidy it looks never mattered; whether its
+  # files can be trusted to stay is the whole distinction.
+  defp on_import_options do
     [
-      {"Downloads — messy source, imported into a library root", :downloads},
-      {"External collection — organized elsewhere, adopted in place", :external_collection},
-      {"Library root — Ambry's own tree", :library_root}
+      {"Bring the files in — this folder's files could vanish out from under the library",
+       :bring_in},
+      {"Leave them where they are — these files are staying put", :leave_in_place}
     ]
   end
 

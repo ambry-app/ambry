@@ -381,7 +381,7 @@ defmodule Ambry.Media do
   # The registered locations are where pruning stops: a root's existence is
   # configuration, not a consequence of currently holding a book.
   defp library_root_paths do
-    Enum.map(Library.list_locations(), & &1.path)
+    Library.registered_paths()
   end
 
   # Deletion semantics by custody (roadmap 3a).

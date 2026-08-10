@@ -18,12 +18,12 @@ defmodule Ambry.Inbox.RunDiscovery do
         Logger.info(fn -> "Inbox discovery: #{inspect(counts)}" end)
         success
 
-      # Not a failure, and the only error `discover/0` can return: a location
+      # Not a failure, and the only error `discover/0` can return: a source
       # it couldn't read is counted as `unreachable` rather than failing the
       # run. This runs hourly on a schedule, and an install that hasn't
-      # registered any locations yet would otherwise produce a warning and a
+      # registered any sources yet would otherwise produce a warning and a
       # discarded job every hour forever.
-      {:error, :no_watched_locations} ->
+      {:error, :no_watched_sources} ->
         :ok
     end
   end

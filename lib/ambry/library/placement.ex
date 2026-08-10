@@ -2,7 +2,7 @@ defmodule Ambry.Library.Placement do
   @moduledoc """
   Bringing a file into a library root.
 
-  Three policies, set per downloads location:
+  Three policies, set per bring-in source:
 
     * `:hardlink` — **same filesystem required**. One inode, two names, no
       extra bytes. This is the point of the whole exercise: the torrent keeps
@@ -32,22 +32,17 @@ defmodule Ambry.Library.Placement do
   """
 
   alias Ambry.Library
-  alias Ambry.Library.Location
 
   @enforce_keys [:source, :destination, :policy]
   defstruct [:source, :destination, :policy]
 
   @doc """
-  Places `source` at `destination` according to the location's policy.
+  Places `source` at `destination` according to `policy`.
 
   Returns a struct describing what happened, which must be passed to
   `finalize/1` once the surrounding transaction commits, or to `undo/1` if it
   doesn't.
   """
-  def place(source, destination, %Location{kind: :downloads, import_policy: policy}) do
-    place(source, destination, policy)
-  end
-
   def place(source, destination, policy) when policy in [:hardlink, :copy, :move] do
     with :ok <- readable(source),
          :ok <- vacant(destination),

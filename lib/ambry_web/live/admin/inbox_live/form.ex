@@ -593,7 +593,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       busy: Inbox.busy?(job),
       # Roots are configuration and can change between seeding a draft and
       # approving it, so they're read now rather than frozen into the draft.
-      roots: Ambry.Library.library_roots()
+      roots: Ambry.Library.list_roots()
     )
     |> schedule_tick()
   end

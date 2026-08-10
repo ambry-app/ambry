@@ -24,7 +24,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
                       end
                     end)
 
-  describe "approving from a downloads location" do
+  describe "importing from a bring-in source" do
     test "hardlinks into the library under the naming template" do
       %{item: item, root: root, source: source} = downloads_item()
 
@@ -141,7 +141,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # With several roots the choice is about which NAS, and therefore about
     # whether hardlinking is possible at all. Guessing is not acceptable.
     test "refuses when several roots exist and none was chosen" do
-      insert(:location, kind: :library_root, import_policy: nil, path: new_dir("second-root"))
+      insert(:root, path: new_dir("second-root"))
       %{item: item} = downloads_item()
 
       assert {:error, {:unresolved, outstanding}} = Inbox.import_item(item)
@@ -149,10 +149,10 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     # Any input may feed any output: the operator picks per import, and a
-    # location's configured root only *preselects* one.
+    # source's configured root only *preselects* one.
     test "uses the root the draft settled on when there are several" do
       chosen =
-        insert(:location, kind: :library_root, import_policy: nil, path: new_dir("chosen-root"))
+        insert(:root, path: new_dir("chosen-root"))
 
       %{item: item} = downloads_item()
 
@@ -172,17 +172,12 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert String.starts_with?(placed, chosen.path)
     end
 
-    test "a location's preferred root preselects without binding" do
-      %{item: item, location: location} = downloads_item()
+    test "a source's preferred root preselects without binding" do
+      %{item: item, watched: watched} = downloads_item()
 
-      chosen =
-        insert(:location,
-          kind: :library_root,
-          import_policy: nil,
-          path: new_dir("preferred-root")
-        )
+      chosen = insert(:root, path: new_dir("preferred-root"))
 
-      {:ok, _location} = Library.update_location(location, %{target_root_id: chosen.id})
+      {:ok, _watched} = Library.update_source(watched, %{target_root_id: chosen.id})
 
       {:ok, item} = Inbox.rebuild_draft(Repo.reload(item))
 
@@ -239,10 +234,10 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
   end
 
-  describe "other locations" do
-    test "an external collection is still adopted exactly where it lies" do
+  describe "other sources" do
+    test "a leave-in-place source is still adopted exactly where it lies" do
       %{item: item, source: source} =
-        downloads_item(kind: :external_collection, policy: nil)
+        downloads_item(on_import: :leave_in_place, policy: nil)
 
       assert {:ok, media} = Inbox.import_item(item)
 
@@ -254,7 +249,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
   end
 
   defp downloads_item(opts \\ []) do
-    kind = Keyword.get(opts, :kind, :downloads)
+    on_import = Keyword.get(opts, :on_import, :bring_in)
     policy = Keyword.get(opts, :policy, :hardlink)
 
     root =
@@ -265,7 +260,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
       end
 
     if root do
-      insert(:location, kind: :library_root, import_policy: nil, path: root, name: "Library")
+      insert(:root, path: root, name: "Library")
     end
 
     downloads = new_dir("downloads")
@@ -274,15 +269,15 @@ defmodule Ambry.Inbox.ManagedImportTest do
     source = Path.join(release, "book.m4b")
     File.cp!(tagged_audio(), source)
 
-    location =
-      insert(:location,
-        kind: kind,
+    watched =
+      insert(:source,
+        on_import: on_import,
         import_policy: policy,
         path: downloads,
         name: "Downloads #{Ecto.UUID.generate()}"
       )
 
-    {:ok, _counts} = Inbox.discover(location)
+    {:ok, _counts} = Inbox.discover(watched)
     {[item], false} = Inbox.list_items()
     {:ok, item} = Inbox.probe_item(item)
 
@@ -291,7 +286,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # happens to the bytes afterwards.
     item = settle(item)
 
-    %{item: item, root: root, source: source, location: location, downloads: downloads}
+    %{item: item, root: root, source: source, watched: watched, downloads: downloads}
   end
 
   defp new_dir(prefix) do
