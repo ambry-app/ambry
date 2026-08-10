@@ -273,15 +273,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      end)}
   end
 
-  def handle_event("multi-part", _params, socket) do
-    item = socket.assigns.item
-
-    case Inbox.mark_multi_part(item, !multi_part?(item)) do
-      {:ok, item} -> {:noreply, load(socket, item)}
-      {:error, _reason} -> {:noreply, put_flash(socket, :error, "Couldn't update this item.")}
-    end
-  end
-
   def handle_event("split", _params, socket) do
     case Inbox.split_item(socket.assigns.item) do
       {:ok, children} ->
@@ -890,12 +881,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   @doc "Existing Books this release might be another edition of."
   defdelegate local_records(item, level), to: Seed
-
-  @doc """
-  Whether the operator has declared this item one recording in parts.
-  """
-  def multi_part?(%InboxItem{draft: %Draft{recording: %{multi_part: true}}}), do: true
-  def multi_part?(%InboxItem{}), do: false
 
   @doc """
   How many decisions the bulk button would settle, so its label can say.

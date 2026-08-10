@@ -252,15 +252,17 @@ defmodule Ambry.Inbox.Draft do
   def curated?(%__MODULE__{} = draft) do
     # Answering the identity question and ticking records are curation too.
     # Both were missed here, so a draft whose only human input was either
-    # one was rebuilt wholesale by the next background re-match. So is
-    # declaring the files one multi-part recording.
+    # one was rebuilt wholesale by the next background re-match. So are the
+    # typed part-of-a-set numbers — nothing proposes those, so a rebuild
+    # could never get them back.
     Enum.any?(fields(draft), &(&1 && &1.curated)) or
       Enum.any?(credits(draft), fn {_kind, _section, _index, credit} -> credit.curated end) or
       Enum.any?((draft.work && draft.work.series) || [], & &1.curated) or
       Enum.any?(draft.people, & &1.curated) or
       (draft.work && (draft.work.curated or draft.work.evidence_curated)) == true or
       (draft.recording &&
-         (draft.recording.evidence_curated or draft.recording.multi_part)) == true
+         (draft.recording.evidence_curated or draft.recording.part_number != nil or
+            draft.recording.parts_total != nil)) == true
   end
 
   defp fields(%__MODULE__{work: work, recording: recording}) do

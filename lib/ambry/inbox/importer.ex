@@ -62,7 +62,6 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.Library.Placement
   alias Ambry.Library.Root
   alias Ambry.Media
-  alias Ambry.Media.RecordingGroup
   alias Ambry.Media.Scanner
   alias Ambry.People
   alias Ambry.People.Author
@@ -76,14 +75,8 @@ defmodule Ambry.Inbox.Importer do
   @doc """
   Imports an item, creating everything its draft implies.
 
-  One file is one recording; several files the operator has declared one
-  multi-part recording become one Media per file in one `RecordingGroup`,
-  part numbers following file order. Several files with no declaration are
-  refused — no heuristic can tell a two-part recording from two releases
-  sharing a folder.
-
-  Returns `{:ok, media}` (the first part, for a multi-part set), or
-  `{:error, reason}` — leaving the item untouched and the library unchanged.
+  Returns `{:ok, media}`, or `{:error, reason}` — leaving the item untouched
+  and the library unchanged.
   """
   def import_item(%InboxItem{status: :imported}), do: {:error, :already_imported}
 
@@ -91,18 +84,18 @@ defmodule Ambry.Inbox.Importer do
     item = Repo.preload(item, :source)
 
     # Facts about the files come first, then the draft, then placement. The
-    # order is the order the operator can act on them: an undeclared
-    # multi-file release or a vanished file is not something any amount of
-    # curation fixes, so reporting an unresolved decision on one would send
-    # them to the form to fix something the form can't fix.
-    with {:ok, files} <- importable_files(item),
-         {:ok, parts} <- probe_all(files),
+    # order is the order the operator can act on them: a multi-file release or
+    # a vanished file is not something any amount of curation fixes, so
+    # reporting an unresolved decision on one would send them to the form to
+    # fix something the form can't fix.
+    with {:ok, file} <- single_file(item),
+         {:ok, probe} <- probe(file),
          :ok <- resolved(item),
          {:ok, destination} <- destination(item),
-         {:ok, {media, placements}} <- create(item, parts, destination) do
+         {:ok, {media, placement}} <- create(item, file, probe, destination) do
       # Only now, with the records committed, is it safe to remove a moved
       # file's source.
-      Enum.each(placements, &log_finalize(Placement.finalize(&1), item))
+      log_finalize(Placement.finalize(placement), item)
       {:ok, media}
     end
   end
@@ -138,14 +131,7 @@ defmodule Ambry.Inbox.Importer do
   # fail at the commit and the worst case is a stray file in the library,
   # which the audit tooling surfaces — never a file whose source was already
   # deleted and whose record didn't survive.
-  #
-  # `parts` is `[{file, probe}]` in part order. Everything book-shaped
-  # happens once; everything recording-shaped loops. The single-file case is
-  # a one-element loop with no group and no part numbers — exactly what it
-  # created before parts existed.
-  defp create(item, parts, destination) do
-    total = length(parts)
-
+  defp create(item, file, probe, destination) do
     Repo.transact(fn ->
       # People first, and for the whole draft at once: the same human can be
       # behind two credits, and each credit creating its own left a
@@ -153,62 +139,13 @@ defmodule Ambry.Inbox.Importer do
       with {:ok, item} <- claim(item),
            {:ok, people} <- resolve_people(item.draft),
            {:ok, book} <- resolve_book(item.draft.work, people),
-           {:ok, group_id} <- recording_group(total),
-           {:ok, placed} <- create_parts(item, book, people, parts, group_id, destination),
-           {:ok, [media | _rest]} <- publish_all(placed),
-           # The item records the first part: `media_id` is singular, and the
-           # first part is the group's representative everywhere else too.
-           {:ok, _item} <- link(item, media) do
-        {:ok, {media, Enum.map(placed, fn {_media, placement} -> placement end)}}
+           {:ok, media} <- create_media(item, book, probe, people),
+           {:ok, _item} <- link(item, media),
+           {:ok, media, placement} <- place(destination, book, media, file),
+           {:ok, media} <- publish(media) do
+        {:ok, {media, placement}}
       end
     end)
-  end
-
-  # The group exists only to tie parts together, so a single-file import
-  # never creates one. Nothing but defaults on it: the name is an optional
-  # admin label, and the tile logic renders an unnamed group as "N parts".
-  defp recording_group(1), do: {:ok, nil}
-
-  defp recording_group(_several) do
-    with {:ok, group} <- Repo.insert(%RecordingGroup{}), do: {:ok, group.id}
-  end
-
-  defp create_parts(item, book, people, parts, group_id, destination) do
-    total = length(parts)
-
-    parts
-    |> Enum.with_index(1)
-    |> Enum.reduce_while({:ok, []}, fn {{file, probe}, number}, {:ok, acc} ->
-      part = part_of(number, total, group_id)
-
-      with {:ok, media} <- create_media(item, book, probe, people, part),
-           {:ok, media, placement} <- place(destination, book, media, file, part) do
-        {:cont, {:ok, [{media, placement} | acc]}}
-      else
-        {:error, _reason} = error -> {:halt, error}
-      end
-    end)
-    |> case do
-      {:ok, placed} -> {:ok, Enum.reverse(placed)}
-      error -> error
-    end
-  end
-
-  defp part_of(_number, 1, nil), do: nil
-  defp part_of(number, total, group_id), do: %{number: number, total: total, group_id: group_id}
-
-  defp publish_all(placed) do
-    placed
-    |> Enum.reduce_while({:ok, []}, fn {media, _placement}, {:ok, acc} ->
-      case publish(media) do
-        {:ok, media} -> {:cont, {:ok, [media | acc]}}
-        {:error, _reason} = error -> {:halt, error}
-      end
-    end)
-    |> case do
-      {:ok, medias} -> {:ok, Enum.reverse(medias)}
-      error -> error
-    end
   end
 
   ## the work
@@ -384,7 +321,7 @@ defmodule Ambry.Inbox.Importer do
 
   ## the recording
 
-  defp create_media(item, book, probe, people, part) do
+  defp create_media(item, book, probe, people) do
     recording = item.draft.recording
 
     Media.create_media(
@@ -394,14 +331,13 @@ defmodule Ambry.Inbox.Importer do
         # repointed to its library copy below
         custody: :external,
         source_path: item.path,
-        # A part claims only its own file — its sibling's bytes are not this
-        # media's to list (or, on deletion, to remove). A single-file import
-        # keeps the item's whole list, exactly as before.
-        source_files: (part && [probe.path]) || item.files,
+        source_files: item.files,
         status: :pending,
-        recording_group_id: part && part.group_id,
-        part_number: part && part.number,
-        parts_total: part && part.total,
+        # The optional part-of-a-set label ("Part 1 of 2"), typed by the
+        # operator. Grouping the parts into one set is the media form's job,
+        # after each part is imported.
+        part_number: recording.part_number,
+        parts_total: recording.parts_total,
         duration: probe.duration,
         chapters: probe.chapters,
         media_narrators: narrator_params(recording.narrators, people),
@@ -529,9 +465,9 @@ defmodule Ambry.Inbox.Importer do
 
   defp destination(%InboxItem{}), do: {:ok, :adopt}
 
-  defp place(:adopt, _book, media, _file, _part), do: {:ok, media, nil}
+  defp place(:adopt, _book, media, _file), do: {:ok, media, nil}
 
-  defp place({root, policy}, book, media, file, part) do
+  defp place({root, policy}, book, media, file) do
     # Forced: a freshly-created book carries its `book_authors` as insert
     # results with the nested `author` unloaded, and a reused one carries
     # nothing at all. Without this every folder silently loses its author
@@ -543,7 +479,7 @@ defmodule Ambry.Inbox.Importer do
     values = Books.naming_values(book, media)
 
     with {:ok, folder} <- NamingTemplate.render(Settings.library_naming_template(), values),
-         {:ok, filename} <- NamingTemplate.filename(values, file, filename_part(part)),
+         {:ok, filename} <- NamingTemplate.filename(values, file, filename_part(media)),
          path = Path.join([root.path, folder, filename]),
          {:ok, placement} <- Placement.place(file, path, policy),
          {:ok, media} <- adopt_managed(media, path) do
@@ -551,11 +487,11 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
-  # Parts share the book folder, so the filename has to keep them apart —
-  # without the suffix every part renders to one identical path and the
-  # second placement dies on destination_exists.
-  defp filename_part(nil), do: nil
-  defp filename_part(%{number: number, total: total}), do: {number, total}
+  # Two parts of one set are two separate imports into the same book folder;
+  # the suffix is what keeps "The Way of Kings.m4b" from colliding with
+  # itself when part 2 arrives.
+  defp filename_part(%{part_number: nil}), do: nil
+  defp filename_part(%{part_number: number, parts_total: total}), do: {number, total}
 
   # The recording now points at the library copy and Ambry owns those bytes.
   defp adopt_managed(media, path) do
@@ -589,31 +525,12 @@ defmodule Ambry.Inbox.Importer do
 
   ## files
 
-  # One file imports as it always has. Several import only once the operator
-  # has declared them one recording in parts — an undeclared multi-file item
-  # stays refused, because half-importing it or guessing wrong both write
-  # confident nonsense into the library.
-  defp importable_files(%InboxItem{files: []}), do: {:error, :no_audio_files}
-  defp importable_files(%InboxItem{files: [file]}), do: {:ok, [file]}
-
-  defp importable_files(%InboxItem{files: files, draft: %Draft{recording: %{multi_part: true}}}),
-    do: {:ok, files}
-
-  defp importable_files(%InboxItem{}), do: {:error, :multi_file_unsupported}
-
-  defp probe_all(files) do
-    files
-    |> Enum.reduce_while({:ok, []}, fn file, {:ok, acc} ->
-      case probe(file) do
-        {:ok, probe} -> {:cont, {:ok, [{file, probe} | acc]}}
-        {:error, _reason} = error -> {:halt, error}
-      end
-    end)
-    |> case do
-      {:ok, parts} -> {:ok, Enum.reverse(parts)}
-      error -> error
-    end
-  end
+  # An import is one file — a recording whose tracks can't be described has
+  # no business in the library, and a multi-file item is split into one item
+  # per file first.
+  defp single_file(%InboxItem{files: [file]}), do: {:ok, file}
+  defp single_file(%InboxItem{files: []}), do: {:error, :no_audio_files}
+  defp single_file(%InboxItem{}), do: {:error, :multi_file_unsupported}
 
   # Re-probed rather than trusting what discovery recorded: it costs one
   # ffprobe and buys current track data, plus a file that vanished between

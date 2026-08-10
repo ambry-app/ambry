@@ -241,7 +241,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
 
     {:ok, view, html} = live(conn, ~p"/admin/inbox")
 
-    assert html =~ "one recording in parts, or separate recordings"
+    assert html =~ "split this into one item per file"
     refute has_element?(view, "span[phx-click='import'][phx-value-id='#{item.id}']")
     assert Inbox.get_item!(item.id).status == :pending
   end

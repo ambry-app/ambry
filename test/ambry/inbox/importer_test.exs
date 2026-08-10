@@ -315,68 +315,48 @@ defmodule Ambry.Inbox.ImporterTest do
     end
   end
 
-  describe "multi-part recordings" do
-    # GraphicAudio's shape: one book, one recording, "Part 1 of 2" and
-    # "Part 2 of 2" — each part a normal single-file media, tied together by
-    # a recording group. The whole rendering/sync model shipped with the
-    # Edition work; import was the missing piece.
-    test "a declared parts item imports as one recording group" do
-      item = parts_item()
+  describe "part-of-a-set numbers" do
+    # A part-release (GraphicAudio's "Part 1 of 2") is an ordinary separate
+    # recording — its own cover, date, narrators, sometimes sold separately —
+    # that happens to carry the optional part label. The operator types the
+    # numbers; nothing proposes them, and grouping the parts into one set
+    # stays on the media form.
+    test "typed part numbers reach the imported media" do
+      item = tagged_item()
+
+      draft = %{
+        item.draft
+        | recording: %{item.draft.recording | part_number: 1, parts_total: 2}
+      }
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
       assert {:ok, media} = Inbox.import_item(item)
 
-      assert [part1, part2] =
-               Repo.all(from(m in Media.Media, order_by: m.part_number))
-
-      assert part1.part_number == 1
-      assert part2.part_number == 2
-      assert part1.parts_total == 2
-      assert part1.recording_group_id
-      assert part1.recording_group_id == part2.recording_group_id
-
-      # the item records the representative: the first part
-      assert media.id == part1.id
-      item = Inbox.get_item!(item.id)
-      assert item.status == :imported
-      assert item.media_id == part1.id
-
-      # one book, one author graph — only the recording looped
-      assert Repo.aggregate(Book, :count) == 1
-
-      # each part is independently playable: its own track, its own file
-      assert [%{path: file1}] = Media.get_media!(part1.id).media_tracks
-      assert [%{path: file2}] = Media.get_media!(part2.id).media_tracks
-      assert file1 != file2
-
-      # and claims only its own file
-      assert part1.source_files == [file1]
-      assert part2.source_files == [file2]
+      media = Media.get_media!(media.id)
+      assert media.part_number == 1
+      assert media.parts_total == 2
+      # no group is invented — tying the set together is the media form's job
+      assert media.recording_group_id == nil
     end
 
-    test "the declaration survives a re-probe instead of re-raising the issue" do
-      item = parts_item()
-      assert item.issue == nil
+    test "the numbers count as curation, so a re-match can't discard them" do
+      item = tagged_item(settle: false)
+      {:ok, item} = Inbox.prepare_draft(item)
 
-      {:ok, item} = Inbox.probe_item(item)
+      draft = %{
+        item.draft
+        | recording: %{item.draft.recording | part_number: 1, parts_total: 2}
+      }
 
-      assert item.issue == nil
-    end
-
-    test "undeclaring puts the multi-file question back" do
-      item = parts_item()
-
-      {:ok, item} = Inbox.mark_multi_part(item, false)
-
-      assert item.issue =~ "2 audio files"
-      assert {:error, :multi_file_unsupported} = Inbox.import_item(item)
+      assert Draft.curated?(draft)
     end
   end
 
   describe "approve/1 refusals" do
     test "refuses a multi-file release rather than importing half of it" do
-      # Checked before the draft: an *undeclared* multi-file release is not
-      # importable by curation alone — the operator has to say what the files
-      # are (one recording in parts, or separate recordings to split) first.
+      # Checked before the draft: no amount of curation makes a multi-file
+      # release importable — the operator splits it into one item per file.
       item = tagged_item(files: ["01.mp3", "02.mp3"], settle: false)
 
       assert {:error, :multi_file_unsupported} = Inbox.import_item(item)
@@ -441,24 +421,6 @@ defmodule Ambry.Inbox.ImporterTest do
       assert Repo.aggregate(Book, :count) == 0
       assert Inbox.get_item!(item.id).status == :pending
     end
-  end
-
-  # A two-part release, discovered, settled, and declared one recording in
-  # parts — the state the form leaves the GraphicAudio case in.
-  defp parts_item do
-    root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
-    release = Path.join(root, "The Way of Kings [GraphicAudio]")
-    File.mkdir_p!(release)
-    fixture = tagged_fixture(true, nil)
-    File.cp!(fixture, Path.join(release, "Part 1 of 2.m4b"))
-    File.cp!(fixture, Path.join(release, "Part 2 of 2.m4b"))
-
-    {:ok, _counts} = Inbox.discover(root)
-    {[item], false} = Inbox.list_items(filter: "GraphicAudio")
-    {:ok, item} = Inbox.probe_item(item)
-    item = settle(item)
-    {:ok, item} = Inbox.mark_multi_part(item, true)
-    item
   end
 
   # A real tagged file discovered the way discovery would find it.

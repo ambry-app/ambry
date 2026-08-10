@@ -30,12 +30,14 @@ defmodule Ambry.Inbox.Draft.Recording do
     # `PersonDecision.evidence_curated`.
     field :evidence_curated, :boolean, default: false
 
-    # The operator's answer to "what are these files": one recording split
-    # into parts (GraphicAudio's "Part 1 of 2"). Import then creates one
-    # Media per file in one RecordingGroup, part numbers following file
-    # order. Always an operator call — no heuristic can tell a two-part
-    # recording from two releases sharing a folder.
-    field :multi_part, :boolean, default: false
+    # The optional part-of-a-set facts Media carries ("Part 1 of 2" —
+    # GraphicAudio's shape). Plain values, deliberately not Fields: the
+    # operator types them, nothing proposes them. A part-release is an
+    # ordinary separate recording (its own cover, date, narrators, sometimes
+    # sold separately) that happens to want this label; grouping parts into
+    # a set stays on the media form.
+    field :part_number, :integer
+    field :parts_total, :integer
 
     # Which records describe this recording. Hardcover, rreading-glasses and
     # Audible will all have a record of a popular reading — and the databases
@@ -77,10 +79,13 @@ defmodule Ambry.Inbox.Draft.Recording do
       :query_fields,
       :approved,
       :evidence_curated,
-      :multi_part,
+      :part_number,
+      :parts_total,
       :doubt,
       :doubt_detail
     ])
+    |> validate_number(:part_number, greater_than_or_equal_to: 1)
+    |> validate_number(:parts_total, greater_than_or_equal_to: 1)
     |> cast_embed(:sources)
     |> cast_embed(:title)
     |> cast_embed(:published)

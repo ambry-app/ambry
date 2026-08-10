@@ -68,11 +68,11 @@ defmodule Ambry.Library.NamingTemplate do
   @doc """
   The filename for a recording's file, keeping the source's extension.
 
-  A part of a multi-part recording passes `{number, total}` and gets a
-  " - Part N of M" suffix — every part of a recording lands in the same book
-  folder, and without the suffix they'd render to one identical path. (A
-  proper `{part}` template token is future work; this keeps the parts apart
-  until then.)
+  A recording carrying part-of-a-set numbers passes `{number, total}` (total
+  may be nil) and gets a " - Part N of M" suffix — parts of one set are
+  separate imports into the same book folder, and without the suffix they'd
+  render to one identical path. (A proper `{part}` template token is future
+  work; this keeps the parts apart until then.)
   """
   def filename(values, source_path, part \\ nil) do
     values = stringify(values)
@@ -84,6 +84,7 @@ defmodule Ambry.Library.NamingTemplate do
   end
 
   defp part_suffix(nil), do: ""
+  defp part_suffix({number, nil}), do: " - Part #{number}"
   defp part_suffix({number, total}), do: " - Part #{number} of #{total}"
 
   @doc """

@@ -79,26 +79,11 @@
           {@item.issue}
         </p>
 
-        <%!-- The multi-file question, and both of its answers. Only the
-            operator can tell a two-part recording from two releases sharing
-            a folder — no heuristic can. "Recordings", not "books": split
-            items are separate imports, and each may still link to the same
-            book (two novellas, or two editions). --%>
-        <div :if={length(@item.files) > 1 and !@read_only} class="flex flex-wrap gap-2 pt-2 pl-3">
-          <button
-            type="button"
-            phx-click="multi-part"
-            data-role="multi-part"
-            class={[
-              "rounded-sm px-2 py-1 text-xs",
-              multi_part?(@item) && "bg-brand-dark/15 ring-brand-dark/50 text-zinc-100 ring-2 ring-inset",
-              !multi_part?(@item) && "bg-white/5 text-zinc-300 hover:bg-white/10"
-            ]}
-          >
-            <.icon :if={multi_part?(@item)} name="fa-check" class="text-brand-dark mr-1 h-3 w-3" />
-            One recording in {length(@item.files)} parts
-          </button>
-
+        <%!-- One button, no judgment on why: an import is one file, and only
+            the operator knows what these files are to each other. Each split
+            item is its own import — link them to one book, give them part
+            numbers, whatever the release calls for. --%>
+        <div :if={length(@item.files) > 1 and !@read_only} class="pt-2 pl-3">
           <button
             type="button"
             phx-click="split"
@@ -106,7 +91,7 @@
             data-role="split"
             class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
           >
-            Separate recordings — split into {length(@item.files)} items
+            Split into {length(@item.files)} items — one per file
           </button>
         </div>
       </section>
@@ -638,6 +623,41 @@
                 type="textarea"
                 field={@item.draft.recording.description}
               />
+
+              <%!-- Plain values, deliberately not a decision row: nothing
+                  proposes these, the operator just knows. Optional — most
+                  recordings aren't part of a set. --%>
+              <div class="space-y-2 rounded-lg border-l-4 border-zinc-700 bg-zinc-900 p-4">
+                <div class="pl-3">
+                  <.label>Part of a set</.label>
+                </div>
+                <p class="max-w-prose pl-3 text-sm text-zinc-400">
+                  Optional — for releases sold as "Part 1 of 2". Each part is its own
+                  recording; tying the set together happens on the media page once the
+                  parts are in.
+                </p>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    name={recording[:part_number].name}
+                    value={recording[:part_number].value}
+                    placeholder="—"
+                    data-role="part-number"
+                    class={input_classes("w-20")}
+                  />
+                  <span class="text-sm text-zinc-400">of</span>
+                  <input
+                    type="number"
+                    min="1"
+                    name={recording[:parts_total].name}
+                    value={recording[:parts_total].value}
+                    placeholder="—"
+                    data-role="parts-total"
+                    class={input_classes("w-20")}
+                  />
+                </div>
+              </div>
             </.inputs_for>
           </.inputs_for>
         </.simple_form>
