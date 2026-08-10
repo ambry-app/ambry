@@ -550,7 +550,13 @@ defmodule AmbryWeb.Admin.Decisions do
       >
         <.microlabel class="pt-1.5">Proposed</.microlabel>
 
-        <div class="flex flex-wrap items-center gap-1.5">
+        <%!-- One line or a list, never a partial wrap — the hook measures
+            whether every chip fits and commits to exactly one of the two. --%>
+        <div
+          id={"#{@section}-#{@name}-chips"}
+          phx-hook="fit-or-stack"
+          class="flex flex-wrap items-center gap-1.5"
+        >
           <.proposal_chip
             :for={candidate <- @field.candidates}
             chosen={Field.chose?(@field, candidate)}
@@ -1058,7 +1064,11 @@ defmodule AmbryWeb.Admin.Decisions do
         <div :if={@bios != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
           <.microlabel class="pt-1.5">Proposed</.microlabel>
 
-          <div class="flex flex-wrap items-center gap-1.5">
+          <div
+            id={"person-bio-#{@at}-chips"}
+            phx-hook="fit-or-stack"
+            class="flex flex-wrap items-center gap-1.5"
+          >
             <.proposal_chip
               :for={bio <- @bios}
               chosen={Field.chose?(@person.description, bio)}

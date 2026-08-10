@@ -96,6 +96,12 @@ the text off the rail; other engines pick their own widths.
 column via grid (`grid-cols-[<w>_minmax(0,1fr)]`), sized once per surface;
 wrapped content stays in the value column.
 
+**A proposal-chip row is one line or a list, never a partial wrap.** A row
+that breaks just its last chip reads as an accident; either every chip
+shares the line or every chip gets its own. No flow mechanism expresses
+"stack only if they don't all fit", so the `fit-or-stack` hook measures the
+chips' natural widths and commits the row to one of the two modes.
+
 **Rhythm is 8 · 28 · 56** (`gap-2` / `gap-7` / `gap-14`): inside a field
 cluster / between blocks / between sections. Queue cards stack with
 `space-y-3`.
