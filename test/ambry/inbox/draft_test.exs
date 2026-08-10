@@ -1285,6 +1285,20 @@ defmodule Ambry.Inbox.DraftTest do
       assert Draft.level_state(item.draft.work) == :trusted
     end
 
+    # Clicking the already-ticked record UNTICKS it, so "yes, you were right"
+    # used to cost an untick and a re-tick with a reseed churning each way.
+    test "confirm approves the machine's ticks without moving them" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      ticked = item.draft.work.sources
+
+      draft = Draft.Edit.confirm_level(item.draft, :work)
+
+      assert Draft.level_state(draft.work) == :confirmed
+      assert draft.work.sources == ticked
+      assert Draft.curated?(draft)
+    end
+
     test "the tick survives the reseed it triggers" do
       record = provider_candidate(%{"score" => 0.5})
       item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})
@@ -1443,6 +1457,30 @@ defmodule Ambry.Inbox.DraftTest do
       assert [%{name: "Martha Wells", person_keys: [key]}] = draft.work.authors
       assert [%{key: ^key} = person] = draft.people
       assert Field.value(person.name) == "Martha Wells"
+    end
+
+    test "a manually added row really deletes — nothing proposed it" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.add_series()
+        |> Draft.Edit.rename_series(0, "Not A Real Series")
+        |> Draft.Edit.remove_series(0)
+
+      assert draft.work.series == []
+
+      draft =
+        draft
+        |> Draft.Edit.add_credit(:work)
+        |> Draft.Edit.rename_credit(:work, 1, "Nobody Real")
+        |> Draft.Edit.sync_people(item)
+        |> Draft.Edit.remove_credit(item, :work, 1)
+
+      # gone entirely, and the person it minted goes with it
+      assert [%{source: "provider:hardcover"}] = draft.work.authors
+      refute Enum.any?(draft.people, &(Field.value(&1.name) == "Nobody Real"))
     end
 
     test "an added series survives reseeds like any curated row" do

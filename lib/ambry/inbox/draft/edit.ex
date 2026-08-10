@@ -526,11 +526,23 @@ defmodule Ambry.Inbox.Draft.Edit do
   which used to be skipped outright: the orphaned `PersonDecision` stayed in
   `draft.people`, where `unresolved/1` counted it as a decision the operator
   could neither see nor settle.
+
+  A row the operator added themselves really is deleted: no evidence proposed
+  it, so there is nothing for a reseed to resurrect and nothing a ghost would
+  be holding for them.
   """
   def remove_credit(draft, %InboxItem{} = item, section, index) do
-    draft
-    |> update_credit(section, index, &%{&1 | removed: true, curated: true})
-    |> Seed.reseed_people(item)
+    case Enum.at(credits_in(draft, section), index) do
+      %Credit{source: "manual"} ->
+        draft
+        |> update_credits(section, &List.delete_at(&1, index))
+        |> Seed.reseed_people(item)
+
+      _proposed ->
+        draft
+        |> update_credit(section, index, &%{&1 | removed: true, curated: true})
+        |> Seed.reseed_people(item)
+    end
   end
 
   @doc """
@@ -598,9 +610,16 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   # The same tombstone as `remove_credit/4`; a series references no people,
-  # so there is nothing to reconcile.
+  # so there is nothing to reconcile. Operator-added rows really delete,
+  # same as credits — no evidence proposed them.
   def remove_series(draft, index) do
-    update_series(draft, index, &%{&1 | removed: true, curated: true})
+    case Enum.at(draft.work.series, index) do
+      %SeriesLink{source: "manual"} ->
+        update_in(draft.work.series, &List.delete_at(&1, index))
+
+      _proposed ->
+        update_series(draft, index, &%{&1 | removed: true, curated: true})
+    end
   end
 
   def restore_series(draft, index) do
@@ -608,6 +627,26 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   ## the identity decisions
+
+  @doc """
+  Approves the machine's ticks exactly as they are — "yes, you were right."
+
+  Ticking a record settles a level, but a level the seeder already ticked had
+  no one-click way to be human-confirmed: clicking the ticked record unticks
+  it, so confirming took an untick and a re-tick, churning a reseed each way.
+  This is the missing single click. It changes no sources — it only records
+  that a human looked.
+  """
+  def confirm_level(draft, :work) do
+    update_in(draft.work, &%{&1 | evidence_curated: true, doubt: :none, doubt_detail: nil})
+  end
+
+  def confirm_level(draft, :recording) do
+    update_in(
+      draft.recording,
+      &%{&1 | approved: true, evidence_curated: true, doubt: :none, doubt_detail: nil}
+    )
+  end
 
   def approve_work(draft, approved?), do: update_in(draft.work.approved, fn _ -> approved? end)
 

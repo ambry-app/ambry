@@ -992,7 +992,7 @@ defmodule Ambry.Inbox do
 
   defp multi_file_issue(%InboxItem{files: files}) do
     "#{length(files)} audio files — direct play handles single-file recordings for now; " <>
-      "merge them externally if this is one book, or split this item if they're separate books"
+      "merge them externally if this is one recording, or split this item if they're separate recordings"
   end
 
   defp probe_map(probe) do

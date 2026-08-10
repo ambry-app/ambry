@@ -80,8 +80,10 @@
         </p>
 
         <%!-- The grouping heuristic is folder-based and its known failure is
-            unrelated single-file books sharing a folder. Only the operator
-            can tell — this is how they say so. --%>
+            unrelated single-file recordings sharing a folder. Only the
+            operator can tell — this is how they say so. "Recordings", not
+            "books": the split items are separate imports, and each may still
+            link to the same book (two novellas, or two editions). --%>
         <div :if={length(@item.files) > 1 and !@read_only} class="pt-2 pl-3">
           <button
             type="button"
@@ -90,7 +92,7 @@
             data-role="split"
             class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
           >
-            These are separate books — split into {length(@item.files)} items
+            These are separate recordings — split into {length(@item.files)} items
           </button>
         </div>
       </section>
@@ -267,6 +269,20 @@
             >
               {elem(level_state_words(Draft.level_state(@item.draft.work)), 0)}
             </.badge>
+
+            <%!-- "Yes, you were right" in one click. Clicking the ticked
+                record would untick it — confirming as-is must not cost an
+                untick and a re-tick. --%>
+            <button
+              :if={Draft.level_state(@item.draft.work) == :trusted}
+              type="button"
+              phx-click="confirm-level"
+              phx-value-section="work"
+              data-role="confirm-work"
+              class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            >
+              Confirm
+            </button>
           </div>
 
           <%!-- Same as the recording level: a doubted match adopts nothing, and
@@ -467,6 +483,17 @@
             >
               {elem(level_state_words(Draft.level_state(@item.draft.recording)), 0)}
             </.badge>
+
+            <button
+              :if={Draft.level_state(@item.draft.recording) == :trusted}
+              type="button"
+              phx-click="confirm-level"
+              phx-value-section="recording"
+              data-role="confirm-recording"
+              class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            >
+              Confirm
+            </button>
           </div>
 
           <%!-- A doubted match used to be indistinguishable from no match at

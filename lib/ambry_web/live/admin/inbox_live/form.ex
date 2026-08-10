@@ -488,6 +488,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.approve_work(&1, params["approved"] == "true"))}
   end
 
+  def handle_event("confirm-level", %{"section" => s}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.confirm_level(&1, atom(s)))}
+  end
+
   def handle_event("choose-root", %{"root_id" => root_id}, socket) do
     id = to_int(root_id)
 
