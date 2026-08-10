@@ -321,7 +321,7 @@ defmodule Ambry.Inbox.ImporterTest do
     # that happens to carry the optional part label. The operator types the
     # numbers; nothing proposes them, and grouping the parts into one set
     # stays on the media form.
-    test "typed part numbers reach the imported media" do
+    test "typed part numbers reach the imported media inside a group" do
       item = tagged_item()
 
       draft = %{
@@ -335,9 +335,9 @@ defmodule Ambry.Inbox.ImporterTest do
 
       media = Media.get_media!(media.id)
       assert media.part_number == 1
-      assert media.parts_total == 2
-      # no group is invented — tying the set together is the media form's job
-      assert media.recording_group_id == nil
+      # a part label lives inside a group; the set's total is the group's fact
+      assert %{parts_total: 2, name: name} = media.recording_group
+      assert name == media.book.title
     end
 
     test "the numbers count as curation, so a re-match can't discard them" do

@@ -21,7 +21,10 @@ defmodule Ambry.Media do
       PubSub.MediaCreated,
       PubSub.MediaDeleted,
       PubSub.MediaProgress,
-      PubSub.MediaUpdated
+      PubSub.MediaUpdated,
+      PubSub.RecordingGroupCreated,
+      PubSub.RecordingGroupDeleted,
+      PubSub.RecordingGroupUpdated
     ]
 
   import Ambry.Utils
@@ -38,6 +41,9 @@ defmodule Ambry.Media do
   alias Ambry.Media.PubSub.MediaDeleted
   alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.Media.PubSub.MediaUpdated
+  alias Ambry.Media.PubSub.RecordingGroupCreated
+  alias Ambry.Media.PubSub.RecordingGroupDeleted
+  alias Ambry.Media.PubSub.RecordingGroupUpdated
   alias Ambry.Media.RecordingGroup
   alias Ambry.Media.RunOrganize
   alias Ambry.Media.RunProcessor
@@ -262,6 +268,7 @@ defmodule Ambry.Media do
       with {:ok, media} <- Repo.insert(changeset),
            :ok <- Search.insert(media),
            {:ok, _job_or_noop} <- generate_thumbnails_async(media),
+           {:ok, _job_or_noop} <- broadcast_recording_group_change(changeset, media),
            {:ok, _job} <- broadcast_media_created(media) do
         {:ok, media}
       end
@@ -302,10 +309,11 @@ defmodule Ambry.Media do
       changeset = Media.changeset(media, attrs, opts)
 
       with {:ok, updated_media} <- Repo.update(changeset),
-           :ok <- delete_orphaned_recording_groups(),
+           :ok <- delete_orphaned_recording_group(media.recording_group_id),
            :ok <- Search.update(updated_media),
            {:ok, _job_or_noop} <- delete_unused_files_async(media, updated_media),
            {:ok, _job_or_noop} <- generate_thumbnails_async(updated_media),
+           {:ok, _job_or_noop} <- broadcast_recording_group_change(changeset, updated_media),
            {:ok, _job} <- broadcast_media_updated(updated_media) do
         {:ok, updated_media}
       end
@@ -355,7 +363,7 @@ defmodule Ambry.Media do
   def delete_media(%Media{} = media) do
     Repo.transact(fn ->
       with {:ok, deleted_media} <- Repo.delete(media),
-           :ok <- delete_orphaned_recording_groups(),
+           :ok <- delete_orphaned_recording_group(media.recording_group_id),
            :ok <- Search.delete(deleted_media),
            {:ok, _job} <- delete_all_files_async(deleted_media),
            {:ok, _job} <- broadcast_media_deleted(deleted_media) do
@@ -575,6 +583,160 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  Returns a limited list of recording groups and whether or not there are
+  more, for the admin index. Each group carries a `:media` preload (with
+  books) ordered by part number.
+
+  Supports the `%{search: name}` filter and ordering by `:name` or
+  `:inserted_at`.
+  """
+  def list_recording_groups(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :name]) do
+    over_limit = limit + 1
+
+    groups =
+      RecordingGroup
+      |> recording_group_filter(filters)
+      |> order_by(^order)
+      |> offset(^offset)
+      |> limit(^over_limit)
+      |> preload(media: :book)
+      |> Repo.all()
+
+    groups_to_return = Enum.slice(groups, 0, limit)
+
+    {groups_to_return, groups != groups_to_return}
+  end
+
+  defp recording_group_filter(query, %{search: search}) when is_binary(search) and search != "" do
+    where(query, [g], ilike(g.name, ^"%#{search}%"))
+  end
+
+  defp recording_group_filter(query, _filters), do: query
+
+  @doc """
+  Returns the number of recording groups.
+  """
+  @spec count_recording_groups :: integer()
+  def count_recording_groups do
+    Repo.aggregate(RecordingGroup, :count)
+  end
+
+  @doc """
+  Gets a single recording group with its media (and their books) preloaded
+  in part order.
+
+  Raises `Ecto.NoResultsError` if the group does not exist.
+  """
+  def get_recording_group!(id) do
+    RecordingGroup
+    |> preload(media: :book)
+    |> Repo.get!(id)
+  end
+
+  @doc """
+  Creates a recording group.
+
+  A group with no members is allowed — groups are first-class entities an
+  operator may set up ahead of its parts. (Groups that *lose* their last
+  member through a media save are still swept as orphans.)
+  """
+  def create_recording_group(attrs) do
+    Repo.transact(fn ->
+      changeset = RecordingGroup.changeset(%RecordingGroup{}, attrs)
+
+      with {:ok, group} <- Repo.insert(changeset),
+           {:ok, _job} <- broadcast_recording_group_created(group) do
+        {:ok, group}
+      end
+    end)
+  end
+
+  defp broadcast_recording_group_created(%RecordingGroup{} = group) do
+    group
+    |> RecordingGroupCreated.new()
+    |> PubSub.broadcast_async()
+  end
+
+  @doc """
+  Updates a recording group.
+  """
+  def update_recording_group(%RecordingGroup{} = group, attrs) do
+    Repo.transact(fn ->
+      changeset = RecordingGroup.changeset(group, attrs)
+
+      with {:ok, updated_group} <- Repo.update(changeset),
+           {:ok, _job} <- broadcast_recording_group_updated(updated_group) do
+        {:ok, updated_group}
+      end
+    end)
+  end
+
+  defp broadcast_recording_group_updated(%RecordingGroup{} = group) do
+    group
+    |> RecordingGroupUpdated.new()
+    |> PubSub.broadcast_async()
+  end
+
+  @doc """
+  Deletes a recording group, detaching its members.
+
+  The FK nils members' `recording_group_id`; their `part_number` must go
+  with it (a part number without a group violates the data model — and the
+  DB CHECK the FK's nilify would otherwise trip).
+  """
+  def delete_recording_group(%RecordingGroup{} = group) do
+    Repo.transact(fn ->
+      Repo.update_all(
+        from(m in Media, where: m.recording_group_id == ^group.id),
+        set: [part_number: nil, recording_group_id: nil, updated_at: DateTime.utc_now(:second)]
+      )
+
+      with {:ok, deleted_group} <- Repo.delete(change_recording_group(group)),
+           {:ok, _job} <- broadcast_recording_group_deleted(deleted_group.id) do
+        {:ok, deleted_group}
+      end
+    end)
+  end
+
+  defp broadcast_recording_group_deleted(id) do
+    id
+    |> RecordingGroupDeleted.new()
+    |> PubSub.broadcast_async()
+  end
+
+  # Media saves can create or rename a group through the picker's put_assoc,
+  # bypassing the group CRUD functions — subscribers (the admin group index)
+  # still need to hear about it.
+  defp broadcast_recording_group_change(changeset, %Media{} = media) do
+    case Ecto.Changeset.get_change(changeset, :recording_group) do
+      %Ecto.Changeset{data: %RecordingGroup{id: nil}} ->
+        media.recording_group |> RecordingGroupCreated.new() |> PubSub.broadcast_async()
+
+      %Ecto.Changeset{} ->
+        media.recording_group |> RecordingGroupUpdated.new() |> PubSub.broadcast_async()
+
+      nil ->
+        {:ok, :noop}
+    end
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking recording group changes.
+  """
+  def change_recording_group(%RecordingGroup{} = group, attrs \\ %{}) do
+    RecordingGroup.changeset(group, attrs)
+  end
+
+  @doc """
+  Subscribes to all recording group CRUD messages.
+  """
+  def subscribe_to_recording_group_crud_messages do
+    :ok = PubSub.subscribe(RecordingGroupCreated.wildcard_topic())
+    :ok = PubSub.subscribe(RecordingGroupUpdated.wildcard_topic())
+    :ok = PubSub.subscribe(RecordingGroupDeleted.wildcard_topic())
+  end
+
+  @doc """
   Returns the recording groups usable for the given book, for `Select`
   components: every group already attached to one of the book's media.
   """
@@ -590,22 +752,46 @@ defmodule Ambry.Media do
         order_by: g.id,
         select: {g.name, g.id}
 
-    query
-    |> Repo.all()
-    |> Enum.map(fn
-      {nil, id} -> {"Unnamed group ##{id}", id}
-      {name, id} -> {name, id}
-    end)
+    Repo.all(query)
   end
 
-  # Groups exist only to tie parts together; once no media references one it
-  # is deleted (the delete trigger records it for sync).
-  defp delete_orphaned_recording_groups do
-    Repo.delete_all(
+  @doc """
+  Returns the full recording groups any of the given book's media belong
+  to, in id order. This is what the inbox consults to propose "another part
+  of the same set?" when a later part of an already-imported work arrives.
+  """
+  def recording_groups_for_book(nil), do: []
+
+  def recording_groups_for_book(book_id) do
+    query =
       from g in RecordingGroup,
-        as: :group,
-        where: not exists(from m in Media, where: m.recording_group_id == parent_as(:group).id)
-    )
+        join: m in assoc(g, :media),
+        on: m.book_id == ^book_id,
+        distinct: true,
+        order_by: g.id
+
+    query
+    |> Repo.all()
+    |> Repo.preload(:media)
+  end
+
+  # A group whose last member just left it is swept (the delete trigger
+  # records it for sync; subscribers hear about it too). Scoped to the group
+  # the saved media *came from* — never a global sweep, so an admin-created
+  # empty group survives unrelated media saves while it awaits its parts.
+  defp delete_orphaned_recording_group(nil), do: :ok
+
+  defp delete_orphaned_recording_group(group_id) do
+    {deleted, _} =
+      Repo.delete_all(
+        from g in RecordingGroup,
+          where: g.id == ^group_id,
+          where: not exists(from m in Media, where: m.recording_group_id == ^group_id)
+      )
+
+    if deleted > 0 do
+      {:ok, _job} = broadcast_recording_group_deleted(group_id)
+    end
 
     :ok
   end

@@ -136,6 +136,17 @@ defmodule Ambry.Library.NamingTemplateTest do
     test "refuses without a title" do
       assert {:error, :no_title} = NamingTemplate.filename(%{@book | title: nil}, "a.m4b")
     end
+
+    test "suffixes a part of a set, in the set's own wording" do
+      assert {:ok, "The Way of Kings - Part 2 of 3.m4b"} =
+               NamingTemplate.filename(@book, "a.m4b", %{number: 2, total: 3, word: nil})
+
+      assert {:ok, "The Way of Kings - Part 2.m4b"} =
+               NamingTemplate.filename(@book, "a.m4b", %{number: 2, total: nil, word: nil})
+
+      assert {:ok, "The Way of Kings - Episode 2 of 3.m4b"} =
+               NamingTemplate.filename(@book, "a.m4b", %{number: 2, total: 3, word: "episode"})
+    end
   end
 
   describe "validate/1" do

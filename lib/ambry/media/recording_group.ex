@@ -3,10 +3,12 @@ defmodule Ambry.Media.RecordingGroup do
   A set of separately-released recordings that together cover one work.
 
   Examples: GraphicAudio's "Part 1 of 3" releases, or episodic full-cast
-  seasons ("The Audio Immersion Experience — Season One"). The group itself is
-  deliberately minimal — per-release facts (cover, date, chapters) live on
-  each Media; the group exists so parts can be displayed together and, for
-  episodic sets, carry a display name.
+  seasons ("The Audio Immersion Experience — Season One"). A group is to
+  media what a series is to books: a named, first-class entity its members
+  point at with a `part_number`. The set-level facts live here — the name
+  (required), how many releases the set has when known (`parts_total`), and
+  what one release is called (`part_word`) — while per-release facts (cover,
+  date, chapters) live on each media.
   """
 
   use Ecto.Schema
@@ -18,10 +20,11 @@ defmodule Ambry.Media.RecordingGroup do
   schema "recording_groups" do
     has_many :media, Media, preload_order: [asc: :part_number]
 
-    # organizational label; rendered on the set's stacked tile only when
-    # the operator opts in via show_label (an explicit choice — label
-    # presence alone never triggers user-facing rendering)
     field :name, :string
+    field :parts_total, :integer
+
+    # whether the name renders on the set's stacked tile — an explicit
+    # per-group operator choice, never inferred from the name itself
     field :show_label, :boolean, default: false
 
     # what one release in this set is called ("part" by default; "episode",
@@ -35,7 +38,11 @@ defmodule Ambry.Media.RecordingGroup do
 
   @doc false
   def changeset(recording_group, attrs) do
-    cast(recording_group, attrs, [:name, :show_label, :part_word, :part_word_plural])
+    recording_group
+    |> cast(attrs, [:name, :parts_total, :show_label, :part_word, :part_word_plural])
+    |> validate_required([:name])
+    |> validate_number(:parts_total, greater_than_or_equal_to: 1)
+    |> check_constraint(:parts_total, name: "recording_groups_parts_total_positive")
   end
 
   @doc "The singular word for one release in this set, defaulting to \"part\"."

@@ -146,12 +146,13 @@ defmodule AmbrySchema.SyncTest do
       recordingGroupsChangedSince(since: $since) {
         id
         name
+        partsTotal
       }
       mediaChangedSince(since: $since) {
         partNumber
-        partsTotal
         recordingGroup {
           name
+          partsTotal
         }
       }
       deletionsSince(since: $since) {
@@ -168,9 +169,9 @@ defmodule AmbrySchema.SyncTest do
         |> params_for(
           book_id: book.id,
           part_number: 1,
-          parts_total: 3,
           recording_group_choice: "new",
-          recording_group_name: "Season One"
+          recording_group_name: "Season One",
+          recording_group_parts_total: 3
         )
         |> Map.take([
           :abridged,
@@ -178,9 +179,9 @@ defmodule AmbrySchema.SyncTest do
           :source_path,
           :book_id,
           :part_number,
-          :parts_total,
           :recording_group_choice,
-          :recording_group_name
+          :recording_group_name,
+          :recording_group_parts_total
         ])
         |> Ambry.Media.create_media()
 
@@ -188,12 +189,11 @@ defmodule AmbrySchema.SyncTest do
 
       assert %{
                "data" => %{
-                 "recordingGroupsChangedSince" => [%{"name" => "Season One"}],
+                 "recordingGroupsChangedSince" => [%{"name" => "Season One", "partsTotal" => 3}],
                  "mediaChangedSince" => [
                    %{
                      "partNumber" => 1,
-                     "partsTotal" => 3,
-                     "recordingGroup" => %{"name" => "Season One"}
+                     "recordingGroup" => %{"name" => "Season One", "partsTotal" => 3}
                    }
                  ]
                }

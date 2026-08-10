@@ -194,7 +194,7 @@ defmodule Ambry.Factory do
 
   def recording_group_factory do
     %RecordingGroup{
-      name: nil
+      name: sequence(:recording_group_name, &"Recording Group #{&1}")
     }
   end
 

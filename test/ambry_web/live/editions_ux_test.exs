@@ -10,13 +10,13 @@ defmodule AmbryWeb.EditionsUxTest do
   setup :register_and_log_in_user
 
   defp insert_part_set(book, opts \\ []) do
-    group = insert(:recording_group, name: opts[:name])
+    count = Keyword.get(opts, :count, 3)
+    group = insert(:recording_group, [parts_total: count] ++ Keyword.take(opts, [:name]))
 
-    for n <- 1..Keyword.get(opts, :count, 3) do
+    for n <- 1..count do
       insert(:media,
         book: book,
         part_number: n,
-        parts_total: Keyword.get(opts, :count, 3),
         recording_group: group,
         status: :ready,
         published: opts[:published]
@@ -110,12 +110,11 @@ defmodule AmbryWeb.EditionsUxTest do
 
     test "a sibling group with non-ready parts stacks only its ready parts", %{conn: conn} do
       book = insert(:book)
-      group = insert(:recording_group)
+      group = insert(:recording_group, parts_total: 3)
 
       insert(:media,
         book: book,
         part_number: 1,
-        parts_total: 3,
         recording_group: group,
         status: :pending
       )
@@ -125,7 +124,6 @@ defmodule AmbryWeb.EditionsUxTest do
           insert(:media,
             book: book,
             part_number: n,
-            parts_total: 3,
             recording_group: group,
             status: :ready
           )
@@ -265,7 +263,8 @@ defmodule AmbryWeb.EditionsUxTest do
       group =
         insert(:recording_group,
           name: "The Audio Immersion Experience — Season One",
-          show_label: true
+          show_label: true,
+          parts_total: 2
         )
 
       [part_one | _rest] =
@@ -273,7 +272,6 @@ defmodule AmbryWeb.EditionsUxTest do
           insert(:media,
             book: book,
             part_number: n,
-            parts_total: 2,
             recording_group: group,
             status: :ready
           )
@@ -306,7 +304,8 @@ defmodule AmbryWeb.EditionsUxTest do
         insert(:recording_group,
           name: "Admin Label",
           part_word: "episode",
-          part_word_plural: "episodes"
+          part_word_plural: "episodes",
+          parts_total: 2
         )
 
       parts =
@@ -314,7 +313,6 @@ defmodule AmbryWeb.EditionsUxTest do
           insert(:media,
             book: book,
             part_number: n,
-            parts_total: 2,
             recording_group: group,
             status: :ready
           )

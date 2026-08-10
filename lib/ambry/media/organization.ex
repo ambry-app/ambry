@@ -48,7 +48,11 @@ defmodule Ambry.Media.Organization do
   """
   def organize(%Media{} = media) do
     media =
-      Repo.preload(media, [:media_tracks, book: [book_authors: :author, series_books: :series]])
+      Repo.preload(media, [
+        :media_tracks,
+        :recording_group,
+        book: [book_authors: :author, series_books: :series]
+      ])
 
     with {:ok, root} <- root_for(media),
          {:ok, file} <- single_file(media),
@@ -123,9 +127,18 @@ defmodule Ambry.Media.Organization do
     values = Books.naming_values(media.book, media)
 
     with {:ok, folder} <- NamingTemplate.render(Settings.library_naming_template(), values),
-         {:ok, filename} <- NamingTemplate.filename(values, current_file) do
+         {:ok, filename} <- NamingTemplate.filename(values, current_file, filename_part(media)) do
       {:ok, Path.join([root.path, folder, filename])}
     end
+  end
+
+  # Without the part suffix, re-organizing one part of a set would rename it
+  # onto its sibling's path (and refuse, or worse) — the same collision the
+  # import-time suffix exists to prevent.
+  defp filename_part(%Media{part_number: nil}), do: nil
+
+  defp filename_part(%Media{part_number: number, recording_group: group}) do
+    %{number: number, total: group && group.parts_total, word: group && group.part_word}
   end
 
   defp move(media, from, to) do

@@ -111,9 +111,7 @@
         <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
       </div>
 
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
-        <.input field={@form[:part_number]} type="number" min="1" label="Part number" />
-        <.input field={@form[:parts_total]} type="number" min="1" label="Total parts" />
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
         <.input
           field={@form[:recording_group_choice]}
           type="select"
@@ -121,14 +119,25 @@
           options={recording_group_options(@recording_groups)}
           value={recording_group_choice_value(@form)}
         />
+        <.input field={@form[:part_number]} type="number" min="1" label="Part number (within the group)" />
       </div>
 
-      <div :if={group_name_mode(@form, @media)} class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
+      <div :if={group_name_mode(@form, @media)} class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
         <.input
           field={@form[:recording_group_name]}
-          label="Group label (optional)"
+          label="Group name"
           value={group_field_value(@form, @media, :recording_group_name, :name)}
         />
+        <.input
+          field={@form[:recording_group_parts_total]}
+          type="number"
+          min="1"
+          label="Total parts in the set (optional)"
+          value={group_field_value(@form, @media, :recording_group_parts_total, :parts_total)}
+        />
+      </div>
+
+      <div :if={group_name_mode(@form, @media)} class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
         <.input
           field={@form[:recording_group_part_word]}
           label={~s(What's one release called? — default "part")}

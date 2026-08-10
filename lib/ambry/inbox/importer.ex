@@ -324,6 +324,22 @@ defmodule Ambry.Inbox.Importer do
   defp create_media(item, book, probe, people) do
     recording = item.draft.recording
 
+    with {:ok, group} <- part_set_group(book, recording) do
+      do_create_media(item, book, probe, people, recording, group)
+    end
+  end
+
+  # A part label needs a group to live in — the set's total is the group's
+  # fact. Until the form offers a link-or-create group decision, each
+  # part-labeled import gets its own group named after the book (the same
+  # default the promotion migration used).
+  defp part_set_group(_book, %{part_number: nil, parts_total: nil}), do: {:ok, nil}
+
+  defp part_set_group(book, recording) do
+    Media.create_recording_group(%{name: book.title, parts_total: recording.parts_total})
+  end
+
+  defp do_create_media(item, book, probe, people, recording, group) do
     Media.create_media(
       %{
         book_id: book.id,
@@ -334,10 +350,9 @@ defmodule Ambry.Inbox.Importer do
         source_files: item.files,
         status: :pending,
         # The optional part-of-a-set label ("Part 1 of 2"), typed by the
-        # operator. Grouping the parts into one set is the media form's job,
-        # after each part is imported.
+        # operator.
         part_number: recording.part_number,
-        parts_total: recording.parts_total,
+        recording_group_id: group && group.id,
         duration: probe.duration,
         chapters: probe.chapters,
         media_narrators: narrator_params(recording.narrators, people),
@@ -474,7 +489,7 @@ defmodule Ambry.Inbox.Importer do
     # segment — the template collapses empty tokens, so it fails quietly
     # rather than raising.
     book = Repo.preload(book, [{:book_authors, :author}, {:series_books, :series}], force: true)
-    media = Repo.preload(media, [{:media_narrators, :narrator}], force: true)
+    media = Repo.preload(media, [{:media_narrators, :narrator}, :recording_group], force: true)
 
     values = Books.naming_values(book, media)
 
@@ -489,9 +504,12 @@ defmodule Ambry.Inbox.Importer do
 
   # Two parts of one set are two separate imports into the same book folder;
   # the suffix is what keeps "The Way of Kings.m4b" from colliding with
-  # itself when part 2 arrives.
+  # itself when part 2 arrives. Total and wording are the group's facts.
   defp filename_part(%{part_number: nil}), do: nil
-  defp filename_part(%{part_number: number, parts_total: total}), do: {number, total}
+
+  defp filename_part(%{part_number: number, recording_group: group}) do
+    %{number: number, total: group && group.parts_total, word: group && group.part_word}
+  end
 
   # The recording now points at the library copy and Ambry owns those bytes.
   defp adopt_managed(media, path) do

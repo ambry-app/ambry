@@ -39,6 +39,31 @@ defmodule Ambry.Media.OrganizationTest do
       assert File.exists?(file)
     end
 
+    # Regression: destination/3 used to render the filename without the part
+    # suffix, so re-organizing one part of a set "corrected" it onto its
+    # sibling's path.
+    test "a part of a set keeps its part suffix" do
+      %{media: media, folder: folder, file: file} = organized_media()
+
+      part_file = Path.join(folder, "The Way of Kings - Part 2 of 3.m4b")
+      File.rename!(file, part_file)
+
+      group = insert(:recording_group, parts_total: 3)
+      [track] = media.media_tracks
+      {:ok, _track} = track |> Ecto.Changeset.change(%{path: part_file}) |> Repo.update()
+
+      media
+      |> Ecto.Changeset.change(%{
+        part_number: 2,
+        recording_group_id: group.id,
+        source_files: [part_file]
+      })
+      |> Repo.update!()
+
+      assert {:ok, :noop} = Organization.organize(reload(media))
+      assert File.exists?(part_file)
+    end
+
     # The folder the file left shouldn't stand around empty, but the root
     # itself is configuration and must survive.
     test "prunes the folders it emptied, but never the root" do

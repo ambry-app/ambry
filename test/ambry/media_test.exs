@@ -368,7 +368,7 @@ defmodule Ambry.MediaTest do
   end
 
   describe "multi-part recordings" do
-    test "creates media with part fields and a new named recording group" do
+    test "creates media with a part number and a new named recording group" do
       %{id: book_id} = insert(:book)
 
       params =
@@ -376,9 +376,9 @@ defmodule Ambry.MediaTest do
         |> params_for(
           book_id: book_id,
           part_number: 1,
-          parts_total: 3,
           recording_group_choice: "new",
-          recording_group_name: "Season One"
+          recording_group_name: "Season One",
+          recording_group_parts_total: 3
         )
         |> Map.take([
           :abridged,
@@ -386,19 +386,50 @@ defmodule Ambry.MediaTest do
           :source_path,
           :book_id,
           :part_number,
-          :parts_total,
           :recording_group_choice,
-          :recording_group_name
+          :recording_group_name,
+          :recording_group_parts_total
         ])
 
       assert {:ok, media} = Media.create_media(params)
 
-      assert %{part_number: 1, parts_total: 3, recording_group: %{name: "Season One"}} = media
+      assert %{part_number: 1, recording_group: %{name: "Season One", parts_total: 3}} = media
       assert [{"Season One", _id}] = Media.recording_groups_for_select(book_id)
 
       # label visibility defaults to off — an explicit choice, never
       # inferred from the label's presence
       assert media.recording_group.show_label == false
+    end
+
+    test "a new group requires a name" do
+      %{id: book_id} = insert(:book)
+
+      params =
+        :media
+        |> params_for(book_id: book_id, part_number: 1, recording_group_choice: "new")
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :part_number,
+          :recording_group_choice
+        ])
+
+      assert {:error, changeset} = Media.create_media(params)
+      assert %{recording_group_name: ["can't be blank"]} = errors_on(changeset)
+    end
+
+    test "a part number requires a group" do
+      %{id: book_id} = insert(:book)
+
+      params =
+        :media
+        |> params_for(book_id: book_id, part_number: 1)
+        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :part_number])
+
+      assert {:error, changeset} = Media.create_media(params)
+      assert %{part_number: ["requires a group"]} = errors_on(changeset)
     end
 
     test "the group's show_label flag is set at creation and toggled on rename" do
@@ -442,14 +473,20 @@ defmodule Ambry.MediaTest do
 
       {:ok, part_one} =
         :media
-        |> params_for(book_id: book_id, part_number: 1, recording_group_choice: "new")
+        |> params_for(
+          book_id: book_id,
+          part_number: 1,
+          recording_group_choice: "new",
+          recording_group_name: "GraphicAudio"
+        )
         |> Map.take([
           :abridged,
           :full_cast,
           :source_path,
           :book_id,
           :part_number,
-          :recording_group_choice
+          :recording_group_choice,
+          :recording_group_name
         ])
         |> Media.create_media()
 
@@ -473,18 +510,29 @@ defmodule Ambry.MediaTest do
         |> Media.create_media()
 
       assert part_two.recording_group_id == group_id
-
-      # unnamed groups get a readable select label
-      assert [{"Unnamed group #" <> _, ^group_id}] = Media.recording_groups_for_select(book_id)
+      assert [{"GraphicAudio", ^group_id}] = Media.recording_groups_for_select(book_id)
     end
 
-    test "clearing the last member deletes the orphaned group" do
+    test "clearing the last member deletes the orphaned group (and the part number with it)" do
       %{id: book_id} = insert(:book)
 
       {:ok, media} =
         :media
-        |> params_for(book_id: book_id, recording_group_choice: "new")
-        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :recording_group_choice])
+        |> params_for(
+          book_id: book_id,
+          part_number: 1,
+          recording_group_choice: "new",
+          recording_group_name: "Season One"
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :part_number,
+          :recording_group_choice,
+          :recording_group_name
+        ])
         |> Media.create_media()
 
       assert media.recording_group_id
@@ -493,8 +541,19 @@ defmodule Ambry.MediaTest do
         Media.update_media(Media.get_media!(media.id), %{recording_group_choice: "none"})
 
       assert updated.recording_group_id == nil
+      assert updated.part_number == nil
       assert [] = Media.recording_groups_for_select(book_id)
       assert Ambry.Repo.aggregate(Ambry.Media.RecordingGroup, :count) == 0
+    end
+
+    test "an unrelated media save leaves an empty admin-created group alone" do
+      %{id: book_id} = insert(:book)
+      {:ok, group} = Media.create_recording_group(%{name: "Awaiting Parts"})
+
+      media = insert(:media, book_id: book_id)
+      {:ok, _updated} = Media.update_media(Media.get_media!(media.id), %{abridged: true})
+
+      assert Ambry.Repo.get!(Ambry.Media.RecordingGroup, group.id)
     end
 
     test "renames the linked group from any part (shared by all parts)" do
@@ -502,8 +561,19 @@ defmodule Ambry.MediaTest do
 
       {:ok, part_one} =
         :media
-        |> params_for(book_id: book_id, recording_group_choice: "new")
-        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :recording_group_choice])
+        |> params_for(
+          book_id: book_id,
+          recording_group_choice: "new",
+          recording_group_name: "Sesaon One"
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :recording_group_choice,
+          :recording_group_name
+        ])
         |> Media.create_media()
 
       group_id = part_one.recording_group.id
@@ -518,7 +588,40 @@ defmodule Ambry.MediaTest do
       assert [{"Season One", ^group_id}] = Media.recording_groups_for_select(book_id)
     end
 
-    test "clears a group's name with an empty string" do
+    test "sets the linked group's total from any part" do
+      %{id: book_id} = insert(:book)
+
+      {:ok, part_one} =
+        :media
+        |> params_for(
+          book_id: book_id,
+          part_number: 1,
+          recording_group_choice: "new",
+          recording_group_name: "Season One"
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :part_number,
+          :recording_group_choice,
+          :recording_group_name
+        ])
+        |> Media.create_media()
+
+      group_id = part_one.recording_group.id
+
+      {:ok, updated} =
+        Media.update_media(Media.get_media!(part_one.id), %{
+          recording_group_choice: to_string(group_id),
+          recording_group_parts_total: "3"
+        })
+
+      assert %{recording_group: %{parts_total: 3}} = updated
+    end
+
+    test "clearing a group's name is refused — names are required" do
       %{id: book_id} = insert(:book)
 
       {:ok, media} =
@@ -526,7 +629,7 @@ defmodule Ambry.MediaTest do
         |> params_for(
           book_id: book_id,
           recording_group_choice: "new",
-          recording_group_name: "Typo Name"
+          recording_group_name: "Keep This Name"
         )
         |> Map.take([
           :abridged,
@@ -540,13 +643,13 @@ defmodule Ambry.MediaTest do
 
       group_id = media.recording_group.id
 
-      {:ok, updated} =
-        Media.update_media(Media.get_media!(media.id), %{
-          recording_group_choice: to_string(group_id),
-          recording_group_name: ""
-        })
+      assert {:error, changeset} =
+               Media.update_media(Media.get_media!(media.id), %{
+                 recording_group_choice: to_string(group_id),
+                 recording_group_name: ""
+               })
 
-      assert %{recording_group: %{name: nil}} = updated
+      assert %{recording_group_name: ["can't be blank"]} = errors_on(changeset)
     end
 
     test "the name field is ignored when switching to a different group" do
@@ -571,8 +674,19 @@ defmodule Ambry.MediaTest do
 
       {:ok, second} =
         :media
-        |> params_for(book_id: book_id, recording_group_choice: "new")
-        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :recording_group_choice])
+        |> params_for(
+          book_id: book_id,
+          recording_group_choice: "new",
+          recording_group_name: "Short Lived"
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :recording_group_choice,
+          :recording_group_name
+        ])
         |> Media.create_media()
 
       keep_me_id = first.recording_group.id
@@ -588,13 +702,28 @@ defmodule Ambry.MediaTest do
       assert [{"Keep Me", ^keep_me_id}] = Media.recording_groups_for_select(book_id)
     end
 
-    test "validates part fields" do
+    test "validates the part number against the group's total" do
       %{id: book_id} = insert(:book)
 
       params =
         :media
-        |> params_for(book_id: book_id, part_number: 3, parts_total: 2)
-        |> Map.take([:abridged, :full_cast, :source_path, :book_id, :part_number, :parts_total])
+        |> params_for(
+          book_id: book_id,
+          part_number: 3,
+          recording_group_choice: "new",
+          recording_group_name: "Season One",
+          recording_group_parts_total: 2
+        )
+        |> Map.take([
+          :abridged,
+          :full_cast,
+          :source_path,
+          :book_id,
+          :part_number,
+          :recording_group_choice,
+          :recording_group_name,
+          :recording_group_parts_total
+        ])
 
       {:error, changeset} = Media.create_media(params)
 
@@ -604,24 +733,38 @@ defmodule Ambry.MediaTest do
 
     test "part_label/1 and display_title/1" do
       alias Ambry.Media.Media, as: MediaSchema
+      alias Ambry.Media.RecordingGroup
 
+      # flat-row shape: part_number/parts_total/part_word columns
       assert MediaSchema.part_label(%{part_number: nil, parts_total: nil}) == nil
-      assert MediaSchema.part_label(%{part_number: 2, parts_total: nil}) == "Part 2"
-      assert MediaSchema.part_label(%{part_number: 2, parts_total: 3}) == "Part 2 of 3"
+
+      assert MediaSchema.part_label(%{part_number: 2, parts_total: nil, part_word: nil}) ==
+               "Part 2"
+
+      assert MediaSchema.part_label(%{part_number: 2, parts_total: 3, part_word: nil}) ==
+               "Part 2 of 3"
 
       book = build(:book, title: "The Way of Kings")
+      open_set = build(:recording_group, parts_total: nil)
+      set_of_three = build(:recording_group, parts_total: 3)
 
-      plain = build(:media, book: book, part_number: nil, parts_total: nil, title: nil)
+      plain = build(:media, book: book, part_number: nil, title: nil)
       assert MediaSchema.display_title(plain) == "The Way of Kings"
 
-      part = build(:media, book: book, part_number: 2, parts_total: 3, title: nil)
+      lone_part = build(:media, book: book, part_number: 2, recording_group: open_set, title: nil)
+      assert MediaSchema.display_title(lone_part) == "The Way of Kings (Part 2)"
+
+      part = build(:media, book: book, part_number: 2, recording_group: set_of_three, title: nil)
       assert MediaSchema.display_title(part) == "The Way of Kings (Part 2 of 3)"
+
+      # an explicitly passed group wins over the loaded one
+      assert MediaSchema.part_label(part, %RecordingGroup{parts_total: 5}) == "Part 2 of 5"
 
       override =
         build(:media,
           book: book,
           part_number: 2,
-          parts_total: 3,
+          recording_group: set_of_three,
           title: "The Way of Kings (2 of 3)"
         )
 
@@ -630,11 +773,64 @@ defmodule Ambry.MediaTest do
 
     test "get_media_description/1 includes the part label" do
       book = insert(:book, title: "The Way of Kings")
-      media = insert(:media, book: book, part_number: 1, parts_total: 3)
+      group = insert(:recording_group, parts_total: 3)
+      media = insert(:media, book: book, part_number: 1, recording_group: group)
 
       description = media.id |> Media.get_media!() |> Media.get_media_description()
 
       assert description =~ "The Way of Kings (Part 1 of 3)"
+    end
+  end
+
+  describe "recording group CRUD" do
+    test "create_recording_group/1 requires a name and allows an empty group" do
+      assert {:error, changeset} = Media.create_recording_group(%{})
+      assert %{name: ["can't be blank"]} = errors_on(changeset)
+
+      assert {:ok, group} = Media.create_recording_group(%{name: "Season One", parts_total: 3})
+
+      assert %{name: "Season One", parts_total: 3, media: []} =
+               Media.get_recording_group!(group.id)
+    end
+
+    test "update_recording_group/2 changes set-level facts" do
+      {:ok, group} = Media.create_recording_group(%{name: "Season One"})
+
+      assert {:ok, updated} =
+               Media.update_recording_group(group, %{parts_total: 2, part_word: "episode"})
+
+      assert %{parts_total: 2, part_word: "episode"} = updated
+
+      assert {:error, changeset} = Media.update_recording_group(group, %{name: ""})
+      assert %{name: ["can't be blank"]} = errors_on(changeset)
+    end
+
+    test "delete_recording_group/1 detaches members and clears their part numbers" do
+      %{id: book_id} = insert(:book)
+      group = insert(:recording_group, parts_total: 2)
+      part_one = insert(:media, book_id: book_id, part_number: 1, recording_group: group)
+      part_two = insert(:media, book_id: book_id, part_number: 2, recording_group: group)
+
+      assert {:ok, _deleted} = Media.delete_recording_group(group)
+
+      for id <- [part_one.id, part_two.id] do
+        media = Media.get_media!(id)
+        assert media.recording_group_id == nil
+        assert media.part_number == nil
+      end
+    end
+
+    test "list_recording_groups/4 paginates and filters by name" do
+      insert(:recording_group, name: "The Audio Immersion Experience")
+      insert(:recording_group, name: "GraphicAudio Set")
+
+      {all, false} = Media.list_recording_groups()
+      assert length(all) == 2
+
+      {filtered, false} = Media.list_recording_groups(0, 10, %{search: "immersion"})
+      assert [%{name: "The Audio Immersion Experience"}] = filtered
+
+      assert Media.count_recording_groups() == 2
     end
   end
 
