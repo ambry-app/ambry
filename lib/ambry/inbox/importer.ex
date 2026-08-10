@@ -525,8 +525,12 @@ defmodule Ambry.Inbox.Importer do
   end
 
   defp link(item, media) do
+    # issue: nil — a failed attempt writes its reason onto the item so the
+    # row can explain itself tomorrow; succeeding is what resolves it. Left
+    # in place, "Couldn't add this to the library" sat in red on rows whose
+    # media was sitting right there in the library.
     item
-    |> InboxItem.changeset(%{status: :imported, media_id: media.id})
+    |> InboxItem.changeset(%{status: :imported, media_id: media.id, issue: nil})
     |> Repo.update()
   end
 end

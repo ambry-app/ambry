@@ -89,6 +89,19 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert html =~ "read-only"
     end
 
+    # A failed attempt writes its reason onto the item so the row explains
+    # itself tomorrow; succeeding is what resolves it. This one is from life:
+    # an imported item sat with "Couldn't add this to the library" in red
+    # while its media was in the library.
+    test "importing clears the issue a failed attempt left behind" do
+      item = probed_item() |> settle()
+      {:ok, item} = Inbox.update_item(item, %{issue: "Couldn't add this to the library."})
+
+      {:ok, _media} = Inbox.import_item(item)
+
+      assert Inbox.get_item!(item.id).issue == nil
+    end
+
     test "the context refuses a second import and any draft write" do
       item = probed_item() |> settle()
       {:ok, _media} = Inbox.import_item(item)
