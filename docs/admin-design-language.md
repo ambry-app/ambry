@@ -102,6 +102,17 @@ shares the line or every chip gets its own. No flow mechanism expresses
 "stack only if they don't all fit", so the `fit-or-stack` hook measures the
 chips' natural widths and commits the row to one of the two modes.
 
+**The other axis: mixed text sizes on one line align by baseline, never by
+box centre.** A label row (label + badge + provenance), a microlabel grid
+(`Asked`, `Proposed`), the footer's buttons-plus-count: `items-baseline`
+(flex and grid both support it), never a `pt-*` nudge — near-misses read
+as badly on this axis as off the rail. What stays center- or top-aligned
+instead: rows of boxes (adjacent controls share exact height, §7),
+icon-only actions, image rows (a baseline puts the label on the first
+image's bottom edge), and any row whose first line truncates —
+`overflow: hidden` exports a synthesized baseline (the box bottom), worse
+than the centre it replaces.
+
 **Rhythm is 8 · 28 · 56** (`gap-2` / `gap-7` / `gap-14`): inside a field
 cluster / between blocks / between sections. Queue cards stack with
 `space-y-3`.
