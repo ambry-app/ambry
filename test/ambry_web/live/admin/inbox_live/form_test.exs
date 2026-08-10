@@ -906,6 +906,40 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "declaring a multi-part recording" do
+    # The other answer to the multi-file question (split being the first),
+    # reachable from the form's default state.
+    test "the toggle clears the question and puts it back", %{conn: conn} do
+      root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
+      release = Path.join(root, "Two Part Set")
+      File.mkdir_p!(release)
+      File.cp!(tagged_fixture(true, false, nil), Path.join(release, "Part 1 of 2.m4b"))
+      File.cp!(tagged_fixture(true, false, nil), Path.join(release, "Part 2 of 2.m4b"))
+
+      {:ok, _counts} = Inbox.discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Two Part Set")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      assert html =~ "One recording in 2 parts"
+      assert html =~ "2 audio files"
+
+      html = view |> element("button[data-role='multi-part']") |> render_click()
+
+      item = Inbox.get_item!(item.id)
+      assert item.draft.recording.multi_part
+      assert item.issue == nil
+      refute html =~ "2 audio files"
+
+      view |> element("button[data-role='multi-part']") |> render_click()
+
+      item = Inbox.get_item!(item.id)
+      refute item.draft.recording.multi_part
+      assert item.issue =~ "2 audio files"
+    end
+  end
+
   describe "splitting a mis-grouped item" do
     # The folder heuristic's known failure: two separate single-file books in
     # one folder become one 2-file item. The correction has to be reachable

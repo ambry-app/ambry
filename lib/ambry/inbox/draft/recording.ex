@@ -30,6 +30,13 @@ defmodule Ambry.Inbox.Draft.Recording do
     # `PersonDecision.evidence_curated`.
     field :evidence_curated, :boolean, default: false
 
+    # The operator's answer to "what are these files": one recording split
+    # into parts (GraphicAudio's "Part 1 of 2"). Import then creates one
+    # Media per file in one RecordingGroup, part numbers following file
+    # order. Always an operator call — no heuristic can tell a two-part
+    # recording from two releases sharing a folder.
+    field :multi_part, :boolean, default: false
+
     # Which records describe this recording. Hardcover, rreading-glasses and
     # Audible will all have a record of a popular reading — and the databases
     # keep out-of-print editions the storefront has scrubbed — so more than
@@ -70,6 +77,7 @@ defmodule Ambry.Inbox.Draft.Recording do
       :query_fields,
       :approved,
       :evidence_curated,
+      :multi_part,
       :doubt,
       :doubt_detail
     ])

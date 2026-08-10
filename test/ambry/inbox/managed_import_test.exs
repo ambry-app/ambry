@@ -102,6 +102,71 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
   end
 
+  describe "multi-part placement" do
+    test "parts land in one book folder with distinct filenames" do
+      %{item: item, root: root} = parts_downloads_item()
+
+      assert {:ok, _media} = Inbox.import_item(item)
+
+      folder = Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)"])
+
+      assert [placed1] = part(1).source_files
+      assert [placed2] = part(2).source_files
+      assert placed1 == Path.join(folder, "The Way of Kings - Part 1 of 2.m4b")
+      assert placed2 == Path.join(folder, "The Way of Kings - Part 2 of 2.m4b")
+      assert File.exists?(placed1)
+      assert File.exists?(placed2)
+    end
+
+    # The deletion worker rm_rfs a managed media's source folder. Parts share
+    # theirs, so deleting part 1 that way would take part 2's file with it.
+    test "deleting one part leaves its sibling's file alone" do
+      %{item: item} = parts_downloads_item()
+      {:ok, _media} = Inbox.import_item(item)
+
+      part1 = part(1)
+      [placed2] = part(2).source_files
+
+      assert {:ok, _deleted} = Media.delete_media(Media.get_media!(part1.id))
+      # file deletion happens in a background job on the default queue
+      assert %{success: _some, failure: 0} = Oban.drain_queue(queue: :default)
+
+      refute File.exists?(hd(part1.source_files))
+      assert File.exists?(placed2)
+    end
+
+    defp part(number) do
+      Repo.one!(from(m in Media.Media, where: m.part_number == ^number))
+    end
+
+    defp parts_downloads_item do
+      root = new_dir("root")
+      insert(:root, path: root, name: "Library")
+
+      downloads = new_dir("downloads")
+      release = Path.join(downloads, "The Way of Kings [GraphicAudio]")
+      File.mkdir_p!(release)
+      File.cp!(tagged_audio(), Path.join(release, "Part 1 of 2.m4b"))
+      File.cp!(tagged_audio(), Path.join(release, "Part 2 of 2.m4b"))
+
+      watched =
+        insert(:source,
+          on_import: :bring_in,
+          import_policy: :copy,
+          path: downloads,
+          name: "Downloads #{Ecto.UUID.generate()}"
+        )
+
+      {:ok, _counts} = Inbox.discover(watched)
+      {[item], false} = Inbox.list_items()
+      {:ok, item} = Inbox.probe_item(item)
+      item = settle(item)
+      {:ok, item} = Inbox.mark_multi_part(item, true)
+
+      %{item: item, root: root}
+    end
+  end
+
   describe "refusals" do
     # Silently copying instead is the storage doubling this entire phase
     # exists to eliminate, and the operator would never know it happened.

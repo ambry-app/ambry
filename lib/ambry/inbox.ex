@@ -193,9 +193,18 @@ defmodule Ambry.Inbox do
   def probe_item(%InboxItem{} = item, opts \\ []) do
     attrs =
       case item.files do
-        [file] -> probe_single(file, single_file: true)
-        [] -> %{issue: "no audio files found"}
-        [file | _rest] -> file |> probe_single() |> Map.put(:issue, multi_file_issue(item))
+        [file] ->
+          probe_single(file, single_file: true)
+
+        [] ->
+          %{issue: "no audio files found"}
+
+        # A multi-file item the operator has already declared one recording
+        # in parts keeps that answer through re-probes; an undeclared one is
+        # stamped with the question.
+        [file | _rest] ->
+          attrs = probe_single(file)
+          if multi_part?(item), do: attrs, else: Map.put(attrs, :issue, multi_file_issue(item))
       end
 
     with {:ok, item} <- update_item(item, attrs) do
@@ -649,8 +658,8 @@ defmodule Ambry.Inbox do
 
   def describe_error(:multi_file_unsupported),
     do:
-      "Direct play handles single-file recordings for now — merge this one externally if it's " <>
-        "one book, split it if it's several, or skip it."
+      "Several audio files — say what they are first: mark it as one recording in parts, " <>
+        "or split it into separate recordings."
 
   def describe_error(:no_published_date),
     do:
@@ -729,6 +738,31 @@ defmodule Ambry.Inbox do
   def restore_item(%InboxItem{} = item), do: update_item(item, %{status: :pending})
 
   def delete_item(%InboxItem{} = item), do: Repo.delete(item)
+
+  @doc """
+  Records the operator's answer to "what are these files": one recording
+  split into parts, or not after all.
+
+  The other answer to the multi-file question (`split_item/1` being the
+  first). Import then creates one Media per file in one recording group —
+  see `Ambry.Inbox.Importer`. Always an operator call: no heuristic can tell
+  a two-part recording from two releases sharing a folder.
+
+  Declaring parts answers the multi-file question, so the item's standing
+  multi-file issue clears; undeclaring puts the question back.
+  """
+  def mark_multi_part(%InboxItem{draft: nil}, _multi_part?), do: {:error, :not_prepared}
+
+  def mark_multi_part(%InboxItem{} = item, multi_part?) do
+    draft = %{item.draft | recording: %{item.draft.recording | multi_part: multi_part?}}
+
+    with {:ok, item} <- update_draft(item, dump_draft(draft)) do
+      update_item(item, %{issue: if(!multi_part?, do: multi_file_issue(item))})
+    end
+  end
+
+  defp multi_part?(%InboxItem{draft: %Draft{recording: %{multi_part: true}}}), do: true
+  defp multi_part?(%InboxItem{}), do: false
 
   @doc """
   Splits a multi-file item into one item per file.
@@ -991,8 +1025,7 @@ defmodule Ambry.Inbox do
   end
 
   defp multi_file_issue(%InboxItem{files: files}) do
-    "#{length(files)} audio files — direct play handles single-file recordings for now; " <>
-      "merge them externally if this is one recording, or split this item if they're separate recordings"
+    "#{length(files)} audio files — one recording in parts, or separate recordings? Say which below."
   end
 
   defp probe_map(probe) do

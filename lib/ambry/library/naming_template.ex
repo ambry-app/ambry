@@ -67,15 +67,24 @@ defmodule Ambry.Library.NamingTemplate do
 
   @doc """
   The filename for a recording's file, keeping the source's extension.
+
+  A part of a multi-part recording passes `{number, total}` and gets a
+  " - Part N of M" suffix — every part of a recording lands in the same book
+  folder, and without the suffix they'd render to one identical path. (A
+  proper `{part}` template token is future work; this keeps the parts apart
+  until then.)
   """
-  def filename(values, source_path) do
+  def filename(values, source_path, part \\ nil) do
     values = stringify(values)
 
     case sanitize(to_string(values["title"] || "")) do
       "" -> {:error, :no_title}
-      name -> {:ok, name <> String.downcase(Path.extname(source_path))}
+      name -> {:ok, name <> part_suffix(part) <> String.downcase(Path.extname(source_path))}
     end
   end
+
+  defp part_suffix(nil), do: ""
+  defp part_suffix({number, total}), do: " - Part #{number} of #{total}"
 
   @doc """
   Checks a template without needing anything to render it against.

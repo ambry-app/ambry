@@ -371,9 +371,9 @@ defmodule Ambry.Media do
   end
 
   defp delete_all_files_async(%Media{} = media) do
-    folders = source_folders(media)
+    {folders, own_files} = source_deletions(media)
 
-    try_delete_files_async(all_file_paths(media), folders,
+    try_delete_files_async(all_file_paths(media) ++ own_files, folders,
       prune_until: if(folders != [], do: library_root_paths())
     )
   end
@@ -401,10 +401,23 @@ defmodule Ambry.Media do
   #
   # Transcoded outputs, images and thumbnails are always Ambry's own, under
   # the uploads path, so they're removed regardless of custody.
-  defp source_folders(%Media{custody: :managed, source_path: path}) when is_binary(path),
-    do: [path]
+  # A folder shared with a sibling is not this media's to remove: a
+  # multi-part recording places every part in one book folder, so deleting
+  # part 1 with an rm_rf of `source_path` would take part 2's file with it.
+  # A shared folder yields only the media's own files; the folder itself
+  # goes with its last part.
+  defp source_deletions(%Media{custody: :managed, source_path: path} = media)
+       when is_binary(path) do
+    if shared_source_path?(media),
+      do: {[], media.source_files || []},
+      else: {[path], []}
+  end
 
-  defp source_folders(%Media{}), do: []
+  defp source_deletions(%Media{}), do: {[], []}
+
+  defp shared_source_path?(%Media{id: id, source_path: path}) do
+    Repo.exists?(from(m in Media, where: m.source_path == ^path and m.id != ^id))
+  end
 
   defp all_file_paths(%Media{} = media) do
     %Media{

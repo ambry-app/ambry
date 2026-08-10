@@ -79,12 +79,26 @@
           {@item.issue}
         </p>
 
-        <%!-- The grouping heuristic is folder-based and its known failure is
-            unrelated single-file recordings sharing a folder. Only the
-            operator can tell — this is how they say so. "Recordings", not
-            "books": the split items are separate imports, and each may still
-            link to the same book (two novellas, or two editions). --%>
-        <div :if={length(@item.files) > 1 and !@read_only} class="pt-2 pl-3">
+        <%!-- The multi-file question, and both of its answers. Only the
+            operator can tell a two-part recording from two releases sharing
+            a folder — no heuristic can. "Recordings", not "books": split
+            items are separate imports, and each may still link to the same
+            book (two novellas, or two editions). --%>
+        <div :if={length(@item.files) > 1 and !@read_only} class="flex flex-wrap gap-2 pt-2 pl-3">
+          <button
+            type="button"
+            phx-click="multi-part"
+            data-role="multi-part"
+            class={[
+              "rounded-sm px-2 py-1 text-xs",
+              multi_part?(@item) && "bg-brand-dark/15 ring-brand-dark/50 text-zinc-100 ring-2 ring-inset",
+              !multi_part?(@item) && "bg-white/5 text-zinc-300 hover:bg-white/10"
+            ]}
+          >
+            <.icon :if={multi_part?(@item)} name="fa-check" class="text-brand-dark mr-1 h-3 w-3" />
+            One recording in {length(@item.files)} parts
+          </button>
+
           <button
             type="button"
             phx-click="split"
@@ -92,7 +106,7 @@
             data-role="split"
             class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
           >
-            These are separate recordings — split into {length(@item.files)} items
+            Separate recordings — split into {length(@item.files)} items
           </button>
         </div>
       </section>
