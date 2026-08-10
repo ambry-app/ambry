@@ -166,6 +166,7 @@ defmodule Ambry.Inbox.Draft do
   def appearances(%__MODULE__{} = draft) do
     for {kind, section, index, credit} <- credits(draft),
         credit.mode == :create,
+        not credit.removed,
         key <- credit.person_keys,
         reduce: %{} do
       acc ->
@@ -195,9 +196,45 @@ defmodule Ambry.Inbox.Draft do
   def referenced_keys(%__MODULE__{} = draft) do
     for {_kind, _section, _index, credit} <- credits(draft),
         credit.mode == :create,
+        # A removed credit holds its person_keys for its possible restore,
+        # but a person only a tombstone references is nobody's decision.
+        not credit.removed,
         key <- credit.person_keys,
         uniq: true,
         do: key
+  end
+
+  @doc """
+  How settled a level's identity question is, as one badge-sized fact.
+
+  This replaces showing the match confidence forever: confidence is how sure
+  the *machine* was at match time, and it never moved again — an operator
+  could pick the right work and the badge still said "unsure", with no way
+  to say "you were right". But they do say it: ticking records, linking a
+  book, settling uncatalogued all clear the level's doubt. The badge now
+  listens to the same signals as the rest of the form.
+
+    * `:confirmed` — a human answered (ticked records, answered identity)
+    * `:trusted` — the machine believed its match and nobody has had to touch it
+    * `:unsure` — doubt outstanding; the doubt banner carries the numbers
+    * `:no_match` — nothing was found (which is an answer, not a failure)
+  """
+  def level_state(%Work{} = work) do
+    cond do
+      work.curated or work.evidence_curated -> :confirmed
+      work.doubt == :nothing_found -> :no_match
+      work.doubt in [nil, :none] -> :trusted
+      true -> :unsure
+    end
+  end
+
+  def level_state(%Recording{} = recording) do
+    cond do
+      recording.evidence_curated -> :confirmed
+      recording.doubt == :nothing_found -> :no_match
+      recording.doubt in [nil, :none] -> :trusted
+      true -> :unsure
+    end
   end
 
   @doc """
@@ -213,10 +250,19 @@ defmodule Ambry.Inbox.Draft do
   def curated?(nil), do: false
 
   def curated?(%__MODULE__{} = draft) do
+    # Answering the identity question and ticking records are curation too.
+    # Both were missed here, so a draft whose only human input was either
+    # one was rebuilt wholesale by the next background re-match. So are the
+    # typed part-of-a-set numbers — nothing proposes those, so a rebuild
+    # could never get them back.
     Enum.any?(fields(draft), &(&1 && &1.curated)) or
       Enum.any?(credits(draft), fn {_kind, _section, _index, credit} -> credit.curated end) or
       Enum.any?((draft.work && draft.work.series) || [], & &1.curated) or
-      Enum.any?(draft.people, & &1.curated)
+      Enum.any?(draft.people, & &1.curated) or
+      (draft.work && (draft.work.curated or draft.work.evidence_curated)) == true or
+      (draft.recording &&
+         (draft.recording.evidence_curated or draft.recording.part_number != nil or
+            draft.recording.parts_total != nil)) == true
   end
 
   defp fields(%__MODULE__{work: work, recording: recording}) do
@@ -261,12 +307,15 @@ defmodule Ambry.Inbox.Draft do
 
   defp work_total(nil), do: 1
 
-  defp work_total(%Work{mode: :link} = work), do: 1 + length(work.series)
+  defp work_total(%Work{mode: :link} = work), do: 1 + live_count(work.series)
 
   defp work_total(%Work{} = work) do
-    1 + 3 + length(work.authors) + length(work.series)
+    1 + 3 + live_count(work.authors) + live_count(work.series)
   end
 
   defp recording_total(nil), do: 1
-  defp recording_total(%Recording{} = recording), do: 1 + 5 + length(recording.narrators)
+  defp recording_total(%Recording{} = recording), do: 1 + 5 + live_count(recording.narrators)
+
+  # Tombstoned rows are answered questions; they neither count nor resolve.
+  defp live_count(rows), do: Enum.count(rows, &(not &1.removed))
 end

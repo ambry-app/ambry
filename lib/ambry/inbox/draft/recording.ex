@@ -24,6 +24,21 @@ defmodule Ambry.Inbox.Draft.Recording do
     field :query_fields, :map, default: %{}
     field :approved, :boolean, default: false
 
+    # Whether a human has ticked/unticked records at this level — the seeder
+    # also writes `sources` and `approved`, so neither can carry the
+    # distinction `Draft.curated?/1` needs. Same name and reason as
+    # `PersonDecision.evidence_curated`.
+    field :evidence_curated, :boolean, default: false
+
+    # The optional part-of-a-set facts Media carries ("Part 1 of 2" —
+    # GraphicAudio's shape). Plain values, deliberately not Fields: the
+    # operator types them, nothing proposes them. A part-release is an
+    # ordinary separate recording (its own cover, date, narrators, sometimes
+    # sold separately) that happens to want this label; grouping parts into
+    # a set stays on the media form.
+    field :part_number, :integer
+    field :parts_total, :integer
+
     # Which records describe this recording. Hardcover, rreading-glasses and
     # Audible will all have a record of a popular reading — and the databases
     # keep out-of-print editions the storefront has scrubbed — so more than
@@ -58,7 +73,19 @@ defmodule Ambry.Inbox.Draft.Recording do
   @doc false
   def changeset(recording, attrs) do
     recording
-    |> cast(attrs, [:confidence, :query, :query_fields, :approved, :doubt, :doubt_detail])
+    |> cast(attrs, [
+      :confidence,
+      :query,
+      :query_fields,
+      :approved,
+      :evidence_curated,
+      :part_number,
+      :parts_total,
+      :doubt,
+      :doubt_detail
+    ])
+    |> validate_number(:part_number, greater_than_or_equal_to: 1)
+    |> validate_number(:parts_total, greater_than_or_equal_to: 1)
     |> cast_embed(:sources)
     |> cast_embed(:title)
     |> cast_embed(:published)
@@ -143,7 +170,8 @@ defmodule Ambry.Inbox.Draft.Recording do
 
   defp credits(narrators) do
     narrators
-    |> Enum.reject(&Credit.resolved?/1)
+    # a tombstoned row is an answered question, not an outstanding one
+    |> Enum.reject(&(&1.removed or Credit.resolved?(&1)))
     |> Enum.map(&%{section: :recording, label: "Narrator: #{&1.name}", state: Credit.state(&1)})
   end
 end

@@ -90,7 +90,7 @@ defmodule Ambry.Inbox.Draft.Edit do
           decision.sources ++ [SourceRef.of(record)]
         end
 
-      settle(%{decision | sources: sources}, level)
+      settle(%{decision | sources: sources, evidence_curated: true}, level)
     end)
     |> follow_work(item, level, record)
     |> reseed(item, scope(level, record))
@@ -134,7 +134,14 @@ defmodule Ambry.Inbox.Draft.Edit do
   def uncatalogued(draft, %InboxItem{} = item) do
     draft
     |> update_in([Access.key(:recording)], fn recording ->
-      %{recording | sources: [], approved: true, doubt: :none, doubt_detail: nil}
+      %{
+        recording
+        | sources: [],
+          approved: true,
+          evidence_curated: true,
+          doubt: :none,
+          doubt_detail: nil
+      }
     end)
     |> reseed(item, :recording)
   end
@@ -258,10 +265,25 @@ defmodule Ambry.Inbox.Draft.Edit do
       # Clearing the box un-confirms: a credit cannot stay settled with
       # nothing to create. Any other rename keeps the confirmation, so fixing
       # a typo doesn't cost a second click.
-      %{credit | name: name, curated: true, approved: credit.approved and not blank?(name)}
+      %{
+        credit
+        | name: name,
+          curated: true,
+          approved: credit.approved and not blank?(name),
+          # An added row starts with nobody behind it; the first real name
+          # mints its person. Once minted, keys are stored, never re-derived
+          # — later renames follow via `follow_credit_name/3`.
+          person_keys: mint_keys(credit, name)
+      }
     end)
     |> follow_credit_name(was, name)
   end
+
+  defp mint_keys(%Credit{mode: :create, person_keys: []}, name) do
+    if blank?(name), do: [], else: Credit.new_person_default(name)
+  end
+
+  defp mint_keys(credit, _name), do: credit.person_keys
 
   # A person still called what the credit called them is still tracking it, so
   # they follow the rename. One the operator has already named is theirs and
@@ -273,12 +295,18 @@ defmodule Ambry.Inbox.Draft.Edit do
   defp follow_credit_name(draft, %Credit{} = was, name) do
     Enum.reduce(was.person_keys, draft, fn key, draft ->
       update_person(draft, key, fn person ->
-        if person.mode == :create and Field.value(person.name) == was.name,
+        if person.mode == :create and tracking?(Field.value(person.name), was.name),
           do: %{person | name: Field.edit(person.name, name)},
           else: person
       end)
     end)
   end
+
+  # A cleared box is a blank in both places — nil in the person's field, ""
+  # in the credit — and a bare == between them broke tracking exactly at the
+  # clear-to-retype moment, leaving the person nameless while the credit got
+  # its new name.
+  defp tracking?(person_name, credit_name), do: presence(person_name) == presence(credit_name)
 
   defp blank?(nil), do: true
   defp blank?(name) when is_binary(name), do: String.trim(name) == ""
@@ -292,6 +320,33 @@ defmodule Ambry.Inbox.Draft.Edit do
       index,
       &%{&1 | name: name, curated: true, approved: &1.approved and not blank?(name)}
     )
+  end
+
+  @doc """
+  Puts the evidence's spelling back in a renamed credit.
+
+  The way back the scalar fields have always had through their chips — a
+  cleared or mistyped name is recoverable by click, not by remembering what
+  the provider said.
+  """
+  def reset_credit_name(draft, section, index) do
+    case Enum.at(credits_in(draft, section), index) do
+      %Credit{proposed_name: name} when is_binary(name) ->
+        rename_credit(draft, section, index, name)
+
+      _no_proposal ->
+        draft
+    end
+  end
+
+  @doc """
+  Puts the evidence's spelling back in a renamed series.
+  """
+  def reset_series_name(draft, index) do
+    case Enum.at(draft.work.series, index) do
+      %SeriesLink{proposed_name: name} when is_binary(name) -> rename_series(draft, index, name)
+      _no_proposal -> draft
+    end
   end
 
   @doc """
@@ -461,12 +516,80 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   @doc """
-  Drops a proposed credit entirely — the source suggested somebody this
-  recording isn't actually by.
+  Drops a proposed credit — the source suggested somebody this recording
+  isn't actually by.
+
+  A tombstone, not a deletion. Deleting the row left nothing curated behind,
+  so `Seed.keep_curated/2` re-appended the same proposal on the next reseed —
+  removal was the one edit that didn't stick — and it was also the one edit
+  with no way back. The reseed drops the people only this credit referenced,
+  which used to be skipped outright: the orphaned `PersonDecision` stayed in
+  `draft.people`, where `unresolved/1` counted it as a decision the operator
+  could neither see nor settle.
+
+  A row the operator added themselves really is deleted: no evidence proposed
+  it, so there is nothing for a reseed to resurrect and nothing a ghost would
+  be holding for them.
   """
-  def remove_credit(draft, section, index) do
-    update_credits(draft, section, &List.delete_at(&1, index))
+  def remove_credit(draft, %InboxItem{} = item, section, index) do
+    case Enum.at(credits_in(draft, section), index) do
+      %Credit{source: "manual"} ->
+        draft
+        |> update_credits(section, &List.delete_at(&1, index))
+        |> Seed.reseed_people(item)
+
+      _proposed ->
+        draft
+        |> update_credit(section, index, &%{&1 | removed: true, curated: true})
+        |> Seed.reseed_people(item)
+    end
   end
+
+  @doc """
+  Brings back a removed credit, exactly as it was when it was removed.
+  """
+  def restore_credit(draft, %InboxItem{} = item, section, index) do
+    draft
+    |> update_credit(section, index, &%{&1 | removed: false})
+    |> Seed.reseed_people(item)
+  end
+
+  @doc """
+  Adds a credit the sources didn't propose.
+
+  The row starts blank and unconfirmed — the operator is about to type the
+  name — and curated from birth, so no reseed sweeps it away. Its person is
+  minted by the first real name (see `rename_credit/4`).
+  """
+  def add_credit(draft, section) do
+    credit = %Credit{
+      kind: kind_of(section),
+      name: "",
+      source: "manual",
+      mode: :create,
+      curated: true
+    }
+
+    update_credits(draft, section, &(&1 ++ [credit]))
+  end
+
+  defp kind_of(:work), do: :author
+  defp kind_of(:recording), do: :narrator
+
+  @doc """
+  Adds a series membership the sources didn't propose.
+  """
+  def add_series(draft) do
+    link = %SeriesLink{name: "", source: "manual", mode: :create, curated: true}
+    update_in(draft.work.series, &(&1 ++ [link]))
+  end
+
+  @doc """
+  Brings the draft's people into line with the credits, for callers outside
+  this module — the form calls it after name edits, because a person named
+  for the first time needs their decision minted before approval can read it.
+  """
+  def sync_people(draft, %InboxItem{} = item), do: Seed.reseed_people(draft, item)
 
   ## series
 
@@ -486,11 +609,44 @@ defmodule Ambry.Inbox.Draft.Edit do
     update_series(draft, index, &%{&1 | mode: :create, series_id: nil, curated: true})
   end
 
+  # The same tombstone as `remove_credit/4`; a series references no people,
+  # so there is nothing to reconcile. Operator-added rows really delete,
+  # same as credits — no evidence proposed them.
   def remove_series(draft, index) do
-    update_in(draft.work.series, &List.delete_at(&1, index))
+    case Enum.at(draft.work.series, index) do
+      %SeriesLink{source: "manual"} ->
+        update_in(draft.work.series, &List.delete_at(&1, index))
+
+      _proposed ->
+        update_series(draft, index, &%{&1 | removed: true, curated: true})
+    end
+  end
+
+  def restore_series(draft, index) do
+    update_series(draft, index, &%{&1 | removed: false})
   end
 
   ## the identity decisions
+
+  @doc """
+  Approves the machine's ticks exactly as they are — "yes, you were right."
+
+  Ticking a record settles a level, but a level the seeder already ticked had
+  no one-click way to be human-confirmed: clicking the ticked record unticks
+  it, so confirming took an untick and a re-tick, churning a reseed each way.
+  This is the missing single click. It changes no sources — it only records
+  that a human looked.
+  """
+  def confirm_level(draft, :work) do
+    update_in(draft.work, &%{&1 | evidence_curated: true, doubt: :none, doubt_detail: nil})
+  end
+
+  def confirm_level(draft, :recording) do
+    update_in(
+      draft.recording,
+      &%{&1 | approved: true, evidence_curated: true, doubt: :none, doubt_detail: nil}
+    )
+  end
 
   def approve_work(draft, approved?), do: update_in(draft.work.approved, fn _ -> approved? end)
 
@@ -570,6 +726,10 @@ defmodule Ambry.Inbox.Draft.Edit do
   defp settle_if_possible(%Field{required: false} = field), do: %{field | approved: true}
   defp settle_if_possible(field), do: field
 
+  # A removed row is already answered; approving everything must not quietly
+  # re-arm it.
+  defp settle_credit(%Credit{removed: true} = credit), do: credit
+
   defp settle_credit(%Credit{} = credit) do
     cond do
       Credit.resolved?(credit) -> credit
@@ -581,6 +741,7 @@ defmodule Ambry.Inbox.Draft.Edit do
 
   # A number nobody supplied stays a question — this is the one thing the
   # approve-everything button must not paper over.
+  defp settle_series(%SeriesLink{removed: true} = link), do: link
   defp settle_series(%SeriesLink{number: nil} = link), do: link
   defp settle_series(%SeriesLink{} = link), do: %{link | approved: true}
 

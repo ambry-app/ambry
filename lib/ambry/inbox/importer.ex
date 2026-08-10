@@ -153,7 +153,7 @@ defmodule Ambry.Inbox.Importer do
   defp resolve_book(%{mode: :link, book_id: book_id} = work, _people) do
     case Repo.get(Book, book_id) do
       nil -> {:error, :book_not_found}
-      book -> add_series(book, work.series)
+      book -> add_series(book, Enum.reject(work.series, & &1.removed))
     end
   end
 
@@ -192,8 +192,11 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
+  # Tombstoned rows are the operator saying "not this one" — they stay on the
+  # draft for their possible restore and must never reach the library.
   defp author_params(credits, people) do
     credits
+    |> Enum.reject(& &1.removed)
     |> Enum.map(fn credit ->
       {:ok, author} = resolve_identity(credit, people)
       %{author_id: author.id}
@@ -201,7 +204,9 @@ defmodule Ambry.Inbox.Importer do
   end
 
   defp series_params(links) do
-    Enum.map(links, fn link ->
+    links
+    |> Enum.reject(& &1.removed)
+    |> Enum.map(fn link ->
       {:ok, series} = resolve_series(link)
       %{series_id: series.id, book_number: SeriesLink.decimal(link)}
     end)
@@ -328,6 +333,11 @@ defmodule Ambry.Inbox.Importer do
         source_path: item.path,
         source_files: item.files,
         status: :pending,
+        # The optional part-of-a-set label ("Part 1 of 2"), typed by the
+        # operator. Grouping the parts into one set is the media form's job,
+        # after each part is imported.
+        part_number: recording.part_number,
+        parts_total: recording.parts_total,
         duration: probe.duration,
         chapters: probe.chapters,
         media_narrators: narrator_params(recording.narrators, people),
@@ -352,7 +362,9 @@ defmodule Ambry.Inbox.Importer do
   end
 
   defp narrator_params(credits, people) do
-    Enum.map(credits, fn credit ->
+    credits
+    |> Enum.reject(& &1.removed)
+    |> Enum.map(fn credit ->
       {:ok, narrator} = resolve_identity(credit, people)
       %{narrator_id: narrator.id}
     end)
@@ -467,13 +479,19 @@ defmodule Ambry.Inbox.Importer do
     values = Books.naming_values(book, media)
 
     with {:ok, folder} <- NamingTemplate.render(Settings.library_naming_template(), values),
-         {:ok, filename} <- NamingTemplate.filename(values, file),
+         {:ok, filename} <- NamingTemplate.filename(values, file, filename_part(media)),
          path = Path.join([root.path, folder, filename]),
          {:ok, placement} <- Placement.place(file, path, policy),
          {:ok, media} <- adopt_managed(media, path) do
       {:ok, media, placement}
     end
   end
+
+  # Two parts of one set are two separate imports into the same book folder;
+  # the suffix is what keeps "The Way of Kings.m4b" from colliding with
+  # itself when part 2 arrives.
+  defp filename_part(%{part_number: nil}), do: nil
+  defp filename_part(%{part_number: number, parts_total: total}), do: {number, total}
 
   # The recording now points at the library copy and Ambry owns those bytes.
   defp adopt_managed(media, path) do
@@ -507,8 +525,9 @@ defmodule Ambry.Inbox.Importer do
 
   ## files
 
-  # Direct-play v1 is single-file, and a recording whose tracks can't be
-  # described has no business in the library.
+  # An import is one file — a recording whose tracks can't be described has
+  # no business in the library, and a multi-file item is split into one item
+  # per file first.
   defp single_file(%InboxItem{files: [file]}), do: {:ok, file}
   defp single_file(%InboxItem{files: []}), do: {:error, :no_audio_files}
   defp single_file(%InboxItem{}), do: {:error, :multi_file_unsupported}

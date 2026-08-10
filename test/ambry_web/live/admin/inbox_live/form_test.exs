@@ -183,15 +183,28 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       item = probed_item()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
-      before = length(Inbox.get_item!(item.id).draft.recording.narrators)
 
-      view
-      |> element(
-        "button[phx-click='remove-credit'][phx-value-section='recording'][phx-value-index='0']"
-      )
-      |> render_click()
+      html =
+        view
+        |> element(
+          "button[phx-click='remove-credit'][phx-value-section='recording'][phx-value-index='0']"
+        )
+        |> render_click()
 
-      assert length(Inbox.get_item!(item.id).draft.recording.narrators) == before - 1
+      # a tombstone, not a deletion: the row stays, out of the decision
+      # queue, rendered as a ghost the operator can take back
+      assert [%{removed: true} | _rest] = Inbox.get_item!(item.id).draft.recording.narrators
+      assert html =~ "data-role=\"removed-credit\""
+
+      html =
+        view
+        |> element(
+          "button[phx-click='restore-credit'][phx-value-section='recording'][phx-value-index='0']"
+        )
+        |> render_click()
+
+      assert [%{removed: false} | _rest] = Inbox.get_item!(item.id).draft.recording.narrators
+      refute html =~ "data-role=\"removed-credit\""
     end
   end
 
@@ -890,6 +903,57 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
       refute has_element?(view, "[data-role='job-status']")
+    end
+  end
+
+  describe "part-of-a-set numbers" do
+    # Plain optional inputs, reachable from the default state — nothing
+    # proposes these, the operator just knows.
+    test "typing the numbers saves them to the draft", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      assert html =~ "Part of a set"
+
+      view
+      |> form("#recording-form", %{
+        "inbox_item" => %{
+          "draft" => %{"recording" => %{"part_number" => "1", "parts_total" => "2"}}
+        }
+      })
+      |> render_change()
+
+      item = Inbox.get_item!(item.id)
+      assert item.draft.recording.part_number == 1
+      assert item.draft.recording.parts_total == 2
+    end
+  end
+
+  describe "splitting a mis-grouped item" do
+    # The folder heuristic's known failure: two separate single-file books in
+    # one folder become one 2-file item. The correction has to be reachable
+    # from the form's default state.
+    test "the split button breaks the item into one per file", %{conn: conn} do
+      root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
+      release = Path.join(root, "Two Novellas")
+      File.mkdir_p!(release)
+      File.cp!(tagged_fixture(true, false, nil), Path.join(release, "one.m4b"))
+      File.cp!(tagged_fixture(true, false, nil), Path.join(release, "two.m4b"))
+
+      {:ok, _counts} = Inbox.discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Two Novellas")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      assert html =~ "Split into 2 items"
+
+      view |> element("button[data-role='split']") |> render_click()
+      assert_redirect(view, ~p"/admin/inbox")
+
+      {items, _more} = Inbox.list_items(filter: "Two Novellas")
+      assert length(items) == 2
+      assert Enum.all?(items, &(length(&1.files) == 1))
     end
   end
 

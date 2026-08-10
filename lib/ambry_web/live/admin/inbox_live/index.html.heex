@@ -79,8 +79,12 @@
           >
             <span class="text-xs text-zinc-400">{match.level}</span>
             <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <.badge color={elem(confidence_label(match.confidence), 1)} class="text-xs">
-                {elem(confidence_label(match.confidence), 0)}
+              <.badge
+                color={elem(level_state_words(match.state), 1)}
+                class="text-xs"
+                title={match.confidence && "match score #{match.confidence}"}
+              >
+                {elem(level_state_words(match.state), 0)}
               </.badge>
               <%!-- basis-48 + grow keeps the title from being shrunk out of
                     existence (meta wraps down instead); max-w-fit stops the grow

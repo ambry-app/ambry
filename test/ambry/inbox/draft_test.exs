@@ -1208,6 +1208,299 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  # `Draft.curated?/1` decides whether a re-match rebuilds the draft or
+  # re-derives around the operator. It only looked at fields, credits, series
+  # and people — so a draft whose only human input was ticking records or
+  # answering the identity question was rebuilt wholesale, discarding exactly
+  # the decisions the tick and the answer were.
+  describe "ticking records and answering identity count as curation" do
+    test "a freshly seeded draft is not curated" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      refute Draft.curated?(item.draft)
+    end
+
+    test "ticking a work record marks the draft curated" do
+      record = provider_candidate(%{"score" => 0.5})
+      item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute Draft.curated?(item.draft)
+
+      draft = Draft.Edit.toggle_source(item.draft, item, :work, record)
+
+      assert Draft.curated?(draft)
+    end
+
+    test "ticking a recording record marks the draft curated" do
+      record = recording_record(%{"score" => 0.5})
+
+      item =
+        item(%{
+          matches: matches([], recording: [record], recording_confidence: 0.3),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute Draft.curated?(item.draft)
+
+      draft = Draft.Edit.toggle_source(item.draft, item, :recording, record)
+
+      assert Draft.curated?(draft)
+    end
+
+    test "answering the identity question marks the draft curated" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute Draft.curated?(item.draft)
+
+      assert Draft.curated?(Draft.Edit.new_book(item.draft, item))
+    end
+
+    test "settling the recording as uncatalogued marks the draft curated" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute Draft.curated?(item.draft)
+
+      assert Draft.curated?(Draft.Edit.uncatalogued(item.draft, item))
+    end
+
+    test "the badge state follows decisions, not match history" do
+      record = provider_candidate(%{"score" => 0.5})
+      item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert Draft.level_state(item.draft.work) == :unsure
+      assert Draft.level_state(item.draft.recording) == :no_match
+
+      # ticking the doubted record is "yes, you were right"
+      draft = Draft.Edit.toggle_source(item.draft, item, :work, record)
+      assert Draft.level_state(draft.work) == :confirmed
+    end
+
+    test "a believed match reads trusted until a human touches it" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert Draft.level_state(item.draft.work) == :trusted
+    end
+
+    # Clicking the already-ticked record UNTICKS it, so "yes, you were right"
+    # used to cost an untick and a re-tick with a reseed churning each way.
+    test "confirm approves the machine's ticks without moving them" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      ticked = item.draft.work.sources
+
+      draft = Draft.Edit.confirm_level(item.draft, :work)
+
+      assert Draft.level_state(draft.work) == :confirmed
+      assert draft.work.sources == ticked
+      assert Draft.curated?(draft)
+    end
+
+    test "the tick survives the reseed it triggers" do
+      record = provider_candidate(%{"score" => 0.5})
+      item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.toggle_source(item.draft, item, :work, record)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert Draft.curated?(Draft.Edit.resettle(item.draft, item))
+    end
+  end
+
+  # Removal used to be a bare List.delete_at — the one edit that didn't
+  # stick (keep_curated re-appended the fresh proposal on the next reseed)
+  # and the one with no way back. It is a tombstone now.
+  describe "removing a row is a decision" do
+    defp series_item do
+      candidates = [
+        provider_candidate(%{
+          "series" => [%{"name" => "The Expanse", "number" => "1"}]
+        })
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      item
+    end
+
+    test "a removed series does not resurrect on reseed" do
+      item = series_item()
+      assert [%{name: "The Expanse"}] = item.draft.work.series
+
+      draft = Draft.Edit.remove_series(item.draft, 0)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+
+      assert [%{name: "The Expanse", removed: true}] = reseeded.work.series
+    end
+
+    test "a removed series stops blocking the import" do
+      item = series_item()
+
+      draft = Draft.Edit.remove_series(item.draft, 0)
+
+      refute Enum.any?(Draft.unresolved(draft), &(&1.label =~ "Series"))
+    end
+
+    test "restore brings the series back exactly as it was" do
+      item = series_item()
+
+      draft =
+        item.draft
+        |> Draft.Edit.remove_series(0)
+        |> Draft.Edit.restore_series(0)
+
+      assert [%{name: "The Expanse", number: "1", removed: false}] = draft.work.series
+    end
+
+    test "a removed credit drops its person and restore re-mints them" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert [%{name: "James S.A. Corey"}] = item.draft.work.authors
+      assert [_person] = item.draft.people
+
+      removed = Draft.Edit.remove_credit(item.draft, item, :work, 0)
+
+      # the person only this credit referenced is nobody's decision now —
+      # it used to linger and block the import invisibly
+      assert removed.people == []
+      refute Enum.any?(Draft.unresolved(removed), &(&1.label =~ "Person"))
+
+      restored = Draft.Edit.restore_credit(removed, item, :work, 0)
+
+      assert [%{name: "James S.A. Corey", removed: false}] = restored.work.authors
+      assert [_person] = restored.people
+    end
+
+    test "a removed credit never reaches approval params" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.remove_credit(item.draft, item, :work, 0)
+
+      # approve-all must not quietly re-arm the tombstone
+      approved = Draft.Edit.approve_all(draft)
+      assert [%{removed: true}] = approved.work.authors
+    end
+  end
+
+  # Proposals must always be recoverable: the scalar fields keep theirs as
+  # candidates, but a credit's or series' name was a plain string — cleared
+  # once, the provider's spelling was gone with nothing on screen holding it.
+  describe "the evidence's spelling stays reachable" do
+    test "a renamed series can be reset to what the records proposed" do
+      item = series_item()
+
+      draft =
+        item.draft
+        |> Draft.Edit.rename_series(0, "The Expans")
+        |> Draft.Edit.reset_series_name(0)
+
+      assert [%{name: "The Expanse", curated: true}] = draft.work.series
+    end
+
+    test "a renamed credit can be reset, and its tracking person follows" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.rename_credit(:work, 0, "")
+        |> Draft.Edit.reset_credit_name(:work, 0)
+
+      assert [%{name: "James S.A. Corey", proposed_name: "James S.A. Corey"}] =
+               draft.work.authors
+
+      assert [person] = draft.people
+      assert Field.value(person.name) == "James S.A. Corey"
+    end
+
+    test "a manually edited scalar keeps collecting fresh candidates" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # type over the title — the field is the operator's now
+      edited = update_in(item.draft.work.title, &Field.edit(&1, "My Own Title")).draft
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(edited))
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+
+      # the value is pinned, but the evidence still flows: the proposal
+      # remains on offer as a chip instead of being frozen out forever
+      assert Field.value(reseeded.work.title) == "My Own Title"
+      assert Enum.any?(reseeded.work.title.candidates, &(&1.value == "Leviathan Wakes"))
+    end
+  end
+
+  describe "rows the sources didn't propose" do
+    test "an added author mints its person once it is named" do
+      item = item(%{matches: matches([]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.work.authors == []
+
+      draft = Draft.Edit.add_credit(item.draft, :work)
+
+      assert [%{name: "", curated: true, approved: false, person_keys: []}] =
+               draft.work.authors
+
+      draft =
+        draft
+        |> Draft.Edit.rename_credit(:work, 0, "Martha Wells")
+        |> Draft.Edit.sync_people(item)
+
+      assert [%{name: "Martha Wells", person_keys: [key]}] = draft.work.authors
+      assert [%{key: ^key} = person] = draft.people
+      assert Field.value(person.name) == "Martha Wells"
+    end
+
+    test "a manually added row really deletes — nothing proposed it" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.add_series()
+        |> Draft.Edit.rename_series(0, "Not A Real Series")
+        |> Draft.Edit.remove_series(0)
+
+      assert draft.work.series == []
+
+      draft =
+        draft
+        |> Draft.Edit.add_credit(:work)
+        |> Draft.Edit.rename_credit(:work, 1, "Nobody Real")
+        |> Draft.Edit.sync_people(item)
+        |> Draft.Edit.remove_credit(item, :work, 1)
+
+      # gone entirely, and the person it minted goes with it
+      assert [%{source: "provider:hardcover"}] = draft.work.authors
+      refute Enum.any?(draft.people, &(Field.value(&1.name) == "Nobody Real"))
+    end
+
+    test "an added series survives reseeds like any curated row" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.add_series()
+        |> Draft.Edit.rename_series(0, "The Murderbot Diaries")
+        |> Draft.Edit.set_series_number(0, "1")
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+
+      assert Enum.any?(reseeded.work.series, &(&1.name == "The Murderbot Diaries"))
+    end
+  end
+
   # The reported flow: the operator reveals a pen name, renames the person
   # behind it (which marks them curated), and clicks "look again". The results
   # land in `matches` — and a reseed that skipped curated people wholesale

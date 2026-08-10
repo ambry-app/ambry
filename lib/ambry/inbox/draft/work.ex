@@ -44,6 +44,13 @@ defmodule Ambry.Inbox.Draft.Work do
     field :doubt, Ecto.Enum, values: [:none, :nothing_found, :low_confidence]
     field :doubt_detail, :string
 
+    # Whether a human has ticked/unticked records at this level, as opposed to
+    # the seeder ticking the top group. `sources` and `approved` can't carry
+    # the distinction — the seeder writes both — and `Draft.curated?/1` needs
+    # it, or a re-match rebuilds a draft whose only curation was the ticking.
+    # Same name and reason as `PersonDecision.evidence_curated`.
+    field :evidence_curated, :boolean, default: false
+
     # Which provider records describe this book. The records live on the
     # item's `matches` because they're evidence; which of them count is a
     # decision, so it lives here.
@@ -65,6 +72,7 @@ defmodule Ambry.Inbox.Draft.Work do
       :book_id,
       :approved,
       :curated,
+      :evidence_curated,
       :confidence,
       :query,
       :query_fields,
@@ -169,7 +177,8 @@ defmodule Ambry.Inbox.Draft.Work do
 
   defp unresolved_in(items, resolved?, label) do
     items
-    |> Enum.reject(resolved?)
+    # a tombstoned row is an answered question, not an outstanding one
+    |> Enum.reject(&(&1.removed or resolved?.(&1)))
     |> Enum.map(&%{section: :work, label: "#{label}: #{&1.name}", state: state_of(&1)})
   end
 

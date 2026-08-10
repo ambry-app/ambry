@@ -656,6 +656,34 @@ defmodule AmbryWeb.Admin.Decisions do
   generalized fix for the pen-name bug where matching found a Person and
   linked its first identity.
   """
+  # Removed is a tombstone the operator can take back — a ghost row (dashed,
+  # like every escape hatch) holding the name and a restore, out of the
+  # decision queue. It renders instead of vanishing so removal is never a
+  # one-way door.
+  def credit_row(%{credit: %Credit{removed: true}} = assigns) do
+    ~H"""
+    <div
+      class="rounded-lg border border-dashed border-zinc-700 p-4"
+      data-role="removed-credit"
+    >
+      <div class="flex items-center justify-between gap-2 pl-3">
+        <p class="min-w-0 truncate text-sm text-zinc-500">
+          {@verb} <span class="line-through">{@credit.name}</span> — removed
+        </p>
+        <button
+          type="button"
+          phx-click="restore-credit"
+          phx-value-section={@section}
+          phx-value-index={@index}
+          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+        >
+          Restore
+        </button>
+      </div>
+    </div>
+    """
+  end
+
   def credit_row(assigns) do
     ~H"""
     <%!-- A decision block, so it wears the state rail like every other one —
@@ -739,6 +767,32 @@ defmodule AmbryWeb.Admin.Decisions do
           {@identity_backing[@credit.identity_id]}
         </span>
       </form>
+
+      <%!-- The way back after a rename or a clear — the same chip the scalar
+            fields have always had. Only speaks while the box disagrees with
+            the evidence; a linked identity has the library's own name. --%>
+      <div
+        :if={
+          @credit.mode == :create && @credit.proposed_name &&
+            @credit.proposed_name != @credit.name
+        }
+        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+      >
+        <.microlabel>Proposed</.microlabel>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <.proposal_chip
+            chosen={false}
+            event="reset-credit-name"
+            values={%{section: @section, index: @index}}
+            title="go back to what the records proposed"
+          >
+            <span class="text-[10px] flex-none uppercase tracking-wide text-zinc-500">
+              {source_words(@credit.source)}
+            </span>
+            {@credit.proposed_name}
+          </.proposal_chip>
+        </div>
+      </div>
 
       <%!-- The photo and bio belong to the credit itself while there is one
             implied person behind it, which is nearly always. Putting them
@@ -1173,6 +1227,30 @@ defmodule AmbryWeb.Admin.Decisions do
   defaulted — a series proposal with no number stays outstanding, because
   inventing "book 1" writes confident nonsense into a curated field.
   """
+  # The same ghost as a removed credit: dashed, named, restorable.
+  def series_row(%{link: %SeriesLink{removed: true}} = assigns) do
+    ~H"""
+    <div
+      class="rounded-lg border border-dashed border-zinc-700 p-4"
+      data-role="removed-series"
+    >
+      <div class="flex items-center justify-between gap-2 pl-3">
+        <p class="min-w-0 truncate text-sm text-zinc-500">
+          In series <span class="line-through">{@link.name}</span> — removed
+        </p>
+        <button
+          type="button"
+          phx-click="restore-series"
+          phx-value-index={@index}
+          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+        >
+          Restore
+        </button>
+      </div>
+    </div>
+    """
+  end
+
   def series_row(assigns) do
     ~H"""
     <%!-- The same anatomy as every other decision block: railed header row
@@ -1253,6 +1331,28 @@ defmodule AmbryWeb.Admin.Decisions do
           />
         </form>
       </div>
+
+      <%!-- Same restore chip as a credit's name: the evidence's spelling
+            stays reachable after a rename or a clear. --%>
+      <div
+        :if={@link.mode == :create && @link.proposed_name && @link.proposed_name != @link.name}
+        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+      >
+        <.microlabel>Proposed</.microlabel>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <.proposal_chip
+            chosen={false}
+            event="reset-series-name"
+            values={%{index: @index}}
+            title="go back to what the records proposed"
+          >
+            <span class="text-[10px] flex-none uppercase tracking-wide text-zinc-500">
+              {source_words(@link.source)}
+            </span>
+            {@link.proposed_name}
+          </.proposal_chip>
+        </div>
+      </div>
     </div>
     """
   end
@@ -1281,6 +1381,20 @@ defmodule AmbryWeb.Admin.Decisions do
   def state_words(:unconfirmed), do: {"needs confirming", :yellow}
   def state_words(:stale), do: {"files changed", :red}
   def state_words(_other), do: {"needs confirming", :yellow}
+
+  @doc """
+  A level's identity state as a badge — `Ambry.Inbox.Draft.level_state/1`'s
+  words. One vocabulary for the queue and the form, or they drift.
+
+  "confirmed" is the operator's; "trusted" is the machine's. The distinction
+  is the point: the old badge showed match-time confidence forever, so a
+  human's answer could never update it — and a correct "unsure" match could
+  never be told "you were right" except by this.
+  """
+  def level_state_words(:confirmed), do: {"confirmed", :brand}
+  def level_state_words(:trusted), do: {"trusted", :blue}
+  def level_state_words(:unsure), do: {"unsure", :yellow}
+  def level_state_words(:no_match), do: {"no match", :gray}
 
   @doc """
   Where a cover value can actually be looked at.

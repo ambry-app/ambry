@@ -315,10 +315,48 @@ defmodule Ambry.Inbox.ImporterTest do
     end
   end
 
+  describe "part-of-a-set numbers" do
+    # A part-release (GraphicAudio's "Part 1 of 2") is an ordinary separate
+    # recording — its own cover, date, narrators, sometimes sold separately —
+    # that happens to carry the optional part label. The operator types the
+    # numbers; nothing proposes them, and grouping the parts into one set
+    # stays on the media form.
+    test "typed part numbers reach the imported media" do
+      item = tagged_item()
+
+      draft = %{
+        item.draft
+        | recording: %{item.draft.recording | part_number: 1, parts_total: 2}
+      }
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert {:ok, media} = Inbox.import_item(item)
+
+      media = Media.get_media!(media.id)
+      assert media.part_number == 1
+      assert media.parts_total == 2
+      # no group is invented — tying the set together is the media form's job
+      assert media.recording_group_id == nil
+    end
+
+    test "the numbers count as curation, so a re-match can't discard them" do
+      item = tagged_item(settle: false)
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = %{
+        item.draft
+        | recording: %{item.draft.recording | part_number: 1, parts_total: 2}
+      }
+
+      assert Draft.curated?(draft)
+    end
+  end
+
   describe "approve/1 refusals" do
     test "refuses a multi-file release rather than importing half of it" do
       # Checked before the draft: no amount of curation makes a multi-file
-      # release importable, so the operator must not be sent to the form.
+      # release importable — the operator splits it into one item per file.
       item = tagged_item(files: ["01.mp3", "02.mp3"], settle: false)
 
       assert {:error, :multi_file_unsupported} = Inbox.import_item(item)

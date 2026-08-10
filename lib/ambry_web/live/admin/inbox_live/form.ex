@@ -255,6 +255,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     section = atom(section)
     index = to_int(i)
     id = to_int(params["identity_id"])
+    item = socket.assigns.item
 
     {:noreply,
      edit(socket, fn draft ->
@@ -264,8 +265,48 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
          draft
          |> Draft.Edit.create_credit(section, index)
          |> Draft.Edit.rename_credit(section, index, params["name"] || "")
+         # A person named for the first time (an added row's first real name
+         # mints their key) needs their decision minted before approval can
+         # resolve it.
+         |> Draft.Edit.sync_people(item)
        end
      end)}
+  end
+
+  def handle_event("split", _params, socket) do
+    case Inbox.split_item(socket.assigns.item) do
+      {:ok, children} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Split into #{length(children)} items — scanning each fresh now.")
+         |> push_navigate(to: ~p"/admin/inbox")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Couldn't split this item.")}
+    end
+  end
+
+  def handle_event("add-credit", %{"section" => s}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.add_credit(&1, atom(s)))}
+  end
+
+  def handle_event("add-series", _params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.add_series/1)}
+  end
+
+  def handle_event("reset-credit-name", %{"section" => s, "index" => i}, socket) do
+    item = socket.assigns.item
+
+    {:noreply,
+     edit(socket, fn draft ->
+       draft
+       |> Draft.Edit.reset_credit_name(atom(s), to_int(i))
+       |> Draft.Edit.sync_people(item)
+     end)}
+  end
+
+  def handle_event("reset-series-name", %{"index" => i}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.reset_series_name(&1, to_int(i)))}
   end
 
   # Whether the person layer is unfolded is view state, not a decision — it
@@ -401,7 +442,13 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def handle_event("remove-credit", %{"section" => s, "index" => i}, socket) do
-    {:noreply, edit(socket, &Draft.Edit.remove_credit(&1, atom(s), to_int(i)))}
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.remove_credit(&1, item, atom(s), to_int(i)))}
+  end
+
+  def handle_event("restore-credit", %{"section" => s, "index" => i}, socket) do
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.restore_credit(&1, item, atom(s), to_int(i)))}
   end
 
   def handle_event("set-series-number", %{"index" => i, "number" => number}, socket) do
@@ -433,8 +480,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.remove_series(&1, to_int(i)))}
   end
 
+  def handle_event("restore-series", %{"index" => i}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.restore_series(&1, to_int(i)))}
+  end
+
   def handle_event("approve-work", params, socket) do
     {:noreply, edit(socket, &Draft.Edit.approve_work(&1, params["approved"] == "true"))}
+  end
+
+  def handle_event("confirm-level", %{"section" => s}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.confirm_level(&1, atom(s)))}
   end
 
   def handle_event("choose-root", %{"root_id" => root_id}, socket) do
@@ -836,10 +891,4 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def settleable(unresolved) do
     Enum.count(unresolved, &(&1.state != :missing))
   end
-
-  def confidence_label(nil), do: {"no match", :gray}
-  def confidence_label(confidence) when confidence >= 0.85, do: {"near-certain", :brand}
-  def confidence_label(confidence) when confidence >= 0.6, do: {"likely", :blue}
-  def confidence_label(confidence) when confidence > 0.0, do: {"unsure", :yellow}
-  def confidence_label(_confidence), do: {"no match", :gray}
 end

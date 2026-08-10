@@ -102,6 +102,102 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
   end
 
+  describe "part-of-a-set placement" do
+    # Two parts of one set are two ordinary separate imports that land in the
+    # same book folder — the part suffix is what keeps the second placement
+    # from colliding with the first.
+    test "two part imports share the folder with distinct filenames" do
+      %{media1: media1, media2: media2, root: root} = two_part_imports()
+
+      folder = Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)"])
+
+      assert [placed1] = Media.get_media!(media1.id).source_files
+      assert [placed2] = Media.get_media!(media2.id).source_files
+      assert placed1 == Path.join(folder, "The Way of Kings - Part 1 of 2.m4b")
+      assert placed2 == Path.join(folder, "The Way of Kings - Part 2 of 2.m4b")
+      assert File.exists?(placed1)
+      assert File.exists?(placed2)
+    end
+
+    # The deletion worker rm_rfs a managed media's source folder. Parts share
+    # theirs, so deleting part 1 that way would take part 2's file with it.
+    test "deleting one part leaves its sibling's file alone" do
+      %{media1: media1, media2: media2} = two_part_imports()
+
+      [placed1] = Media.get_media!(media1.id).source_files
+      [placed2] = Media.get_media!(media2.id).source_files
+
+      assert {:ok, _deleted} = Media.delete_media(Media.get_media!(media1.id))
+      # file deletion happens in a background job on the default queue
+      assert %{success: _some, failure: 0} = Oban.drain_queue(queue: :default)
+
+      refute File.exists?(placed1)
+      assert File.exists?(placed2)
+    end
+
+    defp two_part_imports do
+      root = new_dir("root")
+      insert(:root, path: root, name: "Library")
+
+      downloads = new_dir("downloads")
+
+      for n <- 1..2 do
+        release = Path.join(downloads, "The Way of Kings Part #{n}")
+        File.mkdir_p!(release)
+        File.cp!(tagged_audio(), Path.join(release, "book.m4b"))
+      end
+
+      watched =
+        insert(:source,
+          on_import: :bring_in,
+          import_policy: :copy,
+          path: downloads,
+          name: "Downloads #{Ecto.UUID.generate()}"
+        )
+
+      {:ok, _counts} = Inbox.discover(watched)
+      {items, false} = Inbox.list_items()
+      [first, second] = Enum.sort_by(items, & &1.path)
+
+      {:ok, first} = Inbox.probe_item(first)
+      first = first |> settle() |> with_parts(1, 2)
+      {:ok, media1} = Inbox.import_item(first)
+
+      # the second part is the same book — a strong local hit links it the
+      # way matching would once the library holds part 1
+      {:ok, second} = Inbox.probe_item(second)
+      book_id = Media.get_media!(media1.id).book_id
+
+      {:ok, second} =
+        Inbox.update_item(second, %{
+          matches: %{
+            "work" => %{
+              "candidates" => [],
+              "local" => [%{"id" => book_id, "score" => 1.0}],
+              "confidence" => 1.0
+            },
+            "recording" => %{"candidates" => []},
+            "people" => %{}
+          }
+        })
+
+      second = second |> settle() |> with_parts(2, 2)
+      {:ok, media2} = Inbox.import_item(second)
+
+      %{media1: media1, media2: media2, root: root}
+    end
+
+    defp with_parts(item, number, total) do
+      draft = %{
+        item.draft
+        | recording: %{item.draft.recording | part_number: number, parts_total: total}
+      }
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+      item
+    end
+  end
+
   describe "refusals" do
     # Silently copying instead is the storage doubling this entire phase
     # exists to eliminate, and the operator would never know it happened.

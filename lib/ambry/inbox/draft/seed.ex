@@ -335,7 +335,14 @@ defmodule Ambry.Inbox.Draft.Seed do
   # A field the operator typed is theirs; re-seeding from another candidate
   # must not quietly undo a correction. Everything else is provider data being
   # replaced by other provider data, which is exactly what was asked for.
-  defp keep_manual(%Field{source: "manual"} = existing, _fresh), do: existing
+  #
+  # The *candidates* still follow the fresh derivation: curation protects
+  # decisions, not evidence. Freezing the whole struct meant a manually
+  # edited field stopped collecting chips — newly ticked records had nothing
+  # to offer it, and the way back to a proposal was gone the moment the
+  # proposal predated the edit.
+  defp keep_manual(%Field{source: "manual"} = existing, fresh),
+    do: %{existing | candidates: fresh.candidates}
 
   # A chip the operator picked stays picked while its proposal is still on
   # offer — re-deriving because some other record was ticked must not quietly
@@ -1324,7 +1331,14 @@ defmodule Ambry.Inbox.Draft.Seed do
     matches = identity_matches(name, kind)
     people = person_matches(name)
 
-    base = %Credit{name: name, kind: kind, source: source, candidates: matches}
+    base = %Credit{
+      name: name,
+      proposed_name: name,
+      kind: kind,
+      source: source,
+      candidates: matches
+    }
+
     # Who is behind the credit is a reference now, not an embed — the human
     # themselves is decided once, in `draft.people`.
     keys = Credit.new_person_default(name)
@@ -1589,7 +1603,13 @@ defmodule Ambry.Inbox.Draft.Seed do
       |> matching_series()
       |> Enum.map(&%SeriesLink.Match{series_id: &1.id, name: &1.name, exact: true})
 
-    base = %SeriesLink{name: name, number: presence(number), source: source, candidates: matches}
+    base = %SeriesLink{
+      name: name,
+      proposed_name: name,
+      number: presence(number),
+      source: source,
+      candidates: matches
+    }
 
     case matches do
       # A number nobody supplied is a question, not a default. Getting this
