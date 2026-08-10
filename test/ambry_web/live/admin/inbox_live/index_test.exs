@@ -62,12 +62,50 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
 
     {:ok, _view, html} = live(conn, ~p"/admin/inbox")
 
-    assert html =~ "near-certain"
+    # no draft yet, so the badge falls back to the match-time confidence
+    assert html =~ "trusted"
     assert html =~ "The Way of Kings"
     assert html =~ "already in library"
     assert html =~ "+1 other"
     # the recording level says so rather than going silent
     assert html =~ "no match"
+  end
+
+  # The badge is decision state, not match history: confidence was frozen at
+  # match time, so the queue kept calling an item "unsure" after the operator
+  # had answered — and there was no way to tell a correct-but-doubted match
+  # "you were right" except by deciding, which is exactly what now flips it.
+  test "a level the operator settled reads confirmed", %{conn: conn} do
+    record = %{
+      "title" => "The Way of Kings",
+      "authors" => ["Brandon Sanderson"],
+      "source" => "provider:hardcover",
+      "id" => "hc-1",
+      "score" => 0.5
+    }
+
+    item = probed_item()
+
+    {:ok, item} =
+      Inbox.update_item(item, %{
+        matches: %{
+          "work" => %{"confidence" => 0.3, "query" => "q", "candidates" => [record]},
+          "recording" => %{"confidence" => 0.0, "query" => nil, "candidates" => []},
+          "people" => %{}
+        }
+      })
+
+    {:ok, item} = Inbox.prepare_draft(item)
+
+    {:ok, _view, html} = live(conn, ~p"/admin/inbox")
+    assert html =~ "unsure"
+
+    draft = Ambry.Inbox.Draft.Edit.toggle_source(item.draft, item, :work, record)
+    {:ok, _item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+    {:ok, _view, html} = live(conn, ~p"/admin/inbox")
+    assert html =~ "confirmed"
+    refute html =~ ">unsure<"
   end
 
   # One button, because the two it replaced were never separable: matching

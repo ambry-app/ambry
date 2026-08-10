@@ -1265,6 +1265,26 @@ defmodule Ambry.Inbox.DraftTest do
       assert Draft.curated?(Draft.Edit.uncatalogued(item.draft, item))
     end
 
+    test "the badge state follows decisions, not match history" do
+      record = provider_candidate(%{"score" => 0.5})
+      item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert Draft.level_state(item.draft.work) == :unsure
+      assert Draft.level_state(item.draft.recording) == :no_match
+
+      # ticking the doubted record is "yes, you were right"
+      draft = Draft.Edit.toggle_source(item.draft, item, :work, record)
+      assert Draft.level_state(draft.work) == :confirmed
+    end
+
+    test "a believed match reads trusted until a human touches it" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert Draft.level_state(item.draft.work) == :trusted
+    end
+
     test "the tick survives the reseed it triggers" do
       record = provider_candidate(%{"score" => 0.5})
       item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})

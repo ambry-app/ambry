@@ -1383,6 +1383,20 @@ defmodule AmbryWeb.Admin.Decisions do
   def state_words(_other), do: {"needs confirming", :yellow}
 
   @doc """
+  A level's identity state as a badge — `Ambry.Inbox.Draft.level_state/1`'s
+  words. One vocabulary for the queue and the form, or they drift.
+
+  "confirmed" is the operator's; "trusted" is the machine's. The distinction
+  is the point: the old badge showed match-time confidence forever, so a
+  human's answer could never update it — and a correct "unsure" match could
+  never be told "you were right" except by this.
+  """
+  def level_state_words(:confirmed), do: {"confirmed", :brand}
+  def level_state_words(:trusted), do: {"trusted", :blue}
+  def level_state_words(:unsure), do: {"unsure", :yellow}
+  def level_state_words(:no_match), do: {"no match", :gray}
+
+  @doc """
   Where a cover value can actually be looked at.
 
   A provider URL goes through the admin proxy, because tracking protection

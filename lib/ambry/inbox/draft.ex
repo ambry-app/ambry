@@ -205,6 +205,39 @@ defmodule Ambry.Inbox.Draft do
   end
 
   @doc """
+  How settled a level's identity question is, as one badge-sized fact.
+
+  This replaces showing the match confidence forever: confidence is how sure
+  the *machine* was at match time, and it never moved again — an operator
+  could pick the right work and the badge still said "unsure", with no way
+  to say "you were right". But they do say it: ticking records, linking a
+  book, settling uncatalogued all clear the level's doubt. The badge now
+  listens to the same signals as the rest of the form.
+
+    * `:confirmed` — a human answered (ticked records, answered identity)
+    * `:trusted` — the machine believed its match and nobody has had to touch it
+    * `:unsure` — doubt outstanding; the doubt banner carries the numbers
+    * `:no_match` — nothing was found (which is an answer, not a failure)
+  """
+  def level_state(%Work{} = work) do
+    cond do
+      work.curated or work.evidence_curated -> :confirmed
+      work.doubt == :nothing_found -> :no_match
+      work.doubt in [nil, :none] -> :trusted
+      true -> :unsure
+    end
+  end
+
+  def level_state(%Recording{} = recording) do
+    cond do
+      recording.evidence_curated -> :confirmed
+      recording.doubt == :nothing_found -> :no_match
+      recording.doubt in [nil, :none] -> :trusted
+      true -> :unsure
+    end
+  end
+
+  @doc """
   Whether a human has answered anything in this draft yet.
 
   What tells "matched but untouched" from "the operator has been working on

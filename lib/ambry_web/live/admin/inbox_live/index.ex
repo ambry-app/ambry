@@ -9,10 +9,12 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   use AmbryWeb, :admin_live_view
 
+  import AmbryWeb.Admin.Decisions, only: [level_state_words: 1]
   import AmbryWeb.Admin.PaginationHelpers
   import AmbryWeb.TimeUtils
 
   alias Ambry.Inbox
+  alias Ambry.Inbox.Draft
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library.Source
 
@@ -381,7 +383,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   Both are shown even when one is missing: knowing that nothing matched at
   the recording level is itself the useful thing.
   """
-  def match_summary(%InboxItem{matches: matches}) when is_map(matches) do
+  def match_summary(%InboxItem{matches: matches} = item) when is_map(matches) do
     Enum.map(["work", "recording"], fn level ->
       # `|| []` on both lines: a level present without candidates used to
       # crash `List.first/1` here, taking the whole page down over one
@@ -392,13 +394,33 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
         level: level,
         best: List.first(candidates),
         alternatives: max(length(candidates) - 1, 0),
-        confidence: get_in(matches, [level, "confidence"]) || 0.0,
+        state: level_state(item, level),
+        confidence: get_in(matches, [level, "confidence"]),
         query: get_in(matches, [level, "query"])
       }
     end)
   end
 
   def match_summary(_item), do: []
+
+  # The draft is the live truth: its state moves when the operator decides,
+  # where `matches[level]["confidence"]` was frozen at match time — so the
+  # queue used to keep calling an item "unsure" after a human had settled it,
+  # and could disagree with the form after a background re-match. The
+  # fallback covers the moment between matching and the draft existing.
+  defp level_state(%InboxItem{draft: %Draft{work: %{} = work}}, "work"),
+    do: Draft.level_state(work)
+
+  defp level_state(%InboxItem{draft: %Draft{recording: %{} = recording}}, "recording"),
+    do: Draft.level_state(recording)
+
+  defp level_state(%InboxItem{matches: matches}, level) do
+    case get_in(matches, [level, "confidence"]) || 0.0 do
+      sure when sure >= 0.6 -> :trusted
+      some when some > 0.0 -> :unsure
+      _nothing -> :no_match
+    end
+  end
 
   def candidate_label(nil), do: "no match"
 
@@ -414,12 +436,4 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   def candidate_origin(%{"source" => "provider:" <> id}), do: id
   def candidate_origin(_candidate), do: nil
 
-  @doc """
-  Confidence as a word. A number invites false precision; what the operator
-  needs is whether this one can be waved through.
-  """
-  def confidence_label(confidence) when confidence >= 0.85, do: {"near-certain", :brand}
-  def confidence_label(confidence) when confidence >= 0.6, do: {"likely", :blue}
-  def confidence_label(confidence) when confidence > 0.0, do: {"unsure", :yellow}
-  def confidence_label(_confidence), do: {"no match", :gray}
 end

@@ -257,13 +257,15 @@
                 do: "Records that could fill blanks",
                 else: "Records describing this book"}
             </.label>
+            <%!-- Decision state, not match history: confidence was frozen at
+                match time, so the badge kept saying "unsure" after the
+                operator had answered. The raw score stays in the tooltip. --%>
             <.badge
-              :if={@item.draft.work.confidence}
-              color={elem(confidence_label(@item.draft.work.confidence), 1)}
+              color={elem(level_state_words(Draft.level_state(@item.draft.work)), 1)}
               class="text-xs"
-              title={"score #{@item.draft.work.confidence}"}
+              title={@item.draft.work.confidence && "match score #{@item.draft.work.confidence}"}
             >
-              {elem(confidence_label(@item.draft.work.confidence), 0)}
+              {elem(level_state_words(Draft.level_state(@item.draft.work)), 0)}
             </.badge>
           </div>
 
@@ -452,20 +454,18 @@
         ]}>
           <div class="flex items-baseline gap-2 pl-3">
             <.label>Records describing this recording</.label>
+            <%!-- One badge, not two: "needs confirming" and a frozen
+                confidence said less together than the decision state says
+                alone — and the old pair could contradict each other. --%>
             <.badge
-              :if={!@item.draft.recording.approved}
-              color={elem(state_words(:unconfirmed), 1)}
+              color={elem(level_state_words(Draft.level_state(@item.draft.recording)), 1)}
               class="text-xs"
+              title={
+                @item.draft.recording.confidence &&
+                  "match score #{@item.draft.recording.confidence}"
+              }
             >
-              {elem(state_words(:unconfirmed), 0)}
-            </.badge>
-            <.badge
-              :if={@item.draft.recording.confidence}
-              color={elem(confidence_label(@item.draft.recording.confidence), 1)}
-              class="text-xs"
-              title={"score #{@item.draft.recording.confidence}"}
-            >
-              {elem(confidence_label(@item.draft.recording.confidence), 0)}
+              {elem(level_state_words(Draft.level_state(@item.draft.recording)), 0)}
             </.badge>
           </div>
 

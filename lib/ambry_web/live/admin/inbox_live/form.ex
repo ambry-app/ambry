@@ -888,9 +888,4 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     Enum.count(unresolved, &(&1.state != :missing))
   end
 
-  def confidence_label(nil), do: {"no match", :gray}
-  def confidence_label(confidence) when confidence >= 0.85, do: {"near-certain", :brand}
-  def confidence_label(confidence) when confidence >= 0.6, do: {"likely", :blue}
-  def confidence_label(confidence) when confidence > 0.0, do: {"unsure", :yellow}
-  def confidence_label(_confidence), do: {"no match", :gray}
 end
