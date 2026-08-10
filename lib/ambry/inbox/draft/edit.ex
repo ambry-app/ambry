@@ -90,7 +90,7 @@ defmodule Ambry.Inbox.Draft.Edit do
           decision.sources ++ [SourceRef.of(record)]
         end
 
-      settle(%{decision | sources: sources}, level)
+      settle(%{decision | sources: sources, evidence_curated: true}, level)
     end)
     |> follow_work(item, level, record)
     |> reseed(item, scope(level, record))
@@ -134,7 +134,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   def uncatalogued(draft, %InboxItem{} = item) do
     draft
     |> update_in([Access.key(:recording)], fn recording ->
-      %{recording | sources: [], approved: true, doubt: :none, doubt_detail: nil}
+      %{recording | sources: [], approved: true, evidence_curated: true, doubt: :none, doubt_detail: nil}
     end)
     |> reseed(item, :recording)
   end

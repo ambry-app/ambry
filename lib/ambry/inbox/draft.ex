@@ -216,7 +216,12 @@ defmodule Ambry.Inbox.Draft do
     Enum.any?(fields(draft), &(&1 && &1.curated)) or
       Enum.any?(credits(draft), fn {_kind, _section, _index, credit} -> credit.curated end) or
       Enum.any?((draft.work && draft.work.series) || [], & &1.curated) or
-      Enum.any?(draft.people, & &1.curated)
+      Enum.any?(draft.people, & &1.curated) or
+      # Answering the identity question and ticking records are curation too.
+      # Both were missed here, so a draft whose only human input was either
+      # one was rebuilt wholesale by the next background re-match.
+      (draft.work && (draft.work.curated or draft.work.evidence_curated)) == true or
+      (draft.recording && draft.recording.evidence_curated) == true
   end
 
   defp fields(%__MODULE__{work: work, recording: recording}) do

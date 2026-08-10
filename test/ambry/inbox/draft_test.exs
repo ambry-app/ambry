@@ -1208,6 +1208,75 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  # `Draft.curated?/1` decides whether a re-match rebuilds the draft or
+  # re-derives around the operator. It only looked at fields, credits, series
+  # and people — so a draft whose only human input was ticking records or
+  # answering the identity question was rebuilt wholesale, discarding exactly
+  # the decisions the tick and the answer were.
+  describe "ticking records and answering identity count as curation" do
+    test "a freshly seeded draft is not curated" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      refute Draft.curated?(item.draft)
+    end
+
+    test "ticking a work record marks the draft curated" do
+      record = provider_candidate(%{"score" => 0.5})
+      item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute Draft.curated?(item.draft)
+
+      draft = Draft.Edit.toggle_source(item.draft, item, :work, record)
+
+      assert Draft.curated?(draft)
+    end
+
+    test "ticking a recording record marks the draft curated" do
+      record = recording_record(%{"score" => 0.5})
+
+      item =
+        item(%{
+          matches: matches([], recording: [record], recording_confidence: 0.3),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute Draft.curated?(item.draft)
+
+      draft = Draft.Edit.toggle_source(item.draft, item, :recording, record)
+
+      assert Draft.curated?(draft)
+    end
+
+    test "answering the identity question marks the draft curated" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute Draft.curated?(item.draft)
+
+      assert Draft.curated?(Draft.Edit.new_book(item.draft, item))
+    end
+
+    test "settling the recording as uncatalogued marks the draft curated" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute Draft.curated?(item.draft)
+
+      assert Draft.curated?(Draft.Edit.uncatalogued(item.draft, item))
+    end
+
+    test "the tick survives the reseed it triggers" do
+      record = provider_candidate(%{"score" => 0.5})
+      item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.toggle_source(item.draft, item, :work, record)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert Draft.curated?(Draft.Edit.resettle(item.draft, item))
+    end
+  end
+
   # The reported flow: the operator reveals a pen name, renames the person
   # behind it (which marks them curated), and clicks "look again". The results
   # land in `matches` — and a reseed that skipped curated people wholesale

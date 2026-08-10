@@ -24,6 +24,12 @@ defmodule Ambry.Inbox.Draft.Recording do
     field :query_fields, :map, default: %{}
     field :approved, :boolean, default: false
 
+    # Whether a human has ticked/unticked records at this level — the seeder
+    # also writes `sources` and `approved`, so neither can carry the
+    # distinction `Draft.curated?/1` needs. Same name and reason as
+    # `PersonDecision.evidence_curated`.
+    field :evidence_curated, :boolean, default: false
+
     # Which records describe this recording. Hardcover, rreading-glasses and
     # Audible will all have a record of a popular reading — and the databases
     # keep out-of-print editions the storefront has scrubbed — so more than
@@ -58,7 +64,15 @@ defmodule Ambry.Inbox.Draft.Recording do
   @doc false
   def changeset(recording, attrs) do
     recording
-    |> cast(attrs, [:confidence, :query, :query_fields, :approved, :doubt, :doubt_detail])
+    |> cast(attrs, [
+      :confidence,
+      :query,
+      :query_fields,
+      :approved,
+      :evidence_curated,
+      :doubt,
+      :doubt_detail
+    ])
     |> cast_embed(:sources)
     |> cast_embed(:title)
     |> cast_embed(:published)
