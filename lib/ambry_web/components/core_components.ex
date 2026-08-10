@@ -443,6 +443,10 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id}>{@label}</.label>
+      <%!-- Firefox's date editor carries ~2px of its own inner inset, which
+          knocks the value off the 12px text rail the px-[11px] + 1px border
+          otherwise lands on. @supports (-moz-appearance) matches only
+          Firefox, so only Firefox gets the compensation. --%>
       <input
         type={@type}
         name={@name}
@@ -450,7 +454,7 @@ defmodule AmbryWeb.CoreComponents do
         value={Form.normalize_value(@type, @value)}
         class={
           ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
-            input_color_classes(@errors) ++ [@class]
+            [@type == "date" && "supports-[-moz-appearance:none]:px-[9px]"] ++ input_color_classes(@errors) ++ [@class]
         }
         {@rest}
       />

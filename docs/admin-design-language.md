@@ -72,6 +72,25 @@ x-positions: the **box edge** (cards, inputs, record rows, buttons) and the
 inputs — where every bare-text element sits (labels, hints, helper prose,
 microlabels, eyebrows).
 
+**Text lands on the rail exactly, wherever it lives.** A control's own text
+counts: a borderless pill pads `px-3`; a 1px-bordered box pads `px-[11px]`
+so border + padding = 12 (the inputs' trick, worth a transparent border in
+the borderless state so toggling doesn't shift the box); a card's leading
+checkbox sits on the rail itself. Two pixels shy of the rail reads worse
+than either edge — near-misses are what "feels off" is made of.
+
+**Images are content, not containers.** A bare image (a cover preview, a
+person photo, its empty-state placeholder) sits on the text rail like the
+words around it. The box edge exists so a *container's* padding can land
+its inner text on the rail — an image has no inner text to land. An image
+inside a chip or well follows that container's rules.
+
+**Disclosure markers hang in the gutter.** A fold's summary text sits on
+the rail with its chevron in the 12px gutter to the left — the
+hanging-indicator pattern, always via `<.disclosure>`. Browser-default
+summary markers are never used bare: Firefox draws them `inside`, pushing
+the text off the rail; other engines pick their own widths.
+
 **One label column for annotated rows.** Any run of "label: value" rows
 (match lines, `Proposed`/`Asked` rows, the source line) shares a fixed label
 column via grid (`grid-cols-[<w>_minmax(0,1fr)]`), sized once per surface;

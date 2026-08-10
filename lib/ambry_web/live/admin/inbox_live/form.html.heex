@@ -10,7 +10,7 @@
       <%!-- the evidence: what was found, before anybody interpreted it --%>
       <section class="space-y-1 rounded-lg bg-zinc-900 p-4">
         <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
+          <div class="min-w-0 pl-3">
             <p class="truncate font-bold">{@page_title}</p>
             <p class="font-mono truncate text-xs text-zinc-400">{@item.path}</p>
             <p class="text-sm text-zinc-400">{evidence(@item)}</p>
@@ -47,10 +47,13 @@
         <%!-- Tags are the primary source (98% of real releases carry a usable
             one) and the form used to show none of them, so a match that went
             somewhere strange had no visible cause. --%>
-        <details :if={tag_rows(@item) != [] or hint_rows(@item) != []} class="pt-2">
-          <summary class="cursor-pointer pl-3 text-sm text-zinc-400">What the files say</summary>
-
-          <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
+        <.disclosure
+          :if={tag_rows(@item) != [] or hint_rows(@item) != []}
+          summary="What the files say"
+          class="text-sm text-zinc-400"
+          container_class="pt-2"
+        >
+          <div class="grid grid-cols-1 gap-4 pt-2 pl-3 sm:grid-cols-2">
             <div :if={tag_rows(@item) != []} data-role="tags">
               <p class="text-xs font-bold text-zinc-300">Embedded tags</p>
               <p :for={{label, value} <- tag_rows(@item)} class="text-xs text-zinc-400">
@@ -68,9 +71,9 @@
               </p>
             </div>
           </div>
-        </details>
+        </.disclosure>
 
-        <p :if={@item.issue} class="flex items-baseline gap-1.5 pt-2 text-sm text-red-400">
+        <p :if={@item.issue} class="flex items-baseline gap-1.5 pt-2 pl-3 text-sm text-red-400">
           <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
           {@item.issue}
         </p>
@@ -183,7 +186,7 @@
 
           <p
             :if={@library_query not in [nil, ""] and @library_results == []}
-            class="text-sm text-zinc-400"
+            class="pl-3 text-sm text-zinc-400"
           >
             Nothing in the library matches that.
           </p>
@@ -198,7 +201,7 @@
             type="button"
             phx-click="new-book"
             class={[
-              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm",
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm",
               (@item.draft.work.mode == :create and @item.draft.work.approved) &&
                 "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
               !(@item.draft.work.mode == :create and @item.draft.work.approved) &&
@@ -247,7 +250,7 @@
             cover from another.
           </p>
 
-          <p :if={records(@item, "work") == []} class="text-sm text-zinc-400">
+          <p :if={records(@item, "work") == []} class="max-w-prose pl-3 text-sm text-zinc-400">
             No provider had a record of this. The fields below come from the file's own tags.
           </p>
 
@@ -265,10 +268,7 @@
             retrying={@retrying}
           />
 
-          <details>
-            <summary class="cursor-pointer pl-3 text-xs text-zinc-400">
-              Not what you're looking for? Search again
-            </summary>
+          <.disclosure summary="Not what you're looking for? Search again">
             <div class="pt-2">
               <.research_form
                 level="work"
@@ -276,7 +276,7 @@
                 running={@researching == "work"}
               />
             </div>
-          </details>
+          </.disclosure>
         </div>
 
         <%!-- Linking inherits the book's own fields; only additive series
@@ -374,7 +374,7 @@
 
           <p
             :if={@item.draft.work.mode == :link and @item.draft.work.series != []}
-            class="text-sm text-zinc-400"
+            class="max-w-prose pl-3 text-sm text-zinc-400"
           >
             This book isn't in these yet. Adding is a blank being filled, not a change to what's
             already there.
@@ -433,7 +433,7 @@
             {doubt_message(@item.draft.recording)}
           </p>
 
-          <p :if={records(@item, "recording") != []} class="text-sm text-zinc-400">
+          <p :if={records(@item, "recording") != []} class="max-w-prose pl-3 text-sm text-zinc-400">
             Tick every record of <span class="font-semibold">this reading</span>
             — the narrator is what tells two recordings of
             one book apart, so check it before ticking. Databases keep editions the storefront has
@@ -455,25 +455,25 @@
           />
 
           <div class="flex flex-wrap items-center gap-2 pt-1">
+            <%!-- px-[11px]: 1px border + 11px puts the label on the 12px text
+                rail, the same trick the inputs use; the ticked state keeps a
+                transparent border so toggling doesn't shift the box. --%>
             <button
               type="button"
               phx-click="uncatalogued"
               class={[
-                "rounded-md px-2 py-1 text-xs",
+                "px-[11px] rounded-md border py-1 text-xs",
                 Recording.uncatalogued?(@item.draft.recording) &&
-                  "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
+                  "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
                 !Recording.uncatalogued?(@item.draft.recording) &&
-                  "border border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
               ]}
             >
               None of these — it's in no catalogue
             </button>
           </div>
 
-          <details>
-            <summary class="cursor-pointer pl-3 text-xs text-zinc-400">
-              Not what you're looking for? Search again
-            </summary>
+          <.disclosure summary="Not what you're looking for? Search again">
             <div class="pt-2">
               <.research_form
                 level="recording"
@@ -481,7 +481,7 @@
                 running={@researching == "recording"}
               />
             </div>
-          </details>
+          </.disclosure>
 
           <p class="pl-3 text-xs text-zinc-400">
             Every import creates a new recording. Pointing one at an existing recording's files —
