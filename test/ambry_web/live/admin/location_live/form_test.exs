@@ -28,14 +28,14 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
     test "shows the import policy only for downloads", %{conn: conn} do
       {:ok, view, html} = live(conn, ~p"/admin/locations/new")
 
-      assert html =~ "On approval"
+      assert html =~ "On import"
 
       html =
         view
         |> form("#location-form", location: %{name: "L", path: "/data/l", kind: "library_root"})
         |> render_change()
 
-      refute html =~ "On approval"
+      refute html =~ "On import"
     end
 
     # Finding out that a path is wrong at save time is late; finding out at

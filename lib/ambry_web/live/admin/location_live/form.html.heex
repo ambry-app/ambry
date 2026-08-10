@@ -47,12 +47,12 @@
           <.input
             field={@form[:import_policy]}
             type="select"
-            label="On approval"
+            label="On import"
             options={policy_options()}
           />
           <p class="mt-2 text-sm text-zinc-400">
             Hardlinking only works within a single filesystem. If this folder and the library root
-            it imports into are on different disks, approval will say so rather than quietly
+            it imports into are on different disks, import will say so rather than quietly
             copying and doubling your storage.
           </p>
         </div>
@@ -71,7 +71,7 @@
           </p>
           <p :if={@root_options == []} class="mt-2 text-sm text-amber-400">
             There are no library roots yet, so nothing can be imported. Add a location of kind
-            "Library root" first — until then, approving an item from this folder will refuse.
+            "Library root" first — until then, importing an item from this folder will refuse.
           </p>
         </div>
       </div>

@@ -189,7 +189,7 @@ defmodule AmbryWeb.CoreComponents do
         phx-connected={hide("#client-error")}
         hidden
       >
-        Attempting to reconnect <.icon name="fa-rotate" class="ml-1 inline h-3 w-3 animate-spin" />
+        Attempting to reconnect <.icon name="fa-rotate" class="ml-1 h-3 w-3 animate-spin" />
       </.flash>
 
       <.flash
@@ -200,7 +200,7 @@ defmodule AmbryWeb.CoreComponents do
         phx-connected={hide("#server-error")}
         hidden
       >
-        Hang in there while we get back on track <.icon name="fa-rotate" class="ml-1 inline h-3 w-3 animate-spin" />
+        Hang in there while we get back on track <.icon name="fa-rotate" class="ml-1 h-3 w-3 animate-spin" />
       </.flash>
     </div>
     """

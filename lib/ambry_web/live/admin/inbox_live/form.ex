@@ -7,7 +7,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   possible iff every decision is resolved**. The button at the bottom reads
   `Draft.unresolved/1` and nothing else, which is what guarantees the form
   never offers an action that fails: everything that could go wrong at
-  approval was a visible decision before the button was pressed.
+  import was a visible decision before the button was pressed.
 
   ## Two kinds of interaction, deliberately
 
@@ -68,7 +68,23 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(searching_person: nil, photos_expanded: %{})
      |> assign(library_query: nil, library_results: [], ticking: false)
      |> attach_hook(:refuse_while_busy, :handle_event, &refuse_while_busy/3)
+     |> attach_hook(:refuse_when_imported, :handle_event, &refuse_when_imported/3)
      |> load(item)}
+  end
+
+  # An imported item's draft is the record of what was imported — the operator
+  # already created the library records from it, and an edit here would make
+  # the record lie. The banner and `inert` explain; this enforces, because
+  # markup is advisory and a stale tab can still send anything. The only
+  # events allowed through are pure view state.
+  @view_events ~w(toggle-photos toggle-people)
+
+  defp refuse_when_imported(event, _params, socket) do
+    if socket.assigns.read_only and event not in @view_events do
+      {:halt, put_flash(socket, :error, Inbox.describe_error(:already_imported))}
+    else
+      {:cont, socket}
+    end
   end
 
   # **The overlay explains; this enforces.** `inert` and a scrim are markup,
@@ -444,7 +460,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def handle_event("import", _params, socket) do
-    case Inbox.approve_item(socket.assigns.item) do
+    case Inbox.import_item(socket.assigns.item) do
       {:ok, _media} ->
         {:noreply,
          socket
@@ -459,12 +475,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
-  def handle_event("dismiss", _params, socket) do
-    {:ok, _item} = Inbox.dismiss_item(socket.assigns.item)
+  def handle_event("ignore", _params, socket) do
+    {:ok, _item} = Inbox.ignore_item(socket.assigns.item)
 
     {:noreply,
      socket
-     |> put_flash(:info, "Dismissed. Files untouched.")
+     |> put_flash(:info, "Ignored. Files untouched.")
      |> push_navigate(to: ~p"/admin/inbox")}
   end
 
@@ -561,6 +577,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     assign(socket,
       item: item,
+      read_only: item.status == :imported,
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),

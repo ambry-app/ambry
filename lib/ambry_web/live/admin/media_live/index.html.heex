@@ -67,16 +67,16 @@
       <div class="hidden w-36 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
         <div class="flex gap-4">
           <span :if={!media.has_description} title="Missing description">
-            <.icon name="fa-paragraph" class="inline h-4 w-4 text-red-600" />
+            <.icon name="fa-paragraph" class="h-4 w-4 text-red-600" />
           </span>
           <span :if={media.abridged} title="Abridged">
-            <.icon name="fa-clock" class="inline h-4 w-4 text-current" />
+            <.icon name="fa-clock" class="h-4 w-4 text-current" />
           </span>
           <span :if={media.full_cast} title="Full cast">
-            <.icon name="fa-users" class="inline h-4 w-4 text-current" />
+            <.icon name="fa-users" class="h-4 w-4 text-current" />
           </span>
           <span :if={media.chapters > 0} title="# of chapters">
-            {media.chapters} <.icon name="fa-book-bookmark" class="inline h-4 w-4 text-current" />
+            {media.chapters} <.icon name="fa-book-bookmark" class="h-4 w-4 text-current" />
           </span>
         </div>
       </div>

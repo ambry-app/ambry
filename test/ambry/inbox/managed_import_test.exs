@@ -1,4 +1,4 @@
-defmodule Ambry.Inbox.ManagedApprovalTest do
+defmodule Ambry.Inbox.ManagedImportTest do
   @moduledoc """
   Approving an item that came from a downloads folder, which is the first
   point where Ambry writes to the library rather than just reading it.
@@ -28,7 +28,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
     test "hardlinks into the library under the naming template" do
       %{item: item, root: root, source: source} = downloads_item()
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       media = Media.get_media!(media.id)
       assert media.custody == :managed
@@ -57,7 +57,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
       {:ok, _setting} = Settings.set_library_naming_template("{author}/{year} - {title}")
       %{item: item, root: root} = downloads_item()
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       assert [placed] = Media.get_media!(media.id).source_files
 
@@ -73,7 +73,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
     test "moves instead, leaving the downloads folder clean" do
       %{item: item, source: source} = downloads_item(policy: :move)
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       assert [placed] = Media.get_media!(media.id).source_files
       assert File.exists?(placed)
@@ -84,7 +84,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
     test "copies when asked to, duplicating deliberately" do
       %{item: item, source: source} = downloads_item(policy: :copy)
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       assert [placed] = Media.get_media!(media.id).source_files
       assert File.exists?(source)
@@ -94,10 +94,10 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
     test "marks the item approved and links it to what it became" do
       %{item: item} = downloads_item()
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       {[item], false} = Inbox.list_items()
-      assert item.status == :approved
+      assert item.status == :imported
       assert item.media_id == media.id
     end
   end
@@ -116,7 +116,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
 
         %{item: item, source: source} = downloads_item(root: root)
 
-        assert {:error, {:cross_filesystem, ^source, _destination}} = Inbox.approve_item(item)
+        assert {:error, {:cross_filesystem, ^source, _destination}} = Inbox.import_item(item)
 
         # library untouched, item still queued
         assert {[item], false} = Inbox.list_items()
@@ -131,7 +131,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
     test "refuses when there is no library root to import into" do
       %{item: item} = downloads_item(root: :none)
 
-      assert {:error, {:unresolved, outstanding}} = Inbox.approve_item(item)
+      assert {:error, {:unresolved, outstanding}} = Inbox.import_item(item)
       assert Enum.any?(outstanding, &(&1.section == :destination))
 
       {[item], false} = Inbox.list_items()
@@ -144,7 +144,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
       insert(:location, kind: :library_root, import_policy: nil, path: new_dir("second-root"))
       %{item: item} = downloads_item()
 
-      assert {:error, {:unresolved, outstanding}} = Inbox.approve_item(item)
+      assert {:error, {:unresolved, outstanding}} = Inbox.import_item(item)
       assert Enum.any?(outstanding, &(&1.section == :destination))
     end
 
@@ -166,7 +166,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
           }
         })
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       assert [placed] = Media.get_media!(media.id).source_files
       assert String.starts_with?(placed, chosen.path)
@@ -201,7 +201,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
       File.mkdir_p!(Path.dirname(occupied))
       File.write!(occupied, "already here")
 
-      assert {:error, {:destination_exists, ^occupied}} = Inbox.approve_item(item)
+      assert {:error, {:destination_exists, ^occupied}} = Inbox.import_item(item)
       assert File.read!(occupied) == "already here"
     end
   end
@@ -213,7 +213,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
       {:ok, _setting} = Settings.set_direct_play_publishing(true)
       %{item: item} = downloads_item()
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
       assert Media.get_media!(media.id).status == :ready
     end
 
@@ -223,14 +223,14 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
       {:ok, _setting} = Settings.set_direct_play_publishing(false)
       %{item: item} = downloads_item()
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
       assert Media.get_media!(media.id).status == :pending
     end
 
     test "turning the switch on later releases what was waiting" do
       {:ok, _setting} = Settings.set_direct_play_publishing(false)
       %{item: item} = downloads_item()
-      {:ok, media} = Inbox.approve_item(item)
+      {:ok, media} = Inbox.import_item(item)
 
       {:ok, _setting} = Settings.set_direct_play_publishing(true)
       assert {:ok, %{published: 1}} = Media.publish_pending_direct_play()
@@ -244,7 +244,7 @@ defmodule Ambry.Inbox.ManagedApprovalTest do
       %{item: item, source: source} =
         downloads_item(kind: :external_collection, policy: nil)
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       media = Media.get_media!(media.id)
       assert media.custody == :external

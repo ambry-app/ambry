@@ -33,6 +33,7 @@
               <span class="font-bold">{@progress.resolved}</span> of {@progress.total} settled
             </p>
             <.button
+              :if={!@read_only}
               type="button"
               color={:zinc}
               class="mt-2"
@@ -79,6 +80,24 @@
         </p>
       </section>
 
+      <%!-- Once imported, the draft is the record of what was imported — the
+          library records were created FROM it, so an edit here would make
+          the record lie. The rail is lime because imported IS settled. --%>
+      <section
+        :if={@read_only}
+        class="border-brand-dark/60 rounded-lg border-l-4 bg-zinc-900 p-4"
+        data-role="imported-banner"
+      >
+        <p class="pl-3 font-bold">In the library</p>
+        <p class="max-w-prose pt-1 pl-3 text-sm text-zinc-400">
+          This one was imported, and everything below is the record of that import — it's
+          read-only now.
+          <.brand_link :if={@item.media_id} navigate={~p"/admin/media/#{@item.media_id}/edit"}>
+            Open the media record
+          </.brand_link>
+        </p>
+      </section>
+
       <%!-- The one fact this whole form is deciding, said as a sentence. Two
           questions, but a file is a recording of exactly one work — so there
           is one answer to check at a glance. --%>
@@ -95,7 +114,7 @@
       >
         <p class="font-bold">Still to settle</p>
         <ul class="mt-2 space-y-1">
-          <li :for={decision <- @unresolved} class="flex items-center gap-2 text-sm">
+          <li :for={decision <- @unresolved} class="flex items-baseline gap-2 text-sm">
             <.badge color={elem(state_words(decision.state), 1)} class="text-xs">
               {elem(state_words(decision.state), 0)}
             </.badge>
@@ -123,7 +142,7 @@
       </section>
 
       <%!-- ==================== THE WORK ==================== --%>
-      <section id="work" class="space-y-7">
+      <section id="work" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
           The work — which book this is a recording of
         </h2>
@@ -139,7 +158,7 @@
           ]}
           data-role="local-books"
         >
-          <div class="flex items-center gap-2 pl-3">
+          <div class="flex items-baseline gap-2 pl-3">
             <.label>Is this a book you already have?</.label>
             <.badge
               :if={!@item.draft.work.approved}
@@ -217,7 +236,7 @@
         </div>
 
         <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
-          <div class="flex items-center gap-2 pl-3">
+          <div class="flex items-baseline gap-2 pl-3">
             <.label>
               {if @item.draft.work.mode == :link,
                 do: "Records that could fill blanks",
@@ -394,7 +413,7 @@
       </section>
 
       <%!-- ==================== THE RECORDING ==================== --%>
-      <section id="recording" class="space-y-7">
+      <section id="recording" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
           The recording — which reading of it these files are
         </h2>
@@ -403,7 +422,7 @@
           "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
           (@item.draft.recording.approved && "border-brand-dark/60") || "border-amber-400/70"
         ]}>
-          <div class="flex items-center gap-2 pl-3">
+          <div class="flex items-baseline gap-2 pl-3">
             <.label>Records describing this recording</.label>
             <.badge
               :if={!@item.draft.recording.approved}
@@ -596,7 +615,7 @@
       </section>
 
       <%!-- ==================== FILES & DESTINATION ==================== --%>
-      <section id="destination" class="space-y-2">
+      <section id="destination" class="space-y-2" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
           Files &amp; destination
         </h2>
@@ -614,7 +633,7 @@
             (@item.draft.destination.approved && "border-brand-dark/60") || "border-amber-400/70"
           ]}
         >
-          <div class="flex items-center gap-2 pl-3">
+          <div class="flex items-baseline gap-2 pl-3">
             <.label>Library root</.label>
             <.badge
               :if={!@item.draft.destination.approved}
@@ -656,8 +675,9 @@
 
       <%!-- ==================== THE BUTTON ==================== --%>
       <section class="shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 rounded-t-lg bg-zinc-900 p-4">
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <.button
+            :if={!@read_only}
             phx-click="import"
             disabled={@unresolved != [] or @destination.blocker != nil}
             data-role="import"
@@ -665,7 +685,11 @@
             Add to the library
           </.button>
 
-          <.button type="button" color={:zinc} phx-click="dismiss">Dismiss</.button>
+          <.button :if={!@read_only} type="button" color={:zinc} phx-click="ignore">Ignore</.button>
+
+          <p :if={@read_only} class="text-sm text-zinc-400">
+            In the library — read-only.
+          </p>
 
           <.brand_link navigate={~p"/admin/inbox"} class="whitespace-nowrap">
             Back to the inbox

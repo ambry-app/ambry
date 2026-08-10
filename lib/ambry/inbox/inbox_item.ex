@@ -3,9 +3,9 @@ defmodule Ambry.Inbox.InboxItem do
   One candidate recording waiting to be curated into the library.
 
   An item references files where they landed — nothing is copied, linked, or
-  organized until it's approved. `path` is the item's identity (the release
+  organized until it's imported. `path` is the item's identity (the release
   folder, or a loose file), which is what makes rescans idempotent and keeps
-  dismissed items dismissed.
+  ignored items ignored.
   """
 
   use Ecto.Schema
@@ -16,12 +16,12 @@ defmodule Ambry.Inbox.InboxItem do
   alias Ambry.Library.Location
   alias Ambry.Media.Media
 
-  @statuses [:pending, :dismissed, :approved]
+  @statuses [:pending, :ignored, :imported]
 
   schema "inbox_items" do
     belongs_to :media, Media
 
-    # Where this was found, which is what says whether approving it should
+    # Where this was found, which is what says whether importing it should
     # bring the files into a library root or adopt them where they lie.
     # Nullable: items from an ad-hoc scan have no location to speak for them.
     belongs_to :location, Location

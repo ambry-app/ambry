@@ -41,7 +41,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       view |> element("button[data-role='import']") |> render_click()
 
-      assert %{status: :approved, media_id: media_id} = Inbox.get_item!(item.id)
+      assert %{status: :imported, media_id: media_id} = Inbox.get_item!(item.id)
       assert media_id
     end
 
@@ -54,6 +54,62 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       # fixture's `composer` tag are listed by name
       assert html =~ "Michael Kramer"
       assert html =~ "needs confirming"
+    end
+  end
+
+  describe "an imported item" do
+    # The draft is the record of what was imported — the library records were
+    # created from it, so editing it afterwards makes the record lie. The
+    # operator has done this by accident.
+    test "reads as read-only: banner, no actions, inert sections", %{conn: conn} do
+      item = probed_item() |> settle()
+      {:ok, _media} = Inbox.import_item(item)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='imported-banner']")
+      assert html =~ "In the library"
+      refute has_element?(view, "button[data-role='import']")
+      refute html =~ "Start over"
+      assert has_element?(view, "#work[inert]")
+      assert has_element?(view, "#recording[inert]")
+      assert has_element?(view, "#destination[inert]")
+    end
+
+    test "refuses edits — markup is advisory, a stale tab can send anything", %{conn: conn} do
+      item = probed_item() |> settle()
+      {:ok, _media} = Inbox.import_item(item)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      before = Inbox.get_item!(item.id).draft
+
+      html = render_click(view, "new-book", %{})
+
+      assert Inbox.get_item!(item.id).draft == before
+      assert html =~ "read-only"
+    end
+
+    # A failed attempt writes its reason onto the item so the row explains
+    # itself tomorrow; succeeding is what resolves it. This one is from life:
+    # an imported item sat with "Couldn't add this to the library" in red
+    # while its media was in the library.
+    test "importing clears the issue a failed attempt left behind" do
+      item = probed_item() |> settle()
+      {:ok, item} = Inbox.update_item(item, %{issue: "Couldn't add this to the library."})
+
+      {:ok, _media} = Inbox.import_item(item)
+
+      assert Inbox.get_item!(item.id).issue == nil
+    end
+
+    test "the context refuses a second import and any draft write" do
+      item = probed_item() |> settle()
+      {:ok, _media} = Inbox.import_item(item)
+      item = Inbox.get_item!(item.id)
+
+      assert {:error, :already_imported} = Inbox.import_item(item)
+      assert {:error, :already_imported} = Inbox.update_draft(item, %{})
+      assert {:error, :already_imported} = Inbox.rescan_item_async(item)
     end
   end
 
@@ -236,7 +292,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
       item = settle(item)
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       book = media.book_id |> Ambry.Books.get_book!() |> Repo.preload(authors: :people)
       assert [author] = book.authors

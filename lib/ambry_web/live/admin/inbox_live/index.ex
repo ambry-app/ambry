@@ -16,7 +16,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library.Location
 
-  @statuses [:pending, :dismissed, :approved]
+  @statuses [:pending, :ignored, :imported]
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -50,10 +50,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     end
   end
 
-  def handle_event("dismiss", %{"id" => id}, socket) do
-    {:ok, _item} = id |> Inbox.get_item!() |> Inbox.dismiss_item()
+  def handle_event("ignore", %{"id" => id}, socket) do
+    {:ok, _item} = id |> Inbox.get_item!() |> Inbox.ignore_item()
 
-    {:noreply, socket |> put_flash(:info, "Dismissed. Files untouched.") |> reload()}
+    {:noreply, socket |> put_flash(:info, "Ignored. Files untouched.") |> reload()}
   end
 
   def handle_event("restore", %{"id" => id}, socket) do
@@ -62,10 +62,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     {:noreply, reload(socket)}
   end
 
-  def handle_event("approve", %{"id" => id}, socket) do
+  def handle_event("import", %{"id" => id}, socket) do
     id
     |> Inbox.get_item!()
-    |> Inbox.approve_item()
+    |> Inbox.import_item()
     |> case do
       {:ok, _media} ->
         {:noreply,
@@ -83,14 +83,23 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # discards the job — so the old handlers matched `{:ok, _job}` and flashed
   # success for work that was never queued.
   def handle_event("rescan", %{"id" => id}, socket) do
-    {:ok, job} = id |> Inbox.get_item!() |> Inbox.rescan_item_async()
+    id
+    |> Inbox.get_item!()
+    |> Inbox.rescan_item_async()
+    |> case do
+      {:ok, job} ->
+        message =
+          if job.conflict?,
+            do: "Already re-reading this one.",
+            else:
+              "Re-reading the files and asking the providers again — this one is slow on purpose."
 
-    message =
-      if job.conflict?,
-        do: "Already re-reading this one.",
-        else: "Re-reading the files and asking the providers again — this one is slow on purpose."
+        {:noreply, put_flash(socket, :info, message)}
 
-    {:noreply, put_flash(socket, :info, message)}
+      # The button is gone from imported rows; this catches a stale tab.
+      {:error, :already_imported} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(:already_imported))}
+    end
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
@@ -140,8 +149,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       list_opts: list_opts,
       has_next: has_more?,
       has_prev: list_opts.page > 1,
-      next_page_path: ~p"/admin/inbox?#{patch_opts(next_opts(list_opts))}",
-      prev_page_path: ~p"/admin/inbox?#{patch_opts(prev_opts(list_opts))}"
+      # Built from the full query, not the shared filter+page helpers —
+      # those drop status and ready, so paging out of "Imported" silently
+      # landed back on the default view.
+      next_page_path:
+        ~p"/admin/inbox?#{page_query(list_opts, status, ready, list_opts.page + 1)}",
+      prev_page_path:
+        ~p"/admin/inbox?#{page_query(list_opts, status, ready, max(list_opts.page - 1, 1))}"
     )
     |> assign(:statuses, @statuses)
     |> schedule_tick()
@@ -206,7 +220,20 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     |> Map.new()
   end
 
-  defp parse_status(status) when status in ["pending", "dismissed", "approved"],
+  # The same shape from locals rather than assigns — load_items runs before
+  # its assigns exist, so `patch/2` can't be used for the page links.
+  defp page_query(list_opts, status, ready, page) do
+    %{
+      "filter" => list_opts.filter,
+      "page" => to_string(page),
+      "status" => to_string(status || "all"),
+      "ready" => ready && to_string(ready)
+    }
+    |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+    |> Map.new()
+  end
+
+  defp parse_status(status) when status in ["pending", "ignored", "imported"],
     do: String.to_existing_atom(status)
 
   # "all" is the explicit choice; the DEFAULT is pending — the inbox is a
@@ -231,8 +258,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   end
 
   defp segment_label(:pending), do: "Pending"
-  defp segment_label(:dismissed), do: "Dismissed"
-  defp segment_label(:approved), do: "Approved"
+  defp segment_label(:ignored), do: "Ignored"
+  defp segment_label(:imported), do: "Imported"
 
   # Pending work glows amber and settled-but-unimported glows lime — but only
   # while there IS any; a zero is just a zero.
@@ -267,24 +294,26 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   end
 
   defp status_color(:pending), do: :yellow
-  defp status_color(:approved), do: :brand
-  defp status_color(:dismissed), do: :gray
+  defp status_color(:imported), do: :brand
+  defp status_color(:ignored), do: :gray
 
   # The card's left edge carries the item's state — a 4px rail reads from
   # across the room and renders crisp at any DPI, unlike hairline borders.
   # Amber = needs the operator, lime = ready/done, dim = out of the queue.
   defp rail_class(%{status: :pending, ready: true}), do: "border-l-4 border-brand-dark"
   defp rail_class(%{status: :pending}), do: "border-l-4 border-amber-400"
-  defp rail_class(%{status: :approved}), do: "border-brand-dark/40 border-l-4"
+  defp rail_class(%{status: :imported}), do: "border-brand-dark/40 border-l-4"
   defp rail_class(_item), do: "border-l-4 border-zinc-700"
 
-  # Where an item came from is what decides its custody at approval — whether
+  # Where an item came from is what decides its custody at import — whether
   # the file gets brought into the library or referenced where it lies — so
   # it's worth reading off the row.
   defp location_label(%Location{name: name, kind: kind}), do: "#{name} · #{kind_word(kind)}"
   defp location_label(nil), do: "ad-hoc scan · adopted in place"
 
-  defp kind_word(:downloads), do: "imported"
+  # "imported" would now read as the item status; this is custody — what
+  # import will do with the bytes.
+  defp kind_word(:downloads), do: "brought in on import"
   defp kind_word(:external_collection), do: "adopted in place"
   defp kind_word(:library_root), do: "already in the library tree"
 

@@ -92,6 +92,29 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     )
   end
 
+  # The page links used to be built from the shared filter+page helpers,
+  # which drop status and ready — so paging through "Imported" silently
+  # landed back on the default pending view.
+  test "the page links keep the status filter", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=ignored&page=2")
+
+    assert view
+           |> element("a[href*='status=ignored'][href*='page=1']")
+           |> has_element?()
+  end
+
+  # An imported item's draft is the record of what was imported; re-matching
+  # would rebuild it. The row keeps Open-by-title for looking, loses the
+  # actions that write.
+  test "an imported item's row offers no re-match", %{conn: conn} do
+    item = probed_item() |> settle()
+    {:ok, _media} = Ambry.Inbox.import_item(item)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=imported")
+
+    refute has_element?(view, "span[phx-click='rescan'][phx-value-id='#{item.id}']")
+  end
+
   # `RunMatch` is unique over a 60-second window and Oban answers a conflict
   # with `{:ok, %{job | conflict?: true}}` — an insert that looks successful
   # and drops the job. The old handler matched `{:ok, _job}` and flashed
@@ -126,40 +149,40 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert_enqueued(worker: RunDiscovery)
   end
 
-  test "dismisses and restores without touching files", %{conn: conn} do
+  test "ignores and restores without touching files", %{conn: conn} do
     item = probed_item()
     file = hd(item.files)
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
     html =
-      view |> element("span[phx-click='dismiss'][phx-value-id='#{item.id}']") |> render_click()
+      view |> element("span[phx-click='ignore'][phx-value-id='#{item.id}']") |> render_click()
 
     assert html =~ "Files untouched"
-    assert Inbox.get_item!(item.id).status == :dismissed
+    assert Inbox.get_item!(item.id).status == :ignored
     assert File.exists?(file)
 
-    # the default view is pending, so the dismissed item has left it
+    # the default view is pending, so the ignored item has left it
     refute has_element?(view, "span[phx-click='restore'][phx-value-id='#{item.id}']")
 
-    {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=dismissed")
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=ignored")
 
     view |> element("span[phx-click='restore'][phx-value-id='#{item.id}']") |> render_click()
 
     assert Inbox.get_item!(item.id).status == :pending
   end
 
-  test "approves a settled item into the library, leaving files alone", %{conn: conn} do
+  test "imports a settled item into the library, leaving files alone", %{conn: conn} do
     item = probed_item() |> settle()
     file = hd(item.files)
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
     html =
-      view |> element("span[phx-click='approve'][phx-value-id='#{item.id}']") |> render_click()
+      view |> element("span[phx-click='import'][phx-value-id='#{item.id}']") |> render_click()
 
     assert html =~ "Files were left where they are"
-    assert %{status: :approved, media_id: media_id} = Inbox.get_item!(item.id)
+    assert %{status: :imported, media_id: media_id} = Inbox.get_item!(item.id)
     assert media_id
     assert File.exists?(file)
   end
@@ -171,7 +194,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
-    refute has_element?(view, "span[phx-click='approve'][phx-value-id='#{item.id}']")
+    refute has_element?(view, "span[phx-click='import'][phx-value-id='#{item.id}']")
     assert has_element?(view, "a[href='/admin/inbox/#{item.id}']")
   end
 
@@ -181,7 +204,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     {:ok, view, html} = live(conn, ~p"/admin/inbox")
 
     assert html =~ "direct play handles single-file recordings"
-    refute has_element?(view, "span[phx-click='approve'][phx-value-id='#{item.id}']")
+    refute has_element?(view, "span[phx-click='import'][phx-value-id='#{item.id}']")
     assert Inbox.get_item!(item.id).status == :pending
   end
 
@@ -204,7 +227,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   test "filters by status", %{conn: conn} do
     keeper = probed_item(name: "Keeper")
     reject = probed_item(name: "Reject")
-    {:ok, _item} = Inbox.dismiss_item(reject)
+    {:ok, _item} = Inbox.ignore_item(reject)
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 

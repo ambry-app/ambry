@@ -3,7 +3,7 @@ defmodule Ambry.Inbox do
   The curation queue every recording passes through before clients see it.
 
   **The inbox is the only road into the library.** Discovery finds candidates
-  and records what they are; approval is what creates real records and touches
+  and records what they are; import is what creates real records and touches
   files. Nothing here copies, links, moves, or organizes anything — an item
   references its files exactly where they landed.
 
@@ -29,15 +29,15 @@ defmodule Ambry.Inbox do
   use Boundary,
     deps: [Ambry, Ambry.Library, Ambry.Media],
     # The draft tree is exported because it IS the import form's data model —
-    # the form renders and edits it directly. Approval stays internal.
+    # the form renders and edits it directly. Import stays internal.
     exports: [InboxItem, {Draft, []}]
 
   import Ecto.Query
 
-  alias Ambry.Inbox.Approval
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Seed
+  alias Ambry.Inbox.Importer
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.Lookup
   alias Ambry.Inbox.Progress
@@ -112,7 +112,7 @@ defmodule Ambry.Inbox do
 
   Idempotent by design: an item's path is its identity, so rescanning updates
   the files of a known item rather than duplicating it, never resurrects a
-  dismissed one, and never re-offers files the library already has.
+  ignored one, and never re-offers files the library already has.
 
   A location that can't be read doesn't fail the run — one unmounted NAS
   shouldn't stop the others from being scanned — but it is counted, because
@@ -131,7 +131,7 @@ defmodule Ambry.Inbox do
   Scans one location, or one bare path.
 
   The bare-path form is for ad-hoc scans and for exercising the walk itself;
-  items it creates have no location, so approval can't know what custody they
+  items it creates have no location, so import can't know what custody they
   imply.
   """
   def discover(%Location{} = location) do
@@ -242,7 +242,12 @@ defmodule Ambry.Inbox do
 
   @doc """
   Re-reads and re-queries one item in the background.
+
+  Refused once the item is in the library: the probe rebuilds an untouched
+  draft, and an imported item's draft is the record of what was imported.
   """
+  def rescan_item_async(%InboxItem{status: :imported}), do: {:error, :already_imported}
+
   def rescan_item_async(%InboxItem{} = item) do
     %{inbox_item_id: item.id, refresh: true} |> RunProbe.new() |> Oban.insert()
   end
@@ -351,7 +356,7 @@ defmodule Ambry.Inbox do
   Re-derives queued drafts that the library just moved under.
 
   **A draft is a snapshot of the library taken when the item was matched**, and
-  approval executes it exactly. So two queued items implying the same new
+  import executes it exactly. So two queued items implying the same new
   person, identity or series each created their own: measured on a real batch
   of seven, Em Grosland narrates both Monk & Robot books and arrived as two
   People and two Narrators, and "Monk and Robot" arrived as two Series. Books
@@ -363,15 +368,15 @@ defmodule Ambry.Inbox do
   series that meant to *create* something into a *link* when exactly one thing
   of that name now exists, and changes nothing else. The affected credit
   visibly becomes "link the existing Em Grosland" **before** the operator
-  approves it, so approval still executes only what the form showed.
+  imports it, so import still executes only what the form showed.
 
   Deliberately narrower than a re-seed, which would also re-open questions the
   operator had already answered — see `Seed.relink/2`.
   """
-  def refresh_siblings(%InboxItem{} = approved) do
-    case sibling_names(approved.draft) do
+  def refresh_siblings(%InboxItem{} = imported) do
+    case sibling_names(imported.draft) do
       [] -> :ok
-      names -> names |> siblings_of(approved) |> Enum.each(&refresh_draft/1)
+      names -> names |> siblings_of(imported) |> Enum.each(&refresh_draft/1)
     end
   end
 
@@ -398,7 +403,7 @@ defmodule Ambry.Inbox do
   # false positive costs an idempotent re-derivation that changes nothing,
   # while scanning every pending item would cost a full rebuild each on a
   # queue that is hundreds long during a cold start.
-  defp siblings_of(names, %InboxItem{} = approved) do
+  defp siblings_of(names, %InboxItem{} = imported) do
     condition =
       Enum.reduce(names, dynamic(false), fn name, acc ->
         dynamic(
@@ -408,7 +413,7 @@ defmodule Ambry.Inbox do
       end)
 
     InboxItem
-    |> where([i], i.status == :pending and i.id != ^approved.id and not is_nil(i.draft))
+    |> where([i], i.status == :pending and i.id != ^imported.id and not is_nil(i.draft))
     |> where(^condition)
     |> Repo.all()
   end
@@ -416,7 +421,7 @@ defmodule Ambry.Inbox do
   defp escape_like(value), do: String.replace(value, ~r/[\\%_]/, "\\\\\\0")
 
   # Never fatal: the import succeeded, and a sibling that won't re-derive is a
-  # stale proposal to fix on the form, not a reason to fail the approval that
+  # stale proposal to fix on the form, not a reason to fail the import that
   # already committed.
   defp refresh_draft(%InboxItem{} = item) do
     case update_draft(item, item.draft |> Seed.relink(item) |> dump()) do
@@ -458,6 +463,8 @@ defmodule Ambry.Inbox do
   Every save recomputes readiness, so the queue can never claim an item is
   importable when its draft says otherwise.
   """
+  def update_draft(%InboxItem{status: :imported}, _attrs), do: {:error, :already_imported}
+
   def update_draft(%InboxItem{} = item, attrs) do
     item
     |> InboxItem.put_draft(attrs)
@@ -498,12 +505,12 @@ defmodule Ambry.Inbox do
   end
 
   @doc """
-  What approval will do with this item's bytes, decided before it's asked.
+  What import will do with this item's bytes, decided before it's asked.
 
   Placement can fail for reasons no amount of curation fixes — a downloads
   folder on a different NAS from its library root, a destination already
   occupied, no root registered at all. Those used to surface as an error at
-  the moment the operator clicked approve. Working them out up front is what
+  the moment the operator clicked import. Working them out up front is what
   lets the form refuse to offer a button that fails, and it tells the
   operator *where the file is going* before they commit to it.
 
@@ -608,8 +615,8 @@ defmodule Ambry.Inbox do
   the recording and its tracks — with the files referenced where they lie.
   Nothing is published: the recording is created `pending`.
   """
-  def approve_item(%InboxItem{} = item) do
-    case Approval.approve(item) do
+  def import_item(%InboxItem{} = item) do
+    case Importer.import_item(item) do
       {:ok, media} ->
         refresh_siblings(item)
         {:ok, media}
@@ -629,6 +636,7 @@ defmodule Ambry.Inbox do
   Shared between the flash shown at the time and the `issue` recorded on the
   item, so the row tomorrow says exactly what the toast said today.
   """
+
   def describe_error(:multi_file_unsupported),
     do:
       "Direct play handles single-file recordings for now — merge this one externally, or skip it."
@@ -662,7 +670,7 @@ defmodule Ambry.Inbox do
       "Something is already at #{path}. Two recordings can't share one path."
     else
       "A file nothing in the library references is at #{path} — likely left " <>
-        "behind by an interrupted import. Delete it and approve again."
+        "behind by an interrupted import. Delete it and import again."
     end
   end
 
@@ -672,11 +680,11 @@ defmodule Ambry.Inbox do
   def describe_error(:ambiguous_library_root),
     do: "There's more than one library root — say which one this folder imports into."
 
-  def describe_error(:already_approved), do: "Already in the library."
+  def describe_error(:already_imported), do: "Already in the library — this item is read-only."
 
   # The invariant, phrased for a human. It names the count rather than the
   # decisions because the form lists them properly — this is the flash you get
-  # if you somehow reached approval from the queue.
+  # if you somehow reached import from the queue.
   def describe_error({:unresolved, outstanding}) do
     count = length(outstanding)
 
@@ -705,7 +713,7 @@ defmodule Ambry.Inbox do
 
   Dismissals are remembered by path, so a rescan doesn't offer it again.
   """
-  def dismiss_item(%InboxItem{} = item), do: update_item(item, %{status: :dismissed})
+  def ignore_item(%InboxItem{} = item), do: update_item(item, %{status: :ignored})
 
   def restore_item(%InboxItem{} = item), do: update_item(item, %{status: :pending})
 
@@ -835,7 +843,7 @@ defmodule Ambry.Inbox do
   end
 
   # A known item's files can legitimately change (a torrent finished, a file
-  # was replaced). Its status is left alone: dismissed stays dismissed.
+  # was replaced). Its status is left alone: ignored stays ignored.
   #
   # An item found under a location adopts it if it had none — that's a fact
   # the scan just established, not a guess — but a location is never swapped

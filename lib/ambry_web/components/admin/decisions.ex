@@ -63,10 +63,10 @@ defmodule AmbryWeb.Admin.Decisions do
     ~H"""
     <div
       :if={@outcomes != []}
-      class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3"
+      class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       data-role="provider-outcomes"
     >
-      <.microlabel class="pt-1">Asked</.microlabel>
+      <.microlabel>Asked</.microlabel>
 
       <div class="flex flex-wrap items-center gap-1.5">
         <%!-- A count is information, not an option — filled and quiet, so it
@@ -458,7 +458,7 @@ defmodule AmbryWeb.Admin.Decisions do
           INSIDE the control; only boxes touch the margin edge. See
           docs/admin-design-language.md §1. --%>
     <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", decision_rail(@field)]}>
-      <div class="flex items-center gap-2 pl-3">
+      <div class="flex items-baseline gap-2 pl-3">
         <.label>{@label}</.label>
 
         <.badge
@@ -544,11 +544,14 @@ defmodule AmbryWeb.Admin.Decisions do
       <%!-- The options row is a two-column grid — microlabel | chips — so a
             wrapping chip row stays in the chip column instead of falling
             back under the label, and every chip starts on one rail. --%>
+      <%!-- Text chips align to the microlabel by baseline; image chips
+          (cover previews) top-align instead — a baseline would put the
+          label on the first image's bottom edge. --%>
       <div
         :if={@field.candidates != []}
-        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3"
+        class={["grid-cols-[4.5rem_minmax(0,1fr)] grid gap-x-2 pl-3", (@preview && "items-start") || "items-baseline"]}
       >
-        <.microlabel class="pt-1.5">Proposed</.microlabel>
+        <.microlabel class={@preview && "pt-1.5"}>Proposed</.microlabel>
 
         <%!-- One line or a list, never a partial wrap — the hook measures
             whether every chip fits and commits to exactly one of the two. --%>
@@ -663,7 +666,7 @@ defmodule AmbryWeb.Admin.Decisions do
       (Credit.resolved?(@credit) && "border-brand-dark/60") || "border-amber-400/70"
     ]}>
       <div class="flex items-center justify-between gap-2 pl-3">
-        <div class="flex min-w-0 items-center gap-2">
+        <div class="flex min-w-0 items-baseline gap-2">
           <.label>{@verb}</.label>
 
           <.badge
@@ -707,7 +710,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <form
         id={"credit-#{@section}-#{@index}-identity"}
         phx-change="credit-change"
-        class="flex flex-wrap items-center gap-2"
+        class="flex flex-wrap items-baseline gap-2"
       >
         <input type="hidden" name="section" value={@section} />
         <input type="hidden" name="index" value={@index} />
@@ -1061,8 +1064,8 @@ defmodule AmbryWeb.Admin.Decisions do
           </div>
         </div>
 
-        <div :if={@bios != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
-          <.microlabel class="pt-1.5">Proposed</.microlabel>
+        <div :if={@bios != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3">
+          <.microlabel>Proposed</.microlabel>
 
           <div
             id={"person-bio-#{@at}-chips"}
@@ -1181,7 +1184,7 @@ defmodule AmbryWeb.Admin.Decisions do
       (SeriesLink.resolved?(@link) && "border-brand-dark/60") || "border-amber-400/70"
     ]}>
       <div class="flex items-center justify-between gap-2 pl-3">
-        <div class="flex min-w-0 items-center gap-2">
+        <div class="flex min-w-0 items-baseline gap-2">
           <.label>In series</.label>
 
           <.badge

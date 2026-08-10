@@ -107,13 +107,13 @@ defmodule Ambry.Inbox.ProgressTest do
     end
   end
 
-  describe "approval failures" do
+  describe "import failures" do
     # A flash lasts one page load and a discarded job lasts a day; the
     # operator needs to know tomorrow.
     test "are written onto the item" do
       item = item(files: [], probe: %{"d" => 1})
 
-      assert {:error, :no_audio_files} = Inbox.approve_item(item)
+      assert {:error, :no_audio_files} = Inbox.import_item(item)
 
       assert Repo.reload(item).issue == "Couldn't add this to the library."
     end

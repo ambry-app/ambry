@@ -1,4 +1,4 @@
-defmodule Ambry.Inbox.ApprovalTest do
+defmodule Ambry.Inbox.ImporterTest do
   use Ambry.DataCase
   use Patch
 
@@ -15,7 +15,7 @@ defmodule Ambry.Inbox.ApprovalTest do
     test "creates the whole graph from a tagged file" do
       item = tagged_item()
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       media = media.id |> Media.get_media!() |> Repo.preload(:narrators)
       book = Books.get_book!(media.book_id)
@@ -33,7 +33,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       [file] = item.files
       before = File.stat!(file)
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       assert media.custody == :external
       assert media.source_files == item.files
@@ -44,7 +44,7 @@ defmodule Ambry.Inbox.ApprovalTest do
     end
 
     test "does not publish" do
-      assert {:ok, media} = tagged_item() |> Inbox.approve_item()
+      assert {:ok, media} = tagged_item() |> Inbox.import_item()
 
       assert media.status == :pending
     end
@@ -52,18 +52,18 @@ defmodule Ambry.Inbox.ApprovalTest do
     test "marks the item approved and links it to what it became" do
       item = tagged_item()
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       item = Inbox.get_item!(item.id)
-      assert item.status == :approved
+      assert item.status == :imported
       assert item.media_id == media.id
     end
 
     test "won't approve the same item twice" do
       item = tagged_item()
-      {:ok, _media} = Inbox.approve_item(item)
+      {:ok, _media} = Inbox.import_item(item)
 
-      assert {:error, :already_approved} = item.id |> Inbox.get_item!() |> Inbox.approve_item()
+      assert {:error, :already_imported} = item.id |> Inbox.get_item!() |> Inbox.import_item()
     end
 
     # The status check at the door reads the caller's copy of the item, so a
@@ -75,16 +75,16 @@ defmodule Ambry.Inbox.ApprovalTest do
       item = tagged_item()
       stale = item
 
-      {:ok, _media} = Inbox.approve_item(item)
+      {:ok, _media} = Inbox.import_item(item)
 
-      assert {:error, :already_approved} = Inbox.approve_item(stale)
+      assert {:error, :already_imported} = Inbox.import_item(stale)
     end
 
     # Occupied-by-a-recording and occupied-by-a-leftover need opposite
     # advice, and the old message sent the operator hunting for a second
     # recording that did not exist.
     test "an occupied destination says whether the occupant is an orphan" do
-      {:ok, media} = tagged_item() |> Inbox.approve_item()
+      {:ok, media} = tagged_item() |> Inbox.import_item()
       [track] = Media.get_media!(media.id).media_tracks
 
       assert Inbox.describe_error({:destination_exists, track.path}) =~
@@ -100,7 +100,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       existing = insert(:book, title: "The Way of Kings")
       item = tagged_item(work_match: {"local", existing.id})
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       assert media.book_id == existing.id
       assert Repo.aggregate(Book, :count) == 1
@@ -110,7 +110,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       person = insert(:person, name: "Brandon Sanderson")
       author = insert(:author, person: person, name: "Brandon Sanderson")
 
-      assert {:ok, media} = tagged_item() |> Inbox.approve_item()
+      assert {:ok, media} = tagged_item() |> Inbox.import_item()
 
       book = Books.get_book!(media.book_id)
       assert [%{id: author_id}] = book.authors
@@ -143,7 +143,7 @@ defmodule Ambry.Inbox.ApprovalTest do
 
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(item.draft))
 
-      assert {:ok, media} = item |> settle() |> Inbox.approve_item()
+      assert {:ok, media} = item |> settle() |> Inbox.import_item()
 
       book = media.book_id |> Books.get_book!() |> Repo.preload(authors: :people)
       assert [%{people: [person]}] = book.authors
@@ -159,7 +159,7 @@ defmodule Ambry.Inbox.ApprovalTest do
     end
 
     test "creates a person alongside a brand-new narrator credit" do
-      assert {:ok, media} = tagged_item() |> Inbox.approve_item()
+      assert {:ok, media} = tagged_item() |> Inbox.import_item()
 
       media = media.id |> Media.get_media!() |> Repo.preload(:narrators)
 
@@ -174,7 +174,7 @@ defmodule Ambry.Inbox.ApprovalTest do
     test "an author who narrates their own book is created once" do
       item = tagged_item(narrator: "Brandon Sanderson")
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       assert [person] = Repo.all(where(Person, name: "Brandon Sanderson"))
 
@@ -198,7 +198,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
       item = settle(item)
 
-      assert {:ok, _media} = Inbox.approve_item(item)
+      assert {:ok, _media} = Inbox.import_item(item)
 
       assert [_one, _other] = Repo.all(where(Person, name: "Brandon Sanderson"))
     end
@@ -221,7 +221,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       %{web_path: web_path} = Ambry.Factory.valid_image(:person)
       patch(Ambry.Images, :import_url, fn _url -> {:ok, web_path} end)
 
-      assert {:ok, _media} = Inbox.approve_item(item)
+      assert {:ok, _media} = Inbox.import_item(item)
 
       assert [person] = Repo.all(where(Person, name: "Brandon Sanderson"))
       assert person.image_path == web_path
@@ -249,7 +249,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       first = tagged_item(narrator: "Em Grosland")
       second = tagged_item(name: "Another Release", narrator: "Em Grosland")
 
-      assert {:ok, _media} = Inbox.approve_item(first)
+      assert {:ok, _media} = Inbox.import_item(first)
 
       # the refresh has re-derived the sibling: its narrator credit now points
       # at the identity that exists, and says so on the form
@@ -258,7 +258,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       assert credit.mode == :link
       assert credit.identity_id
 
-      assert {:ok, _media} = Inbox.approve_item(settle(second))
+      assert {:ok, _media} = Inbox.import_item(settle(second))
 
       assert [_only_one] = Repo.all(where(Person, name: "Em Grosland"))
       assert [_only_one] = Repo.all(where(Narrator, name: "Em Grosland"))
@@ -272,13 +272,13 @@ defmodule Ambry.Inbox.ApprovalTest do
       first = tagged_item(narrator: "Em Grosland")
       second = tagged_item(name: "A Better Rip", narrator: "Em Grosland")
 
-      assert {:ok, _media} = Inbox.approve_item(first)
+      assert {:ok, _media} = Inbox.import_item(first)
 
       second = Inbox.get_item!(second.id)
       assert second.draft.work.mode == :link
       assert second.draft.work.book_id
 
-      assert {:ok, _media} = Inbox.approve_item(settle(second))
+      assert {:ok, _media} = Inbox.import_item(settle(second))
       assert Repo.aggregate(Book, :count) == 1
     end
 
@@ -290,7 +290,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       draft = Draft.Edit.new_book(second.draft, second)
       {:ok, _} = Inbox.update_draft(second, Inbox.dump_draft(draft))
 
-      assert {:ok, _media} = Inbox.approve_item(first)
+      assert {:ok, _media} = Inbox.import_item(first)
 
       second = Inbox.get_item!(second.id)
       assert second.draft.work.mode == :create
@@ -306,7 +306,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       draft = Draft.Edit.approve_credit(second.draft, :recording, 0, true)
       {:ok, _} = Inbox.update_draft(second, Inbox.dump_draft(draft))
 
-      assert {:ok, _media} = Inbox.approve_item(first)
+      assert {:ok, _media} = Inbox.import_item(first)
 
       second = Inbox.get_item!(second.id)
       assert [credit] = second.draft.recording.narrators
@@ -321,7 +321,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       # release importable, so the operator must not be sent to the form.
       item = tagged_item(files: ["01.mp3", "02.mp3"], settle: false)
 
-      assert {:error, :multi_file_unsupported} = Inbox.approve_item(item)
+      assert {:error, :multi_file_unsupported} = Inbox.import_item(item)
       assert Repo.aggregate(Book, :count) == 0
     end
 
@@ -339,7 +339,7 @@ defmodule Ambry.Inbox.ApprovalTest do
 
       item = tagged_item(dated: false, work_match: selection)
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       book = Books.get_book!(media.book_id)
       assert book.published == ~D[2021-01-01]
@@ -353,7 +353,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       item = tagged_item(dated: false, settle: false)
       {:ok, item} = Inbox.prepare_draft(item)
 
-      assert {:error, {:unresolved, outstanding}} = Inbox.approve_item(item)
+      assert {:error, {:unresolved, outstanding}} = Inbox.import_item(item)
       assert Enum.any?(outstanding, &(&1.label == "First published" and &1.state == :missing))
       assert Repo.aggregate(Book, :count) == 0
     end
@@ -377,7 +377,7 @@ defmodule Ambry.Inbox.ApprovalTest do
       item = tagged_item()
       item.files |> hd() |> File.rm!()
 
-      assert {:error, {:unreadable, _reason}} = Inbox.approve_item(item)
+      assert {:error, {:unreadable, _reason}} = Inbox.import_item(item)
 
       # nothing half-created, and the item stays in the queue
       assert Repo.aggregate(Book, :count) == 0
