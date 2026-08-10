@@ -68,7 +68,8 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library
-  alias Ambry.Library.Location
+  alias Ambry.Library.Root
+  alias Ambry.Library.Source
   alias Ambry.People.Author
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -136,36 +137,44 @@ defmodule Ambry.Inbox.Draft.Seed do
   ## destination
 
   # Any input may feed any output, so the root is chosen per import rather
-  # than fixed on the location. The single-root case — which is nearly all of
+  # than fixed on the source. The single-root case — which is nearly all of
   # them — resolves silently: being asked to pick from a list of one is not a
   # decision, it's an interruption.
   def destination(%InboxItem{} = item) do
-    item = Repo.preload(item, :location)
+    item = Repo.preload(item, :source)
 
-    case item.location do
-      %Location{kind: :downloads} = location -> managed_destination(location)
-      _adopted_in_place -> %Destination{custody: :external, approved: true}
+    cond do
+      # Derived, never declared: a file already inside a root is already
+      # home, whatever its source promised.
+      Library.inside_root?(item.path) ->
+        %Destination{custody: :external, approved: true}
+
+      match?(%Source{on_import: :bring_in}, item.source) ->
+        managed_destination(item.source)
+
+      true ->
+        %Destination{custody: :external, approved: true}
     end
   end
 
-  defp managed_destination(location) do
-    roots = Library.library_roots()
+  defp managed_destination(source) do
+    roots = Library.list_roots()
 
-    # A location may still *prefer* a root; it just doesn't bind to one.
-    preferred = Enum.find(roots, &(&1.id == location.target_root_id))
+    # A source may still *prefer* a root; it just doesn't bind to one.
+    preferred = Enum.find(roots, &(&1.id == source.target_root_id))
 
     case {preferred, roots} do
-      {%Location{} = root, _several} -> settled(root, location)
-      {nil, [only]} -> settled(only, location)
-      {nil, _none_or_several} -> %Destination{custody: :managed, policy: location.import_policy}
+      {%Root{} = root, _several} -> settled(root, source)
+      {nil, [only]} -> settled(only, source)
+      {nil, _none_or_several} -> %Destination{custody: :managed, policy: source.import_policy}
     end
   end
 
-  defp settled(root, location) do
+  defp settled(root, source) do
     %Destination{
       custody: :managed,
       root_id: root.id,
-      policy: location.import_policy,
+      policy: source.import_policy,
       approved: true
     }
   end

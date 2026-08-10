@@ -1,11 +1,13 @@
 defmodule AmbryWeb.Admin.LocationLive.Index do
   @moduledoc """
-  Where the library lives on disk: source folders and library roots.
+  Where the library physically lives: sources and library roots, as two
+  sections because they are two concepts — sources are watched and read,
+  roots are written and never watched.
 
   The page leans on one thing the operator can't get anywhere else — which
-  locations share a filesystem. Hardlinks can't cross one, so "these two are
-  on the same disk" is the difference between an import costing nothing and
-  an import doubling storage, and it's invisible from the paths alone.
+  paths share a filesystem. Hardlinks can't cross one, so "these two are on
+  the same disk" is the difference between an import costing nothing and an
+  import doubling storage, and it's invisible from the paths alone.
   """
 
   use AmbryWeb, :admin_live_view
@@ -15,7 +17,7 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(:page_title, "Locations") |> load_locations()}
+    {:ok, socket |> assign(:page_title, "Locations") |> load()}
   end
 
   @impl Phoenix.LiveView
@@ -23,7 +25,7 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
     case Inbox.discover_async() do
       {:ok, _job} ->
         {:noreply,
-         put_flash(socket, :info, "Scanning every enabled location. Check the inbox shortly.")}
+         put_flash(socket, :info, "Scanning every watched source. Check the inbox shortly.")}
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Couldn't start a scan.")}
@@ -31,34 +33,48 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
   end
 
   def handle_event("toggle", %{"id" => id}, socket) do
-    location = Library.get_location!(id)
-    {:ok, location} = Library.update_location(location, %{enabled: !location.enabled})
+    source = Library.get_source!(id)
+    {:ok, source} = Library.update_source(source, %{enabled: !source.enabled})
 
     {:noreply,
      socket
-     |> put_flash(
-       :info,
-       "#{location.name} is now #{(location.enabled && "watched") || "paused"}."
-     )
-     |> load_locations()}
+     |> put_flash(:info, "#{source.name} is now #{(source.enabled && "watched") || "paused"}.")
+     |> load()}
   end
 
-  def handle_event("delete", %{"id" => id}, socket) do
-    location = Library.get_location!(id)
-    {:ok, _location} = Library.delete_location(location)
+  def handle_event("delete-source", %{"id" => id}, socket) do
+    source = Library.get_source!(id)
+    {:ok, _source} = Library.delete_source(source)
 
     {:noreply,
      socket
-     |> put_flash(:info, "Removed #{location.name}. Its files were left alone.")
-     |> load_locations()}
+     |> put_flash(:info, "Removed #{source.name}. Its files were left alone.")
+     |> load()}
   end
 
-  defp load_locations(socket) do
-    locations = Library.list_locations()
-    statuses = Map.new(locations, &{&1.id, Library.status(&1)})
+  def handle_event("delete-root", %{"id" => id}, socket) do
+    root = Library.get_root!(id)
+    {:ok, _root} = Library.delete_root(root)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Removed #{root.name}. Its files were left alone.")
+     |> load()}
+  end
+
+  defp load(socket) do
+    sources = Library.list_sources()
+    roots = Library.list_roots()
+
+    statuses =
+      Map.new(
+        Enum.map(sources, &{{:source, &1.id}, Library.status(&1)}) ++
+          Enum.map(roots, &{{:root, &1.id}, Library.status(&1)})
+      )
 
     assign(socket,
-      locations: locations,
+      sources: sources,
+      roots: roots,
       statuses: statuses,
       filesystems: label_filesystems(statuses)
     )
@@ -77,35 +93,36 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
     |> Map.new(fn {device, index} -> {device, <<?A + index>>} end)
   end
 
-  defp kind_label(:downloads), do: "Downloads"
-  defp kind_label(:external_collection), do: "External collection"
-  defp kind_label(:library_root), do: "Library root"
+  defp on_import_label(:bring_in), do: "brings files in"
+  defp on_import_label(:leave_in_place), do: "leaves files in place"
 
-  defp kind_blurb(:downloads),
-    do: "Messy source. Imports are brought into a library root and become managed."
+  defp on_import_blurb(:bring_in),
+    do: "Its files could vanish, so import places the library's own copy into a root."
 
-  defp kind_blurb(:external_collection),
-    do: "Organized elsewhere. Imported items are adopted in place and never written to."
+  defp on_import_blurb(:leave_in_place),
+    do: "Its files are trusted to stay. Imports reference them; Ambry never writes here."
 
-  defp kind_blurb(:library_root),
-    do: "Ambry's own tree, organized by the naming template. Watched for hand-placed files."
-
-  defp kind_class(:downloads), do: "bg-blue-950 text-blue-300"
-
-  defp kind_class(:external_collection), do: "bg-amber-950 text-amber-300"
-
-  defp kind_class(:library_root), do: "bg-lime-950 text-lime-300"
+  defp on_import_class(:bring_in), do: "bg-blue-400/15 text-blue-300"
+  defp on_import_class(:leave_in_place), do: "bg-white/10 text-zinc-300"
 
   defp policy_label(:hardlink), do: "hardlink"
   defp policy_label(:copy), do: "copy"
   defp policy_label(:move), do: "move"
   defp policy_label(nil), do: nil
 
-  defp status_problem(status, kind) do
+  defp source_problem(status) do
     cond do
       !status.exists? -> "Not found — is the volume mounted?"
       !status.directory? -> "Not a folder."
-      kind != :external_collection and !status.writable? -> "Read-only, so nothing can land here."
+      true -> nil
+    end
+  end
+
+  defp root_problem(status) do
+    cond do
+      !status.exists? -> "Not found — is the volume mounted?"
+      !status.directory? -> "Not a folder."
+      !status.writable? -> "Read-only, so nothing can land here."
       true -> nil
     end
   end

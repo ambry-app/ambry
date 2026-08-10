@@ -2,13 +2,19 @@ defmodule Ambry.Library do
   @moduledoc """
   Where the library physically lives (roadmap 3a).
 
-  The library the client sees is one thing; on disk it is any number of
-  folders, possibly on different machines. This is the registry of those
-  folders — the source folders discovery watches and the roots managed files
-  are organized into — and the place that answers "can these two locations
-  share a hardlink?".
+  Two registries, deliberately separate because they are separate concepts:
 
-  ## Why more than one root is mandatory
+    * **Sources** (`Ambry.Library.Source`) — watched folders audiobooks
+      arrive from. Read, never written. Each carries one promise: whether
+      its files can be trusted to stay (`on_import`).
+    * **Library roots** (`Ambry.Library.Root`) — the folders managed audio
+      is organized into. Written, never watched. Optional: a setup whose
+      sources are all trusted imports nothing into a root.
+
+  This module is also the place that answers "can these two paths share a
+  hardlink?".
+
+  ## Why more than one root is a first-class arrangement
 
   In production the downloads folder and the uploads folder are on two
   different NAS boxes. A hardlink cannot cross a filesystem, so no single
@@ -23,21 +29,24 @@ defmodule Ambry.Library do
 
   The legacy uploads library is deliberately not registered here. It isn't
   organized by the naming template and Phase 4's reclaim owns migrating it;
-  until then it keeps resolving through `Ambry.Paths` unchanged.
+  until then it keeps resolving through `Ambry.Paths` unchanged. Images
+  (covers, person photos) also stay in `Ambry.Paths`' internal storage —
+  they're derived, re-fetchable artifacts, not library content.
   """
 
   use Boundary,
     deps: [Ambry.Repo],
-    exports: [Location, NamingTemplate, Placement]
+    exports: [Source, Root, NamingTemplate, Placement]
 
   import Ecto.Query
 
-  alias Ambry.Library.Location
+  alias Ambry.Library.Root
+  alias Ambry.Library.Source
   alias Ambry.Repo
 
   defmodule Status do
     @moduledoc """
-    What a location looks like on disk right now.
+    What a source or root looks like on disk right now.
 
     Deliberately not stored: a NAS that was mounted when the row was written
     tells you nothing about whether it's mounted now, and a stale "healthy"
@@ -46,120 +55,113 @@ defmodule Ambry.Library do
     defstruct [:exists?, :directory?, :writable?, :device]
   end
 
-  @doc """
-  Lists locations, ordered by kind then name.
+  ## sources
 
-  Options: `:kind`, `:enabled`.
+  @doc """
+  Lists sources, by name.
+
+  Options: `:enabled`.
   """
-  def list_locations(opts \\ []) do
-    Location
-    |> filter_by_kind(opts[:kind])
+  def list_sources(opts \\ []) do
+    Source
     |> filter_by_enabled(opts[:enabled])
-    |> order_by([l], asc: l.kind, asc: l.name)
+    |> order_by([s], asc: s.name)
     |> Repo.all()
   end
 
   @doc """
-  The locations discovery should scan.
-
-  Library roots are included: files hand-placed into the tree have to surface
-  somewhere, and the inbox is the only road into the library.
+  The sources discovery should scan.
   """
-  def watched_locations, do: list_locations(enabled: true)
+  def watched_sources, do: list_sources(enabled: true)
 
-  @doc """
-  The roots managed files may be organized into.
-  """
-  def library_roots(opts \\ []), do: list_locations(Keyword.put(opts, :kind, :library_root))
+  def fetch_source(id), do: Repo.fetch(Source, id)
 
-  def fetch_location(id), do: Repo.fetch(Location, id)
+  def get_source!(id), do: Repo.get!(Source, id)
 
-  def get_location!(id), do: Repo.get!(Location, id)
+  def create_source(attrs), do: %Source{} |> Source.changeset(attrs) |> Repo.insert()
 
-  def create_location(attrs) do
-    %Location{} |> Location.changeset(attrs) |> validate_target_root() |> Repo.insert()
-  end
-
-  def update_location(%Location{} = location, attrs) do
-    location |> Location.changeset(attrs) |> validate_target_root() |> Repo.update()
+  def update_source(%Source{} = source, attrs) do
+    source |> Source.changeset(attrs) |> Repo.update()
   end
 
   @doc """
-  The library root a downloads location imports into.
-
-  With a single root the answer is obvious and the location needn't say, so a
-  null `target_root_id` resolves to the only root there is. With several it
-  has to be explicit — guessing would be guessing about which NAS, and
-  therefore about whether hardlinking is possible at all.
-
-  Only `:downloads` locations import anywhere; everything else is adopted in
-  place, so asking is a caller error rather than a missing configuration.
+  Removes a source from the registry. Never touches the files it points at.
   """
-  @deprecated "Inputs and outputs are independent; the destination is a draft decision"
-  def target_root(%Location{kind: kind}) when kind != :downloads, do: {:error, :not_importing}
+  def delete_source(%Source{} = source), do: Repo.delete(source)
 
-  def target_root(%Location{target_root_id: id}) when is_integer(id) do
-    case Repo.get(Location, id) do
-      %Location{kind: :library_root} = root -> {:ok, root}
-      %Location{} -> {:error, :target_not_a_root}
-      nil -> {:error, :target_root_missing}
-    end
+  def change_source(%Source{} = source, attrs \\ %{}), do: Source.changeset(source, attrs)
+
+  @doc """
+  Records that a source was just scanned.
+  """
+  def mark_scanned(%Source{} = source) do
+    update_source(source, %{last_scanned_at: DateTime.utc_now(:second)})
   end
 
-  def target_root(%Location{}) do
-    case library_roots() do
-      [root] -> {:ok, root}
-      [] -> {:error, :no_library_root}
-      _several -> {:error, :ambiguous_library_root}
-    end
+  ## roots
+
+  @doc """
+  The roots managed files may be organized into, by name.
+  """
+  def list_roots do
+    Root
+    |> order_by([r], asc: r.name)
+    |> Repo.all()
   end
 
-  # Pairing a downloads folder with something that isn't a root would produce
-  # imports landing in someone else's collection, which external custody
-  # exists to promise never happens.
-  defp validate_target_root(changeset) do
-    case Ecto.Changeset.get_field(changeset, :target_root_id) do
-      nil ->
-        changeset
+  def fetch_root(id), do: Repo.fetch(Root, id)
 
-      id ->
-        case Repo.get(Location, id) do
-          %Location{kind: :library_root} ->
-            changeset
+  def get_root!(id), do: Repo.get!(Root, id)
 
-          _missing_or_wrong_kind ->
-            Ecto.Changeset.add_error(changeset, :target_root_id, "must be a library root")
-        end
-    end
+  def create_root(attrs), do: %Root{} |> Root.changeset(attrs) |> Repo.insert()
+
+  def update_root(%Root{} = root, attrs), do: root |> Root.changeset(attrs) |> Repo.update()
+
+  @doc """
+  Removes a root from the registry.
+
+  This never touches the files it points at — deleting a row is not how an
+  operator says "delete my library".
+  """
+  def delete_root(%Root{} = root), do: Repo.delete(root)
+
+  def change_root(%Root{} = root, attrs \\ %{}), do: Root.changeset(root, attrs)
+
+  @doc """
+  Whether a path lies inside a registered library root.
+
+  This is derived, never declared: nobody should have to *tell* the system a
+  folder is inside the library. Import uses it to notice that bringing a
+  file in would be copying it to where it already is, and adopts in place
+  instead.
+  """
+  def inside_root?(path) when is_binary(path) do
+    Enum.any?(list_roots(), fn root ->
+      String.starts_with?(path <> "/", root.path <> "/")
+    end)
   end
 
   @doc """
-  Removes a location from the registry.
+  Every registered path, source or root.
 
-  This never touches the files it points at — for `:external_collection` that
-  would break the promise of external custody, and for the others deleting a
-  row is not how an operator says "delete my library".
+  Cleanup uses these as pruning stops: a registered folder's existence is
+  configuration, not leftover clutter, so empty-parent pruning never removes
+  one.
   """
-  def delete_location(%Location{} = location), do: Repo.delete(location)
-
-  def change_location(%Location{} = location, attrs \\ %{}) do
-    Location.changeset(location, attrs)
+  def registered_paths do
+    Enum.map(list_sources(), & &1.path) ++ Enum.map(list_roots(), & &1.path)
   end
 
-  @doc """
-  Records that a location was just scanned.
-  """
-  def mark_scanned(%Location{} = location) do
-    update_location(location, %{last_scanned_at: DateTime.utc_now(:second)})
-  end
+  ## disk
 
   @doc """
-  Looks at a location on disk.
+  Looks at a source or root on disk.
 
-  Returns a `Status` with everything the admin UI needs to tell "misconfigured"
-  from "unmounted" from "fine".
+  Returns a `Status` with everything the admin UI needs to tell
+  "misconfigured" from "unmounted" from "fine".
   """
-  def status(%Location{path: path}), do: status(path)
+  def status(%Source{path: path}), do: status(path)
+  def status(%Root{path: path}), do: status(path)
 
   def status(path) when is_binary(path) do
     case File.stat(path) do
@@ -200,8 +202,8 @@ defmodule Ambry.Library do
   about, but that turns an unmounted volume into a confident wrong answer:
   `/mnt/nas-b/library` on an unmounted `/mnt/nas-b` would report the root
   filesystem's device, and writing there fills the OS disk instead of the
-  NAS. Callers ask about a registered location's own path, which exists
-  whenever the volume is mounted — that's the whole point of checking.
+  NAS. Callers ask about a registered path, which exists whenever the volume
+  is mounted — that's the whole point of checking.
   """
   def device(path) do
     case File.stat(path) do
@@ -210,9 +212,6 @@ defmodule Ambry.Library do
     end
   end
 
-  defp filter_by_kind(query, nil), do: query
-  defp filter_by_kind(query, kind), do: where(query, [l], l.kind == ^kind)
-
   defp filter_by_enabled(query, nil), do: query
-  defp filter_by_enabled(query, enabled), do: where(query, [l], l.enabled == ^enabled)
+  defp filter_by_enabled(query, enabled), do: where(query, [s], s.enabled == ^enabled)
 end

@@ -2,154 +2,192 @@ defmodule Ambry.LibraryTest do
   use Ambry.DataCase
 
   alias Ambry.Library
-  alias Ambry.Library.Location
+  alias Ambry.Library.Root
+  alias Ambry.Library.Source
 
-  describe "create_location/1" do
-    test "creates a downloads location" do
-      assert {:ok, %Location{} = location} =
-               Library.create_location(%{
+  describe "create_source/1" do
+    test "creates a bring-in source" do
+      assert {:ok, %Source{} = source} =
+               Library.create_source(%{
                  name: "Downloads",
                  path: "/data/downloads",
-                 kind: :downloads
+                 on_import: :bring_in
                })
 
-      assert location.path == "/data/downloads"
-      assert location.kind == :downloads
-      assert location.enabled
-      assert is_nil(location.last_scanned_at)
+      assert source.path == "/data/downloads"
+      assert source.on_import == :bring_in
+      assert source.enabled
+      assert is_nil(source.last_scanned_at)
     end
 
-    test "defaults a downloads location to hardlinking" do
-      assert {:ok, location} =
-               Library.create_location(%{name: "D", path: "/data/d", kind: :downloads})
+    test "defaults a bring-in source to hardlinking" do
+      assert {:ok, source} =
+               Library.create_source(%{name: "D", path: "/data/d", on_import: :bring_in})
 
-      assert location.import_policy == :hardlink
+      assert source.import_policy == :hardlink
     end
 
     test "keeps an explicit import policy" do
-      assert {:ok, location} =
-               Library.create_location(%{
+      assert {:ok, source} =
+               Library.create_source(%{
                  name: "D",
                  path: "/data/d",
-                 kind: :downloads,
+                 on_import: :bring_in,
                  import_policy: :move
                })
 
-      assert location.import_policy == :move
+      assert source.import_policy == :move
     end
 
-    # The other kinds don't import from anywhere, so carrying a policy would
-    # only ever mislead whoever reads the row later.
-    test "clears the import policy for kinds that don't import" do
-      for kind <- [:external_collection, :library_root] do
-        assert {:ok, location} =
-                 Library.create_location(%{
-                   name: "L #{kind}",
-                   path: "/data/#{kind}",
-                   kind: kind,
-                   import_policy: :hardlink
-                 })
+    # A leave-in-place source imports nothing into a root, so carrying a
+    # policy or a preferred root would only ever mislead whoever reads the
+    # row later.
+    test "clears the policy and preferred root for a leave-in-place source" do
+      {:ok, root} = Library.create_root(%{name: "R", path: "/data/library"})
 
-        assert is_nil(location.import_policy)
-      end
+      assert {:ok, source} =
+               Library.create_source(%{
+                 name: "Collection",
+                 path: "/data/collection",
+                 on_import: :leave_in_place,
+                 import_policy: :hardlink,
+                 target_root_id: root.id
+               })
+
+      assert is_nil(source.import_policy)
+      assert is_nil(source.target_root_id)
     end
 
     test "requires an absolute path" do
       assert {:error, changeset} =
-               Library.create_location(%{name: "D", path: "relative/path", kind: :downloads})
+               Library.create_source(%{name: "D", path: "relative/path", on_import: :bring_in})
 
       assert "must be an absolute path" in errors_on(changeset).path
     end
 
     test "normalizes surrounding whitespace and a trailing slash" do
-      assert {:ok, location} =
-               Library.create_location(%{
+      assert {:ok, source} =
+               Library.create_source(%{
                  name: "D",
                  path: "  /data/downloads/  ",
-                 kind: :downloads
+                 on_import: :bring_in
                })
 
-      assert location.path == "/data/downloads"
-    end
-
-    test "keeps the root path intact" do
-      assert {:ok, location} =
-               Library.create_location(%{name: "R", path: "/", kind: :library_root})
-
-      assert location.path == "/"
+      assert source.path == "/data/downloads"
     end
 
     test "refuses a duplicate path" do
-      insert(:location, path: "/data/downloads")
+      insert(:source, path: "/data/downloads")
 
       assert {:error, changeset} =
-               Library.create_location(%{
+               Library.create_source(%{
                  name: "Other",
                  path: "/data/downloads",
-                 kind: :downloads
+                 on_import: :bring_in
                })
 
       assert "has already been taken" in errors_on(changeset).path
     end
 
     test "refuses a duplicate name" do
-      insert(:location, name: "Downloads")
+      insert(:source, name: "Downloads")
 
       assert {:error, changeset} =
-               Library.create_location(%{
+               Library.create_source(%{
                  name: "Downloads",
                  path: "/data/other",
-                 kind: :downloads
+                 on_import: :bring_in
                })
 
       assert "has already been taken" in errors_on(changeset).name
     end
   end
 
-  describe "list_locations/1" do
-    test "filters by kind and by enabled" do
-      downloads = insert(:location, kind: :downloads)
-      root = insert(:location, kind: :library_root, import_policy: nil)
-      paused = insert(:location, kind: :downloads, enabled: false)
+  describe "create_root/1" do
+    test "creates a root" do
+      assert {:ok, %Root{} = root} =
+               Library.create_root(%{name: "Library", path: "/data/library"})
 
-      assert Library.list_locations() |> Enum.map(& &1.id) |> Enum.sort() ==
-               Enum.sort([downloads.id, root.id, paused.id])
-
-      assert Library.library_roots() |> Enum.map(& &1.id) == [root.id]
-
-      assert Library.list_locations(enabled: true) |> Enum.map(& &1.id) |> Enum.sort() ==
-               Enum.sort([downloads.id, root.id])
+      assert root.path == "/data/library"
     end
 
-    # Library roots are watched too — that's how a file dropped straight into
-    # the tree gets noticed instead of sitting there unknown.
-    test "watched locations include library roots and exclude paused ones" do
-      root = insert(:location, kind: :library_root, import_policy: nil)
-      insert(:location, kind: :downloads, enabled: false)
+    test "keeps the filesystem root path intact" do
+      assert {:ok, root} = Library.create_root(%{name: "R", path: "/"})
 
-      assert Library.watched_locations() |> Enum.map(& &1.id) == [root.id]
+      assert root.path == "/"
+    end
+
+    test "requires an absolute path" do
+      assert {:error, changeset} = Library.create_root(%{name: "R", path: "relative"})
+
+      assert "must be an absolute path" in errors_on(changeset).path
     end
   end
 
-  describe "delete_location/1" do
-    test "removes the row and leaves the files alone" do
+  describe "listing" do
+    test "sources and roots are separate registries" do
+      source = insert(:source)
+      root = insert(:root)
+      paused = insert(:source, enabled: false)
+
+      assert Library.list_sources() |> Enum.map(& &1.id) |> Enum.sort() ==
+               Enum.sort([source.id, paused.id])
+
+      assert Library.list_roots() |> Enum.map(& &1.id) == [root.id]
+    end
+
+    # Roots are never watched — watching is a source's job. An operator who
+    # wants the library tree watched points a source at the same path.
+    test "watched sources exclude paused ones and know nothing of roots" do
+      watched = insert(:source)
+      insert(:source, enabled: false)
+      insert(:root)
+
+      assert Library.watched_sources() |> Enum.map(& &1.id) == [watched.id]
+    end
+  end
+
+  describe "inside_root?/1" do
+    test "derived from the path, on segment boundaries" do
+      insert(:root, path: "/data/library")
+
+      assert Library.inside_root?("/data/library/Author/Book")
+      assert Library.inside_root?("/data/library")
+      refute Library.inside_root?("/data/library-other/Book")
+      refute Library.inside_root?("/data/downloads/Book")
+    end
+  end
+
+  describe "deleting" do
+    test "removes the source row and leaves its files alone" do
       dir = tmp_dir()
       file = Path.join(dir, "keep.txt")
       File.write!(file, "still here")
-      location = insert(:location, path: dir)
+      source = insert(:source, path: dir)
 
-      assert {:ok, _location} = Library.delete_location(location)
-      assert {:error, :not_found} = Library.fetch_location(location.id)
+      assert {:ok, _source} = Library.delete_source(source)
+      assert {:error, :not_found} = Library.fetch_source(source.id)
+      assert File.exists?(file)
+    end
+
+    test "removes the root row and leaves its files alone" do
+      dir = tmp_dir()
+      file = Path.join(dir, "keep.txt")
+      File.write!(file, "still here")
+      root = insert(:root, path: dir)
+
+      assert {:ok, _root} = Library.delete_root(root)
+      assert {:error, :not_found} = Library.fetch_root(root.id)
       assert File.exists?(file)
     end
   end
 
   describe "mark_scanned/1" do
     test "stamps the scan time" do
-      location = insert(:location, last_scanned_at: nil)
+      source = insert(:source, last_scanned_at: nil)
 
-      assert {:ok, location} = Library.mark_scanned(location)
-      assert %DateTime{} = location.last_scanned_at
+      assert {:ok, source} = Library.mark_scanned(source)
+      assert %DateTime{} = source.last_scanned_at
     end
   end
 

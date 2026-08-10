@@ -4,7 +4,11 @@
       <.input field={@form[:name]} label="Name" />
 
       <div>
-        <.input field={@form[:path]} label="Path" placeholder="/data/downloads" />
+        <.input
+          field={@form[:path]}
+          label="Path"
+          placeholder={(@type == :source && "/data/downloads") || "/data/library"}
+        />
 
         <p
           :if={@status && !@status.exists?}
@@ -24,15 +28,15 @@
         </p>
 
         <p
-          :if={@status && @status.directory? && !@status.writable? && @kind != :external_collection}
+          :if={@status && @status.directory? && !@status.writable? && @type == :root}
           class="mt-2 text-sm text-amber-400"
           data-role="path-status"
         >
-          That folder is read-only. Discovery will work, but nothing can be imported into it.
+          That folder is read-only, so nothing can be imported into it.
         </p>
 
         <p
-          :if={@status && @status.directory? && @status.writable?}
+          :if={@status && @status.directory? && (@status.writable? || @type == :source)}
           class="mt-2 text-sm text-lime-400"
           data-role="path-status"
         >
@@ -40,14 +44,26 @@
         </p>
       </div>
 
-      <.input field={@form[:kind]} type="select" label="Kind" options={kind_options()} />
+      <div :if={@type == :source}>
+        <.input
+          field={@form[:on_import]}
+          type="select"
+          label="On import"
+          options={on_import_options()}
+        />
+        <p class="mt-2 text-sm text-zinc-400">
+          The one promise a source makes. A folder a download client controls can lose its files,
+          so the library protects itself with its own copy; a collection that's staying put is
+          simply pointed at, and Ambry never writes to it.
+        </p>
+      </div>
 
-      <div :if={@kind == :downloads} class="space-y-6">
+      <div :if={@type == :source and @on_import == :bring_in} class="space-y-6">
         <div>
           <.input
             field={@form[:import_policy]}
             type="select"
-            label="On import"
+            label="How the files come in"
             options={policy_options()}
           />
           <p class="mt-2 text-sm text-zinc-400">
@@ -66,17 +82,17 @@
             prompt={root_prompt(@root_options)}
           />
           <p class="mt-2 text-sm text-zinc-400">
-            Optional. Any watched folder can import into any root — this only preselects one. With
+            Optional. Any source can import into any root — this only preselects one. With
             a single root, imports never ask.
           </p>
           <p :if={@root_options == []} class="mt-2 text-sm text-amber-400">
-            There are no library roots yet, so nothing can be imported. Add a location of kind
-            "Library root" first — until then, importing an item from this folder will refuse.
+            There are no library roots yet, so nothing can be brought in. Add one under
+            Locations first — until then, importing an item from this folder will refuse.
           </p>
         </div>
       </div>
 
-      <.input field={@form[:enabled]} type="checkbox" label="Watched" />
+      <.input :if={@type == :source} field={@form[:enabled]} type="checkbox" label="Watched" />
 
       <:actions>
         <.button>Save</.button>

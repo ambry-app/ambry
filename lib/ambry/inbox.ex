@@ -45,7 +45,8 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.RunMatch
   alias Ambry.Inbox.RunProbe
   alias Ambry.Library
-  alias Ambry.Library.Location
+  alias Ambry.Library.Root
+  alias Ambry.Library.Source
   alias Ambry.Media.Media
   alias Ambry.Media.MediaTrack
   alias Ambry.Media.Scanner
@@ -70,7 +71,7 @@ defmodule Ambry.Inbox do
       |> order_by([i], desc: i.inserted_at, desc: i.id)
       |> offset(^Keyword.get(opts, :offset, 0))
       |> limit(^over_limit)
-      |> preload(:location)
+      |> preload(:source)
       |> Repo.all()
 
     items_to_return = Enum.slice(items, 0, limit)
@@ -108,49 +109,49 @@ defmodule Ambry.Inbox do
   @no_counts %{created: 0, updated: 0, skipped: 0, unreachable: 0}
 
   @doc """
-  Scans every watched location for candidates.
+  Scans every watched source for candidates.
 
   Idempotent by design: an item's path is its identity, so rescanning updates
   the files of a known item rather than duplicating it, never resurrects a
   ignored one, and never re-offers files the library already has.
 
-  A location that can't be read doesn't fail the run — one unmounted NAS
+  A source that can't be read doesn't fail the run — one unmounted NAS
   shouldn't stop the others from being scanned — but it is counted, because
   "found nothing" and "couldn't look" must not look the same to the operator.
 
   Returns `{:ok, %{created: n, updated: n, skipped: n, unreachable: n}}`.
   """
   def discover do
-    case Library.watched_locations() do
-      [] -> {:error, :no_watched_locations}
-      locations -> {:ok, Enum.reduce(locations, @no_counts, &merge_counts(&2, discover_one(&1)))}
+    case Library.watched_sources() do
+      [] -> {:error, :no_watched_sources}
+      sources -> {:ok, Enum.reduce(sources, @no_counts, &merge_counts(&2, discover_one(&1)))}
     end
   end
 
   @doc """
-  Scans one location, or one bare path.
+  Scans one source, or one bare path.
 
   The bare-path form is for ad-hoc scans and for exercising the walk itself;
-  items it creates have no location, so import can't know what custody they
+  items it creates have no source, so import can't know what custody they
   imply.
   """
-  def discover(%Location{} = location) do
-    with {:ok, counts} <- scan(location.path, location) do
-      {:ok, _location} = Library.mark_scanned(location)
+  def discover(%Source{} = source) do
+    with {:ok, counts} <- scan(source.path, source) do
+      {:ok, _source} = Library.mark_scanned(source)
       {:ok, counts}
     end
   end
 
   def discover(root) when is_binary(root), do: scan(root, nil)
 
-  defp discover_one(%Location{} = location) do
-    case discover(location) do
+  defp discover_one(%Source{} = source) do
+    case discover(source) do
       {:ok, counts} ->
         counts
 
       {:error, reason} ->
         Logger.warning(fn ->
-          "Couldn't scan location #{location.name} (#{location.path}): #{inspect(reason)}"
+          "Couldn't scan source #{source.name} (#{source.path}): #{inspect(reason)}"
         end)
 
         %{unreachable: 1}
@@ -159,7 +160,7 @@ defmodule Ambry.Inbox do
 
   defp merge_counts(acc, counts), do: Map.merge(acc, counts, fn _key, a, b -> a + b end)
 
-  defp scan(root, location) do
+  defp scan(root, source) do
     if File.dir?(root) do
       known = known_paths()
       imported = imported_files()
@@ -167,7 +168,7 @@ defmodule Ambry.Inbox do
       results =
         root
         |> candidates()
-        |> Enum.map(&record_candidate(&1, known, imported, location))
+        |> Enum.map(&record_candidate(&1, known, imported, source))
 
       {:ok,
        %{
@@ -177,7 +178,7 @@ defmodule Ambry.Inbox do
          unreachable: 0
        }}
     else
-      {:error, :watched_location_missing}
+      {:error, :watched_source_missing}
     end
   end
 
@@ -215,7 +216,7 @@ defmodule Ambry.Inbox do
     * **Re-read the files.** "Re-probe" ran ffprobe over the file list
       captured at *discovery*, so a release the operator had since fixed on
       disk — parts joined into one m4b, a stray file removed — probed exactly
-      the same way forever. Only a full location scan refreshed the list.
+      the same way forever. Only a full source scan refreshed the list.
     * **Ask the providers again, for real.** Provider answers are cached for
       thirty days, so re-matching re-derived identical records from identical
       cached responses and finished in milliseconds. The button could not
@@ -338,7 +339,7 @@ defmodule Ambry.Inbox do
   Proposes matches for one item in the background.
 
   A refreshing run opts out of `RunMatch`'s uniqueness window. That window
-  exists to collapse the storm of duplicate jobs a rescan of a whole location
+  exists to collapse the storm of duplicate jobs a rescan of a whole source
   produces; an operator who clicked a button meant it, and silently dropping
   their job is how "look for matches again" came to do nothing at all.
   """
@@ -518,13 +519,22 @@ defmodule Ambry.Inbox do
   placement will work.
   """
   def destination_preflight(%InboxItem{} = item) do
-    item = Repo.preload(item, :location)
+    item = Repo.preload(item, :source)
 
-    case item.location do
-      %Location{kind: :downloads} = location -> downloads_preflight(item, location)
-      %Location{kind: :library_root} -> adopt_preflight("It's already inside a library root.")
-      %Location{kind: :external_collection} -> adopt_preflight("It's an external collection.")
-      nil -> adopt_preflight("It came from an ad-hoc scan with no location.")
+    cond do
+      # Derived, never declared: bringing a file in from inside a root would
+      # be copying it to where it already is.
+      Library.inside_root?(item.path) ->
+        adopt_preflight("It's already inside a library root.")
+
+      is_nil(item.source) ->
+        adopt_preflight("It came from an ad-hoc scan with no source.")
+
+      item.source.on_import == :leave_in_place ->
+        adopt_preflight("Its source is trusted to keep its files.")
+
+      true ->
+        bring_in_preflight(item, item.source)
     end
   end
 
@@ -536,7 +546,7 @@ defmodule Ambry.Inbox do
     }
   end
 
-  defp downloads_preflight(item, location) do
+  defp bring_in_preflight(item, source) do
     base = %{custody: :managed, blocker: nil, summary: nil}
 
     case chosen_root(item) do
@@ -546,18 +556,18 @@ defmodule Ambry.Inbox do
       {:ok, root} ->
         %{
           base
-          | summary: policy_summary(location.import_policy, root),
-            blocker: hardlink_blocker(item, location, root)
+          | summary: policy_summary(source.import_policy, root),
+            blocker: hardlink_blocker(item, source, root)
         }
     end
   end
 
-  # The root the draft settled on, not one derived from the location: inputs
+  # The root the draft settled on, not one derived from the source: inputs
   # and outputs are independent, so this is a decision rather than a lookup.
   defp chosen_root(%InboxItem{draft: %{destination: %{root_id: id}}}) when is_integer(id) do
-    case Repo.get(Location, id) do
-      %Location{kind: :library_root} = root -> {:ok, root}
-      _other -> {:error, :no_library_root}
+    case Repo.get(Root, id) do
+      %Root{} = root -> {:ok, root}
+      nil -> {:error, :no_library_root}
     end
   end
 
@@ -579,7 +589,7 @@ defmodule Ambry.Inbox do
   # roadmap set out to eliminate. Worth knowing before the click, not after.
   defp hardlink_blocker(
          %InboxItem{files: [file | _rest]},
-         %Location{import_policy: :hardlink},
+         %Source{import_policy: :hardlink},
          root
        ) do
     case Library.same_filesystem?(Path.dirname(file), root.path) do
@@ -589,7 +599,7 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp hardlink_blocker(_item, _location, _root), do: nil
+  defp hardlink_blocker(_item, _source, _root), do: nil
 
   @doc """
   A draft as params, for staging it back onto an item.
@@ -658,7 +668,7 @@ defmodule Ambry.Inbox do
   def describe_error({:cross_filesystem, _source, _destination}),
     do:
       "This folder and its library root are on different filesystems, so the file can't be " <>
-        "hardlinked. Point it at a root on the same disk, or set the location to copy or move."
+        "hardlinked. Point it at a root on the same disk, or set the source to copy or move."
 
   # Occupied by a recording is a curation problem; occupied by a file no
   # record references is a leftover — an interrupted import's copy landed and
@@ -829,32 +839,32 @@ defmodule Ambry.Inbox do
     path |> Path.extname() |> String.downcase() |> Kernel.in(Scanner.extensions())
   end
 
-  defp record_candidate({path, files}, known, imported, location) do
+  defp record_candidate({path, files}, known, imported, source) do
     cond do
       Enum.any?(files, &MapSet.member?(imported, &1)) ->
         :skipped
 
       item = Map.get(known, path) ->
-        refresh_known(item, files, location)
+        refresh_known(item, files, source)
 
       true ->
-        create_item(path, files, location)
+        create_item(path, files, source)
     end
   end
 
   # A known item's files can legitimately change (a torrent finished, a file
   # was replaced). Its status is left alone: ignored stays ignored.
   #
-  # An item found under a location adopts it if it had none — that's a fact
-  # the scan just established, not a guess — but a location is never swapped
+  # An item found under a source adopts it if it had none — that's a fact
+  # the scan just established, not a guess — but a source is never swapped
   # out from under an item that already has one.
-  defp refresh_known(%InboxItem{} = item, files, location) do
-    adopts_location? = is_nil(item.location_id) and not is_nil(location)
+  defp refresh_known(%InboxItem{} = item, files, source) do
+    adopts_source? = is_nil(item.source_id) and not is_nil(source)
 
     changes =
       %{}
       |> put_if(:files, files, item.files != files)
-      |> put_if(:location_id, adopts_location? && location.id, adopts_location?)
+      |> put_if(:source_id, adopts_source? && source.id, adopts_source?)
 
     if changes == %{} do
       :skipped
@@ -882,9 +892,9 @@ defmodule Ambry.Inbox do
   defp put_if(map, _key, _value, false), do: map
   defp put_if(map, key, value, _truthy), do: Map.put(map, key, value)
 
-  defp create_item(path, files, location) do
+  defp create_item(path, files, source) do
     %InboxItem{}
-    |> InboxItem.changeset(%{path: path, files: files, location_id: location && location.id})
+    |> InboxItem.changeset(%{path: path, files: files, source_id: source && source.id})
     |> Repo.insert()
     |> case do
       {:ok, item} ->

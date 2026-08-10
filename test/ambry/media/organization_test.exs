@@ -77,7 +77,7 @@ defmodule Ambry.Media.OrganizationTest do
     # string says otherwise.
     test "matches the root on a path boundary, not a bare prefix" do
       %{media: media, file: file, root: root} = organized_media(register_root: false)
-      insert(:location, kind: :library_root, import_policy: nil, path: root <> "-elsewhere")
+      insert(:root, path: root <> "-elsewhere")
 
       assert {:ok, :noop} = Organization.organize(reload(media))
       assert File.exists?(file)
@@ -134,7 +134,7 @@ defmodule Ambry.Media.OrganizationTest do
     root = new_dir("root")
 
     if Keyword.get(opts, :register_root, true) do
-      insert(:location, kind: :library_root, import_policy: nil, path: root)
+      insert(:root, path: root)
     end
 
     author = insert(:author, name: "Brandon Sanderson")

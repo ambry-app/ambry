@@ -11,7 +11,8 @@ defmodule Ambry.Factory do
   alias Ambry.Books.SeriesBook
   alias Ambry.Books.Universe
   alias Ambry.Fake
-  alias Ambry.Library.Location
+  alias Ambry.Library.Root
+  alias Ambry.Library.Source
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.MediaTrack
@@ -403,15 +404,22 @@ defmodule Ambry.Factory do
     path
   end
 
-  # Library locations
+  # Library sources and roots
 
-  def location_factory do
-    %Location{
-      name: sequence(:location_name, &"Location #{&1}"),
-      path: sequence(:location_path, &"/data/location-#{&1}"),
-      kind: :downloads,
+  def source_factory do
+    %Source{
+      name: sequence(:source_name, &"Source #{&1}"),
+      path: sequence(:source_path, &"/data/source-#{&1}"),
+      on_import: :bring_in,
       import_policy: :hardlink,
       enabled: true
+    }
+  end
+
+  def root_factory do
+    %Root{
+      name: sequence(:root_name, &"Root #{&1}"),
+      path: sequence(:root_path, &"/data/root-#{&1}")
     }
   end
 
