@@ -68,7 +68,23 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(searching_person: nil, photos_expanded: %{})
      |> assign(library_query: nil, library_results: [], ticking: false)
      |> attach_hook(:refuse_while_busy, :handle_event, &refuse_while_busy/3)
+     |> attach_hook(:refuse_when_imported, :handle_event, &refuse_when_imported/3)
      |> load(item)}
+  end
+
+  # An imported item's draft is the record of what was imported — the operator
+  # already created the library records from it, and an edit here would make
+  # the record lie. The banner and `inert` explain; this enforces, because
+  # markup is advisory and a stale tab can still send anything. The only
+  # events allowed through are pure view state.
+  @view_events ~w(toggle-photos toggle-people)
+
+  defp refuse_when_imported(event, _params, socket) do
+    if socket.assigns.read_only and event not in @view_events do
+      {:halt, put_flash(socket, :error, Inbox.describe_error(:already_approved))}
+    else
+      {:cont, socket}
+    end
   end
 
   # **The overlay explains; this enforces.** `inert` and a scrim are markup,
@@ -561,6 +577,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     assign(socket,
       item: item,
+      read_only: item.status == :approved,
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),

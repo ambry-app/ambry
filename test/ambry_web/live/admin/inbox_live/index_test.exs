@@ -92,6 +92,18 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     )
   end
 
+  # An imported item's draft is the record of what was imported; re-matching
+  # would rebuild it. The row keeps Open-by-title for looking, loses the
+  # actions that write.
+  test "an imported item's row offers no re-match", %{conn: conn} do
+    item = probed_item() |> settle()
+    {:ok, _media} = Ambry.Inbox.approve_item(item)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=approved")
+
+    refute has_element?(view, "span[phx-click='rescan'][phx-value-id='#{item.id}']")
+  end
+
   # `RunMatch` is unique over a 60-second window and Oban answers a conflict
   # with `{:ok, %{job | conflict?: true}}` — an insert that looks successful
   # and drops the job. The old handler matched `{:ok, _job}` and flashed

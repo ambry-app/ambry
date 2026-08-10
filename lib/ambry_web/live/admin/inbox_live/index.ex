@@ -83,14 +83,23 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # discards the job — so the old handlers matched `{:ok, _job}` and flashed
   # success for work that was never queued.
   def handle_event("rescan", %{"id" => id}, socket) do
-    {:ok, job} = id |> Inbox.get_item!() |> Inbox.rescan_item_async()
+    id
+    |> Inbox.get_item!()
+    |> Inbox.rescan_item_async()
+    |> case do
+      {:ok, job} ->
+        message =
+          if job.conflict?,
+            do: "Already re-reading this one.",
+            else:
+              "Re-reading the files and asking the providers again — this one is slow on purpose."
 
-    message =
-      if job.conflict?,
-        do: "Already re-reading this one.",
-        else: "Re-reading the files and asking the providers again — this one is slow on purpose."
+        {:noreply, put_flash(socket, :info, message)}
 
-    {:noreply, put_flash(socket, :info, message)}
+      # The button is gone from approved rows; this catches a stale tab.
+      {:error, :already_approved} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(:already_approved))}
+    end
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do

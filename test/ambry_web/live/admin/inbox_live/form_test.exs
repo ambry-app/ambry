@@ -57,6 +57,49 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "an imported item" do
+    # The draft is the record of what was imported — the library records were
+    # created from it, so editing it afterwards makes the record lie. The
+    # operator has done this by accident.
+    test "reads as read-only: banner, no actions, inert sections", %{conn: conn} do
+      item = probed_item() |> settle()
+      {:ok, _media} = Inbox.approve_item(item)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='imported-banner']")
+      assert html =~ "In the library"
+      refute has_element?(view, "button[data-role='import']")
+      refute html =~ "Start over"
+      assert has_element?(view, "#work[inert]")
+      assert has_element?(view, "#recording[inert]")
+      assert has_element?(view, "#destination[inert]")
+    end
+
+    test "refuses edits — markup is advisory, a stale tab can send anything", %{conn: conn} do
+      item = probed_item() |> settle()
+      {:ok, _media} = Inbox.approve_item(item)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      before = Inbox.get_item!(item.id).draft
+
+      html = render_click(view, "new-book", %{})
+
+      assert Inbox.get_item!(item.id).draft == before
+      assert html =~ "read-only"
+    end
+
+    test "the context refuses a second import and any draft write" do
+      item = probed_item() |> settle()
+      {:ok, _media} = Inbox.approve_item(item)
+      item = Inbox.get_item!(item.id)
+
+      assert {:error, :already_approved} = Inbox.approve_item(item)
+      assert {:error, :already_approved} = Inbox.update_draft(item, %{})
+      assert {:error, :already_approved} = Inbox.rescan_item_async(item)
+    end
+  end
+
   describe "settling decisions" do
     test "take-the-top-suggestion settles everything that has one", %{conn: conn} do
       item = probed_item()

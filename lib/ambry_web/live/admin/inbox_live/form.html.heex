@@ -33,6 +33,7 @@
               <span class="font-bold">{@progress.resolved}</span> of {@progress.total} settled
             </p>
             <.button
+              :if={!@read_only}
               type="button"
               color={:zinc}
               class="mt-2"
@@ -76,6 +77,24 @@
         <p :if={@item.issue} class="flex items-baseline gap-1.5 pt-2 pl-3 text-sm text-red-400">
           <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
           {@item.issue}
+        </p>
+      </section>
+
+      <%!-- Once imported, the draft is the record of what was imported — the
+          library records were created FROM it, so an edit here would make
+          the record lie. The rail is lime because imported IS settled. --%>
+      <section
+        :if={@read_only}
+        class="border-brand-dark/60 rounded-lg border-l-4 bg-zinc-900 p-4"
+        data-role="imported-banner"
+      >
+        <p class="pl-3 font-bold">In the library</p>
+        <p class="max-w-prose pt-1 pl-3 text-sm text-zinc-400">
+          This one was imported, and everything below is the record of that import — it's
+          read-only now.
+          <.brand_link :if={@item.media_id} navigate={~p"/admin/media/#{@item.media_id}/edit"}>
+            Open the media record
+          </.brand_link>
         </p>
       </section>
 
@@ -123,7 +142,7 @@
       </section>
 
       <%!-- ==================== THE WORK ==================== --%>
-      <section id="work" class="space-y-7">
+      <section id="work" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
           The work — which book this is a recording of
         </h2>
@@ -394,7 +413,7 @@
       </section>
 
       <%!-- ==================== THE RECORDING ==================== --%>
-      <section id="recording" class="space-y-7">
+      <section id="recording" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
           The recording — which reading of it these files are
         </h2>
@@ -596,7 +615,7 @@
       </section>
 
       <%!-- ==================== FILES & DESTINATION ==================== --%>
-      <section id="destination" class="space-y-2">
+      <section id="destination" class="space-y-2" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
           Files &amp; destination
         </h2>
@@ -658,6 +677,7 @@
       <section class="shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 rounded-t-lg bg-zinc-900 p-4">
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <.button
+            :if={!@read_only}
             phx-click="import"
             disabled={@unresolved != [] or @destination.blocker != nil}
             data-role="import"
@@ -665,7 +685,11 @@
             Add to the library
           </.button>
 
-          <.button type="button" color={:zinc} phx-click="dismiss">Dismiss</.button>
+          <.button :if={!@read_only} type="button" color={:zinc} phx-click="dismiss">Dismiss</.button>
+
+          <p :if={@read_only} class="text-sm text-zinc-400">
+            In the library — read-only.
+          </p>
 
           <.brand_link navigate={~p"/admin/inbox"} class="whitespace-nowrap">
             Back to the inbox

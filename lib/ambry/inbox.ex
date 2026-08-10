@@ -242,7 +242,12 @@ defmodule Ambry.Inbox do
 
   @doc """
   Re-reads and re-queries one item in the background.
+
+  Refused once the item is in the library: the probe rebuilds an untouched
+  draft, and an imported item's draft is the record of what was imported.
   """
+  def rescan_item_async(%InboxItem{status: :approved}), do: {:error, :already_approved}
+
   def rescan_item_async(%InboxItem{} = item) do
     %{inbox_item_id: item.id, refresh: true} |> RunProbe.new() |> Oban.insert()
   end
@@ -458,6 +463,8 @@ defmodule Ambry.Inbox do
   Every save recomputes readiness, so the queue can never claim an item is
   importable when its draft says otherwise.
   """
+  def update_draft(%InboxItem{status: :approved}, _attrs), do: {:error, :already_approved}
+
   def update_draft(%InboxItem{} = item, attrs) do
     item
     |> InboxItem.put_draft(attrs)
@@ -629,6 +636,7 @@ defmodule Ambry.Inbox do
   Shared between the flash shown at the time and the `issue` recorded on the
   item, so the row tomorrow says exactly what the toast said today.
   """
+
   def describe_error(:multi_file_unsupported),
     do:
       "Direct play handles single-file recordings for now — merge this one externally, or skip it."
@@ -672,7 +680,7 @@ defmodule Ambry.Inbox do
   def describe_error(:ambiguous_library_root),
     do: "There's more than one library root — say which one this folder imports into."
 
-  def describe_error(:already_approved), do: "Already in the library."
+  def describe_error(:already_approved), do: "Already in the library — this item is read-only."
 
   # The invariant, phrased for a human. It names the count rather than the
   # decisions because the form lists them properly — this is the flash you get

@@ -200,6 +200,7 @@
                 same question. Re-reads the folder, re-probes, and re-queries
                 every provider with the cache bypassed. --%>
             <span
+              :if={item.status != :approved}
               role="button"
               phx-click="rescan"
               phx-value-id={item.id}
