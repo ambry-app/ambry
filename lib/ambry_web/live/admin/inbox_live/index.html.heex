@@ -174,13 +174,13 @@
             <span
               :if={item.status == :pending and item.ready}
               role="button"
-              phx-click="approve"
+              phx-click="import"
               phx-value-id={item.id}
               title="Add to the library"
               data-confirm="Add this to the library?"
               class={action_class(:brand)}
             >
-              <.icon name="fa-check" class="h-3 w-3 text-current" /> Approve
+              <.icon name="fa-check" class="h-3 w-3 text-current" /> Import
             </span>
 
             <.link
@@ -200,7 +200,7 @@
                 same question. Re-reads the folder, re-probes, and re-queries
                 every provider with the cache bypassed. --%>
             <span
-              :if={item.status != :approved}
+              :if={item.status != :imported}
               role="button"
               phx-click="rescan"
               phx-value-id={item.id}
@@ -210,19 +210,22 @@
               <.icon name="fa-rotate" class="h-3 w-3 text-current" /> Re-match
             </span>
 
+            <%!-- Only a pending item can be ignored: an ignored one already
+                is, and ignoring an imported one is nonsense — it's in the
+                library. --%>
             <span
-              :if={item.status != :dismissed}
+              :if={item.status == :pending}
               role="button"
-              phx-click="dismiss"
+              phx-click="ignore"
               phx-value-id={item.id}
-              title="Dismiss (files are not touched)"
+              title="Ignore (files are not touched)"
               class={action_class(:danger)}
             >
-              <.icon name="fa-xmark" class="h-3 w-3 text-current" /> Dismiss
+              <.icon name="fa-xmark" class="h-3 w-3 text-current" /> Ignore
             </span>
 
             <span
-              :if={item.status == :dismissed}
+              :if={item.status == :ignored}
               role="button"
               phx-click="restore"
               phx-value-id={item.id}

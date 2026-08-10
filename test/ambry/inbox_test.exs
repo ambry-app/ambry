@@ -183,18 +183,18 @@ defmodule Ambry.InboxTest do
       assert {[_one], false} = Inbox.list_items()
     end
 
-    test "never resurrects something dismissed" do
+    test "never resurrects something ignored" do
       root = watched_root()
       release_folder(root, "Not Wanted", ["book.m4b"])
       {:ok, _counts} = Inbox.discover(root)
 
       {[item], false} = Inbox.list_items()
-      {:ok, _item} = Inbox.dismiss_item(item)
+      {:ok, _item} = Inbox.ignore_item(item)
 
       assert {:ok, %{created: 0}} = Inbox.discover(root)
 
       assert {[item], false} = Inbox.list_items()
-      assert item.status == :dismissed
+      assert item.status == :ignored
     end
 
     test "picks up files that appeared after the first look" do
@@ -210,18 +210,18 @@ defmodule Ambry.InboxTest do
       assert length(item.files) == 2
     end
 
-    test "leaves a dismissed item dismissed even when its files change" do
+    test "leaves an ignored item ignored even when its files change" do
       root = watched_root()
       release = release_folder(root, "Growing Set", ["01.mp3"])
       {:ok, _counts} = Inbox.discover(root)
       {[item], false} = Inbox.list_items()
-      {:ok, _item} = Inbox.dismiss_item(item)
+      {:ok, _item} = Inbox.ignore_item(item)
 
       copy_audio(release, "02.mp3")
       {:ok, _counts} = Inbox.discover(root)
 
       assert {[item], false} = Inbox.list_items()
-      assert item.status == :dismissed
+      assert item.status == :ignored
       assert length(item.files) == 2
     end
   end
@@ -296,15 +296,15 @@ defmodule Ambry.InboxTest do
     end
   end
 
-  describe "dismiss_item/1 and restore_item/1" do
+  describe "ignore_item/1 and restore_item/1" do
     test "take an item out of the queue and back, without touching files" do
       root = watched_root()
       release = release_folder(root, "A Book", ["book.m4b"])
       {:ok, _counts} = Inbox.discover(root)
       {[item], false} = Inbox.list_items()
 
-      {:ok, item} = Inbox.dismiss_item(item)
-      assert item.status == :dismissed
+      {:ok, item} = Inbox.ignore_item(item)
+      assert item.status == :ignored
       assert File.exists?(Path.join(release, "book.m4b"))
 
       {:ok, item} = Inbox.restore_item(item)
@@ -321,7 +321,7 @@ defmodule Ambry.InboxTest do
 
       {items, false} = Inbox.list_items()
       reject = Enum.find(items, &(InboxItem.name(&1) == "Reject"))
-      {:ok, _item} = Inbox.dismiss_item(reject)
+      {:ok, _item} = Inbox.ignore_item(reject)
 
       assert {[item], false} = Inbox.list_items(status: :pending)
       assert InboxItem.name(item) == "Keeper"
@@ -329,7 +329,7 @@ defmodule Ambry.InboxTest do
       assert {[item], false} = Inbox.list_items(filter: "Reject")
       assert InboxItem.name(item) == "Reject"
 
-      assert %{pending: 1, dismissed: 1} = Inbox.count_by_status()
+      assert %{pending: 1, ignored: 1} = Inbox.count_by_status()
     end
   end
 

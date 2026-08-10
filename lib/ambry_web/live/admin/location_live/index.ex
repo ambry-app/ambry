@@ -82,10 +82,10 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
   defp kind_label(:library_root), do: "Library root"
 
   defp kind_blurb(:downloads),
-    do: "Messy source. Approved imports are brought into a library root and become managed."
+    do: "Messy source. Imports are brought into a library root and become managed."
 
   defp kind_blurb(:external_collection),
-    do: "Organized elsewhere. Approved items are adopted in place and never written to."
+    do: "Organized elsewhere. Imported items are adopted in place and never written to."
 
   defp kind_blurb(:library_root),
     do: "Ambry's own tree, organized by the naming template. Watched for hand-placed files."

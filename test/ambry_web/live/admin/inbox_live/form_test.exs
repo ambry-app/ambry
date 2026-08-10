@@ -41,7 +41,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       view |> element("button[data-role='import']") |> render_click()
 
-      assert %{status: :approved, media_id: media_id} = Inbox.get_item!(item.id)
+      assert %{status: :imported, media_id: media_id} = Inbox.get_item!(item.id)
       assert media_id
     end
 
@@ -63,7 +63,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     # operator has done this by accident.
     test "reads as read-only: banner, no actions, inert sections", %{conn: conn} do
       item = probed_item() |> settle()
-      {:ok, _media} = Inbox.approve_item(item)
+      {:ok, _media} = Inbox.import_item(item)
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
@@ -78,7 +78,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
     test "refuses edits — markup is advisory, a stale tab can send anything", %{conn: conn} do
       item = probed_item() |> settle()
-      {:ok, _media} = Inbox.approve_item(item)
+      {:ok, _media} = Inbox.import_item(item)
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
       before = Inbox.get_item!(item.id).draft
@@ -91,12 +91,12 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
     test "the context refuses a second import and any draft write" do
       item = probed_item() |> settle()
-      {:ok, _media} = Inbox.approve_item(item)
+      {:ok, _media} = Inbox.import_item(item)
       item = Inbox.get_item!(item.id)
 
-      assert {:error, :already_approved} = Inbox.approve_item(item)
-      assert {:error, :already_approved} = Inbox.update_draft(item, %{})
-      assert {:error, :already_approved} = Inbox.rescan_item_async(item)
+      assert {:error, :already_imported} = Inbox.import_item(item)
+      assert {:error, :already_imported} = Inbox.update_draft(item, %{})
+      assert {:error, :already_imported} = Inbox.rescan_item_async(item)
     end
   end
 
@@ -279,7 +279,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
       item = settle(item)
 
-      assert {:ok, media} = Inbox.approve_item(item)
+      assert {:ok, media} = Inbox.import_item(item)
 
       book = media.book_id |> Ambry.Books.get_book!() |> Repo.preload(authors: :people)
       assert [author] = book.authors

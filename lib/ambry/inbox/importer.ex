@@ -1,12 +1,12 @@
-defmodule Ambry.Inbox.Approval do
+defmodule Ambry.Inbox.Importer do
   @moduledoc """
   Turns a fully-resolved staged import into real library records.
 
-  Approval is the only thing that creates records — discovery, matching and
+  Import is the only thing that creates records — discovery, matching and
   the form only ever propose. It covers the whole entity graph in one
   transaction: book, authors, narrators, series, the recording and its
   direct-play tracks. Either all of it lands or none of it does, so a
-  half-approved item can't exist.
+  half-imported item can't exist.
 
   ## It executes a draft; it does not decide anything
 
@@ -34,7 +34,7 @@ defmodule Ambry.Inbox.Approval do
       **external**. Ambry never moves, copies, renames or deletes it.
 
   A hardlink cannot cross a filesystem, and here the downloads folder and the
-  library can easily be on different NAS boxes. Approval **refuses** in that
+  library can easily be on different NAS boxes. Import **refuses** in that
   case rather than falling back to a copy: a silent copy is the storage
   doubling this whole phase exists to eliminate.
 
@@ -72,14 +72,14 @@ defmodule Ambry.Inbox.Approval do
   require Logger
 
   @doc """
-  Approves an item, creating everything its draft implies.
+  Imports an item, creating everything its draft implies.
 
   Returns `{:ok, media}`, or `{:error, reason}` — leaving the item untouched
   and the library unchanged.
   """
-  def approve(%InboxItem{status: :approved}), do: {:error, :already_approved}
+  def import_item(%InboxItem{status: :imported}), do: {:error, :already_imported}
 
-  def approve(%InboxItem{} = item) do
+  def import_item(%InboxItem{} = item) do
     item = Repo.preload(item, :location)
 
     # Facts about the files come first, then the draft, then placement. The
@@ -99,20 +99,20 @@ defmodule Ambry.Inbox.Approval do
     end
   end
 
-  # Approval is claimed under a row lock before anything is created or any
+  # Import is claimed under a row lock before anything is created or any
   # byte moves. The status check at the door reads the *caller's* copy of
-  # the item, so two concurrent approvals both walked through it — measured
+  # the item, so two concurrent imports both walked through it — measured
   # live: the loser's transaction rolled back AFTER its 834MB copy had
   # landed, and the orphan then refused the item forever with a message
-  # blaming a phantom second recording. Under the lock the second approval
+  # blaming a phantom second recording. Under the lock the second import
   # waits, sees the committed status, and refuses cleanly.
   defp claim(%InboxItem{id: id}) do
     import Ecto.Query, only: [from: 2]
 
     case Repo.one(from(i in InboxItem, where: i.id == ^id, lock: "FOR UPDATE")) do
       %InboxItem{status: :pending} = item -> {:ok, Repo.preload(item, :location)}
-      %InboxItem{} -> {:error, :already_approved}
-      nil -> {:error, :already_approved}
+      %InboxItem{} -> {:error, :already_imported}
+      nil -> {:error, :already_imported}
     end
   end
 
@@ -415,7 +415,7 @@ defmodule Ambry.Inbox.Approval do
 
   ## publishing
 
-  # An approved recording is finished, so it's published — unless the switch
+  # An imported recording is finished, so it's published — unless the switch
   # says the fleet can't play direct-play media yet, in which case it waits
   # in `pending` and is released when the switch is turned on.
   #
@@ -436,7 +436,7 @@ defmodule Ambry.Inbox.Approval do
 
   ## placement
 
-  # What approval should do with the bytes, decided by where the item came
+  # What import should do with the bytes, decided by where the item came
   # from. Only a downloads folder imports; an external collection is adopted
   # exactly where it lies (that is the entire promise of external custody).
   # Read off the draft rather than re-derived from the location: any input may
@@ -501,7 +501,7 @@ defmodule Ambry.Inbox.Approval do
 
   defp log_finalize({:error, reason}, item) do
     Logger.warning(fn ->
-      "Approved #{item.path} but couldn't remove the source: #{inspect(reason)}"
+      "Imported #{item.path} but couldn't remove the source: #{inspect(reason)}"
     end)
   end
 
@@ -515,7 +515,7 @@ defmodule Ambry.Inbox.Approval do
 
   # Re-probed rather than trusting what discovery recorded: it costs one
   # ffprobe and buys current track data, plus a file that vanished between
-  # discovery and approval failing the approval instead of creating a
+  # discovery and import failing the import instead of creating a
   # recording that points at nothing.
   defp probe(file) do
     case Scanner.probe_file(file, single_file: true) do
@@ -526,7 +526,7 @@ defmodule Ambry.Inbox.Approval do
 
   defp link(item, media) do
     item
-    |> InboxItem.changeset(%{status: :approved, media_id: media.id})
+    |> InboxItem.changeset(%{status: :imported, media_id: media.id})
     |> Repo.update()
   end
 end

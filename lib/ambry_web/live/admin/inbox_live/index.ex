@@ -16,7 +16,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library.Location
 
-  @statuses [:pending, :dismissed, :approved]
+  @statuses [:pending, :ignored, :imported]
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -50,10 +50,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     end
   end
 
-  def handle_event("dismiss", %{"id" => id}, socket) do
-    {:ok, _item} = id |> Inbox.get_item!() |> Inbox.dismiss_item()
+  def handle_event("ignore", %{"id" => id}, socket) do
+    {:ok, _item} = id |> Inbox.get_item!() |> Inbox.ignore_item()
 
-    {:noreply, socket |> put_flash(:info, "Dismissed. Files untouched.") |> reload()}
+    {:noreply, socket |> put_flash(:info, "Ignored. Files untouched.") |> reload()}
   end
 
   def handle_event("restore", %{"id" => id}, socket) do
@@ -62,10 +62,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     {:noreply, reload(socket)}
   end
 
-  def handle_event("approve", %{"id" => id}, socket) do
+  def handle_event("import", %{"id" => id}, socket) do
     id
     |> Inbox.get_item!()
-    |> Inbox.approve_item()
+    |> Inbox.import_item()
     |> case do
       {:ok, _media} ->
         {:noreply,
@@ -96,9 +96,9 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
         {:noreply, put_flash(socket, :info, message)}
 
-      # The button is gone from approved rows; this catches a stale tab.
-      {:error, :already_approved} ->
-        {:noreply, put_flash(socket, :error, Inbox.describe_error(:already_approved))}
+      # The button is gone from imported rows; this catches a stale tab.
+      {:error, :already_imported} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(:already_imported))}
     end
   end
 
@@ -215,7 +215,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     |> Map.new()
   end
 
-  defp parse_status(status) when status in ["pending", "dismissed", "approved"],
+  defp parse_status(status) when status in ["pending", "ignored", "imported"],
     do: String.to_existing_atom(status)
 
   # "all" is the explicit choice; the DEFAULT is pending — the inbox is a
@@ -240,8 +240,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   end
 
   defp segment_label(:pending), do: "Pending"
-  defp segment_label(:dismissed), do: "Dismissed"
-  defp segment_label(:approved), do: "Approved"
+  defp segment_label(:ignored), do: "Ignored"
+  defp segment_label(:imported), do: "Imported"
 
   # Pending work glows amber and settled-but-unimported glows lime — but only
   # while there IS any; a zero is just a zero.
@@ -276,24 +276,26 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   end
 
   defp status_color(:pending), do: :yellow
-  defp status_color(:approved), do: :brand
-  defp status_color(:dismissed), do: :gray
+  defp status_color(:imported), do: :brand
+  defp status_color(:ignored), do: :gray
 
   # The card's left edge carries the item's state — a 4px rail reads from
   # across the room and renders crisp at any DPI, unlike hairline borders.
   # Amber = needs the operator, lime = ready/done, dim = out of the queue.
   defp rail_class(%{status: :pending, ready: true}), do: "border-l-4 border-brand-dark"
   defp rail_class(%{status: :pending}), do: "border-l-4 border-amber-400"
-  defp rail_class(%{status: :approved}), do: "border-brand-dark/40 border-l-4"
+  defp rail_class(%{status: :imported}), do: "border-brand-dark/40 border-l-4"
   defp rail_class(_item), do: "border-l-4 border-zinc-700"
 
-  # Where an item came from is what decides its custody at approval — whether
+  # Where an item came from is what decides its custody at import — whether
   # the file gets brought into the library or referenced where it lies — so
   # it's worth reading off the row.
   defp location_label(%Location{name: name, kind: kind}), do: "#{name} · #{kind_word(kind)}"
   defp location_label(nil), do: "ad-hoc scan · adopted in place"
 
-  defp kind_word(:downloads), do: "imported"
+  # "imported" would now read as the item status; this is custody — what
+  # import will do with the bytes.
+  defp kind_word(:downloads), do: "brought in on import"
   defp kind_word(:external_collection), do: "adopted in place"
   defp kind_word(:library_root), do: "already in the library tree"
 

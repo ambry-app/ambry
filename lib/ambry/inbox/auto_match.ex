@@ -20,7 +20,7 @@ defmodule Ambry.Inbox.AutoMatch do
   record has been found there is no cast to ask about at all.
 
   Nothing is applied. This writes proposals onto the inbox item; the operator
-  approves, and approval is what creates records.
+  imports, and import is what creates records.
 
   ## Why the whole ranked list is kept
 
