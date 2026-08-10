@@ -78,6 +78,21 @@
           <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
           {@item.issue}
         </p>
+
+        <%!-- The grouping heuristic is folder-based and its known failure is
+            unrelated single-file books sharing a folder. Only the operator
+            can tell — this is how they say so. --%>
+        <div :if={length(@item.files) > 1 and !@read_only} class="pt-2 pl-3">
+          <button
+            type="button"
+            phx-click="split"
+            data-confirm={"Split into #{length(@item.files)} separate items? Each file becomes its own inbox item and is scanned fresh."}
+            data-role="split"
+            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          >
+            These are separate books — split into {length(@item.files)} items
+          </button>
+        </div>
       </section>
 
       <%!-- Once imported, the draft is the record of what was imported — the

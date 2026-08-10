@@ -906,6 +906,34 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "splitting a mis-grouped item" do
+    # The folder heuristic's known failure: two separate single-file books in
+    # one folder become one 2-file item. The correction has to be reachable
+    # from the form's default state.
+    test "the split button breaks the item into one per file", %{conn: conn} do
+      root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
+      release = Path.join(root, "Two Novellas")
+      File.mkdir_p!(release)
+      File.cp!(tagged_fixture(true, false, nil), Path.join(release, "one.m4b"))
+      File.cp!(tagged_fixture(true, false, nil), Path.join(release, "two.m4b"))
+
+      {:ok, _counts} = Inbox.discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Two Novellas")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      assert html =~ "split into 2 items"
+
+      view |> element("button[data-role='split']") |> render_click()
+      assert_redirect(view, ~p"/admin/inbox")
+
+      {items, _more} = Inbox.list_items(filter: "Two Novellas")
+      assert length(items) == 2
+      assert Enum.all?(items, &(length(&1.files) == 1))
+    end
+  end
+
   describe "destination" do
     test "says where the file is going before anything is committed", %{conn: conn} do
       item = probed_item() |> settle()

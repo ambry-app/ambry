@@ -168,7 +168,7 @@ defmodule Ambry.Inbox do
       results =
         root
         |> candidates()
-        |> Enum.map(&record_candidate(&1, known, imported, source))
+        |> Enum.flat_map(&List.wrap(record_candidate(&1, known, imported, source)))
 
       {:ok,
        %{
@@ -649,7 +649,8 @@ defmodule Ambry.Inbox do
 
   def describe_error(:multi_file_unsupported),
     do:
-      "Direct play handles single-file recordings for now — merge this one externally, or skip it."
+      "Direct play handles single-file recordings for now — merge this one externally if it's " <>
+        "one book, split it if it's several, or skip it."
 
   def describe_error(:no_published_date),
     do:
@@ -728,6 +729,55 @@ defmodule Ambry.Inbox do
   def restore_item(%InboxItem{} = item), do: update_item(item, %{status: :pending})
 
   def delete_item(%InboxItem{} = item), do: Repo.delete(item)
+
+  @doc """
+  Splits a multi-file item into one item per file.
+
+  The grouping heuristic is folder-based — a folder holding audio directly is
+  one release — and its known failure is two unrelated single-file books
+  sharing a folder. The operator is the one who can tell; this is how they
+  say so. Each file becomes its own item in the shape a loose file has always
+  had (`path` = the file), with a fresh probe (and the match that follows it)
+  queued, because the parent's probe, tags and matches described its first
+  file only.
+
+  A split survives rescans without any marker: discovery respects a finer
+  partition that already exists — see `record_candidate/4`.
+
+  Refused once imported (the item is the record of what was imported), and
+  meaningless below two files.
+  """
+  def split_item(%InboxItem{status: :imported}), do: {:error, :already_imported}
+  def split_item(%InboxItem{files: files}) when length(files) < 2, do: {:error, :not_multi_file}
+
+  def split_item(%InboxItem{} = item) do
+    Repo.transact(fn ->
+      with {:ok, _parent} <- Repo.delete(item),
+           {:ok, children} <- insert_children(item) do
+        # In the transaction on purpose: a job for a child that didn't get
+        # created must not exist either.
+        Enum.each(children, fn child -> {:ok, _job} = probe_item_async(child) end)
+        {:ok, children}
+      end
+    end)
+  end
+
+  defp insert_children(%InboxItem{} = item) do
+    item.files
+    |> Enum.reduce_while({:ok, []}, fn file, {:ok, acc} ->
+      %InboxItem{}
+      |> InboxItem.changeset(%{path: file, files: [file], source_id: item.source_id})
+      |> Repo.insert()
+      |> case do
+        {:ok, child} -> {:cont, {:ok, [child | acc]}}
+        {:error, changeset} -> {:halt, {:error, changeset}}
+      end
+    end)
+    |> case do
+      {:ok, children} -> {:ok, Enum.reverse(children)}
+      error -> error
+    end
+  end
 
   @doc """
   Runs discovery in the background.
@@ -847,6 +897,14 @@ defmodule Ambry.Inbox do
       item = Map.get(known, path) ->
         refresh_known(item, files, source)
 
+      # The operator split this folder: a finer partition already exists,
+      # keyed by file path. Respect it — re-recording the folder whole would
+      # re-merge what they just took apart, an hour later, silently. A file
+      # that has since appeared in the folder becomes its own item, which is
+      # the right default for a folder the operator declared "not one book".
+      Enum.any?(files, &Map.has_key?(known, &1)) ->
+        Enum.map(files, &record_candidate({&1, [&1]}, known, imported, source))
+
       true ->
         create_item(path, files, source)
     end
@@ -934,7 +992,7 @@ defmodule Ambry.Inbox do
 
   defp multi_file_issue(%InboxItem{files: files}) do
     "#{length(files)} audio files — direct play handles single-file recordings for now; " <>
-      "merge them externally or skip this one"
+      "merge them externally if this is one book, or split this item if they're separate books"
   end
 
   defp probe_map(probe) do

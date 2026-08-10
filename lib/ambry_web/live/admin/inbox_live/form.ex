@@ -273,6 +273,19 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      end)}
   end
 
+  def handle_event("split", _params, socket) do
+    case Inbox.split_item(socket.assigns.item) do
+      {:ok, children} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Split into #{length(children)} items — scanning each fresh now.")
+         |> push_navigate(to: ~p"/admin/inbox")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Couldn't split this item.")}
+    end
+  end
+
   def handle_event("add-credit", %{"section" => s}, socket) do
     {:noreply, edit(socket, &Draft.Edit.add_credit(&1, atom(s)))}
   end

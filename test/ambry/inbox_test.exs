@@ -400,6 +400,75 @@ defmodule Ambry.InboxTest do
     end
   end
 
+  # The grouping heuristic's known failure: two unrelated single-file books
+  # sharing a folder become one 2-file item, which multi-file support being
+  # deferred makes unimportable. Split is the operator's correction, and it
+  # has to survive the hourly rescan or it silently un-happens.
+  describe "split_item/1" do
+    test "splits a folder of separate books into one item per file" do
+      root = watched_root()
+      release = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
+      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      {[item], false} = Inbox.list_items()
+
+      assert {:ok, children} = Inbox.split_item(item)
+
+      assert Enum.sort(Enum.map(children, & &1.path)) ==
+               Enum.sort([Path.join(release, "one.m4b"), Path.join(release, "two.m4b")])
+
+      assert Enum.all?(children, &(&1.files == [&1.path]))
+      refute Repo.get(InboxItem, item.id)
+
+      # each child probes (and then matches) fresh — the parent's probe and
+      # tags described its first file only
+      for child <- children do
+        assert_enqueued(worker: Ambry.Inbox.RunProbe, args: %{inbox_item_id: child.id})
+      end
+    end
+
+    test "a rescan respects the split instead of re-merging the folder" do
+      root = watched_root()
+      release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
+      {:ok, _counts} = Inbox.discover(root)
+      {[item], false} = Inbox.list_items()
+      {:ok, _children} = Inbox.split_item(item)
+
+      assert {:ok, %{created: 0}} = Inbox.discover(root)
+
+      {items, false} = Inbox.list_items()
+      assert length(items) == 2
+      assert Enum.all?(items, &(length(&1.files) == 1))
+    end
+
+    test "a file that appears in a split folder becomes its own item" do
+      root = watched_root()
+      release = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
+      {:ok, _counts} = Inbox.discover(root)
+      {[item], false} = Inbox.list_items()
+      {:ok, _children} = Inbox.split_item(item)
+
+      copy_audio(release, "three.m4b")
+
+      assert {:ok, %{created: 1}} = Inbox.discover(root)
+
+      {items, false} = Inbox.list_items()
+      assert length(items) == 3
+      assert Enum.any?(items, &(&1.path == Path.join(release, "three.m4b")))
+    end
+
+    test "refuses an imported item and a single-file item" do
+      imported = raw_item(%{path: "/two", files: ["/a.m4b", "/b.m4b"], status: :imported})
+      assert {:error, :already_imported} = Inbox.split_item(imported)
+
+      single = raw_item(%{path: "/only.m4b", files: ["/only.m4b"]})
+      assert {:error, :not_multi_file} = Inbox.split_item(single)
+    end
+  end
+
+  defp raw_item(attrs) do
+    %InboxItem{} |> InboxItem.changeset(attrs) |> Repo.insert!()
+  end
+
   # Nothing in the inbox may modify what it finds, so every test works
   # against a real throwaway tree of real audio files.
   defp watched_root do
