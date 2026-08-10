@@ -183,15 +183,28 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       item = probed_item()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
-      before = length(Inbox.get_item!(item.id).draft.recording.narrators)
 
-      view
-      |> element(
-        "button[phx-click='remove-credit'][phx-value-section='recording'][phx-value-index='0']"
-      )
-      |> render_click()
+      html =
+        view
+        |> element(
+          "button[phx-click='remove-credit'][phx-value-section='recording'][phx-value-index='0']"
+        )
+        |> render_click()
 
-      assert length(Inbox.get_item!(item.id).draft.recording.narrators) == before - 1
+      # a tombstone, not a deletion: the row stays, out of the decision
+      # queue, rendered as a ghost the operator can take back
+      assert [%{removed: true} | _rest] = Inbox.get_item!(item.id).draft.recording.narrators
+      assert html =~ "data-role=\"removed-credit\""
+
+      html =
+        view
+        |> element(
+          "button[phx-click='restore-credit'][phx-value-section='recording'][phx-value-index='0']"
+        )
+        |> render_click()
+
+      assert [%{removed: false} | _rest] = Inbox.get_item!(item.id).draft.recording.narrators
+      refute html =~ "data-role=\"removed-credit\""
     end
   end
 

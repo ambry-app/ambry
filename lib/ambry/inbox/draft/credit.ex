@@ -64,6 +64,14 @@ defmodule Ambry.Inbox.Draft.Credit do
     # record was ticked.
     field :curated, :boolean, default: false
 
+    # Removal is a decision, so it's a tombstone, not a deletion. A deleted
+    # row left nothing curated behind, so `Seed.keep_curated/2` re-appended
+    # the same proposal on the very next reseed — and there was no way back
+    # for the operator who removed it on purpose. A removed credit stays out
+    # of resolution, approval and person references, and renders as a ghost
+    # with a restore.
+    field :removed, :boolean, default: false
+
     # candidate identities that matched the name, so the operator can choose
     # rather than retype
     embeds_many :candidates, __MODULE__.Match, on_replace: :delete
@@ -111,6 +119,7 @@ defmodule Ambry.Inbox.Draft.Credit do
       :source,
       :approved,
       :curated,
+      :removed,
       :person_keys
     ])
     |> validate_required([:kind])

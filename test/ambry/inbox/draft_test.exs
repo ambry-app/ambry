@@ -1277,6 +1277,85 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  # Removal used to be a bare List.delete_at — the one edit that didn't
+  # stick (keep_curated re-appended the fresh proposal on the next reseed)
+  # and the one with no way back. It is a tombstone now.
+  describe "removing a row is a decision" do
+    defp series_item do
+      candidates = [
+        provider_candidate(%{
+          "series" => [%{"name" => "The Expanse", "number" => "1"}]
+        })
+      ]
+
+      item = item(%{matches: matches(candidates), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      item
+    end
+
+    test "a removed series does not resurrect on reseed" do
+      item = series_item()
+      assert [%{name: "The Expanse"}] = item.draft.work.series
+
+      draft = Draft.Edit.remove_series(item.draft, 0)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+
+      assert [%{name: "The Expanse", removed: true}] = reseeded.work.series
+    end
+
+    test "a removed series stops blocking the import" do
+      item = series_item()
+
+      draft = Draft.Edit.remove_series(item.draft, 0)
+
+      refute Enum.any?(Draft.unresolved(draft), &(&1.label =~ "Series"))
+    end
+
+    test "restore brings the series back exactly as it was" do
+      item = series_item()
+
+      draft =
+        item.draft
+        |> Draft.Edit.remove_series(0)
+        |> Draft.Edit.restore_series(0)
+
+      assert [%{name: "The Expanse", number: "1", removed: false}] = draft.work.series
+    end
+
+    test "a removed credit drops its person and restore re-mints them" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert [%{name: "James S.A. Corey"}] = item.draft.work.authors
+      assert [_person] = item.draft.people
+
+      removed = Draft.Edit.remove_credit(item.draft, item, :work, 0)
+
+      # the person only this credit referenced is nobody's decision now —
+      # it used to linger and block the import invisibly
+      assert removed.people == []
+      refute Enum.any?(Draft.unresolved(removed), &(&1.label =~ "Person"))
+
+      restored = Draft.Edit.restore_credit(removed, item, :work, 0)
+
+      assert [%{name: "James S.A. Corey", removed: false}] = restored.work.authors
+      assert [_person] = restored.people
+    end
+
+    test "a removed credit never reaches approval params" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft = Draft.Edit.remove_credit(item.draft, item, :work, 0)
+
+      # approve-all must not quietly re-arm the tombstone
+      approved = Draft.Edit.approve_all(draft)
+      assert [%{removed: true}] = approved.work.authors
+    end
+  end
+
   # The reported flow: the operator reveals a pen name, renames the person
   # behind it (which marks them curated), and clicks "look again". The results
   # land in `matches` — and a reseed that skipped curated people wholesale

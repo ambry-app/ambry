@@ -656,6 +656,34 @@ defmodule AmbryWeb.Admin.Decisions do
   generalized fix for the pen-name bug where matching found a Person and
   linked its first identity.
   """
+  # Removed is a tombstone the operator can take back — a ghost row (dashed,
+  # like every escape hatch) holding the name and a restore, out of the
+  # decision queue. It renders instead of vanishing so removal is never a
+  # one-way door.
+  def credit_row(%{credit: %Credit{removed: true}} = assigns) do
+    ~H"""
+    <div
+      class="rounded-lg border border-dashed border-zinc-700 p-4"
+      data-role="removed-credit"
+    >
+      <div class="flex items-center justify-between gap-2 pl-3">
+        <p class="min-w-0 truncate text-sm text-zinc-500">
+          {@verb} <span class="line-through">{@credit.name}</span> — removed
+        </p>
+        <button
+          type="button"
+          phx-click="restore-credit"
+          phx-value-section={@section}
+          phx-value-index={@index}
+          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+        >
+          Restore
+        </button>
+      </div>
+    </div>
+    """
+  end
+
   def credit_row(assigns) do
     ~H"""
     <%!-- A decision block, so it wears the state rail like every other one —
@@ -1173,6 +1201,30 @@ defmodule AmbryWeb.Admin.Decisions do
   defaulted — a series proposal with no number stays outstanding, because
   inventing "book 1" writes confident nonsense into a curated field.
   """
+  # The same ghost as a removed credit: dashed, named, restorable.
+  def series_row(%{link: %SeriesLink{removed: true}} = assigns) do
+    ~H"""
+    <div
+      class="rounded-lg border border-dashed border-zinc-700 p-4"
+      data-role="removed-series"
+    >
+      <div class="flex items-center justify-between gap-2 pl-3">
+        <p class="min-w-0 truncate text-sm text-zinc-500">
+          In series <span class="line-through">{@link.name}</span> — removed
+        </p>
+        <button
+          type="button"
+          phx-click="restore-series"
+          phx-value-index={@index}
+          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+        >
+          Restore
+        </button>
+      </div>
+    </div>
+    """
+  end
+
   def series_row(assigns) do
     ~H"""
     <%!-- The same anatomy as every other decision block: railed header row

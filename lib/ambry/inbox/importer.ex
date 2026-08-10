@@ -153,7 +153,7 @@ defmodule Ambry.Inbox.Importer do
   defp resolve_book(%{mode: :link, book_id: book_id} = work, _people) do
     case Repo.get(Book, book_id) do
       nil -> {:error, :book_not_found}
-      book -> add_series(book, work.series)
+      book -> add_series(book, Enum.reject(work.series, & &1.removed))
     end
   end
 
@@ -192,8 +192,11 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
+  # Tombstoned rows are the operator saying "not this one" — they stay on the
+  # draft for their possible restore and must never reach the library.
   defp author_params(credits, people) do
     credits
+    |> Enum.reject(& &1.removed)
     |> Enum.map(fn credit ->
       {:ok, author} = resolve_identity(credit, people)
       %{author_id: author.id}
@@ -201,7 +204,9 @@ defmodule Ambry.Inbox.Importer do
   end
 
   defp series_params(links) do
-    Enum.map(links, fn link ->
+    links
+    |> Enum.reject(& &1.removed)
+    |> Enum.map(fn link ->
       {:ok, series} = resolve_series(link)
       %{series_id: series.id, book_number: SeriesLink.decimal(link)}
     end)
@@ -352,7 +357,9 @@ defmodule Ambry.Inbox.Importer do
   end
 
   defp narrator_params(credits, people) do
-    Enum.map(credits, fn credit ->
+    credits
+    |> Enum.reject(& &1.removed)
+    |> Enum.map(fn credit ->
       {:ok, narrator} = resolve_identity(credit, people)
       %{narrator_id: narrator.id}
     end)

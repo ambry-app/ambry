@@ -461,11 +461,30 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   @doc """
-  Drops a proposed credit entirely — the source suggested somebody this
-  recording isn't actually by.
+  Drops a proposed credit — the source suggested somebody this recording
+  isn't actually by.
+
+  A tombstone, not a deletion. Deleting the row left nothing curated behind,
+  so `Seed.keep_curated/2` re-appended the same proposal on the next reseed —
+  removal was the one edit that didn't stick — and it was also the one edit
+  with no way back. The reseed drops the people only this credit referenced,
+  which used to be skipped outright: the orphaned `PersonDecision` stayed in
+  `draft.people`, where `unresolved/1` counted it as a decision the operator
+  could neither see nor settle.
   """
-  def remove_credit(draft, section, index) do
-    update_credits(draft, section, &List.delete_at(&1, index))
+  def remove_credit(draft, %InboxItem{} = item, section, index) do
+    draft
+    |> update_credit(section, index, &%{&1 | removed: true, curated: true})
+    |> Seed.reseed_people(item)
+  end
+
+  @doc """
+  Brings back a removed credit, exactly as it was when it was removed.
+  """
+  def restore_credit(draft, %InboxItem{} = item, section, index) do
+    draft
+    |> update_credit(section, index, &%{&1 | removed: false})
+    |> Seed.reseed_people(item)
   end
 
   ## series
@@ -486,8 +505,14 @@ defmodule Ambry.Inbox.Draft.Edit do
     update_series(draft, index, &%{&1 | mode: :create, series_id: nil, curated: true})
   end
 
+  # The same tombstone as `remove_credit/4`; a series references no people,
+  # so there is nothing to reconcile.
   def remove_series(draft, index) do
-    update_in(draft.work.series, &List.delete_at(&1, index))
+    update_series(draft, index, &%{&1 | removed: true, curated: true})
+  end
+
+  def restore_series(draft, index) do
+    update_series(draft, index, &%{&1 | removed: false})
   end
 
   ## the identity decisions
@@ -570,6 +595,10 @@ defmodule Ambry.Inbox.Draft.Edit do
   defp settle_if_possible(%Field{required: false} = field), do: %{field | approved: true}
   defp settle_if_possible(field), do: field
 
+  # A removed row is already answered; approving everything must not quietly
+  # re-arm it.
+  defp settle_credit(%Credit{removed: true} = credit), do: credit
+
   defp settle_credit(%Credit{} = credit) do
     cond do
       Credit.resolved?(credit) -> credit
@@ -581,6 +610,7 @@ defmodule Ambry.Inbox.Draft.Edit do
 
   # A number nobody supplied stays a question — this is the one thing the
   # approve-everything button must not paper over.
+  defp settle_series(%SeriesLink{removed: true} = link), do: link
   defp settle_series(%SeriesLink{number: nil} = link), do: link
   defp settle_series(%SeriesLink{} = link), do: %{link | approved: true}
 

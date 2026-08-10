@@ -166,6 +166,7 @@ defmodule Ambry.Inbox.Draft do
   def appearances(%__MODULE__{} = draft) do
     for {kind, section, index, credit} <- credits(draft),
         credit.mode == :create,
+        not credit.removed,
         key <- credit.person_keys,
         reduce: %{} do
       acc ->
@@ -195,6 +196,9 @@ defmodule Ambry.Inbox.Draft do
   def referenced_keys(%__MODULE__{} = draft) do
     for {_kind, _section, _index, credit} <- credits(draft),
         credit.mode == :create,
+        # A removed credit holds its person_keys for its possible restore,
+        # but a person only a tombstone references is nobody's decision.
+        not credit.removed,
         key <- credit.person_keys,
         uniq: true,
         do: key
@@ -266,12 +270,15 @@ defmodule Ambry.Inbox.Draft do
 
   defp work_total(nil), do: 1
 
-  defp work_total(%Work{mode: :link} = work), do: 1 + length(work.series)
+  defp work_total(%Work{mode: :link} = work), do: 1 + live_count(work.series)
 
   defp work_total(%Work{} = work) do
-    1 + 3 + length(work.authors) + length(work.series)
+    1 + 3 + live_count(work.authors) + live_count(work.series)
   end
 
   defp recording_total(nil), do: 1
-  defp recording_total(%Recording{} = recording), do: 1 + 5 + length(recording.narrators)
+  defp recording_total(%Recording{} = recording), do: 1 + 5 + live_count(recording.narrators)
+
+  # Tombstoned rows are answered questions; they neither count nor resolve.
+  defp live_count(rows), do: Enum.count(rows, &(not &1.removed))
 end

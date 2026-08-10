@@ -34,6 +34,11 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
     # or pointed elsewhere. Survives re-derivation.
     field :curated, :boolean, default: false
 
+    # Same tombstone as `Credit.removed`: removal is a decision that has to
+    # survive reseeds (a bare delete resurrected the proposal) and be
+    # reversible.
+    field :removed, :boolean, default: false
+
     embeds_many :candidates, __MODULE__.Match, on_replace: :delete
   end
 
@@ -59,7 +64,7 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
   @doc false
   def changeset(series_link, attrs) do
     series_link
-    |> cast(attrs, [:name, :mode, :series_id, :number, :source, :approved, :curated])
+    |> cast(attrs, [:name, :mode, :series_id, :number, :source, :approved, :curated, :removed])
     |> cast_embed(:candidates)
     |> validate_number()
     |> validate_link()

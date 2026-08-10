@@ -401,7 +401,13 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def handle_event("remove-credit", %{"section" => s, "index" => i}, socket) do
-    {:noreply, edit(socket, &Draft.Edit.remove_credit(&1, atom(s), to_int(i)))}
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.remove_credit(&1, item, atom(s), to_int(i)))}
+  end
+
+  def handle_event("restore-credit", %{"section" => s, "index" => i}, socket) do
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.restore_credit(&1, item, atom(s), to_int(i)))}
   end
 
   def handle_event("set-series-number", %{"index" => i, "number" => number}, socket) do
@@ -431,6 +437,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def handle_event("remove-series", %{"index" => i}, socket) do
     {:noreply, edit(socket, &Draft.Edit.remove_series(&1, to_int(i)))}
+  end
+
+  def handle_event("restore-series", %{"index" => i}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.restore_series(&1, to_int(i)))}
   end
 
   def handle_event("approve-work", params, socket) do

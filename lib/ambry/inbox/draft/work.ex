@@ -177,6 +177,8 @@ defmodule Ambry.Inbox.Draft.Work do
 
   defp unresolved_in(items, resolved?, label) do
     items
+    # a tombstoned row is an answered question, not an outstanding one
+    |> Enum.reject(& &1.removed)
     |> Enum.reject(resolved?)
     |> Enum.map(&%{section: :work, label: "#{label}: #{&1.name}", state: state_of(&1)})
   end
