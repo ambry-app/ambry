@@ -23,6 +23,7 @@ import topbar from "topbar"
 
 import { ComboboxNavHook } from "./hooks/combobox-nav"
 import { DispatchValueChangeHook } from "./hooks/dispatch-value-change"
+import { FitOrStackHook } from "./hooks/fit-or-stack"
 import { HeaderScrollspyHook } from "./hooks/header-scrollspy"
 import { ImageSizeHook } from "./hooks/image-size"
 import { InfiniteScrollHook } from "./hooks/infinite-scroll"
@@ -46,6 +47,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "infinite-scroll": InfiniteScrollHook,
     "combobox-nav": ComboboxNavHook,
     "dispatch-value-change": DispatchValueChangeHook,
+    "fit-or-stack": FitOrStackHook,
     "image-size": ImageSizeHook,
     "scroll-match": ScrollMatchHook,
     "paste-image": PasteImageHook,

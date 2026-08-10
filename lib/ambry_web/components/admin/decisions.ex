@@ -15,7 +15,7 @@ defmodule AmbryWeb.Admin.Decisions do
   use Phoenix.Component
   use AmbryWeb, :verified_routes
 
-  import AmbryWeb.Admin.Components, only: [badge: 1, microlabel: 1]
+  import AmbryWeb.Admin.Components, only: [badge: 1, disclosure: 1, microlabel: 1]
   import AmbryWeb.CoreComponents
 
   alias Ambry.Inbox.Draft.Credit
@@ -164,9 +164,11 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def record_row(assigns) do
     ~H"""
+    <%!-- pl-3, not p-2.5: the checkbox sits on the container's text rail,
+        like the summary text and microlabels around these cards. --%>
     <label
       class={[
-        "flex cursor-pointer items-start gap-3 rounded-md p-2.5",
+        "flex cursor-pointer items-start gap-3 rounded-md py-2.5 pr-2.5 pl-3",
         @used && "bg-brand-dark/10 ring-brand-dark/50 ring-2 ring-inset",
         !@used && "bg-zinc-800/60 hover:bg-zinc-800"
       ]}
@@ -275,7 +277,8 @@ defmodule AmbryWeb.Admin.Decisions do
       <input type="hidden" name="key" value={@person_key} />
 
       <label class="text-xs text-zinc-400">
-        name <input type="text" name="name" value={@name} class={input_classes("mt-1 block")} />
+        <span class="block pl-3">name</span>
+        <input type="text" name="name" value={@name} class={input_classes("mt-1 block")} />
       </label>
 
       <button
@@ -309,8 +312,10 @@ defmodule AmbryWeb.Admin.Decisions do
     >
       <input type="hidden" name="level" value={@level} />
 
+      <%!-- The label text is railed; the input below it stays a box on the
+          box edge, so the pl-3 lives on a span, not the label. --%>
       <label class="text-xs text-zinc-400">
-        title
+        <span class="block pl-3">title</span>
         <input
           type="text"
           name="title"
@@ -320,7 +325,7 @@ defmodule AmbryWeb.Admin.Decisions do
       </label>
 
       <label class="text-xs text-zinc-400">
-        author
+        <span class="block pl-3">author</span>
         <input
           type="text"
           name="author"
@@ -330,7 +335,7 @@ defmodule AmbryWeb.Admin.Decisions do
       </label>
 
       <label :if={@level == "recording"} class="text-xs text-zinc-400">
-        narrator
+        <span class="block pl-3">narrator</span>
         <input
           type="text"
           name="narrator"
@@ -480,12 +485,16 @@ defmodule AmbryWeb.Admin.Decisions do
               look identical here and only one of them is worth importing.
               Routed through the admin proxy like every other import preview,
               or tracking protection blocks the provider CDN. --%>
-        <.image_with_size
-          :if={@preview && preview_src(@field.value, @embedded_src)}
-          id={"#{@section}-#{@name}"}
-          src={preview_src(@field.value, @embedded_src)}
-          class="h-24 w-24 flex-none rounded-sm object-cover"
-        />
+        <%!-- pl-3 wrapper: an image is content, not a container — it sits on
+            the text rail (design language §3). On the wrapper, so rows
+            without a preview keep their input on the box edge. --%>
+        <div :if={@preview && preview_src(@field.value, @embedded_src)} class="flex-none pl-3">
+          <.image_with_size
+            id={"#{@section}-#{@name}"}
+            src={preview_src(@field.value, @embedded_src)}
+            class="h-24 w-24 rounded-sm object-cover"
+          />
+        </div>
 
         <div class="min-w-0 flex-grow">
           <.inputs_for :let={decision} field={@form[@name]}>
@@ -541,7 +550,13 @@ defmodule AmbryWeb.Admin.Decisions do
       >
         <.microlabel class="pt-1.5">Proposed</.microlabel>
 
-        <div class="flex flex-wrap items-center gap-1.5">
+        <%!-- One line or a list, never a partial wrap — the hook measures
+            whether every chip fits and commits to exactly one of the two. --%>
+        <div
+          id={"#{@section}-#{@name}-chips"}
+          phx-hook="fit-or-stack"
+          class="flex flex-wrap items-center gap-1.5"
+        >
           <.proposal_chip
             :for={candidate <- @field.candidates}
             chosen={Field.chose?(@field, candidate)}
@@ -640,15 +655,16 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def credit_row(assigns) do
     ~H"""
-    <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
-      <div class="flex items-center justify-between gap-2">
+    <%!-- A decision block, so it wears the state rail like every other one —
+        the rail is the ONLY settledness encoding (design language §2); the
+        check icon it used to grow shifted the title sideways on approval. --%>
+    <div class={[
+      "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+      (Credit.resolved?(@credit) && "border-brand-dark/60") || "border-amber-400/70"
+    ]}>
+      <div class="flex items-center justify-between gap-2 pl-3">
         <div class="flex min-w-0 items-center gap-2">
-          <.icon
-            :if={Credit.resolved?(@credit)}
-            name="fa-circle-check"
-            class="text-brand-dark h-4 w-4 flex-none"
-          />
-          <.label class="text-xs">{@verb}</.label>
+          <.label>{@verb}</.label>
 
           <.badge
             :if={!Credit.resolved?(@credit)}
@@ -749,13 +765,13 @@ defmodule AmbryWeb.Admin.Decisions do
         phx-click="toggle-people"
         phx-value-section={@section}
         phx-value-index={@index}
-        class="text-xs text-zinc-400 underline"
+        class="pl-3 text-xs text-zinc-400 underline"
       >
         {@reveal}
       </button>
 
       <div :if={@credit.mode == :create and @expanded} class="space-y-3">
-        <.label class="text-xs">{@backing}</.label>
+        <.label class="pl-3 text-xs">{@backing}</.label>
 
         <div
           :for={{person, person_index} <- Enum.with_index(@persons)}
@@ -814,12 +830,12 @@ defmodule AmbryWeb.Admin.Decisions do
           phx-click="add-person"
           phx-value-section={@section}
           phx-value-index={@index}
-          class="text-xs text-zinc-400 underline"
+          class="pl-3 text-xs text-zinc-400 underline"
         >
           Add another person
         </button>
 
-        <p :if={length(@persons) > 1} class="text-xs text-zinc-400">
+        <p :if={length(@persons) > 1} class="pl-3 text-xs text-zinc-400">
           A shared pen name — {@credit.name} will be one author credited to {length(@persons)} people.
         </p>
       </div>
@@ -899,7 +915,9 @@ defmodule AmbryWeb.Admin.Decisions do
 
     ~H"""
     <div :if={@person.mode == :create} class="space-y-2" data-role="person-face">
-      <div class="flex items-center gap-2">
+      <%!-- pl-3: an image is content, not a container — it sits on the text
+          rail like the words around it (design language §3). --%>
+      <div class="flex items-center gap-2 pl-3">
         <.image_with_size
           :if={@image}
           id={"person-#{@at}-photo"}
@@ -934,7 +952,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <%!-- Nothing found is a normal outcome, not a failure — plenty of
             narrators are in no database at all — but it should say so rather
             than looking like an empty grid nobody filled in. --%>
-      <p :if={@person.doubt == :low_confidence} class="text-xs text-zinc-400">
+      <p :if={@person.doubt == :low_confidence} class="pl-3 text-xs text-zinc-400">
         {@person.doubt_detail}
       </p>
 
@@ -943,7 +961,7 @@ defmodule AmbryWeb.Admin.Decisions do
             the photo and bio pools draw from the ticked set. The exact-name
             gate decides the initial ticks; a differently-spelled record of
             the right person is exactly what the checkbox is for. --%>
-      <p :if={@records != []} class="text-xs text-zinc-400">
+      <p :if={@records != []} class="max-w-prose pl-3 text-xs text-zinc-400">
         Tick every record of <span class="font-semibold">this person</span> — the photos and bios on offer come from the
         ticked ones. Databases know several people by many names, so check before ticking.
       </p>
@@ -958,10 +976,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
       <.provider_outcomes_row outcomes={@outcomes} retryable={false} />
 
-      <details>
-        <summary class="cursor-pointer text-xs text-zinc-400">
-          Not the right person? Search again
-        </summary>
+      <.disclosure summary="Not the right person? Search again">
         <div class="pt-2">
           <.person_research_form
             at={@at}
@@ -970,7 +985,7 @@ defmodule AmbryWeb.Admin.Decisions do
             running={@searching}
           />
         </div>
-      </details>
+      </.disclosure>
 
       <div :if={@photos != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
         <.microlabel class="pt-1">Photos</.microlabel>
@@ -1049,7 +1064,11 @@ defmodule AmbryWeb.Admin.Decisions do
         <div :if={@bios != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
           <.microlabel class="pt-1.5">Proposed</.microlabel>
 
-          <div class="flex flex-wrap items-center gap-1.5">
+          <div
+            id={"person-bio-#{@at}-chips"}
+            phx-hook="fit-or-stack"
+            class="flex flex-wrap items-center gap-1.5"
+          >
             <.proposal_chip
               :for={bio <- @bios}
               chosen={Field.chose?(@person.description, bio)}
@@ -1153,71 +1172,84 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def series_row(assigns) do
     ~H"""
+    <%!-- The same anatomy as every other decision block: railed header row
+        with the state on the block's left rail (no extra check icon — the
+        rail is the only settledness encoding, §2), controls below with
+        their labels above them. --%>
     <div class={[
-      "flex flex-wrap items-center gap-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+      "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
       (SeriesLink.resolved?(@link) && "border-brand-dark/60") || "border-amber-400/70"
     ]}>
-      <.icon
-        :if={SeriesLink.resolved?(@link)}
-        name="fa-circle-check"
-        class="text-brand-dark h-4 w-4 flex-none"
-      />
+      <div class="flex items-center justify-between gap-2 pl-3">
+        <div class="flex min-w-0 items-center gap-2">
+          <.label>In series</.label>
 
-      <.badge
-        :if={!SeriesLink.resolved?(@link)}
-        color={elem(state_words(SeriesLink.state(@link)), 1)}
-        class="text-xs"
-      >
-        {elem(state_words(SeriesLink.state(@link)), 0)}
-      </.badge>
+          <.badge
+            :if={!SeriesLink.resolved?(@link)}
+            color={elem(state_words(SeriesLink.state(@link)), 1)}
+            class="text-xs"
+          >
+            {elem(state_words(SeriesLink.state(@link)), 0)}
+          </.badge>
+        </div>
 
-      <form id={"series-#{@index}-number"} phx-change="set-series-number" class="flex items-center gap-1">
-        <input type="hidden" name="index" value={@index} />
-        <label class="text-xs text-zinc-400">Book no.</label>
-        <input
-          type="text"
-          name="number"
-          value={@link.number}
-          placeholder="?"
-          class={input_classes("w-16")}
-        />
-      </form>
+        <div class="flex flex-none items-center gap-2">
+          <button
+            :if={!@link.approved and @link.number}
+            type="button"
+            phx-click="approve-series"
+            phx-value-index={@index}
+            phx-value-approved="true"
+            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          >
+            Confirm
+          </button>
 
-      <form
-        id={"series-#{@index}-link"}
-        phx-change="link-series"
-        class="min-w-48 flex flex-grow items-center gap-2"
-      >
-        <input type="hidden" name="index" value={@index} />
-        <%!-- A provider's spelling of a series name is a proposal, not a
+          <button
+            type="button"
+            phx-click="remove-series"
+            phx-value-index={@index}
+            title="Not in this series"
+          >
+            <.icon name="fa-xmark" class="h-4 w-4 cursor-pointer hover:text-red-600" />
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-end gap-x-3 gap-y-2">
+        <form
+          id={"series-#{@index}-link"}
+          phx-change="link-series"
+          class="min-w-48 max-w-md flex-grow"
+        >
+          <input type="hidden" name="index" value={@index} />
+          <%!-- A provider's spelling of a series name is a proposal, not a
               decree. "The Expanse" vs "Expanse" is the operator's call. --%>
-        <.live_component
-          module={EntityResolver}
-          id={"series-#{@index}-resolver"}
-          name="series_id"
-          text_name="name"
-          options={@options}
-          value={if @link.mode == :link, do: @link.series_id}
-          text={@link.name || ""}
-          placeholder="series name"
-          class={input_classes("w-full")}
-        />
-      </form>
+          <.live_component
+            module={EntityResolver}
+            id={"series-#{@index}-resolver"}
+            name="series_id"
+            text_name="name"
+            options={@options}
+            value={if @link.mode == :link, do: @link.series_id}
+            text={@link.name || ""}
+            placeholder="series name"
+            class={input_classes("w-full")}
+          />
+        </form>
 
-      <button
-        :if={!@link.approved and @link.number}
-        type="button"
-        phx-click="approve-series"
-        phx-value-index={@index}
-        phx-value-approved="true"
-        class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
-      >
-        Confirm
-      </button>
-
-      <button type="button" phx-click="remove-series" phx-value-index={@index} title="Not in this series">
-        <.icon name="fa-xmark" class="h-4 w-4 cursor-pointer hover:text-red-600" />
-      </button>
+        <form id={"series-#{@index}-number"} phx-change="set-series-number" class="space-y-1">
+          <input type="hidden" name="index" value={@index} />
+          <label class="block pl-3 text-xs text-zinc-400">Book no.</label>
+          <input
+            type="text"
+            name="number"
+            value={@link.number}
+            placeholder="?"
+            class={input_classes("w-16")}
+          />
+        </form>
+      </div>
     </div>
     """
   end

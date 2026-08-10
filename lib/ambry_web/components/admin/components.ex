@@ -494,6 +494,45 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  @doc """
+  A fold, drawn to the geometry rules: the summary text on the text rail,
+  the chevron hanging in the 12px gutter to its left
+  (docs/admin-design-language.md §3).
+
+  Browsers place the native summary marker where they like — Firefox renders
+  it `inside`, which pushes the summary text off the rail by the marker's own
+  width — so the native marker is hidden and the chevron drawn by hand.
+  """
+  attr :summary, :string, required: true
+  attr :class, :string, default: nil, doc: "summary text classes — replaces the size and color"
+  attr :container_class, :string, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  def disclosure(assigns) do
+    ~H"""
+    <details class={["group", @container_class]} {@rest}>
+      <summary class={[
+        "relative cursor-pointer list-none pl-3 :[&:-webkit-details-marker]:hidden",
+        @class || "text-xs text-zinc-400"
+      ]}>
+        <%!-- Two icons swapped on open, not one rotated: rotating the CSS-mask
+            span rasterizes a grey sliver of the box edge past the mask. --%>
+        <.icon
+          name="fa-chevron-right"
+          class="absolute top-1/2 left-0 h-2.5 w-2.5 -translate-y-1/2 group-open:hidden"
+        />
+        <.icon
+          name="fa-chevron-down"
+          class="absolute top-1/2 left-0 hidden h-2.5 w-2.5 -translate-y-1/2 group-open:inline-block"
+        />
+        {@summary}
+      </summary>
+      {render_slot(@inner_block)}
+    </details>
+    """
+  end
+
   defp badge_color(:yellow), do: "bg-amber-400/15 text-amber-300"
   defp badge_color(:blue), do: "bg-blue-400/15 text-blue-300"
   defp badge_color(:red), do: "bg-red-400/15 text-red-300"
