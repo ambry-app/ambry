@@ -62,6 +62,10 @@ defmodule AmbryWeb.Admin.Layouts do
           <.icon name="fa-book-journal-whills" class="h-5 w-5 text-current" />
           <p>Series</p>
         </.link>
+        <.link navigate={~p"/admin/groups"} class={nav_class(@active_path =~ "/admin/groups")}>
+          <.icon name="fa-layer-group" class="h-5 w-5 text-current" />
+          <p>Groups</p>
+        </.link>
         <.link navigate={~p"/admin/universes"} class={nav_class(@active_path =~ "/admin/universes")}>
           <.icon name="fa-globe" class="h-5 w-5 text-current" />
           <p>Universes</p>

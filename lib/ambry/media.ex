@@ -596,7 +596,7 @@ defmodule Ambry.Media do
     groups =
       RecordingGroup
       |> recording_group_filter(filters)
-      |> order_by(^order)
+      |> recording_group_order(order)
       |> offset(^offset)
       |> limit(^over_limit)
       |> preload(media: :book)
@@ -612,6 +612,12 @@ defmodule Ambry.Media do
   end
 
   defp recording_group_filter(query, _filters), do: query
+
+  # accepts the pagination helpers' `{field, dir}` shape as well as plain
+  # keyword orders, like the flat schemas' order/2 does
+  defp recording_group_order(query, {field, dir}), do: order_by(query, [{^dir, ^field}])
+  defp recording_group_order(query, nil), do: order_by(query, asc: :name)
+  defp recording_group_order(query, order), do: order_by(query, ^order)
 
   @doc """
   Returns the number of recording groups.
