@@ -52,36 +52,45 @@ defmodule AmbryWeb.Components.EntityResolver do
         value={@text}
         phx-hook="dispatch-value-change"
       />
-      <div class="flex">
-        <span
-          :if={@text_name}
-          class="flex w-24 flex-none items-center justify-end rounded-l-sm border border-r-0 border-zinc-600 bg-zinc-900 px-3 text-sm font-semibold text-zinc-400"
-        >
-          {if @value, do: "Existing", else: "Create"}
-        </span>
-        <input
-          type="text"
-          id={"#{@id}-input"}
-          name={"resolver[#{@id}]"}
-          value={display_value(assigns)}
-          placeholder={@placeholder}
-          role="combobox"
-          aria-expanded={to_string(@open)}
-          aria-controls={"#{@id}-list"}
-          aria-autocomplete="list"
-          autocomplete="off"
-          phx-change="filter"
-          phx-focus="open"
-          phx-target={@myself}
-          phx-debounce="150"
-          class={[@class, @text_name && "rounded-l-none border-l-0"]}
-        />
-      </div>
+      <input
+        type="text"
+        id={"#{@id}-input"}
+        name={"resolver[#{@id}]"}
+        value={display_value(assigns)}
+        placeholder={@placeholder}
+        role="combobox"
+        aria-expanded={to_string(@open)}
+        aria-controls={"#{@id}-list"}
+        aria-autocomplete="list"
+        autocomplete="off"
+        phx-change="filter"
+        phx-focus="open"
+        phx-target={@myself}
+        phx-debounce="150"
+        class={[@class, @text_name && "pr-20"]}
+      />
+      <%!-- The mode is a status, not a control — you can't click it into the
+          other mode, picking or typing puts you there — so it wears the
+          status costume: a soft-tint badge at the input's right edge, not
+          the outlined prefix segment it used to be. Absent while the field
+          is empty, because there is no outcome to name yet. --%>
+      <span
+        :if={@text_name && @value}
+        class="bg-brand-dark/15 pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-sm px-1.5 text-xs text-lime-300"
+      >
+        existing
+      </span>
+      <span
+        :if={@text_name && !@value && present?(@equery)}
+        class="bg-white/10 pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-sm px-1.5 text-xs text-zinc-300"
+      >
+        new
+      </span>
       <ul
         :if={@open}
         id={"#{@id}-list"}
         role="listbox"
-        class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-sm border border-zinc-600 bg-zinc-800 text-sm shadow-lg"
+        class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-sm bg-zinc-800 text-sm shadow-lg"
       >
         <li
           :for={{label, id} <- @matches}
@@ -101,13 +110,13 @@ defmodule AmbryWeb.Components.EntityResolver do
           role="option"
           phx-click="create"
           phx-target={@myself}
-          class="cursor-pointer border-t border-zinc-700 px-3 py-2 italic data-[active]:bg-zinc-700 hover:bg-zinc-700"
+          class="cursor-pointer border-t border-zinc-700 px-3 py-2 font-medium text-zinc-200 data-[active]:bg-zinc-700 hover:bg-zinc-700"
         >
           Create “{@equery}”
         </li>
         <li
           :if={@matches == [] and not (@text_name && present?(@equery))}
-          class="px-3 py-2 italic text-zinc-500"
+          class="px-3 py-2 text-zinc-500"
         >
           No matches
         </li>
