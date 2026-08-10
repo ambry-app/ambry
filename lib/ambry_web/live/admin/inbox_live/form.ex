@@ -255,6 +255,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     section = atom(section)
     index = to_int(i)
     id = to_int(params["identity_id"])
+    item = socket.assigns.item
 
     {:noreply,
      edit(socket, fn draft ->
@@ -264,8 +265,35 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
          draft
          |> Draft.Edit.create_credit(section, index)
          |> Draft.Edit.rename_credit(section, index, params["name"] || "")
+         # A person named for the first time (an added row's first real name
+         # mints their key) needs their decision minted before approval can
+         # resolve it.
+         |> Draft.Edit.sync_people(item)
        end
      end)}
+  end
+
+  def handle_event("add-credit", %{"section" => s}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.add_credit(&1, atom(s)))}
+  end
+
+  def handle_event("add-series", _params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.add_series(&1))}
+  end
+
+  def handle_event("reset-credit-name", %{"section" => s, "index" => i}, socket) do
+    item = socket.assigns.item
+
+    {:noreply,
+     edit(socket, fn draft ->
+       draft
+       |> Draft.Edit.reset_credit_name(atom(s), to_int(i))
+       |> Draft.Edit.sync_people(item)
+     end)}
+  end
+
+  def handle_event("reset-series-name", %{"index" => i}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.reset_series_name(&1, to_int(i)))}
   end
 
   # Whether the person layer is unfolded is view state, not a decision — it

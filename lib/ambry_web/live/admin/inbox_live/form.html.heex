@@ -383,6 +383,15 @@
             searching_person={@searching_person}
             photos_expanded={@photos_expanded}
           />
+
+          <button
+            type="button"
+            phx-click="add-credit"
+            phx-value-section="work"
+            class="pl-3 text-xs text-zinc-400 underline"
+          >
+            Add an author
+          </button>
         </div>
 
         <%!-- each series is its own decision, number included --%>
@@ -409,6 +418,10 @@
             index={index}
             options={@series}
           />
+
+          <button type="button" phx-click="add-series" class="pl-3 text-xs text-zinc-400 underline">
+            Add a series
+          </button>
         </div>
       </section>
 
@@ -599,6 +612,15 @@
             searching_person={@searching_person}
             photos_expanded={@photos_expanded}
           />
+
+          <button
+            type="button"
+            phx-click="add-credit"
+            phx-value-section="recording"
+            class="pl-3 text-xs text-zinc-400 underline"
+          >
+            Add a narrator
+          </button>
         </div>
       </section>
 

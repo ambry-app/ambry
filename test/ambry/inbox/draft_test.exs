@@ -1356,6 +1356,93 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  # Proposals must always be recoverable: the scalar fields keep theirs as
+  # candidates, but a credit's or series' name was a plain string — cleared
+  # once, the provider's spelling was gone with nothing on screen holding it.
+  describe "the evidence's spelling stays reachable" do
+    test "a renamed series can be reset to what the records proposed" do
+      item = series_item()
+
+      draft =
+        item.draft
+        |> Draft.Edit.rename_series(0, "The Expans")
+        |> Draft.Edit.reset_series_name(0)
+
+      assert [%{name: "The Expanse", curated: true}] = draft.work.series
+    end
+
+    test "a renamed credit can be reset, and its tracking person follows" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.rename_credit(:work, 0, "")
+        |> Draft.Edit.reset_credit_name(:work, 0)
+
+      assert [%{name: "James S.A. Corey", proposed_name: "James S.A. Corey"}] =
+               draft.work.authors
+
+      assert [person] = draft.people
+      assert Field.value(person.name) == "James S.A. Corey"
+    end
+
+    test "a manually edited scalar keeps collecting fresh candidates" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # type over the title — the field is the operator's now
+      edited = update_in(item.draft.work.title, &Field.edit(&1, "My Own Title")).draft
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(edited))
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+
+      # the value is pinned, but the evidence still flows: the proposal
+      # remains on offer as a chip instead of being frozen out forever
+      assert Field.value(reseeded.work.title) == "My Own Title"
+      assert Enum.any?(reseeded.work.title.candidates, &(&1.value == "Leviathan Wakes"))
+    end
+  end
+
+  describe "rows the sources didn't propose" do
+    test "an added author mints its person once it is named" do
+      item = item(%{matches: matches([]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.work.authors == []
+
+      draft = Draft.Edit.add_credit(item.draft, :work)
+
+      assert [%{name: "", curated: true, approved: false, person_keys: []}] =
+               draft.work.authors
+
+      draft =
+        draft
+        |> Draft.Edit.rename_credit(:work, 0, "Martha Wells")
+        |> Draft.Edit.sync_people(item)
+
+      assert [%{name: "Martha Wells", person_keys: [key]}] = draft.work.authors
+      assert [%{key: ^key} = person] = draft.people
+      assert Field.value(person.name) == "Martha Wells"
+    end
+
+    test "an added series survives reseeds like any curated row" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.add_series()
+        |> Draft.Edit.rename_series(0, "The Murderbot Diaries")
+        |> Draft.Edit.set_series_number(0, "1")
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      reseeded = Draft.Edit.resettle(item.draft, item)
+
+      assert Enum.any?(reseeded.work.series, &(&1.name == "The Murderbot Diaries"))
+    end
+  end
+
   # The reported flow: the operator reveals a pen name, renames the person
   # behind it (which marks them curated), and clicks "look again". The results
   # land in `matches` — and a reseed that skipped curated people wholesale

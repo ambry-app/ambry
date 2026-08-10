@@ -50,6 +50,12 @@ defmodule Ambry.Inbox.Draft.Credit do
     field :name, :string
     field :kind, Ecto.Enum, values: [:author, :narrator]
 
+    # What the evidence called them, frozen at seed time — the way back after
+    # a rename or an accidental clear. The scalar fields keep their proposals
+    # as candidates; a credit's name had no equivalent, so a cleared box lost
+    # the provider's spelling with nothing on screen holding it.
+    field :proposed_name, :string
+
     field :mode, Ecto.Enum, values: [:link, :create], default: :create
     # when linking: the Author or Narrator id, never a Person id
     field :identity_id, :id
@@ -113,6 +119,7 @@ defmodule Ambry.Inbox.Draft.Credit do
     credit
     |> cast(attrs, [
       :name,
+      :proposed_name,
       :kind,
       :mode,
       :identity_id,

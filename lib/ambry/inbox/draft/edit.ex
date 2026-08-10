@@ -258,10 +258,25 @@ defmodule Ambry.Inbox.Draft.Edit do
       # Clearing the box un-confirms: a credit cannot stay settled with
       # nothing to create. Any other rename keeps the confirmation, so fixing
       # a typo doesn't cost a second click.
-      %{credit | name: name, curated: true, approved: credit.approved and not blank?(name)}
+      %{
+        credit
+        | name: name,
+          curated: true,
+          approved: credit.approved and not blank?(name),
+          # An added row starts with nobody behind it; the first real name
+          # mints its person. Once minted, keys are stored, never re-derived
+          # — later renames follow via `follow_credit_name/3`.
+          person_keys: mint_keys(credit, name)
+      }
     end)
     |> follow_credit_name(was, name)
   end
+
+  defp mint_keys(%Credit{mode: :create, person_keys: []}, name) do
+    if blank?(name), do: [], else: Credit.new_person_default(name)
+  end
+
+  defp mint_keys(credit, _name), do: credit.person_keys
 
   # A person still called what the credit called them is still tracking it, so
   # they follow the rename. One the operator has already named is theirs and
@@ -273,12 +288,18 @@ defmodule Ambry.Inbox.Draft.Edit do
   defp follow_credit_name(draft, %Credit{} = was, name) do
     Enum.reduce(was.person_keys, draft, fn key, draft ->
       update_person(draft, key, fn person ->
-        if person.mode == :create and Field.value(person.name) == was.name,
+        if person.mode == :create and tracking?(Field.value(person.name), was.name),
           do: %{person | name: Field.edit(person.name, name)},
           else: person
       end)
     end)
   end
+
+  # A cleared box is a blank in both places — nil in the person's field, ""
+  # in the credit — and a bare == between them broke tracking exactly at the
+  # clear-to-retype moment, leaving the person nameless while the credit got
+  # its new name.
+  defp tracking?(person_name, credit_name), do: presence(person_name) == presence(credit_name)
 
   defp blank?(nil), do: true
   defp blank?(name) when is_binary(name), do: String.trim(name) == ""
@@ -292,6 +313,30 @@ defmodule Ambry.Inbox.Draft.Edit do
       index,
       &%{&1 | name: name, curated: true, approved: &1.approved and not blank?(name)}
     )
+  end
+
+  @doc """
+  Puts the evidence's spelling back in a renamed credit.
+
+  The way back the scalar fields have always had through their chips — a
+  cleared or mistyped name is recoverable by click, not by remembering what
+  the provider said.
+  """
+  def reset_credit_name(draft, section, index) do
+    case Enum.at(credits_in(draft, section), index) do
+      %Credit{proposed_name: name} when is_binary(name) -> rename_credit(draft, section, index, name)
+      _no_proposal -> draft
+    end
+  end
+
+  @doc """
+  Puts the evidence's spelling back in a renamed series.
+  """
+  def reset_series_name(draft, index) do
+    case Enum.at(draft.work.series, index) do
+      %SeriesLink{proposed_name: name} when is_binary(name) -> rename_series(draft, index, name)
+      _no_proposal -> draft
+    end
   end
 
   @doc """
@@ -486,6 +531,43 @@ defmodule Ambry.Inbox.Draft.Edit do
     |> update_credit(section, index, &%{&1 | removed: false})
     |> Seed.reseed_people(item)
   end
+
+  @doc """
+  Adds a credit the sources didn't propose.
+
+  The row starts blank and unconfirmed — the operator is about to type the
+  name — and curated from birth, so no reseed sweeps it away. Its person is
+  minted by the first real name (see `rename_credit/4`).
+  """
+  def add_credit(draft, section) do
+    credit = %Credit{
+      kind: kind_of(section),
+      name: "",
+      source: "manual",
+      mode: :create,
+      curated: true
+    }
+
+    update_credits(draft, section, &(&1 ++ [credit]))
+  end
+
+  defp kind_of(:work), do: :author
+  defp kind_of(:recording), do: :narrator
+
+  @doc """
+  Adds a series membership the sources didn't propose.
+  """
+  def add_series(draft) do
+    link = %SeriesLink{name: "", source: "manual", mode: :create, curated: true}
+    update_in(draft.work.series, &(&1 ++ [link]))
+  end
+
+  @doc """
+  Brings the draft's people into line with the credits, for callers outside
+  this module — the form calls it after name edits, because a person named
+  for the first time needs their decision minted before approval can read it.
+  """
+  def sync_people(draft, %InboxItem{} = item), do: Seed.reseed_people(draft, item)
 
   ## series
 

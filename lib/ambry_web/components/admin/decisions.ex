@@ -768,6 +768,32 @@ defmodule AmbryWeb.Admin.Decisions do
         </span>
       </form>
 
+      <%!-- The way back after a rename or a clear — the same chip the scalar
+            fields have always had. Only speaks while the box disagrees with
+            the evidence; a linked identity has the library's own name. --%>
+      <div
+        :if={
+          @credit.mode == :create && @credit.proposed_name &&
+            @credit.proposed_name != @credit.name
+        }
+        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+      >
+        <.microlabel>Proposed</.microlabel>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <.proposal_chip
+            chosen={false}
+            event="reset-credit-name"
+            values={%{section: @section, index: @index}}
+            title="go back to what the records proposed"
+          >
+            <span class="text-[10px] flex-none uppercase tracking-wide text-zinc-500">
+              {source_words(@credit.source)}
+            </span>
+            {@credit.proposed_name}
+          </.proposal_chip>
+        </div>
+      </div>
+
       <%!-- The photo and bio belong to the credit itself while there is one
             implied person behind it, which is nearly always. Putting them
             inside the pen-name fold hid them behind a control nobody would
@@ -1304,6 +1330,28 @@ defmodule AmbryWeb.Admin.Decisions do
             class={input_classes("w-16")}
           />
         </form>
+      </div>
+
+      <%!-- Same restore chip as a credit's name: the evidence's spelling
+            stays reachable after a rename or a clear. --%>
+      <div
+        :if={@link.mode == :create && @link.proposed_name && @link.proposed_name != @link.name}
+        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+      >
+        <.microlabel>Proposed</.microlabel>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <.proposal_chip
+            chosen={false}
+            event="reset-series-name"
+            values={%{index: @index}}
+            title="go back to what the records proposed"
+          >
+            <span class="text-[10px] flex-none uppercase tracking-wide text-zinc-500">
+              {source_words(@link.source)}
+            </span>
+            {@link.proposed_name}
+          </.proposal_chip>
+        </div>
       </div>
     </div>
     """

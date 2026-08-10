@@ -23,6 +23,11 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
 
   embedded_schema do
     field :name, :string
+
+    # What the evidence called it, frozen at seed time — the way back after a
+    # rename or an accidental clear (same as `Credit.proposed_name`).
+    field :proposed_name, :string
+
     field :mode, Ecto.Enum, values: [:link, :create], default: :create
     field :series_id, :id
 
@@ -64,7 +69,17 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
   @doc false
   def changeset(series_link, attrs) do
     series_link
-    |> cast(attrs, [:name, :mode, :series_id, :number, :source, :approved, :curated, :removed])
+    |> cast(attrs, [
+      :name,
+      :proposed_name,
+      :mode,
+      :series_id,
+      :number,
+      :source,
+      :approved,
+      :curated,
+      :removed
+    ])
     |> cast_embed(:candidates)
     |> validate_number()
     |> validate_link()
