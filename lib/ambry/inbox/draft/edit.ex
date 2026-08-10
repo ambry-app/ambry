@@ -134,7 +134,14 @@ defmodule Ambry.Inbox.Draft.Edit do
   def uncatalogued(draft, %InboxItem{} = item) do
     draft
     |> update_in([Access.key(:recording)], fn recording ->
-      %{recording | sources: [], approved: true, evidence_curated: true, doubt: :none, doubt_detail: nil}
+      %{
+        recording
+        | sources: [],
+          approved: true,
+          evidence_curated: true,
+          doubt: :none,
+          doubt_detail: nil
+      }
     end)
     |> reseed(item, :recording)
   end
@@ -324,8 +331,11 @@ defmodule Ambry.Inbox.Draft.Edit do
   """
   def reset_credit_name(draft, section, index) do
     case Enum.at(credits_in(draft, section), index) do
-      %Credit{proposed_name: name} when is_binary(name) -> rename_credit(draft, section, index, name)
-      _no_proposal -> draft
+      %Credit{proposed_name: name} when is_binary(name) ->
+        rename_credit(draft, section, index, name)
+
+      _no_proposal ->
+        draft
     end
   end
 

@@ -1331,7 +1331,14 @@ defmodule Ambry.Inbox.Draft.Seed do
     matches = identity_matches(name, kind)
     people = person_matches(name)
 
-    base = %Credit{name: name, proposed_name: name, kind: kind, source: source, candidates: matches}
+    base = %Credit{
+      name: name,
+      proposed_name: name,
+      kind: kind,
+      source: source,
+      candidates: matches
+    }
+
     # Who is behind the credit is a reference now, not an embed — the human
     # themselves is decided once, in `draft.people`.
     keys = Credit.new_person_default(name)

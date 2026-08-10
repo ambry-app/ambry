@@ -158,8 +158,7 @@ defmodule Ambry.Inbox.Draft.Recording do
   defp credits(narrators) do
     narrators
     # a tombstoned row is an answered question, not an outstanding one
-    |> Enum.reject(& &1.removed)
-    |> Enum.reject(&Credit.resolved?/1)
+    |> Enum.reject(&(&1.removed or Credit.resolved?(&1)))
     |> Enum.map(&%{section: :recording, label: "Narrator: #{&1.name}", state: Credit.state(&1)})
   end
 end

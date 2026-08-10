@@ -16,6 +16,12 @@ import Config
 # at the `config/runtime.exs`.
 config :ambry, Ambry.Mailer, adapter: Swoosh.Adapters.Local
 
+# Postgres JIT prices a query by its *estimated* cost, and the flat views'
+# correlated subqueries estimate high enough to trip it — universes_flat spent
+# ~285ms compiling 43 JIT functions to return zero rows. Short OLTP queries
+# never win that trade.
+config :ambry, Ambry.Repo, parameters: [jit: "off"]
+
 # Configures the endpoint
 config :ambry, AmbryWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
@@ -59,12 +65,6 @@ config :ambry,
   ecto_repos: [Ambry.Repo],
   generators: [timestamp_type: :utc_datetime],
   user_registration_enabled: true
-
-# Postgres JIT prices a query by its *estimated* cost, and the flat views'
-# correlated subqueries estimate high enough to trip it — universes_flat spent
-# ~285ms compiling 43 JIT functions to return zero rows. Short OLTP queries
-# never win that trade.
-config :ambry, Ambry.Repo, parameters: [jit: "off"]
 
 # Configure esbuild (the version is required)
 config :esbuild,

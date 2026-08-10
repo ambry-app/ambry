@@ -435,5 +435,4 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   def candidate_origin(%{"provider_name" => name}) when is_binary(name), do: name
   def candidate_origin(%{"source" => "provider:" <> id}), do: id
   def candidate_origin(_candidate), do: nil
-
 end

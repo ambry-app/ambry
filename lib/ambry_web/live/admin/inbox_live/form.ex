@@ -291,7 +291,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def handle_event("add-series", _params, socket) do
-    {:noreply, edit(socket, &Draft.Edit.add_series(&1))}
+    {:noreply, edit(socket, &Draft.Edit.add_series/1)}
   end
 
   def handle_event("reset-credit-name", %{"section" => s, "index" => i}, socket) do
@@ -887,5 +887,4 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def settleable(unresolved) do
     Enum.count(unresolved, &(&1.state != :missing))
   end
-
 end
