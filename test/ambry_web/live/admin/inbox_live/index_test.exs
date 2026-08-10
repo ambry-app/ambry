@@ -92,6 +92,17 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     )
   end
 
+  # The page links used to be built from the shared filter+page helpers,
+  # which drop status and ready — so paging through "Imported" silently
+  # landed back on the default pending view.
+  test "the page links keep the status filter", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=ignored&page=2")
+
+    assert view
+           |> element("a[href*='status=ignored'][href*='page=1']")
+           |> has_element?()
+  end
+
   # An imported item's draft is the record of what was imported; re-matching
   # would rebuild it. The row keeps Open-by-title for looking, loses the
   # actions that write.

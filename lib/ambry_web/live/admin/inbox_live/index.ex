@@ -149,8 +149,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       list_opts: list_opts,
       has_next: has_more?,
       has_prev: list_opts.page > 1,
-      next_page_path: ~p"/admin/inbox?#{patch_opts(next_opts(list_opts))}",
-      prev_page_path: ~p"/admin/inbox?#{patch_opts(prev_opts(list_opts))}"
+      # Built from the full query, not the shared filter+page helpers —
+      # those drop status and ready, so paging out of "Imported" silently
+      # landed back on the default view.
+      next_page_path:
+        ~p"/admin/inbox?#{page_query(list_opts, status, ready, list_opts.page + 1)}",
+      prev_page_path:
+        ~p"/admin/inbox?#{page_query(list_opts, status, ready, max(list_opts.page - 1, 1))}"
     )
     |> assign(:statuses, @statuses)
     |> schedule_tick()
@@ -210,6 +215,19 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       "status" => Keyword.get(overrides, :status, to_string(socket.assigns.status || "all")),
       "ready" =>
         Keyword.get(overrides, :ready, socket.assigns.ready && to_string(socket.assigns.ready))
+    }
+    |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+    |> Map.new()
+  end
+
+  # The same shape from locals rather than assigns — load_items runs before
+  # its assigns exist, so `patch/2` can't be used for the page links.
+  defp page_query(list_opts, status, ready, page) do
+    %{
+      "filter" => list_opts.filter,
+      "page" => to_string(page),
+      "status" => to_string(status || "all"),
+      "ready" => ready && to_string(ready)
     }
     |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
     |> Map.new()
