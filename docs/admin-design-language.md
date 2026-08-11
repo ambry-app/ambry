@@ -41,6 +41,11 @@ Rules that fall out of this:
   it is ≥2px: a `ring-2 ring-inset` for selection, a `border-l-4` rail for
   state, a `border-l-2` indent guide. Dashed 1px borders are allowed only on
   ghost escape hatches, where looking faint is the point.
+- **Dashed means "drop here" or "not chosen" — never "here is a fact".**
+  Dropzones and ghost hatches wear dashes; a read-only file list is a plain
+  card (`<.file_list>`: mono, muted, the common directory printed once).
+  The media form's source list used to wear the dropzone costume, which
+  promised a drop it couldn't take.
 - **Section headings carry no underline.** `text-xl font-bold text-zinc-100`
   plus the 56px section gap is the divider.
 - **Inputs are filled, not outlined**: `bg-zinc-800`, transparent border,
@@ -72,12 +77,17 @@ x-positions: the **box edge** (cards, inputs, record rows, buttons) and the
 inputs — where every bare-text element sits (labels, hints, helper prose,
 microlabels, eyebrows).
 
-**The rail belongs to a container, so ground level has none.** A block on
-the ground (`zinc-950`) — a section heading, a line of helper prose — sits
-on the page's own edge; there is no box whose padding it is matching, and a
-`pl-3` there is a *third* x-position 12px right of every heading around it.
-If a fact wants the rail, what it actually wants is a card. (An uncarded
-"This release is …" line on the import form is what taught this.)
+**The rail belongs to a container, so ground level has none — with one
+deliberate exception.** A block on the ground (`zinc-950`) — a section
+heading, a line of helper prose — sits on the page's own edge; there is no
+box whose padding it is matching, and a `pl-3` there is a *third*
+x-position 12px right of every heading around it. If a fact wants the
+rail, what it actually wants is a card. (An uncarded "This release is …"
+line on the import form is what taught this.) The exception: **a label or
+hint that names the container directly below it** wears `pl-3` so its text
+aligns with the railed text *inside* that container — the list clusters'
+ground labels, the import form's "Authors" run label. It borrows the
+container's rail; standalone ground prose still gets none.
 
 **Text lands on the rail exactly, wherever it lives.** A control's own text
 counts: a borderless pill pads `px-3`; a 1px-bordered box pads `px-[11px]`
@@ -159,6 +169,28 @@ wrote it", "where the files live"). Its label names the cluster and sits on
 the text rail; fields that speak for themselves need no label, because the
 block and the gap around it are already the grouping.
 
+**A list the operator is building has exactly one grammar, on every form:
+label above the container, rows inside it, add below it** — `<.list_cluster>`,
+which is the import form's shape. What varies between forms is only what
+the container holds: one card of single-input rows on an edit form, a run
+of per-decision cards on the import form (whose credits can't nest inside
+a block without eating the elevation ladder). It used to be two grammars —
+the legacy forms kept the label and the add *inside* their block — so the
+same content type wore a different anatomy depending on the form, which
+§6's "same costume for the same job" exists to prevent. Never bless a
+divergence by documenting both halves as intentional; that is how this one
+survived two audits.
+
+**Every form saves from the same place: the sticky footer slab**
+(`<.form_footer>` — shadowed `zinc-900`, `-bottom-4`, with `-mb-4` on the
+page wrapper per §3's sticky rule). A bare Save floating on the ground
+after the last card was the legacy forms' tell, at its worst on the
+47-row chapters form.
+
+**One form measure: `max-w-4xl`.** The import form always had it; the
+legacy forms sat at `3xl` and the two settings-ish pages centered
+themselves, three layouts for one kind of page.
+
 `<.form_section>` wraps a run of blocks under a ground-level `<h2>` — only
 for a form long enough that you need to find your way around it (the media
 form has two; the book form needs none).
@@ -192,7 +224,10 @@ slant. Digits that stack use `tabular-nums`. Body text is `zinc-300` on
 
 Semantic only — color states a fact, never decorates. Lime = chosen /
 settled / primary. Amber = needs attention. Red = blocker, with an icon,
-normal weight. Blue = location/info. Everything else zinc.
+normal weight. Blue = location/info. Everything else zinc. A file size is
+not a location and a missing description is not a blocker — when a fact
+has no semantic color, it's a gray chip or a muted glyph, not a borrowed
+bright one.
 
 Fills for meaning are **soft tints with colored text** (`bg-amber-400/15
 text-amber-300`), never solid bright chips. The one solid lime is the
@@ -232,12 +267,24 @@ as recessed, so Confirm looked exactly like a tag. Actions are an opaque
 fill one rung up from what they sit on; tags and counts stay flat, muted and
 smaller, with no hover.
 
-**The add follows its list.** Where the list lives in one block, the add
-lives in it too, on the text rail with the labels — a small pill that isn't
-a field is content, not a container, and sits where an image would (§3).
-Where each row is its own decision card (the import form), there is no block
-to be inside, so the label sits above the run and the add below it. Same
-costumes either way; what differs is whether the list has a card of its own.
+**The add follows its list — below the container, on the ground** (§3b's
+one grammar). The `<.add_button>` box sits on the container edge like every
+other control, and its `px-3` lands the label on the text rail; nudging
+the *box* onto the rail put its text at a third x-position nothing else
+shares, which read as misalignment on every form it touched.
+
+**Removing a row is ✕; destroying a thing is a trash can.** A list row's
+remove (`<.delete_button>`) is undoable until save, so it wears the import
+form's ✕. The trash can is reserved for actions that destroy something
+real — the file audit's deletes, an index row's delete — with red revealed
+on hover (§6 danger).
+
+**Documented exception — icon-only actions on dense index rows.** The
+quiet-row-action costume is worded, but an index row carrying five verbs
+(media: chapters, edit, replace, search, delete) would drown its content
+in words; pencils and trash cans on index rows stay icon-only with
+`title` text. Queue cards (the inbox) have room and stakes, and stay
+worded.
 
 ## 7. Controls
 
@@ -257,4 +304,35 @@ costumes either way; what differs is whether the list has a card of its own.
 Labels name what the operator decides, not what the system stores. Hints
 teach in one sentence, lowercase-calm, no exclamation. Alerts say what's
 wrong and what to do, with an icon carrying the severity so the words don't
-have to.
+have to. Headings are sentence case — "Orphaned media files", never
+"Orphaned Media Files"; Title Case is for titles of works.
+
+## 9. Curation is the import form, everywhere
+
+The edit forms run the import form's model on records that already exist —
+one mechanism for "ask the databases", not a modal per provider:
+
+- **The evidence panel** (`<.evidence_panel>`) sits above the form —
+  evidence first, then the decisions it feeds. One search fans out to
+  every capable provider (`Ambry.Metadata.Search`); results are the same
+  tickable `record_row`s and `Asked` outcome chips the inbox uses. It
+  starts as just the search, seeded with the record's own facts: an edit
+  form is mostly visited for reasons that aren't curation, so the
+  databases are asked when asked.
+- **Ticked records grow "Proposed" chip rows** under the fields they can
+  fill (`<.curated_input>` / `<.proposal_row>`), in the import form's chip
+  anatomy exactly. Accepting a scalar chip takes the value; accepting an
+  entity chip (author, narrator, series) resolves or creates the entity
+  and adds its row. Evidence is session state — added, never replaced
+  while the page lives, gone when it's left.
+- **Provenance is worn inline** on each field's header
+  (`<.provenance_flag>`): "from hardcover" muted for the recorded source,
+  "will record rreading-glasses" amber for an accepted-but-unsaved one,
+  with the lock beside it — the import form's "from …" idiom pointed at
+  `Ambry.Provenance`. Accepting records the provider unlocked; editing the
+  value afterwards makes it a manual edit again, locked.
+
+What stays different from the inbox is only what the context demands: no
+state rails (nothing here is *waiting* — the record is real and every
+field already holds a value) and no stored draft. If a new difference
+wants in, it argues from the context's lifetime, not from convenience.

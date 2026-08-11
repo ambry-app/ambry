@@ -234,7 +234,8 @@ defmodule AmbryWeb.CoreComponents do
   def simple_form(assigns) do
     ~H"""
     <.form :let={f} for={@for} as={@as} {@rest}>
-      <div class={["space-y-6", @container_class]}>
+      <%!-- 28px between blocks — the 8·28·56 rhythm (§3). --%>
+      <div class={["space-y-7", @container_class]}>
         {render_slot(@inner_block, f)}
         <div :for={action <- @actions} class="mt-2 flex items-center justify-between gap-6">
           {render_slot(action, f)}
@@ -500,7 +501,8 @@ defmodule AmbryWeb.CoreComponents do
         value={Form.normalize_value(@type, @value)}
         class={
           ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
-            [@type == "date" && "supports-[-moz-appearance:none]:px-[9px]"] ++ input_color_classes(@errors) ++ [@class]
+            [@type == "date" && "supports-[-moz-appearance:none]:px-[9px]"] ++
+            [@type == "date" && !width_classed?(@class) && "max-w-48"] ++ input_color_classes(@errors) ++ [@class]
         }
         {@rest}
       />
@@ -508,6 +510,15 @@ defmodule AmbryWeb.CoreComponents do
     </div>
     """
   end
+
+  # §7: inputs are sized to their content, and a date's content has one
+  # size — so the component owns the default (`max-w-48`) instead of hoping
+  # every call site remembers. A call site that passes any width class of
+  # its own wins untouched.
+  defp width_classed?(nil), do: false
+  defp width_classed?(class) when is_binary(class), do: class =~ ~r/(^|\s)(max-)?w-/
+  defp width_classed?(class) when is_list(class), do: Enum.any?(class, &width_classed?/1)
+  defp width_classed?(_other), do: false
 
   @doc """
   For if you want to have more control over where form field errors are rendered.

@@ -280,6 +280,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :fields, :map, required: true
   attr :running, :boolean, default: false
 
+  attr :label, :string,
+    default: "Search again",
+    doc: ~s(the edit forms' fresh panel says "Search" — nothing was searched yet)
+
   @doc """
   An editable version of the search that produced these records.
 
@@ -333,7 +337,7 @@ defmodule AmbryWeb.Admin.Decisions do
         disabled={@running}
         class={action_classes()}
       >
-        {if @running, do: "Searching…", else: "Search again"}
+        {if @running, do: "Searching…", else: @label}
       </button>
     </form>
     """

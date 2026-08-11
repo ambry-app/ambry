@@ -43,8 +43,10 @@
       </div>
       <div class="hidden w-32 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
         <div class="flex gap-4">
+          <%!-- Amber, not red: a missing description wants attention, it
+              doesn't block anything (§5) — and never a solid bright fill. --%>
           <span :if={!person.has_description} title="Missing description" data-role="person-missing-description">
-            <.icon name="fa-paragraph" class="h-4 w-4 text-red-600" />
+            <.icon name="fa-paragraph" class="h-4 w-4 text-amber-300" />
           </span>
           <span :if={person.authored_books > 0} title="# of authored books" data-role="person-authored-count">
             {person.authored_books} <.icon name="fa-book" class="h-4 w-4 text-current" />

@@ -1,59 +1,70 @@
 <.layout title={@page_title} user={@current_user}>
-  <.modal :if={@import} id="import-modal" show on_cancel={close_modal(@media)}>
-    <.live_component
-      id="import-form"
-      module={ProviderImportForm}
-      provider={@import.provider}
-      query={@import.query}
-      media={@media}
-    />
-  </.modal>
-
   <.modal :if={@select_files} id="select-files-modal" show on_cancel={close_modal(@media)}>
     <.live_component id="file-browser" module={FileBrowser} root_path={Application.get_env(:ambry, :source_path)} />
   </.modal>
 
-  <div class="max-w-3xl">
+  <div class="-mb-4 max-w-4xl space-y-7">
+    <%!-- Evidence first, then the decisions it feeds — the import form's
+        order. Its search is a form of its own, so it lives outside the
+        media form element. --%>
+    <.evidence_panel
+      evidence={@evidence}
+      level="recording"
+      title="Records describing this recording"
+      hint="Tick every record of this reading — the narrator is what tells two recordings of one book apart. Ticked records grow chips under the fields below."
+      retrying={@retrying}
+    />
+
     <.simple_form id="media-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <.form_section title="The recording" id="recording">
         <.field_group>
-          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-            <.input field={@form[:book_id]} label="Book" type="autocomplete" options={@books} />
+          <.input
+            field={@form[:book_id]}
+            label="Book"
+            type="autocomplete"
+            options={@books}
+            container_class="max-w-xl"
+          />
 
-            <div class="row-start-1 space-y-2 sm:col-start-2">
-              <.label>Import from</.label>
-              <div class="flex flex-wrap items-center gap-2">
-                <.button
-                  :for={provider <- @recording_providers}
-                  color={:zinc}
-                  class="flex items-center gap-1"
-                  type="button"
-                  phx-click={open_import_form(@media, provider.id)}
-                >
-                  {provider.display_name}
-                </.button>
-              </div>
-            </div>
-          </div>
-
-          <.input field={@form[:title]} label="Title override" placeholder="defaults to the book's title" />
+          <.input
+            field={@form[:title]}
+            label="Title override"
+            placeholder="defaults to the book's title"
+            class="max-w-xl"
+          />
         </.field_group>
 
         <.field_group>
           <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
-            <.input field={@form[:published]} type="date" label="Audio publication date" />
+            <.curated_input
+              field={@form[:published]}
+              type="date"
+              label="Audio publication date"
+              record={@media}
+              hints={@provenance_hints}
+              proposals={@chips[:published] || []}
+            />
             <div>
-              <.input
+              <.curated_input
                 field={@form[:published_format]}
                 type="select"
                 label="Date display format"
+                class="max-w-56"
                 options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+                record={@media}
+                hints={@provenance_hints}
               />
-              <span class="text-sm text-zinc-400">
+              <span class="pl-3 text-sm text-zinc-400">
                 {preview_date_format(@form)}
               </span>
             </div>
-            <.input field={@form[:publisher]} label="Publisher" />
+            <.curated_input
+              field={@form[:publisher]}
+              label="Publisher"
+              record={@media}
+              hints={@provenance_hints}
+              proposals={@chips[:publisher] || []}
+            />
           </div>
 
           <div class="flex gap-4">
@@ -63,11 +74,14 @@
         </.field_group>
 
         <.field_group>
+          <div class="flex items-baseline gap-2 pl-3">
+            <.label for={@form[:description].id}>Description</.label>
+            <.provenance_flag record={@media} field={:description} hints={@provenance_hints} />
+          </div>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <.input
               id="description-input"
               field={@form[:description]}
-              label="Description"
               type="textarea"
               phx-hook="maintain-attrs"
               data-attrs="style"
@@ -77,15 +91,20 @@
                 id="description-preview"
                 phx-hook="scroll-match"
                 data-target="description-input"
-                class="bg-zinc-800/50 absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm sm:block"
+                class="bg-zinc-800/50 absolute inset-0 hidden overflow-auto rounded-sm sm:block"
               >
                 <.markdown content={@form[:description].value || ""} class="p-2" />
               </div>
             </div>
           </div>
+          <.proposal_row
+            id="proposals-description"
+            field="description"
+            proposals={@chips[:description] || []}
+          />
         </.field_group>
 
-        <.field_group label="Narrated by">
+        <.list_cluster label="Narrated by">
           <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
             <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
             <.position_input field={media_narrator_form[:position]} index={media_narrator_form.index} />
@@ -112,11 +131,20 @@
             </div>
           </.inputs_for>
 
+          <:proposals>
+            <.proposal_row
+              id="proposals-narrators"
+              field="narrators"
+              event="accept-entity"
+              proposals={@chips[:narrators] || []}
+            />
+          </:proposals>
+
           <:add>
             <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
             <.delete_input field={@form[:media_narrators_drop]} />
           </:add>
-        </.field_group>
+        </.list_cluster>
 
         <%!-- the mirror of the book form's series rows, singular: a recording
           is in at most one group, and a group belongs to this book — the
@@ -173,6 +201,7 @@
                 />
               <% end %>
             </div>
+            <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
           </.field_group>
         <% else %>
           <.field_group>
@@ -198,6 +227,8 @@
               field={@form[:image_import_url]}
               image_preview_class="h-48 w-48 rounded-sm"
             />
+
+            <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
           </.field_group>
         <% end %>
 
@@ -217,13 +248,12 @@
           question from what the recording IS, and the one place on this form
           where saving does work rather than recording a fact. --%>
       <.form_section title="Audio and processing" id="audio">
-        <.field_group :if={@live_action == :edit} label="Audio file(s)">
-          <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
-            <p :for={file <- @media.source_files} class="text-sm">
-              {Path.basename(file)}
-            </p>
-          </div>
-        </.field_group>
+        <%!-- A fact display, not a dropzone — the dashed costume this list
+            used to wear promised "drop files here" and couldn't deliver. --%>
+        <div :if={@live_action == :edit} class="space-y-2">
+          <.label class="pl-3">Audio file(s)</.label>
+          <.file_list files={@media.source_files} class="max-h-64 overflow-x-auto" />
+        </div>
 
         <.field_group :if={@live_action == :new}>
           <%= if @local_import_path do %>
@@ -280,65 +310,43 @@
         </.field_group>
 
         <.field_group :if={@file_stats}>
-          <div class="flex items-center gap-2 pl-3">
-            <.label>Streaming files</.label>
-            <button
-              type="button"
-              class="flex grow items-center text-lime-400 hover:underline"
-              phx-click={JS.toggle(to: ".files-list-toggle")}
-            >
-              <span class="files-list-toggle">show</span>
-              <span class="files-list-toggle hidden">hide</span>
-              <.icon name="fa-chevron-down" class="files-list-toggle ml-1 h-4 w-4 text-current" />
-              <.icon name="fa-chevron-up" class="files-list-toggle ml-1 hidden h-4 w-4 text-current" />
-            </button>
-          </div>
-
-          <div class="files-list-toggle mt-2 hidden rounded-lg bg-zinc-900 p-4 shadow-xl">
-            <div class="space-y-2 divide-y divide-zinc-800">
+          <%!-- The one fold costume (§3): summary on the rail, chevron
+              hanging in the gutter — not a lime "show" link, which wore the
+              semantic accent for a purely structural action. --%>
+          <.disclosure summary="Streaming files" class="pl-3 text-sm font-semibold text-zinc-200">
+            <div class="bg-zinc-800/60 mt-2 space-y-2 rounded-md p-3">
               <.file_stat_row label="mp4" file={@file_stats.mp4_file} />
               <.file_stat_row label="mpd" file={@file_stats.mpd_file} />
               <.file_stat_row label="hls" file={@file_stats.hls_master} />
               <.file_stat_row label="hls_0" file={@file_stats.hls_playlist} />
 
-              <%= case @file_stats.source_files do %>
-                <% error when is_atom(error) -> %>
-                  <.file_stat_row
-                    class="source-list-toggle hidden"
-                    label="source"
-                    file={%{path: @media.source_path, stat: error}}
-                    error_type={:warn}
-                  />
-                <% source_files when is_list(source_files) -> %>
-                  <.file_stat_row
-                    :if={source_files == []}
-                    class="source-list-toggle hidden"
-                    label="source"
-                    file={%{path: @media.source_path, stat: :empty}}
-                    error_type={:warn}
-                  />
-                  <.file_stat_row
-                    :for={source_file <- source_files}
-                    class="source-list-toggle hidden"
-                    label="source"
-                    file={source_file}
-                    error_type={:warn}
-                  />
-              <% end %>
-              <div>
-                <button
-                  type="button"
-                  class="flex items-center pt-2 text-lime-400 hover:underline"
-                  phx-click={JS.toggle(to: ".source-list-toggle")}
-                >
-                  <span class="source-list-toggle">show source files</span>
-                  <span class="source-list-toggle hidden">hide source files</span>
-                  <.icon name="fa-chevron-down" class="source-list-toggle ml-1 h-4 w-4 text-current" />
-                  <.icon name="fa-chevron-up" class="source-list-toggle ml-1 hidden h-4 w-4 text-current" />
-                </button>
-              </div>
+              <.disclosure summary="Source files" container_class="pt-1">
+                <div class="space-y-2 pt-2">
+                  <%= case @file_stats.source_files do %>
+                    <% error when is_atom(error) -> %>
+                      <.file_stat_row
+                        label="source"
+                        file={%{path: @media.source_path, stat: error}}
+                        error_type={:warn}
+                      />
+                    <% source_files when is_list(source_files) -> %>
+                      <.file_stat_row
+                        :if={source_files == []}
+                        label="source"
+                        file={%{path: @media.source_path, stat: :empty}}
+                        error_type={:warn}
+                      />
+                      <.file_stat_row
+                        :for={source_file <- source_files}
+                        label="source"
+                        file={source_file}
+                        error_type={:warn}
+                      />
+                  <% end %>
+                </div>
+              </.disclosure>
             </div>
-          </div>
+          </.disclosure>
         </.field_group>
 
         <.file_input
@@ -390,15 +398,9 @@
         </.field_group>
       </.form_section>
 
-      <.provenance_panel
-        record={@media}
-        changeset={@form.source}
-        pending_sources={ProvenanceHints.sources(@provenance_hints)}
-      />
-
-      <:actions>
+      <.form_footer>
         <.button>Save</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>

@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
   def render(assigns) do
     ~H"""
     <.layout title={@page_title} user={@current_user}>
-      <div class="mx-auto max-w-3xl space-y-8">
+      <div class="max-w-4xl space-y-8">
         <section>
           <h2 class="mb-1 text-lg font-bold">Direct play</h2>
           <p class="mb-4 text-sm text-zinc-400">

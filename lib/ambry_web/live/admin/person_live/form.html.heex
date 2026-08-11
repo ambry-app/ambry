@@ -1,50 +1,37 @@
 <.layout title={@page_title} user={@current_user}>
-  <.modal :if={@import} id="import-modal" show on_cancel={close_import_form(@person)}>
-    <.live_component
-      id="import-form"
-      module={ImportForm}
-      provider={@import.provider}
-      query={@import.query}
-      person={@person}
+  <div class="-mb-4 max-w-4xl space-y-7">
+    <%!-- Evidence first, then the decisions it feeds — the import form's
+        order. Its search is a form of its own, so it lives outside the
+        person form element. --%>
+    <.evidence_panel
+      evidence={@evidence}
+      level="person"
+      title="Records of this person"
+      hint="Tick every record of this person — databases know several people by many names, so check before ticking. Ticked records offer the name, photos and bios below."
+      retrying={@retrying}
     />
-  </.modal>
 
-  <.modal :if={@image_picker} id="image-picker-modal" show on_cancel={JS.push("close-image-picker")}>
-    <.live_component
-      id="image-picker"
-      module={PersonPicker}
-      query={picker_query(@form, @person)}
-    />
-  </.modal>
-
-  <div class="max-w-3xl">
     <.simple_form id="person-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <.field_group>
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-          <.input field={@form[:name]} label="Name" />
-
-          <div :if={@providers != []} class="row-start-1 space-y-2 sm:col-start-2">
-            <.label class="pl-3">Import from</.label>
-            <div class="flex items-center gap-2">
-              <.button
-                :for={provider <- @providers}
-                color={:zinc}
-                type="button"
-                phx-click={open_import_form(@person, provider.id)}
-              >
-                {provider.display_name}
-              </.button>
-            </div>
-          </div>
-        </div>
+        <.curated_input
+          field={@form[:name]}
+          label="Name"
+          class="max-w-md"
+          record={@person}
+          hints={@provenance_hints}
+          proposals={@chips[:name] || []}
+        />
       </.field_group>
 
       <.field_group>
+        <div class="flex items-baseline gap-2 pl-3">
+          <.label for={@form[:description].id}>Description</.label>
+          <.provenance_flag record={@person} field={:description} hints={@provenance_hints} />
+        </div>
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <.input
             id="description-input"
             field={@form[:description]}
-            label="Description"
             type="textarea"
             phx-hook="maintain-attrs"
             data-attrs="style"
@@ -54,19 +41,24 @@
               id="description-preview"
               phx-hook="scroll-match"
               data-target="description-input"
-              class="bg-zinc-800/50 absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm sm:block"
+              class="bg-zinc-800/50 absolute inset-0 hidden overflow-auto rounded-sm sm:block"
             >
               <.markdown content={@form[:description].value || ""} class="p-2" />
             </div>
           </div>
         </div>
+        <.proposal_row
+          id="proposals-description"
+          field="description"
+          proposals={@chips[:description] || []}
+        />
       </.field_group>
 
       <%!-- One human, two working names — the credits they appear under are
           a different question from who they are, so they get their own
-          blocks side by side. --%>
+          clusters side by side. --%>
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-7">
-        <.field_group label="Writing as">
+        <.list_cluster label="Writing as">
           <.inputs_for :let={author_person_form} field={@form[:author_people]}>
             <.sort_input field={@form[:author_people_sort]} index={author_person_form.index} />
 
@@ -102,20 +94,20 @@
             <% end %>
           </.inputs_for>
 
-          <:add>
-            <.add_button field={@form[:author_people_sort]}>Add author</.add_button>
-            <.delete_input field={@form[:author_people_drop]} />
-          </:add>
-
           <.input
             field={@form[:link_author_id]}
             type="autocomplete"
             options={@authors}
             label="Or link an existing author"
           />
-        </.field_group>
 
-        <.field_group label="Narrating as">
+          <:add>
+            <.add_button field={@form[:author_people_sort]}>Add author</.add_button>
+            <.delete_input field={@form[:author_people_drop]} />
+          </:add>
+        </.list_cluster>
+
+        <.list_cluster label="Narrating as">
           <.inputs_for :let={narrator_form} field={@form[:narrators]}>
             <.sort_input field={@form[:narrators_sort]} index={narrator_form.index} />
 
@@ -129,7 +121,7 @@
             <.add_button field={@form[:narrators_sort]}>Add narrator</.add_button>
             <.delete_input field={@form[:narrators_drop]} />
           </:add>
-        </.field_group>
+        </.list_cluster>
       </div>
 
       <.input type="hidden" field={@form[:image_type]} />
@@ -137,9 +129,12 @@
 
       <%= if @form[:image_path].value && @form[:image_path].value != "" do %>
         <.field_group>
-          <.label class="flex items-center gap-2 pl-3">
-            Image <.image_delete_button field={@form[:image_path]} />
-          </.label>
+          <div class="flex items-baseline gap-2 pl-3">
+            <.label class="flex items-center gap-2">
+              Image <.image_delete_button field={@form[:image_path]} />
+            </.label>
+            <.provenance_flag record={@person} field={:image_path} hints={@provenance_hints} />
+          </div>
           <div class="flex flex-wrap gap-4">
             <.image_with_size id={"image-#{@person.id}"} src={@form[:image_path].value} class="w-40" />
             <%= if @person.thumbnails do %>
@@ -170,10 +165,11 @@
               />
             <% end %>
           </div>
+          <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
         </.field_group>
       <% else %>
         <.field_group>
-          <div class="flex flex-wrap items-center gap-4">
+          <div class="flex items-baseline gap-2">
             <.tabs
               field={@form[:image_type]}
               options={[
@@ -183,15 +179,7 @@
             >
               <.label class="pl-3">Image</.label>
             </.tabs>
-
-            <.button
-              type="button"
-              color={:zinc}
-              phx-click="open-image-picker"
-              disabled={picker_query(@form, @person) in [nil, ""]}
-            >
-              Find images…
-            </.button>
+            <.provenance_flag record={@person} field={:image_path} hints={@provenance_hints} />
           </div>
 
           <.file_input
@@ -207,18 +195,14 @@
             field={@form[:image_import_url]}
             image_preview_class="h-40 w-40 rounded-full object-cover object-top"
           />
+
+          <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
         </.field_group>
       <% end %>
 
-      <.provenance_panel
-        record={@person}
-        changeset={@form.source}
-        pending_sources={ProvenanceHints.sources(@provenance_hints)}
-      />
-
-      <:actions>
+      <.form_footer>
         <.button>Save</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>

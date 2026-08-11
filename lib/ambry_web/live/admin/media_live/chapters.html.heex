@@ -3,32 +3,23 @@
     <.live_component id="import-form" module={import_form(@import.type)} query={@import.query} media={@media} />
   </.modal>
 
-  <div class="max-w-3xl">
+  <div class="-mb-4 max-w-4xl">
     <.simple_form id="media-chapters-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <div class="space-y-2">
-        <.label>Import from</.label>
+      <%!-- Chapter markers come from the files or from Audible wholesale —
+          a different question from per-field curation, so this keeps its
+          two import doors (worded like every other provider button). --%>
+      <.field_group label="Import from">
         <div class="flex items-center gap-2">
-          <.button
-            color={:zinc}
-            class="flex items-center gap-1"
-            type="button"
-            phx-click={open_import_form(@media, "source")}
-          >
-            <.icon name="fa-file-audio" class="h-4 w-4 text-current" /> Source File(s)
+          <.button color={:zinc} type="button" phx-click={open_import_form(@media, "source")}>
+            Source file(s)
           </.button>
-          <.button
-            color={:zinc}
-            class="flex items-center gap-1"
-            type="button"
-            phx-click={open_import_form(@media, "audible")}
-          >
-            <.icon name="fa-brands-audible" class="h-4 w-4 text-current" /> Audible
+          <.button color={:zinc} type="button" phx-click={open_import_form(@media, "audible")}>
+            Audible
           </.button>
         </div>
-      </div>
+      </.field_group>
 
-      <div class="space-y-2">
-        <.label>Chapters</.label>
+      <.list_cluster label="Chapters">
         <.inputs_for :let={chapter_form} field={@form[:chapters]}>
           <.sort_input field={@form[:chapters_sort]} index={chapter_form.index} />
 
@@ -39,13 +30,15 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:chapters_sort]}>Add chapter</.add_button>
-        <.delete_input field={@form[:chapters_drop]} />
-      </div>
+        <:add>
+          <.add_button field={@form[:chapters_sort]}>Add chapter</.add_button>
+          <.delete_input field={@form[:chapters_drop]} />
+        </:add>
+      </.list_cluster>
 
-      <:actions>
+      <.form_footer>
         <.button>Save</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>

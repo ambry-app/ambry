@@ -1,8 +1,8 @@
 <.layout title={@page_title} user={@current_user}>
-  <div class="max-w-3xl">
+  <div class="-mb-4 max-w-4xl">
     <.simple_form id="group-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <.field_group>
-        <.input field={@form[:name]} label="Name" />
+        <.input field={@form[:name]} label="Name" class="max-w-xl" />
 
         <%!-- the set covers one book, like its members do; once recordings
             are attached, they ARE the book and the field goes read-only --%>
@@ -41,7 +41,7 @@
         />
       </.field_group>
 
-      <.field_group label="Recordings">
+      <.list_cluster label="Recordings">
         <.inputs_for :let={member_form} field={@form[:members]}>
           <.sort_input field={@form[:members_sort]} index={member_form.index} />
 
@@ -70,11 +70,11 @@
           <.add_button field={@form[:members_sort]}>Add recording</.add_button>
           <.delete_input field={@form[:members_drop]} />
         </:add>
-      </.field_group>
+      </.list_cluster>
 
-      <:actions>
+      <.form_footer>
         <.button>Save</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>

@@ -3,7 +3,7 @@
     <.live_component id="file-browser" module={FileBrowser} root_path={Application.get_env(:ambry, :source_path)} />
   </.modal>
 
-  <div class="max-w-3xl space-y-6">
+  <div class="-mb-4 max-w-4xl space-y-7">
     <div class="bg-amber-400/15 flex gap-3 rounded-lg p-4 text-amber-300">
       <.icon name="fa-triangle-exclamation" class="mt-1 h-5 w-5 flex-none text-current" />
       <div class="space-y-2 text-sm">
@@ -22,20 +22,17 @@
       </div>
     </div>
 
+    <%!-- A fact display, not a dropzone (the costume it used to wear). --%>
     <div class="space-y-2">
-      <.label>Current audio file(s)</.label>
-      <div class="max-h-64 overflow-x-auto rounded-sm border-2 border-dashed border-zinc-600 bg-zinc-950 p-4">
-        <p :if={@media.source_files == []} class="text-sm text-zinc-400">
-          No source files on record.
-        </p>
-        <p :for={file <- @media.source_files} class="text-sm">
-          {Path.basename(file)}
-        </p>
-      </div>
+      <.label class="pl-3">Current audio file(s)</.label>
+      <p :if={@media.source_files == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
+        No source files on record.
+      </p>
+      <.file_list files={@media.source_files} class="max-h-64 overflow-x-auto" />
     </div>
 
     <.simple_form id="media-replace-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <div class="space-y-2">
+      <.field_group>
         <%= if @local_import_path do %>
           <.tabs
             field={@form[:source_type]}
@@ -44,10 +41,10 @@
               {"Import from server file-system", "local_import"}
             ]}
           >
-            <.label>New audio file(s)</.label>
+            <.label class="pl-3">New audio file(s)</.label>
           </.tabs>
         <% else %>
-          <.label>New audio file(s)</.label>
+          <.label class="pl-3">New audio file(s)</.label>
           <.input type="hidden" field={@form[:source_type]} />
         <% end %>
 
@@ -86,21 +83,22 @@
             </div>
           </div>
         </div>
-      </div>
+      </.field_group>
 
-      <div class="space-y-2">
-        <.label for={@form[:processor].name}>Processor</.label>
+      <.field_group>
+        <.label for={@form[:processor].name} class="pl-3">Processor</.label>
         <.input
           type="select"
           field={@form[:processor]}
           prompt="auto-select"
+          class="max-w-56"
           options={processor_options(@uploads.audio.entries, @selected_files)}
         />
-      </div>
+      </.field_group>
 
-      <:actions>
+      <.form_footer>
         <.button>Replace audio</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>

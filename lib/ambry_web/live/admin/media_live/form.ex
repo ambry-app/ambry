@@ -1,20 +1,35 @@
 defmodule AmbryWeb.Admin.MediaLive.Form do
-  @moduledoc false
+  @moduledoc """
+  The media form, curated the import form's way — see `AmbryWeb.Admin.BookLive.Form`;
+  this is the same model at the recording level (narrators, square cover
+  art, publisher, publication facts).
+  """
   use AmbryWeb, :admin_live_view
 
   import Ambry.Paths
+  import AmbryWeb.Admin.Curation
   import AmbryWeb.Admin.ParamHelpers
   import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.Media
+  alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Registry
+  alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
+  alias Ambry.People.Person
   alias Ambry.Provenance
+  alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
-  alias AmbryWeb.Admin.MediaLive.Form.ProviderImportForm
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
   alias Ecto.Changeset
+
+  @scalar_kinds %{
+    "published" => :published,
+    "publisher" => :publisher,
+    "description" => :description,
+    "image" => :image
+  }
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -24,11 +39,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> allow_audio_upload(:audio)
      |> allow_supplemental_file_upload(:supplemental)
      |> assign(
-       import: nil,
+       retrying: nil,
+       chips: %{},
        provenance_hints: %{},
        select_files: false,
        selected_files: MapSet.new(),
-       recording_providers: Registry.enabled(level: :recording, capability: :book_search),
        source_files_expanded: false,
        narrators: People.narrators_for_select(),
        books: Ambry.Books.books_for_select(),
@@ -54,6 +69,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       recording_groups: Media.recording_groups_for_select(media.book_id),
       file_stats: Media.get_media_file_details(media)
     )
+    |> assign(evidence: Evidence.new(seed_fields(media, socket.assigns)))
   end
 
   defp apply_action(socket, :new, _params) do
@@ -73,6 +89,22 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       recording_groups: [],
       file_stats: nil
     )
+    |> assign(evidence: Evidence.new(%{}))
+  end
+
+  # The search the recording itself suggests: its book's title, and its
+  # first narrator — the field that tells two recordings of one work apart.
+  defp seed_fields(media, assigns) do
+    books = Map.new(assigns.books, &{&1.id, &1.label})
+    narrators = Map.new(assigns.narrators, &{&1.id, &1.label})
+
+    narrator =
+      case media.media_narrators do
+        [%{narrator_id: narrator_id} | _rest] -> narrators[narrator_id]
+        _empty -> nil
+      end
+
+    %{"title" => books[media.book_id], "narrator" => narrator}
   end
 
   defp default_source_type(socket) do
@@ -84,28 +116,12 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   @impl Phoenix.LiveView
-  def handle_params(%{"import" => type}, _url, socket) do
-    book_id = socket.assigns.form.params["book_id"] || socket.assigns.media.book_id
-
-    query =
-      if book_id do
-        Ambry.Books.get_book!(book_id).title
-      else
-        ""
-      end
-
-    case Registry.fetch(type) do
-      {:ok, provider} -> {:noreply, assign(socket, import: %{provider: provider, query: query})}
-      {:error, :unknown_provider} -> {:noreply, assign(socket, import: nil)}
-    end
-  end
-
   def handle_params(%{"browse" => _}, _url, socket) do
     {:noreply, assign(socket, select_files: true)}
   end
 
   def handle_params(_params, _url, socket) do
-    {:noreply, assign(socket, import: nil, select_files: false)}
+    {:noreply, assign(socket, select_files: false)}
   end
 
   @impl Phoenix.LiveView
@@ -129,7 +145,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        # groups follow the chosen book — a set belongs to one book
        recording_groups: Media.recording_groups_for_select(media_params["book_id"]),
        provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, media_params)
-     )}
+     )
+     |> refresh_chips()}
   end
 
   def handle_event("submit", %{"media" => media_params}, socket) do
@@ -174,29 +191,191 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:noreply, cancel_upload(socket, :supplemental, ref)}
   end
 
-  @impl Phoenix.LiveView
-  def handle_info({:import, %{"media" => media_params}, source}, socket) do
-    # narrators could have been created, reload the data-lists
-    socket =
-      assign(socket,
-        narrators: People.narrators_for_select()
-      )
+  # ── the evidence panel ─────────────────────────────────────────────────
 
-    hints = ProvenanceHints.from_import(media_params, source)
-    new_params = Map.merge(socket.assigns.form.params, media_params)
+  def handle_event("research", params, socket) do
+    fields = Map.take(params, ["title", "author", "narrator"])
+    query = Provider.Query.from_fields(fields)
 
-    changeset =
-      Media.change_media(socket.assigns.media, new_params)
-
-    {:noreply,
-     socket
-     |> assign_form(changeset)
-     |> assign(
-       import: nil,
-       provenance_hints: Map.merge(socket.assigns.provenance_hints, hints)
-     )}
+    if Provider.Query.blank?(query) do
+      {:noreply, socket}
+    else
+      {:noreply,
+       socket
+       |> assign(evidence: Evidence.begin(socket.assigns.evidence, fields))
+       |> start_async(:evidence_search, fn -> MetadataSearch.books(query, level: :recording) end)}
+    end
   end
 
+  def handle_event("retry-provider", %{"provider" => provider_id}, socket) do
+    query = Provider.Query.from_fields(socket.assigns.evidence.fields)
+
+    with false <- Provider.Query.blank?(query),
+         {:ok, entry} <- Registry.fetch(provider_id) do
+      {:noreply,
+       socket
+       |> assign(retrying: provider_id)
+       |> start_async(:evidence_search, fn ->
+         {books, outcome} = MetadataSearch.books_one(entry, query)
+         {[{entry, books}], [outcome]}
+       end)}
+    else
+      _no -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle-evidence", %{"source" => source, "id" => id}, socket) do
+    {:noreply,
+     socket
+     |> assign(evidence: Evidence.toggle(socket.assigns.evidence, source, id))
+     |> refresh_chips()}
+  end
+
+  def handle_event("accept-proposal", %{"field" => field, "key" => key}, socket) do
+    with {:ok, kind} <- Map.fetch(@scalar_kinds, field),
+         %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
+      hints = ProvenanceHints.from_import(proposal.params, proposal.source)
+      new_params = Map.merge(socket.assigns.form.params, proposal.params)
+      changeset = Media.change_media(socket.assigns.media, new_params)
+
+      {:noreply,
+       socket
+       |> assign_form(changeset)
+       |> assign(provenance_hints: Map.merge(socket.assigns.provenance_hints, hints))
+       |> refresh_chips()}
+    else
+      _missing -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("accept-entity", %{"field" => "narrators", "key" => key}, socket) do
+    case Evidence.find_proposal(socket.assigns.evidence, :narrators, key) do
+      %{} = proposal ->
+        narrator_id = resolve_narrator(proposal.params["name"], proposal.source)
+
+        {:noreply,
+         socket
+         |> append_narrator_row(narrator_id)
+         |> assign(narrators: People.narrators_for_select())
+         |> refresh_chips()}
+
+      _missing ->
+        {:noreply, socket}
+    end
+  end
+
+  @impl Phoenix.LiveView
+  def handle_async(:evidence_search, {:ok, result}, socket) do
+    {:noreply,
+     socket
+     |> assign(evidence: Evidence.absorb(socket.assigns.evidence, result), retrying: nil)
+     |> refresh_chips()}
+  end
+
+  def handle_async(:evidence_search, {:exit, _reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(evidence: %{socket.assigns.evidence | running?: false}, retrying: nil)
+     |> put_flash(:error, "Searching the providers failed — try again.")}
+  end
+
+  # The narrator identity a proposed credit names — an existing narrator of
+  # that name, the identity added to an existing person, or a new person.
+  defp resolve_narrator(name, source) do
+    case Ambry.Search.find_first(name, Person) do
+      nil ->
+        {:ok, %{narrators: [narrator]}} =
+          People.create_person(
+            %{name: name, narrators: [%{name: name}]},
+            provenance: %{"name" => source}
+          )
+
+        narrator.id
+
+      %Person{narrators: []} = person ->
+        {:ok, %{narrators: [narrator]}} =
+          People.update_person(person, %{narrators: [%{name: person.name}]})
+
+        narrator.id
+
+      %Person{narrators: narrators} ->
+        credited =
+          Enum.find(narrators, &(String.downcase(&1.name) == String.downcase(name))) ||
+            List.first(narrators)
+
+        credited.id
+    end
+  end
+
+  defp append_narrator_row(socket, narrator_id) do
+    changeset = socket.assigns.form.source
+
+    rows =
+      changeset
+      |> Changeset.get_field(:media_narrators)
+      |> Enum.map(fn row ->
+        base = if row.id, do: %{"id" => to_string(row.id)}, else: %{}
+        Map.put(base, "narrator_id", to_string(row.narrator_id))
+      end)
+
+    params =
+      socket.assigns.form.params
+      |> Map.drop(["media_narrators_sort", "media_narrators_drop"])
+      |> Map.put("media_narrators", rows ++ [%{"narrator_id" => to_string(narrator_id)}])
+
+    assign_form(socket, Media.change_media(socket.assigns.media, params))
+  end
+
+  defp refresh_chips(socket) do
+    %{evidence: evidence, form: form} = socket.assigns
+
+    chips =
+      if evidence && Evidence.any_used?(evidence) do
+        %{
+          published:
+            evidence
+            |> Evidence.proposals(:published)
+            |> mark_chosen(%{
+              "published" => Changeset.get_field(form.source, :published),
+              "published_format" => Changeset.get_field(form.source, :published_format)
+            }),
+          publisher:
+            evidence
+            |> Evidence.proposals(:publisher)
+            |> mark_chosen(%{"publisher" => Changeset.get_field(form.source, :publisher)}),
+          description:
+            evidence
+            |> Evidence.proposals(:description)
+            |> mark_chosen(%{"description" => Changeset.get_field(form.source, :description)}),
+          image:
+            evidence
+            |> Evidence.proposals(:image)
+            |> mark_chosen(%{
+              "image_type" => Changeset.get_field(form.source, :image_type),
+              "image_import_url" => Changeset.get_field(form.source, :image_import_url)
+            }),
+          narrators:
+            evidence
+            |> Evidence.proposals(:narrators)
+            |> mark_present(current_narrator_names(form.source, socket.assigns.narrators))
+        }
+      else
+        %{}
+      end
+
+    assign(socket, chips: chips)
+  end
+
+  defp current_narrator_names(changeset, options) do
+    labels = Map.new(options, &{&1.id, &1.label})
+
+    changeset
+    |> Changeset.get_field(:media_narrators)
+    |> Enum.map(&labels[&1.narrator_id])
+    |> Enum.reject(&is_nil/1)
+  end
+
+  @impl Phoenix.LiveView
   def handle_info({:files_selected, files}, socket) do
     {:noreply,
      socket
@@ -406,7 +585,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
               <% error when is_atom(error) -> %>
                 <.badge color={color_for_error_type(@error_type)}>{error}</.badge>
               <% stat when is_map(stat) -> %>
-                <.badge color={:blue}>{format_filesize(stat.size)}</.badge>
+                <.badge color={:gray}>{format_filesize(stat.size)}</.badge>
             <% end %>
           </div>
         <% else %>
@@ -438,7 +617,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   defp media_path(%Media.Media{id: nil}, params), do: ~p"/admin/media/new?#{params}"
   defp media_path(media, params), do: ~p"/admin/media/#{media}/edit?#{params}"
 
-  defp open_import_form(media, type), do: JS.patch(media_path(media, %{import: type}))
   defp open_file_browser(media), do: JS.patch(media_path(media, %{browse: :files}))
   defp close_modal(media), do: JS.patch(media_path(media), replace: true)
 end

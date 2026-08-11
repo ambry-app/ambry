@@ -1,13 +1,13 @@
 <.layout title={@page_title} user={@current_user}>
-  <div class="max-w-3xl">
+  <div class="-mb-4 max-w-4xl">
     <.simple_form id="user-form" for={@form} phx-change="validate" phx-submit="submit">
       <.field_group>
-        <.input type="email" field={@form[:email]} label="Email Address" required />
+        <.input type="email" field={@form[:email]} label="Email address" class="max-w-md" required />
       </.field_group>
 
-      <:actions>
+      <.form_footer>
         <.button>Send Invitation</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>

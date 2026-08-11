@@ -22,7 +22,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   def render(assigns) do
     ~H"""
     <.layout title={@page_title} user={@current_user}>
-      <div class="mx-auto max-w-3xl space-y-8">
+      <div class="max-w-4xl space-y-8">
         <p class="text-zinc-400">
           Providers fill in facts during import; you curate the structure. Priority controls the
           order providers are offered in import forms. Settings apply immediately; cached responses
