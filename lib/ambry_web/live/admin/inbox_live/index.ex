@@ -96,7 +96,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
             else:
               "Re-reading the files and asking the providers again — this one is slow on purpose."
 
-        {:noreply, put_flash(socket, :info, message)}
+        # Reload, or the row the operator just handed to a job keeps looking
+        # idle: the overlay is driven by `@progress`, which is only read when
+        # the page loads. Nothing else re-read it here, so the cover appeared
+        # on the next refresh — after the slow part was over — and in the
+        # meantime the row invited clicks on work that was already gone. This
+        # also starts the tick that takes the cover back off.
+        {:noreply, socket |> put_flash(:info, message) |> reload()}
 
       # The button is gone from imported rows; this catches a stale tab.
       {:error, :already_imported} ->

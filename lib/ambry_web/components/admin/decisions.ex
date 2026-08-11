@@ -1273,6 +1273,13 @@ defmodule AmbryWeb.Admin.Decisions do
           >
             {elem(state_words(SeriesLink.state(@link)), 0)}
           </.badge>
+
+          <%!-- Every other decision block says where its answer came from; a
+              series membership is a proposal like any other and was the one
+              block that didn't, so a settled row said nothing at all. --%>
+          <span :if={@link.source} class="text-xs text-zinc-400">
+            from {source_words(@link.source)}
+          </span>
         </div>
 
         <div class="flex flex-none items-center gap-2">
@@ -1298,7 +1305,11 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
       </div>
 
-      <div class="flex flex-wrap items-end gap-x-3 gap-y-2">
+      <%!-- Boxes on one line align by their boxes, not a baseline (§3), and
+          the number wears no label: the book form has always spelled this
+          field with a placeholder alone, and a label over one box of two
+          made the row tall and the two controls' tops disagree. --%>
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
         <form
           id={"series-#{@index}-link"}
           phx-change="link-series"
@@ -1320,14 +1331,13 @@ defmodule AmbryWeb.Admin.Decisions do
           />
         </form>
 
-        <form id={"series-#{@index}-number"} phx-change="set-series-number" class="space-y-1">
+        <form id={"series-#{@index}-number"} phx-change="set-series-number" class="flex-none">
           <input type="hidden" name="index" value={@index} />
-          <label class="block pl-3 text-xs text-zinc-400">Book no.</label>
           <input
             type="text"
             name="number"
             value={@link.number}
-            placeholder="?"
+            placeholder="no."
             class={input_classes("w-16")}
           />
         </form>
@@ -1412,6 +1422,11 @@ defmodule AmbryWeb.Admin.Decisions do
           >
             {elem(state_words(GroupLink.state(@link)), 0)}
           </.badge>
+
+          <%!-- The series row's mirror in this too. --%>
+          <span :if={@link.source} class="text-xs text-zinc-400">
+            from {source_words(@link.source)}
+          </span>
         </div>
 
         <div class="flex flex-none items-center gap-2">
@@ -1442,7 +1457,9 @@ defmodule AmbryWeb.Admin.Decisions do
         This work already has a recording set — is this another part of the same set?
       </p>
 
-      <div class="flex flex-wrap items-end gap-x-3 gap-y-2">
+      <%!-- Reads as a sentence across the row — "<set> no. 1 of 3" — with the
+          same label-free number box the series row and the book form use. --%>
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
         <form id="group-link" phx-change="link-group" class="min-w-48 max-w-md flex-grow">
           <.live_component
             module={EntityResolver}
@@ -1457,14 +1474,13 @@ defmodule AmbryWeb.Admin.Decisions do
           />
         </form>
 
-        <form id="group-part" phx-change="set-group-part" class="space-y-1">
-          <label class="block pl-3 text-xs text-zinc-400">Part no.</label>
+        <form id="group-part" phx-change="set-group-part" class="flex-none">
           <input
             type="number"
             min="1"
             name="part_number"
             value={@link.part_number}
-            placeholder="?"
+            placeholder="no."
             class={input_classes("w-16")}
             data-role="part-number"
           />
@@ -1472,20 +1488,21 @@ defmodule AmbryWeb.Admin.Decisions do
 
         <%!-- On :link the total is the linked group's fact, shown not asked;
             on :create it's the new set's birth certificate. --%>
-        <form :if={@link.mode == :create} id="group-total" phx-change="set-group-total" class="space-y-1">
-          <label class="block pl-3 text-xs text-zinc-400">of (total)</label>
+        <p :if={@link.mode == :create} class="text-sm text-zinc-400">of</p>
+
+        <form :if={@link.mode == :create} id="group-total" phx-change="set-group-total" class="flex-none">
           <input
             type="number"
             min="1"
             name="parts_total"
             value={@link.parts_total}
-            placeholder="?"
+            placeholder="total"
             class={input_classes("w-16")}
             data-role="parts-total"
           />
         </form>
 
-        <p :if={@link.mode == :link and @link.parts_total} class="pb-2 text-sm text-zinc-400">
+        <p :if={@link.mode == :link and @link.parts_total} class="text-sm text-zinc-400">
           of {@link.parts_total}
         </p>
       </div>
@@ -1576,6 +1593,12 @@ defmodule AmbryWeb.Admin.Decisions do
   def source_words("default"), do: "the default"
   def source_words("date"), do: "the date itself"
   def source_words("local"), do: "the library"
+
+  # A group proposal used to seed its own words for these two, back when
+  # nothing rendered a group's provenance and "from name" was never seen.
+  # Drafts stored before that still carry them.
+  def source_words("name"), do: "the release name"
+  def source_words("library"), do: "the library"
   def source_words("provider:" <> id), do: id
   def source_words(other), do: other
 

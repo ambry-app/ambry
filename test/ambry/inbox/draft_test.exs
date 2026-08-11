@@ -233,10 +233,6 @@ defmodule Ambry.Inbox.DraftTest do
                "Shelf Label",
                "Some Release"
              ]
-
-      # and taking the leading suggestion takes the ticked record's, not the
-      # file's, because records outrank tags in the candidate order
-      assert Draft.Edit.approve_all(ticked).work.title.value == "Something Else"
     end
 
     # A key can legitimately disappear while the answer stays on offer: the
@@ -1087,7 +1083,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert Draft.Recording.uncatalogued?(draft.recording)
     end
 
-    test "taking the top suggestion never adopts a doubted recording" do
+    test "a doubted recording is never adopted quietly" do
       recording = [
         %{
           "source" => "provider:audible",
@@ -1106,10 +1102,11 @@ defmodule Ambry.Inbox.DraftTest do
           tags: %{"narrators" => ["Jeff Harding"]}
         })
 
-      draft = item |> Seed.build() |> Draft.Edit.approve_all()
+      draft = Seed.build(item)
 
       # the leading record here is, by construction, the wrong recording of
-      # the right book — the one thing this button must not paper over
+      # the right book — the one thing nobody would notice after the fact, so
+      # it stays a question and fills nothing in
       refute draft.recording.approved
       assert draft.recording.publisher.value == nil
     end
@@ -1385,9 +1382,9 @@ defmodule Ambry.Inbox.DraftTest do
 
       draft = Draft.Edit.remove_credit(item.draft, item, :work, 0)
 
-      # approve-all must not quietly re-arm the tombstone
-      approved = Draft.Edit.approve_all(draft)
-      assert [%{removed: true}] = approved.work.authors
+      # a resettle must not quietly re-arm the tombstone
+      resettled = Draft.Edit.resettle(draft, item)
+      assert [%{removed: true}] = resettled.work.authors
     end
   end
 
@@ -1962,7 +1959,36 @@ defmodule Ambry.Inbox.DraftTest do
     # value, which cannot break a tie between two candidates proposing the same
     # one, and comparing its answer to `incoming.value` called every tie for
     # whoever came last.
-    test "a value two sources agree on is credited to the provider, not the tags" do
+    test "a value two sources agree on is credited to the first, not the last" do
+      item =
+        item(%{
+          matches:
+            matches([
+              provider_candidate(%{"id" => "hc-1", "published" => "2022-01-01"}),
+              provider_candidate(%{
+                "source" => "provider:rreading_glasses",
+                "provider_name" => "rreading-glasses",
+                "id" => "rg-1",
+                "published" => "2022-01-01",
+                "score" => 0.94
+              })
+            ]),
+          tags: %{}
+        })
+
+      draft = Seed.build(item)
+
+      assert [chip] = draft.work.published.candidates
+      assert chip.source == "provider:hardcover"
+      assert draft.work.published.source == "provider:hardcover"
+      # and both are still credited on the chip
+      assert chip.label =~ "Hardcover"
+      assert chip.label =~ "rreading-glasses"
+    end
+
+    # The tags corroborating a provider is not a second opinion worth a chip:
+    # an advisory that means what a real proposal means is that proposal.
+    test "the tags agreeing with a provider add no second chip" do
       item =
         item(%{
           matches: matches([provider_candidate(%{"published" => "2022-01-01"})]),
@@ -1974,9 +2000,6 @@ defmodule Ambry.Inbox.DraftTest do
       assert [chip] = draft.work.published.candidates
       assert chip.source == "provider:hardcover"
       assert draft.work.published.source == "provider:hardcover"
-      # and both are still credited on the chip
-      assert chip.label =~ "Hardcover"
-      assert chip.label =~ "tags"
     end
 
     test "an auto-settled format highlights the chip it took" do
@@ -2248,8 +2271,17 @@ defmodule Ambry.Inbox.DraftTest do
       draft =
         Seed.build(
           item(%{
-            matches: matches([provider_candidate(%{"published" => "2017-10-03"})]),
-            tags: %{"published" => "2017-03-08"}
+            matches:
+              matches([
+                provider_candidate(%{"id" => "a", "published" => "2017-10-03"}),
+                provider_candidate(%{
+                  "source" => "provider:rreading_glasses",
+                  "id" => "rg-1",
+                  "published" => "2017-03-08",
+                  "score" => 0.94
+                })
+              ]),
+            tags: %{}
           })
         )
 
@@ -2260,12 +2292,126 @@ defmodule Ambry.Inbox.DraftTest do
       draft =
         Seed.build(
           item(%{
-            matches: matches([provider_candidate(%{"published" => "2017-10-03"})]),
-            tags: %{"published" => "2011-01-01"}
+            matches:
+              matches([
+                provider_candidate(%{"id" => "a", "published" => "2017-10-03"}),
+                provider_candidate(%{
+                  "source" => "provider:rreading_glasses",
+                  "id" => "rg-1",
+                  "published" => "2011-01-01",
+                  "score" => 0.94
+                })
+              ]),
+            tags: %{}
           })
         )
 
       refute draft.work.published.approved
+    end
+  end
+
+  # Measured on the operator's own releases: an audiobook file carries exactly
+  # one date tag (not one of 101 had `originaldate` beside it), and where the
+  # file's copyright line separated the text's © year from the recording's ℗
+  # year, the tag had copied the audio year 6 times and the work's year 5. A
+  # source that is right half the time must not be able to turn either date
+  # into a question.
+  describe "the file's date tag" do
+    test "does not argue with the work's first-published date" do
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches([provider_candidate(%{"published" => "1990-11-20"})]),
+            # Jurassic Park, tagged with the year of the 2015 recording
+            tags: %{"published" => "2015-01-01"}
+          })
+        )
+
+      assert draft.work.published.approved
+      assert draft.work.published.value == "1990-11-20"
+      # still offered, for the file that turns out to be right
+      assert "2015-01-01" in Enum.map(draft.work.published.candidates, & &1.value)
+    end
+
+    test "does not argue with the recording's release date either" do
+      recording = [recording_record(%{"id" => "B01", "published" => "2023-03-28"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches([provider_candidate(%{})],
+                recording: recording,
+                recording_confidence: 1.0
+              ),
+            # Shift: ©2013 the novel, ℗2023 the audiobook, tagged 2013
+            tags: %{"published" => "2013-01-01"}
+          })
+        )
+
+      assert draft.recording.published.approved
+      assert draft.recording.published.value == "2023-03-28"
+      assert "2013-01-01" in Enum.map(draft.recording.published.candidates, & &1.value)
+    end
+
+    # The reason it stays on both levels rather than being deleted: a recording
+    # nobody catalogues used to import with no date at all, while the file had
+    # carried one the whole time.
+    test "answers a release date no provider proposed" do
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches([provider_candidate(%{})]),
+            tags: %{"published" => "2013-06-04", "published_format" => "full"}
+          })
+        )
+
+      assert draft.recording.published.value == "2013-06-04"
+      assert draft.recording.published.approved
+      assert draft.recording.published_format.value == "full"
+    end
+
+    test "answers a first-published date no provider proposed" do
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches([provider_candidate(%{"published" => nil})]),
+            tags: %{"published" => "2013-06-04"}
+          })
+        )
+
+      assert draft.work.published.value == "2013-06-04"
+      assert draft.work.published.approved
+    end
+
+    # Two records saying "2012" and "2012-03-23" are one fact at two
+    # precisions — the work level has always known that, and the recording
+    # level was asking about it.
+    test "the recording's date treats a year and a full date in it as one answer" do
+      recording = [
+        recording_record(%{"id" => "B01", "published" => "2012-01-01"}),
+        recording_record(%{
+          "source" => "provider:hardcover",
+          "id" => "ed-1",
+          "published" => "2012-03-23",
+          "score" => 0.99
+        })
+      ]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches:
+              matches([provider_candidate(%{})],
+                recording: recording,
+                recording_confidence: 1.0
+              ),
+            tags: %{}
+          })
+        )
+
+      assert draft.recording.published.approved
+      assert draft.recording.published.value == "2012-03-23"
     end
   end
 
@@ -2398,7 +2544,7 @@ defmodule Ambry.Inbox.DraftTest do
           mode: :create,
           name: "GraphicAudio",
           proposed_name: "GraphicAudio",
-          source: "name",
+          source: "release_name",
           part_number: 1,
           parts_total: 2
         })
@@ -2428,28 +2574,32 @@ defmodule Ambry.Inbox.DraftTest do
       assert item.draft.recording.recording_group == nil
     end
 
-    test "approve_all settles a numbered link but never invents a part number" do
+    # A part number is never invented, same doctrine as a series number: an
+    # unnumbered link is unresolved and blocks the import until the operator
+    # supplies the number or removes the link.
+    test "a link with no part number is never resolved" do
       draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
 
       numbered =
         put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
           mode: :create,
           name: "Set",
-          part_number: 1
+          part_number: 1,
+          approved: true
         })
 
-      settled = Draft.Edit.approve_all(numbered)
-      assert settled.recording.recording_group.approved
+      assert GroupLink.resolved?(numbered.recording.recording_group)
 
       unnumbered =
         put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
           mode: :create,
           name: "Set",
-          part_number: nil
+          part_number: nil,
+          approved: true
         })
 
-      still_open = Draft.Edit.approve_all(unnumbered)
-      refute still_open.recording.recording_group.approved
+      refute GroupLink.resolved?(unnumbered.recording.recording_group)
+      assert Enum.any?(Draft.unresolved(unnumbered), &(&1.label =~ "set"))
     end
   end
 
@@ -2475,7 +2625,7 @@ defmodule Ambry.Inbox.DraftTest do
                proposed_name: "GraphicAudio",
                part_number: 1,
                parts_total: 2,
-               source: "name",
+               source: "release_name",
                approved: false,
                curated: false
              } = draft.recording.recording_group
