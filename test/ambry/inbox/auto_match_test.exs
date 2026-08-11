@@ -73,6 +73,104 @@ defmodule Ambry.Inbox.AutoMatchTest do
     end
   end
 
+  describe "author_agreement/2" do
+    # Jaro puts these five hundredths apart, in the wrong order for any
+    # threshold: the same person scores 0.573 and two unrelated names 0.519.
+    test "a shared name token separates a variant from a different human" do
+      assert :match = AutoMatch.author_agreement(["J.R.R. Tolkien"], "John Ronald Reuel Tolkien")
+      assert :conflict = AutoMatch.author_agreement(["Daily  Books"], "Andy Weir")
+      assert :conflict = AutoMatch.author_agreement(["Scott M. Williams"], "Andy Weir")
+    end
+
+    test "any one of several authors agreeing is agreement" do
+      assert :match = AutoMatch.author_agreement(["Andy Weir", "Chris Hadfield"], "Andy Weir")
+    end
+
+    test "silence on either side, or a name with nothing comparable, abstains" do
+      assert :unstated = AutoMatch.author_agreement([], "Andy Weir")
+      assert :unstated = AutoMatch.author_agreement(["Andy Weir"], nil)
+      assert :unstated = AutoMatch.author_agreement(["J.R.R."], "Andy Weir")
+    end
+
+    # Initials match everything.
+    test "single letters are not tokens" do
+      assert :conflict = AutoMatch.author_agreement(["J. Smith"], "J. Jones")
+    end
+  end
+
+  describe "scoring an author who is not the author" do
+    defp scored(title, authors, wanted_author) do
+      entry = %Registry.Entry{id: "hardcover", display_name: "Hardcover"}
+      book = %Provider.Book{id: "1", title: title, authors: contributors(authors)}
+
+      hints =
+        AutoMatch.hints(%InboxItem{
+          path: "/d/The Martian",
+          tags: %{"book_title" => "The Martian", "authors" => [wanted_author]}
+        })
+
+      [record] = AutoMatch.records_from([book], entry, hints)
+      record["score"]
+    end
+
+    defp contributors(names) do
+      Enum.map(names, &%Provider.Contributor{name: &1, role: "author"})
+    end
+
+    # Measured at 0.88 on the operator's Martian import: a head-matched title
+    # scores a full 1.0, and a completely wrong author still added 0.13 on top
+    # of three quarters of it. "Conversation Starters" is in no marker list
+    # and never will be — the author is what says this isn't the book.
+    test "a companion work by a content farm is decisively marked down" do
+      assert scored(
+               "The Martian: A Novel By Andy Weir | Conversation Starters",
+               ["Daily  Books"],
+               "Andy Weir"
+             ) == 0.5
+    end
+
+    test "the book itself is unharmed" do
+      assert scored("The Martian", ["Andy Weir"], "Andy Weir") == 1.0
+    end
+
+    test "a record naming no author is neither credited nor punished" do
+      assert scored("The Martian", [], "Andy Weir") == 1.0
+    end
+  end
+
+  describe "settled_group/1" do
+    defp reading(id, narrators, score, evidence) do
+      %{
+        "source" => "provider:hardcover",
+        "id" => id,
+        "title" => "The Martian",
+        "narrators" => narrators,
+        "score" => score,
+        "narrator_evidence" => evidence
+      }
+    end
+
+    # B082BHWQCJ is Wil Wheaton's edition with the role string missing
+    # upstream: silent, so unpenalised, so still at 1.000, so ticked — and it
+    # handed a 2013 R.C. Bray recording Wheaton's 2020 release date.
+    test "a silent record is not pre-ticked once the file has named a reader" do
+      records = [
+        reading("bray", ["R.C. Bray"], 1.0, "supported"),
+        reading("silent", [], 1.0, nil)
+      ]
+
+      assert [%{"id" => "bray"}] = AutoMatch.settled_group(records)
+    end
+
+    # The ordinary case across most of a library.
+    test "with nothing corroborated it is top_group exactly" do
+      records = [reading("a", ["Someone"], 1.0, nil), reading("b", [], 1.0, nil)]
+
+      assert AutoMatch.settled_group(records) == AutoMatch.top_group(records)
+      assert length(AutoMatch.settled_group(records)) == 2
+    end
+  end
+
   describe "agrees?/2" do
     defp work_record(title, authors) do
       %{"source" => "provider:hardcover", "id" => title, "title" => title, "authors" => authors}

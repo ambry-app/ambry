@@ -90,6 +90,10 @@ defmodule Ambry.Inbox.AutoMatch do
   @narrator_match 0.85
   @narrator_mismatch 0.5
 
+  # What it costs to be by somebody else. Decisive rather than blended, for
+  # exactly the reason the narrator is — see `author_agreement/2`.
+  @author_mismatch 0.5
+
   # What it costs to sit at a different number in the series the label named.
   @series_mismatch 0.5
 
@@ -550,6 +554,33 @@ defmodule Ambry.Inbox.AutoMatch do
     candidates
     |> Enum.filter(&agrees?(&1, best))
     |> Enum.take(@group_limit)
+  end
+
+  @doc """
+  The records worth *pre-ticking* — narrower than `top_group/1` once the file
+  has said who read it.
+
+  Ticking a record says "this describes my file", and a record naming no
+  narrator cannot support that claim at the recording level. It stays in the
+  group for every other purpose — it may well be the operator's edition, and
+  `apply_narrator_evidence/2` deliberately never penalises it — but adopting
+  its fields is a guess.
+
+  Measured: The Martian's `B082BHWQCJ` is Wil Wheaton's edition with the role
+  string missing upstream. Silent, so unpenalised, so still at 1.000, so
+  ticked — and it handed the operator's 2013 R.C. Bray recording Wheaton's
+  2020 release date as a conflict.
+
+  Only bites when some record IS corroborated. With nothing to go on — the
+  ordinary case across most of a library — this is `top_group/1` exactly.
+  """
+  def settled_group(records) do
+    group = top_group(records)
+
+    case Enum.filter(group, &(&1["narrator_evidence"] == "supported")) do
+      [] -> group
+      corroborated -> corroborated
+    end
   end
 
   @doc """
@@ -1347,9 +1378,13 @@ defmodule Ambry.Inbox.AutoMatch do
   # doubted too, which is what the cross-similarity floor is for.
   @distinct_author 0.7
 
+  # Guarded on `:match` rather than on a similarity crossing a threshold: with
+  # `author_similarity/2` returning nil for a record naming nobody, `nil >=
+  # 0.85` is *true* in Elixir's term order (atoms sort above numbers), so an
+  # authorless candidate silently adjudicated every tie it was in.
   defp author_adjudicated?(best, second, author) do
     is_binary(author) and
-      author_similarity(best["authors"] || [], author) >= @narrator_match and
+      author_agreement(best["authors"] || [], author) == :match and
       cross_author_similarity(best, second) < @distinct_author
   end
 
@@ -1742,9 +1777,10 @@ defmodule Ambry.Inbox.AutoMatch do
       end
 
     base =
-      case author_similarity(authors, hints.author) do
-        nil -> title_similarity
-        author_score -> title_similarity * 0.75 + author_score * 0.25
+      case author_agreement(authors, hints.author) do
+        :match -> min(title_similarity * 1.05, 1.0)
+        :conflict -> title_similarity * @author_mismatch
+        :unstated -> title_similarity
       end
 
     # The narrator only speaks when both sides have one. Recording-level hits
@@ -1963,20 +1999,42 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
-  defp author_similarity(_authors, nil), do: nil
+  @doc """
+  Whether a candidate's authors and the file's answer each other.
 
-  # "Didn't say" is not "said no" — the same rule the clause above already
-  # applies to a file that names no author, applied to a record that names
-  # none. Scoring an authorless record as a wrong-author match cost it a flat
-  # quarter of its score, which is not a judgement about the book: it is a
-  # judgement about how complete the provider's row is. Edition records are
-  # the ones that pay it, because an edition lists its narrator where the work
-  # lists its author — so the recordings that only a bibliography still has
-  # were docked 25% against the storefront hits they exist to compete with.
-  defp author_similarity([], _author), do: nil
+  Three-valued for the usual reason, and **by shared name token, not by jaro**.
+  Jaro cannot tell a name variant from a different human — measured on the
+  operator's own Martian import:
 
-  defp author_similarity(authors, author) do
-    authors |> Enum.map(&similarity(&1, author)) |> Enum.max(fn -> 0.0 end)
+      "J.R.R. Tolkien" vs "John Ronald Reuel Tolkien"   0.573   same person
+      "Daily  Books"   vs "Andy Weir"                   0.519   unrelated
+
+  Five hundredths apart. Blended in at a quarter share, that noise put "The
+  Martian: A Novel By Andy Weir | Conversation Starters" — a companion work by
+  a content farm — at **0.88** against the operator's file, because a
+  head-matched title scores 1.0 and even a completely wrong author adds 0.13
+  on top of 0.75 of it. Sharing a name token separates the two rows above
+  perfectly, and it is the same test `Ambry.Metadata.PersonSearch` already
+  applies for the same reason.
+
+  `:unstated` covers both sides being silent *and* a name that reduces to
+  nothing comparable ("J.R.R."), which abstains rather than guessing.
+  """
+  def author_agreement(authors, author) do
+    wanted = name_tokens(author)
+    stated = authors |> List.wrap() |> Enum.map(&name_tokens/1) |> Enum.reject(&Enum.empty?/1)
+
+    cond do
+      Enum.empty?(wanted) or stated == [] -> :unstated
+      Enum.any?(stated, &(not MapSet.disjoint?(&1, wanted))) -> :match
+      true -> :conflict
+    end
+  end
+
+  # Single letters are dropped: initials match everything, so "J. Smith" and
+  # "J. Jones" would agree on "j".
+  defp name_tokens(name) do
+    name |> tokens() |> Enum.reject(&(String.length(&1) < 2)) |> MapSet.new()
   end
 
   defp similarity(nil, _other), do: 0.0

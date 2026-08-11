@@ -749,7 +749,12 @@ defmodule Ambry.Inbox.Draft.Seed do
       query_fields: Map.get(level, "query_fields") || %{},
       doubt: doubt,
       doubt_detail: detail,
-      sources: if(best, do: Enum.map(AutoMatch.top_group(records), &SourceRef.of/1), else: []),
+      # `settled_group/1`, not `top_group/1`: once the file has named its
+      # reader, a record that names none is still a fine candidate and still
+      # a poor thing to adopt fields from. Same principle as the paragraph
+      # above, one level finer.
+      sources:
+        if(best, do: Enum.map(AutoMatch.settled_group(records), &SourceRef.of/1), else: []),
       # Settled when we actually know which recording this is — a trusted
       # match — or when there was nothing to choose between. A doubted record
       # leaves the question open rather than being adopted quietly; that
