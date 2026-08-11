@@ -84,9 +84,8 @@ defmodule Ambry.Images do
 
     try do
       with {_output, 0} <- ffmpeg(audio_path, destination, ["-f", "image2"]),
-           {:ok, binary} <- File.read(destination),
-           {:ok, mime} <- sniff(binary) do
-        {:ok, binary, mime}
+           {:ok, binary} <- File.read(destination) do
+        browser_safe(binary)
       else
         _no_image -> {:error, :no_embedded_image}
       end
@@ -95,10 +94,43 @@ defmodule Ambry.Images do
     end
   end
 
-  # The attached picture keeps its original encoding under `-c:v copy`, so the
-  # bytes say what it is and the filename can't.
+  @doc """
+  Image bytes a browser will actually render, and the mime type to serve them
+  under.
+
+  The attached picture keeps its original encoding under `-c:v copy`, so the
+  bytes say what it is and the filename can't. What they say is not
+  necessarily what the *container* says: the operator's Martian declares a PNG
+  stream and carries a big-endian TIFF (`4D 4D 00 2A`), which ffprobe itself
+  complains about ("Invalid PNG signature"). The picture extracted fine,
+  failed the sniff, and the preview 404'd into a broken image sitting next to
+  a chip offering it — for the one decision where seeing the art is the entire
+  point.
+
+  So anything libvips can read becomes a JPEG rather than a 404. Passing
+  unrecognized bytes straight through would only move the broken image: a
+  browser can't show a TIFF either.
+  """
+  def browser_safe(binary) do
+    case sniff(binary) do
+      {:ok, mime} -> {:ok, binary, mime}
+      :error -> transcode(binary)
+    end
+  end
+
+  defp transcode(binary) do
+    with {:ok, image} <- Image.from_binary(binary),
+         {:ok, jpeg} <- Image.write(image, :memory, suffix: ".jpg", quality: 90) do
+      {:ok, jpeg, "image/jpeg"}
+    else
+      _unreadable -> {:error, :no_embedded_image}
+    end
+  end
+
   defp sniff(<<0xFF, 0xD8, _rest::binary>>), do: {:ok, "image/jpeg"}
   defp sniff(<<0x89, "PNG\r\n", 0x1A, "\n", _rest::binary>>), do: {:ok, "image/png"}
+  defp sniff("GIF8" <> _rest), do: {:ok, "image/gif"}
+  defp sniff(<<"RIFF", _size::binary-4, "WEBP", _rest::binary>>), do: {:ok, "image/webp"}
   defp sniff(_other), do: :error
 
   defp ffmpeg(source, destination, extra \\ []) do

@@ -57,6 +57,372 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert %{asin: "B003ZWFO7E"} =
                AutoMatch.hints(%InboxItem{path: "/d/Whatever", tags: %{"asin" => "B003ZWFO7E"}})
     end
+
+    test "carries the item's raw text, basenames only" do
+      item = %InboxItem{
+        path: "/home/someone/downloads/Weir Andy - The Martian (R.C. Bray) - 2013",
+        files: ["/home/someone/downloads/Weir Andy - The Martian (R.C. Bray) - 2013/part1.mp3"],
+        tags: %{"book_title" => "The Martian (Unabridged)", "authors" => ["Andy Weir"]}
+      }
+
+      assert %{raw: raw} = AutoMatch.hints(item)
+      assert raw =~ "R.C. Bray"
+      assert raw =~ "part1.mp3"
+      assert raw =~ "Andy Weir"
+      refute raw =~ "someone"
+    end
+  end
+
+  describe "author_agreement/2" do
+    # Jaro puts these five hundredths apart, in the wrong order for any
+    # threshold: the same person scores 0.573 and two unrelated names 0.519.
+    test "a shared name token separates a variant from a different human" do
+      assert :match = AutoMatch.author_agreement(["J.R.R. Tolkien"], "John Ronald Reuel Tolkien")
+      assert :conflict = AutoMatch.author_agreement(["Daily  Books"], "Andy Weir")
+      assert :conflict = AutoMatch.author_agreement(["Scott M. Williams"], "Andy Weir")
+    end
+
+    test "any one of several authors agreeing is agreement" do
+      assert :match = AutoMatch.author_agreement(["Andy Weir", "Chris Hadfield"], "Andy Weir")
+    end
+
+    test "silence on either side, or a name with nothing comparable, abstains" do
+      assert :unstated = AutoMatch.author_agreement([], "Andy Weir")
+      assert :unstated = AutoMatch.author_agreement(["Andy Weir"], nil)
+      assert :unstated = AutoMatch.author_agreement(["J.R.R."], "Andy Weir")
+    end
+
+    # Initials match everything.
+    test "single letters are not tokens" do
+      assert :conflict = AutoMatch.author_agreement(["J. Smith"], "J. Jones")
+    end
+  end
+
+  describe "scoring an author who is not the author" do
+    defp scored(title, authors, wanted_author) do
+      entry = %Registry.Entry{id: "hardcover", display_name: "Hardcover"}
+      book = %Provider.Book{id: "1", title: title, authors: contributors(authors)}
+
+      hints =
+        AutoMatch.hints(%InboxItem{
+          path: "/d/The Martian",
+          tags: %{"book_title" => "The Martian", "authors" => [wanted_author]}
+        })
+
+      [record] = AutoMatch.records_from([book], entry, hints)
+      record["score"]
+    end
+
+    defp contributors(names) do
+      Enum.map(names, &%Provider.Contributor{name: &1, role: "author"})
+    end
+
+    # Measured at 0.88 on the operator's Martian import: a head-matched title
+    # scores a full 1.0, and a completely wrong author still added 0.13 on top
+    # of three quarters of it. "Conversation Starters" is in no marker list
+    # and never will be — the author is what says this isn't the book.
+    test "a companion work by a content farm is decisively marked down" do
+      assert scored(
+               "The Martian: A Novel By Andy Weir | Conversation Starters",
+               ["Daily  Books"],
+               "Andy Weir"
+             ) == 0.5
+    end
+
+    test "the book itself is unharmed" do
+      assert scored("The Martian", ["Andy Weir"], "Andy Weir") == 1.0
+    end
+
+    test "a record naming no author is neither credited nor punished" do
+      assert scored("The Martian", [], "Andy Weir") == 1.0
+    end
+  end
+
+  describe "settled_group/1" do
+    defp reading(id, narrators, score, evidence) do
+      %{
+        "source" => "provider:hardcover",
+        "id" => id,
+        "title" => "The Martian",
+        "narrators" => narrators,
+        "score" => score,
+        "narrator_evidence" => evidence
+      }
+    end
+
+    # B082BHWQCJ is Wil Wheaton's edition with the role string missing
+    # upstream: silent, so unpenalised, so still at 1.000, so ticked — and it
+    # handed a 2013 R.C. Bray recording Wheaton's 2020 release date.
+    test "a silent record is not pre-ticked once the file has named a reader" do
+      records = [
+        reading("bray", ["R.C. Bray"], 1.0, "supported"),
+        reading("silent", [], 1.0, nil)
+      ]
+
+      assert [%{"id" => "bray"}] = AutoMatch.settled_group(records)
+    end
+
+    # The ordinary case across most of a library.
+    test "with nothing corroborated it is top_group exactly" do
+      records = [reading("a", ["Someone"], 1.0, nil), reading("b", [], 1.0, nil)]
+
+      assert AutoMatch.settled_group(records) == AutoMatch.top_group(records)
+      assert length(AutoMatch.settled_group(records)) == 2
+    end
+  end
+
+  describe "agrees?/2" do
+    defp work_record(title, authors) do
+      %{"source" => "provider:hardcover", "id" => title, "title" => title, "authors" => authors}
+    end
+
+    # Pre-ticking is `top_group/1`, which is `agrees?/2` with no score floor at
+    # all — so this record, scored 0.25 by the companion penalty, was ticked
+    # onto the operator's Martian anyway.
+    test "a companion work never agrees with the book it is about" do
+      book = work_record("The Martian", ["Andy Weir"])
+      guide = work_record("The Martian: A Novel by Andy Weir | Unofficial Summary & Analysis", [])
+
+      refute AutoMatch.agrees?(guide, book)
+    end
+
+    # The rule it rides in on, which has to keep working: a genuine subtitle.
+    test "a subtitled edition still agrees with its bare title" do
+      bare = work_record("Cast Under an Alien Sun", ["Olan Thorensen"])
+      subtitled = work_record("Cast Under an Alien Sun: Destiny's Crucible, Book 1", [])
+
+      assert AutoMatch.agrees?(subtitled, bare)
+    end
+  end
+
+  describe "dedupe_records/2" do
+    defp row(attrs) do
+      Map.merge(
+        %{
+          "source" => "provider:hardcover",
+          "id" => "1",
+          "title" => "The Martian",
+          "narrators" => ["R.C. Bray"],
+          "asin" => nil,
+          "publisher" => nil,
+          "score" => 0.75
+        },
+        attrs
+      )
+    end
+
+    # Of Hardcover's four Wil Wheaton rows for The Martian, exactly one
+    # carries an ASIN. Picking a winner and dropping the rest threw it away
+    # three times in four.
+    test "the survivor takes the union of the rows it absorbs" do
+      records = [
+        row(%{"id" => "a"}),
+        row(%{"id" => "b", "asin" => "B00B5HZGUG"}),
+        row(%{"id" => "c", "publisher" => "Podium Publishing"})
+      ]
+
+      assert [merged] = AutoMatch.dedupe_records(records)
+      assert merged["id"] == "a"
+      assert merged["asin"] == "B00B5HZGUG"
+      assert merged["publisher"] == "Podium Publishing"
+      assert merged["duplicates"] == 3
+    end
+
+    test "two readers of one book are not duplicates" do
+      records = [
+        row(%{"id" => "bray"}),
+        row(%{"id" => "wheaton", "narrators" => ["Wil Wheaton"]})
+      ]
+
+      assert length(AutoMatch.dedupe_records(records)) == 2
+    end
+
+    # Two Audible ASINs for one Wheaton recording are a US and a UK edition —
+    # and the operator's file matches one of them.
+    test "records disagreeing on ASIN or publisher stay apart" do
+      records = [
+        row(%{"id" => "us", "asin" => "B082BHJMFF"}),
+        row(%{"id" => "uk", "asin" => "B082BHWQCJ"})
+      ]
+
+      assert length(AutoMatch.dedupe_records(records)) == 2
+
+      publishers = [
+        row(%{"id" => "podium", "publisher" => "Podium Publishing"}),
+        row(%{"id" => "brilliance", "publisher" => "Brilliance Audio"})
+      ]
+
+      assert length(AutoMatch.dedupe_records(publishers)) == 2
+    end
+
+    # Two databases describing one book is the case this module refuses to
+    # fuse — each knows something the other doesn't.
+    test "never merges across providers" do
+      records = [row(%{"id" => "1"}), row(%{"id" => "1", "source" => "provider:audible"})]
+
+      assert length(AutoMatch.dedupe_records(records)) == 2
+    end
+
+    # An edition crediting nobody is not evidence that it is some other
+    # edition's recording.
+    test "a record naming no narrator does not merge into one that does" do
+      records = [row(%{"id" => "named"}), row(%{"id" => "silent", "narrators" => []})]
+
+      assert length(AutoMatch.dedupe_records(records)) == 2
+    end
+
+    # The draft points at records by ref. Collapsing a ticked record into a
+    # look-alike would break that pointer and silently un-tick the operator's
+    # choice.
+    test "a pinned record keeps its identity" do
+      records = [row(%{"id" => "a"}), row(%{"id" => "ticked"})]
+      pinned = MapSet.new([{"provider:hardcover", "ticked"}])
+
+      assert [_a, ticked] = AutoMatch.dedupe_records(records, pinned)
+      assert ticked["id"] == "ticked"
+    end
+
+    test "first occurrence keeps the identity" do
+      records = [row(%{"id" => "already-on-the-item"}), row(%{"id" => "newly-found"})]
+
+      assert [merged] = AutoMatch.dedupe_records(records)
+      assert merged["id"] == "already-on-the-item"
+    end
+  end
+
+  describe "apply_narrator_evidence/2" do
+    # The Martian, measured: tags carry no narrator at all, "(R.C. Bray)" sits
+    # in the filename in a shape `extract_narrator/1` doesn't know, so the
+    # forward scorer no-ops and Audible's Wil Wheaton edition took the item at
+    # a perfect 1.0.
+    defp martian_hints do
+      AutoMatch.hints(%InboxItem{
+        path: "/d/Weir Andy - The Martian (R.C. Bray) - 2013 (320 kbp)",
+        tags: %{"book_title" => "The Martian (Unabridged)", "authors" => ["Andy Weir"]}
+      })
+    end
+
+    defp candidate(id, narrators, score) do
+      %{
+        "source" => "provider:hardcover",
+        "id" => id,
+        "title" => "The Martian",
+        "narrators" => narrators,
+        "score" => score
+      }
+    end
+
+    test "demotes a reader the file never mentions, in favour of one it does" do
+      candidates = [
+        candidate("wheaton", ["Wil Wheaton"], 1.0),
+        candidate("bray", ["R.C. Bray"], 0.75)
+      ]
+
+      assert [bray, wheaton] = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+
+      assert bray["id"] == "bray"
+      assert bray["narrator_evidence"] == "supported"
+      assert bray["score"] > wheaton["score"]
+
+      assert wheaton["narrator_evidence"] == "contradicted"
+      assert wheaton["score"] == 0.5
+    end
+
+    # The ordinary case, and the one this must not break: most files say
+    # nothing about who read them, and a check that punished every candidate
+    # for that would sink every correct match in the library.
+    test "changes nothing when the file names no reader at all" do
+      candidates = [
+        candidate("wheaton", ["Wil Wheaton"], 1.0),
+        candidate("dean", ["Robertson Dean"], 0.75)
+      ]
+
+      hints =
+        AutoMatch.hints(%InboxItem{
+          path: "/d/The Martian",
+          tags: %{"book_title" => "The Martian"}
+        })
+
+      assert ^candidates = AutoMatch.apply_narrator_evidence(candidates, hints)
+    end
+
+    test "leaves a record that names no reader alone" do
+      candidates = [candidate("bray", ["R.C. Bray"], 0.75), candidate("silent", [], 0.9)]
+
+      assert [silent, _bray] = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+      assert silent["id"] == "silent"
+      assert silent["score"] == 0.9
+      refute Map.has_key?(silent, "narrator_evidence")
+    end
+
+    # A re-search runs this again over records that already carry a verdict.
+    # Multiplying into the running score would sink the same candidate a
+    # little further on every visit.
+    test "is idempotent" do
+      candidates = [
+        candidate("wheaton", ["Wil Wheaton"], 1.0),
+        candidate("bray", ["R.C. Bray"], 0.75)
+      ]
+
+      once = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+      assert ^once = AutoMatch.apply_narrator_evidence(once, martian_hints())
+    end
+
+    # The stated credit is the stronger signal and the forward scorer already
+    # has it; leaving both live would apply two narrator factors at once.
+    test "stands down when the file states a narrator outright" do
+      candidates = [candidate("bray", ["R.C. Bray"], 0.75)]
+
+      hints =
+        AutoMatch.hints(%InboxItem{
+          path: "/d/The Martian (R.C. Bray)",
+          tags: %{"book_title" => "The Martian", "narrators" => ["R.C. Bray"]}
+        })
+
+      assert ^candidates = AutoMatch.apply_narrator_evidence(candidates, hints)
+    end
+
+    # "Full Cast" is a label for a cast, not a person, so `stated_narrator/1`
+    # rejects it and the forward path has nothing to work with — which is
+    # exactly when this has to step in.
+    test "still runs for a full-cast release, on any one of the cast" do
+      hints =
+        AutoMatch.hints(%InboxItem{
+          path: "/d/Harry Potter and the Philosopher's Stone (Full Cast)",
+          files: ["/d/HP1/Hugh Laurie, Matthew Macfadyen - part 1.mp3"],
+          tags: %{"book_title" => "Harry Potter", "narrators" => ["Full Cast"]}
+        })
+
+      candidates = [
+        candidate("solo", ["Stephen Fry"], 1.0),
+        candidate("cast", ["Hugh Laurie", "Matthew Macfadyen", "Fifteen Others"], 0.8)
+      ]
+
+      assert [cast, solo] = AutoMatch.apply_narrator_evidence(candidates, hints)
+      assert cast["id"] == "cast"
+      assert solo["narrator_evidence"] == "contradicted"
+    end
+
+    # The boost is capped at 1.0, so a corroborated candidate cannot out-score
+    # a silent one already sitting there — which is exactly what The Martian
+    # produces. The tie-break is what puts the file's own reader on top.
+    test "a corroborated candidate outranks a silent one it cannot out-score" do
+      candidates = [candidate("silent", [], 1.0), candidate("bray", ["R.C. Bray"], 1.0)]
+
+      assert [bray, silent] = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+      assert bray["id"] == "bray"
+      assert bray["score"] == silent["score"]
+    end
+
+    # "R.C." reduces to nothing searchable — one- and two-letter tokens match
+    # almost any filename — so a name with no substantial part abstains
+    # instead of guessing.
+    test "abstains on a name with nothing substantial to match" do
+      candidates = [candidate("initials", ["R.C."], 0.9), candidate("bray", ["R.C. Bray"], 0.75)]
+
+      assert [_bray, initials] = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+      assert initials["narrator_evidence"] == "contradicted"
+    end
   end
 
   describe "match/1" do

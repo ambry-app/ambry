@@ -572,6 +572,63 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert work.book_id == book.id
     end
 
+    # Eight rows all wearing the same weight is how a 6% study guide got read
+    # as an alternative worth considering.
+    test "a junk record is folded away behind a link", %{conn: conn} do
+      item = probed_item() |> with_work_records(scores: %{"hc-2" => 0.12})
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "Show 1 worse match"
+      assert folded_records(html) == ["hc-2"]
+    end
+
+    test "nothing is folded when every record is worth showing", %{conn: conn} do
+      item = probed_item() |> with_work_records()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute html =~ "worse match"
+      assert folded_records(html) == []
+    end
+
+    # A low score is exactly why somebody would have gone looking for it by
+    # hand; folding it away afterwards would show a decision with no cause.
+    test "a ticked record is never folded, whatever it scores", %{conn: conn} do
+      item = probed_item() |> with_work_records(scores: %{"hc-2" => 0.12})
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html =
+        view
+        |> element("input[phx-click='toggle-source'][phx-value-id='hc-2']")
+        |> render_click()
+
+      assert folded_records(html) == []
+      assert html =~ "hc-2"
+    end
+
+    # Square art is the audiobook and a portrait is the print cover, and
+    # cropping to fill made those two indistinguishable. The box is reserved
+    # either way so the titles stay on one rail.
+    test "a cover keeps its shape, and a record without one still reserves the space",
+         %{conn: conn} do
+      item =
+        probed_item()
+        |> with_work_records(covers: %{"hc-1" => "https://example.test/cover.jpg"})
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      rows = html |> Floki.parse_document!() |> Floki.find("[data-role='record']")
+
+      assert [with_cover, without] = rows
+      assert [class] = with_cover |> Floki.find("img") |> Floki.attribute("class")
+      assert class =~ "object-contain"
+      refute class =~ "object-cover"
+
+      assert without |> Floki.find("[title='No image']") != []
+      assert without |> Floki.find("img") == []
+    end
+
     test "the search that produced the records can be re-run", %{conn: conn} do
       item = probed_item() |> with_work_records()
 
@@ -1022,7 +1079,8 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
         "authors" => ["Brandon Sanderson"],
         "published" => published,
         "published_format" => "full",
-        "score" => if(id == "hc-1", do: 0.95, else: 0.6)
+        "cover_url" => Keyword.get(opts, :covers, %{})[id],
+        "score" => Keyword.get(opts, :scores, %{})[id] || if(id == "hc-1", do: 0.95, else: 0.6)
       }
     end
 
@@ -1107,6 +1165,13 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
     {:ok, item} = Inbox.rebuild_draft(item)
     item
+  end
+
+  defp folded_records(html) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find("[data-role='worse-matches'] [data-role='record'] input[type='checkbox']")
+    |> Enum.flat_map(&Floki.attribute([&1], "phx-value-id"))
   end
 
   defp used_records(html) do

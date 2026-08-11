@@ -131,6 +131,67 @@ defmodule AmbryWeb.Admin.Decisions do
         do: {key, value}
   end
 
+  # Where a candidate stops being an alternative and starts being noise. Sits
+  # deliberately at the boundary rather than below it: on the operator's
+  # Martian the contradicted Wil Wheaton editions score exactly 0.5, and they
+  # are the *other real recording* of that book — precisely what somebody
+  # opens this list to find. One constant, tune it here.
+  @worth_showing 0.5
+
+  attr :records, :list, required: true
+  attr :used, :any, required: true, doc: "fn record -> boolean, the ticked test"
+  slot :row, required: true, doc: "renders one record; receives the record"
+
+  @doc """
+  A level's records, with the junk folded away.
+
+  Eight rows all wearing the same weight is how a 6% study guide got read as
+  an alternative worth considering. Below `#{@worth_showing}` a record is not
+  a rival reading of the book, it is a search result that happened to share a
+  word — so it goes behind a link and stops competing for the eye.
+
+  **A ticked record is never hidden**, whatever it scores. Folding away
+  something the operator has chosen would leave the form showing a decision
+  with no visible cause, and a low score is exactly why somebody would have
+  gone looking for it by hand.
+  """
+  def record_list(assigns) do
+    {shown, folded} = Enum.split_with(assigns.records, &worth_showing?(&1, assigns.used))
+
+    assigns = assign(assigns, shown: shown, folded: folded)
+
+    ~H"""
+    <%= for record <- @shown do %>
+      {render_slot(@row, record)}
+    <% end %>
+
+    <.disclosure
+      :if={@folded != []}
+      summary={worse_matches_label(@folded)}
+      container_class="space-y-2"
+      data-role="worse-matches"
+    >
+      <div class="space-y-2 pt-2">
+        <%= for record <- @folded do %>
+          {render_slot(@row, record)}
+        <% end %>
+      </div>
+    </.disclosure>
+    """
+  end
+
+  # An *unscored* record is not a weak one — person records carry no score at
+  # all, and reading a missing score as zero would fold every one of them away.
+  defp worth_showing?(record, used) do
+    case record["score"] do
+      score when is_number(score) -> score >= @worth_showing or used.(record)
+      _unscored -> true
+    end
+  end
+
+  defp worse_matches_label([_one]), do: "Show 1 worse match"
+  defp worse_matches_label(folded), do: "Show #{length(folded)} worse matches"
+
   attr :record, :map, required: true
   attr :used, :boolean, required: true
   attr :level, :string, default: nil
@@ -175,10 +236,31 @@ defmodule AmbryWeb.Admin.Decisions do
       />
       <%!-- Identification, not selection: the cover or face that tells this
           record apart, visible BEFORE ticking — the chips below remain the
-          place a photo is chosen. --%>
-      <span :if={thumb = record_thumb(@record)} class="group/zoom relative -my-0.5 flex-none">
-        <img src={thumb} class="h-12 w-12 rounded-sm object-cover" loading="lazy" />
+          place a photo is chosen.
+
+          The box is always 48×48 and the image is `object-contain` inside it.
+          Cropping to fill turned every portrait jacket into a square, which
+          is the one thing an operator is looking at these for — square art is
+          the audiobook and a portrait is the print cover, and `object-cover`
+          made those two indistinguishable. The box is rendered even with
+          nothing to put in it, so the titles down the list stay on one rail
+          instead of stepping left whenever a record has no art. --%>
+      <span class="group/zoom relative -my-0.5 h-12 w-12 flex-none">
+        <img
+          :if={thumb = record_thumb(@record)}
+          src={thumb}
+          class="h-full w-full rounded-sm object-contain"
+          loading="lazy"
+        />
         <span
+          :if={!record_thumb(@record)}
+          class="bg-zinc-800/80 flex h-full w-full items-center justify-center rounded-sm"
+          title="No image"
+        >
+          <.icon name="fa-image" class="h-4 w-4 text-zinc-600" />
+        </span>
+        <span
+          :if={thumb = record_thumb(@record)}
           data-zoomable
           data-full={thumb}
           title="View full size"
