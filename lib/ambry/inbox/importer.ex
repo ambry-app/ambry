@@ -55,6 +55,7 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
@@ -62,6 +63,7 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.Library.Placement
   alias Ambry.Library.Root
   alias Ambry.Media
+  alias Ambry.Media.RecordingGroup
   alias Ambry.Media.Scanner
   alias Ambry.People
   alias Ambry.People.Author
@@ -324,20 +326,22 @@ defmodule Ambry.Inbox.Importer do
   defp create_media(item, book, probe, people) do
     recording = item.draft.recording
 
-    with {:ok, group} <- part_set_group(book, recording) do
+    with {:ok, group} <- resolve_group(recording.recording_group) do
       do_create_media(item, book, probe, people, recording, group)
     end
   end
 
-  # A part label needs a group to live in — the set's total is the group's
-  # fact. Until the form offers a link-or-create group decision, each
-  # part-labeled import gets its own group named after the book (the same
-  # default the promotion migration used).
-  defp part_set_group(_book, %{part_number: nil, parts_total: nil}), do: {:ok, nil}
+  # The draft's group link, resolved like a series link: `:link` joins the
+  # existing group, `:create` mints one carrying the set-level facts the
+  # operator settled. Absent or tombstoned means not part of any set.
+  defp resolve_group(nil), do: {:ok, nil}
+  defp resolve_group(%GroupLink{removed: true}), do: {:ok, nil}
 
-  defp part_set_group(book, recording) do
-    Media.create_recording_group(%{name: book.title, parts_total: recording.parts_total})
-  end
+  defp resolve_group(%GroupLink{mode: :link, recording_group_id: id}),
+    do: {:ok, Repo.get!(RecordingGroup, id)}
+
+  defp resolve_group(%GroupLink{mode: :create} = link),
+    do: Media.create_recording_group(%{name: link.name, parts_total: link.parts_total})
 
   defp do_create_media(item, book, probe, people, recording, group) do
     Media.create_media(
@@ -349,9 +353,8 @@ defmodule Ambry.Inbox.Importer do
         source_path: item.path,
         source_files: item.files,
         status: :pending,
-        # The optional part-of-a-set label ("Part 1 of 2"), typed by the
-        # operator.
-        part_number: recording.part_number,
+        # The recording's settled place in its part set, if any.
+        part_number: part_number(recording.recording_group),
         recording_group_id: group && group.id,
         duration: probe.duration,
         chapters: probe.chapters,
@@ -510,6 +513,10 @@ defmodule Ambry.Inbox.Importer do
   defp filename_part(%{part_number: number, recording_group: group}) do
     %{number: number, total: group && group.parts_total, word: group && group.part_word}
   end
+
+  # A tombstoned link imports groupless — removal is an answer.
+  defp part_number(%GroupLink{removed: false, part_number: number}), do: number
+  defp part_number(_absent_or_removed), do: nil
 
   # The recording now points at the library copy and Ambry owns those bytes.
   defp adopt_managed(media, path) do

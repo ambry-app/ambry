@@ -17,6 +17,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Seed
@@ -626,6 +627,83 @@ defmodule Ambry.Inbox.Draft.Edit do
     update_series(draft, index, &%{&1 | removed: false})
   end
 
+  ## the part set
+
+  @doc """
+  Declares this recording part of a set the sources didn't propose.
+  """
+  def add_group(draft) do
+    link = %GroupLink{name: "", source: "manual", mode: :create, curated: true}
+    put_in(draft.recording.recording_group, link)
+  end
+
+  def set_group_part(draft, number) do
+    update_group(draft, &%{&1 | part_number: number, curated: true})
+  end
+
+  def set_group_total(draft, total) do
+    update_group(draft, &%{&1 | parts_total: total, curated: true})
+  end
+
+  def approve_group(draft, approved?) do
+    update_group(draft, &%{&1 | approved: approved?, curated: true})
+  end
+
+  # `facts` are the linked group's own name/total, carried for display only —
+  # a :link never writes them back at import.
+  def link_group(draft, group_id, facts \\ %{}) do
+    update_group(
+      draft,
+      &%{
+        &1
+        | mode: :link,
+          recording_group_id: group_id,
+          name: facts[:name] || &1.name,
+          parts_total: facts[:parts_total] || &1.parts_total,
+          curated: true
+      }
+    )
+  end
+
+  def create_group(draft) do
+    update_group(draft, &%{&1 | mode: :create, recording_group_id: nil, curated: true})
+  end
+
+  @doc """
+  Renames the group a link will create.
+  """
+  def rename_group(draft, name) do
+    update_group(
+      draft,
+      &%{&1 | name: name, curated: true, approved: &1.approved and not blank?(name)}
+    )
+  end
+
+  @doc """
+  Puts the evidence's spelling back in a renamed group.
+  """
+  def reset_group_name(draft) do
+    case draft.recording.recording_group do
+      %GroupLink{proposed_name: name} when is_binary(name) -> rename_group(draft, name)
+      _no_proposal -> draft
+    end
+  end
+
+  # The same tombstone-vs-delete split as `remove_series/2`: an operator-added
+  # link really deletes (no evidence proposed it, nothing can resurrect it),
+  # a proposal tombstones so the removal survives reseeds and stays reversible.
+  def remove_group(draft) do
+    case draft.recording.recording_group do
+      nil -> draft
+      %GroupLink{source: "manual"} -> put_in(draft.recording.recording_group, nil)
+      _proposed -> update_group(draft, &%{&1 | removed: true, curated: true})
+    end
+  end
+
+  def restore_group(draft) do
+    update_group(draft, &%{&1 | removed: false})
+  end
+
   ## the identity decisions
 
   @doc """
@@ -709,9 +787,16 @@ defmodule Ambry.Inbox.Draft.Edit do
         publisher: settle_if_possible(recording.publisher),
         description: settle_if_possible(recording.description),
         cover: settle_if_possible(recording.cover),
+        recording_group: settle_group(recording.recording_group),
         narrators: Enum.map(recording.narrators, &settle_credit/1)
     }
   end
+
+  # A part number nobody supplied stays a question, same as a series number.
+  defp settle_group(nil), do: nil
+  defp settle_group(%GroupLink{removed: true} = link), do: link
+  defp settle_group(%GroupLink{part_number: nil} = link), do: link
+  defp settle_group(%GroupLink{} = link), do: %{link | approved: true}
 
   # Takes the first proposal where there is one; leaves a required field with
   # nothing behind it exactly as it was.
@@ -761,6 +846,13 @@ defmodule Ambry.Inbox.Draft.Edit do
 
   defp update_series(draft, index, fun),
     do: update_in(draft.work.series, &List.update_at(&1, index, fun))
+
+  defp update_group(draft, fun) do
+    case draft.recording.recording_group do
+      nil -> draft
+      %GroupLink{} = link -> put_in(draft.recording.recording_group, fun.(link))
+    end
+  end
 
   defp presence(nil), do: nil
   defp presence(string) when is_binary(string), do: with("" <- String.trim(string), do: nil)

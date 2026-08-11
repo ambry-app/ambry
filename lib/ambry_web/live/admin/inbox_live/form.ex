@@ -43,6 +43,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Media
   alias Ambry.People
 
   require Logger
@@ -292,6 +293,53 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def handle_event("add-series", _params, socket) do
     {:noreply, edit(socket, &Draft.Edit.add_series/1)}
+  end
+
+  def handle_event("add-group", _params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.add_group/1)}
+  end
+
+  def handle_event("remove-group", _params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.remove_group/1)}
+  end
+
+  def handle_event("restore-group", _params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.restore_group/1)}
+  end
+
+  def handle_event("set-group-part", %{"part_number" => number}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.set_group_part(&1, to_int(number)))}
+  end
+
+  def handle_event("set-group-total", %{"parts_total" => total}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.set_group_total(&1, to_int(total)))}
+  end
+
+  def handle_event("approve-group", params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.approve_group(&1, params["approved"] == "true"))}
+  end
+
+  def handle_event("link-group", params, socket) do
+    id = to_int(params["recording_group_id"])
+
+    {:noreply,
+     edit(socket, fn draft ->
+       if id do
+         # Carry the linked group's set-level facts onto the link so the row
+         # can display them — they're the group's, not the draft's, and are
+         # ignored at import for a :link.
+         group = Media.get_recording_group!(id)
+         Draft.Edit.link_group(draft, id, %{name: group.name, parts_total: group.parts_total})
+       else
+         draft
+         |> Draft.Edit.create_group()
+         |> Draft.Edit.rename_group(params["name"] || "")
+       end
+     end)}
+  end
+
+  def handle_event("reset-group-name", _params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.reset_group_name/1)}
   end
 
   def handle_event("reset-credit-name", %{"section" => s, "index" => i}, socket) do
@@ -636,6 +684,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),
+      # A recording group is reachable only through its book, so the picker
+      # has options exactly when the work links a library book. A :create
+      # work has no groups yet — the resolver is create-only there.
+      group_options: group_options(item.draft),
       # Where each person is credited, so a row can say "same person as the
       # author". Derived, never stored — one human is one record now, and a
       # second copy of "who is where" is what used to drift.
@@ -661,6 +713,14 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp atom("publisher"), do: :publisher
   defp atom("description"), do: :description
   defp atom("cover"), do: :cover
+
+  defp group_options(%Draft{work: %Work{mode: :link, book_id: book_id}}) when not is_nil(book_id),
+    do: Media.recording_groups_for_select(book_id)
+
+  defp group_options(_draft), do: []
+
+  defp group_absent?(%Draft{recording: %Recording{recording_group: nil}}), do: true
+  defp group_absent?(%Draft{}), do: false
 
   defp to_int(nil), do: nil
   defp to_int(""), do: nil

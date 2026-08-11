@@ -20,6 +20,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.SourceRef
@@ -1345,6 +1346,163 @@ defmodule AmbryWeb.Admin.Decisions do
             event="reset-series-name"
             values={%{index: @index}}
             title="go back to what the records proposed"
+          >
+            <span class="text-[10px] flex-none uppercase tracking-wide text-zinc-500">
+              {source_words(@link.source)}
+            </span>
+            {@link.proposed_name}
+          </.proposal_chip>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :link, GroupLink, required: true
+  attr :options, :list, required: true
+
+  @doc """
+  The recording's place in a part set — which group it joins or creates, and
+  its part number within it. The series row's mirror, one level down and
+  singular: a recording is in at most one set.
+
+  The part number is never defaulted, same doctrine as the series number —
+  "part of this set, position unknown" is a question, not an answer.
+  """
+  # The same ghost as a removed series: dashed, named, restorable.
+  def group_row(%{link: %GroupLink{removed: true}} = assigns) do
+    ~H"""
+    <div
+      class="rounded-lg border border-dashed border-zinc-700 p-4"
+      data-role="removed-group"
+    >
+      <div class="flex items-center justify-between gap-2 pl-3">
+        <p class="min-w-0 truncate text-sm text-zinc-500">
+          Part of <span class="line-through">{@link.name}</span> — removed
+        </p>
+        <button
+          type="button"
+          phx-click="restore-group"
+          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+        >
+          Restore
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  def group_row(assigns) do
+    ~H"""
+    <div
+      class={[
+        "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+        (GroupLink.resolved?(@link) && "border-brand-dark/60") || "border-amber-400/70"
+      ]}
+      data-role="group-link"
+    >
+      <div class="flex items-center justify-between gap-2 pl-3">
+        <div class="flex min-w-0 items-baseline gap-2">
+          <.label>Part of a set</.label>
+
+          <.badge
+            :if={!GroupLink.resolved?(@link)}
+            color={elem(state_words(GroupLink.state(@link)), 1)}
+            class="text-xs"
+          >
+            {elem(state_words(GroupLink.state(@link)), 0)}
+          </.badge>
+        </div>
+
+        <div class="flex flex-none items-center gap-2">
+          <button
+            :if={!@link.approved and @link.part_number}
+            type="button"
+            phx-click="approve-group"
+            phx-value-approved="true"
+            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          >
+            Confirm
+          </button>
+
+          <button type="button" phx-click="remove-group" title="Not part of a set">
+            <.icon name="fa-xmark" class="h-4 w-4 cursor-pointer hover:text-red-600" />
+          </button>
+        </div>
+      </div>
+
+      <%!-- The cross-item case this row exists for: an earlier part already
+          created the set, and joining it is what keeps one work from
+          growing a second, parallel group. --%>
+      <p
+        :if={@link.mode == :link and not @link.curated and not GroupLink.resolved?(@link)}
+        class="pl-3 text-sm text-zinc-400"
+        data-role="group-sibling-callout"
+      >
+        This work already has a recording set — is this another part of the same set?
+      </p>
+
+      <div class="flex flex-wrap items-end gap-x-3 gap-y-2">
+        <form id="group-link" phx-change="link-group" class="min-w-48 max-w-md flex-grow">
+          <.live_component
+            module={EntityResolver}
+            id="group-resolver"
+            name="recording_group_id"
+            text_name="name"
+            options={@options}
+            value={if @link.mode == :link, do: @link.recording_group_id}
+            text={@link.name || ""}
+            placeholder="set name"
+            class={input_classes("w-full")}
+          />
+        </form>
+
+        <form id="group-part" phx-change="set-group-part" class="space-y-1">
+          <label class="block pl-3 text-xs text-zinc-400">Part no.</label>
+          <input
+            type="number"
+            min="1"
+            name="part_number"
+            value={@link.part_number}
+            placeholder="?"
+            class={input_classes("w-16")}
+            data-role="part-number"
+          />
+        </form>
+
+        <%!-- On :link the total is the linked group's fact, shown not asked;
+            on :create it's the new set's birth certificate. --%>
+        <form :if={@link.mode == :create} id="group-total" phx-change="set-group-total" class="space-y-1">
+          <label class="block pl-3 text-xs text-zinc-400">of (total)</label>
+          <input
+            type="number"
+            min="1"
+            name="parts_total"
+            value={@link.parts_total}
+            placeholder="?"
+            class={input_classes("w-16")}
+            data-role="parts-total"
+          />
+        </form>
+
+        <p :if={@link.mode == :link and @link.parts_total} class="pb-2 text-sm text-zinc-400">
+          of {@link.parts_total}
+        </p>
+      </div>
+
+      <%!-- Same restore chip as a series' name: the evidence's spelling
+            stays reachable after a rename or a clear. --%>
+      <div
+        :if={@link.mode == :create && @link.proposed_name && @link.proposed_name != @link.name}
+        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+      >
+        <.microlabel>Proposed</.microlabel>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <.proposal_chip
+            chosen={false}
+            event="reset-group-name"
+            values={%{}}
+            title="go back to what the evidence proposed"
           >
             <span class="text-[10px] flex-none uppercase tracking-wide text-zinc-500">
               {source_words(@link.source)}

@@ -906,26 +906,74 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
-  describe "part-of-a-set numbers" do
-    # Plain optional inputs, reachable from the default state — nothing
-    # proposes these, the operator just knows.
-    test "typing the numbers saves them to the draft", %{conn: conn} do
+  describe "part-of-a-set membership" do
+    # A set membership is a decision like a series membership, reachable from
+    # the form's default state: declare the set, name it, number the part.
+    test "declaring, numbering and naming a new set from the default state", %{conn: conn} do
       item = probed_item()
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
       assert html =~ "Part of a set"
+      assert html =~ "Not part of a set"
+
+      view |> element("button", "This release is part of a set") |> render_click()
+
+      assert has_element?(view, "[data-role='group-link']")
 
       view
-      |> form("#recording-form", %{
-        "inbox_item" => %{
-          "draft" => %{"recording" => %{"part_number" => "1", "parts_total" => "2"}}
-        }
-      })
-      |> render_change()
+      |> form("#group-part")
+      |> render_change(%{"part_number" => "1"})
+
+      view
+      |> form("#group-total")
+      |> render_change(%{"parts_total" => "2"})
+
+      # naming through the resolver's hidden inputs: no id picked = create
+      view
+      |> form("#group-link")
+      |> render_change(%{"recording_group_id" => "", "name" => "GraphicAudio"})
 
       item = Inbox.get_item!(item.id)
-      assert item.draft.recording.part_number == 1
-      assert item.draft.recording.parts_total == 2
+      link = item.draft.recording.recording_group
+
+      assert %{
+               mode: :create,
+               name: "GraphicAudio",
+               part_number: 1,
+               parts_total: 2,
+               curated: true
+             } = link
+    end
+
+    test "an operator-added link really deletes; a confirm approves", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view |> element("button", "This release is part of a set") |> render_click()
+
+      view
+      |> form("#group-part")
+      |> render_change(%{"part_number" => "1"})
+
+      view
+      |> form("#group-link")
+      |> render_change(%{"recording_group_id" => "", "name" => "GraphicAudio"})
+
+      # the Confirm button appears once a part number exists
+      view |> element("[data-role='group-link'] button", "Confirm") |> render_click()
+
+      item = Inbox.get_item!(item.id)
+      assert item.draft.recording.recording_group.approved
+
+      # removing a manual link deletes it outright — nothing proposed it
+      view
+      |> element("[data-role='group-link'] button[phx-click='remove-group']")
+      |> render_click()
+
+      item = Inbox.get_item!(item.id)
+      assert item.draft.recording.recording_group == nil
+      assert has_element?(view, "button", "This release is part of a set")
     end
   end
 

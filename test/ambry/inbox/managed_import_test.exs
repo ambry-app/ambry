@@ -188,10 +188,17 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     defp with_parts(item, number, total) do
-      draft = %{
-        item.draft
-        | recording: %{item.draft.recording | part_number: number, parts_total: total}
+      link = %Ambry.Inbox.Draft.GroupLink{
+        mode: :create,
+        name: "Part Set",
+        source: "manual",
+        part_number: number,
+        parts_total: total,
+        approved: true,
+        curated: true
       }
+
+      draft = %{item.draft | recording: %{item.draft.recording | recording_group: link}}
 
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
       item

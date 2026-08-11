@@ -5,6 +5,7 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
@@ -2336,6 +2337,119 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Draft.Edit.rename_series(item.draft, 0, "The Expanse")
 
       assert hd(draft.work.series).name == "The Expanse"
+    end
+  end
+
+  describe "the group link" do
+    # The series doctrine one level down: a part number is never invented,
+    # and "part of this set, position unknown" stays a question.
+    test "resolved?/1 and state/1" do
+      refute GroupLink.resolved?(%GroupLink{part_number: nil, approved: true, name: "Set"})
+      assert GroupLink.state(%GroupLink{part_number: nil}) == :missing
+
+      unapproved = %GroupLink{part_number: 1, name: "Set", mode: :create}
+      refute GroupLink.resolved?(unapproved)
+      assert GroupLink.state(unapproved) == :unconfirmed
+
+      # a blank name is storable (clearing to retype) but never resolved
+      refute GroupLink.resolved?(%GroupLink{
+               part_number: 1,
+               approved: true,
+               mode: :create,
+               name: " "
+             })
+
+      refute GroupLink.resolved?(%GroupLink{part_number: 1, approved: true, mode: :link})
+
+      assert GroupLink.resolved?(%GroupLink{
+               part_number: 1,
+               approved: true,
+               mode: :create,
+               name: "Set"
+             })
+
+      assert GroupLink.resolved?(%GroupLink{
+               part_number: 2,
+               approved: true,
+               mode: :link,
+               recording_group_id: 7
+             })
+    end
+
+    test "a live unresolved link blocks import; removed or absent does not" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      absent = Draft.unresolved(draft)
+      refute Enum.any?(absent, &(&1.label =~ "Part of a set"))
+
+      live = put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{})
+      assert Enum.any?(Draft.unresolved(live), &(&1.label =~ "Part of a set"))
+
+      removed = Draft.Edit.remove_group(live)
+      refute Enum.any?(Draft.unresolved(removed), &(&1.label =~ "Part of a set"))
+    end
+
+    test "a proposal tombstones on removal and survives the dump/load round-trip" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        put_in(item.draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "GraphicAudio",
+          proposed_name: "GraphicAudio",
+          source: "name",
+          part_number: 1,
+          parts_total: 2
+        })
+
+      removed = Draft.Edit.remove_group(draft)
+      assert removed.recording.recording_group.removed
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(removed))
+      assert item.draft.recording.recording_group.removed
+      assert item.draft.recording.recording_group.name == "GraphicAudio"
+
+      restored = Draft.Edit.restore_group(item.draft)
+      refute restored.recording.recording_group.removed
+    end
+
+    test "an operator-added link really deletes and nil round-trips" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      added = Draft.Edit.add_group(item.draft)
+      assert %GroupLink{source: "manual", curated: true} = added.recording.recording_group
+
+      gone = Draft.Edit.remove_group(added)
+      assert gone.recording.recording_group == nil
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(gone))
+      assert item.draft.recording.recording_group == nil
+    end
+
+    test "approve_all settles a numbered link but never invents a part number" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      numbered =
+        put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "Set",
+          part_number: 1
+        })
+
+      settled = Draft.Edit.approve_all(numbered)
+      assert settled.recording.recording_group.approved
+
+      unnumbered =
+        put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "Set",
+          part_number: nil
+        })
+
+      still_open = Draft.Edit.approve_all(unnumbered)
+      refute still_open.recording.recording_group.approved
     end
   end
 

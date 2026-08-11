@@ -6,6 +6,7 @@ defmodule Ambry.Inbox.ImporterTest do
   alias Ambry.Books.Book
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Media
   alias Ambry.People.Author
   alias Ambry.People.Narrator
@@ -321,13 +322,19 @@ defmodule Ambry.Inbox.ImporterTest do
     # that happens to carry the optional part label. The operator types the
     # numbers; nothing proposes them, and grouping the parts into one set
     # stays on the media form.
-    test "typed part numbers reach the imported media inside a group" do
+    test "a :create group link mints the set and the media joins it" do
       item = tagged_item()
 
-      draft = %{
-        item.draft
-        | recording: %{item.draft.recording | part_number: 1, parts_total: 2}
-      }
+      draft =
+        put_in(item.draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "GraphicAudio",
+          source: "manual",
+          part_number: 1,
+          parts_total: 2,
+          approved: true,
+          curated: true
+        })
 
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
@@ -336,18 +343,86 @@ defmodule Ambry.Inbox.ImporterTest do
       media = Media.get_media!(media.id)
       assert media.part_number == 1
       # a part label lives inside a group; the set's total is the group's fact
-      assert %{parts_total: 2, name: name} = media.recording_group
-      assert name == media.book.title
+      assert %{name: "GraphicAudio", parts_total: 2} = media.recording_group
     end
 
-    test "the numbers count as curation, so a re-match can't discard them" do
+    test "a :link group link joins the existing set instead of minting one" do
+      %{id: book_id} = book = insert(:book)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      item = tagged_item()
+
+      draft =
+        put_in(item.draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :link,
+          recording_group_id: group.id,
+          name: group.name,
+          part_number: 2,
+          approved: true,
+          curated: true
+        })
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert {:ok, media} = Inbox.import_item(item)
+
+      media = Media.get_media!(media.id)
+      assert media.recording_group_id == group.id
+      assert media.part_number == 2
+      # sanity: the set didn't fork — still exactly one group for the book
+      assert [_only] = Ambry.Media.recording_groups_for_book(book_id)
+    end
+
+    test "a tombstoned group link imports groupless" do
+      item = tagged_item()
+
+      draft =
+        put_in(item.draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "Changed My Mind",
+          part_number: 1,
+          removed: true,
+          curated: true
+        })
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert {:ok, media} = Inbox.import_item(item)
+
+      media = Media.get_media!(media.id)
+      assert media.recording_group_id == nil
+      assert media.part_number == nil
+    end
+
+    test "an unresolved group link blocks import" do
+      item = tagged_item()
+
+      draft =
+        put_in(item.draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "GraphicAudio",
+          part_number: nil,
+          curated: true
+        })
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert {:error, {:unresolved, unresolved}} = Inbox.import_item(item)
+      assert Enum.any?(unresolved, &(&1.label =~ "Part of a set"))
+    end
+
+    test "the group link counts as curation, so a re-match can't discard it" do
       item = tagged_item(settle: false)
       {:ok, item} = Inbox.prepare_draft(item)
 
-      draft = %{
-        item.draft
-        | recording: %{item.draft.recording | part_number: 1, parts_total: 2}
-      }
+      draft =
+        put_in(item.draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "GraphicAudio",
+          part_number: 1,
+          curated: true
+        })
 
       assert Draft.curated?(draft)
     end
