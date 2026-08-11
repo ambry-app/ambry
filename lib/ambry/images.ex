@@ -47,28 +47,27 @@ defmodule Ambry.Images do
   Extracts an audio file's embedded cover art and returns its web path.
 
   Cover art rides along as an `attached_pic` video stream, so pulling it out
-  is a stream copy rather than a re-encode — `-c:v copy` keeps the publisher's
-  original bytes instead of generationally re-compressing them.
+  is a stream copy rather than a re-encode: `-c:v copy` keeps the publisher's
+  original bytes rather than generationally re-compressing them.
+
+  What it does NOT do any more is assume those bytes are a JPEG. This wrote
+  `generate_filename("image/jpeg")` and then stream-copied whatever was in
+  there into it, so the operator's Martian — a big-endian TIFF in a stream the
+  container calls PNG — was imported as 753KB of TIFF in a file named `.jpg`.
+  Firefox's verdict, accurately: "the jpeg contains errors". The thumbnails
+  were fine the whole time, because libvips reads by content and ignores the
+  name; only the original, which is what the form renders, was a lie.
+
+  So the bytes decide the format and the extension, and anything a browser
+  can't show is re-encoded on the way in. That is `read_embedded/1`'s job
+  exactly, and this is now that plus a file: one extraction path, one policy
+  about what a servable image is.
   """
   def extract_embedded(audio_path) do
-    filename = generate_filename("image/jpeg")
-    destination = images_disk_path(filename)
-
-    case ffmpeg(audio_path, destination) do
-      {_output, 0} ->
-        if File.exists?(destination) and File.stat!(destination).size > 0 do
-          {:ok, web_path(filename)}
-        else
-          {:error, :no_embedded_image}
-        end
-
-      {output, status} ->
-        Logger.warning(fn ->
-          "Couldn't extract cover art from #{audio_path} (#{status}): #{output}"
-        end)
-
-        File.rm(destination)
-        {:error, :no_embedded_image}
+    with {:ok, binary, mime} <- read_embedded(audio_path) do
+      filename = generate_filename(mime)
+      File.write!(images_disk_path(filename), binary)
+      {:ok, web_path(filename)}
     end
   end
 
@@ -133,7 +132,7 @@ defmodule Ambry.Images do
   defp sniff(<<"RIFF", _size::binary-4, "WEBP", _rest::binary>>), do: {:ok, "image/webp"}
   defp sniff(_other), do: :error
 
-  defp ffmpeg(source, destination, extra \\ []) do
+  defp ffmpeg(source, destination, extra) do
     System.cmd(
       "ffmpeg",
       ["-nostdin", "-y", "-i", source, "-an", "-c:v", "copy", "-frames:v", "1"] ++

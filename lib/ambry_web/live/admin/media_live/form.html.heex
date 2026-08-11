@@ -171,10 +171,21 @@
             <%!-- One cover, on the text rail (an image is content, §3) — the
                 five-variant parade said nothing the operator could act on.
                 Whether the derived sizes exist is one fact, so it's one line. --%>
+            <%!-- The derived size inline, the original behind the magnifier.
+                Rendering the original was showing whatever the publisher
+                embedded, at whatever size and in whatever format they used —
+                and one Martian import put 753KB of TIFF in a file named
+                `.jpg`, so the form showed a broken image while cheerfully
+                reporting five thumbnails generated. libvips reads by content
+                and the thumbnails were always fine; only the original was a
+                lie. `extract_embedded/1` no longer produces that file, and
+                showing the derived image means the form survives the next
+                thing a publisher embeds either way. --%>
             <div class="pl-3">
               <.image_with_size
                 id={"image-#{@media.id}"}
-                src={@form[:image_path].value}
+                src={preview_src(@media, @form[:image_path].value)}
+                full={@form[:image_path].value}
                 class="w-48 rounded-sm"
               />
             </div>

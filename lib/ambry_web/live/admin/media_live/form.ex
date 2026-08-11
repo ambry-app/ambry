@@ -95,8 +95,14 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     |> assign(evidence: Evidence.new(%{}))
   end
 
-  # The search the recording itself suggests: its book's title, and its
-  # first narrator — the field that tells two recordings of one work apart.
+  # The search the recording itself suggests: its book's title and author, and
+  # its first narrator — the field that tells two recordings of one work apart.
+  #
+  # The author is not optional. Without it the recording search is a bare
+  # title, and a bare title is how "The Martian" comes back as study guides
+  # and conversation starters: Audible's catalog takes `author` as a real
+  # parameter, and the scorer needs it to tell a content farm's companion work
+  # from the book.
   defp seed_fields(media, assigns) do
     books = Map.new(assigns.books, &{&1.id, &1.label})
     narrators = Map.new(assigns.narrators, &{&1.id, &1.label})
@@ -107,7 +113,33 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         _empty -> nil
       end
 
-    %{"title" => books[media.book_id], "narrator" => narrator}
+    %{
+      "title" => books[media.book_id],
+      "author" => first_author(assigns.books, media.book_id),
+      "narrator" => narrator
+    }
+  end
+
+  # The large thumbnail when it is a thumbnail *of this image* — a freshly
+  # chosen one hasn't been derived yet, and the saved record's thumbnails
+  # still describe the picture it is replacing.
+  defp preview_src(media, image_path) do
+    if media.thumbnails && image_path == media.image_path,
+      do: media.thumbnails.large,
+      else: image_path
+  end
+
+  # `books_for_select`'s `detail` is the book's author names, comma-joined for
+  # display. One name, like the inbox's own hints: a query naming every author
+  # of a collaboration matches nothing at a storefront.
+  defp first_author(books, book_id) do
+    case Enum.find(books, &(&1.id == book_id)) do
+      %{detail: detail} when is_binary(detail) ->
+        detail |> String.split(",") |> hd() |> String.trim()
+
+      _none ->
+        nil
+    end
   end
 
   defp default_source_type(socket) do
@@ -282,11 +314,21 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  # The recording level asks two ways, like the import form: Audible's
-  # catalog directly, and the editions the work-level databases keep — the
-  # route to a recording no storefront will admit exists. Work-search
-  # failures surface only through their missing editions outcomes; the
-  # panel describes recordings, not the work hop behind them.
+  # The recording level asks three ways: Audible's catalog directly, the
+  # editions the work-level databases keep — the route to a recording no
+  # storefront will admit exists — and the work records themselves.
+  #
+  # The work records used to be fetched, mined for their editions, and thrown
+  # away. Two reasons they stay now. **A description.** Hardcover's `editions`
+  # type has no description field at all — verified against the live schema —
+  # so an edition record can never carry one, and the only recording-level
+  # blurb on offer came from Audible, which describes the reading it is
+  # selling: its Martian copy is about Wil Wheaton, which is precisely wrong
+  # for anyone else's recording of that book. A work's description is about
+  # the *book*, which is the honest thing to put on a recording. **And their
+  # outcomes.** Dropping those meant a work provider that was down or
+  # rate-limited took its editions with it and said nothing — the one thing
+  # the outcome chips exist to prevent.
   defp recording_fan_out(query, hints) do
     {audible_found, audible_outcomes} = MetadataSearch.books(query, level: :recording)
 
@@ -295,7 +337,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         Inbox.score_records(books, entry, hints)
       end)
 
-    {work_found, _work_outcomes} = MetadataSearch.books(query, level: :work)
+    {work_found, work_outcomes} = MetadataSearch.books(query, level: :work)
 
     work_records =
       Enum.flat_map(work_found, fn {entry, books} ->
@@ -304,7 +346,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
     {edition_records, edition_outcomes} = Inbox.editions_of(work_records, hints)
 
-    {audible_records ++ edition_records, audible_outcomes ++ edition_outcomes}
+    {audible_records ++ edition_records ++ work_records,
+     audible_outcomes ++ edition_outcomes ++ work_outcomes}
   end
 
   @impl Phoenix.LiveView
