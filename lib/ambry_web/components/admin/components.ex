@@ -6,8 +6,6 @@ defmodule AmbryWeb.Admin.Components do
   import AmbryWeb.Gravatar
 
   alias Ambry.Accounts.User
-  alias Ambry.Metadata.Registry
-  alias Ambry.Provenance
   alias Phoenix.HTML.Form
   alias Phoenix.HTML.FormField
 
@@ -29,6 +27,18 @@ defmodule AmbryWeb.Admin.Components do
           {render_slot(@inner_block)}
         </div>
       </main>
+
+      <%!-- The image lightbox — tiny previews and chips are for telling
+          records apart, and sometimes that takes the full-size art. Opened
+          by any [data-zoomable] magnifier (see app.js); click or Escape
+          closes. phx-update="ignore": it's pure client state. --%>
+      <div
+        id="image-lightbox"
+        phx-update="ignore"
+        class="bg-black/85 fixed inset-0 z-50 hidden cursor-zoom-out items-center justify-center p-8 backdrop-blur"
+      >
+        <img class="max-h-full max-w-full rounded-sm object-contain shadow-2xl" />
+      </div>
     </div>
     """
   end
@@ -87,10 +97,14 @@ defmodule AmbryWeb.Admin.Components do
       <div class="grow">
         <.admin_table_search_form search_form={@search_form} />
       </div>
+      <%!-- A list page's one constructive action, so it wears §6's primary
+            costume — the same solid button the inbox's "Scan for new" has
+            always had in this exact slot. It was a lime text link everywhere
+            else, which read as navigation rather than the page's point. --%>
       <div :if={@new_path}>
-        <.link navigate={@new_path} class="flex items-center font-bold text-lime-400 hover:underline">
-          {@new_text} <.icon name="fa-plus" class="ml-2 h-4 w-4 text-current" />
-        </.link>
+        <.button navigate={@new_path}>
+          <.icon name="fa-plus" class="mr-2 h-4 w-4 text-current" />{@new_text}
+        </.button>
       </div>
       <div :if={@prev_page_path}>
         <.pagination_chevron active={@has_prev} name="fa-chevron-left" to={@prev_page_path} />
@@ -158,13 +172,17 @@ defmodule AmbryWeb.Admin.Components do
           name="fa-magnifying-glass"
           class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500"
         />
+        <%!-- The app-standard fill, like every other control. It used to wear
+              a 1px border and its own two-step lime focus ring — the one
+              control on a list page, looking unlike every control on the page
+              it leads to. --%>
         <input
           id={@search_form.id}
           type="search"
           name={@search_form[:query].name}
           value={@search_form[:query].value}
           placeholder="Search"
-          class="w-full rounded-sm border border-zinc-700 bg-zinc-800 py-1.5 pr-3 pl-9 text-sm text-zinc-200 placeholder:text-zinc-500 focus:ring-lime-500/20 focus:border-lime-400 focus:outline-none focus:ring-2"
+          class={input_classes("w-full py-1.5 pr-3 pl-9")}
         />
       </div>
     </.form>
@@ -187,99 +205,6 @@ defmodule AmbryWeb.Admin.Components do
     <% else %>
       <.icon name={@name} class="h-5 w-5 text-zinc-900" />
     <% end %>
-    """
-  end
-
-  @doc """
-  DEPRECATED: Use `flex_table` instead.
-  """
-
-  attr :rows, :list, required: true
-  attr :row_click, :boolean, default: true
-  attr :sort, :string, default: nil
-  attr :actions_class, :string, default: nil
-
-  slot :inner_block, required: true
-  slot :actions
-  slot :no_results
-
-  slot :col, required: true do
-    attr :label, :string
-    attr :class, :string
-    attr :sort_field, :string
-  end
-
-  def admin_table(assigns) do
-    default_cell_class =
-      if assigns.row_click, do: "p-3 text-left cursor-pointer", else: "p-3 text-left"
-
-    default_header_class = "p-3 text-left"
-
-    row_class =
-      if assigns.row_click,
-        do: "border-t border-zinc-800 hover:bg-zinc-700",
-        else: "border-t border-zinc-800"
-
-    assigns =
-      assign(assigns,
-        default_cell_class: default_cell_class,
-        default_header_class: default_header_class,
-        row_class: row_class
-      )
-
-    ~H"""
-    <div class="rounded-sm border border-zinc-800 bg-zinc-900">
-      <%= if @rows == [] do %>
-        <div class="p-3">
-          {render_slot(@no_results)}
-        </div>
-      <% else %>
-        <table class="w-full">
-          <thead>
-            <tr>
-              <%= for col <- @col do %>
-                <th class={[col[:class], @default_header_class]}>
-                  <div
-                    class={["flex items-center gap-2", if(col[:sort_field], do: "cursor-pointer select-none")]}
-                    phx-click={if(col[:sort_field], do: JS.push("sort", value: %{field: col.sort_field}))}
-                  >
-                    <p class="truncate">{col[:label]}</p>
-                    <.sort_icon :if={col[:sort_field]} sort={@sort} sort_field={col.sort_field} />
-                  </div>
-                </th>
-              <% end %>
-
-              <%= if assigns[:actions] do %>
-                <th class={[assigns[:actions_class], @default_header_class]} />
-              <% end %>
-            </tr>
-          </thead>
-          <tbody>
-            <%= for row <- @rows do %>
-              <tr class={@row_class}>
-                <%= for col <- @col do %>
-                  <%= if @row_click do %>
-                    <td class={[col[:class], @default_cell_class]} phx-click="row-click" phx-value-id={row.id}>
-                      {render_slot(col, row)}
-                    </td>
-                  <% else %>
-                    <td class={[col[:class], @default_cell_class]}>
-                      {render_slot(col, row)}
-                    </td>
-                  <% end %>
-                <% end %>
-
-                <%= if assigns[:actions] do %>
-                  <td class={[assigns[:actions_class], @default_cell_class]}>
-                    {render_slot(@actions, row)}
-                  </td>
-                <% end %>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      <% end %>
-    </div>
     """
   end
 
@@ -503,15 +428,23 @@ defmodule AmbryWeb.Admin.Components do
   it `inside`, which pushes the summary text off the rail by the marker's own
   width — so the native marker is hidden and the chevron drawn by hand.
   """
-  attr :summary, :string, required: true
+  attr :summary, :string, default: nil
   attr :class, :string, default: nil, doc: "summary text classes — replaces the size and color"
   attr :container_class, :string, default: nil
+
+  attr :open, :boolean,
+    default: nil,
+    doc: "pins the fold open from the server — a client-toggled open dies on the next patch"
+
   attr :rest, :global
   slot :inner_block, required: true
 
+  slot :summary_slot,
+    doc: "richer summary content (counts, muted asides) — used instead of `summary` when given"
+
   def disclosure(assigns) do
     ~H"""
-    <details class={["group", @container_class]} {@rest}>
+    <details class={["group", @container_class]} open={@open} {@rest}>
       <summary class={[
         "relative cursor-pointer list-none pl-3 :[&:-webkit-details-marker]:hidden",
         @class || "text-xs text-zinc-400"
@@ -526,7 +459,7 @@ defmodule AmbryWeb.Admin.Components do
           name="fa-chevron-down"
           class="absolute top-1/2 left-0 hidden h-2.5 w-2.5 -translate-y-1/2 group-open:inline-block"
         />
-        {@summary}
+        {(@summary_slot != [] && render_slot(@summary_slot)) || @summary}
       </summary>
       {render_slot(@inner_block)}
     </details>
@@ -573,6 +506,9 @@ defmodule AmbryWeb.Admin.Components do
 
   def delete_button(assigns) do
     ~H"""
+    <%!-- ✕, not a trash can: removing a row from a list is the import form's
+        remove idiom (undoable until save), and two removal costumes for one
+        gesture read as two different gestures. --%>
     <button
       type="button"
       name={@field.name <> "[]"}
@@ -580,7 +516,7 @@ defmodule AmbryWeb.Admin.Components do
       phx-click={JS.dispatch("change")}
       class={["flex", @class]}
     >
-      <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
+      <.icon name="fa-xmark" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-400" />
     </button>
     """
   end
@@ -615,7 +551,13 @@ defmodule AmbryWeb.Admin.Components do
 
   def move_buttons(assigns) do
     ~H"""
-    <div class={["flex flex-col", @class]} data-role="move-buttons">
+    <%!-- The control is exactly one input tall (`py-[7px]` + `leading-6` +
+        the transparent border = 40px) with its glyphs centred in it, so it
+        lines up with the field it reorders by being the same height as it —
+        design language §7. Every call site used to nudge it down by a
+        hand-picked `mt-3` instead, which lands 2px shy and slides off
+        entirely as soon as the row carries an error or a second control. --%>
+    <div class={["flex h-10 flex-none flex-col justify-center", @class]} data-role="move-buttons">
       <button
         type="button"
         phx-click="move"
@@ -652,22 +594,252 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  attr :field, FormField, required: true
+  attr :label, :string, default: nil
+  attr :hint, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
   slot :inner_block, required: true
+  slot :add, doc: "the add-a-row control, rendered under the block like the import form's"
+
+  @doc """
+  One cluster of fields on an edit form, as a block.
+
+  The edit forms were a single stack of bare controls on the ground while the
+  import form was entirely blocks — the same operator, the same records, two
+  visual languages. A cluster is the unit: the fields that answer one
+  question about the record ("who wrote it", "where it lives"), on the
+  zinc-900 block every other decision in this admin sits on.
+
+  The label is the cluster's name and sits on the text rail, so it lines up
+  with the text inside the controls under it (§3). Fields that speak for
+  themselves need no label — the block and its spacing are the grouping.
+  """
+  def field_group(assigns) do
+    ~H"""
+    <%!-- **A block holds the whole cluster: its name, its rows, and the way
+        to add one.** The import form is the other shape — each row there is
+        its own decision card, so its label and its add have nowhere to be
+        but the ground above and below the run. Here there is one block, so
+        everything about the cluster lives in it. Same costumes either way;
+        what differs is whether the list has a card of its own. --%>
+    <div class={["space-y-2 rounded-lg bg-zinc-900 p-4", @class]} {@rest}>
+      <.label :if={@label} class="pl-3">{@label}</.label>
+      <p :if={@hint} class="max-w-prose pl-3 text-sm text-zinc-400">{@hint}</p>
+      {render_slot(@inner_block)}
+      {render_slot(@add)}
+    </div>
+    """
+  end
+
+  attr :label, :string, required: true
+  attr :hint, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+  slot :add, doc: "the add_button, below the container on the ground"
+  slot :proposals, doc: "a curation proposal row, between the rows and the add"
+  slot :flag, doc: "a provenance flag beside the label — where a list's members came from"
+
+  @doc """
+  A list the operator is building — authors, series, narrators — in the one
+  grammar every form shares: **label above the container, rows inside it, add
+  below it, all on the ground.**
+
+  This is the import form's shape. It used to be one of two: the legacy forms
+  kept the label and the add *inside* their block, so the same content type
+  (a list of authors plus a way to add one) wore a different anatomy
+  depending on which form you were on. What varies between forms is only
+  what the container holds — one card of single-input rows here, a run of
+  per-decision cards on the import form — never where its name and its add
+  live.
+
+  The ground label wears `pl-3` deliberately: its text aligns with the railed
+  text inside the container below it, the same trick the import form's
+  section labels use.
+  """
+  def list_cluster(assigns) do
+    ~H"""
+    <div class={["space-y-2", @class]} {@rest}>
+      <div class="flex items-baseline gap-2 pl-3">
+        <.label>{@label}</.label>
+        {render_slot(@flag)}
+      </div>
+      <p :if={@hint} class="max-w-prose pl-3 text-sm text-zinc-400">{@hint}</p>
+      <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
+        {render_slot(@inner_block)}
+      </div>
+      {render_slot(@proposals)}
+      {render_slot(@add)}
+    </div>
+    """
+  end
+
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  @doc """
+  The sticky footer slab every form's actions sit in.
+
+  One costume for "where a form is saved": the shadowed `zinc-900` slab the
+  import form has always had, instead of a bare button floating on the
+  ground after the last card. The chapters form is the argument — 47 rows
+  long, with the Save at the bottom of the scroll.
+
+  §3's sticky-bar rule applies: the scroller pads `p-4`, so the slab wears
+  `-bottom-4` and the page's content wrapper must wear `-mb-4`, or the bar
+  parks 16px shy of the window with the page showing through underneath.
+  """
+  def form_footer(assigns) do
+    ~H"""
+    <section
+      class={["shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky -bottom-4 rounded-t-lg bg-zinc-900 p-4", @class]}
+      {@rest}
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        {render_slot(@inner_block)}
+      </div>
+    </section>
+    """
+  end
+
+  attr :files, :list, required: true
+  attr :class, :any, default: nil
+
+  @doc """
+  A read-only list of files: mono, muted, the common directory printed once.
+
+  This is a fact display, not a control — it deliberately does NOT wear the
+  dashed dropzone costume the media form used to put its file list in, which
+  made "the files you have" look like a place to drop more.
+  """
+  def file_list(assigns) do
+    assigns = assign(assigns, :common, common_dir(assigns.files))
+
+    ~H"""
+    <div :if={@files != []} class={["rounded-lg bg-zinc-900 p-4", @class]}>
+      <p :if={@common != ""} class="font-mono truncate text-xs text-zinc-500">{@common}/</p>
+      <ul class="space-y-0.5 pt-1">
+        <li :for={file <- @files} class="font-mono truncate pl-3 text-xs text-zinc-400">
+          {file_label(file, @common)}
+        </li>
+      </ul>
+    </div>
+    """
+  end
+
+  defp common_dir([]), do: ""
+
+  defp common_dir(files) do
+    files
+    |> Enum.map(&Path.split(Path.dirname(&1)))
+    |> Enum.reduce(fn segments, acc ->
+      acc
+      |> Enum.zip(segments)
+      |> Enum.take_while(fn {a, b} -> a == b end)
+      |> Enum.map(&elem(&1, 0))
+    end)
+    |> case do
+      [] -> ""
+      segments -> Path.join(segments)
+    end
+  end
+
+  defp file_label(file, ""), do: file
+  defp file_label(file, common), do: Path.relative_to(file, common)
+
+  attr :title, :string, required: true
+  attr :id, :string, default: nil
+  attr :class, :any, default: nil
+  slot :inner_block, required: true
+
+  @doc """
+  A named run of field groups, for a form long enough to need finding your
+  way around — the import form's anatomy, which is where this came from.
+
+  Headings sit on the ground with no rule under them; the 56px section gap
+  and the blocks below do the dividing (§1, §3).
+  """
+  def form_section(assigns) do
+    ~H"""
+    <section id={@id} class={["space-y-7", @class]}>
+      <h2 class="text-xl font-bold text-zinc-100">{@title}</h2>
+      {render_slot(@inner_block)}
+    </section>
+    """
+  end
+
+  attr :field, FormField,
+    default: nil,
+    doc: "an `inputs_for` sort field — supply it and the button drives Ecto's sort-param trick"
+
+  attr :navigate, :string,
+    default: nil,
+    doc: "for a section whose add is a page — the locations page's two"
+
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  @doc """
+  Adds one more row to a list the operator is building.
+
+  **One costume for this job across the whole admin.** It was three: a
+  brand-colored link with a plus on the legacy forms, a lime "New +" on every
+  list header, and this — three answers to "add another one of these" on
+  three surfaces the operator moves between, and the import form's is the
+  one that was right.
+
+  Deliberately NOT the raised action costume Confirm and Split wear: adding
+  a blank row is the least consequential thing on a form, and a row of pills
+  competes with the decisions above it (tried, and rejected by the operator
+  on sight). Its box sits on the container edge like every other control,
+  and `px-3` lands its label on the text rail — a control whose box was
+  nudged onto the rail put its text at a third x-position nothing else
+  shares, which read as misalignment on every form (§3: text lands on the
+  rail exactly, wherever it lives).
+
+  Two call styles, because the legacy forms add a row by posting a sort
+  param and the import form does it with an event: pass `field` for the
+  former, `phx-click` for the latter.
+  """
+  def add_button(%{navigate: navigate} = assigns) when is_binary(navigate) do
+    ~H"""
+    <.link navigate={@navigate} class={add_button_classes(@class)} {@rest}>
+      <.icon name="fa-plus" class="h-3 w-3 flex-none text-current" />
+      {render_slot(@inner_block)}
+    </.link>
+    """
+  end
 
   def add_button(assigns) do
     ~H"""
     <button
       type="button"
-      name={@field.name <> "[]"}
-      value="new"
-      phx-click={JS.dispatch("change")}
-      class="text-brand-dark flex cursor-pointer items-center gap-1 hover:underline"
+      name={@field && @field.name <> "[]"}
+      value={@field && "new"}
+      phx-click={@field && JS.dispatch("change")}
+      class={add_button_classes(@class)}
+      {@rest}
     >
+      <.icon name="fa-plus" class="h-3 w-3 flex-none text-current" />
       {render_slot(@inner_block)}
-      <.icon name="fa-plus" class="h-4 w-4 text-current" />
     </button>
     """
+  end
+
+  # **Dimmer than a real action, on purpose.** Confirm, Split and the queue's
+  # row actions are raised opaque fills; adding a blank row is the least
+  # consequential thing on a form, so it is the faintest fill that still
+  # reads as a control. `ml-3` puts its box on the text rail: a small pill
+  # that isn't a field is content, not a container, and sits where an image
+  # would (§3).
+  defp add_button_classes(extra) do
+    [
+      "bg-white/5 inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-md px-3 py-1",
+      "text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-zinc-100",
+      extra
+    ]
   end
 
   attr :field, FormField, required: true
@@ -689,116 +861,6 @@ defmodule AmbryWeb.Admin.Components do
     </div>
     """
   end
-
-  @doc """
-  Provenance display + lock toggles for a persisted record's
-  provider-fillable fields (see `Ambry.Provenance`). Renders nothing for
-  unsaved records. The parent LiveView must handle the
-  `"toggle-provenance-lock"` event (field name in `phx-value-field`).
-
-  Pass the form's `changeset` and the pending accepted-value sources
-  (field-string → source-string) so rows can also show what the *next
-  save* will record — without them the panel only reflects saved state.
-  """
-  attr :record, :any, required: true
-  attr :changeset, :any, default: nil
-  attr :pending_sources, :map, default: %{}
-
-  def provenance_panel(assigns) do
-    assigns = assign(assigns, :fields, assigns.record.__struct__.provenance_fields())
-
-    ~H"""
-    <div :if={@record.id} class="max-w-lg space-y-2">
-      <.label>Metadata provenance</.label>
-      <div class="divide-y divide-zinc-800 rounded-sm border border-zinc-800 text-sm">
-        <div :for={field <- @fields} class="flex items-center gap-2 px-3 py-2">
-          <span class="w-36 shrink-0 font-semibold text-zinc-200">
-            {Phoenix.Naming.humanize(field)}
-          </span>
-          <span class="grow text-zinc-400">
-            {provenance_description(@record, field)}
-            <span
-              :if={pending = provenance_pending(@record, @changeset, @pending_sources, field)}
-              class="text-amber-500"
-            >
-              → after save: {provenance_source_label(pending["source"])} ({(pending["locked"] &&
-                                                                              "locked") ||
-                "unlocked"})
-            </span>
-          </span>
-          <button
-            type="button"
-            phx-click="toggle-provenance-lock"
-            phx-value-field={field}
-            title={provenance_lock_title(Provenance.locked?(@record, field))}
-          >
-            <.icon
-              name={if Provenance.locked?(@record, field), do: "fa-lock", else: "fa-unlock"}
-              class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-lime-600"
-            />
-          </button>
-        </div>
-      </div>
-      <p class="text-xs text-zinc-500">
-        Locked fields are never overwritten by metadata refresh or auto-match. Editing a field by
-        hand locks it; accepting a provider suggestion records the provider and stays unlocked.
-      </p>
-    </div>
-    """
-  end
-
-  defp provenance_description(record, field) do
-    case Provenance.entry(record, field) do
-      nil ->
-        "no provenance recorded"
-
-      %{"source" => source} = entry ->
-        case entry["at"] do
-          nil -> provenance_source_label(source)
-          at -> "#{provenance_source_label(source)} · #{String.slice(at, 0, 10)}"
-        end
-    end
-  end
-
-  # What the next save will record for this field, mirroring
-  # Ambry.Provenance.track_changes/3: an accepted (hinted) value records
-  # its source unlocked; an edited value without a hint is a manual edit,
-  # locked. Nil when nothing pending or when it matches the saved entry.
-  defp provenance_pending(record, changeset, pending_sources, field) do
-    source = Map.get(pending_sources, to_string(field))
-    changed? = changeset != nil and Map.has_key?(changeset.changes, field)
-
-    pending =
-      cond do
-        is_binary(source) -> %{"source" => source, "locked" => false}
-        changed? -> %{"source" => "manual", "locked" => true}
-        true -> nil
-      end
-
-    saved = Provenance.entry(record, field)
-
-    if pending != nil and (saved == nil or Map.take(saved, ["source", "locked"]) != pending) do
-      pending
-    end
-  end
-
-  defp provenance_source_label("manual"), do: "manually edited"
-  defp provenance_source_label("legacy"), do: "legacy (pre-provenance)"
-
-  defp provenance_source_label("provider:" <> provider_id) do
-    case Registry.fetch(provider_id) do
-      {:ok, entry} -> entry.display_name
-      {:error, :unknown_provider} -> provider_id
-    end
-  end
-
-  defp provenance_source_label(other), do: other
-
-  defp provenance_lock_title(true),
-    do: "Locked — automated refresh will never overwrite this field. Click to unlock."
-
-  defp provenance_lock_title(false),
-    do: "Unlocked — automated refresh may update this field. Click to lock."
 
   @doc """
   Book Card for displaying normalized metadata-provider results.

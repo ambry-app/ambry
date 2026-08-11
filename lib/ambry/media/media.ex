@@ -138,7 +138,10 @@ defmodule Ambry.Media.Media do
     |> validate_image_path()
     |> cast_embed(:thumbnails)
     |> check_constraint(:thumbnails, name: "thumbnails_original_match_constraint")
-    |> Provenance.track_changes(@provenance_fields, opts[:provenance] || %{})
+    |> Provenance.track_changes(
+      @provenance_fields ++ [:media_narrators],
+      opts[:provenance] || %{}
+    )
   end
 
   defp validate_part_fields(changeset) do

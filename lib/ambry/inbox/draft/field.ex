@@ -26,6 +26,11 @@ defmodule Ambry.Inbox.Draft.Field do
   embedded_schema do
     field :value, :string
     field :source, :string
+    # the provider record behind `source`, when there is one (see Candidate)
+    field :record, :string
+    # date fields only: the display precision that belongs to `value` — one
+    # composite fact, one decision (see Candidate.format)
+    field :format, :string
     field :approved, :boolean, default: false
     field :required, :boolean, default: false
 
@@ -55,7 +60,17 @@ defmodule Ambry.Inbox.Draft.Field do
   @doc false
   def changeset(field, attrs) do
     field
-    |> cast(attrs, [:value, :source, :approved, :required, :chosen_key, :curated])
+    |> cast(attrs, [
+      :value,
+      :source,
+      :record,
+      :format,
+      :approved,
+      :required,
+      :chosen_key,
+      :curated
+    ])
+    |> full_when_day_known()
     |> cast_embed(:candidates)
     |> track_manual_edit(attrs)
     |> validate_settled()
@@ -154,73 +169,15 @@ defmodule Ambry.Inbox.Draft.Field do
       field
       | value: candidate.value,
         source: candidate.source,
+        record: candidate.record,
+        format: candidate.format,
         chosen_key: candidate.key,
         approved: true
     }
   end
 
-  @doc """
-  Aligns a display-format field with the date it describes.
-
-  The format is not an opinion of its own — it says how much of the date is
-  real — so it is never a question the operator should be left holding while
-  the date beside it is already settled. Two rules, and the order between them
-  is the whole of it:
-
-    * **Most dates answer this themselves.** Year-only knowledge arrives as a
-      literal January 1st and month-only knowledge as the 1st of the month, so
-      an imprecise date always lands on a 1st. Any other day is a full date,
-      and a proposal saying otherwise is not about this value — nothing
-      records October 3rd to mean "2017". So the date outranks the records
-      here, which it does nowhere else in the form.
-    * **A date on a 1st is genuinely ambiguous**, and takes the format from
-      whichever record won the date. Matched on the candidate **key**, because
-      source can't do this job: two records from one provider share a source,
-      and proposals that agree are collapsed to a single one carrying a single
-      source, so matching by source finds the wrong proposal or — far more
-      often — none at all. That was this rule quietly not running.
-
-  The first rule outranks a format the *seeder* settled: nobody records June
-  2nd to mean "2011", so a seeded format still saying year against a day≠1
-  date is a leftover from the date it used to describe — measured on the
-  operator's Leviathan Wakes, where typing the real 2011-06-02 over a
-  year-only tag date left the book rendering as bare "2011". A format the
-  operator settled *themselves* is curation and stays, day be damned — the
-  same `curated`-not-`approved` distinction re-derivation keys on
-  everywhere. The 1st-day case keeps whatever was settled either way.
-  """
-  def follow_date(%__MODULE__{} = format, %__MODULE__{approved: true} = date) do
-    case date(date) do
-      %Date{day: day} when day != 1 ->
-        if format.curated or value(format) == "full", do: format, else: full(format)
-
-      _ambiguous_or_unparseable ->
-        if format.approved, do: format, else: follow_proposal(format, date)
-    end
-  end
-
-  def follow_date(%__MODULE__{} = format, _date), do: format
-
-  defp follow_proposal(format, date) do
-    candidate =
-      Enum.find(format.candidates, &(is_binary(date.chosen_key) and &1.key == date.chosen_key)) ||
-        Enum.find(format.candidates, &(is_binary(date.source) and &1.source == date.source))
-
-    case candidate do
-      %Candidate{} = candidate -> take(format, candidate)
-      nil -> format
-    end
-  end
-
   # Points the chip at the record that said so where one did, so the operator
   # sees an answer with a provider behind it rather than a bare value.
-  defp full(format) do
-    case Enum.find(format.candidates, &(&1.value == "full")) do
-      %Candidate{} = candidate -> take(format, candidate)
-      nil -> %{format | value: "full", source: "date", chosen_key: "date", approved: true}
-    end
-  end
-
   @doc "Whether this candidate is the one the field took."
   def chose?(%__MODULE__{chosen_key: nil}, _candidate), do: false
   def chose?(%__MODULE__{} = field, candidate), do: field.chosen_key == candidate.key
@@ -232,7 +189,16 @@ defmodule Ambry.Inbox.Draft.Field do
   resolved" reachable on a record with optional fields nobody filled in.
   """
   def waive(%__MODULE__{} = field),
-    do: %{field | value: nil, source: nil, chosen_key: nil, approved: true, curated: true}
+    do: %{
+      field
+      | value: nil,
+        source: nil,
+        record: nil,
+        format: nil,
+        chosen_key: nil,
+        approved: true,
+        curated: true
+    }
 
   @doc """
   Whether this field still needs a human.
@@ -285,6 +251,39 @@ defmodule Ambry.Inbox.Draft.Field do
   end
 
   def date(%__MODULE__{}), do: nil
+
+  # A newly typed date whose day is real is a full date — nobody records
+  # June 2nd to mean "2011" — so a date edit drags a stale precision along.
+  # Only the date's own change triggers it: a precision the operator sets
+  # deliberately (format changing, date not) is never overruled, and
+  # first-of-month days stay ambiguous and keep what was set.
+  defp full_when_day_known(changeset) do
+    value = Ecto.Changeset.get_change(changeset, :value)
+    format_changed? = Map.has_key?(changeset.changes, :format)
+    format = Ecto.Changeset.get_field(changeset, :format)
+
+    with false <- format_changed?,
+         true <- is_binary(value) and format not in [nil, "full"],
+         {:ok, %Date{day: day}} when day != 1 <- Date.from_iso8601(value) do
+      Ecto.Changeset.put_change(changeset, :format, "full")
+    else
+      _ambiguous_or_deliberate -> changeset
+    end
+  end
+
+  @doc """
+  The display precision riding a date field, as the atom the schemas store.
+  """
+  def format_atom(nil, default), do: default
+
+  def format_atom(%__MODULE__{format: format}, default) do
+    case format do
+      "full" -> :full
+      "year_month" -> :year_month
+      "year" -> :year
+      _unknown -> default
+    end
+  end
 
   @doc """
   The settled value as an existing atom, for `Ecto.Enum` columns.

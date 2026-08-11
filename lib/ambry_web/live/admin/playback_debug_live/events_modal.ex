@@ -17,7 +17,7 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.EventsModal do
         </p>
       </div>
 
-      <div class="flex-1 overflow-auto rounded border border-zinc-700">
+      <div class="flex-1 overflow-auto rounded-lg bg-zinc-900">
         <table class="w-full text-left text-sm">
           <thead class="sticky top-0 border-b border-zinc-700 bg-zinc-800">
             <tr>

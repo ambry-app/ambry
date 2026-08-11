@@ -116,7 +116,7 @@ defmodule Ambry.ProvenanceTest do
                Provenance.entry(updated_media, :description)
     end
 
-    test "untracked fields never get provenance entries" do
+    test "structural lists are tracked too — manual when hand-edited, provider when hinted" do
       {:ok, book} =
         Books.create_book(%{
           title: "Some Book",
@@ -124,12 +124,44 @@ defmodule Ambry.ProvenanceTest do
           book_authors: [%{author_id: insert(:author).id}]
         })
 
-      refute Map.has_key?(book.field_provenance, "book_authors")
+      # a hand-built list is a manual edit like any other
+      assert %{"source" => "manual"} = Provenance.entry(book, :book_authors)
 
+      {:ok, hinted} =
+        Books.create_book(
+          %{
+            title: "Other Book",
+            published: ~D[2020-01-01],
+            book_authors: [%{author_id: insert(:author).id}]
+          },
+          provenance: %{"book_authors" => "provider:rreading_glasses"}
+        )
+
+      assert %{"source" => "provider:rreading_glasses", "locked" => false} =
+               Provenance.entry(hinted, :book_authors)
+    end
+
+    test "untracked fields never get provenance entries" do
       media = insert(:media, book: build(:book))
       {:ok, updated} = Media.update_media(media, %{notes: "operator note"})
 
       assert Provenance.entry(updated, :notes) == nil
+    end
+
+    test "a source carrying its record ref stores the ref" do
+      {:ok, book} =
+        Books.create_book(
+          %{title: "Reffed Book", published: ~D[2020-01-01]},
+          provenance: %{
+            "title" => %{"source" => "provider:rreading_glasses", "record" => "76027608"}
+          }
+        )
+
+      assert %{
+               "source" => "provider:rreading_glasses",
+               "record" => "76027608",
+               "locked" => false
+             } = Provenance.entry(book, :title)
     end
   end
 
@@ -153,33 +185,6 @@ defmodule Ambry.ProvenanceTest do
       person = insert(:person)
       proposed = %{"name" => "New Name"}
       assert Provenance.reject_locked(person, proposed) == proposed
-    end
-  end
-
-  describe "toggle_lock/2" do
-    test "flips the lock on an existing entry, keeping its source" do
-      {:ok, person} =
-        People.create_person(%{name: "Somebody"}, provenance: %{"name" => "provider:audnexus"})
-
-      {:ok, locked} = Provenance.toggle_lock(person, :name)
-
-      assert %{"source" => "provider:audnexus", "locked" => true} =
-               Provenance.entry(locked, :name)
-
-      {:ok, unlocked} = Provenance.toggle_lock(locked, "name")
-
-      assert %{"source" => "provider:audnexus", "locked" => false} =
-               Provenance.entry(unlocked, :name)
-    end
-
-    test "locking a field with no recorded provenance protects it as legacy" do
-      person = insert(:person)
-      assert Provenance.entry(person, :description) == nil
-
-      {:ok, updated} = Provenance.toggle_lock(person, :description)
-
-      assert %{"source" => "legacy", "locked" => true} = Provenance.entry(updated, :description)
-      assert Provenance.locked?(updated, :description)
     end
   end
 end

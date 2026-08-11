@@ -26,23 +26,6 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.SourceRef
   alias AmbryWeb.Components.EntityResolver
 
-  @doc """
-  The app-standard input styling, for the controls the import form builds by
-  hand.
-
-  The admin forms get this through `<.input>`; a bare `<input>` or `<select>`
-  rendered here has to carry it itself or it falls back to the browser's blue
-  focus ring, which is exactly what happened.
-  """
-  def input_classes(extra \\ nil) do
-    [
-      "rounded-sm text-sm focus:outline-none focus:ring-4",
-      "bg-zinc-800 text-zinc-200 placeholder:text-zinc-500",
-      "focus:ring-brand-dark/20 border-transparent focus:border-transparent",
-      extra
-    ]
-  end
-
   attr :outcomes, :list, required: true
   attr :level, :string, default: nil
   attr :retrying, :any, default: nil
@@ -75,7 +58,7 @@ defmodule AmbryWeb.Admin.Decisions do
         <span
           :for={outcome <- @outcomes}
           :if={outcome["status"] != "failed"}
-          class="bg-white/10 rounded-sm px-2 py-0.5 text-xs tabular-nums text-zinc-300"
+          class="bg-white/5 rounded-sm px-2 py-0.5 text-xs tabular-nums text-zinc-400"
         >
           {outcome["name"]}: {outcome["count"]}
         </span>
@@ -155,6 +138,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :person_key, :string, default: nil, doc: "set for person records — routes the toggle"
   attr :working, :boolean, default: false
 
+  attr :note, :string,
+    default: nil,
+    doc: ~s(what this record already gave the library record — "filled title · published")
+
   @doc """
   One provider record, and whether it counts.
 
@@ -186,8 +173,31 @@ defmodule AmbryWeb.Admin.Decisions do
         phx-value-id={@record["id"]}
         class="mt-1 h-4 w-4 flex-none rounded-sm border-zinc-600 bg-zinc-700 text-lime-600 focus:ring-lime-500"
       />
+      <%!-- Identification, not selection: the cover or face that tells this
+          record apart, visible BEFORE ticking — the chips below remain the
+          place a photo is chosen. --%>
+      <span :if={thumb = record_thumb(@record)} class="group/zoom relative -my-0.5 flex-none">
+        <img src={thumb} class="h-12 w-12 rounded-sm object-cover" loading="lazy" />
+        <span
+          data-zoomable
+          data-full={thumb}
+          title="View full size"
+          class="bg-black/70 absolute right-0.5 bottom-0.5 hidden cursor-zoom-in rounded-sm p-0.5 group-hover/zoom:flex"
+        >
+          <.icon name="fa-magnifying-glass" class="h-3 w-3 text-zinc-100" />
+        </span>
+      </span>
       <div class="min-w-0 flex-grow">
-        <p class="truncate text-sm font-medium">{candidate_title(@record)}</p>
+        <p class="flex items-baseline gap-2 truncate text-sm font-medium">
+          {candidate_title(@record)}
+          <span
+            :if={@note}
+            class="bg-brand-dark/15 rounded-sm px-1.5 text-xs font-normal text-lime-300"
+            data-role="record-note"
+          >
+            {@note}
+          </span>
+        </p>
         <p class="truncate text-xs text-zinc-400">{candidate_facts(@record)}</p>
       </div>
       <span :if={@working} class="flex-none pt-0.5 text-xs text-zinc-400">
@@ -209,6 +219,10 @@ defmodule AmbryWeb.Admin.Decisions do
       </span>
     </label>
     """
+  end
+
+  defp record_thumb(record) do
+    proxied_remote_image_url(record["cover_url"] || List.first(record["images"] || []))
   end
 
   # High reads as the accent, the murky middle as a warning, and junk as
@@ -249,7 +263,7 @@ defmodule AmbryWeb.Admin.Decisions do
         type="button"
         phx-click="link-book"
         phx-value-id={@book["id"]}
-        class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+        class={action_classes(:zinc, "flex-none")}
       >
         Yes — another edition of this
       </button>
@@ -282,13 +296,9 @@ defmodule AmbryWeb.Admin.Decisions do
         <input type="text" name="name" value={@name} class={input_classes("mt-1 block")} />
       </label>
 
-      <button
-        type="submit"
-        disabled={@running}
-        class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50"
-      >
+      <.button color={:zinc} type="submit" disabled={@running}>
         {if @running, do: "Searching…", else: "Search again"}
-      </button>
+      </.button>
     </form>
     """
   end
@@ -296,6 +306,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :level, :string, required: true
   attr :fields, :map, required: true
   attr :running, :boolean, default: false
+
+  attr :label, :string,
+    default: "Search again",
+    doc: ~s(the edit forms' fresh panel says "Search" — nothing was searched yet)
 
   @doc """
   An editable version of the search that produced these records.
@@ -345,13 +359,12 @@ defmodule AmbryWeb.Admin.Decisions do
         />
       </label>
 
-      <button
-        type="submit"
-        disabled={@running}
-        class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50"
-      >
-        {if @running, do: "Searching…", else: "Search again"}
-      </button>
+      <%!-- Beside full-height inputs, so it is one: adjacent bar controls
+          share exact height (§7) — the sm action costume left this button
+          short next to every input it touches. --%>
+      <.button color={:zinc} type="submit" disabled={@running}>
+        {if @running, do: "Searching…", else: @label}
+      </.button>
     </form>
     """
   end
@@ -506,8 +519,15 @@ defmodule AmbryWeb.Admin.Decisions do
               options={@options}
               class={@control_class}
             />
+            <%!-- A date's precision is part of the date — one composite
+                control, never a second decision box (§7). --%>
+            <.date_with_format
+              :if={@type == "date"}
+              date_field={decision[:value]}
+              format_field={decision[:format]}
+            />
             <.input
-              :if={@type not in ["select", "textarea"]}
+              :if={@type not in ["select", "textarea", "date"]}
               field={decision[:value]}
               type={@type}
               placeholder={@placeholder}
@@ -576,7 +596,9 @@ defmodule AmbryWeb.Admin.Decisions do
             ]}>
               {candidate.label || source_words(candidate.source)}
             </span>
-            <span :if={!@preview}>{truncate(candidate.value)}</span>
+            <span :if={!@preview}>
+              {truncate(candidate.value)}{precision_suffix(candidate)}
+            </span>
 
             <%!-- Choosing between two covers by URL is choosing blind. --%>
             <.image_with_size
@@ -676,7 +698,7 @@ defmodule AmbryWeb.Admin.Decisions do
           phx-click="restore-credit"
           phx-value-section={@section}
           phx-value-index={@index}
-          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          class={action_classes(:zinc, "flex-none")}
         >
           Restore
         </button>
@@ -719,7 +741,7 @@ defmodule AmbryWeb.Admin.Decisions do
             phx-value-section={@section}
             phx-value-index={@index}
             phx-value-approved="true"
-            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            class={action_classes()}
           >
             Confirm
           </button>
@@ -1216,6 +1238,15 @@ defmodule AmbryWeb.Admin.Decisions do
   defp chip_values(values),
     do: Map.new(values, fn {key, value} -> {"phx-value-#{key}", value} end)
 
+  # "2015 (year only)" — a date proposal's precision is part of its value.
+  defp precision_suffix(%{format: format}) when format in ["year", "year_month"],
+    do: " (#{precision_words(format)})"
+
+  defp precision_suffix(_candidate), do: nil
+
+  defp precision_words("year"), do: "year only"
+  defp precision_words("year_month"), do: "year & month"
+
   attr :link, SeriesLink, required: true
   attr :index, :integer, required: true
   attr :options, :list, required: true
@@ -1243,7 +1274,7 @@ defmodule AmbryWeb.Admin.Decisions do
           type="button"
           phx-click="restore-series"
           phx-value-index={@index}
-          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          class={action_classes(:zinc, "flex-none")}
         >
           Restore
         </button>
@@ -1289,7 +1320,7 @@ defmodule AmbryWeb.Admin.Decisions do
             phx-click="approve-series"
             phx-value-index={@index}
             phx-value-approved="true"
-            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            class={action_classes()}
           >
             Confirm
           </button>
@@ -1393,7 +1424,7 @@ defmodule AmbryWeb.Admin.Decisions do
         <button
           type="button"
           phx-click="restore-group"
-          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          class={action_classes(:zinc, "flex-none")}
         >
           Restore
         </button>
@@ -1435,7 +1466,7 @@ defmodule AmbryWeb.Admin.Decisions do
             type="button"
             phx-click="approve-group"
             phx-value-approved="true"
-            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            class={action_classes()}
           >
             Confirm
           </button>
@@ -1599,7 +1630,14 @@ defmodule AmbryWeb.Admin.Decisions do
   # Drafts stored before that still carry them.
   def source_words("name"), do: "the release name"
   def source_words("library"), do: "the library"
-  def source_words("provider:" <> id), do: id
+
+  def source_words("provider:" <> id = source) do
+    case Ambry.Metadata.Registry.fetch(id) do
+      {:ok, entry} -> entry.display_name
+      {:error, :unknown_provider} -> source
+    end
+  end
+
   def source_words(other), do: other
 
   defp truncate(nil), do: "—"

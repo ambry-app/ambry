@@ -33,12 +33,9 @@ defmodule Ambry.Provenance do
 
   import Ecto.Changeset
 
-  alias Ambry.Repo
-
   @manual "manual"
-  @legacy "legacy"
 
-  @type source :: String.t()
+  @type source :: String.t() | %{required(String.t()) => String.t()}
   @type entry :: %{String.t() => String.t() | boolean()}
 
   @doc "The provenance source string for a metadata provider id."
@@ -101,6 +98,15 @@ defmodule Ambry.Provenance do
   defp new_entry(source) when is_binary(source),
     do: %{"source" => source, "locked" => false, "at" => now()}
 
+  # A source that also names the provider record it came out of — the ref a
+  # later evidence search recognizes ("this record filled the title").
+  defp new_entry(%{"source" => source} = given) when is_binary(source) do
+    case given["record"] do
+      nil -> new_entry(source)
+      record -> source |> new_entry() |> Map.put("record", to_string(record))
+    end
+  end
+
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
 
   @doc """
@@ -118,25 +124,5 @@ defmodule Ambry.Provenance do
       for {field, %{"locked" => true}} <- record.field_provenance || %{}, do: field
 
     Map.drop(attrs, locked_fields ++ Enum.map(locked_fields, &String.to_existing_atom/1))
-  end
-
-  @doc """
-  Flips a field's lock, persisting immediately.
-
-  Locking a field that never had provenance recorded protects its current
-  value under the `"legacy"` (unknown-origin) source. The lock flag is
-  provenance metadata, not entity data — no search/broadcast side effects
-  apply.
-  """
-  @spec toggle_lock(struct(), atom() | String.t()) :: {:ok, struct()} | {:error, term()}
-  def toggle_lock(record, field) do
-    field = to_string(field)
-    current = entry(record, field) || %{"source" => @legacy, "at" => now()}
-    updated_entry = Map.put(current, "locked", !current["locked"])
-    updated_map = Map.put(record.field_provenance || %{}, field, updated_entry)
-
-    record
-    |> change(field_provenance: updated_map)
-    |> Repo.update()
   end
 end

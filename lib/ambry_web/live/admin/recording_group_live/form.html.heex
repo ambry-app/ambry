@@ -1,44 +1,47 @@
 <.layout title={@page_title} user={@current_user}>
-  <div class="max-w-3xl">
+  <div class="-mb-4 max-w-4xl">
     <.simple_form id="group-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <.input field={@form[:name]} label="Name" />
+      <.field_group>
+        <.input field={@form[:name]} label="Name" class="max-w-xl" />
 
-      <%!-- the set covers one book, like its members do; once recordings
-          are attached, they ARE the book and the field goes read-only --%>
-      <.input
-        :if={@group.media == []}
-        field={@form[:book_id]}
-        type="autocomplete"
-        options={@books}
-        label="Book"
-      />
-      <div :if={@group.media != []} class="space-y-2">
-        <.label>Book</.label>
-        <p class="pl-3 text-sm text-zinc-300">{@group.book.title}</p>
-      </div>
-
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
-        <.input field={@form[:parts_total]} type="number" min="1" label="Total parts (optional)" />
+        <%!-- the set covers one book, like its members do; once recordings
+            are attached, they ARE the book and the field goes read-only --%>
         <.input
-          field={@form[:part_word]}
-          label={~s(One release is a… — default "part")}
-          placeholder="part"
+          :if={@group.media == []}
+          field={@form[:book_id]}
+          type="autocomplete"
+          options={@books}
+          label="Book"
         />
+        <div :if={@group.media != []} class="space-y-2">
+          <.label class="pl-3">Book</.label>
+          <p class="pl-3 text-sm text-zinc-300">{@group.book.title}</p>
+        </div>
+      </.field_group>
+
+      <.field_group label="How this set is counted and named">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
+          <.input field={@form[:parts_total]} type="number" min="1" label="Total parts (optional)" />
+          <.input
+            field={@form[:part_word]}
+            label={~s(One release is a… — default "part")}
+            placeholder="part"
+          />
+          <.input
+            field={@form[:part_word_plural]}
+            label={~s(…several are — default "parts")}
+            placeholder="parts"
+          />
+        </div>
+
         <.input
-          field={@form[:part_word_plural]}
-          label={~s(…several are — default "parts")}
-          placeholder="parts"
+          field={@form[:show_label]}
+          type="checkbox"
+          label="Show the group's name to listeners on this set's stacked tile"
         />
-      </div>
+      </.field_group>
 
-      <.input
-        field={@form[:show_label]}
-        type="checkbox"
-        label="Show the group's name to listeners on this set's stacked tile"
-      />
-
-      <div class="space-y-2">
-        <.label>Recordings</.label>
+      <.list_cluster label="Recordings">
         <.inputs_for :let={member_form} field={@form[:members]}>
           <.sort_input field={@form[:members_sort]} index={member_form.index} />
 
@@ -63,13 +66,15 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:members_sort]}>Add recording</.add_button>
-        <.delete_input field={@form[:members_drop]} />
-      </div>
+        <:add>
+          <.add_button field={@form[:members_sort]}>Add recording</.add_button>
+          <.delete_input field={@form[:members_drop]} />
+        </:add>
+      </.list_cluster>
 
-      <:actions>
+      <.form_footer>
         <.button>Save</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>

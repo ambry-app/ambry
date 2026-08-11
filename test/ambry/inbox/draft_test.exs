@@ -1900,11 +1900,11 @@ defmodule Ambry.Inbox.DraftTest do
   # settled. It was matched to the date by *source*, which two records from one
   # provider make ambiguous and which collapsing agreeing proposals makes
   # unfindable — so the rule routinely did nothing at all.
-  describe "the date's display format" do
-    test "settles as full when the settled date can only be a full one" do
-      # the reported bug: the records disagree about the format, so the field
-      # was left reported as undecided beside a date that had plainly already
-      # decided it — October 3rd is not a year in disguise
+  describe "a date's precision (one composite field)" do
+    test "a claimed year precision on a day-specific date settles as full" do
+      # October 3rd is not a year in disguise: the record's claimed precision
+      # is normalized away at candidate build, so the settled field carries
+      # the precision the date actually has
       candidates = [
         provider_candidate(%{
           "id" => "a",
@@ -1923,14 +1923,14 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
 
       assert draft.work.published.value == "2017-10-03"
-      assert draft.work.published_format.value == "full"
-      assert draft.work.published_format.approved
+      assert draft.work.published.format == "full"
+      assert draft.work.published.approved
     end
 
-    test "takes the winning record's format when the date lands on a 1st" do
-      # year-only knowledge arrives as a literal Jan 1st and month-only as the
-      # 1st of the month, so a date on a 1st really is undecidable by itself
-      # and the derivation must not overrule the record that proposed it
+    test "keeps the winning record's precision when the date lands on a 1st" do
+      # year-only knowledge arrives as a literal Jan 1st, so a 1st-day date
+      # really is undecidable by itself and the winning proposal's claimed
+      # precision stands
       candidates = [
         provider_candidate(%{
           "id" => "a",
@@ -1949,7 +1949,7 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Seed.build(item(%{matches: matches(candidates), tags: %{}}))
 
       assert draft.work.published.value == "2017-01-01"
-      assert draft.work.published_format.value == "year"
+      assert draft.work.published.format == "year"
     end
 
     # Measured on a real import (Legends & Lattes): Hardcover and the file's
@@ -2002,17 +2002,9 @@ defmodule Ambry.Inbox.DraftTest do
       assert draft.work.published.source == "provider:hardcover"
     end
 
-    test "an auto-settled format highlights the chip it took" do
-      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
-
-      assert [chip] = draft.work.published_format.candidates
-      assert Draft.Field.chose?(draft.work.published_format, chip)
-    end
-
-    test "follows a date the operator picks by hand" do
+    test "choosing a date chip takes that proposal's precision with it" do
       # two years apart, so the date can't settle itself and the operator has
-      # to choose — at which point the format has to follow, and only the
-      # seeder knew how to do that
+      # to choose — the chosen chip settles date AND precision, one decision
       candidates = [
         provider_candidate(%{
           "id" => "a",
@@ -2037,15 +2029,14 @@ defmodule Ambry.Inbox.DraftTest do
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
       assert item.draft.work.published.value == "2017-10-03"
-      assert item.draft.work.published_format.value == "full"
-      assert item.draft.work.published_format.approved
+      assert item.draft.work.published.format == "full"
+      assert item.draft.work.published.approved
     end
 
-    # Nobody records June 2nd to mean "2011". The format had already settled
-    # as year (from a year-only tag date), and the settled-format guard then
-    # left a full-precision typed date rendering as a bare year — measured on
-    # the operator's Leviathan Wakes.
-    test "a typed full date overrides a settled year format" do
+    # Nobody records June 2nd to mean "2011". Measured on the operator's
+    # Leviathan Wakes: the format had settled as year from a year-only tag
+    # date, and a full-precision typed date then rendered as a bare year.
+    test "a typed full date overrides a settled year precision" do
       item =
         item(%{
           matches: matches([]),
@@ -2057,19 +2048,17 @@ defmodule Ambry.Inbox.DraftTest do
         })
 
       {:ok, item} = Inbox.prepare_draft(item)
-      assert item.draft.work.published_format.value == "year"
+      assert item.draft.work.published.format == "year"
 
       draft = item.draft
       draft = put_in(draft.work.published, Field.edit(draft.work.published, "2011-06-02"))
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
       assert item.draft.work.published.value == "2011-06-02"
-      assert item.draft.work.published_format.value == "full"
+      assert item.draft.work.published.format == "full"
     end
 
-    # The work side had the aligner and the recording side didn't, so typing
-    # a release date by hand settled one half of a two-column fact.
-    test "the recording's format follows its date too" do
+    test "the recording's precision follows its date too" do
       recording = [recording_record(%{"published" => "2019-01-01", "published_format" => "year"})]
 
       item =
@@ -2079,7 +2068,7 @@ defmodule Ambry.Inbox.DraftTest do
         })
 
       {:ok, item} = Inbox.prepare_draft(item)
-      assert item.draft.recording.published_format.value == "year"
+      assert item.draft.recording.published.format == "year"
 
       draft = item.draft
 
@@ -2089,28 +2078,29 @@ defmodule Ambry.Inbox.DraftTest do
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
       assert item.draft.recording.published.value == "2019-08-06"
-      assert item.draft.recording.published_format.value == "full"
+      assert item.draft.recording.published.format == "full"
     end
 
-    test "never overrules a format the operator settled themselves" do
+    test "never overrules a precision the operator set themselves" do
       candidates = [
-        provider_candidate(%{"published" => "2017-10-03", "published_format" => "full"})
+        provider_candidate(%{"published" => "2017-01-01", "published_format" => "full"})
       ]
 
       item = item(%{matches: matches(candidates), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
+      # the operator flips just the precision — the composite control's
+      # select — and the date does not drag it back
       draft =
         update_in(
           item.draft,
-          [Access.key(:work), Access.key(:published_format)],
-          &Draft.Field.edit(&1, "year")
+          [Access.key(:work), Access.key(:published)],
+          &%{&1 | format: "year", curated: true}
         )
 
       {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
-      assert item.draft.work.published_format.value == "year"
-      assert item.draft.work.published_format.source == "manual"
+      assert item.draft.work.published.format == "year"
     end
   end
 
@@ -2247,7 +2237,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert draft.work.published.value == "2017-10-03"
     end
 
-    test "the display format follows whichever source won the date" do
+    test "the precision follows whichever source won the date" do
       draft =
         Seed.build(
           item(%{
@@ -2262,9 +2252,9 @@ defmodule Ambry.Inbox.DraftTest do
           })
         )
 
-      # otherwise the two columns describing one fact disagree with each other
-      assert draft.work.published_format.approved
-      assert draft.work.published_format.value == "full"
+      # one composite fact — the winning proposal's precision rides its date
+      assert draft.work.published.approved
+      assert draft.work.published.format == "full"
     end
 
     test "two precise dates in one year genuinely disagree" do
@@ -2368,7 +2358,7 @@ defmodule Ambry.Inbox.DraftTest do
 
       assert draft.recording.published.value == "2013-06-04"
       assert draft.recording.published.approved
-      assert draft.recording.published_format.value == "full"
+      assert draft.recording.published.format == "full"
     end
 
     test "answers a first-published date no provider proposed" do

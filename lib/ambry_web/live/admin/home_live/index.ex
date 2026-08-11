@@ -65,7 +65,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
     ~H"""
     <div class="relative">
       <.link class="absolute top-0 left-0 h-full w-full" navigate={@navigate}></.link>
-      <div class="rounded-sm border border-zinc-800 bg-zinc-900 p-4">
+      <div class="rounded-lg bg-zinc-900 p-4">
         <.icon name={@icon} class="block h-5 w-5 text-zinc-500" />
         <div class="flex gap-8 pt-3">
           {render_slot(@inner_block)}

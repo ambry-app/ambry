@@ -1,9 +1,9 @@
 <.layout title={@page_title} user={@current_user}>
-  <div class="max-w-3xl">
+  <div class="-mb-4 max-w-4xl">
     <.simple_form id="location-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <.input field={@form[:name]} label="Name" />
+      <.field_group>
+        <.input field={@form[:name]} label="Name" class="max-w-xl" />
 
-      <div>
         <.input
           field={@form[:path]}
           label="Path"
@@ -12,7 +12,7 @@
 
         <p
           :if={@status && !@status.exists?}
-          class="mt-2 text-sm text-amber-400"
+          class="pl-3 text-sm text-amber-400"
           data-role="path-status"
         >
           Nothing at that path right now. You can still save it — a volume that isn't mounted yet
@@ -21,7 +21,7 @@
 
         <p
           :if={@status && @status.exists? && !@status.directory?}
-          class="mt-2 text-sm text-red-400"
+          class="pl-3 text-sm text-red-400"
           data-role="path-status"
         >
           That's a file, not a folder.
@@ -29,7 +29,7 @@
 
         <p
           :if={@status && @status.directory? && !@status.writable? && @type == :root}
-          class="mt-2 text-sm text-amber-400"
+          class="pl-3 text-sm text-amber-400"
           data-role="path-status"
         >
           That folder is read-only, so nothing can be imported into it.
@@ -37,28 +37,30 @@
 
         <p
           :if={@status && @status.directory? && (@status.writable? || @type == :source)}
-          class="mt-2 text-sm text-lime-400"
+          class="pl-3 text-sm text-lime-400"
           data-role="path-status"
         >
           Folder found.
         </p>
-      </div>
+      </.field_group>
 
-      <div :if={@type == :source}>
+      <.field_group :if={@type == :source}>
         <.input
           field={@form[:on_import]}
           type="select"
           label="On import"
           options={on_import_options()}
         />
-        <p class="mt-2 text-sm text-zinc-400">
+        <p class="max-w-prose pl-3 text-sm text-zinc-400">
           The one promise a source makes. A folder a download client controls can lose its files,
           so the library protects itself with its own copy; a collection that's staying put is
           simply pointed at, and Ambry never writes to it.
         </p>
-      </div>
 
-      <div :if={@type == :source and @on_import == :bring_in} class="space-y-6">
+        <.input field={@form[:enabled]} type="checkbox" label="Watched" />
+      </.field_group>
+
+      <.field_group :if={@type == :source and @on_import == :bring_in} label="Bringing files in">
         <div>
           <.input
             field={@form[:import_policy]}
@@ -66,7 +68,7 @@
             label="How the files come in"
             options={policy_options()}
           />
-          <p class="mt-2 text-sm text-zinc-400">
+          <p class="max-w-prose pl-3 text-sm text-zinc-400">
             Hardlinking only works within a single filesystem. If this folder and the library root
             it imports into are on different disks, import will say so rather than quietly
             copying and doubling your storage.
@@ -81,22 +83,20 @@
             options={@root_options}
             prompt={root_prompt(@root_options)}
           />
-          <p class="mt-2 text-sm text-zinc-400">
+          <p class="max-w-prose pl-3 text-sm text-zinc-400">
             Optional. Any source can import into any root — this only preselects one. With
             a single root, imports never ask.
           </p>
-          <p :if={@root_options == []} class="mt-2 text-sm text-amber-400">
+          <p :if={@root_options == []} class="max-w-prose pl-3 text-sm text-amber-400">
             There are no library roots yet, so nothing can be brought in. Add one under
             Locations first — until then, importing an item from this folder will refuse.
           </p>
         </div>
-      </div>
+      </.field_group>
 
-      <.input :if={@type == :source} field={@form[:enabled]} type="checkbox" label="Watched" />
-
-      <:actions>
+      <.form_footer>
         <.button>Save</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>

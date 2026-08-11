@@ -1,52 +1,48 @@
 <.layout title={@page_title} user={@current_user}>
-  <.modal :if={@import} id="import-modal" show on_cancel={close_import_form(@book)}>
-    <.live_component
-      id="import-form"
-      module={ProviderImportForm}
-      provider={@import.provider}
-      query={@import.query}
-      book={@book}
+  <div class="-mb-4 max-w-4xl space-y-7">
+    <%!-- Evidence first, then the decisions it feeds — the import form's
+        order. Its search is a form of its own, so it lives outside the
+        book's form element. --%>
+    <.evidence_panel
+      evidence={@evidence}
+      level="work"
+      title="Records describing this book"
+      hint="Tick every record that's about this book — the fields below grow chips from the ticked records, and clicking a chip takes that value and remembers where it came from."
+      retrying={@retrying}
     />
-  </.modal>
 
-  <div class="max-w-3xl">
     <.simple_form id="book-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-        <.input field={@form[:title]} label="Title" />
+      <%!-- What the book is called and when it came out — the two facts that
+          identify the work, in one block. --%>
+      <.field_group>
+        <.curated_input
+          field={@form[:title]}
+          label="Title"
+          class="max-w-xl"
+          record={@book}
+          hints={@provenance_hints}
+          proposals={@chips[:title] || []}
+        />
 
-        <div :if={@import_providers != []} class="row-start-1 space-y-2 sm:col-start-2">
-          <.label>Import from</.label>
-          <div class="flex flex-wrap items-center gap-2">
-            <.button
-              :for={provider <- @import_providers}
-              color={:zinc}
-              class="flex items-center gap-1"
-              type="button"
-              phx-click={open_import_form(@book, provider.id)}
-            >
-              {provider.display_name}
-            </.button>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-        <.input field={@form[:published]} type="date" label="First print publication" />
-        <div>
-          <.input
-            field={@form[:published_format]}
-            type="select"
-            label="Date display format"
-            options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+        <div class="space-y-1">
+          <.curated_date
+            date_field={@form[:published]}
+            format_field={@form[:published_format]}
+            label="First print publication"
+            record={@book}
+            hints={@provenance_hints}
+            proposals={@chips[:published] || []}
           />
-          <span class="text-sm text-zinc-400">
+          <span class="block pl-3 text-sm text-zinc-400">
             {preview_date_format(@form)}
           </span>
         </div>
-      </div>
+      </.field_group>
 
-      <div class="space-y-2">
-        <.label>Authors</.label>
+      <.list_cluster label="Authors">
+        <:flag>
+          <.provenance_flag record={@book} field={:book_authors} hints={@provenance_hints} />
+        </:flag>
         <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
           <.sort_input field={@form[:book_authors_sort]} index={book_author_form.index} />
           <.position_input field={book_author_form[:position]} index={book_author_form.index} />
@@ -57,7 +53,6 @@
               field={:book_authors}
               index={book_author_form.index}
               count={@book_author_count}
-              class="mt-3 flex-none"
             />
             <div class="relative grow">
               <.input field={book_author_form[:author_id]} type="autocomplete" options={@authors} />
@@ -70,12 +65,25 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:book_authors_sort]}>Add author</.add_button>
-        <.delete_input field={@form[:book_authors_drop]} />
-      </div>
+        <:proposals>
+          <.proposal_row
+            id="proposals-authors"
+            field="authors"
+            event="accept-entity"
+            proposals={@chips[:authors] || []}
+          />
+        </:proposals>
 
-      <div class="space-y-2">
-        <.label>Series</.label>
+        <:add>
+          <.add_button field={@form[:book_authors_sort]}>Add author</.add_button>
+          <.delete_input field={@form[:book_authors_drop]} />
+        </:add>
+      </.list_cluster>
+
+      <.list_cluster label="Series">
+        <:flag>
+          <.provenance_flag record={@book} field={:series_books} hints={@provenance_hints} />
+        </:flag>
         <.inputs_for :let={series_book_form} field={@form[:series_books]}>
           <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
           <.position_input field={series_book_form[:position]} index={series_book_form.index} />
@@ -86,7 +94,6 @@
               field={:series_books}
               index={series_book_form.index}
               count={@series_book_count}
-              class="mt-3 flex-none"
             />
             <.input
               field={series_book_form[:book_number]}
@@ -108,12 +115,22 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:series_books_sort]}>Add series</.add_button>
-        <.delete_input field={@form[:series_books_drop]} />
-      </div>
+        <:proposals>
+          <.proposal_row
+            id="proposals-series"
+            field="series"
+            event="accept-entity"
+            proposals={@chips[:series] || []}
+          />
+        </:proposals>
 
-      <div class="space-y-2">
-        <.label>Universes</.label>
+        <:add>
+          <.add_button field={@form[:series_books_sort]}>Add series</.add_button>
+          <.delete_input field={@form[:series_books_drop]} />
+        </:add>
+      </.list_cluster>
+
+      <.list_cluster label="Universes">
         <.inputs_for :let={book_universe_form} field={@form[:book_universes]}>
           <.sort_input field={@form[:book_universes_sort]} index={book_universe_form.index} />
 
@@ -127,19 +144,15 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:book_universes_sort]}>Add universe</.add_button>
-        <.delete_input field={@form[:book_universes_drop]} />
-      </div>
+        <:add>
+          <.add_button field={@form[:book_universes_sort]}>Add universe</.add_button>
+          <.delete_input field={@form[:book_universes_drop]} />
+        </:add>
+      </.list_cluster>
 
-      <.provenance_panel
-        record={@book}
-        changeset={@form.source}
-        pending_sources={ProvenanceHints.sources(@provenance_hints)}
-      />
-
-      <:actions>
+      <.form_footer>
         <.button>Save</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>

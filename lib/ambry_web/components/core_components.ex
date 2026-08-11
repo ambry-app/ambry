@@ -234,7 +234,8 @@ defmodule AmbryWeb.CoreComponents do
   def simple_form(assigns) do
     ~H"""
     <.form :let={f} for={@for} as={@as} {@rest}>
-      <div class={["space-y-6", @container_class]}>
+      <%!-- 28px between blocks — the 8·28·56 rhythm (§3). --%>
+      <div class={["space-y-7", @container_class]}>
         {render_slot(@inner_block, f)}
         <div :for={action <- @actions} class="mt-2 flex items-center justify-between gap-6">
           {render_slot(action, f)}
@@ -255,27 +256,73 @@ defmodule AmbryWeb.CoreComponents do
   attr :type, :string, default: nil
   attr :class, :string, default: nil
   attr :color, :atom, default: :brand, values: ~w(brand yellow red zinc)a
+
+  attr :size, :atom,
+    default: :md,
+    values: ~w(md sm)a,
+    doc: "sm is the in-card row action — Confirm, Restore, Split, Add"
+
+  attr :navigate, :string,
+    default: nil,
+    doc: "renders a link wearing the button costume — for an action that is a page, not an event"
+
   attr :rest, :global, include: ~w(disabled form name value)
 
   slot :inner_block, required: true
 
+  # An action that happens to be a navigation is still an action, and it has
+  # to be able to look like one: `<.link>` inside a `<button>` is invalid
+  # markup, and a bespoke link styled to match drifts the moment the costume
+  # changes. Same classes, one element or the other.
+  def button(%{navigate: navigate} = assigns) when is_binary(navigate) do
+    ~H"""
+    <.link navigate={@navigate} class={button_classes(@color, @size, @class)} {@rest}>
+      {render_slot(@inner_block)}
+    </.link>
+    """
+  end
+
   def button(assigns) do
     ~H"""
-    <button
-      type={@type}
-      class={[
-        "rounded-sm border px-3 py-2 phx-submit-loading:opacity-75",
-        "whitespace-nowrap text-sm font-semibold leading-6",
-        "active:opacity-80 disabled:pointer-events-none disabled:opacity-40",
-        button_color_classes(@color),
-        @class
-      ]}
-      {@rest}
-    >
+    <button type={@type} class={button_classes(@color, @size, @class)} {@rest}>
       {render_slot(@inner_block)}
     </button>
     """
   end
+
+  # **A button has to be visibly raised, or it is a label.** Quiet row actions
+  # used to be `bg-white/5`, which on a zinc-900 card computes *darker* than
+  # the `bg-white/10` count chips beside them — so the labels read as raised
+  # and the buttons as recessed, and the operator could not tell Confirm from
+  # a tag. Actions are an opaque fill, one rung up the elevation ladder from
+  # whatever they sit on, and bold; tags stay flat and muted (§6).
+  defp button_classes(color, size, extra) do
+    [
+      # inline-flex, not inline-block: a button with a leading icon aligns its
+      # glyph to the label's box rather than its baseline (§3).
+      "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border",
+      "whitespace-nowrap font-semibold phx-submit-loading:opacity-75",
+      "active:opacity-80 disabled:pointer-events-none disabled:opacity-40",
+      button_size_classes(size),
+      button_color_classes(color),
+      extra
+    ]
+  end
+
+  # md is the 40px bar control (§3's one control height); sm is the action
+  # that lives inside a card next to content, at the chips' scale.
+  defp button_size_classes(:md), do: "px-3 py-[7px] text-sm leading-6"
+  defp button_size_classes(:sm), do: "px-2.5 py-1 text-xs leading-5"
+
+  @doc """
+  The small action costume, for the hand-built `<button>`s inside cards.
+
+  Same classes `<.button color={:zinc} size={:sm}>` produces — Confirm,
+  Restore, Split, Add, "Use this bio" and the queue's row actions were
+  fourteen separate copies of a `bg-white/5` pill, which is how they drifted
+  into looking exactly like the count chips next to them.
+  """
+  def action_classes(color \\ :zinc, extra \\ nil), do: button_classes(color, :sm, extra)
 
   # One identity in both themes: the primary action is the brand fill with
   # near-black text everywhere, secondary actions are outlined (a solid gray
@@ -357,7 +404,7 @@ defmodule AmbryWeb.CoreComponents do
 
     ~H"""
     <div class={[@container_class]}>
-      <.label class="flex items-center gap-4">
+      <.label class="flex items-center gap-4 pl-3">
         <input type="hidden" name={@name} value="false" disabled={@rest[:disabled]} />
         <input
           type="checkbox"
@@ -378,12 +425,12 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "select"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}>{@label}</.label>
+      <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
       <select
         id={@id}
         name={@name}
         class={
-          ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+          ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
             input_color_classes(@errors) ++ [@class]
         }
         multiple={@multiple}
@@ -400,12 +447,12 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "textarea"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}>{@label}</.label>
+      <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
       <textarea
         id={@id}
         name={@name}
         class={
-          ["min-h-48 py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+          ["min-h-48 py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
             input_color_classes(@errors) ++ [@class]
         }
         {@rest}
@@ -421,7 +468,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "autocomplete"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}>{@label}</.label>
+      <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
       <.live_component
         module={EntityResolver}
         id={@id}
@@ -429,7 +476,7 @@ defmodule AmbryWeb.CoreComponents do
         options={@options}
         value={@value}
         class={
-          ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+          ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
             input_color_classes(@errors) ++ [@class]
         }
       />
@@ -442,7 +489,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}>{@label}</.label>
+      <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
       <%!-- Firefox's date editor carries ~2px of its own inner inset, which
           knocks the value off the 12px text rail the px-[11px] + 1px border
           otherwise lands on. @supports (-moz-appearance) matches only
@@ -453,8 +500,9 @@ defmodule AmbryWeb.CoreComponents do
         id={@id}
         value={Form.normalize_value(@type, @value)}
         class={
-          ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
-            [@type == "date" && "supports-[-moz-appearance:none]:px-[9px]"] ++ input_color_classes(@errors) ++ [@class]
+          ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+            [@type == "date" && "supports-[-moz-appearance:none]:px-[9px]"] ++
+            [@type == "date" && !width_classed?(@class) && "max-w-48"] ++ input_color_classes(@errors) ++ [@class]
         }
         {@rest}
       />
@@ -462,6 +510,67 @@ defmodule AmbryWeb.CoreComponents do
     </div>
     """
   end
+
+  attr :date_field, FormField, required: true
+  attr :format_field, FormField, required: true
+  attr :class, :any, default: nil
+  attr :rest, :global
+
+  @doc """
+  A date and its display precision as the one control they are.
+
+  "2015-03-12" and "year only" were presented as two separate fields — two
+  decision boxes on the import form, where a proposal could even be *split*
+  (the date from one provider, the precision from another), which is a
+  choice nobody should be offered. One well, date left, precision right;
+  the precision select reads muted because it qualifies the date rather
+  than competing with it.
+  """
+  def date_with_format(assigns) do
+    ~H"""
+    <div>
+      <div
+        class={[
+          "flex w-fit items-center rounded-md bg-zinc-800 focus-within:ring-brand-dark/20",
+          "border border-transparent focus-within:ring-4",
+          @class
+        ]}
+        {@rest}
+      >
+        <input
+          type="date"
+          name={@date_field.name}
+          id={@date_field.id}
+          value={Form.normalize_value("date", @date_field.value)}
+          class={[
+            "py-[7px] px-[11px] w-44 rounded-md border-0 supports-[-moz-appearance:none]:px-[9px]",
+            "bg-transparent text-zinc-100 focus:ring-0 sm:text-sm sm:leading-6"
+          ]}
+        />
+        <select
+          name={@format_field.name}
+          id={@format_field.id}
+          class="py-[7px] rounded-md border-0 bg-transparent pr-8 pl-1 text-xs text-zinc-400 focus:ring-0"
+        >
+          {Phoenix.HTML.Form.options_for_select(
+            [{"full date", "full"}, {"year & month", "year_month"}, {"year only", "year"}],
+            @format_field.value && to_string(@format_field.value)
+          )}
+        </select>
+      </div>
+      <.field_errors field={@date_field} />
+    </div>
+    """
+  end
+
+  # §7: inputs are sized to their content, and a date's content has one
+  # size — so the component owns the default (`max-w-48`) instead of hoping
+  # every call site remembers. A call site that passes any width class of
+  # its own wins untouched.
+  defp width_classed?(nil), do: false
+  defp width_classed?(class) when is_binary(class), do: class =~ ~r/(^|\s)(max-)?w-/
+  defp width_classed?(class) when is_list(class), do: Enum.any?(class, &width_classed?/1)
+  defp width_classed?(_other), do: false
 
   @doc """
   For if you want to have more control over where form field errors are rendered.
@@ -500,7 +609,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div>
       <div class="space-y-2">
-        <.label :if={@label}>{@label}</.label>
+        <.label :if={@label} class="pl-3">{@label}</.label>
         <.live_file_input
           upload={@upload}
           class={
@@ -582,13 +691,39 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  @doc """
+  The app-standard input styling, for controls that are built by hand.
+
+  `<.input>` carries this itself. Anything else — a search box, a bare
+  `<input>` inside a component, a hand-built `<select>` — has to say so, or it
+  falls back to the browser's blue focus ring and a 1px hairline, which is
+  exactly what happened to both search fields and every provider-import row.
+
+  This is the single definition: `input_color_classes/1` below is this plus
+  the error and no-feedback states that only a real form field has. Don't
+  hand-write `bg-zinc-800 border …` on a control — call this.
+  """
+  def input_classes(extra \\ nil) do
+    [
+      "rounded-md text-sm focus:outline-none focus:ring-4",
+      input_fill_classes(),
+      extra
+    ]
+  end
+
+  # Controls are filled, not outlined: a transparent border keeps the box
+  # size, the fill separates it from the surface, and focus is a soft brand
+  # ring — no 1px hairlines fighting high-DPI subpixel rendering.
+  defp input_fill_classes do
+    [
+      "bg-zinc-800 text-zinc-200 placeholder:text-zinc-500",
+      "focus:ring-brand-dark/20 border-transparent focus:border-transparent"
+    ]
+  end
+
   defp input_color_classes(errors) do
     [
-      # Controls are filled, not outlined: a transparent border keeps the
-      # box size, the fill separates it from the surface, and focus is a soft
-      # brand ring — no 1px hairlines fighting high-DPI subpixel rendering.
-      "bg-zinc-800 text-zinc-200 placeholder:text-zinc-500",
-      "focus:ring-brand-dark/20 border-transparent focus:border-transparent",
+      input_fill_classes(),
       "phx-no-feedback:focus:ring-brand-dark/20 phx-no-feedback:border-transparent phx-no-feedback:focus:border-transparent"
     ] ++
       if errors == [],
@@ -689,8 +824,20 @@ defmodule AmbryWeb.CoreComponents do
   def image_with_size(assigns) do
     ~H"""
     <div>
-      <div class="inline-block">
+      <div class="group/zoom relative inline-block">
         <img id={"#{@id}-preview"} src={@src} class={@class} />
+        <%!-- A corner magnifier rather than click-to-zoom on the image
+            itself: these previews live inside chips and record rows whose
+            click already means "choose"/"tick", and a uniform affordance
+            beats two behaviors. The lightbox listener lives in app.js. --%>
+        <span
+          data-zoomable
+          data-full={@src}
+          title="View full size"
+          class="bg-black/70 absolute right-1 bottom-1 hidden cursor-zoom-in rounded-sm p-1 group-hover/zoom:flex"
+        >
+          <.icon name="fa-magnifying-glass" class="h-3 w-3 text-zinc-100" />
+        </span>
         <p
           id={"#{@id}-size"}
           class="text-center text-xs text-zinc-700"
@@ -1469,9 +1616,9 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div
       id={@id}
-      class="max-w-80 bg-zinc-900/90 absolute top-12 right-4 z-50 hidden text-zinc-200 shadow-md backdrop-blur transition-opacity"
+      class="max-w-80 bg-zinc-900/90 absolute top-12 right-4 z-50 hidden rounded-lg text-zinc-200 shadow-xl backdrop-blur transition-opacity"
     >
-      <div class="h-full w-full divide-y divide-zinc-800 rounded-sm border border-zinc-800">
+      <div class="h-full w-full rounded-lg">
         <div class="flex items-center gap-4 p-4">
           <img class="h-10 w-10 rounded-full" src={gravatar_url(@user.email)} />
           <p class="overflow-hidden text-ellipsis whitespace-nowrap">{@user.email}</p>

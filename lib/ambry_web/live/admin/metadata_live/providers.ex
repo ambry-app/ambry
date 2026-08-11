@@ -22,7 +22,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   def render(assigns) do
     ~H"""
     <.layout title={@page_title} user={@current_user}>
-      <div class="mx-auto max-w-3xl space-y-8">
+      <div class="max-w-4xl space-y-8">
         <p class="text-zinc-400">
           Providers fill in facts during import; you curate the structure. Priority controls the
           order providers are offered in import forms. Settings apply immediately; cached responses
@@ -36,34 +36,52 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
           <div class="space-y-4">
             <div
               :for={entry <- providers_for_level(@providers, level)}
-              class="rounded-sm border border-zinc-800 bg-zinc-900 p-4"
+              class="rounded-lg bg-zinc-900 p-4"
             >
               <div class="flex items-center gap-3">
                 <span class={["inline-block h-2.5 w-2.5 rounded-full", (entry.enabled && "bg-lime-500") || "bg-zinc-600"]} />
                 <h3 class="grow font-semibold">{entry.display_name}</h3>
 
-                <.button
+                <%!-- The same stacked-chevron reorder control the form rows
+                    wear (§6: one costume per job) — it was two square
+                    buttons here, a second answer to "move this in a list". --%>
+                <div
                   :if={length(providers_for_level(@providers, level)) > 1}
-                  color={:zinc}
-                  phx-click="move"
-                  phx-value-id={entry.id}
-                  phx-value-direction="up"
-                  class="!px-2 !py-1"
-                  title="Higher priority"
+                  class="flex h-10 flex-none flex-col justify-center"
+                  data-role="move-buttons"
                 >
-                  <.icon name="fa-chevron-up" class="h-3 w-3" />
-                </.button>
-                <.button
-                  :if={length(providers_for_level(@providers, level)) > 1}
-                  color={:zinc}
-                  phx-click="move"
-                  phx-value-id={entry.id}
-                  phx-value-direction="down"
-                  class="!px-2 !py-1"
-                  title="Lower priority"
-                >
-                  <.icon name="fa-chevron-down" class="h-3 w-3" />
-                </.button>
+                  <button
+                    type="button"
+                    phx-click="move"
+                    phx-value-id={entry.id}
+                    phx-value-direction="up"
+                    disabled={provider_index(@providers, level, entry) == 0}
+                    title="Higher priority"
+                    class="disabled:opacity-25"
+                  >
+                    <.icon
+                      name="fa-chevron-up"
+                      class="h-3 w-3 text-current transition-colors hover:text-lime-400"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="move"
+                    phx-value-id={entry.id}
+                    phx-value-direction="down"
+                    disabled={
+                      provider_index(@providers, level, entry) ==
+                        length(providers_for_level(@providers, level)) - 1
+                    }
+                    title="Lower priority"
+                    class="disabled:opacity-25"
+                  >
+                    <.icon
+                      name="fa-chevron-down"
+                      class="h-3 w-3 text-current transition-colors hover:text-lime-400"
+                    />
+                  </button>
+                </div>
 
                 <.button
                   color={(entry.enabled && :zinc) || :brand}
@@ -199,6 +217,10 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
 
   defp providers_for_level(providers, level) do
     Enum.filter(providers, &(&1.level == level))
+  end
+
+  defp provider_index(providers, level, entry) do
+    providers |> providers_for_level(level) |> Enum.find_index(&(&1.id == entry.id))
   end
 
   defp levels do

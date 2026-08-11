@@ -1,18 +1,25 @@
 defmodule AmbryWeb.Admin.PersonLive.Form do
-  @moduledoc false
+  @moduledoc """
+  The person form, curated the import form's way: one name search fans out
+  to every person-capable provider, results are tickable records of humans,
+  and ticked records offer the photos and bios below. This replaced both the
+  per-provider import modal and the separate image-picker modal — one
+  mechanism for "ask the databases about this person".
+  """
   use AmbryWeb, :admin_live_view
 
+  import AmbryWeb.Admin.Curation
   import AmbryWeb.Admin.UploadHelpers
 
-  alias Ambry.Metadata.Registry
+  alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
   alias Ambry.People.Author
   alias Ambry.People.Person
-  alias Ambry.Provenance
-  alias AmbryWeb.Admin.PersonLive.Form.ImportForm
-  alias AmbryWeb.Admin.PersonPicker
+  alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias Ecto.Changeset
+
+  @scalar_kinds %{"name" => :name, "description" => :description, "image" => :image}
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -20,10 +27,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      socket
      |> allow_image_upload(:image)
      |> assign(
-       import: nil,
-       image_picker: false,
+       retrying: nil,
+       chips: %{},
        provenance_hints: %{},
-       providers: Registry.enabled(capability: :author_search),
        authors: People.authors_for_select()
      )
      |> apply_action(socket.assigns.live_action, params)}
@@ -37,7 +43,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     |> assign_form(changeset)
     |> assign(
       page_title: person.name,
-      person: person
+      person: person,
+      evidence: Evidence.new(%{"name" => person.name}, known: Evidence.known_from(person))
     )
   end
 
@@ -49,27 +56,13 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     |> assign_form(changeset)
     |> assign(
       page_title: "New Author or Narrator",
-      person: person
+      person: person,
+      evidence: Evidence.new(%{})
     )
   end
 
   @impl Phoenix.LiveView
-  def handle_params(params, _url, socket) do
-    {:noreply, handle_import_form_params(socket, params)}
-  end
-
-  defp handle_import_form_params(socket, %{"import" => provider_id}) do
-    query = socket.assigns.form.params["name"] || socket.assigns.person.name
-
-    case Registry.fetch(provider_id) do
-      {:ok, provider} -> assign(socket, import: %{provider: provider, query: query})
-      {:error, :unknown_provider} -> assign(socket, import: nil)
-    end
-  end
-
-  defp handle_import_form_params(socket, _params) do
-    assign(socket, import: nil)
-  end
+  def handle_params(_params, _url, socket), do: {:noreply, socket}
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"person" => person_params}, socket) do
@@ -92,7 +85,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> assign_form(changeset)
      |> assign(
        provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, person_params)
-     )}
+     )
+     |> refresh_chips()}
   end
 
   def handle_event("submit", %{"person" => person_params}, socket) do
@@ -118,62 +112,91 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     end
   end
 
-  def handle_event("toggle-provenance-lock", %{"field" => field}, socket) do
-    {:ok, person} = Provenance.toggle_lock(socket.assigns.person, field)
-    {:noreply, assign(socket, person: person)}
-  end
-
-  def handle_event("open-image-picker", _params, socket) do
-    {:noreply, assign(socket, image_picker: true)}
-  end
-
-  def handle_event("close-image-picker", _params, socket) do
-    {:noreply, assign(socket, image_picker: false)}
-  end
-
-  def handle_event("open-import-form", %{"type" => provider_id}, socket) do
-    {:noreply, handle_import_form_params(socket, %{"import" => provider_id})}
-  end
-
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :image, ref)}
   end
 
+  # ── the evidence panel ─────────────────────────────────────────────────
+
+  def handle_event("research", %{"name" => name}, socket) do
+    case String.trim(name || "") do
+      "" ->
+        {:noreply, socket}
+
+      name ->
+        {:noreply,
+         socket
+         |> assign(evidence: Evidence.begin(socket.assigns.evidence, %{"name" => name}))
+         |> start_async(:evidence_search, fn -> MetadataSearch.people(name) end)}
+    end
+  end
+
+  def handle_event("toggle-evidence", %{"source" => source, "id" => id}, socket) do
+    {:noreply,
+     socket
+     |> assign(evidence: Evidence.toggle(socket.assigns.evidence, source, id))
+     |> refresh_chips()}
+  end
+
+  def handle_event("accept-proposal", %{"field" => field, "key" => key}, socket) do
+    with {:ok, kind} <- Map.fetch(@scalar_kinds, field),
+         %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
+      hints = ProvenanceHints.from_import(proposal.params, proposal.source, proposal.record)
+      new_params = Map.merge(socket.assigns.form.params, proposal.params)
+      changeset = People.change_person(socket.assigns.person, new_params)
+
+      {:noreply,
+       socket
+       |> assign_form(changeset)
+       |> assign(provenance_hints: Map.merge(socket.assigns.provenance_hints, hints))
+       |> refresh_chips()}
+    else
+      _missing -> {:noreply, socket}
+    end
+  end
+
   @impl Phoenix.LiveView
-  def handle_info({:person_image_picked, _context, url, source}, socket) do
-    picked = %{"image_path" => "", "image_type" => "url_import", "image_import_url" => url}
-    hints = ProvenanceHints.from_import(picked, source)
-    new_params = Map.merge(socket.assigns.form.params, picked)
-    changeset = People.change_person(socket.assigns.person, new_params)
-
-    # The picker stays open: a photo and a bio are two decisions off one
-    # search, and closing on the first made getting both mean running the
-    # search twice. It closes when the operator says so.
+  def handle_async(:evidence_search, {:ok, result}, socket) do
     {:noreply,
      socket
-     |> assign_form(changeset)
-     |> assign(provenance_hints: Map.merge(socket.assigns.provenance_hints, hints))}
+     |> assign(evidence: Evidence.absorb_people(socket.assigns.evidence, result), retrying: nil)
+     |> refresh_chips()}
   end
 
-  # A bio is picked the same way a photo is; the person form already knows how
-  # to take an imported field, so this rides the existing import path.
-  def handle_info({:person_bio_picked, _context, description, source}, socket) do
-    send(self(), {:import, %{"person" => %{"description" => description}}, source})
-    {:noreply, socket}
-  end
-
-  def handle_info({:import, %{"person" => person_params}, source}, socket) do
-    hints = ProvenanceHints.from_import(person_params, source)
-    new_params = Map.merge(socket.assigns.form.params, person_params)
-    changeset = People.change_person(socket.assigns.person, new_params)
-
+  def handle_async(:evidence_search, {:exit, _reason}, socket) do
     {:noreply,
      socket
-     |> assign_form(changeset)
-     |> assign(
-       import: nil,
-       provenance_hints: Map.merge(socket.assigns.provenance_hints, hints)
-     )}
+     |> assign(evidence: %{socket.assigns.evidence | running?: false}, retrying: nil)
+     |> put_flash(:error, "Searching the providers failed — try again.")}
+  end
+
+  defp refresh_chips(socket) do
+    %{evidence: evidence, form: form} = socket.assigns
+
+    chips =
+      if evidence && Evidence.any_used?(evidence) do
+        %{
+          name:
+            evidence
+            |> Evidence.proposals(:name)
+            |> mark_chosen(%{"name" => Changeset.get_field(form.source, :name)}),
+          description:
+            evidence
+            |> Evidence.proposals(:description)
+            |> mark_chosen(%{"description" => Changeset.get_field(form.source, :description)}),
+          image:
+            evidence
+            |> Evidence.proposals(:image)
+            |> mark_chosen(%{
+              "image_type" => Changeset.get_field(form.source, :image_type),
+              "image_import_url" => Changeset.get_field(form.source, :image_import_url)
+            })
+        }
+      else
+        %{}
+      end
+
+    assign(socket, chips: chips)
   end
 
   defp cancel_all_uploads(socket, upload) do
@@ -289,15 +312,4 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
         []
     end
   end
-
-  defp picker_query(form, person), do: form.params["name"] || person.name
-
-  defp open_import_form(%Person{id: nil}, type),
-    do: JS.patch(~p"/admin/people/new?import=#{type}")
-
-  defp open_import_form(person, type),
-    do: JS.patch(~p"/admin/people/#{person}/edit?import=#{type}")
-
-  defp close_import_form(%Person{id: nil}), do: JS.patch(~p"/admin/people/new", replace: true)
-  defp close_import_form(person), do: JS.patch(~p"/admin/people/#{person}/edit", replace: true)
 end

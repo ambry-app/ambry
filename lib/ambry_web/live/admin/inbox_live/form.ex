@@ -705,7 +705,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp atom("recording"), do: :recording
   defp atom("title"), do: :title
   defp atom("published"), do: :published
-  defp atom("published_format"), do: :published_format
   defp atom("publisher"), do: :publisher
   defp atom("description"), do: :description
   defp atom("cover"), do: :cover
@@ -802,43 +801,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp format_tag(value), do: to_string(value)
 
   attr :files, :list, required: true
-
-  # The files share one directory almost always; printing it thirty times
-  # buried the one part that differs. One line of where, then the names.
-  defp file_list(assigns) do
-    assigns = assign(assigns, :common, common_dir(assigns.files))
-
-    ~H"""
-    <div :if={@files != []} class="mt-2 rounded-lg bg-zinc-900 p-4">
-      <p :if={@common != ""} class="font-mono truncate text-xs text-zinc-500">{@common}/</p>
-      <ul class="space-y-0.5 pt-1">
-        <li :for={file <- @files} class="font-mono truncate pl-3 text-xs text-zinc-400">
-          {file_label(file, @common)}
-        </li>
-      </ul>
-    </div>
-    """
-  end
-
-  defp common_dir([]), do: ""
-
-  defp common_dir(files) do
-    files
-    |> Enum.map(&Path.split(Path.dirname(&1)))
-    |> Enum.reduce(fn segments, acc ->
-      acc
-      |> Enum.zip(segments)
-      |> Enum.take_while(fn {a, b} -> a == b end)
-      |> Enum.map(&elem(&1, 0))
-    end)
-    |> case do
-      [] -> ""
-      segments -> Path.join(segments)
-    end
-  end
-
-  defp file_label(file, ""), do: file
-  defp file_label(file, common), do: Path.relative_to(file, common)
 
   @doc """
   The search terms auto-match derived, and where each came from.

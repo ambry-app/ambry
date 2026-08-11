@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
   def render(assigns) do
     ~H"""
     <.layout title={@page_title} user={@current_user}>
-      <div class="mx-auto max-w-3xl space-y-8">
+      <div class="max-w-4xl space-y-8">
         <section>
           <h2 class="mb-1 text-lg font-bold">Direct play</h2>
           <p class="mb-4 text-sm text-zinc-400">
@@ -31,7 +31,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
             build that understands tracks.
           </p>
 
-          <div class="rounded-sm border border-zinc-800 bg-zinc-900 p-4">
+          <div class="rounded-lg bg-zinc-900 p-4">
             <div class="flex items-center gap-3">
               <span class={[
                 "inline-block h-2.5 w-2.5 rounded-full",
@@ -74,7 +74,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
               leading dash.
             </p>
 
-            <div class="rounded-sm border border-zinc-800 bg-zinc-900 p-4">
+            <div class="rounded-lg bg-zinc-900 p-4">
               <p class="mb-1 text-xs font-semibold text-zinc-400">Preview</p>
               <p class="font-mono break-all text-sm" data-role="template-preview">{@preview}</p>
             </div>

@@ -1405,6 +1405,25 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   @doc """
+  Hints from a library record's own fields — the edit forms' analog of
+  `hints/1`. Same scoring, ranking provider records against what the record
+  already knows instead of what the files claimed.
+  """
+  def form_hints(fields) when is_map(fields) do
+    %{
+      title: presence(fields[:title]),
+      author: presence(fields[:author]),
+      narrator: presence(fields[:narrator]),
+      series: nil,
+      series_number: nil,
+      part_number: nil,
+      parts_total: nil,
+      asin: nil,
+      release_title: nil
+    }
+  end
+
+  @doc """
   Turns provider books into records, for a search run outside matching.
   """
   def records_from(books, entry, hints) do

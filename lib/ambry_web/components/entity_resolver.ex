@@ -103,7 +103,7 @@ defmodule AmbryWeb.Components.EntityResolver do
         :if={@open}
         id={"#{@id}-list"}
         role="listbox"
-        class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-sm bg-zinc-800 text-sm shadow-lg"
+        class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md bg-zinc-800 text-sm shadow-xl"
       >
         <li
           :for={option <- @matches}

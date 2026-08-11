@@ -58,7 +58,6 @@ defmodule Ambry.Inbox.Draft.Work do
 
     embeds_one :title, Field, on_replace: :update
     embeds_one :published, Field, on_replace: :update
-    embeds_one :published_format, Field, on_replace: :update
 
     embeds_many :authors, Credit, on_replace: :delete
     embeds_many :series, SeriesLink, on_replace: :delete
@@ -82,45 +81,9 @@ defmodule Ambry.Inbox.Draft.Work do
     |> cast_embed(:sources)
     |> cast_embed(:title)
     |> cast_embed(:published)
-    |> cast_embed(:published_format)
     |> cast_embed(:authors)
     |> cast_embed(:series)
-    |> align_published_format()
     |> validate_link()
-  end
-
-  # Every route into the draft ends here — typing a date, clicking a date chip,
-  # ticking a record — so this is the one place the format can be kept in step
-  # with the date without each of those routes remembering to. It was only ever
-  # aligned at seed time, which left choosing a date by hand settling one half
-  # of a two-column fact and leaving the other half reported as undecided.
-  #
-  # A day≠1 date forces `full` whoever settled the format; a 1st-day date
-  # only fills a format nobody has settled. See `Field.follow_date/2`.
-  defp align_published_format(changeset) do
-    case {get_field(changeset, :published), get_field(changeset, :published_format)} do
-      {%Field{} = published, %Field{} = format} ->
-        case Field.follow_date(format, published) do
-          ^format -> changeset
-          aligned -> settle_format(changeset, aligned)
-        end
-
-      _nothing_to_align ->
-        changeset
-    end
-  end
-
-  # As a map of the four fields that moved, which is the only thing an
-  # `on_replace: :update` embed accepts — it has no way to tell a struct meant
-  # as "these fields changed" from one meant as "replace the whole embed", so
-  # it refuses both structs and changesets. The candidates are deliberately not
-  # among them: alignment settles a decision, it never edits the evidence.
-  defp settle_format(changeset, aligned) do
-    put_change(
-      changeset,
-      :published_format,
-      Map.take(aligned, [:value, :source, :chosen_key, :approved])
-    )
   end
 
   defp validate_link(changeset) do
@@ -149,7 +112,6 @@ defmodule Ambry.Inbox.Draft.Work do
       doubted(work) ++
       unresolved_field(work.title, "Title") ++
       unresolved_field(work.published, "First published") ++
-      unresolved_field(work.published_format, "Date display format") ++
       unresolved_in(work.authors, &Credit.resolved?/1, "Author") ++
       unresolved_in(work.series, &SeriesLink.resolved?/1, "Series")
   end

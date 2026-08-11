@@ -89,7 +89,7 @@
             phx-click="split"
             data-confirm={"Split into #{length(@item.files)} separate items? Each file becomes its own inbox item and is scanned fresh."}
             data-role="split"
-            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            class={action_classes()}
           >
             Split into {length(@item.files)} items — one per file
           </button>
@@ -252,7 +252,7 @@
               phx-click="confirm-level"
               phx-value-section="work"
               data-role="confirm-work"
-              class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+              class={action_classes()}
             >
               Confirm
             </button>
@@ -347,17 +347,6 @@
                 hint="The work's original publication date, not this recording's release date."
                 field={@item.draft.work.published}
               />
-
-              <.decision_row
-                label="Date display format"
-                section="work"
-                name={:published_format}
-                form={work}
-                type="select"
-                control_class="max-w-56"
-                options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
-                field={@item.draft.work.published_format}
-              />
             </.inputs_for>
           </.inputs_for>
         </.simple_form>
@@ -390,14 +379,9 @@
             photos_expanded={@photos_expanded}
           />
 
-          <button
-            type="button"
-            phx-click="add-credit"
-            phx-value-section="work"
-            class="pl-3 text-xs text-zinc-400 underline"
-          >
+          <.add_button phx-click="add-credit" phx-value-section="work">
             Add an author
-          </button>
+          </.add_button>
         </div>
 
         <%!-- each series is its own decision, number included --%>
@@ -425,9 +409,7 @@
             options={@series}
           />
 
-          <button type="button" phx-click="add-series" class="pl-3 text-xs text-zinc-400 underline">
-            Add a series
-          </button>
+          <.add_button phx-click="add-series">Add a series</.add_button>
         </div>
       </section>
 
@@ -463,7 +445,7 @@
               phx-click="confirm-level"
               phx-value-section="recording"
               data-role="confirm-recording"
-              class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+              class={action_classes()}
             >
               Confirm
             </button>
@@ -618,14 +600,9 @@
             options={@group_options}
           />
 
-          <button
-            :if={group_absent?(@item.draft)}
-            type="button"
-            phx-click="add-group"
-            class="pl-3 text-xs text-zinc-400 underline"
-          >
+          <.add_button :if={group_absent?(@item.draft)} phx-click="add-group">
             This release is part of a set
-          </button>
+          </.add_button>
         </div>
 
         <div class="space-y-2">
@@ -655,14 +632,9 @@
             photos_expanded={@photos_expanded}
           />
 
-          <button
-            type="button"
-            phx-click="add-credit"
-            phx-value-section="recording"
-            class="pl-3 text-xs text-zinc-400 underline"
-          >
+          <.add_button phx-click="add-credit" phx-value-section="recording">
             Add a narrator
-          </button>
+          </.add_button>
         </div>
       </section>
 
@@ -734,7 +706,7 @@
           {@destination.blocker}
         </p>
 
-        <.file_list files={@item.files} />
+        <.file_list files={@item.files} class="mt-2" />
       </section>
 
       <%!-- ==================== THE BUTTON ==================== --%>
@@ -764,9 +736,7 @@
             In the library — read-only.
           </p>
 
-          <.brand_link navigate={~p"/admin/inbox"} class="whitespace-nowrap">
-            Back to the inbox
-          </.brand_link>
+          <.button navigate={~p"/admin/inbox"} color={:zinc}>Back to the inbox</.button>
 
           <%!-- Why the button is off, always. A blocker that only showed up as a
               red line further up the page could leave this disabled while the

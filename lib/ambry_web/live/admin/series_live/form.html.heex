@@ -1,10 +1,11 @@
 <.layout title={@page_title} user={@current_user}>
-  <div class="max-w-3xl">
+  <div class="-mb-4 max-w-4xl">
     <.simple_form id="series-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <.input field={@form[:name]} label="Name" />
+      <.field_group>
+        <.input field={@form[:name]} label="Name" class="max-w-xl" />
+      </.field_group>
 
-      <div class="space-y-2">
-        <.label>Books</.label>
+      <.list_cluster label="Books">
         <.inputs_for :let={series_book_form} field={@form[:series_books]}>
           <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
 
@@ -29,13 +30,15 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:series_books_sort]}>Add book</.add_button>
-        <.delete_input field={@form[:series_books_drop]} />
-      </div>
+        <:add>
+          <.add_button field={@form[:series_books_sort]}>Add book</.add_button>
+          <.delete_input field={@form[:series_books_drop]} />
+        </:add>
+      </.list_cluster>
 
-      <:actions>
+      <.form_footer>
         <.button>Save</.button>
-      </:actions>
+      </.form_footer>
     </.simple_form>
   </div>
 </.layout>
