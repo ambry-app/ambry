@@ -130,6 +130,22 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     )
   end
 
+  # The overlay reads `@progress`, which was only ever loaded with the page —
+  # so the row the operator had just handed to a job went on looking idle and
+  # clickable until they refreshed, by which time the slow part was over.
+  test "the row is covered as soon as it's handed to a job", %{conn: conn} do
+    item = probed_item()
+    # discovery's own jobs, so the row starts uncovered
+    Ambry.Repo.delete_all(Oban.Job)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+    refute has_element?(view, "[data-role='busy-overlay']")
+
+    view |> element("span[phx-click='rescan'][phx-value-id='#{item.id}']") |> render_click()
+
+    assert has_element?(view, "[data-role='busy-overlay']")
+  end
+
   # The page links used to be built from the shared filter+page helpers,
   # which drop status and ready — so paging through "Imported" silently
   # landed back on the default pending view.
