@@ -72,6 +72,13 @@ x-positions: the **box edge** (cards, inputs, record rows, buttons) and the
 inputs — where every bare-text element sits (labels, hints, helper prose,
 microlabels, eyebrows).
 
+**The rail belongs to a container, so ground level has none.** A block on
+the ground (`zinc-950`) — a section heading, a line of helper prose — sits
+on the page's own edge; there is no box whose padding it is matching, and a
+`pl-3` there is a *third* x-position 12px right of every heading around it.
+If a fact wants the rail, what it actually wants is a card. (An uncarded
+"This release is …" line on the import form is what taught this.)
+
 **Text lands on the rail exactly, wherever it lives.** A control's own text
 counts: a borderless pill pads `px-3`; a 1px-bordered box pads `px-[11px]`
 so border + padding = 12 (the inputs' trick, worth a transparent border in
@@ -116,6 +123,15 @@ than the centre it replaces.
 **Rhythm is 8 · 28 · 56** (`gap-2` / `gap-7` / `gap-14`): inside a field
 cluster / between blocks / between sections. Queue cards stack with
 `space-y-3`.
+
+**A sticky bar has to be told about the scroller's padding.** `#main-content`
+scrolls with `p-4`, and a sticky offset is measured from the scrollport's
+**content** box — so `bottom-0` parks a bar 16px shy of the window edge with
+the page showing through underneath. A sticky box also can't leave its
+containing block, so at the end of the scroll that block's own bottom edge
+holds it up by the same 16px again. Both halves need saying: `-bottom-4` on
+the bar, `-mb-4` on the page's content wrapper. Measured in Chrome — 16px,
+then 80px at the bottom of the page, before the fix; 0 and 0 after.
 
 **Corners share baselines.** A card's right rail aligns its first element
 with the title line and its last with the content's last line

@@ -782,32 +782,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def chapter_summary(_item), do: "Not read yet."
 
   @doc """
-  What this import says the release is, in one line.
-
-  The form asks two questions — which book, which recording — but they are two
-  halves of one fact: a file is a recording of exactly one work. Stating the
-  answer as a sentence is how the operator checks it at a glance instead of
-  reassembling it from six fields.
-  """
-  def identity_summary(%Draft{} = draft) do
-    title = Field.value(draft.work.title) || "an unidentified book"
-    authors = names_of(draft.work.authors)
-    narrators = names_of(draft.recording.narrators)
-
-    [
-      title,
-      authors != "" && "by #{authors}",
-      narrators != "" && "read by #{narrators}"
-    ]
-    |> Enum.filter(&is_binary/1)
-    |> Enum.join(" ")
-  end
-
-  def identity_summary(_draft), do: nil
-
-  defp names_of(credits), do: Enum.map_join(credits, ", ", & &1.name)
-
-  @doc """
   What the files themselves said, before anybody interpreted it.
 
   The tags are the primary source — 98% of the operator's real releases carry
