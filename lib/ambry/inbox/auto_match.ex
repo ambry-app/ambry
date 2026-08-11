@@ -1170,9 +1170,24 @@ defmodule Ambry.Inbox.AutoMatch do
   """
   def agrees?(one, other) do
     same_stated_title?(one["title"] || "", other["title"] || "") and
+      companion?(one["title"]) == companion?(other["title"]) and
       compatible?(one["narrators"], other["narrators"]) and
       compatible?(one["authors"], other["authors"])
   end
+
+  # A study guide agrees with its subject on every other test, and that is not
+  # a near miss — it is the three tests lining up. Its title's *head* is the
+  # book's title exactly, because a companion work is named
+  # "<The Book>: <something>" by construction, and head containment was built
+  # for genuine subtitles. It credits no narrator and, very often, no author.
+  # So all three read "didn't say", and "The Martian: A Novel by Andy Weir |
+  # Unofficial Summary & Analysis" was pre-ticked onto the operator's Martian
+  # while showing a score of 0.25 — the scorer knew, and nothing asked it.
+  #
+  # The sharpest part: the two rival companion works, which name a *different*
+  # author, were correctly excluded. Only the one carrying no author data at
+  # all got through, so the record with the worst data earned the most trust.
+  defp companion?(title), do: companion_penalty(title || "") != 1.0
 
   # A title and that same title carrying its subtitle are one answer written
   # two ways: rreading-glasses says "Cast Under an Alien Sun" where Hardcover

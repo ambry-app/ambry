@@ -170,6 +170,7 @@ defmodule Ambry.Metadata.Providers.Hardcover do
       publisher { name }
       image { url }
       contributions { contribution author { id name } }
+      book { contributions { contribution author { id name } } }
     }
   }
   """
@@ -226,13 +227,19 @@ defmodule Ambry.Metadata.Providers.Hardcover do
       id: to_string(edition["id"]),
       asin: presence(edition["asin"]),
       title: edition["title"],
-      # An edition record that names nobody as its author is scored as though
-      # it named the WRONG one, so every edition arrived a flat quarter behind
-      # the storefront's search hits — enough, measured on The Martian, for
-      # Audible's Wil Wheaton to outrank the recording actually in hand. The
-      # author is right here in the same contributions list, under the nil
-      # role Hardcover credits authors with.
-      authors: contributions_to_authors(edition["contributions"]),
+      # From the WORK's contributions, not the edition's own. An edition of a
+      # book has that book's author by definition, and reading the edition's
+      # list instead promotes whoever upstream filed under the nil role —
+      # which on The Martian's B082BHWQCJ is Wil Wheaton, its *narrator*. That
+      # record then arrived crediting Wheaton as an author of the novel, and
+      # was pre-ticked for it, because naming a superset of the right authors
+      # reads as corroboration. The work's own list can't be wrong that way.
+      #
+      # Editions need an author at all because a record naming none used to be
+      # scored as naming the WRONG one — a flat quarter off, enough on The
+      # Martian for Audible's Wheaton edition to outrank the recording
+      # actually in hand.
+      authors: contributions_to_authors(get_in(edition, ["book", "contributions"])),
       cover_url: get_in(edition, ["image", "url"]),
       publisher: get_in(edition, ["publisher", "name"]),
       # Old editions frequently carry the *work's* date rather than their own

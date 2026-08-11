@@ -73,6 +73,30 @@ defmodule Ambry.Inbox.AutoMatchTest do
     end
   end
 
+  describe "agrees?/2" do
+    defp work_record(title, authors) do
+      %{"source" => "provider:hardcover", "id" => title, "title" => title, "authors" => authors}
+    end
+
+    # Pre-ticking is `top_group/1`, which is `agrees?/2` with no score floor at
+    # all — so this record, scored 0.25 by the companion penalty, was ticked
+    # onto the operator's Martian anyway.
+    test "a companion work never agrees with the book it is about" do
+      book = work_record("The Martian", ["Andy Weir"])
+      guide = work_record("The Martian: A Novel by Andy Weir | Unofficial Summary & Analysis", [])
+
+      refute AutoMatch.agrees?(guide, book)
+    end
+
+    # The rule it rides in on, which has to keep working: a genuine subtitle.
+    test "a subtitled edition still agrees with its bare title" do
+      bare = work_record("Cast Under an Alien Sun", ["Olan Thorensen"])
+      subtitled = work_record("Cast Under an Alien Sun: Destiny's Crucible, Book 1", [])
+
+      assert AutoMatch.agrees?(subtitled, bare)
+    end
+  end
+
   describe "dedupe_records/2" do
     defp row(attrs) do
       Map.merge(

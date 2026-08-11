@@ -222,6 +222,32 @@ defmodule Ambry.Metadata.Providers.HardcoverTest do
       [%{"contribution" => role, "author" => %{"id" => 250_358, "name" => name}}]
     end
 
+    defp by_author(name) do
+      %{"contributions" => [%{"contribution" => nil, "author" => %{"id" => 1, "name" => name}}]}
+    end
+
+    # Hardcover files authors under a nil contribution — and on The Martian's
+    # B082BHWQCJ the nil-role contributor is Wil Wheaton, its *narrator*. Read
+    # off the edition, that record credited Wheaton as an author of the novel.
+    # An edition of a book has that book's author by definition.
+    test "authors come from the work, not from the edition's own contributions" do
+      patch(Client, :query, fn _config, _query, _vars ->
+        {:ok,
+         %{
+           "editions" => [
+             edition(%{
+               "reading_format_id" => 2,
+               "contributions" => narrated_by("Wil Wheaton", nil),
+               "book" => by_author("Andy Weir")
+             })
+           ]
+         }}
+      end)
+
+      assert {:ok, [book]} = Hardcover.editions("292354", %{})
+      assert [%Provider.Contributor{name: "Andy Weir", role: "author"}] = book.authors
+    end
+
     # The Martian has 150 editions on Hardcover, so a `limit` over an
     # unfiltered set decided by nothing at all which ones came back — and
     # R.C. Bray's delisted recording, the exact case `:editions` exists for,
