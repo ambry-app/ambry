@@ -61,12 +61,14 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.SourceRef
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.ReleaseName
   alias Ambry.Library
   alias Ambry.Library.Root
   alias Ambry.Library.Source
@@ -113,6 +115,89 @@ defmodule Ambry.Inbox.Draft.Seed do
       destination: destination(item)
     }
     |> reseed_people(item)
+    |> seed_group(item)
+  end
+
+  @doc """
+  Proposes the recording's place in a part set, or leaves the operator's
+  answer alone.
+
+  Detection reads the release's own name first ("… - Part 1 of 2
+  [GraphicAudio]"), the tag title's tail second, and the titles of the
+  ticked recording records third (Audible lists GraphicAudio parts as
+  "The Way of Kings (1 of 3)" — the title itself is deliberately never
+  stripped, it names a distinct recording). A proposal is never
+  auto-approved and the name is prefilled with the work's title — the same
+  default a set gets everywhere else — so the common case is one Confirm.
+
+  Curated, removed and operator-added links survive untouched; an uncurated
+  proposal follows fresh detection, whichever way it moves.
+  """
+  def seed_group(%Draft{recording: nil} = draft, _item), do: draft
+
+  def seed_group(%Draft{} = draft, %InboxItem{} = item) do
+    existing = draft.recording.recording_group
+
+    if existing && (existing.curated or existing.removed or existing.source == "manual") do
+      draft
+    else
+      put_in(
+        draft,
+        [Access.key(:recording), Access.key(:recording_group)],
+        propose_group(draft, item)
+      )
+    end
+  end
+
+  defp propose_group(draft, item) do
+    case detect_part(draft, item) do
+      nil ->
+        nil
+
+      {number, total, source} ->
+        name = Field.value(draft.work.title) || ""
+
+        %GroupLink{
+          mode: :create,
+          name: name,
+          proposed_name: presence(name),
+          source: source,
+          part_number: number,
+          parts_total: total,
+          approved: false
+        }
+    end
+  end
+
+  defp detect_part(draft, item) do
+    parsed = ReleaseName.parse(item.path)
+    tag_parsed = ReleaseName.parse((item.tags || %{})["book_title"] || "")
+
+    cond do
+      is_integer(parsed.parts_total) ->
+        {parsed.part_number, parsed.parts_total, "name"}
+
+      is_integer(tag_parsed.parts_total) ->
+        {tag_parsed.part_number, tag_parsed.parts_total, "tags"}
+
+      part = provider_part(draft, item) ->
+        part
+
+      true ->
+        nil
+    end
+  end
+
+  defp provider_part(draft, item) do
+    item
+    |> records("recording")
+    |> used(draft.recording.sources)
+    |> Enum.find_value(fn record ->
+      case ReleaseName.part_of(record["title"]) do
+        nil -> nil
+        {number, total} -> {number, total, source_of(record)}
+      end
+    end)
   end
 
   @doc """

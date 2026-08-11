@@ -110,7 +110,65 @@ defmodule Ambry.Inbox.ReleaseNameTest do
   # For titles that arrived from tags rather than a folder name — same junk,
   # different road. Parse-only cleaning left "Children of Time (Unabridged)"
   # searching providers with the parenthetical attached.
+  describe "parse/1 part of a set" do
+    # the real dev-inbox shape: a split GraphicAudio item, whose path is the
+    # audio file itself
+    test "reads \"Part N of M\" from a file name, keeping the title clean" do
+      parsed =
+        ReleaseName.parse(
+          "[ACOTAR #1] A Court of Thorns and Roses - Part 1 of 2 [GraphicAudio] (chapterized).m4b"
+        )
+
+      assert parsed.part_number == 1
+      assert parsed.parts_total == 2
+      assert parsed.title == "A Court of Thorns and Roses"
+      assert parsed.series == "ACOTAR"
+      assert Decimal.equal?(parsed.series_number, 1)
+    end
+
+    test "reads the parenthesized and abbreviated spellings" do
+      assert %{part_number: 1, parts_total: 3, title: "The Way of Kings"} =
+               ReleaseName.parse("The Way of Kings (1 of 3)")
+
+      assert %{part_number: 2, parts_total: 3} = ReleaseName.parse("Some Book Pt. 2 of 3")
+    end
+
+    test "part_of/1 reads a provider title's spelling directly" do
+      # the slash spelling lives in provider titles, which parse/1 can't see
+      # (Path.basename would read the slash as a path separator)
+      assert ReleaseName.part_of("The Way of Kings (1 of 3)") == {1, 3}
+      assert ReleaseName.part_of("Some Book Pt. 2/3") == {2, 3}
+      assert ReleaseName.part_of("A Dramatized Adaptation") == nil
+      assert ReleaseName.part_of(nil) == nil
+    end
+
+    test "reads a bare trailing \"N of M\" from a tag title's tail" do
+      parsed =
+        ReleaseName.parse("A Court of Thorns and Roses 1: A Court of Thorns and Roses 1 of 2")
+
+      assert parsed.part_number == 1
+      assert parsed.parts_total == 2
+    end
+
+    test "numbers that don't read as a set position are not parts" do
+      # a position past the total, an implausible total, and no numbers at all
+      assert %{part_number: nil, parts_total: nil} = ReleaseName.parse("Part 5 of 3 Gardens")
+      assert %{part_number: nil, parts_total: nil} = ReleaseName.parse("Meditation 1 of 1000")
+      assert %{part_number: nil, parts_total: nil} = ReleaseName.parse("Two of Swords")
+      # a plain series ordinal stays a series matter
+      assert %{part_number: nil, series_number: number} =
+               ReleaseName.parse("A Fearful Symmetry Destiny's Crucible, Book 8")
+
+      assert Decimal.equal?(number, 8)
+    end
+  end
+
   describe "strip_noise/1" do
+    test "drops a part phrase from a tag title" do
+      assert ReleaseName.strip_noise("A Court of Thorns and Roses 1 of 2") ==
+               "A Court of Thorns and Roses"
+    end
+
     test "drops a noise parenthetical" do
       assert ReleaseName.strip_noise("Children of Time (Unabridged)") == "Children of Time"
     end

@@ -217,6 +217,7 @@ defmodule Ambry.Inbox.Draft.Edit do
 
     %{draft | work: work, recording: Seed.reseed_recording(draft.recording, item)}
     |> Seed.reseed_people(item)
+    |> Seed.seed_group(item)
   end
 
   defp records(item, level), do: Seed.records(item, level)

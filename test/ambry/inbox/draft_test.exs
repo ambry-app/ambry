@@ -2453,6 +2453,134 @@ defmodule Ambry.Inbox.DraftTest do
     end
   end
 
+  describe "part-set auto-detection" do
+    # the dev inbox's real split-GraphicAudio shape: the item's path IS the
+    # audio file, whose name states the part outright
+    test "a part-stating file name seeds an unapproved :create proposal named after the work" do
+      item =
+        item(%{
+          path:
+            "/downloads/[ACOTAR #1] A Court of Thorns and Roses [GraphicAudio]/[ACOTAR #1] A Court of Thorns and Roses - Part 1 of 2 [GraphicAudio] (chapterized).m4b",
+          matches: matches([provider_candidate(%{"title" => "A Court of Thorns and Roses"})]),
+          tags: %{}
+        })
+
+      draft = Seed.build(item)
+
+      assert %GroupLink{
+               mode: :create,
+               part_number: 1,
+               parts_total: 2,
+               source: "name",
+               approved: false,
+               curated: false
+             } = draft.recording.recording_group
+
+      # prefilled with the work's title so the common case is one Confirm
+      assert draft.recording.recording_group.name == Field.value(draft.work.title)
+    end
+
+    test "a tag title's tail seeds the proposal when the file name says nothing" do
+      item =
+        item(%{
+          matches: matches([provider_candidate(%{})]),
+          tags: %{
+            "book_title" => "A Court of Thorns and Roses 1: A Court of Thorns and Roses 2 of 2"
+          }
+        })
+
+      draft = Seed.build(item)
+
+      assert %GroupLink{part_number: 2, parts_total: 2, source: "tags", approved: false} =
+               draft.recording.recording_group
+    end
+
+    test "a ticked recording record's \"(N of M)\" title seeds the proposal" do
+      recording_record =
+        provider_candidate(%{
+          "source" => "provider:audible",
+          "id" => "B0AAAA",
+          "title" => "A Court of Thorns and Roses (1 of 2)",
+          "narrators" => ["Full Cast"],
+          "score" => 0.95
+        })
+
+      item =
+        item(%{
+          matches:
+            matches([provider_candidate(%{})],
+              recording: [recording_record],
+              recording_confidence: 0.95
+            ),
+          tags: %{}
+        })
+
+      draft = Seed.build(item)
+
+      assert %GroupLink{part_number: 1, parts_total: 2, source: "provider:audible"} =
+               draft.recording.recording_group
+    end
+
+    test "no detection means no proposal" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      assert draft.recording.recording_group == nil
+    end
+
+    test "a reseed follows fresh detection for an uncurated proposal but never touches a curated or removed one" do
+      item =
+        item(%{
+          path: "/downloads/Some Book - Part 1 of 2/Some Book - Part 1 of 2.m4b",
+          matches: matches([provider_candidate(%{})]),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert %GroupLink{part_number: 1, curated: false} = item.draft.recording.recording_group
+
+      # an uncurated proposal is re-derived in place
+      reseeded = Seed.seed_group(item.draft, item)
+      assert %GroupLink{part_number: 1, approved: false} = reseeded.recording.recording_group
+
+      # curated survives verbatim
+      curated =
+        put_in(
+          item.draft,
+          [Access.key(:recording), Access.key(:recording_group), Access.key(:curated)],
+          true
+        )
+
+      assert Seed.seed_group(curated, item) == curated
+
+      # a tombstoned removal survives too — detection must not resurrect it
+      removed = Draft.Edit.remove_group(item.draft)
+      assert Seed.seed_group(removed, item).recording.recording_group.removed
+    end
+
+    test "the part-polluted series number is suppressed, a real one is not" do
+      # GraphicAudio's shape: a `part` tag feeding series_number, no series
+      # named anywhere — the number is the part's
+      polluted =
+        item(%{
+          path: "/downloads/Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
+          tags: %{"series_number" => "2"}
+        })
+
+      assert Ambry.Inbox.AutoMatch.hints(polluted).series_number == nil
+      assert Ambry.Inbox.AutoMatch.hints(polluted).part_number == 2
+      assert Ambry.Inbox.AutoMatch.hints(polluted).parts_total == 2
+
+      # a named series keeps its number even when it matches the part number
+      named_series =
+        item(%{
+          path: "/downloads/Another Book - Part 2 of 2/Another Book - Part 2 of 2.m4b",
+          tags: %{"series" => "The Real Series", "series_number" => "2"}
+        })
+
+      assert Decimal.equal?(Ambry.Inbox.AutoMatch.hints(named_series).series_number, 2)
+    end
+  end
+
   describe "series numbers" do
     test "a number the provider supplied settles the membership" do
       candidates = [
