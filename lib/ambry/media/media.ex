@@ -22,6 +22,17 @@ defmodule Ambry.Media.Media do
   @statuses [:pending, :processing, :error, :ready]
   @custodies [:managed, :external]
 
+  # Where this recording's chapter *markers* came from. One value for the
+  # whole list, because markers arrive as a timeline from a single extractor
+  # — you don't mix mp4 atoms with file boundaries. Titles are the opposite
+  # and carry a source per row; see `Ambry.Media.Media.Chapter`.
+  #
+  # There is deliberately no `:provider` here. Provider chapter times
+  # describe their own retail edition and drift by minutes against a rip, so
+  # they are a title source only (roadmap 1h). `nil` means nobody recorded
+  # it — every chapter list that predates this field.
+  @marker_sources [:embedded, :file_boundaries, :manual]
+
   # provider-fillable scalar fields tracked by field-level provenance
   @provenance_fields [:published, :published_format, :publisher, :description, :image_path]
 
@@ -37,6 +48,8 @@ defmodule Ambry.Media.Media do
     has_many :media_tracks, MediaTrack, on_replace: :delete, preload_order: [asc: :index]
 
     embeds_many :chapters, Chapter, on_replace: :delete
+    field :chapter_marker_source, Ecto.Enum, values: @marker_sources
+
     embeds_many :supplemental_files, SupplementalFile, on_replace: :delete
     embeds_one :thumbnails, Thumbnails, on_replace: :delete
 
@@ -91,6 +104,8 @@ defmodule Ambry.Media.Media do
 
   def custodies, do: @custodies
 
+  def marker_sources, do: @marker_sources
+
   def provenance_fields, do: @provenance_fields
 
   @doc false
@@ -116,7 +131,8 @@ defmodule Ambry.Media.Media do
       :mp4_path,
       :mpd_path,
       :hls_path,
-      :status
+      :status,
+      :chapter_marker_source
     ])
     |> cast_assoc(:media_narrators,
       sort_param: :media_narrators_sort,
@@ -128,6 +144,7 @@ defmodule Ambry.Media.Media do
       sort_param: :chapters_sort,
       drop_param: :chapters_drop
     )
+    |> track_marker_source()
     |> cast_embed(:supplemental_files,
       sort_param: :supplemental_files_sort,
       drop_param: :supplemental_files_drop
@@ -408,6 +425,54 @@ defmodule Ambry.Media.Media do
   end
 
   # if the image_path changes, clear the thumbnails embed
+  # Moving a marker makes the timeline the operator's, wherever it started
+  # out. Titles are not markers, so pouring a provider's titles onto a
+  # file-derived timeline leaves the source saying `:embedded` — which is the
+  # whole point of tracking the two halves apart.
+  #
+  # Done here rather than at the call sites because every path that can edit
+  # a time goes through this changeset, and four hand-rolled versions of one
+  # invariant is how the last one got forgotten somewhere new.
+  defp track_marker_source(changeset) do
+    cond do
+      get_change(changeset, :chapter_marker_source) -> changeset
+      not marker_times_changed?(changeset) -> changeset
+      true -> put_change(changeset, :chapter_marker_source, :manual)
+    end
+  end
+
+  defp marker_times_changed?(changeset) do
+    case fetch_change(changeset, :chapters) do
+      {:ok, chapters} ->
+        before = changeset.data.chapters |> List.wrap() |> Enum.map(& &1.time)
+
+        # A chapter is an embed with no primary key, so Ecto can't match
+        # incoming params to existing rows: every cast replaces the whole
+        # list, and the change is the outgoing rows AND the incoming ones.
+        # Comparing against both makes any edit at all look like a moved
+        # marker.
+        after_times =
+          chapters
+          |> Enum.reject(&(&1.action == :replace))
+          |> Enum.map(&get_field(&1, :time))
+
+        not times_equal?(before, after_times)
+
+      :error ->
+        false
+    end
+  end
+
+  defp times_equal?(before, after_times) do
+    length(before) == length(after_times) and
+      before |> Enum.zip(after_times) |> Enum.all?(fn {a, b} -> decimal_equal?(a, b) end)
+  end
+
+  defp decimal_equal?(nil, nil), do: true
+  defp decimal_equal?(nil, _b), do: false
+  defp decimal_equal?(_a, nil), do: false
+  defp decimal_equal?(a, b), do: Decimal.equal?(a, b)
+
   defp maybe_clear_thumbnails(changeset) do
     case fetch_change(changeset, :image_path) do
       {:ok, _new_path} -> put_embed(changeset, :thumbnails, nil)

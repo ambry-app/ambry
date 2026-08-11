@@ -353,6 +353,8 @@ defmodule Ambry.Inbox.Importer do
       })
 
   defp do_create_media(item, book, probes, people, recording, group) do
+    {chapters, marker_source} = Scanner.chapters(probes)
+
     Media.create_media(
       %{
         book_id: book.id,
@@ -366,7 +368,8 @@ defmodule Ambry.Inbox.Importer do
         part_number: part_number(recording.recording_group),
         recording_group_id: group && group.id,
         duration: Scanner.total_duration(probes),
-        chapters: Scanner.embedded_chapters(probes),
+        chapters: chapters,
+        chapter_marker_source: marker_source,
         media_narrators: narrator_params(recording.narrators, people),
         media_tracks: Scanner.track_attrs(probes),
         title: Field.value(recording.title),

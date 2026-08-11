@@ -1,53 +1,49 @@
-<div class="mx-auto max-w-3xl space-y-4 p-6">
-  <div class="text-2xl font-bold">Import Chapters from Source Files</div>
+<div class="mx-auto max-w-3xl space-y-7 p-6">
+  <div>
+    <h2 class="text-xl font-bold text-zinc-100">Re-read the files</h2>
+    <p class="max-w-prose pt-1 text-sm text-zinc-400">
+      What the audio itself says about its chapters. This is the same reading the scanner does, so
+      it is what a fresh import of these files would produce.
+    </p>
+  </div>
 
-  <.error :if={@strategies == []}>
-    There are no import strategies implemented for this media's source files.
-  </.error>
-
-  <.simple_form :if={@strategies != []} for={@select_strategy_form} phx-submit="run-strategy" phx-target={@myself}>
-    <div class="flex items-end gap-2">
-      <.input
-        type="select"
-        field={@select_strategy_form[:strategy]}
-        options={@strategies |> Enum.with_index() |> Enum.map(fn {strategy, index} -> {strategy.name, index} end)}
-        container_class="grow"
-      />
-      <.button>Run</.button>
-    </div>
-  </.simple_form>
-
-  <.async_result :let={chapters} :if={@chapters} assign={@chapters}>
+  <.async_result :let={read} assign={@read}>
     <:loading>
-      <.loading>Extracting chapters...</.loading>
+      <.loading>Reading the files…</.loading>
     </:loading>
 
     <:failed :let={failure}>
-      <.error>There was an error extracting chapters: {failure}</.error>
+      <.error>{failure}</.error>
     </:failed>
 
-    <.simple_form for={@form} phx-submit="import" phx-target={@myself} container_class="!space-y-0">
-      <.import_form_row field={@form[:use_chapters]} label="Chapters">
-        <div class="flex flex-wrap gap-2">
-          <div
-            :for={chapter <- chapters}
-            class="py-[7px] px-[11px] rounded-sm border border-transparent bg-zinc-800 text-zinc-300"
-          >
-            {chapter.title}
-          </div>
-        </div>
-      </.import_form_row>
+    <div :if={read.chapters == []} class="space-y-2">
+      <p class="text-sm text-zinc-400">
+        These files carry no chapter marks, and there is more than nothing only when a release is
+        split file-per-chapter. Nothing here to import.
+      </p>
+    </div>
 
-      <:actions>
-        <div class="flex gap-2">
-          <.button class="mt-2">Import</.button>
-          <%!-- <.button class="mt-2" name={@form[:titles_only].name} color={:yellow}>Import titles only</.button>
-          <.button class="mt-2" name={@form[:times_only].name} color={:yellow}>Import times only</.button> --%>
-        </div>
+    <div :if={read.chapters != []} class="space-y-7">
+      <.chapter_preview chapters={read.chapters} source={read.marker_source} />
+
+      <div class="flex flex-wrap items-center gap-2">
+        <.button type="button" phx-click="import-all" phx-target={@myself}>
+          Take markers and titles
+        </.button>
+        <.button
+          :if={@markers != []}
+          type="button"
+          color={:zinc}
+          phx-click="import-markers"
+          phx-target={@myself}
+          title="Correct the timeline, keeping the titles already on this recording"
+        >
+          Markers only — keep my titles
+        </.button>
         <.button type="button" color={:zinc} phx-click={JS.exec("data-cancel", to: "#import-modal")}>
           Cancel
         </.button>
-      </:actions>
-    </.simple_form>
+      </div>
+    </div>
   </.async_result>
 </div>
