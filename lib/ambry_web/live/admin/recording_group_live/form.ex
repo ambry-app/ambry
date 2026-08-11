@@ -53,9 +53,15 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     {:noreply,
      socket
      |> assign_form(changeset)
-     # member options follow the chosen book — the set can only hold its
-     # book's recordings
-     |> assign(media_options: Media.media_for_select(group_params["book_id"]))}
+     # Member options follow the chosen book — the set can only hold its
+     # book's recordings. On the edit page with members the book renders as
+     # static text and posts nothing, so fall back to the group's own book:
+     # without it, any keystroke emptied the options and every member
+     # typeahead displayed blank (label lookup by id found nothing).
+     |> assign(
+       media_options:
+         Media.media_for_select(group_params["book_id"] || socket.assigns.group.book_id)
+     )}
   end
 
   def handle_event("submit", %{"recording_group_form" => group_params}, socket) do

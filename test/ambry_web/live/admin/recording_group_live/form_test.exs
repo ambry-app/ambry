@@ -87,6 +87,29 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
              |> Floki.attribute("value") == [to_string(media.id)]
     end
 
+    # Regression: validate re-derives member options from the posted book_id,
+    # but the edit page renders the book as static text (posts nothing) — so
+    # any keystroke in any field emptied the options, and every member
+    # typeahead displayed blank (its label lookup by id found nothing).
+    test "editing another field leaves the member typeaheads displaying their picks", %{
+      conn: conn
+    } do
+      book = insert(:book, title: "A Court of Thorns and Roses")
+      group = insert(:recording_group, name: "Graphic Audio", book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      {:ok, view, html} = live(conn, ~p"/admin/groups/#{group.id}/edit")
+
+      assert resolver_display(html) == "A Court of Thorns and Roses"
+
+      html =
+        view
+        |> form("#group-form")
+        |> render_change(%{recording_group_form: %{name: "Renamed"}})
+
+      assert resolver_display(html) == "A Court of Thorns and Roses"
+    end
+
     test "saving edits facts and the member list together", %{conn: conn} do
       book = insert(:book)
       group = insert(:recording_group, name: "Before", book: book)
@@ -116,5 +139,13 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       assert dropped.recording_group_id == nil
       assert dropped.part_number == nil
     end
+  end
+
+  defp resolver_display(html) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find(~s{input[name="resolver[recording_group_form_members_0_media_id]"]})
+    |> Floki.attribute("value")
+    |> List.first()
   end
 end
