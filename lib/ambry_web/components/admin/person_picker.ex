@@ -122,7 +122,7 @@ defmodule AmbryWeb.Admin.PersonPicker do
               phx-target={@myself}
               phx-value-provider={match.provider_id}
               phx-value-index={match.id}
-              class="flex-none rounded-sm border border-zinc-700 px-2 py-1 text-xs"
+              class="bg-white/5 flex-none rounded-md px-2 py-1 text-xs font-semibold text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
             >
               Use this bio
             </button>

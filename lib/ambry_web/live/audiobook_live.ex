@@ -42,7 +42,7 @@ defmodule AmbryWeb.AudiobookLive do
             First published {format_published(@media.book)}
           </p>
 
-          <div class="mt-6 divide-y divide-zinc-800 rounded-sm border border-zinc-800 bg-zinc-900 px-3 text-zinc-200 shadow-md">
+          <div class="mt-6 divide-y divide-zinc-800 rounded-lg bg-zinc-900 px-3 text-zinc-200 shadow-md">
             <div class="flex items-center gap-4 py-3">
               <div class="grow">
                 <p>{media_display_title(@media)}</p>

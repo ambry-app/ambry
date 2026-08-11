@@ -39,13 +39,13 @@
       container_class="!space-y-0"
     >
       <.import_form_row :if={@selected_book.published} field={@form[:use_published]} label="Published">
-        <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
+        <div class="py-[7px] px-[11px] rounded-sm border border-transparent bg-zinc-800 text-zinc-300">
           {display_date(@selected_book.published)}
         </div>
       </.import_form_row>
 
       <.import_form_row :if={@selected_book.publisher} field={@form[:use_publisher]} label="Publisher">
-        <div class="py-[7px] px-[11px] rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300">
+        <div class="py-[7px] px-[11px] rounded-sm border border-transparent bg-zinc-800 text-zinc-300">
           {@selected_book.publisher}
         </div>
       </.import_form_row>
@@ -53,7 +53,7 @@
       <.import_form_row :if={@selected_book.description} field={@form[:use_description]} label="Description">
         <.markdown
           content={@selected_book.description}
-          class="max-h-64 max-w-max overflow-y-auto rounded-sm border border-zinc-600 bg-zinc-800 p-2"
+          class="max-h-64 max-w-max overflow-y-auto rounded-sm bg-zinc-800 p-2"
         />
       </.import_form_row>
 

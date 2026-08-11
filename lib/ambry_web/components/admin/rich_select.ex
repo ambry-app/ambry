@@ -59,7 +59,7 @@ defmodule AmbryWeb.Admin.Components.RichSelect do
     ~H"""
     <div class="cursor-pointer" phx-click-away="close" phx-target={@myself}>
       <div
-        class="py-[7px] px-[11px] flex items-center rounded-sm border border-zinc-600 bg-zinc-800 text-zinc-300"
+        class="py-[7px] px-[11px] flex items-center rounded-sm border border-transparent bg-zinc-800 text-zinc-300"
         phx-click="toggle"
         phx-target={@myself}
       >

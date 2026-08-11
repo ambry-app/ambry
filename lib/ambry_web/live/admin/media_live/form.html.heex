@@ -232,9 +232,9 @@
 
         <div :if={@form[:source_type].value == "local_import"} class="space-y-2">
           <div>
-            <div class="flex items-center rounded-sm rounded-b-none border border-zinc-600 bg-zinc-800 text-zinc-300 sm:text-sm sm:leading-6">
+            <div class="flex items-center overflow-hidden rounded-sm rounded-b-none border border-transparent bg-zinc-800 text-zinc-300 sm:text-sm sm:leading-6">
               <button
-                class="py-[7px] px-[11px] bg-zinc-600 font-bold text-zinc-100 hover:bg-zinc-500"
+                class="py-[7px] px-[11px] bg-zinc-700 font-semibold text-zinc-100 hover:bg-zinc-600"
                 type="button"
                 phx-click={open_file_browser(@media)}
               >
