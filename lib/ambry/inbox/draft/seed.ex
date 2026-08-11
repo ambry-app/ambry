@@ -789,6 +789,13 @@ defmodule Ambry.Inbox.Draft.Seed do
   #
   # A database's audio *editions* answer all three properly, and those arrive
   # as recording records.
+  #
+  # That last sentence was briefly false for `description`, and the fix went
+  # where the falsehood was rather than here: Hardcover's `editions` type has
+  # no description field at all, so `Hardcover.editions/2` reaches through the
+  # edition to its book and carries that blurb on the edition record. The rule
+  # holds unchanged — a recording is described by records of that recording —
+  # and the edition record simply knows more than it used to.
   defp put_recording_fields(%Recording{} = recording, records, tags, item) do
     mine = used(records, recording.sources)
 

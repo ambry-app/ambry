@@ -821,7 +821,14 @@ defmodule AmbryWeb.CoreComponents do
   attr :src, :string, required: true
   attr :class, :string, default: nil
 
+  attr :full, :string,
+    default: nil,
+    doc: "what the magnifier opens; defaults to `src`. Set it to show a derived
+          size inline while zooming to the original."
+
   def image_with_size(assigns) do
+    assigns = assign(assigns, :full, assigns.full || assigns.src)
+
     ~H"""
     <div>
       <div class="group/zoom relative inline-block">
@@ -832,7 +839,7 @@ defmodule AmbryWeb.CoreComponents do
             beats two behaviors. The lightbox listener lives in app.js. --%>
         <span
           data-zoomable
-          data-full={@src}
+          data-full={@full}
           title="View full size"
           class="bg-black/70 absolute right-1 bottom-1 hidden cursor-zoom-in rounded-sm p-1 group-hover/zoom:flex"
         >

@@ -73,6 +73,35 @@ defmodule Ambry.Inbox.AutoMatchTest do
     end
   end
 
+  describe "editions_for/3 outcomes" do
+    # Asking Hardcover about four of its own work records is four calls but
+    # one answer. Reported separately it read as nonsense across a row —
+    # "Hardcover editions: 0 · Hardcover editions: 0 · Hardcover editions: 13
+    # · Hardcover editions: 0 …" — and worse, the inbox de-duplicates outcomes
+    # by id and keeps the last, so thirteen editions could be reported as none.
+    test "one chip per provider, with the counts summed" do
+      patch(Registry, :fetch, fn "hardcover" ->
+        {:ok,
+         %Registry.Entry{id: "hardcover", display_name: "Hardcover", capabilities: [:editions]}}
+      end)
+
+      patch(Providers, :editions, fn "hardcover", id, _opts ->
+        if id == "w-2",
+          do: {:ok, [%Provider.Book{id: "e-1", title: "A Reading"}]},
+          else: {:ok, []}
+      end)
+
+      records =
+        for id <- ~w(w-1 w-2 w-3), do: %{"source" => "provider:hardcover", "id" => id}
+
+      hints = AutoMatch.hints(%InboxItem{path: "/d/A Book", tags: %{}})
+
+      assert {[_edition], [outcome]} = AutoMatch.editions_for(records, hints)
+      assert outcome["status"] == "ok"
+      assert outcome["count"] == 1
+    end
+  end
+
   describe "author_agreement/2" do
     # Jaro puts these five hundredths apart, in the wrong order for any
     # threshold: the same person scores 0.573 and two unrelated names 0.519.
@@ -160,6 +189,17 @@ defmodule Ambry.Inbox.AutoMatchTest do
       ]
 
       assert [%{"id" => "bray"}] = AutoMatch.settled_group(records)
+    end
+
+    # The media form hands over a provider-ordered list whose first element
+    # was a 0.13 study guide, and the editions of a study guide got fetched.
+    test "the best record is the highest scoring one, not the first" do
+      records = [
+        reading("guide", ["Someone Else"], 0.13, nil),
+        reading("book", ["R.C. Bray"], 1.0, nil)
+      ]
+
+      assert [%{"id" => "book"}] = AutoMatch.top_group(records)
     end
 
     # The ordinary case across most of a library.

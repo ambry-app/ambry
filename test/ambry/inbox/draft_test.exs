@@ -2142,6 +2142,10 @@ defmodule Ambry.Inbox.DraftTest do
     # different question. Same for the description, which on an audio edition
     # carries the performance and the narrator, and for the cover, which is a
     # portrait print jacket.
+    #
+    # The book's blurb still reaches a recording — but as part of an *edition*
+    # record, fetched through the edition's own book (`Hardcover.editions/2`),
+    # never by admitting work records to this level.
     test "a work record never describes the recording" do
       work = [
         provider_candidate(%{
