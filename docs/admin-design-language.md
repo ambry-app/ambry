@@ -124,6 +124,19 @@ than the centre it replaces.
 cluster / between blocks / between sections. Queue cards stack with
 `space-y-3`.
 
+**Radius is a ladder, and it follows size**: `rounded-lg` for blocks and
+floating panels, `rounded-md` for anything you click or type in (buttons,
+inputs, selects, pills, chips, listboxes), `rounded-sm` for inline tint
+spans and small images. It was never written down, so the newer surfaces
+drifted to `md`/`lg` while buttons and inputs stayed at `sm` — a primary
+button next to a chip visibly disagreed about what shape a control is.
+
+**One control height: 40px.** `py-[7px]` + `leading-6` + a 1px border, which
+is what `<.input>` has always been — so buttons carry the same padding
+rather than `py-2`, and the inbox's segmented filter bar (`p-1` + `py-1.5`
+segments) lands on it too. §7 says adjacent bar controls share exact height;
+this is the number.
+
 **A sticky bar has to be told about the scroller's padding.** `#main-content`
 scrolls with `p-4`, and a sticky offset is measured from the scrollport's
 **content** box — so `bottom-0` parks a bar 16px shy of the window edge with

@@ -288,7 +288,7 @@ defmodule AmbryWeb.CoreComponents do
     [
       # inline-flex, not inline-block: a button with a leading icon aligns its
       # glyph to the label's box rather than its baseline (§3).
-      "inline-flex items-center justify-center rounded-sm border px-3 py-2 phx-submit-loading:opacity-75",
+      "inline-flex items-center justify-center rounded-md border px-3 py-[7px] phx-submit-loading:opacity-75",
       "whitespace-nowrap text-sm font-semibold leading-6",
       "active:opacity-80 disabled:pointer-events-none disabled:opacity-40",
       button_color_classes(color),
@@ -402,7 +402,7 @@ defmodule AmbryWeb.CoreComponents do
         id={@id}
         name={@name}
         class={
-          ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+          ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
             input_color_classes(@errors) ++ [@class]
         }
         multiple={@multiple}
@@ -424,7 +424,7 @@ defmodule AmbryWeb.CoreComponents do
         id={@id}
         name={@name}
         class={
-          ["min-h-48 py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+          ["min-h-48 py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
             input_color_classes(@errors) ++ [@class]
         }
         {@rest}
@@ -448,7 +448,7 @@ defmodule AmbryWeb.CoreComponents do
         options={@options}
         value={@value}
         class={
-          ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+          ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
             input_color_classes(@errors) ++ [@class]
         }
       />
@@ -472,7 +472,7 @@ defmodule AmbryWeb.CoreComponents do
         id={@id}
         value={Form.normalize_value(@type, @value)}
         class={
-          ["py-[7px] px-[11px] block w-full rounded-sm", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+          ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
             [@type == "date" && "supports-[-moz-appearance:none]:px-[9px]"] ++ input_color_classes(@errors) ++ [@class]
         }
         {@rest}
@@ -615,7 +615,7 @@ defmodule AmbryWeb.CoreComponents do
   """
   def input_classes(extra \\ nil) do
     [
-      "rounded-sm text-sm focus:outline-none focus:ring-4",
+      "rounded-md text-sm focus:outline-none focus:ring-4",
       input_fill_classes(),
       extra
     ]

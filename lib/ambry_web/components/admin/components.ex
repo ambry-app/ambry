@@ -720,6 +720,10 @@ defmodule AmbryWeb.Admin.Components do
     default: nil,
     doc: "an `inputs_for` sort field — supply it and the button drives Ecto's sort-param trick"
 
+  attr :navigate, :string,
+    default: nil,
+    doc: "for a section whose add is a page — the locations page's two"
+
   attr :class, :any, default: nil
   attr :rest, :global
   slot :inner_block, required: true
@@ -738,6 +742,15 @@ defmodule AmbryWeb.Admin.Components do
   param and the import form does it with an event: pass `field` for the
   former, `phx-click` for the latter.
   """
+  def add_button(%{navigate: navigate} = assigns) when is_binary(navigate) do
+    ~H"""
+    <.link navigate={@navigate} class={add_button_classes(@class)} {@rest}>
+      <.icon name="fa-plus" class="h-3 w-3 flex-none text-current" />
+      {render_slot(@inner_block)}
+    </.link>
+    """
+  end
+
   def add_button(assigns) do
     ~H"""
     <button
@@ -745,17 +758,21 @@ defmodule AmbryWeb.Admin.Components do
       name={@field && @field.name <> "[]"}
       value={@field && "new"}
       phx-click={@field && JS.dispatch("change")}
-      class={[
-        "bg-white/5 flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1",
-        "text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-zinc-100",
-        @class
-      ]}
+      class={add_button_classes(@class)}
       {@rest}
     >
       <.icon name="fa-plus" class="h-3 w-3 flex-none text-current" />
       {render_slot(@inner_block)}
     </button>
     """
+  end
+
+  defp add_button_classes(extra) do
+    [
+      "bg-white/5 flex w-fit cursor-pointer items-center gap-1.5 rounded-md px-2 py-1",
+      "text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-zinc-100",
+      extra
+    ]
   end
 
   attr :field, FormField, required: true
