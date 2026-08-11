@@ -24,6 +24,7 @@ defmodule AmbryWeb.Admin.Curation do
     only: [
       provider_outcomes_row: 1,
       proposal_chip: 1,
+      record_list: 1,
       record_row: 1,
       research_form: 1,
       source_words: 1
@@ -76,14 +77,17 @@ defmodule AmbryWeb.Admin.Curation do
       </p>
 
       <div class="mt-2 space-y-2 rounded-lg bg-zinc-900 p-4">
-        <.record_row
-          :for={record <- @evidence.records}
-          record={record}
-          used={Evidence.used?(@evidence, record)}
-          level={@level}
-          event="toggle-evidence"
-          note={Evidence.note(@evidence, record)}
-        />
+        <.record_list records={@evidence.records} used={&Evidence.used?(@evidence, &1)}>
+          <:row :let={record}>
+            <.record_row
+              record={record}
+              used={Evidence.used?(@evidence, record)}
+              level={@level}
+              event="toggle-evidence"
+              note={Evidence.note(@evidence, record)}
+            />
+          </:row>
+        </.record_list>
 
         <p
           :if={@evidence.searched? and not @evidence.running? and @evidence.records == []}

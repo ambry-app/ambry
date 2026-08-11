@@ -279,13 +279,19 @@
             No provider had a record of this. The fields below come from the file's own tags.
           </p>
 
-          <.record_row
-            :for={record <- records(@item, "work")}
-            record={record}
-            level="work"
-            used={Work.uses?(@item.draft.work, record)}
-            working={@enriching == record_ref(record)}
-          />
+          <.record_list
+            records={records(@item, "work")}
+            used={&Work.uses?(@item.draft.work, &1)}
+          >
+            <:row :let={record}>
+              <.record_row
+                record={record}
+                level="work"
+                used={Work.uses?(@item.draft.work, record)}
+                working={@enriching == record_ref(record)}
+              />
+            </:row>
+          </.record_list>
 
           <.provider_outcomes_row
             outcomes={provider_outcomes(@item, "work")}
@@ -469,13 +475,19 @@
             delisted, which is often the only place an older reading still exists.
           </p>
 
-          <.record_row
-            :for={record <- records(@item, "recording")}
-            record={record}
-            level="recording"
-            used={Recording.uses?(@item.draft.recording, record)}
-            working={@enriching == record_ref(record)}
-          />
+          <.record_list
+            records={records(@item, "recording")}
+            used={&Recording.uses?(@item.draft.recording, &1)}
+          >
+            <:row :let={record}>
+              <.record_row
+                record={record}
+                level="recording"
+                used={Recording.uses?(@item.draft.recording, record)}
+                working={@enriching == record_ref(record)}
+              />
+            </:row>
+          </.record_list>
 
           <.provider_outcomes_row
             outcomes={provider_outcomes(@item, "recording")}
