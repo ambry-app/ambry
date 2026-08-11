@@ -200,6 +200,110 @@ defmodule Ambry.Metadata.Providers.HardcoverTest do
     end
   end
 
+  describe "editions/2" do
+    defp edition(attrs) do
+      Map.merge(
+        %{
+          "id" => 1,
+          "title" => "The Martian",
+          "asin" => nil,
+          "audio_seconds" => nil,
+          "reading_format_id" => 1,
+          "release_date" => nil,
+          "publisher" => nil,
+          "image" => nil,
+          "contributions" => []
+        },
+        attrs
+      )
+    end
+
+    defp narrated_by(name, role) do
+      [%{"contribution" => role, "author" => %{"id" => 250_358, "name" => name}}]
+    end
+
+    # The Martian has 150 editions on Hardcover, so a `limit` over an
+    # unfiltered set decided by nothing at all which ones came back — and
+    # R.C. Bray's delisted recording, the exact case `:editions` exists for,
+    # was not among them.
+    test "asks the server for audio editions rather than filtering a page here" do
+      patch(Client, :query, fn _config, query, vars ->
+        assert query =~ "reading_format_id: {_eq: 2}"
+        assert query =~ "audio_seconds: {_is_null: false}"
+        assert query =~ "contribution: {_in: $roles}"
+        assert "Narrator" in vars.roles
+        {:ok, %{"editions" => []}}
+      end)
+
+      assert {:ok, []} = Hardcover.editions("292354", %{})
+    end
+
+    # Measured across 400 audiobook editions: "Narrator" 286, "Reading" 9,
+    # "Reader" 7, "narrator" 7, "Read by" 5. R.C. Bray is credited on The
+    # Martian under four of the five.
+    test "recognizes every spelling of the narrator credit" do
+      patch(Client, :query, fn _config, _query, _vars ->
+        {:ok,
+         %{
+           "editions" =>
+             for {role, id} <- Enum.with_index(["Narrator", "Reader", "Reading", "read by"]) do
+               edition(%{"id" => id, "contributions" => narrated_by("R.C. Bray", role)})
+             end
+         }}
+      end)
+
+      assert {:ok, books} = Hardcover.editions("292354", %{})
+      assert length(books) == 4
+      assert Enum.all?(books, &match?([%Provider.Contributor{name: "R.C. Bray"}], &1.narrators))
+    end
+
+    # nil is how Hardcover credits the *author* — Andy Weir is nil on every
+    # Martian edition — so reading it as a narrator credits authors as their
+    # own readers.
+    test "does not read a nil contribution as a narrator credit" do
+      patch(Client, :query, fn _config, _query, _vars ->
+        {:ok,
+         %{
+           "editions" => [
+             edition(%{
+               "reading_format_id" => 2,
+               "contributions" => narrated_by("Andy Weir", nil)
+             })
+           ]
+         }}
+      end)
+
+      assert {:ok, [book]} = Hardcover.editions("292354", %{})
+      assert book.narrators == []
+    end
+
+    # Unreliable as a negative (audio editions are stored as format 1), which
+    # is why it can't be the filter — but as a positive it is good evidence.
+    test "keeps an audiobook-format edition that names no narrator" do
+      patch(Client, :query, fn _config, _query, _vars ->
+        {:ok, %{"editions" => [edition(%{"reading_format_id" => 2})]}}
+      end)
+
+      assert {:ok, [%Provider.Book{narrators: []}]} = Hardcover.editions("292354", %{})
+    end
+
+    test "drops a print edition the recall filter swept in" do
+      patch(Client, :query, fn _config, _query, _vars ->
+        {:ok,
+         %{
+           "editions" => [
+             edition(%{
+               "reading_format_id" => 1,
+               "contributions" => narrated_by("Some Translator", "Translator")
+             })
+           ]
+         }}
+      end)
+
+      assert {:ok, []} = Hardcover.editions("292354", %{})
+    end
+  end
+
   describe "token_expiry/1" do
     test "decodes the exp claim" do
       assert {:ok, %DateTime{year: 2027}} =

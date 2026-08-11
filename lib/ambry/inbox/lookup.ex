@@ -23,6 +23,7 @@ defmodule Ambry.Inbox.Lookup do
   (scoring), and writing evidence into `inbox_items.matches`.
   """
   alias Ambry.Inbox.AutoMatch
+  alias Ambry.Inbox.Draft
   alias Ambry.Inbox.InboxItem
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Registry
@@ -54,8 +55,14 @@ defmodule Ambry.Inbox.Lookup do
 
   This is the route to an edition no storefront will admit exists. Audible's
   catalog is a shop: when rights lapse the title vanishes from search and from
-  ASIN lookup alike. Hardcover and rreading-glasses are databases of editions
-  and keep it.
+  ASIN lookup alike. Hardcover is a database of editions and keeps it —
+  measured, R.C. Bray's delisted Martian is there with its ASIN and Audible
+  has only the Wil Wheaton re-recording.
+
+  **Hardcover, and only Hardcover.** rreading-glasses is named here in older
+  notes and does not belong: its edition list never carries a narrator (the
+  Goodreads query it issues omits secondary contributors entirely), which
+  makes it useless at the level where the narrator is the whole question.
   """
   def editions(%InboxItem{} = item, work_refs) do
     records =
@@ -63,10 +70,11 @@ defmodule Ambry.Inbox.Lookup do
       |> records("work")
       |> Enum.filter(&(AutoMatch.ref(&1) in work_refs))
 
-    {found, outcomes} = AutoMatch.editions_for(records, AutoMatch.hints(item))
+    hints = AutoMatch.hints(item)
+    {found, outcomes} = AutoMatch.editions_for(records, hints)
 
     item
-    |> update_records("recording", &add(&1, found))
+    |> update_records("recording", &(&1 |> add(found) |> refine(item, "recording", hints)))
     |> update_outcomes("recording", outcomes)
   end
 
@@ -84,10 +92,11 @@ defmodule Ambry.Inbox.Lookup do
     if Provider.Query.blank?(query) do
       {:ok, item}
     else
-      {found, outcomes} = search(level, query, AutoMatch.hints(item))
+      hints = AutoMatch.hints(item)
+      {found, outcomes} = search(level, query, hints)
 
       item
-      |> update_records(level, &add(&1, found))
+      |> update_records(level, &(&1 |> add(found) |> refine(item, level, hints)))
       |> update_outcomes(level, outcomes)
       |> remember_query(level, query)
     end
@@ -108,9 +117,10 @@ defmodule Ambry.Inbox.Lookup do
     case Registry.fetch(provider_id) do
       {:ok, entry} ->
         {books, outcome} = Search.books_one(entry, query)
+        found = AutoMatch.records_from(books, entry, hints)
 
         item
-        |> update_records(level, &add(&1, AutoMatch.records_from(books, entry, hints)))
+        |> update_records(level, &(&1 |> add(found) |> refine(item, level, hints)))
         |> update_outcomes(level, [outcome])
 
       {:error, _reason} ->
@@ -191,15 +201,50 @@ defmodule Ambry.Inbox.Lookup do
     {records, outcomes}
   end
 
+  # Both passes are facts about the *whole* list rather than about one record
+  # — it takes a rival naming somebody the file mentions to make a candidate's
+  # silence damning, and it takes another row to make a row a duplicate — so
+  # they re-run over the merged list, not over the records this search
+  # happened to add. Otherwise a re-search that finally turned up the right
+  # reader would leave the wrong one sitting at the top on its original score.
+  #
+  # Order matters: collapse first, so the evidence pass scores each recording
+  # once, then sort, because both passes move records around.
+  defp refine(records, item, level, hints) do
+    records
+    |> dedupe(item, level)
+    |> reweigh(level, hints)
+    |> AutoMatch.order_candidates()
+  end
+
+  defp dedupe(records, item, "recording"),
+    do: AutoMatch.dedupe_records(records, ticked(item, :recording, records))
+
+  defp dedupe(records, _item, _level), do: records
+
+  defp reweigh(records, "recording", hints), do: AutoMatch.apply_narrator_evidence(records, hints)
+
+  defp reweigh(records, _level, _hints), do: records
+
+  # A record the operator has ticked keeps its identity no matter what: the
+  # draft points at it by ref, and collapsing it into a look-alike would break
+  # that pointer — the one thing evidence-writing must never do.
+  defp ticked(%InboxItem{draft: nil}, _level, _records), do: MapSet.new()
+
+  defp ticked(%InboxItem{draft: draft}, level, records) do
+    records
+    |> Enum.filter(&Draft.Edit.uses?(draft, level, &1))
+    |> MapSet.new(&AutoMatch.ref/1)
+  end
+
   # New records join the list; ones already there keep their place and their
-  # payload. Replacing them would un-tick the operator's choices, which is the
-  # one thing evidence-writing must never do.
+  # payload. Replacing them would un-tick the operator's choices, and keeping
+  # them *first* is what lets `dedupe_records/2` collapse a look-alike into
+  # the record already on the item rather than the other way round.
   defp add(existing, found) do
     known = MapSet.new(existing, &AutoMatch.ref/1)
 
-    existing
-    |> Kernel.++(Enum.reject(found, &MapSet.member?(known, AutoMatch.ref(&1))))
-    |> Enum.sort_by(&(&1["score"] || 0.0), :desc)
+    existing ++ Enum.reject(found, &MapSet.member?(known, AutoMatch.ref(&1)))
   end
 
   defp update_records(item, level, fun) do

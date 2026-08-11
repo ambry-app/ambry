@@ -57,6 +57,250 @@ defmodule Ambry.Inbox.AutoMatchTest do
       assert %{asin: "B003ZWFO7E"} =
                AutoMatch.hints(%InboxItem{path: "/d/Whatever", tags: %{"asin" => "B003ZWFO7E"}})
     end
+
+    test "carries the item's raw text, basenames only" do
+      item = %InboxItem{
+        path: "/home/someone/downloads/Weir Andy - The Martian (R.C. Bray) - 2013",
+        files: ["/home/someone/downloads/Weir Andy - The Martian (R.C. Bray) - 2013/part1.mp3"],
+        tags: %{"book_title" => "The Martian (Unabridged)", "authors" => ["Andy Weir"]}
+      }
+
+      assert %{raw: raw} = AutoMatch.hints(item)
+      assert raw =~ "R.C. Bray"
+      assert raw =~ "part1.mp3"
+      assert raw =~ "Andy Weir"
+      refute raw =~ "someone"
+    end
+  end
+
+  describe "dedupe_records/2" do
+    defp row(attrs) do
+      Map.merge(
+        %{
+          "source" => "provider:hardcover",
+          "id" => "1",
+          "title" => "The Martian",
+          "narrators" => ["R.C. Bray"],
+          "asin" => nil,
+          "publisher" => nil,
+          "score" => 0.75
+        },
+        attrs
+      )
+    end
+
+    # Of Hardcover's four Wil Wheaton rows for The Martian, exactly one
+    # carries an ASIN. Picking a winner and dropping the rest threw it away
+    # three times in four.
+    test "the survivor takes the union of the rows it absorbs" do
+      records = [
+        row(%{"id" => "a"}),
+        row(%{"id" => "b", "asin" => "B00B5HZGUG"}),
+        row(%{"id" => "c", "publisher" => "Podium Publishing"})
+      ]
+
+      assert [merged] = AutoMatch.dedupe_records(records)
+      assert merged["id"] == "a"
+      assert merged["asin"] == "B00B5HZGUG"
+      assert merged["publisher"] == "Podium Publishing"
+      assert merged["duplicates"] == 3
+    end
+
+    test "two readers of one book are not duplicates" do
+      records = [
+        row(%{"id" => "bray"}),
+        row(%{"id" => "wheaton", "narrators" => ["Wil Wheaton"]})
+      ]
+
+      assert length(AutoMatch.dedupe_records(records)) == 2
+    end
+
+    # Two Audible ASINs for one Wheaton recording are a US and a UK edition —
+    # and the operator's file matches one of them.
+    test "records disagreeing on ASIN or publisher stay apart" do
+      records = [
+        row(%{"id" => "us", "asin" => "B082BHJMFF"}),
+        row(%{"id" => "uk", "asin" => "B082BHWQCJ"})
+      ]
+
+      assert length(AutoMatch.dedupe_records(records)) == 2
+
+      publishers = [
+        row(%{"id" => "podium", "publisher" => "Podium Publishing"}),
+        row(%{"id" => "brilliance", "publisher" => "Brilliance Audio"})
+      ]
+
+      assert length(AutoMatch.dedupe_records(publishers)) == 2
+    end
+
+    # Two databases describing one book is the case this module refuses to
+    # fuse — each knows something the other doesn't.
+    test "never merges across providers" do
+      records = [row(%{"id" => "1"}), row(%{"id" => "1", "source" => "provider:audible"})]
+
+      assert length(AutoMatch.dedupe_records(records)) == 2
+    end
+
+    # An edition crediting nobody is not evidence that it is some other
+    # edition's recording.
+    test "a record naming no narrator does not merge into one that does" do
+      records = [row(%{"id" => "named"}), row(%{"id" => "silent", "narrators" => []})]
+
+      assert length(AutoMatch.dedupe_records(records)) == 2
+    end
+
+    # The draft points at records by ref. Collapsing a ticked record into a
+    # look-alike would break that pointer and silently un-tick the operator's
+    # choice.
+    test "a pinned record keeps its identity" do
+      records = [row(%{"id" => "a"}), row(%{"id" => "ticked"})]
+      pinned = MapSet.new([{"provider:hardcover", "ticked"}])
+
+      assert [_a, ticked] = AutoMatch.dedupe_records(records, pinned)
+      assert ticked["id"] == "ticked"
+    end
+
+    test "first occurrence keeps the identity" do
+      records = [row(%{"id" => "already-on-the-item"}), row(%{"id" => "newly-found"})]
+
+      assert [merged] = AutoMatch.dedupe_records(records)
+      assert merged["id"] == "already-on-the-item"
+    end
+  end
+
+  describe "apply_narrator_evidence/2" do
+    # The Martian, measured: tags carry no narrator at all, "(R.C. Bray)" sits
+    # in the filename in a shape `extract_narrator/1` doesn't know, so the
+    # forward scorer no-ops and Audible's Wil Wheaton edition took the item at
+    # a perfect 1.0.
+    defp martian_hints do
+      AutoMatch.hints(%InboxItem{
+        path: "/d/Weir Andy - The Martian (R.C. Bray) - 2013 (320 kbp)",
+        tags: %{"book_title" => "The Martian (Unabridged)", "authors" => ["Andy Weir"]}
+      })
+    end
+
+    defp candidate(id, narrators, score) do
+      %{
+        "source" => "provider:hardcover",
+        "id" => id,
+        "title" => "The Martian",
+        "narrators" => narrators,
+        "score" => score
+      }
+    end
+
+    test "demotes a reader the file never mentions, in favour of one it does" do
+      candidates = [
+        candidate("wheaton", ["Wil Wheaton"], 1.0),
+        candidate("bray", ["R.C. Bray"], 0.75)
+      ]
+
+      assert [bray, wheaton] = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+
+      assert bray["id"] == "bray"
+      assert bray["narrator_evidence"] == "supported"
+      assert bray["score"] > wheaton["score"]
+
+      assert wheaton["narrator_evidence"] == "contradicted"
+      assert wheaton["score"] == 0.5
+    end
+
+    # The ordinary case, and the one this must not break: most files say
+    # nothing about who read them, and a check that punished every candidate
+    # for that would sink every correct match in the library.
+    test "changes nothing when the file names no reader at all" do
+      candidates = [
+        candidate("wheaton", ["Wil Wheaton"], 1.0),
+        candidate("dean", ["Robertson Dean"], 0.75)
+      ]
+
+      hints =
+        AutoMatch.hints(%InboxItem{
+          path: "/d/The Martian",
+          tags: %{"book_title" => "The Martian"}
+        })
+
+      assert ^candidates = AutoMatch.apply_narrator_evidence(candidates, hints)
+    end
+
+    test "leaves a record that names no reader alone" do
+      candidates = [candidate("bray", ["R.C. Bray"], 0.75), candidate("silent", [], 0.9)]
+
+      assert [silent, _bray] = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+      assert silent["id"] == "silent"
+      assert silent["score"] == 0.9
+      refute Map.has_key?(silent, "narrator_evidence")
+    end
+
+    # A re-search runs this again over records that already carry a verdict.
+    # Multiplying into the running score would sink the same candidate a
+    # little further on every visit.
+    test "is idempotent" do
+      candidates = [
+        candidate("wheaton", ["Wil Wheaton"], 1.0),
+        candidate("bray", ["R.C. Bray"], 0.75)
+      ]
+
+      once = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+      assert ^once = AutoMatch.apply_narrator_evidence(once, martian_hints())
+    end
+
+    # The stated credit is the stronger signal and the forward scorer already
+    # has it; leaving both live would apply two narrator factors at once.
+    test "stands down when the file states a narrator outright" do
+      candidates = [candidate("bray", ["R.C. Bray"], 0.75)]
+
+      hints =
+        AutoMatch.hints(%InboxItem{
+          path: "/d/The Martian (R.C. Bray)",
+          tags: %{"book_title" => "The Martian", "narrators" => ["R.C. Bray"]}
+        })
+
+      assert ^candidates = AutoMatch.apply_narrator_evidence(candidates, hints)
+    end
+
+    # "Full Cast" is a label for a cast, not a person, so `stated_narrator/1`
+    # rejects it and the forward path has nothing to work with — which is
+    # exactly when this has to step in.
+    test "still runs for a full-cast release, on any one of the cast" do
+      hints =
+        AutoMatch.hints(%InboxItem{
+          path: "/d/Harry Potter and the Philosopher's Stone (Full Cast)",
+          files: ["/d/HP1/Hugh Laurie, Matthew Macfadyen - part 1.mp3"],
+          tags: %{"book_title" => "Harry Potter", "narrators" => ["Full Cast"]}
+        })
+
+      candidates = [
+        candidate("solo", ["Stephen Fry"], 1.0),
+        candidate("cast", ["Hugh Laurie", "Matthew Macfadyen", "Fifteen Others"], 0.8)
+      ]
+
+      assert [cast, solo] = AutoMatch.apply_narrator_evidence(candidates, hints)
+      assert cast["id"] == "cast"
+      assert solo["narrator_evidence"] == "contradicted"
+    end
+
+    # The boost is capped at 1.0, so a corroborated candidate cannot out-score
+    # a silent one already sitting there — which is exactly what The Martian
+    # produces. The tie-break is what puts the file's own reader on top.
+    test "a corroborated candidate outranks a silent one it cannot out-score" do
+      candidates = [candidate("silent", [], 1.0), candidate("bray", ["R.C. Bray"], 1.0)]
+
+      assert [bray, silent] = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+      assert bray["id"] == "bray"
+      assert bray["score"] == silent["score"]
+    end
+
+    # "R.C." reduces to nothing searchable — one- and two-letter tokens match
+    # almost any filename — so a name with no substantial part abstains
+    # instead of guessing.
+    test "abstains on a name with nothing substantial to match" do
+      candidates = [candidate("initials", ["R.C."], 0.9), candidate("bray", ["R.C. Bray"], 0.75)]
+
+      assert [_bray, initials] = AutoMatch.apply_narrator_evidence(candidates, martian_hints())
+      assert initials["narrator_evidence"] == "contradicted"
+    end
   end
 
   describe "match/1" do

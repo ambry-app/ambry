@@ -642,9 +642,32 @@ defmodule Ambry.Inbox.AutoMatch do
       # the operator's library, the two disagree on 105 of 198 releases, and
       # neither is reliably the better one. `title` is what gets searched and
       # scored; this is what gets proposed.
-      release_title: parsed.title
+      release_title: parsed.title,
+      # Everything the item says about itself, **unparsed**. The fields above
+      # are what gets searched; this is what a candidate gets checked back
+      # against, and it exists because parsing is precisely what fails in the
+      # cases that matter. `Weir Andy - The Martian (R.C. Bray) - 2013` names
+      # its narrator in a shape no field captures — `extract_narrator/1` only
+      # knows "(read by X)" — so `narrator` comes out nil, the narrator scorer
+      # no-ops, and Wil Wheaton's edition takes the item at 1.0.
+      raw: raw_text(item)
     }
   end
+
+  # Basenames only: the parent directories are the source root, which is the
+  # operator's filesystem layout and says nothing about this release.
+  defp raw_text(%InboxItem{} = item) do
+    [Path.basename(item.path || "")]
+    |> Enum.concat(Enum.map(item.files || [], &Path.basename/1))
+    |> Enum.concat(tag_text(item.tags))
+    |> Enum.join(" ")
+  end
+
+  defp tag_text(tags) when is_map(tags) do
+    tags |> Map.values() |> List.flatten() |> Enum.filter(&is_binary/1)
+  end
+
+  defp tag_text(_tags), do: []
 
   # Local Books are kept in their own list, not ranked among the provider
   # records. Reusing a Book you already have and importing one you don't are
@@ -752,7 +775,12 @@ defmodule Ambry.Inbox.AutoMatch do
     {candidates, outcomes} = provider_books(:recording, query, hints, opts)
     {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints, opts)
 
-    level_result(query, candidates ++ editions, outcomes ++ edition_outcomes, hints.author)
+    level_result(
+      query,
+      candidates |> Kernel.++(editions) |> dedupe_records() |> apply_narrator_evidence(hints),
+      outcomes ++ edition_outcomes,
+      hints.author
+    )
   end
 
   # Structured, not concatenated. Audible's catalog matches `title` against
@@ -770,7 +798,180 @@ defmodule Ambry.Inbox.AutoMatch do
     {candidates, outcomes} = provider_books(:recording, query, hints, opts)
     {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints, opts)
 
-    level_result(query, candidates ++ editions, outcomes ++ edition_outcomes, hints.author)
+    level_result(
+      query,
+      candidates |> Kernel.++(editions) |> dedupe_records() |> apply_narrator_evidence(hints),
+      outcomes ++ edition_outcomes,
+      hints.author
+    )
+  end
+
+  @doc """
+  Collapses records **one provider** returned more than once.
+
+  Not the same thing as fusing two providers' records, which this module
+  refuses to do and should keep refusing: those are two databases describing
+  one book, each knowing something the other doesn't. This is one database
+  holding the same edition four times. Measured on The Martian, Hardcover
+  returns R.C. Bray's recording on four rows and Wil Wheaton's on four more,
+  differing only in which fields are filled — and with `@candidate_limit` at
+  #{@candidate_limit}, those eight rows crowd genuine alternatives (the German
+  and Swedish recordings) off the list entirely.
+
+  Two rules keep it from doing harm:
+
+    * **Merge, don't drop.** The duplicates are not identical — of Wheaton's
+      four rows only one carries an ASIN — so the survivor takes the union,
+      filling its blanks from the rows it absorbs. Picking a winner and
+      discarding the rest threw away the ASIN roughly three times in four.
+    * **First occurrence keeps the identity.** A record is referred to by
+      `{source, id}`, and the draft points at records by that ref. Records
+      already on the item come before newly-found ones, so the ref a re-search
+      might have collapsed is the one that survives — and anything the
+      operator has actually ticked is pinned outright.
+
+  Deliberately strict about what counts as the same record: same provider,
+  same normalized title, the *same* set of narrators, and no disagreement on
+  ASIN or publisher (one side being blank is not a disagreement). Two Audible
+  ASINs for one Wheaton recording are a US and a UK edition, not a duplicate,
+  and an edition crediting nobody is not evidence that it is some other
+  edition's recording.
+  """
+  def dedupe_records(records, pinned \\ MapSet.new()) do
+    Enum.reduce(records, [], fn record, kept ->
+      case duplicate_index(kept, record, pinned) do
+        nil -> kept ++ [record]
+        index -> List.update_at(kept, index, &absorb(&1, record))
+      end
+    end)
+  end
+
+  defp duplicate_index(kept, record, pinned) do
+    if !MapSet.member?(pinned, ref(record)) do
+      Enum.find_index(kept, &duplicate?(&1, record))
+    end
+  end
+
+  defp duplicate?(kept, record) do
+    kept["source"] == record["source"] and
+      normalize(kept["title"] || "") == normalize(record["title"] || "") and
+      narrator_key(kept) == narrator_key(record) and
+      agreeable?(kept["asin"], record["asin"]) and
+      agreeable?(kept["publisher"], record["publisher"])
+  end
+
+  defp narrator_key(record) do
+    record["narrators"] |> List.wrap() |> Enum.map(&normalize/1) |> Enum.sort()
+  end
+
+  defp agreeable?(nil, _other), do: true
+  defp agreeable?(_value, nil), do: true
+  defp agreeable?(value, other), do: value == other
+
+  # The survivor keeps everything it had and gains everything it lacked. The
+  # count rides along because a provider holding four rows for one recording
+  # is a fact about the provider worth being able to see, and silently tidying
+  # it away is how a data-quality problem becomes invisible.
+  defp absorb(kept, record) do
+    record
+    |> Map.merge(kept, fn _key, incoming, held ->
+      if held in [nil, "", []], do: incoming, else: held
+    end)
+    |> Map.put("duplicates", (kept["duplicates"] || 1) + 1)
+  end
+
+  @doc """
+  Re-scores recordings by what the file *says*, not by what the parser could
+  get out of it.
+
+  Everything else here runs forwards: read the item, build a query, score what
+  comes back. This runs **backwards** — take each candidate's narrators and go
+  looking for them in the item's own raw text. It exists because the forward
+  path has a silent hole: `hints.narrator` is nil whenever the parser couldn't
+  find a credit, and `apply_narrator/3` then does nothing at all, so a
+  recording by the wrong reader keeps a perfect title-and-author score.
+  Measured on The Martian — tags carrying no narrator, "(R.C. Bray)" sitting in
+  the filename — the item proposed **Wil Wheaton at 1.0**, unopposed.
+
+  Three-valued, like every "didn't say" in this module, and the middle value is
+  the one that matters:
+
+    * **supported** — a candidate's reader is named in the file. Corroboration.
+    * **unstated** — *no* candidate's reader is named anywhere. The file has
+      said nothing about who read it, which is the ordinary case, so nothing
+      is adjusted. Getting this wrong would penalise every correct match in
+      the library.
+    * **contradicted** — this candidate's reader is absent *while a rival's is
+      present*. Only then has the file spoken: it named a reader, just not
+      through any field we parse, and it isn't this one.
+
+  Candidates carrying no narrator at all are never touched — a record that
+  doesn't say who read it isn't contradicted by one that does.
+
+  Only fires when `hints.narrator` is nil, so exactly one narrator mechanism is
+  ever active: the stated credit when there is one, this when there isn't.
+  Full-cast releases land here too — "Full Cast" is a placeholder, not a
+  person, so `stated_narrator/1` rejects it and the forward path has nothing.
+  """
+  def apply_narrator_evidence(candidates, hints)
+
+  def apply_narrator_evidence(candidates, %{narrator: narrator, raw: raw})
+      when is_binary(raw) and is_nil(narrator) do
+    haystack = tokens(raw)
+    supported = Map.new(candidates, &{ref(&1), named_in?(&1["narrators"], haystack)})
+
+    if Enum.any?(supported, fn {_ref, yes?} -> yes? end) do
+      candidates |> Enum.map(&verdict(&1, supported[ref(&1)])) |> order_candidates()
+    else
+      candidates
+    end
+  end
+
+  def apply_narrator_evidence(candidates, _hints), do: candidates
+
+  # A record with no narrators is silent, not wrong.
+  defp verdict(%{"narrators" => narrators} = record, _supported?) when narrators in [nil, []],
+    do: record
+
+  defp verdict(record, supported?) do
+    # Re-derived from the untouched base every time rather than multiplied into
+    # the running score: re-searching an item runs this again over records that
+    # already carry a verdict, and a factor applied twice would sink a
+    # candidate a little further on every visit.
+    base = record["base_score"] || record["score"] || 0.0
+    factor = if supported?, do: 1.05, else: @narrator_mismatch
+
+    record
+    |> Map.put("base_score", base)
+    |> Map.put("score", base |> Kernel.*(factor) |> min(1.0) |> Float.round(3))
+    |> Map.put("narrator_evidence", if(supported?, do: "supported", else: "contradicted"))
+  end
+
+  # Any one reader is enough: a full-cast release names a handful of its
+  # fifteen actors at most, and one of them appearing IS the corroboration.
+  defp named_in?(narrators, haystack) do
+    Enum.any?(List.wrap(narrators), fn name ->
+      tokens(name)
+      |> MapSet.to_list()
+      |> Enum.filter(&(String.length(&1) >= 3))
+      |> case do
+        # Initials and mononyms carry too little to search for: "R.C." against
+        # a filename would match anything with an "r" in it. "Bray" is the
+        # part that identifies, and a name reduced to nothing identifies
+        # nobody — so it abstains rather than guessing.
+        [] -> false
+        parts -> Enum.all?(parts, &MapSet.member?(haystack, &1))
+      end
+    end)
+  end
+
+  defp tokens(nil), do: MapSet.new()
+
+  defp tokens(string) do
+    string
+    |> String.downcase()
+    |> String.split(~r/[^\p{L}\p{N}]+/u, trim: true)
+    |> MapSet.new()
   end
 
   @doc """
@@ -779,10 +980,16 @@ defmodule Ambry.Inbox.AutoMatch do
   This is what finds an edition a storefront has erased: Audible's catalog API
   is a storefront, not a bibliography — when rights lapse and a title is
   pulled, it vanishes from search *and* from direct ASIN lookup, with no record
-  that it ever existed. Hardcover and rreading-glasses are databases of
-  editions rather than shops, so they still have it. Measured for Neuromancer:
-  Audible 1 audio edition, Hardcover 7 — including a narrator Audible doesn't
-  list at all.
+  that it ever existed. Hardcover is a database of editions rather than a shop,
+  so it still has it. Measured for Neuromancer: Audible 1 audio edition,
+  Hardcover 7 — including a narrator Audible doesn't list at all. Measured for
+  The Martian: Audible has only Wil Wheaton's re-recording, Hardcover still has
+  R.C. Bray's Podium original with its ASIN.
+
+  **Not rreading-glasses**, whatever older notes here said: its edition list
+  never carries a narrator, because the Goodreads query it issues omits
+  secondary contributors. At this level that makes it silent on the only
+  question being asked.
 
   **Every capable record is asked**, not the first one. This used to be an
   `Enum.find_value` that stopped at the first editions-capable provider even
@@ -894,10 +1101,27 @@ defmodule Ambry.Inbox.AutoMatch do
   loser's payload and made the list look like a set of rival identities.
   """
   def rank(candidates) do
-    candidates
-    |> Enum.sort_by(& &1["score"], :desc)
-    |> Enum.take(@candidate_limit)
+    candidates |> order_candidates() |> Enum.take(@candidate_limit)
   end
+
+  @doc """
+  Best first: by score, and among equal scores by what the file corroborated.
+
+  The tie-break is not decoration. A supported candidate cannot out-*score* a
+  silent one that was already at 1.0 — the boost is capped there — so The
+  Martian ends with R.C. Bray's corroborated recording and an Audible edition
+  crediting nobody both sitting at exactly 1.000. Inventing a score gap to
+  separate them would be dishonest about how sure we are; ordering the
+  corroborated one first is simply saying which of two equals the file
+  actually spoke about.
+  """
+  def order_candidates(candidates) do
+    Enum.sort_by(candidates, &{&1["score"] || 0.0, corroboration(&1)}, :desc)
+  end
+
+  defp corroboration(%{"narrator_evidence" => "supported"}), do: 2
+  defp corroboration(%{"narrator_evidence" => "contradicted"}), do: 0
+  defp corroboration(_record), do: 1
 
   defp query_fields(nil), do: %{}
 
@@ -1419,7 +1643,10 @@ defmodule Ambry.Inbox.AutoMatch do
       part_number: nil,
       parts_total: nil,
       asin: nil,
-      release_title: nil
+      release_title: nil,
+      # No files behind a form: the operator typed these fields, and a typed
+      # narrator is a *stated* one, which the forward scorer already handles.
+      raw: nil
     }
   end
 
@@ -1722,7 +1949,16 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   defp author_similarity(_authors, nil), do: nil
-  defp author_similarity([], _author), do: 0.0
+
+  # "Didn't say" is not "said no" — the same rule the clause above already
+  # applies to a file that names no author, applied to a record that names
+  # none. Scoring an authorless record as a wrong-author match cost it a flat
+  # quarter of its score, which is not a judgement about the book: it is a
+  # judgement about how complete the provider's row is. Edition records are
+  # the ones that pay it, because an edition lists its narrator where the work
+  # lists its author — so the recordings that only a bibliography still has
+  # were docked 25% against the storefront hits they exist to compete with.
+  defp author_similarity([], _author), do: nil
 
   defp author_similarity(authors, author) do
     authors |> Enum.map(&similarity(&1, author)) |> Enum.max(fn -> 0.0 end)
