@@ -285,21 +285,19 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   # Row actions wear words. An unlabeled 16px icon is neither a label nor a
   # touch target, and the queue's actions are consequential enough to name.
+  # The same small-action costume every other card action wears, widened to a
+  # uniform column so the right rail reads as a column rather than a rag.
   defp action_class(tone) do
     [
-      "flex cursor-pointer items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold transition-colors sm:w-28",
-      case tone do
-        :brand ->
-          "bg-brand-dark/10 text-lime-300 hover:bg-brand-dark/20"
-
-        :danger ->
-          "bg-white/5 text-zinc-400 hover:bg-red-400/10 hover:text-red-300"
-
-        :neutral ->
-          "bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
-      end
+      action_classes(button_color(tone), "sm:w-28"),
+      tone == :danger && "hover:bg-red-400/10 hover:text-red-300"
     ]
   end
+
+  # Import is the row's primary action and wears the primary costume; the
+  # rest are ordinary secondaries, with Ignore revealing red on hover.
+  defp button_color(:brand), do: :brand
+  defp button_color(_quiet), do: :zinc
 
   defp status_color(:pending), do: :yellow
   defp status_color(:imported), do: :brand

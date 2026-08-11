@@ -58,7 +58,7 @@ defmodule AmbryWeb.Admin.Decisions do
         <span
           :for={outcome <- @outcomes}
           :if={outcome["status"] != "failed"}
-          class="bg-white/10 rounded-sm px-2 py-0.5 text-xs tabular-nums text-zinc-300"
+          class="bg-white/5 rounded-sm px-2 py-0.5 text-xs tabular-nums text-zinc-400"
         >
           {outcome["name"]}: {outcome["count"]}
         </span>
@@ -232,7 +232,7 @@ defmodule AmbryWeb.Admin.Decisions do
         type="button"
         phx-click="link-book"
         phx-value-id={@book["id"]}
-        class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+        class={action_classes(:zinc, "flex-none")}
       >
         Yes — another edition of this
       </button>
@@ -268,7 +268,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <button
         type="submit"
         disabled={@running}
-        class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+        class={action_classes()}
       >
         {if @running, do: "Searching…", else: "Search again"}
       </button>
@@ -331,7 +331,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <button
         type="submit"
         disabled={@running}
-        class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+        class={action_classes()}
       >
         {if @running, do: "Searching…", else: "Search again"}
       </button>
@@ -659,7 +659,7 @@ defmodule AmbryWeb.Admin.Decisions do
           phx-click="restore-credit"
           phx-value-section={@section}
           phx-value-index={@index}
-          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          class={action_classes(:zinc, "flex-none")}
         >
           Restore
         </button>
@@ -702,7 +702,7 @@ defmodule AmbryWeb.Admin.Decisions do
             phx-value-section={@section}
             phx-value-index={@index}
             phx-value-approved="true"
-            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            class={action_classes()}
           >
             Confirm
           </button>
@@ -1226,7 +1226,7 @@ defmodule AmbryWeb.Admin.Decisions do
           type="button"
           phx-click="restore-series"
           phx-value-index={@index}
-          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          class={action_classes(:zinc, "flex-none")}
         >
           Restore
         </button>
@@ -1272,7 +1272,7 @@ defmodule AmbryWeb.Admin.Decisions do
             phx-click="approve-series"
             phx-value-index={@index}
             phx-value-approved="true"
-            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            class={action_classes()}
           >
             Confirm
           </button>
@@ -1376,7 +1376,7 @@ defmodule AmbryWeb.Admin.Decisions do
         <button
           type="button"
           phx-click="restore-group"
-          class="bg-white/5 flex-none rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+          class={action_classes(:zinc, "flex-none")}
         >
           Restore
         </button>
@@ -1418,7 +1418,7 @@ defmodule AmbryWeb.Admin.Decisions do
             type="button"
             phx-click="approve-group"
             phx-value-approved="true"
-            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            class={action_classes()}
           >
             Confirm
           </button>

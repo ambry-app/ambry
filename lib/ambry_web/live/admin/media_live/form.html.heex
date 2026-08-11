@@ -112,8 +112,10 @@
             </div>
           </.inputs_for>
 
-          <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
-          <.delete_input field={@form[:media_narrators_drop]} />
+          <:add>
+            <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
+            <.delete_input field={@form[:media_narrators_drop]} />
+          </:add>
         </.field_group>
 
         <%!-- the mirror of the book form's series rows, singular: a recording

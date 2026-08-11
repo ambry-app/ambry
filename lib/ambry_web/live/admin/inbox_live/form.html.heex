@@ -89,7 +89,7 @@
             phx-click="split"
             data-confirm={"Split into #{length(@item.files)} separate items? Each file becomes its own inbox item and is scanned fresh."}
             data-role="split"
-            class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+            class={action_classes()}
           >
             Split into {length(@item.files)} items — one per file
           </button>
@@ -252,7 +252,7 @@
               phx-click="confirm-level"
               phx-value-section="work"
               data-role="confirm-work"
-              class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+              class={action_classes()}
             >
               Confirm
             </button>
@@ -456,7 +456,7 @@
               phx-click="confirm-level"
               phx-value-section="recording"
               data-role="confirm-recording"
-              class="bg-white/5 rounded-sm px-2 py-1 text-xs text-zinc-300 hover:bg-white/10"
+              class={action_classes()}
             >
               Confirm
             </button>
@@ -747,9 +747,7 @@
             In the library — read-only.
           </p>
 
-          <.brand_link navigate={~p"/admin/inbox"} class="whitespace-nowrap">
-            Back to the inbox
-          </.brand_link>
+          <.button navigate={~p"/admin/inbox"} color={:zinc}>Back to the inbox</.button>
 
           <%!-- Why the button is off, always. A blocker that only showed up as a
               red line further up the page could leave this disabled while the

@@ -30,8 +30,10 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:series_books_sort]}>Add book</.add_button>
-        <.delete_input field={@form[:series_books_drop]} />
+        <:add>
+          <.add_button field={@form[:series_books_sort]}>Add book</.add_button>
+          <.delete_input field={@form[:series_books_drop]} />
+        </:add>
       </.field_group>
 
       <:actions>

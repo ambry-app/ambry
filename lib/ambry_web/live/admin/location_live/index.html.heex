@@ -1,15 +1,14 @@
 <.layout title={@page_title} user={@current_user}>
-  <:subheader>
-    <div class="flex items-center justify-end gap-4">
-      <.button :if={@sources != []} phx-click="scan" color={:zinc}>Scan all</.button>
-    </div>
-  </:subheader>
-
   <div class="max-w-4xl space-y-14">
     <section class="space-y-3">
-      <div class="flex items-baseline justify-between gap-4">
+      <%!-- Beside the heading it acts on, not marooned in the page header:
+          on a wide window that put it a thousand pixels from anything it
+          had an effect on. --%>
+      <div class="flex flex-wrap items-center gap-3">
         <h2 class="text-xl font-bold text-zinc-100">Sources</h2>
-        <.add_button navigate={~p"/admin/locations/sources/new"}>Add source</.add_button>
+        <.button :if={@sources != []} phx-click="scan" color={:zinc} size={:sm}>
+          Scan all
+        </.button>
       </div>
 
       <p class="max-w-prose text-sm text-zinc-400">
@@ -109,13 +108,12 @@
           </div>
         </div>
       </div>
+
+      <.add_button navigate={~p"/admin/locations/sources/new"}>Add source</.add_button>
     </section>
 
     <section class="space-y-3">
-      <div class="flex items-baseline justify-between gap-4">
-        <h2 class="text-xl font-bold text-zinc-100">Library roots</h2>
-        <.add_button navigate={~p"/admin/locations/roots/new"}>Add root</.add_button>
-      </div>
+      <h2 class="text-xl font-bold text-zinc-100">Library roots</h2>
 
       <p class="max-w-prose text-sm text-zinc-400">
         The folders managed audio is organized into, by the naming template. Ambry writes here
@@ -184,6 +182,8 @@
           </div>
         </div>
       </div>
+
+      <.add_button navigate={~p"/admin/locations/roots/new"}>Add root</.add_button>
     </section>
   </div>
 </.layout>

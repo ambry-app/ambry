@@ -19,8 +19,10 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:book_universes_sort]}>Add book</.add_button>
-        <.delete_input field={@form[:book_universes_drop]} />
+        <:add>
+          <.add_button field={@form[:book_universes_sort]}>Add book</.add_button>
+          <.delete_input field={@form[:book_universes_drop]} />
+        </:add>
       </.field_group>
 
       <:actions>

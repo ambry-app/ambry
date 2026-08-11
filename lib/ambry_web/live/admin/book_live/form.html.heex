@@ -71,8 +71,10 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:book_authors_sort]}>Add author</.add_button>
-        <.delete_input field={@form[:book_authors_drop]} />
+        <:add>
+          <.add_button field={@form[:book_authors_sort]}>Add author</.add_button>
+          <.delete_input field={@form[:book_authors_drop]} />
+        </:add>
       </.field_group>
 
       <.field_group label="Series">
@@ -107,8 +109,10 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:series_books_sort]}>Add series</.add_button>
-        <.delete_input field={@form[:series_books_drop]} />
+        <:add>
+          <.add_button field={@form[:series_books_sort]}>Add series</.add_button>
+          <.delete_input field={@form[:series_books_drop]} />
+        </:add>
       </.field_group>
 
       <.field_group label="Universes">
@@ -125,8 +129,10 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:book_universes_sort]}>Add universe</.add_button>
-        <.delete_input field={@form[:book_universes_drop]} />
+        <:add>
+          <.add_button field={@form[:book_universes_sort]}>Add universe</.add_button>
+          <.delete_input field={@form[:book_universes_drop]} />
+        </:add>
       </.field_group>
 
       <.provenance_panel

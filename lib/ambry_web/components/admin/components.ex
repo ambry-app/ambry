@@ -671,6 +671,7 @@ defmodule AmbryWeb.Admin.Components do
   attr :class, :any, default: nil
   attr :rest, :global
   slot :inner_block, required: true
+  slot :add, doc: "the add-a-row control, rendered under the block like the import form's"
 
   @doc """
   One cluster of fields on an edit form, as a block.
@@ -687,10 +688,17 @@ defmodule AmbryWeb.Admin.Components do
   """
   def field_group(assigns) do
     ~H"""
+    <%!-- **A block holds the whole cluster: its name, its rows, and the way
+        to add one.** The import form is the other shape — each row there is
+        its own decision card, so its label and its add have nowhere to be
+        but the ground above and below the run. Here there is one block, so
+        everything about the cluster lives in it. Same costumes either way;
+        what differs is whether the list has a card of its own. --%>
     <div class={["space-y-2 rounded-lg bg-zinc-900 p-4", @class]} {@rest}>
       <.label :if={@label} class="pl-3">{@label}</.label>
       <p :if={@hint} class="max-w-prose pl-3 text-sm text-zinc-400">{@hint}</p>
       {render_slot(@inner_block)}
+      {render_slot(@add)}
     </div>
     """
   end
@@ -732,11 +740,16 @@ defmodule AmbryWeb.Admin.Components do
   Adds one more row to a list the operator is building.
 
   **One costume for this job across the whole admin.** It was three: a
-  brand-colored link with a plus on the legacy forms, an 11px underlined
-  word on the import form, and a lime "New +" on every list header — three
-  answers to "add another one of these" on three surfaces the operator moves
-  between. This is §6's quiet row action, which the same forms already use
-  for Confirm, Restore and Split.
+  brand-colored link with a plus on the legacy forms, a lime "New +" on every
+  list header, and this — three answers to "add another one of these" on
+  three surfaces the operator moves between, and the import form's is the
+  one that was right.
+
+  Deliberately NOT the raised action costume Confirm and Split wear: adding
+  a blank row is the least consequential thing on a form, and a row of pills
+  competes with the decisions above it (tried, and rejected by the operator
+  on sight). Being text rather than a box, it also sits on the text rail
+  like the labels it follows, which is what keeps it aligned inside a card.
 
   Two call styles, because the legacy forms add a row by posting a sort
   param and the import form does it with an event: pass `field` for the
@@ -767,9 +780,15 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  # **Dimmer than a real action, on purpose.** Confirm, Split and the queue's
+  # row actions are raised opaque fills; adding a blank row is the least
+  # consequential thing on a form, so it is the faintest fill that still
+  # reads as a control. `ml-3` puts its box on the text rail: a small pill
+  # that isn't a field is content, not a container, and sits where an image
+  # would (§3).
   defp add_button_classes(extra) do
     [
-      "bg-white/5 flex w-fit cursor-pointer items-center gap-1.5 rounded-md px-2 py-1",
+      "bg-white/5 ml-3 inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-md px-2 py-1",
       "text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-zinc-100",
       extra
     ]

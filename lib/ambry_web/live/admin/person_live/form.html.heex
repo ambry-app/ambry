@@ -102,8 +102,10 @@
             <% end %>
           </.inputs_for>
 
-          <.add_button field={@form[:author_people_sort]}>Add author</.add_button>
-          <.delete_input field={@form[:author_people_drop]} />
+          <:add>
+            <.add_button field={@form[:author_people_sort]}>Add author</.add_button>
+            <.delete_input field={@form[:author_people_drop]} />
+          </:add>
 
           <.input
             field={@form[:link_author_id]}
@@ -123,8 +125,10 @@
             </div>
           </.inputs_for>
 
-          <.add_button field={@form[:narrators_sort]}>Add narrator</.add_button>
-          <.delete_input field={@form[:narrators_drop]} />
+          <:add>
+            <.add_button field={@form[:narrators_sort]}>Add narrator</.add_button>
+            <.delete_input field={@form[:narrators_drop]} />
+          </:add>
         </.field_group>
       </div>
 

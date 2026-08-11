@@ -217,6 +217,28 @@ primary button and the chosen chip's source tag.
 If two pills on one surface do the same job, they wear the same costume, the
 same height, and start on the same rail.
 
+**Three tiers of action, and nothing else.** Loudness follows consequence:
+
+| Tier | Costume | For |
+|---|---|---|
+| Primary | solid `bg-brand-dark` | the one thing the page is for — Save, Import, Scan |
+| Action | `<.button color={:zinc}>`, opaque raised fill, `size={:sm}` inside a card | Confirm, Split, Re-match, Ignore, Search |
+| Add a row | `<.add_button>`, the faintest fill that still reads as a control | adding a blank row, the least consequential thing on a form |
+
+**An action must be visibly raised, or it is a label.** Quiet actions used
+to be `bg-white/5`, which on a `zinc-900` card computes *darker* than the
+`bg-white/10` count chips beside them — labels reading as raised and buttons
+as recessed, so Confirm looked exactly like a tag. Actions are an opaque
+fill one rung up from what they sit on; tags and counts stay flat, muted and
+smaller, with no hover.
+
+**The add follows its list.** Where the list lives in one block, the add
+lives in it too, on the text rail with the labels — a small pill that isn't
+a field is content, not a container, and sits where an image would (§3).
+Where each row is its own decision card (the import form), there is no block
+to be inside, so the label sits above the run and the add below it. Same
+costumes either way; what differs is whether the list has a card of its own.
+
 ## 7. Controls
 
 - **Adjacent bar controls share exact height** — no exceptions.

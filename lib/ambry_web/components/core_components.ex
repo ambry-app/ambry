@@ -256,6 +256,11 @@ defmodule AmbryWeb.CoreComponents do
   attr :class, :string, default: nil
   attr :color, :atom, default: :brand, values: ~w(brand yellow red zinc)a
 
+  attr :size, :atom,
+    default: :md,
+    values: ~w(md sm)a,
+    doc: "sm is the in-card row action — Confirm, Restore, Split, Add"
+
   attr :navigate, :string,
     default: nil,
     doc: "renders a link wearing the button costume — for an action that is a page, not an event"
@@ -270,7 +275,7 @@ defmodule AmbryWeb.CoreComponents do
   # changes. Same classes, one element or the other.
   def button(%{navigate: navigate} = assigns) when is_binary(navigate) do
     ~H"""
-    <.link navigate={@navigate} class={button_classes(@color, @class)} {@rest}>
+    <.link navigate={@navigate} class={button_classes(@color, @size, @class)} {@rest}>
       {render_slot(@inner_block)}
     </.link>
     """
@@ -278,23 +283,45 @@ defmodule AmbryWeb.CoreComponents do
 
   def button(assigns) do
     ~H"""
-    <button type={@type} class={button_classes(@color, @class)} {@rest}>
+    <button type={@type} class={button_classes(@color, @size, @class)} {@rest}>
       {render_slot(@inner_block)}
     </button>
     """
   end
 
-  defp button_classes(color, extra) do
+  # **A button has to be visibly raised, or it is a label.** Quiet row actions
+  # used to be `bg-white/5`, which on a zinc-900 card computes *darker* than
+  # the `bg-white/10` count chips beside them — so the labels read as raised
+  # and the buttons as recessed, and the operator could not tell Confirm from
+  # a tag. Actions are an opaque fill, one rung up the elevation ladder from
+  # whatever they sit on, and bold; tags stay flat and muted (§6).
+  defp button_classes(color, size, extra) do
     [
       # inline-flex, not inline-block: a button with a leading icon aligns its
       # glyph to the label's box rather than its baseline (§3).
-      "inline-flex items-center justify-center rounded-md border px-3 py-[7px] phx-submit-loading:opacity-75",
-      "whitespace-nowrap text-sm font-semibold leading-6",
+      "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border",
+      "whitespace-nowrap font-semibold phx-submit-loading:opacity-75",
       "active:opacity-80 disabled:pointer-events-none disabled:opacity-40",
+      button_size_classes(size),
       button_color_classes(color),
       extra
     ]
   end
+
+  # md is the 40px bar control (§3's one control height); sm is the action
+  # that lives inside a card next to content, at the chips' scale.
+  defp button_size_classes(:md), do: "px-3 py-[7px] text-sm leading-6"
+  defp button_size_classes(:sm), do: "px-2.5 py-1 text-xs leading-5"
+
+  @doc """
+  The small action costume, for the hand-built `<button>`s inside cards.
+
+  Same classes `<.button color={:zinc} size={:sm}>` produces — Confirm,
+  Restore, Split, Add, "Use this bio" and the queue's row actions were
+  fourteen separate copies of a `bg-white/5` pill, which is how they drifted
+  into looking exactly like the count chips next to them.
+  """
+  def action_classes(color \\ :zinc, extra \\ nil), do: button_classes(color, :sm, extra)
 
   # One identity in both themes: the primary action is the brand fill with
   # near-black text everywhere, secondary actions are outlined (a solid gray

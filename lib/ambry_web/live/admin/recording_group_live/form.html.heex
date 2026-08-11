@@ -66,8 +66,10 @@
           </div>
         </.inputs_for>
 
-        <.add_button field={@form[:members_sort]}>Add recording</.add_button>
-        <.delete_input field={@form[:members_drop]} />
+        <:add>
+          <.add_button field={@form[:members_sort]}>Add recording</.add_button>
+          <.delete_input field={@form[:members_drop]} />
+        </:add>
       </.field_group>
 
       <:actions>
