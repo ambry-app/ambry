@@ -2623,6 +2623,55 @@ defmodule Ambry.Inbox.DraftTest do
       assert Enum.map(candidates, & &1.name) == ["GraphicAudio", "Soundbooth Season One"]
     end
 
+    # Measured live on the split ACOTAR pair: a title whose candidates merely
+    # disagree on spelling has no settled value, and the sibling relink
+    # silently never fired — part 2 kept proposing a second group.
+    test "relink matches on the leading title candidate when nothing is settled yet" do
+      author =
+        insert(:author, name: "Sarah J. Maas", person: build(:person, name: "Sarah J. Maas"))
+
+      book =
+        insert(:book,
+          title: "A Court of Thorns and Roses",
+          book_authors: [build(:book_author, author: author)]
+        )
+
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      item =
+        item(%{
+          path: "/downloads/ACOTAR - Part 2 of 2/ACOTAR - Part 2 of 2.m4b",
+          matches:
+            matches([
+              provider_candidate(%{
+                "title" => "A Court of Thorns and Roses",
+                "authors" => ["Sarah J. Maas"]
+              })
+            ]),
+          tags: %{
+            "book_title" => "A Court of Thorns and Roses 1: A Court of Thorns and Roses 2 of 2",
+            "authors" => ["Sarah J. Maas"]
+          }
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # the precondition this test exists for: candidates disagree, no value
+      assert Field.value(item.draft.work.title) == nil
+      assert item.draft.work.mode == :create
+
+      relinked = Seed.relink(item.draft, item)
+
+      assert relinked.work.mode == :link
+      assert relinked.work.book_id == book.id
+
+      group_id = group.id
+
+      assert %GroupLink{mode: :link, recording_group_id: ^group_id, part_number: 2} =
+               relinked.recording.recording_group
+    end
+
     test "the part-polluted series number is suppressed, a real one is not" do
       # GraphicAudio's shape: a `part` tag feeding series_number, no series
       # named anywhere — the number is the part's

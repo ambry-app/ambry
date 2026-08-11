@@ -183,7 +183,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp create_proposal(draft, detected, groups) do
     {number, total, source} = detected || {nil, nil, nil}
-    name = Field.value(draft.work.title) || ""
+    name = proposed_group_name(draft)
 
     %GroupLink{
       mode: :create,
@@ -211,6 +211,19 @@ defmodule Ambry.Inbox.Draft.Seed do
     do: Ambry.Media.recording_groups_for_book(book_id)
 
   defp book_groups(_draft), do: []
+
+  # The work's title, settled or not — on a doubted match nothing has filled
+  # the field in yet, but its leading proposal is still the natural default
+  # name for the set (the same default the migration backfill used).
+  defp proposed_group_name(%Draft{work: %Work{title: %Field{} = title}}) do
+    Field.value(title) ||
+      case title.candidates do
+        [%Candidate{value: value} | _rest] when is_binary(value) -> value
+        _none -> ""
+      end
+  end
+
+  defp proposed_group_name(_draft), do: ""
 
   defp detect_part(draft, item) do
     parsed = ReleaseName.parse(item.path)
@@ -1024,7 +1037,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   # linking a recording to the wrong existing book is the worst outcome this
   # form can produce.
   defp relink_work(%Draft{work: %Work{mode: :create, curated: false} = work} = draft, item) do
-    with title when is_binary(title) <- Field.value(work.title),
+    with title when is_binary(title) <- relink_title(work),
          [book] <- books_titled(title),
          true <- authors_overlap?(book, work) do
       linked = %{work | mode: :link, book_id: book.id, approved: true}
@@ -1035,6 +1048,23 @@ defmodule Ambry.Inbox.Draft.Seed do
   end
 
   defp relink_work(draft, _item), do: draft
+
+  # A settled value when there is one, else the leading proposal: a title
+  # field whose candidates merely disagree on spelling has no value yet, but
+  # its top proposal is the same evidence a settled value would have come
+  # from, and the exact title-key + author-overlap guards below do the real
+  # vetting. Measured live on the split ACOTAR pair: part 2's title held
+  # "A Court of Thorns and Roses" and its tag spelling as open candidates,
+  # so the sibling relink silently never fired.
+  defp relink_title(%Work{title: %Field{} = title}) do
+    Field.value(title) ||
+      case title.candidates do
+        [%Candidate{value: value} | _rest] when is_binary(value) -> value
+        _none -> nil
+      end
+  end
+
+  defp relink_title(_work), do: nil
 
   # Fetched by keyword and filtered on `title_key/1` — exact identity, but
   # case, punctuation and leading articles don't make a different book: the
