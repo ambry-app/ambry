@@ -708,9 +708,30 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp parse_date(_other), do: nil
 
+  # **The file's date tag is not an opinion about which date it is.**
+  # Audiobook files carry exactly one date tag — measured across the
+  # operator's releases, not one of 101 files had `originaldate` or
+  # `original_year` alongside it — and taggers fill it from whichever year
+  # they had to hand. Where a file's own copyright line separates the text's
+  # © year from the recording's ℗ year, the tag copied the audio year 6 times
+  # and the work's year 5: `Shift` is ©2013/℗2023 and tagged 2013,
+  # `Children of Time` is ©2016/℗2017 and tagged 2017.
+  #
+  # A coin flip must not arbitrate. Counted as a rival it made "First
+  # published" a question on every import where the tag happened to hold the
+  # other year, and moving it to the recording would only mirror the same
+  # false disagreement one level down. So it is **advisory at both levels**:
+  # offered as a chip, never counted in the disagreement, and promoted to the
+  # answer only where nothing else proposed one.
   defp published_field(sources, tags) do
-    (from_records(sources, "published") ++ [tag_candidate(tags, "published")])
-    |> scalar(required: true, equivalence: &same_date?/2, prefer: &more_precise/2)
+    sources
+    |> from_records("published")
+    |> scalar(
+      required: true,
+      equivalence: &same_date?/2,
+      prefer: &more_precise/2,
+      advisory: [tag_candidate(tags, "published")]
+    )
   end
 
   # Not derivable from the date *upwards*: year-only knowledge arrives as a
@@ -718,19 +739,24 @@ defmodule Ambry.Inbox.Draft.Seed do
   # the v1.9.0 punch list fixed for the import forms. Derivable downwards,
   # though — see `Field.follow_date/2`, which is what stops the format sitting
   # unanswered beside a date that has plainly already answered it.
+  #
+  # The tag's format is advisory for the same reason its date is: a format is
+  # the precision of one particular date, so it can only be as good as the
+  # date it came off.
   defp published_format_field(sources, tags, published) do
-    (from_records(sources, "published_format") ++ [tag_candidate(tags, "published_format")])
-    |> scalar(required: false)
+    sources
+    |> from_records("published_format")
+    |> scalar(required: false, advisory: [tag_candidate(tags, "published_format")])
     |> Field.follow_date(published)
     |> default_to("full")
   end
 
   # Same rule as the work's, on the recording's own records: the format says
   # how much of the release date is real, and follows whichever record won it.
-  defp recording_format_field(records, published) do
+  defp recording_format_field(records, tags, published) do
     records
     |> from_records("published_format")
-    |> scalar(required: false)
+    |> scalar(required: false, advisory: [tag_candidate(tags, "published_format")])
     |> Field.follow_date(published)
     |> default_to("full")
   end
@@ -797,7 +823,25 @@ defmodule Ambry.Inbox.Draft.Seed do
   # as recording records.
   defp put_recording_fields(%Recording{} = recording, records, tags, item) do
     mine = used(records, recording.sources)
-    published = keep_manual(recording.published, scalar(from_records(mine, "published")))
+
+    # The release date is where the file's date tag belongs *if it belongs
+    # anywhere* (see `published_field/2`) — it was offered at neither level
+    # before, so a recording no provider catalogues imported with no date at
+    # all while the file had one all along.
+    #
+    # The two date options are not new behaviour so much as the behaviour the
+    # work level has always had: without `same_date?` a record saying "2012"
+    # and one saying "2012-03-23" read as two rival answers, which is the
+    # disagreement this whole change exists to stop asking about.
+    published =
+      keep_manual(
+        recording.published,
+        scalar(from_records(mine, "published"),
+          equivalence: &same_date?/2,
+          prefer: &more_precise/2,
+          advisory: [tag_candidate(tags, "published")]
+        )
+      )
 
     %{
       recording
@@ -806,7 +850,7 @@ defmodule Ambry.Inbox.Draft.Seed do
         published_format:
           keep_manual(
             recording.published_format,
-            recording_format_field(mine, published)
+            recording_format_field(mine, tags, published)
           ),
         publisher:
           keep_manual(
