@@ -44,7 +44,7 @@ defmodule Ambry.FlatViewStackTest do
 
   test "books view: one cover per edition, newest first, groups collapse to first part" do
     book = insert(:book)
-    group = insert(:recording_group)
+    group = insert(:recording_group, parts_total: 3)
 
     solo = insert_media_with_cover(book, "solo", status: :ready, published: ~D[2020-01-01])
 
@@ -55,7 +55,6 @@ defmodule Ambry.FlatViewStackTest do
       for n <- 1..3 do
         insert_media_with_cover(book, "part#{n}",
           part_number: n,
-          parts_total: 3,
           recording_group: group,
           status: :ready,
           published: ~D[2021-01-01]
@@ -76,13 +75,12 @@ defmodule Ambry.FlatViewStackTest do
 
   test "books view: the sole-edition exception is gone — a lone group is ONE cover" do
     book = insert(:book)
-    group = insert(:recording_group)
+    group = insert(:recording_group, parts_total: 3)
 
     [part_one | _rest] =
       for n <- 1..3 do
         insert_media_with_cover(book, "part#{n}",
           part_number: n,
-          parts_total: 3,
           recording_group: group,
           status: :ready
         )
@@ -113,14 +111,13 @@ defmodule Ambry.FlatViewStackTest do
 
     # book one: an old solo and a newer group — its cover is the group's
     # first part (the newest edition's representative)
-    group = insert(:recording_group)
+    group = insert(:recording_group, parts_total: 2)
     insert_media_with_cover(book_one, "solo", status: :ready, published: ~D[2019-01-01])
 
     [g_part_one | _rest] =
       for n <- 1..2 do
         insert_media_with_cover(book_one, "part#{n}",
           part_number: n,
-          parts_total: 2,
           recording_group: group,
           status: :ready,
           published: ~D[2021-01-01]

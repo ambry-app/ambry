@@ -26,7 +26,16 @@ defmodule Ambry.Inbox.ReleaseName do
 
   alias Ambry.Inbox.ReleaseName
 
-  defstruct [:title, :author, :narrator, :series, :series_number, :asin]
+  defstruct [
+    :title,
+    :author,
+    :narrator,
+    :series,
+    :series_number,
+    :asin,
+    :part_number,
+    :parts_total
+  ]
 
   # Quality/format noise that shows up in brackets and parens.
   @noise ~r/^(m4b|mp3|m4a|flac|ogg|opus|aax|aaxc|unabridged|abridged|audiobook|
@@ -44,6 +53,7 @@ defmodule Ambry.Inbox.ReleaseName do
 
     {narrator, base} = extract_narrator(base)
     asin = extract_asin(base)
+    {part, base} = extract_part(base)
     {series_hint, base} = extract_bracketed_series(base)
     base = strip_bracketed(base)
 
@@ -56,7 +66,9 @@ defmodule Ambry.Inbox.ReleaseName do
       narrator: narrator,
       series: presence(series),
       series_number: series_number,
-      asin: asin
+      asin: asin,
+      part_number: part && elem(part, 0),
+      parts_total: part && elem(part, 1)
     }
   end
 
@@ -79,12 +91,65 @@ defmodule Ambry.Inbox.ReleaseName do
     |> remove_noise_brackets()
     |> remove_noise_parens()
     |> remove_noise_subtitle()
+    |> remove_part_phrase()
     |> remove_sequence_numbers()
     |> collapse_spaces()
     |> presence()
   end
 
   def strip_noise(_other), do: nil
+
+  # "Part N of M" and its spellings — a release's place in a part set
+  # (GraphicAudio's shape), stated in the file name or a tag title's tail.
+  # Sanity-gated: the numbers must read as a position in a set, or "2 of
+  # Swords" and "1 of 1000" become parts. The bare trailing form gets the
+  # tighter cap — it has no "part" keyword vouching for it.
+  @part_explicit ~r/\b(?:part|pt\.?)\s*(\d{1,3})\s*(?:of|\/)\s*(\d{1,3})\b/i
+  @part_paren ~r/\((\d{1,3})\s+of\s+(\d{1,3})\)/
+  @part_trailing ~r/\b(\d{1,3})\s+of\s+(\d{1,3})\s*$/
+
+  defp extract_part(base) do
+    extract_part_with(base, @part_explicit, 50) ||
+      extract_part_with(base, @part_paren, 50) ||
+      extract_part_with(base, @part_trailing, 20) ||
+      {nil, base}
+  end
+
+  defp extract_part_with(base, regex, max_total) do
+    with [match, number, total] <- Regex.run(regex, base),
+         {number, total} = {String.to_integer(number), String.to_integer(total)},
+         true <- number >= 1 and number <= total and total <= max_total do
+      {{number, total}, String.replace(base, match, " ")}
+    else
+      _no_part -> nil
+    end
+  end
+
+  # Tag titles carry the same phrase ("…A Court of Thorns and Roses 1 of 2"),
+  # and like the other noise it poisons the provider query while still
+  # returning *something*, so the zero-result retry never rescues it.
+  defp remove_part_phrase(title) do
+    case extract_part(title) do
+      {nil, _base} -> title
+      {_part, cleaned} -> cleaned
+    end
+  end
+
+  @doc """
+  The part-set position a name states, as `{number, total}`, or nil.
+
+  For provider record titles — Audible lists GraphicAudio parts as
+  "The Way of Kings (1 of 3)" — where the caller wants the fact without the
+  rest of the parse.
+  """
+  def part_of(name) when is_binary(name) do
+    case extract_part(name) do
+      {nil, _base} -> nil
+      {part, _base} -> part
+    end
+  end
+
+  def part_of(_other), do: nil
 
   # Album tags carry shelf ordering the way folder names do: the operator's
   # Mr. Mercedes is tagged "01 Mr. Mercedes" and Limitless "Limitless 01",
@@ -293,6 +358,10 @@ defmodule Ambry.Inbox.ReleaseName do
     |> String.trim()
     |> String.trim_leading("-")
     |> String.trim_leading("~")
+    # a separator left dangling by a removed phrase (" - Part 1 of 2" at the
+    # end of a name) is junk the same way a leading one is
+    |> String.trim_trailing("-")
+    |> String.trim_trailing("~")
     |> String.trim()
   end
 

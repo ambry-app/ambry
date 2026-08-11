@@ -111,45 +111,23 @@
         <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
       </div>
 
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
-        <.input field={@form[:part_number]} type="number" min="1" label="Part number" />
-        <.input field={@form[:parts_total]} type="number" min="1" label="Total parts" />
-        <.input
-          field={@form[:recording_group_choice]}
-          type="select"
-          label="Recording group"
-          options={recording_group_options(@recording_groups)}
-          value={recording_group_choice_value(@form)}
-        />
+      <%!-- the mirror of the book form's series rows, singular: a recording
+          is in at most one group, and a group belongs to this book — the
+          list follows the chosen book. Clearing the typeahead leaves the
+          group (and the part number goes with it); the group's own facts —
+          name, total, wording — are edited on its page under Groups. --%>
+      <div class="space-y-2">
+        <.label>Recording group</.label>
+        <div class="relative flex items-start gap-2">
+          <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
+          <.input
+            field={@form[:recording_group_id]}
+            type="autocomplete"
+            options={@recording_groups}
+            container_class="grow"
+          />
+        </div>
       </div>
-
-      <div :if={group_name_mode(@form, @media)} class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
-        <.input
-          field={@form[:recording_group_name]}
-          label="Group label (optional)"
-          value={group_field_value(@form, @media, :recording_group_name, :name)}
-        />
-        <.input
-          field={@form[:recording_group_part_word]}
-          label={~s(What's one release called? — default "part")}
-          placeholder="part"
-          value={group_field_value(@form, @media, :recording_group_part_word, :part_word)}
-        />
-        <.input
-          field={@form[:recording_group_part_word_plural]}
-          label={~s(…and several? — default "parts")}
-          placeholder="parts"
-          value={group_field_value(@form, @media, :recording_group_part_word_plural, :part_word_plural)}
-        />
-      </div>
-
-      <.input
-        :if={group_name_mode(@form, @media)}
-        field={@form[:recording_group_show_label]}
-        type="checkbox"
-        label="Show the group label to listeners on this set's stacked tile"
-        value={group_field_value(@form, @media, :recording_group_show_label, :show_label)}
-      />
 
       <.input type="hidden" field={@form[:image_type]} />
       <.input type="hidden" field={@form[:image_path]} />

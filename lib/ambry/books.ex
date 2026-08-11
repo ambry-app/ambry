@@ -353,12 +353,28 @@ defmodule Ambry.Books do
   end
 
   @doc """
-  Returns all books for use in `Select` components.
+  Returns all books for use in `Select` components, as rich options: cover,
+  title, and the authors — the fact that tells two same-titled books apart.
   """
   def books_for_select do
-    query = from b in Book, select: {b.title, b.id}, order_by: b.title
+    BookFlat
+    |> order_by(asc: :title)
+    |> Repo.all()
+    |> Enum.map(
+      &%{
+        id: &1.id,
+        label: &1.title,
+        image: List.first(&1.thumbnails || []),
+        detail: book_select_detail(&1)
+      }
+    )
+  end
 
-    Repo.all(query)
+  defp book_select_detail(%BookFlat{authors: authors}) do
+    case Enum.map(authors || [], & &1.name) do
+      [] -> nil
+      names -> Enum.join(names, ", ")
+    end
   end
 
   @doc """

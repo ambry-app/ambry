@@ -68,11 +68,12 @@ defmodule Ambry.Library.NamingTemplate do
   @doc """
   The filename for a recording's file, keeping the source's extension.
 
-  A recording carrying part-of-a-set numbers passes `{number, total}` (total
-  may be nil) and gets a " - Part N of M" suffix — parts of one set are
-  separate imports into the same book folder, and without the suffix they'd
-  render to one identical path. (A proper `{part}` template token is future
-  work; this keeps the parts apart until then.)
+  A recording in a part set passes `%{number: n, total: t, word: w}` (total
+  and word may be nil) and gets a " - Part N of M" suffix in the group's own
+  wording — parts of one set are separate imports into the same book folder,
+  and without the suffix they'd render to one identical path. (A proper
+  `{part}` template token is future work; this keeps the parts apart until
+  then.)
   """
   def filename(values, source_path, part \\ nil) do
     values = stringify(values)
@@ -84,8 +85,15 @@ defmodule Ambry.Library.NamingTemplate do
   end
 
   defp part_suffix(nil), do: ""
-  defp part_suffix({number, nil}), do: " - Part #{number}"
-  defp part_suffix({number, total}), do: " - Part #{number} of #{total}"
+
+  defp part_suffix(%{number: number} = part) do
+    word = String.capitalize(part[:word] || "part")
+
+    case part[:total] do
+      nil -> " - #{word} #{number}"
+      total -> " - #{word} #{number} of #{total}"
+    end
+  end
 
   @doc """
   Checks a template without needing anything to render it against.

@@ -186,6 +186,10 @@ defmodule AmbryWeb.Router do
       live "/series/new", SeriesLive.Form, :new
       live "/series/:id/edit", SeriesLive.Form, :edit
 
+      live "/groups", RecordingGroupLive.Index
+      live "/groups/new", RecordingGroupLive.Form, :new
+      live "/groups/:id/edit", RecordingGroupLive.Form, :edit
+
       live "/universes", UniverseLive.Index
       live "/universes/new", UniverseLive.Form, :new
       live "/universes/:id/edit", UniverseLive.Form, :edit

@@ -60,17 +60,10 @@ defmodule Ambry.Media.Media do
     # work's (translated/regional/retail title); nil means the book's title
     field :title, :string
 
-    # multi-part recordings: each part is a full media of the same book,
-    # optionally labeled "Part N of M" and grouped with its siblings
+    # multi-part recordings: this recording's position within its group —
+    # meaningful only alongside recording_group_id (a part number without a
+    # set is nonsense, enforced by CHECK); the set's total lives on the group
     field :part_number, :integer
-    field :parts_total, :integer
-
-    # form-only: recording-group picker staging, see apply_recording_group_choice/1
-    field :recording_group_choice, :string, virtual: true
-    field :recording_group_name, :string, virtual: true
-    field :recording_group_show_label, :boolean, virtual: true
-    field :recording_group_part_word, :string, virtual: true
-    field :recording_group_part_word_plural, :string, virtual: true
 
     field :source_path, :string
     field :source_files, {:array, :string}, default: []
@@ -109,10 +102,7 @@ defmodule Ambry.Media.Media do
       :full_cast,
       :title,
       :part_number,
-      :parts_total,
       :recording_group_id,
-      :recording_group_choice,
-      :recording_group_show_label,
       :source_path,
       :source_files,
       :custody,
@@ -142,13 +132,6 @@ defmodule Ambry.Media.Media do
       sort_param: :supplemental_files_sort,
       drop_param: :supplemental_files_drop
     )
-    |> cast(
-      attrs,
-      [:recording_group_name, :recording_group_part_word, :recording_group_part_word_plural],
-      empty_values: []
-    )
-    |> apply_recording_group_choice()
-    |> maybe_rename_recording_group()
     |> validate_part_fields()
     |> maybe_clear_thumbnails()
     |> status_based_validation(opts)
@@ -158,92 +141,89 @@ defmodule Ambry.Media.Media do
     |> Provenance.track_changes(@provenance_fields, opts[:provenance] || %{})
   end
 
-  # The media form stages the recording-group picker in a virtual field:
-  # "none" clears the group, "new" creates one (with the optional name from
-  # new_recording_group_name) atomically at save, and an id links it. ("" is
-  # unusable as the clear sentinel — Ecto casts it to nil, i.e. "untouched".)
-  # Callers that set recording_group_id directly bypass this entirely.
-  defp apply_recording_group_choice(changeset) do
-    case get_change(changeset, :recording_group_choice) do
-      nil ->
-        changeset
-
-      "none" ->
-        put_change(changeset, :recording_group_id, nil)
-
-      "new" ->
-        put_assoc(changeset, :recording_group, %RecordingGroup{
-          name: presence(get_change(changeset, :recording_group_name)),
-          show_label: get_change(changeset, :recording_group_show_label) == true,
-          part_word: group_word_change(changeset, :recording_group_part_word),
-          part_word_plural: group_word_change(changeset, :recording_group_part_word_plural)
-        })
-
-      id ->
-        case Integer.parse(id) do
-          {id, ""} -> put_change(changeset, :recording_group_id, id)
-          _else -> add_error(changeset, :recording_group_choice, "is invalid")
-        end
-    end
-  end
-
-  # Updates the currently-linked group's label/wording (shared by all its
-  # parts) when the form's fields changed. Only applies while the media stays
-  # linked to that same group — picking a different or new group ignores it.
-  defp maybe_rename_recording_group(changeset) do
-    group = changeset.data.recording_group
-
-    updates =
-      [
-        name: get_change(changeset, :recording_group_name),
-        show_label: get_change(changeset, :recording_group_show_label),
-        part_word: get_change(changeset, :recording_group_part_word),
-        part_word_plural: get_change(changeset, :recording_group_part_word_plural)
-      ]
-      |> Enum.reject(fn {_field, value} -> is_nil(value) end)
-      |> Map.new(fn {field, value} -> {field, group_update_value(field, value)} end)
-
-    with false <- updates == %{},
-         false <- get_change(changeset, :recording_group_choice) == "new",
-         %RecordingGroup{} <- group,
-         true <- get_field(changeset, :recording_group_id) == group.id,
-         true <- Enum.any?(updates, fn {field, value} -> Map.get(group, field) != value end) do
-      put_assoc(changeset, :recording_group, RecordingGroup.changeset(group, updates))
-    else
-      _no_update -> changeset
-    end
-  end
-
-  # the label-visibility flag is a boolean — everything else is a string
-  # that folds empty to nil
-  defp group_update_value(:show_label, value), do: value
-  defp group_update_value(_field, value), do: presence(value)
-
-  defp group_word_change(changeset, field) do
-    changeset |> get_change(field) |> presence_downcase()
-  end
-
-  defp presence_downcase(nil), do: nil
-  defp presence_downcase(string), do: string |> presence() |> then(&(&1 && String.downcase(&1)))
-
-  defp presence(nil), do: nil
-  defp presence(string) when is_binary(string), do: with("" <- String.trim(string), do: nil)
-
   defp validate_part_fields(changeset) do
     changeset
+    |> clear_part_when_detached()
     |> validate_number(:part_number, greater_than_or_equal_to: 1)
-    |> validate_number(:parts_total, greater_than_or_equal_to: 1)
+    |> validate_part_requires_group()
     |> validate_part_number_within_total()
+    |> validate_group_book()
+    |> check_constraint(:part_number, name: "media_part_number_requires_group")
   end
 
+  # A group belongs to a book the way its members do — attaching a media to
+  # another book's set is nonsense the tile renderer couldn't even display.
+  # The total also becomes checkable here once the group is fetched.
+  defp validate_group_book(changeset) do
+    group_id = get_field(changeset, :recording_group_id)
+
+    if group_id && (changed?(changeset, :recording_group_id) or changed?(changeset, :book_id)) do
+      prepare_changes(changeset, &check_group_book(&1, group_id))
+    else
+      changeset
+    end
+  end
+
+  defp check_group_book(changeset, group_id) do
+    case changeset.repo.get(RecordingGroup, group_id) do
+      %RecordingGroup{book_id: book_id} = group ->
+        cond do
+          book_id != get_field(changeset, :book_id) ->
+            add_error(changeset, :recording_group_id, "belongs to a different book")
+
+          over_total?(changeset, group) ->
+            add_error(changeset, :part_number, "can't be greater than the total number of parts")
+
+          true ->
+            changeset
+        end
+
+      nil ->
+        add_error(changeset, :recording_group_id, "does not exist")
+    end
+  end
+
+  defp over_total?(changeset, %RecordingGroup{parts_total: total}) do
+    part = get_field(changeset, :part_number)
+    part && total && part > total
+  end
+
+  # Leaving the group takes the part number with it — a position in a set
+  # the recording is no longer in isn't a fact to keep.
+  defp clear_part_when_detached(changeset) do
+    case fetch_change(changeset, :recording_group_id) do
+      {:ok, nil} -> put_change(changeset, :part_number, nil)
+      _unchanged_or_set -> changeset
+    end
+  end
+
+  defp validate_part_requires_group(changeset) do
+    if get_field(changeset, :part_number) && is_nil(get_field(changeset, :recording_group_id)) do
+      add_error(changeset, :part_number, "requires a group")
+    else
+      changeset
+    end
+  end
+
+  # The total lives on the group, so this check can only run where the total
+  # is visible — the already-loaded linked group. Linking a different group
+  # by id is covered only by the DB CHECKs; the group form validates its
+  # members against the total itself.
   defp validate_part_number_within_total(changeset) do
     part_number = get_field(changeset, :part_number)
-    parts_total = get_field(changeset, :parts_total)
+    parts_total = visible_parts_total(changeset)
 
     if part_number && parts_total && part_number > parts_total do
       add_error(changeset, :part_number, "can't be greater than the total number of parts")
     else
       changeset
+    end
+  end
+
+  defp visible_parts_total(changeset) do
+    case {changeset.data.recording_group, get_field(changeset, :recording_group_id)} do
+      {%RecordingGroup{id: id, parts_total: total}, id} -> total
+      _other -> nil
     end
   end
 
@@ -274,7 +254,7 @@ defmodule Ambry.Media.Media do
   def part_label(%{part_number: n} = media_ish, group) do
     word = media_ish |> resolve_part_word(group) |> String.capitalize()
 
-    case media_ish.parts_total do
+    case resolve_parts_total(media_ish, group) do
       nil -> "#{word} #{n}"
       total -> "#{word} #{n} of #{total}"
     end
@@ -288,6 +268,17 @@ defmodule Ambry.Media.Media do
 
   defp resolve_part_word(%{part_word: word}, nil) when is_binary(word), do: word
   defp resolve_part_word(_media_ish, nil), do: "part"
+
+  # The total is the group's fact: an explicitly passed group, the loaded
+  # group, or a flat row's parts_total column (sourced from the group in the
+  # view). A Media with its group unloaded renders without the "of M".
+  defp resolve_parts_total(_media_ish, %RecordingGroup{parts_total: total}), do: total
+
+  defp resolve_parts_total(%Media{recording_group: %RecordingGroup{parts_total: total}}, nil),
+    do: total
+
+  defp resolve_parts_total(%{parts_total: total}, nil), do: total
+  defp resolve_parts_total(_media_ish, nil), do: nil
 
   defp status_based_validation(changeset, opts) do
     changeset

@@ -61,12 +61,14 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.SourceRef
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.ReleaseName
   alias Ambry.Library
   alias Ambry.Library.Root
   alias Ambry.Library.Source
@@ -113,6 +115,148 @@ defmodule Ambry.Inbox.Draft.Seed do
       destination: destination(item)
     }
     |> reseed_people(item)
+    |> seed_group(item)
+  end
+
+  @doc """
+  Proposes the recording's place in a part set, or leaves the operator's
+  answer alone.
+
+  Detection reads the release's own name first ("… - Part 1 of 2
+  [GraphicAudio]"), the tag title's tail second, and the titles of the
+  ticked recording records third (Audible lists GraphicAudio parts as
+  "The Way of Kings (1 of 3)" — the title itself is deliberately never
+  stripped, it names a distinct recording). A proposal is never
+  auto-approved and the name is prefilled with the work's title — the same
+  default a set gets everywhere else — so the common case is one Confirm.
+
+  Curated, removed and operator-added links survive untouched; an uncurated
+  proposal follows fresh detection, whichever way it moves.
+  """
+  def seed_group(%Draft{recording: nil} = draft, _item), do: draft
+
+  def seed_group(%Draft{} = draft, %InboxItem{} = item) do
+    existing = draft.recording.recording_group
+
+    if existing && (existing.curated or existing.removed or existing.source == "manual") do
+      draft
+    else
+      put_in(
+        draft,
+        [Access.key(:recording), Access.key(:recording_group)],
+        propose_group(draft, item)
+      )
+    end
+  end
+
+  # The linked book already having a set is itself a signal — "you have a
+  # group for recordings of this work; is this another part of the same
+  # set?" — so a single existing group proposes a :link even when nothing in
+  # the release says "part". Several groups can't be told apart without a
+  # name to match (group names are operator-supplied), so they ride along as
+  # candidates on an unresolved :create instead.
+  defp propose_group(draft, item) do
+    detected = detect_part(draft, item)
+
+    case {detected, book_groups(draft)} do
+      {nil, []} -> nil
+      {_detected, [group]} -> link_proposal(group, detected)
+      {detected, groups} -> create_proposal(draft, detected, groups)
+    end
+  end
+
+  defp link_proposal(group, detected) do
+    {number, total, source} = detected || {nil, nil, nil}
+
+    %GroupLink{
+      mode: :link,
+      recording_group_id: group.id,
+      name: group.name,
+      proposed_name: group.name,
+      part_number: number,
+      parts_total: group.parts_total || total,
+      source: source || "library",
+      approved: false,
+      candidates: group_candidates([group])
+    }
+  end
+
+  defp create_proposal(draft, detected, groups) do
+    {number, total, source} = detected || {nil, nil, nil}
+    name = proposed_group_name(draft.recording)
+
+    %GroupLink{
+      mode: :create,
+      name: name,
+      proposed_name: presence(name),
+      source: source || "library",
+      part_number: number,
+      parts_total: total,
+      approved: false,
+      candidates: group_candidates(groups)
+    }
+  end
+
+  defp group_candidates(groups) do
+    Enum.map(groups, fn group ->
+      %GroupLink.Match{
+        recording_group_id: group.id,
+        name: group.name,
+        parts_total: group.parts_total
+      }
+    end)
+  end
+
+  defp book_groups(%Draft{work: %Work{mode: :link, book_id: book_id}}) when not is_nil(book_id),
+    do: Ambry.Media.recording_groups_for_book(book_id)
+
+  defp book_groups(_draft), do: []
+
+  # A group's name says what distinguishes this set from the book's other
+  # recordings — the production, not the work — and the publisher IS that
+  # fact ("GraphicAudio", "Soundbooth Theater"). Settled or leading
+  # proposal; blank when nobody knows, because naming a set after its book
+  # repeats what every surrounding surface already says (operator call,
+  # 2026-08-10).
+  defp proposed_group_name(%Recording{publisher: %Field{} = publisher}) do
+    Field.value(publisher) ||
+      case publisher.candidates do
+        [%Candidate{value: value} | _rest] when is_binary(value) -> value
+        _none -> ""
+      end
+  end
+
+  defp proposed_group_name(_recording), do: ""
+
+  defp detect_part(draft, item) do
+    parsed = ReleaseName.parse(item.path)
+    tag_parsed = ReleaseName.parse((item.tags || %{})["book_title"] || "")
+
+    cond do
+      is_integer(parsed.parts_total) ->
+        {parsed.part_number, parsed.parts_total, "name"}
+
+      is_integer(tag_parsed.parts_total) ->
+        {tag_parsed.part_number, tag_parsed.parts_total, "tags"}
+
+      part = provider_part(draft, item) ->
+        part
+
+      true ->
+        nil
+    end
+  end
+
+  defp provider_part(draft, item) do
+    item
+    |> records("recording")
+    |> used(draft.recording.sources)
+    |> Enum.find_value(fn record ->
+      case ReleaseName.part_of(record["title"]) do
+        nil -> nil
+        {number, total} -> {number, total, source_of(record)}
+      end
+    end)
   end
 
   @doc """
@@ -833,6 +977,11 @@ defmodule Ambry.Inbox.Draft.Seed do
       [Access.key(:work), Access.key(:series)],
       &Enum.map(&1 || [], fn s -> relink_series(s) end)
     )
+    # After relink_work flips Part 2's work to the book Part 1 just created,
+    # the same seeding pass sees the book's group and upgrades an uncurated
+    # :create proposal to "join the existing set". Curated/removed/manual
+    # links pass through untouched, so re-running relink is idempotent.
+    |> seed_group(item)
     |> reconcile_people(item)
     |> reopen_new_person_questions()
   end
@@ -891,7 +1040,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   # linking a recording to the wrong existing book is the worst outcome this
   # form can produce.
   defp relink_work(%Draft{work: %Work{mode: :create, curated: false} = work} = draft, item) do
-    with title when is_binary(title) <- Field.value(work.title),
+    with title when is_binary(title) <- relink_title(work),
          [book] <- books_titled(title),
          true <- authors_overlap?(book, work) do
       linked = %{work | mode: :link, book_id: book.id, approved: true}
@@ -902,6 +1051,23 @@ defmodule Ambry.Inbox.Draft.Seed do
   end
 
   defp relink_work(draft, _item), do: draft
+
+  # A settled value when there is one, else the leading proposal: a title
+  # field whose candidates merely disagree on spelling has no value yet, but
+  # its top proposal is the same evidence a settled value would have come
+  # from, and the exact title-key + author-overlap guards below do the real
+  # vetting. Measured live on the split ACOTAR pair: part 2's title held
+  # "A Court of Thorns and Roses" and its tag spelling as open candidates,
+  # so the sibling relink silently never fired.
+  defp relink_title(%Work{title: %Field{} = title}) do
+    Field.value(title) ||
+      case title.candidates do
+        [%Candidate{value: value} | _rest] when is_binary(value) -> value
+        _none -> nil
+      end
+  end
+
+  defp relink_title(_work), do: nil
 
   # Fetched by keyword and filtered on `title_key/1` — exact identity, but
   # case, punctuation and leading articles don't make a different book: the

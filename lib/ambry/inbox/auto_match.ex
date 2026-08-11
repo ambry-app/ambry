@@ -603,6 +603,8 @@ defmodule Ambry.Inbox.AutoMatch do
   def hints(%InboxItem{} = item) do
     tags = item.tags || %{}
     parsed = ReleaseName.parse(item.path)
+    tag_parsed = ReleaseName.parse(tags["book_title"] || "")
+    part = part_hint(parsed, tag_parsed)
 
     %{
       # The tag title is stripped of release junk before it becomes a query:
@@ -621,9 +623,18 @@ defmodule Ambry.Inbox.AutoMatch do
       # that stops a label-tagged later volume matching the series' famous
       # first book.
       series_number:
-        presence_number(tags["series_number"]) ||
-          ReleaseName.parse(tags["book_title"] || "").series_number ||
-          parsed.series_number,
+        suppress_part_polluted_series_number(
+          presence_number(tags["series_number"]) ||
+            tag_parsed.series_number ||
+            parsed.series_number,
+          part,
+          presence(tags["series"]) || parsed.series
+        ),
+      # The release's place in a part set ("Part 1 of 2"), from the file
+      # name first — GraphicAudio names releases precisely, tag titles are
+      # messier — and the tag title's tail second.
+      part_number: part && elem(part, 0),
+      parts_total: part && elem(part, 1),
       asin: presence(tags["asin"]) || parsed.asin,
       # Kept **beside** `title` rather than folded into it. The tags win the
       # hint because they are the more reliable field, but the name is a real
@@ -1579,6 +1590,30 @@ defmodule Ambry.Inbox.AutoMatch do
       nil -> nil
       decimal -> decimal
     end
+  end
+
+  # filename first — GraphicAudio names releases precisely; tag titles are
+  # messier and only get a say when the name says nothing
+  defp part_hint(%ReleaseName{parts_total: total} = parsed, _tag_parsed) when is_integer(total),
+    do: {parsed.part_number, total}
+
+  defp part_hint(_parsed, %ReleaseName{parts_total: total} = tag_parsed) when is_integer(total),
+    do: {tag_parsed.part_number, total}
+
+  defp part_hint(_parsed, _tag_parsed), do: nil
+
+  # A GraphicAudio file tagged `part=1` feeds the tags' series_number field,
+  # so a part-set release would claim "book N" of whatever series gets
+  # proposed — for any part but the first, confidently wrong. When the
+  # number agrees with the detected part number and nothing actually names a
+  # series, the number is the part's, not a series position.
+  defp suppress_part_polluted_series_number(nil, _part, _series), do: nil
+  defp suppress_part_polluted_series_number(number, nil, _series), do: number
+
+  defp suppress_part_polluted_series_number(number, {part_number, _total}, series) do
+    if !(is_nil(series) and is_integer(part_number) and
+           Decimal.compare(number, Decimal.new(part_number)) == :eq),
+       do: number
   end
 
   defp apply_narrator(score, narrators, narrator) when narrators in [nil, []] or is_nil(narrator),

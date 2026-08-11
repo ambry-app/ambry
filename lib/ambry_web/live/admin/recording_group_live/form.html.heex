@@ -1,0 +1,75 @@
+<.layout title={@page_title} user={@current_user}>
+  <div class="max-w-3xl">
+    <.simple_form id="group-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+      <.input field={@form[:name]} label="Name" />
+
+      <%!-- the set covers one book, like its members do; once recordings
+          are attached, they ARE the book and the field goes read-only --%>
+      <.input
+        :if={@group.media == []}
+        field={@form[:book_id]}
+        type="autocomplete"
+        options={@books}
+        label="Book"
+      />
+      <div :if={@group.media != []} class="space-y-2">
+        <.label>Book</.label>
+        <p class="pl-3 text-sm text-zinc-300">{@group.book.title}</p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
+        <.input field={@form[:parts_total]} type="number" min="1" label="Total parts (optional)" />
+        <.input
+          field={@form[:part_word]}
+          label={~s(One release is a… — default "part")}
+          placeholder="part"
+        />
+        <.input
+          field={@form[:part_word_plural]}
+          label={~s(…several are — default "parts")}
+          placeholder="parts"
+        />
+      </div>
+
+      <.input
+        field={@form[:show_label]}
+        type="checkbox"
+        label="Show the group's name to listeners on this set's stacked tile"
+      />
+
+      <div class="space-y-2">
+        <.label>Recordings</.label>
+        <.inputs_for :let={member_form} field={@form[:members]}>
+          <.sort_input field={@form[:members_sort]} index={member_form.index} />
+
+          <div class="relative flex items-start gap-2">
+            <.input
+              field={member_form[:part_number]}
+              placeholder="no."
+              container_class="w-14 flex-none"
+              show_errors={false}
+            />
+            <.input
+              field={member_form[:media_id]}
+              type="autocomplete"
+              options={@media_options}
+              container_class="grow"
+            />
+            <.delete_button
+              field={@form[:members_drop]}
+              index={member_form.index}
+              class="absolute top-3 right-2"
+            />
+          </div>
+        </.inputs_for>
+
+        <.add_button field={@form[:members_sort]}>Add recording</.add_button>
+        <.delete_input field={@form[:members_drop]} />
+      </div>
+
+      <:actions>
+        <.button>Save</.button>
+      </:actions>
+    </.simple_form>
+  </div>
+</.layout>

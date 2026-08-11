@@ -146,12 +146,13 @@ defmodule AmbrySchema.SyncTest do
       recordingGroupsChangedSince(since: $since) {
         id
         name
+        partsTotal
       }
       mediaChangedSince(since: $since) {
         partNumber
-        partsTotal
         recordingGroup {
           name
+          partsTotal
         }
       }
       deletionsSince(since: $since) {
@@ -163,24 +164,23 @@ defmodule AmbrySchema.SyncTest do
     test "returns groups, part fields, and tracks group deletions", %{conn: conn} do
       book = insert(:book)
 
+      {:ok, group} =
+        Ambry.Media.create_recording_group(%{
+          name: "Season One",
+          parts_total: 3,
+          book_id: book.id
+        })
+
       {:ok, media} =
         :media
-        |> params_for(
-          book_id: book.id,
-          part_number: 1,
-          parts_total: 3,
-          recording_group_choice: "new",
-          recording_group_name: "Season One"
-        )
+        |> params_for(book_id: book.id, part_number: 1, recording_group_id: group.id)
         |> Map.take([
           :abridged,
           :full_cast,
           :source_path,
           :book_id,
           :part_number,
-          :parts_total,
-          :recording_group_choice,
-          :recording_group_name
+          :recording_group_id
         ])
         |> Ambry.Media.create_media()
 
@@ -188,12 +188,11 @@ defmodule AmbrySchema.SyncTest do
 
       assert %{
                "data" => %{
-                 "recordingGroupsChangedSince" => [%{"name" => "Season One"}],
+                 "recordingGroupsChangedSince" => [%{"name" => "Season One", "partsTotal" => 3}],
                  "mediaChangedSince" => [
                    %{
                      "partNumber" => 1,
-                     "partsTotal" => 3,
-                     "recordingGroup" => %{"name" => "Season One"}
+                     "recordingGroup" => %{"name" => "Season One", "partsTotal" => 3}
                    }
                  ]
                }
@@ -202,7 +201,7 @@ defmodule AmbrySchema.SyncTest do
       # clearing the last member orphan-deletes the group, tracked for sync
       {:ok, _media} =
         Ambry.Media.update_media(Ambry.Media.get_media!(media.id), %{
-          recording_group_choice: "none"
+          "recording_group_id" => ""
         })
 
       conn =

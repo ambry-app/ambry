@@ -273,7 +273,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   defp linked_author_name(authors, value) do
-    Enum.find_value(authors, fn {name, id} -> to_string(id) == to_string(value) && name end)
+    Enum.find_value(authors, fn option ->
+      to_string(option.id) == to_string(value) && option.label
+    end)
   end
 
   defp shared_with(author_person_form, person) do

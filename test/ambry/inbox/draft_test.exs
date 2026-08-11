@@ -5,6 +5,7 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
@@ -2336,6 +2337,378 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Draft.Edit.rename_series(item.draft, 0, "The Expanse")
 
       assert hd(draft.work.series).name == "The Expanse"
+    end
+  end
+
+  describe "the group link" do
+    # The series doctrine one level down: a part number is never invented,
+    # and "part of this set, position unknown" stays a question.
+    test "resolved?/1 and state/1" do
+      refute GroupLink.resolved?(%GroupLink{part_number: nil, approved: true, name: "Set"})
+      assert GroupLink.state(%GroupLink{part_number: nil}) == :missing
+
+      unapproved = %GroupLink{part_number: 1, name: "Set", mode: :create}
+      refute GroupLink.resolved?(unapproved)
+      assert GroupLink.state(unapproved) == :unconfirmed
+
+      # a blank name is storable (clearing to retype) but never resolved
+      refute GroupLink.resolved?(%GroupLink{
+               part_number: 1,
+               approved: true,
+               mode: :create,
+               name: " "
+             })
+
+      refute GroupLink.resolved?(%GroupLink{part_number: 1, approved: true, mode: :link})
+
+      assert GroupLink.resolved?(%GroupLink{
+               part_number: 1,
+               approved: true,
+               mode: :create,
+               name: "Set"
+             })
+
+      assert GroupLink.resolved?(%GroupLink{
+               part_number: 2,
+               approved: true,
+               mode: :link,
+               recording_group_id: 7
+             })
+    end
+
+    test "a live unresolved link blocks import; removed or absent does not" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      absent = Draft.unresolved(draft)
+      refute Enum.any?(absent, &(&1.label =~ "Part of a set"))
+
+      live = put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{})
+      assert Enum.any?(Draft.unresolved(live), &(&1.label =~ "Part of a set"))
+
+      removed = Draft.Edit.remove_group(live)
+      refute Enum.any?(Draft.unresolved(removed), &(&1.label =~ "Part of a set"))
+    end
+
+    test "a proposal tombstones on removal and survives the dump/load round-trip" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        put_in(item.draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "GraphicAudio",
+          proposed_name: "GraphicAudio",
+          source: "name",
+          part_number: 1,
+          parts_total: 2
+        })
+
+      removed = Draft.Edit.remove_group(draft)
+      assert removed.recording.recording_group.removed
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(removed))
+      assert item.draft.recording.recording_group.removed
+      assert item.draft.recording.recording_group.name == "GraphicAudio"
+
+      restored = Draft.Edit.restore_group(item.draft)
+      refute restored.recording.recording_group.removed
+    end
+
+    test "an operator-added link really deletes and nil round-trips" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      added = Draft.Edit.add_group(item.draft)
+      assert %GroupLink{source: "manual", curated: true} = added.recording.recording_group
+
+      gone = Draft.Edit.remove_group(added)
+      assert gone.recording.recording_group == nil
+
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(gone))
+      assert item.draft.recording.recording_group == nil
+    end
+
+    test "approve_all settles a numbered link but never invents a part number" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      numbered =
+        put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "Set",
+          part_number: 1
+        })
+
+      settled = Draft.Edit.approve_all(numbered)
+      assert settled.recording.recording_group.approved
+
+      unnumbered =
+        put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "Set",
+          part_number: nil
+        })
+
+      still_open = Draft.Edit.approve_all(unnumbered)
+      refute still_open.recording.recording_group.approved
+    end
+  end
+
+  describe "part-set auto-detection" do
+    # the dev inbox's real split-GraphicAudio shape: the item's path IS the
+    # audio file, whose name states the part outright
+    test "a part-stating file name seeds an unapproved :create proposal named for the publisher" do
+      item =
+        item(%{
+          path:
+            "/downloads/[ACOTAR #1] A Court of Thorns and Roses [GraphicAudio]/[ACOTAR #1] A Court of Thorns and Roses - Part 1 of 2 [GraphicAudio] (chapterized).m4b",
+          matches: matches([provider_candidate(%{"title" => "A Court of Thorns and Roses"})]),
+          # the publisher IS what distinguishes this set from the book's
+          # other recordings, so it's the natural name
+          tags: %{"publisher" => "GraphicAudio"}
+        })
+
+      draft = Seed.build(item)
+
+      assert %GroupLink{
+               mode: :create,
+               name: "GraphicAudio",
+               proposed_name: "GraphicAudio",
+               part_number: 1,
+               parts_total: 2,
+               source: "name",
+               approved: false,
+               curated: false
+             } = draft.recording.recording_group
+    end
+
+    test "with no publisher anywhere, the proposal's name stays blank — never the book's" do
+      item =
+        item(%{
+          path: "/downloads/Some Book - Part 1 of 2/Some Book - Part 1 of 2.m4b",
+          matches: matches([provider_candidate(%{})]),
+          tags: %{}
+        })
+
+      draft = Seed.build(item)
+
+      link = draft.recording.recording_group
+      assert link.name in [nil, ""]
+      refute GroupLink.resolved?(%{link | approved: true})
+    end
+
+    test "a tag title's tail seeds the proposal when the file name says nothing" do
+      item =
+        item(%{
+          matches: matches([provider_candidate(%{})]),
+          tags: %{
+            "book_title" => "A Court of Thorns and Roses 1: A Court of Thorns and Roses 2 of 2"
+          }
+        })
+
+      draft = Seed.build(item)
+
+      assert %GroupLink{part_number: 2, parts_total: 2, source: "tags", approved: false} =
+               draft.recording.recording_group
+    end
+
+    test "a ticked recording record's \"(N of M)\" title seeds the proposal" do
+      recording_record =
+        provider_candidate(%{
+          "source" => "provider:audible",
+          "id" => "B0AAAA",
+          "title" => "A Court of Thorns and Roses (1 of 2)",
+          "narrators" => ["Full Cast"],
+          "score" => 0.95
+        })
+
+      item =
+        item(%{
+          matches:
+            matches([provider_candidate(%{})],
+              recording: [recording_record],
+              recording_confidence: 0.95
+            ),
+          tags: %{}
+        })
+
+      draft = Seed.build(item)
+
+      assert %GroupLink{part_number: 1, parts_total: 2, source: "provider:audible"} =
+               draft.recording.recording_group
+    end
+
+    test "no detection means no proposal" do
+      draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
+
+      assert draft.recording.recording_group == nil
+    end
+
+    test "a reseed follows fresh detection for an uncurated proposal but never touches a curated or removed one" do
+      item =
+        item(%{
+          path: "/downloads/Some Book - Part 1 of 2/Some Book - Part 1 of 2.m4b",
+          matches: matches([provider_candidate(%{})]),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert %GroupLink{part_number: 1, curated: false} = item.draft.recording.recording_group
+
+      # an uncurated proposal is re-derived in place
+      reseeded = Seed.seed_group(item.draft, item)
+      assert %GroupLink{part_number: 1, approved: false} = reseeded.recording.recording_group
+
+      # curated survives verbatim
+      curated =
+        put_in(
+          item.draft,
+          [Access.key(:recording), Access.key(:recording_group), Access.key(:curated)],
+          true
+        )
+
+      assert Seed.seed_group(curated, item) == curated
+
+      # a tombstoned removal survives too — detection must not resurrect it
+      removed = Draft.Edit.remove_group(item.draft)
+      assert Seed.seed_group(removed, item).recording.recording_group.removed
+    end
+
+    test "linking a book with one existing set proposes joining it, detection numbers carried" do
+      book = insert(:book)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2, book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      item =
+        item(%{
+          path: "/downloads/Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
+          matches: matches([provider_candidate(%{})]),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      draft = Draft.Edit.link_book(item.draft, item, book.id)
+
+      group_id = group.id
+
+      assert %GroupLink{
+               mode: :link,
+               recording_group_id: ^group_id,
+               name: "GraphicAudio",
+               part_number: 2,
+               parts_total: 2,
+               approved: false,
+               curated: false
+             } = draft.recording.recording_group
+    end
+
+    test "the linked book having a set is itself the signal — no part detection needed" do
+      book = insert(:book)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2, book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      draft = Draft.Edit.link_book(item.draft, item, book.id)
+
+      # "is this another part of the same set?" — the position is the open
+      # question, so the link stays :missing until answered or removed
+      assert %GroupLink{mode: :link, part_number: nil} = draft.recording.recording_group
+      assert GroupLink.state(draft.recording.recording_group) == :missing
+    end
+
+    test "several existing sets can't be told apart — they ride along as candidates" do
+      book = insert(:book)
+      group_one = insert(:recording_group, name: "GraphicAudio", book: book)
+      group_two = insert(:recording_group, name: "Soundbooth Season One", book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group_one)
+      insert(:media, book: book, part_number: 1, recording_group: group_two)
+
+      item =
+        item(%{
+          path: "/downloads/Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
+          matches: matches([provider_candidate(%{})]),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      draft = Draft.Edit.link_book(item.draft, item, book.id)
+
+      assert %GroupLink{mode: :create, candidates: candidates} =
+               draft.recording.recording_group
+
+      assert Enum.map(candidates, & &1.name) == ["GraphicAudio", "Soundbooth Season One"]
+    end
+
+    # Measured live on the split ACOTAR pair: a title whose candidates merely
+    # disagree on spelling has no settled value, and the sibling relink
+    # silently never fired — part 2 kept proposing a second group.
+    test "relink matches on the leading title candidate when nothing is settled yet" do
+      author =
+        insert(:author, name: "Sarah J. Maas", person: build(:person, name: "Sarah J. Maas"))
+
+      book =
+        insert(:book,
+          title: "A Court of Thorns and Roses",
+          book_authors: [build(:book_author, author: author)]
+        )
+
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2, book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      item =
+        item(%{
+          path: "/downloads/ACOTAR - Part 2 of 2/ACOTAR - Part 2 of 2.m4b",
+          matches:
+            matches([
+              provider_candidate(%{
+                "title" => "A Court of Thorns and Roses",
+                "authors" => ["Sarah J. Maas"]
+              })
+            ]),
+          tags: %{
+            "book_title" => "A Court of Thorns and Roses 1: A Court of Thorns and Roses 2 of 2",
+            "authors" => ["Sarah J. Maas"]
+          }
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # the precondition this test exists for: candidates disagree, no value
+      assert Field.value(item.draft.work.title) == nil
+      assert item.draft.work.mode == :create
+
+      relinked = Seed.relink(item.draft, item)
+
+      assert relinked.work.mode == :link
+      assert relinked.work.book_id == book.id
+
+      group_id = group.id
+
+      assert %GroupLink{mode: :link, recording_group_id: ^group_id, part_number: 2} =
+               relinked.recording.recording_group
+    end
+
+    test "the part-polluted series number is suppressed, a real one is not" do
+      # GraphicAudio's shape: a `part` tag feeding series_number, no series
+      # named anywhere — the number is the part's
+      polluted =
+        item(%{
+          path: "/downloads/Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
+          tags: %{"series_number" => "2"}
+        })
+
+      assert Ambry.Inbox.AutoMatch.hints(polluted).series_number == nil
+      assert Ambry.Inbox.AutoMatch.hints(polluted).part_number == 2
+      assert Ambry.Inbox.AutoMatch.hints(polluted).parts_total == 2
+
+      # a named series keeps its number even when it matches the part number
+      named_series =
+        item(%{
+          path: "/downloads/Another Book - Part 2 of 2/Another Book - Part 2 of 2.m4b",
+          tags: %{"series" => "The Real Series", "series_number" => "2"}
+        })
+
+      assert Decimal.equal?(Ambry.Inbox.AutoMatch.hints(named_series).series_number, 2)
     end
   end
 

@@ -14,6 +14,7 @@ defmodule Ambry.Inbox.Draft.Recording do
 
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.SourceRef
 
   @primary_key false
@@ -30,14 +31,12 @@ defmodule Ambry.Inbox.Draft.Recording do
     # `PersonDecision.evidence_curated`.
     field :evidence_curated, :boolean, default: false
 
-    # The optional part-of-a-set facts Media carries ("Part 1 of 2" —
-    # GraphicAudio's shape). Plain values, deliberately not Fields: the
-    # operator types them, nothing proposes them. A part-release is an
-    # ordinary separate recording (its own cover, date, narrators, sometimes
-    # sold separately) that happens to want this label; grouping parts into
-    # a set stays on the media form.
-    field :part_number, :integer
-    field :parts_total, :integer
+    # The recording's optional place in a part set ("Part 1 of 2" —
+    # GraphicAudio's shape). A part-release is an ordinary separate recording
+    # (its own cover, date, narrators, sometimes sold separately) that joins
+    # a group; nil means the common case, not part of any set. `:delete`
+    # because nil is a legal value the dump/cast round-trip must restore.
+    embeds_one :recording_group, GroupLink, on_replace: :delete
 
     # Which records describe this recording. Hardcover, rreading-glasses and
     # Audible will all have a record of a popular reading — and the databases
@@ -79,13 +78,10 @@ defmodule Ambry.Inbox.Draft.Recording do
       :query_fields,
       :approved,
       :evidence_curated,
-      :part_number,
-      :parts_total,
       :doubt,
       :doubt_detail
     ])
-    |> validate_number(:part_number, greater_than_or_equal_to: 1)
-    |> validate_number(:parts_total, greater_than_or_equal_to: 1)
+    |> cast_embed(:recording_group)
     |> cast_embed(:sources)
     |> cast_embed(:title)
     |> cast_embed(:published)
@@ -133,8 +129,30 @@ defmodule Ambry.Inbox.Draft.Recording do
       field(recording.publisher, "Publisher") ++
       field(recording.description, "Description") ++
       field(recording.cover, "Cover image") ++
+      group(recording.recording_group) ++
       credits(recording.narrators)
   end
+
+  # A live, unresolved group link blocks import — a proposal is never
+  # silently applied, and the escape hatch is removing it. Absent or
+  # tombstoned means "not part of a set", which is an answer.
+  defp group(nil), do: []
+  defp group(%GroupLink{removed: true}), do: []
+
+  defp group(%GroupLink{} = link) do
+    if GroupLink.resolved?(link),
+      do: [],
+      else: [
+        %{
+          section: :recording,
+          label: "Part of a set: #{presence(link.name) || "which set?"}",
+          state: GroupLink.state(link)
+        }
+      ]
+  end
+
+  defp presence(nil), do: nil
+  defp presence(string) when is_binary(string), do: with("" <- String.trim(string), do: nil)
 
   defp identity(%__MODULE__{approved: true}), do: []
 

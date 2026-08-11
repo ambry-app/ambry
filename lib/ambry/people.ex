@@ -433,12 +433,22 @@ defmodule Ambry.People do
   def get_narrator!(id), do: Narrator |> preload(:person) |> Repo.get!(id)
 
   @doc """
-  Returns all narrators for use in `Select` components.
+  Returns all narrators for use in `Select` components, as rich options:
+  the person's portrait, and their real name when the stage name hides it.
   """
   def narrators_for_select do
-    query = from n in Narrator, select: {n.name, n.id}, order_by: n.name
-
-    Repo.all(query)
+    Narrator
+    |> preload(:person)
+    |> order_by(asc: :name)
+    |> Repo.all()
+    |> Enum.map(
+      &%{
+        id: &1.id,
+        label: &1.name,
+        image: portrait(List.wrap(&1.person)),
+        detail: backing(&1.name, List.wrap(&1.person))
+      }
+    )
   end
 
   # Authors
@@ -451,12 +461,26 @@ defmodule Ambry.People do
   def get_author!(id), do: Author |> preload(:people) |> Repo.get!(id)
 
   @doc """
-  Returns all authors for use in `Select` components.
+  Returns all authors for use in `Select` components, as rich options: a
+  portrait, and the human(s) behind a pen name when that's worth saying.
   """
   def authors_for_select do
-    query = from a in Author, select: {a.name, a.id}, order_by: a.name
+    Author
+    |> preload(:people)
+    |> order_by(asc: :name)
+    |> Repo.all()
+    |> Enum.map(
+      &%{
+        id: &1.id,
+        label: &1.name,
+        image: portrait(&1.people),
+        detail: backing(&1.name, &1.people)
+      }
+    )
+  end
 
-    Repo.all(query)
+  defp portrait(people) do
+    Enum.find_value(people, &(&1.thumbnails && &1.thumbnails.extra_small))
   end
 
   @doc """
@@ -501,8 +525,16 @@ defmodule Ambry.People do
   they publish under.
   """
   def people_for_select do
-    query = from p in Person, select: {p.name, p.id}, order_by: p.name
-
-    Repo.all(query)
+    Person
+    |> order_by(asc: :name)
+    |> Repo.all()
+    |> Enum.map(
+      &%{
+        id: &1.id,
+        label: &1.name,
+        image: &1.thumbnails && &1.thumbnails.extra_small,
+        detail: nil
+      }
+    )
   end
 end

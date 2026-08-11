@@ -40,6 +40,7 @@ defmodule Ambry.Inbox.Draft do
 
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Destination
+  alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Work
@@ -252,17 +253,16 @@ defmodule Ambry.Inbox.Draft do
   def curated?(%__MODULE__{} = draft) do
     # Answering the identity question and ticking records are curation too.
     # Both were missed here, so a draft whose only human input was either
-    # one was rebuilt wholesale by the next background re-match. So are the
-    # typed part-of-a-set numbers — nothing proposes those, so a rebuild
-    # could never get them back.
+    # one was rebuilt wholesale by the next background re-match. The group
+    # link carries its own curated flag, like a series link.
     Enum.any?(fields(draft), &(&1 && &1.curated)) or
       Enum.any?(credits(draft), fn {_kind, _section, _index, credit} -> credit.curated end) or
       Enum.any?((draft.work && draft.work.series) || [], & &1.curated) or
       Enum.any?(draft.people, & &1.curated) or
       (draft.work && (draft.work.curated or draft.work.evidence_curated)) == true or
-      (draft.recording &&
-         (draft.recording.evidence_curated or draft.recording.part_number != nil or
-            draft.recording.parts_total != nil)) == true
+      (draft.recording && draft.recording.evidence_curated) == true or
+      (draft.recording && draft.recording.recording_group &&
+         draft.recording.recording_group.curated) == true
   end
 
   defp fields(%__MODULE__{work: work, recording: recording}) do
@@ -314,7 +314,14 @@ defmodule Ambry.Inbox.Draft do
   end
 
   defp recording_total(nil), do: 1
-  defp recording_total(%Recording{} = recording), do: 1 + 5 + live_count(recording.narrators)
+
+  defp recording_total(%Recording{} = recording),
+    do: 1 + 5 + group_count(recording.recording_group) + live_count(recording.narrators)
+
+  # at most one, and a tombstoned link is an answered question
+  defp group_count(nil), do: 0
+  defp group_count(%GroupLink{removed: true}), do: 0
+  defp group_count(%GroupLink{}), do: 1
 
   # Tombstoned rows are answered questions; they neither count nor resolve.
   defp live_count(rows), do: Enum.count(rows, &(not &1.removed))

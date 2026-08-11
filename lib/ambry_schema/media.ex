@@ -47,9 +47,8 @@ defmodule AmbrySchema.Media do
     @desc "Display-title override for this recording (translated/regional/retail title); null means the book's title applies"
     field :title, :string
 
-    @desc "For multi-part recordings: this recording's position in its part set"
+    @desc "For multi-part recordings: this recording's position in its part set; the set's total lives on the recording group"
     field :part_number, :integer
-    field :parts_total, :integer
 
     field :recording_group, :recording_group, resolve: dataloader(Resolvers)
 
@@ -92,7 +91,13 @@ defmodule AmbrySchema.Media do
 
   node object(:recording_group) do
     @desc "Admin-only organizational label; clients should not display it"
-    field :name, :string
+    field :name, non_null(:string)
+
+    @desc "How many releases the set has, when known (\"Part 2 of 3\")"
+    field :parts_total, :integer
+
+    @desc "The work this set covers, same as its members'"
+    field :book, non_null(:book), resolve: dataloader(Resolvers)
 
     @desc "Wording for one release in this set; null means \"part\""
     field :part_word, :string

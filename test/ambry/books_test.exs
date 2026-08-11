@@ -406,15 +406,15 @@ defmodule Ambry.BooksTest do
   end
 
   describe "books_for_select/0" do
-    test "returns all book titles and ids only" do
+    test "returns rich options: title, cover, authors" do
       insert_list(3, :book)
 
       list = Books.books_for_select()
 
       assert [
-               {_, _},
-               {_, _},
-               {_, _}
+               %{id: _, label: _, image: _, detail: _},
+               %{id: _, label: _, image: _, detail: _},
+               %{id: _, label: _, image: _, detail: _}
              ] = list
     end
   end
