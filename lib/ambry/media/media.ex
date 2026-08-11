@@ -147,7 +147,45 @@ defmodule Ambry.Media.Media do
     |> validate_number(:part_number, greater_than_or_equal_to: 1)
     |> validate_part_requires_group()
     |> validate_part_number_within_total()
+    |> validate_group_book()
     |> check_constraint(:part_number, name: "media_part_number_requires_group")
+  end
+
+  # A group belongs to a book the way its members do — attaching a media to
+  # another book's set is nonsense the tile renderer couldn't even display.
+  # The total also becomes checkable here once the group is fetched.
+  defp validate_group_book(changeset) do
+    group_id = get_field(changeset, :recording_group_id)
+
+    if group_id && (changed?(changeset, :recording_group_id) or changed?(changeset, :book_id)) do
+      prepare_changes(changeset, &check_group_book(&1, group_id))
+    else
+      changeset
+    end
+  end
+
+  defp check_group_book(changeset, group_id) do
+    case changeset.repo.get(RecordingGroup, group_id) do
+      %RecordingGroup{book_id: book_id} = group ->
+        cond do
+          book_id != get_field(changeset, :book_id) ->
+            add_error(changeset, :recording_group_id, "belongs to a different book")
+
+          over_total?(changeset, group) ->
+            add_error(changeset, :part_number, "can't be greater than the total number of parts")
+
+          true ->
+            changeset
+        end
+
+      nil ->
+        add_error(changeset, :recording_group_id, "does not exist")
+    end
+  end
+
+  defp over_total?(changeset, %RecordingGroup{parts_total: total}) do
+    part = get_field(changeset, :part_number)
+    part && total && part > total
   end
 
   # Leaving the group takes the part number with it — a position in a set

@@ -8,7 +8,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, media_options: Media.media_for_select())}
+    {:ok, assign(socket, books: Ambry.Books.books_for_select())}
   end
 
   @impl Phoenix.LiveView
@@ -23,8 +23,10 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     socket
     |> assign_form(changeset)
     |> assign(
-      page_title: group.name,
-      group: group
+      # the composed display: the name is local to the book
+      page_title: "#{group.name} — #{group.book.title}",
+      group: group,
+      media_options: Media.media_for_select(group.book_id)
     )
   end
 
@@ -36,7 +38,8 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     |> assign_form(changeset)
     |> assign(
       page_title: "New Group",
-      group: group
+      group: group,
+      media_options: []
     )
   end
 
@@ -47,7 +50,12 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
       |> Media.change_recording_group_form(group_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign_form(socket, changeset)}
+    {:noreply,
+     socket
+     |> assign_form(changeset)
+     # member options follow the chosen book — the set can only hold its
+     # book's recordings
+     |> assign(media_options: Media.media_for_select(group_params["book_id"]))}
   end
 
   def handle_event("submit", %{"recording_group_form" => group_params}, socket) do

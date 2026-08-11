@@ -121,9 +121,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
     |> Enum.take(3)
   end
 
-  defp book_titles(group) do
-    group.media |> Enum.map(& &1.book.title) |> Enum.uniq() |> Enum.join(", ")
-  end
+  defp book_title(group), do: group.book.title
 
   defp parts_summary(group) do
     count = length(group.media)

@@ -599,7 +599,7 @@ defmodule Ambry.Media do
       |> recording_group_order(order)
       |> offset(^offset)
       |> limit(^over_limit)
-      |> preload(media: :book)
+      |> preload([:book, :media])
       |> Repo.all()
 
     groups_to_return = Enum.slice(groups, 0, limit)
@@ -635,7 +635,7 @@ defmodule Ambry.Media do
   """
   def get_recording_group!(id) do
     RecordingGroup
-    |> preload(media: :book)
+    |> preload([:book, media: :book])
     |> Repo.get!(id)
   end
 
@@ -763,6 +763,7 @@ defmodule Ambry.Media do
   defp group_params(form) do
     %{
       name: form.name,
+      book_id: form.book_id,
       parts_total: form.parts_total,
       show_label: form.show_label,
       part_word: form.part_word,
@@ -792,30 +793,56 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Returns all media for use in `Select` components — the media analog of
-  `Books.books_for_select/0`, labeled by title (with part label) and
-  narrators so twin recordings of one book stay tellable apart.
+  Returns one book's recordings for `Select` components, as rich options:
+  cover, display title, and what actually tells two recordings of one book
+  apart — publisher, year, and the narrator when the cast is small (a
+  full-cast roster reads as noise, so it collapses to a count).
   """
-  def media_for_select do
-    MediaFlat
-    |> order_by(asc: :book)
+  def media_for_select(nil), do: []
+  def media_for_select(""), do: []
+
+  def media_for_select(book_id) do
+    query =
+      from m in Media,
+        where: m.book_id == ^book_id,
+        order_by: m.id,
+        preload: [:book, :recording_group, media_narrators: :narrator]
+
+    query
     |> Repo.all()
-    |> Enum.map(&{media_select_label(&1), &1.id})
+    |> Enum.map(
+      &%{
+        id: &1.id,
+        label: &1.title || &1.book.title,
+        image: &1.thumbnails && &1.thumbnails.extra_small,
+        detail: media_select_detail(&1)
+      }
+    )
   end
 
-  defp media_select_label(%MediaFlat{} = flat) do
-    title =
-      cond do
-        flat.title -> flat.title
-        label = Media.part_label(flat) -> "#{flat.book} (#{label})"
-        true -> flat.book
-      end
+  defp media_select_detail(%Media{} = media) do
+    narrators = Enum.map(media.media_narrators, & &1.narrator.name)
 
-    case flat.narrators do
-      [] -> title
-      narrators -> "#{title} — #{Enum.map_join(narrators, ", ", & &1.name)}"
-    end
+    [
+      media.publisher,
+      media.published && media.published.year,
+      case narrators do
+        [] -> nil
+        [one] -> one
+        [one, two] -> "#{one}, #{two}"
+        [first | rest] -> "#{first} +#{length(rest)}"
+      end,
+      # picking a grouped recording MOVES it — the one membership fact
+      # that's a warning rather than decoration
+      media.recording_group && "in “#{media.recording_group.name}”"
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.map_join(" · ", &to_string/1)
+    |> presence()
   end
+
+  defp presence(""), do: nil
+  defp presence(other), do: other
 
   @doc """
   Subscribes to all recording group CRUD messages.
@@ -827,19 +854,12 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Returns all recording groups for use in `Select` components — the group
-  analog of `Books.series_for_select/0`. Global rather than book-scoped so
-  a freshly created empty group (no members yet, so no book) is offerable.
-  """
-  def recording_groups_for_select do
-    query = from g in RecordingGroup, select: {g.name, g.id}, order_by: g.name
-
-    Repo.all(query)
-  end
-
-  @doc """
-  Returns the recording groups usable for the given book, for `Select`
-  components: every group already attached to one of the book's media.
+  Returns the given book's recording groups for `Select` components, as
+  rich options: the set's name, its first part's cover, and how far along
+  it is ("2 of 3 parts", in the group's own wording). Book-scoped — a
+  group belongs to a book the way its members do, and a freshly created
+  empty group is offerable because the FK carries the book even before
+  any member does.
   """
   def recording_groups_for_select(nil), do: []
   def recording_groups_for_select(""), do: []
@@ -847,33 +867,45 @@ defmodule Ambry.Media do
   def recording_groups_for_select(book_id) do
     query =
       from g in RecordingGroup,
-        join: m in assoc(g, :media),
-        on: m.book_id == ^book_id,
-        distinct: true,
+        where: g.book_id == ^book_id,
         order_by: g.id,
-        select: {g.name, g.id}
+        preload: :media
 
-    Repo.all(query)
+    query
+    |> Repo.all()
+    |> Enum.map(
+      &%{
+        id: &1.id,
+        label: &1.name,
+        image: first_member_thumbnail(&1),
+        detail: parts_progress(&1)
+      }
+    )
+  end
+
+  defp first_member_thumbnail(%RecordingGroup{media: media}) do
+    Enum.find_value(media, &(&1.thumbnails && &1.thumbnails.extra_small))
+  end
+
+  defp parts_progress(%RecordingGroup{media: media} = group) do
+    count = length(media)
+    word = RecordingGroup.part_word_plural(group)
+
+    case group.parts_total do
+      nil -> "#{count} #{word}"
+      total -> "#{count} of #{total} #{word}"
+    end
   end
 
   @doc """
-  Returns the full recording groups any of the given book's media belong
-  to, in id order. This is what the inbox consults to propose "another part
-  of the same set?" when a later part of an already-imported work arrives.
+  Returns the full recording groups belonging to the given book, in id
+  order. This is what the inbox consults to propose "another part of the
+  same set?" when a later part of an already-imported work arrives.
   """
   def recording_groups_for_book(nil), do: []
 
   def recording_groups_for_book(book_id) do
-    query =
-      from g in RecordingGroup,
-        join: m in assoc(g, :media),
-        on: m.book_id == ^book_id,
-        distinct: true,
-        order_by: g.id
-
-    query
-    |> Repo.all()
-    |> Repo.preload(:media)
+    Repo.all(from g in RecordingGroup, where: g.book_id == ^book_id, order_by: g.id)
   end
 
   # A group whose last member just left it is swept (the delete trigger

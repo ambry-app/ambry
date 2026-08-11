@@ -183,7 +183,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp create_proposal(draft, detected, groups) do
     {number, total, source} = detected || {nil, nil, nil}
-    name = proposed_group_name(draft)
+    name = proposed_group_name(draft.recording)
 
     %GroupLink{
       mode: :create,
@@ -212,18 +212,21 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp book_groups(_draft), do: []
 
-  # The work's title, settled or not — on a doubted match nothing has filled
-  # the field in yet, but its leading proposal is still the natural default
-  # name for the set (the same default the migration backfill used).
-  defp proposed_group_name(%Draft{work: %Work{title: %Field{} = title}}) do
-    Field.value(title) ||
-      case title.candidates do
+  # A group's name says what distinguishes this set from the book's other
+  # recordings — the production, not the work — and the publisher IS that
+  # fact ("GraphicAudio", "Soundbooth Theater"). Settled or leading
+  # proposal; blank when nobody knows, because naming a set after its book
+  # repeats what every surrounding surface already says (operator call,
+  # 2026-08-10).
+  defp proposed_group_name(%Recording{publisher: %Field{} = publisher}) do
+    Field.value(publisher) ||
+      case publisher.candidates do
         [%Candidate{value: value} | _rest] when is_binary(value) -> value
         _none -> ""
       end
   end
 
-  defp proposed_group_name(_draft), do: ""
+  defp proposed_group_name(_recording), do: ""
 
   defp detect_part(draft, item) do
     parsed = ReleaseName.parse(item.path)

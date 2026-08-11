@@ -574,15 +574,15 @@ defmodule Ambry.PeopleTest do
   end
 
   describe "narrators_for_select/0" do
-    test "returns all narrator names and ids only" do
+    test "returns rich options: name, portrait, backing person when it adds something" do
       insert(:person, narrators: build_list(3, :narrator))
 
       list = People.narrators_for_select()
 
       assert [
-               {_, _},
-               {_, _},
-               {_, _}
+               %{id: _, label: _, image: _, detail: _},
+               %{id: _, label: _, image: _, detail: _},
+               %{id: _, label: _, image: _, detail: _}
              ] = list
     end
   end
@@ -603,15 +603,15 @@ defmodule Ambry.PeopleTest do
   end
 
   describe "authors_for_select/0" do
-    test "returns all author names and ids only" do
+    test "returns rich options: name, portrait, backing people when they add something" do
       insert(:person, authors: build_list(3, :author))
 
       list = People.authors_for_select()
 
       assert [
-               {_, _},
-               {_, _},
-               {_, _}
+               %{id: _, label: _, image: _, detail: _},
+               %{id: _, label: _, image: _, detail: _},
+               %{id: _, label: _, image: _, detail: _}
              ] = list
     end
   end

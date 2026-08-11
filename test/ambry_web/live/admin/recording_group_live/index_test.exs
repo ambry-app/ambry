@@ -17,7 +17,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
 
     test "renders list of groups with their book and parts summary", %{conn: conn} do
       book = insert(:book, title: "A Court of Thorns and Roses")
-      group = insert(:recording_group, name: "GraphicAudio", parts_total: 3)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 3, book: book)
       insert(:media, book: book, part_number: 1, recording_group: group)
       insert(:media, book: book, part_number: 2, recording_group: group)
 
@@ -43,7 +43,8 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
 
       assert has_element?(view, "[data-role='empty-message']", "No groups yet.")
 
-      {:ok, group} = Media.create_recording_group(%{name: "New Group"})
+      book = insert(:book)
+      {:ok, group} = Media.create_recording_group(%{name: "New Group", book_id: book.id})
       group |> Ambry.Media.PubSub.RecordingGroupCreated.new() |> Ambry.PubSub.broadcast()
       ensure_all_messages_handled(view.pid)
 

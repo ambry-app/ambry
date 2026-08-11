@@ -370,7 +370,9 @@ defmodule Ambry.MediaTest do
   describe "multi-part recordings" do
     test "creates media in a group with a part number" do
       %{id: book_id} = insert(:book)
-      {:ok, group} = Media.create_recording_group(%{name: "Season One", parts_total: 3})
+
+      {:ok, group} =
+        Media.create_recording_group(%{name: "Season One", parts_total: 3, book_id: book_id})
 
       params =
         :media
@@ -388,7 +390,9 @@ defmodule Ambry.MediaTest do
 
       media = Media.get_media!(media.id)
       assert %{part_number: 1, recording_group: %{name: "Season One", parts_total: 3}} = media
-      assert [{"Season One", _id}] = Media.recording_groups_for_select(book_id)
+
+      assert [%{label: "Season One", detail: "1 of 3 parts"}] =
+               Media.recording_groups_for_select(book_id)
     end
 
     test "a part number requires a group" do
@@ -405,7 +409,7 @@ defmodule Ambry.MediaTest do
 
     test "leaving the group clears the part number and sweeps the orphaned set" do
       %{id: book_id} = insert(:book)
-      {:ok, group} = Media.create_recording_group(%{name: "Season One"})
+      {:ok, group} = Media.create_recording_group(%{name: "Season One", book_id: book_id})
 
       media =
         insert(:media, book_id: book_id, part_number: 1, recording_group_id: group.id)
@@ -422,7 +426,7 @@ defmodule Ambry.MediaTest do
 
     test "an unrelated media save leaves an empty admin-created group alone" do
       %{id: book_id} = insert(:book)
-      {:ok, group} = Media.create_recording_group(%{name: "Awaiting Parts"})
+      {:ok, group} = Media.create_recording_group(%{name: "Awaiting Parts", book_id: book_id})
 
       media = insert(:media, book_id: book_id)
       {:ok, _updated} = Media.update_media(Media.get_media!(media.id), %{abridged: true})
@@ -431,8 +435,8 @@ defmodule Ambry.MediaTest do
     end
 
     test "validates the part number against the loaded group's total" do
-      %{id: book_id} = insert(:book)
-      group = insert(:recording_group, parts_total: 2)
+      %{id: book_id} = book = insert(:book)
+      group = insert(:recording_group, parts_total: 2, book: book)
       media = insert(:media, book_id: book_id, part_number: 1, recording_group: group)
 
       assert {:error, changeset} =
@@ -502,6 +506,7 @@ defmodule Ambry.MediaTest do
       assert {:ok, group} =
                Media.create_recording_group_from_form(%{
                  "name" => "GraphicAudio",
+                 "book_id" => to_string(book.id),
                  "parts_total" => "2",
                  "members" => %{
                    "0" => %{"media_id" => to_string(media_one.id), "part_number" => "1"},
@@ -519,7 +524,7 @@ defmodule Ambry.MediaTest do
 
     test "updates facts and diffs members — a removed row detaches and loses its number" do
       book = insert(:book)
-      group = insert(:recording_group, name: "Before")
+      group = insert(:recording_group, name: "Before", book: book)
       keep = insert(:media, book: book, part_number: 1, recording_group: group)
       drop = insert(:media, book: book, part_number: 2, recording_group: group)
       add = insert(:media, book: book)
@@ -548,10 +553,10 @@ defmodule Ambry.MediaTest do
 
     test "pulling a recording from another group sweeps the one it left" do
       book = insert(:book)
-      old_group = insert(:recording_group, name: "Old Set")
+      old_group = insert(:recording_group, name: "Old Set", book: book)
       media = insert(:media, book: book, part_number: 1, recording_group: old_group)
 
-      {:ok, new_group} = Media.create_recording_group(%{name: "New Set"})
+      {:ok, new_group} = Media.create_recording_group(%{name: "New Set", book_id: book.id})
       new_group = Media.get_recording_group!(new_group.id)
 
       assert {:ok, _} =
@@ -573,6 +578,7 @@ defmodule Ambry.MediaTest do
       assert {:error, changeset} =
                Media.create_recording_group_from_form(%{
                  "name" => "Set",
+                 "book_id" => to_string(book.id),
                  "members" => %{
                    "0" => %{"media_id" => to_string(media.id), "part_number" => "1"},
                    "1" => %{"media_id" => to_string(media.id), "part_number" => "2"}
@@ -585,6 +591,7 @@ defmodule Ambry.MediaTest do
       assert {:error, changeset} =
                Media.create_recording_group_from_form(%{
                  "name" => "Set",
+                 "book_id" => to_string(book.id),
                  "parts_total" => "2",
                  "members" => %{
                    "0" => %{"media_id" => to_string(media.id), "part_number" => "5"}
@@ -600,18 +607,52 @@ defmodule Ambry.MediaTest do
   end
 
   describe "recording group CRUD" do
-    test "create_recording_group/1 requires a name and allows an empty group" do
+    test "create_recording_group/1 requires a name and a book, and allows an empty group" do
       assert {:error, changeset} = Media.create_recording_group(%{})
-      assert %{name: ["can't be blank"]} = errors_on(changeset)
+      assert %{name: ["can't be blank"], book_id: ["can't be blank"]} = errors_on(changeset)
 
-      assert {:ok, group} = Media.create_recording_group(%{name: "Season One", parts_total: 3})
+      %{id: book_id} = insert(:book)
+
+      assert {:ok, group} =
+               Media.create_recording_group(%{
+                 name: "Season One",
+                 parts_total: 3,
+                 book_id: book_id
+               })
 
       assert %{name: "Season One", parts_total: 3, media: []} =
                Media.get_recording_group!(group.id)
     end
 
+    test "a book can't hold two sets by one name" do
+      %{id: book_id} = insert(:book)
+      {:ok, _first} = Media.create_recording_group(%{name: "Graphic Audio", book_id: book_id})
+
+      assert {:error, changeset} =
+               Media.create_recording_group(%{name: "Graphic Audio", book_id: book_id})
+
+      assert %{book_id: ["this book already has a set by that name"]} = errors_on(changeset)
+
+      # the same name on another book is the whole point of local names
+      %{id: other_book_id} = insert(:book)
+
+      assert {:ok, _second} =
+               Media.create_recording_group(%{name: "Graphic Audio", book_id: other_book_id})
+    end
+
+    test "a media can't join another book's set" do
+      group = insert(:recording_group)
+      media = insert(:media, book: build(:book))
+
+      assert {:error, changeset} =
+               Media.update_media(Media.get_media!(media.id), %{recording_group_id: group.id})
+
+      assert %{recording_group_id: ["belongs to a different book"]} = errors_on(changeset)
+    end
+
     test "update_recording_group/2 changes set-level facts" do
-      {:ok, group} = Media.create_recording_group(%{name: "Season One"})
+      %{id: book_id} = insert(:book)
+      {:ok, group} = Media.create_recording_group(%{name: "Season One", book_id: book_id})
 
       assert {:ok, updated} =
                Media.update_recording_group(group, %{parts_total: 2, part_word: "episode"})

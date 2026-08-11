@@ -96,6 +96,9 @@ defmodule AmbrySchema.Media do
     @desc "How many releases the set has, when known (\"Part 2 of 3\")"
     field :parts_total, :integer
 
+    @desc "The work this set covers, same as its members'"
+    field :book, non_null(:book), resolve: dataloader(Resolvers)
+
     @desc "Wording for one release in this set; null means \"part\""
     field :part_word, :string
 

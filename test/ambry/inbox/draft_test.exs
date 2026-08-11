@@ -2456,28 +2456,44 @@ defmodule Ambry.Inbox.DraftTest do
   describe "part-set auto-detection" do
     # the dev inbox's real split-GraphicAudio shape: the item's path IS the
     # audio file, whose name states the part outright
-    test "a part-stating file name seeds an unapproved :create proposal named after the work" do
+    test "a part-stating file name seeds an unapproved :create proposal named for the publisher" do
       item =
         item(%{
           path:
             "/downloads/[ACOTAR #1] A Court of Thorns and Roses [GraphicAudio]/[ACOTAR #1] A Court of Thorns and Roses - Part 1 of 2 [GraphicAudio] (chapterized).m4b",
           matches: matches([provider_candidate(%{"title" => "A Court of Thorns and Roses"})]),
-          tags: %{}
+          # the publisher IS what distinguishes this set from the book's
+          # other recordings, so it's the natural name
+          tags: %{"publisher" => "GraphicAudio"}
         })
 
       draft = Seed.build(item)
 
       assert %GroupLink{
                mode: :create,
+               name: "GraphicAudio",
+               proposed_name: "GraphicAudio",
                part_number: 1,
                parts_total: 2,
                source: "name",
                approved: false,
                curated: false
              } = draft.recording.recording_group
+    end
 
-      # prefilled with the work's title so the common case is one Confirm
-      assert draft.recording.recording_group.name == Field.value(draft.work.title)
+    test "with no publisher anywhere, the proposal's name stays blank — never the book's" do
+      item =
+        item(%{
+          path: "/downloads/Some Book - Part 1 of 2/Some Book - Part 1 of 2.m4b",
+          matches: matches([provider_candidate(%{})]),
+          tags: %{}
+        })
+
+      draft = Seed.build(item)
+
+      link = draft.recording.recording_group
+      assert link.name in [nil, ""]
+      refute GroupLink.resolved?(%{link | approved: true})
     end
 
     test "a tag title's tail seeds the proposal when the file name says nothing" do
@@ -2559,7 +2575,7 @@ defmodule Ambry.Inbox.DraftTest do
 
     test "linking a book with one existing set proposes joining it, detection numbers carried" do
       book = insert(:book)
-      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2, book: book)
       insert(:media, book: book, part_number: 1, recording_group: group)
 
       item =
@@ -2587,7 +2603,7 @@ defmodule Ambry.Inbox.DraftTest do
 
     test "the linked book having a set is itself the signal — no part detection needed" do
       book = insert(:book)
-      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2, book: book)
       insert(:media, book: book, part_number: 1, recording_group: group)
 
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
@@ -2602,8 +2618,8 @@ defmodule Ambry.Inbox.DraftTest do
 
     test "several existing sets can't be told apart — they ride along as candidates" do
       book = insert(:book)
-      group_one = insert(:recording_group, name: "GraphicAudio")
-      group_two = insert(:recording_group, name: "Soundbooth Season One")
+      group_one = insert(:recording_group, name: "GraphicAudio", book: book)
+      group_two = insert(:recording_group, name: "Soundbooth Season One", book: book)
       insert(:media, book: book, part_number: 1, recording_group: group_one)
       insert(:media, book: book, part_number: 1, recording_group: group_two)
 
@@ -2636,7 +2652,7 @@ defmodule Ambry.Inbox.DraftTest do
           book_authors: [build(:book_author, author: author)]
         )
 
-      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2, book: book)
       insert(:media, book: book, part_number: 1, recording_group: group)
 
       item =

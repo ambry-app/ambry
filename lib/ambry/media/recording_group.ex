@@ -15,11 +15,18 @@ defmodule Ambry.Media.RecordingGroup do
 
   import Ecto.Changeset
 
+  alias Ambry.Books.Book
   alias Ambry.Media.Media
 
   schema "recording_groups" do
+    # the work this set covers, same as its members' book — an episodic
+    # season that drifts across book boundaries pins to its primary book
+    belongs_to :book, Book
     has_many :media, Media, preload_order: [asc: :part_number]
 
+    # a local name: it distinguishes this set from the book's OTHER
+    # recordings ("Graphic Audio"), so it's unique per book, not globally —
+    # displays compose "name — book" where context is missing
     field :name, :string
     field :parts_total, :integer
 
@@ -39,10 +46,13 @@ defmodule Ambry.Media.RecordingGroup do
   @doc false
   def changeset(recording_group, attrs) do
     recording_group
-    |> cast(attrs, [:name, :parts_total, :show_label, :part_word, :part_word_plural])
-    |> validate_required([:name])
+    |> cast(attrs, [:name, :book_id, :parts_total, :show_label, :part_word, :part_word_plural])
+    |> validate_required([:name, :book_id])
     |> validate_number(:parts_total, greater_than_or_equal_to: 1)
     |> check_constraint(:parts_total, name: "recording_groups_parts_total_positive")
+    |> unique_constraint([:book_id, :name],
+      message: "this book already has a set by that name"
+    )
   end
 
   @doc "The singular word for one release in this set, defaulting to \"part\"."

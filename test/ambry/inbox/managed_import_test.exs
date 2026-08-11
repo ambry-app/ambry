@@ -181,15 +181,19 @@ defmodule Ambry.Inbox.ManagedImportTest do
           }
         })
 
-      second = second |> settle() |> with_parts(2, 2)
+      # part 2 joins the set part 1 created — a second :create with the same
+      # name would (correctly) trip the per-book unique index
+      group_id = Media.get_media!(media1.id).recording_group_id
+      second = second |> settle() |> with_parts(2, 2, group_id)
       {:ok, media2} = Inbox.import_item(second)
 
       %{media1: media1, media2: media2, root: root}
     end
 
-    defp with_parts(item, number, total) do
+    defp with_parts(item, number, total, group_id \\ nil) do
       link = %Ambry.Inbox.Draft.GroupLink{
-        mode: :create,
+        mode: if(group_id, do: :link, else: :create),
+        recording_group_id: group_id,
         name: "Part Set",
         source: "manual",
         part_number: number,

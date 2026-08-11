@@ -3,6 +3,20 @@
     <.simple_form id="group-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <.input field={@form[:name]} label="Name" />
 
+      <%!-- the set covers one book, like its members do; once recordings
+          are attached, they ARE the book and the field goes read-only --%>
+      <.input
+        :if={@group.media == []}
+        field={@form[:book_id]}
+        type="autocomplete"
+        options={@books}
+        label="Book"
+      />
+      <div :if={@group.media != []} class="space-y-2">
+        <.label>Book</.label>
+        <p class="pl-3 text-sm text-zinc-300">{@group.book.title}</p>
+      </div>
+
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
         <.input field={@form[:parts_total]} type="number" min="1" label="Total parts (optional)" />
         <.input

@@ -20,6 +20,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       |> render_submit(%{
         recording_group_form: %{
           name: "Season One",
+          book_id: to_string(book.id),
           parts_total: "2",
           part_word: "episode",
           members: %{
@@ -39,11 +40,14 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
     end
 
     test "a group may start empty", %{conn: conn} do
+      book = insert(:book)
       {:ok, view, _html} = live(conn, ~p"/admin/groups/new")
 
       view
       |> form("#group-form")
-      |> render_submit(%{recording_group_form: %{name: "Awaiting Parts"}})
+      |> render_submit(%{
+        recording_group_form: %{name: "Awaiting Parts", book_id: to_string(book.id)}
+      })
 
       assert_redirect(view, "/admin/groups")
 
@@ -67,7 +71,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
   describe "Edit" do
     test "renders existing members as editable rows", %{conn: conn} do
       book = insert(:book, title: "A Court of Thorns and Roses")
-      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2, book: book)
       media = insert(:media, book: book, part_number: 1, recording_group: group)
 
       {:ok, _view, html} = live(conn, ~p"/admin/groups/#{group.id}/edit")
@@ -85,7 +89,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
 
     test "saving edits facts and the member list together", %{conn: conn} do
       book = insert(:book)
-      group = insert(:recording_group, name: "Before")
+      group = insert(:recording_group, name: "Before", book: book)
       keep = insert(:media, book: book, part_number: 1, recording_group: group)
       drop = insert(:media, book: book, part_number: 2, recording_group: group)
 

@@ -17,6 +17,18 @@ defmodule AmbryWeb.Components.EntityResolver do
   The list is plain markup with `phx-click` options and a small keyboard
   hook — deliberately not a `<datalist>`, which mobile Firefox does not
   support and which cannot offer a create row.
+
+  ## Options
+
+  Plain `{label, id}` tuples, or maps for richer rows:
+
+      %{id: 1, label: "A Court of Thorns and Roses", image: "/path.webp",
+        detail: "GraphicAudio · 2022"}
+
+  `image` renders a thumbnail (cover, portrait), `detail` a muted second
+  line — the disambiguation lives there, so labels stay short. When any
+  option in a list carries an image, imageless rows hold the space with a
+  lettered placeholder so the column stays aligned.
   """
 
   use AmbryWeb, :live_component
@@ -29,6 +41,7 @@ defmodule AmbryWeb.Components.EntityResolver do
       assigns
       |> assign(:equery, effective_query(assigns))
       |> then(&assign(&1, :matches, matches(&1)))
+      |> then(&assign(&1, :imaged, Enum.any?(&1.matches, fn option -> option.image end)))
 
     ~H"""
     <div
@@ -93,16 +106,36 @@ defmodule AmbryWeb.Components.EntityResolver do
         class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-sm bg-zinc-800 text-sm shadow-lg"
       >
         <li
-          :for={{label, id} <- @matches}
-          id={"#{@id}-option-#{id}"}
+          :for={option <- @matches}
+          id={"#{@id}-option-#{option.id}"}
           role="option"
-          aria-selected={to_string(to_string(id) == to_string(@value))}
+          aria-selected={to_string(to_string(option.id) == to_string(@value))}
           phx-click="pick"
-          phx-value-id={id}
+          phx-value-id={option.id}
           phx-target={@myself}
           class="cursor-pointer px-3 py-2 data-[active]:bg-zinc-700 hover:bg-zinc-700"
         >
-          {label}
+          <div class="flex min-w-0 items-center gap-2.5">
+            <img
+              :if={option.image}
+              src={option.image}
+              class="h-9 w-9 flex-none rounded-sm object-cover"
+              loading="lazy"
+              alt=""
+            />
+            <span
+              :if={!option.image && @imaged}
+              class="flex h-9 w-9 flex-none items-center justify-center rounded-sm bg-zinc-700 text-sm text-zinc-500"
+            >
+              {String.first(option.label)}
+            </span>
+            <span class="min-w-0">
+              <span class="block truncate">{option.label}</span>
+              <span :if={option.detail} class="block truncate text-xs text-zinc-400">
+                {option.detail}
+              </span>
+            </span>
+          </div>
         </li>
         <li
           :if={@text_name && present?(@equery)}
@@ -132,6 +165,16 @@ defmodule AmbryWeb.Components.EntityResolver do
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
+    assigns =
+      case assigns do
+        %{options: options} ->
+          options = Enum.map(options, &normalize_option/1)
+          %{assigns | options: options}
+
+        _no_options ->
+          assigns
+      end
+
     {:ok,
      socket
      |> assign(assigns)
@@ -141,6 +184,11 @@ defmodule AmbryWeb.Components.EntityResolver do
      |> assign_new(:placeholder, fn -> nil end)
      |> assign_new(:class, fn -> nil end)}
   end
+
+  defp normalize_option({label, id}), do: %{id: id, label: label, image: nil, detail: nil}
+
+  defp normalize_option(%{id: _, label: _} = option),
+    do: Map.merge(%{image: nil, detail: nil}, option)
 
   @impl Phoenix.LiveComponent
   def handle_event("open", _params, socket) do
@@ -190,8 +238,8 @@ defmodule AmbryWeb.Components.EntityResolver do
         text
 
       value ->
-        Enum.find_value(options, text, fn {label, id} ->
-          to_string(id) == to_string(value) && label
+        Enum.find_value(options, text, fn option ->
+          to_string(option.id) == to_string(value) && option.label
         end)
     end
   end
@@ -206,8 +254,10 @@ defmodule AmbryWeb.Components.EntityResolver do
     folded = fold(query)
 
     options
-    |> Enum.filter(fn {label, _id} -> String.contains?(fold(label), folded) end)
-    |> Enum.sort_by(fn {label, _id} -> {!String.starts_with?(fold(label), folded), label} end)
+    |> Enum.filter(fn option -> String.contains?(fold(option.label), folded) end)
+    |> Enum.sort_by(fn option ->
+      {!String.starts_with?(fold(option.label), folded), option.label}
+    end)
     |> Enum.take(@limit)
   end
 

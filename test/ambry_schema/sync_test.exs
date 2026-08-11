@@ -165,7 +165,11 @@ defmodule AmbrySchema.SyncTest do
       book = insert(:book)
 
       {:ok, group} =
-        Ambry.Media.create_recording_group(%{name: "Season One", parts_total: 3})
+        Ambry.Media.create_recording_group(%{
+          name: "Season One",
+          parts_total: 3,
+          book_id: book.id
+        })
 
       {:ok, media} =
         :media

@@ -51,7 +51,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     |> assign(
       page_title: Media.Media.display_title(media),
       media: media,
-      recording_groups: Media.recording_groups_for_select(),
+      recording_groups: Media.recording_groups_for_select(media.book_id),
       file_stats: Media.get_media_file_details(media)
     )
   end
@@ -70,7 +70,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     |> assign(
       page_title: "New Media",
       media: media,
-      recording_groups: Media.recording_groups_for_select(),
+      recording_groups: [],
       file_stats: nil
     )
   end
@@ -126,6 +126,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      socket
      |> assign_form(changeset)
      |> assign(
+       # groups follow the chosen book — a set belongs to one book
+       recording_groups: Media.recording_groups_for_select(media_params["book_id"]),
        provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, media_params)
      )}
   end

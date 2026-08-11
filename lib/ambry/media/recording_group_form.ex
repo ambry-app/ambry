@@ -21,6 +21,7 @@ defmodule Ambry.Media.RecordingGroupForm do
 
   embedded_schema do
     field :name, :string
+    field :book_id, :id
     field :parts_total, :integer
     field :show_label, :boolean, default: false
     field :part_word, :string
@@ -65,6 +66,7 @@ defmodule Ambry.Media.RecordingGroupForm do
 
     %__MODULE__{
       name: group.name,
+      book_id: group.book_id,
       parts_total: group.parts_total,
       show_label: group.show_label,
       part_word: group.part_word,
@@ -76,7 +78,7 @@ defmodule Ambry.Media.RecordingGroupForm do
   @doc false
   def changeset(form, attrs) do
     form
-    |> cast(attrs, [:name, :parts_total, :show_label, :part_word, :part_word_plural])
+    |> cast(attrs, [:name, :book_id, :parts_total, :show_label, :part_word, :part_word_plural])
     |> cast_embed(:members,
       with: &__MODULE__.Member.changeset/2,
       sort_param: :members_sort,
@@ -84,7 +86,7 @@ defmodule Ambry.Media.RecordingGroupForm do
     )
     |> update_change(:part_word, &downcase_word/1)
     |> update_change(:part_word_plural, &downcase_word/1)
-    |> validate_required([:name])
+    |> validate_required([:name, :book_id])
     |> validate_number(:parts_total, greater_than_or_equal_to: 1)
     |> validate_members()
   end

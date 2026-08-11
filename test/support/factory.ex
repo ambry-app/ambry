@@ -194,7 +194,9 @@ defmodule Ambry.Factory do
 
   def recording_group_factory do
     %RecordingGroup{
-      name: sequence(:recording_group_name, &"Recording Group #{&1}")
+      name: sequence(:recording_group_name, &"Recording Group #{&1}"),
+      # tests pairing a group with media must pass the members' book here
+      book: fn -> build(:book) end
     }
   end
 

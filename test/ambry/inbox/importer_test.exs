@@ -347,11 +347,13 @@ defmodule Ambry.Inbox.ImporterTest do
     end
 
     test "a :link group link joins the existing set instead of minting one" do
-      %{id: book_id} = book = insert(:book)
-      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
+      %{id: book_id} = book = insert(:book, title: "The Way of Kings")
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2, book: book)
       insert(:media, book: book, part_number: 1, recording_group: group)
 
-      item = tagged_item()
+      # the import must resolve to the group's own book — a set can't take
+      # another book's recording
+      item = tagged_item(work_match: {"local", book_id})
 
       draft =
         put_in(item.draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{

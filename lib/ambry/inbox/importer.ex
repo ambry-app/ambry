@@ -326,22 +326,28 @@ defmodule Ambry.Inbox.Importer do
   defp create_media(item, book, probe, people) do
     recording = item.draft.recording
 
-    with {:ok, group} <- resolve_group(recording.recording_group) do
+    with {:ok, group} <- resolve_group(recording.recording_group, book) do
       do_create_media(item, book, probe, people, recording, group)
     end
   end
 
   # The draft's group link, resolved like a series link: `:link` joins the
-  # existing group, `:create` mints one carrying the set-level facts the
-  # operator settled. Absent or tombstoned means not part of any set.
-  defp resolve_group(nil), do: {:ok, nil}
-  defp resolve_group(%GroupLink{removed: true}), do: {:ok, nil}
+  # existing group, `:create` mints one on the resolved book, carrying the
+  # set-level facts the operator settled. Absent or tombstoned means not
+  # part of any set.
+  defp resolve_group(nil, _book), do: {:ok, nil}
+  defp resolve_group(%GroupLink{removed: true}, _book), do: {:ok, nil}
 
-  defp resolve_group(%GroupLink{mode: :link, recording_group_id: id}),
+  defp resolve_group(%GroupLink{mode: :link, recording_group_id: id}, _book),
     do: {:ok, Repo.get!(RecordingGroup, id)}
 
-  defp resolve_group(%GroupLink{mode: :create} = link),
-    do: Media.create_recording_group(%{name: link.name, parts_total: link.parts_total})
+  defp resolve_group(%GroupLink{mode: :create} = link, book),
+    do:
+      Media.create_recording_group(%{
+        name: link.name,
+        book_id: book.id,
+        parts_total: link.parts_total
+      })
 
   defp do_create_media(item, book, probe, people, recording, group) do
     Media.create_media(
