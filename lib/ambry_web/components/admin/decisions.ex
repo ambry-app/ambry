@@ -469,6 +469,12 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def candidate_facts(candidate) do
     [
+      # Leads, because a work record sitting in a list of readings is
+      # otherwise indistinguishable from them: "The Martian — Andy Weir ·
+      # 2011 · Hardcover" describes both the book and four of its editions.
+      # The operator ticked four editions looking for a description and got
+      # nothing, because the one record holding one was the unlabelled row.
+      candidate["level"] == "work" && "the book, not a reading",
       candidate["narrators"] not in [nil, []] &&
         "read by #{Enum.join(candidate["narrators"], ", ")}",
       # person records: whether it brings a face, and the words that tell a

@@ -2139,14 +2139,12 @@ defmodule Ambry.Inbox.DraftTest do
     # `publisher` on a recording means who is responsible for the *audiobook*
     # — Audible Studios, Graphic Audio, Soundbooth Theater. A work record's
     # publisher is whoever printed the book: a different company answering a
-    # different question. Same for the description, which on an audio edition
-    # carries the performance and the narrator, and for the cover, which is a
-    # portrait print jacket.
-    test "a work record never describes the recording" do
+    # different question. Same for the cover, which is a portrait print jacket
+    # where audiobook art is square.
+    test "a work record never gives the recording its publisher or its cover" do
       work = [
         provider_candidate(%{
           "publisher" => "Orbit",
-          "description" => "The print blurb",
           "cover_url" => "https://example.test/print-jacket.jpg"
         })
       ]
@@ -2163,12 +2161,53 @@ defmodule Ambry.Inbox.DraftTest do
 
       assert draft.recording.publisher.value == "Recorded Books"
       refute "Orbit" in Enum.map(draft.recording.publisher.candidates, & &1.value)
-      refute "The print blurb" in Enum.map(draft.recording.description.candidates, & &1.value)
 
       refute "https://example.test/print-jacket.jpg" in Enum.map(
                draft.recording.cover.candidates,
                & &1.value
              )
+    end
+
+    # The description is the exception, and the reason is measurable:
+    # Hardcover's `editions` type has no description field at all, so the
+    # "audio edition blurb, which mentions the performance" is frequently not
+    # on offer — leaving the storefront's, which describes the reading it is
+    # selling. Audible's Martian copy is about Wil Wheaton, which is the wrong
+    # description for R.C. Bray's recording of the same book.
+    test "the book's blurb is offered when no edition has one" do
+      work = [provider_candidate(%{"description" => "The print blurb"})]
+      recording = [recording_record(%{"publisher" => "Recorded Books"})]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(work, recording: recording, recording_confidence: 1.0),
+            tags: %{}
+          })
+        )
+
+      assert draft.recording.description.value == "The print blurb"
+      assert Enum.any?(draft.recording.description.candidates, &(&1.label =~ "the book"))
+    end
+
+    test "but an edition's own description still wins" do
+      work = [provider_candidate(%{"description" => "The print blurb"})]
+
+      recording = [
+        recording_record(%{"description" => "Read by Recorded Books' finest, in 12 hours"})
+      ]
+
+      draft =
+        Seed.build(
+          item(%{
+            matches: matches(work, recording: recording, recording_confidence: 1.0),
+            tags: %{}
+          })
+        )
+
+      assert draft.recording.description.value == "Read by Recorded Books' finest, in 12 hours"
+      # still one click away, because a print blurb beats no blurb
+      assert "The print blurb" in Enum.map(draft.recording.description.candidates, & &1.value)
     end
 
     # A work-level record's date is the work's ORIGINAL publication date,

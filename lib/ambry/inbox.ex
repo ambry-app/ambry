@@ -498,6 +498,9 @@ defmodule Ambry.Inbox do
   @doc "Audio editions of the given work records, from editions-capable providers."
   defdelegate editions_of(records, hints, opts \\ []), to: AutoMatch, as: :editions_for
 
+  @doc "The records that look like they're about the same thing as the best one."
+  defdelegate top_group(records), to: AutoMatch
+
   @doc """
   Fetches the full record behind a thin search hit.
   """

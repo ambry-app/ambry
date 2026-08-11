@@ -550,7 +550,14 @@ defmodule Ambry.Inbox.AutoMatch do
   """
   def top_group([]), do: []
 
-  def top_group([best | _rest] = candidates) do
+  def top_group(candidates) do
+    # `Enum.max_by`, not `hd/1`. Reading the head as "the best" is only true
+    # of an already-ranked list, and that assumption is invisible at the call
+    # site: the media form handed over a provider-ordered list whose first
+    # element was a 0.13 study guide, so the editions of a *study guide* were
+    # fetched and the book's were not.
+    best = Enum.max_by(candidates, &(&1["score"] || 0.0))
+
     candidates
     |> Enum.filter(&agrees?(&1, best))
     |> Enum.take(@group_limit)
@@ -1033,12 +1040,36 @@ defmodule Ambry.Inbox.AutoMatch do
   to take as long as it takes.
   """
   def editions_for(records, hints, opts \\ []) do
-    records
-    |> Enum.filter(&editions_capable?/1)
-    |> Enum.reduce({[], []}, fn record, {candidates, outcomes} ->
-      "provider:" <> provider_id = record["source"]
-      {found, outcome} = fetch_editions(provider_id, record["id"], hints, work_ref(record), opts)
-      {candidates ++ found, outcomes ++ outcome}
+    {candidates, outcomes} =
+      records
+      |> Enum.filter(&editions_capable?/1)
+      |> Enum.reduce({[], []}, fn record, {candidates, outcomes} ->
+        "provider:" <> provider_id = record["source"]
+
+        {found, outcome} =
+          fetch_editions(provider_id, record["id"], hints, work_ref(record), opts)
+
+        {candidates ++ found, outcomes ++ outcome}
+      end)
+
+    {candidates, tally(outcomes)}
+  end
+
+  # One chip per provider, not one per record asked. Asking a provider about
+  # four of its own work records is four calls but one answer, and reporting
+  # them separately read as nonsense: "Hardcover editions: 0 · Hardcover
+  # editions: 0 · Hardcover editions: 13 · Hardcover editions: 0 …" across a
+  # row. It also hid a real number — the inbox de-duplicates outcomes by id and
+  # keeps the last, so a provider that found thirteen editions for one work and
+  # none for the next reported **none**.
+  defp tally(outcomes) do
+    outcomes
+    |> Enum.group_by(& &1["id"])
+    |> Enum.map(fn {_id, [first | _rest] = group} ->
+      case Enum.filter(group, &(&1["status"] == "ok")) do
+        [] -> first
+        answered -> %{first | "status" => "ok", "count" => Enum.sum_by(answered, & &1["count"])}
+      end
     end)
   end
 

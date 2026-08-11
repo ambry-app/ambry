@@ -181,6 +181,18 @@ defmodule AmbryWeb.Admin.Evidence do
 
   # ── what one record proposes for one field ─────────────────────────────
 
+  # First, so it wins over every field clause below. A work record answers
+  # exactly one recording-level question, and only because nothing else can.
+  # `Seed.put_recording_fields/4` spells out why the other three are wrong — a
+  # work's publisher printed the *book*, and its cover is a portrait print
+  # jacket where audiobook art is square — and that reasoning holds. What has
+  # changed is its premise for description: Hardcover's `editions` type has no
+  # description field at all, so the "audio edition blurb, which mentions the
+  # performance" it prefers frequently does not exist, leaving only the
+  # storefront's — and a storefront describes the reading it is selling, which
+  # is the wrong one for every other recording of that book.
+  defp field_values(%{"level" => "work"}, field) when field != :description, do: []
+
   defp field_values(record, :title) do
     for value <- present(record["title"]) do
       value(record, value, truncate(value), %{"title" => value})

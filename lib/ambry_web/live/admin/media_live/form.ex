@@ -340,11 +340,15 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {work_found, work_outcomes} = MetadataSearch.books(query, level: :work)
 
     work_records =
-      Enum.flat_map(work_found, fn {entry, books} ->
-        Inbox.score_records(books, entry, hints)
-      end)
+      work_found
+      |> Enum.flat_map(fn {entry, books} -> Inbox.score_records(books, entry, hints) end)
+      |> Enum.map(&Map.put(&1, "level", "work"))
 
-    {edition_records, edition_outcomes} = Inbox.editions_of(work_records, hints)
+    # Only the top group gets asked for editions. Every work record used to,
+    # which on The Martian meant nine editions calls and nine "Hardcover
+    # editions" chips, seven of them reporting zero.
+    {edition_records, edition_outcomes} =
+      work_records |> Inbox.top_group() |> Inbox.editions_of(hints)
 
     {audible_records ++ edition_records ++ work_records,
      audible_outcomes ++ edition_outcomes ++ work_outcomes}

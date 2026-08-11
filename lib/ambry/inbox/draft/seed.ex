@@ -457,6 +457,19 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp from_records(records, key), do: Enum.map(records, &candidate(&1, key))
 
+  # The book's own blurb, for when no edition has one. Keyed off the work
+  # level's own top group rather than its ticked set: this is a fallback
+  # candidate, not a chosen value, and the label says where it came from so
+  # nobody mistakes a print blurb for a description of the reading.
+  defp work_descriptions(item) do
+    item
+    |> records("work")
+    |> AutoMatch.top_group()
+    |> from_records("description")
+    |> Enum.filter(&(&1 && &1.value not in [nil, ""]))
+    |> Enum.map(&%{&1 | label: "#{&1.label} · the book"})
+  end
+
   # A credit or series the operator has touched survives re-derivation
   # untouched. A field value is cheap to recompute; a credit is not — it may
   # carry a linked identity, a renamed pen name, or two people behind it, and
@@ -789,6 +802,17 @@ defmodule Ambry.Inbox.Draft.Seed do
   #
   # A database's audio *editions* answer all three properly, and those arrive
   # as recording records.
+  #
+  # **Except that for `description` the premise turned out to be false.**
+  # Hardcover's `editions` type has no description field at all — verified
+  # against the live schema — so the "audio edition blurb" this prefers
+  # frequently does not exist, and what is left is the storefront's. A
+  # storefront describes the reading it is *selling*: Audible's Martian copy
+  # is about Wil Wheaton, which is exactly wrong for R.C. Bray's recording of
+  # the same book. So the work's description joins the list as a **last**
+  # candidate — after every edition's and before the file's tags — offered,
+  # never preferred. Publisher and cover keep the rule unchanged, because
+  # editions really do answer those.
   defp put_recording_fields(%Recording{} = recording, records, tags, item) do
     mine = used(records, recording.sources)
 
@@ -828,7 +852,9 @@ defmodule Ambry.Inbox.Draft.Seed do
         description:
           keep_manual(
             recording.description,
-            scalar(from_records(mine, "description") ++ [tag_candidate(tags, "description")],
+            scalar(
+              from_records(mine, "description") ++
+                work_descriptions(item) ++ [tag_candidate(tags, "description")],
               alternatives: true
             )
           ),
