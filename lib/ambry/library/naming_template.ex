@@ -76,13 +76,66 @@ defmodule Ambry.Library.NamingTemplate do
   then.)
   """
   def filename(values, source_path, part \\ nil) do
+    with {:ok, [name]} <- filenames(values, [source_path], part), do: {:ok, name}
+  end
+
+  @doc """
+  The names for every file of a recording, relative to its book folder.
+
+  A single-file recording is one name sitting directly in the folder, exactly
+  as before. A multi-file one gets a **subfolder of its own**, with its files
+  renamed to a zero-padded index:
+
+      1 - Words of Radiance (2014)/
+        Words of Radiance/
+          Words of Radiance - 001.mp3
+          Words of Radiance - 002.mp3
+
+  Two things make the subfolder non-negotiable. Forty files loose in the book
+  folder would sit alongside the *other* recordings of that book — the folder
+  is shared by every part of a set and by a second reading of the same work —
+  and pruning or deleting one of them could then no longer tell whose files
+  were whose. And the index has to be rendered rather than inherited: play
+  order is the order these names are generated in, so it must be legible on
+  disk instead of depending on how the release happened to name things.
+
+  Renaming loses nothing that isn't already captured. Chapter titles are read
+  off the source filenames at import (the roadmap's 1h), and a hardlinked
+  source keeps its own name regardless — the library copy is a second name for
+  the same bytes, not a replacement.
+  """
+  def filenames(values, source_paths, part \\ nil)
+
+  def filenames(_values, [], _part), do: {:ok, []}
+
+  def filenames(values, source_paths, part) do
     values = stringify(values)
 
     case sanitize(to_string(values["title"] || "")) do
       "" -> {:error, :no_title}
-      name -> {:ok, name <> part_suffix(part) <> String.downcase(Path.extname(source_path))}
+      name -> {:ok, build_filenames(name <> part_suffix(part), source_paths)}
     end
   end
+
+  defp build_filenames(name, [source_path]), do: [name <> extname(source_path)]
+
+  defp build_filenames(name, source_paths) do
+    width = index_width(length(source_paths))
+
+    source_paths
+    |> Enum.with_index(1)
+    |> Enum.map(fn {source_path, index} ->
+      padded = index |> to_string() |> String.pad_leading(width, "0")
+      Path.join(name, "#{name} - #{padded}#{extname(source_path)}")
+    end)
+  end
+
+  # Three digits unless there are genuinely more files than that, so a
+  # forty-file book reads 001..040 and never gets re-padded by a later
+  # re-organize.
+  defp index_width(count), do: max(3, count |> to_string() |> String.length())
+
+  defp extname(source_path), do: source_path |> Path.extname() |> String.downcase()
 
   defp part_suffix(nil), do: ""
 

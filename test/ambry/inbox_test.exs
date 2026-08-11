@@ -3,6 +3,7 @@ defmodule Ambry.InboxTest do
 
   alias Ambry.Inbox
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Media.Scanner
 
   describe "discover/1" do
     test "offers each release folder as one candidate" do
@@ -266,7 +267,7 @@ defmodule Ambry.InboxTest do
       assert is_map(item.tags)
     end
 
-    test "flags a multi-file release instead of hiding it" do
+    test "measures a multi-file release as the one recording it will become" do
       root = watched_root()
       release_folder(root, "Chaptered Book", ["01.mp3", "02.mp3"])
       {:ok, _counts} = Inbox.discover(root)
@@ -274,10 +275,15 @@ defmodule Ambry.InboxTest do
 
       assert {:ok, item} = Inbox.probe_item(item)
 
-      assert item.issue =~ "2 audio files"
-      assert item.status == :pending
-      # still probed, so the operator has something to look at
+      refute item.issue
+      assert item.probe["files"] == 2
       assert item.probe["codec"] == "mp3"
+
+      # The whole book, not the first file: the durations add up into one
+      # timeline, and so do the bytes.
+      {:ok, one} = Scanner.probe_file(Path.join(item.path, "01.mp3"))
+      assert Decimal.equal?(Decimal.new(item.probe["duration"]), Decimal.mult(one.duration, 2))
+      assert item.probe["size"] == one.size * 2
     end
 
     @tag :capture_log

@@ -193,14 +193,8 @@ defmodule Ambry.Inbox do
   def probe_item(%InboxItem{} = item, opts \\ []) do
     attrs =
       case item.files do
-        [file] ->
-          probe_single(file, single_file: true)
-
-        [] ->
-          %{issue: "no audio files found"}
-
-        [file | _rest] ->
-          file |> probe_single() |> Map.put(:issue, multi_file_issue(item))
+        [] -> %{issue: "no audio files found"}
+        files -> probe_recording(files)
       end
 
     with {:ok, item} <- update_item(item, attrs) do
@@ -671,9 +665,6 @@ defmodule Ambry.Inbox do
   item, so the row tomorrow says exactly what the toast said today.
   """
 
-  def describe_error(:multi_file_unsupported),
-    do: "Several audio files — an import is one file, so split this into one item per file first."
-
   def describe_error(:no_published_date),
     do:
       "No publication date, and one can't be invented. Match a work, or tag the file with a date."
@@ -1002,31 +993,41 @@ defmodule Ambry.Inbox do
     MapSet.new(track_paths ++ source_files)
   end
 
-  defp probe_single(file, opts \\ []) do
-    case Scanner.probe_file(file, opts) do
-      {:ok, probe} ->
-        %{probe: probe_map(probe), tags: tags_map(probe.tags), issue: nil}
+  # The whole release, measured as the one recording it will become: the
+  # durations add up into a single book timeline, and the tags are read off
+  # the first file the way playback will encounter it.
+  #
+  # This costs no more than a single-file release of the same book — the
+  # expensive part is decode-counting VBR mp3s, and forty files hold the same
+  # fourteen hours of audio one file would.
+  defp probe_recording(files) do
+    case Scanner.probe_all(files) do
+      {:ok, [first | _rest] = probes} ->
+        %{probe: probe_map(probes), tags: tags_map(first.tags), issue: nil}
 
       {:error, reason} ->
         %{issue: "couldn't read the file: #{inspect(reason)}"}
     end
   end
 
-  defp multi_file_issue(%InboxItem{files: files}) do
-    "#{length(files)} audio files — an import is one file; split this into one item per file below"
+  defp probe_map([first | _rest] = probes) do
+    %{
+      "path" => first.path,
+      "files" => length(probes),
+      "size" => Enum.reduce(probes, 0, &(&1.size + &2)),
+      "format" => first.format,
+      "codec" => first.codec,
+      "mime" => first.mime,
+      "duration" => probes |> Scanner.total_duration() |> Decimal.to_string(),
+      # The worst of them, not the first: one file that can't be seeked
+      # accurately makes every seek past it inaccurate too.
+      "seek_accuracy" => probes |> Enum.map(& &1.seek_accuracy) |> seek_accuracy(),
+      "chapters" => length(Scanner.embedded_chapters(probes))
+    }
   end
 
-  defp probe_map(probe) do
-    %{
-      "path" => probe.path,
-      "size" => probe.size,
-      "format" => probe.format,
-      "codec" => probe.codec,
-      "mime" => probe.mime,
-      "duration" => probe.duration && Decimal.to_string(probe.duration),
-      "seek_accuracy" => to_string(probe.seek_accuracy),
-      "chapters" => length(probe.chapters)
-    }
+  defp seek_accuracy(accuracies) do
+    if Enum.any?(accuracies, &(&1 == :approximate)), do: "approximate", else: "exact"
   end
 
   defp tags_map(tags) do

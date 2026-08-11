@@ -480,12 +480,13 @@ defmodule Ambry.Inbox.ImporterTest do
   end
 
   describe "approve/1 refusals" do
-    test "refuses a multi-file release rather than importing half of it" do
-      # Checked before the draft: no amount of curation makes a multi-file
-      # release importable — the operator splits it into one item per file.
-      item = tagged_item(files: ["01.mp3", "02.mp3"], settle: false)
+    test "refuses a release with no audio in it at all" do
+      # Checked before the draft: no amount of curation makes an empty
+      # release importable.
+      item = tagged_item(settle: false)
+      {:ok, item} = item |> Ecto.Changeset.change(%{files: []}) |> Repo.update()
 
-      assert {:error, :multi_file_unsupported} = Inbox.import_item(item)
+      assert {:error, :no_audio_files} = Inbox.import_item(item)
       assert Repo.aggregate(Book, :count) == 0
     end
 

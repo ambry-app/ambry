@@ -53,6 +53,76 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert media.source_path == Path.dirname(placed)
     end
 
+    test "gives a multi-file recording a subfolder of its own, with indexed names" do
+      %{item: item, root: root, sources: sources} =
+        downloads_item(files: ["02.m4b", "01.m4b", "10.m4b"])
+
+      assert {:ok, media} = Inbox.import_item(item)
+      media = Media.get_media!(media.id)
+
+      book_folder = Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)"])
+
+      # A subfolder, because the book folder is shared with every other
+      # recording of the same work — and indexed names, because play order
+      # has to be legible on disk rather than inherited from whatever the
+      # release called things.
+      assert media.source_files == [
+               Path.join([book_folder, "The Way of Kings", "The Way of Kings - 001.m4b"]),
+               Path.join([book_folder, "The Way of Kings", "The Way of Kings - 002.m4b"]),
+               Path.join([book_folder, "The Way of Kings", "The Way of Kings - 003.m4b"])
+             ]
+
+      assert Enum.all?(media.source_files, &File.exists?/1)
+      assert media.source_path == Path.join(book_folder, "The Way of Kings")
+
+      # 01 before 02 before 10: the order the operator saw, not the order the
+      # filenames sort as strings.
+      assert media.media_tracks
+             |> Enum.sort_by(& &1.index)
+             |> Enum.map(& &1.path) == media.source_files
+
+      # Every one hardlinked, and every source still seeding.
+      assert Enum.all?(media.source_files, &match?({:ok, %{links: 2}}, File.stat(&1)))
+      assert Enum.all?(sources, &File.exists?/1)
+    end
+
+    test "lays a multi-file recording's tracks end to end" do
+      %{item: item} = downloads_item(files: ["01.m4b", "02.m4b"])
+
+      assert {:ok, media} = Inbox.import_item(item)
+      media = Media.get_media!(media.id)
+
+      assert [first, second] = Enum.sort_by(media.media_tracks, & &1.index)
+      assert Decimal.equal?(first.start_offset, 0)
+      assert Decimal.equal?(second.start_offset, first.duration)
+
+      assert Decimal.equal?(media.duration, Decimal.add(first.duration, second.duration))
+    end
+
+    test "places every file of a recording or none of them" do
+      %{item: item, root: root} = downloads_item(files: ["01.m4b", "02.m4b", "03.m4b"])
+
+      # Something is already sitting where the third file has to go. Two
+      # thirds of a book in the library is not a partial success.
+      occupied =
+        Path.join([
+          root,
+          "Brandon Sanderson",
+          "The Way of Kings (2010)",
+          "The Way of Kings",
+          "The Way of Kings - 003.m4b"
+        ])
+
+      File.mkdir_p!(Path.dirname(occupied))
+      File.write!(occupied, "not ours")
+
+      assert {:error, {:destination_exists, ^occupied}} = Inbox.import_item(item)
+
+      assert File.ls!(Path.dirname(occupied)) == ["The Way of Kings - 003.m4b"]
+      assert File.read!(occupied) == "not ours"
+      assert Repo.aggregate(Media.Media, :count) == 0
+    end
+
     test "renders the folder from the operator's template" do
       {:ok, _setting} = Settings.set_library_naming_template("{author}/{year} - {title}")
       %{item: item, root: root} = downloads_item()
@@ -373,8 +443,17 @@ defmodule Ambry.Inbox.ManagedImportTest do
     downloads = new_dir("downloads")
     release = Path.join(downloads, "The Way of Kings [M4B]")
     File.mkdir_p!(release)
-    source = Path.join(release, "book.m4b")
-    File.cp!(tagged_audio(), source)
+
+    sources =
+      opts
+      |> Keyword.get(:files, ["book.m4b"])
+      |> Enum.map(fn name ->
+        path = Path.join(release, name)
+        File.cp!(tagged_audio(), path)
+        path
+      end)
+
+    source = hd(sources)
 
     watched =
       insert(:source,
@@ -393,7 +472,14 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # happens to the bytes afterwards.
     item = settle(item)
 
-    %{item: item, root: root, source: source, watched: watched, downloads: downloads}
+    %{
+      item: item,
+      root: root,
+      source: source,
+      sources: sources,
+      watched: watched,
+      downloads: downloads
+    }
   end
 
   defp new_dir(prefix) do

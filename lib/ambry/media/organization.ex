@@ -55,9 +55,11 @@ defmodule Ambry.Media.Organization do
       ])
 
     with {:ok, root} <- root_for(media),
-         {:ok, file} <- single_file(media),
-         {:ok, destination} <- destination(media, root, file) do
-      if destination == file, do: {:ok, :noop}, else: move(media, file, destination)
+         {:ok, files} <- current_files(media),
+         {:ok, destinations} <- destinations(media, root, files) do
+      if destinations == files,
+        do: {:ok, :noop},
+        else: move(media, Enum.zip(files, destinations))
     else
       :noop -> {:ok, :noop}
       {:error, reason} -> {:error, reason}
@@ -117,18 +119,22 @@ defmodule Ambry.Media.Organization do
     String.starts_with?(path, root_path <> "/")
   end
 
-  # Direct-play v1 is single-file. A recording with several tracks would need
-  # every one moved and re-pointed, which isn't reachable yet and shouldn't
-  # be guessed at.
-  defp single_file(%Media{media_tracks: [%{path: path}]}), do: {:ok, path}
-  defp single_file(%Media{}), do: :noop
+  # Where the recording's files are now, in play order. Track order is the
+  # order the destination names are rendered in, so a multi-file recording's
+  # file 003 stays file 003 across a rename.
+  defp current_files(%Media{media_tracks: [_ | _] = tracks}) do
+    {:ok, tracks |> Enum.sort_by(& &1.index) |> Enum.map(& &1.path)}
+  end
 
-  defp destination(media, root, current_file) do
+  defp current_files(%Media{}), do: :noop
+
+  defp destinations(media, root, current_files) do
     values = Books.naming_values(media.book, media)
 
     with {:ok, folder} <- NamingTemplate.render(Settings.library_naming_template(), values),
-         {:ok, filename} <- NamingTemplate.filename(values, current_file, filename_part(media)) do
-      {:ok, Path.join([root.path, folder, filename])}
+         {:ok, filenames} <-
+           NamingTemplate.filenames(values, current_files, filename_part(media)) do
+      {:ok, Enum.map(filenames, &Path.join([root.path, folder, &1]))}
     end
   end
 
@@ -141,61 +147,99 @@ defmodule Ambry.Media.Organization do
     %{number: number, total: group && group.parts_total, word: group && group.part_word}
   end
 
-  defp move(media, from, to) do
-    cond do
-      not File.regular?(from) ->
-        # Reconciliation's job to notice and record, not this one's to guess
-        # at. Moving a file that isn't there would only turn one problem into
-        # two.
-        {:error, {:source_missing, from}}
+  # A file already sitting at its destination is skipped, not refused. Adding
+  # one file to a forty-file recording renames only the forty-first: the rest
+  # map to themselves, and treating "it's already there" as a collision would
+  # fail every such re-organize.
+  defp move(media, pairs) do
+    pairs = Enum.reject(pairs, fn {from, to} -> from == to end)
 
-      File.exists?(to) ->
-        {:error, {:destination_exists, to}}
-
-      true ->
-        do_move(media, from, to)
+    case Enum.find_value(pairs, &blocker/1) do
+      nil -> do_move(media, pairs)
+      reason -> {:error, reason}
     end
   end
 
-  defp do_move(media, from, to) do
-    with :ok <- File.mkdir_p(Path.dirname(to)),
-         :ok <- File.rename(from, to),
-         {:ok, _media} <- repoint(media, from, to) do
-      prune(from)
+  # Checked for every file before any of them moves. Half a renamed recording
+  # is worse than an unrenamed one — the tracks would point at two different
+  # folders — and the cheap checks are the ones that catch it.
+  defp blocker({from, to}) do
+    cond do
+      # Reconciliation's job to notice and record, not this one's to guess
+      # at. Moving a file that isn't there would only turn one problem into
+      # two.
+      not File.regular?(from) -> {:source_missing, from}
+      File.exists?(to) -> {:destination_exists, to}
+      true -> nil
+    end
+  end
+
+  defp do_move(media, pairs) do
+    with :ok <- rename_all(pairs),
+         {:ok, _media} <- repoint(media, pairs) do
+      pairs |> Enum.map(&elem(&1, 0)) |> prune()
       {:ok, :moved}
     else
       {:error, reason} -> {:error, {:move_failed, reason}}
     end
   end
 
-  defp repoint(media, from, to) do
+  defp rename_all(pairs) do
+    Enum.reduce_while(pairs, :ok, fn {from, to}, :ok ->
+      with :ok <- File.mkdir_p(Path.dirname(to)),
+           :ok <- File.rename(from, to) do
+        {:cont, :ok}
+      else
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp repoint(media, pairs) do
+    moved = Map.new(pairs)
+
     Repo.transact(fn ->
-      with {:ok, _track} <- repoint_track(media, to) do
+      with {:ok, _tracks} <- repoint_tracks(media, moved) do
         media
         |> Ecto.Changeset.change(%{
-          source_path: Path.dirname(to),
-          source_files: replace_path(media.source_files, from, to)
+          source_path: pairs |> List.last() |> elem(1) |> Path.dirname(),
+          source_files: replace_paths(media.source_files, moved, media.media_tracks)
         })
         |> Repo.update()
       end
     end)
   end
 
-  defp repoint_track(%Media{media_tracks: [track]}, to) do
-    track |> Ecto.Changeset.change(%{path: to}) |> Repo.update()
+  defp repoint_tracks(%Media{media_tracks: tracks}, moved) do
+    tracks
+    |> Enum.filter(&Map.has_key?(moved, &1.path))
+    |> Enum.reduce_while({:ok, []}, fn track, {:ok, acc} ->
+      track
+      |> Ecto.Changeset.change(%{path: moved[track.path]})
+      |> Repo.update()
+      |> case do
+        {:ok, track} -> {:cont, {:ok, [track | acc]}}
+        {:error, changeset} -> {:halt, {:error, changeset}}
+      end
+    end)
   end
 
-  defp replace_path(source_files, from, to) when is_list(source_files) do
-    Enum.map(source_files, fn path -> if path == from, do: to, else: path end)
+  defp replace_paths(source_files, moved, _tracks) when is_list(source_files) do
+    Enum.map(source_files, fn path -> Map.get(moved, path, path) end)
   end
 
-  defp replace_path(_source_files, _from, to), do: [to]
+  # A recording old enough to have no `source_files` gets the one thing that
+  # is certainly true afterwards: where its tracks are now.
+  defp replace_paths(_source_files, moved, tracks) do
+    tracks |> Enum.sort_by(& &1.index) |> Enum.map(&Map.get(moved, &1.path, &1.path))
+  end
 
-  # The folder the file just left, and any parent left empty by it. Passing
-  # the old *file* path is what makes the pruning start at its folder rather
-  # than at the folder's parent. Stops at any registered location — a root's
-  # existence is configuration, not a consequence of holding a book.
-  defp prune(from) do
-    Utils.try_prune_empty_parents([from], Library.registered_paths())
+  # The folders the files just left, and any parent left empty by them.
+  # Passing the old *file* paths is what makes the pruning start at their
+  # folders rather than at the folders' parents. Stops at any registered
+  # location — a root's existence is configuration, not a consequence of
+  # holding a book.
+  defp prune(from_paths) do
+    Utils.try_prune_empty_parents(from_paths, Library.registered_paths())
   end
 end

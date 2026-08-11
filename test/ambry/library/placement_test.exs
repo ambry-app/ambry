@@ -153,6 +153,61 @@ defmodule Ambry.Library.PlacementTest do
     end
   end
 
+  describe "place_all/2" do
+    setup %{source: source} do
+      dir = Path.dirname(source)
+
+      sources =
+        for index <- 1..3 do
+          path = Path.join(dir, "track#{index}.mp3")
+          File.write!(path, "audio bytes #{index}")
+          path
+        end
+
+      %{sources: sources}
+    end
+
+    test "places every file in order", %{root: root, sources: sources} do
+      pairs = Enum.map(sources, &{&1, Path.join([root, "Book", Path.basename(&1)])})
+
+      assert {:ok, placements} = Placement.place_all(pairs, :hardlink)
+
+      assert Enum.map(placements, & &1.source) == sources
+      assert Enum.all?(placements, &File.exists?(&1.destination))
+    end
+
+    # Thirty-nine linked files and a fortieth that failed is not a partial
+    # success — it's a book that plays up to chapter 39 and then stops.
+    test "undoes everything already placed when one file fails", %{root: root, sources: sources} do
+      occupied = Path.join([root, "Book", "track3.mp3"])
+      File.mkdir_p!(Path.dirname(occupied))
+      File.write!(occupied, "somebody else's")
+
+      pairs = Enum.map(sources, &{&1, Path.join([root, "Book", Path.basename(&1)])})
+
+      assert {:error, {:destination_exists, ^occupied}} = Placement.place_all(pairs, :hardlink)
+
+      assert File.ls!(Path.join(root, "Book")) == ["track3.mp3"]
+      assert File.read!(occupied) == "somebody else's"
+      # Never the sources: at this point they're still the only copy.
+      assert Enum.all?(sources, &File.exists?/1)
+    end
+
+    test "a moved set removes its sources only once the caller confirms", %{
+      root: root,
+      sources: sources
+    } do
+      pairs = Enum.map(sources, &{&1, Path.join([root, "Book", Path.basename(&1)])})
+
+      assert {:ok, placements} = Placement.place_all(pairs, :move)
+      assert Enum.all?(sources, &File.exists?/1)
+
+      assert :ok = Placement.finalize(placements)
+      refute Enum.any?(sources, &File.exists?/1)
+      assert Enum.all?(placements, &File.exists?(&1.destination))
+    end
+  end
+
   describe "undo/1" do
     test "removes the file and the folders it created", %{root: root, source: source} do
       destination = Path.join([root, "Author", "Series", "Title.m4b"])

@@ -750,6 +750,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def evidence(%InboxItem{probe: probe}) when is_map(probe) do
     [
       probe["duration"] && format_timecode(Decimal.new(probe["duration"])),
+      file_count(probe),
       probe["codec"],
       probe["chapters"] && probe["chapters"] > 0 && "#{probe["chapters"]} chapters",
       probe["seek_accuracy"] == "approximate" && "inexact seeking"
@@ -759,6 +760,11 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def evidence(_item), do: "not read yet"
+
+  # A one-file recording says nothing; a forty-file one is the single most
+  # useful fact about it, because it's what the timeline is built out of.
+  defp file_count(%{"files" => count}) when count > 1, do: "#{count} files"
+  defp file_count(_probe), do: nil
 
   @doc """
   How many chapters the file carries, and where they came from.
