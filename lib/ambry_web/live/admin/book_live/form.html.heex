@@ -57,7 +57,6 @@
               field={:book_authors}
               index={book_author_form.index}
               count={@book_author_count}
-              class="mt-3 flex-none"
             />
             <div class="relative grow">
               <.input field={book_author_form[:author_id]} type="autocomplete" options={@authors} />
@@ -86,7 +85,6 @@
               field={:series_books}
               index={series_book_form.index}
               count={@series_book_count}
-              class="mt-3 flex-none"
             />
             <.input
               field={series_book_form[:book_number]}

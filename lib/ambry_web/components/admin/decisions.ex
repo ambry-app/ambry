@@ -26,23 +26,6 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.SourceRef
   alias AmbryWeb.Components.EntityResolver
 
-  @doc """
-  The app-standard input styling, for the controls the import form builds by
-  hand.
-
-  The admin forms get this through `<.input>`; a bare `<input>` or `<select>`
-  rendered here has to carry it itself or it falls back to the browser's blue
-  focus ring, which is exactly what happened.
-  """
-  def input_classes(extra \\ nil) do
-    [
-      "rounded-sm text-sm focus:outline-none focus:ring-4",
-      "bg-zinc-800 text-zinc-200 placeholder:text-zinc-500",
-      "focus:ring-brand-dark/20 border-transparent focus:border-transparent",
-      extra
-    ]
-  end
-
   attr :outcomes, :list, required: true
   attr :level, :string, default: nil
   attr :retrying, :any, default: nil

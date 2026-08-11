@@ -87,10 +87,14 @@ defmodule AmbryWeb.Admin.Components do
       <div class="grow">
         <.admin_table_search_form search_form={@search_form} />
       </div>
+      <%!-- A list page's one constructive action, so it wears §6's primary
+            costume — the same solid button the inbox's "Scan for new" has
+            always had in this exact slot. It was a lime text link everywhere
+            else, which read as navigation rather than the page's point. --%>
       <div :if={@new_path}>
-        <.link navigate={@new_path} class="flex items-center font-bold text-lime-400 hover:underline">
-          {@new_text} <.icon name="fa-plus" class="ml-2 h-4 w-4 text-current" />
-        </.link>
+        <.button navigate={@new_path}>
+          <.icon name="fa-plus" class="mr-2 h-4 w-4 text-current" />{@new_text}
+        </.button>
       </div>
       <div :if={@prev_page_path}>
         <.pagination_chevron active={@has_prev} name="fa-chevron-left" to={@prev_page_path} />
@@ -158,13 +162,17 @@ defmodule AmbryWeb.Admin.Components do
           name="fa-magnifying-glass"
           class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500"
         />
+        <%!-- The app-standard fill, like every other control. It used to wear
+              a 1px border and its own two-step lime focus ring — the one
+              control on a list page, looking unlike every control on the page
+              it leads to. --%>
         <input
           id={@search_form.id}
           type="search"
           name={@search_form[:query].name}
           value={@search_form[:query].value}
           placeholder="Search"
-          class="w-full rounded-sm border border-zinc-700 bg-zinc-800 py-1.5 pr-3 pl-9 text-sm text-zinc-200 placeholder:text-zinc-500 focus:ring-lime-500/20 focus:border-lime-400 focus:outline-none focus:ring-2"
+          class={input_classes("w-full py-1.5 pr-3 pl-9")}
         />
       </div>
     </.form>
@@ -228,7 +236,7 @@ defmodule AmbryWeb.Admin.Components do
       )
 
     ~H"""
-    <div class="rounded-sm border border-zinc-800 bg-zinc-900">
+    <div class="overflow-hidden rounded-lg bg-zinc-900">
       <%= if @rows == [] do %>
         <div class="p-3">
           {render_slot(@no_results)}
@@ -615,7 +623,13 @@ defmodule AmbryWeb.Admin.Components do
 
   def move_buttons(assigns) do
     ~H"""
-    <div class={["flex flex-col", @class]} data-role="move-buttons">
+    <%!-- The control is exactly one input tall (`py-[7px]` + `leading-6` +
+        the transparent border = 40px) with its glyphs centred in it, so it
+        lines up with the field it reorders by being the same height as it —
+        design language §7. Every call site used to nudge it down by a
+        hand-picked `mt-3` instead, which lands 2px shy and slides off
+        entirely as soon as the row carries an error or a second control. --%>
+    <div class={["flex h-10 flex-none flex-col justify-center", @class]} data-role="move-buttons">
       <button
         type="button"
         phx-click="move"
@@ -652,20 +666,44 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  attr :field, FormField, required: true
+  attr :field, FormField,
+    default: nil,
+    doc: "an `inputs_for` sort field — supply it and the button drives Ecto's sort-param trick"
+
+  attr :class, :any, default: nil
+  attr :rest, :global
   slot :inner_block, required: true
 
+  @doc """
+  Adds one more row to a list the operator is building.
+
+  **One costume for this job across the whole admin.** It was three: a
+  brand-colored link with a plus on the legacy forms, an 11px underlined
+  word on the import form, and a lime "New +" on every list header — three
+  answers to "add another one of these" on three surfaces the operator moves
+  between. This is §6's quiet row action, which the same forms already use
+  for Confirm, Restore and Split.
+
+  Two call styles, because the legacy forms add a row by posting a sort
+  param and the import form does it with an event: pass `field` for the
+  former, `phx-click` for the latter.
+  """
   def add_button(assigns) do
     ~H"""
     <button
       type="button"
-      name={@field.name <> "[]"}
-      value="new"
-      phx-click={JS.dispatch("change")}
-      class="text-brand-dark flex cursor-pointer items-center gap-1 hover:underline"
+      name={@field && @field.name <> "[]"}
+      value={@field && "new"}
+      phx-click={@field && JS.dispatch("change")}
+      class={[
+        "bg-white/5 flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1",
+        "text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-zinc-100",
+        @class
+      ]}
+      {@rest}
     >
+      <.icon name="fa-plus" class="h-3 w-3 flex-none text-current" />
       {render_slot(@inner_block)}
-      <.icon name="fa-plus" class="h-4 w-4 text-current" />
     </button>
     """
   end
@@ -710,7 +748,7 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <div :if={@record.id} class="max-w-lg space-y-2">
       <.label>Metadata provenance</.label>
-      <div class="divide-y divide-zinc-800 rounded-sm border border-zinc-800 text-sm">
+      <div class="bg-zinc-800/60 space-y-1 rounded-lg p-2 text-sm">
         <div :for={field <- @fields} class="flex items-center gap-2 px-3 py-2">
           <span class="w-36 shrink-0 font-semibold text-zinc-200">
             {Phoenix.Naming.humanize(field)}

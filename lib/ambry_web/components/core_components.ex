@@ -255,26 +255,45 @@ defmodule AmbryWeb.CoreComponents do
   attr :type, :string, default: nil
   attr :class, :string, default: nil
   attr :color, :atom, default: :brand, values: ~w(brand yellow red zinc)a
+
+  attr :navigate, :string,
+    default: nil,
+    doc: "renders a link wearing the button costume — for an action that is a page, not an event"
+
   attr :rest, :global, include: ~w(disabled form name value)
 
   slot :inner_block, required: true
 
+  # An action that happens to be a navigation is still an action, and it has
+  # to be able to look like one: `<.link>` inside a `<button>` is invalid
+  # markup, and a bespoke link styled to match drifts the moment the costume
+  # changes. Same classes, one element or the other.
+  def button(%{navigate: navigate} = assigns) when is_binary(navigate) do
+    ~H"""
+    <.link navigate={@navigate} class={button_classes(@color, @class)} {@rest}>
+      {render_slot(@inner_block)}
+    </.link>
+    """
+  end
+
   def button(assigns) do
     ~H"""
-    <button
-      type={@type}
-      class={[
-        "rounded-sm border px-3 py-2 phx-submit-loading:opacity-75",
-        "whitespace-nowrap text-sm font-semibold leading-6",
-        "active:opacity-80 disabled:pointer-events-none disabled:opacity-40",
-        button_color_classes(@color),
-        @class
-      ]}
-      {@rest}
-    >
+    <button type={@type} class={button_classes(@color, @class)} {@rest}>
       {render_slot(@inner_block)}
     </button>
     """
+  end
+
+  defp button_classes(color, extra) do
+    [
+      # inline-flex, not inline-block: a button with a leading icon aligns its
+      # glyph to the label's box rather than its baseline (§3).
+      "inline-flex items-center justify-center rounded-sm border px-3 py-2 phx-submit-loading:opacity-75",
+      "whitespace-nowrap text-sm font-semibold leading-6",
+      "active:opacity-80 disabled:pointer-events-none disabled:opacity-40",
+      button_color_classes(color),
+      extra
+    ]
   end
 
   # One identity in both themes: the primary action is the brand fill with
@@ -582,13 +601,39 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  @doc """
+  The app-standard input styling, for controls that are built by hand.
+
+  `<.input>` carries this itself. Anything else — a search box, a bare
+  `<input>` inside a component, a hand-built `<select>` — has to say so, or it
+  falls back to the browser's blue focus ring and a 1px hairline, which is
+  exactly what happened to both search fields and every provider-import row.
+
+  This is the single definition: `input_color_classes/1` below is this plus
+  the error and no-feedback states that only a real form field has. Don't
+  hand-write `bg-zinc-800 border …` on a control — call this.
+  """
+  def input_classes(extra \\ nil) do
+    [
+      "rounded-sm text-sm focus:outline-none focus:ring-4",
+      input_fill_classes(),
+      extra
+    ]
+  end
+
+  # Controls are filled, not outlined: a transparent border keeps the box
+  # size, the fill separates it from the surface, and focus is a soft brand
+  # ring — no 1px hairlines fighting high-DPI subpixel rendering.
+  defp input_fill_classes do
+    [
+      "bg-zinc-800 text-zinc-200 placeholder:text-zinc-500",
+      "focus:ring-brand-dark/20 border-transparent focus:border-transparent"
+    ]
+  end
+
   defp input_color_classes(errors) do
     [
-      # Controls are filled, not outlined: a transparent border keeps the
-      # box size, the fill separates it from the surface, and focus is a soft
-      # brand ring — no 1px hairlines fighting high-DPI subpixel rendering.
-      "bg-zinc-800 text-zinc-200 placeholder:text-zinc-500",
-      "focus:ring-brand-dark/20 border-transparent focus:border-transparent",
+      input_fill_classes(),
       "phx-no-feedback:focus:ring-brand-dark/20 phx-no-feedback:border-transparent phx-no-feedback:focus:border-transparent"
     ] ++
       if errors == [],
@@ -1469,9 +1514,9 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div
       id={@id}
-      class="max-w-80 bg-zinc-900/90 absolute top-12 right-4 z-50 hidden text-zinc-200 shadow-md backdrop-blur transition-opacity"
+      class="max-w-80 bg-zinc-900/90 absolute top-12 right-4 z-50 hidden rounded-lg text-zinc-200 shadow-xl backdrop-blur transition-opacity"
     >
-      <div class="h-full w-full divide-y divide-zinc-800 rounded-sm border border-zinc-800">
+      <div class="h-full w-full rounded-lg">
         <div class="flex items-center gap-4 p-4">
           <img class="h-10 w-10 rounded-full" src={gravatar_url(@user.email)} />
           <p class="overflow-hidden text-ellipsis whitespace-nowrap">{@user.email}</p>

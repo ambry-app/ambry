@@ -31,7 +31,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
             build that understands tracks.
           </p>
 
-          <div class="rounded-sm border border-zinc-800 bg-zinc-900 p-4">
+          <div class="rounded-lg bg-zinc-900 p-4">
             <div class="flex items-center gap-3">
               <span class={[
                 "inline-block h-2.5 w-2.5 rounded-full",
@@ -74,7 +74,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
               leading dash.
             </p>
 
-            <div class="rounded-sm border border-zinc-800 bg-zinc-900 p-4">
+            <div class="rounded-lg bg-zinc-900 p-4">
               <p class="mb-1 text-xs font-semibold text-zinc-400">Preview</p>
               <p class="font-mono break-all text-sm" data-role="template-preview">{@preview}</p>
             </div>

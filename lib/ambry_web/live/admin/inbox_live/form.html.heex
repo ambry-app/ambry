@@ -390,14 +390,9 @@
             photos_expanded={@photos_expanded}
           />
 
-          <button
-            type="button"
-            phx-click="add-credit"
-            phx-value-section="work"
-            class="pl-3 text-xs text-zinc-400 underline"
-          >
+          <.add_button phx-click="add-credit" phx-value-section="work">
             Add an author
-          </button>
+          </.add_button>
         </div>
 
         <%!-- each series is its own decision, number included --%>
@@ -425,9 +420,7 @@
             options={@series}
           />
 
-          <button type="button" phx-click="add-series" class="pl-3 text-xs text-zinc-400 underline">
-            Add a series
-          </button>
+          <.add_button phx-click="add-series">Add a series</.add_button>
         </div>
       </section>
 
@@ -618,14 +611,9 @@
             options={@group_options}
           />
 
-          <button
-            :if={group_absent?(@item.draft)}
-            type="button"
-            phx-click="add-group"
-            class="pl-3 text-xs text-zinc-400 underline"
-          >
+          <.add_button :if={group_absent?(@item.draft)} phx-click="add-group">
             This release is part of a set
-          </button>
+          </.add_button>
         </div>
 
         <div class="space-y-2">
@@ -655,14 +643,9 @@
             photos_expanded={@photos_expanded}
           />
 
-          <button
-            type="button"
-            phx-click="add-credit"
-            phx-value-section="recording"
-            class="pl-3 text-xs text-zinc-400 underline"
-          >
+          <.add_button phx-click="add-credit" phx-value-section="recording">
             Add a narrator
-          </button>
+          </.add_button>
         </div>
       </section>
 

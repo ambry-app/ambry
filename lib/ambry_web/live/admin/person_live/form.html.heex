@@ -52,7 +52,7 @@
             id="description-preview"
             phx-hook="scroll-match"
             data-target="description-input"
-            class="absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm border border-zinc-800 sm:block"
+            class="bg-zinc-800/50 absolute top-8 right-0 bottom-0 left-0 hidden overflow-auto rounded-sm sm:block"
           >
             <.markdown content={@form[:description].value || ""} class="p-2" />
           </div>

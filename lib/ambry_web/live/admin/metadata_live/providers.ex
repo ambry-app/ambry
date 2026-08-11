@@ -36,7 +36,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
           <div class="space-y-4">
             <div
               :for={entry <- providers_for_level(@providers, level)}
-              class="rounded-sm border border-zinc-800 bg-zinc-900 p-4"
+              class="rounded-lg bg-zinc-900 p-4"
             >
               <div class="flex items-center gap-3">
                 <span class={["inline-block h-2.5 w-2.5 rounded-full", (entry.enabled && "bg-lime-500") || "bg-zinc-600"]} />
