@@ -137,6 +137,28 @@ then 80px at the bottom of the page, before the fix; 0 and 0 after.
 with the title line and its last with the content's last line
 (`self-stretch` + `justify-between`).
 
+## 3b. Forms are blocks, like everything else
+
+An edit form is not a special case: it is a page of decisions, so it is a
+page of blocks. `<.field_group>` is the unit — one `zinc-900` block per
+*cluster*, being the fields that answer one question about the record ("who
+wrote it", "where the files live"). Its label names the cluster and sits on
+the text rail; fields that speak for themselves need no label, because the
+block and the gap around it are already the grouping.
+
+`<.form_section>` wraps a run of blocks under a ground-level `<h2>` — only
+for a form long enough that you need to find your way around it (the media
+form has two; the book form needs none).
+
+**Every label an `<.input>` renders is on the rail** (`pl-3`), because the
+control's own text is. Before this, labels sat at the container edge and
+their inputs' text 12px in — every legacy form was two left edges out of
+alignment with itself, which is precisely §3's near-miss.
+
+The image-stack thumbnails (`multi_image`) are the documented exception to
+§1: overlapping images have no fill to separate them with, so they draw
+their own 1px edge.
+
 ## 4. Type
 
 | Role | Spec |

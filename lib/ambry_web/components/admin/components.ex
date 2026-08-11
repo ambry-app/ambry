@@ -666,6 +666,56 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  attr :label, :string, default: nil
+  attr :hint, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  @doc """
+  One cluster of fields on an edit form, as a block.
+
+  The edit forms were a single stack of bare controls on the ground while the
+  import form was entirely blocks — the same operator, the same records, two
+  visual languages. A cluster is the unit: the fields that answer one
+  question about the record ("who wrote it", "where it lives"), on the
+  zinc-900 block every other decision in this admin sits on.
+
+  The label is the cluster's name and sits on the text rail, so it lines up
+  with the text inside the controls under it (§3). Fields that speak for
+  themselves need no label — the block and its spacing are the grouping.
+  """
+  def field_group(assigns) do
+    ~H"""
+    <div class={["space-y-2 rounded-lg bg-zinc-900 p-4", @class]} {@rest}>
+      <.label :if={@label} class="pl-3">{@label}</.label>
+      <p :if={@hint} class="max-w-prose pl-3 text-sm text-zinc-400">{@hint}</p>
+      {render_slot(@inner_block)}
+    </div>
+    """
+  end
+
+  attr :title, :string, required: true
+  attr :id, :string, default: nil
+  attr :class, :any, default: nil
+  slot :inner_block, required: true
+
+  @doc """
+  A named run of field groups, for a form long enough to need finding your
+  way around — the import form's anatomy, which is where this came from.
+
+  Headings sit on the ground with no rule under them; the 56px section gap
+  and the blocks below do the dividing (§1, §3).
+  """
+  def form_section(assigns) do
+    ~H"""
+    <section id={@id} class={["space-y-7", @class]}>
+      <h2 class="text-xl font-bold text-zinc-100">{@title}</h2>
+      {render_slot(@inner_block)}
+    </section>
+    """
+  end
+
   attr :field, FormField,
     default: nil,
     doc: "an `inputs_for` sort field — supply it and the button drives Ecto's sort-param trick"

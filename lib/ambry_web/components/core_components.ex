@@ -376,7 +376,7 @@ defmodule AmbryWeb.CoreComponents do
 
     ~H"""
     <div class={[@container_class]}>
-      <.label class="flex items-center gap-4">
+      <.label class="flex items-center gap-4 pl-3">
         <input type="hidden" name={@name} value="false" disabled={@rest[:disabled]} />
         <input
           type="checkbox"
@@ -397,7 +397,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "select"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}>{@label}</.label>
+      <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
       <select
         id={@id}
         name={@name}
@@ -419,7 +419,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "textarea"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}>{@label}</.label>
+      <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
       <textarea
         id={@id}
         name={@name}
@@ -440,7 +440,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(%{type: "autocomplete"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}>{@label}</.label>
+      <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
       <.live_component
         module={EntityResolver}
         id={@id}
@@ -461,7 +461,7 @@ defmodule AmbryWeb.CoreComponents do
   def input(assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
-      <.label :if={@label} for={@id}>{@label}</.label>
+      <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
       <%!-- Firefox's date editor carries ~2px of its own inner inset, which
           knocks the value off the 12px text rail the px-[11px] + 1px border
           otherwise lands on. @supports (-moz-appearance) matches only
@@ -519,7 +519,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div>
       <div class="space-y-2">
-        <.label :if={@label}>{@label}</.label>
+        <.label :if={@label} class="pl-3">{@label}</.label>
         <.live_file_input
           upload={@upload}
           class={

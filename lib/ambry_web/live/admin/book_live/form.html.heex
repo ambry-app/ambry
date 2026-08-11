@@ -11,42 +11,44 @@
 
   <div class="max-w-3xl">
     <.simple_form id="book-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-        <.input field={@form[:title]} label="Title" />
+      <%!-- What the book is called and when it came out — the two facts that
+          identify the work, in one block. --%>
+      <.field_group>
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+          <.input field={@form[:title]} label="Title" />
 
-        <div :if={@import_providers != []} class="row-start-1 space-y-2 sm:col-start-2">
-          <.label>Import from</.label>
-          <div class="flex flex-wrap items-center gap-2">
-            <.button
-              :for={provider <- @import_providers}
-              color={:zinc}
-              class="flex items-center gap-1"
-              type="button"
-              phx-click={open_import_form(@book, provider.id)}
-            >
-              {provider.display_name}
-            </.button>
+          <div :if={@import_providers != []} class="row-start-1 space-y-2 sm:col-start-2">
+            <.label class="pl-3">Import from</.label>
+            <div class="flex flex-wrap items-center gap-2">
+              <.button
+                :for={provider <- @import_providers}
+                color={:zinc}
+                type="button"
+                phx-click={open_import_form(@book, provider.id)}
+              >
+                {provider.display_name}
+              </.button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-        <.input field={@form[:published]} type="date" label="First print publication" />
-        <div>
-          <.input
-            field={@form[:published_format]}
-            type="select"
-            label="Date display format"
-            options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
-          />
-          <span class="text-sm text-zinc-400">
-            {preview_date_format(@form)}
-          </span>
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+          <.input field={@form[:published]} type="date" label="First print publication" />
+          <div>
+            <.input
+              field={@form[:published_format]}
+              type="select"
+              label="Date display format"
+              options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+            />
+            <span class="pl-3 text-sm text-zinc-400">
+              {preview_date_format(@form)}
+            </span>
+          </div>
         </div>
-      </div>
+      </.field_group>
 
-      <div class="space-y-2">
-        <.label>Authors</.label>
+      <.field_group label="Authors">
         <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
           <.sort_input field={@form[:book_authors_sort]} index={book_author_form.index} />
           <.position_input field={book_author_form[:position]} index={book_author_form.index} />
@@ -71,10 +73,9 @@
 
         <.add_button field={@form[:book_authors_sort]}>Add author</.add_button>
         <.delete_input field={@form[:book_authors_drop]} />
-      </div>
+      </.field_group>
 
-      <div class="space-y-2">
-        <.label>Series</.label>
+      <.field_group label="Series">
         <.inputs_for :let={series_book_form} field={@form[:series_books]}>
           <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
           <.position_input field={series_book_form[:position]} index={series_book_form.index} />
@@ -108,10 +109,9 @@
 
         <.add_button field={@form[:series_books_sort]}>Add series</.add_button>
         <.delete_input field={@form[:series_books_drop]} />
-      </div>
+      </.field_group>
 
-      <div class="space-y-2">
-        <.label>Universes</.label>
+      <.field_group label="Universes">
         <.inputs_for :let={book_universe_form} field={@form[:book_universes]}>
           <.sort_input field={@form[:book_universes_sort]} index={book_universe_form.index} />
 
@@ -127,7 +127,7 @@
 
         <.add_button field={@form[:book_universes_sort]}>Add universe</.add_button>
         <.delete_input field={@form[:book_universes_drop]} />
-      </div>
+      </.field_group>
 
       <.provenance_panel
         record={@book}
