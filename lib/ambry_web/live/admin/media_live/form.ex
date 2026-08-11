@@ -11,13 +11,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   import AmbryWeb.Admin.ParamHelpers
   import AmbryWeb.Admin.UploadHelpers
 
+  alias Ambry.Inbox
   alias Ambry.Media
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
   alias Ambry.People.Person
-  alias Ambry.Provenance
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
   alias AmbryWeb.Admin.ProvenanceHints
@@ -69,7 +69,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       recording_groups: Media.recording_groups_for_select(media.book_id),
       file_stats: Media.get_media_file_details(media)
     )
-    |> assign(evidence: Evidence.new(seed_fields(media, socket.assigns)))
+    |> assign(
+      evidence:
+        Evidence.new(seed_fields(media, socket.assigns), known: Evidence.known_from(media))
+    )
   end
 
   defp apply_action(socket, :new, _params) do
@@ -171,11 +174,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  def handle_event("toggle-provenance-lock", %{"field" => field}, socket) do
-    {:ok, media} = Provenance.toggle_lock(socket.assigns.media, field)
-    {:noreply, assign(socket, media: media)}
-  end
-
   def handle_event("move", params, socket) do
     changeset = socket.assigns.form.source
     media_params = Reordering.move(changeset, socket.assigns.form.params, params)
@@ -200,10 +198,17 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     if Provider.Query.blank?(query) do
       {:noreply, socket}
     else
+      hints =
+        Inbox.form_hints(%{
+          title: params["title"],
+          author: params["author"],
+          narrator: params["narrator"]
+        })
+
       {:noreply,
        socket
        |> assign(evidence: Evidence.begin(socket.assigns.evidence, fields))
-       |> start_async(:evidence_search, fn -> MetadataSearch.books(query, level: :recording) end)}
+       |> start_async(:evidence_search, fn -> recording_fan_out(query, hints) end)}
     end
   end
 
@@ -212,12 +217,17 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
     with false <- Provider.Query.blank?(query),
          {:ok, entry} <- Registry.fetch(provider_id) do
+      hints =
+        Inbox.form_hints(
+          Map.new(socket.assigns.evidence.fields, fn {k, v} -> {String.to_existing_atom(k), v} end)
+        )
+
       {:noreply,
        socket
        |> assign(retrying: provider_id)
        |> start_async(:evidence_search, fn ->
          {books, outcome} = MetadataSearch.books_one(entry, query)
-         {[{entry, books}], [outcome]}
+         {Inbox.score_records(books, entry, hints), [outcome]}
        end)}
     else
       _no -> {:noreply, socket}
@@ -234,7 +244,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   def handle_event("accept-proposal", %{"field" => field, "key" => key}, socket) do
     with {:ok, kind} <- Map.fetch(@scalar_kinds, field),
          %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
-      hints = ProvenanceHints.from_import(proposal.params, proposal.source)
+      hints = ProvenanceHints.from_import(proposal.params, proposal.source, proposal.record)
       new_params = Map.merge(socket.assigns.form.params, proposal.params)
       changeset = Media.change_media(socket.assigns.media, new_params)
 
@@ -256,12 +266,45 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         {:noreply,
          socket
          |> append_narrator_row(narrator_id)
-         |> assign(narrators: People.narrators_for_select())
+         |> assign(
+           narrators: People.narrators_for_select(),
+           provenance_hints:
+             ProvenanceHints.for_list(
+               socket.assigns.provenance_hints,
+               "media_narrators",
+               proposal.source
+             )
+         )
          |> refresh_chips()}
 
       _missing ->
         {:noreply, socket}
     end
+  end
+
+  # The recording level asks two ways, like the import form: Audible's
+  # catalog directly, and the editions the work-level databases keep — the
+  # route to a recording no storefront will admit exists. Work-search
+  # failures surface only through their missing editions outcomes; the
+  # panel describes recordings, not the work hop behind them.
+  defp recording_fan_out(query, hints) do
+    {audible_found, audible_outcomes} = MetadataSearch.books(query, level: :recording)
+
+    audible_records =
+      Enum.flat_map(audible_found, fn {entry, books} ->
+        Inbox.score_records(books, entry, hints)
+      end)
+
+    {work_found, _work_outcomes} = MetadataSearch.books(query, level: :work)
+
+    work_records =
+      Enum.flat_map(work_found, fn {entry, books} ->
+        Inbox.score_records(books, entry, hints)
+      end)
+
+    {edition_records, edition_outcomes} = Inbox.editions_of(work_records, hints)
+
+    {audible_records ++ edition_records, audible_outcomes ++ edition_outcomes}
   end
 
   @impl Phoenix.LiveView

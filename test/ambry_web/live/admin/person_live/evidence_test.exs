@@ -12,7 +12,6 @@ defmodule AmbryWeb.Admin.PersonLive.EvidenceTest do
   import Phoenix.LiveViewTest
 
   alias Ambry.Metadata.Provider
-  alias Ambry.People
   alias Ambry.Provenance
 
   setup :register_and_log_in_admin_user
@@ -151,7 +150,7 @@ defmodule AmbryWeb.Admin.PersonLive.EvidenceTest do
   end
 
   describe "the provenance flag" do
-    test "shows the recorded source and toggles locks in place", %{conn: conn} do
+    test "shows the recorded source in the field header", %{conn: conn} do
       person =
         insert(:person,
           field_provenance: %{
@@ -163,37 +162,17 @@ defmodule AmbryWeb.Admin.PersonLive.EvidenceTest do
           }
         )
 
-      {:ok, view, html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
       assert html =~ "from Audible"
-
-      view
-      |> element(~s{button[phx-click="toggle-provenance-lock"][phx-value-field="name"]})
-      |> render_click()
-
-      updated = People.get_person!(person.id)
-
-      assert %{"source" => "provider:audible", "locked" => true} =
-               Provenance.entry(updated, :name)
     end
 
-    test "locking a field that has no provenance protects it as legacy", %{conn: conn} do
+    test "no flag is rendered for records without provenance", %{conn: conn} do
       person = insert(:person)
 
-      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
-      view
-      |> element(~s{button[phx-click="toggle-provenance-lock"][phx-value-field="description"]})
-      |> render_click()
-
-      updated = People.get_person!(person.id)
-      assert %{"source" => "legacy", "locked" => true} = Provenance.entry(updated, :description)
-    end
-
-    test "no flag is rendered for new records", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/admin/people/new")
-
-      refute html =~ "toggle-provenance-lock"
+      refute html =~ "data-role=\"provenance-flag\""
     end
   end
 end

@@ -347,17 +347,6 @@
                 hint="The work's original publication date, not this recording's release date."
                 field={@item.draft.work.published}
               />
-
-              <.decision_row
-                label="Date display format"
-                section="work"
-                name={:published_format}
-                form={work}
-                type="select"
-                control_class="max-w-56"
-                options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
-                field={@item.draft.work.published_format}
-              />
             </.inputs_for>
           </.inputs_for>
         </.simple_form>

@@ -59,6 +59,9 @@ defmodule Ambry.Books.Book do
     |> put_positions(:series_books)
     |> validate_required([:title, :published])
     |> foreign_key_constraint(:media, name: "media_book_id_fkey")
-    |> Provenance.track_changes(@provenance_fields, opts[:provenance] || %{})
+    |> Provenance.track_changes(
+      @provenance_fields ++ [:book_authors, :series_books],
+      opts[:provenance] || %{}
+    )
   end
 end

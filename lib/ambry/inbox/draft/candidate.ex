@@ -27,12 +27,37 @@ defmodule Ambry.Inbox.Draft.Candidate do
     # choice on the provider alone selected both chips and could only ever
     # apply the first — the other value was unreachable.
     field :key, :string
+
+    # The provider record this proposal came out of, when it came out of one —
+    # written into the field's provenance at approval, which is what lets a
+    # later edit-form search recognize the record that filled the field.
+    field :record, :string
+
+    # Date proposals only: the display precision the proposing source knew
+    # ("full" / "year_month" / "year"). A date and its precision are one
+    # fact — a provider that knows only the year proposes "2015 (year only)",
+    # never a fake January 1st — so the candidate carries both and choosing
+    # one settles both.
+    field :format, :string
+  end
+
+  @doc """
+  The precision a date proposal really has: a date whose day isn't a 1st is
+  a full date whatever the source claims — year-only knowledge arrives as a
+  literal Jan 1st, so only 1st-day dates are ambiguous enough for a claimed
+  precision to mean anything.
+  """
+  def date_format(value, claimed) do
+    case Date.from_iso8601(to_string(value || "")) do
+      {:ok, %Date{day: day}} when day != 1 -> "full"
+      _ambiguous_or_unparseable -> claimed
+    end
   end
 
   @doc false
   def changeset(candidate, attrs) do
     candidate
-    |> cast(attrs, [:value, :source, :label, :key])
+    |> cast(attrs, [:value, :source, :label, :key, :record, :format])
     |> validate_required([:source])
     |> ensure_key()
   end

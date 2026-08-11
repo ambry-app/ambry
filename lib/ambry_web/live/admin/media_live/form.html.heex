@@ -35,26 +35,17 @@
         </.field_group>
 
         <.field_group>
-          <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
-            <.curated_input
-              field={@form[:published]}
-              type="date"
-              label="Audio publication date"
-              record={@media}
-              hints={@provenance_hints}
-              proposals={@chips[:published] || []}
-            />
-            <div>
-              <.curated_input
-                field={@form[:published_format]}
-                type="select"
-                label="Date display format"
-                class="max-w-56"
-                options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+            <div class="space-y-1">
+              <.curated_date
+                date_field={@form[:published]}
+                format_field={@form[:published_format]}
+                label="Audio publication date"
                 record={@media}
                 hints={@provenance_hints}
+                proposals={@chips[:published] || []}
               />
-              <span class="pl-3 text-sm text-zinc-400">
+              <span class="block pl-3 text-sm text-zinc-400">
                 {preview_date_format(@form)}
               </span>
             </div>
@@ -105,6 +96,9 @@
         </.field_group>
 
         <.list_cluster label="Narrated by">
+          <:flag>
+            <.provenance_flag record={@media} field={:media_narrators} hints={@provenance_hints} />
+          </:flag>
           <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
             <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
             <.position_input field={media_narrator_form[:position]} index={media_narrator_form.index} />
@@ -168,39 +162,30 @@
 
         <%= if @form[:image_path].value && @form[:image_path].value != "" do %>
           <.field_group>
-            <.label class="flex items-center gap-2 pl-3">
-              Image <.image_delete_button field={@form[:image_path]} />
-            </.label>
-            <div class="flex flex-wrap gap-4">
-              <.image_with_size id={"image-#{@media.id}"} src={@form[:image_path].value} class="w-48 rounded-sm" />
-              <%= if @media.thumbnails do %>
-                <.image_with_size
-                  id={"image-#{@media.id}-xl"}
-                  src={@media.thumbnails.extra_large}
-                  class="h-48 w-48 rounded-sm"
-                />
-                <.image_with_size
-                  id={"image-#{@media.id}-lg"}
-                  src={@media.thumbnails.large}
-                  class="h-48 w-48 rounded-sm"
-                />
-                <.image_with_size
-                  id={"image-#{@media.id}-md"}
-                  src={@media.thumbnails.medium}
-                  class="h-48 w-48 rounded-sm"
-                />
-                <.image_with_size
-                  id={"image-#{@media.id}-sm"}
-                  src={@media.thumbnails.small}
-                  class="h-32 w-32 rounded-sm"
-                />
-                <.image_with_size
-                  id={"image-#{@media.id}-xs"}
-                  src={@media.thumbnails.extra_small}
-                  class="h-16 w-16 rounded-sm"
-                />
-              <% end %>
+            <div class="flex items-baseline gap-2 pl-3">
+              <.label class="flex items-center gap-2">
+                Image <.image_delete_button field={@form[:image_path]} />
+              </.label>
+              <.provenance_flag record={@media} field={:image_path} hints={@provenance_hints} />
             </div>
+            <%!-- One cover, on the text rail (an image is content, §3) — the
+                five-variant parade said nothing the operator could act on.
+                Whether the derived sizes exist is one fact, so it's one line. --%>
+            <div class="pl-3">
+              <.image_with_size
+                id={"image-#{@media.id}"}
+                src={@form[:image_path].value}
+                class="w-48 rounded-sm"
+              />
+            </div>
+            <p class="flex items-center gap-1.5 pl-3 text-xs text-zinc-400">
+              <%= if @media.thumbnails do %>
+                <.icon name="fa-check" class="text-brand-dark h-3 w-3" /> thumbnails generated in all
+                five sizes
+              <% else %>
+                <.icon name="fa-triangle-exclamation" class="h-3 w-3 text-amber-300" /> thumbnails not generated yet
+              <% end %>
+            </p>
             <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
           </.field_group>
         <% else %>

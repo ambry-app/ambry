@@ -483,6 +483,22 @@ defmodule Ambry.Inbox do
   defdelegate record_ref(record), to: AutoMatch, as: :ref
 
   @doc """
+  Scoring hints from a library record's own fields — what lets the edit
+  forms rank provider records exactly the way matching ranks them against
+  an item's tags. (The scoring itself is `score_records/3`; its true home
+  is the metadata layer, and it lives here only because moving the
+  battle-tested scorer wholesale wasn't worth the risk the day the edit
+  forms started needing it.)
+  """
+  defdelegate form_hints(fields), to: AutoMatch
+
+  @doc "Provider books → scored, ranked evidence records (top-N per provider)."
+  defdelegate score_records(books, entry, hints), to: AutoMatch, as: :records_from
+
+  @doc "Audio editions of the given work records, from editions-capable providers."
+  defdelegate editions_of(records, hints, opts \\ []), to: AutoMatch, as: :editions_for
+
+  @doc """
   Fetches the full record behind a thin search hit.
   """
   defdelegate hydrate_record(item, level, ref), to: Lookup, as: :hydrate

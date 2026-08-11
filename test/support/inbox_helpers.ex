@@ -63,7 +63,6 @@ defmodule Ambry.InboxHelpers do
       "sources" => Enum.map(work.sources, &Map.from_struct/1),
       "title" => settled_field(work.title, opts[:title]),
       "published" => settled_field(work.published, opts[:published]),
-      "published_format" => settled_field(work.published_format, nil),
       "authors" => Enum.map(work.authors, &settled_credit/1),
       "series" => Enum.map(work.series, &settled_series(&1, opts[:series_number]))
     }

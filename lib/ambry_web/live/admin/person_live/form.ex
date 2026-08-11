@@ -15,7 +15,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People
   alias Ambry.People.Author
   alias Ambry.People.Person
-  alias Ambry.Provenance
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias Ecto.Changeset
@@ -45,7 +44,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     |> assign(
       page_title: person.name,
       person: person,
-      evidence: Evidence.new(%{"name" => person.name})
+      evidence: Evidence.new(%{"name" => person.name}, known: Evidence.known_from(person))
     )
   end
 
@@ -113,11 +112,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     end
   end
 
-  def handle_event("toggle-provenance-lock", %{"field" => field}, socket) do
-    {:ok, person} = Provenance.toggle_lock(socket.assigns.person, field)
-    {:noreply, assign(socket, person: person)}
-  end
-
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :image, ref)}
   end
@@ -147,7 +141,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   def handle_event("accept-proposal", %{"field" => field, "key" => key}, socket) do
     with {:ok, kind} <- Map.fetch(@scalar_kinds, field),
          %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
-      hints = ProvenanceHints.from_import(proposal.params, proposal.source)
+      hints = ProvenanceHints.from_import(proposal.params, proposal.source, proposal.record)
       new_params = Map.merge(socket.assigns.form.params, proposal.params)
       changeset = People.change_person(socket.assigns.person, new_params)
 

@@ -147,6 +147,40 @@ defmodule AmbryWeb.Admin.BookLive.EvidenceTest do
     assert html =~ ~s(value="1")
   end
 
+  test "the record that filled fields at import is recognized: pre-ticked, and says what it gave",
+       %{conn: conn} do
+    book =
+      insert(:book,
+        title: "Dungeon Crawler Carl",
+        field_provenance: %{
+          "title" => %{
+            "source" => "provider:rreading_glasses",
+            "record" => "76027608",
+            "locked" => false,
+            "at" => "2026-08-01T00:00:00Z"
+          },
+          "published" => %{
+            "source" => "provider:rreading_glasses",
+            "record" => "76027608",
+            "locked" => false,
+            "at" => "2026-08-01T00:00:00Z"
+          }
+        }
+      )
+
+    patch_search()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book.id}/edit")
+    html = search(view, %{"title" => "Dungeon Crawler Carl"})
+
+    # recognized from provenance refs: arrives ticked, wearing its note
+    assert html =~ ~s(data-used="true")
+    assert html =~ "filled published · title"
+
+    # and its proposals are already on offer, no tick needed
+    assert html =~ "Proposed"
+  end
+
   test "an entity chip links the credited pen name, never the person behind it",
        %{conn: conn} do
     # Ty Franck writes as himself AND as half of James S.A. Corey; a record

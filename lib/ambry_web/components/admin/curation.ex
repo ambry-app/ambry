@@ -18,7 +18,7 @@ defmodule AmbryWeb.Admin.Curation do
 
   use Phoenix.Component
 
-  import AmbryWeb.Admin.Components, only: [microlabel: 1]
+  import AmbryWeb.Admin.Components, only: [disclosure: 1, microlabel: 1]
 
   import AmbryWeb.Admin.Decisions,
     only: [
@@ -47,23 +47,42 @@ defmodule AmbryWeb.Admin.Curation do
 
   Sits **outside** the record's own `<form>` (the search is a form of its
   own), above it — evidence first, then the decisions it feeds, the order
-  the import form established. Until the operator searches, it is only the
-  search row: an edit form is visited for reasons that mostly aren't
-  curation, so the databases are asked when asked.
+  the import form established. It starts **folded**: an edit form is
+  visited for reasons that mostly aren't curation, and a paragraph of
+  tick-these-records instructions above a form with no records was noise.
+  The hint appears with the records it explains.
   """
   def evidence_panel(assigns) do
     ~H"""
-    <div class="space-y-2" data-role="evidence-panel">
-      <.label class="pl-3">{@title}</.label>
-      <p :if={@hint} class="max-w-prose pl-3 text-sm text-zinc-400">{@hint}</p>
+    <%!-- `open` is pinned server-side once a search runs: LiveView patches
+        strip a client-toggled open attribute (any results arriving would
+        slam the panel shut), and a panel with records in it should stay
+        open anyway. --%>
+    <.disclosure
+      class="pl-3 text-sm font-semibold text-zinc-200"
+      container_class="space-y-2"
+      data-role="evidence-panel"
+      open={@evidence.running? or @evidence.searched?}
+    >
+      <:summary_slot>
+        {@title}
+        <span :if={@evidence.searched?} class="font-normal text-zinc-400">
+          · {length(@evidence.records)} records, {MapSet.size(@evidence.used)} ticked
+        </span>
+      </:summary_slot>
 
-      <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
+      <p :if={@hint && @evidence.records != []} class="max-w-prose pt-1 pl-3 text-sm text-zinc-400">
+        {@hint}
+      </p>
+
+      <div class="mt-2 space-y-2 rounded-lg bg-zinc-900 p-4">
         <.record_row
           :for={record <- @evidence.records}
           record={record}
           used={Evidence.used?(@evidence, record)}
           level={@level}
           event="toggle-evidence"
+          note={Evidence.note(@evidence, record)}
         />
 
         <p
@@ -115,7 +134,7 @@ defmodule AmbryWeb.Admin.Curation do
           </.button>
         </form>
       </div>
-    </div>
+    </.disclosure>
     """
   end
 
@@ -135,9 +154,7 @@ defmodule AmbryWeb.Admin.Curation do
 
   The header is the import form's "from …" idiom pointed at `Provenance`:
   the recorded source (muted), or the amber pending source when a proposal
-  was accepted this session and saving will record it. The lock rides along
-  — it's a fact about the field, so it lives with the field, not in a
-  summary card at the bottom of the page.
+  was accepted this session and saving will record it.
   """
   def curated_input(assigns) do
     ~H"""
@@ -152,6 +169,38 @@ defmodule AmbryWeb.Admin.Curation do
       <.proposal_row
         id={"proposals-#{@field.id}"}
         field={to_string(@field.field)}
+        proposals={@proposals}
+      />
+    </div>
+    """
+  end
+
+  attr :date_field, FormField, required: true
+  attr :format_field, FormField, required: true
+  attr :label, :string, required: true
+  attr :record, :any, default: nil
+  attr :hints, :map, default: %{}
+  attr :proposals, :list, default: []
+
+  @doc """
+  A curated composite date: label, provenance, one date+precision control,
+  and combined chips — a chip proposes both halves and accepting settles
+  both, so "the date from Hardcover but the precision from rreading-glasses"
+  stopped being a choice anyone is offered.
+  """
+  def curated_date(assigns) do
+    ~H"""
+    <div class="space-y-2">
+      <div class="flex items-baseline gap-2 pl-3">
+        <.label for={@date_field.id}>{@label}</.label>
+        <.provenance_flag record={@record} field={@date_field.field} hints={@hints} />
+      </div>
+
+      <.date_with_format date_field={@date_field} format_field={@format_field} />
+
+      <.proposal_row
+        id={"proposals-#{@date_field.id}"}
+        field={to_string(@date_field.field)}
         proposals={@proposals}
       />
     </div>
@@ -215,55 +264,33 @@ defmodule AmbryWeb.Admin.Curation do
   attr :hints, :map, required: true
 
   @doc """
-  Where a field's value came from, and its lock.
+  Where a field's value came from.
 
   Reads the pending hint first — an accepted proposal that will be recorded
-  on save is the field's future, and amber says "not saved yet" the same
-  way the old provenance panel's arrow line did.
+  on save is the field's future, and amber says "not saved yet". The lock
+  toggle this once carried is gone: nothing consumes locks yet (the refresh
+  feature they gate is unbuilt), so the toggle was UI for a promise nothing
+  tested. The manual-vs-provider semantics are still recorded on save, and
+  the lock UI returns if and when a consumer exists.
   """
   def provenance_flag(assigns) do
     assigns =
       assign(assigns,
         hint: assigns.hints[to_string(assigns.field)],
         entry:
-          assigns.record && assigns.record.id && Provenance.entry(assigns.record, assigns.field),
-        locked?:
-          assigns.record && assigns.record.id && Provenance.locked?(assigns.record, assigns.field)
+          assigns.record && assigns.record.id && Provenance.entry(assigns.record, assigns.field)
       )
 
     ~H"""
     <%!-- A pending source shows even on an unsaved record — accepting a
-        proposal on a New form still records the provider. The lock needs a
-        persisted row to write to, so it waits for one. --%>
-    <span :if={@record && (@record.id || @hint)} class="flex items-baseline gap-1.5 text-xs">
+        proposal on a New form still records the provider. --%>
+    <span :if={@hint || @entry} class="text-xs" data-role="provenance-flag">
       <span :if={@hint} class="text-amber-300">
         will record {source_label(@hint.source)}
       </span>
       <span :if={!@hint && @entry} class="text-zinc-400">
         from {source_label(@entry["source"])}
       </span>
-
-      <button
-        :if={@record.id}
-        type="button"
-        phx-click="toggle-provenance-lock"
-        phx-value-field={@field}
-        class="self-center"
-        title={
-          if @locked?,
-            do: "Locked — metadata refresh and auto-match never overwrite this field. Click to unlock.",
-            else:
-              "Unlocked — a metadata refresh may update this field. Editing by hand locks it; accepting a proposal records the provider and stays unlocked."
-        }
-      >
-        <.icon
-          name={(@locked? && "fa-lock") || "fa-unlock"}
-          class={[
-            "h-3 w-3 cursor-pointer transition-colors hover:text-lime-500",
-            (@locked? && "text-zinc-300") || "text-zinc-500"
-          ]}
-        />
-      </button>
     </span>
     """
   end
@@ -302,15 +329,6 @@ defmodule AmbryWeb.Admin.Curation do
   defp normalize(nil), do: ""
   defp normalize(value), do: value |> to_string() |> String.trim()
 
-  # A provider's display name, not its id — "rreading-glasses", never
-  # "rreading_glasses". Non-provider sources keep the shared vocabulary
-  # ("you", "the file's tags").
-  defp source_label("provider:" <> id = source) do
-    case Ambry.Metadata.Registry.fetch(id) do
-      {:ok, entry} -> entry.display_name
-      {:error, _unknown} -> source_words(source)
-    end
-  end
-
+  # source_words resolves provider ids to display names for everyone now
   defp source_label(source), do: source_words(source)
 end

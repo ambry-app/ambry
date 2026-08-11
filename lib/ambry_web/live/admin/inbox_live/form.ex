@@ -705,7 +705,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp atom("recording"), do: :recording
   defp atom("title"), do: :title
   defp atom("published"), do: :published
-  defp atom("published_format"), do: :published_format
   defp atom("publisher"), do: :publisher
   defp atom("description"), do: :description
   defp atom("cover"), do: :cover

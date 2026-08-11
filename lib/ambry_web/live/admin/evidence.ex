@@ -19,14 +19,13 @@ defmodule AmbryWeb.Admin.Evidence do
   cannot un-tick what the operator chose.
   """
 
-  alias Ambry.Metadata.Provider
-
   defstruct fields: %{},
             searched?: false,
             running?: false,
             records: [],
             outcomes: [],
-            used: MapSet.new()
+            used: MapSet.new(),
+            known: %{}
 
   @type t :: %__MODULE__{}
 
@@ -35,7 +34,29 @@ defmodule AmbryWeb.Admin.Evidence do
   the same string-keyed `%{"title" => _, "author" => _, "narrator" => _}`
   shape every search-again form submits (`Provider.Query.from_fields/1`).
   """
-  def new(fields) when is_map(fields), do: %__MODULE__{fields: stringify(fields)}
+  def new(fields, opts \\ []) when is_map(fields) do
+    %__MODULE__{fields: stringify(fields), known: Keyword.get(opts, :known, %{})}
+  end
+
+  @doc """
+  The record refs a persisted record's provenance points back at — ref →
+  the fields that record filled. Built from the `"record"` keys accepted
+  proposals and imports write; it's what lets a later search *recognize*
+  the record that filled the title, pre-tick it, and say so.
+  """
+  def known_from(%{field_provenance: prov}) when is_map(prov) do
+    Enum.reduce(prov, %{}, fn {field, entry}, acc ->
+      case entry do
+        %{"source" => "provider:" <> _ = source, "record" => record} ->
+          Map.update(acc, {source, to_string(record)}, [field], &(&1 ++ [field]))
+
+        _no_ref ->
+          acc
+      end
+    end)
+  end
+
+  def known_from(_record), do: %{}
 
   @doc "Marks the panel as waiting on a fan-out for `fields`."
   def begin(%__MODULE__{} = evidence, fields) do
@@ -49,16 +70,15 @@ defmodule AmbryWeb.Admin.Evidence do
   end
 
   @doc """
-  Folds a fan-out's `{found, outcomes}` into the panel.
-
-  `found` is `Ambry.Metadata.Search.books/2` shape — `{registry_entry,
-  books}` pairs. New records join the list; records already held keep their
-  place and their tick. Outcomes replace per provider, so "couldn't be
-  reached" stops saying that once it has been reached.
+  Folds a fan-out's `{records, outcomes}` into the panel — records already
+  normalized and scored (`Ambry.Inbox.score_records/3`), so the panel ranks
+  and meters them exactly the way matching does. New records join the list;
+  records already held keep their place and their tick. Outcomes replace
+  per provider, so "couldn't be reached" stops saying that once it has
+  been reached.
   """
-  def absorb(%__MODULE__{} = evidence, {found, outcomes}) do
-    fresh = Enum.flat_map(found, fn {entry, books} -> Enum.map(books, &record(&1, entry)) end)
-    absorb_records(evidence, fresh, outcomes)
+  def absorb(%__MODULE__{} = evidence, {records, outcomes}) when is_list(records) do
+    absorb_records(evidence, records, outcomes)
   end
 
   @doc """
@@ -70,19 +90,43 @@ defmodule AmbryWeb.Admin.Evidence do
   end
 
   defp absorb_records(evidence, fresh, outcomes) do
-    known = MapSet.new(evidence.records, &ref/1)
-    added = Enum.reject(fresh, &MapSet.member?(known, ref(&1)))
+    held = MapSet.new(evidence.records, &ref/1)
+    added = Enum.reject(fresh, &MapSet.member?(held, ref(&1)))
 
     fresh_ids = MapSet.new(outcomes, & &1["id"])
     kept = Enum.reject(evidence.outcomes, &MapSet.member?(fresh_ids, &1["id"]))
+
+    # A record this record's own provenance points back at arrives ticked —
+    # it filled fields here once, so it counts until somebody says otherwise.
+    # Only NEWLY arrived records auto-tick: re-searching must never re-tick
+    # what the operator unticked.
+    recognized =
+      for record <- added, Map.has_key?(evidence.known, ref(record)), do: ref(record)
 
     %{
       evidence
       | searched?: true,
         running?: false,
-        records: evidence.records ++ added,
-        outcomes: kept ++ outcomes
+        records: Enum.sort_by(evidence.records ++ added, &(&1["score"] || 0.0), :desc),
+        outcomes: kept ++ outcomes,
+        used: Enum.into(recognized, evidence.used)
     }
+  end
+
+  @doc """
+  What a record already gave this library record, as a short note for its
+  row — `"filled title · published"` — or nil for a record provenance never
+  pointed at.
+  """
+  def note(%__MODULE__{} = evidence, record) do
+    case evidence.known[ref(record)] do
+      nil -> nil
+      fields -> "filled " <> (fields |> Enum.sort() |> Enum.map_join(" · ", &field_words/1))
+    end
+  end
+
+  defp field_words(field) do
+    field |> to_string() |> String.replace("_", " ") |> String.replace(" path", "")
   end
 
   @doc "The stable identity of a record across re-searches."
@@ -151,7 +195,7 @@ defmodule AmbryWeb.Admin.Evidence do
 
   defp field_values(record, :published) do
     for date <- present(record["published"]) do
-      format = record["published_format"] || "full"
+      format = Ambry.Inbox.Draft.Candidate.date_format(date, record["published_format"] || "full")
       display = if format == "full", do: date, else: "#{date} (#{precision_words(format)})"
       value(record, {date, format}, display, %{"published" => date, "published_format" => format})
     end
@@ -212,6 +256,7 @@ defmodule AmbryWeb.Admin.Evidence do
       display: display,
       params: params,
       source: record["source"],
+      record: record["id"] && to_string(record["id"]),
       provider: record["provider_name"] || record["source"]
     }
   end
@@ -236,6 +281,7 @@ defmodule AmbryWeb.Admin.Evidence do
         display: first.display,
         params: first.params,
         source: first.source,
+        record: first[:record],
         image: first[:image],
         providers: holders |> Enum.map(& &1.provider) |> Enum.uniq()
       }
@@ -258,28 +304,9 @@ defmodule AmbryWeb.Admin.Evidence do
   defp precision_words("year_month"), do: "year & month"
   defp precision_words(other), do: other
 
-  # ── normalization: provider structs → the record maps the evidence UI
-  #    renders (the same vocabulary inbox records use, minus the inbox's
-  #    hint-scoring — an edit form's search is the operator's own query) ──
-
-  defp record(%Provider.Book{} = book, entry) do
-    %{
-      "source" => "provider:#{entry.id}",
-      "provider_name" => entry.display_name,
-      "id" => to_string(book.id),
-      "asin" => book.asin,
-      "title" => book.title,
-      "authors" => Enum.map(book.authors || [], & &1.name),
-      "narrators" => Enum.map(book.narrators || [], & &1.name),
-      "series" => series_refs(book.series),
-      "published" =>
-        book.published && book.published.date && Date.to_iso8601(book.published.date),
-      "published_format" => book.published && to_string(book.published.display_format),
-      "publisher" => book.publisher,
-      "cover_url" => book.cover_url,
-      "description" => book.description
-    }
-  end
+  # ── normalization: person matches → the record maps the evidence UI
+  #    renders (books arrive pre-normalized and pre-scored from
+  #    `Ambry.Inbox.score_records/3`) ──
 
   defp person_record(match) do
     %{
@@ -291,21 +318,5 @@ defmodule AmbryWeb.Admin.Evidence do
       "note" => match.note,
       "images" => match.images
     }
-  end
-
-  defp series_refs(series) do
-    for entry <- List.wrap(series), is_binary(entry.name) do
-      %{"name" => entry.name, "number" => number_string(entry.number)}
-    end
-  end
-
-  defp number_string(nil), do: nil
-  defp number_string(%Decimal{} = number), do: Decimal.to_string(number, :normal)
-
-  defp number_string(number) do
-    case String.trim(to_string(number)) do
-      "" -> nil
-      trimmed -> trimmed
-    end
   end
 end

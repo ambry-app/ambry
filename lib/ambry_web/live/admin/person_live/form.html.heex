@@ -135,36 +135,22 @@
             </.label>
             <.provenance_flag record={@person} field={:image_path} hints={@provenance_hints} />
           </div>
-          <div class="flex flex-wrap gap-4">
-            <.image_with_size id={"image-#{@person.id}"} src={@form[:image_path].value} class="w-40" />
-            <%= if @person.thumbnails do %>
-              <.image_with_size
-                id={"image-#{@person.id}-xl"}
-                src={@person.thumbnails.extra_large}
-                class="h-40 w-40 rounded-full object-cover object-top"
-              />
-              <.image_with_size
-                id={"image-#{@person.id}-lg"}
-                src={@person.thumbnails.large}
-                class="h-40 w-40 rounded-full object-cover object-top"
-              />
-              <.image_with_size
-                id={"image-#{@person.id}-md"}
-                src={@person.thumbnails.medium}
-                class="h-40 w-40 rounded-full object-cover object-top"
-              />
-              <.image_with_size
-                id={"image-#{@person.id}-sm"}
-                src={@person.thumbnails.small}
-                class="h-32 w-32 rounded-full object-cover object-top"
-              />
-              <.image_with_size
-                id={"image-#{@person.id}-xs"}
-                src={@person.thumbnails.extra_small}
-                class="h-16 w-16 rounded-full object-cover object-top"
-              />
-            <% end %>
+          <%!-- One photo, on the text rail (an image is content, §3) — the
+              five-variant parade said nothing the operator could act on. --%>
+          <div class="pl-3">
+            <.image_with_size
+              id={"image-#{@person.id}"}
+              src={@form[:image_path].value}
+              class="h-40 w-40 rounded-full object-cover object-top"
+            />
           </div>
+          <p class="flex items-center gap-1.5 pl-3 text-xs text-zinc-400">
+            <%= if @person.thumbnails do %>
+              <.icon name="fa-check" class="text-brand-dark h-3 w-3" /> thumbnails generated in all five sizes
+            <% else %>
+              <.icon name="fa-triangle-exclamation" class="h-3 w-3 text-amber-300" /> thumbnails not generated yet
+            <% end %>
+          </p>
           <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
         </.field_group>
       <% else %>

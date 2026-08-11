@@ -16,13 +16,13 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   alias Ambry.Books
   alias Ambry.Books.Book
   alias Ambry.Books.Series
+  alias Ambry.Inbox
   alias Ambry.Media
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
   alias Ambry.People.Person
-  alias Ambry.Provenance
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
@@ -57,7 +57,10 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       book: book
     )
     |> assign_form(changeset)
-    |> assign(evidence: Evidence.new(seed_fields(book, socket.assigns.authors)))
+    |> assign(
+      evidence:
+        Evidence.new(seed_fields(book, socket.assigns.authors), known: Evidence.known_from(book))
+    )
   end
 
   defp apply_action(socket, :new, _params) do
@@ -120,11 +123,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     end
   end
 
-  def handle_event("toggle-provenance-lock", %{"field" => field}, socket) do
-    {:ok, book} = Provenance.toggle_lock(socket.assigns.book, field)
-    {:noreply, assign(socket, book: book)}
-  end
-
   def handle_event("move", params, socket) do
     changeset = socket.assigns.form.source
     book_params = Reordering.move(changeset, socket.assigns.form.params, params)
@@ -141,10 +139,19 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     if Provider.Query.blank?(query) do
       {:noreply, socket}
     else
+      hints = Inbox.form_hints(%{title: params["title"], author: params["author"]})
+
       {:noreply,
        socket
        |> assign(evidence: Evidence.begin(socket.assigns.evidence, fields))
-       |> start_async(:evidence_search, fn -> MetadataSearch.books(query, level: :work) end)}
+       |> start_async(:evidence_search, fn ->
+         {found, outcomes} = MetadataSearch.books(query, level: :work)
+
+         records =
+           Enum.flat_map(found, fn {entry, books} -> Inbox.score_records(books, entry, hints) end)
+
+         {records, outcomes}
+       end)}
     end
   end
 
@@ -153,12 +160,17 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
     with false <- Provider.Query.blank?(query),
          {:ok, entry} <- Registry.fetch(provider_id) do
+      hints =
+        socket.assigns.evidence.fields
+        |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+        |> Inbox.form_hints()
+
       {:noreply,
        socket
        |> assign(retrying: provider_id)
        |> start_async(:evidence_search, fn ->
          {books, outcome} = MetadataSearch.books_one(entry, query)
-         {[{entry, books}], [outcome]}
+         {Inbox.score_records(books, entry, hints), [outcome]}
        end)}
     else
       _no -> {:noreply, socket}
@@ -226,7 +238,11 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
     socket
     |> append_row(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
-    |> assign(authors: People.authors_for_select())
+    |> assign(
+      authors: People.authors_for_select(),
+      provenance_hints:
+        ProvenanceHints.for_list(socket.assigns.provenance_hints, "book_authors", proposal.source)
+    )
     |> refresh_chips()
   end
 
@@ -241,7 +257,11 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
     socket
     |> append_row(:series_books, row, ~w(series_id book_number))
-    |> assign(series: Books.series_for_select())
+    |> assign(
+      series: Books.series_for_select(),
+      provenance_hints:
+        ProvenanceHints.for_list(socket.assigns.provenance_hints, "series_books", proposal.source)
+    )
     |> refresh_chips()
   end
 

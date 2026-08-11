@@ -84,3 +84,33 @@ liveSocket.connect()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
+
+// Image lightbox: any [data-zoomable] element (the corner magnifiers on
+// previews, chips and record thumbnails) opens its data-full image in the
+// #image-lightbox overlay. Delegated, because the elements come and go with
+// LiveView patches; stopPropagation so a magnifier inside a record row's
+// label or a chip's button doesn't also tick/choose.
+document.addEventListener("click", (event) => {
+  const box = document.getElementById("image-lightbox")
+  if (!box) return
+
+  const zoom = event.target.closest("[data-zoomable]")
+  if (zoom && zoom.dataset.full) {
+    event.preventDefault()
+    event.stopPropagation()
+    box.querySelector("img").src = zoom.dataset.full
+    box.classList.remove("hidden")
+    box.classList.add("flex")
+  } else if (!box.classList.contains("hidden")) {
+    box.classList.add("hidden")
+    box.classList.remove("flex")
+  }
+})
+
+window.addEventListener("keydown", (event) => {
+  const box = document.getElementById("image-lightbox")
+  if (event.key === "Escape" && box && !box.classList.contains("hidden")) {
+    box.classList.add("hidden")
+    box.classList.remove("flex")
+  }
+})

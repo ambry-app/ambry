@@ -141,6 +141,15 @@ spans and small images. It was never written down, so the newer surfaces
 drifted to `md`/`lg` while buttons and inputs stayed at `sm` — a primary
 button next to a chip visibly disagreed about what shape a control is.
 
+**A date and its display precision are one composite fact, one control.**
+`<.date_with_format>`: date left, precision select right, one shared well —
+never two fields, and on the import form never two decision blocks whose
+proposal could be *split* across sources. A chip proposes both halves
+("2015 (year only)") and accepting settles both; a claimed precision on a
+day-specific date normalizes to full ("October 3rd is not a year in
+disguise"), and a precision the operator sets deliberately is never
+overruled.
+
 **One control height: 40px.** `py-[7px]` + `leading-6` + a 1px border, which
 is what `<.input>` has always been — so buttons carry the same padding
 rather than `py-2`, and the inbox's segmented filter bar (`p-1` + `py-1.5`
@@ -313,12 +322,27 @@ The edit forms run the import form's model on records that already exist —
 one mechanism for "ask the databases", not a modal per provider:
 
 - **The evidence panel** (`<.evidence_panel>`) sits above the form —
-  evidence first, then the decisions it feeds. One search fans out to
-  every capable provider (`Ambry.Metadata.Search`); results are the same
-  tickable `record_row`s and `Asked` outcome chips the inbox uses. It
-  starts as just the search, seeded with the record's own facts: an edit
-  form is mostly visited for reasons that aren't curation, so the
-  databases are asked when asked.
+  evidence first, then the decisions it feeds — and starts **folded to one
+  line**: an edit form is mostly visited for reasons that aren't curation,
+  and instructions about records that aren't there yet are noise. One
+  search fans out to every capable provider (`Ambry.Metadata.Search`);
+  results are the same tickable `record_row`s and `Asked` outcome chips
+  the inbox uses, **scored and ranked the way matching ranks them**
+  (`Ambry.Inbox.score_records/3`, hinted by the record's own fields) so
+  the study guides sink. The recording level asks twice, like the import
+  form: Audible directly, plus the audio editions the work-level
+  databases keep.
+- **Records identify themselves**: every record row wears its cover or
+  face as a small thumbnail — identification, visible *before* ticking —
+  while the chips below stay the place a photo or cover is *chosen*. Tiny
+  images everywhere carry a corner magnifier that opens the full-size
+  image in the lightbox; disambiguating twins sometimes takes the art at
+  full size.
+- **Provenance closes the loop**: accepted proposals and imports record
+  the provider *record* behind each field (`"record"` in the provenance
+  entry). A later search that returns that record recognizes it — arrives
+  pre-ticked, wearing a "filled title · published" note — so "which record
+  did this come from?" has an answer years later.
 - **Ticked records grow "Proposed" chip rows** under the fields they can
   fill (`<.curated_input>` / `<.proposal_row>`), in the import form's chip
   anatomy exactly. Accepting a scalar chip takes the value; accepting an
@@ -331,6 +355,15 @@ one mechanism for "ask the databases", not a modal per provider:
   with the lock beside it — the import form's "from …" idiom pointed at
   `Ambry.Provenance`. Accepting records the provider unlocked; editing the
   value afterwards makes it a manual edit again, locked.
+
+Structural lists (authors, narrators, series) carry **list-level
+provenance** — one entry per list, worn as the same "from …" flag on the
+list cluster's label — because the import form visibly chooses credits
+from sources and losing that at the library door read as something
+missing. Locks still exist in the data (manual = locked, accepted =
+unlocked) but have **no UI**: nothing consumes them yet, and a toggle for
+a promise nothing tests was theater. The lock icon returns when a refresh
+feature exists to honor it.
 
 What stays different from the inbox is only what the context demands: no
 state rails (nothing here is *waiting* — the record is real and every

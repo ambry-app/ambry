@@ -164,16 +164,19 @@ defmodule Ambry.Inbox.Importer do
       %{
         title: Field.value(work.title),
         published: Field.date(work.published),
-        published_format: Field.atom(work.published_format, :full),
+        published_format: Field.format_atom(work.published, :full),
         book_authors: author_params(work.authors, people),
         series_books: series_params(work.series)
       },
       provenance:
-        provenance(%{
+        %{
           "title" => work.title,
           "published" => work.published,
-          "published_format" => work.published_format
-        })
+          "published_format" => work.published
+        }
+        |> provenance()
+        |> put_list_provenance("book_authors", work.authors)
+        |> put_list_provenance("series_books", work.series)
     )
   end
 
@@ -368,20 +371,22 @@ defmodule Ambry.Inbox.Importer do
         media_tracks: [track_params(probe)],
         title: Field.value(recording.title),
         published: Field.date(recording.published),
-        published_format: Field.atom(recording.published_format, :full),
+        published_format: Field.format_atom(recording.published, :full),
         publisher: Field.value(recording.publisher),
         description: Field.value(recording.description),
         image_path: cover(recording.cover)
       },
       provenance:
-        provenance(%{
+        %{
           "title" => recording.title,
           "published" => recording.published,
-          "published_format" => recording.published_format,
+          "published_format" => recording.published,
           "publisher" => recording.publisher,
           "description" => recording.description,
           "image_path" => recording.cover
-        })
+        }
+        |> provenance()
+        |> put_list_provenance("media_narrators", recording.narrators)
     )
   end
 
@@ -442,12 +447,39 @@ defmodule Ambry.Inbox.Importer do
   defp provenance(fields) do
     fields
     |> Enum.flat_map(fn
-      {_name, nil} -> []
-      {_name, %Field{source: nil}} -> []
-      {_name, %Field{source: "manual"}} -> []
-      {name, %Field{source: source}} -> [{name, source}]
+      {_name, nil} ->
+        []
+
+      {_name, %Field{source: nil}} ->
+        []
+
+      {_name, %Field{source: "manual"}} ->
+        []
+
+      {name, %Field{source: source, record: nil}} ->
+        [{name, source}]
+
+      {name, %Field{source: source, record: record}} ->
+        [{name, %{"source" => source, "record" => record}}]
     end)
     |> Map.new()
+  end
+
+  # The list-level source: where a structural list's members came from, when
+  # they share one. Credits carry their own source; the list records the
+  # first provider-ish one, so the edit form's "Authors — from rreading-glasses"
+  # flag survives the import the way scalar flags always did.
+  defp list_provenance(entries) do
+    entries
+    |> Enum.map(& &1.source)
+    |> Enum.find(&(is_binary(&1) and &1 not in ["manual"]))
+  end
+
+  defp put_list_provenance(sources, name, entries) do
+    case list_provenance(List.wrap(entries)) do
+      nil -> sources
+      source -> Map.put(sources, name, source)
+    end
   end
 
   ## publishing

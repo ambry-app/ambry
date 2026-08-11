@@ -422,14 +422,10 @@ defmodule Ambry.Inbox.Draft.Seed do
     sources = used(records, work.sources)
     book_id = if work.mode == :link, do: work.book_id
 
-    published = keep_manual(work.published, published_field(sources, tags))
-
     %{
       work
       | title: keep_manual(work.title, title_field(sources, hints, tags)),
-        published: published,
-        published_format:
-          keep_manual(work.published_format, published_format_field(sources, tags, published)),
+        published: keep_manual(work.published, published_field(sources, tags)),
         authors: keep_curated(work.authors, author_credits(sources, tags)),
         series: keep_curated(work.series, series_links(sources, tags, book_id))
     }
@@ -734,39 +730,6 @@ defmodule Ambry.Inbox.Draft.Seed do
     )
   end
 
-  # Not derivable from the date *upwards*: year-only knowledge arrives as a
-  # literal Jan 1st, and rendering that as a real release day is the exact bug
-  # the v1.9.0 punch list fixed for the import forms. Derivable downwards,
-  # though — see `Field.follow_date/2`, which is what stops the format sitting
-  # unanswered beside a date that has plainly already answered it.
-  #
-  # The tag's format is advisory for the same reason its date is: a format is
-  # the precision of one particular date, so it can only be as good as the
-  # date it came off.
-  defp published_format_field(sources, tags, published) do
-    sources
-    |> from_records("published_format")
-    |> scalar(required: false, advisory: [tag_candidate(tags, "published_format")])
-    |> Field.follow_date(published)
-    |> default_to("full")
-  end
-
-  # Same rule as the work's, on the recording's own records: the format says
-  # how much of the release date is real, and follows whichever record won it.
-  defp recording_format_field(records, tags, published) do
-    records
-    |> from_records("published_format")
-    |> scalar(required: false, advisory: [tag_candidate(tags, "published_format")])
-    |> Field.follow_date(published)
-    |> default_to("full")
-  end
-
-  defp default_to(%Field{value: nil, candidates: []} = field, value) do
-    %{field | value: value, source: "default", approved: true}
-  end
-
-  defp default_to(field, _value), do: field
-
   ## recording
 
   defp recording(level, hints, tags, item) do
@@ -847,11 +810,6 @@ defmodule Ambry.Inbox.Draft.Seed do
       recording
       | title: keep_manual(recording.title, scalar([], required: false)),
         published: published,
-        published_format:
-          keep_manual(
-            recording.published_format,
-            recording_format_field(mine, tags, published)
-          ),
         publisher:
           keep_manual(
             recording.publisher,
@@ -1431,7 +1389,8 @@ defmodule Ambry.Inbox.Draft.Seed do
           value: candidate["name"],
           source: candidate["source"],
           label: candidate["provider_name"],
-          key: Candidate.key_for(candidate)
+          key: Candidate.key_for(candidate),
+          record: candidate["id"] && to_string(candidate["id"])
         }
       end)
     )
@@ -2014,7 +1973,11 @@ defmodule Ambry.Inbox.Draft.Seed do
           value: to_string(value),
           source: source_of(best),
           label: label_of(best),
-          key: Candidate.key_for(best)
+          key: Candidate.key_for(best),
+          record: best["id"] && to_string(best["id"]),
+          format:
+            (key == "published" && Candidate.date_format(value, best["published_format"])) ||
+              nil
         }
     end
   end
@@ -2029,7 +1992,11 @@ defmodule Ambry.Inbox.Draft.Seed do
           value: to_string(value),
           source: "tags",
           label: "The file's tags",
-          key: "tags"
+          key: "tags",
+          format:
+            (key == "published" &&
+               Candidate.date_format(value, presence(tags["published_format"]))) ||
+              nil
         }
     end
   end

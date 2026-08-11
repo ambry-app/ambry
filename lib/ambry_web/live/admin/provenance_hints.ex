@@ -20,19 +20,20 @@ defmodule AmbryWeb.Admin.ProvenanceHints do
   set at submit time, after the download). List params (associations) are
   structural and never hinted.
   """
-  def from_import(params, source) do
+  def from_import(params, source, record \\ nil) do
     scalar_hints =
       for {key, value} <- params,
           scalar?(value),
           key not in @non_field_keys,
           into: %{} do
-        {key, %{source: source, watch: key, value: normalize(value)}}
+        {key, %{source: source, record: record, watch: key, value: normalize(value)}}
       end
 
     case params do
       %{"image_type" => "url_import", "image_import_url" => url} ->
         Map.put(scalar_hints, "image_path", %{
           source: source,
+          record: record,
           watch: "image_import_url",
           value: normalize(url)
         })
@@ -40,6 +41,16 @@ defmodule AmbryWeb.Admin.ProvenanceHints do
       _params ->
         scalar_hints
     end
+  end
+
+  @doc """
+  A hint for a structural list (authors, series, narrators) filled from an
+  accepted entity proposal. It watches nothing — later hand-edits to the
+  list don't undo the fact that the provider proposed its members — and it
+  carries no record ref, since a list's rows can come from several.
+  """
+  def for_list(hints, field, source) do
+    Map.put(hints, field, %{source: source, record: nil, watch: nil, value: nil})
   end
 
   @doc """
@@ -55,6 +66,8 @@ defmodule AmbryWeb.Admin.ProvenanceHints do
     |> Map.new()
   end
 
+  defp edited?(%{watch: nil}, _params), do: false
+
   defp edited?(hint, params) do
     case Map.fetch(params, hint.watch) do
       {:ok, value} -> normalize(value) != hint.value
@@ -69,8 +82,13 @@ defmodule AmbryWeb.Admin.ProvenanceHints do
     end
   end
 
-  @doc "The `provenance:` opts value for a save: field name → source."
-  def sources(hints), do: Map.new(hints, fn {field, hint} -> {field, hint.source} end)
+  @doc "The `provenance:` opts value for a save: field name → source (with its record ref, when known)."
+  def sources(hints) do
+    Map.new(hints, fn
+      {field, %{record: nil} = hint} -> {field, hint.source}
+      {field, hint} -> {field, %{"source" => hint.source, "record" => hint.record}}
+    end)
+  end
 
   # association params arrive as lists/maps and are never hinted — but
   # structs (%Date{} from published imports) are maps too, and ARE scalar

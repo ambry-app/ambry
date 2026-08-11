@@ -27,6 +27,18 @@ defmodule AmbryWeb.Admin.Components do
           {render_slot(@inner_block)}
         </div>
       </main>
+
+      <%!-- The image lightbox — tiny previews and chips are for telling
+          records apart, and sometimes that takes the full-size art. Opened
+          by any [data-zoomable] magnifier (see app.js); click or Escape
+          closes. phx-update="ignore": it's pure client state. --%>
+      <div
+        id="image-lightbox"
+        phx-update="ignore"
+        class="bg-black/85 fixed inset-0 z-50 hidden cursor-zoom-out items-center justify-center p-8 backdrop-blur"
+      >
+        <img class="max-h-full max-w-full rounded-sm object-contain shadow-2xl" />
+      </div>
     </div>
     """
   end
@@ -416,15 +428,23 @@ defmodule AmbryWeb.Admin.Components do
   it `inside`, which pushes the summary text off the rail by the marker's own
   width — so the native marker is hidden and the chevron drawn by hand.
   """
-  attr :summary, :string, required: true
+  attr :summary, :string, default: nil
   attr :class, :string, default: nil, doc: "summary text classes — replaces the size and color"
   attr :container_class, :string, default: nil
+
+  attr :open, :boolean,
+    default: nil,
+    doc: "pins the fold open from the server — a client-toggled open dies on the next patch"
+
   attr :rest, :global
   slot :inner_block, required: true
 
+  slot :summary_slot,
+    doc: "richer summary content (counts, muted asides) — used instead of `summary` when given"
+
   def disclosure(assigns) do
     ~H"""
-    <details class={["group", @container_class]} {@rest}>
+    <details class={["group", @container_class]} open={@open} {@rest}>
       <summary class={[
         "relative cursor-pointer list-none pl-3 :[&:-webkit-details-marker]:hidden",
         @class || "text-xs text-zinc-400"
@@ -439,7 +459,7 @@ defmodule AmbryWeb.Admin.Components do
           name="fa-chevron-down"
           class="absolute top-1/2 left-0 hidden h-2.5 w-2.5 -translate-y-1/2 group-open:inline-block"
         />
-        {@summary}
+        {(@summary_slot != [] && render_slot(@summary_slot)) || @summary}
       </summary>
       {render_slot(@inner_block)}
     </details>
@@ -618,6 +638,7 @@ defmodule AmbryWeb.Admin.Components do
   slot :inner_block, required: true
   slot :add, doc: "the add_button, below the container on the ground"
   slot :proposals, doc: "a curation proposal row, between the rows and the add"
+  slot :flag, doc: "a provenance flag beside the label — where a list's members came from"
 
   @doc """
   A list the operator is building — authors, series, narrators — in the one
@@ -639,7 +660,10 @@ defmodule AmbryWeb.Admin.Components do
   def list_cluster(assigns) do
     ~H"""
     <div class={["space-y-2", @class]} {@rest}>
-      <.label class="pl-3">{@label}</.label>
+      <div class="flex items-baseline gap-2 pl-3">
+        <.label>{@label}</.label>
+        {render_slot(@flag)}
+      </div>
       <p :if={@hint} class="max-w-prose pl-3 text-sm text-zinc-400">{@hint}</p>
       <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
         {render_slot(@inner_block)}

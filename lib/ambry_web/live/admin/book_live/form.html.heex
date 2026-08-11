@@ -24,33 +24,25 @@
           proposals={@chips[:title] || []}
         />
 
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-          <.curated_input
-            field={@form[:published]}
-            type="date"
+        <div class="space-y-1">
+          <.curated_date
+            date_field={@form[:published]}
+            format_field={@form[:published_format]}
             label="First print publication"
             record={@book}
             hints={@provenance_hints}
             proposals={@chips[:published] || []}
           />
-          <div>
-            <.curated_input
-              field={@form[:published_format]}
-              type="select"
-              label="Date display format"
-              class="max-w-56"
-              options={[{"Full Date", "full"}, {"Year & Month", "year_month"}, {"Year Only", "year"}]}
-              record={@book}
-              hints={@provenance_hints}
-            />
-            <span class="pl-3 text-sm text-zinc-400">
-              {preview_date_format(@form)}
-            </span>
-          </div>
+          <span class="block pl-3 text-sm text-zinc-400">
+            {preview_date_format(@form)}
+          </span>
         </div>
       </.field_group>
 
       <.list_cluster label="Authors">
+        <:flag>
+          <.provenance_flag record={@book} field={:book_authors} hints={@provenance_hints} />
+        </:flag>
         <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
           <.sort_input field={@form[:book_authors_sort]} index={book_author_form.index} />
           <.position_input field={book_author_form[:position]} index={book_author_form.index} />
@@ -89,6 +81,9 @@
       </.list_cluster>
 
       <.list_cluster label="Series">
+        <:flag>
+          <.provenance_flag record={@book} field={:series_books} hints={@provenance_hints} />
+        </:flag>
         <.inputs_for :let={series_book_form} field={@form[:series_books]}>
           <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
           <.position_input field={series_book_form[:position]} index={series_book_form.index} />

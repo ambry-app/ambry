@@ -511,6 +511,58 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
+  attr :date_field, FormField, required: true
+  attr :format_field, FormField, required: true
+  attr :class, :any, default: nil
+  attr :rest, :global
+
+  @doc """
+  A date and its display precision as the one control they are.
+
+  "2015-03-12" and "year only" were presented as two separate fields — two
+  decision boxes on the import form, where a proposal could even be *split*
+  (the date from one provider, the precision from another), which is a
+  choice nobody should be offered. One well, date left, precision right;
+  the precision select reads muted because it qualifies the date rather
+  than competing with it.
+  """
+  def date_with_format(assigns) do
+    ~H"""
+    <div>
+      <div
+        class={[
+          "flex w-fit items-center rounded-md bg-zinc-800 focus-within:ring-brand-dark/20",
+          "border border-transparent focus-within:ring-4",
+          @class
+        ]}
+        {@rest}
+      >
+        <input
+          type="date"
+          name={@date_field.name}
+          id={@date_field.id}
+          value={Form.normalize_value("date", @date_field.value)}
+          class={[
+            "py-[7px] px-[11px] w-44 rounded-md border-0 supports-[-moz-appearance:none]:px-[9px]",
+            "bg-transparent text-zinc-100 focus:ring-0 sm:text-sm sm:leading-6"
+          ]}
+        />
+        <select
+          name={@format_field.name}
+          id={@format_field.id}
+          class="py-[7px] rounded-md border-0 bg-transparent pr-8 pl-1 text-xs text-zinc-400 focus:ring-0"
+        >
+          {Phoenix.HTML.Form.options_for_select(
+            [{"full date", "full"}, {"year & month", "year_month"}, {"year only", "year"}],
+            @format_field.value && to_string(@format_field.value)
+          )}
+        </select>
+      </div>
+      <.field_errors field={@date_field} />
+    </div>
+    """
+  end
+
   # §7: inputs are sized to their content, and a date's content has one
   # size — so the component owns the default (`max-w-48`) instead of hoping
   # every call site remembers. A call site that passes any width class of
@@ -772,8 +824,20 @@ defmodule AmbryWeb.CoreComponents do
   def image_with_size(assigns) do
     ~H"""
     <div>
-      <div class="inline-block">
+      <div class="group/zoom relative inline-block">
         <img id={"#{@id}-preview"} src={@src} class={@class} />
+        <%!-- A corner magnifier rather than click-to-zoom on the image
+            itself: these previews live inside chips and record rows whose
+            click already means "choose"/"tick", and a uniform affordance
+            beats two behaviors. The lightbox listener lives in app.js. --%>
+        <span
+          data-zoomable
+          data-full={@src}
+          title="View full size"
+          class="bg-black/70 absolute right-1 bottom-1 hidden cursor-zoom-in rounded-sm p-1 group-hover/zoom:flex"
+        >
+          <.icon name="fa-magnifying-glass" class="h-3 w-3 text-zinc-100" />
+        </span>
         <p
           id={"#{@id}-size"}
           class="text-center text-xs text-zinc-700"
