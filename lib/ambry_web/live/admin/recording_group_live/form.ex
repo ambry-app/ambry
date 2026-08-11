@@ -7,13 +7,18 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
+  def mount(_params, _session, socket) do
+    {:ok, assign(socket, media_options: Media.media_for_select())}
+  end
+
+  @impl Phoenix.LiveView
   def handle_params(params, _url, socket) do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     group = Media.get_recording_group!(id)
-    changeset = Media.change_recording_group(group)
+    changeset = Media.change_recording_group_form(group)
 
     socket
     |> assign_form(changeset)
@@ -25,7 +30,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
 
   defp apply_action(socket, :new, _params) do
     group = %RecordingGroup{media: []}
-    changeset = Media.change_recording_group(group)
+    changeset = Media.change_recording_group_form(group)
 
     socket
     |> assign_form(changeset)
@@ -36,57 +41,56 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
   end
 
   @impl Phoenix.LiveView
-  def handle_event("validate", %{"recording_group" => group_params}, socket) do
+  def handle_event("validate", %{"recording_group_form" => group_params}, socket) do
     changeset =
       socket.assigns.group
-      |> Media.change_recording_group(group_params)
+      |> Media.change_recording_group_form(group_params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("submit", %{"recording_group" => group_params}, socket) do
+  def handle_event("submit", %{"recording_group_form" => group_params}, socket) do
     save_group(socket, socket.assigns.live_action, group_params)
   end
 
   defp save_group(socket, :edit, group_params) do
-    case Media.update_recording_group(socket.assigns.group, group_params) do
+    case Media.update_recording_group_from_form(socket.assigns.group, group_params) do
       {:ok, group} ->
         {:noreply,
          socket
          |> put_flash(:info, "Updated #{group.name}")
          |> push_navigate(to: ~p"/admin/groups")}
 
-      {:error, %Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
+      {:error, error} ->
+        {:noreply, handle_save_error(socket, error)}
     end
   end
 
   defp save_group(socket, :new, group_params) do
-    case Media.create_recording_group(group_params) do
+    case Media.create_recording_group_from_form(group_params) do
       {:ok, group} ->
         {:noreply,
          socket
          |> put_flash(:info, "Created #{group.name}")
          |> push_navigate(to: ~p"/admin/groups")}
 
-      {:error, %Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
+      {:error, error} ->
+        {:noreply, handle_save_error(socket, error)}
     end
+  end
+
+  # A member write can fail with the MEDIA's changeset, which this form has
+  # no inputs for — say so rather than exploding the form over it.
+  defp handle_save_error(socket, %Changeset{data: %Media.RecordingGroupForm{}} = changeset) do
+    assign_form(socket, changeset)
+  end
+
+  defp handle_save_error(socket, _other) do
+    put_flash(socket, :error, "Couldn't save one of the recordings' membership.")
   end
 
   defp assign_form(socket, %Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
-  end
-
-  # Members come from the group preload, so their own recording_group assoc
-  # is unloaded — the part label needs the group passed explicitly.
-  defp member_label(media, group) do
-    title = media.title || media.book.title
-
-    case Ambry.Media.Media.part_label(media, group) do
-      nil -> title
-      label -> "#{label} — #{title}"
-    end
   end
 end

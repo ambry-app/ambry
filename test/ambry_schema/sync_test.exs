@@ -164,24 +164,19 @@ defmodule AmbrySchema.SyncTest do
     test "returns groups, part fields, and tracks group deletions", %{conn: conn} do
       book = insert(:book)
 
+      {:ok, group} =
+        Ambry.Media.create_recording_group(%{name: "Season One", parts_total: 3})
+
       {:ok, media} =
         :media
-        |> params_for(
-          book_id: book.id,
-          part_number: 1,
-          recording_group_choice: "new",
-          recording_group_name: "Season One",
-          recording_group_parts_total: 3
-        )
+        |> params_for(book_id: book.id, part_number: 1, recording_group_id: group.id)
         |> Map.take([
           :abridged,
           :full_cast,
           :source_path,
           :book_id,
           :part_number,
-          :recording_group_choice,
-          :recording_group_name,
-          :recording_group_parts_total
+          :recording_group_id
         ])
         |> Ambry.Media.create_media()
 
@@ -202,7 +197,7 @@ defmodule AmbrySchema.SyncTest do
       # clearing the last member orphan-deletes the group, tracked for sync
       {:ok, _media} =
         Ambry.Media.update_media(Ambry.Media.get_media!(media.id), %{
-          recording_group_choice: "none"
+          "recording_group_id" => ""
         })
 
       conn =

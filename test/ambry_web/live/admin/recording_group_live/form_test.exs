@@ -8,19 +8,47 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
   setup :register_and_log_in_admin_user
 
   describe "New" do
-    test "creates a group, which may start empty", %{conn: conn} do
+    test "creates a group with members, exactly like a series with books", %{conn: conn} do
+      book = insert(:book)
+      media_one = insert(:media, book: book)
+      media_two = insert(:media, book: book)
+
       {:ok, view, _html} = live(conn, ~p"/admin/groups/new")
 
       view
       |> form("#group-form")
       |> render_submit(%{
-        recording_group: %{name: "Season One", parts_total: "3", part_word: "episode"}
+        recording_group_form: %{
+          name: "Season One",
+          parts_total: "2",
+          part_word: "episode",
+          members: %{
+            "0" => %{media_id: to_string(media_one.id), part_number: "1"},
+            "1" => %{media_id: to_string(media_two.id), part_number: "2"}
+          }
+        }
       })
 
       assert_redirect(view, "/admin/groups")
 
       {[group], false} = Media.list_recording_groups()
-      assert %{name: "Season One", parts_total: 3, part_word: "episode", media: []} = group
+      assert %{name: "Season One", parts_total: 2, part_word: "episode"} = group
+
+      assert Enum.map(group.media, &{&1.id, &1.part_number}) ==
+               [{media_one.id, 1}, {media_two.id, 2}]
+    end
+
+    test "a group may start empty", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/admin/groups/new")
+
+      view
+      |> form("#group-form")
+      |> render_submit(%{recording_group_form: %{name: "Awaiting Parts"}})
+
+      assert_redirect(view, "/admin/groups")
+
+      {[group], false} = Media.list_recording_groups()
+      assert %{name: "Awaiting Parts", media: []} = group
     end
 
     test "refuses a blank name", %{conn: conn} do
@@ -29,7 +57,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       html =
         view
         |> form("#group-form")
-        |> render_submit(%{recording_group: %{name: ""}})
+        |> render_submit(%{recording_group_form: %{name: ""}})
 
       assert html =~ "can&#39;t be blank"
       assert Media.count_recording_groups() == 0
@@ -37,32 +65,52 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
   end
 
   describe "Edit" do
-    test "edits set-level facts and lists members with part labels", %{conn: conn} do
+    test "renders existing members as editable rows", %{conn: conn} do
       book = insert(:book, title: "A Court of Thorns and Roses")
       group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
       media = insert(:media, book: book, part_number: 1, recording_group: group)
 
-      {:ok, view, html} = live(conn, ~p"/admin/groups/#{group.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/admin/groups/#{group.id}/edit")
 
-      member =
-        html
-        |> Floki.parse_document!()
-        |> Floki.find("[data-role='group-member']")
-        |> Floki.text()
-        |> String.replace(~r/\s+/, " ")
-        |> String.trim()
+      doc = Floki.parse_document!(html)
 
-      assert member == "Part 1 of 2 — A Court of Thorns and Roses"
-      assert html =~ ~p"/admin/media/#{media}/edit"
+      assert doc
+             |> Floki.find(~s{input[name="recording_group_form[members][0][part_number]"]})
+             |> Floki.attribute("value") == ["1"]
 
+      assert doc
+             |> Floki.find(~s{input[name="recording_group_form[members][0][media_id]"]})
+             |> Floki.attribute("value") == [to_string(media.id)]
+    end
+
+    test "saving edits facts and the member list together", %{conn: conn} do
+      book = insert(:book)
+      group = insert(:recording_group, name: "Before")
+      keep = insert(:media, book: book, part_number: 1, recording_group: group)
+      drop = insert(:media, book: book, part_number: 2, recording_group: group)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/groups/#{group.id}/edit")
+
+      # removal is the drop checkbox, same mechanics as dropping a series book
       view
       |> form("#group-form")
-      |> render_submit(%{recording_group: %{name: "GraphicAudio Set", show_label: "true"}})
+      |> render_submit(%{
+        recording_group_form: %{
+          name: "After",
+          show_label: "true",
+          members_drop: ["1"]
+        }
+      })
 
       assert_redirect(view, "/admin/groups")
 
       updated = Media.get_recording_group!(group.id)
-      assert %{name: "GraphicAudio Set", show_label: true} = updated
+      assert %{name: "After", show_label: true} = updated
+      assert Enum.map(updated.media, & &1.id) == [keep.id]
+
+      dropped = Media.get_media!(drop.id)
+      assert dropped.recording_group_id == nil
+      assert dropped.part_number == nil
     end
   end
 end

@@ -16,6 +16,7 @@ defmodule Ambry.Media do
       MediaNarrator,
       MediaTrack,
       RecordingGroup,
+      RecordingGroupForm,
       Scanner,
       Scanner.Tags,
       PubSub.MediaCreated,
@@ -45,6 +46,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.PubSub.RecordingGroupDeleted
   alias Ambry.Media.PubSub.RecordingGroupUpdated
   alias Ambry.Media.RecordingGroup
+  alias Ambry.Media.RecordingGroupForm
   alias Ambry.Media.RunOrganize
   alias Ambry.Media.RunProcessor
   alias Ambry.Media.RunPublishPending
@@ -268,7 +270,6 @@ defmodule Ambry.Media do
       with {:ok, media} <- Repo.insert(changeset),
            :ok <- Search.insert(media),
            {:ok, _job_or_noop} <- generate_thumbnails_async(media),
-           {:ok, _job_or_noop} <- broadcast_recording_group_change(changeset, media),
            {:ok, _job} <- broadcast_media_created(media) do
         {:ok, media}
       end
@@ -313,7 +314,6 @@ defmodule Ambry.Media do
            :ok <- Search.update(updated_media),
            {:ok, _job_or_noop} <- delete_unused_files_async(media, updated_media),
            {:ok, _job_or_noop} <- generate_thumbnails_async(updated_media),
-           {:ok, _job_or_noop} <- broadcast_recording_group_change(changeset, updated_media),
            {:ok, _job} <- broadcast_media_updated(updated_media) do
         {:ok, updated_media}
       end
@@ -710,27 +710,111 @@ defmodule Ambry.Media do
     |> PubSub.broadcast_async()
   end
 
-  # Media saves can create or rename a group through the picker's put_assoc,
-  # bypassing the group CRUD functions — subscribers (the admin group index)
-  # still need to hear about it.
-  defp broadcast_recording_group_change(changeset, %Media{} = media) do
-    case Ecto.Changeset.get_change(changeset, :recording_group) do
-      %Ecto.Changeset{data: %RecordingGroup{id: nil}} ->
-        media.recording_group |> RecordingGroupCreated.new() |> PubSub.broadcast_async()
-
-      %Ecto.Changeset{} ->
-        media.recording_group |> RecordingGroupUpdated.new() |> PubSub.broadcast_async()
-
-      nil ->
-        {:ok, :noop}
-    end
-  end
-
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking recording group changes.
   """
   def change_recording_group(%RecordingGroup{} = group, attrs \\ %{}) do
     RecordingGroup.changeset(group, attrs)
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for the group admin form — the group's own
+  facts plus its members, shaped for `inputs_for` like a series' books.
+  """
+  def change_recording_group_form(%RecordingGroup{} = group, attrs \\ %{}) do
+    group |> RecordingGroupForm.from_group() |> RecordingGroupForm.changeset(attrs)
+  end
+
+  @doc """
+  Creates a group from the admin form, attaching any listed members.
+  """
+  def create_recording_group_from_form(attrs) do
+    save_recording_group_form(%RecordingGroup{media: []}, attrs, fn params ->
+      create_recording_group(params)
+    end)
+  end
+
+  @doc """
+  Updates a group from the admin form, diffing its member list.
+
+  A removed row detaches the media (clearing its part number — a position in
+  a set it left isn't a fact to keep); rows write membership through
+  `update_media/3` so search, sync, PubSub and the orphan sweep all fire.
+  """
+  def update_recording_group_from_form(%RecordingGroup{} = group, attrs) do
+    save_recording_group_form(group, attrs, fn params ->
+      update_recording_group(group, params)
+    end)
+  end
+
+  defp save_recording_group_form(group, attrs, save_group) do
+    changeset = change_recording_group_form(group, attrs)
+
+    with {:ok, form} <- Ecto.Changeset.apply_action(changeset, :save) do
+      Repo.transact(fn ->
+        with {:ok, saved} <- save_group.(group_params(form)),
+             :ok <- apply_group_members(saved, group.media || [], form.members) do
+          {:ok, saved}
+        end
+      end)
+    end
+  end
+
+  defp group_params(form) do
+    %{
+      name: form.name,
+      parts_total: form.parts_total,
+      show_label: form.show_label,
+      part_word: form.part_word,
+      part_word_plural: form.part_word_plural
+    }
+  end
+
+  defp apply_group_members(group, current_members, members) do
+    desired = Map.new(members, &{&1.media_id, &1.part_number})
+
+    detached =
+      for %Media{} = media <- current_members, not Map.has_key?(desired, media.id) do
+        {media.id, %{recording_group_id: nil, part_number: nil}}
+      end
+
+    attached =
+      for {media_id, part_number} <- desired do
+        {media_id, %{recording_group_id: group.id, part_number: part_number}}
+      end
+
+    Enum.reduce_while(detached ++ attached, :ok, fn {media_id, attrs}, :ok ->
+      case update_media(get_media!(media_id), attrs) do
+        {:ok, _media} -> {:cont, :ok}
+        {:error, changeset} -> {:halt, {:error, changeset}}
+      end
+    end)
+  end
+
+  @doc """
+  Returns all media for use in `Select` components — the media analog of
+  `Books.books_for_select/0`, labeled by title (with part label) and
+  narrators so twin recordings of one book stay tellable apart.
+  """
+  def media_for_select do
+    MediaFlat
+    |> order_by(asc: :book)
+    |> Repo.all()
+    |> Enum.map(&{media_select_label(&1), &1.id})
+  end
+
+  defp media_select_label(%MediaFlat{} = flat) do
+    title =
+      cond do
+        flat.title -> flat.title
+        label = Media.part_label(flat) -> "#{flat.book} (#{label})"
+        true -> flat.book
+      end
+
+    case flat.narrators do
+      [] -> title
+      narrators -> "#{title} — #{Enum.map_join(narrators, ", ", & &1.name)}"
+    end
   end
 
   @doc """
@@ -740,6 +824,17 @@ defmodule Ambry.Media do
     :ok = PubSub.subscribe(RecordingGroupCreated.wildcard_topic())
     :ok = PubSub.subscribe(RecordingGroupUpdated.wildcard_topic())
     :ok = PubSub.subscribe(RecordingGroupDeleted.wildcard_topic())
+  end
+
+  @doc """
+  Returns all recording groups for use in `Select` components — the group
+  analog of `Books.series_for_select/0`. Global rather than book-scoped so
+  a freshly created empty group (no members yet, so no book) is offerable.
+  """
+  def recording_groups_for_select do
+    query = from g in RecordingGroup, select: {g.name, g.id}, order_by: g.name
+
+    Repo.all(query)
   end
 
   @doc """

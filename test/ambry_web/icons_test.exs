@@ -7,6 +7,13 @@ defmodule AmbryWeb.IconsTest do
   nothing — no warning, no crash, just a missing glyph and mysterious
   spacing. This has shipped twice. Dynamic names (`name={...}`) aren't
   covered; string literals are the overwhelmingly common case.
+
+  One failure mode lives below this test's reach: the Tailwind plugin
+  `readdirSync`s the vendor dir when the *watcher* starts, so an SVG
+  vendored while the dev server runs passes here yet still renders blank
+  live until the watcher reloads its config — `touch
+  assets/tailwind.config.js` after vendoring a new icon. Fresh builds
+  (CI, prod, a restarted server) are unaffected.
   """
 
   use ExUnit.Case, async: true
