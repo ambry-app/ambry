@@ -175,7 +175,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       proposed_name: group.name,
       part_number: number,
       parts_total: group.parts_total || total,
-      source: source || "library",
+      source: source || "local",
       approved: false,
       candidates: group_candidates([group])
     }
@@ -189,7 +189,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       mode: :create,
       name: name,
       proposed_name: presence(name),
-      source: source || "library",
+      source: source || "local",
       part_number: number,
       parts_total: total,
       approved: false,
@@ -234,7 +234,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
     cond do
       is_integer(parsed.parts_total) ->
-        {parsed.part_number, parsed.parts_total, "name"}
+        {parsed.part_number, parsed.parts_total, "release_name"}
 
       is_integer(tag_parsed.parts_total) ->
         {tag_parsed.part_number, tag_parsed.parts_total, "tags"}

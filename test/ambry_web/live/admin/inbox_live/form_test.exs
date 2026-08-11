@@ -114,29 +114,18 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   end
 
   describe "settling decisions" do
-    test "take-the-top-suggestion settles everything that has one", %{conn: conn} do
-      item = probed_item()
-
-      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
-
-      html = view |> element("button[phx-click='approve-all']") |> render_click()
-
-      refute html =~ "Still to settle"
-      assert Inbox.get_item!(item.id).ready
-    end
-
-    test "take-the-top-suggestion never invents a missing required value", %{conn: conn} do
+    # The bulk "take the top suggestion" button is gone on purpose (operator:
+    # they would rather settle each section with eyes on it than in bulk), so
+    # what the outstanding list must do now is name the work and lead to it.
+    test "what's outstanding is listed and links to its section", %{conn: conn} do
       item = probed_item(dated: false)
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
-      assert html =~ "First published"
 
-      html = view |> element("button[phx-click='approve-all']") |> render_click()
-
-      # the date nobody supplied is still outstanding — this button settles
-      # choices, it does not fabricate facts
       assert html =~ "Still to settle"
       assert html =~ "First published"
+      refute has_element?(view, "button[phx-click='approve-all']")
+      assert has_element?(view, "[data-role='unresolved'] a[href='#work']")
       refute Inbox.get_item!(item.id).ready
     end
 
@@ -875,8 +864,13 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       before = Inbox.get_item!(item.id).draft
 
-      render_click(view, "approve-all", %{})
       render_click(view, "waive-field", %{"section" => "work", "field" => "published"})
+
+      render_click(view, "approve-credit", %{
+        "section" => "work",
+        "index" => "0",
+        "approved" => "true"
+      })
 
       assert Inbox.get_item!(item.id).draft == before
     end

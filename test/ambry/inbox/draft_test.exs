@@ -233,10 +233,6 @@ defmodule Ambry.Inbox.DraftTest do
                "Shelf Label",
                "Some Release"
              ]
-
-      # and taking the leading suggestion takes the ticked record's, not the
-      # file's, because records outrank tags in the candidate order
-      assert Draft.Edit.approve_all(ticked).work.title.value == "Something Else"
     end
 
     # A key can legitimately disappear while the answer stays on offer: the
@@ -1087,7 +1083,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert Draft.Recording.uncatalogued?(draft.recording)
     end
 
-    test "taking the top suggestion never adopts a doubted recording" do
+    test "a doubted recording is never adopted quietly" do
       recording = [
         %{
           "source" => "provider:audible",
@@ -1106,10 +1102,11 @@ defmodule Ambry.Inbox.DraftTest do
           tags: %{"narrators" => ["Jeff Harding"]}
         })
 
-      draft = item |> Seed.build() |> Draft.Edit.approve_all()
+      draft = Seed.build(item)
 
       # the leading record here is, by construction, the wrong recording of
-      # the right book — the one thing this button must not paper over
+      # the right book — the one thing nobody would notice after the fact, so
+      # it stays a question and fills nothing in
       refute draft.recording.approved
       assert draft.recording.publisher.value == nil
     end
@@ -1385,9 +1382,9 @@ defmodule Ambry.Inbox.DraftTest do
 
       draft = Draft.Edit.remove_credit(item.draft, item, :work, 0)
 
-      # approve-all must not quietly re-arm the tombstone
-      approved = Draft.Edit.approve_all(draft)
-      assert [%{removed: true}] = approved.work.authors
+      # a resettle must not quietly re-arm the tombstone
+      resettled = Draft.Edit.resettle(draft, item)
+      assert [%{removed: true}] = resettled.work.authors
     end
   end
 
@@ -2547,7 +2544,7 @@ defmodule Ambry.Inbox.DraftTest do
           mode: :create,
           name: "GraphicAudio",
           proposed_name: "GraphicAudio",
-          source: "name",
+          source: "release_name",
           part_number: 1,
           parts_total: 2
         })
@@ -2577,28 +2574,32 @@ defmodule Ambry.Inbox.DraftTest do
       assert item.draft.recording.recording_group == nil
     end
 
-    test "approve_all settles a numbered link but never invents a part number" do
+    # A part number is never invented, same doctrine as a series number: an
+    # unnumbered link is unresolved and blocks the import until the operator
+    # supplies the number or removes the link.
+    test "a link with no part number is never resolved" do
       draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
 
       numbered =
         put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
           mode: :create,
           name: "Set",
-          part_number: 1
+          part_number: 1,
+          approved: true
         })
 
-      settled = Draft.Edit.approve_all(numbered)
-      assert settled.recording.recording_group.approved
+      assert GroupLink.resolved?(numbered.recording.recording_group)
 
       unnumbered =
         put_in(draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
           mode: :create,
           name: "Set",
-          part_number: nil
+          part_number: nil,
+          approved: true
         })
 
-      still_open = Draft.Edit.approve_all(unnumbered)
-      refute still_open.recording.recording_group.approved
+      refute GroupLink.resolved?(unnumbered.recording.recording_group)
+      assert Enum.any?(Draft.unresolved(unnumbered), &(&1.label =~ "set"))
     end
   end
 
@@ -2624,7 +2625,7 @@ defmodule Ambry.Inbox.DraftTest do
                proposed_name: "GraphicAudio",
                part_number: 1,
                parts_total: 2,
-               source: "name",
+               source: "release_name",
                approved: false,
                curated: false
              } = draft.recording.recording_group

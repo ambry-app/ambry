@@ -129,24 +129,6 @@
             <.link href={"##{decision.section}"} class="hover:underline">{decision.label}</.link>
           </li>
         </ul>
-
-        <%!-- Named for what it does, not for how it feels. It takes the leading
-            proposal wherever there is one; it does not invent a value, a
-            series number, or a recording we already said we doubt. --%>
-        <.button
-          :if={settleable(@unresolved) > 0}
-          type="button"
-          color={:zinc}
-          class="mt-3"
-          phx-click="approve-all"
-        >
-          Take the top suggestion for {settleable(@unresolved)} of these
-        </.button>
-
-        <p class="pt-2 text-xs text-zinc-400">
-          Anything nothing proposed, any series without a number, and any recording match we doubt is
-          left alone — those need a real answer, not a shortcut.
-        </p>
       </section>
 
       <%!-- ==================== THE WORK ==================== --%>

@@ -549,10 +549,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      end)}
   end
 
-  def handle_event("approve-all", _params, socket) do
-    {:noreply, edit(socket, &Draft.Edit.approve_all/1)}
-  end
-
   def handle_event("rebuild", _params, socket) do
     {:ok, item} = Inbox.rebuild_draft(socket.assigns.item)
 
@@ -915,14 +911,4 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   @doc "Existing Books this release might be another edition of."
   defdelegate local_records(item, level), to: Seed
-
-  @doc """
-  How many decisions the bulk button would settle, so its label can say.
-
-  A button that might do fourteen things or nothing should not look the same
-  in both cases.
-  """
-  def settleable(unresolved) do
-    Enum.count(unresolved, &(&1.state != :missing))
-  end
 end
