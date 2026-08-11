@@ -170,7 +170,7 @@ defmodule Ambry.Metadata.Providers.Hardcover do
       publisher { name }
       image { url }
       contributions { contribution author { id name } }
-      book { contributions { contribution author { id name } } }
+      book { description contributions { contribution author { id name } } }
     }
   }
   """
@@ -240,6 +240,19 @@ defmodule Ambry.Metadata.Providers.Hardcover do
       # Martian for Audible's Wheaton edition to outrank the recording
       # actually in hand.
       authors: contributions_to_authors(get_in(edition, ["book", "contributions"])),
+      # The book's blurb, for the same reason and by the same hop. `editions`
+      # has no description field at all — not omitted from this query, absent
+      # from the type — so without this an edition record can carry none, and
+      # the only description a recording could be given came from the
+      # storefront. A storefront describes the reading it is *selling*:
+      # Audible's Martian copy is about Wil Wheaton, which is the wrong
+      # description for R.C. Bray's recording of that book.
+      #
+      # It is the work's text on a recording's record, deliberately. Every
+      # edition of the book carries the same words, and both consumers group
+      # candidates by value — `Evidence.group/1` and `Seed.scalar/2`'s
+      # `collapse` — so thirteen editions offer one chip, not thirteen.
+      description: presence(get_in(edition, ["book", "description"])),
       cover_url: get_in(edition, ["image", "url"]),
       publisher: get_in(edition, ["publisher", "name"]),
       # Old editions frequently carry the *work's* date rather than their own

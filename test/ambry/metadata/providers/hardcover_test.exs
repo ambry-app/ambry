@@ -248,6 +248,31 @@ defmodule Ambry.Metadata.Providers.HardcoverTest do
       assert [%Provider.Contributor{name: "Andy Weir", role: "author"}] = book.authors
     end
 
+    # `editions` has no description field at all — not omitted from the query,
+    # absent from the type — so without reaching through to the book, the only
+    # description a recording could be offered came from the storefront. A
+    # storefront describes the reading it is selling: Audible's Martian copy is
+    # about Wil Wheaton, which is the wrong description for R.C. Bray's.
+    test "an edition carries its book's description" do
+      patch(Client, :query, fn _config, query, _vars ->
+        assert query =~ "book { description"
+
+        {:ok,
+         %{
+           "editions" => [
+             edition(%{
+               "reading_format_id" => 2,
+               "contributions" => narrated_by("R.C. Bray", "Narrator"),
+               "book" => Map.put(by_author("Andy Weir"), "description", "After a dust storm…")
+             })
+           ]
+         }}
+      end)
+
+      assert {:ok, [%Provider.Book{description: "After a dust storm…"}]} =
+               Hardcover.editions("292354", %{})
+    end
+
     # The Martian has 150 editions on Hardcover, so a `limit` over an
     # unfiltered set decided by nothing at all which ones came back — and
     # R.C. Bray's delisted recording, the exact case `:editions` exists for,

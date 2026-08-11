@@ -314,21 +314,22 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  # The recording level asks three ways: Audible's catalog directly, the
-  # editions the work-level databases keep — the route to a recording no
-  # storefront will admit exists — and the work records themselves.
+  # The recording level asks two ways, like the import form: Audible's catalog
+  # directly, and the editions the work-level databases keep — the route to a
+  # recording no storefront will admit exists.
   #
-  # The work records used to be fetched, mined for their editions, and thrown
-  # away. Two reasons they stay now. **A description.** Hardcover's `editions`
-  # type has no description field at all — verified against the live schema —
-  # so an edition record can never carry one, and the only recording-level
-  # blurb on offer came from Audible, which describes the reading it is
-  # selling: its Martian copy is about Wil Wheaton, which is precisely wrong
-  # for anyone else's recording of that book. A work's description is about
-  # the *book*, which is the honest thing to put on a recording. **And their
-  # outcomes.** Dropping those meant a work provider that was down or
-  # rate-limited took its editions with it and said nothing — the one thing
-  # the outcome chips exist to prevent.
+  # **Only recordings are listed.** Mixing the work records in gave the
+  # operator a description to choose, and cost more than it bought: a work
+  # record renders "The Martian — Andy Weir · 2011 · Hardcover", which is also
+  # what four of its editions render, so the list stopped being a list of
+  # readings. The editions carry the book's description themselves now (see
+  # `Hardcover.editions/2`), which is the same text by a shorter road.
+  #
+  # The work search still runs, because its records are the ids the editions
+  # are fetched by. Only its **failures** are reported: a chip saying
+  # "Hardcover: 9" would describe a search whose records aren't shown, but a
+  # work provider that was down took its editions with it, and that has to be
+  # visible or the recordings list is short for no stated reason.
   defp recording_fan_out(query, hints) do
     {audible_found, audible_outcomes} = MetadataSearch.books(query, level: :recording)
 
@@ -340,9 +341,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {work_found, work_outcomes} = MetadataSearch.books(query, level: :work)
 
     work_records =
-      work_found
-      |> Enum.flat_map(fn {entry, books} -> Inbox.score_records(books, entry, hints) end)
-      |> Enum.map(&Map.put(&1, "level", "work"))
+      Enum.flat_map(work_found, fn {entry, books} -> Inbox.score_records(books, entry, hints) end)
 
     # Only the top group gets asked for editions. Every work record used to,
     # which on The Martian meant nine editions calls and nine "Hardcover
@@ -350,8 +349,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {edition_records, edition_outcomes} =
       work_records |> Inbox.top_group() |> Inbox.editions_of(hints)
 
-    {audible_records ++ edition_records ++ work_records,
-     audible_outcomes ++ edition_outcomes ++ work_outcomes}
+    {audible_records ++ edition_records,
+     audible_outcomes ++
+       edition_outcomes ++ Enum.filter(work_outcomes, &(&1["status"] == "failed"))}
   end
 
   @impl Phoenix.LiveView
