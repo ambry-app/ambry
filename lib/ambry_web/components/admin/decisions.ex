@@ -296,13 +296,9 @@ defmodule AmbryWeb.Admin.Decisions do
         <input type="text" name="name" value={@name} class={input_classes("mt-1 block")} />
       </label>
 
-      <button
-        type="submit"
-        disabled={@running}
-        class={action_classes()}
-      >
+      <.button color={:zinc} type="submit" disabled={@running}>
         {if @running, do: "Searching…", else: "Search again"}
-      </button>
+      </.button>
     </form>
     """
   end
@@ -363,13 +359,12 @@ defmodule AmbryWeb.Admin.Decisions do
         />
       </label>
 
-      <button
-        type="submit"
-        disabled={@running}
-        class={action_classes()}
-      >
+      <%!-- Beside full-height inputs, so it is one: adjacent bar controls
+          share exact height (§7) — the sm action costume left this button
+          short next to every input it touches. --%>
+      <.button color={:zinc} type="submit" disabled={@running}>
         {if @running, do: "Searching…", else: @label}
-      </button>
+      </.button>
     </form>
     """
   end
