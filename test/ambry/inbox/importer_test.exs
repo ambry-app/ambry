@@ -412,6 +412,55 @@ defmodule Ambry.Inbox.ImporterTest do
       assert Enum.any?(unresolved, &(&1.label =~ "Part of a set"))
     end
 
+    # The whole point of the elevation: importing Part 1 creates the set, and
+    # Part 2's pending draft is told about it without re-matching anything.
+    test "importing part 1 makes part 2's sibling draft propose joining the set" do
+      part_one = tagged_item(name: "The Way of Kings - Part 1 of 2 [M4B]")
+      part_two = tagged_item(name: "The Way of Kings - Part 2 of 2 [M4B]")
+
+      {:ok, part_two} = Inbox.prepare_draft(part_two)
+      # seeded from its own name: a :create proposal, part 2 of 2
+      assert %GroupLink{mode: :create, part_number: 2, parts_total: 2, curated: false} =
+               part_two.draft.recording.recording_group
+
+      draft =
+        put_in(part_one.draft, [Access.key(:recording), Access.key(:recording_group)], %GroupLink{
+          mode: :create,
+          name: "GraphicAudio",
+          source: "manual",
+          part_number: 1,
+          parts_total: 2,
+          approved: true,
+          curated: true
+        })
+
+      {:ok, part_one} = Inbox.update_draft(part_one, Inbox.dump_draft(draft))
+      assert {:ok, media_one} = Inbox.import_item(part_one)
+
+      # refresh_siblings ran post-import: part 2's work now links the book,
+      # and its group proposal upgraded to joining part 1's set
+      part_two = Inbox.get_item!(part_two.id)
+      link = part_two.draft.recording.recording_group
+
+      assert part_two.draft.work.mode == :link
+      assert part_two.draft.work.book_id == media_one.book_id
+
+      assert %GroupLink{
+               mode: :link,
+               recording_group_id: group_id,
+               name: "GraphicAudio",
+               part_number: 2,
+               approved: false,
+               curated: false
+             } = link
+
+      assert group_id == Ambry.Media.get_media!(media_one.id).recording_group_id
+
+      # idempotent: a second relink pass moves nothing
+      relinked = Ambry.Inbox.Draft.Seed.relink(part_two.draft, part_two)
+      assert relinked.recording.recording_group == link
+    end
+
     test "the group link counts as curation, so a re-match can't discard it" do
       item = tagged_item(settle: false)
       {:ok, item} = Inbox.prepare_draft(item)

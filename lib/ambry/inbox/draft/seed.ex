@@ -149,25 +149,68 @@ defmodule Ambry.Inbox.Draft.Seed do
     end
   end
 
+  # The linked book already having a set is itself a signal — "you have a
+  # group for recordings of this work; is this another part of the same
+  # set?" — so a single existing group proposes a :link even when nothing in
+  # the release says "part". Several groups can't be told apart without a
+  # name to match (group names are operator-supplied), so they ride along as
+  # candidates on an unresolved :create instead.
   defp propose_group(draft, item) do
-    case detect_part(draft, item) do
-      nil ->
-        nil
+    detected = detect_part(draft, item)
 
-      {number, total, source} ->
-        name = Field.value(draft.work.title) || ""
-
-        %GroupLink{
-          mode: :create,
-          name: name,
-          proposed_name: presence(name),
-          source: source,
-          part_number: number,
-          parts_total: total,
-          approved: false
-        }
+    case {detected, book_groups(draft)} do
+      {nil, []} -> nil
+      {_detected, [group]} -> link_proposal(group, detected)
+      {detected, groups} -> create_proposal(draft, detected, groups)
     end
   end
+
+  defp link_proposal(group, detected) do
+    {number, total, source} = detected || {nil, nil, nil}
+
+    %GroupLink{
+      mode: :link,
+      recording_group_id: group.id,
+      name: group.name,
+      proposed_name: group.name,
+      part_number: number,
+      parts_total: group.parts_total || total,
+      source: source || "library",
+      approved: false,
+      candidates: group_candidates([group])
+    }
+  end
+
+  defp create_proposal(draft, detected, groups) do
+    {number, total, source} = detected || {nil, nil, nil}
+    name = Field.value(draft.work.title) || ""
+
+    %GroupLink{
+      mode: :create,
+      name: name,
+      proposed_name: presence(name),
+      source: source || "library",
+      part_number: number,
+      parts_total: total,
+      approved: false,
+      candidates: group_candidates(groups)
+    }
+  end
+
+  defp group_candidates(groups) do
+    Enum.map(groups, fn group ->
+      %GroupLink.Match{
+        recording_group_id: group.id,
+        name: group.name,
+        parts_total: group.parts_total
+      }
+    end)
+  end
+
+  defp book_groups(%Draft{work: %Work{mode: :link, book_id: book_id}}) when not is_nil(book_id),
+    do: Ambry.Media.recording_groups_for_book(book_id)
+
+  defp book_groups(_draft), do: []
 
   defp detect_part(draft, item) do
     parsed = ReleaseName.parse(item.path)
@@ -918,6 +961,11 @@ defmodule Ambry.Inbox.Draft.Seed do
       [Access.key(:work), Access.key(:series)],
       &Enum.map(&1 || [], fn s -> relink_series(s) end)
     )
+    # After relink_work flips Part 2's work to the book Part 1 just created,
+    # the same seeding pass sees the book's group and upgrades an uncurated
+    # :create proposal to "join the existing set". Curated/removed/manual
+    # links pass through untouched, so re-running relink is idempotent.
+    |> seed_group(item)
     |> reconcile_people(item)
     |> reopen_new_person_questions()
   end

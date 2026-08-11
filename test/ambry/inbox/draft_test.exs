@@ -2557,6 +2557,72 @@ defmodule Ambry.Inbox.DraftTest do
       assert Seed.seed_group(removed, item).recording.recording_group.removed
     end
 
+    test "linking a book with one existing set proposes joining it, detection numbers carried" do
+      book = insert(:book)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      item =
+        item(%{
+          path: "/downloads/Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
+          matches: matches([provider_candidate(%{})]),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      draft = Draft.Edit.link_book(item.draft, item, book.id)
+
+      group_id = group.id
+
+      assert %GroupLink{
+               mode: :link,
+               recording_group_id: ^group_id,
+               name: "GraphicAudio",
+               part_number: 2,
+               parts_total: 2,
+               approved: false,
+               curated: false
+             } = draft.recording.recording_group
+    end
+
+    test "the linked book having a set is itself the signal — no part detection needed" do
+      book = insert(:book)
+      group = insert(:recording_group, name: "GraphicAudio", parts_total: 2)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+      draft = Draft.Edit.link_book(item.draft, item, book.id)
+
+      # "is this another part of the same set?" — the position is the open
+      # question, so the link stays :missing until answered or removed
+      assert %GroupLink{mode: :link, part_number: nil} = draft.recording.recording_group
+      assert GroupLink.state(draft.recording.recording_group) == :missing
+    end
+
+    test "several existing sets can't be told apart — they ride along as candidates" do
+      book = insert(:book)
+      group_one = insert(:recording_group, name: "GraphicAudio")
+      group_two = insert(:recording_group, name: "Soundbooth Season One")
+      insert(:media, book: book, part_number: 1, recording_group: group_one)
+      insert(:media, book: book, part_number: 1, recording_group: group_two)
+
+      item =
+        item(%{
+          path: "/downloads/Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
+          matches: matches([provider_candidate(%{})]),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      draft = Draft.Edit.link_book(item.draft, item, book.id)
+
+      assert %GroupLink{mode: :create, candidates: candidates} =
+               draft.recording.recording_group
+
+      assert Enum.map(candidates, & &1.name) == ["GraphicAudio", "Soundbooth Season One"]
+    end
+
     test "the part-polluted series number is suppressed, a real one is not" do
       # GraphicAudio's shape: a `part` tag feeding series_number, no series
       # named anywhere — the number is the part's
