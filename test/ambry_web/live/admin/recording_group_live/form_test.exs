@@ -13,7 +13,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       media_one = insert(:media, book: book)
       media_two = insert(:media, book: book)
 
-      {:ok, view, _html} = live(conn, ~p"/admin/groups/new")
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/new")
 
       view
       |> form("#group-form")
@@ -30,7 +30,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
         }
       })
 
-      assert_redirect(view, "/admin/groups")
+      assert_redirect(view, "/admin/sets")
 
       {[group], false} = Media.list_recording_groups()
       assert %{name: "Season One", parts_total: 2, part_word: "episode"} = group
@@ -41,7 +41,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
 
     test "a group may start empty", %{conn: conn} do
       book = insert(:book)
-      {:ok, view, _html} = live(conn, ~p"/admin/groups/new")
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/new")
 
       view
       |> form("#group-form")
@@ -49,14 +49,14 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
         recording_group_form: %{name: "Awaiting Parts", book_id: to_string(book.id)}
       })
 
-      assert_redirect(view, "/admin/groups")
+      assert_redirect(view, "/admin/sets")
 
       {[group], false} = Media.list_recording_groups()
       assert %{name: "Awaiting Parts", media: []} = group
     end
 
     test "refuses a blank name", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/admin/groups/new")
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/new")
 
       html =
         view
@@ -74,7 +74,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       group = insert(:recording_group, name: "GraphicAudio", parts_total: 2, book: book)
       media = insert(:media, book: book, part_number: 1, recording_group: group)
 
-      {:ok, _view, html} = live(conn, ~p"/admin/groups/#{group.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
 
       doc = Floki.parse_document!(html)
 
@@ -98,7 +98,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       group = insert(:recording_group, name: "Graphic Audio", book: book)
       insert(:media, book: book, part_number: 1, recording_group: group)
 
-      {:ok, view, html} = live(conn, ~p"/admin/groups/#{group.id}/edit")
+      {:ok, view, html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
 
       assert resolver_display(html) == "A Court of Thorns and Roses"
 
@@ -116,7 +116,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       keep = insert(:media, book: book, part_number: 1, recording_group: group)
       drop = insert(:media, book: book, part_number: 2, recording_group: group)
 
-      {:ok, view, _html} = live(conn, ~p"/admin/groups/#{group.id}/edit")
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
 
       # removal is the drop checkbox, same mechanics as dropping a series book
       view
@@ -129,7 +129,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
         }
       })
 
-      assert_redirect(view, "/admin/groups")
+      assert_redirect(view, "/admin/sets")
 
       updated = Media.get_recording_group!(group.id)
       assert %{name: "After", show_label: true} = updated

@@ -95,7 +95,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     socket
     |> assign_form(changeset)
     |> assign(
-      page_title: "New Media",
+      page_title: "New Audiobook",
       media: media,
       recording_groups: [],
       file_stats: nil,
@@ -682,8 +682,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Updated media for #{media.book.title}")
-         |> push_navigate(to: ~p"/admin/media")}
+         |> put_flash(:info, "Updated audiobook for #{media.book.title}")
+         |> push_navigate(to: ~p"/admin/audiobooks")}
 
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
@@ -700,8 +700,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Created new media for #{media.book.title}")
-         |> push_navigate(to: ~p"/admin/media")}
+         |> put_flash(:info, "Created new audiobook for #{media.book.title}")
+         |> push_navigate(to: ~p"/admin/audiobooks")}
 
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
@@ -811,8 +811,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp media_path(media, params \\ %{})
-  defp media_path(%Media.Media{id: nil}, params), do: ~p"/admin/media/new?#{params}"
-  defp media_path(media, params), do: ~p"/admin/media/#{media}/edit?#{params}"
+  defp media_path(%Media.Media{id: nil}, params), do: ~p"/admin/audiobooks/new?#{params}"
+  defp media_path(media, params), do: ~p"/admin/audiobooks/#{media}/edit?#{params}"
 
   defp open_file_browser(media), do: JS.patch(media_path(media, %{browse: :files}))
   defp close_modal(media), do: JS.patch(media_path(media), replace: true)

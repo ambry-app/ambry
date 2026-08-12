@@ -37,7 +37,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     socket
     |> assign_form(changeset)
     |> assign(
-      page_title: "New Group",
+      page_title: "New Set",
       group: group,
       media_options: []
     )
@@ -74,7 +74,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Updated #{group.name}")
-         |> push_navigate(to: ~p"/admin/groups")}
+         |> push_navigate(to: ~p"/admin/sets")}
 
       {:error, error} ->
         {:noreply, handle_save_error(socket, error)}
@@ -87,7 +87,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Created #{group.name}")
-         |> push_navigate(to: ~p"/admin/groups")}
+         |> push_navigate(to: ~p"/admin/sets")}
 
       {:error, error} ->
         {:noreply, handle_save_error(socket, error)}
@@ -101,7 +101,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
   end
 
   defp handle_save_error(socket, _other) do
-    put_flash(socket, :error, "Couldn't save one of the recordings' membership.")
+    put_flash(socket, :error, "Couldn't save one of the audiobooks' membership.")
   end
 
   defp assign_form(socket, %Changeset{} = changeset) do

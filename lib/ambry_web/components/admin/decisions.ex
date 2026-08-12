@@ -839,7 +839,7 @@ defmodule AmbryWeb.Admin.Decisions do
             phx-click="remove-credit"
             phx-value-section={@section}
             phx-value-index={@index}
-            title="This recording isn't by them"
+            title="This audiobook isn't by them"
           >
             <.icon name="fa-xmark" class="h-4 w-4 cursor-pointer hover:text-red-600" />
           </button>
@@ -1621,7 +1621,7 @@ defmodule AmbryWeb.Admin.Decisions do
         class="pl-3 text-sm text-zinc-400"
         data-role="group-sibling-callout"
       >
-        This work already has a recording set — is this another part of the same set?
+        This book already has a set — is this another part of the same set?
       </p>
 
       <%!-- Reads as a sentence across the row — "<set> no. 1 of 3" — with the

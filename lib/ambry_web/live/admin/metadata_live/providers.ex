@@ -225,10 +225,10 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
 
   defp levels do
     [
-      {:work, "Work-level providers",
+      {:work, "Book-level providers",
        "Books, authors, and series — the abstract side of the library."},
-      {:recording, "Recording-level providers",
-       "Audiobook releases — narrators, square covers, and chapters, keyed by ASIN."},
+      {:recording, "Audiobook-level providers",
+       "Audiobooks — narrators, square covers, and chapters, keyed by ASIN."},
       {:person, "Person-level providers",
        "Bios and photos for the humans behind authors and narrators — keyed on real people, not published-as names."}
     ]
@@ -255,8 +255,8 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   # the current pairing simply can't represent.
   defp capability_label(:book_search, :recording), do: "audiobook search"
   defp capability_label(:book_details, :recording), do: "audiobook details"
-  defp capability_label(:book_search, _level), do: "work search"
-  defp capability_label(:book_details, _level), do: "work details"
+  defp capability_label(:book_search, _level), do: "book search"
+  defp capability_label(:book_details, _level), do: "book details"
   defp capability_label(:author_search, :person), do: "person search"
   defp capability_label(:author_details, :person), do: "person details"
   defp capability_label(:author_search, _level), do: "author search"

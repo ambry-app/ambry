@@ -20,7 +20,7 @@ defmodule AmbryWeb.Admin.MediaLive.ReplaceTest do
       conn: conn,
       media: media
     } do
-      {:ok, _view, html} = live(conn, ~p"/admin/media/#{media}/replace")
+      {:ok, _view, html} = live(conn, ~p"/admin/audiobooks/#{media}/replace")
 
       assert html =~ "Replacing audio is disruptive"
       assert html =~ "Current audio file(s)"
@@ -28,7 +28,7 @@ defmodule AmbryWeb.Admin.MediaLive.ReplaceTest do
     end
 
     test "shows an error when submitting with no files", %{conn: conn, media: media} do
-      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media}/replace")
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/replace")
 
       html =
         view

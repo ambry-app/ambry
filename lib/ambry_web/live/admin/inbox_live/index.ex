@@ -426,6 +426,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     end
   end
 
+  @doc "What a match level is called on the card — the data keys stay work/recording."
+  def level_word("work"), do: "book"
+  def level_word("recording"), do: "audiobook"
+
   def candidate_label(nil), do: "no match"
 
   def candidate_label(candidate) do
@@ -435,7 +439,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   end
 
   def candidate_origin(nil), do: nil
-  def candidate_origin(%{"source" => "local"}), do: "already in library"
+  def candidate_origin(%{"source" => "local"}), do: "already in the library"
   def candidate_origin(%{"provider_name" => name}) when is_binary(name), do: name
   def candidate_origin(%{"source" => "provider:" <> id}), do: id
   def candidate_origin(_candidate), do: nil

@@ -99,8 +99,8 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
 
       {:error, :has_narrated_media} ->
         message = """
-        Can't delete person because they have narrated media.
-        You must delete the media before you can delete this person.
+        Can't delete person because they have narrated audiobooks.
+        You must delete the audiobooks before you can delete this person.
         """
 
         {:noreply, put_flash(socket, :error, message)}

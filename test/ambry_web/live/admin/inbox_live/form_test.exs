@@ -990,7 +990,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert html =~ "Part of a set"
       assert html =~ "Not part of a set"
 
-      view |> element("button", "This release is part of a set") |> render_click()
+      view |> element("button", "This audiobook is part of a set") |> render_click()
 
       assert has_element?(view, "[data-role='group-link']")
 
@@ -1024,7 +1024,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      view |> element("button", "This release is part of a set") |> render_click()
+      view |> element("button", "This audiobook is part of a set") |> render_click()
 
       view
       |> form("#group-part")
@@ -1047,7 +1047,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       item = Inbox.get_item!(item.id)
       assert item.draft.recording.recording_group == nil
-      assert has_element?(view, "button", "This release is part of a set")
+      assert has_element?(view, "button", "This audiobook is part of a set")
     end
   end
 
@@ -1071,7 +1071,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       # Two files are one recording by default — the button is the way to
       # say they aren't, not a precondition for importing them.
-      assert html =~ "import as one recording"
+      assert html =~ "import as one audiobook"
       assert html =~ "split into 2 items"
 
       view |> element("button[data-role='split']") |> render_click()

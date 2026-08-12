@@ -25,7 +25,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
         <section>
           <h2 class="mb-1 text-lg font-bold">Direct play</h2>
           <p class="mb-4 text-sm text-zinc-400">
-            Direct-play recordings are served as their original files, with no transcoding or
+            Direct-play audiobooks are served as their original files, with no transcoding or
             packaging. Publishing them has to wait for the apps: a client that predates track
             support can't play one, so leave this off until every device in the fleet is on a
             build that understands tracks.
@@ -38,7 +38,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
                 (@direct_play_publishing && "bg-lime-500") || "bg-zinc-600"
               ]} />
               <div class="grow">
-                <h3 class="font-semibold">Publish direct-play recordings</h3>
+                <h3 class="font-semibold">Publish direct-play audiobooks</h3>
                 <p class="text-sm text-zinc-400">
                   {publishing_blurb(@direct_play_publishing)}
                 </p>
@@ -54,7 +54,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
         <section>
           <h2 class="mb-1 text-lg font-bold">Library naming</h2>
           <p class="mb-4 text-sm text-zinc-400">
-            How managed recordings are organized inside a library root. Files imported from a
+            How managed audiobooks are organized inside a library root. Files imported from a
             downloads folder are placed here; external collections are never reorganized.
           </p>
 
@@ -166,10 +166,10 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
   defp template_error(:no_title_token), do: "it needs {title}, or every book shares one folder"
   defp template_error({:unknown_token, token}), do: "there's no {#{token}} token"
 
-  defp publishing_blurb(true), do: "Scanned recordings can be made visible to clients."
+  defp publishing_blurb(true), do: "Scanned audiobooks can be made visible to clients."
 
   defp publishing_blurb(false),
     do:
-      "Recordings can be scanned, but one with only direct-play files can't be marked ready. " <>
+      "Audiobooks can be scanned, but one with only direct-play files can't be marked ready. " <>
         "The old transcoding pipeline is unaffected."
 end

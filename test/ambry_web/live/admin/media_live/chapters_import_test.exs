@@ -103,7 +103,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     patch_providers()
     media = insert_media(markers())
 
-    {:ok, view, html} = live(conn, ~p"/admin/media/#{media.id}/edit")
+    {:ok, view, html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     refute html =~ "chapter-title-chips"
 
     html = tick_record(view)
@@ -117,7 +117,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     patch_providers()
     media = insert_media(markers())
 
-    {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
 
     view |> element("#chapter-title-chips button") |> render_click()
@@ -163,7 +163,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
 
     media = insert_media(markers())
 
-    {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
     view |> element("#chapter-title-chips button") |> render_click()
     html = render_async(view)
@@ -182,7 +182,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     patch_providers()
     media = insert_media(markers())
 
-    {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
     view |> element("#chapter-title-chips button") |> render_click()
     render_async(view)
@@ -206,7 +206,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     media = insert_media(markers())
     {:ok, media} = Ambry.Media.update_media(media, %{chapter_marker_source: :file_boundaries})
 
-    {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
     view |> element("#chapter-title-chips button") |> render_click()
     render_async(view)
@@ -220,7 +220,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     patch_providers()
     media = insert_media([])
 
-    {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
     view |> element("#chapter-title-chips button") |> render_click()
     html = render_async(view)
@@ -241,7 +241,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
 
     media = insert_media(markers())
 
-    {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
     view |> element("#chapter-title-chips button") |> render_click()
     html = render_async(view)

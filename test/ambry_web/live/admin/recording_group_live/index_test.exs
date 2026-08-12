@@ -9,10 +9,10 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
 
   describe "Index" do
     test "renders group index with empty state when no groups exist", %{conn: conn} do
-      {:ok, view, html} = live(conn, ~p"/admin/groups")
+      {:ok, view, html} = live(conn, ~p"/admin/sets")
 
-      assert html =~ "Groups"
-      assert has_element?(view, "[data-role='empty-message']", "No groups yet.")
+      assert html =~ "Sets"
+      assert has_element?(view, "[data-role='empty-message']", "No sets yet.")
     end
 
     test "renders list of groups with their book and parts summary", %{conn: conn} do
@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
       insert(:media, book: book, part_number: 1, recording_group: group)
       insert(:media, book: book, part_number: 2, recording_group: group)
 
-      {:ok, view, _html} = live(conn, ~p"/admin/groups")
+      {:ok, view, _html} = live(conn, ~p"/admin/sets")
 
       assert has_element?(view, "[data-role='group-name']", "GraphicAudio")
       assert has_element?(view, "[data-role='group-book']", "A Court of Thorns and Roses")
@@ -33,15 +33,15 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
       group = insert(:recording_group, part_word_plural: "episodes")
       insert(:media, book: book, part_number: 1, recording_group: group)
 
-      {:ok, view, _html} = live(conn, ~p"/admin/groups")
+      {:ok, view, _html} = live(conn, ~p"/admin/sets")
 
       assert has_element?(view, "[data-role='group-parts']", "1 episodes")
     end
 
     test "updates list in realtime when groups change", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/admin/groups")
+      {:ok, view, _html} = live(conn, ~p"/admin/sets")
 
-      assert has_element?(view, "[data-role='empty-message']", "No groups yet.")
+      assert has_element?(view, "[data-role='empty-message']", "No sets yet.")
 
       book = insert(:book)
       {:ok, group} = Media.create_recording_group(%{name: "New Group", book_id: book.id})
@@ -61,7 +61,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
       group |> Ambry.Media.PubSub.RecordingGroupDeleted.new() |> Ambry.PubSub.broadcast()
       ensure_all_messages_handled(view.pid)
 
-      assert has_element?(view, "[data-role='empty-message']", "No groups yet.")
+      assert has_element?(view, "[data-role='empty-message']", "No sets yet.")
     end
   end
 
@@ -71,7 +71,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
       group = insert(:recording_group, name: "Delete Me")
       media = insert(:media, book: book, part_number: 1, recording_group: group)
 
-      {:ok, view, _html} = live(conn, ~p"/admin/groups")
+      {:ok, view, _html} = live(conn, ~p"/admin/sets")
 
       assert has_element?(view, "[data-role='group-name']", "Delete Me")
 
@@ -80,8 +80,8 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
       |> render_click()
 
       refute has_element?(view, "[data-role='group-name']", "Delete Me")
-      assert has_element?(view, "[data-role='empty-message']", "No groups yet.")
-      assert render(view) =~ "Group deleted successfully"
+      assert has_element?(view, "[data-role='empty-message']", "No sets yet.")
+      assert render(view) =~ "Set deleted successfully"
 
       reloaded = Media.get_media!(media.id)
       assert reloaded.recording_group_id == nil
@@ -94,7 +94,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
       insert(:recording_group, name: "Unique Group Name")
       insert(:recording_group, name: "Another Group")
 
-      {:ok, view, _html} = live(conn, ~p"/admin/groups")
+      {:ok, view, _html} = live(conn, ~p"/admin/sets")
 
       assert has_element?(view, "[data-role='group-name']", "Unique Group Name")
       assert has_element?(view, "[data-role='group-name']", "Another Group")

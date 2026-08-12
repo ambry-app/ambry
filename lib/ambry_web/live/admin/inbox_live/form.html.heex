@@ -90,7 +90,7 @@
             import, to link to its own book or take a part number. --%>
         <div :if={length(@item.files) > 1 and !@read_only} class="pt-2 pl-3">
           <p class="text-sm text-zinc-400">
-            These {length(@item.files)} files import as one recording, played in this order.
+            These {length(@item.files)} files import as one audiobook, played in this order.
           </p>
           <button
             type="button"
@@ -99,7 +99,7 @@
             data-role="split"
             class={action_classes()}
           >
-            Not one recording — split into {length(@item.files)} items
+            Not one audiobook — split into {length(@item.files)} items
           </button>
         </div>
       </section>
@@ -116,8 +116,8 @@
         <p class="max-w-prose pt-1 pl-3 text-sm text-zinc-400">
           This one was imported, and everything below is the record of that import — it's
           read-only now.
-          <.brand_link :if={@item.media_id} navigate={~p"/admin/media/#{@item.media_id}/edit"}>
-            Open the media record
+          <.brand_link :if={@item.media_id} navigate={~p"/admin/audiobooks/#{@item.media_id}/edit"}>
+            Open the audiobook
           </.brand_link>
         </p>
       </section>
@@ -142,7 +142,7 @@
       <%!-- ==================== THE WORK ==================== --%>
       <section id="work" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
-          The work — which book this is a recording of
+          The book — what these files are a recording of
         </h2>
 
         <%!-- The first question, and a different KIND of question from the
@@ -358,7 +358,7 @@
                 form={work}
                 type="date"
                 control_class="max-w-48"
-                hint="The work's original publication date, not this recording's release date."
+                hint="The book's original publication date, not this audiobook's own date."
                 field={@item.draft.work.published}
               />
             </.inputs_for>
@@ -433,7 +433,7 @@
       <%!-- ==================== THE RECORDING ==================== --%>
       <section id="recording" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
-          The recording — which reading of it these files are
+          The audiobook — which reading of the book these files are
         </h2>
 
         <div class={[
@@ -441,7 +441,7 @@
           (@item.draft.recording.approved && "border-brand-dark/60") || "border-amber-400/70"
         ]}>
           <div class="flex items-baseline gap-2 pl-3">
-            <.label>Records describing this recording</.label>
+            <.label>Records describing this audiobook</.label>
             <%!-- One badge, not two: "needs confirming" and a frozen
                 confidence said less together than the decision state says
                 alone — and the old pair could contradict each other. --%>
@@ -481,7 +481,7 @@
 
           <p :if={records(@item, "recording") != []} class="max-w-prose pl-3 text-sm text-zinc-400">
             Tick every record of <span class="font-semibold">this reading</span>
-            — the narrator is what tells two recordings of
+            — the narrator is what tells two audiobooks of
             one book apart, so check it before ticking. Databases keep editions the storefront has
             delisted, which is often the only place an older reading still exists.
           </p>
@@ -536,7 +536,7 @@
           </.disclosure>
 
           <p class="pl-3 text-xs text-zinc-400">
-            Every import creates a new recording. Pointing one at an existing recording's files —
+            Every import creates a new audiobook. Pointing one at an existing audiobook's files —
             the upgrade/replace case — is a later addition.
           </p>
         </div>
@@ -551,7 +551,7 @@
           <.inputs_for :let={draft} field={@form[:draft]}>
             <.inputs_for :let={recording} field={draft[:recording]}>
               <.decision_row
-                label="Recording title"
+                label="Audiobook title"
                 section="recording"
                 name={:title}
                 form={recording}
@@ -563,13 +563,13 @@
               />
 
               <.decision_row
-                label="Release date"
+                label="Published"
                 section="recording"
                 name={:published}
                 form={recording}
                 type="date"
                 control_class="max-w-48"
-                hint="When this reading was published, which is rarely the work's own date."
+                hint="When this reading was published, which is rarely the book's own date."
                 field={@item.draft.recording.published}
               />
 
@@ -625,7 +625,7 @@
           />
 
           <.add_button :if={group_absent?(@item.draft)} phx-click="add-group">
-            This release is part of a set
+            This audiobook is part of a set
           </.add_button>
         </div>
 

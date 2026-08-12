@@ -11,7 +11,7 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
   test "shows direct-play publishing off, with the reason", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/admin/settings")
 
-    assert html =~ "Publish direct-play recordings"
+    assert html =~ "Publish direct-play audiobooks"
     assert html =~ "can&#39;t be marked ready"
     assert html =~ "Turn on"
   end

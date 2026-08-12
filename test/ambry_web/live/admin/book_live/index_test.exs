@@ -94,7 +94,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
 
       # Book should still be visible
       assert has_element?(view, "[data-role='book-title']", book.title)
-      assert render(view) =~ "Can&#39;t delete book because this book has uploaded media"
+      assert render(view) =~ "Can&#39;t delete book because it has audiobooks"
     end
   end
 

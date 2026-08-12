@@ -29,7 +29,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
     {:ok,
      socket
      |> assign(
-       page_title: "Groups",
+       page_title: "Sets",
        show_header_search: true
      )
      |> maybe_update_groups(params, true)}
@@ -56,8 +56,8 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
         groups: groups,
         has_next: has_more?,
         has_prev: list_opts.page > 1,
-        next_page_path: ~p"/admin/groups?#{next_opts(list_opts)}",
-        prev_page_path: ~p"/admin/groups?#{prev_opts(list_opts)}",
+        next_page_path: ~p"/admin/sets?#{next_opts(list_opts)}",
+        prev_page_path: ~p"/admin/sets?#{prev_opts(list_opts)}",
         current_sort: list_opts.sort || @default_sort
       )
     else
@@ -84,14 +84,14 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
     {:noreply,
      socket
      |> refresh_groups()
-     |> put_flash(:info, "Group deleted successfully")}
+     |> put_flash(:info, "Set deleted successfully")}
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
     socket = maybe_update_groups(socket, %{"filter" => query, "page" => "1"})
     list_opts = get_list_opts(socket)
 
-    {:noreply, push_patch(socket, to: ~p"/admin/groups?#{patch_opts(list_opts)}")}
+    {:noreply, push_patch(socket, to: ~p"/admin/sets?#{patch_opts(list_opts)}")}
   end
 
   def handle_event("sort", %{"field" => sort_field}, socket) do
@@ -100,7 +100,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
       |> get_list_opts()
       |> Map.update!(:sort, &apply_sort(&1, sort_field, @valid_sort_fields))
 
-    {:noreply, push_patch(socket, to: ~p"/admin/groups?#{patch_opts(list_opts)}")}
+    {:noreply, push_patch(socket, to: ~p"/admin/sets?#{patch_opts(list_opts)}")}
   end
 
   defp list_groups(opts, default_sort) do

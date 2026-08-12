@@ -2,7 +2,7 @@
   <:subheader>
     <.list_controls
       search_form={@search_form}
-      new_path={~p"/admin/media/new"}
+      new_path={~p"/admin/audiobooks/new"}
       has_next={@has_next}
       has_prev={@has_prev}
       next_page_path={@next_page_path}
@@ -23,11 +23,11 @@
   <.flex_table
     rows={@media}
     filter={@list_opts.filter}
-    row_click={fn media -> JS.navigate(~p"/admin/media/#{media}/edit") end}
+    row_click={fn media -> JS.navigate(~p"/admin/audiobooks/#{media}/edit") end}
   >
     <:empty>
-      No media yet.
-      <.brand_link navigate={~p"/admin/media/new"}>
+      No audiobooks yet.
+      <.brand_link navigate={~p"/admin/audiobooks/new"}>
         Create one.
       </.brand_link>
     </:empty>
@@ -83,13 +83,13 @@
 
       <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
         <div class="flex gap-2 pb-2">
-          <.link navigate={~p"/admin/media/#{media}/edit"}>
+          <.link navigate={~p"/admin/audiobooks/#{media}/edit"}>
             <.icon
               name="fa-pencil"
               class="h-4 w-4 text-current transition-colors hover:text-lime-400"
             />
           </.link>
-          <.link navigate={~p"/admin/media/#{media}/replace"} title="Replace audio">
+          <.link navigate={~p"/admin/audiobooks/#{media}/replace"} title="Replace audio">
             <.icon
               name="fa-upload"
               class="h-4 w-4 text-current transition-colors hover:text-lime-400"
@@ -99,7 +99,7 @@
             phx-click="scan"
             phx-value-id={media.id}
             title="Scan files for direct play"
-            data-confirm="Scan this media's source files? Nothing is copied or modified, and clients see no change."
+            data-confirm="Scan this audiobook's source files? Nothing is copied or modified, and clients see no change."
           >
             <.icon
               name="fa-magnifying-glass"

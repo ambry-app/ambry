@@ -720,10 +720,10 @@ defmodule Ambry.Inbox do
 
   def describe_error(:no_published_date),
     do:
-      "No publication date, and one can't be invented. Match a work, or tag the file with a date."
+      "No publication date, and one can't be invented. Match a book, or tag the file with a date."
 
   def describe_error(:no_title),
-    do: "Nothing here says what this is. Match a work, or tag the file with a title."
+    do: "Nothing here says what this is. Match a book, or tag the file with a title."
 
   def describe_error({:unreadable, _reason}),
     do: "Couldn't read the file — it may have moved or gone away since it was found."
@@ -747,8 +747,8 @@ defmodule Ambry.Inbox do
   # is placement's documented worst case. The two need opposite advice.
   def describe_error({:destination_exists, path}) do
     if file_in_use?(path) do
-      "Another recording's files are already at #{path}. That shouldn't be " <>
-        "possible — every recording's name carries its own token — so this is " <>
+      "Another audiobook's files are already at #{path}. That shouldn't be " <>
+        "possible — every audiobook's name carries its own token — so this is " <>
         "a bug worth reporting rather than something to fix by editing metadata."
     else
       "A file nothing in the library references is at #{path} — likely left " <>

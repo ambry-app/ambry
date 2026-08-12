@@ -10,13 +10,13 @@
     <.evidence_panel
       evidence={@evidence}
       level="recording"
-      title="Records describing this recording"
-      hint="Tick every record of this reading — the narrator is what tells two recordings of one book apart. Ticked records grow chips under the fields below."
+      title="Records describing this audiobook"
+      hint="Tick every record of this reading — the narrator is what tells two audiobooks of one book apart. Ticked records grow chips under the fields below."
       retrying={@retrying}
     />
 
     <.simple_form id="media-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <.form_section title="The recording" id="recording">
+      <.form_section title="The audiobook" id="recording">
         <.field_group>
           <.input
             field={@form[:book_id]}
@@ -40,7 +40,7 @@
               <.curated_date
                 date_field={@form[:published]}
                 format_field={@form[:published_format]}
-                label="Audio publication date"
+                label="Published"
                 record={@media}
                 hints={@provenance_hints}
                 proposals={@chips[:published] || []}
@@ -186,7 +186,7 @@
           </.field_group>
 
           <.add_button :if={!@group_row_visible} phx-click="add-group-row">
-            This recording is part of a set
+            This audiobook is part of a set
           </.add_button>
         </div>
 

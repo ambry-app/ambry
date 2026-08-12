@@ -92,8 +92,8 @@ defmodule AmbryWeb.Admin.BookLive.Index do
 
       {:error, :has_media} ->
         message = """
-        Can't delete book because this book has uploaded media.
-        You must delete any uploaded media before you can delete this book.
+        Can't delete book because it has audiobooks.
+        You must delete the audiobooks before you can delete this book.
         """
 
         {:noreply, put_flash(socket, :error, message)}

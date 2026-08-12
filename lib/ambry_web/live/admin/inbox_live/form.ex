@@ -902,7 +902,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     do: "#{count} chapters in the files — start over to stage them here."
 
   def chapter_summary(%InboxItem{probe: probe}) when is_map(probe),
-    do: "No chapters in the files. The recording will have none until they're added."
+    do: "No chapters in the files. The audiobook will have none until they're added."
 
   def chapter_summary(_item), do: "Not read yet."
 
@@ -1006,7 +1006,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def doubt_message(%Recording{doubt: :nothing_found}),
     do:
-      "No provider had a recording matching this. That is common and not a problem — " <>
+      "No provider had a record of this audiobook. That is common and not a problem — " <>
         "a delisted edition vanishes from Audible's search and from ASIN lookup alike. " <>
         "The fields below come from the file's own tags."
 

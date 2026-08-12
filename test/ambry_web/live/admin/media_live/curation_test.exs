@@ -37,7 +37,7 @@ defmodule AmbryWeb.Admin.MediaLive.CurationTest do
     test "arrives carrying the book's author", %{conn: conn} do
       media = martian()
 
-      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media}/edit")
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
 
       assert has_element?(view, "form#research-recording input[name='author'][value='Andy Weir']")
 
@@ -75,7 +75,7 @@ defmodule AmbryWeb.Admin.MediaLive.CurationTest do
           }
         })
 
-      {:ok, _view, html} = live(conn, ~p"/admin/media/#{media}/edit")
+      {:ok, _view, html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
       doc = Floki.parse_document!(html)
 
       assert [^large] = doc |> Floki.find("#image-#{media.id}-preview") |> Floki.attribute("src")
@@ -90,7 +90,7 @@ defmodule AmbryWeb.Admin.MediaLive.CurationTest do
       raw = on_disk("curation-no-thumbs.jpg")
       {:ok, media} = Media.update_media(media, %{image_path: raw})
 
-      {:ok, _view, html} = live(conn, ~p"/admin/media/#{media}/edit")
+      {:ok, _view, html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
 
       assert [^raw] =
                html

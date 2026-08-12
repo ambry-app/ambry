@@ -75,7 +75,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     # no draft yet, so the badge falls back to the match-time confidence
     assert html =~ "trusted"
     assert html =~ "The Way of Kings"
-    assert html =~ "already in library"
+    assert html =~ "already in the library"
     assert html =~ "+1 other"
     # the recording level says so rather than going silent
     assert html =~ "no match"
