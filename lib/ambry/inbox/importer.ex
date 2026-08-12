@@ -86,18 +86,18 @@ defmodule Ambry.Inbox.Importer do
     item = Repo.preload(item, :source)
 
     # Facts about the files come first, then the draft, then placement. The
-    # order is the order the operator can act on them: a multi-file release or
-    # a vanished file is not something any amount of curation fixes, so
-    # reporting an unresolved decision on one would send them to the form to
-    # fix something the form can't fix.
-    with {:ok, file} <- single_file(item),
-         {:ok, probe} <- probe(file),
+    # order is the order the operator can act on them: a vanished file is not
+    # something any amount of curation fixes, so reporting an unresolved
+    # decision on one would send them to the form to fix something the form
+    # can't fix.
+    with {:ok, files} <- audio_files(item),
+         {:ok, probes} <- probe_all(files),
          :ok <- resolved(item),
          {:ok, destination} <- destination(item),
-         {:ok, {media, placement}} <- create(item, file, probe, destination) do
+         {:ok, {media, placements}} <- create(item, files, probes, destination) do
       # Only now, with the records committed, is it safe to remove a moved
       # file's source.
-      log_finalize(Placement.finalize(placement), item)
+      log_finalize(Placement.finalize(placements), item)
       {:ok, media}
     end
   end
@@ -133,7 +133,7 @@ defmodule Ambry.Inbox.Importer do
   # fail at the commit and the worst case is a stray file in the library,
   # which the audit tooling surfaces — never a file whose source was already
   # deleted and whose record didn't survive.
-  defp create(item, file, probe, destination) do
+  defp create(item, files, probes, destination) do
     Repo.transact(fn ->
       # People first, and for the whole draft at once: the same human can be
       # behind two credits, and each credit creating its own left a
@@ -141,11 +141,11 @@ defmodule Ambry.Inbox.Importer do
       with {:ok, item} <- claim(item),
            {:ok, people} <- resolve_people(item.draft),
            {:ok, book} <- resolve_book(item.draft.work, people),
-           {:ok, media} <- create_media(item, book, probe, people),
+           {:ok, media} <- create_media(item, book, probes, people),
            {:ok, _item} <- link(item, media),
-           {:ok, media, placement} <- place(destination, book, media, file),
+           {:ok, media, placements} <- place(destination, book, media, files),
            {:ok, media} <- publish(media) do
-        {:ok, {media, placement}}
+        {:ok, {media, placements}}
       end
     end)
   end
@@ -326,11 +326,11 @@ defmodule Ambry.Inbox.Importer do
 
   ## the recording
 
-  defp create_media(item, book, probe, people) do
+  defp create_media(item, book, probes, people) do
     recording = item.draft.recording
 
     with {:ok, group} <- resolve_group(recording.recording_group, book) do
-      do_create_media(item, book, probe, people, recording, group)
+      do_create_media(item, book, probes, people, recording, group)
     end
   end
 
@@ -352,7 +352,7 @@ defmodule Ambry.Inbox.Importer do
         parts_total: link.parts_total
       })
 
-  defp do_create_media(item, book, probe, people, recording, group) do
+  defp do_create_media(item, book, probes, people, recording, group) do
     Media.create_media(
       %{
         book_id: book.id,
@@ -365,10 +365,10 @@ defmodule Ambry.Inbox.Importer do
         # The recording's settled place in its part set, if any.
         part_number: part_number(recording.recording_group),
         recording_group_id: group && group.id,
-        duration: probe.duration,
-        chapters: probe.chapters,
+        duration: Scanner.total_duration(probes),
+        chapters: Scanner.embedded_chapters(probes),
         media_narrators: narrator_params(recording.narrators, people),
-        media_tracks: [track_params(probe)],
+        media_tracks: Scanner.track_attrs(probes),
         title: Field.value(recording.title),
         published: Field.date(recording.published),
         published_format: Field.format_atom(recording.published, :full),
@@ -421,20 +421,6 @@ defmodule Ambry.Inbox.Importer do
   defp log_cover(source, reason) do
     Logger.warning(fn -> "Couldn't bring in the cover from #{source}: #{inspect(reason)}" end)
     nil
-  end
-
-  defp track_params(probe) do
-    %{
-      index: 0,
-      path: probe.path,
-      size: probe.size,
-      mime: probe.mime,
-      format: probe.format,
-      codec: probe.codec,
-      duration: probe.duration,
-      start_offset: 0,
-      seek_accuracy: probe.seek_accuracy
-    }
   end
 
   ## provenance
@@ -521,9 +507,9 @@ defmodule Ambry.Inbox.Importer do
 
   defp destination(%InboxItem{}), do: {:ok, :adopt}
 
-  defp place(:adopt, _book, media, _file), do: {:ok, media, nil}
+  defp place(:adopt, _book, media, _files), do: {:ok, media, []}
 
-  defp place({root, policy}, book, media, file) do
+  defp place({root, policy}, book, media, files) do
     # Forced: a freshly-created book carries its `book_authors` as insert
     # results with the nested `author` unloaded, and a reused one carries
     # nothing at all. Without this every folder silently loses its author
@@ -535,11 +521,11 @@ defmodule Ambry.Inbox.Importer do
     values = Books.naming_values(book, media)
 
     with {:ok, folder} <- NamingTemplate.render(Settings.library_naming_template(), values),
-         {:ok, filename} <- NamingTemplate.filename(values, file, filename_part(media)),
-         path = Path.join([root.path, folder, filename]),
-         {:ok, placement} <- Placement.place(file, path, policy),
-         {:ok, media} <- adopt_managed(media, path) do
-      {:ok, media, placement}
+         {:ok, filenames} <- NamingTemplate.filenames(values, files, filename_part(media)),
+         paths = Enum.map(filenames, &Path.join([root.path, folder, &1])),
+         {:ok, placements} <- Placement.place_all(Enum.zip(files, paths), policy),
+         {:ok, media} <- adopt_managed(media, paths) do
+      {:ok, media, placements}
     end
   end
 
@@ -556,24 +542,41 @@ defmodule Ambry.Inbox.Importer do
   defp part_number(%GroupLink{removed: false, part_number: number}), do: number
   defp part_number(_absent_or_removed), do: nil
 
-  # The recording now points at the library copy and Ambry owns those bytes.
-  defp adopt_managed(media, path) do
-    with {:ok, _track} <- repoint_track(media, path) do
+  # The recording now points at the library copies and Ambry owns those
+  # bytes. `source_path` is the folder those copies share, which for a
+  # multi-file recording is the subfolder of its own that placement gave it,
+  # not the book folder it sits in.
+  defp adopt_managed(media, paths) do
+    with {:ok, _tracks} <- repoint_tracks(media, paths) do
       media
       |> Ecto.Changeset.change(%{
         custody: :managed,
-        source_path: Path.dirname(path),
-        source_files: [path]
+        source_path: paths |> hd() |> Path.dirname(),
+        source_files: paths
       })
       |> Repo.update()
     end
   end
 
-  defp repoint_track(%{media_tracks: [track | _rest]}, path) do
-    track |> Ecto.Changeset.change(%{path: path}) |> Repo.update()
+  # Zipped by position, and the positions are the same order everywhere: the
+  # probes were taken in it, the tracks were written in it, and the
+  # destination names were rendered from it.
+  defp repoint_tracks(%{media_tracks: [_ | _] = tracks}, paths) do
+    tracks
+    |> Enum.sort_by(& &1.index)
+    |> Enum.zip(paths)
+    |> Enum.reduce_while({:ok, []}, fn {track, path}, {:ok, acc} ->
+      track
+      |> Ecto.Changeset.change(%{path: path})
+      |> Repo.update()
+      |> case do
+        {:ok, track} -> {:cont, {:ok, [track | acc]}}
+        {:error, changeset} -> {:halt, {:error, changeset}}
+      end
+    end)
   end
 
-  defp repoint_track(_no_tracks, _path), do: {:error, :no_tracks}
+  defp repoint_tracks(_no_tracks, _paths), do: {:error, :no_tracks}
 
   # A source that couldn't be removed is untidy, not broken: the library copy
   # exists and is recorded. Failing the import here would be worse than
@@ -588,20 +591,20 @@ defmodule Ambry.Inbox.Importer do
 
   ## files
 
-  # An import is one file — a recording whose tracks can't be described has
-  # no business in the library, and a multi-file item is split into one item
-  # per file first.
-  defp single_file(%InboxItem{files: [file]}), do: {:ok, file}
-  defp single_file(%InboxItem{files: []}), do: {:error, :no_audio_files}
-  defp single_file(%InboxItem{}), do: {:error, :multi_file_unsupported}
+  # An item's files, in the order discovery recorded them — which is natural
+  # sort, and therefore the play order the operator saw listed on the form.
+  # A release the operator has decided is really two books is split into
+  # separate items first; this is the one they've said is one recording.
+  defp audio_files(%InboxItem{files: []}), do: {:error, :no_audio_files}
+  defp audio_files(%InboxItem{files: files}), do: {:ok, files}
 
   # Re-probed rather than trusting what discovery recorded: it costs one
-  # ffprobe and buys current track data, plus a file that vanished between
-  # discovery and import failing the import instead of creating a
+  # ffprobe per file and buys current track data, plus a file that vanished
+  # between discovery and import failing the import instead of creating a
   # recording that points at nothing.
-  defp probe(file) do
-    case Scanner.probe_file(file, single_file: true) do
-      {:ok, probe} -> {:ok, probe}
+  defp probe_all(files) do
+    case Scanner.probe_all(files) do
+      {:ok, probes} -> {:ok, probes}
       {:error, reason} -> {:error, {:unreadable, reason}}
     end
   end

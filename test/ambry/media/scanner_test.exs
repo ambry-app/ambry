@@ -83,11 +83,56 @@ defmodule Ambry.Media.ScannerTest do
       assert media.status == :pending
     end
 
-    test "refuses a multi-file recording rather than guessing" do
+    test "lays a multi-file recording end to end on one timeline" do
       media = scannable_media(:mp3, 3)
 
-      assert {:error, :multi_file_unsupported} = Scanner.scan(media)
-      assert Media.get_media!(media.id).media_tracks == []
+      assert {:ok, media} = Scanner.scan(media)
+
+      tracks =
+        media.id
+        |> Media.get_media!()
+        |> Map.fetch!(:media_tracks)
+        |> Enum.sort_by(& &1.index)
+
+      assert [%MediaTrack{index: 0}, %MediaTrack{index: 1}, %MediaTrack{index: 2}] = tracks
+
+      # Each track starts where the previous one ended, with no gap and no
+      # overlap, and the book is as long as all of them together.
+      Enum.reduce(tracks, Decimal.new(0), fn track, expected_offset ->
+        assert Decimal.equal?(track.start_offset, expected_offset)
+        Decimal.add(expected_offset, track.duration)
+      end)
+
+      assert Decimal.equal?(
+               media.duration,
+               Enum.reduce(tracks, Decimal.new(0), &Decimal.add(&2, &1.duration))
+             )
+    end
+
+    test "plays a multi-file recording in natural order, whatever order the files were recorded in" do
+      media = scannable_media(:mp3, 12)
+
+      # `File.ls/1` gives no order at all, and a recording old enough to
+      # predate `source_files` is read straight off the filesystem. A plain
+      # string sort would put "10-sample" before "2-sample" and shuffle the
+      # book.
+      {:ok, media} =
+        media
+        |> Ecto.Changeset.change(%{source_files: Enum.shuffle(media.source_files)})
+        |> Repo.update()
+
+      assert {:ok, _media} = Scanner.scan(media)
+
+      names =
+        media.id
+        |> Media.get_media!()
+        |> Map.fetch!(:media_tracks)
+        |> Enum.sort_by(& &1.index)
+        |> Enum.map(&Path.basename(&1.path))
+
+      assert names == Enum.sort(names, NaturalOrder)
+      assert hd(names) == "1-sample.mp3"
+      assert names |> Enum.at(1) == "2-sample.mp3"
     end
 
     test "reports a media with nothing to scan" do

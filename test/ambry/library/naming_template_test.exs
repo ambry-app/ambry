@@ -149,6 +149,61 @@ defmodule Ambry.Library.NamingTemplateTest do
     end
   end
 
+  describe "filenames/3" do
+    test "a single file sits directly in the book folder, exactly as before" do
+      assert {:ok, ["The Way of Kings.m4b"]} =
+               NamingTemplate.filenames(@book, ["/downloads/x/book.m4b"])
+    end
+
+    test "a multi-file recording gets a subfolder of its own and indexed names" do
+      sources = for i <- 1..3, do: "/downloads/x/track#{i}.mp3"
+
+      assert {:ok, names} = NamingTemplate.filenames(@book, sources)
+
+      assert names == [
+               "The Way of Kings/The Way of Kings - 001.mp3",
+               "The Way of Kings/The Way of Kings - 002.mp3",
+               "The Way of Kings/The Way of Kings - 003.mp3"
+             ]
+    end
+
+    test "the index is wide enough for the recording it numbers" do
+      sources = for i <- 1..1200, do: "/downloads/x/#{i}.mp3"
+
+      assert {:ok, names} = NamingTemplate.filenames(@book, sources)
+
+      assert List.first(names) =~ "- 0001.mp3"
+      assert List.last(names) =~ "- 1200.mp3"
+    end
+
+    test "keeps each file's own extension" do
+      assert {:ok, [first, second]} =
+               NamingTemplate.filenames(@book, ["/x/a.MP3", "/x/b.m4a"])
+
+      assert first =~ ".mp3"
+      assert second =~ ".m4a"
+    end
+
+    test "a part of a set takes its suffix into the subfolder name too" do
+      assert {:ok, names} =
+               NamingTemplate.filenames(@book, ["/x/a.mp3", "/x/b.mp3"], %{
+                 number: 2,
+                 total: 3,
+                 word: nil
+               })
+
+      assert names == [
+               "The Way of Kings - Part 2 of 3/The Way of Kings - Part 2 of 3 - 001.mp3",
+               "The Way of Kings - Part 2 of 3/The Way of Kings - Part 2 of 3 - 002.mp3"
+             ]
+    end
+
+    test "refuses without a title" do
+      assert {:error, :no_title} =
+               NamingTemplate.filenames(%{@book | title: nil}, ["a.mp3", "b.mp3"])
+    end
+  end
+
   describe "validate/1" do
     test "accepts the default" do
       assert :ok = NamingTemplate.validate(NamingTemplate.default_template())

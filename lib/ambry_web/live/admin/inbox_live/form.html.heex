@@ -79,11 +79,15 @@
           {@item.issue}
         </p>
 
-        <%!-- One button, no judgment on why: an import is one file, and only
-            the operator knows what these files are to each other. Each split
-            item is its own import — link them to one book, give them part
-            numbers, whatever the release calls for. --%>
+        <%!-- These files are one recording unless the operator says
+            otherwise — a folder of forty mp3s is one book in forty pieces far
+            more often than it is forty books. Splitting is the escape hatch
+            for when it genuinely isn't: each split item becomes its own
+            import, to link to its own book or take a part number. --%>
         <div :if={length(@item.files) > 1 and !@read_only} class="pt-2 pl-3">
+          <p class="text-sm text-zinc-400">
+            These {length(@item.files)} files import as one recording, played in this order.
+          </p>
           <button
             type="button"
             phx-click="split"
@@ -91,7 +95,7 @@
             data-role="split"
             class={action_classes()}
           >
-            Split into {length(@item.files)} items — one per file
+            Not one recording — split into {length(@item.files)} items
           </button>
         </div>
       </section>

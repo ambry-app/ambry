@@ -29,13 +29,23 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert html =~ "pending"
   end
 
+  @tag :capture_log
   test "surfaces an issue rather than hiding the item", %{conn: conn} do
-    item = probed_item(files: ["01.mp3", "02.mp3"])
+    item = probed_item(files: ["book.m4b"], unreadable: true)
 
     {:ok, _view, html} = live(conn, ~p"/admin/inbox")
 
-    assert html =~ "2 audio files"
+    assert html =~ "couldn&#39;t read the file"
     assert html =~ item.path
+  end
+
+  test "counts a multi-file release's files on the row", %{conn: conn} do
+    _item = probed_item(files: ["01.mp3", "02.mp3"])
+
+    {:ok, _view, html} = live(conn, ~p"/admin/inbox")
+
+    assert html =~ "files"
+    assert html =~ ">2</span> files"
   end
 
   test "shows both matches with how sure each one is", %{conn: conn} do
@@ -252,12 +262,13 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert has_element?(view, "a[href='/admin/inbox/#{item.id}']")
   end
 
+  @tag :capture_log
   test "a refusal no curation can fix is visible before anything is clicked", %{conn: conn} do
-    item = probed_item(files: ["01.mp3", "02.mp3"])
+    item = probed_item(unreadable: true)
 
     {:ok, view, html} = live(conn, ~p"/admin/inbox")
 
-    assert html =~ "split this into one item per file"
+    assert html =~ "couldn&#39;t read the file"
     refute has_element?(view, "span[phx-click='import'][phx-value-id='#{item.id}']")
     assert Inbox.get_item!(item.id).status == :pending
   end
@@ -339,8 +350,16 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     File.mkdir_p!(release)
 
     Enum.each(files, fn filename ->
-      fixture = if Path.extname(filename) == ".mp3", do: valid_audio(:mp3), else: tagged_fixture()
-      File.cp!(fixture, Path.join(release, filename))
+      path = Path.join(release, filename)
+
+      if Keyword.get(opts, :unreadable, false) do
+        File.write!(path, "this is not audio")
+      else
+        fixture =
+          if Path.extname(filename) == ".mp3", do: valid_audio(:mp3), else: tagged_fixture()
+
+        File.cp!(fixture, path)
+      end
     end)
 
     {:ok, _counts} = Inbox.discover(root)

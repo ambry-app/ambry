@@ -53,10 +53,50 @@ defmodule Ambry.Library.Placement do
   end
 
   @doc """
+  Places every file of a multi-file recording, or none of them.
+
+  Takes `{source, destination}` pairs in play order and returns the
+  placements in the same order. A recording is one thing: thirty-nine linked
+  files and a fortieth that hit a full disk is not a partial success, it's a
+  book that plays up to chapter 39 and then stops. So the first failure
+  undoes everything already placed and reports why — the same all-or-nothing
+  the surrounding transaction gives the database records.
+  """
+  def place_all(pairs, policy) do
+    Enum.reduce_while(pairs, {:ok, []}, fn {source, destination}, {:ok, placed} ->
+      case place(source, destination, policy) do
+        {:ok, placement} ->
+          {:cont, {:ok, [placement | placed]}}
+
+        {:error, reason} ->
+          undo(placed)
+          {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, placed} -> {:ok, Enum.reverse(placed)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
   Completes a placement once the database work has committed.
 
   Only `:move` has anything left to do.
   """
+  def finalize(placements) when is_list(placements) do
+    placements
+    |> Enum.map(&finalize/1)
+    |> Enum.reject(&(&1 == :ok))
+    |> case do
+      [] -> :ok
+      # One source that wouldn't go away is reported, not accumulated: the
+      # caller logs this and carries on either way, and the first reason is
+      # the one worth reading.
+      [error | _rest] -> error
+    end
+  end
+
   def finalize(%__MODULE__{policy: :move} = placement) do
     case File.rm(placement.source) do
       :ok -> :ok
@@ -78,6 +118,11 @@ defmodule Ambry.Library.Placement do
   Never touches the source — for every policy the source is still the only
   copy at this point.
   """
+  def undo(placements) when is_list(placements) do
+    Enum.each(placements, &undo/1)
+    :ok
+  end
+
   def undo(%__MODULE__{destination: destination}) do
     File.rm(destination)
     prune_empty_parents(Path.dirname(destination))

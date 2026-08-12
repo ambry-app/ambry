@@ -155,6 +155,106 @@ defmodule Ambry.Media.OrganizationTest do
     end
   end
 
+  describe "organize/1 with a multi-file recording" do
+    test "moves every file and repoints every track" do
+      %{media: media, root: root, files: files} = organized_multi_file_media()
+
+      {:ok, _book} = Books.update_book(Books.get_book!(media.book_id), %{title: "Oathbringer"})
+
+      assert {:ok, :moved} = Organization.organize(reload(media))
+
+      subfolder = Path.join([root, "Brandon Sanderson", "Oathbringer (2010)", "Oathbringer"])
+
+      moved = [
+        Path.join(subfolder, "Oathbringer - 001.mp3"),
+        Path.join(subfolder, "Oathbringer - 002.mp3"),
+        Path.join(subfolder, "Oathbringer - 003.mp3")
+      ]
+
+      # The order survives the rename: file 2 is still the second thing
+      # played, whatever it is now called.
+      assert Enum.map(moved, &File.read!/1) == ["audio 1", "audio 2", "audio 3"]
+      refute Enum.any?(files, &File.exists?/1)
+
+      media = reload(media)
+      assert media.source_files == moved
+      assert media.source_path == subfolder
+      assert media.media_tracks |> Enum.sort_by(& &1.index) |> Enum.map(& &1.path) == moved
+    end
+
+    test "does nothing when the files are already where they belong" do
+      %{media: media, files: files} = organized_multi_file_media()
+
+      assert {:ok, :noop} = Organization.organize(reload(media))
+      assert Enum.all?(files, &File.exists?/1)
+    end
+
+    # A file that maps to itself is skipped, not refused. Otherwise adding
+    # one file to a forty-file recording would fail on the other thirty-nine.
+    test "renames only the files whose names actually changed" do
+      %{media: media, root: root, files: files} = organized_multi_file_media()
+      subfolder = Path.dirname(hd(files))
+
+      # A fourth file arrives under the release's own name and is scanned in.
+      # The first three are already at their destinations; only the new one
+      # has anywhere to go.
+      arrived = Path.join(subfolder, "bonus-epilogue.mp3")
+      File.write!(arrived, "audio 4")
+
+      insert(:media_track, media: media, path: arrived, index: 3)
+
+      {:ok, _media} =
+        media
+        |> Ecto.Changeset.change(%{source_files: files ++ [arrived]})
+        |> Repo.update()
+
+      assert {:ok, :moved} = Organization.organize(reload(media))
+
+      renamed = Path.join(subfolder, "The Way of Kings - 004.mp3")
+      assert File.read!(renamed) == "audio 4"
+      refute File.exists?(arrived)
+
+      # The three that were already right were left alone, not moved out and
+      # back — a re-organize of a forty-file book must not touch thirty-nine
+      # files to rename one.
+      assert Enum.map(files, &File.read!/1) == ["audio 1", "audio 2", "audio 3"]
+
+      media = reload(media)
+      assert media.source_files == files ++ [renamed]
+      assert File.dir?(Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)"]))
+    end
+  end
+
+  defp organized_multi_file_media do
+    %{media: media, root: root, folder: folder, file: file, book: book} = organized_media()
+
+    File.rm!(file)
+    subfolder = Path.join(folder, "The Way of Kings")
+    File.mkdir_p!(subfolder)
+
+    files =
+      for index <- 1..3 do
+        path = Path.join(subfolder, "The Way of Kings - 00#{index}.mp3")
+        File.write!(path, "audio #{index}")
+        path
+      end
+
+    Repo.delete_all(Ecto.assoc(media, :media_tracks))
+
+    files
+    |> Enum.with_index()
+    |> Enum.each(fn {path, index} ->
+      insert(:media_track, media: media, path: path, index: index)
+    end)
+
+    {:ok, media} =
+      media
+      |> Ecto.Changeset.change(%{source_path: subfolder, source_files: files})
+      |> Repo.update()
+
+    %{media: reload(media), root: root, files: files, folder: folder, book: book}
+  end
+
   defp organized_media(opts \\ []) do
     root = new_dir("root")
 

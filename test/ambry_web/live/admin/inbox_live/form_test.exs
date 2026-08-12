@@ -1045,7 +1045,11 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       Repo.delete_all(Oban.Job)
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
-      assert html =~ "Split into 2 items"
+
+      # Two files are one recording by default — the button is the way to
+      # say they aren't, not a precondition for importing them.
+      assert html =~ "import as one recording"
+      assert html =~ "split into 2 items"
 
       view |> element("button[data-role='split']") |> render_click()
       assert_redirect(view, ~p"/admin/inbox")
