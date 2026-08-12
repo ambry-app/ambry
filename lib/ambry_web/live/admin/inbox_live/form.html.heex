@@ -234,9 +234,7 @@
         <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
           <div class="flex items-baseline gap-2 pl-3">
             <.label>
-              {if @item.draft.work.mode == :link,
-                do: "Records that could fill blanks",
-                else: "Records describing this book"}
+              Records describing this book
             </.label>
             <%!-- Decision state, not match history: confidence was frozen at
                 match time, so the badge kept saying "unsure" after the
@@ -275,9 +273,23 @@
             {doubt_message(@item.draft.work)}
           </p>
 
-          <p :if={records(@item, "work") != []} class="max-w-prose pl-3 text-sm text-zinc-400">
+          <p
+            :if={records(@item, "work") != [] and @item.draft.work.mode == :create}
+            class="max-w-prose pl-3 text-sm text-zinc-400"
+          >
             Tick every record that describes this book. Ticking more than one is fine; each can
             fill different fields.
+          </p>
+
+          <%!-- A linked book takes nothing from these records; they matter
+              because ticking one asks its databases for audio editions,
+              which is the route to a delisted recording. --%>
+          <p
+            :if={records(@item, "work") != [] and @item.draft.work.mode == :link}
+            class="max-w-prose pl-3 text-sm text-zinc-400"
+          >
+            Tick every record that describes this book. Ticked records are asked for their audio
+            editions, which feed the audiobook matches below.
           </p>
 
           <p :if={records(@item, "work") == []} class="max-w-prose pl-3 text-sm text-zinc-400">
@@ -397,19 +409,12 @@
           </.add_button>
         </div>
 
-        <%!-- each series is its own decision, number included --%>
-        <div class="space-y-2">
-          <p
-            :if={@item.draft.work.mode == :link and @item.draft.work.series != []}
-            class="max-w-prose pl-3 text-sm text-zinc-400"
-          >
-            This book isn't in these yet.
-          </p>
-
+        <%!-- each series is its own decision, number included; only for a
+            book being created — a linked book is not edited here, series
+            included --%>
+        <div :if={@item.draft.work.mode == :create} class="space-y-2">
           <div :if={@item.draft.work.series == []} class="space-y-2 rounded-lg bg-zinc-900 p-4">
-            <.label class="pl-3">
-              {if @item.draft.work.mode == :link, do: "Series to add", else: "Series"}
-            </.label>
+            <.label class="pl-3">Series</.label>
             <p class="pl-3 text-sm text-zinc-400">No series was proposed.</p>
           </div>
 

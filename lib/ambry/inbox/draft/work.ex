@@ -97,14 +97,13 @@ defmodule Ambry.Inbox.Draft.Work do
   @doc """
   Everything about this work that still needs a human.
 
-  When linking, the Book's own fields and credits belong to the existing
-  record and are not decided here — only the identity is, plus any *additive*
-  series membership the import proposes that the book doesn't already have.
-  That is the fill-gaps rule: an import may fill a blank, never overwrite
-  curation.
+  When linking, the Book belongs to the library and nothing about it is
+  decided here — the only question is the identity itself. (Additive series
+  memberships used to be proposed on linked books; that made series the one
+  editable field on a book the form said it wouldn't touch, so it's gone.)
   """
   def unresolved(%__MODULE__{mode: :link} = work) do
-    identity(work) ++ unresolved_in(work.series, &SeriesLink.resolved?/1, "Series")
+    identity(work)
   end
 
   def unresolved(%__MODULE__{mode: :create} = work) do

@@ -53,7 +53,6 @@ defmodule Ambry.Inbox.Draft.Seed do
   import Ecto.Query
 
   alias Ambry.Books
-  alias Ambry.Books.Book
   alias Ambry.Books.Series
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
@@ -422,14 +421,20 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp put_work_fields(%Work{} = work, records, hints, tags, _item) do
     sources = used(records, work.sources)
-    book_id = if work.mode == :link, do: work.book_id
+
+    # A linked book is not edited by an import, so nothing about it is a
+    # decision — series included (they used to be proposed additively).
+    series =
+      if work.mode == :link,
+        do: [],
+        else: keep_curated(work.series, series_links(sources, tags))
 
     %{
       work
       | title: keep_manual(work.title, title_field(sources, hints, tags)),
         published: keep_manual(work.published, published_field(sources, tags)),
         authors: keep_curated(work.authors, author_credits(sources, tags)),
-        series: keep_curated(work.series, series_links(sources, tags, book_id))
+        series: series
     }
   end
 
@@ -1087,8 +1092,8 @@ defmodule Ambry.Inbox.Draft.Seed do
   # above names as the same bug waiting for Books, now closed the same way.
   # A work the seeder settled as new, whose title now matches exactly one
   # Book with an overlapping author, becomes a link to it; the fields are
-  # then re-derived for link mode (series already on the book stop being
-  # proposed), with `keep_manual`/`keep_curated` holding every answered
+  # then re-derived for link mode (series stop being proposed at all — a
+  # linked book is not edited), with `keep_manual`/`keep_curated` holding every answered
   # question. An identity the operator chose is curated and never touched,
   # and anything short of exactly-one-with-matching-author is left alone —
   # linking a recording to the wrong existing book is the worst outcome this
@@ -1633,10 +1638,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## series
 
-  # When linking to an existing book, a proposed series is only offered if the
-  # book doesn't already have it: an import may fill a blank, never overwrite
-  # curation.
-  defp series_links(records, tags, book_id) do
+  defp series_links(records, tags) do
     records
     |> Enum.flat_map(fn record ->
       record
@@ -1649,9 +1651,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       [] -> series_proposals_from_tags(tags)
       proposed -> proposed
     end
-    |> Enum.reject(
-      &(already_on_book?(&1.name, book_id) or author_named_series?(&1.name, records, tags))
-    )
+    |> Enum.reject(&author_named_series?(&1.name, records, tags))
     |> then(fn kept ->
       Enum.map(
         kept,
@@ -1804,18 +1804,6 @@ defmodule Ambry.Inbox.Draft.Seed do
       nil -> []
       name -> [%{name: name, number: numeric(tags["series_number"]), source: "tags"}]
     end
-  end
-
-  defp already_on_book?(_name, nil), do: false
-
-  defp already_on_book?(name, book_id) do
-    Book
-    |> where([b], b.id == ^book_id)
-    |> join(:inner, [b], sb in assoc(b, :series_books))
-    |> join(:inner, [_b, sb], s in assoc(sb, :series))
-    |> select([_b, _sb, s], s.name)
-    |> Repo.all()
-    |> Enum.any?(&same_series?(&1, name))
   end
 
   defp series_link(name, number, source) do

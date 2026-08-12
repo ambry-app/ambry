@@ -123,6 +123,26 @@ defmodule Ambry.Inbox.DraftTest do
   end
 
   describe "work identity" do
+    # A linked book belongs to the library, and an import never edits it —
+    # so evidence proposing a series is not a decision on a linked draft.
+    # (Additive series memberships used to be the one exception.)
+    test "a linked book stages no series decisions" do
+      book = insert(:book, title: "Leviathan Wakes")
+      local = [%{"id" => book.id, "title" => "Leviathan Wakes", "score" => 1.0}]
+
+      item =
+        item(%{
+          matches: matches([provider_candidate(%{})], local: local),
+          tags: %{"series" => "The Expanse", "series_number" => "1"}
+        })
+
+      draft = Seed.build(item)
+
+      assert draft.work.mode == :link
+      assert draft.work.series == []
+      refute Enum.any?(Draft.unresolved(draft), &(&1.label =~ "Series"))
+    end
+
     test "a strong local hit links the existing book rather than creating one" do
       book = insert(:book, title: "Leviathan Wakes")
       local = [%{"id" => book.id, "title" => "Leviathan Wakes", "score" => 1.0}]
