@@ -767,20 +767,23 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp file_count(_probe), do: nil
 
   @doc """
-  How many chapters the file carries, and where they came from.
+  How many chapters the files carry, and where the markers came from.
 
   Markers are file-derived by principle — provider chapter times describe
   their own retail edition, and applying them to somebody's rip drifts by
-  minutes across a book. Provider data is a *title* source only, which is 1h's
-  work and not part of this form yet.
+  minutes across a book. Provider data is a *title* source only, poured onto
+  these markers afterwards in the chapter editor (roadmap 1h).
   """
-  def chapter_summary(%InboxItem{probe: %{"chapters" => count}}) when count > 0,
-    do: "#{count} chapters, read from the file."
+  def chapter_summary(%InboxItem{probe: %{"chapters" => count} = probe}) when count > 0,
+    do: "#{count} chapters, #{marker_source_phrase(probe["chapter_marker_source"])}."
 
   def chapter_summary(%InboxItem{probe: probe}) when is_map(probe),
-    do: "No chapters in the file. The recording will have none until they're added."
+    do: "No chapters in the files. The recording will have none until they're added."
 
   def chapter_summary(_item), do: "Not read yet."
+
+  defp marker_source_phrase("file_boundaries"), do: "one per file, from where each file starts"
+  defp marker_source_phrase(_embedded_or_unknown), do: "read from the files"
 
   @doc """
   What the files themselves said, before anybody interpreted it.

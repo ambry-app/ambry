@@ -1011,6 +1011,8 @@ defmodule Ambry.Inbox do
   end
 
   defp probe_map([first | _rest] = probes) do
+    {chapters, marker_source} = Scanner.chapters(probes)
+
     %{
       "path" => first.path,
       "files" => length(probes),
@@ -1022,7 +1024,8 @@ defmodule Ambry.Inbox do
       # The worst of them, not the first: one file that can't be seeked
       # accurately makes every seek past it inaccurate too.
       "seek_accuracy" => probes |> Enum.map(& &1.seek_accuracy) |> seek_accuracy(),
-      "chapters" => length(Scanner.embedded_chapters(probes))
+      "chapters" => length(chapters),
+      "chapter_marker_source" => marker_source && to_string(marker_source)
     }
   end
 

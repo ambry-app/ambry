@@ -7,7 +7,7 @@ defmodule Ambry.Media do
     deps: [Ambry, Ambry.Library],
     exports: [
       Audit,
-      Chapters,
+      Chapters.Merge,
       Editions,
       Editions.Edition,
       Media,

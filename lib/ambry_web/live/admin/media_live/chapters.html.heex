@@ -1,31 +1,78 @@
 <.layout title={@page_title} user={@current_user}>
   <.modal :if={@import} id="import-modal" show on_cancel={close_import_form(@media)}>
-    <.live_component id="import-form" module={import_form(@import.type)} query={@import.query} media={@media} />
+    <.live_component
+      id="import-form"
+      module={import_form(@import.type)}
+      query={@import.query}
+      markers={@import.markers}
+      media={@media}
+    />
   </.modal>
 
   <div class="-mb-4 max-w-4xl">
     <.simple_form id="media-chapters-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <%!-- Chapter markers come from the files or from Audible wholesale —
-          a different question from per-field curation, so this keeps its
-          two import doors (worded like every other provider button). --%>
-      <.field_group label="Import from">
+      <%!-- Markers and titles are two different facts with two different
+          levels of trust, so the page says which is which before it shows a
+          single row. The import doors are *title* sources: nothing but the
+          files may write the timeline. --%>
+      <.field_group label="Where this came from">
+        <div class="space-y-1 pl-3">
+          <p class="text-sm text-zinc-300">
+            <span class="font-semibold">Markers:</span> {marker_source_phrase(marker_source(@form))}.
+          </p>
+          <p :if={title_summary(chapters(@form))} class="text-sm text-zinc-300">
+            <span class="font-semibold">Titles:</span> {title_summary(chapters(@form))}.
+          </p>
+          <p class="max-w-prose text-sm text-zinc-400">
+            Chapter times are only trusted when they come from the files themselves. A provider's
+            timestamps describe its own retail edition and drift by minutes across a book, so
+            importing from one pours its titles onto these markers and leaves the timeline alone.
+          </p>
+        </div>
+
         <div class="flex items-center gap-2">
-          <.button color={:zinc} type="button" phx-click={open_import_form(@media, "source")}>
-            Source file(s)
+          <.button color={:zinc} size={:sm} type="button" phx-click={open_import_form(@media, "source")}>
+            Re-read the files
           </.button>
-          <.button color={:zinc} type="button" phx-click={open_import_form(@media, "audible")}>
-            Audible
+          <.button color={:zinc} size={:sm} type="button" phx-click={open_import_form(@media, "audible")}>
+            Titles from Audible
           </.button>
         </div>
       </.field_group>
 
-      <.list_cluster label="Chapters">
+      <%!-- Bare, not `<.input type="hidden">`: that wraps its control in a
+          spaced container, which in a `space-y` stack shows up as an extra
+          gap drawn by something invisible. --%>
+      <input
+        type="hidden"
+        name={@form[:chapter_marker_source].name}
+        value={@form[:chapter_marker_source].value}
+      />
+
+      <.list_cluster
+        label="Chapters"
+        hint="Times are the book's own seconds, counted from the very start. A title nobody chose reads “auto” and is renumbered as rows come and go."
+      >
         <.inputs_for :let={chapter_form} field={@form[:chapters]}>
           <.sort_input field={@form[:chapters_sort]} index={chapter_form.index} />
+          <%!-- Carried through every re-render on purpose: the form only
+              submits what it renders, so a source dropped here would be
+              re-derived on the next keystroke and quietly un-answer a
+              question the operator (or a merge) already answered. --%>
+          <input
+            type="hidden"
+            name={chapter_form[:title_source].name}
+            value={chapter_form[:title_source].value}
+          />
 
-          <div class="flex items-start gap-2">
-            <.input field={chapter_form[:time]} container_class="w-24" />
-            <.input field={chapter_form[:title]} container_class="grow" />
+          <div class="grid-cols-[7rem_minmax(0,1fr)_3.5rem_auto] grid items-start gap-2">
+            <.input field={chapter_form[:time]} show_errors={false} />
+            <.input field={chapter_form[:title]} show_errors={false} />
+
+            <div class="pt-[10px]">
+              <.microlabel>{title_source_label(chapter_form[:title_source].value)}</.microlabel>
+            </div>
+
             <.delete_button field={@form[:chapters_drop]} index={chapter_form.index} class="pt-[10px]" />
           </div>
         </.inputs_for>
@@ -38,6 +85,9 @@
 
       <.form_footer>
         <.button>Save</.button>
+        <p :if={chapters(@form) != []} class="text-sm text-zinc-400">
+          {length(chapters(@form))} chapters, ending at {timecode(List.last(chapters(@form)).time)}.
+        </p>
       </.form_footer>
     </.simple_form>
   </div>

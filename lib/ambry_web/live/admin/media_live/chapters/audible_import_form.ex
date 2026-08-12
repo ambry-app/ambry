@@ -1,18 +1,27 @@
 defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
   @moduledoc """
-  Chapter import via the metadata provider facade: Audible catalog search
-  for the recording, Audnexus for its chapter list (keyed by ASIN).
+  Chapter **titles** from Audible: catalog search for the recording, Audnexus
+  for its chapter list (keyed by ASIN).
 
-  Per the roadmap (1h): provider chapter timestamps describe Audible's
-  retail edition, not the local rip — importing them wholesale is the
-  legacy behavior this form keeps for now; the markers-vs-titles split
-  arrives with the chapter-model work.
+  It used to import the list wholesale, timestamps and all, which is the one
+  thing 1h says must never happen. Audible's chapter times describe Audible's
+  retail edition; a rip is a different encode, so the offsets start seconds
+  off and the error compounds — the chapters most likely to land in the wrong
+  place are the ones a reader reaches last. That is inherent to the data and
+  not fixable by being careful.
+
+  So the times that arrive here are read for exactly one purpose: to compute
+  the *durations* between them, which are local and therefore drift-immune,
+  and align the two lists. Then they're thrown away and only the titles land.
+  See `Ambry.Media.Chapters.Merge`.
   """
   use AmbryWeb, :live_component
 
   import AmbryWeb.Admin.Components
   import AmbryWeb.Admin.Components.RichSelect, only: [rich_select: 1]
+  import AmbryWeb.Admin.MediaLive.Chapters.Preview
 
+  alias Ambry.Media.Chapters.Merge
   alias Ambry.Metadata.Providers
   alias Phoenix.LiveView.AsyncResult
 
@@ -34,8 +43,7 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
        chapters: AsyncResult.loading(),
        refresh: false,
        search_form: to_form(%{"query" => assigns.query}, as: :search),
-       select_book_form: to_form(%{}, as: :select_book),
-       form: to_form(init_import_form_params(assigns.media), as: :import)
+       select_book_form: to_form(%{}, as: :select_book)
      )
      |> start_async(:search, fn -> search(assigns.query) end)}
   end
@@ -104,37 +112,31 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
      |> start_async(:fetch_chapters, fn -> fetch_chapters(book) end)}
   end
 
-  def handle_event("import", %{"import" => import_params}, socket) do
-    chapters = socket.assigns.chapters.result
+  def handle_event("import", _params, socket) do
+    {merged, _alignment} =
+      Merge.titles(socket.assigns.markers, incoming(socket.assigns.chapters.result), :provider)
 
-    import_type =
-      cond do
-        Map.has_key?(import_params, "titles_only") -> :titles_only
-        Map.has_key?(import_params, "times_only") -> :times_only
-        true -> :all
-      end
-
-    params =
-      if import_params["use_chapters"] == "true" do
-        %{"chapters" => build_chapters_params(chapters.chapters, import_type)}
-      else
-        %{}
-      end
-
-    send(self(), {:import, %{"media" => params}})
+    # No marker source: a titles merge changed no marker, and claiming
+    # otherwise would put a provider's name on a timeline it never touched.
+    send(self(), {:chapters, merged, nil})
 
     {:noreply, socket}
   end
 
-  defp build_chapters_params(chapters, import_type) do
-    Enum.map(chapters, &build_chapter_params(&1, import_type))
+  # Audnexus reports milliseconds from the start of its own edition. They
+  # exist here only so the alignment has durations to compare.
+  defp incoming(%{chapters: chapters}) do
+    Enum.map(chapters, fn chapter ->
+      %{title: chapter.title, time: time(chapter)}
+    end)
   end
 
-  defp build_chapter_params(chapter, :titles_only), do: %{"title" => chapter.title}
-  defp build_chapter_params(chapter, :times_only), do: %{"time" => time(chapter)}
+  defp preview_incoming(result), do: incoming(result)
 
-  defp build_chapter_params(chapter, :all),
-    do: %{"title" => chapter.title, "time" => time(chapter)}
+  defp preview_alignment(markers, result), do: Merge.align(markers, incoming(result))
+
+  defp preview_summary(markers, result),
+    do: markers |> Merge.align(incoming(result)) |> Merge.summarize()
 
   defp time(chapter),
     do: chapter.start_offset_ms |> Decimal.new() |> Decimal.div(1000) |> Decimal.round(2)
@@ -156,11 +158,5 @@ defmodule AmbryWeb.Admin.MediaLive.Chapters.AudibleImportForm do
       {:ok, chapters} -> chapters
       {:error, reason} -> raise "Unhandled error: #{inspect(reason)}"
     end
-  end
-
-  defp init_import_form_params(media) do
-    Map.new([:chapters], fn
-      :chapters -> {"use_chapters", media.chapters == []}
-    end)
   end
 end

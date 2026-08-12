@@ -35,6 +35,7 @@ defmodule Ambry.Media.Scanner do
   """
 
   alias Ambry.Media, as: MediaContext
+  alias Ambry.Media.Chapters.FromFiles
   alias Ambry.Media.Media
   alias Ambry.Media.Scanner.Probe
 
@@ -174,15 +175,12 @@ defmodule Ambry.Media.Scanner do
   end
 
   @doc """
-  The chapter markers a set of probes offers, if any.
+  The chapter markers a set of probes offers, and where they came from.
 
-  A single file's embedded markers come in with it. A multi-file recording's
-  markers are its file boundaries, which is the chapter work's job to write
-  with a title source attached (the roadmap's 1h) rather than something to
-  take from whichever file happened to be first.
+  Returns `{chapters, marker_source}`. See `Ambry.Media.Chapters.FromFiles` —
+  markers only ever come from the files, never from a provider.
   """
-  def embedded_chapters([%Probe{chapters: chapters}]), do: chapters
-  def embedded_chapters(_multi_file), do: []
+  def chapters(probes), do: FromFiles.extract(probes, track_attrs(probes))
 
   @doc """
   The whole book's duration: every track's, added up.
@@ -196,9 +194,9 @@ defmodule Ambry.Media.Scanner do
   # markers is its own piece of work (the roadmap's 1h) — until it exists,
   # scanning must never overwrite what an operator has already confirmed.
   defp maybe_put_chapters(attrs, %Media{chapters: []}, probes) do
-    case embedded_chapters(probes) do
-      [] -> attrs
-      chapters -> Map.put(attrs, :chapters, chapters)
+    case chapters(probes) do
+      {[], _source} -> attrs
+      {chapters, source} -> Map.merge(attrs, %{chapters: chapters, chapter_marker_source: source})
     end
   end
 
