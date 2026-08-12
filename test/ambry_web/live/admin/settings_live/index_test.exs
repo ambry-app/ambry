@@ -37,7 +37,7 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
 
       assert preview(html) ==
                "Brandon Sanderson/The Stormlight Archive/1 - The Way of Kings (2010)/" <>
-                 "The Way of Kings.m4b"
+                 "The Way of Kings [7bKq].m4b"
     end
 
     test "previews an edited template as it's typed", %{conn: conn} do
@@ -48,7 +48,7 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
         |> form("#naming-template-form", settings: %{template: "{author}/{title}"})
         |> render_change()
 
-      assert preview(html) == "Brandon Sanderson/The Way of Kings/The Way of Kings.m4b"
+      assert preview(html) == "Brandon Sanderson/The Way of Kings/The Way of Kings [7bKq].m4b"
     end
 
     test "saves a valid template", %{conn: conn} do

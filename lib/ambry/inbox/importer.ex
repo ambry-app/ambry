@@ -524,7 +524,7 @@ defmodule Ambry.Inbox.Importer do
     values = Books.naming_values(book, media)
 
     with {:ok, folder} <- NamingTemplate.render(Settings.library_naming_template(), values),
-         {:ok, filenames} <- NamingTemplate.filenames(values, files, filename_part(media)),
+         {:ok, filenames} <- NamingTemplate.filenames(values, files, filename_recording(media)),
          paths = Enum.map(filenames, &Path.join([root.path, folder, &1])),
          {:ok, placements} <- Placement.place_all(Enum.zip(files, paths), policy),
          {:ok, media} <- adopt_managed(media, paths) do
@@ -532,9 +532,16 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
+  # What distinguishes this recording from the others in its book folder: the
+  # part label a human reads, and the token that guarantees it regardless.
+  # Placement happens after the media is inserted, so the id exists.
+  defp filename_recording(media) do
+    %{part: filename_part(media), token: Media.filename_token(media)}
+  end
+
   # Two parts of one set are two separate imports into the same book folder;
-  # the suffix is what keeps "The Way of Kings.m4b" from colliding with
-  # itself when part 2 arrives. Total and wording are the group's facts.
+  # the suffix is what says which is which. Total and wording are the group's
+  # facts.
   defp filename_part(%{part_number: nil}), do: nil
 
   defp filename_part(%{part_number: number, recording_group: group}) do

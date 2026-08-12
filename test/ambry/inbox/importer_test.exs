@@ -83,13 +83,15 @@ defmodule Ambry.Inbox.ImporterTest do
 
     # Occupied-by-a-recording and occupied-by-a-leftover need opposite
     # advice, and the old message sent the operator hunting for a second
-    # recording that did not exist.
+    # recording that did not exist. Since every name carries its own token,
+    # occupied-by-a-recording is now a bug rather than something curation can
+    # fix, and the message says so instead of offering a workaround.
     test "an occupied destination says whether the occupant is an orphan" do
       {:ok, media} = tagged_item() |> Inbox.import_item()
       [track] = Media.get_media!(media.id).media_tracks
 
       assert Inbox.describe_error({:destination_exists, track.path}) =~
-               "can't share one path"
+               "a bug worth reporting"
 
       assert Inbox.describe_error({:destination_exists, "/library/nowhere.m4b"}) =~
                "nothing in the library references"

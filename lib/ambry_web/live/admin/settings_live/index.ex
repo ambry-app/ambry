@@ -144,7 +144,9 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
       case error do
         nil ->
           {:ok, folder} = NamingTemplate.render(template, @example)
-          {:ok, filename} = NamingTemplate.filename(@example, "book.m4b")
+          # With the token, because the preview's whole job is showing what
+          # the tree actually looks like — and every file in it carries one.
+          {:ok, filename} = NamingTemplate.filename(@example, "book.m4b", %{token: "7bKq"})
           Path.join([folder, filename])
 
         {:error, reason} ->

@@ -503,6 +503,13 @@ defmodule Ambry.Media do
   defdelegate scan_media(media), to: Scanner, as: :scan
 
   @doc """
+  The short identifier a recording's files carry in the library.
+
+  See `Ambry.Media.Media.filename_token/1`.
+  """
+  defdelegate filename_token(media), to: Media
+
+  @doc """
   Scans a media's source files asynchronously.
   """
   def scan_media_async(%Media{} = media) do

@@ -702,14 +702,19 @@ defmodule Ambry.Inbox do
       "This folder and its library root are on different filesystems, so the file can't be " <>
         "hardlinked. Point it at a root on the same disk, or set the source to copy or move."
 
-  # Occupied by a recording is a curation problem; occupied by a file no
-  # record references is a leftover — an interrupted import's copy landed and
-  # its transaction rolled back, which is placement's documented worst case.
-  # The two need opposite advice, and the old message sent the operator
-  # hunting for a second recording that did not exist.
+  # Occupied by a recording is now a *bug*, not a curation problem. Every
+  # recording's name carries its own token, so two of them cannot render to
+  # one path however the operator curates them — if this happens, two records
+  # claim one file and no amount of editing metadata will fix it.
+  #
+  # Occupied by a file no record references is the ordinary case that remains:
+  # an interrupted import's copy landed and its transaction rolled back, which
+  # is placement's documented worst case. The two need opposite advice.
   def describe_error({:destination_exists, path}) do
     if file_in_use?(path) do
-      "Something is already at #{path}. Two recordings can't share one path."
+      "Another recording's files are already at #{path}. That shouldn't be " <>
+        "possible — every recording's name carries its own token — so this is " <>
+        "a bug worth reporting rather than something to fix by editing metadata."
     else
       "A file nothing in the library references is at #{path} — likely left " <>
         "behind by an interrupted import. Delete it and import again."
