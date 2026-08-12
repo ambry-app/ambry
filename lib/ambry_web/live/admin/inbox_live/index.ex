@@ -435,7 +435,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   def candidate_label(candidate) do
     [candidate["title"], join_names(candidate["authors"])]
     |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.join(" — ")
+    |> Enum.join(" by ")
   end
 
   def candidate_origin(nil), do: nil

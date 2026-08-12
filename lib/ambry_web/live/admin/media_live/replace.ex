@@ -22,7 +22,7 @@ defmodule AmbryWeb.Admin.MediaLive.Replace do
      |> allow_audio_upload(:audio)
      |> assign_form(changeset)
      |> assign(
-       page_title: "#{Ambry.Media.Media.display_title(media)} - Replace audio",
+       page_title: "Replace audio for #{Ambry.Media.Media.display_title(media)}",
        media: media,
        local_import_path: local_import_path,
        select_files: false,

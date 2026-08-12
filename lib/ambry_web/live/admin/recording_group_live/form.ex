@@ -24,7 +24,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     |> assign_form(changeset)
     |> assign(
       # the composed display: the name is local to the book
-      page_title: "#{group.name} — #{group.book.title}",
+      page_title: "#{group.name} (#{group.book.title})",
       group: group,
       media_options: Media.media_for_select(group.book_id)
     )

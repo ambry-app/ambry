@@ -1161,7 +1161,7 @@ defmodule AmbryWeb.CoreComponents do
         </p>
       </div>
       <p class="text-sm text-zinc-200 sm:text-base">
-        by <.people_links people={@book.authors} />
+        <.people_links people={@book.authors} />
       </p>
 
       <div class="text-xs text-zinc-400 sm:text-sm">
@@ -1241,7 +1241,7 @@ defmodule AmbryWeb.CoreComponents do
       </p>
 
       <p :if={@show_authors} class="text-sm text-zinc-200 sm:text-base">
-        by <.people_links people={@edition.representative.book.authors} />
+        <.people_links people={@edition.representative.book.authors} />
       </p>
 
       <div :if={@show_series} class="text-xs text-zinc-400 sm:text-sm">
@@ -1283,11 +1283,11 @@ defmodule AmbryWeb.CoreComponents do
       </div>
 
       <p :if={@show_authors} class="text-sm text-zinc-200 sm:text-base">
-        by <.people_links people={@media.book.authors} />
+        <.people_links people={@media.book.authors} />
       </p>
 
       <p :if={@show_narrators} class="text-sm text-zinc-200 sm:text-base">
-        Narrated by <.people_links people={@media.narrators} full_cast={@media.full_cast} />
+        Read by <.people_links people={@media.narrators} full_cast={@media.full_cast} />
       </p>
 
       <div :if={@show_series} class="text-xs text-zinc-400 sm:text-sm">
@@ -1639,20 +1639,29 @@ defmodule AmbryWeb.CoreComponents do
   attr :book, Book, required: true
   attr :class, :string, default: nil
   attr :title_override, :string, default: nil
+  attr :narrators, :list, default: nil
+  attr :full_cast, :boolean, default: false
+  attr :abridged, :boolean, default: false
 
+  # The credit stack, in the mobile app's order and hierarchy: title, series,
+  # bare author names, then a muted "Read by" line. Size and color carry the
+  # roles, so the author line needs no "by".
   def book_header(assigns) do
     ~H"""
     <div>
       <h1 class={["text-3xl font-bold text-zinc-100 sm:text-4xl", @class]}>
         {@title_override || @book.title}
       </h1>
-      <p class="text-zinc-200 sm:text-lg xl:text-xl">
-        <span>by <.all_people_links people={@book.authors} /></span>
-      </p>
-
-      <div class="text-sm text-zinc-400 sm:text-base">
+      <div class="text-xl text-zinc-100 sm:text-2xl">
         <.series_book_links series_books={@book.series_books} />
       </div>
+      <p class="text-lg text-zinc-300 sm:text-xl">
+        <.all_people_links people={@book.authors} />
+      </p>
+      <p :if={@narrators && (@narrators != [] or @full_cast)} class="text-base text-zinc-400 sm:text-lg">
+        Read by <.all_people_links people={@narrators} full_cast={@full_cast} />
+        <span :if={@abridged}>(Abridged)</span>
+      </p>
     </div>
     """
   end

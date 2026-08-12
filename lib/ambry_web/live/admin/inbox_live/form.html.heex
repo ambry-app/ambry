@@ -643,7 +643,7 @@
             section="recording"
             identities={@narrators}
             people={@people}
-            verb="Narrated by"
+            verb="Read by"
             reveal="This is a stage name"
             backing="Stage name of"
             expanded={expanded?(@expanded, "recording", index, credit)}
@@ -742,7 +742,7 @@
                 value={root.id}
                 selected={@item.draft.destination.root_id == root.id}
               >
-                {root.name} — {root.path}
+                {root.name} ({root.path})
               </option>
             </select>
           </form>

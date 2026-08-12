@@ -458,7 +458,7 @@ defmodule AmbryWeb.Admin.Decisions do
       candidate["authors"] && Enum.join(candidate["authors"], ", ")
     ]
     |> Enum.reject(&(&1 in [nil, "", []]))
-    |> Enum.join(" — ")
+    |> Enum.join(" by ")
   end
 
   @doc """
@@ -777,7 +777,7 @@ defmodule AmbryWeb.Admin.Decisions do
     >
       <div class="flex items-center justify-between gap-2 pl-3">
         <p class="min-w-0 truncate text-sm text-zinc-500">
-          {@verb} <span class="line-through">{@credit.name}</span> — removed
+          {@verb} <span class="line-through">{@credit.name}</span> (removed)
         </p>
         <button
           type="button"
@@ -1402,7 +1402,7 @@ defmodule AmbryWeb.Admin.Decisions do
     >
       <div class="flex items-center justify-between gap-2 pl-3">
         <p class="min-w-0 truncate text-sm text-zinc-500">
-          In series <span class="line-through">{@link.name}</span> — removed
+          In series <span class="line-through">{@link.name}</span> (removed)
         </p>
         <button
           type="button"
@@ -1555,7 +1555,7 @@ defmodule AmbryWeb.Admin.Decisions do
     >
       <div class="flex items-center justify-between gap-2 pl-3">
         <p class="min-w-0 truncate text-sm text-zinc-500">
-          Part of <span class="line-through">{@link.name}</span> — removed
+          Part of <span class="line-through">{@link.name}</span> (removed)
         </p>
         <button
           type="button"

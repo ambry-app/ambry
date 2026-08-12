@@ -26,7 +26,7 @@ defmodule Ambry.Media.RecordingGroup do
 
     # a local name: it distinguishes this set from the book's OTHER
     # recordings ("Graphic Audio"), so it's unique per book, not globally —
-    # displays compose "name — book" where context is missing
+    # displays compose "name (book)" where context is missing
     field :name, :string
     field :parts_total, :integer
 

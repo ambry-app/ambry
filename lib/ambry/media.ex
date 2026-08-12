@@ -1041,7 +1041,7 @@ defmodule Ambry.Media do
         Media.display_title(%{media | book: book})
       )
 
-    "#{description} • narrated by #{narrators}"
+    "#{description} read by #{narrators}"
   end
 
   @doc """

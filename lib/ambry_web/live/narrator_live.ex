@@ -22,7 +22,7 @@ defmodule AmbryWeb.NarratorLive do
           />
         </.link>
         <h1 class="text-3xl font-bold text-zinc-100 sm:text-4xl xl:text-5xl">
-          Narrated by
+          Read by
           <.link navigate={~p"/people/#{@narrator.person}"} class="hover:underline">
             {@narrator.name}
           </.link>

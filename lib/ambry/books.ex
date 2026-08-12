@@ -384,7 +384,7 @@ defmodule Ambry.Books do
     book = Repo.preload(book, :authors)
     authors = Enum.map_join(book.authors, ", ", & &1.name)
 
-    "#{book.title} • by #{authors}"
+    "#{book.title} by #{authors}"
   end
 
   @doc """

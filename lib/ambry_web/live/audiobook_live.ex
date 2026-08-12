@@ -21,13 +21,13 @@ defmodule AmbryWeb.AudiobookLive do
       <div class="justify-center sm:flex sm:flex-row">
         <section id="cover" class="mb-4 flex-none sm:mb-0 sm:w-80">
           <div class="mb-6 sm:hidden">
-            <.book_header book={@media.book} title_override={media_display_title(@media)} />
-            <p class="mt-4">
-              Narrated by <.all_people_links people={@media.narrators} full_cast={@media.full_cast} />
-              <%= if @media.abridged do %>
-                <span>(Abridged)</span>
-              <% end %>
-            </p>
+            <.book_header
+              book={@media.book}
+              title_override={media_display_title(@media)}
+              narrators={@media.narrators}
+              full_cast={@media.full_cast}
+              abridged={@media.abridged}
+            />
           </div>
 
           <div class={["aspect-1", if(!@media.thumbnails, do: "bg-zinc-800")]}>
@@ -131,13 +131,13 @@ defmodule AmbryWeb.AudiobookLive do
         </section>
 
         <section id="description" class="hidden max-w-md sm:ml-10 sm:block">
-          <.book_header book={@media.book} title_override={media_display_title(@media)} />
-          <p class="mt-4">
-            Narrated by <.all_people_links people={@media.narrators} full_cast={@media.full_cast} />
-            <%= if @media.abridged do %>
-              <span>(Abridged)</span>
-            <% end %>
-          </p>
+          <.book_header
+            book={@media.book}
+            title_override={media_display_title(@media)}
+            narrators={@media.narrators}
+            full_cast={@media.full_cast}
+            abridged={@media.abridged}
+          />
           <.markdown
             :if={@media.description}
             content={@media.description}

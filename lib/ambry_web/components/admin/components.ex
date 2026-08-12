@@ -895,7 +895,7 @@ defmodule AmbryWeb.Admin.Components do
           </span>
         </p>
         <p :if={@book.narrators != []} class="text-zinc-400">
-          Narrated by
+          Read by
           <span :for={narrator <- @book.narrators} class="group">
             <span>{narrator.name}</span>
             <br class="group-last:hidden" />

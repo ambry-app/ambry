@@ -57,7 +57,7 @@
           by {media.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
         <p class="overflow-hidden text-ellipsis text-sm text-zinc-400">
-          narrated by {media.narrators |> Enum.map(& &1.name) |> Enum.join(", ")}
+          read by {media.narrators |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
         <p class="overflow-hidden text-ellipsis text-sm text-zinc-400">
           {media.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ")}
