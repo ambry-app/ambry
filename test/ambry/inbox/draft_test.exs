@@ -10,6 +10,7 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Media.Media.Chapter
   alias Ambry.Repo
 
   defp item(attrs) do
@@ -2998,6 +2999,225 @@ defmodule Ambry.Inbox.DraftTest do
       assert stale.stale
       refute Draft.resolved?(stale)
       assert Enum.any?(Draft.unresolved(stale), &(&1.state == :stale))
+    end
+  end
+
+  describe "reordering credits and series" do
+    # List order is billing order — the importer writes `position` from it —
+    # so an order the operator chose is an answer, and answers survive
+    # reseeds only as curation (`Seed.keep_curated/2` rebuilds uncurated
+    # rows in derivation order).
+    test "move_credit swaps neighbors and marks both curated" do
+      draft = Seed.build(item(%{}))
+
+      draft =
+        put_in(draft.recording.narrators, [
+          %Credit{name: "First", kind: :narrator},
+          %Credit{name: "Second", kind: :narrator}
+        ])
+
+      moved = Draft.Edit.move_credit(draft, :recording, 1, :up)
+
+      assert [%{name: "Second", curated: true}, %{name: "First", curated: true}] =
+               moved.recording.narrators
+    end
+
+    test "moving past either end is a no-op that curates nothing" do
+      draft = Seed.build(item(%{}))
+      draft = put_in(draft.recording.narrators, [%Credit{name: "Only", kind: :narrator}])
+
+      unmoved =
+        draft
+        |> Draft.Edit.move_credit(:recording, 0, :up)
+        |> Draft.Edit.move_credit(:recording, 0, :down)
+
+      assert [%{name: "Only", curated: false}] = unmoved.recording.narrators
+    end
+
+    test "move_series swaps series memberships the same way" do
+      draft = Seed.build(item(%{}))
+
+      draft =
+        put_in(draft.work.series, [
+          %SeriesLink{name: "Alpha"},
+          %SeriesLink{name: "Beta"}
+        ])
+
+      moved = Draft.Edit.move_series(draft, 0, :down)
+
+      assert [%{name: "Beta", curated: true}, %{name: "Alpha", curated: true}] =
+               moved.work.series
+    end
+  end
+
+  describe "the chapters decision" do
+    defp chaptered_probe do
+      %{
+        "chapters" => 2,
+        "chapter_marker_source" => "embedded",
+        "chapter_list" => [
+          %{"time" => "0", "title" => "Intro", "title_source" => "embedded"},
+          %{"time" => "600.5", "title" => "Chapter 2", "title_source" => "generated"}
+        ]
+      }
+    end
+
+    test "seeds from the probe's reading of the files, approved" do
+      draft = Seed.build(item(%{probe: chaptered_probe()}))
+
+      chapters = draft.recording.chapters
+      assert chapters.approved
+      refute chapters.curated
+      assert chapters.chapter_marker_source == :embedded
+
+      assert [
+               %{title: "Intro", title_source: :embedded},
+               %{title: "Chapter 2", title_source: :generated}
+             ] = chapters.chapters
+
+      assert Decimal.equal?(Enum.at(chapters.chapters, 1).time, Decimal.new("600.5"))
+
+      # Seeded approved: the file's own answer is the lone proposer, so the
+      # decision never blocks import on its own.
+      refute Enum.any?(Draft.unresolved(draft), &(&1.label == "Chapters"))
+    end
+
+    test "stays nil until a probe has read the files" do
+      draft = Seed.build(item(%{}))
+
+      assert draft.recording.chapters == nil
+      # "not read yet" is not a decision, so it isn't counted as one either
+      refute Enum.any?(Draft.unresolved(draft), &(&1.label == "Chapters"))
+    end
+
+    test "an applied titles merge is curated and round-trips through storage" do
+      item = item(%{probe: chaptered_probe()})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      rows = [
+        %Chapter{time: Decimal.new(0), title: "The Dungeon Opens", title_source: :provider},
+        %Chapter{time: Decimal.new("600.5"), title: "Princess Donut", title_source: :provider}
+      ]
+
+      draft = Draft.Edit.set_chapters(item.draft, rows)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      chapters = Inbox.get_item!(item.id).draft.recording.chapters
+      assert chapters.curated
+      assert chapters.approved
+      # a titles merge changed no marker, so the recorded source stands
+      assert chapters.chapter_marker_source == :embedded
+      assert Enum.map(chapters.chapters, & &1.title) == ["The Dungeon Opens", "Princess Donut"]
+      assert Enum.all?(chapters.chapters, &(&1.title_source == :provider))
+      assert Decimal.equal?(Enum.at(chapters.chapters, 1).time, Decimal.new("600.5"))
+    end
+
+    test "a caller staging a different timeline may say where it came from" do
+      item = item(%{probe: chaptered_probe()})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      rows = [%Chapter{time: Decimal.new(0), title: "Chapter 1", title_source: :generated}]
+      draft = Draft.Edit.set_chapters(item.draft, rows, :file_boundaries)
+
+      assert draft.recording.chapters.chapter_marker_source == :file_boundaries
+      assert draft.recording.chapters.curated
+    end
+
+    # The draft-side half of the honesty rule `Media.changeset/3` enforces:
+    # a moved marker makes the timeline the operator's; a retitle doesn't.
+    test "the changeset flips the marker source when a time moves, and only then" do
+      item = item(%{probe: chaptered_probe()})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      # complete rows, the way the form posts them — a no-PK embed replaces
+      # the whole list, so partial params would read as deleted rows
+      rows = fn first_time, first_title ->
+        %{
+          "recording" => %{
+            "chapters" => %{
+              "chapters" => %{
+                "0" => %{
+                  "time" => first_time,
+                  "title" => first_title,
+                  "title_source" => "embedded"
+                },
+                "1" => %{"time" => "600.5", "title" => "Chapter 2", "title_source" => "generated"}
+              }
+            }
+          }
+        }
+      end
+
+      {:ok, retitled} = Inbox.update_draft(item, rows.("0", "Prologue"))
+      assert retitled.draft.recording.chapters.chapter_marker_source == :embedded
+
+      {:ok, nudged} = Inbox.update_draft(retitled, rows.("1.5", "Prologue"))
+      assert nudged.draft.recording.chapters.chapter_marker_source == :manual
+    end
+
+    # Validation gates saving; the invariant gates importing. The inbox
+    # autosaves every keystroke, so a freshly-added row with no time yet has
+    # to be storable — and has to keep the item unimportable until it gets
+    # one.
+    test "a half-made row is storable but blocks import" do
+      item = item(%{probe: chaptered_probe()})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      {:ok, item} =
+        Inbox.update_draft(item, %{
+          "recording" => %{
+            "chapters" => %{
+              "curated" => "true",
+              "chapters" => %{
+                "0" => %{"time" => "0", "title" => "Intro", "title_source" => "embedded"},
+                "1" => %{"time" => "", "title" => "Half typed", "title_source" => ""}
+              }
+            }
+          }
+        })
+
+      chapters = item.draft.recording.chapters
+      assert [%{title: "Intro"}, %{title: "Half typed", time: nil}] = chapters.chapters
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label == "Chapters"))
+      refute item.ready
+    end
+
+    # A generated title is a position, so the changeset renumbers it — here
+    # rather than at a LiveView boundary, because the inbox autosaves
+    # through this changeset on every keystroke.
+    test "the changeset gives an untitled row the generated floor" do
+      item = item(%{probe: chaptered_probe()})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      {:ok, item} =
+        Inbox.update_draft(item, %{
+          "recording" => %{
+            "chapters" => %{
+              "curated" => "true",
+              "chapters" => %{
+                "0" => %{"time" => "0", "title" => "", "title_source" => "embedded"}
+              }
+            }
+          }
+        })
+
+      assert [%{title: "Chapter 1", title_source: :generated}] =
+               item.draft.recording.chapters.chapters
+    end
+
+    test "a curated list survives a reseed" do
+      item = item(%{probe: chaptered_probe(), matches: matches([provider_candidate(%{})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      rows = [%Chapter{time: Decimal.new(0), title: "Mine", title_source: :manual}]
+      draft = Draft.Edit.set_chapters(item.draft, rows)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+      item = Inbox.get_item!(item.id)
+
+      reseeded = Seed.reseed_recording(item.draft.recording, item)
+
+      assert [%{title: "Mine", title_source: :manual}] = reseeded.chapters.chapters
+      assert reseeded.chapters.curated
     end
   end
 end

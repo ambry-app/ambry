@@ -8,6 +8,7 @@ defmodule Ambry.Inbox.ImporterTest do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Media
+  alias Ambry.Media.Media.Chapter
   alias Ambry.People.Author
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -44,10 +45,61 @@ defmodule Ambry.Inbox.ImporterTest do
       assert File.stat!(file).size == before.size
     end
 
+    # `[]` on a new record still counts as a change against the unloaded
+    # assoc, and a changed list with no source stamps manual provenance —
+    # which is how every zero-series import wore "Series from you" on the
+    # edit form.
+    test "an import with no series records no series provenance" do
+      item = tagged_item() |> settle()
+
+      assert {:ok, media} = Inbox.import_item(item)
+
+      book = Books.get_book!(Media.get_media!(media.id).book_id)
+      refute Map.has_key?(book.field_provenance || %{}, "series_books")
+    end
+
     test "does not publish" do
       assert {:ok, media} = tagged_item() |> Inbox.import_item()
 
       assert media.status == :pending
+    end
+
+    # A curated list is the operator's answer — including hand-nudged times —
+    # and lands verbatim. Safe against the import-time re-probe because a
+    # file change flips the draft stale, and a stale draft refuses import.
+    test "a curated chapter list lands verbatim" do
+      item = tagged_item() |> settle()
+
+      rows = [
+        %Chapter{time: Decimal.new(0), title: "Prologue", title_source: :manual},
+        %Chapter{time: Decimal.new("10.5"), title: "The Dungeon Opens", title_source: :provider}
+      ]
+
+      {:ok, item} =
+        Inbox.update_draft(
+          item,
+          Inbox.dump_draft(Draft.Edit.set_chapters(item.draft, rows, :manual))
+        )
+
+      assert {:ok, media} = Inbox.import_item(item)
+
+      media = Media.get_media!(media.id)
+      assert Enum.map(media.chapters, & &1.title) == ["Prologue", "The Dungeon Opens"]
+      assert [%{title_source: :manual}, %{title_source: :provider}] = media.chapters
+      assert Decimal.equal?(Enum.at(media.chapters, 1).time, Decimal.new("10.5"))
+      assert media.chapter_marker_source == :manual
+    end
+
+    test "uncurated chapters come from the files, as always" do
+      item = tagged_item() |> settle()
+
+      assert item.draft.recording.chapters
+      refute item.draft.recording.chapters.curated
+
+      assert {:ok, media} = Inbox.import_item(item)
+
+      # The fixture is one plain file with no chapter marks of its own.
+      assert Media.get_media!(media.id).chapters == []
     end
 
     test "marks the item approved and links it to what it became" do

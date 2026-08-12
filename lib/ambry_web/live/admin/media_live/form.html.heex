@@ -97,19 +97,22 @@
 
         <.list_cluster label="Narrated by">
           <:flag>
-            <.provenance_flag record={@media} field={:media_narrators} hints={@provenance_hints} />
+            <.provenance_flag
+              :if={@media_narrator_count > 0}
+              record={@media}
+              field={:media_narrators}
+              hints={@provenance_hints}
+            />
           </:flag>
+          <%!-- legal, not an error: a full-cast recording can credit nobody --%>
+          <p :if={@media_narrator_count == 0} class="pl-3 text-sm text-zinc-400">No narrators.</p>
           <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
             <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
             <.position_input field={media_narrator_form[:position]} index={media_narrator_form.index} />
 
+            <%!-- arrows trail the input: a leading column pushed every input
+                off the box edge whenever a list crossed one row (§3) --%>
             <div class="relative flex items-start gap-2">
-              <.move_buttons
-                :if={@media_narrator_count > 1}
-                field={:media_narrators}
-                index={media_narrator_form.index}
-                count={@media_narrator_count}
-              />
               <div class="relative grow">
                 <.input
                   field={media_narrator_form[:narrator_id]}
@@ -122,6 +125,12 @@
                   class="absolute top-3 right-2"
                 />
               </div>
+              <.move_buttons
+                :if={@media_narrator_count > 1}
+                field={:media_narrators}
+                index={media_narrator_form.index}
+                count={@media_narrator_count}
+              />
             </div>
           </.inputs_for>
 
@@ -142,20 +151,44 @@
 
         <%!-- the mirror of the book form's series rows, singular: a recording
           is in at most one group, and a group belongs to this book — the
-          list follows the chosen book. Clearing the typeahead leaves the
-          group (and the part number goes with it); the group's own facts —
-          name, total, wording — are edited on its page under Groups. --%>
-        <.field_group label="Recording group">
-          <div class="relative flex items-start gap-2">
-            <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
-            <.input
-              field={@form[:recording_group_id]}
-              type="autocomplete"
-              options={@recording_groups}
-              container_class="grow"
-            />
-          </div>
-        </.field_group>
+          list follows the chosen book. Like an empty series list, an
+          ungrouped recording says so and offers one add; unlike series, the
+          add disappears once the (single) row is showing. The group's own
+          facts — name, total, wording — are edited on its page under
+          Groups. --%>
+        <div class="space-y-2">
+          <.field_group label="Part of a set">
+            <p :if={!@group_row_visible} class="pl-3 text-sm text-zinc-400">
+              Not part of a set.
+            </p>
+
+            <div :if={@group_row_visible} class="flex items-start gap-2">
+              <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
+              <div class="relative grow">
+                <.input
+                  field={@form[:recording_group_id]}
+                  type="autocomplete"
+                  options={@recording_groups}
+                />
+                <button
+                  type="button"
+                  phx-click="remove-group-row"
+                  class="absolute top-3 right-2"
+                  title="Not part of a set"
+                >
+                  <.icon
+                    name="fa-xmark"
+                    class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-400"
+                  />
+                </button>
+              </div>
+            </div>
+          </.field_group>
+
+          <.add_button :if={!@group_row_visible} phx-click="add-group-row">
+            This recording is part of a set
+          </.add_button>
+        </div>
 
         <.input type="hidden" field={@form[:image_type]} />
         <.input type="hidden" field={@form[:image_path]} />
@@ -240,16 +273,33 @@
         </.field_group>
       </.form_section>
 
+      <%!-- Markers are file-derived facts, titles are decisions — the 1h
+          split, in one card. A ticked record with an ASIN grows a title
+          chip; the fetched titles render into the rows as a proposed
+          column, and nothing lands until Take. --%>
+      <.form_section :if={@live_action == :edit} title="Chapters" id="chapters">
+        <.marker_source_input form={@form} />
+
+        <.chapter_rows form={@form} pending={@chapter_import}>
+          <:flag>
+            <.provenance_flag record={@media} field={:chapters} hints={@provenance_hints} />
+          </:flag>
+          <:proposals>
+            <.chapter_title_chips
+              id="chapter-title-chips"
+              chips={title_chips(Evidence.used_records(@evidence), @chapters_applied_asin)}
+            />
+          </:proposals>
+        </.chapter_rows>
+      </.form_section>
+
       <%!-- What the bytes are and what has been done to them — a different
           question from what the recording IS, and the one place on this form
           where saving does work rather than recording a fact. --%>
       <.form_section title="Audio and processing" id="audio">
         <%!-- A fact display, not a dropzone — the dashed costume this list
             used to wear promised "drop files here" and couldn't deliver. --%>
-        <div :if={@live_action == :edit} class="space-y-2">
-          <.label class="pl-3">Audio file(s)</.label>
-          <.file_list files={@media.source_files} class="max-h-64 overflow-x-auto" />
-        </div>
+        <.file_list :if={@live_action == :edit} files={@media.source_files} label="Audio file(s)" />
 
         <.field_group :if={@live_action == :new}>
           <%= if @local_import_path do %>

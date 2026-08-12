@@ -461,7 +461,34 @@ defmodule Ambry.Inbox do
   not something a background job may overwrite.
   """
   def prepare_draft(%InboxItem{draft: nil} = item), do: rebuild_draft(item)
-  def prepare_draft(%InboxItem{} = item), do: {:ok, item}
+
+  # An imported item's draft is the record of what was imported; nothing may
+  # touch it, healing included.
+  def prepare_draft(%InboxItem{status: :imported} = item), do: {:ok, item}
+
+  def prepare_draft(%InboxItem{} = item) do
+    heal_destination(item)
+  end
+
+  # Custody is *derived* — from where the files sit and what the item's
+  # source promises — never chosen by the operator, so re-deriving it
+  # un-answers nothing. It can change under a draft: an ad-hoc-scanned item
+  # adopts its source when the source's own scan next sees it, at which point
+  # a draft that sealed an external destination leaves the operator staring
+  # at "no library root" with no root picker rendered (the picker keys off
+  # the draft's custody). A changed custody replaces the destination with a
+  # fresh seed; an unchanged one leaves the operator's root choice alone.
+  defp heal_destination(%InboxItem{} = item) do
+    fresh = Seed.destination(item)
+
+    if item.draft.destination && item.draft.destination.custody == fresh.custody do
+      {:ok, item}
+    else
+      item
+      |> InboxItem.put_draft(dump(%{item.draft | destination: fresh}))
+      |> Repo.update()
+    end
+  end
 
   @doc """
   Throws away the staged import and seeds a fresh one from current evidence.
@@ -607,7 +634,15 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp chosen_root(_item), do: {:error, :no_library_root}
+  # "No root chosen" and "no root exists" are different problems with
+  # different fixes — the picker is sitting right above one of the two
+  # messages, and it used to be told there was nothing to pick.
+  defp chosen_root(_item) do
+    case Library.list_roots() do
+      [] -> {:error, :no_library_root}
+      _some -> {:error, :ambiguous_library_root}
+    end
+  end
 
   defp policy_summary(:hardlink, root),
     do: "Hardlinked into #{root.path} — one copy of the bytes, the download keeps seeding."
@@ -1048,7 +1083,17 @@ defmodule Ambry.Inbox do
       # accurately makes every seek past it inaccurate too.
       "seek_accuracy" => probes |> Enum.map(& &1.seek_accuracy) |> seek_accuracy(),
       "chapters" => length(chapters),
-      "chapter_marker_source" => marker_source && to_string(marker_source)
+      "chapter_marker_source" => marker_source && to_string(marker_source),
+      # The rows themselves, not just the count — the import form's chapter
+      # editor states what the files carry without re-reading them.
+      "chapter_list" =>
+        Enum.map(chapters, fn chapter ->
+          %{
+            "time" => to_string(chapter.time),
+            "title" => chapter.title,
+            "title_source" => chapter.title_source && to_string(chapter.title_source)
+          }
+        end)
     }
   end
 

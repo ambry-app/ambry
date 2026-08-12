@@ -41,19 +41,22 @@
 
       <.list_cluster label="Authors">
         <:flag>
-          <.provenance_flag record={@book} field={:book_authors} hints={@provenance_hints} />
+          <.provenance_flag
+            :if={@book_author_count > 0}
+            record={@book}
+            field={:book_authors}
+            hints={@provenance_hints}
+          />
         </:flag>
+        <p :if={@book_author_count == 0} class="pl-3 text-sm text-zinc-400">No authors.</p>
         <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
           <.sort_input field={@form[:book_authors_sort]} index={book_author_form.index} />
           <.position_input field={book_author_form[:position]} index={book_author_form.index} />
 
+          <%!-- arrows trail the input: a leading column pushed every input
+              off the box edge whenever a list crossed one row (§3, two left
+              edges) --%>
           <div class="relative flex items-start gap-2">
-            <.move_buttons
-              :if={@book_author_count > 1}
-              field={:book_authors}
-              index={book_author_form.index}
-              count={@book_author_count}
-            />
             <div class="relative grow">
               <.input field={book_author_form[:author_id]} type="autocomplete" options={@authors} />
               <.delete_button
@@ -62,6 +65,12 @@
                 class="absolute top-3 right-2"
               />
             </div>
+            <.move_buttons
+              :if={@book_author_count > 1}
+              field={:book_authors}
+              index={book_author_form.index}
+              count={@book_author_count}
+            />
           </div>
         </.inputs_for>
 
@@ -82,35 +91,42 @@
 
       <.list_cluster label="Series">
         <:flag>
-          <.provenance_flag record={@book} field={:series_books} hints={@provenance_hints} />
+          <.provenance_flag
+            :if={@series_book_count > 0}
+            record={@book}
+            field={:series_books}
+            hints={@provenance_hints}
+          />
         </:flag>
+        <p :if={@series_book_count == 0} class="pl-3 text-sm text-zinc-400">Not in a series.</p>
         <.inputs_for :let={series_book_form} field={@form[:series_books]}>
           <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
           <.position_input field={series_book_form[:position]} index={series_book_form.index} />
 
-          <div class="relative flex items-start gap-2">
-            <.move_buttons
-              :if={@series_book_count > 1}
-              field={:series_books}
-              index={series_book_form.index}
-              count={@series_book_count}
-            />
+          <div class="flex items-start gap-2">
             <.input
               field={series_book_form[:book_number]}
               placeholder="no."
               container_class="w-14 flex-none"
               show_errors={false}
             />
-            <.input
-              field={series_book_form[:series_id]}
-              type="autocomplete"
-              options={@series}
-              container_class="grow"
-            />
-            <.delete_button
-              field={@form[:series_books_drop]}
+            <div class="relative grow">
+              <.input
+                field={series_book_form[:series_id]}
+                type="autocomplete"
+                options={@series}
+              />
+              <.delete_button
+                field={@form[:series_books_drop]}
+                index={series_book_form.index}
+                class="absolute top-3 right-2"
+              />
+            </div>
+            <.move_buttons
+              :if={@series_book_count > 1}
+              field={:series_books}
               index={series_book_form.index}
-              class="absolute top-3 right-2"
+              count={@series_book_count}
             />
           </div>
         </.inputs_for>
@@ -131,6 +147,9 @@
       </.list_cluster>
 
       <.list_cluster label="Universes">
+        <p :if={@book_universe_count == 0} class="pl-3 text-sm text-zinc-400">
+          Not in a universe.
+        </p>
         <.inputs_for :let={book_universe_form} field={@form[:book_universes]}>
           <.sort_input field={@form[:book_universes_sort]} index={book_universe_form.index} />
 

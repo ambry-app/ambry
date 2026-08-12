@@ -279,6 +279,14 @@ defmodule Ambry.InboxTest do
       assert item.probe["files"] == 2
       assert item.probe["codec"] == "mp3"
 
+      # The rows themselves, not just the count — the import form's chapter
+      # editor states what the files carry without re-reading them.
+      assert item.probe["chapters"] == 2
+      assert item.probe["chapter_marker_source"] == "file_boundaries"
+
+      assert [%{"time" => _start, "title" => _first, "title_source" => _source}, %{}] =
+               item.probe["chapter_list"]
+
       # The whole book, not the first file: the durations add up into one
       # timeline, and so do the bytes.
       {:ok, one} = Scanner.probe_file(Path.join(item.path, "01.mp3"))
@@ -299,6 +307,67 @@ defmodule Ambry.InboxTest do
 
       assert item.issue =~ "couldn't read the file"
       assert item.status == :pending
+    end
+  end
+
+  describe "prepare_draft/1 destination healing" do
+    # Custody is derived, never chosen — so re-deriving it un-answers
+    # nothing. It can change under a draft: an ad-hoc-scanned item adopts
+    # its source when that source's own scan next sees it, and a draft that
+    # sealed an external destination then leaves the operator staring at a
+    # root blocker with no root picker rendered.
+    test "re-derives the destination when the item adopts a source after drafting" do
+      dir = watched_root()
+      release_folder(dir, "Sourced Later", ["book.m4b"])
+      {:ok, _counts} = Inbox.discover(dir)
+      {[item], false} = Inbox.list_items(filter: "Sourced Later")
+      {:ok, item} = Inbox.probe_item(item)
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.destination.custody == :external
+
+      source = insert(:source, path: dir)
+      root = insert(:root)
+      item = item |> Ecto.Changeset.change(source_id: source.id) |> Repo.update!()
+
+      {:ok, healed} = Inbox.prepare_draft(Inbox.get_item!(item.id))
+
+      assert healed.draft.destination.custody == :managed
+      # the single root auto-picks, exactly as a fresh seed would
+      assert healed.draft.destination.root_id == root.id
+    end
+
+    test "an unchanged custody leaves the stored destination alone" do
+      dir = watched_root()
+      release_folder(dir, "Stays External", ["book.m4b"])
+      {:ok, _counts} = Inbox.discover(dir)
+      {[item], false} = Inbox.list_items(filter: "Stays External")
+      {:ok, item} = Inbox.probe_item(item)
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      {:ok, again} = Inbox.prepare_draft(Inbox.get_item!(item.id))
+
+      assert again.draft.destination == item.draft.destination
+    end
+  end
+
+  describe "root blockers" do
+    # "No root chosen" and "no root exists" are different problems with
+    # different fixes — the picker sits right above the message.
+    test "an unpicked root among several says pick one, not none" do
+      dir = watched_root()
+      release_folder(dir, "Which Root", ["book.m4b"])
+      insert(:source, path: dir)
+      insert(:root)
+      insert(:root)
+
+      {:ok, _counts} = Inbox.discover()
+      {[item], false} = Inbox.list_items(filter: "Which Root")
+      {:ok, item} = Inbox.probe_item(item)
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      preflight = Inbox.destination_preflight(item)
+      assert preflight.blocker =~ "more than one library root"
     end
   end
 

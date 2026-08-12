@@ -83,11 +83,17 @@ heading, a line of helper prose — sits on the page's own edge; there is no
 box whose padding it is matching, and a `pl-3` there is a *third*
 x-position 12px right of every heading around it. If a fact wants the
 rail, what it actually wants is a card. (An uncarded "This release is …"
-line on the import form is what taught this.) The exception: **a label or
-hint that names the container directly below it** wears `pl-3` so its text
-aligns with the railed text *inside* that container — the list clusters'
-ground labels, the import form's "Authors" run label. It borrows the
-container's rail; standalone ground prose still gets none.
+line on the import form is what taught this.) The exception: **ground
+helper prose sitting directly against a card or a run of cards** may wear
+`pl-3` to align with the railed text inside them (the import form's "This
+book isn't in these yet" line). Labels are no longer in this exception —
+a card names itself (§3b), so no label lives on the ground at all.
+
+**A card's own text sits on the rail relative to the card's padding edge.**
+The single-sentence empty-state cards kept forgetting this: a bare
+`<p class="… p-4">` puts its text at the padding edge, 12px left of every
+sibling card's railed header. The text inside a card wears `pl-3` like
+everything else.
 
 **Text lands on the rail exactly, wherever it lives.** A control's own text
 counts: a borderless pill pads `px-3`; a 1px-bordered box pads `px-[11px]`
@@ -107,6 +113,14 @@ the rail with its chevron in the 12px gutter to the left — the
 hanging-indicator pattern, always via `<.disclosure>`. Browser-default
 summary markers are never used bare: Firefox draws them `inside`, pushing
 the text off the rail; other engines pick their own widths.
+
+**A long editable list scrolls inside its card; it does not fold.** The
+chapter editor is the case: dozens of rows would swallow the form, but a
+fold hides the content *and* fights the autosave patches, while
+`max-h` + `overflow-y-auto` on the rows container bounds the card's height
+with every input still visible and in the DOM. Folds are for content the
+operator mostly doesn't need (evidence panels, file stats), not for the
+thing a section exists to edit.
 
 **One label column for annotated rows.** Any run of "label: value" rows
 (match lines, `Proposed`/`Asked` rows, the source line) shares a fixed label
@@ -178,9 +192,22 @@ wrote it", "where the files live"). Its label names the cluster and sits on
 the text rail; fields that speak for themselves need no label, because the
 block and the gap around it are already the grouping.
 
+**A card names itself.** Every label — with its provenance flag, badges,
+and hint — lives *inside* the card it describes, at the top, on the rail.
+This was the decision cards' shape all along (`decision_row`, the credit
+and series cards, "Library root"); `field_group` always did it; the list
+clusters were the holdouts, naming their container from the ground — and
+the import form's list sections did *both*, a ground "Authors" floating
+over cards that already said "Written by". Ground level carries only
+section headings (`<h2>`) and helper prose. The documented exception:
+a disclosure fold names itself in its `<summary>`, which is a control.
+
 **A list the operator is building has exactly one grammar, on every form:
-label above the container, rows inside it, add below it** — `<.list_cluster>`,
-which is the import form's shape. What varies between forms is only what
+label (and flag and hint) at the top of the container, rows inside it,
+proposal chips after the rows, add below the container** —
+`<.list_cluster>`. An **empty list states itself** instead of rendering a
+bare grey slab: a railed sentence in the card ("Not in a series.",
+"No narrators."), with the add still offered below. What varies between forms is only what
 the container holds: one card of single-input rows on an edit form, a run
 of per-decision cards on the import form (whose credits can't nest inside
 a block without eating the elevation ladder). It used to be two grammars —
@@ -355,6 +382,18 @@ one mechanism for "ask the databases", not a modal per provider:
   with the lock beside it — the import form's "from …" idiom pointed at
   `Ambry.Provenance`. Accepting records the provider unlocked; editing the
   value afterwards makes it a manual edit again, locked.
+- **A proposal that is a *merge* previews in place, inside the thing it
+  changes.** Chapters are the case (`AmbryWeb.Admin.ChapterEditor`, both
+  forms): a ticked record's ASIN grows a chip, but the chip's value is
+  thirty rows changing at once — so clicking it renders the fetched titles
+  **into the rows themselves**, a proposed-title cell beside each title
+  input, with one Take/Cancel header at the top of the card. No second
+  card, no modal: the rows are the preview, and nothing lands until Take.
+  The one place a chip is two clicks, argued from consequence; scalar and
+  entity chips stay one. **Take exists only when the counts match** — a
+  list that doesn't pair one-to-one stays visible (the proposed column
+  shows where the lists diverge, which is what to fix) but is never
+  poured.
 
 Structural lists (authors, narrators, series) carry **list-level
 provenance** — one entry per list, worn as the same "from …" flag on the

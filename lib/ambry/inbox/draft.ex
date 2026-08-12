@@ -38,6 +38,7 @@ defmodule Ambry.Inbox.Draft do
 
   import Ecto.Changeset
 
+  alias Ambry.Inbox.Draft.Chapters
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.GroupLink
@@ -262,7 +263,8 @@ defmodule Ambry.Inbox.Draft do
       (draft.work && (draft.work.curated or draft.work.evidence_curated)) == true or
       (draft.recording && draft.recording.evidence_curated) == true or
       (draft.recording && draft.recording.recording_group &&
-         draft.recording.recording_group.curated) == true
+         draft.recording.recording_group.curated) == true or
+      (draft.recording && draft.recording.chapters && draft.recording.chapters.curated) == true
   end
 
   defp fields(%__MODULE__{work: work, recording: recording}) do
@@ -315,7 +317,13 @@ defmodule Ambry.Inbox.Draft do
   defp recording_total(nil), do: 1
 
   defp recording_total(%Recording{} = recording),
-    do: 1 + 5 + group_count(recording.recording_group) + live_count(recording.narrators)
+    do:
+      1 + 5 + chapters_count(recording.chapters) + group_count(recording.recording_group) +
+        live_count(recording.narrators)
+
+  # nil until a probe has read the files — "not read yet" is not a decision
+  defp chapters_count(nil), do: 0
+  defp chapters_count(%Chapters{}), do: 1
 
   # at most one, and a tombstoned link is an answered question
   defp group_count(nil), do: 0
