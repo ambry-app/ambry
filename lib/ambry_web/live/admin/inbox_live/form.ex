@@ -31,6 +31,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   use AmbryWeb, :admin_live_view
 
+  import AmbryWeb.Admin.ChapterEditor
   import AmbryWeb.Admin.Decisions
   import AmbryWeb.TimeUtils
 
@@ -44,7 +45,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.Media
+  alias Ambry.Media.Chapters.Merge
   alias Ambry.People
+  alias Phoenix.LiveView.AsyncResult
 
   require Logger
 
@@ -68,6 +71,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      # themselves are evidence and live on the item.
      |> assign(searching_person: nil, photos_expanded: %{})
      |> assign(library_query: nil, library_results: [], ticking: false)
+     # The pending chapter-title fetch, and which ASIN's titles were last
+     # poured — the chips' chosen state.
+     |> assign(chapter_import: nil, chapters_applied_asin: nil)
      # An import the operator started, as opposed to a job that found the
      # item on its own. Both own the form; only this one is theirs.
      |> assign(importing: false)
@@ -192,6 +198,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"inbox_item" => params}, socket) do
+    params = curate_chapter_params(params, socket.assigns.item)
+
     # Autosave: the form and the stored draft are never allowed to disagree,
     # so a click on any of the choice controls below can't discard typing.
     case Inbox.update_draft(socket.assigns.item, params["draft"] || %{}) do
@@ -256,6 +264,59 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def handle_event("uncatalogued", _params, socket) do
     item = socket.assigns.item
     {:noreply, edit(socket, &Draft.Edit.uncatalogued(&1, item))}
+  end
+
+  def handle_event("move-credit", %{"section" => s, "index" => i, "direction" => d}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.move_credit(&1, atom(s), to_int(i), direction(d)))}
+  end
+
+  def handle_event("move-series", %{"index" => i, "direction" => d}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.move_series(&1, to_int(i), direction(d)))}
+  end
+
+  # ── chapters ───────────────────────────────────────────────────────────
+  #
+  # The same event vocabulary as the media form: the fetched titles render
+  # into the rows as a proposed column, and Take applies them through
+  # `Draft.Edit.set_chapters/2` so the answer survives reseeds.
+
+  def handle_event("fetch-chapter-titles", %{"asin" => asin}, socket) do
+    chip =
+      socket.assigns.item
+      |> chapter_chips(socket.assigns.chapters_applied_asin)
+      |> Enum.find(&(&1.asin == asin))
+
+    if chip do
+      {:noreply,
+       socket
+       |> assign(chapter_import: pending_import(chip))
+       |> start_async(:chapter_titles, fn -> fetch_chapter_titles(asin) end)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("apply-chapter-titles", _params, socket) do
+    showing = draft_chapter_rows(socket.assigns.item)
+
+    with %{chip: chip, result: %AsyncResult{ok?: true, result: fetched}} <-
+           socket.assigns.chapter_import,
+         # one-to-one or not at all — an operator call; a mismatched list
+         # stays visible in the proposed column but is never poured
+         true <- takeable?(fetched.incoming, showing) do
+      {merged, _alignment} = Merge.titles(showing, fetched.incoming, :provider)
+
+      {:noreply,
+       socket
+       |> edit(&Draft.Edit.set_chapters(&1, merged))
+       |> assign(chapter_import: nil, chapters_applied_asin: chip.asin)}
+    else
+      _not_takeable -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("cancel-chapter-import", _params, socket) do
+    {:noreply, assign(socket, chapter_import: nil)}
   end
 
   def handle_event("research", %{"level" => level} = params, socket) do
@@ -661,6 +722,14 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, socket |> assign(enriching: nil) |> load(item) |> resettle()}
   end
 
+  def handle_async(:chapter_titles, {:ok, fetched}, socket) do
+    {:noreply, update_pending_import(socket, &AsyncResult.ok(&1, fetched))}
+  end
+
+  def handle_async(:chapter_titles, {:exit, reason}, socket) do
+    {:noreply, update_pending_import(socket, &AsyncResult.failed(&1, async_fail(reason)))}
+  end
+
   # A provider being unreachable at this moment is a thing to report, not a
   # thing to crash on — the operator is mid-edit and the rest of the form is
   # still perfectly usable.
@@ -764,6 +833,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp atom("description"), do: :description
   defp atom("cover"), do: :cover
 
+  defp direction("up"), do: :up
+  defp direction(_down), do: :down
+
   defp group_options(%Draft{work: %Work{mode: :link, book_id: book_id}}) when not is_nil(book_id),
     do: Media.recording_groups_for_select(book_id)
 
@@ -822,23 +894,59 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp file_count(_probe), do: nil
 
   @doc """
-  How many chapters the files carry, and where the markers came from.
-
-  Markers are file-derived by principle — provider chapter times describe
-  their own retail edition, and applying them to somebody's rip drifts by
-  minutes across a book. Provider data is a *title* source only, poured onto
-  these markers afterwards in the chapter editor (roadmap 1h).
+  The fallback line for an item whose draft has no chapters decision yet —
+  the probe hasn't read the files, or the draft predates it (stale, and the
+  banner already says so). The editor itself renders from the draft.
   """
-  def chapter_summary(%InboxItem{probe: %{"chapters" => count} = probe}) when count > 0,
-    do: "#{count} chapters, #{marker_source_phrase(probe["chapter_marker_source"])}."
+  def chapter_summary(%InboxItem{probe: %{"chapters" => count}}) when count > 0,
+    do: "#{count} chapters in the files — start over to stage them here."
 
   def chapter_summary(%InboxItem{probe: probe}) when is_map(probe),
     do: "No chapters in the files. The recording will have none until they're added."
 
   def chapter_summary(_item), do: "Not read yet."
 
-  defp marker_source_phrase("file_boundaries"), do: "one per file, from where each file starts"
-  defp marker_source_phrase(_embedded_or_unknown), do: "read from the files"
+  # The draft's staged chapter rows — what the chapters editor shows, what a
+  # merge aligns against, and (autosaved) always what is on screen.
+  defp draft_chapter_rows(%InboxItem{draft: %{recording: %{chapters: %{chapters: rows}}}}),
+    do: rows
+
+  defp draft_chapter_rows(_item), do: []
+
+  # A change event from the chapters form is the operator touching the rows:
+  # typed titles stop claiming the source that would let a merge overwrite
+  # them, and the decision records its curation — which is what survives
+  # reseeds.
+  defp curate_chapter_params(params, item) do
+    case get_in(params, ["draft", "recording", "chapters"]) do
+      nil ->
+        params
+
+      chapter_params ->
+        put_in(
+          params,
+          ["draft", "recording", "chapters"],
+          chapter_params
+          |> mark_typed_titles(draft_chapter_rows(item))
+          |> Map.put("curated", "true")
+        )
+    end
+  end
+
+  # One chip per distinct ASIN among the ticked recording records — the
+  # evidence panel is the search, so the chips are wherever its ticks are.
+  defp chapter_chips(item, applied_asin) do
+    case item.draft && item.draft.recording do
+      %Recording{} = recording ->
+        item
+        |> Seed.records("recording")
+        |> Enum.filter(&Recording.uses?(recording, &1))
+        |> title_chips(applied_asin)
+
+      _no_draft ->
+        []
+    end
+  end
 
   @doc """
   What the files themselves said, before anybody interpreted it.

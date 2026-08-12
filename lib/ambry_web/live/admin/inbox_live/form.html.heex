@@ -365,17 +365,20 @@
           </.inputs_for>
         </.simple_form>
 
-        <%!-- credits: "Credited as" / "Written by" --%>
+        <%!-- credits: "Credited as" / "Written by" — the cards name
+            themselves, so the run carries no ground label; the empty state
+            is a card that does the naming instead --%>
         <div :if={@item.draft.work.mode == :create} class="space-y-2">
-          <.label class="pl-3">Authors</.label>
-          <p :if={@item.draft.work.authors == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
-            No author was proposed.
-          </p>
+          <div :if={@item.draft.work.authors == []} class="space-y-2 rounded-lg bg-zinc-900 p-4">
+            <.label class="pl-3">Authors</.label>
+            <p class="pl-3 text-sm text-zinc-400">No author was proposed.</p>
+          </div>
 
           <.credit_row
             :for={{credit, index} <- Enum.with_index(@item.draft.work.authors)}
             credit={credit}
             index={index}
+            count={length(@item.draft.work.authors)}
             section="work"
             identities={@authors}
             people={@people}
@@ -400,10 +403,6 @@
 
         <%!-- each series is its own decision, number included --%>
         <div class="space-y-2">
-          <.label class="pl-3">
-            {if @item.draft.work.mode == :link, do: "Series to add", else: "Series"}
-          </.label>
-
           <p
             :if={@item.draft.work.mode == :link and @item.draft.work.series != []}
             class="max-w-prose pl-3 text-sm text-zinc-400"
@@ -412,14 +411,18 @@
             already there.
           </p>
 
-          <p :if={@item.draft.work.series == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
-            No series was proposed.
-          </p>
+          <div :if={@item.draft.work.series == []} class="space-y-2 rounded-lg bg-zinc-900 p-4">
+            <.label class="pl-3">
+              {if @item.draft.work.mode == :link, do: "Series to add", else: "Series"}
+            </.label>
+            <p class="pl-3 text-sm text-zinc-400">No series was proposed.</p>
+          </div>
 
           <.series_row
             :for={{link, index} <- Enum.with_index(@item.draft.work.series)}
             link={link}
             index={index}
+            count={length(@item.draft.work.series)}
             options={@series}
           />
 
@@ -607,12 +610,13 @@
             a typed field: link an existing group or create one, with the
             part number the same never-defaulted question as a book number --%>
         <div class="space-y-2">
-          <.label class="pl-3">Part of a set</.label>
-
-          <p :if={group_absent?(@item.draft)} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
-            Not part of a set — the usual case. GraphicAudio-style "Part 1 of 2"
-            releases and episodic seasons are the exception.
-          </p>
+          <div :if={group_absent?(@item.draft)} class="space-y-2 rounded-lg bg-zinc-900 p-4">
+            <.label class="pl-3">Part of a set</.label>
+            <p class="pl-3 text-sm text-zinc-400">
+              Not part of a set — the usual case. GraphicAudio-style "Part 1 of 2"
+              releases and episodic seasons are the exception.
+            </p>
+          </div>
 
           <.group_row
             :if={@item.draft.recording.recording_group}
@@ -626,15 +630,16 @@
         </div>
 
         <div class="space-y-2">
-          <.label class="pl-3">Narrators</.label>
-          <p :if={@item.draft.recording.narrators == []} class="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
-            No narrator was proposed.
-          </p>
+          <div :if={@item.draft.recording.narrators == []} class="space-y-2 rounded-lg bg-zinc-900 p-4">
+            <.label class="pl-3">Narrators</.label>
+            <p class="pl-3 text-sm text-zinc-400">No narrator was proposed.</p>
+          </div>
 
           <.credit_row
             :for={{credit, index} <- Enum.with_index(@item.draft.recording.narrators)}
             credit={credit}
             index={index}
+            count={length(@item.draft.recording.narrators)}
             section="recording"
             identities={@narrators}
             people={@people}
@@ -659,15 +664,41 @@
       </section>
 
       <%!-- ==================== CHAPTERS ==================== --%>
-      <section class="space-y-2">
+      <%!-- Markers are file-derived facts, titles are decisions — the 1h
+          split, staged in one card. The rows are the probe's reading of the
+          files; a ticked ASIN-bearing record grows a title chip, and the
+          fetched titles render into the rows as a proposed column. The rows
+          scroll inside the card, so a 47-chapter book stays a card. --%>
+      <section id="chapters" class="space-y-2" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">Chapters</h2>
-        <div class="space-y-1 rounded-lg bg-zinc-900 p-4">
-          <p class="text-sm text-zinc-300">{chapter_summary(@item)}</p>
-          <p class="text-sm text-zinc-400">
-            Markers are taken from the file and never from a provider — provider timestamps describe
-            their own edition, not this rip.
-          </p>
-        </div>
+
+        <%= if @item.draft.recording && @item.draft.recording.chapters do %>
+          <.simple_form id="chapters-form" for={@form} phx-change="validate" autocomplete="off">
+            <.inputs_for :let={draft} field={@form[:draft]}>
+              <.inputs_for :let={recording} field={draft[:recording]}>
+                <.inputs_for :let={chapters} field={recording[:chapters]}>
+                  <.marker_source_input form={chapters} />
+                  <.chapter_rows form={chapters} pending={@chapter_import}>
+                    <:proposals>
+                      <.chapter_title_chips
+                        id="chapter-title-chips"
+                        chips={chapter_chips(@item, @chapters_applied_asin)}
+                      />
+                    </:proposals>
+                  </.chapter_rows>
+                </.inputs_for>
+              </.inputs_for>
+            </.inputs_for>
+          </.simple_form>
+        <% else %>
+          <div class="space-y-1 rounded-lg bg-zinc-900 p-4">
+            <p class="pl-3 text-sm text-zinc-300">{chapter_summary(@item)}</p>
+            <p class="pl-3 text-sm text-zinc-400">
+              Markers are taken from the file and never from a provider — provider timestamps describe
+              their own edition, not this rip.
+            </p>
+          </div>
+        <% end %>
       </section>
 
       <%!-- ==================== FILES & DESTINATION ==================== --%>
@@ -726,7 +757,7 @@
           {@destination.blocker}
         </p>
 
-        <.file_list files={@item.files} class="mt-2" />
+        <.file_list files={@item.files} label="Files" class="mt-2" />
       </section>
 
       <%!-- ==================== THE BUTTON ==================== --%>
@@ -739,7 +770,7 @@
           reaches into the scroller's padding, the negative margin lets the
           containing block reach the same place. Measured in Chrome: 16px then
           80px of gap before, 0 and 0 after. --%>
-      <section class="shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky -bottom-4 rounded-t-lg bg-zinc-900 p-4">
+      <.form_footer>
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <.button
             :if={!@read_only}
@@ -769,7 +800,7 @@
             Everything is settled, but the files can't be placed yet — see Files &amp; destination.
           </p>
         </div>
-      </section>
+      </.form_footer>
     </div>
   </div>
 </.layout>

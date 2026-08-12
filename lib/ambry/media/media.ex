@@ -160,6 +160,20 @@ defmodule Ambry.Media.Media do
       @provenance_fields ++ [:media_narrators],
       opts[:provenance] || %{}
     )
+    |> track_chapters_provenance(opts[:provenance] || %{})
+  end
+
+  # Chapters join provenance only when a save carries a source for them (an
+  # applied titles merge). They can't ride the tracked list above: an embed
+  # with no primary key registers as changed on every cast, so blanket
+  # tracking would stamp "manual, locked" onto the list every time the form
+  # saves — and the rows already carry their own finer provenance in
+  # `title_source`.
+  defp track_chapters_provenance(changeset, sources) do
+    case Map.get(sources, "chapters") do
+      nil -> changeset
+      source -> Provenance.track_changes(changeset, [:chapters], %{"chapters" => source})
+    end
   end
 
   defp validate_part_fields(changeset) do
@@ -466,35 +480,10 @@ defmodule Ambry.Media.Media do
 
   defp marker_times_changed?(changeset) do
     case fetch_change(changeset, :chapters) do
-      {:ok, chapters} ->
-        before = changeset.data.chapters |> List.wrap() |> Enum.map(& &1.time)
-
-        # A chapter is an embed with no primary key, so Ecto can't match
-        # incoming params to existing rows: every cast replaces the whole
-        # list, and the change is the outgoing rows AND the incoming ones.
-        # Comparing against both makes any edit at all look like a moved
-        # marker.
-        after_times =
-          chapters
-          |> Enum.reject(&(&1.action == :replace))
-          |> Enum.map(&get_field(&1, :time))
-
-        not times_equal?(before, after_times)
-
-      :error ->
-        false
+      {:ok, chapters} -> Chapter.times_moved?(changeset.data.chapters, chapters)
+      :error -> false
     end
   end
-
-  defp times_equal?(before, after_times) do
-    length(before) == length(after_times) and
-      before |> Enum.zip(after_times) |> Enum.all?(fn {a, b} -> decimal_equal?(a, b) end)
-  end
-
-  defp decimal_equal?(nil, nil), do: true
-  defp decimal_equal?(nil, _b), do: false
-  defp decimal_equal?(_a, nil), do: false
-  defp decimal_equal?(a, b), do: Decimal.equal?(a, b)
 
   defp maybe_clear_thumbnails(changeset) do
     case fetch_change(changeset, :image_path) do

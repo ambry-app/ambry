@@ -15,6 +15,7 @@ defmodule Ambry.Inbox.Draft.Edit do
 
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Chapters
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.GroupLink
@@ -25,6 +26,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   alias Ambry.Inbox.Draft.SourceRef
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Media.Media.Chapter
 
   @doc """
   Accepts one of a scalar's proposed candidates.
@@ -578,6 +580,41 @@ defmodule Ambry.Inbox.Draft.Edit do
   defp kind_of(:work), do: :author
   defp kind_of(:recording), do: :narrator
 
+  ## ordering
+
+  @doc """
+  Moves a credit one slot up or down. List order is billing order — the
+  importer writes `position` from it — so an order the operator chose is an
+  answer, and both moved rows are marked curated to survive reseeds
+  (`Seed.keep_curated/2` rebuilds *uncurated* rows in derivation order,
+  which would quietly undo the move).
+  """
+  def move_credit(draft, section, index, direction) do
+    update_credits(draft, section, &swap(&1, index, direction))
+  end
+
+  @doc """
+  Moves a series membership one slot up or down — same doctrine as
+  `move_credit/4`; a book's series order is its own kind of billing.
+  """
+  def move_series(draft, index, direction) do
+    update_in(draft.work.series, &swap(&1, index, direction))
+  end
+
+  defp swap(list, index, direction) do
+    other = if direction == :up, do: index - 1, else: index + 1
+    length = length(list)
+
+    if index >= 0 and index < length and other >= 0 and other < length do
+      a = list |> Enum.at(index) |> Map.put(:curated, true)
+      b = list |> Enum.at(other) |> Map.put(:curated, true)
+
+      list |> List.replace_at(index, b) |> List.replace_at(other, a)
+    else
+      list
+    end
+  end
+
   @doc """
   Adds a series membership the sources didn't propose.
   """
@@ -626,6 +663,35 @@ defmodule Ambry.Inbox.Draft.Edit do
 
   def restore_series(draft, index) do
     update_series(draft, index, &%{&1 | removed: false})
+  end
+
+  ## chapters
+
+  @doc """
+  Replaces the chapter list with an applied titles merge.
+
+  `marker_source` is nil for every UI path — a titles merge changed no
+  marker, and claiming otherwise would put a provider's name on a timeline
+  it never touched; the parameter exists for callers staging a timeline
+  that isn't the probe's (tests, a future re-extraction). Rows arrive
+  already merged, as structs or plain maps — normalized here so the embed
+  always holds its own struct. Curated: an applied merge is a deliberate
+  operator answer and must survive reseeds.
+  """
+  def set_chapters(draft, rows, marker_source \\ nil) do
+    rows = Enum.map(rows, &struct(Chapter, Map.take(&1, [:time, :title, :title_source])))
+
+    update_in(draft.recording.chapters, fn decision ->
+      decision = decision || %Chapters{}
+
+      %{
+        decision
+        | chapters: rows,
+          chapter_marker_source: marker_source || decision.chapter_marker_source,
+          approved: true,
+          curated: true
+      }
+    end)
   end
 
   ## the part set

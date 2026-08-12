@@ -58,6 +58,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Candidate
+  alias Ambry.Inbox.Draft.Chapters
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Field
@@ -72,6 +73,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Library
   alias Ambry.Library.Root
   alias Ambry.Library.Source
+  alias Ambry.Media.Media.Chapter
   alias Ambry.People.Author
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -760,10 +762,48 @@ defmodule Ambry.Inbox.Draft.Seed do
       # leaves the question open rather than being adopted quietly; that
       # ambiguity used to be invisible, showing up only as fields that
       # mysteriously stayed empty.
-      approved: doubt in [:none, :nothing_found]
+      approved: doubt in [:none, :nothing_found],
+      chapters: chapters_decision(item)
     }
     |> put_recording_fields(records, tags, item)
   end
+
+  # The chapter list, exactly as the probe read it off the files — seeded
+  # approved, because the file's own answer is the lone proposer and a
+  # scalar with exactly one source auto-approves everywhere else here. nil
+  # until a probe has run: "not read yet" must stay distinguishable from
+  # "the files carry no chapters".
+  defp chapters_decision(%InboxItem{probe: %{"chapter_list" => rows} = probe})
+       when is_list(rows) do
+    %Chapters{
+      chapter_marker_source: marker_source(probe["chapter_marker_source"]),
+      approved: true,
+      curated: false,
+      chapters: Enum.map(rows, &chapter_row/1)
+    }
+  end
+
+  defp chapters_decision(_item), do: nil
+
+  defp chapter_row(row) do
+    %Chapter{
+      time: row["time"] && Decimal.new(row["time"]),
+      title: row["title"],
+      title_source: title_source(row["title_source"])
+    }
+  end
+
+  defp marker_source("embedded"), do: :embedded
+  defp marker_source("file_boundaries"), do: :file_boundaries
+  defp marker_source("manual"), do: :manual
+  defp marker_source(_unrecorded), do: nil
+
+  defp title_source("embedded"), do: :embedded
+  defp title_source("filename"), do: :filename
+  defp title_source("provider"), do: :provider
+  defp title_source("generated"), do: :generated
+  defp title_source("manual"), do: :manual
+  defp title_source(_unrecorded), do: nil
 
   @doc """
   Re-derives a recording's fields from whichever records are currently ticked.

@@ -12,6 +12,7 @@ defmodule Ambry.Inbox.Draft.Recording do
 
   import Ecto.Changeset
 
+  alias Ambry.Inbox.Draft.Chapters
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.GroupLink
@@ -67,6 +68,11 @@ defmodule Ambry.Inbox.Draft.Recording do
     embeds_one :cover, Field, on_replace: :update
 
     embeds_many :narrators, Credit, on_replace: :delete
+
+    # The chapter list, seeded from the probe's reading of the files. nil
+    # until a probe has run — "not read yet" is a different fact from "no
+    # chapters", and only the probe may promote one to the other.
+    embeds_one :chapters, Chapters, on_replace: :update
   end
 
   @doc false
@@ -89,6 +95,7 @@ defmodule Ambry.Inbox.Draft.Recording do
     |> cast_embed(:description)
     |> cast_embed(:cover)
     |> cast_embed(:narrators)
+    |> cast_embed(:chapters)
   end
 
   @doc """
@@ -102,7 +109,18 @@ defmodule Ambry.Inbox.Draft.Recording do
       field(recording.description, "Description") ++
       field(recording.cover, "Cover image") ++
       group(recording.recording_group) ++
-      credits(recording.narrators)
+      credits(recording.narrators) ++
+      chapters(recording.chapters)
+  end
+
+  # Seeded approved — the file's own answer is the lone proposer — so this
+  # only ever fires if something explicitly un-approves the list.
+  defp chapters(nil), do: []
+
+  defp chapters(%Chapters{} = decision) do
+    if Chapters.resolved?(decision),
+      do: [],
+      else: [%{section: :recording, label: "Chapters", state: :unconfirmed}]
   end
 
   # A live, unresolved group link blocks import — a proposal is never

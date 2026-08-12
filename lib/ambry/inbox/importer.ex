@@ -53,6 +53,7 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.Books.Series
   alias Ambry.Images
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Chapters
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.GroupLink
@@ -160,14 +161,18 @@ defmodule Ambry.Inbox.Importer do
   end
 
   defp resolve_book(%{mode: :create} = work, people) do
-    Books.create_book(
-      %{
-        title: Field.value(work.title),
-        published: Field.date(work.published),
-        published_format: Field.format_atom(work.published, :full),
-        book_authors: author_params(work.authors, people),
-        series_books: series_params(work.series)
-      },
+    # Empty lists are omitted, not passed: on a new record `[]` still
+    # counts as a change against the unloaded assoc, and a changed list
+    # with no source stamps `manual` provenance — which is how every
+    # zero-series import wore "Series from you" on the edit form.
+    %{
+      title: Field.value(work.title),
+      published: Field.date(work.published),
+      published_format: Field.format_atom(work.published, :full)
+    }
+    |> put_non_empty(:book_authors, author_params(work.authors, people))
+    |> put_non_empty(:series_books, series_params(work.series))
+    |> Books.create_book(
       provenance:
         %{
           "title" => work.title,
@@ -353,32 +358,34 @@ defmodule Ambry.Inbox.Importer do
       })
 
   defp do_create_media(item, book, probes, people, recording, group) do
-    {chapters, marker_source} = Scanner.chapters(probes)
+    {chapters, marker_source} = chapters(recording.chapters, probes)
 
-    Media.create_media(
-      %{
-        book_id: book.id,
-        # external until placement says otherwise; a downloads item is
-        # repointed to its library copy below
-        custody: :external,
-        source_path: item.path,
-        source_files: item.files,
-        status: :pending,
-        # The recording's settled place in its part set, if any.
-        part_number: part_number(recording.recording_group),
-        recording_group_id: group && group.id,
-        duration: Scanner.total_duration(probes),
-        chapters: chapters,
-        chapter_marker_source: marker_source,
-        media_narrators: narrator_params(recording.narrators, people),
-        media_tracks: Scanner.track_attrs(probes),
-        title: Field.value(recording.title),
-        published: Field.date(recording.published),
-        published_format: Field.format_atom(recording.published, :full),
-        publisher: Field.value(recording.publisher),
-        description: Field.value(recording.description),
-        image_path: cover(recording.cover)
-      },
+    %{
+      book_id: book.id,
+      # external until placement says otherwise; a downloads item is
+      # repointed to its library copy below
+      custody: :external,
+      source_path: item.path,
+      source_files: item.files,
+      status: :pending,
+      # The recording's settled place in its part set, if any.
+      part_number: part_number(recording.recording_group),
+      recording_group_id: group && group.id,
+      duration: Scanner.total_duration(probes),
+      chapters: chapters,
+      chapter_marker_source: marker_source,
+      media_tracks: Scanner.track_attrs(probes),
+      title: Field.value(recording.title),
+      published: Field.date(recording.published),
+      published_format: Field.format_atom(recording.published, :full),
+      publisher: Field.value(recording.publisher),
+      description: Field.value(recording.description),
+      image_path: cover(recording.cover)
+    }
+    # omitted when empty, same reason as `resolve_book/2`'s lists — and a
+    # full-cast recording crediting nobody is legal, not a gap
+    |> put_non_empty(:media_narrators, narrator_params(recording.narrators, people))
+    |> Media.create_media(
       provenance:
         %{
           "title" => recording.title,
@@ -457,9 +464,11 @@ defmodule Ambry.Inbox.Importer do
   # The list-level source: where a structural list's members came from, when
   # they share one. Credits carry their own source; the list records the
   # first provider-ish one, so the edit form's "Authors — from rreading-glasses"
-  # flag survives the import the way scalar flags always did.
+  # flag survives the import the way scalar flags always did. Tombstoned rows
+  # don't count: a removed proposal's source describes nothing that imported.
   defp list_provenance(entries) do
     entries
+    |> Enum.reject(& &1.removed)
     |> Enum.map(& &1.source)
     |> Enum.find(&(is_binary(&1) and &1 not in ["manual"]))
   end
@@ -470,6 +479,9 @@ defmodule Ambry.Inbox.Importer do
       source -> Map.put(sources, name, source)
     end
   end
+
+  defp put_non_empty(params, _key, []), do: params
+  defp put_non_empty(params, key, list), do: Map.put(params, key, list)
 
   ## publishing
 
@@ -600,6 +612,19 @@ defmodule Ambry.Inbox.Importer do
   end
 
   ## files
+
+  # A curated chapter list is the operator's answer and lands verbatim —
+  # including any hand-nudged times. That is safe against the re-probe below
+  # because a file change flips the draft stale, and a stale draft is
+  # unresolved: import refuses before it gets here. Uncurated chapters
+  # re-derive from the fresh probe, exactly what the seeder showed.
+  defp chapters(%Chapters{curated: true} = decision, _probes) do
+    # plain maps, like the scanner's own rows — `cast_embed` refuses structs
+    rows = Enum.map(decision.chapters, &Map.take(&1, [:time, :title, :title_source]))
+    {rows, decision.chapter_marker_source}
+  end
+
+  defp chapters(_decision, probes), do: Scanner.chapters(probes)
 
   # An item's files, in the order discovery recorded them — which is natural
   # sort, and therefore the play order the operator saw listed on the form.

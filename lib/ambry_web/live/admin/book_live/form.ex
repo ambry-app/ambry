@@ -426,9 +426,11 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   defp assign_form(socket, %Changeset{} = changeset) do
     assign(socket,
       form: to_form(changeset),
-      # the move buttons need to know where the ends of each list are
+      # the move buttons need to know where the ends of each list are, and
+      # the empty states whether there is a list at all
       book_author_count: length(Changeset.get_assoc(changeset, :book_authors)),
-      series_book_count: length(Changeset.get_assoc(changeset, :series_books))
+      series_book_count: length(Changeset.get_assoc(changeset, :series_books)),
+      book_universe_count: length(Changeset.get_assoc(changeset, :book_universes))
     )
   end
 

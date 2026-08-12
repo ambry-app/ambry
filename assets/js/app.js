@@ -33,6 +33,7 @@ import { ReadMoreHook } from "./hooks/read-more"
 import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
 import { ScrollMatchHook } from "./hooks/scroll-match"
 import { SearchBoxHook } from "./hooks/search-box"
+import { StickyFooterHook } from "./hooks/sticky-footer"
 
 // Establish Phoenix Socket and LiveView configuration.
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
@@ -51,6 +52,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "image-size": ImageSizeHook,
     "scroll-match": ScrollMatchHook,
     "paste-image": PasteImageHook,
+    "sticky-footer": StickyFooterHook,
   },
 })
 

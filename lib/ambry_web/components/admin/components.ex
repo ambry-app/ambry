@@ -637,43 +637,39 @@ defmodule AmbryWeb.Admin.Components do
   attr :rest, :global
   slot :inner_block, required: true
   slot :add, doc: "the add_button, below the container on the ground"
-  slot :proposals, doc: "a curation proposal row, between the rows and the add"
+  slot :proposals, doc: "a curation proposal row, inside the container after the rows"
   slot :flag, doc: "a provenance flag beside the label — where a list's members came from"
 
   @doc """
   A list the operator is building — authors, series, narrators — in the one
-  grammar every form shares: **label above the container, rows inside it, add
-  below it, all on the ground.**
+  grammar every form shares: **the card names itself** (label, provenance
+  flag and hint at the top of the container, on the rail), rows follow, the
+  add sits below the container on the ground.
 
-  This is the import form's shape. It used to be one of two: the legacy forms
-  kept the label and the add *inside* their block, so the same content type
-  (a list of authors plus a way to add one) wore a different anatomy
-  depending on which form you were on. What varies between forms is only
-  what the container holds — one card of single-input rows here, a run of
-  per-decision cards on the import form — never where its name and its add
-  live.
-
-  The ground label wears `pl-3` deliberately: its text aligns with the railed
-  text inside the container below it, the same trick the import form's
-  section labels use.
+  The label lived *above* the container for a while, which put the same
+  fact's name in a different place than every decision card, field group and
+  library-root block — all of which carry their name inside. One rule now:
+  ground level is for section headings and helper prose only; everything a
+  card says about itself, it says inside.
   """
   def list_cluster(assigns) do
     ~H"""
     <div class={["space-y-2", @class]} {@rest}>
-      <div class="flex items-baseline gap-2 pl-3">
-        <.label>{@label}</.label>
-        {render_slot(@flag)}
-      </div>
-      <p :if={@hint} class="max-w-prose pl-3 text-sm text-zinc-400">{@hint}</p>
       <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
+        <div class="flex items-baseline gap-2 pl-3">
+          <.label>{@label}</.label>
+          {render_slot(@flag)}
+        </div>
+        <p :if={@hint} class="max-w-prose pl-3 text-sm text-zinc-400">{@hint}</p>
         {render_slot(@inner_block)}
+        {render_slot(@proposals)}
       </div>
-      {render_slot(@proposals)}
       {render_slot(@add)}
     </div>
     """
   end
 
+  attr :id, :string, default: "form-footer", doc: "the sticky-footer hook needs one"
   attr :class, :any, default: nil
   attr :rest, :global
   slot :inner_block, required: true
@@ -692,7 +688,12 @@ defmodule AmbryWeb.Admin.Components do
   """
   def form_footer(assigns) do
     ~H"""
+    <%!-- The sticky-footer hook rounds the bottom corners (and drops the
+        floating shadow) whenever the page has nothing to scroll — a slab
+        that never sticks is an ordinary card and dresses like one. --%>
     <section
+      id={@id}
+      phx-hook="sticky-footer"
       class={["shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky -bottom-4 rounded-t-lg bg-zinc-900 p-4", @class]}
       {@rest}
     >
@@ -704,6 +705,7 @@ defmodule AmbryWeb.Admin.Components do
   end
 
   attr :files, :list, required: true
+  attr :label, :string, default: nil, doc: "the card names itself — rendered inside, on the rail"
   attr :class, :any, default: nil
 
   @doc """
@@ -712,18 +714,25 @@ defmodule AmbryWeb.Admin.Components do
   This is a fact display, not a control — it deliberately does NOT wear the
   dashed dropzone costume the media form used to put its file list in, which
   made "the files you have" look like a place to drop more.
+
+  Long lists scroll *inside* the card — the label and common-directory line
+  stay pinned, and the scrollbar sits in its own gutter (`pr-2`), the same
+  anatomy as the chapter editor's rows.
   """
   def file_list(assigns) do
     assigns = assign(assigns, :common, common_dir(assigns.files))
 
     ~H"""
-    <div :if={@files != []} class={["rounded-lg bg-zinc-900 p-4", @class]}>
+    <div :if={@files != []} class={["space-y-1 rounded-lg bg-zinc-900 p-4", @class]}>
+      <.label :if={@label} class="pl-3">{@label}</.label>
       <p :if={@common != ""} class="font-mono truncate text-xs text-zinc-500">{@common}/</p>
-      <ul class="space-y-0.5 pt-1">
-        <li :for={file <- @files} class="font-mono truncate pl-3 text-xs text-zinc-400">
-          {file_label(file, @common)}
-        </li>
-      </ul>
+      <div class="max-h-64 overflow-y-auto pr-2">
+        <ul class="space-y-0.5 pt-1">
+          <li :for={file <- @files} class="font-mono truncate pl-3 text-xs text-zinc-400">
+            {file_label(file, @common)}
+          </li>
+        </ul>
+      </div>
     </div>
     """
   end

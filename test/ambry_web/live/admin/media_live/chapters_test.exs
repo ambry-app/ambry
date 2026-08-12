@@ -1,6 +1,6 @@
 defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
   @moduledoc """
-  The chapter editor.
+  The chapter editor, on the media form where it now lives.
 
   Everything here is about the one distinction 1h introduced: a marker is a
   position the files stated, a title is a name from wherever the best one
@@ -19,9 +19,9 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
   defp media_with_chapters(chapters, attrs \\ []) do
     :media
     |> build([book: build(:book), chapters: chapters] ++ attrs)
-    # A real copy in the media's own folder, so the source modal can probe
-    # it — the relative fixture paths `with_source_files/1` writes are
-    # unreadable by anything that actually opens the file.
+    # A real copy in the media's own folder, so the re-read can probe it —
+    # the relative fixture paths `with_source_files/1` writes are unreadable
+    # by anything that actually opens the file.
     |> with_copied_source_files()
     |> insert()
   end
@@ -44,6 +44,21 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
     document |> Floki.find(selector) |> Enum.map(&(&1 |> Floki.attribute("value") |> hd()))
   end
 
+  describe "the section" do
+    # There is no second button and no second form anymore: the editor is
+    # one card on the media form, reachable from where the operator already
+    # is.
+    test "is part of the edit form, from the default state", %{conn: conn} do
+      media = media_with_chapters([chapter(0, "Prologue", :manual)])
+
+      {:ok, _view, html} = live(conn, ~p"/admin/media/#{media.id}/edit")
+
+      assert html =~ ~s(id="chapters")
+      assert [{"0", "Prologue"}] = rendered_rows(html)
+      assert html =~ "Add chapter"
+    end
+  end
+
   describe "the header" do
     test "says where the markers came from", %{conn: conn} do
       media =
@@ -51,7 +66,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
           chapter_marker_source: :file_boundaries
         )
 
-      {:ok, _view, html} = live(conn, ~p"/admin/media/#{media.id}/chapters")
+      {:ok, _view, html} = live(conn, ~p"/admin/media/#{media.id}/edit")
 
       assert html =~ "one per file"
       assert html =~ "1 generated"
@@ -60,14 +75,14 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
     test "is honest about a list that predates the field", %{conn: conn} do
       media = media_with_chapters([chapter(0, "Prologue", nil)])
 
-      {:ok, _view, html} = live(conn, ~p"/admin/media/#{media.id}/chapters")
+      {:ok, _view, html} = live(conn, ~p"/admin/media/#{media.id}/edit")
 
       assert html =~ "from before this was recorded"
     end
   end
 
   describe "editing" do
-    # The rule the whole page is built on, enforced where every path goes
+    # The rule the whole editor is built on, enforced where every path goes
     # through it rather than at the call sites.
     test "moving a marker makes the timeline the operator's", %{conn: conn} do
       media =
@@ -75,10 +90,10 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
           chapter_marker_source: :embedded
         )
 
-      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/chapters")
+      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
 
       view
-      |> form("#media-chapters-form", %{
+      |> form("#media-form", %{
         "media" => %{
           "chapters" => %{
             "0" => %{"time" => "0", "title" => "One", "title_source" => "provider"},
@@ -98,10 +113,10 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
       media =
         media_with_chapters([chapter(0, "One", :provider)], chapter_marker_source: :embedded)
 
-      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/chapters")
+      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
 
       view
-      |> form("#media-chapters-form", %{
+      |> form("#media-form", %{
         "media" => %{
           "chapters" => %{
             "0" => %{"time" => "0", "title" => "The Dungeon Opens", "title_source" => "provider"}
@@ -121,10 +136,10 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
     test "typing a title records it as the operator's", %{conn: conn} do
       media = media_with_chapters([chapter(0, "Chapter 1", :generated)])
 
-      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/chapters")
+      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
 
       view
-      |> form("#media-chapters-form", %{
+      |> form("#media-form", %{
         "media" => %{
           "chapters" => %{
             "0" => %{"time" => "0", "title" => "Prologue", "title_source" => "generated"}
@@ -147,11 +162,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
           chapter(600, "Chapter 2", :generated)
         ])
 
-      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/chapters")
+      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
 
       html =
         view
-        |> form("#media-chapters-form", %{
+        |> form("#media-form", %{
           "media" => %{
             "chapters" => %{
               "0" => %{"time" => "0", "title" => "Chapter 1", "title_source" => "generated"},
@@ -168,11 +183,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
     test "gives a row with no title the floor rather than an error", %{conn: conn} do
       media = media_with_chapters([chapter(0, "Prologue", :manual)])
 
-      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/chapters")
+      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
 
       html =
         view
-        |> form("#media-chapters-form", %{
+        |> form("#media-form", %{
           "media" => %{
             "chapters" => %{
               "0" => %{"time" => "0", "title" => "", "title_source" => "manual"}
@@ -191,11 +206,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
           chapter(600, "Chapter 2", :generated)
         ])
 
-      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/chapters")
+      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/edit")
 
       html =
         view
-        |> form("#media-chapters-form", %{
+        |> form("#media-form", %{
           "media" => %{
             "chapters" => %{
               "0" => %{"time" => "0", "title" => "Prologue", "title_source" => "manual"},
@@ -209,22 +224,6 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
       # Second row, so the floor calls it Chapter 2 — not renumbered to 1
       # just because the row above it isn't generated.
       assert html =~ ~s(value="Chapter 2")
-    end
-  end
-
-  describe "re-reading the files" do
-    test "offers what the files say, and applies it", %{conn: conn} do
-      media = media_with_chapters([], chapter_marker_source: nil)
-
-      {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/chapters?import=source")
-
-      # Generous, because this one genuinely goes to disk: it ffprobes the
-      # real fixture, and the default 100ms is a coin flip under a loaded
-      # suite.
-      html = render_async(view, 5_000)
-      # The fixture is one plain file with no chapter marks of its own.
-      assert html =~ "no chapter marks"
-      refute has_element?(view, "button[phx-click='import-all']")
     end
   end
 end

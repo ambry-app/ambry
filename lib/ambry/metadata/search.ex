@@ -80,6 +80,35 @@ defmodule Ambry.Metadata.Search do
     end)
   end
 
+  @doc """
+  Asks every enabled provider capable of chapter lists about one recording,
+  by ASIN — the recording-level natural key, which is why the caller hands
+  one in rather than a query: chapter lists exist per retail edition, not
+  per work.
+
+  Returns `{found, outcomes}` where `found` is a list of `{registry_entry,
+  %Provider.Chapters{}}` pairs. Only ever a *title* source — provider
+  timestamps describe the provider's own edition and are never applied to a
+  timeline (roadmap 1h).
+  """
+  def chapters(asin, opts \\ []) do
+    refresh = Keyword.get(opts, :refresh, true)
+
+    [capability: :chapters]
+    |> Registry.enabled()
+    |> Enum.reduce({[], []}, fn entry, {found, outcomes} ->
+      case Providers.chapters(entry.id, asin, refresh: refresh) do
+        {:ok, %Provider.Chapters{} = chapters} ->
+          {found ++ [{entry, chapters}],
+           outcomes ++ [ok_outcome(entry, length(chapters.chapters))]}
+
+        {:error, reason} ->
+          Logger.warning(fn -> "Metadata chapters: #{entry.id} failed: #{inspect(reason)}" end)
+          {found, outcomes ++ [failed_outcome(entry, reason)]}
+      end
+    end)
+  end
+
   defp ok_outcome(entry, count) do
     %{"id" => entry.id, "name" => entry.display_name, "status" => "ok", "count" => count}
   end

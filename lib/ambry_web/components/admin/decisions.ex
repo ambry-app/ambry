@@ -738,6 +738,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :searching_person, :string, default: nil, doc: "the person being looked up again"
   attr :photos_expanded, :map, default: %{}, doc: "person key => whether all photos show"
 
+  attr :count, :integer,
+    default: 1,
+    doc: "how many rows the list holds — the reorder arrows' ends"
+
   @doc """
   One credit, resolved to an identity.
 
@@ -816,6 +820,8 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
 
         <div class="flex flex-none items-center gap-2">
+          <.card_move_buttons event="move-credit" section={@section} index={@index} count={@count} />
+
           <button
             :if={!@credit.approved}
             type="button"
@@ -1272,6 +1278,48 @@ defmodule AmbryWeb.Admin.Decisions do
     end
   end
 
+  attr :event, :string, required: true
+  attr :section, :string, default: nil
+  attr :index, :integer, required: true
+  attr :count, :integer, required: true
+
+  @doc """
+  Compact reorder arrows for a decision card's header action group — the
+  list-row `move_buttons` costume shrunk to icon size, because a card header
+  carries its verbs as icons (the ✕ beside these). List order is billing
+  order, so the cards need a way to say who comes first.
+  """
+  def card_move_buttons(assigns) do
+    ~H"""
+    <div :if={@count > 1} class="flex flex-none items-center gap-1" data-role="move-buttons">
+      <button
+        type="button"
+        phx-click={@event}
+        phx-value-section={@section}
+        phx-value-index={@index}
+        phx-value-direction="up"
+        disabled={@index == 0}
+        class="disabled:opacity-25"
+        title="Move up"
+      >
+        <.icon name="fa-chevron-up" class="h-3.5 w-3.5 cursor-pointer text-current hover:text-zinc-100" />
+      </button>
+      <button
+        type="button"
+        phx-click={@event}
+        phx-value-section={@section}
+        phx-value-index={@index}
+        phx-value-direction="down"
+        disabled={@index == @count - 1}
+        class="disabled:opacity-25"
+        title="Move down"
+      >
+        <.icon name="fa-chevron-down" class="h-3.5 w-3.5 cursor-pointer text-current hover:text-zinc-100" />
+      </button>
+    </div>
+    """
+  end
+
   attr :chosen, :boolean, required: true
   attr :event, :string, required: true
   attr :values, :map, default: %{}
@@ -1332,6 +1380,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :link, SeriesLink, required: true
   attr :index, :integer, required: true
   attr :options, :list, required: true
+
+  attr :count, :integer,
+    default: 1,
+    doc: "how many rows the list holds — the reorder arrows' ends"
 
   @doc """
   One series membership, with its number.
@@ -1396,6 +1448,8 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
 
         <div class="flex flex-none items-center gap-2">
+          <.card_move_buttons event="move-series" index={@index} count={@count} />
+
           <button
             :if={!@link.approved and @link.number}
             type="button"

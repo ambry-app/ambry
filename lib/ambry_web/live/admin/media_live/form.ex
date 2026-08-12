@@ -7,12 +7,14 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   use AmbryWeb, :admin_live_view
 
   import Ambry.Paths
+  import AmbryWeb.Admin.ChapterEditor
   import AmbryWeb.Admin.Curation
   import AmbryWeb.Admin.ParamHelpers
   import AmbryWeb.Admin.UploadHelpers
 
   alias Ambry.Inbox
   alias Ambry.Media
+  alias Ambry.Media.Chapters.Merge
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
@@ -23,6 +25,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
   alias Ecto.Changeset
+  alias Phoenix.LiveView.AsyncResult
 
   @scalar_kinds %{
     "published" => :published,
@@ -41,6 +44,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> assign(
        retrying: nil,
        chips: %{},
+       chapter_import: nil,
+       chapters_applied_asin: nil,
        provenance_hints: %{},
        select_files: false,
        selected_files: MapSet.new(),
@@ -67,7 +72,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       page_title: Media.Media.display_title(media),
       media: media,
       recording_groups: Media.recording_groups_for_select(media.book_id),
-      file_stats: Media.get_media_file_details(media)
+      file_stats: Media.get_media_file_details(media),
+      # View state, not derived per render: deriving it from the typeahead's
+      # value made the row vanish mid-edit the moment the box was cleared.
+      group_row_visible: media.recording_group_id != nil or media.part_number != nil
     )
     |> assign(
       evidence:
@@ -90,7 +98,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       page_title: "New Media",
       media: media,
       recording_groups: [],
-      file_stats: nil
+      file_stats: nil,
+      group_row_visible: false
     )
     |> assign(evidence: Evidence.new(%{}))
   end
@@ -168,6 +177,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         cancel_all_uploads(socket, :image)
       end
 
+    media_params = mark_typed_titles(media_params, current_chapters(socket.assigns.form))
+
     changeset =
       socket.assigns.media
       |> Media.change_media(media_params)
@@ -185,6 +196,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   def handle_event("submit", %{"media" => media_params}, socket) do
+    media_params = mark_typed_titles(media_params, current_chapters(socket.assigns.form))
+
     socket =
       assign(socket,
         provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, media_params)
@@ -217,8 +230,77 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:noreply, cancel_upload(socket, :audio, ref)}
   end
 
+  # ── the part set ───────────────────────────────────────────────────────
+
+  def handle_event("add-group-row", _params, socket) do
+    {:noreply, assign(socket, group_row_visible: true)}
+  end
+
+  def handle_event("remove-group-row", _params, socket) do
+    params =
+      Map.merge(socket.assigns.form.params, %{"recording_group_id" => "", "part_number" => ""})
+
+    {:noreply,
+     socket
+     |> assign_form(Media.change_media(socket.assigns.media, params))
+     |> assign(group_row_visible: false)}
+  end
+
   def handle_event("cancel-supplemental-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :supplemental, ref)}
+  end
+
+  # ── chapters ───────────────────────────────────────────────────────────
+  #
+  # The title import, inline where a modal used to be: the fetched titles
+  # render into the rows as a proposed column, and nothing lands until
+  # Take — Save is still the only thing that persists.
+
+  def handle_event("fetch-chapter-titles", %{"asin" => asin}, socket) do
+    chip =
+      socket.assigns.evidence
+      |> Evidence.used_records()
+      |> title_chips(socket.assigns.chapters_applied_asin)
+      |> Enum.find(&(&1.asin == asin))
+
+    if chip do
+      {:noreply,
+       socket
+       |> assign(chapter_import: pending_import(chip))
+       |> start_async(:chapter_titles, fn -> fetch_chapter_titles(asin) end)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("apply-chapter-titles", _params, socket) do
+    # against the on-screen markers, not the stored ones — an unsaved nudge
+    # means those markers
+    showing = current_chapters(socket.assigns.form)
+
+    with %{chip: chip, result: %AsyncResult{ok?: true, result: fetched}} <-
+           socket.assigns.chapter_import,
+         # one-to-one or not at all — an operator call; a mismatched list
+         # stays visible in the proposed column but is never poured
+         true <- takeable?(fetched.incoming, showing) do
+      {merged, _alignment} = Merge.titles(showing, fetched.incoming, :provider)
+
+      {:noreply,
+       socket
+       |> put_chapters(merged)
+       |> assign(
+         chapter_import: nil,
+         chapters_applied_asin: chip.asin,
+         provenance_hints:
+           ProvenanceHints.for_list(socket.assigns.provenance_hints, "chapters", fetched.source)
+       )}
+    else
+      _not_takeable -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("cancel-chapter-import", _params, socket) do
+    {:noreply, assign(socket, chapter_import: nil)}
   end
 
   # ── the evidence panel ─────────────────────────────────────────────────
@@ -367,6 +449,28 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      socket
      |> assign(evidence: %{socket.assigns.evidence | running?: false}, retrying: nil)
      |> put_flash(:error, "Searching the providers failed — try again.")}
+  end
+
+  def handle_async(:chapter_titles, {:ok, fetched}, socket) do
+    {:noreply, update_pending_import(socket, &AsyncResult.ok(&1, fetched))}
+  end
+
+  def handle_async(:chapter_titles, {:exit, reason}, socket) do
+    {:noreply, update_pending_import(socket, &AsyncResult.failed(&1, async_fail(reason)))}
+  end
+
+  # A titles merge changed no marker, so the recorded marker source stands —
+  # claiming otherwise would put a provider's name on a timeline it never
+  # touched.
+  defp put_chapters(socket, chapters) do
+    params =
+      socket.assigns.form.params
+      # An import replaces the whole list; a sort param tracking the old rows
+      # would re-order the new ones against positions that no longer exist.
+      |> Map.drop(["chapters_sort", "chapters_drop"])
+      |> Map.put("chapters", Enum.map(chapters, &chapter_params/1))
+
+    assign_form(socket, Media.change_media(socket.assigns.media, params))
   end
 
   # The narrator identity a proposed credit names — an existing narrator of
@@ -605,6 +709,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp assign_form(socket, %Changeset{} = changeset) do
+    # generated chapter titles are positions and follow their rows
+    changeset = renumber_generated(changeset)
+
     assign(socket,
       form: to_form(changeset),
       # the move buttons need to know where the ends of the list are
