@@ -133,14 +133,17 @@ defmodule Ambry.Media.Organization do
 
     with {:ok, folder} <- NamingTemplate.render(Settings.library_naming_template(), values),
          {:ok, filenames} <-
-           NamingTemplate.filenames(values, current_files, filename_part(media)) do
+           NamingTemplate.filenames(values, current_files, filename_recording(media)) do
       {:ok, Enum.map(filenames, &Path.join([root.path, folder, &1]))}
     end
   end
 
-  # Without the part suffix, re-organizing one part of a set would rename it
-  # onto its sibling's path (and refuse, or worse) — the same collision the
-  # import-time suffix exists to prevent.
+  # The same descriptor import placed the files under, so re-organizing a
+  # recording lands it back on its own path rather than a sibling's.
+  defp filename_recording(%Media{} = media) do
+    %{part: filename_part(media), token: Media.filename_token(media)}
+  end
+
   defp filename_part(%Media{part_number: nil}), do: nil
 
   defp filename_part(%Media{part_number: number, recording_group: group}) do

@@ -139,13 +139,44 @@ defmodule Ambry.Library.NamingTemplateTest do
 
     test "suffixes a part of a set, in the set's own wording" do
       assert {:ok, "The Way of Kings - Part 2 of 3.m4b"} =
-               NamingTemplate.filename(@book, "a.m4b", %{number: 2, total: 3, word: nil})
+               NamingTemplate.filename(@book, "a.m4b", %{part: part(2, 3, nil)})
 
       assert {:ok, "The Way of Kings - Part 2.m4b"} =
-               NamingTemplate.filename(@book, "a.m4b", %{number: 2, total: nil, word: nil})
+               NamingTemplate.filename(@book, "a.m4b", %{part: part(2, nil, nil)})
 
       assert {:ok, "The Way of Kings - Episode 2 of 3.m4b"} =
-               NamingTemplate.filename(@book, "a.m4b", %{number: 2, total: 3, word: "episode"})
+               NamingTemplate.filename(@book, "a.m4b", %{part: part(2, 3, "episode")})
+    end
+  end
+
+  # The token is what makes a name unique inside a book folder that is shared
+  # by every part of a set and every recording of the work. Two readings of
+  # one book published the same year used to render to one identical path.
+  describe "filename/3 with a recording token" do
+    test "brackets the token onto the end of the name" do
+      assert {:ok, "The Way of Kings [7bKq].m4b"} =
+               NamingTemplate.filename(@book, "a.m4b", %{token: "7bKq"})
+    end
+
+    test "sits after the part label, so the readable part stays readable" do
+      assert {:ok, "The Way of Kings - Part 2 of 3 [7bKq].m4b"} =
+               NamingTemplate.filename(@book, "a.m4b", %{part: part(2, 3, nil), token: "7bKq"})
+    end
+
+    test "two recordings of one book no longer render to one path" do
+      assert {:ok, first} = NamingTemplate.filename(@book, "a.m4b", %{token: "7bKq"})
+      assert {:ok, second} = NamingTemplate.filename(@book, "a.m4b", %{token: "9mZp"})
+
+      refute first == second
+    end
+
+    test "a missing token is simply absent, never an empty bracket" do
+      assert {:ok, "The Way of Kings.m4b"} = NamingTemplate.filename(@book, "a.m4b", %{})
+
+      assert {:ok, "The Way of Kings.m4b"} =
+               NamingTemplate.filename(@book, "a.m4b", %{token: nil})
+
+      assert {:ok, "The Way of Kings.m4b"} = NamingTemplate.filename(@book, "a.m4b", %{token: ""})
     end
   end
 
@@ -186,16 +217,34 @@ defmodule Ambry.Library.NamingTemplateTest do
 
     test "a part of a set takes its suffix into the subfolder name too" do
       assert {:ok, names} =
-               NamingTemplate.filenames(@book, ["/x/a.mp3", "/x/b.mp3"], %{
-                 number: 2,
-                 total: 3,
-                 word: nil
-               })
+               NamingTemplate.filenames(@book, ["/x/a.mp3", "/x/b.mp3"], %{part: part(2, 3, nil)})
 
       assert names == [
                "The Way of Kings - Part 2 of 3/The Way of Kings - Part 2 of 3 - 001.mp3",
                "The Way of Kings - Part 2 of 3/The Way of Kings - Part 2 of 3 - 002.mp3"
              ]
+    end
+
+    # The folder is the thing that has to be unique inside the book folder,
+    # so it carries the token — and the files inside it don't repeat it,
+    # because the index is already all the uniqueness they need.
+    test "the token goes on the recording's folder, not on every file in it" do
+      assert {:ok, names} =
+               NamingTemplate.filenames(@book, ["/x/a.mp3", "/x/b.mp3"], %{token: "7bKq"})
+
+      assert names == [
+               "The Way of Kings [7bKq]/The Way of Kings - 001.mp3",
+               "The Way of Kings [7bKq]/The Way of Kings - 002.mp3"
+             ]
+    end
+
+    test "two multi-file recordings of one book get separate folders" do
+      sources = ["/x/a.mp3", "/x/b.mp3"]
+
+      assert {:ok, [first | _]} = NamingTemplate.filenames(@book, sources, %{token: "7bKq"})
+      assert {:ok, [second | _]} = NamingTemplate.filenames(@book, sources, %{token: "9mZp"})
+
+      refute Path.dirname(first) == Path.dirname(second)
     end
 
     test "refuses without a title" do
@@ -231,4 +280,6 @@ defmodule Ambry.Library.NamingTemplateTest do
       assert {:error, :no_title_token} = NamingTemplate.validate("{author}/{year}")
     end
   end
+
+  defp part(number, total, word), do: %{number: number, total: total, word: word}
 end

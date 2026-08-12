@@ -40,7 +40,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
                  root,
                  "Brandon Sanderson",
                  "The Way of Kings (2010)",
-                 "The Way of Kings.m4b"
+                 "The Way of Kings [#{Media.filename_token(media)}].m4b"
                ])
 
       assert File.exists?(placed)
@@ -65,15 +65,19 @@ defmodule Ambry.Inbox.ManagedImportTest do
       # A subfolder, because the book folder is shared with every other
       # recording of the same work — and indexed names, because play order
       # has to be legible on disk rather than inherited from whatever the
-      # release called things.
+      # release called things. The folder carries the recording's token; the
+      # files inside it don't repeat it.
+      recording_folder =
+        Path.join(book_folder, "The Way of Kings [#{Media.filename_token(media)}]")
+
       assert media.source_files == [
-               Path.join([book_folder, "The Way of Kings", "The Way of Kings - 001.m4b"]),
-               Path.join([book_folder, "The Way of Kings", "The Way of Kings - 002.m4b"]),
-               Path.join([book_folder, "The Way of Kings", "The Way of Kings - 003.m4b"])
+               Path.join(recording_folder, "The Way of Kings - 001.m4b"),
+               Path.join(recording_folder, "The Way of Kings - 002.m4b"),
+               Path.join(recording_folder, "The Way of Kings - 003.m4b")
              ]
 
       assert Enum.all?(media.source_files, &File.exists?/1)
-      assert media.source_path == Path.join(book_folder, "The Way of Kings")
+      assert media.source_path == recording_folder
 
       # 01 before 02 before 10: the order the operator saw, not the order the
       # filenames sort as strings.
@@ -99,28 +103,27 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert Decimal.equal?(media.duration, Decimal.add(first.duration, second.duration))
     end
 
-    test "places every file of a recording or none of them" do
-      %{item: item, root: root} = downloads_item(files: ["01.m4b", "02.m4b", "03.m4b"])
+    # A destination can no longer be occupied on purpose — the token is only
+    # knowable once the record exists, which is exactly the guarantee — so the
+    # failure is provoked by a root that can't be written into at all.
+    # `Ambry.Library.PlacementTest` covers the file-by-file rollback; what
+    # matters here is that the records go back with the bytes.
+    test "a placement that fails leaves no records and no files" do
+      # Inside a folder of its own, never loose in `source_media/` — the file
+      # audit lists that directory and expects only folders, so a stray file
+      # there fails unrelated tests depending on run order.
+      unusable = Path.join(new_dir("blocked"), "a-file-where-a-root-should-be")
+      File.write!(unusable, "not a directory")
 
-      # Something is already sitting where the third file has to go. Two
-      # thirds of a book in the library is not a partial success.
-      occupied =
-        Path.join([
-          root,
-          "Brandon Sanderson",
-          "The Way of Kings (2010)",
-          "The Way of Kings",
-          "The Way of Kings - 003.m4b"
-        ])
+      %{item: item, sources: sources} =
+        downloads_item(root: unusable, files: ["01.m4b", "02.m4b", "03.m4b"])
 
-      File.mkdir_p!(Path.dirname(occupied))
-      File.write!(occupied, "not ours")
+      assert {:error, _reason} = Inbox.import_item(item)
 
-      assert {:error, {:destination_exists, ^occupied}} = Inbox.import_item(item)
-
-      assert File.ls!(Path.dirname(occupied)) == ["The Way of Kings - 003.m4b"]
-      assert File.read!(occupied) == "not ours"
       assert Repo.aggregate(Media.Media, :count) == 0
+      assert Repo.aggregate(Ambry.Books.Book, :count) == 0
+      assert Enum.all?(sources, &File.exists?/1)
+      assert Inbox.get_item!(item.id).status == :pending
     end
 
     test "renders the folder from the operator's template" do
@@ -136,7 +139,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
                  root,
                  "Brandon Sanderson",
                  "2010 - The Way of Kings",
-                 "The Way of Kings.m4b"
+                 "The Way of Kings [#{Media.filename_token(media)}].m4b"
                ])
     end
 
@@ -183,8 +186,19 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
       assert [placed1] = Media.get_media!(media1.id).source_files
       assert [placed2] = Media.get_media!(media2.id).source_files
-      assert placed1 == Path.join(folder, "The Way of Kings - Part 1 of 2.m4b")
-      assert placed2 == Path.join(folder, "The Way of Kings - Part 2 of 2.m4b")
+
+      assert placed1 ==
+               Path.join(
+                 folder,
+                 "The Way of Kings - Part 1 of 2 [#{Media.filename_token(media1)}].m4b"
+               )
+
+      assert placed2 ==
+               Path.join(
+                 folder,
+                 "The Way of Kings - Part 2 of 2 [#{Media.filename_token(media2)}].m4b"
+               )
+
       assert File.exists?(placed1)
       assert File.exists?(placed2)
     end
@@ -362,19 +376,35 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert item.draft.destination.approved
     end
 
-    # A collision means two recordings rendered to one path, which is a
-    # curation problem the operator has to see.
-    test "refuses to overwrite something already at the destination" do
-      %{item: item, root: root} = downloads_item()
+    # Two recordings of one book used to render to one path and refuse; each
+    # now carries its own token, so the same import twice lands twice.
+    test "a second recording of the same book no longer collides with the first" do
+      %{item: first, watched: watched, downloads: downloads, root: root} = downloads_item()
 
-      occupied =
-        Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)", "The Way of Kings.m4b"])
+      assert {:ok, media1} = Inbox.import_item(first)
 
-      File.mkdir_p!(Path.dirname(occupied))
-      File.write!(occupied, "already here")
+      # A second reading of the same work, in its own release folder.
+      second_release = Path.join(downloads, "The Way of Kings [Re-read]")
+      File.mkdir_p!(second_release)
+      File.cp!(tagged_audio(), Path.join(second_release, "book.m4b"))
+      {:ok, _counts} = Inbox.discover(watched)
+      {[second], false} = Inbox.list_items(filter: "Re-read")
+      {:ok, second} = Inbox.probe_item(second)
 
-      assert {:error, {:destination_exists, ^occupied}} = Inbox.import_item(item)
-      assert File.read!(occupied) == "already here"
+      assert {:ok, media2} = Inbox.import_item(settle(second))
+
+      [placed1] = Media.get_media!(media1.id).source_files
+      [placed2] = Media.get_media!(media2.id).source_files
+
+      # Same book folder, different files, both on disk.
+      assert Path.dirname(placed1) == Path.dirname(placed2)
+
+      assert Path.dirname(placed1) ==
+               Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)"])
+
+      refute placed1 == placed2
+      assert File.exists?(placed1)
+      assert File.exists?(placed2)
     end
   end
 

@@ -9,6 +9,7 @@ defmodule Ambry.Media.Media do
   import Ecto.Changeset
 
   alias Ambry.Books.Book
+  alias Ambry.Hashids
   alias Ambry.Media.Media
   alias Ambry.Media.Media.Chapter
   alias Ambry.Media.MediaNarrator
@@ -246,6 +247,28 @@ defmodule Ambry.Media.Media do
       _other -> nil
     end
   end
+
+  @doc """
+  The short identifier this recording's files carry in the library.
+
+  A book folder is shared by every part of a set and by every recording of the
+  same work, so two readings published the same year used to render to one
+  identical path and placement refused. This is what makes a recording's name
+  unique by construction instead — see `Ambry.Library.NamingTemplate.filenames/3`
+  for why it's unconditional rather than only added on collision.
+
+  It's the same `Ambry.Hashids` coder the track URLs use, on purpose: a token
+  in a filename is then greppable back to the record it names, years later,
+  by anyone holding the file.
+
+  **That coder is `Hashids.new([])` — no salt, library defaults — so this is
+  stable forever and identical in every environment. Giving it a salt or a
+  `min_length` for some URL-side reason would silently rename every file in
+  every library; `Ambry.HashidsTest` is the tripwire that stops it happening
+  by accident.**
+  """
+  def filename_token(%Media{id: id}) when is_integer(id), do: Hashids.encode(id)
+  def filename_token(%Media{}), do: nil
 
   @doc """
   The title this recording displays as: the override verbatim when set

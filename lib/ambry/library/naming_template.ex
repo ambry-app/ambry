@@ -68,15 +68,10 @@ defmodule Ambry.Library.NamingTemplate do
   @doc """
   The filename for a recording's file, keeping the source's extension.
 
-  A recording in a part set passes `%{number: n, total: t, word: w}` (total
-  and word may be nil) and gets a " - Part N of M" suffix in the group's own
-  wording — parts of one set are separate imports into the same book folder,
-  and without the suffix they'd render to one identical path. (A proper
-  `{part}` template token is future work; this keeps the parts apart until
-  then.)
+  See `filenames/3` — `recording` describes which recording this is.
   """
-  def filename(values, source_path, part \\ nil) do
-    with {:ok, [name]} <- filenames(values, [source_path], part), do: {:ok, name}
+  def filename(values, source_path, recording \\ %{}) do
+    with {:ok, [name]} <- filenames(values, [source_path], recording), do: {:ok, name}
   end
 
   @doc """
@@ -103,32 +98,80 @@ defmodule Ambry.Library.NamingTemplate do
   off the source filenames at import (the roadmap's 1h), and a hardlinked
   source keeps its own name regardless — the library copy is a second name for
   the same bytes, not a replacement.
+
+  ## The recording descriptor
+
+  `recording` says which recording of the work this is, and both of its keys
+  are appended to the **name stem** — the thing that has to be unique inside a
+  book folder, being the filename for a single-file recording and the
+  subfolder name for a multi-file one:
+
+    * `:part` — `%{number: n, total: t, word: w}` for a member of a part set,
+      rendering " - Part 2 of 3" in the group's own wording. Meaningful, and
+      what a human reads.
+    * `:token` — the recording's own short identifier, rendering " [7bKq]".
+      Meaningless, and what makes the name *guaranteed* unique.
+
+  ### Why the token is always there
+
+  A book folder is shared on purpose: by every part of a set, and by every
+  recording of the same work. Two readings of one book published the same year
+  therefore rendered to one identical path, and placement refused —
+  `{narrator}` in the template was the documented workaround, which taxes
+  every book in the library for a problem a handful have.
+
+  The token could have been added only on collision, and deliberately isn't.
+  That would make one recording's correct name depend on the *existence of
+  another record*, so the nightly organize would have to re-derive that
+  relationship every time it ran — and a re-derivation that quietly un-answers
+  a settled question is this codebase's most-repeated bug. With the token
+  always present the path is a pure function of the record, organize stays a
+  rename-to-computed-path, and `{:destination_exists, _}` stops being an
+  expected operator-facing outcome and becomes what it should be: a sign that
+  two records claim one path, which is a bug.
+
+  Nothing *inside* a multi-file recording's own folder repeats the token — the
+  ` - 001` index already makes those unique, and the folder carries the
+  guarantee.
   """
-  def filenames(values, source_paths, part \\ nil)
+  def filenames(values, source_paths, recording \\ %{})
 
-  def filenames(_values, [], _part), do: {:ok, []}
+  def filenames(_values, [], _recording), do: {:ok, []}
 
-  def filenames(values, source_paths, part) do
+  def filenames(values, source_paths, recording) do
     values = stringify(values)
 
     case sanitize(to_string(values["title"] || "")) do
-      "" -> {:error, :no_title}
-      name -> {:ok, build_filenames(name <> part_suffix(part), source_paths)}
+      "" ->
+        {:error, :no_title}
+
+      name ->
+        titled = name <> part_suffix(recording[:part])
+        {:ok, build_filenames(titled <> token_suffix(recording[:token]), titled, source_paths)}
     end
   end
 
-  defp build_filenames(name, [source_path]), do: [name <> extname(source_path)]
+  # `stem` is what must be unique inside the book folder; `titled` is the same
+  # name without the token, for the files inside a recording's own folder —
+  # where the index is already all the uniqueness there is to need.
+  defp build_filenames(stem, _titled, [source_path]), do: [stem <> extname(source_path)]
 
-  defp build_filenames(name, source_paths) do
+  defp build_filenames(stem, titled, source_paths) do
     width = index_width(length(source_paths))
 
     source_paths
     |> Enum.with_index(1)
     |> Enum.map(fn {source_path, index} ->
       padded = index |> to_string() |> String.pad_leading(width, "0")
-      Path.join(name, "#{name} - #{padded}#{extname(source_path)}")
+      Path.join(stem, "#{titled} - #{padded}#{extname(source_path)}")
     end)
   end
+
+  # Bracketed, per the convention every media tool already uses for a token
+  # that isn't part of the title, so nothing mistakes it for one.
+  defp token_suffix(nil), do: ""
+  defp token_suffix(""), do: ""
+  defp token_suffix(token), do: " [#{token}]"
 
   # Three digits unless there are genuinely more files than that, so a
   # forty-file book reads 001..040 and never gets re-padded by a later

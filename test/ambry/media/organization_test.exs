@@ -9,6 +9,7 @@ defmodule Ambry.Media.OrganizationTest do
   use Ambry.DataCase
 
   alias Ambry.Books
+  alias Ambry.Media.Media
   alias Ambry.Media.Organization
   alias Ambry.Repo
   alias Ambry.Settings
@@ -22,7 +23,14 @@ defmodule Ambry.Media.OrganizationTest do
 
       assert {:ok, :moved} = Organization.organize(media)
 
-      moved = Path.join([root, "Brandon Sanderson", "Oathbringer (2010)", "Oathbringer.m4b"])
+      moved =
+        Path.join([
+          root,
+          "Brandon Sanderson",
+          "Oathbringer (2010)",
+          "Oathbringer [#{Media.filename_token(media)}].m4b"
+        ])
+
       assert File.read!(moved) == "audio"
       refute File.exists?(file)
 
@@ -45,7 +53,9 @@ defmodule Ambry.Media.OrganizationTest do
     test "a part of a set keeps its part suffix" do
       %{media: media, folder: folder, file: file} = organized_media()
 
-      part_file = Path.join(folder, "The Way of Kings - Part 2 of 3.m4b")
+      part_file =
+        Path.join(folder, "The Way of Kings - Part 2 of 3 [#{Media.filename_token(media)}].m4b")
+
       File.rename!(file, part_file)
 
       group = insert(:recording_group, parts_total: 3)
@@ -114,7 +124,14 @@ defmodule Ambry.Media.OrganizationTest do
 
       assert {:ok, :moved} = Organization.organize(reload(media))
 
-      assert File.read!(Path.join([root, "The Way of Kings", "The Way of Kings.m4b"])) == "audio"
+      moved =
+        Path.join([
+          root,
+          "The Way of Kings",
+          "The Way of Kings [#{Media.filename_token(media)}].m4b"
+        ])
+
+      assert File.read!(moved) == "audio"
     end
 
     # Two recordings rendering to one path is a curation problem the operator
@@ -122,7 +139,14 @@ defmodule Ambry.Media.OrganizationTest do
     test "refuses when something already occupies the new path" do
       %{media: media, root: root, file: file} = organized_media()
 
-      occupied = Path.join([root, "Brandon Sanderson", "Oathbringer (2010)", "Oathbringer.m4b"])
+      occupied =
+        Path.join([
+          root,
+          "Brandon Sanderson",
+          "Oathbringer (2010)",
+          "Oathbringer [#{Media.filename_token(media)}].m4b"
+        ])
+
       File.mkdir_p!(Path.dirname(occupied))
       File.write!(occupied, "someone else")
 
@@ -163,7 +187,13 @@ defmodule Ambry.Media.OrganizationTest do
 
       assert {:ok, :moved} = Organization.organize(reload(media))
 
-      subfolder = Path.join([root, "Brandon Sanderson", "Oathbringer (2010)", "Oathbringer"])
+      subfolder =
+        Path.join([
+          root,
+          "Brandon Sanderson",
+          "Oathbringer (2010)",
+          "Oathbringer [#{Media.filename_token(media)}]"
+        ])
 
       moved = [
         Path.join(subfolder, "Oathbringer - 001.mp3"),
@@ -229,7 +259,7 @@ defmodule Ambry.Media.OrganizationTest do
     %{media: media, root: root, folder: folder, file: file, book: book} = organized_media()
 
     File.rm!(file)
-    subfolder = Path.join(folder, "The Way of Kings")
+    subfolder = Path.join(folder, "The Way of Kings [#{Media.filename_token(media)}]")
     File.mkdir_p!(subfolder)
 
     files =
@@ -274,8 +304,12 @@ defmodule Ambry.Media.OrganizationTest do
 
     folder = Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)"])
     File.mkdir_p!(folder)
-    file = Path.join(folder, "The Way of Kings.m4b")
-    File.write!(file, "audio")
+
+    # Placed at the name organize computes, token and all — a fixture sitting
+    # at the old token-less path would make every test here read as "organize
+    # moved it" when what actually happened is the fixture was wrong.
+    placeholder = Path.join(folder, "placeholder.m4b")
+    File.write!(placeholder, "audio")
 
     media =
       insert(:media,
@@ -285,14 +319,34 @@ defmodule Ambry.Media.OrganizationTest do
         published: ~D[2010-08-31],
         custody: Keyword.get(opts, :custody, :managed),
         source_path: folder,
-        source_files: [file],
+        source_files: [placeholder],
         mp4_path: nil,
         hls_path: nil,
         mpd_path: nil,
-        media_tracks: [build(:media_track, path: file)]
+        media_tracks: [build(:media_track, path: placeholder)]
       )
 
+    file = Path.join(folder, "The Way of Kings [#{Media.filename_token(media)}].m4b")
+    File.rename!(placeholder, file)
+    {:ok, media} = repoint(media, [file])
+
     %{media: reload(media), root: root, file: file, folder: folder, book: book}
+  end
+
+  # Points a fixture's media and its tracks at the files it actually has.
+  defp repoint(media, files) do
+    media = Repo.preload(media, :media_tracks, force: true)
+
+    media.media_tracks
+    |> Enum.sort_by(& &1.index)
+    |> Enum.zip(files)
+    |> Enum.each(fn {track, path} ->
+      {:ok, _track} = track |> Ecto.Changeset.change(%{path: path}) |> Repo.update()
+    end)
+
+    media
+    |> Ecto.Changeset.change(%{source_path: files |> hd() |> Path.dirname(), source_files: files})
+    |> Repo.update()
   end
 
   defp reload(media) do
