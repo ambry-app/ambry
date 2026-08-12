@@ -218,7 +218,10 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/media/#{media.id}/chapters?import=source")
 
-      html = render_async(view)
+      # Generous, because this one genuinely goes to disk: it ffprobes the
+      # real fixture, and the default 100ms is a coin flip under a loaded
+      # suite.
+      html = render_async(view, 5_000)
       # The fixture is one plain file with no chapter marks of its own.
       assert html =~ "no chapter marks"
       refute has_element?(view, "button[phx-click='import-all']")

@@ -173,7 +173,29 @@ defmodule Ambry.Media.Scanner.TagsTest do
       assert Tags.parse(%{"artist" => "A; B"}).authors == ["A", "B"]
       assert Tags.parse(%{"artist" => "A & B"}).authors == ["A", "B"]
       assert Tags.parse(%{"artist" => "A and B"}).authors == ["A", "B"]
+      assert Tags.parse(%{"artist" => "A/B"}).authors == ["A", "B"]
       assert Tags.parse(%{"composer" => "A, B, C"}).narrators == ["A", "B", "C"]
+    end
+
+    # Rare — 4 values in 295 real releases — and expensive out of all
+    # proportion: the joined string is not 0.85-similar to either real name,
+    # so every correct candidate took the "wrong reader" penalty and the
+    # library got a person called "Cynthia Farrell/Emily Woo Zeller".
+    test "splits the slash, measured on the release that needed it" do
+      tags =
+        Tags.parse(%{
+          "artist" => "Amal El-Mohtar/Max Gladstone",
+          "composer" => "Cynthia Farrell/Emily Woo Zeller"
+        })
+
+      assert tags.authors == ["Amal El-Mohtar", "Max Gladstone"]
+      assert tags.narrators == ["Cynthia Farrell", "Emily Woo Zeller"]
+    end
+
+    test "tolerates the spacing a real tagger leaves around a slash" do
+      # "Peter  Brown/Kate Atwater", the library's other slash-carrying credit
+      assert Tags.parse(%{"artist" => "Peter Brown / Kate Atwater"}).authors ==
+               ["Peter Brown", "Kate Atwater"]
     end
 
     test "doesn't repeat a name listed twice" do

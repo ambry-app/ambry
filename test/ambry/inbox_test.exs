@@ -337,6 +337,42 @@ defmodule Ambry.InboxTest do
 
       assert %{pending: 1, ignored: 1} = Inbox.count_by_status()
     end
+
+    test "the queue is newest-found first" do
+      root = watched_root()
+      release_folder(root, "Found first", ["book.m4b"])
+      {:ok, _counts} = Inbox.discover(root)
+      release_folder(root, "Found second", ["book.m4b"])
+      {:ok, _counts} = Inbox.discover(root)
+
+      assert {items, false} = Inbox.list_items(status: :pending)
+      assert Enum.map(items, &InboxItem.name/1) == ["Found second", "Found first"]
+    end
+
+    # The queue and the history run on two different clocks. Sorting the
+    # history by discovery time is what buried a release imported this
+    # morning under one imported last week.
+    test "the history is most-recently-acted-on first, not newest-found" do
+      root = watched_root()
+      release_folder(root, "Found first", ["book.m4b"])
+      release_folder(root, "Found second", ["book.m4b"])
+      {:ok, _counts} = Inbox.discover(root)
+
+      {items, false} = Inbox.list_items()
+      first = Enum.find(items, &(InboxItem.name(&1) == "Found first"))
+      second = Enum.find(items, &(InboxItem.name(&1) == "Found second"))
+
+      # Acted on in the opposite order to the one they were found in.
+      {:ok, _item} = Inbox.ignore_item(second)
+      # `updated_at` has second resolution, so without this both rows carry
+      # the same timestamp and the tie-break decides — which would pass for
+      # the wrong reason.
+      Process.sleep(1100)
+      {:ok, _item} = Inbox.ignore_item(first)
+
+      assert {items, false} = Inbox.list_items(status: :ignored)
+      assert Enum.map(items, &InboxItem.name/1) == ["Found first", "Found second"]
+    end
   end
 
   describe "discover/0 across registered sources" do

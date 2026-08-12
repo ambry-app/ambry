@@ -141,6 +141,25 @@ defmodule Ambry.Media.Scanner.Tags do
   # these are proposals, the operator confirms them, and `raw` keeps the
   # original string for a consumer that wants to try a whole-string match
   # first.
+  #
+  # **The slash is a separator too**, and leaving it out was expensive out of
+  # all proportion to how rare it is. Measured across all 295 releases of the
+  # operator's library: 4 credit values carry a slash, in 3 releases, and it
+  # is the ONLY separator character in the whole library this doesn't handle
+  # (no `|`, `+`, `·`, `•` anywhere). A person whose name contains a slash
+  # does not appear at all.
+  #
+  # What one unsplit value cost, on "This Is How You Lose the Time War"
+  # (`composer=Cynthia Farrell/Emily Woo Zeller`): the recording search
+  # carried the joined string as a query token; every correct candidate —
+  # Audible's and Hardcover's, all of which listed the two readers properly —
+  # then failed `apply_narrator/3`, because no single name is 0.85-similar to
+  # both names glued together, and took the decisive `@narrator_mismatch`
+  # penalty meant for *the wrong reader's edition*. Four right answers at
+  # 0.50, nothing confident enough to adopt, and the fallback wrote the
+  # joined string into the library as one person's name.
+  @separators ~r{\s*[;,&/]\s*|\s+(?:and|feat\.?|with)\s+}i
+
   defp get_list(tags, keys) do
     case get(tags, keys) do
       nil ->
@@ -148,7 +167,7 @@ defmodule Ambry.Media.Scanner.Tags do
 
       value ->
         value
-        |> String.split(~r/\s*[;,&]\s*|\s+(?:and|feat\.?|with)\s+/i)
+        |> String.split(@separators)
         |> Enum.map(&String.trim/1)
         |> Enum.reject(&(&1 == ""))
         |> Enum.uniq()
