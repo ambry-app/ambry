@@ -35,7 +35,7 @@
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
         <p class="overflow-hidden text-ellipsis" data-role="series-name">{series.name}</p>
         <p class="overflow-hidden text-ellipsis text-sm text-zinc-400" data-role="series-authors">
-          by {series.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
+          {series.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
       </div>
       <div class="hidden w-12 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">

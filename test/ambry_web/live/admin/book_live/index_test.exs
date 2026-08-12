@@ -27,7 +27,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
       {:ok, view, _html} = live(conn, ~p"/admin/books")
 
       assert has_element?(view, "[data-role='book-title']", book.title)
-      assert has_element?(view, "[data-role='book-authors']", "by #{author.name}")
+      assert has_element?(view, "[data-role='book-authors']", author.name)
       assert has_element?(view, "[data-role='book-series']", "#{series.name} #1")
     end
 

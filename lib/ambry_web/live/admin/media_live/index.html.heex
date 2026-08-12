@@ -54,7 +54,7 @@
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
         <p class="overflow-hidden text-ellipsis">{media_display_title(media)}</p>
         <p class="overflow-hidden text-ellipsis text-sm text-zinc-400">
-          by {media.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
+          {media.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
         <p class="overflow-hidden text-ellipsis text-sm text-zinc-400">
           read by {media.narrators |> Enum.map(& &1.name) |> Enum.join(", ")}

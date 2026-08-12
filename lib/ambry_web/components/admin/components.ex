@@ -888,7 +888,6 @@ defmodule AmbryWeb.Admin.Components do
       <div>
         <p class="font-bold">{@book.title}</p>
         <p :if={@book.authors != []} class="text-zinc-400">
-          by
           <span :for={author <- @book.authors} class="group">
             <span>{author.name}</span>
             <br class="group-last:hidden" />
