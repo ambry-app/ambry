@@ -39,10 +39,33 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      view |> element("button[data-role='import']") |> render_click()
+      # The click only *starts* the import — it runs off the LiveView process
+      # so the form can say it's working — so the assertion has to wait for
+      # the redirect that means it landed.
+      html = view |> element("button[data-role='import']") |> render_click()
+      assert html =~ "Adding to the library"
+
+      assert_redirect(view, ~p"/admin/inbox")
 
       assert %{status: :imported, media_id: media_id} = Inbox.get_item!(item.id)
       assert media_id
+    end
+
+    # The whole point of moving it off the process: a click that appears to do
+    # nothing is a click the operator makes again.
+    test "the form says it is working while the import runs", %{conn: conn} do
+      item = probed_item() |> settle()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html = view |> element("button[data-role='import']") |> render_click()
+
+      assert html =~ "reading the files and placing them"
+      assert has_element?(view, "[data-role='busy-overlay']")
+
+      # Waits for the import to land rather than leaving it running into the
+      # next test's sandbox.
+      assert_redirect(view, ~p"/admin/inbox")
     end
 
     test "each outstanding decision is named, not just counted", %{conn: conn} do

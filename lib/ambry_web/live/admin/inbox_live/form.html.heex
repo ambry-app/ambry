@@ -4,9 +4,13 @@
           rebuilds an untouched draft when one finally comes back — so a form
           with a job on it is not the operator's to edit yet, and says so
           over the whole thing rather than in a badge. --%>
-    <.busy_overlay busy={@busy} label={busy_label(@job)} class="sticky top-0 h-screen" />
+    <.busy_overlay
+      busy={busy?(assigns)}
+      label={busy_label(@job, @importing)}
+      class="sticky top-0 h-screen"
+    />
 
-    <div class="-mb-4 max-w-4xl space-y-14" inert={@busy}>
+    <div class="-mb-4 max-w-4xl space-y-14" inert={busy?(assigns)}>
       <%!-- the evidence: what was found, before anybody interpreted it --%>
       <section class="space-y-1 rounded-lg bg-zinc-900 p-4">
         <div class="flex items-start justify-between gap-4">

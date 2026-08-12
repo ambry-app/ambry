@@ -68,6 +68,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      # themselves are evidence and live on the item.
      |> assign(searching_person: nil, photos_expanded: %{})
      |> assign(library_query: nil, library_results: [], ticking: false)
+     # An import the operator started, as opposed to a job that found the
+     # item on its own. Both own the form; only this one is theirs.
+     |> assign(importing: false)
      |> attach_hook(:refuse_while_busy, :handle_event, &refuse_while_busy/3)
      |> attach_hook(:refuse_when_imported, :handle_event, &refuse_when_imported/3)
      |> load(item)}
@@ -94,13 +97,24 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # provider finally answers, so an edit accepted here would be thrown away by
   # work the operator couldn't see.
   defp refuse_while_busy(event, _params, socket) do
-    if socket.assigns.busy do
+    if busy?(socket) do
       Logger.debug(fn -> "Inbox form: refusing #{event} while a job owns item" end)
       {:halt, socket}
     else
       {:cont, socket}
     end
   end
+
+  @doc """
+  Whether anything owns this form right now — a matching job, or the
+  operator's own import.
+
+  One predicate for both, because the form's answer is the same either way:
+  the overlay, the `inert`, and the refusal are about "not yours to edit",
+  not about who took it.
+  """
+  def busy?(%{assigns: assigns}), do: busy?(assigns)
+  def busy?(%{busy: busy, importing: importing}), do: busy or importing
 
   # How often a busy form looks again. Only ticks while a job is actually on
   # this item, so an idle form costs nothing.
@@ -128,10 +142,20 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   What the job on this item is doing, in the words the overlay uses.
   """
-  def busy_label(:working), do: "Matching…"
-  def busy_label(:retrying), do: "A provider couldn't be reached — waiting to try again…"
-  def busy_label(:queued), do: "Queued for matching…"
-  def busy_label(_idle), do: "Working…"
+  def busy_label(_job, importing \\ false)
+
+  # Naming the slow part, because it is the part that makes the operator
+  # wonder whether the click landed: a multi-file release is re-probed file
+  # by file and then every one of them is placed.
+  def busy_label(_job, true), do: "Adding to the library — reading the files and placing them…"
+
+  def busy_label(:working, _importing), do: "Matching…"
+
+  def busy_label(:retrying, _importing),
+    do: "A provider couldn't be reached — waiting to try again…"
+
+  def busy_label(:queued, _importing), do: "Queued for matching…"
+  def busy_label(_idle, _importing), do: "Working…"
 
   @doc """
   Whether a credit's person layer should be showing.
@@ -558,20 +582,23 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> load(item)}
   end
 
+  # Off the LiveView process, because it is not quick and it used to look
+  # broken: importing re-probes every file and then moves the bytes, which
+  # for a 28-file release measured seven seconds of ffprobe plus a 131MB
+  # copy — all of it inside `handle_event`, where the process cannot render.
+  # The operator got a button that did nothing until the page changed under
+  # them, so of course they clicked it again.
+  #
+  # The form already knows how to say "something owns this item and you can't
+  # edit it": same overlay, same `inert`, same event refusal as a matching
+  # job. This just makes an import one of the things that can own it.
   def handle_event("import", _params, socket) do
-    case Inbox.import_item(socket.assigns.item) do
-      {:ok, _media} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Added to the library.")
-         |> push_navigate(to: ~p"/admin/inbox")}
+    item = socket.assigns.item
 
-      {:error, reason} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, Inbox.describe_error(reason))
-         |> load(Inbox.get_item!(socket.assigns.item.id))}
-    end
+    {:noreply,
+     socket
+     |> assign(importing: true)
+     |> start_async(:import, fn -> Inbox.import_item(item) end)}
   end
 
   def handle_event("ignore", _params, socket) do
@@ -584,6 +611,34 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_async(:import, {:ok, {:ok, _media}}, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:info, "Added to the library.")
+     |> push_navigate(to: ~p"/admin/inbox")}
+  end
+
+  def handle_async(:import, {:ok, {:error, reason}}, socket) do
+    {:noreply,
+     socket
+     |> assign(importing: false)
+     |> put_flash(:error, Inbox.describe_error(reason))
+     |> load(Inbox.get_item!(socket.assigns.item.id))}
+  end
+
+  # A crash mid-import is the one case where the form must not stay locked:
+  # the transaction rolled back, so the item is exactly as it was and the
+  # operator can try again once they know.
+  def handle_async(:import, {:exit, reason}, socket) do
+    Logger.error(fn -> "Inbox form: import crashed: #{inspect(reason)}" end)
+
+    {:noreply,
+     socket
+     |> assign(importing: false)
+     |> put_flash(:error, "Adding to the library failed unexpectedly. Nothing was changed.")
+     |> load(Inbox.get_item!(socket.assigns.item.id))}
+  end
+
   def handle_async({:person_search, _key}, {:ok, {:ok, item}}, socket) do
     {:noreply, socket |> assign(searching_person: nil) |> load(item) |> resettle()}
   end

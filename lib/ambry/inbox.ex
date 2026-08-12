@@ -55,7 +55,8 @@ defmodule Ambry.Inbox do
   require Logger
 
   @doc """
-  Lists inbox items, newest first.
+  Lists inbox items, most recent first — of whatever "recent" means for the
+  view being asked for.
 
   Options: `:status`, `:filter` (matches the path), `:offset`, `:limit`.
   """
@@ -68,7 +69,7 @@ defmodule Ambry.Inbox do
       |> filter_by_status(opts[:status])
       |> filter_by_ready(opts[:ready])
       |> filter_by_path(opts[:filter])
-      |> order_by([i], desc: i.inserted_at, desc: i.id)
+      |> order_by(^newest_first(opts[:status]))
       |> offset(^Keyword.get(opts, :offset, 0))
       |> limit(^over_limit)
       |> preload(:source)
@@ -78,6 +79,23 @@ defmodule Ambry.Inbox do
 
     {items_to_return, items != items_to_return}
   end
+
+  # The queue and the history are sorted by two different clocks, and using
+  # one for both is what put a release imported this morning below one
+  # imported last week.
+  #
+  # A **pending** item is waiting to be looked at, so the interesting moment
+  # is when it was found: newest discoveries first.
+  #
+  # An **imported or ignored** item is a record of something the operator
+  # did, so the interesting moment is when they did it — `updated_at`, which
+  # is stamped by the status change itself. Discovery can't muddy it:
+  # `record_candidate/4` skips a folder whose files are already imported, and
+  # nothing else touches a settled row.
+  defp newest_first(status) when status in [:imported, :ignored],
+    do: [desc: :updated_at, desc: :id]
+
+  defp newest_first(_pending_or_all), do: [desc: :inserted_at, desc: :id]
 
   @doc """
   Counts items per status, for at-a-glance badges.
