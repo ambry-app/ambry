@@ -126,7 +126,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     # The proposed titles land beside the rows — the rows are the preview.
     assert html =~ "The Dungeon Opens"
     assert html =~ "Princess Donut"
-    assert html =~ "beside its row"
+    assert html =~ "shows how its title lands"
 
     html =
       view |> element("button[phx-click='apply-chapter-titles']") |> render_click()

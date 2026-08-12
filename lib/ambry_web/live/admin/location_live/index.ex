@@ -112,7 +112,7 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
 
   defp source_problem(status) do
     cond do
-      !status.exists? -> "Not found — is the volume mounted?"
+      !status.exists? -> "Not found. Is the volume mounted?"
       !status.directory? -> "Not a folder."
       true -> nil
     end
@@ -120,7 +120,7 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
 
   defp root_problem(status) do
     cond do
-      !status.exists? -> "Not found — is the volume mounted?"
+      !status.exists? -> "Not found. Is the volume mounted?"
       !status.directory? -> "Not a folder."
       !status.writable? -> "Read-only, so nothing can land here."
       true -> nil

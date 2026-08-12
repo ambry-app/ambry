@@ -647,11 +647,10 @@ defmodule Ambry.Inbox do
   defp policy_summary(:hardlink, root),
     do: "Hardlinked into #{root.path} — one copy of the bytes, the download keeps seeding."
 
-  defp policy_summary(:copy, root),
-    do: "Copied into #{root.path} — deliberately duplicating the bytes."
+  defp policy_summary(:copy, root), do: "Copied into #{root.path}, duplicating the bytes."
 
   defp policy_summary(:move, root),
-    do: "Moved into #{root.path} — the downloads folder is left clean."
+    do: "Moved into #{root.path}, leaving the downloads folder clean."
 
   defp policy_summary(_unset, root), do: "Placed into #{root.path}."
 
@@ -726,7 +725,7 @@ defmodule Ambry.Inbox do
     do: "Nothing here says what this is. Match a book, or tag the file with a title."
 
   def describe_error({:unreadable, _reason}),
-    do: "Couldn't read the file — it may have moved or gone away since it was found."
+    do: "Couldn't read the file. It may have moved since it was found."
 
   def describe_error({:source_missing, _path}), do: "The file has gone away since it was found."
 
@@ -747,11 +746,10 @@ defmodule Ambry.Inbox do
   # is placement's documented worst case. The two need opposite advice.
   def describe_error({:destination_exists, path}) do
     if file_in_use?(path) do
-      "Another audiobook's files are already at #{path}. That shouldn't be " <>
-        "possible — every audiobook's name carries its own token — so this is " <>
-        "a bug worth reporting rather than something to fix by editing metadata."
+      "Another audiobook's files are already at #{path}. That should be " <>
+        "impossible, so this is a bug worth reporting."
     else
-      "A file nothing in the library references is at #{path} — likely left " <>
+      "A file nothing in the library references is at #{path}, likely left " <>
         "behind by an interrupted import. Delete it and import again."
     end
   end
@@ -760,9 +758,9 @@ defmodule Ambry.Inbox do
     do: "There's no library root to import into. Add one under Locations."
 
   def describe_error(:ambiguous_library_root),
-    do: "There's more than one library root — say which one this folder imports into."
+    do: "There's more than one library root. Choose which one this folder imports into."
 
-  def describe_error(:already_imported), do: "Already in the library — this item is read-only."
+  def describe_error(:already_imported), do: "Already in the library; this item is read-only."
 
   # The invariant, phrased for a human. It names the count rather than the
   # decisions because the form lists them properly — this is the flash you get

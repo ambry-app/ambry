@@ -209,7 +209,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
 
     html = view |> element("button[phx-click='scan']") |> render_click()
 
-    assert html =~ "Nothing is moved or changed"
+    assert html =~ "New candidates will show up here"
     assert_enqueued(worker: RunDiscovery)
   end
 

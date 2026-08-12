@@ -44,7 +44,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
          put_flash(
            socket,
            :info,
-           "Scanning the watched folder. Nothing is moved or changed — new candidates just show up here."
+           "Scanning the watched folder. New candidates will show up here."
          )}
 
       {:error, _reason} ->
@@ -93,8 +93,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
         message =
           if job.conflict?,
             do: "Already re-reading this one.",
-            else:
-              "Re-reading the files and asking the providers again — this one is slow on purpose."
+            else: "Re-reading the files and asking the providers again. This can take a while."
 
         # Reload, or the row the operator just handed to a job keeps looking
         # idle: the overlay is driven by `@progress`, which is only read when
@@ -203,10 +202,10 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # here — the row already shows its matches or its issue, and repeating
   # "done" on every settled row is noise that hides the rows that aren't.
   defp progress_label(:working), do: "Working on it…"
-  defp progress_label(:retrying), do: "A provider couldn't be reached — waiting to try again."
+  defp progress_label(:retrying), do: "A provider couldn't be reached. Waiting to try again."
 
   defp progress_label(:queued), do: "Queued"
-  defp progress_label(:failed), do: "A background job failed — try re-scanning."
+  defp progress_label(:failed), do: "A background job failed. Try re-scanning."
 
   defp progress_label(:incomplete), do: "Never finished matching. Try re-scanning."
 

@@ -12,9 +12,8 @@
       </div>
 
       <p class="max-w-prose text-sm text-zinc-400">
-        Watched folders audiobooks arrive from — everything they hold reaches the library through
-        the inbox, nothing bypasses it. Each one makes a single promise: whether its files can be
-        trusted to stay.
+        Watched folders that audiobooks arrive from. Everything they hold reaches the library
+        through the inbox.
       </p>
 
       <div :if={@sources == []} class="rounded-lg bg-zinc-900 p-8 text-center">
@@ -116,17 +115,15 @@
       <h2 class="text-xl font-bold text-zinc-100">Library roots</h2>
 
       <p class="max-w-prose text-sm text-zinc-400">
-        The folders managed audio is organized into, by the naming template. Ambry writes here
-        and nowhere else. Hardlinks can't cross a filesystem, so a source can only hardlink into
-        a root sharing its <span class="font-semibold">filesystem</span> tag.
+        The folders managed audio is organized into, using the naming template. Ambry writes
+        only here. A source can only hardlink into a root sharing its <span class="font-semibold">filesystem</span> tag.
       </p>
 
       <%!-- Roots are optional by design: a setup whose sources all leave
           files in place imports nothing into a tree of its own. --%>
       <div :if={@roots == []} class="rounded-lg bg-zinc-900 p-8 text-center">
         <p class="mx-auto max-w-prose text-zinc-400">
-          No roots. That's fine while every source leaves its files in place — add one when a
-          source needs to bring files in.
+          No roots yet. Add one when a source needs to bring files in.
         </p>
         <.add_button navigate={~p"/admin/locations/roots/new"} class="mx-auto mt-3">
           Add a root

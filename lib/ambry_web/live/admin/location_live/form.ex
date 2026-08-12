@@ -139,17 +139,16 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
   # files can be trusted to stay is the whole distinction.
   defp on_import_options do
     [
-      {"Bring the files in — this folder's files could vanish out from under the library",
-       :bring_in},
-      {"Leave them where they are — these files are staying put", :leave_in_place}
+      {"Bring the files in (this folder's files might not stay)", :bring_in},
+      {"Leave them where they are (these files are trusted to stay)", :leave_in_place}
     ]
   end
 
   defp policy_options do
     [
-      {"Hardlink — same filesystem only, costs no extra storage", :hardlink},
-      {"Copy — duplicates the files", :copy},
-      {"Move — leaves the source folder empty", :move}
+      {"Hardlink (same filesystem only, no extra storage)", :hardlink},
+      {"Copy (duplicates the files)", :copy},
+      {"Move (empties the source folder)", :move}
     ]
   end
 end

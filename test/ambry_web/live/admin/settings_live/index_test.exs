@@ -83,7 +83,7 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
         |> form("#naming-template-form", settings: %{template: "../{title}"})
         |> render_submit()
 
-      assert html =~ "climb out of the root"
+      assert html =~ "can&#39;t contain .."
       assert Settings.library_naming_template() == NamingTemplate.default_template()
     end
   end

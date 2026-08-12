@@ -19,7 +19,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   ## Vocabulary
 
-  A credit reads as one line — "Written by" / "Narrated by" — and the person
+  A credit reads as one line — "Written by" / "Read by" — and the person
   layer is folded away behind "This is a pen name" / "This is a stage name".
   An earlier version showed both levels always, on the theory that "Credited
   as / Written by" teaches the model for free; in practice it charged every
@@ -153,12 +153,11 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # Naming the slow part, because it is the part that makes the operator
   # wonder whether the click landed: a multi-file release is re-probed file
   # by file and then every one of them is placed.
-  def busy_label(_job, true), do: "Adding to the library — reading the files and placing them…"
+  def busy_label(_job, true), do: "Adding to the library…"
 
   def busy_label(:working, _importing), do: "Matching…"
 
-  def busy_label(:retrying, _importing),
-    do: "A provider couldn't be reached — waiting to try again…"
+  def busy_label(:retrying, _importing), do: "A provider couldn't be reached. Retrying…"
 
   def busy_label(:queued, _importing), do: "Queued for matching…"
   def busy_label(_idle, _importing), do: "Working…"
@@ -364,7 +363,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       {:ok, children} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Split into #{length(children)} items — scanning each fresh now.")
+         |> put_flash(:info, "Split into #{length(children)} items. Scanning each one now.")
          |> push_navigate(to: ~p"/admin/inbox")}
 
       {:error, _reason} ->
@@ -866,9 +865,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   than an immediate give-up.
   """
   def job_label(:working), do: {"Still matching…", :blue}
-  def job_label(:retrying), do: {"A provider couldn't be reached — waiting to try again", :yellow}
+  def job_label(:retrying), do: {"A provider couldn't be reached, retrying", :yellow}
   def job_label(:queued), do: {"Queued for matching", :blue}
-  def job_label(:failed), do: {"Matching gave up — try Start over", :red}
+  def job_label(:failed), do: {"Matching gave up. Try Start over.", :red}
   def job_label(:never_ran), do: {"The files were never read", :red}
   def job_label(:incomplete), do: {"Never finished matching", :yellow}
   def job_label(_settled), do: nil
@@ -899,7 +898,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   banner already says so). The editor itself renders from the draft.
   """
   def chapter_summary(%InboxItem{probe: %{"chapters" => count}}) when count > 0,
-    do: "#{count} chapters in the files — start over to stage them here."
+    do: "#{count} chapters in the files. Start over to stage them here."
 
   def chapter_summary(%InboxItem{probe: probe}) when is_map(probe),
     do: "No chapters in the files. The audiobook will have none until they're added."
@@ -1006,9 +1005,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def doubt_message(%Recording{doubt: :nothing_found}),
     do:
-      "No provider had a record of this audiobook. That is common and not a problem — " <>
-        "a delisted edition vanishes from Audible's search and from ASIN lookup alike. " <>
-        "The fields below come from the file's own tags."
+      "No provider had a record of this audiobook. The fields below come from the file's own tags."
 
   def doubt_message(_recording), do: nil
 

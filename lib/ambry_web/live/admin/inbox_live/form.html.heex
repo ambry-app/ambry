@@ -99,7 +99,7 @@
             data-role="split"
             class={action_classes()}
           >
-            Not one audiobook — split into {length(@item.files)} items
+            Not one audiobook? Split into {length(@item.files)} items
           </button>
         </div>
       </section>
@@ -114,8 +114,7 @@
       >
         <p class="pl-3 font-bold">In the library</p>
         <p class="max-w-prose pt-1 pl-3 text-sm text-zinc-400">
-          This one was imported, and everything below is the record of that import — it's
-          read-only now.
+          This item was imported. Everything below is the read-only record of that import.
           <.brand_link :if={@item.media_id} navigate={~p"/admin/audiobooks/#{@item.media_id}/edit"}>
             Open the audiobook
           </.brand_link>
@@ -142,7 +141,7 @@
       <%!-- ==================== THE WORK ==================== --%>
       <section id="work" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
-          The book — what these files are a recording of
+          The book
         </h2>
 
         <%!-- The first question, and a different KIND of question from the
@@ -168,8 +167,7 @@
           </div>
 
           <p class="max-w-prose pl-3 text-sm text-zinc-400">
-            If so this becomes another edition of it — no second book, and its existing details are
-            left alone.
+            If so, this import becomes another edition of that book.
           </p>
 
           <.local_book_row
@@ -229,7 +227,7 @@
               :if={@item.draft.work.mode == :create and @item.draft.work.approved}
               name="fa-check"
               class="text-brand-dark h-3 w-3 flex-none"
-            /> No — this is a different book
+            /> No, a different book
           </button>
         </div>
 
@@ -278,9 +276,8 @@
           </p>
 
           <p :if={records(@item, "work") != []} class="max-w-prose pl-3 text-sm text-zinc-400">
-            Tick every record that's about this book. Two databases having a record of it is normal —
-            and each knows things the other doesn't, so the description can come from one and the
-            cover from another.
+            Tick every record that describes this book. Ticking more than one is fine; each can
+            fill different fields.
           </p>
 
           <p :if={records(@item, "work") == []} class="max-w-prose pl-3 text-sm text-zinc-400">
@@ -324,8 +321,7 @@
           :if={@item.draft.work.mode == :link}
           class="rounded-lg bg-zinc-900 p-4 text-sm"
         >
-          Using the book already in the library. Its title, date and authors are left exactly as they
-          are — an import fills blanks, it never overwrites curation.
+          Using the book already in the library. Its existing details are not changed.
         </p>
 
         <%!-- Typing lives in a form; choosing does not. They are kept apart
@@ -407,8 +403,7 @@
             :if={@item.draft.work.mode == :link and @item.draft.work.series != []}
             class="max-w-prose pl-3 text-sm text-zinc-400"
           >
-            This book isn't in these yet. Adding is a blank being filled, not a change to what's
-            already there.
+            This book isn't in these yet.
           </p>
 
           <div :if={@item.draft.work.series == []} class="space-y-2 rounded-lg bg-zinc-900 p-4">
@@ -433,7 +428,7 @@
       <%!-- ==================== THE RECORDING ==================== --%>
       <section id="recording" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">
-          The audiobook — which reading of the book these files are
+          The audiobook
         </h2>
 
         <div class={[
@@ -480,10 +475,8 @@
           </p>
 
           <p :if={records(@item, "recording") != []} class="max-w-prose pl-3 text-sm text-zinc-400">
-            Tick every record of <span class="font-semibold">this reading</span>
-            — the narrator is what tells two audiobooks of
-            one book apart, so check it before ticking. Databases keep editions the storefront has
-            delisted, which is often the only place an older reading still exists.
+            Tick every record of <span class="font-semibold">this exact reading</span>. Check the
+            narrator first; that is what tells two audiobooks of one book apart.
           </p>
 
           <.record_list
@@ -521,7 +514,7 @@
                   "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
               ]}
             >
-              None of these — it's in no catalogue
+              None of these
             </button>
           </div>
 
@@ -536,8 +529,7 @@
           </.disclosure>
 
           <p class="pl-3 text-xs text-zinc-400">
-            Every import creates a new audiobook. Pointing one at an existing audiobook's files —
-            the upgrade/replace case — is a later addition.
+            Every import creates a new audiobook.
           </p>
         </div>
 
@@ -557,8 +549,8 @@
                 form={recording}
                 control_class="max-w-xl"
                 placeholder="only if it differs from the book's title"
-                hint={"Leave empty unless this reading is titled differently — " <>
-                "\"The Way of Kings (1 of 3)\", say."}
+                hint={"Leave empty unless this reading has its own title, " <>
+                "like \"The Way of Kings (1 of 3)\"."}
                 field={@item.draft.recording.title}
               />
 
@@ -613,8 +605,8 @@
           <div :if={group_absent?(@item.draft)} class="space-y-2 rounded-lg bg-zinc-900 p-4">
             <.label class="pl-3">Part of a set</.label>
             <p class="pl-3 text-sm text-zinc-400">
-              Not part of a set — the usual case. GraphicAudio-style "Part 1 of 2"
-              releases and episodic seasons are the exception.
+              Most audiobooks are not part of a set. Sets are for GraphicAudio-style
+              "Part 1 of 2" releases and episodic seasons.
             </p>
           </div>
 
@@ -694,8 +686,8 @@
           <div class="space-y-1 rounded-lg bg-zinc-900 p-4">
             <p class="pl-3 text-sm text-zinc-300">{chapter_summary(@item)}</p>
             <p class="pl-3 text-sm text-zinc-400">
-              Markers are taken from the file and never from a provider — provider timestamps describe
-              their own edition, not this rip.
+              Chapter markers always come from the files. Provider timestamps describe a
+              different edition.
             </p>
           </div>
         <% end %>
@@ -797,7 +789,7 @@
           </p>
 
           <p :if={@unresolved == [] and @destination.blocker} class="text-sm text-red-400">
-            Everything is settled, but the files can't be placed yet — see Files &amp; destination.
+            Everything is settled, but the files can't be placed yet. See Files &amp; destination.
           </p>
         </div>
       </.form_footer>

@@ -93,7 +93,7 @@ defmodule AmbryWeb.Admin.Curation do
           :if={@evidence.searched? and not @evidence.running? and @evidence.records == []}
           class="pl-3 text-sm text-zinc-400"
         >
-          Nothing came back — try different words.
+          Nothing came back. Try different words.
         </p>
 
         <.provider_outcomes_row

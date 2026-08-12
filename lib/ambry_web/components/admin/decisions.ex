@@ -79,7 +79,7 @@ defmodule AmbryWeb.Admin.Decisions do
         >
           {outcome["name"]}: {if @retrying == outcome["id"],
             do: "asking again…",
-            else: "couldn't be reached — retry"}
+            else: "couldn't be reached, retry"}
         </button>
 
         <span
@@ -347,7 +347,7 @@ defmodule AmbryWeb.Admin.Decisions do
         phx-value-id={@book["id"]}
         class={action_classes(:zinc, "flex-none")}
       >
-        Yes — another edition of this
+        Yes, another edition of this
       </button>
 
       <span :if={@linked} class="flex-none text-xs text-zinc-400">using this book</span>
@@ -1004,7 +1004,7 @@ defmodule AmbryWeb.Admin.Decisions do
         </button>
 
         <p :if={length(@persons) > 1} class="pl-3 text-xs text-zinc-400">
-          A shared pen name — {@credit.name} will be one author credited to {length(@persons)} people.
+          A shared pen name: {@credit.name} will be one author credited to {length(@persons)} people.
         </p>
       </div>
     </div>
@@ -1103,7 +1103,7 @@ defmodule AmbryWeb.Admin.Decisions do
               on the row that would otherwise look like it was about to make a
               second person of the same name. --%>
         <p :if={@shared_with} class="min-w-0 text-xs text-zinc-400">
-          Same person as the {@shared_with} — one {Field.value(@person.name)} will be created.
+          Same person as the {@shared_with}. One {Field.value(@person.name)} will be created.
           <button
             type="button"
             phx-click="split-person"
@@ -1130,8 +1130,8 @@ defmodule AmbryWeb.Admin.Decisions do
             gate decides the initial ticks; a differently-spelled record of
             the right person is exactly what the checkbox is for. --%>
       <p :if={@records != []} class="max-w-prose pl-3 text-xs text-zinc-400">
-        Tick every record of <span class="font-semibold">this person</span> — the photos and bios on offer come from the
-        ticked ones. Databases know several people by many names, so check before ticking.
+        Tick every record of <span class="font-semibold">this person</span>. Check the name
+        carefully first; the photos and bios on offer come from the ticked records.
       </p>
 
       <.record_row
@@ -1621,7 +1621,7 @@ defmodule AmbryWeb.Admin.Decisions do
         class="pl-3 text-sm text-zinc-400"
         data-role="group-sibling-callout"
       >
-        This book already has a set — is this another part of the same set?
+        This book already has a set. Is this another part of it?
       </p>
 
       <%!-- Reads as a sentence across the row — "<set> no. 1 of 3" — with the

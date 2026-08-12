@@ -236,14 +236,14 @@ defmodule AmbryWeb.Admin.ChapterEditor do
 
       <%= if @pending.result.ok? do %>
         <p :if={@takeable} class="pl-3 text-sm text-zinc-300">
-          {n_things(@pending.result.result.incoming, "title")} for “{@pending.chip.title}” — how
-          each lands is beside its row.
+          {n_things(@pending.result.result.incoming, "title")} for “{@pending.chip.title}”. Each
+          row shows how its title lands.
         </p>
 
         <p :if={!@takeable} class="flex items-baseline gap-1.5 pl-3 text-sm text-amber-300">
           <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none self-center" />
-          {n_things(@pending.result.result.incoming, "title")} for {n_things(@markers, "marker")} —
-          titles are only taken when the counts match. The proposed column shows where the lists
+          {n_things(@pending.result.result.incoming, "title")} for {n_things(@markers, "marker")}.
+          Titles are only taken when the counts match; the proposed column shows where the lists
           diverge.
         </p>
       <% end %>

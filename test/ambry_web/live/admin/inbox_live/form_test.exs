@@ -60,7 +60,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       html = view |> element("button[data-role='import']") |> render_click()
 
-      assert html =~ "reading the files and placing them"
+      assert html =~ "Adding to the library…"
       assert has_element?(view, "[data-role='busy-overlay']")
 
       # Waits for the import to land rather than leaving it running into the
@@ -917,7 +917,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       # "waiting out a rate limit" and "queued" are the same blank form and
       # completely different situations
-      assert html =~ "waiting to try again"
+      assert html =~ "Retrying…"
     end
 
     # Matching keeps retrying until every provider has answered, and rebuilds
@@ -988,7 +988,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
       assert html =~ "Part of a set"
-      assert html =~ "Not part of a set"
+      assert html =~ "not part of a set"
 
       view |> element("button", "This audiobook is part of a set") |> render_click()
 
@@ -1072,7 +1072,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       # Two files are one recording by default — the button is the way to
       # say they aren't, not a precondition for importing them.
       assert html =~ "import as one audiobook"
-      assert html =~ "split into 2 items"
+      assert html =~ "Split into 2 items"
 
       view |> element("button[data-role='split']") |> render_click()
       assert_redirect(view, ~p"/admin/inbox")

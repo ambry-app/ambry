@@ -26,9 +26,8 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
           <h2 class="mb-1 text-lg font-bold">Direct play</h2>
           <p class="mb-4 text-sm text-zinc-400">
             Direct-play audiobooks are served as their original files, with no transcoding or
-            packaging. Publishing them has to wait for the apps: a client that predates track
-            support can't play one, so leave this off until every device in the fleet is on a
-            build that understands tracks.
+            packaging. Leave this off until every client app understands tracks; older builds
+            can't play them.
           </p>
 
           <div class="rounded-lg bg-zinc-900 p-4">
@@ -69,9 +68,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
 
             <p class="text-sm text-zinc-400">
               Available: {Enum.map_join(NamingTemplate.tokens(), ", ", &"{#{&1}}")}. A book with
-              several authors or series uses the first one — reorder them on the book to change
-              which. Empty parts collapse, so a standalone book doesn't get an empty folder or a
-              leading dash.
+              several authors or series uses the first one. Empty parts collapse.
             </p>
 
             <div class="rounded-lg bg-zinc-900 p-4">
@@ -161,8 +158,11 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
   end
 
   defp template_error(:blank), do: "it can't be empty"
-  defp template_error(:absolute), do: "it can't start with / — it's relative to a library root"
-  defp template_error(:traversal), do: "it can't contain .. — that would climb out of the root"
+
+  defp template_error(:absolute),
+    do: "it can't start with /; paths are relative to a library root"
+
+  defp template_error(:traversal), do: "it can't contain .."
   defp template_error(:no_title_token), do: "it needs {title}, or every book shares one folder"
   defp template_error({:unknown_token, token}), do: "there's no {#{token}} token"
 
