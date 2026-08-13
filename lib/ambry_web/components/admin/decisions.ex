@@ -1716,13 +1716,18 @@ defmodule AmbryWeb.Admin.Decisions do
         with the state on the block's left rail (no extra check icon — the
         rail is the only settledness encoding, §2), controls below with
         their labels above them. --%>
-    <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@link)]}>
+    <div
+      class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@link)]}
+      data-role="series-link"
+    >
       <div class="flex items-center justify-between gap-2 pl-3">
         <div class="flex min-w-0 items-baseline gap-2">
           <.label>In series</.label>
 
+          <%!-- Only where it says something the rail can't (§2): "needs
+                confirming" beside an amber rail is the same fact twice. --%>
           <.badge
-            :if={!SeriesLink.resolved?(@link)}
+            :if={explained?(SeriesLink.state(@link))}
             color={elem(state_words(SeriesLink.state(@link)), 1)}
             class="text-xs"
           >
@@ -1870,7 +1875,7 @@ defmodule AmbryWeb.Admin.Decisions do
           <.label>Part of a set</.label>
 
           <.badge
-            :if={!GroupLink.resolved?(@link)}
+            :if={explained?(GroupLink.state(@link))}
             color={elem(state_words(GroupLink.state(@link)), 1)}
             class="text-xs"
           >
@@ -2004,10 +2009,10 @@ defmodule AmbryWeb.Admin.Decisions do
   Whether this state is worth a badge beside the rail.
 
   The rail already says settled-or-not; a badge earns its place only when it
-  names a *reason* the colour can't — which values disagree, or that nothing
-  proposed one at all.
+  names a *reason* the colour can't — which values disagree, that nothing
+  proposed one at all, or which half of a membership is still blank.
   """
-  def explained?(state), do: state in [:missing, :ambiguous, :stale]
+  def explained?(state), do: state in [:missing, :unnumbered, :ambiguous, :stale]
 
   @doc """
   A decision's state as words and a colour.
@@ -2018,6 +2023,9 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def state_words(:approved), do: {"settled", :brand}
   def state_words(:missing), do: {"nothing proposed it", :red}
+  # What is missing is the number, and a row that says "nothing proposed it"
+  # next to "from rreading-glasses" contradicts itself in two words.
+  def state_words(:unnumbered), do: {"needs a number", :red}
   def state_words(:ambiguous), do: {"sources disagree", :yellow}
   def state_words(:unconfirmed), do: {"needs confirming", :yellow}
   def state_words(:stale), do: {"files changed", :red}

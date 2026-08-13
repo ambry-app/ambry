@@ -116,6 +116,11 @@ defmodule Ambry.Inbox.Draft.Tier do
   defp from(:approved, true), do: :reviewed
   defp from(:approved, _untouched), do: :unreviewed
   defp from(:missing, _curated), do: :blocked
+
+  # A membership the operator has to number is as blocked as a field nobody
+  # proposed a value for: `books_series.book_number` is a required column, so
+  # there is nothing to import until it is answered.
+  defp from(:unnumbered, _curated), do: :blocked
   defp from(_unsettled, _curated), do: :waiting
 
   @doc """

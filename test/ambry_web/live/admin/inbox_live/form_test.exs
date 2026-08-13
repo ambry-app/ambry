@@ -808,9 +808,76 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert link.mode == :link
       assert link.series_id == series.id
     end
+
+    # A provider named the series and gave no number, so the row said
+    # "nothing proposed it" beside "from rreading-glasses" — two sentences
+    # about one row, contradicting each other. What is missing is the number.
+    test "a numberless membership says the number is what it needs", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      params = Inbox.dump_draft(item.draft)
+
+      params =
+        put_in(params["work"]["series"], [
+          %{"name" => "The Expanse", "mode" => "create", "source" => "provider:hardcover"}
+        ])
+
+      {:ok, item} = Inbox.update_draft(item, params)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "needs a number"
+      refute html =~ "nothing proposed it"
+      # still a blocker — `book_number` is a required column
+      assert html =~ "from Hardcover"
+    end
+
+    # The rail already says amber; a badge repeating it is the same fact
+    # twice, which is the rule the rest of the form follows.
+    test "a numbered membership awaiting confirmation wears no badge", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      params = Inbox.dump_draft(item.draft)
+
+      params =
+        put_in(params["work"]["series"], [
+          %{"name" => "The Expanse", "mode" => "create", "number" => "1", "source" => "tags"}
+        ])
+
+      {:ok, item} = Inbox.update_draft(item, params)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      row = view |> element("[data-role='series-link']") |> render()
+
+      refute row =~ "needs confirming"
+      refute row =~ "nothing proposed it"
+    end
   end
 
   describe "records are evidence, not identities" do
+    # Which database said this is the first thing an operator checks, and at
+    # the end of the facts line it was the first thing truncation took.
+    test "a record's provider is a badge, not the tail of a long line", %{conn: conn} do
+      item = probed_item() |> with_work_records()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      row = html |> Floki.parse_document!() |> Floki.find("[data-role='record']") |> hd()
+
+      # beside the title, not under it: `<.badge>` renders a div, and a div
+      # inside a `<p>` closes the paragraph early and drops onto its own line
+      assert [title_line] = Floki.find(row, "div.font-medium")
+      assert [badge] = Floki.find(title_line, "[data-role='record-source']")
+      assert Floki.text(badge) =~ "Hardcover"
+
+      # and the facts line no longer carries it, so nothing repeats and
+      # nothing about the source can be truncated away
+      refute row |> Floki.find("p.truncate") |> Floki.text() =~ "Hardcover"
+    end
+
     test "the top record is ticked and the rest are not", %{conn: conn} do
       item = probed_item() |> with_work_records()
 

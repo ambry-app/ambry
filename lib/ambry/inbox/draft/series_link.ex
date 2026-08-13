@@ -129,10 +129,19 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
 
   def resolved?(%__MODULE__{}), do: false
 
+  @doc """
+  Why it isn't resolved.
+
+  A membership with no number is `:unnumbered`, not `:missing`. Both block the
+  import, but they are different facts and the badge said the wrong one: a
+  series a provider named and gave no number to rendered "nothing proposed
+  it" beside "from rreading-glasses", which is two contradictory sentences
+  about one row. What is missing is the number, and the row says so.
+  """
   def state(%__MODULE__{} = link) do
     cond do
       resolved?(link) -> :approved
-      is_nil(link.number) -> :missing
+      is_nil(link.number) -> :unnumbered
       true -> :unconfirmed
     end
   end

@@ -134,10 +134,17 @@ defmodule Ambry.Inbox.Draft.GroupLink do
 
   def resolved?(%__MODULE__{}), do: false
 
+  @doc """
+  Why it isn't resolved.
+
+  `:unnumbered` rather than `:missing`, the same distinction the series row
+  draws: a set a provider named and gave no part number to is not a set
+  nobody proposed, and saying so beside "from hardcover" contradicts itself.
+  """
   def state(%__MODULE__{} = link) do
     cond do
       resolved?(link) -> :approved
-      is_nil(link.part_number) -> :missing
+      is_nil(link.part_number) -> :unnumbered
       true -> :unconfirmed
     end
   end

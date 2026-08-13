@@ -765,7 +765,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert [link] = draft.work.series
       refute SeriesLink.resolved?(link)
       assert link.number == nil
-      assert SeriesLink.state(link) == :missing
+      assert SeriesLink.state(link) == :unnumbered
     end
 
     # `book_number` is a required column, so an approved-but-numberless
@@ -781,7 +781,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert [link] = draft.work.series
       assert link.approved
       refute SeriesLink.resolved?(link)
-      assert SeriesLink.state(link) == :missing
+      assert SeriesLink.state(link) == :unnumbered
     end
 
     test "a number from the tags settles it" do
@@ -2561,7 +2561,7 @@ defmodule Ambry.Inbox.DraftTest do
     # and "part of this set, position unknown" stays a question.
     test "resolved?/1 and state/1" do
       refute GroupLink.resolved?(%GroupLink{part_number: nil, approved: true, name: "Set"})
-      assert GroupLink.state(%GroupLink{part_number: nil}) == :missing
+      assert GroupLink.state(%GroupLink{part_number: nil}) == :unnumbered
 
       unapproved = %GroupLink{part_number: 1, name: "Set", mode: :create}
       refute GroupLink.resolved?(unapproved)
@@ -2831,9 +2831,9 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Draft.Edit.link_book(item.draft, item, book.id)
 
       # "is this another part of the same set?" — the position is the open
-      # question, so the link stays :missing until answered or removed
+      # question, so the link stays :unnumbered until answered or removed
       assert %GroupLink{mode: :link, part_number: nil} = draft.recording.recording_group
-      assert GroupLink.state(draft.recording.recording_group) == :missing
+      assert GroupLink.state(draft.recording.recording_group) == :unnumbered
     end
 
     test "several existing sets can't be told apart — they ride along as candidates" do
