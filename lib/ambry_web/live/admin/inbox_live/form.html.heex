@@ -6,7 +6,7 @@
           over the whole thing rather than in a badge. --%>
     <.busy_overlay
       busy={busy?(assigns)}
-      label={busy_label(@job, @importing)}
+      label={busy_label(@job)}
       class="sticky top-0 h-screen"
     />
 
@@ -788,7 +788,7 @@
             In the library — read-only.
           </p>
 
-          <.button navigate={~p"/admin/inbox"} color={:zinc}>Back to the inbox</.button>
+          <.button navigate={@return_to} color={:zinc}>Back to the inbox</.button>
 
           <%!-- Why the button is off, always. A blocker that only showed up as a
               red line further up the page could leave this disabled while the

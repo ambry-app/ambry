@@ -22,6 +22,11 @@ defmodule AmbryWeb.ConnCase do
       # The default endpoint for testing
       use AmbryWeb, :verified_routes
 
+      # Background work is part of the behaviour these tests assert: an
+      # import is queued rather than run, so a LiveView test has to be able
+      # to say what was enqueued and then drain it.
+      use Oban.Testing, repo: Ambry.Repo
+
       # Import conveniences for testing with connections
       import Ambry.Factory
       import Ambry.InboxHelpers

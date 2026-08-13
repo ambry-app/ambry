@@ -1,11 +1,11 @@
 defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   use AmbryWeb.ConnCase, async: true
-  use Oban.Testing, repo: Ambry.Repo
 
   import Phoenix.LiveViewTest
 
   alias Ambry.Inbox
   alias Ambry.Inbox.RunDiscovery
+  alias Ambry.Inbox.RunImport
 
   setup :register_and_log_in_admin_user
 
@@ -236,6 +236,9 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert Inbox.get_item!(item.id).status == :pending
   end
 
+  # Queued, not run here: importing re-probes every file and copies every
+  # byte, and doing that inside the event blocked the whole queue page for the
+  # length of a NAS copy.
   test "imports a settled item into the library, leaving files alone", %{conn: conn} do
     item = probed_item() |> settle()
     file = hd(item.files)
@@ -245,10 +248,30 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     html =
       view |> element("span[phx-click='import'][phx-value-id='#{item.id}']") |> render_click()
 
-    assert html =~ "Files were left where they are"
+    assert html =~ "Adding to the library"
+    assert_enqueued(worker: RunImport, args: %{inbox_item_id: item.id})
+    assert Inbox.get_item!(item.id).status == :pending
+
+    # the fixture's own probe job shares this queue, so drain it all
+    assert %{failure: 0, discard: 0} = Oban.drain_queue(queue: :media)
+
     assert %{status: :imported, media_id: media_id} = Inbox.get_item!(item.id)
     assert media_id
     assert File.exists?(file)
+  end
+
+  # A row handed to an import wears the same cover every other background job
+  # gives it, and says which job it is — "Working on it" over a row you just
+  # pressed Add on says nothing about whether the press landed.
+  test "a row being imported says so and refuses clicks", %{conn: conn} do
+    item = probed_item() |> settle()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+    view |> element("span[phx-click='import'][phx-value-id='#{item.id}']") |> render_click()
+
+    html = render(view)
+    assert html =~ "Adding to the library…"
+    assert has_element?(view, "[data-role='busy-overlay']")
   end
 
   # The queue can't say *what* is outstanding, so it doesn't offer a button
@@ -259,7 +282,8 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
     refute has_element?(view, "span[phx-click='import'][phx-value-id='#{item.id}']")
-    assert has_element?(view, "a[href='/admin/inbox/#{item.id}']")
+    # the link carries the list state so every way back lands on this tab
+    assert has_element?(view, "a[href^='/admin/inbox/#{item.id}']")
   end
 
   @tag :capture_log

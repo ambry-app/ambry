@@ -42,6 +42,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.Lookup
   alias Ambry.Inbox.Progress
   alias Ambry.Inbox.RunDiscovery
+  alias Ambry.Inbox.RunImport
   alias Ambry.Inbox.RunMatch
   alias Ambry.Inbox.RunProbe
   alias Ambry.Library
@@ -708,6 +709,23 @@ defmodule Ambry.Inbox do
         update_item(item, %{issue: describe_error(reason)})
         error
     end
+  end
+
+  @doc """
+  Queues the import and hands the operator back their afternoon.
+
+  Placing a release is the longest thing the inbox does — every file
+  re-probed, then every byte copied — and running it inside the form meant
+  the operator watched a spinner they could kill by closing the tab. The job
+  belongs to the server; the row says what is happening to it.
+
+  Refuses an item that is already in the library, since the queued job would
+  only rediscover that a minute later and write it onto the row as an issue.
+  """
+  def import_item_async(%InboxItem{status: :imported}), do: {:error, :already_imported}
+
+  def import_item_async(%InboxItem{} = item) do
+    %{inbox_item_id: item.id} |> RunImport.new() |> Oban.insert()
   end
 
   @doc """

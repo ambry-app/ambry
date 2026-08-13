@@ -51,7 +51,7 @@
       <.busy_overlay busy={busy?(@progress[item.id])} label={progress_label(@progress[item.id])} />
 
       <div class="min-w-0 flex-grow overflow-hidden" inert={busy?(@progress[item.id])}>
-        <.link navigate={~p"/admin/inbox/#{item}"} class="hover:underline">
+        <.link navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"} class="hover:underline">
           <p class="overflow-hidden text-ellipsis whitespace-nowrap font-semibold">
             {item_name(item)}
           </p>
@@ -189,7 +189,7 @@
 
             <.link
               :if={item.status == :pending and not item.ready}
-              navigate={~p"/admin/inbox/#{item}"}
+              navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
               title="Settle what's outstanding"
               class={action_class(:neutral)}
             >

@@ -64,19 +64,25 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     {:noreply, reload(socket)}
   end
 
+  # Queued, not run here. Importing re-probes every file and then copies every
+  # byte, and doing that inside `handle_event` blocked the whole LiveView —
+  # the queue froze for the length of a NAS copy, with no sign the click had
+  # landed. The row wears the busy overlay instead, same as any other job.
   def handle_event("import", %{"id" => id}, socket) do
     id
     |> Inbox.get_item!()
-    |> Inbox.import_item()
+    |> Inbox.import_item_async()
     |> case do
-      {:ok, _media} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Added to the library. Files were left where they are.")
-         |> reload()}
+      {:ok, job} ->
+        message =
+          if job.conflict?,
+            do: "Already adding this one.",
+            else: "Adding to the library. The row will say when it's done."
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, Inbox.describe_error(reason))}
+        {:noreply, socket |> put_flash(:info, message) |> reload()}
+
+      {:error, :already_imported} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(:already_imported))}
     end
   end
 
@@ -201,6 +207,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # What the row's background work is doing. `:done` and `:issue` say nothing
   # here — the row already shows its matches or its issue, and repeating
   # "done" on every settled row is noise that hides the rows that aren't.
+  defp progress_label(:importing), do: "Adding to the library…"
   defp progress_label(:working), do: "Working on it…"
   defp progress_label(:retrying), do: "A provider couldn't be reached. Waiting to try again."
 
@@ -229,6 +236,17 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   # The same shape from locals rather than assigns — load_items runs before
   # its assigns exist, so `patch/2` can't be used for the page links.
+  @doc """
+  The list state, as the params that reproduce it.
+
+  Carried into the form so every way back out of it — imported, ignored, or
+  the plain Back button — returns to the tab and page the operator was on.
+  Landing them on an unfiltered page one after an import is how "where did my
+  queue go" happens.
+  """
+  def return_query(assigns),
+    do: page_query(assigns.list_opts, assigns.status, assigns.ready, assigns.list_opts.page)
+
   defp page_query(list_opts, status, ready, page) do
     %{
       "filter" => list_opts.filter,

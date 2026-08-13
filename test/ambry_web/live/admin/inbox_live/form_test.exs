@@ -10,6 +10,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.RunImport
   alias Ambry.Metadata.PersonSearch
   alias Ambry.Repo
 
@@ -34,38 +35,53 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       refute has_element?(view, "button[data-role='import'][disabled]")
     end
 
-    test "importing creates the library records and returns to the queue", %{conn: conn} do
+    # The import is queued and the operator is handed back to the queue at
+    # once. It used to run in an async task owned by this LiveView, which
+    # pinned them to a spinner and — the real defect — died with the process,
+    # so closing the tab killed a copy mid-flight.
+    test "importing queues a job and returns to the queue", %{conn: conn} do
       item = probed_item() |> settle()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      # The click only *starts* the import — it runs off the LiveView process
-      # so the form can say it's working — so the assertion has to wait for
-      # the redirect that means it landed.
-      html = view |> element("button[data-role='import']") |> render_click()
-      assert html =~ "Adding to the library"
+      view |> element("button[data-role='import']") |> render_click()
 
       assert_redirect(view, ~p"/admin/inbox")
+      assert_enqueued(worker: RunImport, args: %{inbox_item_id: item.id})
 
+      # nothing has touched the library yet — that is the job's to do
+      assert %{status: :pending, media_id: nil} = Inbox.get_item!(item.id)
+
+      assert %{success: 1} = Oban.drain_queue(queue: :media)
       assert %{status: :imported, media_id: media_id} = Inbox.get_item!(item.id)
       assert media_id
     end
 
-    # The whole point of moving it off the process: a click that appears to do
-    # nothing is a click the operator makes again.
-    test "the form says it is working while the import runs", %{conn: conn} do
+    # Returning them to an unfiltered page one is how "where did my queue go"
+    # happens — they were on the ready tab, and that is where they go back.
+    test "importing returns to the list the operator came from", %{conn: conn} do
+      item = probed_item() |> settle()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}?status=pending&ready=true")
+
+      view |> element("button[data-role='import']") |> render_click()
+
+      # params come back in map order, which is fine — it is the same list
+      assert_redirect(view, ~p"/admin/inbox?ready=true&status=pending")
+    end
+
+    # A stale tab can still send the event twice, and the second one must not
+    # queue a second copy of a multi-gigabyte placement.
+    test "a second import click doesn't queue a second job", %{conn: conn} do
       item = probed_item() |> settle()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      view |> element("button[data-role='import']") |> render_click()
 
-      html = view |> element("button[data-role='import']") |> render_click()
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      view |> element("button[data-role='import']") |> render_click()
 
-      assert html =~ "Adding to the library…"
-      assert has_element?(view, "[data-role='busy-overlay']")
-
-      # Waits for the import to land rather than leaving it running into the
-      # next test's sandbox.
-      assert_redirect(view, ~p"/admin/inbox")
+      assert [_only_one] = all_enqueued(worker: RunImport)
     end
 
     test "each outstanding decision is named, not just counted", %{conn: conn} do
