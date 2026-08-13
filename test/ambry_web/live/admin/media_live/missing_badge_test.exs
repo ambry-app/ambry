@@ -11,7 +11,7 @@ defmodule AmbryWeb.Admin.MediaLive.MissingBadgeTest do
   test "flags a recording whose files have gone missing", %{conn: conn} do
     insert(:media, book: build(:book), status: :ready, missing_since: DateTime.utc_now(:second))
 
-    {:ok, _view, html} = live(conn, ~p"/admin/media")
+    {:ok, _view, html} = live(conn, ~p"/admin/audiobooks")
 
     assert html |> Floki.parse_document!() |> Floki.find("[data-role='media-missing']") != []
     assert html =~ "missing"
@@ -22,7 +22,7 @@ defmodule AmbryWeb.Admin.MediaLive.MissingBadgeTest do
   test "leaves a healthy recording unflagged", %{conn: conn} do
     insert(:media, book: build(:book), status: :ready, missing_since: nil)
 
-    {:ok, _view, html} = live(conn, ~p"/admin/media")
+    {:ok, _view, html} = live(conn, ~p"/admin/audiobooks")
 
     assert html |> Floki.parse_document!() |> Floki.find("[data-role='media-missing']") == []
   end

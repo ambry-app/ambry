@@ -15,8 +15,7 @@
           class="pl-3 text-sm text-amber-400"
           data-role="path-status"
         >
-          Nothing at that path right now. You can still save it — a volume that isn't mounted yet
-          is a normal thing to configure ahead of time.
+          Nothing at that path right now. You can still save it and mount the volume later.
         </p>
 
         <p
@@ -52,9 +51,8 @@
           options={on_import_options()}
         />
         <p class="max-w-prose pl-3 text-sm text-zinc-400">
-          The one promise a source makes. A folder a download client controls can lose its files,
-          so the library protects itself with its own copy; a collection that's staying put is
-          simply pointed at, and Ambry never writes to it.
+          Whether import copies these files into the library or references them where they
+          are.
         </p>
 
         <.input field={@form[:enabled]} type="checkbox" label="Watched" />
@@ -69,9 +67,8 @@
             options={policy_options()}
           />
           <p class="max-w-prose pl-3 text-sm text-zinc-400">
-            Hardlinking only works within a single filesystem. If this folder and the library root
-            it imports into are on different disks, import will say so rather than quietly
-            copying and doubling your storage.
+            Hardlinking only works within a single filesystem. Import refuses across
+            filesystems instead of silently copying.
           </p>
         </div>
 
@@ -84,12 +81,11 @@
             prompt={root_prompt(@root_options)}
           />
           <p class="max-w-prose pl-3 text-sm text-zinc-400">
-            Optional. Any source can import into any root — this only preselects one. With
-            a single root, imports never ask.
+            Optional. Any source can import into any root; this preselects one.
           </p>
           <p :if={@root_options == []} class="max-w-prose pl-3 text-sm text-amber-400">
-            There are no library roots yet, so nothing can be brought in. Add one under
-            Locations first — until then, importing an item from this folder will refuse.
+            No library roots yet, so nothing can be brought in. Add one under Locations
+            first.
           </p>
         </div>
       </.field_group>

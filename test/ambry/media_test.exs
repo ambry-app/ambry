@@ -1087,9 +1087,7 @@ defmodule Ambry.MediaTest do
 
       description = Media.get_media_description(loaded_media)
 
-      assert description =~ book.title
-      assert description =~ author.name
-      assert description =~ narrator.name
+      assert description == "#{book.title} by #{author.name} read by #{narrator.name}"
     end
 
     test "uses the display-title override when present" do

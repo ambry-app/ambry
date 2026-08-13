@@ -37,7 +37,7 @@
       <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
         <p class="overflow-hidden text-ellipsis" data-role="book-title">{book.title}</p>
         <p class="overflow-hidden text-ellipsis text-sm text-zinc-400" data-role="book-authors">
-          by {book.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
+          {book.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
         <p class="overflow-hidden text-ellipsis text-sm text-zinc-400" data-role="book-series">
           {book.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ")}

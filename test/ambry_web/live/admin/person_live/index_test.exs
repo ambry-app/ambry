@@ -109,7 +109,7 @@ defmodule AmbryWeb.Admin.PersonLive.IndexTest do
 
       # Person should still be visible
       assert has_element?(view, "[data-role='person-name']", narrator.person.name)
-      assert render(view) =~ "Can&#39;t delete person because they have narrated media"
+      assert render(view) =~ "Can&#39;t delete person because they have narrated audiobooks"
     end
 
     test "can delete a person with no books or media", %{conn: conn} do

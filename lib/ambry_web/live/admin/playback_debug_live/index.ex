@@ -142,7 +142,7 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
 
   defp playthrough_label(playthrough) do
     case playthrough.media do
-      nil -> "Unknown media"
+      nil -> "Unknown audiobook"
       %{book: %{title: title}} -> title
       media -> "Media #{media.id}"
     end

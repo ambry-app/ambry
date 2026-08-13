@@ -75,7 +75,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     # no draft yet, so the badge falls back to the match-time confidence
     assert html =~ "trusted"
     assert html =~ "The Way of Kings"
-    assert html =~ "already in library"
+    assert html =~ "already in the library"
     assert html =~ "+1 other"
     # the recording level says so rather than going silent
     assert html =~ "no match"
@@ -209,7 +209,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
 
     html = view |> element("button[phx-click='scan']") |> render_click()
 
-    assert html =~ "Nothing is moved or changed"
+    assert html =~ "New candidates will show up here"
     assert_enqueued(worker: RunDiscovery)
   end
 

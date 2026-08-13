@@ -17,7 +17,7 @@ defmodule AmbryWeb.Admin.LocationLive.IndexTest do
   test "an empty roots section says roots are optional", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/admin/locations")
 
-    assert html =~ "fine while every source leaves its files in place"
+    assert html =~ "Add one when a source needs to bring files in"
   end
 
   test "lists sources and roots as two sections", %{conn: conn} do
@@ -57,7 +57,7 @@ defmodule AmbryWeb.Admin.LocationLive.IndexTest do
     {:ok, _view, html} = live(conn, ~p"/admin/locations")
 
     assert html =~ "Not found"
-    assert html =~ "is the volume mounted?"
+    assert html =~ "Is the volume mounted?"
   end
 
   test "pauses and resumes a source", %{conn: conn} do

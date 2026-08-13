@@ -17,8 +17,8 @@ defmodule AmbryWeb.SeriesLive do
           {@series.name}
         </h1>
 
-        <p class="text-xl text-zinc-200">
-          by <.all_people_links people={@authors} />
+        <p class="text-xl text-zinc-300">
+          <.all_people_links people={@authors} />
         </p>
       </div>
 

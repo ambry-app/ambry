@@ -16,7 +16,7 @@ defmodule AmbryWeb.Admin.MediaLive.ScanTest do
       |> with_copied_source_files(:m4a)
       |> insert()
 
-    {:ok, view, _html} = live(conn, ~p"/admin/media")
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks")
 
     html = view |> element("span[phx-click='scan'][phx-value-id='#{media.id}']") |> render_click()
 
@@ -31,7 +31,7 @@ defmodule AmbryWeb.Admin.MediaLive.ScanTest do
       |> with_copied_source_files(:m4a)
       |> insert()
 
-    {:ok, view, _html} = live(conn, ~p"/admin/media")
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks")
     view |> element("span[phx-click='scan'][phx-value-id='#{media.id}']") |> render_click()
 
     assert {:ok, _media} = perform_job(RunScan, %{"media_id" => media.id})

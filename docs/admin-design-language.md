@@ -66,8 +66,20 @@ identity clusters, the library-root chooser, an inbox queue item) wears a
 | none / `border-zinc-700` | informational, or out of the queue |
 
 Evidence blocks (record lists) get no rail — they inform decisions, they
-aren't one. The rail is the *only* thing that encodes settledness at block
-level; don't also dim, collapse, or re-order.
+aren't one. The records *cards* on the import form are decision blocks,
+not bare evidence (each carries the level's identity/doubt state), and
+both wear the rail with one reading: **amber only for an unsure match
+nobody has curated; lime for everything else** — trusted is settled, and
+nothing-found is settled too (there is nothing to choose between; the
+seeder approves both). One card must never rail a state the other card
+shows in a different color. The rail is the *only* thing that encodes
+settledness at block level; don't also dim, collapse, or re-order.
+
+**Evidence before the decisions it feeds — within a section too.** §9 puts
+the evidence panel above the edit forms; the import form's sections follow
+the same order internally: the records card first, then the identity and
+field decisions below it (the work section asked "already have it?" above
+the records for a while, which had the operator deciding before seeing).
 
 ## 3. Geometry
 
@@ -340,8 +352,36 @@ worded.
 Labels name what the operator decides, not what the system stores. Hints
 teach in one sentence, lowercase-calm, no exclamation. Alerts say what's
 wrong and what to do, with an icon carrying the severity so the words don't
-have to. Headings are sentence case — "Orphaned media files", never
-"Orphaned Media Files"; Title Case is for titles of works.
+have to. Headings are sentence case — "Orphaned audiobook files", never
+"Orphaned Audiobook Files"; Title Case is for titles of works.
+
+**One vocabulary** (decided 2026-08-11). The playable thing is an
+**audiobook** — never "media", "recording", or "release" in anything
+rendered. The abstract work is a **book**, never "work". A
+`RecordingGroup` is a **set**. "Edition" survives only as a relation
+("another edition of this book"). Code, schema, and module names keep
+their old words; the rule is for text an operator or listener reads.
+The admin routes follow the words: `/admin/audiobooks`, `/admin/sets`.
+
+**Credits are the mobile app's stack**: title (bold), series
+("Name #3"), bare author names — no "by" — then "Read by …" muted, with
+size and color carrying the roles. "Narrated by" is retired as a verb;
+the noun "Narrator" stays. When one line must hold it all (page titles,
+match rows, option labels), the joins are words: "The Martian by Andy
+Weir read by R.C. Bray". Names join with commas.
+
+**No em or en dashes in rendered text.** Rewrite the sentence instead:
+two short sentences, a semicolon, parentheses ("Name (context)"), or a
+comma. The only "—" left is the empty-value placeholder in table cells.
+The " · " middle dot stays, but only between metadata facts (file stats,
+record-row facts), never inside a credit.
+
+**Hints are one plain sentence** — two at most, no asides, no "not X,
+but Y" rhetoric, no reassurance ("that is common and not a problem"),
+no mechanism lectures, no changelog notes ("… is a later addition").
+Flashes say what happened, then what to do, in at most two short
+sentences. Control labels that answer a question use a comma: "Yes,
+another edition of this", "No, a different book", "None of these".
 
 ## 9. Curation is the import form, everywhere
 

@@ -65,7 +65,7 @@ defmodule AmbryWeb.PersonLive do
       <div :for={%{narrator: narrator, media: media, more?: more?} <- @narrated_media}>
         <div class="flex items-baseline gap-4">
           <.books_header>
-            Narrated by <.narrator_name narrator={narrator} person={@person} />
+            Read by <.narrator_name narrator={narrator} person={@person} />
           </.books_header>
 
           <.link :if={more?} navigate={~p"/narrators/#{narrator}"} class="text-zinc-500 hover:underline">

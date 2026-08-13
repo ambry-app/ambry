@@ -214,7 +214,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     {:noreply,
      socket
      |> assign(evidence: %{socket.assigns.evidence | running?: false}, retrying: nil)
-     |> put_flash(:error, "Searching the providers failed — try again.")}
+     |> put_flash(:error, "Searching the providers failed. Try again.")}
   end
 
   # ── accepting proposals ────────────────────────────────────────────────

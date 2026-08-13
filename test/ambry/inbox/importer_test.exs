@@ -337,6 +337,36 @@ defmodule Ambry.Inbox.ImporterTest do
       assert Repo.aggregate(Book, :count) == 1
     end
 
+    # Drafts stored before "a linked book is never edited" can still carry a
+    # series row in link mode; the importer must ignore it rather than land
+    # it on the library's book.
+    test "a stale series decision on a linked draft never reaches the book" do
+      first = tagged_item(narrator: "Em Grosland")
+      second = tagged_item(name: "A Better Rip", narrator: "Em Grosland")
+
+      assert {:ok, _media} = Inbox.import_item(first)
+
+      second = Inbox.get_item!(second.id)
+      assert second.draft.work.mode == :link
+
+      stale = %Draft.SeriesLink{
+        name: "Extra Saga",
+        number: "2",
+        mode: :create,
+        approved: true,
+        curated: true
+      }
+
+      draft = %{second.draft | work: %{second.draft.work | series: [stale]}}
+      {:ok, second} = Inbox.update_draft(second, Inbox.dump_draft(draft))
+
+      assert {:ok, media} = Inbox.import_item(settle(second))
+
+      book = Repo.preload(Books.get_book!(media.book_id), :series_books)
+      assert book.series_books == []
+      assert Repo.aggregate(Ambry.Books.Series, :count) == 0
+    end
+
     test "an identity the operator settled as new stays new" do
       first = tagged_item(narrator: "Em Grosland")
       second = tagged_item(name: "A Deliberate Twin", narrator: "Em Grosland")

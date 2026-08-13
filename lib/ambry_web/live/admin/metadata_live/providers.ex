@@ -24,9 +24,8 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
     <.layout title={@page_title} user={@current_user}>
       <div class="max-w-4xl space-y-8">
         <p class="text-zinc-400">
-          Providers fill in facts during import; you curate the structure. Priority controls the
-          order providers are offered in import forms. Settings apply immediately; cached responses
-          can be cleared per provider.
+          Priority sets the order providers appear in on import forms. Changes apply
+          immediately.
         </p>
 
         <section :for={{level, title, blurb} <- levels()}>
@@ -225,12 +224,11 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
 
   defp levels do
     [
-      {:work, "Work-level providers",
-       "Books, authors, and series — the abstract side of the library."},
-      {:recording, "Recording-level providers",
-       "Audiobook releases — narrators, square covers, and chapters, keyed by ASIN."},
+      {:work, "Book-level providers", "Books, authors, and series."},
+      {:recording, "Audiobook-level providers",
+       "Narrators, square covers, and chapters, keyed by ASIN."},
       {:person, "Person-level providers",
-       "Bios and photos for the humans behind authors and narrators — keyed on real people, not published-as names."}
+       "Bios and photos for the real people behind authors and narrators."}
     ]
   end
 
@@ -255,8 +253,8 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   # the current pairing simply can't represent.
   defp capability_label(:book_search, :recording), do: "audiobook search"
   defp capability_label(:book_details, :recording), do: "audiobook details"
-  defp capability_label(:book_search, _level), do: "work search"
-  defp capability_label(:book_details, _level), do: "work details"
+  defp capability_label(:book_search, _level), do: "book search"
+  defp capability_label(:book_details, _level), do: "book details"
   defp capability_label(:author_search, :person), do: "person search"
   defp capability_label(:author_details, :person), do: "person details"
   defp capability_label(:author_search, _level), do: "author search"

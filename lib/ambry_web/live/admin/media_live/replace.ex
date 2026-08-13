@@ -22,7 +22,7 @@ defmodule AmbryWeb.Admin.MediaLive.Replace do
      |> allow_audio_upload(:audio)
      |> assign_form(changeset)
      |> assign(
-       page_title: "#{Ambry.Media.Media.display_title(media)} - Replace audio",
+       page_title: "Replace audio for #{Ambry.Media.Media.display_title(media)}",
        media: media,
        local_import_path: local_import_path,
        select_files: false,
@@ -70,7 +70,7 @@ defmodule AmbryWeb.Admin.MediaLive.Replace do
             {:noreply,
              socket
              |> put_flash(:info, "Replacing audio for #{media.book.title}")
-             |> push_navigate(to: ~p"/admin/media")}
+             |> push_navigate(to: ~p"/admin/audiobooks")}
 
           {:error, %Changeset{} = changeset} ->
             {:noreply, assign_form(socket, changeset)}
@@ -86,7 +86,7 @@ defmodule AmbryWeb.Admin.MediaLive.Replace do
     {:noreply,
      socket
      |> assign(selected_files: files)
-     |> push_patch(to: ~p"/admin/media/#{socket.assigns.media}/replace", replace: true)}
+     |> push_patch(to: ~p"/admin/audiobooks/#{socket.assigns.media}/replace", replace: true)}
   end
 
   # Consumes browser uploads into a fresh source folder, or references the
@@ -151,6 +151,8 @@ defmodule AmbryWeb.Admin.MediaLive.Replace do
     |> Enum.map(&{&1.name(), &1})
   end
 
-  defp open_file_browser(media), do: JS.patch(~p"/admin/media/#{media}/replace?browse=files")
-  defp close_file_browser(media), do: JS.patch(~p"/admin/media/#{media}/replace", replace: true)
+  defp open_file_browser(media), do: JS.patch(~p"/admin/audiobooks/#{media}/replace?browse=files")
+
+  defp close_file_browser(media),
+    do: JS.patch(~p"/admin/audiobooks/#{media}/replace", replace: true)
 end

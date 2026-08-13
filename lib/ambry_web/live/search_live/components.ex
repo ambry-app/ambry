@@ -88,7 +88,7 @@ defmodule AmbryWeb.SearchLive.Components do
         </p>
       </div>
       <p class="text-sm text-zinc-200 sm:text-base">
-        by <.people_links people={@series.series_books |> Enum.flat_map(& &1.book.authors) |> Enum.uniq()} />
+        <.people_links people={@series.series_books |> Enum.flat_map(& &1.book.authors) |> Enum.uniq()} />
       </p>
     </div>
     """

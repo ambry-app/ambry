@@ -138,7 +138,7 @@ defmodule AmbryWeb.Admin.InboxLive.ChaptersTest do
       html = render_async(view)
       # the proposed titles render into the rows, and the counts match
       assert html =~ "The Dungeon Opens"
-      assert html =~ "beside its row"
+      assert html =~ "shows how its title lands"
 
       view |> element("button[phx-click='apply-chapter-titles']") |> render_click()
 

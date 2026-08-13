@@ -153,10 +153,11 @@ defmodule Ambry.Inbox.Importer do
 
   ## the work
 
-  defp resolve_book(%{mode: :link, book_id: book_id} = work, _people) do
+  # A linked book is used exactly as it is — an import never edits it.
+  defp resolve_book(%{mode: :link, book_id: book_id}, _people) do
     case Repo.get(Book, book_id) do
       nil -> {:error, :book_not_found}
-      book -> add_series(book, Enum.reject(work.series, & &1.removed))
+      book -> {:ok, book}
     end
   end
 
@@ -183,23 +184,6 @@ defmodule Ambry.Inbox.Importer do
         |> put_list_provenance("book_authors", work.authors)
         |> put_list_provenance("series_books", work.series)
     )
-  end
-
-  # Fill-gaps on a linked book: an import may add a series membership the book
-  # doesn't have, never touch one it does. The seeder has already dropped
-  # memberships the book already carries, so anything left here is additive.
-  defp add_series(book, []), do: {:ok, book}
-
-  defp add_series(book, links) do
-    book = Repo.preload(book, series_books: :series)
-
-    existing =
-      Enum.map(book.series_books, &%{series_id: &1.series_id, book_number: &1.book_number})
-
-    case Books.update_book(book, %{series_books: existing ++ series_params(links)}) do
-      {:ok, book} -> {:ok, book}
-      {:error, _changeset} = error -> error
-    end
   end
 
   # Tombstoned rows are the operator saying "not this one" — they stay on the

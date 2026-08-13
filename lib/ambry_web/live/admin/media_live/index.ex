@@ -37,7 +37,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:ok,
      socket
      |> assign(
-       page_title: "Media",
+       page_title: "Audiobooks",
        show_header_search: true,
        processing_media_progress_map: %{}
      )
@@ -65,8 +65,8 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
         media: media,
         has_next: has_more?,
         has_prev: list_opts.page > 1,
-        next_page_path: ~p"/admin/media?#{next_opts(list_opts)}",
-        prev_page_path: ~p"/admin/media?#{prev_opts(list_opts)}",
+        next_page_path: ~p"/admin/audiobooks?#{next_opts(list_opts)}",
+        prev_page_path: ~p"/admin/audiobooks?#{prev_opts(list_opts)}",
         current_sort: list_opts.sort || @default_sort
       )
     else
@@ -110,7 +110,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     socket = maybe_update_media(socket, %{"filter" => query, "page" => "1"})
     list_opts = get_list_opts(socket)
 
-    {:noreply, push_patch(socket, to: ~p"/admin/media?#{patch_opts(list_opts)}")}
+    {:noreply, push_patch(socket, to: ~p"/admin/audiobooks?#{patch_opts(list_opts)}")}
   end
 
   def handle_event("sort", %{"field" => sort_field}, socket) do
@@ -119,7 +119,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
       |> get_list_opts()
       |> Map.update!(:sort, &apply_sort(&1, sort_field, @valid_sort_fields))
 
-    {:noreply, push_patch(socket, to: ~p"/admin/media?#{patch_opts(list_opts)}")}
+    {:noreply, push_patch(socket, to: ~p"/admin/audiobooks?#{patch_opts(list_opts)}")}
   end
 
   defp list_media(opts, default_sort) do

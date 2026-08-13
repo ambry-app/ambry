@@ -27,7 +27,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
       {:ok, view, _html} = live(conn, ~p"/admin/books")
 
       assert has_element?(view, "[data-role='book-title']", book.title)
-      assert has_element?(view, "[data-role='book-authors']", "by #{author.name}")
+      assert has_element?(view, "[data-role='book-authors']", author.name)
       assert has_element?(view, "[data-role='book-series']", "#{series.name} #1")
     end
 
@@ -94,7 +94,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
 
       # Book should still be visible
       assert has_element?(view, "[data-role='book-title']", book.title)
-      assert render(view) =~ "Can&#39;t delete book because this book has uploaded media"
+      assert render(view) =~ "Can&#39;t delete book because it has audiobooks"
     end
   end
 

@@ -2,7 +2,7 @@
   <:subheader>
     <.list_controls
       search_form={@search_form}
-      new_path={~p"/admin/groups/new"}
+      new_path={~p"/admin/sets/new"}
       has_next={@has_next}
       has_prev={@has_prev}
       next_page_path={@next_page_path}
@@ -17,11 +17,11 @@
   <.flex_table
     rows={@groups}
     filter={@list_opts.filter}
-    row_click={fn group -> JS.navigate(~p"/admin/groups/#{group}/edit") end}
+    row_click={fn group -> JS.navigate(~p"/admin/sets/#{group}/edit") end}
   >
     <:empty>
-      No groups yet.
-      <.brand_link navigate={~p"/admin/groups/new"}>
+      No sets yet.
+      <.brand_link navigate={~p"/admin/sets/new"}>
         Create one.
       </.brand_link>
     </:empty>
@@ -41,7 +41,7 @@
       </div>
       <div class="flex w-32 flex-none flex-col items-end justify-between gap-2">
         <div class="flex gap-2">
-          <.link navigate={~p"/admin/groups/#{group}/edit"} data-role="edit-group">
+          <.link navigate={~p"/admin/sets/#{group}/edit"} data-role="edit-group">
             <.icon
               name="fa-pencil"
               class="h-4 w-4 text-current transition-colors hover:text-lime-400"
@@ -50,7 +50,7 @@
           <span
             phx-click="delete"
             phx-value-id={group.id}
-            data-confirm={"Delete this group? Its #{length(group.media)} recordings stay in the library but leave the set, losing their part numbers."}
+            data-confirm={"Delete this set? Its #{length(group.media)} audiobooks stay in the library but leave the set, losing their part numbers."}
             data-role="delete-group"
           >
             <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />

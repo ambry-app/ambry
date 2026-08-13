@@ -24,12 +24,12 @@
           <.input field={@form[:parts_total]} type="number" min="1" label="Total parts (optional)" />
           <.input
             field={@form[:part_word]}
-            label={~s(One release is a… — default "part")}
+            label="One audiobook is a…"
             placeholder="part"
           />
           <.input
             field={@form[:part_word_plural]}
-            label={~s(…several are — default "parts")}
+            label="…several are…"
             placeholder="parts"
           />
         </div>
@@ -37,11 +37,11 @@
         <.input
           field={@form[:show_label]}
           type="checkbox"
-          label="Show the group's name to listeners on this set's stacked tile"
+          label="Show the set's name to listeners on its stacked tile"
         />
       </.field_group>
 
-      <.list_cluster label="Recordings">
+      <.list_cluster label="Audiobooks">
         <.inputs_for :let={member_form} field={@form[:members]}>
           <.sort_input field={@form[:members_sort]} index={member_form.index} />
 
@@ -67,7 +67,7 @@
         </.inputs_for>
 
         <:add>
-          <.add_button field={@form[:members_sort]}>Add recording</.add_button>
+          <.add_button field={@form[:members_sort]}>Add audiobook</.add_button>
           <.delete_input field={@form[:members_drop]} />
         </:add>
       </.list_cluster>

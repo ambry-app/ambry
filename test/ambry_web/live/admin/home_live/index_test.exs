@@ -38,7 +38,7 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
       assert has_element?(view, "a[href='/admin/people']")
       assert has_element?(view, "a[href='/admin/books']")
       assert has_element?(view, "a[href='/admin/series']")
-      assert has_element?(view, "a[href='/admin/media']")
+      assert has_element?(view, "a[href='/admin/audiobooks']")
       assert has_element?(view, "a[href='/admin/audit']")
       assert has_element?(view, "a[href='/admin/users']")
 

@@ -430,8 +430,7 @@ defmodule Ambry.BooksTest do
 
       description = Books.get_book_description(book)
 
-      assert description =~ title
-      assert description =~ author_name
+      assert description == "#{title} by #{author_name}"
     end
   end
 

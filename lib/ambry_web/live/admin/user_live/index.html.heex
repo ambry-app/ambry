@@ -51,11 +51,11 @@
             />
           </span>
 
-          <span :if={user.media_in_progress > 0} title="# of in-progress books" data-role="user-in-progress">
+          <span :if={user.media_in_progress > 0} title="# of in-progress audiobooks" data-role="user-in-progress">
             {user.media_in_progress} <.icon name="fa-book-bookmark" class="h-4 w-4 text-current" />
           </span>
 
-          <span :if={user.media_finished > 0} title="# of finished books" data-role="user-finished">
+          <span :if={user.media_finished > 0} title="# of finished audiobooks" data-role="user-finished">
             {user.media_finished} <.icon name="fa-book" class="h-4 w-4 text-current" />
           </span>
         </div>
