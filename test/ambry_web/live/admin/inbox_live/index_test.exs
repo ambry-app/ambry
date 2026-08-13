@@ -73,19 +73,18 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     {:ok, _view, html} = live(conn, ~p"/admin/inbox")
 
     # no draft yet, so the badge falls back to the match-time confidence
-    assert html =~ "trusted"
+    assert html =~ "matched"
     assert html =~ "The Way of Kings"
     assert html =~ "already in the library"
     assert html =~ "+1 other"
     # the recording level says so rather than going silent
-    assert html =~ "no match"
+    assert html =~ "needs you"
   end
 
   # The badge is decision state, not match history: confidence was frozen at
-  # match time, so the queue kept calling an item "unsure" after the operator
-  # had answered — and there was no way to tell a correct-but-doubted match
-  # "you were right" except by deciding, which is exactly what now flips it.
-  test "a level the operator settled reads confirmed", %{conn: conn} do
+  # match time, so the queue kept saying the operator was needed after they
+  # had answered. Same four words as the form's rail, or the two drift.
+  test "a level the operator settled stops asking for them", %{conn: conn} do
     record = %{
       "title" => "The Way of Kings",
       "authors" => ["Brandon Sanderson"],
@@ -108,14 +107,18 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     {:ok, item} = Inbox.prepare_draft(item)
 
     {:ok, _view, html} = live(conn, ~p"/admin/inbox")
-    assert html =~ "unsure"
+    assert html =~ "needs you"
 
     draft = Ambry.Inbox.Draft.Edit.toggle_source(item.draft, item, :work, record)
     {:ok, _item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
+    # No longer waiting on the operator. It does not jump straight to
+    # "reviewed": the row reads worst-first over the whole level, and the
+    # identity question ("a book you already have?") is still one the machine
+    # answered and nobody has looked at.
     {:ok, _view, html} = live(conn, ~p"/admin/inbox")
-    assert html =~ "confirmed"
-    refute html =~ ">unsure<"
+    refute html =~ ">needs you<"
+    assert html =~ "matched"
   end
 
   # One button, because the two it replaced were never separable: matching

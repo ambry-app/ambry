@@ -9,12 +9,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   use AmbryWeb, :admin_live_view
 
-  import AmbryWeb.Admin.Decisions, only: [level_state_words: 1]
+  import AmbryWeb.Admin.Decisions, only: [tier_words: 1]
   import AmbryWeb.Admin.PaginationHelpers
   import AmbryWeb.TimeUtils
 
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library.Source
 
@@ -415,7 +416,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
         level: level,
         best: List.first(candidates),
         alternatives: max(length(candidates) - 1, 0),
-        state: level_state(item, level),
+        tier: level_tier(item, level),
         confidence: get_in(matches, [level, "confidence"]),
         query: get_in(matches, [level, "query"])
       }
@@ -424,22 +425,23 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   def match_summary(_item), do: []
 
-  # The draft is the live truth: its state moves when the operator decides,
+  # The draft is the live truth: its tier moves when the operator decides,
   # where `matches[level]["confidence"]` was frozen at match time — so the
   # queue used to keep calling an item "unsure" after a human had settled it,
   # and could disagree with the form after a background re-match. The
   # fallback covers the moment between matching and the draft existing.
-  defp level_state(%InboxItem{draft: %Draft{work: %{} = work}}, "work"),
-    do: Draft.level_state(work)
+  #
+  # One vocabulary with the form, or the two drift: the queue says what the
+  # form's rail says, in the same four words.
+  defp level_tier(%InboxItem{draft: %Draft{work: %{} = work}}, "work"), do: Tier.of(work)
 
-  defp level_state(%InboxItem{draft: %Draft{recording: %{} = recording}}, "recording"),
-    do: Draft.level_state(recording)
+  defp level_tier(%InboxItem{draft: %Draft{recording: %{} = recording}}, "recording"),
+    do: Tier.of(recording)
 
-  defp level_state(%InboxItem{matches: matches}, level) do
+  defp level_tier(%InboxItem{matches: matches}, level) do
     case get_in(matches, [level, "confidence"]) || 0.0 do
-      sure when sure >= 0.6 -> :trusted
-      some when some > 0.0 -> :unsure
-      _nothing -> :no_match
+      sure when sure >= 0.6 -> :unreviewed
+      _doubted_or_nothing -> :waiting
     end
   end
 

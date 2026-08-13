@@ -9,6 +9,7 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
+  alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.InboxItem
   alias Ambry.Media.Media.Chapter
   alias Ambry.Repo
@@ -1284,38 +1285,40 @@ defmodule Ambry.Inbox.DraftTest do
       assert Draft.curated?(Draft.Edit.uncatalogued(item.draft, item))
     end
 
-    test "the badge state follows decisions, not match history" do
+    # The rail follows decisions, not match history: confidence was frozen at
+    # match time, so a level kept reading doubted after the operator had
+    # answered.
+    test "a doubted level waits, and answering it reads as reviewed" do
       record = provider_candidate(%{"score" => 0.5})
       item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
-      assert Draft.level_state(item.draft.work) == :unsure
-      assert Draft.level_state(item.draft.recording) == :no_match
+      assert Tier.of_evidence(item.draft.work) == :waiting
 
       # ticking the doubted record is "yes, you were right"
       draft = Draft.Edit.toggle_source(item.draft, item, :work, record)
-      assert Draft.level_state(draft.work) == :confirmed
+      assert Tier.of_evidence(draft.work) == :reviewed
     end
 
-    test "a believed match reads trusted until a human touches it" do
+    # The tier the whole four-state model exists for: the machine settled it
+    # and nobody has looked, which is a legitimate end state — pressing Add is
+    # what accepts it.
+    test "a believed match reads unreviewed until a human touches it" do
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
-      assert Draft.level_state(item.draft.work) == :trusted
+      assert Tier.of_evidence(item.draft.work) == :unreviewed
+      assert Tier.of(item.draft.work) == :unreviewed
     end
 
-    # Clicking the already-ticked record UNTICKS it, so "yes, you were right"
-    # used to cost an untick and a re-tick with a reseed churning each way.
-    test "confirm approves the machine's ticks without moving them" do
+    # A level found nothing, which is an answer rather than a failure: there
+    # is nothing to choose between, so it does not wait on the operator.
+    test "a level that found nothing is settled, not waiting" do
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
-      ticked = item.draft.work.sources
 
-      draft = Draft.Edit.confirm_level(item.draft, :work)
-
-      assert Draft.level_state(draft.work) == :confirmed
-      assert draft.work.sources == ticked
-      assert Draft.curated?(draft)
+      assert item.draft.recording.doubt == :nothing_found
+      assert Tier.of(item.draft.recording) == :unreviewed
     end
 
     test "the tick survives the reseed it triggers" do

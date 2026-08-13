@@ -24,6 +24,7 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.SourceRef
+  alias Ambry.Inbox.Draft.Tier
   alias AmbryWeb.Components.EntityResolver
 
   attr :outcomes, :list, required: true
@@ -553,12 +554,17 @@ defmodule AmbryWeb.Admin.Decisions do
           option row) sits on the text rail (pl-3), aligned with the text
           INSIDE the control; only boxes touch the margin edge. See
           docs/admin-design-language.md §1. --%>
-    <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", decision_rail(@field)]}>
+    <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@field)]}>
       <div class="flex items-baseline gap-2 pl-3">
         <.label>{@label}</.label>
 
+        <%!-- Only when it says something the rail can't. Amber already means
+            "look here"; "sources disagree" and "nothing proposed it" are
+            different problems wanting different things from the operator, and
+            a badge repeating "needs confirming" next to an amber rail is the
+            same fact twice (§2). --%>
         <.badge
-          :if={!@field.approved}
+          :if={explained?(Field.state(@field))}
           color={elem(state_words(Field.state(@field)), 1)}
           class="text-xs"
         >
@@ -798,16 +804,13 @@ defmodule AmbryWeb.Admin.Decisions do
     <%!-- A decision block, so it wears the state rail like every other one —
         the rail is the ONLY settledness encoding (design language §2); the
         check icon it used to grow shifted the title sideways on approval. --%>
-    <div class={[
-      "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-      (Credit.resolved?(@credit) && "border-brand-dark/60") || "border-amber-400/70"
-    ]}>
+    <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@credit)]}>
       <div class="flex items-center justify-between gap-2 pl-3">
         <div class="flex min-w-0 items-baseline gap-2">
           <.label>{@verb}</.label>
 
           <.badge
-            :if={!Credit.resolved?(@credit)}
+            :if={explained?(Credit.state(@credit))}
             color={elem(state_words(Credit.state(@credit)), 1)}
             class="text-xs"
           >
@@ -1423,10 +1426,7 @@ defmodule AmbryWeb.Admin.Decisions do
         with the state on the block's left rail (no extra check icon — the
         rail is the only settledness encoding, §2), controls below with
         their labels above them. --%>
-    <div class={[
-      "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-      (SeriesLink.resolved?(@link) && "border-brand-dark/60") || "border-amber-400/70"
-    ]}>
+    <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@link)]}>
       <div class="flex items-center justify-between gap-2 pl-3">
         <div class="flex min-w-0 items-baseline gap-2">
           <.label>In series</.label>
@@ -1572,10 +1572,7 @@ defmodule AmbryWeb.Admin.Decisions do
   def group_row(assigns) do
     ~H"""
     <div
-      class={[
-        "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-        (GroupLink.resolved?(@link) && "border-brand-dark/60") || "border-amber-400/70"
-      ]}
+      class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@link)]}
       data-role="group-link"
     >
       <div class="flex items-center justify-between gap-2 pl-3">
@@ -1699,16 +1696,28 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  # The block's left rail is the decision's state, readable from a scroll:
-  # lime = settled, amber = waiting on the operator, red = blocked. A 4px
-  # rail renders crisp at any DPI where a tinted hairline goes mushy.
-  defp decision_rail(field) do
-    cond do
-      field.approved -> "border-brand-dark/60"
-      Field.state(field) == :missing -> "border-red-400/70"
-      true -> "border-amber-400/70"
-    end
-  end
+  @doc """
+  The block's left rail — the one thing that encodes settledness (§2).
+
+  Four tiers, because settled-versus-waiting threw away the question the
+  operator actually asks of a machine-matched import: has anyone looked at
+  this yet. A 4px rail renders crisp at any DPI where a tinted hairline goes
+  mushy.
+  """
+  def state_rail(%{__struct__: _} = decision), do: state_rail(Tier.of(decision))
+  def state_rail(:blocked), do: "border-red-400/70"
+  def state_rail(:waiting), do: "border-amber-400/70"
+  def state_rail(:unreviewed), do: "border-blue-400/70"
+  def state_rail(:reviewed), do: "border-brand-dark/60"
+
+  @doc """
+  Whether this state is worth a badge beside the rail.
+
+  The rail already says settled-or-not; a badge earns its place only when it
+  names a *reason* the colour can't — which values disagree, or that nothing
+  proposed one at all.
+  """
+  def explained?(state), do: state in [:missing, :ambiguous, :stale]
 
   @doc """
   A decision's state as words and a colour.
@@ -1725,18 +1734,16 @@ defmodule AmbryWeb.Admin.Decisions do
   def state_words(_other), do: {"needs confirming", :yellow}
 
   @doc """
-  A level's identity state as a badge — `Ambry.Inbox.Draft.level_state/1`'s
-  words. One vocabulary for the queue and the form, or they drift.
+  A tier as words and a colour, for surfaces with no room for a rail.
 
-  "confirmed" is the operator's; "trusted" is the machine's. The distinction
-  is the point: the old badge showed match-time confidence forever, so a
-  human's answer could never update it — and a correct "unsure" match could
-  never be told "you were right" except by this.
+  A queue row is one line: it has nowhere to put a 4px edge per level, so it
+  says the same four states in words. Same vocabulary as the form's rail, or
+  the two drift — which is exactly what happened when the queue had its own.
   """
-  def level_state_words(:confirmed), do: {"confirmed", :brand}
-  def level_state_words(:trusted), do: {"trusted", :blue}
-  def level_state_words(:unsure), do: {"unsure", :yellow}
-  def level_state_words(:no_match), do: {"no match", :gray}
+  def tier_words(:blocked), do: {"blocked", :red}
+  def tier_words(:waiting), do: {"needs you", :yellow}
+  def tier_words(:unreviewed), do: {"matched", :blue}
+  def tier_words(:reviewed), do: {"reviewed", :brand}
 
   @doc """
   Where a cover value can actually be looked at.

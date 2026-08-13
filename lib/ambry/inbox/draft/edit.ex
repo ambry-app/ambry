@@ -782,17 +782,6 @@ defmodule Ambry.Inbox.Draft.Edit do
   This is the missing single click. It changes no sources — it only records
   that a human looked.
   """
-  def confirm_level(draft, :work) do
-    update_in(draft.work, &%{&1 | evidence_curated: true, doubt: :none, doubt_detail: nil})
-  end
-
-  def confirm_level(draft, :recording) do
-    update_in(
-      draft.recording,
-      &%{&1 | approved: true, evidence_curated: true, doubt: :none, doubt_detail: nil}
-    )
-  end
-
   def approve_work(draft, approved?), do: update_in(draft.work.approved, fn _ -> approved? end)
 
   def approve_recording(draft, approved?),

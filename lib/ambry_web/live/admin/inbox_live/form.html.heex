@@ -125,6 +125,7 @@
       <section
         :if={@unresolved != []}
         class="border-amber-400/80 rounded-lg border-l-4 bg-zinc-900 p-4"
+        id="unresolved"
         data-role="unresolved"
       >
         <p class="font-bold">Still to settle</p>
@@ -148,35 +149,16 @@
             databases say this is, before "do I already have it?". The records
             are how the operator recognizes the book, and ticking one asks its
             databases for audio editions, which feed the audiobook section. --%>
-        <div class={["space-y-2 rounded-lg bg-zinc-900 p-4", work_records_rail(@item.draft.work)]}>
+        <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(Tier.of_evidence(@item.draft.work))]}>
+          <%!-- No badge and no Confirm button: the rail says which of the four
+              states this is, and pressing Add is what accepts the ones the
+              machine settled. The old pair said it twice in two vocabularies,
+              and the button changed nothing but its own word. The match score
+              stays in the tooltip, where it is history rather than state. --%>
           <div class="flex items-baseline gap-2 pl-3">
-            <.label>
+            <.label title={@item.draft.work.confidence && "match score #{@item.draft.work.confidence}"}>
               Records describing this book
             </.label>
-            <%!-- Decision state, not match history: confidence was frozen at
-                match time, so the badge kept saying "unsure" after the
-                operator had answered. The raw score stays in the tooltip. --%>
-            <.badge
-              color={elem(level_state_words(Draft.level_state(@item.draft.work)), 1)}
-              class="text-xs"
-              title={@item.draft.work.confidence && "match score #{@item.draft.work.confidence}"}
-            >
-              {elem(level_state_words(Draft.level_state(@item.draft.work)), 0)}
-            </.badge>
-
-            <%!-- "Yes, you were right" in one click. Clicking the ticked
-                record would untick it — confirming as-is must not cost an
-                untick and a re-tick. --%>
-            <button
-              :if={Draft.level_state(@item.draft.work) == :trusted}
-              type="button"
-              phx-click="confirm-level"
-              phx-value-section="work"
-              data-role="confirm-work"
-              class={action_classes()}
-            >
-              Confirm
-            </button>
           </div>
 
           <%!-- Same as the recording level: a doubted match adopts nothing, and
@@ -249,21 +231,11 @@
             record creates a Book. Ranking the two together made the form ask
             one question that was really two. --%>
         <div
-          class={[
-            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-            (@item.draft.work.approved && "border-brand-dark/60") || "border-amber-400/70"
-          ]}
+          class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(Tier.of_identity(@item.draft.work))]}
           data-role="local-books"
         >
           <div class="flex items-baseline gap-2 pl-3">
             <.label>Is this a book you already have?</.label>
-            <.badge
-              :if={!@item.draft.work.approved}
-              color={elem(state_words(:unconfirmed), 1)}
-              class="text-xs"
-            >
-              {elem(state_words(:unconfirmed), 0)}
-            </.badge>
           </div>
 
           <p class="max-w-prose pl-3 text-sm text-zinc-400">
@@ -442,34 +414,15 @@
 
         <div class={[
           "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-          (@item.draft.recording.approved && "border-brand-dark/60") || "border-amber-400/70"
+          state_rail(Tier.of_evidence(@item.draft.recording))
         ]}>
           <div class="flex items-baseline gap-2 pl-3">
-            <.label>Records describing this audiobook</.label>
-            <%!-- One badge, not two: "needs confirming" and a frozen
-                confidence said less together than the decision state says
-                alone — and the old pair could contradict each other. --%>
-            <.badge
-              color={elem(level_state_words(Draft.level_state(@item.draft.recording)), 1)}
-              class="text-xs"
-              title={
-                @item.draft.recording.confidence &&
-                  "match score #{@item.draft.recording.confidence}"
-              }
-            >
-              {elem(level_state_words(Draft.level_state(@item.draft.recording)), 0)}
-            </.badge>
-
-            <button
-              :if={Draft.level_state(@item.draft.recording) == :trusted}
-              type="button"
-              phx-click="confirm-level"
-              phx-value-section="recording"
-              data-role="confirm-recording"
-              class={action_classes()}
-            >
-              Confirm
-            </button>
+            <.label title={
+              @item.draft.recording.confidence &&
+                "match score #{@item.draft.recording.confidence}"
+            }>
+              Records describing this audiobook
+            </.label>
           </div>
 
           <%!-- A doubted match used to be indistinguishable from no match at
@@ -716,20 +669,10 @@
             than fixed on the watched folder. With one root this never asks. --%>
         <div
           :if={@item.draft.destination && @item.draft.destination.custody == :managed}
-          class={[
-            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-            (@item.draft.destination.approved && "border-brand-dark/60") || "border-amber-400/70"
-          ]}
+          class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(Tier.of(@item.draft.destination))]}
         >
           <div class="flex items-baseline gap-2 pl-3">
             <.label>Library root</.label>
-            <.badge
-              :if={!@item.draft.destination.approved}
-              color={elem(state_words(:unconfirmed), 1)}
-              class="text-xs"
-            >
-              {elem(state_words(:unconfirmed), 0)}
-            </.badge>
           </div>
 
           <form id="destination-root" phx-change="choose-root" class="mt-1">
@@ -793,9 +736,17 @@
           <%!-- Why the button is off, always. A blocker that only showed up as a
               red line further up the page could leave this disabled while the
               outstanding count read zero. --%>
-          <p :if={@unresolved != []} class="text-sm text-zinc-400">
+          <%!-- Sticky, so it is the one thing always in view — which makes it
+              the right place to say what is left, and a link rather than a
+              number so work below the fold is reachable without hunting
+              (§9). --%>
+          <.link
+            :if={@unresolved != []}
+            href="#unresolved"
+            class="text-sm text-zinc-400 underline hover:text-zinc-200"
+          >
             {length(@unresolved)} decision{if length(@unresolved) > 1, do: "s"} still to settle.
-          </p>
+          </.link>
 
           <p :if={@unresolved == [] and @destination.blocker} class="text-sm text-red-400">
             Everything is settled, but the files can't be placed yet. See Files &amp; destination.

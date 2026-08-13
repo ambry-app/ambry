@@ -42,6 +42,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Seed
+  alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.Media
@@ -628,10 +629,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.approve_work(&1, params["approved"] == "true"))}
   end
 
-  def handle_event("confirm-level", %{"section" => s}, socket) do
-    {:noreply, edit(socket, &Draft.Edit.confirm_level(&1, atom(s)))}
-  end
-
   def handle_event("choose-root", %{"root_id" => root_id}, socket) do
     id = to_int(root_id)
 
@@ -975,19 +972,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def hint_rows(_item), do: []
-
-  @doc """
-  The work records card's state rail — the same reading as the recording
-  card's, which the seeder settles for every state but doubt: trusted is
-  settled, nothing-found is settled (nothing to choose between), and only
-  an unsure match nobody has curated is still waiting on the operator.
-  """
-  def work_records_rail(%Work{} = work) do
-    case Draft.level_state(work) do
-      :unsure -> "border-l-4 border-amber-400/70"
-      _settled -> "border-l-4 border-brand-dark/60"
-    end
-  end
 
   @doc """
   Why nothing was filled in from a recording match.
