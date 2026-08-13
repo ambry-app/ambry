@@ -926,16 +926,19 @@ defmodule Ambry.Inbox do
   @doc """
   How many items each grain would produce, for the controls that offer them.
 
-  A grain that produces one item is not a split, and the form doesn't offer
-  it: `%{file: 35, folder: 5}` on a GraphicAudio set, `%{file: 3}` on three
-  files in one folder.
+  **A grain only appears when it divides further than the coarser one.** A
+  set of three folders holding one file each is the same three items either
+  way, and offering both asks the operator to choose between identical
+  outcomes: `%{folder: 5, file: 35}` on a GraphicAudio set, `%{folder: 3}` on
+  three books in three folders, `%{file: 3}` on three files in one.
   """
   def split_grains(%InboxItem{} = item) do
-    for grain <- [:folder, :file],
-        count = length(split_groups(item, grain)),
-        count > 1,
-        into: %{},
-        do: {grain, count}
+    folders = length(split_groups(item, :folder))
+    files = length(split_groups(item, :file))
+
+    %{}
+    |> put_if(:folder, folders, folders > 1)
+    |> put_if(:file, files, files > folders)
   end
 
   # Files keep the order they were discovered in *within* a group — that is

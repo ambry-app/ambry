@@ -955,7 +955,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert html =~ "Is this a book you already have?"
+      assert html =~ "Existing book?"
 
       view |> element("button[phx-click='link-book']") |> render_click()
 
@@ -1563,9 +1563,9 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      # Two files are one recording by default — the button is the way to
+      # Two files are one recording by default — the buttons are the way to
       # say they aren't, not a precondition for importing them.
-      assert html =~ "import as one audiobook"
+      assert html =~ "Not one audiobook?"
       assert html =~ "Split into 2 files"
       # one folder, so there is nothing for the coarser grain to divide
       refute has_element?(view, "button[data-role='split-folder']")

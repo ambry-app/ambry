@@ -177,6 +177,40 @@ defmodule Ambry.InboxTest do
   # be broken: **a scan may not change who owns a file.** It creates items
   # from files nothing owns, adds unowned files to the item that owns their
   # folder, and drops files that are gone. Nothing else.
+  # Two grains that produce the same items are one grain wearing two hats,
+  # and the form should not ask the operator to choose between them.
+  describe "split_grains/1" do
+    test "offers the finer grain only when it divides further" do
+      root = watched_root()
+
+      set = Path.join(root, "The Way of Kings")
+      for part <- ["1 of 2", "2 of 2"], do: release_folder(set, part, ["01.mp3", "02.mp3"])
+
+      series = Path.join(root, "Zones of Thought")
+
+      for title <- ["A Fire Upon the Deep", "A Deepness in the Sky"],
+          do: release_folder(series, title, ["book.m4b"])
+
+      copy_audio(series, "stray.mp3")
+
+      pair = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
+
+      {:ok, _counts} = Inbox.discover(root)
+      {items, false} = Inbox.list_items()
+      grains = Map.new(items, &{&1.path, Inbox.split_grains(&1)})
+
+      # parts of several files each: both grains say something different
+      assert grains[set] == %{folder: 2, file: 4}
+
+      # three folders of one file each plus a stray: the folder grain wins,
+      # and the file grain would produce the same four items
+      assert grains[series] == %{folder: 3}
+
+      # one folder, so only the finest grain divides anything
+      assert grains[pair] == %{file: 2}
+    end
+  end
+
   describe "discover/1 ownership" do
     test "a file already owned is never re-grouped, however the walk sees it" do
       root = watched_root()

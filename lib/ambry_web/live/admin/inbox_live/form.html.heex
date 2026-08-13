@@ -88,15 +88,13 @@
             more often than it is forty books. Splitting is the escape hatch
             for when it genuinely isn't: each split item becomes its own
             import, to link to its own book or take a part number. --%>
-        <div :if={@grains != %{} and !@read_only} class="pt-2 pl-3">
-          <p class="text-sm text-zinc-400">
-            These {length(@item.files)} files import as one audiobook, played in this order.
-          </p>
+        <%!-- Two grains, because the grouping can be wrong at two levels: a
+            folder of "1 of 5" subfolders is one release in parts, and a
+            GraphicAudio set of the same shape is five recordings. The
+            question labels them both rather than riding on the first. --%>
+        <div :if={@grains != %{} and !@read_only} class="space-y-2 pt-2">
+          <.label class="pl-3">Not one audiobook?</.label>
 
-          <%!-- Two grains, because the grouping can be wrong at two levels:
-              a folder of "1 of 5" subfolders is one release in parts, and a
-              GraphicAudio set of the same shape is five recordings. Only the
-              grains that would actually divide this item are offered. --%>
           <div class="flex flex-wrap items-center gap-2">
             <button
               :if={@grains[:folder]}
@@ -107,7 +105,7 @@
               data-role="split-folder"
               class={action_classes()}
             >
-              Not one audiobook? Split into {@grains[:folder]} folders
+              Split into {@grains[:folder]} folders
             </button>
 
             <button
@@ -286,7 +284,7 @@
           data-role="local-books"
         >
           <div class="flex items-baseline gap-2 pl-3">
-            <.label>Is this a book you already have?</.label>
+            <.label>Existing book?</.label>
           </div>
 
           <.local_book_row
