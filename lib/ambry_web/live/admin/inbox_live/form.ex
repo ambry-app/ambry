@@ -383,8 +383,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      end)}
   end
 
-  def handle_event("split", _params, socket) do
-    case Inbox.split_item(socket.assigns.item) do
+  def handle_event("split", params, socket) do
+    case Inbox.split_item(socket.assigns.item, atom(params["by"] || "file")) do
       {:ok, children} ->
         {:noreply,
          socket
@@ -845,6 +845,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       # second copy of "who is where" is what used to drift.
       appearances: Draft.appearances(item.draft),
       destination: Inbox.destination_preflight(item),
+      # Which ways of dividing this item would actually divide it, for the
+      # split controls. Both grains exist on a GraphicAudio set; a folder of
+      # three files has only the finer one.
+      grains: Inbox.split_grains(item),
       # Matching retries with a backoff measured in minutes, so an item can be
       # legitimately mid-work while the form looks like nothing was found.
       job: job,
@@ -870,6 +874,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp sentence([one]), do: one
   defp sentence(items), do: items |> Enum.intersperse(", ") |> Enum.join()
 
+  defp atom("folder"), do: :folder
+  defp atom("file"), do: :file
   defp atom("work"), do: :work
   defp atom("recording"), do: :recording
   defp atom("title"), do: :title

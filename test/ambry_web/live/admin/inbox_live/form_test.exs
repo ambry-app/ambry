@@ -1566,7 +1566,9 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       # Two files are one recording by default — the button is the way to
       # say they aren't, not a precondition for importing them.
       assert html =~ "import as one audiobook"
-      assert html =~ "Split into 2 items"
+      assert html =~ "Split into 2 files"
+      # one folder, so there is nothing for the coarser grain to divide
+      refute has_element?(view, "button[data-role='split-folder']")
 
       view |> element("button[data-role='split']") |> render_click()
       assert_redirect(view, ~p"/admin/inbox")
@@ -1574,6 +1576,50 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {items, _more} = Inbox.list_items(filter: "Two Novellas")
       assert length(items) == 2
       assert Enum.all?(items, &(length(&1.files) == 1))
+    end
+
+    # The other grain the heuristic gets wrong, and the reason this exists: a
+    # folder of "1 of 5" subfolders is one release in five parts when it is a
+    # multi-disc rip, and five recordings when it is a GraphicAudio set. Only
+    # the operator can tell, and one item per *file* was no use to them —
+    # each part is seven files.
+    test "a set of part folders splits by folder, keeping each part whole", %{conn: conn} do
+      root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
+      release = Path.join(root, "The Way of Kings")
+
+      for part <- 1..3, file <- 1..2 do
+        dir = Path.join(release, "#{part} of 3")
+        File.mkdir_p!(dir)
+        File.cp!(tagged_fixture(true, false, nil), Path.join(dir, "part#{file}.m4b"))
+      end
+
+      {:ok, _counts} = Inbox.discover(root)
+      {[item], _more} = Inbox.list_items(filter: "The Way of Kings")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      # discovery reads the part folders as one release, which is the whole
+      # bug from the operator's side
+      assert length(item.files) == 6
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      assert html =~ "Split into 3 folders"
+
+      view |> element("button[data-role='split-folder']") |> render_click()
+      assert_redirect(view, ~p"/admin/inbox")
+
+      {items, _more} = Inbox.list_items(filter: "The Way of Kings")
+      assert length(items) == 3
+      assert Enum.all?(items, &(length(&1.files) == 2))
+
+      # and each says what it is a part of, since "1 of 3" alone names nothing
+      assert Enum.map(items, &InboxItem.name/1) |> Enum.sort() ==
+               ["The Way of Kings/1 of 3", "The Way of Kings/2 of 3", "The Way of Kings/3 of 3"]
+
+      # a rescan must not re-merge what the operator just took apart
+      {:ok, _counts} = Inbox.discover(root)
+      {items, _more} = Inbox.list_items(filter: "The Way of Kings")
+      assert length(items) == 3
     end
   end
 

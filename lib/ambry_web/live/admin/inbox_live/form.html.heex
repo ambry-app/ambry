@@ -88,19 +88,40 @@
             more often than it is forty books. Splitting is the escape hatch
             for when it genuinely isn't: each split item becomes its own
             import, to link to its own book or take a part number. --%>
-        <div :if={length(@item.files) > 1 and !@read_only} class="pt-2 pl-3">
+        <div :if={@grains != %{} and !@read_only} class="pt-2 pl-3">
           <p class="text-sm text-zinc-400">
             These {length(@item.files)} files import as one audiobook, played in this order.
           </p>
-          <button
-            type="button"
-            phx-click="split"
-            data-confirm={"Split into #{length(@item.files)} separate items? Each file becomes its own inbox item and is scanned fresh."}
-            data-role="split"
-            class={action_classes()}
-          >
-            Not one audiobook? Split into {length(@item.files)} items
-          </button>
+
+          <%!-- Two grains, because the grouping can be wrong at two levels:
+              a folder of "1 of 5" subfolders is one release in parts, and a
+              GraphicAudio set of the same shape is five recordings. Only the
+              grains that would actually divide this item are offered. --%>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              :if={@grains[:folder]}
+              type="button"
+              phx-click="split"
+              phx-value-by="folder"
+              data-confirm={"Split into #{@grains[:folder]} items, one per folder? Each becomes its own inbox item and is scanned fresh."}
+              data-role="split-folder"
+              class={action_classes()}
+            >
+              Not one audiobook? Split into {@grains[:folder]} folders
+            </button>
+
+            <button
+              :if={@grains[:file]}
+              type="button"
+              phx-click="split"
+              phx-value-by="file"
+              data-confirm={"Split into #{@grains[:file]} items, one per file? Each becomes its own inbox item and is scanned fresh."}
+              data-role="split"
+              class={action_classes()}
+            >
+              Split into {@grains[:file]} files
+            </button>
+          </div>
         </div>
       </section>
 

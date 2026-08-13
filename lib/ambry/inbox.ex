@@ -41,6 +41,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.Lookup
   alias Ambry.Inbox.Progress
+  alias Ambry.Inbox.ReleaseName
   alias Ambry.Inbox.RunDiscovery
   alias Ambry.Inbox.RunImport
   alias Ambry.Inbox.RunMatch
@@ -793,6 +794,9 @@ defmodule Ambry.Inbox do
 
   def describe_error(:already_imported), do: "Already in the library; this item is read-only."
 
+  def describe_error(:not_divisible),
+    do: "These files are all in one folder, so splitting by folder would change nothing."
+
   def describe_error(:undo_unavailable), do: "Undoing an import is a development-only tool."
 
   def describe_error(:not_imported),
@@ -843,29 +847,53 @@ defmodule Ambry.Inbox do
   def delete_item(%InboxItem{} = item), do: Repo.delete(item)
 
   @doc """
-  Splits a multi-file item into one item per file.
+  Splits a wrongly-grouped item into several, `by: :folder` or `by: :file`.
 
   The grouping heuristic is folder-based — a folder holding audio directly is
-  one release — and its known failure is two unrelated single-file books
-  sharing a folder. The operator is the one who can tell; this is how they
-  say so. Each file becomes its own item in the shape a loose file has always
-  had (`path` = the file), with a fresh probe (and the match that follows it)
-  queued, because the parent's probe, tags and matches described its first
-  file only.
+  one release, and a folder of "1 of 5" subfolders is one release in parts —
+  and it has two known failures, at two different grains. Two unrelated
+  single-file books can share a folder; and a set can be *five recordings*
+  rather than one in five parts, which is exactly what a GraphicAudio release
+  is. The operator is the one who can tell, so the split asks them at which
+  grain it was wrong:
+
+    * `:folder` — one item per folder the files live in. The five parts of
+      The Way of Kings become five items of seven files each, each free to
+      take its own part number in a set.
+    * `:file` — one item per file, the finest grain there is, for the folder
+      that was never one release at all.
+
+  Children are inserted in the shape discovery gives an item of that grain
+  (`path` = the folder, or the file), with a fresh probe and the match that
+  follows it queued, because the parent's probe, tags and matches described
+  its first file only.
 
   A split survives rescans without any marker: discovery respects a finer
   partition that already exists — see `record_candidate/4`.
 
-  Refused once imported (the item is the record of what was imported), and
-  meaningless below two files.
+  Refused once imported (the item is the record of what was imported), below
+  two files, and when the chosen grain wouldn't actually divide anything —
+  splitting a single-folder item by folder is a no-op, and doing it silently
+  would delete and recreate the item for nothing.
   """
-  def split_item(%InboxItem{status: :imported}), do: {:error, :already_imported}
-  def split_item(%InboxItem{files: files}) when length(files) < 2, do: {:error, :not_multi_file}
+  def split_item(item, by \\ :file)
 
-  def split_item(%InboxItem{} = item) do
+  def split_item(%InboxItem{status: :imported}, _by), do: {:error, :already_imported}
+
+  def split_item(%InboxItem{files: files}, _by) when length(files) < 2,
+    do: {:error, :not_multi_file}
+
+  def split_item(%InboxItem{} = item, by) do
+    case split_groups(item, by) do
+      [_one] -> {:error, :not_divisible}
+      groups -> replace_with_children(item, groups)
+    end
+  end
+
+  defp replace_with_children(%InboxItem{} = item, groups) do
     Repo.transact(fn ->
       with {:ok, _parent} <- Repo.delete(item),
-           {:ok, children} <- insert_children(item) do
+           {:ok, children} <- insert_children(item, groups) do
         # In the transaction on purpose: a job for a child that didn't get
         # created must not exist either.
         Enum.each(children, fn child -> {:ok, _job} = probe_item_async(child) end)
@@ -874,11 +902,36 @@ defmodule Ambry.Inbox do
     end)
   end
 
-  defp insert_children(%InboxItem{} = item) do
-    item.files
-    |> Enum.reduce_while({:ok, []}, fn file, {:ok, acc} ->
+  @doc """
+  How many items each grain would produce, for the controls that offer them.
+
+  A grain that produces one item is not a split, and the form doesn't offer
+  it: `%{file: 35, folder: 5}` on a GraphicAudio set, `%{file: 3}` on three
+  files in one folder.
+  """
+  def split_grains(%InboxItem{} = item) do
+    for grain <- [:folder, :file],
+        count = length(split_groups(item, grain)),
+        count > 1,
+        into: %{},
+        do: {grain, count}
+  end
+
+  # Files keep the order they were discovered in *within* a group — that is
+  # playing order, and re-sorting it here would quietly reorder a book.
+  defp split_groups(%InboxItem{files: files}, :file), do: Enum.map(files, &{&1, [&1]})
+
+  defp split_groups(%InboxItem{files: files}, :folder) do
+    files
+    |> Enum.group_by(&Path.dirname/1)
+    |> Enum.sort_by(fn {dir, _files} -> dir end)
+  end
+
+  defp insert_children(%InboxItem{} = item, groups) do
+    groups
+    |> Enum.reduce_while({:ok, []}, fn {path, files}, {:ok, acc} ->
       %InboxItem{}
-      |> InboxItem.changeset(%{path: file, files: [file], source_id: item.source_id})
+      |> InboxItem.changeset(%{path: path, files: files, source_id: item.source_id})
       |> Repo.insert()
       |> case do
         {:ok, child} -> {:cont, {:ok, [child | acc]}}
@@ -959,15 +1012,10 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # Deliberately strict. "Disc 02" and "3 of 5" are parts; "Gwendy's Button
-  # Box 2" and "01 - The Restaurant at the End of the Universe" are their own
-  # books, and a looser pattern (anything ending in a number) would swallow
-  # them into one item.
-  @part_folder ~r/^(disc|cd|part|vol|volume)\s*\.?\s*\d+$|^\d+\s*of\s*\d+$|\((disc|cd|part)\s*\d+\)$/i
-
-  defp part_folder?(dir) do
-    dir |> Path.basename() |> String.trim() |> then(&Regex.match?(@part_folder, &1))
-  end
+  # The shape lives in `ReleaseName` because two callers read it: this walk,
+  # deciding a folder of parts is one release, and an item named after one of
+  # those folders, which has to say what it is a part *of*.
+  defp part_folder?(dir), do: dir |> Path.basename() |> ReleaseName.part_folder?()
 
   defp entries(dir) do
     case File.ls(dir) do
@@ -1009,18 +1057,43 @@ defmodule Ambry.Inbox do
       item = Map.get(known, path) ->
         refresh_known(item, files, source)
 
-      # The operator split this folder: a finer partition already exists,
-      # keyed by file path. Respect it — re-recording the folder whole would
-      # re-merge what they just took apart, an hour later, silently. A file
-      # that has since appeared in the folder becomes its own item, which is
-      # the right default for a folder the operator declared "not one book".
-      Enum.any?(files, &Map.has_key?(known, &1)) ->
-        Enum.map(files, &record_candidate({&1, [&1]}, known, imported, source))
+      # The operator split this folder: a finer partition already exists.
+      # Respect it — re-recording the folder whole would re-merge what they
+      # just took apart, an hour later, silently. Each existing child is
+      # refreshed with the files under it, at whatever grain it was split to;
+      # a file no child claims becomes its own item, which is the right
+      # default for a folder the operator declared "not one book".
+      children = partition_of(path, known) ->
+        Enum.map(children, &refresh_known(&1, files_under(files, &1.path), source)) ++
+          Enum.map(
+            unclaimed(files, children),
+            &record_candidate({&1, [&1]}, known, imported, source)
+          )
 
       true ->
         create_item(path, files, source)
     end
   end
+
+  # The items the operator's own split left inside this folder, at whatever
+  # grain they chose: a per-file split leaves children keyed by file, a
+  # per-folder split by folder, and both are simply paths underneath.
+  defp partition_of(path, known) do
+    case Enum.filter(known, fn {child, _item} -> under?(child, path) end) do
+      [] -> nil
+      children -> Enum.map(children, fn {_path, item} -> item end)
+    end
+  end
+
+  defp files_under(files, path), do: Enum.filter(files, &(&1 == path or under?(&1, path)))
+
+  defp unclaimed(files, children),
+    do:
+      Enum.reject(files, fn file ->
+        Enum.any?(children, &(file == &1.path or under?(file, &1.path)))
+      end)
+
+  defp under?(path, parent), do: String.starts_with?(path, parent <> "/")
 
   # A known item's files can legitimately change (a torrent finished, a file
   # was replaced). Its status is left alone: ignored stays ignored.

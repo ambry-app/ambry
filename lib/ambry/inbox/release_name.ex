@@ -135,6 +135,24 @@ defmodule Ambry.Inbox.ReleaseName do
     end
   end
 
+  # Deliberately strict. "Disc 02" and "3 of 5" are parts; "Gwendy's Button
+  # Box 2" and "01 - The Restaurant at the End of the Universe" are their own
+  # books, and a looser pattern (anything ending in a number) would swallow
+  # them into one item.
+  @part_folder ~r/^(disc|cd|part|vol|volume)\s*\.?\s*\d+$|^\d+\s*of\s*\d+$|\((disc|cd|part)\s*\d+\)$/i
+
+  @doc """
+  Whether a folder name states nothing but a position in a set.
+
+  Discovery reads it to decide that a folder of such subfolders is one
+  release rather than several, and an item named after one reads it to say
+  which release it belongs to — "1 of 5" alone names nothing.
+  """
+  def part_folder?(name) when is_binary(name),
+    do: name |> String.trim() |> then(&Regex.match?(@part_folder, &1))
+
+  def part_folder?(_other), do: false
+
   @doc """
   The part-set position a name states, as `{number, total}`, or nil.
 
