@@ -1457,9 +1457,19 @@ defmodule Ambry.Inbox.AutoMatchTest do
                AutoMatch.rank_people(candidates, "Brandon Sanderson")
     end
 
-    # A re-search merges fresh records into a list staged before people were
-    # scored at all; sorting those to the bottom would bury records the
-    # operator may already have ticked.
+    # A re-search merges fresh records into a list staged under the old name.
+    # Scoring only the new arrivals left the old name's records wearing the
+    # 100% they earned when they were the question — the reported flow:
+    # looking up David Wong, then Jason Pargin, and getting one list where
+    # both are perfect answers.
+    test "a re-search re-scores what was already held, against the name now asked" do
+      held = [%{"name" => "David Wong", "id" => "held", "score" => 1.0, "images" => []}]
+      found = [%{"name" => "Jason Pargin", "id" => "found", "images" => []}]
+
+      assert [%{"id" => "found", "score" => 1.0}, %{"id" => "held", "score" => +0.0}] =
+               AutoMatch.rank_people(held ++ found, "Jason Pargin")
+    end
+
     test "records staged without a score are scored on the way through" do
       held = [%{"name" => "Ty Franck", "id" => "held", "images" => []}]
       found = [%{"name" => "James S.A. Corey", "id" => "found", "score" => 0.6, "images" => []}]

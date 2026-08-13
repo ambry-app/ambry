@@ -208,7 +208,14 @@ defmodule Ambry.Inbox.Lookup do
   Writes into `matches["people"][key]` exactly as matching does, so the
   person's photo and bio fields pick the results up on the next reseed. The
   same rule as everywhere else here: **evidence is added, never replaced**, so
-  a re-search cannot un-choose a photo the operator already picked.
+  a re-search cannot un-choose a photo the operator already picked. What
+  changes is the *ranking*: every candidate is re-scored against the name now
+  being asked about, so the ones the old name found sink instead of sitting at
+  100% beside the new ones.
+
+  The library is asked again too. "Already in your library" is an answer about
+  a name, and after a rename the held one is about somebody else — which is
+  the case this exists for.
   """
   def research_person(%InboxItem{} = item, key, name) do
     case String.trim(name || "") do
@@ -240,6 +247,7 @@ defmodule Ambry.Inbox.Lookup do
           name
         )
       )
+      |> Map.put("local", AutoMatch.local_people(name))
       |> Map.put("providers", outcomes)
 
     item

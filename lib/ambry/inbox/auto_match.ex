@@ -449,6 +449,19 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
+  @doc """
+  The people the library already has by this name.
+
+  Kept away from the provider candidates for the same reason a local book is:
+  it answers a different question. A provider record is evidence about a
+  human; one of these *is* a human, and choosing them creates nobody.
+
+  Shared with `Ambry.Inbox.Lookup`, which asks again when the operator
+  re-searches — the held answer is about the name that was asked before, and a
+  rename is exactly when that stops being true.
+  """
+  def local_people(name), do: name |> People.people_named() |> Enum.map(&local_person/1)
+
   defp local_person(person) do
     %{
       "source" => "local",
@@ -550,16 +563,18 @@ defmodule Ambry.Inbox.AutoMatch do
   providers happened to be asked in — and the operator saw plainly wrong
   humans above the right one.
 
-  Scores anything arriving without one, because a re-search merges fresh
-  records into a list staged before people were scored at all, and sorting
-  those to the bottom would bury records the operator may already have
-  ticked.
+  **Every candidate is scored against the name being asked about now**, not
+  only the ones arriving without a score. A score is the answer to "how well
+  does this record answer the name we are asking about", and a re-search is
+  the operator changing the question: looking up "David Wong" and then Jason
+  Pargin left the David Wong records wearing the 100% they earned under the
+  old question, sitting above the humans actually searched for. Nothing is
+  dropped — a record that no longer answers the question sinks, which is what
+  the fold below `record_list`'s threshold is for.
   """
   def rank_people(candidates, asked_for) do
     candidates
-    |> Enum.map(fn candidate ->
-      Map.put_new_lazy(candidate, "score", fn -> person_score(candidate["name"], asked_for) end)
-    end)
+    |> Enum.map(&Map.put(&1, "score", person_score(&1["name"], asked_for)))
     |> Enum.sort_by(&{&1["score"] || 0.0, person_substance(&1)}, :desc)
   end
 

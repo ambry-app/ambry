@@ -2476,6 +2476,58 @@ defmodule Ambry.Inbox.DraftTest do
       assert Field.value(person.name) == "Ty Franck"
     end
 
+    # The control that had no visible effect: a person's card carried a name
+    # box in every state, so saying the credited name was a pseudonym changed
+    # nothing anybody could see. The name being the human's own is the flag
+    # the card reads.
+    test "declaring a pen name gives the human a name of their own" do
+      item = item(%{matches: matches([provider_candidate(%{"authors" => ["David Wong"]})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert [person] = item.draft.people
+      refute person.own_name
+
+      draft = Draft.Edit.separate_person_name(item.draft, :work, 0)
+
+      assert [person] = draft.people
+      assert person.own_name
+      # and it is a question nobody has answered yet
+      refute person.name.approved
+    end
+
+    # Every way in needs a way out. The reveal used to be a fold that could
+    # only be opened, which is the same hole in a different costume.
+    test "the credited name can be taken back" do
+      item = item(%{matches: matches([provider_candidate(%{"authors" => ["David Wong"]})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.separate_person_name(:work, 0)
+        |> Draft.Edit.rename_person("davidwong", "Jason Pargin")
+        |> Draft.Edit.use_credited_name("davidwong")
+
+      assert [person] = draft.people
+      refute person.own_name
+      assert Field.value(person.name) == "David Wong"
+    end
+
+    # The names agree for exactly as long as it takes to type the real one,
+    # so tracking on the values alone dragged the human's name along with any
+    # credit fix made in that window.
+    test "a credit rename leaves a human who has their own name alone" do
+      item = item(%{matches: matches([provider_candidate(%{"authors" => ["David Wong"]})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.separate_person_name(:work, 0)
+        |> Draft.Edit.rename_credit(:work, 0, "David Wong Jr.")
+
+      assert [person] = draft.people
+      assert Field.value(person.name) == "David Wong"
+    end
+
     test "a half-typed name is storable but never resolved" do
       item = item(%{matches: matches([provider_candidate(%{})])})
       {:ok, item} = Inbox.prepare_draft(item)

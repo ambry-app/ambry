@@ -365,17 +365,9 @@
             count={length(@item.draft.work.authors)}
             section="work"
             identities={@authors}
-            people={@people}
             verb="Written by"
-            reveal="This is a pen name"
-            kind={:author}
             identity_backing={@author_backing}
-            person_records={person_records(@item)}
-            person_outcomes={person_outcomes(@item)}
             persons={Draft.people_for(@item.draft, credit)}
-            appearances={@appearances}
-            searching_person={@searching_person}
-            photos_expanded={@photos_expanded}
           />
 
           <.add_button phx-click="add-credit" phx-value-section="work">
@@ -594,17 +586,9 @@
             count={length(@item.draft.recording.narrators)}
             section="recording"
             identities={@narrators}
-            people={@people}
             verb="Read by"
-            reveal="This is a stage name"
-            kind={:narrator}
             identity_backing={@narrator_backing}
-            person_records={person_records(@item)}
-            person_outcomes={person_outcomes(@item)}
             persons={Draft.people_for(@item.draft, credit)}
-            appearances={@appearances}
-            searching_person={@searching_person}
-            photos_expanded={@photos_expanded}
           />
 
           <.add_button phx-click="add-credit" phx-value-section="recording">
@@ -623,21 +607,18 @@
           A *derived* list, so it breaks the list-cluster grammar deliberately
           and has no add of its own (design language §5): a person exists
           because a credit names them, so adding one happens on the credit and
-          shows up here. People already in the library are not listed — they
-          were chosen in the credit's typeahead and carry curation an import
-          may never overwrite. --%>
+          shows up here. A credit pointing at an identity the library already
+          has brings nobody: that person was chosen in the credit's typeahead
+          and carries curation an import may never overwrite. One the operator
+          matched to the library from their own card stays, because that
+          decision was made here and needs a way back. --%>
       <section
         :if={Draft.people_groups(@item.draft) != []}
         id="people"
         class="space-y-7"
         inert={@read_only}
       >
-        <div>
-          <h2 class="text-xl font-bold text-zinc-100">New people</h2>
-          <p class="max-w-prose pt-1 text-sm text-zinc-400">
-            Humans this import will create. Everyone else was already in your library.
-          </p>
-        </div>
+        <h2 class="text-xl font-bold text-zinc-100">People</h2>
 
         <div :for={group <- Draft.people_groups(@item.draft)} class="space-y-3">
           <%!-- A bracket, never a filled block: wrapping cards in a card is
@@ -648,8 +629,11 @@
             class="space-y-3 border-l-2 border-zinc-700 pl-4"
             data-role="pen-name-group"
           >
+            <%!-- The cards each carry the credited name in their own title
+                now, so the bracket states the thing they can't: that there
+                are several of them behind the one name. --%>
             <p class="text-xs text-zinc-400">
-              Behind the pen name <span class="text-zinc-200">{group.credit.name}</span>
+              {length(group.people)} people behind this name
             </p>
 
             <.person_card
@@ -661,8 +645,9 @@
               searching={@searching_person == person.key}
               photos_expanded={@photos_expanded[person.key] || false}
               records={person_records(@item, person.key)}
+              locals={person_locals(@item, person.key)}
               outcomes={person_outcomes(@item, person.key)}
-              appears={Draft.appearances(@item.draft)[person.key] || []}
+              appears={@appearances[person.key] || []}
               people={@people}
             />
           </div>
@@ -676,8 +661,9 @@
             searching={@searching_person == hd(group.people).key}
             photos_expanded={@photos_expanded[hd(group.people).key] || false}
             records={person_records(@item, hd(group.people).key)}
+            locals={person_locals(@item, hd(group.people).key)}
             outcomes={person_outcomes(@item, hd(group.people).key)}
-            appears={Draft.appearances(@item.draft)[hd(group.people).key] || []}
+            appears={@appearances[hd(group.people).key] || []}
             people={@people}
           />
         </div>

@@ -174,11 +174,18 @@ defmodule Ambry.Inbox.Draft do
   a composite pen name's people adjacent: "James S.A. Corey" is one credit
   standing for two humans, and any other ordering scatters the pair.
 
-  **Only people this import will create.** Someone already in the library was
-  chosen in the credit's typeahead, carries curation an import may never
-  overwrite, and has nothing left to decide — and the one dangerous case, a
-  name matching two existing identities, is a decision on the credit where
-  `Credit.state/1` computes it.
+  **Only people this import introduces.** A credit pointing at an identity the
+  library already has brings no humans with it: that person was chosen in the
+  credit's typeahead, carries curation an import may never overwrite, and has
+  nothing left to decide — and the one dangerous case, a name matching two
+  existing identities, is a decision on the credit where `Credit.state/1`
+  computes it.
+
+  A person the operator matched to somebody already in the library *from their
+  card* is a different thing and stays listed. Nothing else proposes that link
+  — the seeder never does — so dropping them the moment it is made took the
+  decision off the form and the way back with it, leaving the credit's chip
+  pointing at a card that no longer existed.
 
   Returns `[%{credit:, kind:, section:, index:, people: [...]}]`, dropping
   credits that introduce nobody new.
@@ -211,7 +218,7 @@ defmodule Ambry.Inbox.Draft do
   defp new_people(draft, %Credit{} = credit, seen) do
     credit.person_keys
     |> Enum.map(&person(draft, &1))
-    |> Enum.reject(&(is_nil(&1) or &1.mode == :link or MapSet.member?(seen, &1.key)))
+    |> Enum.reject(&(is_nil(&1) or MapSet.member?(seen, &1.key)))
   end
 
   @doc """

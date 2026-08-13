@@ -19,14 +19,18 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   ## Vocabulary
 
-  A credit reads as one line — "Written by" / "Read by" — and the person
-  layer is folded away behind "This is a pen name" / "This is a stage name".
-  An earlier version showed both levels always, on the theory that "Credited
-  as / Written by" teaches the model for free; in practice it charged every
+  A credit reads as one line — "Written by" / "Read by" — and the humans
+  behind it live in their own section, one card each. An earlier version
+  showed both levels inside every credit, on the theory that "Credited as /
+  Written by" teaches the model for free; in practice it charged every
   ordinary import for a question about personhood that only two imports in a
-  hundred have an interesting answer to. The fold unfolds itself whenever the
-  credit is anything but one new person of the same name, so nothing
-  interesting can hide inside it.
+  hundred have an interesting answer to, and printed a person twice whenever
+  an author read their own book.
+
+  What is left of that question on the credit is "This is a pen name" /
+  "This is a stage name": the credited name is not the human's name. It gives
+  that human a name of their own and takes the operator to the card where the
+  box for it has just appeared.
   """
 
   use AmbryWeb, :admin_live_view
@@ -66,8 +70,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(people: People.people_for_select())
      |> assign(researching: nil, retrying: nil, enriching: nil)
      # Which person is being looked up again, and whose photo strip is showing
-     # in full. Both are view state keyed by person key — the results
-     # themselves are evidence and live on the item.
+     # in full. Both view state keyed by person key — the results themselves
+     # are evidence and live on the item.
      |> assign(searching_person: nil, photos_expanded: %{})
      |> assign(library_query: nil, library_results: [], ticking: false)
      # The pending chapter-title fetch, and which ASIN's titles were last
@@ -177,25 +181,21 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
-  # The person level's records and provider outcomes, keyed by person, for
-  # the same evidence rows the work and recording sections render.
-  defp person_records(item) do
-    for {key, matched} <- item.matches["people"] || %{}, into: %{} do
-      {key, matched["candidates"] || []}
-    end
-  end
-
-  defp person_outcomes(item) do
-    for {key, matched} <- item.matches["people"] || %{}, into: %{} do
-      {key, matched["providers"] || []}
-    end
-  end
-
   @doc "One person's provider records, for their own card."
   def person_records(item, key), do: get_in(item.matches, ["people", key, "candidates"]) || []
 
   @doc "What each person provider said when asked about them."
   def person_outcomes(item, key), do: get_in(item.matches, ["people", key, "providers"]) || []
+
+  @doc """
+  The people the library already has by this human's name.
+
+  Collected by matching whenever a credited name is already in the library —
+  the author who turns up narrating, whose name the credit's typeahead cannot
+  offer because the identity they need doesn't exist yet. Without a route to
+  them the form's only answer was a second Person of the same name.
+  """
+  def person_locals(item, key), do: get_in(item.matches, ["people", key, "local"]) || []
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"inbox_item" => params}, socket) do
@@ -444,12 +444,25 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   # The credited name is not always the human's name — "David Wong" is Jason
-  # Pargin — so this separates the two. It used to be a fold over a person
-  # layer nested in the credit; now that people are a section of their own
-  # there is nothing to unfold, and the control does the one thing it always
-  # meant.
+  # Pargin — so this separates the two: the person gets a name of their own,
+  # which is what puts a box on their card. It is offered from both ends, the
+  # credit and the card, because either is where the operator notices.
   def handle_event("separate-name", %{"section" => section, "index" => index}, socket) do
     {:noreply, edit(socket, &Draft.Edit.separate_person_name(&1, atom(section), to_int(index)))}
+  end
+
+  def handle_event("use-credited-name", %{"key" => key}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.use_credited_name(&1, key))}
+  end
+
+  # Reusing a human the library already has is the outcome worth having, and
+  # the row that offers it is the only thing on the card that creates nothing.
+  def handle_event("link-person", %{"key" => key, "id" => id}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.link_person(&1, key, to_int(id)))}
+  end
+
+  def handle_event("unlink-person", %{"key" => key}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.create_person(&1, key))}
   end
 
   # The photos and bios matching already found are in the person's own fields,
@@ -525,6 +538,14 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
            Draft.Edit.link_person(draft, key, id)
        end
      end)}
+  end
+
+  # "None of these" at the person level. A human no database has heard of is
+  # a normal outcome — plenty of narrators are in none — so this settles the
+  # level and creates them from their name alone.
+  def handle_event("uncatalogued-person", %{"key" => key}, socket) do
+    item = socket.assigns.item
+    {:noreply, edit(socket, &Draft.Edit.uncatalogued_person(&1, item, key))}
   end
 
   def handle_event("approve-person", %{"key" => key} = params, socket) do

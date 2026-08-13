@@ -260,21 +260,33 @@ divergence by documenting both halves as intentional; that is how this one
 survived two audits.
 
 **The documented exception: a derived list has no add.** The import form's
-**New people** section lists one card per human the import will create, and
+**People** section lists one card per human the import introduces, and
 the operator cannot add one there — a person exists because a *credit* names
 them (`Draft.referenced_keys/1` mints the decisions from the credits), so
 adding a person happens on the credit and appears here. The label and the
 rows are the ordinary grammar; the add below the container is absent, and
 that absence is the honest statement that this list is derived rather than
-built. People already in the library are *not* listed: they were chosen in
-the credit's typeahead, they carry their own curation which an import may
+built. The people behind a *linked credit* are not listed: they were chosen
+in the credit's typeahead, they carry their own curation which an import may
 never overwrite, and the one dangerous case — a name matching two existing
 identities — is a decision on the credit, where `Credit.state/1` computes it.
+A person the operator matched to the library *from their own card* does stay,
+because that decision was made here: dropping the card the moment the link is
+made takes the way back with it.
+
+**A card asks nothing it can state.** The person card carries no name box in
+the ordinary import, because the credit names the human and a box on every
+card in every state is what left "This is a pen name" with no visible effect
+to have. Reveal the exception, state the rule: the box appears when the name
+is genuinely the person's own, and a control that reveals it always offers
+the way back. The other question a card like this answers — is this somebody
+the library already has — is *evidence*, and wears the local-row costume the
+work level uses ("Yes, it's them"), not a permanent search box.
 
 **Pen names are bracketed, not nested.** One author credit can stand for
 several humans, so those person cards sit adjacent under a shared labelled
-rail naming the credit ("James S.A. Corey"), and each card also names its own
-role in its header. A bracket is a label and a rail, never a filled block —
+rail. The label states what the cards can't — "2 people behind this name" —
+because each card is already titled by the credit it belongs to. A bracket is a label and a rail, never a filled block —
 wrapping cards in a card is what eats the elevation ladder, and this is the
 same device the person rows used when they were nested inside a credit,
 promoted to group siblings instead.
@@ -290,7 +302,7 @@ It is the one thing always in view, and `Draft.unresolved/1` already returns
 a section and a label for every decision still waiting — so it names them and
 links to them. Without that, a form long enough to have sections has work
 below the fold that nothing announces, which is the objection that decided
-where the New people section goes.
+where the People section goes.
 
 **One form measure: `max-w-4xl`.** The import form always had it; the
 legacy forms sat at `3xl` and the two settings-ish pages centered

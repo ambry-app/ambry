@@ -280,7 +280,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   # The third level, and a section rather than a decoration on a credit. The
   # model always said people were a level — keyed decisions, `appearances/1` —
   # while the form rendered them inside every credit that named them.
-  describe "the New people section" do
+  describe "the People section" do
     test "lists a human once, however many credits name them", %{conn: conn} do
       item = probed_item(narrator: "Brandon Sanderson")
 
@@ -307,6 +307,43 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert has_element?(view, "#people [data-role='person-card']")
     end
 
+    # A full-cast recording is a run of credit rows; a second line of faces
+    # each is what turns the section into a wall.
+    test "a credit's people ride beside its box, and a crowd is counted", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # the chips share the row with the identity box
+      assert [chips] =
+               view
+               |> element("#work [data-role='credit-people']")
+               |> render()
+               |> Floki.parse_fragment!()
+
+      assert Floki.find(chips, "a[href^='#person-']") != []
+
+      # six humans behind one credit is a list, not a row of faces
+      view
+      |> element("#person-brandonsanderson button[phx-click='separate-name']")
+      |> render_click()
+
+      Enum.each(1..5, fn _ ->
+        view
+        |> element("#person-brandonsanderson button[phx-click='add-person']")
+        |> render_click()
+      end)
+
+      assert [chips] =
+               view
+               |> element("#work [data-role='credit-people']")
+               |> render()
+               |> Floki.parse_fragment!()
+
+      assert chips |> Floki.find("a[href^='#person-']") |> length() == 4
+      assert chips |> Floki.find("a[href='#people']") |> Floki.text() =~ "+2"
+    end
+
     # The credit keeps the identity decision and carries a reference, so the
     # operator can see who it means without leaving the section.
     test "a credit links to the person's card", %{conn: conn} do
@@ -320,10 +357,27 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert has_element?(view, "#person-#{key}")
     end
 
-    # Somebody already in the library was chosen in the credit's typeahead,
-    # carries curation an import may never overwrite, and has nothing left to
-    # decide.
-    test "leaves out people already in the library", %{conn: conn} do
+    # A credit pointing at an identity the library already has brings no
+    # humans with it: that person was chosen in the credit's typeahead and
+    # carries curation an import may never overwrite.
+    test "leaves out the people behind a linked credit", %{conn: conn} do
+      item = probed_item()
+      author = insert(:author, name: "Brandon Sanderson")
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      draft = Draft.Edit.link_credit(item.draft, :work, 0, author.id)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert hd(Inbox.get_item!(item.id).draft.work.authors).mode == :link
+      refute has_element?(view, "#person-brandonsanderson")
+    end
+
+    # The other direction is a decision made *here*, so it stays here. Losing
+    # the card the moment the link was made took the way back with it, and
+    # left the credit's chip pointing at an anchor that no longer existed.
+    test "keeps a person matched to the library, with the way back", %{conn: conn} do
       item = probed_item()
       person = insert(:person, name: "Brandon Sanderson")
 
@@ -334,7 +388,134 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      refute has_element?(view, "#person-#{key}")
+      assert has_element?(view, "#person-#{key}")
+
+      view
+      |> element("button[phx-click='unlink-person'][phx-value-key='#{key}']")
+      |> render_click()
+
+      assert %{mode: :create} = person_keyed(item, key)
+    end
+  end
+
+  # The credited name is the human's name in almost every import, so the card
+  # states it and offers nothing to type. "This is a pen name" is what puts a
+  # box there — and with a box on every card in every state, the control had
+  # no visible effect at all.
+  describe "the person's name" do
+    test "a card names the human and offers no box", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      card = view |> element("#person-brandonsanderson") |> render()
+
+      assert card =~ "Brandon Sanderson"
+      assert card =~ "Credited as author"
+      # the reveal is the whole line: the title already says where the name
+      # came from
+      assert card =~ "This is a pen name"
+      refute has_element?(view, "#person-brandonsanderson-resolver")
+    end
+
+    test "declaring a pen name is what puts a box there", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#person-brandonsanderson button[phx-click='separate-name']")
+      |> render_click()
+
+      assert has_element?(view, "#person-brandonsanderson-resolver")
+      assert person_keyed(item, "brandonsanderson").own_name
+    end
+
+    # Both people controls live on the card they change. On the credit they
+    # acted on a card the operator couldn't see, which is a change too far
+    # away from the click.
+    test "the credit carries no people controls", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "#work [phx-click='separate-name']")
+      refute has_element?(view, "#work [phx-click='add-person']")
+      assert has_element?(view, "#person-brandonsanderson [phx-click='separate-name']")
+    end
+
+    # The card is titled by the credit, which is the one name on it that
+    # doesn't move: a header following the box re-titled the card letter by
+    # letter while the operator typed the human's name into it.
+    test "the card is titled by the credit, not by what is typed", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#person-brandonsanderson button[phx-click='separate-name']")
+      |> render_click()
+
+      view
+      |> form("#person-brandonsanderson-identity")
+      |> render_change(%{"key" => "brandonsanderson", "name" => "Somebody Else"})
+
+      card = view |> element("#person-brandonsanderson") |> render()
+
+      assert card =~ "Brandon Sanderson"
+      assert card =~ "Credited as author"
+      assert card =~ "A pen name of"
+      assert card =~ "Somebody Else"
+    end
+
+    test "and it can be taken back", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#person-brandonsanderson button[phx-click='separate-name']")
+      |> render_click()
+
+      view
+      |> element("button[phx-click='use-credited-name'][phx-value-key='brandonsanderson']")
+      |> render_click()
+
+      refute has_element?(view, "#person-brandonsanderson-resolver")
+      refute person_keyed(item, "brandonsanderson").own_name
+    end
+
+    # A composite credit names nobody: "James S.A. Corey" is two humans, and
+    # neither of them is called that.
+    test "a credit standing for several humans always offers the box", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      add_second_person(view, "brandonsanderson")
+
+      assert has_element?(view, "#person-brandonsanderson-resolver")
+      # and the second human, whom the credit names no better than the first
+      assert has_element?(view, "[data-role='pen-name-group'] #person-person\\#2")
+    end
+
+    # The author who turns up narrating: the credit's typeahead cannot offer
+    # them, because the identity they need doesn't exist yet. Without a route
+    # to the human the form's only answer was a second Person of the name.
+    test "somebody the library already has is offered on the card", %{conn: conn} do
+      person = insert(:person, name: "Brandon Sanderson")
+      item = probed_item() |> with_local_person(person)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "already in your library"
+
+      view
+      |> element("button[phx-click='link-person'][phx-value-key='brandonsanderson']")
+      |> render_click()
+
+      assert %{mode: :link, person_id: id} = person_keyed(item, "brandonsanderson")
+      assert id == person.id
     end
   end
 
@@ -346,17 +527,12 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       # No fold to open first: people are a section of their own, so "add
       # another person" is reachable from the credit directly.
-      html =
-        view
-        |> element(
-          "button[phx-click='add-person'][phx-value-section='work'][phx-value-index='0']"
-        )
-        |> render_click()
+      html = add_second_person(view, "brandonsanderson")
 
-      # the two cards sit adjacent under a bracket naming the credit they share
-      # the two cards sit adjacent inside a bracket naming the credit they
-      # share — the narrators have their own cards elsewhere in the section
-      assert html =~ "Behind the pen name"
+      # the two cards sit adjacent inside a bracket, which states the one
+      # thing their own titles can't: that there are two of them behind the
+      # single credited name
+      assert html =~ "2 people behind this name"
 
       assert [_first, _second] =
                html
@@ -372,9 +548,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      view
-      |> element("button[phx-click='add-person'][phx-value-section='work'][phx-value-index='0']")
-      |> render_click()
+      add_second_person(view, "brandonsanderson")
 
       {:ok, item} = Inbox.fetch_item(item.id)
 
@@ -847,6 +1021,39 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert person.description.source == "provider:wikidata"
     end
 
+    # A person the matcher doubted is seeded unapproved, and until this the
+    # only control in the whole form that could approve one was linking them
+    # to somebody already in the library — 96 of the operator's 344 queued
+    # items held a person no control could settle.
+    test "a doubted person can be settled by none of these", %{conn: conn} do
+      # the matcher found humans of roughly this name and believed none of
+      # them, which is what seeds a person unapproved
+      item = probed_item() |> with_namesake_person_matches()
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      person = person_keyed(item, "brandonsanderson")
+
+      refute person.approved
+      assert person.doubt == :low_confidence
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label =~ "Brandon Sanderson"))
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#person-brandonsanderson button[data-role='none-of-these']")
+      |> render_click()
+
+      person = person_keyed(item, "brandonsanderson")
+      assert person.approved
+      assert person.sources == []
+      assert person.doubt == :none
+
+      refute Enum.any?(
+               Draft.unresolved(Inbox.get_item!(item.id).draft),
+               &(&1.label =~ "Brandon Sanderson" and &1.section == :people)
+             )
+    end
+
     # The person level's records are evidence with checkboxes, the same rule
     # as the work and recording levels. Unticking the only record of a
     # namesake — the goalkeeper who shares a narrator's name — takes his face
@@ -868,6 +1075,106 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       # and the tick survives a rebuild of the rest of the draft
       assert person.evidence_curated
+    end
+
+    # A provider round-trip is the same kind of event as a matching job and
+    # gets the same answer. The only sign it was happening used to be a button
+    # changing its own label, inside a fold that closed over it on the very
+    # patch that started the work.
+    test "a person being looked up wears the busy scrim", %{conn: conn} do
+      test_pid = self()
+      patch(PersonSearch, :providers, fn -> [%{id: "wikidata", display_name: "Wikidata"}] end)
+
+      patch(PersonSearch, :matches_with_outcome, fn _provider, _query, _opts ->
+        send(test_pid, {:searching, self()})
+        receive do: (:go -> :ok)
+        {[], [%{"id" => "wikidata", "name" => "Wikidata", "status" => "ok", "count" => 0}]}
+      end)
+
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html =
+        view
+        |> element("form#research-person-work-0-0")
+        |> render_submit(%{"key" => "brandonsanderson", "name" => "Jason Pargin"})
+
+      assert_receive {:searching, task}
+      assert html =~ "Looking for"
+      assert has_element?(view, "#person-brandonsanderson [data-role='busy-overlay']")
+
+      send(task, :go)
+      render_async(view)
+
+      refute has_element?(view, "#person-brandonsanderson [data-role='busy-overlay']")
+    end
+
+    # A card of search results is a search form with results below it. The
+    # search used to be folded away *under* the results it produced, where the
+    # patch carrying its own progress could close it.
+    test "the search sits above the results, unfolded", %{conn: conn} do
+      patch_person_search()
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      card =
+        view |> element("#person-brandonsanderson") |> render() |> Floki.parse_fragment!()
+
+      assert Floki.find(card, "form#research-person-work-0-0") != []
+      # not behind a fold of its own
+      assert card |> Floki.find("details") |> Floki.raw_html() =~ "worse match" or
+               Floki.find(card, "details") == []
+    end
+
+    # The reported flow: looking up David Wong, then Jason Pargin, and getting
+    # one list where both are perfect answers. Evidence is never deleted, so
+    # what has to happen is that it stops competing.
+    test "records the old name found sink out of the way", %{conn: conn} do
+      patch(PersonSearch, :providers, fn -> [%{id: "wikidata", display_name: "Wikidata"}] end)
+
+      patch(PersonSearch, :matches_with_outcome, fn _provider, _query, _opts ->
+        {[
+           %PersonSearch.Match{
+             provider_id: "wikidata",
+             provider_name: "Wikidata",
+             id: "Q2",
+             name: "Jason Pargin",
+             description: "Writes comic horror.",
+             images: []
+           }
+         ], [%{"id" => "wikidata", "name" => "Wikidata", "status" => "ok", "count" => 1}]}
+      end)
+
+      item = probed_item(person_photo: "https://example.test/face.jpg")
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      refute html =~ "worse match"
+
+      # the operator's flow: say the credited name is a pen name, name the
+      # human, then go looking for who they now are
+      view
+      |> element("#person-brandonsanderson button[phx-click='separate-name']")
+      |> render_click()
+
+      view
+      |> form("#person-brandonsanderson-identity")
+      |> render_change(%{"key" => "brandonsanderson", "name" => "Jason Pargin"})
+
+      view
+      |> element("form#research-person-work-0-0")
+      |> render_submit(%{"key" => "brandonsanderson", "name" => "Jason Pargin"})
+
+      html = render_async(view)
+
+      # both are still there — a photo already picked from the old one must
+      # not vanish — but only the human being asked about is in the running
+      assert html =~ "Jason Pargin"
+      assert html =~ "Show 1 worse match"
+
+      assert [%{"name" => "Jason Pargin"}, %{"name" => "Brandon Sanderson", "score" => +0.0}] =
+               Inbox.get_item!(item.id).matches["people"]["brandonsanderson"]["candidates"]
     end
 
     # A person's description is a description like any other: the recording's
@@ -1282,6 +1589,14 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     |> Floki.find("[data-role='record'][data-used='true']")
   end
 
+  # Two humans behind one credit, the way the form now asks it: the composite
+  # case IS a shared pen name, so the add sits on the person's card and only
+  # once the credited name has been called one.
+  defp add_second_person(view, key) do
+    view |> element("#person-#{key} button[phx-click='separate-name']") |> render_click()
+    view |> element("#person-#{key} button[phx-click='add-person']") |> render_click()
+  end
+
   defp person_keyed(item, key) do
     Enum.find(Inbox.get_item!(item.id).draft.people, &(&1.key == key))
   end
@@ -1314,6 +1629,66 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     if !Keyword.get(opts, :busy, false), do: Repo.delete_all(Oban.Job)
 
     with_person_matches(item, Keyword.get(opts, :person_photo))
+  end
+
+  # What matching writes when it found people of roughly this name and none of
+  # them is this human: candidates, but nothing the exact-name gate will take.
+  defp with_namesake_person_matches(item) do
+    people = %{
+      "brandonsanderson" => %{
+        "name" => "Brandon Sanderson",
+        "roles" => ["author"],
+        "local" => [],
+        "candidates" => [
+          %{
+            "source" => "provider:wikidata",
+            "provider_name" => "Wikidata",
+            "id" => "Q9",
+            "name" => "Brandon Sanderson-Smith",
+            "images" => ["https://example.test/somebody-else.jpg"],
+            "description" => "An English professional footballer."
+          }
+        ],
+        "providers" => []
+      }
+    }
+
+    {:ok, item} =
+      item
+      |> InboxItem.changeset(%{matches: Map.put(item.matches || %{}, "people", people)})
+      |> Repo.update()
+
+    item
+  end
+
+  # What matching writes when the credited name is already in the library: it
+  # searches nothing, because the library's own photo and biography are what
+  # an existing person is for.
+  defp with_local_person(item, person) do
+    people = %{
+      "brandonsanderson" => %{
+        "name" => "Brandon Sanderson",
+        "roles" => ["author"],
+        "local" => [
+          %{
+            "source" => "local",
+            "id" => person.id,
+            "name" => person.name,
+            "has_image" => false,
+            "has_description" => false
+          }
+        ],
+        "candidates" => [],
+        "providers" => []
+      }
+    }
+
+    {:ok, item} =
+      item
+      |> InboxItem.changeset(%{matches: Map.put(item.matches || %{}, "people", people)})
+      |> Repo.update()
+
+    item
   end
 
   # What the people level of matching would have written. Stubbing it here
