@@ -1054,21 +1054,18 @@ defmodule Ambry.Inbox do
       Enum.any?(files, &MapSet.member?(imported, &1)) ->
         :skipped
 
-      item = Map.get(known, path) ->
-        refresh_known(item, files, source)
-
       # The operator split this folder: a finer partition already exists.
       # Respect it — re-recording the folder whole would re-merge what they
-      # just took apart, an hour later, silently. Each existing child is
-      # refreshed with the files under it, at whatever grain it was split to;
-      # a file no child claims becomes its own item, which is the right
-      # default for a folder the operator declared "not one book".
+      # just took apart, an hour later, silently. Tested *before* the
+      # same-path branch below, because a folder split can leave a child on
+      # the folder's own path (a stray file beside the subfolders), and
+      # refreshing that one with everything underneath is precisely the merge
+      # this exists to prevent.
       children = partition_of(path, known) ->
-        Enum.map(children, &refresh_known(&1, files_under(files, &1.path), source)) ++
-          Enum.map(
-            unclaimed(files, children),
-            &record_candidate({&1, [&1]}, known, imported, source)
-          )
+        refresh_partition(path, files, children, known, imported, source)
+
+      item = Map.get(known, path) ->
+        refresh_known(item, files, source)
 
       true ->
         create_item(path, files, source)
@@ -1085,13 +1082,31 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp files_under(files, path), do: Enum.filter(files, &(&1 == path or under?(&1, path)))
+  # Each file goes to the *deepest* child that holds it, so a folder-split
+  # series gives every book folder its own files and a stray file at the top
+  # stays with whatever owns the top. A file no child claims becomes its own
+  # item — unless something already holds this folder itself, in which case
+  # the leftovers are its.
+  defp refresh_partition(path, files, children, known, imported, source) do
+    claimed = Enum.group_by(files, &claimant(&1, children))
+    refreshed = Enum.map(children, &refresh_known(&1, Map.get(claimed, &1.path, []), source))
+    leftover = Map.get(claimed, nil, [])
 
-  defp unclaimed(files, children),
-    do:
-      Enum.reject(files, fn file ->
-        Enum.any?(children, &(file == &1.path or under?(file, &1.path)))
-      end)
+    case Map.get(known, path) do
+      nil ->
+        refreshed ++ Enum.map(leftover, &record_candidate({&1, [&1]}, known, imported, source))
+
+      item ->
+        refreshed ++ [refresh_known(item, leftover, source)]
+    end
+  end
+
+  defp claimant(file, children) do
+    children
+    |> Enum.filter(&(file == &1.path or under?(file, &1.path)))
+    |> Enum.max_by(&String.length(&1.path), fn -> nil end)
+    |> then(&(&1 && &1.path))
+  end
 
   defp under?(path, parent), do: String.starts_with?(path, parent <> "/")
 

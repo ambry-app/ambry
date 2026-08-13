@@ -1621,6 +1621,45 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {items, _more} = Inbox.list_items(filter: "The Way of Kings")
       assert length(items) == 3
     end
+
+    # The stray-file trap, which is where the folder grain earns its keep: one
+    # loose file beside 43 book folders makes the whole series "the release",
+    # because audio in hand means this is it. Splitting by folder takes it
+    # apart — and the piece left holding the stray file sits on the series
+    # folder's own path, which the rescan must not read as "re-record this
+    # folder whole".
+    test "a series collapsed by a stray file splits, and stays split", %{conn: conn} do
+      root = watched_root()
+      series = Path.join(root, "Discworld")
+      File.mkdir_p!(series)
+      File.cp!(tagged_fixture(true, false, nil), Path.join(series, "stray.m4b"))
+
+      for title <- ["Discworld 5 Sourcery", "Discworld 39 Snuff"] do
+        dir = Path.join(series, title)
+        File.mkdir_p!(dir)
+        File.cp!(tagged_fixture(true, false, nil), Path.join(dir, "book.m4b"))
+      end
+
+      {:ok, _counts} = Inbox.discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Discworld")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      assert length(item.files) == 3
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      view |> element("button[data-role='split-folder']") |> render_click()
+
+      {items, _more} = Inbox.list_items(filter: "Discworld")
+      assert length(items) == 3
+
+      {:ok, _counts} = Inbox.discover(root)
+      {items, _more} = Inbox.list_items(filter: "Discworld")
+
+      assert length(items) == 3
+      # each keeps exactly what it claimed: the two books, and the stray
+      assert items |> Enum.map(&length(&1.files)) |> Enum.sort() == [1, 1, 1]
+    end
   end
 
   describe "destination" do
@@ -1753,6 +1792,12 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   defp add_second_person(view, key) do
     view |> element("#person-#{key} button[phx-click='separate-name']") |> render_click()
     view |> element("#person-#{key} button[phx-click='add-person']") |> render_click()
+  end
+
+  defp watched_root do
+    root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
+    File.mkdir_p!(root)
+    root
   end
 
   defp person_keyed(item, key) do
