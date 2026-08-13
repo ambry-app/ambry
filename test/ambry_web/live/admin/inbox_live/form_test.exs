@@ -141,6 +141,23 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert Inbox.get_item!(item.id).issue == nil
     end
 
+    # Development only, and the loop the whole staged form is designed in:
+    # run an awkward release through it, see what reads wrong, put it back.
+    test "can be undone in dev, and the form is editable again", %{conn: conn} do
+      item = probed_item() |> settle()
+      {:ok, _media} = Inbox.import_item(item)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='undo-import']")
+
+      html = view |> element("[data-role='undo-import']") |> render_click()
+
+      assert html =~ "Deleted the audiobook"
+      refute has_element?(view, "[data-role='imported-banner']")
+      assert %{status: :pending, media_id: nil} = Inbox.get_item!(item.id)
+    end
+
     test "the context refuses a second import and any draft write" do
       item = probed_item() |> settle()
       {:ok, _media} = Inbox.import_item(item)

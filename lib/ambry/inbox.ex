@@ -45,6 +45,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.RunImport
   alias Ambry.Inbox.RunMatch
   alias Ambry.Inbox.RunProbe
+  alias Ambry.Inbox.Undo
   alias Ambry.Library
   alias Ambry.Library.Root
   alias Ambry.Library.Source
@@ -558,6 +559,18 @@ defmodule Ambry.Inbox do
   defdelegate research_person(item, key, name), to: Lookup
 
   @doc """
+  Deletes what an import created and puts the item back in the queue.
+
+  Development only — `undo_available?/0` says whether this build has it. The
+  awkward releases are the ones worth running through the form, and each of
+  them could only be imported once; see `Ambry.Inbox.Undo`.
+  """
+  defdelegate undo_import(item), to: Undo
+
+  @doc "Whether this build can undo an import at all."
+  defdelegate undo_available?, to: Undo, as: :available?
+
+  @doc """
   Asks one provider again — the one that was unreachable during matching.
   """
   defdelegate retry_provider(item, level, provider_id), to: Lookup
@@ -779,6 +792,18 @@ defmodule Ambry.Inbox do
     do: "There's more than one library root. Choose which one this folder imports into."
 
   def describe_error(:already_imported), do: "Already in the library; this item is read-only."
+
+  def describe_error(:undo_unavailable), do: "Undoing an import is a development-only tool."
+
+  def describe_error(:not_imported),
+    do: "This item isn't in the library, so there's nothing to undo."
+
+  # Refused rather than half-done: a `move` policy leaves the library copy as
+  # the only copy, and deleting it would be a loss rather than an undo.
+  def describe_error(:source_files_missing),
+    do:
+      "The files this was found as are gone, so the library copy is the only one left. " <>
+        "Undoing would delete it."
 
   # The invariant, phrased for a human. It names the count rather than the
   # decisions because the form lists them properly — this is the flash you get

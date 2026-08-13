@@ -81,6 +81,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      # ignored, or the plain Back button — returns to the tab and page they
      # were on rather than an unfiltered page one.
      |> assign(return_to: return_to(params))
+     # Development only: the undo that makes "run this release again" a click
+     # rather than a hand-written cleanup. Absent from any other build.
+     |> assign(can_undo: Inbox.undo_available?())
      |> attach_hook(:refuse_while_busy, :handle_event, &refuse_while_busy/3)
      |> attach_hook(:refuse_when_imported, :handle_event, &refuse_when_imported/3)
      |> load(item)}
@@ -103,7 +106,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # the record lie. The banner and `inert` explain; this enforces, because
   # markup is advisory and a stale tab can still send anything. The only
   # events allowed through are pure view state.
-  @view_events ~w(toggle-photos)
+  # `undo-import` is the one write an imported item allows, and only where
+  # the dev flag is on — undoing is the opposite of editing the record: it
+  # deletes what the record describes rather than making it lie.
+  @view_events ~w(toggle-photos undo-import)
 
   defp refuse_when_imported(event, _params, socket) do
     if socket.assigns.read_only and event not in @view_events do
@@ -686,6 +692,21 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
+  # Development only — `Inbox.undo_import/1` refuses on any build without the
+  # flag, whatever the markup says.
+  def handle_event("undo-import", _params, socket) do
+    case Inbox.undo_import(socket.assigns.item) do
+      {:ok, summary} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, undo_words(summary))
+         |> load(Inbox.get_item!(socket.assigns.item.id))}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(reason))}
+    end
+  end
+
   def handle_event("ignore", _params, socket) do
     {:ok, _item} = Inbox.ignore_item(socket.assigns.item)
 
@@ -821,6 +842,19 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     )
     |> schedule_tick()
   end
+
+  # What went and what stayed, in one sentence. The kept half is the
+  # interesting one: a book that survived because a second recording joined it
+  # is exactly what somebody would otherwise go and check by hand.
+  defp undo_words(%{deleted: deleted, kept: kept}) do
+    gone = if deleted == [], do: "Nothing to delete.", else: "Deleted #{sentence(deleted)}."
+    stayed = if kept != [], do: " Kept #{sentence(kept)}."
+
+    "#{gone}#{stayed} Back in the queue, with its decisions."
+  end
+
+  defp sentence([one]), do: one
+  defp sentence(items), do: items |> Enum.intersperse(", ") |> Enum.join()
 
   defp atom("work"), do: :work
   defp atom("recording"), do: :recording
