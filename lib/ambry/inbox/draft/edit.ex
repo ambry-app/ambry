@@ -354,6 +354,35 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   @doc """
+  Says that the credited name is not the person's name.
+
+  A credit and a human are two different questions and the form used to ask
+  them in one control: the credited name doubled as the person's name, so
+  "David Wong" could only ever be imported as a person called David Wong when
+  the human is Jason Pargin. Separating them un-approves the person's name —
+  it is now a decision nobody has answered — which puts their card in front of
+  the operator instead of leaving a wrong name settled.
+
+  Marking the credit curated is what stops a background re-match folding the
+  two back together.
+  """
+  def separate_person_name(draft, section, index) do
+    draft
+    |> update_credit(section, index, &%{&1 | curated: true})
+    |> then(fn draft ->
+      case Enum.at(credit_at(draft, section, index).person_keys, 0) do
+        nil -> draft
+        key -> update_person(draft, key, &%{&1 | curated: true, name: unapprove(&1.name)})
+      end
+    end)
+  end
+
+  defp credit_at(draft, :work, index), do: Enum.at(draft.work.authors, index)
+  defp credit_at(draft, :recording, index), do: Enum.at(draft.recording.narrators, index)
+
+  defp unapprove(%Field{} = field), do: %{field | approved: false}
+
+  @doc """
   Adds another human behind a credit.
 
   Two or more is a shared pen name — the whole of the composite-author case,

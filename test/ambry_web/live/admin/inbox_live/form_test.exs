@@ -277,20 +277,75 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  # The third level, and a section rather than a decoration on a credit. The
+  # model always said people were a level — keyed decisions, `appearances/1` —
+  # while the form rendered them inside every credit that named them.
+  describe "the New people section" do
+    test "lists a human once, however many credits name them", %{conn: conn} do
+      item = probed_item(narrator: "Brandon Sanderson")
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      cards =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("[data-role='person-card']")
+        |> Enum.filter(&(Floki.text(&1) =~ "Brandon Sanderson"))
+
+      assert [card] = cards
+      assert Floki.text(card) =~ "Credited as author and narrator"
+    end
+
+    # A person exists because a credit names them, so the list is derived and
+    # deliberately has no add of its own (design language §5).
+    test "has no add of its own", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "#people button[phx-click='add-credit']")
+      assert has_element?(view, "#people [data-role='person-card']")
+    end
+
+    # The credit keeps the identity decision and carries a reference, so the
+    # operator can see who it means without leaving the section.
+    test "a credit links to the person's card", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      key = hd(hd(Inbox.get_item!(item.id).draft.work.authors).person_keys)
+
+      assert has_element?(view, "a[href='#person-#{key}']")
+      assert has_element?(view, "#person-#{key}")
+    end
+
+    # Somebody already in the library was chosen in the credit's typeahead,
+    # carries curation an import may never overwrite, and has nothing left to
+    # decide.
+    test "leaves out people already in the library", %{conn: conn} do
+      item = probed_item()
+      person = insert(:person, name: "Brandon Sanderson")
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      key = hd(hd(item.draft.work.authors).person_keys)
+      draft = Draft.Edit.link_person(item.draft, key, person.id)
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "#person-#{key}")
+    end
+  end
+
   describe "credits — credited as / written by" do
     test "the composite case is two people behind one credit", %{conn: conn} do
       item = probed_item()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      # the person layer is folded away for the ordinary case, so the pen-name
-      # path starts by saying that this isn't one
-      view
-      |> element(
-        "button[phx-click='toggle-people'][phx-value-section='work'][phx-value-index='0']"
-      )
-      |> render_click()
-
+      # No fold to open first: people are a section of their own, so "add
+      # another person" is reachable from the credit directly.
       html =
         view
         |> element(
@@ -298,7 +353,15 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
         )
         |> render_click()
 
-      assert html =~ "A shared pen name"
+      # the two cards sit adjacent under a bracket naming the credit they share
+      # the two cards sit adjacent inside a bracket naming the credit they
+      # share — the narrators have their own cards elsewhere in the section
+      assert html =~ "Behind the pen name"
+
+      assert [_first, _second] =
+               html
+               |> Floki.parse_document!()
+               |> Floki.find("[data-role='pen-name-group'] [data-role='person-card']")
 
       credit = hd(Inbox.get_item!(item.id).draft.work.authors)
       assert length(credit.person_keys) == 2
@@ -308,12 +371,6 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       item = probed_item()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
-
-      view
-      |> element(
-        "button[phx-click='toggle-people'][phx-value-section='work'][phx-value-index='0']"
-      )
-      |> render_click()
 
       view
       |> element("button[phx-click='add-person'][phx-value-section='work'][phx-value-index='0']")
@@ -341,21 +398,29 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert Enum.map(author.people, & &1.name) |> Enum.sort() == ["Daniel Abraham", "Ty Franck"]
     end
 
-    # Reachable from the DEFAULT state, not after unfolding: a self-narrated
-    # import is the ordinary case, and a note explaining what is about to
-    # happen is no use inside a control nobody would open.
-    test "a self-narrated book says it will create one person", %{conn: conn} do
+    # One human is one record, and now one *card*: they used to render inside
+    # every credit that named them, so a self-narrated book showed the same
+    # person twice with a sentence apologising for it.
+    test "a self-narrated book creates one person, listed once", %{conn: conn} do
       item = probed_item(narrator: "Brandon Sanderson")
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert html =~ "Same person as the author"
+      # one card, not one per credit, and it says it stands for both
+      assert html =~ "Credited as author and narrator"
 
-      # and the escape hatch is right there when two humans really do share a
-      # name
+      assert [_only_one] =
+               html
+               |> Floki.parse_document!()
+               |> Floki.find("[data-role='person-card']")
+               |> Enum.filter(&(Floki.text(&1) =~ "Brandon Sanderson"))
+
+      # and the escape hatch is on that one card, when two humans really do
+      # share a name. It is addressed to the credit that introduced them —
+      # the author, since that is where the person is listed.
       view
       |> element(
-        ~s{button[phx-click='split-person'][phx-value-section='recording'][phx-value-index='0']}
+        ~s{button[phx-click='split-person'][phx-value-section='work'][phx-value-index='0']}
       )
       |> render_click()
 
@@ -731,12 +796,6 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       item = probed_item()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
-
-      view
-      |> element(
-        "button[phx-click='toggle-people'][phx-value-section='work'][phx-value-index='0']"
-      )
-      |> render_click()
 
       view
       |> element("button[phx-click='add-person'][phx-value-section='work'][phx-value-index='0']")

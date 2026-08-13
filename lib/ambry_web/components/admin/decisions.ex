@@ -723,8 +723,6 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :people, :list, required: true
   attr :verb, :string, required: true, doc: ~s(the visible label — "Written by")
   attr :reveal, :string, required: true, doc: ~s(the unfold link — "This is a pen name")
-  attr :backing, :string, required: true, doc: ~s(the unfolded label — "Pen name of")
-  attr :expanded, :boolean, required: true
   attr :kind, :atom, required: true, doc: ":author or :narrator"
 
   attr :identity_backing, :map,
@@ -908,110 +906,188 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
       </div>
 
-      <%!-- The photo and bio belong to the credit itself while there is one
-            implied person behind it, which is nearly always. Putting them
-            inside the pen-name fold hid them behind a control nobody would
-            click to get a picture — they were, for practical purposes, not
-            there at all. --%>
-      <.person_curation
-        :if={@credit.mode == :create and !@expanded and @persons != []}
-        person={hd(@persons)}
-        section={@section}
-        index={@index}
-        person_index={0}
-        kind={@kind}
-        appears={@appearances[hd(@persons).key] || []}
-        searching={@searching_person == hd(@persons).key}
-        expanded={@photos_expanded[hd(@persons).key] || false}
-        records={@person_records[hd(@persons).key] || []}
-        outcomes={@person_outcomes[hd(@persons).key] || []}
-      />
-
-      <%!-- Folded away until it matters, and unfolded automatically the moment
-            it does — a credit backed by somebody else, or by two people, can
-            never be hiding behind a collapsed control. --%>
-      <button
-        :if={@credit.mode == :create and !@expanded}
-        type="button"
-        phx-click="toggle-people"
-        phx-value-section={@section}
-        phx-value-index={@index}
-        class="pl-3 text-xs text-zinc-400 underline"
-      >
-        {@reveal}
-      </button>
-
-      <div :if={@credit.mode == :create and @expanded} class="space-y-3">
-        <.label class="pl-3 text-xs">{@backing}</.label>
-
-        <div
-          :for={{person, person_index} <- Enum.with_index(@persons)}
-          class="space-y-1 border-l-2 border-zinc-700 pl-3"
+      <%!-- A reference, not the person. The human lives once, in the New
+            people section, because one human is one record — rendering them
+            inside every credit that named them is what made an author who
+            reads their own book appear twice, with a sentence apologising for
+            it. What a credit needs is enough to recognise who it means and a
+            way to get there. --%>
+      <div :if={@credit.mode == :create and @persons != []} class="flex flex-wrap gap-2 pl-3">
+        <.link
+          :for={person <- @persons}
+          href={"#person-#{person.key}"}
+          class="bg-white/5 flex items-center gap-2 rounded-full py-1 pr-3 pl-1 text-xs text-zinc-300 hover:bg-white/10"
         >
-          <form
-            id={"credit-#{@section}-#{@index}-person-#{person_index}"}
-            phx-change="person-change"
-            class="flex flex-wrap items-center gap-2"
-          >
-            <input type="hidden" name="key" value={person.key} />
-
-            <.live_component
-              module={EntityResolver}
-              id={"credit-#{@section}-#{@index}-person-#{person_index}-resolver"}
-              name="person_id"
-              text_name="name"
-              options={@people}
-              value={if person.mode == :link, do: person.person_id}
-              text={Field.value(person.name) || ""}
-              placeholder="the person's real name"
-              class={input_classes("w-full")}
-            />
-
-            <button
-              :if={length(@persons) > 1}
-              type="button"
-              phx-click="remove-person"
-              phx-value-section={@section}
-              phx-value-index={@index}
-              phx-value-person={person_index}
-            >
-              <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
-            </button>
-          </form>
-
-          <.person_curation
-            person={person}
-            section={@section}
-            index={@index}
-            person_index={person_index}
-            kind={@kind}
-            appears={@appearances[person.key] || []}
-            searching={@searching_person == person.key}
-            expanded={@photos_expanded[person.key] || false}
-            records={@person_records[person.key] || []}
-            outcomes={@person_outcomes[person.key] || []}
+          <img
+            :if={Field.value(person.image)}
+            src={preview_src(Field.value(person.image), nil)}
+            class="h-6 w-6 flex-none rounded-full object-cover"
+            alt=""
           />
-        </div>
+          <span
+            :if={!Field.value(person.image)}
+            class="h-6 w-6 flex-none rounded-full bg-zinc-800"
+          />
+          {Field.value(person.name) || "unnamed"}
+        </.link>
+      </div>
+
+      <div class="flex flex-wrap gap-x-4 pl-3">
+        <%!-- Not a fold any more: the person layer is a section of its own, so
+              this says the one thing it always meant — the credited name is
+              not the human's name. --%>
+        <button
+          :if={@credit.mode == :create and Credit.simple?(@credit)}
+          type="button"
+          phx-click="separate-name"
+          phx-value-section={@section}
+          phx-value-index={@index}
+          class="text-xs text-zinc-400 underline"
+        >
+          {@reveal}
+        </button>
 
         <%!-- Narrators stay one-to-one with a Person by design; only the
               author control grows a second entry. --%>
         <button
-          :if={@section == "work"}
+          :if={@section == "work" and @credit.mode == :create}
           type="button"
           phx-click="add-person"
           phx-value-section={@section}
           phx-value-index={@index}
-          class="pl-3 text-xs text-zinc-400 underline"
+          class="text-xs text-zinc-400 underline"
         >
           Add another person
         </button>
-
-        <p :if={length(@persons) > 1} class="pl-3 text-xs text-zinc-400">
-          A shared pen name: {@credit.name} will be one author credited to {length(@persons)} people.
-        </p>
       </div>
     </div>
     """
+  end
+
+  attr :person, PersonDecision, required: true
+  attr :group, :map, required: true, doc: "the credit that introduces this human"
+  attr :person_index, :integer, required: true
+  attr :removable, :boolean, default: false, doc: "only a pen name's extra people can be removed"
+  attr :searching, :boolean, default: false
+  attr :photos_expanded, :boolean, default: false
+  attr :records, :list, default: []
+  attr :outcomes, :list, default: []
+  attr :appears, :list, default: []
+  attr :people, :list, default: [], doc: "the library's people, for the typeahead"
+
+  @doc """
+  One human this import will create, as a decision card of their own.
+
+  The card is where a person's own questions live — what they are called, which
+  face, which biography — separately from the *credit*, which asks a different
+  question: which identity does this book credit. They were one control for a
+  long time, which is why an author reading their own book rendered twice.
+
+  The events still address the credit that introduces them (`section`,
+  `index`, `person_index`), because "remove this person" means removing them
+  from that credit — the person exists only as long as a credit names them.
+  """
+  def person_card(assigns) do
+    ~H"""
+    <div
+      id={"person-#{@person.key}"}
+      class={["space-y-3 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@person)]}
+      data-role="person-card"
+    >
+      <div class="flex items-baseline justify-between gap-2 pl-3">
+        <.label>{Field.value(@person.name) || "Unnamed person"}</.label>
+
+        <button
+          :if={@removable}
+          type="button"
+          phx-click="remove-person"
+          phx-value-section={@group.section}
+          phx-value-index={@group.index}
+          phx-value-person={@person_index}
+          title="not one of the people behind this name"
+        >
+          <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
+        </button>
+      </div>
+
+      <%!-- Where they are credited, and — when that is more than one place —
+            the escape hatch for two humans who really do share a name. The
+            card exists once for the person, so this is the only place the
+            question can be asked. --%>
+      <p class="pl-3 text-xs text-zinc-400">
+        {appearance_words(@appears)}
+        <button
+          :if={length(Enum.uniq_by(@appears, & &1.kind)) > 1}
+          type="button"
+          phx-click="split-person"
+          phx-value-section={@group.section}
+          phx-value-index={@group.index}
+          phx-value-person={@person_index}
+          class="underline"
+        >
+          Not the same person?
+        </button>
+      </p>
+
+      <%!-- The name is a decision like any other: a provider's spelling is a
+          proposal, and without a box to overrule it "David Wong" could only
+          be imported as a person called David Wong when the human is Jason
+          Pargin. The typeahead is also how they become somebody already in
+          the library. --%>
+      <form id={"person-#{@person.key}-identity"} phx-change="person-change">
+        <input type="hidden" name="key" value={@person.key} />
+
+        <.live_component
+          module={EntityResolver}
+          id={"person-#{@person.key}-resolver"}
+          name="person_id"
+          text_name="name"
+          options={@people}
+          value={if @person.mode == :link, do: @person.person_id}
+          text={Field.value(@person.name) || ""}
+          placeholder="the person's real name"
+          class={input_classes("w-full")}
+        />
+      </form>
+
+      <.person_curation
+        person={@person}
+        section={@group.section}
+        index={@group.index}
+        person_index={@person_index}
+        kind={@group.kind}
+        appears={@appears}
+        searching={@searching}
+        expanded={@photos_expanded}
+        records={@records}
+        outcomes={@outcomes}
+      />
+    </div>
+    """
+  end
+
+  @doc """
+  Where this human is credited, in words.
+
+  The card is away from the credits now, so it has to say what it belongs to —
+  and for somebody behind two credits, that they are one person rather than
+  two identically named ones.
+  """
+  def appearance_words([]), do: "Not credited anywhere on this import."
+
+  def appearance_words(appears) do
+    appears
+    |> Enum.map(& &1.kind)
+    |> Enum.uniq()
+    |> Enum.map(fn
+      :author -> "author"
+      :narrator -> "narrator"
+      other -> to_string(other)
+    end)
+    |> case do
+      [one] -> "Credited as #{one}."
+      several -> "Credited as #{Enum.join(several, " and ")} — one person, both credits."
+    end
   end
 
   attr :person, PersonDecision, required: true
@@ -1100,24 +1176,6 @@ defmodule AmbryWeb.Admin.Decisions do
           :if={is_nil(@image)}
           class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-700"
         />
-
-        <%!-- The same human on two credits: an author reading their own book.
-              Approval creates them once, so this is where the form says so —
-              on the row that would otherwise look like it was about to make a
-              second person of the same name. --%>
-        <p :if={@shared_with} class="min-w-0 text-xs text-zinc-400">
-          Same person as the {@shared_with}. One {Field.value(@person.name)} will be created.
-          <button
-            type="button"
-            phx-click="split-person"
-            phx-value-section={@section}
-            phx-value-index={@index}
-            phx-value-person={@person_index}
-            class="underline"
-          >
-            Not the same person?
-          </button>
-        </p>
       </div>
 
       <%!-- Nothing found is a normal outcome, not a failure — plenty of

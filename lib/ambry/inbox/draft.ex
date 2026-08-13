@@ -157,6 +157,64 @@ defmodule Ambry.Inbox.Draft do
     do: credit.person_keys |> Enum.map(&person(draft, &1)) |> Enum.reject(&is_nil/1)
 
   @doc """
+  The humans this import will create, grouped by the credit that introduces
+  them.
+
+  ## Why people are a section and not a decoration on a credit
+
+  The model already says people are a level: `PersonDecision` is keyed, one
+  human is one record, and `appearances/1` exists to answer which credits
+  reference them. The form said otherwise — it rendered a person *inside* each
+  credit that named them, so an author who reads their own book appeared
+  twice, and the row had to print "Same person as the author. One X will be
+  created" to apologise for a duplication the model had deliberately deleted.
+
+  A person is therefore listed once, under the first credit that names them,
+  and the credits carry a reference instead. Grouping by credit is what keeps
+  a composite pen name's people adjacent: "James S.A. Corey" is one credit
+  standing for two humans, and any other ordering scatters the pair.
+
+  **Only people this import will create.** Someone already in the library was
+  chosen in the credit's typeahead, carries curation an import may never
+  overwrite, and has nothing left to decide — and the one dangerous case, a
+  name matching two existing identities, is a decision on the credit where
+  `Credit.state/1` computes it.
+
+  Returns `[%{credit:, kind:, section:, index:, people: [...]}]`, dropping
+  credits that introduce nobody new.
+  """
+  def people_groups(nil), do: []
+
+  def people_groups(%__MODULE__{} = draft) do
+    {groups, _seen} =
+      Enum.reduce(credits(draft), {[], MapSet.new()}, fn {kind, section, index, credit},
+                                                         {groups, seen} ->
+        people = new_people(draft, credit, seen)
+
+        if people == [] do
+          {groups, seen}
+        else
+          group = %{credit: credit, kind: kind, section: section, index: index, people: people}
+          {groups ++ [group], MapSet.union(seen, MapSet.new(people, & &1.key))}
+        end
+      end)
+
+    groups
+  end
+
+  # A removed credit holds its person keys for a possible restore, but a
+  # person only a tombstone references is nobody's decision — the same rule
+  # `referenced_keys/1` follows.
+  defp new_people(_draft, %Credit{removed: true}, _seen), do: []
+  defp new_people(_draft, %Credit{mode: :link}, _seen), do: []
+
+  defp new_people(draft, %Credit{} = credit, seen) do
+    credit.person_keys
+    |> Enum.map(&person(draft, &1))
+    |> Enum.reject(&(is_nil(&1) or &1.mode == :link or MapSet.member?(seen, &1.key)))
+  end
+
+  @doc """
   Which credits reference each person, so the form can say where they appear.
 
   Returns `%{key => [%{kind:, section:, index:, name:}]}`. This is display

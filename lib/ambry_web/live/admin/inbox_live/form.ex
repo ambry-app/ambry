@@ -38,7 +38,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Books
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
-  alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Seed
@@ -65,7 +64,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(author_backing: People.author_backing_names())
      |> assign(narrator_backing: People.narrator_backing_names())
      |> assign(people: People.people_for_select())
-     |> assign(expanded: MapSet.new())
      |> assign(researching: nil, retrying: nil, enriching: nil)
      # Which person is being looked up again, and whose photo strip is showing
      # in full. Both are view state keyed by person key — the results
@@ -101,7 +99,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # the record lie. The banner and `inert` explain; this enforces, because
   # markup is advisory and a stale tab can still send anything. The only
   # events allowed through are pure view state.
-  @view_events ~w(toggle-photos toggle-people)
+  @view_events ~w(toggle-photos)
 
   defp refuse_when_imported(event, _params, socket) do
     if socket.assigns.read_only and event not in @view_events do
@@ -171,17 +169,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def busy_label(:queued), do: "Queued for matching…"
   def busy_label(_idle), do: "Working…"
 
-  @doc """
-  Whether a credit's person layer should be showing.
-
-  Folded away for the ordinary case — one new person of the same name — and
-  unfolded whenever the credit is anything else, so a pen name can never be
-  hiding behind a collapsed control.
-  """
-  def expanded?(expanded, section, index, credit) do
-    MapSet.member?(expanded, {section, index}) or not Credit.simple?(credit)
-  end
-
   # What a person is currently called, which is what a re-search asks about.
   defp person_name(draft, key) do
     case Draft.person(draft, key) do
@@ -203,6 +190,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       {key, matched["providers"] || []}
     end
   end
+
+  @doc "One person's provider records, for their own card."
+  def person_records(item, key), do: get_in(item.matches, ["people", key, "candidates"]) || []
+
+  @doc "What each person provider said when asked about them."
+  def person_outcomes(item, key), do: get_in(item.matches, ["people", key, "providers"]) || []
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"inbox_item" => params}, socket) do
@@ -450,17 +443,13 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.reset_series_name(&1, to_int(i)))}
   end
 
-  # Whether the person layer is unfolded is view state, not a decision — it
-  # has no business in the stored draft.
-  def handle_event("toggle-people", %{"section" => section, "index" => index}, socket) do
-    {:noreply,
-     update(socket, :expanded, fn expanded ->
-       key = {section, to_int(index)}
-
-       if MapSet.member?(expanded, key),
-         do: MapSet.delete(expanded, key),
-         else: MapSet.put(expanded, key)
-     end)}
+  # The credited name is not always the human's name — "David Wong" is Jason
+  # Pargin — so this separates the two. It used to be a fold over a person
+  # layer nested in the credit; now that people are a section of their own
+  # there is nothing to unfold, and the control does the one thing it always
+  # meant.
+  def handle_event("separate-name", %{"section" => section, "index" => index}, socket) do
+    {:noreply, edit(socket, &Draft.Edit.separate_person_name(&1, atom(section), to_int(index)))}
   end
 
   # The photos and bios matching already found are in the person's own fields,
