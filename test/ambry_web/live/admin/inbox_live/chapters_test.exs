@@ -83,7 +83,6 @@ defmodule AmbryWeb.Admin.InboxLive.ChaptersTest do
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert html =~ "one per file"
       assert has_element?(view, "form#chapters-form")
       # two file-boundary rows, open by default because the list is short
       assert view

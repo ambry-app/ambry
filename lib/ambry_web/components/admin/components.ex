@@ -757,7 +757,10 @@ defmodule AmbryWeb.Admin.Components do
   defp file_label(file, ""), do: file
   defp file_label(file, common), do: Path.relative_to(file, common)
 
-  attr :title, :string, required: true
+  attr :title, :string,
+    default: nil,
+    doc: "omit where the section is the form's subject and the page title already says it"
+
   attr :id, :string, default: nil
   attr :class, :any, default: nil
   slot :inner_block, required: true
@@ -768,11 +771,18 @@ defmodule AmbryWeb.Admin.Components do
 
   Headings sit on the ground with no rule under them; the 56px section gap
   and the blocks below do the dividing (§1, §3).
+
+  The heading is optional, because a form's *first* section is usually the
+  thing the form is about and naming it says nothing: the audiobook form
+  opened with "The audiobook" under a page already titled with the
+  audiobook's name. The book and person forms never had one. A section
+  still earns a heading when it is a genuine change of subject — "Chapters",
+  "Audio and processing".
   """
   def form_section(assigns) do
     ~H"""
     <section id={@id} class={["space-y-7", @class]}>
-      <h2 class="text-xl font-bold text-zinc-100">{@title}</h2>
+      <h2 :if={@title} class="text-xl font-bold text-zinc-100">{@title}</h2>
       {render_slot(@inner_block)}
     </section>
     """

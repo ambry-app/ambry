@@ -10,13 +10,13 @@
     <.evidence_panel
       evidence={@evidence}
       level="recording"
-      title="Records describing this audiobook"
+      title="Search providers"
       hint="Tick every record of this exact reading; check the narrator first. Ticked records offer their values as chips under the fields below."
       retrying={@retrying}
     />
 
     <.simple_form id="media-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
-      <.form_section title="The audiobook" id="recording">
+      <.form_section id="recording">
         <.field_group>
           <.input
             field={@form[:book_id]}
@@ -395,18 +395,24 @@
           </.disclosure>
         </.field_group>
 
-        <.file_input
-          upload={@uploads.supplemental}
-          on_cancel="cancel-supplemental-upload"
-          label="Upload supplemental files"
-          image_preview_class="h-48"
-        />
+        <%!-- The one list on this form that wasn't a card: a bare upload
+            control on the ground, and a card below it that existed only
+            once there was something in it — so the section had no name
+            until it had contents. `list_cluster`'s grammar instead (§3b),
+            with the dropzone as the add. --%>
+        <.list_cluster label="Supplemental files">
+          <p
+            :if={@live_action != :edit || @form[:supplemental_files].value == []}
+            class="pl-3 text-sm text-zinc-400"
+          >
+            No supplemental files.
+          </p>
 
-        <.field_group
-          :if={@live_action == :edit && @form[:supplemental_files].value != []}
-          label="Supplemental files"
-        >
-          <.inputs_for :let={supplemental_file_form} field={@form[:supplemental_files]}>
+          <.inputs_for
+            :let={supplemental_file_form}
+            :if={@live_action == :edit}
+            field={@form[:supplemental_files]}
+          >
             <.sort_input field={@form[:supplemental_files_sort]} index={supplemental_file_form.index} />
             <.input field={supplemental_file_form[:id]} type="hidden" />
 
@@ -424,7 +430,15 @@
           </.inputs_for>
 
           <.delete_input field={@form[:supplemental_files_drop]} />
-        </.field_group>
+
+          <:add>
+            <.file_input
+              upload={@uploads.supplemental}
+              on_cancel="cancel-supplemental-upload"
+              image_preview_class="h-12 w-12 rounded-md object-cover"
+            />
+          </:add>
+        </.list_cluster>
 
         <.field_group>
           <.label for={@form[:processor].name} class="pl-3">

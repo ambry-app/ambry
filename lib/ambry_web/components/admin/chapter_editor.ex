@@ -161,9 +161,13 @@ defmodule AmbryWeb.Admin.ChapterEditor do
     ~H"""
     <div class="space-y-2">
       <div class={["space-y-3 rounded-lg bg-zinc-900 p-4", @rail && "#{@rail} border-l-4"]}>
-        <%!-- the card names itself: its facts live inside it, on the rail --%>
-        <p class="flex items-baseline gap-2 pl-3 text-sm text-zinc-400">
-          <span>{source_line(@markers, current_marker_source(@form))}</span>
+        <%!-- Where the markers came from used to be spelled out here
+            ("Markers read from the files' own chapter marks · titles: 40
+            embedded."), which restated what every row already shows in its
+            own source column and pushed the rows down a line on every form
+            that carries them. The provenance flag is the part that says
+            something the rows can't, so it is what is left. --%>
+        <p :if={@flag != []} class="flex items-baseline gap-2 pl-3 text-sm text-zinc-400">
           {render_slot(@flag)}
         </p>
 
@@ -372,13 +376,6 @@ defmodule AmbryWeb.Admin.ChapterEditor do
   # Vocabulary
   # ---------------------------------------------------------------------------
 
-  # The card's one line of orientation: where the timeline came from, and
-  # what the titles are made of.
-  defp source_line([], _source), do: "The files carry no chapters; rows added here are by hand."
-
-  defp source_line(chapters, source),
-    do: "Markers #{marker_source_phrase(source)} · titles: #{title_summary(chapters)}."
-
   @doc """
   How a title got its name, in one muted word for a dense row.
 
@@ -396,39 +393,6 @@ defmodule AmbryWeb.Admin.ChapterEditor do
   def title_source_label("provider"), do: "provider"
   def title_source_label("manual"), do: "typed"
   def title_source_label(_unrecorded), do: nil
-
-  @doc """
-  Where a recording's markers came from, as a phrase the operator can act
-  on.
-  """
-  def marker_source_phrase(:embedded), do: "read from the files' own chapter marks"
-
-  def marker_source_phrase(:file_boundaries),
-    do: "one per file, taken from where each file starts"
-
-  def marker_source_phrase(:manual), do: "set by hand"
-  def marker_source_phrase(_unrecorded), do: "from before this was recorded"
-
-  @doc """
-  What the titles of a chapter list are made of, counted by source.
-  """
-  def title_summary([]), do: nil
-
-  def title_summary(chapters) do
-    chapters
-    |> Enum.frequencies_by(& &1.title_source)
-    |> Enum.sort_by(fn {_source, count} -> -count end)
-    |> Enum.map_join(", ", fn {source, count} ->
-      "#{count} #{title_source_phrase(source)}"
-    end)
-  end
-
-  defp title_source_phrase(:generated), do: "generated"
-  defp title_source_phrase(:embedded), do: "from the files"
-  defp title_source_phrase(:filename), do: "from the filenames"
-  defp title_source_phrase(:provider), do: "from a provider"
-  defp title_source_phrase(:manual), do: "typed"
-  defp title_source_phrase(_unrecorded), do: "unrecorded"
 
   defp n_things(list, word) when length(list) == 1, do: "1 #{word}"
   defp n_things(list, word), do: "#{length(list)} #{word}s"
@@ -452,13 +416,6 @@ defmodule AmbryWeb.Admin.ChapterEditor do
   """
   def current_chapters(form) do
     form.source |> Changeset.apply_changes() |> Map.fetch!(:chapters)
-  end
-
-  @doc """
-  The recorded marker source, read the same way.
-  """
-  def current_marker_source(form) do
-    form.source |> Changeset.apply_changes() |> Map.fetch!(:chapter_marker_source)
   end
 
   @doc """

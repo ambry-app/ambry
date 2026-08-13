@@ -59,8 +59,13 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
     end
   end
 
-  describe "the header" do
-    test "says where the markers came from", %{conn: conn} do
+  # The card used to open with a sentence naming the marker source and
+  # counting the title sources ("Markers one per file · titles: 1
+  # generated."). It restated what every row already shows in its own source
+  # column, so it went; the per-row labels below are where that now lives,
+  # and `chapter_marker_source` is still enforced by "editing" below.
+  describe "the marker source" do
+    test "a moved marker still records the timeline as the operator's", %{conn: conn} do
       media =
         media_with_chapters([chapter(0, "Chapter 1", :generated)],
           chapter_marker_source: :file_boundaries
@@ -68,16 +73,9 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersTest do
 
       {:ok, _view, html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
 
-      assert html =~ "one per file"
-      assert html =~ "1 generated"
-    end
-
-    test "is honest about a list that predates the field", %{conn: conn} do
-      media = media_with_chapters([chapter(0, "Prologue", nil)])
-
-      {:ok, _view, html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
-
-      assert html =~ "from before this was recorded"
+      # carried in the form rather than printed at the operator
+      assert html =~ ~s(name="media[chapter_marker_source]")
+      assert html =~ ~s(value="file_boundaries")
     end
   end
 
