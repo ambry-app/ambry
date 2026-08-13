@@ -354,35 +354,48 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  attr :at, :string, required: true, doc: "where this renders — DOM ids key on place, not person"
-  attr :person_key, :string, required: true
+  attr :at, :string,
+    default: nil,
+    doc: "where this renders — DOM ids key on place, not person; nil where there is only one"
+
+  attr :person_key, :string,
+    default: nil,
+    doc: "routes the search to one person; nil where the surface is about a single person"
 
   attr :name, :string,
     default: nil,
     doc: "the name these records were searched for — not the person's own name"
 
+  attr :event, :string, default: "research-person"
+  attr :label, :string, default: "Search again"
   attr :running, :boolean, default: false
 
   @doc """
   The person level's search-again form — the work-level pattern with a name
   where the work has title and author.
 
-  The box holds the *query*, exactly as the work level's holds `query_fields`.
+  The box holds the *query*, exactly as `research_form`'s holds its fields.
   It used to render the person's name decision, so searching for anything else
   worked and then snapped back to the pre-filled name the moment the results
   landed — the one moment the operator needs to see what produced them. The
   two are genuinely different questions: searching "Robert Galbraith" for a
   person the import will create as "J.K. Rowling" is the case this form is
   for, and neither answer should overwrite the other.
+
+  The person edit form hand-wrote this same markup, which is how the two
+  drifted: the copy there grew a three-way button label the inbox never got,
+  and a fix to either reached only half the people searches in the admin.
+  One component, parameterised by the two things that genuinely differ —
+  which event routes it, and whether there is a person key to route *to*.
   """
   def person_research_form(assigns) do
     ~H"""
     <form
-      id={"research-person-#{@at}"}
-      phx-submit="research-person"
+      id={["research-person", @at] |> Enum.reject(&is_nil/1) |> Enum.join("-")}
+      phx-submit={@event}
       class="flex flex-wrap items-end gap-2"
     >
-      <input type="hidden" name="key" value={@person_key} />
+      <input :if={@person_key} type="hidden" name="key" value={@person_key} />
 
       <label class="text-xs text-zinc-400">
         <span class="block pl-3">name</span>
@@ -390,7 +403,7 @@ defmodule AmbryWeb.Admin.Decisions do
       </label>
 
       <.button color={:zinc} type="submit" disabled={@running}>
-        {if @running, do: "Searching…", else: "Search again"}
+        {if @running, do: "Searching…", else: @label}
       </.button>
     </form>
     """
@@ -1013,7 +1026,10 @@ defmodule AmbryWeb.Admin.Decisions do
             and gets the same answer: the card is not yours while it runs. A
             button changing its own label to "Searching…" was the whole
             indication, in a fold that could close over it. --%>
-      <.busy_overlay busy={@searching} label={"Looking for #{person_words(@person)}…"} />
+      <%!-- Named by the QUERY, like the work and recording scrims: a search
+            for a name other than this person's own said "Looking for
+            <the person>…" while looking for somebody else entirely. --%>
+      <.busy_overlay busy={@searching} label={"Looking for #{@query_name || person_words(@person)}…"} />
 
       <div class="space-y-3" inert={@searching}>
         <%!-- Titled by the CREDIT, which is the one name on this card that

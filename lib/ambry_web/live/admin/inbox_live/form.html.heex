@@ -190,7 +190,7 @@
               runs. The person cards have said so since they grew a search of
               their own; these two were left with a button that changed its
               own label. --%>
-          <.busy_overlay busy={@researching == "work"} label={searching_label(@item.draft.work.query_fields)} />
+          <.busy_overlay busy={@researching == "work"} label={searching_label(@research_fields)} />
 
           <div class="space-y-2" inert={@researching == "work"}>
             <%!-- No badge and no Confirm button: the rail says which of the four
@@ -212,7 +212,7 @@
                 fixable without opening anything. --%>
             <.research_form
               level="work"
-              fields={@item.draft.work.query_fields}
+              fields={search_fields(@researching, "work", @research_fields, @search_seeds["work"])}
               running={@researching == "work"}
             />
 
@@ -453,7 +453,7 @@
               runs. The person cards have said so since they grew a search of
               their own; these two were left with a button that changed its
               own label. --%>
-          <.busy_overlay busy={@researching == "recording"} label={searching_label(@item.draft.recording.query_fields)} />
+          <.busy_overlay busy={@researching == "recording"} label={searching_label(@research_fields)} />
 
           <div class="space-y-2" inert={@researching == "recording"}>
             <div class="flex items-baseline gap-2 pl-3">
@@ -467,7 +467,7 @@
 
             <.research_form
               level="recording"
-              fields={@item.draft.recording.query_fields}
+              fields={search_fields(@researching, "recording", @research_fields, @search_seeds["recording"])}
               running={@researching == "recording"}
             />
 
@@ -680,7 +680,7 @@
               records={person_records(@item, person.key)}
               locals={person_locals(@item, person.key)}
               outcomes={person_outcomes(@item, person.key)}
-              query_name={person_query_name(@item, person.key)}
+              query_name={person_query_name(@item, person.key, @searching_person, @searching_person_name)}
               appears={@appearances[person.key] || []}
               people={@people}
             />
@@ -697,7 +697,7 @@
             records={person_records(@item, hd(group.people).key)}
             locals={person_locals(@item, hd(group.people).key)}
             outcomes={person_outcomes(@item, hd(group.people).key)}
-            query_name={person_query_name(@item, hd(group.people).key)}
+            query_name={person_query_name(@item, hd(group.people).key, @searching_person, @searching_person_name)}
             appears={@appearances[hd(group.people).key] || []}
             people={@people}
           />

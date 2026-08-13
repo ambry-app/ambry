@@ -22,6 +22,7 @@ defmodule AmbryWeb.Admin.Curation do
 
   import AmbryWeb.Admin.Decisions,
     only: [
+      person_research_form: 1,
       provider_outcomes_row: 1,
       proposal_chip: 1,
       record_list: 1,
@@ -90,31 +91,16 @@ defmodule AmbryWeb.Admin.Curation do
         />
 
         <%!-- A person is searched by name — the research form's
-            title/author/narrator fields are the books' vocabulary. --%>
-        <form
+            title/author/narrator fields are the books' vocabulary. The inbox's
+            component, not a second copy of it: this markup was hand-written
+            here and drifted from the one the import form uses. --%>
+        <.person_research_form
           :if={@level == "person"}
-          id="research-person"
-          phx-submit="research"
-          class="flex flex-wrap items-end gap-2"
-        >
-          <label class="text-xs text-zinc-400">
-            <span class="block pl-3">name</span>
-            <input
-              type="text"
-              name="name"
-              value={@evidence.fields["name"]}
-              class={input_classes("mt-1 block")}
-            />
-          </label>
-
-          <.button color={:zinc} type="submit" disabled={@evidence.running?}>
-            {cond do
-              @evidence.running? -> "Searching…"
-              @evidence.searched? -> "Search again"
-              true -> "Search"
-            end}
-          </.button>
-        </form>
+          event="research"
+          name={@evidence.fields["name"]}
+          running={@evidence.running?}
+          label={(@evidence.searched? && "Search again") || "Search"}
+        />
 
         <.provider_outcomes_row
           outcomes={@evidence.outcomes}

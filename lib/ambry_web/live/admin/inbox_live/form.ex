@@ -70,6 +70,13 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(narrator_backing: People.narrator_backing_names())
      |> assign(people: People.people_for_select())
      |> assign(researching: nil, retrying: nil, enriching: nil)
+     # What the in-flight search asked for. The stored query only updates
+     # when results land, so a form that renders storage describes the
+     # PREVIOUS search for the whole round trip — the typed words vanish from
+     # the boxes at the click and the scrim names the wrong book. The edit
+     # forms have always captured this (`Evidence.begin/2`); this is the same
+     # discipline for the staged form.
+     |> assign(research_fields: %{}, searching_person_name: nil)
      # Which person is being looked up again, and whose photo strip is showing
      # in full. Both view state keyed by person key — the results themselves
      # are evidence and live on the item.
@@ -181,6 +188,66 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def busy_label(_idle), do: "Working…"
 
   @doc """
+  What a level's search box shows: the query in flight while one is running,
+  and the last one asked otherwise.
+
+  The stored query is only written when results land, so rendering it during
+  the round trip describes the *previous* search — which is why typed words
+  appeared to revert the moment Search was pressed and the scrim named the
+  wrong book. The edit forms never had this because `Evidence.begin/2`
+  records the submitted fields at the click; this is the same rule for a
+  form whose query lives in the database instead of a struct.
+  """
+  def search_fields(level, level, in_flight, _seeded), do: in_flight
+  def search_fields(_researching, _level, _in_flight, seeded), do: seeded
+
+  # The query keys a search form can submit — the same set
+  # `Provider.Query.from_fields/1` reads, so what comes back is exactly what
+  # was asked for.
+  @query_keys ~w(title author narrator)
+
+  defp submitted_fields(params), do: Map.take(params, @query_keys)
+
+  # What each level's boxes hold when no search is in flight.
+  #
+  # The stored query is what was last *asked*, and for a recording matched by
+  # its ASIN that is `%{"keywords" => "B0…"}` — a shape this form has no box
+  # for. So the audiobook card rendered three empty boxes above a button
+  # that submitted a blank query, which `Lookup.research/3` correctly treats
+  # as nothing to do: a dead control that said nothing about why. Falling
+  # back to the hints matching itself used means a box always holds
+  # something submittable, the way the edit forms seed their panel from the
+  # record they belong to.
+  #
+  # Wholesale, never per key: merging hints into a stored query would put
+  # back an author the operator deliberately cleared, which is the bug this
+  # whole pass is about.
+  defp search_seeds(item) do
+    hints = Inbox.hints(item)
+
+    from_hints =
+      %{"title" => hints[:title], "author" => hints[:author], "narrator" => hints[:narrator]}
+      |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+      |> Map.new()
+
+    draft = item.draft
+
+    %{
+      "work" => seeded_fields(draft && draft.work, from_hints),
+      "recording" => seeded_fields(draft && draft.recording, from_hints)
+    }
+  end
+
+  defp seeded_fields(nil, from_hints), do: from_hints
+
+  defp seeded_fields(decision, from_hints) do
+    case Map.take(decision.query_fields || %{}, @query_keys) do
+      no_text_fields when map_size(no_text_fields) == 0 -> from_hints
+      stored -> stored
+    end
+  end
+
+  @doc """
   What a level's search is looking for, for the scrim that covers it.
 
   Named rather than a bare "Searching…", because the operator has just typed
@@ -225,8 +292,15 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   name and rewritten by every re-search, so the search box can hold the query
   rather than the person's name decision — which is a different answer and
   was snapping the box back the moment results arrived.
+
+  In flight it is the name just submitted, for the same reason
+  `search_fields/3` is: until the results land, storage still describes the
+  previous search.
   """
-  def person_query_name(item, key), do: get_in(item.matches, ["people", key, "name"])
+  def person_query_name(_item, key, key, name) when is_binary(name), do: name
+
+  def person_query_name(item, key, _searching_key, _searching_name),
+    do: get_in(item.matches, ["people", key, "name"])
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"inbox_item" => params}, socket) do
@@ -377,7 +451,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      socket
-     |> assign(researching: level)
+     |> assign(researching: level, research_fields: submitted_fields(params))
      |> start_async({:research, level}, fn -> Inbox.research(item, level, params) end)}
   end
 
@@ -532,7 +606,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      socket
-     |> assign(searching_person: key)
+     |> assign(searching_person: key, searching_person_name: name)
      |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
@@ -632,7 +706,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      socket
-     |> assign(searching_person: key)
+     |> assign(searching_person: key, searching_person_name: name)
      |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
@@ -762,17 +836,22 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @impl Phoenix.LiveView
 
   def handle_async({:person_search, _key}, {:ok, {:ok, item}}, socket) do
-    {:noreply, socket |> assign(searching_person: nil) |> load(item) |> resettle()}
+    {:noreply,
+     socket
+     |> assign(searching_person: nil, searching_person_name: nil)
+     |> load(item)
+     |> resettle()}
   end
 
   # A provider being down costs its results and nothing else — the person is
   # still perfectly importable without a face.
   def handle_async({:person_search, _key}, _failed, socket) do
-    {:noreply, assign(socket, searching_person: nil)}
+    {:noreply, assign(socket, searching_person: nil, searching_person_name: nil)}
   end
 
   def handle_async({:research, _level}, {:ok, {:ok, item}}, socket) do
-    {:noreply, socket |> assign(researching: nil) |> load(item) |> resettle()}
+    {:noreply,
+     socket |> assign(researching: nil, research_fields: %{}) |> load(item) |> resettle()}
   end
 
   def handle_async({:retry, _level}, {:ok, {:ok, item}}, socket) do
@@ -800,6 +879,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply,
      socket
      |> assign(researching: nil, retrying: nil, enriching: nil)
+     |> assign(research_fields: %{}, searching_person: nil, searching_person_name: nil)
      |> put_flash(:error, "That provider couldn't be reached just now.")}
   end
 
@@ -865,6 +945,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),
+      # What each level's search box starts from, resolved once per load
+      # rather than per render — the hints are parsed out of the release
+      # text.
+      search_seeds: search_seeds(item),
       # A recording group is reachable only through its book, so the picker
       # has options exactly when the work links a library book. A :create
       # work has no groups yet — the resolver is create-only there.
