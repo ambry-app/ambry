@@ -989,6 +989,22 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def hint_rows(_item), do: []
 
   @doc """
+  The work records card's state rail.
+
+  Amber only when the records question is genuinely open — an unsure match
+  the operator hasn't curated, the one state this card puts in "Still to
+  settle". Lime once a human settled it. A trusted match and a no-match are
+  informational (blue and gray badges say which), so they wear no rail.
+  """
+  def work_records_rail(%Work{} = work) do
+    case Draft.level_state(work) do
+      :confirmed -> "border-l-4 border-brand-dark/60"
+      :unsure -> "border-l-4 border-amber-400/70"
+      _informational -> nil
+    end
+  end
+
+  @doc """
   Why nothing was filled in from a recording match.
 
   "No provider listed this" and "a provider listed a different reader's

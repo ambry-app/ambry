@@ -144,94 +144,11 @@
           The book
         </h2>
 
-        <%!-- The first question, and a different KIND of question from the
-            records below: linking creates nothing and inherits the book's
-            curation, importing a record creates a Book. Ranking the two
-            together made the form ask one question that was really two. --%>
-        <div
-          class={[
-            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-            (@item.draft.work.approved && "border-brand-dark/60") || "border-amber-400/70"
-          ]}
-          data-role="local-books"
-        >
-          <div class="flex items-baseline gap-2 pl-3">
-            <.label>Is this a book you already have?</.label>
-            <.badge
-              :if={!@item.draft.work.approved}
-              color={elem(state_words(:unconfirmed), 1)}
-              class="text-xs"
-            >
-              {elem(state_words(:unconfirmed), 0)}
-            </.badge>
-          </div>
-
-          <p class="max-w-prose pl-3 text-sm text-zinc-400">
-            If so, this import becomes another edition of that book.
-          </p>
-
-          <.local_book_row
-            :for={book <- local_records(@item, "work")}
-            book={book}
-            linked={@item.draft.work.mode == :link and @item.draft.work.book_id == book["id"]}
-          />
-
-          <%!-- Matching is keyword-based and good enough for the ordinary case,
-              but a file's idea of its title can be anything: the operator's own
-              copy of Philosopher's Stone is tagged "HP1 - The Philosopher's
-              Stone", and the US edition of the same work is called Sorcerer's
-              Stone, which no amount of string cleverness should be expected to
-              connect. So there is always a way to go and look. --%>
-          <form
-            phx-submit="search-library"
-            phx-change="search-library"
-            id="library-search"
-            class="flex flex-wrap items-center gap-2 pt-1"
-          >
-            <input
-              type="text"
-              name="query"
-              value={@library_query}
-              placeholder="search the library by title, author or series"
-              phx-debounce="300"
-              class={input_classes("min-w-64 px-[11px] max-w-xl flex-grow py-2 leading-6")}
-            />
-            <.button type="submit" color={:zinc}>Search</.button>
-          </form>
-
-          <p
-            :if={@library_query not in [nil, ""] and @library_results == []}
-            class="pl-3 text-sm text-zinc-400"
-          >
-            Nothing in the library matches that.
-          </p>
-
-          <.local_book_row
-            :for={book <- @library_results}
-            book={book}
-            linked={@item.draft.work.mode == :link and @item.draft.work.book_id == book["id"]}
-          />
-
-          <button
-            type="button"
-            phx-click="new-book"
-            class={[
-              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm",
-              (@item.draft.work.mode == :create and @item.draft.work.approved) &&
-                "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
-              !(@item.draft.work.mode == :create and @item.draft.work.approved) &&
-                "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
-            ]}
-          >
-            <.icon
-              :if={@item.draft.work.mode == :create and @item.draft.work.approved}
-              name="fa-check"
-              class="text-brand-dark h-3 w-3 flex-none"
-            /> No, a different book
-          </button>
-        </div>
-
-        <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
+        <%!-- Evidence first, then the decisions it feeds (§9): what the
+            databases say this is, before "do I already have it?". The records
+            are how the operator recognizes the book, and ticking one asks its
+            databases for audio editions, which feed the audiobook section. --%>
+        <div class={["space-y-2 rounded-lg bg-zinc-900 p-4", work_records_rail(@item.draft.work)]}>
           <div class="flex items-baseline gap-2 pl-3">
             <.label>
               Records describing this book
@@ -325,6 +242,93 @@
               />
             </div>
           </.disclosure>
+        </div>
+
+        <%!-- A different KIND of question from the records above: linking
+            creates nothing and inherits the book's curation, importing a
+            record creates a Book. Ranking the two together made the form ask
+            one question that was really two. --%>
+        <div
+          class={[
+            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+            (@item.draft.work.approved && "border-brand-dark/60") || "border-amber-400/70"
+          ]}
+          data-role="local-books"
+        >
+          <div class="flex items-baseline gap-2 pl-3">
+            <.label>Is this a book you already have?</.label>
+            <.badge
+              :if={!@item.draft.work.approved}
+              color={elem(state_words(:unconfirmed), 1)}
+              class="text-xs"
+            >
+              {elem(state_words(:unconfirmed), 0)}
+            </.badge>
+          </div>
+
+          <p class="max-w-prose pl-3 text-sm text-zinc-400">
+            If so, this import becomes another edition of that book.
+          </p>
+
+          <.local_book_row
+            :for={book <- local_records(@item, "work")}
+            book={book}
+            linked={@item.draft.work.mode == :link and @item.draft.work.book_id == book["id"]}
+          />
+
+          <%!-- Matching is keyword-based and good enough for the ordinary case,
+              but a file's idea of its title can be anything: the operator's own
+              copy of Philosopher's Stone is tagged "HP1 - The Philosopher's
+              Stone", and the US edition of the same work is called Sorcerer's
+              Stone, which no amount of string cleverness should be expected to
+              connect. So there is always a way to go and look. --%>
+          <form
+            phx-submit="search-library"
+            phx-change="search-library"
+            id="library-search"
+            class="flex flex-wrap items-center gap-2 pt-1"
+          >
+            <input
+              type="text"
+              name="query"
+              value={@library_query}
+              placeholder="search the library by title, author or series"
+              phx-debounce="300"
+              class={input_classes("min-w-64 px-[11px] max-w-xl flex-grow py-2 leading-6")}
+            />
+            <.button type="submit" color={:zinc}>Search</.button>
+          </form>
+
+          <p
+            :if={@library_query not in [nil, ""] and @library_results == []}
+            class="pl-3 text-sm text-zinc-400"
+          >
+            Nothing in the library matches that.
+          </p>
+
+          <.local_book_row
+            :for={book <- @library_results}
+            book={book}
+            linked={@item.draft.work.mode == :link and @item.draft.work.book_id == book["id"]}
+          />
+
+          <button
+            type="button"
+            phx-click="new-book"
+            class={[
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm",
+              (@item.draft.work.mode == :create and @item.draft.work.approved) &&
+                "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
+              !(@item.draft.work.mode == :create and @item.draft.work.approved) &&
+                "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
+            ]}
+          >
+            <.icon
+              :if={@item.draft.work.mode == :create and @item.draft.work.approved}
+              name="fa-check"
+              class="text-brand-dark h-3 w-3 flex-none"
+            /> No, a different book
+          </button>
         </div>
 
         <%!-- Linking inherits the book's own fields; only additive series
