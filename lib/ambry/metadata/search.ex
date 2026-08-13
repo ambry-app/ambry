@@ -23,6 +23,7 @@ defmodule Ambry.Metadata.Search do
       item's tags, a form might not score at all.
   """
 
+  alias Ambry.Metadata.Outcome
   alias Ambry.Metadata.PersonSearch
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Providers
@@ -44,7 +45,7 @@ defmodule Ambry.Metadata.Search do
     |> Registry.enabled()
     |> Enum.reduce({[], []}, fn entry, {found, outcomes} ->
       {books, outcome} = books_one(entry, query, opts)
-      {found ++ [{entry, books}], outcomes ++ [outcome]}
+      {found ++ [{entry, books}], outcomes ++ List.wrap(outcome)}
     end)
   end
 
@@ -69,14 +70,16 @@ defmodule Ambry.Metadata.Search do
   Asks every person-capable provider about one human.
 
   Returns `{matches, outcomes}` — flat `PersonSearch` matches across
-  providers, plus the same per-provider outcome maps as `books/2`.
+  providers, plus the same per-provider outcome maps as `books/2`. A provider
+  contributes more than one outcome when more than one kind of call was
+  needed to answer: the search, and the details behind each hit.
   """
   def people(name, opts \\ []) do
     Enum.reduce(PersonSearch.providers(), {[], []}, fn entry, {found, outcomes} ->
-      {matches, outcome} =
+      {matches, provider_outcomes} =
         PersonSearch.matches_with_outcome(entry, name, refresh: Keyword.get(opts, :refresh, true))
 
-      {found ++ matches, outcomes ++ [outcome]}
+      {found ++ matches, outcomes ++ provider_outcomes}
     end)
   end
 
@@ -104,22 +107,12 @@ defmodule Ambry.Metadata.Search do
 
         {:error, reason} ->
           Logger.warning(fn -> "Metadata chapters: #{entry.id} failed: #{inspect(reason)}" end)
-          {found, outcomes ++ [failed_outcome(entry, reason)]}
+          {found, outcomes ++ List.wrap(failed_outcome(entry, reason))}
       end
     end)
   end
 
-  defp ok_outcome(entry, count) do
-    %{"id" => entry.id, "name" => entry.display_name, "status" => "ok", "count" => count}
-  end
+  defp ok_outcome(entry, count), do: Outcome.ok(entry, count)
 
-  defp failed_outcome(entry, reason) do
-    %{
-      "id" => entry.id,
-      "name" => entry.display_name,
-      "status" => "failed",
-      "count" => 0,
-      "reason" => reason |> inspect() |> String.slice(0, 200)
-    }
-  end
+  defp failed_outcome(entry, reason), do: Outcome.from_error(entry, reason)
 end

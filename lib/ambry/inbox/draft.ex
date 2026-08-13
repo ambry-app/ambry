@@ -157,6 +157,71 @@ defmodule Ambry.Inbox.Draft do
     do: credit.person_keys |> Enum.map(&person(draft, &1)) |> Enum.reject(&is_nil/1)
 
   @doc """
+  The humans this import will create, grouped by the credit that introduces
+  them.
+
+  ## Why people are a section and not a decoration on a credit
+
+  The model already says people are a level: `PersonDecision` is keyed, one
+  human is one record, and `appearances/1` exists to answer which credits
+  reference them. The form said otherwise — it rendered a person *inside* each
+  credit that named them, so an author who reads their own book appeared
+  twice, and the row had to print "Same person as the author. One X will be
+  created" to apologise for a duplication the model had deliberately deleted.
+
+  A person is therefore listed once, under the first credit that names them,
+  and the credits carry a reference instead. Grouping by credit is what keeps
+  a composite pen name's people adjacent: "James S.A. Corey" is one credit
+  standing for two humans, and any other ordering scatters the pair.
+
+  **Only people this import introduces.** A credit pointing at an identity the
+  library already has brings no humans with it: that person was chosen in the
+  credit's typeahead, carries curation an import may never overwrite, and has
+  nothing left to decide — and the one dangerous case, a name matching two
+  existing identities, is a decision on the credit where `Credit.state/1`
+  computes it.
+
+  A person the operator matched to somebody already in the library *from their
+  card* is a different thing and stays listed. Nothing else proposes that link
+  — the seeder never does — so dropping them the moment it is made took the
+  decision off the form and the way back with it, leaving the credit's chip
+  pointing at a card that no longer existed.
+
+  Returns `[%{credit:, kind:, section:, index:, people: [...]}]`, dropping
+  credits that introduce nobody new.
+  """
+  def people_groups(nil), do: []
+
+  def people_groups(%__MODULE__{} = draft) do
+    {groups, _seen} =
+      Enum.reduce(credits(draft), {[], MapSet.new()}, fn {kind, section, index, credit},
+                                                         {groups, seen} ->
+        people = new_people(draft, credit, seen)
+
+        if people == [] do
+          {groups, seen}
+        else
+          group = %{credit: credit, kind: kind, section: section, index: index, people: people}
+          {groups ++ [group], MapSet.union(seen, MapSet.new(people, & &1.key))}
+        end
+      end)
+
+    groups
+  end
+
+  # A removed credit holds its person keys for a possible restore, but a
+  # person only a tombstone references is nobody's decision — the same rule
+  # `referenced_keys/1` follows.
+  defp new_people(_draft, %Credit{removed: true}, _seen), do: []
+  defp new_people(_draft, %Credit{mode: :link}, _seen), do: []
+
+  defp new_people(draft, %Credit{} = credit, seen) do
+    credit.person_keys
+    |> Enum.map(&person(draft, &1))
+    |> Enum.reject(&(is_nil(&1) or MapSet.member?(seen, &1.key)))
+  end
+
+  @doc """
   Which credits reference each person, so the form can say where they appear.
 
   Returns `%{key => [%{kind:, section:, index:, name:}]}`. This is display
@@ -204,39 +269,6 @@ defmodule Ambry.Inbox.Draft do
         key <- credit.person_keys,
         uniq: true,
         do: key
-  end
-
-  @doc """
-  How settled a level's identity question is, as one badge-sized fact.
-
-  This replaces showing the match confidence forever: confidence is how sure
-  the *machine* was at match time, and it never moved again — an operator
-  could pick the right work and the badge still said "unsure", with no way
-  to say "you were right". But they do say it: ticking records, linking a
-  book, settling uncatalogued all clear the level's doubt. The badge now
-  listens to the same signals as the rest of the form.
-
-    * `:confirmed` — a human answered (ticked records, answered identity)
-    * `:trusted` — the machine believed its match and nobody has had to touch it
-    * `:unsure` — doubt outstanding; the doubt banner carries the numbers
-    * `:no_match` — nothing was found (which is an answer, not a failure)
-  """
-  def level_state(%Work{} = work) do
-    cond do
-      work.curated or work.evidence_curated -> :confirmed
-      work.doubt == :nothing_found -> :no_match
-      work.doubt in [nil, :none] -> :trusted
-      true -> :unsure
-    end
-  end
-
-  def level_state(%Recording{} = recording) do
-    cond do
-      recording.evidence_curated -> :confirmed
-      recording.doubt == :nothing_found -> :no_match
-      recording.doubt in [nil, :none] -> :trusted
-      true -> :unsure
-    end
   end
 
   @doc """

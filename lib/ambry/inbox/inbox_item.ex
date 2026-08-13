@@ -13,6 +13,7 @@ defmodule Ambry.Inbox.InboxItem do
   import Ecto.Changeset
 
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.ReleaseName
   alias Ambry.Library.Source
   alias Ambry.Media.Media
 
@@ -82,6 +83,16 @@ defmodule Ambry.Inbox.InboxItem do
   @doc """
   A short label for the item: the folder or file name, which is usually the
   release name and the most recognizable thing about it.
+
+  The exception is a name that states nothing but a position in a set: an item split out of "The Way of Kings/1 of 5" is called "1 of 5",
+  which in a queue of five siblings and 300 other releases says nothing at
+  all. Those carry the folder they are a part of.
   """
-  def name(%__MODULE__{path: path}), do: Path.basename(path)
+  def name(%__MODULE__{path: path}) do
+    base = Path.basename(path)
+
+    if ReleaseName.part_folder?(base),
+      do: Path.join(Path.basename(Path.dirname(path)), base),
+      else: base
+  end
 end

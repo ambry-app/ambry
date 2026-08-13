@@ -25,6 +25,7 @@ defmodule Ambry.Inbox.Lookup do
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Metadata.Outcome
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search
@@ -40,13 +41,23 @@ defmodule Ambry.Inbox.Lookup do
   the same work with seventeen.
   """
   def hydrate(%InboxItem{} = item, level, record_ref) do
-    update_records(item, level, fn records ->
-      Enum.map(records, fn record ->
-        if AutoMatch.ref(record) == record_ref and !record["hydrated"],
-          do: AutoMatch.details(record),
-          else: record
+    {records, failures} =
+      item
+      |> records(level)
+      |> Enum.map_reduce([], fn record, failures ->
+        if AutoMatch.ref(record) == record_ref and !record["hydrated"] do
+          case AutoMatch.details_with_outcome(record) do
+            {record, nil} -> {record, failures}
+            {record, outcome} -> {record, failures ++ [outcome]}
+          end
+        else
+          {record, failures}
+        end
       end)
-    end)
+
+    item
+    |> update_records(level, fn _existing -> records end)
+    |> update_outcomes(level, failures)
   end
 
   @doc """
@@ -109,24 +120,84 @@ defmodule Ambry.Inbox.Lookup do
   Without this, a 429 during a scan costs an item that provider's records
   until somebody re-runs the whole match. The "couldn't be reached" chip is
   the retry button.
+
+  **The chip carries what kind of call failed, and this has to honour it.**
+  A provider is asked three different things about one item — a search, the
+  details behind its hits, the editions of the work it named — and they fail
+  independently. Re-running the search when what failed was a details call
+  would report success having fixed nothing, which is how the `:editions`
+  chip came to be a button that did nothing at all: its id
+  (`hardcover:editions`) is not a registry id, so the lookup missed, and the
+  clause below returned the item untouched without a word.
   """
-  def retry_provider(%InboxItem{} = item, level, provider_id) do
-    hints = AutoMatch.hints(item)
-    query = stored_query(item, level) || query_from(%{})
+  def retry_provider(%InboxItem{} = item, level, outcome_id) do
+    {provider_id, kind} = Outcome.split(outcome_id)
 
     case Registry.fetch(provider_id) do
-      {:ok, entry} ->
-        {books, outcome} = Search.books_one(entry, query)
-        found = AutoMatch.records_from(books, entry, hints)
-
-        item
-        |> update_records(level, &(&1 |> add(found) |> refine(item, level, hints)))
-        |> update_outcomes(level, [outcome])
-
-      {:error, _reason} ->
-        {:ok, item}
+      {:ok, entry} -> retry(item, level, entry, kind)
+      {:error, reason} -> {:error, reason}
     end
   end
+
+  defp retry(item, level, entry, :search) do
+    hints = AutoMatch.hints(item)
+    query = stored_query(item, level) || query_from(%{})
+    {books, outcome} = Search.books_one(entry, query)
+    found = AutoMatch.records_from(books, entry, hints)
+
+    item
+    |> update_records(level, &(&1 |> add(found) |> refine(item, level, hints)))
+    |> update_outcomes(level, List.wrap(outcome), clear: Outcome.id(entry.id, :search))
+  end
+
+  # Every record of this provider's that matching meant to hydrate, not just
+  # one: they all feed the field candidates, so a retry that fixed the top
+  # record and left its siblings thin would clear the chip while the evidence
+  # it was warning about was still missing.
+  defp retry(item, level, entry, :details) do
+    source = "provider:#{entry.id}"
+
+    {records, outcomes} =
+      item
+      |> records(level)
+      |> Enum.map_reduce([], fn record, outcomes ->
+        if record["source"] == source and !record["hydrated"] do
+          case AutoMatch.details_with_outcome(record, refresh: true) do
+            {record, nil} -> {record, outcomes}
+            {record, outcome} -> {record, outcomes ++ [outcome]}
+          end
+        else
+          {record, outcomes}
+        end
+      end)
+
+    item
+    |> update_records(level, fn _existing -> records end)
+    |> update_outcomes(level, AutoMatch.tally_outcomes(outcomes),
+      clear: Outcome.id(entry.id, :details)
+    )
+  end
+
+  # Editions hang off the work records, whatever level the chip was rendered
+  # at — the recording level is where they land, and the work level is where
+  # they came from.
+  defp retry(item, level, entry, :editions) do
+    hints = AutoMatch.hints(item)
+
+    records =
+      item
+      |> records("work")
+      |> Enum.filter(&(&1["source"] == "provider:#{entry.id}"))
+      |> AutoMatch.top_group()
+
+    {found, outcomes} = AutoMatch.editions_for(records, hints, refresh: true)
+
+    item
+    |> update_records(level, &(&1 |> add(found) |> refine(item, level, hints)))
+    |> update_outcomes(level, outcomes, clear: Outcome.id(entry.id, :editions))
+  end
+
+  defp retry(item, _level, _entry, _kind), do: {:ok, item}
 
   @doc """
   Asks every person-capable database about one human again.
@@ -139,7 +210,14 @@ defmodule Ambry.Inbox.Lookup do
   Writes into `matches["people"][key]` exactly as matching does, so the
   person's photo and bio fields pick the results up on the next reseed. The
   same rule as everywhere else here: **evidence is added, never replaced**, so
-  a re-search cannot un-choose a photo the operator already picked.
+  a re-search cannot un-choose a photo the operator already picked. What
+  changes is the *ranking*: every candidate is re-scored against the name now
+  being asked about, so the ones the old name found sink instead of sitting at
+  100% beside the new ones.
+
+  The library is asked again too. "Already in your library" is an answer about
+  a name, and after a rename the held one is about somebody else — which is
+  the case this exists for.
   """
   def research_person(%InboxItem{} = item, key, name) do
     case String.trim(name || "") do
@@ -148,20 +226,9 @@ defmodule Ambry.Inbox.Lookup do
 
       name ->
         {matches, outcomes} = Search.people(name)
-        update_person(item, key, name, Enum.map(matches, &person_record/1), outcomes)
+        found = Enum.map(matches, &AutoMatch.person_candidate(&1, name))
+        update_person(item, key, name, found, outcomes)
     end
-  end
-
-  defp person_record(match) do
-    %{
-      "source" => "provider:#{match.provider_id}",
-      "provider_name" => match.provider_name,
-      "id" => to_string(match.id),
-      "name" => match.name,
-      "description" => match.description,
-      "note" => match.note,
-      "images" => match.images
-    }
   end
 
   defp update_person(%InboxItem{} = item, key, name, found, outcomes) do
@@ -176,9 +243,13 @@ defmodule Ambry.Inbox.Lookup do
       |> Map.put("name", name)
       |> Map.put(
         "candidates",
-        (Map.get(held, "candidates", []) || []) ++
-          Enum.reject(found, &MapSet.member?(known, AutoMatch.ref(&1)))
+        AutoMatch.rank_people(
+          (Map.get(held, "candidates", []) || []) ++
+            Enum.reject(found, &MapSet.member?(known, AutoMatch.ref(&1))),
+          name
+        )
       )
+      |> Map.put("local", AutoMatch.local_people(name))
       |> Map.put("providers", outcomes)
 
     item
@@ -257,17 +328,27 @@ defmodule Ambry.Inbox.Lookup do
     |> Repo.update()
   end
 
-  defp update_outcomes({:ok, item}, level, outcomes), do: update_outcomes(item, level, outcomes)
-  defp update_outcomes({:error, _reason} = error, _level, _outcomes), do: error
+  defp update_outcomes(item_or_result, level, outcomes, opts \\ [])
 
-  defp update_outcomes(%InboxItem{} = item, level, outcomes) do
+  defp update_outcomes({:ok, item}, level, outcomes, opts),
+    do: update_outcomes(item, level, outcomes, opts)
+
+  defp update_outcomes({:error, _reason} = error, _level, _outcomes, _opts), do: error
+
+  defp update_outcomes(%InboxItem{} = item, level, outcomes, opts) do
     matches = item.matches || %{}
     level_map = Map.get(matches, level, %{})
     existing = Map.get(level_map, "providers", []) || []
 
     # An outcome replaces the earlier one for the same provider: "couldn't be
     # reached" must stop saying that once it has been reached.
-    fresh = MapSet.new(outcomes, & &1["id"])
+    #
+    # `:clear` is what the retry chip needs on top of that. A retry that comes
+    # back with **nothing to report** — the provider turned out to implement
+    # no such call — would otherwise leave the failure it was retrying
+    # standing, which is a red chip that can be clicked forever and never
+    # goes away. Retrying an id is an answer about that id either way.
+    fresh = outcomes |> MapSet.new(& &1["id"]) |> maybe_clear(opts[:clear])
     kept = Enum.reject(existing, &MapSet.member?(fresh, &1["id"]))
 
     updated = Map.put(level_map, "providers", kept ++ outcomes)
@@ -276,6 +357,9 @@ defmodule Ambry.Inbox.Lookup do
     |> InboxItem.changeset(%{matches: Map.put(matches, level, updated)})
     |> Repo.update()
   end
+
+  defp maybe_clear(ids, nil), do: ids
+  defp maybe_clear(ids, id), do: MapSet.put(ids, id)
 
   defp remember_query({:ok, item}, level, query), do: remember_query(item, level, query)
   defp remember_query({:error, _reason} = error, _level, _query), do: error

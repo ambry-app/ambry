@@ -147,9 +147,7 @@ defmodule Ambry.Inbox.Draft.Recording do
   defp identity(%__MODULE__{approved: true}), do: []
 
   defp identity(%__MODULE__{}),
-    do: [
-      %{section: :recording, label: "Which records describe this recording", state: :unconfirmed}
-    ]
+    do: [%{section: :recording, label: "Audiobook records", state: :unconfirmed}]
 
   @doc """
   Whether the operator has said this provider record describes the recording.

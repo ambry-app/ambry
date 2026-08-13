@@ -170,7 +170,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
        |> assign(retrying: provider_id)
        |> start_async(:evidence_search, fn ->
          {books, outcome} = MetadataSearch.books_one(entry, query)
-         {Inbox.score_records(books, entry, hints), [outcome]}
+         {Inbox.score_records(books, entry, hints), List.wrap(outcome)}
        end)}
     else
       _no -> {:noreply, socket}

@@ -1,6 +1,5 @@
 defmodule AmbryWeb.Admin.MediaLive.ScanTest do
   use AmbryWeb.ConnCase, async: true
-  use Oban.Testing, repo: Ambry.Repo
 
   import Phoenix.LiveViewTest
 

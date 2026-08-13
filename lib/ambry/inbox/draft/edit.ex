@@ -108,6 +108,13 @@ defmodule Ambry.Inbox.Draft.Edit do
   or typed surviving, as always — which is also how a differently-spelled
   record of the right human gets to contribute a face the gate couldn't
   auto-admit.
+
+  **Touching the evidence answers the level**, exactly as it does for a
+  recording. A person the matcher doubted (it found humans of roughly that
+  name and believed none of them) is seeded unapproved, and until this the
+  only thing in the whole form that could approve one was linking them to
+  somebody already in the library — so 96 of the operator's 344 queued items
+  held a person no control could settle.
   """
   def toggle_person_source(draft, %InboxItem{} = item, key, record) do
     matched = get_in(item.matches, ["people", key])
@@ -121,20 +128,70 @@ defmodule Ambry.Inbox.Draft.Edit do
         end
 
       Seed.rederive_person_evidence(
-        %{person | sources: sources, curated: true, evidence_curated: true},
+        %{
+          person
+          | sources: sources,
+            curated: true,
+            evidence_curated: true,
+            approved: true,
+            doubt: :none,
+            doubt_detail: nil
+        },
         matched
       )
     end)
   end
 
   @doc """
-  Settles the recording as one no catalogue lists, described by the file alone.
+  Settles a person as one no database has a record of.
+
+  The person level's "None of these", and it needed one for the same reason
+  the other two levels do: a doubted level stays outstanding until somebody
+  says otherwise. The difference is only in what it costs — a human nobody
+  has a record of is *still perfectly importable*, since a name is all a
+  Person needs, so this settles the level and leaves them with no photo and
+  no biography rather than blocking anything.
+  """
+  def uncatalogued_person(draft, %InboxItem{} = item, key) do
+    matched = get_in(item.matches, ["people", key])
+
+    update_person(draft, key, fn person ->
+      Seed.rederive_person_evidence(
+        %{
+          person
+          | sources: [],
+            curated: true,
+            evidence_curated: true,
+            approved: true,
+            doubt: :none,
+            doubt_detail: nil
+        },
+        matched
+      )
+    end)
+  end
+
+  @doc """
+  Settles a level as one no catalogue lists, described by the file alone.
 
   A real answer rather than a failure: a delisted edition disappears from
   Audible's search *and* from direct ASIN lookup, so plenty of perfectly good
   rips are in no storefront at all.
+
+  **Both levels need it, and only the recording had it.** A doubted work
+  leaves "Provider records" outstanding until a record is ticked, and
+  answering the *identity* question ("no, a new book") doesn't touch it — so
+  an operator who believed none of the records had one way out: tick one they
+  didn't believe. Measured on the operator's own queue, 22 of the pending
+  items were in exactly that state.
+
+  The recording's `approved` is set because at that level it means "the
+  evidence question is answered"; the work's means "is this a book you
+  already have", which is a different question this must not answer.
   """
-  def uncatalogued(draft, %InboxItem{} = item) do
+  def uncatalogued(draft, item, level \\ :recording)
+
+  def uncatalogued(draft, %InboxItem{} = item, :recording) do
     draft
     |> update_in([Access.key(:recording)], fn recording ->
       %{
@@ -147,6 +204,14 @@ defmodule Ambry.Inbox.Draft.Edit do
       }
     end)
     |> reseed(item, :recording)
+  end
+
+  def uncatalogued(draft, %InboxItem{} = item, :work) do
+    draft
+    |> update_in([Access.key(:work)], fn work ->
+      %{work | sources: [], evidence_curated: true, doubt: :none, doubt_detail: nil}
+    end)
+    |> reseed(item, :work)
   end
 
   # Ticking a record answers the question the level was asking, and a doubt
@@ -290,18 +355,21 @@ defmodule Ambry.Inbox.Draft.Edit do
   defp mint_keys(credit, _name), do: credit.person_keys
 
   # A person still called what the credit called them is still tracking it, so
-  # they follow the rename. One the operator has already named is theirs and
-  # is left alone — which is what makes the pen-name case two ordinary edits
-  # rather than a special mode: rename the credit, reveal the pen name, rename
-  # the person.
+  # they follow the rename. One whose name is their own is left alone — which
+  # is what makes the pen-name case two ordinary edits rather than a special
+  # mode: rename the credit, say it's a pen name, rename the person. The
+  # `own_name` flag is checked as well as the names, because the two agree for
+  # exactly as long as it takes to type the real one, and fixing the credit's
+  # spelling in that window must not drag the human's name along.
   defp follow_credit_name(draft, nil, _name), do: draft
 
   defp follow_credit_name(draft, %Credit{} = was, name) do
     Enum.reduce(was.person_keys, draft, fn key, draft ->
       update_person(draft, key, fn person ->
-        if person.mode == :create and tracking?(Field.value(person.name), was.name),
-          do: %{person | name: Field.edit(person.name, name)},
-          else: person
+        if person.mode == :create and not person.own_name and
+             tracking?(Field.value(person.name), was.name),
+           do: %{person | name: Field.edit(person.name, name)},
+           else: person
       end)
     end)
   end
@@ -352,6 +420,73 @@ defmodule Ambry.Inbox.Draft.Edit do
       _no_proposal -> draft
     end
   end
+
+  @doc """
+  Says that the credited name is not the person's name.
+
+  A credit and a human are two different questions and the form used to ask
+  them in one control: the credited name doubled as the person's name, so
+  "David Wong" could only ever be imported as a person called David Wong when
+  the human is Jason Pargin. Separating them gives the person a name of their
+  own — which is what puts a name box on their card, the thing this control
+  does that can be seen — and un-approves it, because it is now a decision
+  nobody has answered.
+
+  Marking the credit curated is what stops a background re-match folding the
+  two back together.
+  """
+  def separate_person_name(draft, section, index) do
+    draft
+    |> update_credit(section, index, &%{&1 | curated: true})
+    |> then(fn draft ->
+      case Enum.at(credit_at(draft, section, index).person_keys, 0) do
+        nil ->
+          draft
+
+        key ->
+          update_person(
+            draft,
+            key,
+            &%{&1 | own_name: true, curated: true, name: unapprove(&1.name)}
+          )
+      end
+    end)
+  end
+
+  @doc """
+  Takes it back: the credited name is this human's name after all.
+
+  Every way in needs a way out, and a name box the operator can only ever
+  *reveal* is the fold that could never be folded again in a different
+  costume. Putting the credited name back is the whole of it — the box goes,
+  and the name resumes following the credit.
+  """
+  def use_credited_name(draft, key) do
+    name = crediting_name(draft, key)
+
+    update_person(draft, key, fn person ->
+      %{
+        person
+        | own_name: false,
+          curated: true,
+          name: if(name, do: Field.edit(person.name, name), else: person.name)
+      }
+    end)
+  end
+
+  # What the credit that introduces this human calls them. The credits are the
+  # only thing that knows: a key is a normalised string, minted once and then
+  # left alone through every later rename.
+  defp crediting_name(draft, key) do
+    Enum.find_value(credits_in(draft, :work) ++ credits_in(draft, :recording), fn credit ->
+      if not credit.removed and key in credit.person_keys, do: credit.name
+    end)
+  end
+
+  defp credit_at(draft, :work, index), do: Enum.at(draft.work.authors, index)
+  defp credit_at(draft, :recording, index), do: Enum.at(draft.recording.narrators, index)
+
+  defp unapprove(%Field{} = field), do: %{field | approved: false}
 
   @doc """
   Adds another human behind a credit.
@@ -782,17 +917,6 @@ defmodule Ambry.Inbox.Draft.Edit do
   This is the missing single click. It changes no sources — it only records
   that a human looked.
   """
-  def confirm_level(draft, :work) do
-    update_in(draft.work, &%{&1 | evidence_curated: true, doubt: :none, doubt_detail: nil})
-  end
-
-  def confirm_level(draft, :recording) do
-    update_in(
-      draft.recording,
-      &%{&1 | approved: true, evidence_curated: true, doubt: :none, doubt_detail: nil}
-    )
-  end
-
   def approve_work(draft, approved?), do: update_in(draft.work.approved, fn _ -> approved? end)
 
   def approve_recording(draft, approved?),

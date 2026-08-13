@@ -119,7 +119,7 @@ defmodule Ambry.Inbox.Draft.Work do
   # tag-derived. Saying so is what stops "the provider found nothing" and "the
   # provider found something we don't believe" looking identical.
   defp doubted(%__MODULE__{doubt: :low_confidence}),
-    do: [%{section: :work, label: "Which records describe this book", state: :unconfirmed}]
+    do: [%{section: :work, label: "Book records", state: :unconfirmed}]
 
   defp doubted(%__MODULE__{}), do: []
 
@@ -145,6 +145,17 @@ defmodule Ambry.Inbox.Draft.Work do
 
   defp state_of(%Credit{} = credit), do: Credit.state(credit)
   defp state_of(%SeriesLink{} = link), do: SeriesLink.state(link)
+
+  @doc """
+  Whether the operator has said no record here describes this book.
+
+  The work level's mirror of `Recording.uncatalogued?/1`, and read the same
+  way: they touched the evidence and left nothing ticked, which is an answer.
+  Reading it off `sources == []` alone would claim the answer had been given
+  on every freshly matched item that happened to find nothing.
+  """
+  def uncatalogued?(%__MODULE__{sources: [], evidence_curated: true}), do: true
+  def uncatalogued?(%__MODULE__{}), do: false
 
   @doc """
   Whether the operator has said this provider record describes the book.

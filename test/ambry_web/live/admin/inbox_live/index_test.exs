@@ -1,11 +1,11 @@
 defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   use AmbryWeb.ConnCase, async: true
-  use Oban.Testing, repo: Ambry.Repo
 
   import Phoenix.LiveViewTest
 
   alias Ambry.Inbox
   alias Ambry.Inbox.RunDiscovery
+  alias Ambry.Inbox.RunImport
 
   setup :register_and_log_in_admin_user
 
@@ -73,19 +73,18 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     {:ok, _view, html} = live(conn, ~p"/admin/inbox")
 
     # no draft yet, so the badge falls back to the match-time confidence
-    assert html =~ "trusted"
+    assert html =~ "matched"
     assert html =~ "The Way of Kings"
     assert html =~ "already in the library"
     assert html =~ "+1 other"
     # the recording level says so rather than going silent
-    assert html =~ "no match"
+    assert html =~ "needs you"
   end
 
   # The badge is decision state, not match history: confidence was frozen at
-  # match time, so the queue kept calling an item "unsure" after the operator
-  # had answered — and there was no way to tell a correct-but-doubted match
-  # "you were right" except by deciding, which is exactly what now flips it.
-  test "a level the operator settled reads confirmed", %{conn: conn} do
+  # match time, so the queue kept saying the operator was needed after they
+  # had answered. Same four words as the form's rail, or the two drift.
+  test "a level the operator settled stops asking for them", %{conn: conn} do
     record = %{
       "title" => "The Way of Kings",
       "authors" => ["Brandon Sanderson"],
@@ -108,14 +107,18 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     {:ok, item} = Inbox.prepare_draft(item)
 
     {:ok, _view, html} = live(conn, ~p"/admin/inbox")
-    assert html =~ "unsure"
+    assert html =~ "needs you"
 
     draft = Ambry.Inbox.Draft.Edit.toggle_source(item.draft, item, :work, record)
     {:ok, _item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
+    # No longer waiting on the operator. It does not jump straight to
+    # "reviewed": the row reads worst-first over the whole level, and the
+    # identity question ("a book you already have?") is still one the machine
+    # answered and nobody has looked at.
     {:ok, _view, html} = live(conn, ~p"/admin/inbox")
-    assert html =~ "confirmed"
-    refute html =~ ">unsure<"
+    refute html =~ ">needs you<"
+    assert html =~ "matched"
   end
 
   # One button, because the two it replaced were never separable: matching
@@ -236,6 +239,9 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert Inbox.get_item!(item.id).status == :pending
   end
 
+  # Queued, not run here: importing re-probes every file and copies every
+  # byte, and doing that inside the event blocked the whole queue page for the
+  # length of a NAS copy.
   test "imports a settled item into the library, leaving files alone", %{conn: conn} do
     item = probed_item() |> settle()
     file = hd(item.files)
@@ -245,10 +251,30 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     html =
       view |> element("span[phx-click='import'][phx-value-id='#{item.id}']") |> render_click()
 
-    assert html =~ "Files were left where they are"
+    assert html =~ "Adding to the library"
+    assert_enqueued(worker: RunImport, args: %{inbox_item_id: item.id})
+    assert Inbox.get_item!(item.id).status == :pending
+
+    # the fixture's own probe job shares this queue, so drain it all
+    assert %{failure: 0, discard: 0} = Oban.drain_queue(queue: :media)
+
     assert %{status: :imported, media_id: media_id} = Inbox.get_item!(item.id)
     assert media_id
     assert File.exists?(file)
+  end
+
+  # A row handed to an import wears the same cover every other background job
+  # gives it, and says which job it is — "Working on it" over a row you just
+  # pressed Add on says nothing about whether the press landed.
+  test "a row being imported says so and refuses clicks", %{conn: conn} do
+    item = probed_item() |> settle()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+    view |> element("span[phx-click='import'][phx-value-id='#{item.id}']") |> render_click()
+
+    html = render(view)
+    assert html =~ "Adding to the library…"
+    assert has_element?(view, "[data-role='busy-overlay']")
   end
 
   # The queue can't say *what* is outstanding, so it doesn't offer a button
@@ -259,7 +285,8 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
     refute has_element?(view, "span[phx-click='import'][phx-value-id='#{item.id}']")
-    assert has_element?(view, "a[href='/admin/inbox/#{item.id}']")
+    # the link carries the list state so every way back lands on this tab
+    assert has_element?(view, "a[href^='/admin/inbox/#{item.id}']")
   end
 
   @tag :capture_log

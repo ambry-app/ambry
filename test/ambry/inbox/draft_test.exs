@@ -9,6 +9,7 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
+  alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.InboxItem
   alias Ambry.Media.Media.Chapter
   alias Ambry.Repo
@@ -184,7 +185,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert draft.work.sources == []
       # nothing was adopted, so the title is a decision rather than a wrong answer
       refute draft.work.title.value == "Something Else"
-      assert Enum.any?(Draft.unresolved(draft), &(&1.label =~ "records describe this book"))
+      assert Enum.any?(Draft.unresolved(draft), &(&1.label == "Book records"))
     end
 
     # The doubt asks "which records describe this book". Ticking one is the
@@ -203,13 +204,13 @@ defmodule Ambry.Inbox.DraftTest do
       {:ok, item} = Inbox.prepare_draft(item)
 
       assert item.draft.work.doubt == :low_confidence
-      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label =~ "records describe this book"))
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label == "Book records"))
 
       ticked =
         Draft.Edit.toggle_source(item.draft, item, :work, Enum.at(candidates, 1))
 
       assert ticked.work.doubt == :none
-      refute Enum.any?(Draft.unresolved(ticked), &(&1.label =~ "records describe this book"))
+      refute Enum.any?(Draft.unresolved(ticked), &(&1.label == "Provider records"))
 
       # and un-ticking the last one puts the question back
       untangled = Draft.Edit.toggle_source(ticked, item, :work, Enum.at(candidates, 1))
@@ -764,7 +765,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert [link] = draft.work.series
       refute SeriesLink.resolved?(link)
       assert link.number == nil
-      assert SeriesLink.state(link) == :missing
+      assert SeriesLink.state(link) == :unnumbered
     end
 
     # `book_number` is a required column, so an approved-but-numberless
@@ -780,7 +781,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert [link] = draft.work.series
       assert link.approved
       refute SeriesLink.resolved?(link)
-      assert SeriesLink.state(link) == :missing
+      assert SeriesLink.state(link) == :unnumbered
     end
 
     test "a number from the tags settles it" do
@@ -936,7 +937,7 @@ defmodule Ambry.Inbox.DraftTest do
 
       assert Enum.any?(
                Draft.unresolved(draft),
-               &(&1.label =~ "describe this recording" and &1.state == :unconfirmed)
+               &(&1.label == "Audiobook records" and &1.state == :unconfirmed)
              )
     end
 
@@ -1276,6 +1277,28 @@ defmodule Ambry.Inbox.DraftTest do
       assert Draft.curated?(Draft.Edit.new_book(item.draft, item))
     end
 
+    # A doubted work leaves its records card outstanding until something is
+    # ticked, and answering the identity question doesn't touch it — so
+    # believing none of them had exactly one way on: tick one you don't
+    # believe.
+    test "the work level can be settled as one no record describes" do
+      item =
+        item(%{
+          matches: matches([provider_candidate(%{"title" => "Something Else"})], confidence: 0.3),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.work.doubt == :low_confidence
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label == "Book records"))
+
+      draft = Draft.Edit.uncatalogued(item.draft, item, :work)
+
+      assert Draft.Work.uncatalogued?(draft.work)
+      assert draft.work.sources == []
+      refute Enum.any?(Draft.unresolved(draft), &(&1.label == "Book records"))
+    end
+
     test "settling the recording as uncatalogued marks the draft curated" do
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
@@ -1284,38 +1307,40 @@ defmodule Ambry.Inbox.DraftTest do
       assert Draft.curated?(Draft.Edit.uncatalogued(item.draft, item))
     end
 
-    test "the badge state follows decisions, not match history" do
+    # The rail follows decisions, not match history: confidence was frozen at
+    # match time, so a level kept reading doubted after the operator had
+    # answered.
+    test "a doubted level waits, and answering it reads as reviewed" do
       record = provider_candidate(%{"score" => 0.5})
       item = item(%{matches: matches([record], confidence: 0.3), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
-      assert Draft.level_state(item.draft.work) == :unsure
-      assert Draft.level_state(item.draft.recording) == :no_match
+      assert Tier.of_evidence(item.draft.work) == :waiting
 
       # ticking the doubted record is "yes, you were right"
       draft = Draft.Edit.toggle_source(item.draft, item, :work, record)
-      assert Draft.level_state(draft.work) == :confirmed
+      assert Tier.of_evidence(draft.work) == :reviewed
     end
 
-    test "a believed match reads trusted until a human touches it" do
+    # The tier the whole four-state model exists for: the machine settled it
+    # and nobody has looked, which is a legitimate end state — pressing Add is
+    # what accepts it.
+    test "a believed match reads unreviewed until a human touches it" do
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
-      assert Draft.level_state(item.draft.work) == :trusted
+      assert Tier.of_evidence(item.draft.work) == :unreviewed
+      assert Tier.of(item.draft.work) == :unreviewed
     end
 
-    # Clicking the already-ticked record UNTICKS it, so "yes, you were right"
-    # used to cost an untick and a re-tick with a reseed churning each way.
-    test "confirm approves the machine's ticks without moving them" do
+    # A level found nothing, which is an answer rather than a failure: there
+    # is nothing to choose between, so it does not wait on the operator.
+    test "a level that found nothing is settled, not waiting" do
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
-      ticked = item.draft.work.sources
 
-      draft = Draft.Edit.confirm_level(item.draft, :work)
-
-      assert Draft.level_state(draft.work) == :confirmed
-      assert draft.work.sources == ticked
-      assert Draft.curated?(draft)
+      assert item.draft.recording.doubt == :nothing_found
+      assert Tier.of(item.draft.recording) == :unreviewed
     end
 
     test "the tick survives the reseed it triggers" do
@@ -2473,6 +2498,58 @@ defmodule Ambry.Inbox.DraftTest do
       assert Field.value(person.name) == "Ty Franck"
     end
 
+    # The control that had no visible effect: a person's card carried a name
+    # box in every state, so saying the credited name was a pseudonym changed
+    # nothing anybody could see. The name being the human's own is the flag
+    # the card reads.
+    test "declaring a pen name gives the human a name of their own" do
+      item = item(%{matches: matches([provider_candidate(%{"authors" => ["David Wong"]})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert [person] = item.draft.people
+      refute person.own_name
+
+      draft = Draft.Edit.separate_person_name(item.draft, :work, 0)
+
+      assert [person] = draft.people
+      assert person.own_name
+      # and it is a question nobody has answered yet
+      refute person.name.approved
+    end
+
+    # Every way in needs a way out. The reveal used to be a fold that could
+    # only be opened, which is the same hole in a different costume.
+    test "the credited name can be taken back" do
+      item = item(%{matches: matches([provider_candidate(%{"authors" => ["David Wong"]})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.separate_person_name(:work, 0)
+        |> Draft.Edit.rename_person("davidwong", "Jason Pargin")
+        |> Draft.Edit.use_credited_name("davidwong")
+
+      assert [person] = draft.people
+      refute person.own_name
+      assert Field.value(person.name) == "David Wong"
+    end
+
+    # The names agree for exactly as long as it takes to type the real one,
+    # so tracking on the values alone dragged the human's name along with any
+    # credit fix made in that window.
+    test "a credit rename leaves a human who has their own name alone" do
+      item = item(%{matches: matches([provider_candidate(%{"authors" => ["David Wong"]})])})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      draft =
+        item.draft
+        |> Draft.Edit.separate_person_name(:work, 0)
+        |> Draft.Edit.rename_credit(:work, 0, "David Wong Jr.")
+
+      assert [person] = draft.people
+      assert Field.value(person.name) == "David Wong"
+    end
+
     test "a half-typed name is storable but never resolved" do
       item = item(%{matches: matches([provider_candidate(%{})])})
       {:ok, item} = Inbox.prepare_draft(item)
@@ -2506,7 +2583,7 @@ defmodule Ambry.Inbox.DraftTest do
     # and "part of this set, position unknown" stays a question.
     test "resolved?/1 and state/1" do
       refute GroupLink.resolved?(%GroupLink{part_number: nil, approved: true, name: "Set"})
-      assert GroupLink.state(%GroupLink{part_number: nil}) == :missing
+      assert GroupLink.state(%GroupLink{part_number: nil}) == :unnumbered
 
       unapproved = %GroupLink{part_number: 1, name: "Set", mode: :create}
       refute GroupLink.resolved?(unapproved)
@@ -2776,9 +2853,9 @@ defmodule Ambry.Inbox.DraftTest do
       draft = Draft.Edit.link_book(item.draft, item, book.id)
 
       # "is this another part of the same set?" — the position is the open
-      # question, so the link stays :missing until answered or removed
+      # question, so the link stays :unnumbered until answered or removed
       assert %GroupLink{mode: :link, part_number: nil} = draft.recording.recording_group
-      assert GroupLink.state(draft.recording.recording_group) == :missing
+      assert GroupLink.state(draft.recording.recording_group) == :unnumbered
     end
 
     test "several existing sets can't be told apart — they ride along as candidates" do

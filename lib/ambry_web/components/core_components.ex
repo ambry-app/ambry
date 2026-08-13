@@ -767,6 +767,7 @@ defmodule AmbryWeb.CoreComponents do
   """
   attr :for, :string, default: nil
   attr :class, :string, default: nil, doc: "class overrides"
+  attr :rest, :global, doc: "passed through — `title` carries a tooltip, e.g. a match score"
   slot :inner_block, required: true
 
   def label(assigns) do
@@ -774,6 +775,7 @@ defmodule AmbryWeb.CoreComponents do
     <label
       for={@for}
       class={["block whitespace-nowrap text-sm font-semibold leading-6 text-zinc-200", @class]}
+      {@rest}
     >
       {render_slot(@inner_block)}
     </label>

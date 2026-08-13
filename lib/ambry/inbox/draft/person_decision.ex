@@ -61,6 +61,18 @@ defmodule Ambry.Inbox.Draft.PersonDecision do
 
     field :approved, :boolean, default: false
 
+    # Whether this human's name is theirs rather than the credit's. Almost
+    # never: "David Wong" is Jason Pargin and "James S.A. Corey" is two people,
+    # but the other ninety-nine imports in a hundred credit a human by their
+    # name and have nothing to type. So the card carries a name box only when
+    # this is set, and "This is a pen name" is what sets it — the control's
+    # whole visible effect, which is what it was missing.
+    #
+    # A flag rather than "the names differ", because it is set at the moment
+    # they still agree: the operator says the credited name is a pseudonym
+    # first and types the real one second.
+    field :own_name, :boolean, default: false
+
     # Set the moment the operator touches this person, so re-deriving from a
     # changed record set never discards a photo they went and found.
     field :curated, :boolean, default: false
@@ -94,6 +106,7 @@ defmodule Ambry.Inbox.Draft.PersonDecision do
       :mode,
       :person_id,
       :approved,
+      :own_name,
       :curated,
       :evidence_curated,
       :doubt,
@@ -150,6 +163,17 @@ defmodule Ambry.Inbox.Draft.PersonDecision do
   case that needs naming and "Person: " with nothing after it names nothing.
   """
   def label(%__MODULE__{} = person), do: Field.value(person.name) || person.key
+
+  @doc """
+  Whether the operator has said no record here describes this human.
+
+  The same reading as the other two levels: they touched the evidence and
+  left nothing ticked. A person in no database at all is a normal outcome —
+  a name is all it takes to create one — so this settles the level rather
+  than blocking it.
+  """
+  def uncatalogued?(%__MODULE__{sources: [], evidence_curated: true}), do: true
+  def uncatalogued?(%__MODULE__{}), do: false
 
   @doc """
   Whether the operator has said this provider record describes this human.

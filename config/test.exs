@@ -27,6 +27,10 @@ config :ambry, AmbryWeb.Endpoint,
 # process that enqueued them.
 config :ambry, Oban, testing: :manual
 
+# Undo an import, so the tests that cover it have something to call. Dev and
+# test only — never set in prod config.
+config :ambry, allow_undo_import: true
+
 # Only in tests, remove the complexity from the password hashing algorithm
 config :argon2_elixir, t_cost: 1, m_cost: 8
 

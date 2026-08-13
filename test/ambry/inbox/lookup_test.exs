@@ -21,7 +21,12 @@ defmodule Ambry.Inbox.LookupTest do
   setup do
     patch(Providers, :search_books, fn _id, _query, _opts -> {:ok, []} end)
     patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
-    patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :not_stubbed} end)
+    # Answering, not erroring: a details call that fails now records a
+    # `<provider>:details` outcome, so a stub meaning "don't care" must answer.
+    patch(Providers, :book_details, fn _id, id, _opts ->
+      {:ok, %Provider.Book{provider: "test", id: id}}
+    end)
+
     :ok
   end
 
@@ -95,10 +100,78 @@ defmodule Ambry.Inbox.LookupTest do
       assert [%{"id" => "hardcover", "status" => "ok"}] = outcomes
     end
 
-    test "an unknown provider is a no-op rather than a crash" do
+    # It used to answer `{:ok, item}` — indistinguishable from a retry that
+    # worked, which is how the `hardcover:editions` chip spent its life as a
+    # button that did nothing: its id is not a registry id, so every click
+    # missed the lookup and reported success.
+    test "an unknown provider is reported rather than silently doing nothing" do
       item = item_with_records()
 
-      assert {:ok, ^item} = Inbox.retry_provider(item, "work", "no-such-provider")
+      assert {:error, :unknown_provider} =
+               Inbox.retry_provider(item, "work", "no-such-provider")
+    end
+
+    test "a details chip re-fetches the details rather than re-running the search" do
+      item = item_with_records()
+
+      patch(Providers, :search_books, fn _id, _query, _opts ->
+        flunk("retrying a details chip must not re-run the search")
+      end)
+
+      patch(Providers, :book_details, fn _id, id, _opts ->
+        {:ok, %Provider.Book{provider: "hardcover", id: id, description: "Fetched at last"}}
+      end)
+
+      {:ok, item} = Inbox.retry_provider(item, "work", "hardcover:details")
+
+      assert [%{"description" => "Fetched at last", "hydrated" => true}] =
+               get_in(item.matches, ["work", "candidates"])
+
+      assert [%{"id" => "hardcover:details", "status" => "ok"}] =
+               get_in(item.matches, ["work", "providers"])
+    end
+
+    # The reported flow: a details call the provider can never answer left a
+    # red chip that stayed red however often it was clicked, because a retry
+    # with nothing to report replaced nothing.
+    test "a retry with nothing to report clears the chip it was retrying" do
+      item =
+        item_with_records(
+          providers: [
+            %{
+              "id" => "hardcover:details",
+              "name" => "Hardcover details",
+              "status" => "failed",
+              "count" => 0,
+              "reason" => ":unsupported_capability"
+            }
+          ]
+        )
+
+      patch(Providers, :book_details, fn _id, _record_id, _opts ->
+        {:error, :unsupported_capability}
+      end)
+
+      {:ok, item} = Inbox.retry_provider(item, "work", "hardcover:details")
+
+      assert get_in(item.matches, ["work", "providers"]) == []
+      assert Inbox.unreached_providers(item) == []
+    end
+
+    test "an editions chip re-asks the work for its editions" do
+      item = item_with_records()
+
+      patch(Providers, :editions, fn "hardcover", _work_id, _opts ->
+        {:ok, [book("Leviathan Wakes", ["James S.A. Corey"])]}
+      end)
+
+      {:ok, item} = Inbox.retry_provider(item, "recording", "hardcover:editions")
+
+      assert [%{"id" => "hardcover:editions", "status" => "ok", "count" => 1}] =
+               get_in(item.matches, ["recording", "providers"])
+
+      assert [%{"title" => "Leviathan Wakes"}] =
+               get_in(item.matches, ["recording", "candidates"])
     end
   end
 

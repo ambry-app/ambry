@@ -6,7 +6,7 @@
           over the whole thing rather than in a badge. --%>
     <.busy_overlay
       busy={busy?(assigns)}
-      label={busy_label(@job, @importing)}
+      label={busy_label(@job)}
       class="sticky top-0 h-screen"
     />
 
@@ -88,19 +88,38 @@
             more often than it is forty books. Splitting is the escape hatch
             for when it genuinely isn't: each split item becomes its own
             import, to link to its own book or take a part number. --%>
-        <div :if={length(@item.files) > 1 and !@read_only} class="pt-2 pl-3">
-          <p class="text-sm text-zinc-400">
-            These {length(@item.files)} files import as one audiobook, played in this order.
-          </p>
-          <button
-            type="button"
-            phx-click="split"
-            data-confirm={"Split into #{length(@item.files)} separate items? Each file becomes its own inbox item and is scanned fresh."}
-            data-role="split"
-            class={action_classes()}
-          >
-            Not one audiobook? Split into {length(@item.files)} items
-          </button>
+        <%!-- Two grains, because the grouping can be wrong at two levels: a
+            folder of "1 of 5" subfolders is one release in parts, and a
+            GraphicAudio set of the same shape is five recordings. The
+            question labels them both rather than riding on the first. --%>
+        <div :if={@grains != %{} and !@read_only} class="space-y-2 pt-2">
+          <.label class="pl-3">Not one audiobook?</.label>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              :if={@grains[:folder]}
+              type="button"
+              phx-click="split"
+              phx-value-by="folder"
+              data-confirm={"Split into #{@grains[:folder]} items, one per folder? Each becomes its own inbox item and is scanned fresh."}
+              data-role="split-folder"
+              class={action_classes()}
+            >
+              Split into {@grains[:folder]} folders
+            </button>
+
+            <button
+              :if={@grains[:file]}
+              type="button"
+              phx-click="split"
+              phx-value-by="file"
+              data-confirm={"Split into #{@grains[:file]} items, one per file? Each becomes its own inbox item and is scanned fresh."}
+              data-role="split"
+              class={action_classes()}
+            >
+              Split into {@grains[:file]} files
+            </button>
+          </div>
         </div>
       </section>
 
@@ -119,12 +138,28 @@
             Open the audiobook
           </.brand_link>
         </p>
+
+        <%!-- Development only, and absent everywhere else: the form is
+            designed by running the same awkward release through it until it
+            reads right, and every release could otherwise be imported once. --%>
+        <div :if={@can_undo} class="pt-3 pl-3">
+          <button
+            type="button"
+            phx-click="undo-import"
+            data-confirm="Delete the records this import created and put the item back in the queue? Files this import placed in the library are deleted too; the ones it was found as are left alone."
+            data-role="undo-import"
+            class={action_classes()}
+          >
+            Undo this import (dev)
+          </button>
+        </div>
       </section>
 
       <%!-- The invariant, rendered. Nothing here is a surprise at import time. --%>
       <section
         :if={@unresolved != []}
         class="border-amber-400/80 rounded-lg border-l-4 bg-zinc-900 p-4"
+        id="unresolved"
         data-role="unresolved"
       >
         <p class="font-bold">Still to settle</p>
@@ -140,108 +175,104 @@
 
       <%!-- ==================== THE WORK ==================== --%>
       <section id="work" class="space-y-7" inert={@read_only}>
-        <h2 class="text-xl font-bold text-zinc-100">
-          The book
-        </h2>
+        <h2 class="text-xl font-bold text-zinc-100">Book</h2>
 
         <%!-- Evidence first, then the decisions it feeds (§9): what the
             databases say this is, before "do I already have it?". The records
             are how the operator recognizes the book, and ticking one asks its
             databases for audio editions, which feed the audiobook section. --%>
-        <div class={["space-y-2 rounded-lg bg-zinc-900 p-4", work_records_rail(@item.draft.work)]}>
-          <div class="flex items-baseline gap-2 pl-3">
-            <.label>
-              Records describing this book
-            </.label>
-            <%!-- Decision state, not match history: confidence was frozen at
-                match time, so the badge kept saying "unsure" after the
-                operator had answered. The raw score stays in the tooltip. --%>
-            <.badge
-              color={elem(level_state_words(Draft.level_state(@item.draft.work)), 1)}
-              class="text-xs"
-              title={@item.draft.work.confidence && "match score #{@item.draft.work.confidence}"}
-            >
-              {elem(level_state_words(Draft.level_state(@item.draft.work)), 0)}
-            </.badge>
+        <div class={[
+          "relative space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+          state_rail(Tier.of_evidence(@item.draft.work))
+        ]}>
+          <%!-- A provider round-trip is the same kind of event as a matching
+              job, and gets the same answer: the card is not yours while it
+              runs. The person cards have said so since they grew a search of
+              their own; these two were left with a button that changed its
+              own label. --%>
+          <.busy_overlay busy={@researching == "work"} label={searching_label(@item.draft.work.query_fields)} />
 
-            <%!-- "Yes, you were right" in one click. Clicking the ticked
-                record would untick it — confirming as-is must not cost an
-                untick and a re-tick. --%>
-            <button
-              :if={Draft.level_state(@item.draft.work) == :trusted}
-              type="button"
-              phx-click="confirm-level"
-              phx-value-section="work"
-              data-role="confirm-work"
-              class={action_classes()}
-            >
-              Confirm
-            </button>
-          </div>
-
-          <%!-- Same as the recording level: a doubted match adopts nothing, and
-              "found nothing" versus "found something we don't believe" have to
-              look different or the empty fields below are unexplained. --%>
-          <p
-            :if={doubt_message(@item.draft.work)}
-            class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
-            data-role="work-doubt"
-          >
-            {doubt_message(@item.draft.work)}
-          </p>
-
-          <p
-            :if={records(@item, "work") != [] and @item.draft.work.mode == :create}
-            class="max-w-prose pl-3 text-sm text-zinc-400"
-          >
-            Tick every record that describes this book. Ticking more than one is fine; each can
-            fill different fields.
-          </p>
-
-          <%!-- A linked book takes nothing from these records; they matter
-              because ticking one asks its databases for audio editions,
-              which is the route to a delisted recording. --%>
-          <p
-            :if={records(@item, "work") != [] and @item.draft.work.mode == :link}
-            class="max-w-prose pl-3 text-sm text-zinc-400"
-          >
-            Tick every record that describes this book. Ticked records are asked for their audio
-            editions, which feed the audiobook matches below.
-          </p>
-
-          <p :if={records(@item, "work") == []} class="max-w-prose pl-3 text-sm text-zinc-400">
-            No provider had a record of this. The fields below come from the file's own tags.
-          </p>
-
-          <.record_list
-            records={records(@item, "work")}
-            used={&Work.uses?(@item.draft.work, &1)}
-          >
-            <:row :let={record}>
-              <.record_row
-                record={record}
-                level="work"
-                used={Work.uses?(@item.draft.work, record)}
-                working={@enriching == record_ref(record)}
-              />
-            </:row>
-          </.record_list>
-
-          <.provider_outcomes_row
-            outcomes={provider_outcomes(@item, "work")}
-            level="work"
-            retrying={@retrying}
-          />
-
-          <.disclosure summary="Not what you're looking for? Search again">
-            <div class="pt-2">
-              <.research_form
-                level="work"
-                fields={@item.draft.work.query_fields}
-                running={@researching == "work"}
-              />
+          <div class="space-y-2" inert={@researching == "work"}>
+            <%!-- No badge and no Confirm button: the rail says which of the four
+                states this is, and pressing Add is what accepts the ones the
+                machine settled. The old pair said it twice in two vocabularies,
+                and the button changed nothing but its own word. The match score
+                stays in the tooltip, where it is history rather than state. --%>
+            <div class="flex items-baseline gap-2 pl-3">
+              <.label title={@item.draft.work.confidence && "match score #{@item.draft.work.confidence}"}>
+                Provider records
+              </.label>
             </div>
-          </.disclosure>
+
+            <%!-- The query, then who answered, then what they said. The search
+                that produced these records was folded away under the results it
+                produced, which reads backwards: a card of search results is a
+                search form with results below it. Editable in place, so the
+                wrong tag that sent this somewhere strange is visible and
+                fixable without opening anything. --%>
+            <.research_form
+              level="work"
+              fields={@item.draft.work.query_fields}
+              running={@researching == "work"}
+            />
+
+            <.provider_outcomes_row
+              outcomes={provider_outcomes(@item, "work")}
+              level="work"
+              retrying={@retrying}
+            />
+
+            <%!-- Same as the recording level: a doubted match adopts nothing, and
+                "found nothing" versus "found something we don't believe" have to
+                look different or the empty fields below are unexplained. --%>
+            <p
+              :if={doubt_message(@item.draft.work)}
+              class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
+              data-role="work-doubt"
+            >
+              {doubt_message(@item.draft.work)}
+            </p>
+
+            <p :if={records(@item, "work") == []} class="pl-3 text-sm text-zinc-400">
+              No provider had a record of this.
+            </p>
+
+            <.record_list
+              records={records(@item, "work")}
+              used={&Work.uses?(@item.draft.work, &1)}
+            >
+              <:row :let={record}>
+                <.record_row
+                  record={record}
+                  level="work"
+                  used={Work.uses?(@item.draft.work, record)}
+                  working={@enriching == record_ref(record)}
+                />
+              </:row>
+            </.record_list>
+
+            <%!-- The same answer the audiobook level has always had, and the
+                level that needed it just as much: a doubted match leaves this
+                card outstanding until a record is ticked, so believing none of
+                them left ticking one you don't believe as the only way on. --%>
+            <div :if={records(@item, "work") != []} class="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                phx-click="uncatalogued"
+                phx-value-level="work"
+                data-role="none-of-these"
+                class={[
+                  "px-[11px] rounded-md border py-1 text-xs",
+                  Work.uncatalogued?(@item.draft.work) &&
+                    "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
+                  !Work.uncatalogued?(@item.draft.work) &&
+                    "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                ]}
+              >
+                None of these
+              </button>
+            </div>
+          </div>
         </div>
 
         <%!-- A different KIND of question from the records above: linking
@@ -249,26 +280,12 @@
             record creates a Book. Ranking the two together made the form ask
             one question that was really two. --%>
         <div
-          class={[
-            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-            (@item.draft.work.approved && "border-brand-dark/60") || "border-amber-400/70"
-          ]}
+          class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(Tier.of_identity(@item.draft.work))]}
           data-role="local-books"
         >
           <div class="flex items-baseline gap-2 pl-3">
-            <.label>Is this a book you already have?</.label>
-            <.badge
-              :if={!@item.draft.work.approved}
-              color={elem(state_words(:unconfirmed), 1)}
-              class="text-xs"
-            >
-              {elem(state_words(:unconfirmed), 0)}
-            </.badge>
+            <.label>Existing book?</.label>
           </div>
-
-          <p class="max-w-prose pl-3 text-sm text-zinc-400">
-            If so, this import becomes another edition of that book.
-          </p>
 
           <.local_book_row
             :for={book <- local_records(@item, "work")}
@@ -370,7 +387,6 @@
                 form={work}
                 type="date"
                 control_class="max-w-48"
-                hint="The book's original publication date, not this audiobook's own date."
                 field={@item.draft.work.published}
               />
             </.inputs_for>
@@ -393,19 +409,9 @@
             count={length(@item.draft.work.authors)}
             section="work"
             identities={@authors}
-            people={@people}
             verb="Written by"
-            reveal="This is a pen name"
-            backing="Pen name of"
-            expanded={expanded?(@expanded, "work", index, credit)}
-            kind={:author}
             identity_backing={@author_backing}
-            person_records={person_records(@item)}
-            person_outcomes={person_outcomes(@item)}
             persons={Draft.people_for(@item.draft, credit)}
-            appearances={@appearances}
-            searching_person={@searching_person}
-            photos_expanded={@photos_expanded}
           />
 
           <.add_button phx-click="add-credit" phx-value-section="work">
@@ -436,110 +442,87 @@
 
       <%!-- ==================== THE RECORDING ==================== --%>
       <section id="recording" class="space-y-7" inert={@read_only}>
-        <h2 class="text-xl font-bold text-zinc-100">
-          The audiobook
-        </h2>
+        <h2 class="text-xl font-bold text-zinc-100">Audiobook</h2>
 
         <div class={[
-          "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-          (@item.draft.recording.approved && "border-brand-dark/60") || "border-amber-400/70"
+          "relative space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+          state_rail(Tier.of_evidence(@item.draft.recording))
         ]}>
-          <div class="flex items-baseline gap-2 pl-3">
-            <.label>Records describing this audiobook</.label>
-            <%!-- One badge, not two: "needs confirming" and a frozen
-                confidence said less together than the decision state says
-                alone — and the old pair could contradict each other. --%>
-            <.badge
-              color={elem(level_state_words(Draft.level_state(@item.draft.recording)), 1)}
-              class="text-xs"
-              title={
+          <%!-- A provider round-trip is the same kind of event as a matching
+              job, and gets the same answer: the card is not yours while it
+              runs. The person cards have said so since they grew a search of
+              their own; these two were left with a button that changed its
+              own label. --%>
+          <.busy_overlay busy={@researching == "recording"} label={searching_label(@item.draft.recording.query_fields)} />
+
+          <div class="space-y-2" inert={@researching == "recording"}>
+            <div class="flex items-baseline gap-2 pl-3">
+              <.label title={
                 @item.draft.recording.confidence &&
                   "match score #{@item.draft.recording.confidence}"
-              }
-            >
-              {elem(level_state_words(Draft.level_state(@item.draft.recording)), 0)}
-            </.badge>
-
-            <button
-              :if={Draft.level_state(@item.draft.recording) == :trusted}
-              type="button"
-              phx-click="confirm-level"
-              phx-value-section="recording"
-              data-role="confirm-recording"
-              class={action_classes()}
-            >
-              Confirm
-            </button>
-          </div>
-
-          <%!-- A doubted match used to be indistinguishable from no match at
-              all: both left every field empty and said nothing. The reason is
-              the whole difference between "tick one" and "type it in". --%>
-          <p
-            :if={doubt_message(@item.draft.recording)}
-            class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
-            data-role="doubt"
-          >
-            {doubt_message(@item.draft.recording)}
-          </p>
-
-          <p :if={records(@item, "recording") != []} class="max-w-prose pl-3 text-sm text-zinc-400">
-            Tick every record of <span class="font-semibold">this exact reading</span>. Check the
-            narrator first; that is what tells two audiobooks of one book apart.
-          </p>
-
-          <.record_list
-            records={records(@item, "recording")}
-            used={&Recording.uses?(@item.draft.recording, &1)}
-          >
-            <:row :let={record}>
-              <.record_row
-                record={record}
-                level="recording"
-                used={Recording.uses?(@item.draft.recording, record)}
-                working={@enriching == record_ref(record)}
-              />
-            </:row>
-          </.record_list>
-
-          <.provider_outcomes_row
-            outcomes={provider_outcomes(@item, "recording")}
-            level="recording"
-            retrying={@retrying}
-          />
-
-          <div class="flex flex-wrap items-center gap-2 pt-1">
-            <%!-- px-[11px]: 1px border + 11px puts the label on the 12px text
-                rail, the same trick the inputs use; the ticked state keeps a
-                transparent border so toggling doesn't shift the box. --%>
-            <button
-              type="button"
-              phx-click="uncatalogued"
-              class={[
-                "px-[11px] rounded-md border py-1 text-xs",
-                Recording.uncatalogued?(@item.draft.recording) &&
-                  "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
-                !Recording.uncatalogued?(@item.draft.recording) &&
-                  "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-              ]}
-            >
-              None of these
-            </button>
-          </div>
-
-          <.disclosure summary="Not what you're looking for? Search again">
-            <div class="pt-2">
-              <.research_form
-                level="recording"
-                fields={@item.draft.recording.query_fields}
-                running={@researching == "recording"}
-              />
+              }>
+                Provider records
+              </.label>
             </div>
-          </.disclosure>
 
-          <p class="pl-3 text-xs text-zinc-400">
-            Every import creates a new audiobook.
-          </p>
+            <.research_form
+              level="recording"
+              fields={@item.draft.recording.query_fields}
+              running={@researching == "recording"}
+            />
+
+            <.provider_outcomes_row
+              outcomes={provider_outcomes(@item, "recording")}
+              level="recording"
+              retrying={@retrying}
+            />
+
+            <%!-- A doubted match used to be indistinguishable from no match at
+                all: both left every field empty and said nothing. The reason is
+                the whole difference between "tick one" and "type it in". --%>
+            <p
+              :if={doubt_message(@item.draft.recording)}
+              class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
+              data-role="doubt"
+            >
+              {doubt_message(@item.draft.recording)}
+            </p>
+
+            <.record_list
+              records={records(@item, "recording")}
+              used={&Recording.uses?(@item.draft.recording, &1)}
+            >
+              <:row :let={record}>
+                <.record_row
+                  record={record}
+                  level="recording"
+                  used={Recording.uses?(@item.draft.recording, record)}
+                  working={@enriching == record_ref(record)}
+                />
+              </:row>
+            </.record_list>
+
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <%!-- px-[11px]: 1px border + 11px puts the label on the 12px text
+                  rail, the same trick the inputs use; the ticked state keeps a
+                  transparent border so toggling doesn't shift the box. --%>
+              <button
+                type="button"
+                phx-click="uncatalogued"
+                phx-value-level="recording"
+                data-role="none-of-these"
+                class={[
+                  "px-[11px] rounded-md border py-1 text-xs",
+                  Recording.uncatalogued?(@item.draft.recording) &&
+                    "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
+                  !Recording.uncatalogued?(@item.draft.recording) &&
+                    "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                ]}
+              >
+                None of these
+              </button>
+            </div>
+          </div>
         </div>
 
         <.simple_form
@@ -558,8 +541,6 @@
                 form={recording}
                 control_class="max-w-xl"
                 placeholder="only if it differs from the book's title"
-                hint={"Leave empty unless this reading has its own title, " <>
-                "like \"The Way of Kings (1 of 3)\"."}
                 field={@item.draft.recording.title}
               />
 
@@ -570,7 +551,6 @@
                 form={recording}
                 type="date"
                 control_class="max-w-48"
-                hint="When this reading was published, which is rarely the book's own date."
                 field={@item.draft.recording.published}
               />
 
@@ -591,7 +571,6 @@
                 placeholder="image URL"
                 preview={true}
                 embedded_src={~p"/admin/inbox/#{@item}/embedded-cover"}
-                hint="Audiobook art is square; a portrait jacket is a print cover."
                 field={@item.draft.recording.cover}
               />
 
@@ -613,10 +592,7 @@
         <div class="space-y-2">
           <div :if={group_absent?(@item.draft)} class="space-y-2 rounded-lg bg-zinc-900 p-4">
             <.label class="pl-3">Part of a set</.label>
-            <p class="pl-3 text-sm text-zinc-400">
-              Most audiobooks are not part of a set. Sets are for GraphicAudio-style
-              "Part 1 of 2" releases and episodic seasons.
-            </p>
+            <p class="pl-3 text-sm text-zinc-400">Not part of a set.</p>
           </div>
 
           <.group_row
@@ -643,24 +619,86 @@
             count={length(@item.draft.recording.narrators)}
             section="recording"
             identities={@narrators}
-            people={@people}
             verb="Read by"
-            reveal="This is a stage name"
-            backing="Stage name of"
-            expanded={expanded?(@expanded, "recording", index, credit)}
-            kind={:narrator}
             identity_backing={@narrator_backing}
-            person_records={person_records(@item)}
-            person_outcomes={person_outcomes(@item)}
             persons={Draft.people_for(@item.draft, credit)}
-            appearances={@appearances}
-            searching_person={@searching_person}
-            photos_expanded={@photos_expanded}
           />
 
           <.add_button phx-click="add-credit" phx-value-section="recording">
             Add a narrator
           </.add_button>
+        </div>
+      </section>
+
+      <%!-- ==================== NEW PEOPLE ==================== --%>
+      <%!-- The third level, and a section rather than a decoration on a
+          credit. One human is one record: rendering a person inside every
+          credit that named them made an author who reads their own book
+          appear twice, with a sentence apologising for the duplication the
+          model had deliberately deleted.
+
+          A *derived* list, so it breaks the list-cluster grammar deliberately
+          and has no add of its own (design language §5): a person exists
+          because a credit names them, so adding one happens on the credit and
+          shows up here. A credit pointing at an identity the library already
+          has brings nobody: that person was chosen in the credit's typeahead
+          and carries curation an import may never overwrite. One the operator
+          matched to the library from their own card stays, because that
+          decision was made here and needs a way back. --%>
+      <section
+        :if={Draft.people_groups(@item.draft) != []}
+        id="people"
+        class="space-y-7"
+        inert={@read_only}
+      >
+        <h2 class="text-xl font-bold text-zinc-100">People</h2>
+
+        <div :for={group <- Draft.people_groups(@item.draft)} class="space-y-3">
+          <%!-- A bracket, never a filled block: wrapping cards in a card is
+              what eats the elevation ladder. One author credit can stand for
+              several humans, and the label names the credit they share. --%>
+          <div
+            :if={length(group.people) > 1}
+            class="space-y-3 border-l-2 border-zinc-700 pl-4"
+            data-role="pen-name-group"
+          >
+            <%!-- The cards each carry the credited name in their own title
+                now, so the bracket states the thing they can't: that there
+                are several of them behind the one name. --%>
+            <p class="text-xs text-zinc-400">
+              {length(group.people)} people behind this name
+            </p>
+
+            <.person_card
+              :for={{person, person_index} <- Enum.with_index(group.people)}
+              person={person}
+              group={group}
+              person_index={person_index}
+              removable={true}
+              searching={@searching_person == person.key}
+              photos_expanded={@photos_expanded[person.key] || false}
+              records={person_records(@item, person.key)}
+              locals={person_locals(@item, person.key)}
+              outcomes={person_outcomes(@item, person.key)}
+              appears={@appearances[person.key] || []}
+              people={@people}
+            />
+          </div>
+
+          <.person_card
+            :if={length(group.people) == 1}
+            person={hd(group.people)}
+            group={group}
+            person_index={0}
+            removable={false}
+            searching={@searching_person == hd(group.people).key}
+            photos_expanded={@photos_expanded[hd(group.people).key] || false}
+            records={person_records(@item, hd(group.people).key)}
+            locals={person_locals(@item, hd(group.people).key)}
+            outcomes={person_outcomes(@item, hd(group.people).key)}
+            appears={@appearances[hd(group.people).key] || []}
+            people={@people}
+          />
         </div>
       </section>
 
@@ -716,20 +754,10 @@
             than fixed on the watched folder. With one root this never asks. --%>
         <div
           :if={@item.draft.destination && @item.draft.destination.custody == :managed}
-          class={[
-            "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-            (@item.draft.destination.approved && "border-brand-dark/60") || "border-amber-400/70"
-          ]}
+          class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(Tier.of(@item.draft.destination))]}
         >
           <div class="flex items-baseline gap-2 pl-3">
             <.label>Library root</.label>
-            <.badge
-              :if={!@item.draft.destination.approved}
-              color={elem(state_words(:unconfirmed), 1)}
-              class="text-xs"
-            >
-              {elem(state_words(:unconfirmed), 0)}
-            </.badge>
           </div>
 
           <form id="destination-root" phx-change="choose-root" class="mt-1">
@@ -788,14 +816,22 @@
             In the library — read-only.
           </p>
 
-          <.button navigate={~p"/admin/inbox"} color={:zinc}>Back to the inbox</.button>
+          <.button navigate={@return_to} color={:zinc}>Back to the inbox</.button>
 
           <%!-- Why the button is off, always. A blocker that only showed up as a
               red line further up the page could leave this disabled while the
               outstanding count read zero. --%>
-          <p :if={@unresolved != []} class="text-sm text-zinc-400">
+          <%!-- Sticky, so it is the one thing always in view — which makes it
+              the right place to say what is left, and a link rather than a
+              number so work below the fold is reachable without hunting
+              (§9). --%>
+          <.link
+            :if={@unresolved != []}
+            href="#unresolved"
+            class="text-sm text-zinc-400 underline hover:text-zinc-200"
+          >
             {length(@unresolved)} decision{if length(@unresolved) > 1, do: "s"} still to settle.
-          </p>
+          </.link>
 
           <p :if={@unresolved == [] and @destination.blocker} class="text-sm text-red-400">
             Everything is settled, but the files can't be placed yet. See Files &amp; destination.

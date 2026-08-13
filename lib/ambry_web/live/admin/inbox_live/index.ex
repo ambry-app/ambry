@@ -9,12 +9,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   use AmbryWeb, :admin_live_view
 
-  import AmbryWeb.Admin.Decisions, only: [level_state_words: 1]
+  import AmbryWeb.Admin.Decisions, only: [tier_words: 1]
   import AmbryWeb.Admin.PaginationHelpers
   import AmbryWeb.TimeUtils
 
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library.Source
 
@@ -64,19 +65,25 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     {:noreply, reload(socket)}
   end
 
+  # Queued, not run here. Importing re-probes every file and then copies every
+  # byte, and doing that inside `handle_event` blocked the whole LiveView —
+  # the queue froze for the length of a NAS copy, with no sign the click had
+  # landed. The row wears the busy overlay instead, same as any other job.
   def handle_event("import", %{"id" => id}, socket) do
     id
     |> Inbox.get_item!()
-    |> Inbox.import_item()
+    |> Inbox.import_item_async()
     |> case do
-      {:ok, _media} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Added to the library. Files were left where they are.")
-         |> reload()}
+      {:ok, job} ->
+        message =
+          if job.conflict?,
+            do: "Already adding this one.",
+            else: "Adding to the library. The row will say when it's done."
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, Inbox.describe_error(reason))}
+        {:noreply, socket |> put_flash(:info, message) |> reload()}
+
+      {:error, :already_imported} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(:already_imported))}
     end
   end
 
@@ -201,6 +208,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # What the row's background work is doing. `:done` and `:issue` say nothing
   # here — the row already shows its matches or its issue, and repeating
   # "done" on every settled row is noise that hides the rows that aren't.
+  defp progress_label(:importing), do: "Adding to the library…"
   defp progress_label(:working), do: "Working on it…"
   defp progress_label(:retrying), do: "A provider couldn't be reached. Waiting to try again."
 
@@ -229,6 +237,17 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   # The same shape from locals rather than assigns — load_items runs before
   # its assigns exist, so `patch/2` can't be used for the page links.
+  @doc """
+  The list state, as the params that reproduce it.
+
+  Carried into the form so every way back out of it — imported, ignored, or
+  the plain Back button — returns to the tab and page the operator was on.
+  Landing them on an unfiltered page one after an import is how "where did my
+  queue go" happens.
+  """
+  def return_query(assigns),
+    do: page_query(assigns.list_opts, assigns.status, assigns.ready, assigns.list_opts.page)
+
   defp page_query(list_opts, status, ready, page) do
     %{
       "filter" => list_opts.filter,
@@ -397,7 +416,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
         level: level,
         best: List.first(candidates),
         alternatives: max(length(candidates) - 1, 0),
-        state: level_state(item, level),
+        tier: level_tier(item, level),
         confidence: get_in(matches, [level, "confidence"]),
         query: get_in(matches, [level, "query"])
       }
@@ -406,22 +425,23 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   def match_summary(_item), do: []
 
-  # The draft is the live truth: its state moves when the operator decides,
+  # The draft is the live truth: its tier moves when the operator decides,
   # where `matches[level]["confidence"]` was frozen at match time — so the
   # queue used to keep calling an item "unsure" after a human had settled it,
   # and could disagree with the form after a background re-match. The
   # fallback covers the moment between matching and the draft existing.
-  defp level_state(%InboxItem{draft: %Draft{work: %{} = work}}, "work"),
-    do: Draft.level_state(work)
+  #
+  # One vocabulary with the form, or the two drift: the queue says what the
+  # form's rail says, in the same four words.
+  defp level_tier(%InboxItem{draft: %Draft{work: %{} = work}}, "work"), do: Tier.of(work)
 
-  defp level_state(%InboxItem{draft: %Draft{recording: %{} = recording}}, "recording"),
-    do: Draft.level_state(recording)
+  defp level_tier(%InboxItem{draft: %Draft{recording: %{} = recording}}, "recording"),
+    do: Tier.of(recording)
 
-  defp level_state(%InboxItem{matches: matches}, level) do
+  defp level_tier(%InboxItem{matches: matches}, level) do
     case get_in(matches, [level, "confidence"]) || 0.0 do
-      sure when sure >= 0.6 -> :trusted
-      some when some > 0.0 -> :unsure
-      _nothing -> :no_match
+      sure when sure >= 0.6 -> :unreviewed
+      _doubted_or_nothing -> :waiting
     end
   end
 

@@ -24,6 +24,28 @@ defmodule Ambry.Inbox do
 
   That's measured against a real downloads tree rather than assumed — see
   `directory_candidate/1`.
+
+  ## What a scan may change, and what it may not
+
+  The walk runs hourly over folders the operator is working in, so what it
+  is *allowed* to do matters more than what it finds. **Ownership decides,
+  not the walk**: every file the queue or the library already holds belongs
+  to something, and the grouping the walk proposes is consulted only for
+  files that belong to nothing.
+
+  A scan may therefore do exactly three things:
+
+    * create items from files nothing owns,
+    * give an unowned file to the item that owns the folder above it,
+    * drop a file that is gone from its owner (which marks that item's draft
+      stale, since the draft describes files that moved under it).
+
+  It may never move a file from one item to another, and it never touches an
+  imported item at all. That is what makes a split durable without a marker:
+  once the operator says five folders are five releases, the files are owned,
+  and re-walking the folder that holds them has nothing to say. It is a
+  property of the construction rather than a rule the code has to remember —
+  `record_candidate/3` groups by owner before it looks at anything else.
   """
 
   use Boundary,
@@ -41,9 +63,12 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.Lookup
   alias Ambry.Inbox.Progress
+  alias Ambry.Inbox.ReleaseName
   alias Ambry.Inbox.RunDiscovery
+  alias Ambry.Inbox.RunImport
   alias Ambry.Inbox.RunMatch
   alias Ambry.Inbox.RunProbe
+  alias Ambry.Inbox.Undo
   alias Ambry.Library
   alias Ambry.Library.Root
   alias Ambry.Library.Source
@@ -180,13 +205,12 @@ defmodule Ambry.Inbox do
 
   defp scan(root, source) do
     if File.dir?(root) do
-      known = known_paths()
-      imported = imported_files()
+      ledger = ledger()
 
       results =
         root
         |> candidates()
-        |> Enum.flat_map(&List.wrap(record_candidate(&1, known, imported, source)))
+        |> Enum.flat_map(&List.wrap(record_candidate(&1, ledger, source)))
 
       {:ok,
        %{
@@ -557,6 +581,18 @@ defmodule Ambry.Inbox do
   defdelegate research_person(item, key, name), to: Lookup
 
   @doc """
+  Deletes what an import created and puts the item back in the queue.
+
+  Development only — `undo_available?/0` says whether this build has it. The
+  awkward releases are the ones worth running through the form, and each of
+  them could only be imported once; see `Ambry.Inbox.Undo`.
+  """
+  defdelegate undo_import(item), to: Undo
+
+  @doc "Whether this build can undo an import at all."
+  defdelegate undo_available?, to: Undo, as: :available?
+
+  @doc """
   Asks one provider again — the one that was unreachable during matching.
   """
   defdelegate retry_provider(item, level, provider_id), to: Lookup
@@ -711,6 +747,23 @@ defmodule Ambry.Inbox do
   end
 
   @doc """
+  Queues the import and hands the operator back their afternoon.
+
+  Placing a release is the longest thing the inbox does — every file
+  re-probed, then every byte copied — and running it inside the form meant
+  the operator watched a spinner they could kill by closing the tab. The job
+  belongs to the server; the row says what is happening to it.
+
+  Refuses an item that is already in the library, since the queued job would
+  only rediscover that a minute later and write it onto the row as an issue.
+  """
+  def import_item_async(%InboxItem{status: :imported}), do: {:error, :already_imported}
+
+  def import_item_async(%InboxItem{} = item) do
+    %{inbox_item_id: item.id} |> RunImport.new() |> Oban.insert()
+  end
+
+  @doc """
   Says what went wrong in a sentence the operator can act on.
 
   Shared between the flash shown at the time and the `issue` recorded on the
@@ -762,6 +815,21 @@ defmodule Ambry.Inbox do
 
   def describe_error(:already_imported), do: "Already in the library; this item is read-only."
 
+  def describe_error(:not_divisible),
+    do: "These files are all in one folder, so splitting by folder would change nothing."
+
+  def describe_error(:undo_unavailable), do: "Undoing an import is a development-only tool."
+
+  def describe_error(:not_imported),
+    do: "This item isn't in the library, so there's nothing to undo."
+
+  # Refused rather than half-done: a `move` policy leaves the library copy as
+  # the only copy, and deleting it would be a loss rather than an undo.
+  def describe_error(:source_files_missing),
+    do:
+      "The files this was found as are gone, so the library copy is the only one left. " <>
+        "Undoing would delete it."
+
   # The invariant, phrased for a human. It names the count rather than the
   # decisions because the form lists them properly — this is the flash you get
   # if you somehow reached import from the queue.
@@ -800,29 +868,53 @@ defmodule Ambry.Inbox do
   def delete_item(%InboxItem{} = item), do: Repo.delete(item)
 
   @doc """
-  Splits a multi-file item into one item per file.
+  Splits a wrongly-grouped item into several, `by: :folder` or `by: :file`.
 
   The grouping heuristic is folder-based — a folder holding audio directly is
-  one release — and its known failure is two unrelated single-file books
-  sharing a folder. The operator is the one who can tell; this is how they
-  say so. Each file becomes its own item in the shape a loose file has always
-  had (`path` = the file), with a fresh probe (and the match that follows it)
-  queued, because the parent's probe, tags and matches described its first
-  file only.
+  one release, and a folder of "1 of 5" subfolders is one release in parts —
+  and it has two known failures, at two different grains. Two unrelated
+  single-file books can share a folder; and a set can be *five recordings*
+  rather than one in five parts, which is exactly what a GraphicAudio release
+  is. The operator is the one who can tell, so the split asks them at which
+  grain it was wrong:
+
+    * `:folder` — one item per folder the files live in. The five parts of
+      The Way of Kings become five items of seven files each, each free to
+      take its own part number in a set.
+    * `:file` — one item per file, the finest grain there is, for the folder
+      that was never one release at all.
+
+  Children are inserted in the shape discovery gives an item of that grain
+  (`path` = the folder, or the file), with a fresh probe and the match that
+  follows it queued, because the parent's probe, tags and matches described
+  its first file only.
 
   A split survives rescans without any marker: discovery respects a finer
   partition that already exists — see `record_candidate/4`.
 
-  Refused once imported (the item is the record of what was imported), and
-  meaningless below two files.
+  Refused once imported (the item is the record of what was imported), below
+  two files, and when the chosen grain wouldn't actually divide anything —
+  splitting a single-folder item by folder is a no-op, and doing it silently
+  would delete and recreate the item for nothing.
   """
-  def split_item(%InboxItem{status: :imported}), do: {:error, :already_imported}
-  def split_item(%InboxItem{files: files}) when length(files) < 2, do: {:error, :not_multi_file}
+  def split_item(item, by \\ :file)
 
-  def split_item(%InboxItem{} = item) do
+  def split_item(%InboxItem{status: :imported}, _by), do: {:error, :already_imported}
+
+  def split_item(%InboxItem{files: files}, _by) when length(files) < 2,
+    do: {:error, :not_multi_file}
+
+  def split_item(%InboxItem{} = item, by) do
+    case split_groups(item, by) do
+      [_one] -> {:error, :not_divisible}
+      groups -> replace_with_children(item, groups)
+    end
+  end
+
+  defp replace_with_children(%InboxItem{} = item, groups) do
     Repo.transact(fn ->
       with {:ok, _parent} <- Repo.delete(item),
-           {:ok, children} <- insert_children(item) do
+           {:ok, children} <- insert_children(item, groups) do
         # In the transaction on purpose: a job for a child that didn't get
         # created must not exist either.
         Enum.each(children, fn child -> {:ok, _job} = probe_item_async(child) end)
@@ -831,11 +923,39 @@ defmodule Ambry.Inbox do
     end)
   end
 
-  defp insert_children(%InboxItem{} = item) do
-    item.files
-    |> Enum.reduce_while({:ok, []}, fn file, {:ok, acc} ->
+  @doc """
+  How many items each grain would produce, for the controls that offer them.
+
+  **A grain only appears when it divides further than the coarser one.** A
+  set of three folders holding one file each is the same three items either
+  way, and offering both asks the operator to choose between identical
+  outcomes: `%{folder: 5, file: 35}` on a GraphicAudio set, `%{folder: 3}` on
+  three books in three folders, `%{file: 3}` on three files in one.
+  """
+  def split_grains(%InboxItem{} = item) do
+    folders = length(split_groups(item, :folder))
+    files = length(split_groups(item, :file))
+
+    %{}
+    |> put_if(:folder, folders, folders > 1)
+    |> put_if(:file, files, files > folders)
+  end
+
+  # Files keep the order they were discovered in *within* a group — that is
+  # playing order, and re-sorting it here would quietly reorder a book.
+  defp split_groups(%InboxItem{files: files}, :file), do: Enum.map(files, &{&1, [&1]})
+
+  defp split_groups(%InboxItem{files: files}, :folder) do
+    files
+    |> Enum.group_by(&Path.dirname/1)
+    |> Enum.sort_by(fn {dir, _files} -> dir end)
+  end
+
+  defp insert_children(%InboxItem{} = item, groups) do
+    groups
+    |> Enum.reduce_while({:ok, []}, fn {path, files}, {:ok, acc} ->
       %InboxItem{}
-      |> InboxItem.changeset(%{path: file, files: [file], source_id: item.source_id})
+      |> InboxItem.changeset(%{path: path, files: files, source_id: item.source_id})
       |> Repo.insert()
       |> case do
         {:ok, child} -> {:cont, {:ok, [child | acc]}}
@@ -916,15 +1036,10 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # Deliberately strict. "Disc 02" and "3 of 5" are parts; "Gwendy's Button
-  # Box 2" and "01 - The Restaurant at the End of the Universe" are their own
-  # books, and a looser pattern (anything ending in a number) would swallow
-  # them into one item.
-  @part_folder ~r/^(disc|cd|part|vol|volume)\s*\.?\s*\d+$|^\d+\s*of\s*\d+$|\((disc|cd|part)\s*\d+\)$/i
-
-  defp part_folder?(dir) do
-    dir |> Path.basename() |> String.trim() |> then(&Regex.match?(@part_folder, &1))
-  end
+  # The shape lives in `ReleaseName` because two callers read it: this walk,
+  # deciding a folder of parts is one release, and an item named after one of
+  # those folders, which has to say what it is a part *of*.
+  defp part_folder?(dir), do: dir |> Path.basename() |> ReleaseName.part_folder?()
 
   defp entries(dir) do
     case File.ls(dir) do
@@ -958,26 +1073,65 @@ defmodule Ambry.Inbox do
     path |> Path.extname() |> String.downcase() |> Kernel.in(Scanner.extensions())
   end
 
-  defp record_candidate({path, files}, known, imported, source) do
+  @doc false
+  # **Ownership decides, not the walk.** Every file the queue or the library
+  # already holds belongs to something, and a scan's only job is to find the
+  # ones that don't. Which release a *known* file belongs to is settled — the
+  # operator may have split its folder into five, or into thirty-five, and no
+  # amount of re-walking that folder is allowed to have an opinion about it.
+  #
+  # That is the whole of the safety property, and it is structural: this
+  # groups the candidate's files by who owns them *before* looking at
+  # anything, so the grouping the walk proposes is only ever consulted for
+  # files with no owner at all.
+  defp record_candidate({path, files}, ledger, source) do
+    files
+    |> Enum.group_by(&owner_of(&1, ledger))
+    |> Enum.flat_map(fn
+      {nil, orphans} -> List.wrap(adopt(path, files, orphans, source))
+      {:library, _theirs} -> [:skipped]
+      {%InboxItem{} = item, theirs} -> [refresh_owner(item, theirs, source)]
+    end)
+  end
+
+  # A file's owner, in the order that decides it: the item that already lists
+  # it, the library, then the nearest item *above* it — which is how a file
+  # that appears in a known release folder joins that release rather than
+  # becoming an item of its own.
+  defp owner_of(file, ledger) do
     cond do
-      Enum.any?(files, &MapSet.member?(imported, &1)) ->
-        :skipped
-
-      item = Map.get(known, path) ->
-        refresh_known(item, files, source)
-
-      # The operator split this folder: a finer partition already exists,
-      # keyed by file path. Respect it — re-recording the folder whole would
-      # re-merge what they just took apart, an hour later, silently. A file
-      # that has since appeared in the folder becomes its own item, which is
-      # the right default for a folder the operator declared "not one book".
-      Enum.any?(files, &Map.has_key?(known, &1)) ->
-        Enum.map(files, &record_candidate({&1, [&1]}, known, imported, source))
-
-      true ->
-        create_item(path, files, source)
+      item = ledger.by_file[file] -> item
+      MapSet.member?(ledger.library, file) -> :library
+      item = nearest_owner(file, ledger.by_path) -> item
+      true -> nil
     end
   end
+
+  # Walked up from the file rather than searched across every item: depth is
+  # single digits, the item list is hundreds, and this runs per file.
+  defp nearest_owner(file, by_path) do
+    file
+    |> Stream.unfold(fn
+      path when path in ["/", ".", ""] -> nil
+      path -> {Path.dirname(path), Path.dirname(path)}
+    end)
+    |> Enum.find_value(&Map.get(by_path, &1))
+  end
+
+  # An imported item is the record of what was imported; its source files may
+  # not even be where they were. Nothing about a scan may touch it.
+  defp refresh_owner(%InboxItem{status: :imported}, _files, _source), do: :skipped
+  defp refresh_owner(%InboxItem{} = item, files, source), do: refresh_known(item, files, source)
+
+  # Nobody owns these. A candidate that is entirely unowned is a release, at
+  # the grain the walk proposes; anything left over in a folder that is
+  # *partly* owned goes to the finest grain there is, because something has
+  # already declared that folder to be more than one release.
+  defp adopt(path, files, orphans, source) when files == orphans,
+    do: create_item(path, orphans, source)
+
+  defp adopt(_path, _files, orphans, source),
+    do: Enum.map(orphans, &create_item(&1, [&1], source))
 
   # A known item's files can legitimately change (a torrent finished, a file
   # was replaced). Its status is left alone: ignored stays ignored.
@@ -1034,8 +1188,19 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp known_paths do
-    InboxItem |> select([i], {i.path, i}) |> Repo.all() |> Map.new()
+  # Who owns what, read once per scan.
+  #
+  # `by_file` is the authority — an item's own list of files — and `by_path`
+  # only answers for files nothing has claimed yet, so a new file in a known
+  # folder joins the item that holds the folder.
+  defp ledger do
+    items = Repo.all(InboxItem)
+
+    %{
+      by_file: for(item <- items, file <- item.files, into: %{}, do: {file, item}),
+      by_path: Map.new(items, &{&1.path, &1}),
+      library: imported_files()
+    }
   end
 
   # Files the library already has, by either route: a direct-play track or a

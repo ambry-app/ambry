@@ -173,6 +173,128 @@ defmodule Ambry.InboxTest do
     end
   end
 
+  # The safety property the whole mechanism is built on, stated where it can
+  # be broken: **a scan may not change who owns a file.** It creates items
+  # from files nothing owns, adds unowned files to the item that owns their
+  # folder, and drops files that are gone. Nothing else.
+  # Two grains that produce the same items are one grain wearing two hats,
+  # and the form should not ask the operator to choose between them.
+  describe "split_grains/1" do
+    test "offers the finer grain only when it divides further" do
+      root = watched_root()
+
+      set = Path.join(root, "The Way of Kings")
+      for part <- ["1 of 2", "2 of 2"], do: release_folder(set, part, ["01.mp3", "02.mp3"])
+
+      series = Path.join(root, "Zones of Thought")
+
+      for title <- ["A Fire Upon the Deep", "A Deepness in the Sky"],
+          do: release_folder(series, title, ["book.m4b"])
+
+      copy_audio(series, "stray.mp3")
+
+      pair = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
+
+      {:ok, _counts} = Inbox.discover(root)
+      {items, false} = Inbox.list_items()
+      grains = Map.new(items, &{&1.path, Inbox.split_grains(&1)})
+
+      # parts of several files each: both grains say something different
+      assert grains[set] == %{folder: 2, file: 4}
+
+      # three folders of one file each plus a stray: the folder grain wins,
+      # and the file grain would produce the same four items
+      assert grains[series] == %{folder: 3}
+
+      # one folder, so only the finest grain divides anything
+      assert grains[pair] == %{file: 2}
+    end
+  end
+
+  describe "discover/1 ownership" do
+    test "a file already owned is never re-grouped, however the walk sees it" do
+      root = watched_root()
+      release = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
+      {:ok, _counts} = Inbox.discover(root)
+
+      # the operator says these are two books, at the finest grain
+      {[item], false} = Inbox.list_items()
+      {:ok, _children} = Inbox.split_item(item, :file)
+
+      # the walk still sees one folder holding two files, and is not asked
+      assert {:ok, %{created: 0, updated: 0}} = Inbox.discover(root)
+
+      {items, false} = Inbox.list_items()
+      assert length(items) == 2
+
+      assert items |> Enum.flat_map(& &1.files) |> Enum.sort() ==
+               [Path.join(release, "one.m4b"), Path.join(release, "two.m4b")]
+    end
+
+    test "a folder split keeps each part's files, and the leftovers" do
+      root = watched_root()
+      book = Path.join(root, "The Way of Kings")
+      for part <- ["1 of 2", "2 of 2"], do: release_folder(book, part, ["01.mp3", "02.mp3"])
+      copy_audio(book, "stray.mp3")
+
+      {:ok, _counts} = Inbox.discover(root)
+      {[item], false} = Inbox.list_items()
+      assert length(item.files) == 5
+
+      {:ok, _children} = Inbox.split_item(item, :folder)
+      before = ownership()
+
+      assert {:ok, %{created: 0, updated: 0}} = Inbox.discover(root)
+      assert ownership() == before
+    end
+
+    test "an imported item is never touched, even when its files have moved" do
+      root = watched_root()
+      release = release_folder(root, "Already Mine", ["book.m4b"])
+      {:ok, _counts} = Inbox.discover(root)
+
+      {[item], false} = Inbox.list_items()
+      {:ok, item} = Inbox.update_item(item, %{status: :imported})
+
+      # a managed import moves the bytes out of the downloads folder
+      File.rm_rf!(release)
+      File.mkdir_p!(release)
+
+      assert {:ok, %{updated: 0}} = Inbox.discover(root)
+
+      assert %{status: :imported, files: files} = Inbox.get_item!(item.id)
+      assert files == item.files
+    end
+
+    test "a new file joins the item that owns its folder, rather than starting one" do
+      root = watched_root()
+      release = release_folder(root, "Growing Release", ["01.mp3"])
+      {:ok, _counts} = Inbox.discover(root)
+
+      copy_audio(release, "02.mp3")
+
+      assert {:ok, %{created: 0, updated: 1}} = Inbox.discover(root)
+      assert {[item], false} = Inbox.list_items()
+      assert length(item.files) == 2
+    end
+
+    test "a new file in a folder the operator took apart becomes its own item" do
+      root = watched_root()
+      release = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
+      {:ok, _counts} = Inbox.discover(root)
+      {[item], false} = Inbox.list_items()
+      {:ok, _children} = Inbox.split_item(item, :file)
+
+      copy_audio(release, "three.m4b")
+
+      assert {:ok, %{created: 1}} = Inbox.discover(root)
+
+      {items, false} = Inbox.list_items()
+      assert length(items) == 3
+      assert Enum.all?(items, &(length(&1.files) == 1))
+    end
+  end
+
   describe "discover/1 idempotency" do
     test "rescanning doesn't duplicate what it already offered" do
       root = watched_root()
@@ -582,6 +704,12 @@ defmodule Ambry.InboxTest do
 
   # Nothing in the inbox may modify what it finds, so every test works
   # against a real throwaway tree of real audio files.
+  # Who owns what, as the property tests compare it.
+  defp ownership do
+    {items, _more} = Inbox.list_items()
+    for item <- items, file <- item.files, into: %{}, do: {file, item.path}
+  end
+
   defp watched_root do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
     File.mkdir_p!(root)

@@ -51,7 +51,7 @@
       <.busy_overlay busy={busy?(@progress[item.id])} label={progress_label(@progress[item.id])} />
 
       <div class="min-w-0 flex-grow overflow-hidden" inert={busy?(@progress[item.id])}>
-        <.link navigate={~p"/admin/inbox/#{item}"} class="hover:underline">
+        <.link navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"} class="hover:underline">
           <p class="overflow-hidden text-ellipsis whitespace-nowrap font-semibold">
             {item_name(item)}
           </p>
@@ -79,12 +79,16 @@
           >
             <span class="text-xs text-zinc-400">{level_word(match.level)}</span>
             <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <%!-- The form's rail, in words, because a row is one line and has
+                  nowhere to put a 4px edge per level. Same four states, same
+                  vocabulary — the queue and the form drifted apart when they
+                  each had their own. --%>
               <.badge
-                color={elem(level_state_words(match.state), 1)}
+                color={elem(tier_words(match.tier), 1)}
                 class="text-xs"
                 title={match.confidence && "match score #{match.confidence}"}
               >
-                {elem(level_state_words(match.state), 0)}
+                {elem(tier_words(match.tier), 0)}
               </.badge>
               <%!-- basis-48 + grow keeps the title from being shrunk out of
                     existence (meta wraps down instead); max-w-fit stops the grow
@@ -189,7 +193,7 @@
 
             <.link
               :if={item.status == :pending and not item.ready}
-              navigate={~p"/admin/inbox/#{item}"}
+              navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
               title="Settle what's outstanding"
               class={action_class(:neutral)}
             >

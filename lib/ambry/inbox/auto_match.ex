@@ -44,6 +44,7 @@ defmodule Ambry.Inbox.AutoMatch do
   alias Ambry.Books
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.ReleaseName
+  alias Ambry.Metadata.Outcome
   alias Ambry.Metadata.PersonSearch
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Providers
@@ -448,6 +449,19 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
+  @doc """
+  The people the library already has by this name.
+
+  Kept away from the provider candidates for the same reason a local book is:
+  it answers a different question. A provider record is evidence about a
+  human; one of these *is* a human, and choosing them creates nobody.
+
+  Shared with `Ambry.Inbox.Lookup`, which asks again when the operator
+  re-searches — the held answer is about the name that was asked before, and a
+  rename is exactly when that stops being true.
+  """
+  def local_people(name), do: name |> People.people_named() |> Enum.map(&local_person/1)
+
   defp local_person(person) do
     %{
       "source" => "local",
@@ -461,13 +475,25 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   defp search_person(name, opts) do
-    Enum.reduce(PersonSearch.providers(), {[], []}, fn entry, {candidates, outcomes} ->
-      {matches, outcome} = PersonSearch.matches_with_outcome(entry, name, opts)
-      {candidates ++ Enum.map(matches, &person_candidate/1), outcomes ++ [outcome]}
-    end)
+    {candidates, outcomes} =
+      Enum.reduce(PersonSearch.providers(), {[], []}, fn entry, {candidates, outcomes} ->
+        {matches, provider_outcomes} = PersonSearch.matches_with_outcome(entry, name, opts)
+
+        {candidates ++ Enum.map(matches, &person_candidate(&1, name)),
+         outcomes ++ provider_outcomes}
+      end)
+
+    {rank_people(candidates, name), outcomes}
   end
 
-  defp person_candidate(%PersonSearch.Match{} = match) do
+  @doc """
+  One provider's answer about a human, scored against the name we asked for.
+
+  Shared with `Ambry.Inbox.Lookup`, which builds the same records when the
+  operator searches a person again — it had its own copy, which is how the
+  two drifted into one being scored and the other not.
+  """
+  def person_candidate(%PersonSearch.Match{} = match, asked_for) do
     %{
       "source" => "provider:#{match.provider_id}",
       "provider_name" => match.provider_name,
@@ -477,8 +503,86 @@ defmodule Ambry.Inbox.AutoMatch do
       # what tells two same-named humans apart in a grid — TMDB's known-for
       # credits, mostly
       "note" => presence(match.note),
-      "images" => match.images
+      "images" => match.images,
+      "score" => person_score(match.name, asked_for)
     }
+  end
+
+  @doc """
+  How well a returned name answers the name we asked about.
+
+  **Not a string distance.** Jaro cannot separate a legitimate variant from a
+  different human — measured, "Ty Franck" against "Tyler Corey Franck" scores
+  *lower* than "Ty Franck" against a Corey mismatch — so the ordering is by
+  what the names structurally share, which is the same reasoning
+  `author_agreement/2` already follows:
+
+    * `1.0` — the same name once accents and punctuation are folded away
+      (`person_key/1`), so "Émile Zola" and "Emile Zola" are one person
+    * `0.8` — one name's words are all inside the other's: "Ty Franck" within
+      "Tyler Corey Franck", the pen-name-and-full-name case
+    * `0.6` — they share a word, which is the floor `PersonSearch` already
+      filters at
+    * `0.0` — nothing shared, which a filtered search shouldn't return
+
+  Ties are common and are broken by usefulness rather than by nothing: a
+  candidate carrying a photo and a biography is both more useful to the
+  operator and more likely to be the documented human, and a stable sort
+  leaves the operator's provider priority deciding the rest.
+  """
+  def person_score(name, asked_for) do
+    wanted = name_tokens(asked_for)
+    got = name_tokens(name)
+
+    cond do
+      person_key(name || "") == person_key(asked_for || "") -> 1.0
+      Enum.empty?(wanted) or Enum.empty?(got) -> 0.0
+      covered?(wanted, got) or covered?(got, wanted) -> 0.8
+      Enum.any?(wanted, fn word -> Enum.any?(got, &same_word?(&1, word)) end) -> 0.6
+      true -> 0.0
+    end
+  end
+
+  # Every word on one side answered by a word on the other.
+  defp covered?(words, others),
+    do: Enum.all?(words, fn word -> Enum.any?(others, &same_word?(&1, word)) end)
+
+  # A shortening is the same word: "Ty" is how Tyler Corey Franck is credited,
+  # and "Dan" is Daniel. Exact-token comparison missed exactly the case this
+  # scoring exists for, which is the one `Ambry.Metadata.PersonSearch`'s
+  # moduledoc names. Words under two characters were already dropped, so this
+  # can't collapse initials onto everything.
+  defp same_word?(word, other),
+    do: String.starts_with?(word, other) or String.starts_with?(other, word)
+
+  @doc """
+  People, best answer first.
+
+  The work and recording levels have ranked their candidates since they
+  existed; the person level never did, so the list was whatever order the
+  providers happened to be asked in — and the operator saw plainly wrong
+  humans above the right one.
+
+  **Every candidate is scored against the name being asked about now**, not
+  only the ones arriving without a score. A score is the answer to "how well
+  does this record answer the name we are asking about", and a re-search is
+  the operator changing the question: looking up "David Wong" and then Jason
+  Pargin left the David Wong records wearing the 100% they earned under the
+  old question, sitting above the humans actually searched for. Nothing is
+  dropped — a record that no longer answers the question sinks, which is what
+  the fold below `record_list`'s threshold is for.
+  """
+  def rank_people(candidates, asked_for) do
+    candidates
+    |> Enum.map(&Map.put(&1, "score", person_score(&1["name"], asked_for)))
+    |> Enum.sort_by(&{&1["score"] || 0.0, person_substance(&1)}, :desc)
+  end
+
+  # A face and a biography, as a tie-break between equally-named candidates.
+  defp person_substance(candidate) do
+    has_image = if candidate["images"] in [nil, []], do: 0, else: 1
+    has_bio = if presence(candidate["description"]), do: 1, else: 0
+    has_image + has_bio
   end
 
   # **Everyone any plausible reading of the evidence would credit**, which is
@@ -738,13 +842,23 @@ defmodule Ambry.Inbox.AutoMatch do
   defp hydrate_top(%{"candidates" => candidates} = result, opts) do
     wanted = candidates |> top_group() |> MapSet.new(&ref/1)
 
-    %{
-      result
-      | "candidates" =>
-          Enum.map(candidates, fn record ->
-            if MapSet.member?(wanted, ref(record)), do: details(record, opts), else: record
-          end)
-    }
+    {hydrated, failures} =
+      Enum.map_reduce(candidates, [], fn record, failures ->
+        if MapSet.member?(wanted, ref(record)) do
+          case details_with_outcome(record, opts) do
+            {record, nil} -> {record, failures}
+            {record, outcome} -> {record, failures ++ [outcome]}
+          end
+        else
+          {record, failures}
+        end
+      end)
+
+    result
+    |> Map.put("candidates", hydrated)
+    # One chip per provider however many of its records were hydrated: asking
+    # Hardcover about four of its own works is four calls but one answer.
+    |> Map.put("providers", merge_outcomes(result["providers"] || [], tally(failures)))
   end
 
   defp hydrate_top(result, _opts), do: result
@@ -771,40 +885,83 @@ defmodule Ambry.Inbox.AutoMatch do
   may lack.
   """
   def details(record, opts \\ []) do
+    {record, _outcome} = details_with_outcome(record, opts)
+    record
+  end
+
+  @doc """
+  The same fetch, plus a failed outcome when the provider couldn't be reached.
+
+  **A thin record and an unfetched record are not the same thing**, and this
+  is the difference. Leaving the summary in place is still the right
+  behaviour — it is a usable candidate, and one enrichment call failing must
+  not fail an item that otherwise matched — but doing it *quietly* meant a
+  rate-limited details call cost the record its description, its cover, its
+  publisher and its edition list with nothing anywhere saying so. Measured on
+  a cold scan of 353 releases, the shared rreading-glasses instance 429'd
+  about 6% of requests, none of which surfaced.
+
+  The outcome is what makes it visible and what makes it come back:
+  `RunMatch` fails a job with any unreached provider, and provider errors are
+  never cached, so the retry re-asks exactly this call.
+  """
+  def details_with_outcome(record, opts \\ []) do
     case details_for(record, opts) do
-      nil -> record
-      fuller -> record |> Map.merge(fuller) |> hydrated()
+      # Not a provider record, or a provider the registry doesn't know: there
+      # is nothing to report and nothing a retry could do.
+      :no_provider ->
+        {record, nil}
+
+      {:ok, entry, fuller} ->
+        # Success is reported too, and it has to be: outcomes replace each
+        # other by id, so a details call that only ever spoke up when it
+        # failed would leave "couldn't be reached" on the chip forever, even
+        # after the retry that fixed it.
+        {record |> Map.merge(fuller) |> hydrated(), Outcome.ok(entry, 1, :details)}
+
+      # nil when the provider was never asked — it implements no details call,
+      # or it is switched off. `retry/4` and the hydrate path both drop it.
+      {:error, entry, reason} ->
+        {record, Outcome.from_error(entry, reason, :details)}
     end
   end
 
   defp details_for(%{"source" => "provider:" <> provider_id, "id" => id}, opts)
        when is_binary(id) do
-    case Providers.book_details(provider_id, id, opts) do
+    case Registry.fetch(provider_id) do
+      {:ok, entry} -> details_from(entry, id, opts)
+      {:error, _unknown} -> :no_provider
+    end
+  end
+
+  defp details_for(_record, _opts), do: :no_provider
+
+  defp details_from(entry, id, opts) do
+    case Providers.book_details(entry.id, id, opts) do
       {:ok, book} ->
         # Only fields the summary can be *missing*. The title, authors and
         # score stay as matched — re-deriving them here would silently move
         # what the operator already saw ranked.
-        %{
-          "description" => presence(book.description),
-          "cover_url" => presence(book.cover_url),
-          "publisher" => presence(book.publisher),
-          "series" => series_refs(book.series)
-        }
-        |> Enum.reject(fn {_key, value} -> value in [nil, []] end)
-        |> Map.new()
+        fuller =
+          %{
+            "description" => presence(book.description),
+            "cover_url" => presence(book.cover_url),
+            "publisher" => presence(book.publisher),
+            "series" => series_refs(book.series)
+          }
+          |> Enum.reject(fn {_key, value} -> value in [nil, []] end)
+          |> Map.new()
+
+        {:ok, entry, fuller}
 
       {:error, reason} ->
-        # Never fatal: the summary is still a usable candidate, and an item
-        # that matched shouldn't fail because one enrichment call didn't.
         Logger.warning(fn ->
-          "Auto-match: details for #{provider_id}/#{id}: #{inspect(reason)}"
+          "Auto-match: details for #{entry.id}/#{id}: #{inspect(reason)}"
         end)
 
-        nil
+        {:error, entry, reason}
     end
   end
-
-  defp details_for(_candidate, _opts), do: nil
 
   # An ASIN is a recording-level key, so when there is one it *is* the query:
   # a hit on it is definitive in a way no title match ever is.
@@ -1062,13 +1219,28 @@ defmodule Ambry.Inbox.AutoMatch do
   # row. It also hid a real number — the inbox de-duplicates outcomes by id and
   # keeps the last, so a provider that found thirteen editions for one work and
   # none for the next reported **none**.
+  #
+  # **A failure outranks an answer.** Collapsing four calls to one chip used to
+  # let any success speak for the group, so a provider that answered about
+  # three works and was rate-limited on the fourth reported a clean `ok` and
+  # the fourth work's editions were never seen again — the same silent miss in
+  # miniature. Now the chip says "couldn't be reached" while still carrying
+  # what did come back, and `RunMatch` sends the item round again for the rest.
+  @doc """
+  Collapses many calls to one provider into the one chip the operator reads.
+  """
+  def tally_outcomes(outcomes), do: tally(outcomes)
+
   defp tally(outcomes) do
     outcomes
     |> Enum.group_by(& &1["id"])
     |> Enum.map(fn {_id, [first | _rest] = group} ->
-      case Enum.filter(group, &(&1["status"] == "ok")) do
-        [] -> first
-        answered -> %{first | "status" => "ok", "count" => Enum.sum_by(answered, & &1["count"])}
+      answered = Enum.reject(group, &Outcome.failed?/1)
+      count = Enum.sum_by(answered, &(&1["count"] || 0))
+
+      case Enum.find(group, &Outcome.failed?/1) do
+        nil -> %{first | "status" => "ok", "count" => count}
+        failure -> %{failure | "count" => count}
       end
     end)
   end
@@ -1100,36 +1272,17 @@ defmodule Ambry.Inbox.AutoMatch do
             &(&1 |> provider_candidate(entry, hints) |> Map.put("of_work", of_work))
           )
 
-        {candidates,
-         [
-           %{
-             "id" => "#{provider_id}:editions",
-             "name" => "#{entry.display_name} editions",
-             "status" => "ok",
-             "count" => length(candidates)
-           }
-         ]}
+        {candidates, [Outcome.ok(entry, length(candidates), :editions)]}
 
       {:error, reason} ->
         Logger.warning(fn -> "Auto-match: editions for #{provider_id}: #{inspect(reason)}" end)
 
-        {[],
-         [
-           %{
-             "id" => "#{provider_id}:editions",
-             "name" => "#{provider_name(provider_id)} editions",
-             "status" => "failed",
-             "count" => 0,
-             "reason" => describe(reason)
-           }
-         ]}
-    end
-  end
-
-  defp provider_name(provider_id) do
-    case Registry.fetch(provider_id) do
-      {:ok, entry} -> entry.display_name
-      _unknown -> provider_id
+        # The registry is what names a provider on a chip, and an id it has
+        # never heard of can't be retried anyway.
+        case Registry.fetch(provider_id) do
+          {:ok, entry} -> {[], List.wrap(Outcome.from_error(entry, reason, :editions))}
+          {:error, _unknown} -> {[], []}
+        end
     end
   end
 
@@ -1624,7 +1777,9 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Registry.enabled()
     |> Enum.map(&search_provider(&1, query, hints, opts))
     |> Enum.reduce({[], []}, fn {candidates, outcome}, {all, outcomes} ->
-      {all ++ candidates, outcomes ++ [outcome]}
+      # nil where the provider was never asked — switched off between the
+      # registry read and the call, or missing its credentials.
+      {all ++ candidates, outcomes ++ List.wrap(outcome)}
     end)
   end
 
@@ -1649,27 +1804,14 @@ defmodule Ambry.Inbox.AutoMatch do
         candidates =
           books |> Enum.take(@candidate_limit) |> Enum.map(&provider_candidate(&1, entry, hints))
 
-        {candidates,
-         %{
-           "id" => entry.id,
-           "name" => entry.display_name,
-           "status" => "ok",
-           "count" => length(candidates)
-         }}
+        {candidates, Outcome.ok(entry, length(candidates))}
 
       {:error, reason} ->
         Logger.warning(fn ->
           "Auto-match: #{entry.id} failed for #{inspect(to_string(query))}: #{inspect(reason)}"
         end)
 
-        {[],
-         %{
-           "id" => entry.id,
-           "name" => entry.display_name,
-           "status" => "failed",
-           "count" => 0,
-           "reason" => describe(reason)
-         }}
+        {[], Outcome.from_error(entry, reason)}
     end
   end
 
@@ -1701,12 +1843,6 @@ defmodule Ambry.Inbox.AutoMatch do
       |> String.trim()
 
     if plainer != "" and plainer != String.trim(title), do: plainer
-  end
-
-  # Enough for the operator to tell a rate limit from a bad token from an
-  # instance being down, without leaking a whole HTTP response into jsonb.
-  defp describe(reason) do
-    reason |> inspect() |> String.slice(0, 200)
   end
 
   @doc """

@@ -15,7 +15,9 @@ defmodule AmbryWeb.Admin.Decisions do
   use Phoenix.Component
   use AmbryWeb, :verified_routes
 
-  import AmbryWeb.Admin.Components, only: [badge: 1, disclosure: 1, microlabel: 1]
+  import AmbryWeb.Admin.Components,
+    only: [badge: 1, busy_overlay: 1, disclosure: 1, microlabel: 1]
+
   import AmbryWeb.CoreComponents
 
   alias Ambry.Inbox.Draft.Credit
@@ -23,7 +25,7 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
-  alias Ambry.Inbox.Draft.SourceRef
+  alias Ambry.Inbox.Draft.Tier
   alias AmbryWeb.Components.EntityResolver
 
   attr :outcomes, :list, required: true
@@ -47,10 +49,12 @@ defmodule AmbryWeb.Admin.Decisions do
     ~H"""
     <div
       :if={@outcomes != []}
-      class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+      class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       data-role="provider-outcomes"
     >
-      <.microlabel>Asked</.microlabel>
+      <%!-- Named for what it is now that it sits under the search rather than
+            after the records: these are what the search came back with. --%>
+      <.microlabel>Results</.microlabel>
 
       <div class="flex flex-wrap items-center gap-1.5">
         <%!-- A count is information, not an option — filled and quiet, so it
@@ -93,42 +97,6 @@ defmodule AmbryWeb.Admin.Decisions do
       </div>
     </div>
     """
-  end
-
-  attr :query, :string, default: nil
-  attr :fields, :map, default: %{}
-
-  @doc """
-  The search that produced this level's candidates.
-
-  Shown because the first question anyone asks a bad match is "what did you
-  even search for?" — and the answer is not obvious: the hints come from tags
-  first and the release name second, so a wrong author in an ID3 frame sends
-  the whole level somewhere strange with no visible cause.
-  """
-  def query_row(assigns) do
-    ~H"""
-    <div :if={@query || @fields != %{}} class="pl-3 text-xs text-zinc-400" data-role="query">
-      <span>Searched for</span>
-      <span :for={{key, value} <- ordered_fields(@fields)} class="ml-1">
-        <span class="text-zinc-400">{key}:</span>
-        <span class="font-mono text-zinc-400">{value}</span>
-      </span>
-      <span :if={@fields == %{}} class="font-mono ml-1 text-zinc-400">{@query}</span>
-      <p class="pt-0.5">
-        A provider whose narrow search comes back empty may widen it, so what matched can be broader
-        than this.
-      </p>
-    </div>
-    """
-  end
-
-  # Same order every time, and the order the query is actually built in.
-  defp ordered_fields(fields) do
-    for key <- ~w(title author narrator keywords),
-        value = fields[key],
-        value not in [nil, ""],
-        do: {key, value}
   end
 
   # Where a candidate stops being an alternative and starts being noise. Sits
@@ -180,8 +148,9 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  # An *unscored* record is not a weak one — person records carry no score at
-  # all, and reading a missing score as zero would fold every one of them away.
+  # An *unscored* record is not a weak one — a record staged before its level
+  # ranked anything carries no score, and reading a missing score as zero
+  # would fold it away unread.
   defp worth_showing?(record, used) do
     case record["score"] do
       score when is_number(score) -> score >= @worth_showing or used.(record)
@@ -270,16 +239,35 @@ defmodule AmbryWeb.Admin.Decisions do
         </span>
       </span>
       <div class="min-w-0 flex-grow">
-        <p class="flex items-baseline gap-2 truncate text-sm font-medium">
-          {candidate_title(@record)}
+        <%!-- Which database said this is the first thing an operator checks,
+              and it used to ride at the end of the facts line, where it was
+              the first thing truncation took. It is a fact about the record
+              rather than one of the record's own, so it wears the badge
+              costume and holds its width; the title gives way instead. --%>
+        <%!-- A div, not a p: `<.badge>` renders a div, and a div inside a
+              paragraph makes the parser close the paragraph early — which
+              put the badge on a line of its own instead of beside the
+              title. --%>
+        <div class="flex items-baseline gap-2 text-sm font-medium">
+          <span class="min-w-0 truncate">{candidate_title(@record)}</span>
+
           <span
             :if={@note}
-            class="bg-brand-dark/15 rounded-sm px-1.5 text-xs font-normal text-lime-300"
+            class="bg-brand-dark/15 flex-none rounded-sm px-1.5 text-xs font-normal text-lime-300"
             data-role="record-note"
           >
             {@note}
           </span>
-        </p>
+
+          <.badge
+            :if={candidate_origin(@record)}
+            color={:gray}
+            class="flex-none text-xs font-normal"
+            data-role="record-source"
+          >
+            {candidate_origin(@record)}
+          </.badge>
+        </div>
         <p class="truncate text-xs text-zinc-400">{candidate_facts(@record)}</p>
       </div>
       <span :if={@working} class="flex-none pt-0.5 text-xs text-zinc-400">
@@ -336,7 +324,18 @@ defmodule AmbryWeb.Admin.Decisions do
       data-linked={@linked && "true"}
     >
       <div class="min-w-0 flex-grow">
-        <p class="truncate text-sm font-semibold">{candidate_title(@book)}</p>
+        <div class="flex items-baseline gap-2 text-sm font-semibold">
+          <span class="min-w-0 truncate">{candidate_title(@book)}</span>
+
+          <.badge
+            :if={candidate_origin(@book)}
+            color={:gray}
+            class="flex-none text-xs font-normal"
+            data-role="record-source"
+          >
+            {candidate_origin(@book)}
+          </.badge>
+        </div>
         <p class="truncate text-xs text-zinc-400">{candidate_facts(@book)}</p>
       </div>
 
@@ -466,6 +465,12 @@ defmodule AmbryWeb.Admin.Decisions do
 
   Narrator and year lead because they are what tell two recordings of one work
   apart — the whole reason the recording level exists.
+
+  **Which database said so is not one of them.** It rode at the end of this
+  line for a while, which is precisely where a truncated line loses it: the
+  facts are what tell two records apart, the source is what the operator
+  weighs them by, and it belongs to the row rather than to the sentence. It
+  renders as a badge beside the title.
   """
   def candidate_facts(candidate) do
     [
@@ -479,7 +484,6 @@ defmodule AmbryWeb.Admin.Decisions do
       candidate["publisher"],
       series_line(candidate["series"]),
       candidate["asin"],
-      candidate_origin(candidate),
       candidate["also_from"] not in [nil, []] &&
         "also #{Enum.join(List.wrap(candidate["also_from"]), ", ")}"
     ]
@@ -553,12 +557,17 @@ defmodule AmbryWeb.Admin.Decisions do
           option row) sits on the text rail (pl-3), aligned with the text
           INSIDE the control; only boxes touch the margin edge. See
           docs/admin-design-language.md §1. --%>
-    <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", decision_rail(@field)]}>
+    <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@field)]}>
       <div class="flex items-baseline gap-2 pl-3">
         <.label>{@label}</.label>
 
+        <%!-- Only when it says something the rail can't. Amber already means
+            "look here"; "sources disagree" and "nothing proposed it" are
+            different problems wanting different things from the operator, and
+            a badge repeating "needs confirming" next to an amber rail is the
+            same fact twice (§2). --%>
         <.badge
-          :if={!@field.approved}
+          :if={explained?(Field.state(@field))}
           color={elem(state_words(Field.state(@field)), 1)}
           class="text-xs"
         >
@@ -652,7 +661,7 @@ defmodule AmbryWeb.Admin.Decisions do
           label on the first image's bottom edge. --%>
       <div
         :if={@field.candidates != []}
-        class={["grid-cols-[4.5rem_minmax(0,1fr)] grid gap-x-2 pl-3", (@preview && "items-start") || "items-baseline"]}
+        class={["grid-cols-[4rem_minmax(0,1fr)] grid gap-x-2 pl-3", (@preview && "items-start") || "items-baseline"]}
       >
         <.microlabel class={@preview && "pt-1.5"}>Proposed</.microlabel>
 
@@ -714,29 +723,13 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :index, :integer, required: true
   attr :section, :string, required: true
   attr :identities, :list, required: true
-  attr :people, :list, required: true
   attr :verb, :string, required: true, doc: ~s(the visible label — "Written by")
-  attr :reveal, :string, required: true, doc: ~s(the unfold link — "This is a pen name")
-  attr :backing, :string, required: true, doc: ~s(the unfolded label — "Pen name of")
-  attr :expanded, :boolean, required: true
-  attr :kind, :atom, required: true, doc: ":author or :narrator"
 
   attr :identity_backing, :map,
     default: %{},
     doc: "identity id => the backing people's names, where they add something"
 
-  attr :person_records, :map,
-    default: %{},
-    doc: "person key => the provider records of people by that name"
-
-  attr :person_outcomes, :map,
-    default: %{},
-    doc: "person key => what each person provider said when asked"
-
   attr :persons, :list, required: true, doc: "the PersonDecisions this credit references"
-  attr :appearances, :map, default: %{}, doc: "person key => every credit referencing them"
-  attr :searching_person, :string, default: nil, doc: "the person being looked up again"
-  attr :photos_expanded, :map, default: %{}, doc: "person key => whether all photos show"
 
   attr :count, :integer,
     default: 1,
@@ -750,9 +743,8 @@ defmodule AmbryWeb.Admin.Decisions do
   A credited name IS an identity. How many humans stand behind it is a fact
   about the *person* — not about this book — and no provider reports it, so
   asking on every import buried the two cases where the answer is interesting
-  under dozens where it isn't. The person layer is therefore folded away
-  behind "This is a pen name" / "This is a stage name", and unfolds itself
-  whenever the credit is anything but the 1:1 default (`Credit.simple?/1`).
+  under dozens where it isn't. The person layer is a section of its own, and
+  the credit carries a reference to it: names, faces, and a link.
 
   ## The name is editable
 
@@ -760,6 +752,8 @@ defmodule AmbryWeb.Admin.Decisions do
   overrule it, "David Wong" could only be imported as a person called David
   Wong — the human is Jason Pargin, and that import is one author plus one
   differently-named person, which is now two edits rather than impossible.
+  "This is a pen name" is the second of the two: it gives the human a name of
+  their own and takes the operator to the card that now has a box for it.
 
   A link decision always targets an identity, never a Person. That is the
   generalized fix for the pen-name bug where matching found a Person and
@@ -798,16 +792,13 @@ defmodule AmbryWeb.Admin.Decisions do
     <%!-- A decision block, so it wears the state rail like every other one —
         the rail is the ONLY settledness encoding (design language §2); the
         check icon it used to grow shifted the title sideways on approval. --%>
-    <div class={[
-      "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-      (Credit.resolved?(@credit) && "border-brand-dark/60") || "border-amber-400/70"
-    ]}>
+    <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@credit)]}>
       <div class="flex items-center justify-between gap-2 pl-3">
         <div class="flex min-w-0 items-baseline gap-2">
           <.label>{@verb}</.label>
 
           <.badge
-            :if={!Credit.resolved?(@credit)}
+            :if={explained?(Credit.state(@credit))}
             color={elem(state_words(Credit.state(@credit)), 1)}
             class="text-xs"
           >
@@ -846,38 +837,86 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
       </div>
 
-      <form
-        id={"credit-#{@section}-#{@index}-identity"}
-        phx-change="credit-change"
-        class="flex flex-wrap items-baseline gap-2"
-      >
-        <input type="hidden" name="section" value={@section} />
-        <input type="hidden" name="index" value={@index} />
-
-        <.live_component
-          module={EntityResolver}
-          id={"credit-#{@section}-#{@index}-resolver"}
-          name="identity_id"
-          text_name="name"
-          options={@identities}
-          value={if @credit.mode == :link, do: @credit.identity_id}
-          text={@credit.name || ""}
-          placeholder="name"
-          class={input_classes("w-full")}
-        />
-
-        <%!-- The prefix segment already says "Existing"; this only speaks
-              when the linked identity is backed by other humans — a pen
-              name's real names are worth a line, "already in the library"
-              twice is not. --%>
-        <span
-          :if={@credit.mode == :link && @identity_backing[@credit.identity_id]}
-          class="text-xs text-zinc-400"
-          data-role="identity-backing"
+      <%!-- The people ride beside the box rather than under it. A credit is
+            one line of meaning — this name, these humans — and a full-cast
+            recording is a run of these rows, where a second line each is what
+            turns the section into a wall. --%>
+      <div class="flex flex-wrap items-center gap-2">
+        <form
+          id={"credit-#{@section}-#{@index}-identity"}
+          phx-change="credit-change"
+          class="min-w-48 flex flex-grow flex-wrap items-baseline gap-2"
         >
-          {@identity_backing[@credit.identity_id]}
-        </span>
-      </form>
+          <input type="hidden" name="section" value={@section} />
+          <input type="hidden" name="index" value={@index} />
+
+          <.live_component
+            module={EntityResolver}
+            id={"credit-#{@section}-#{@index}-resolver"}
+            name="identity_id"
+            text_name="name"
+            options={@identities}
+            value={if @credit.mode == :link, do: @credit.identity_id}
+            text={@credit.name || ""}
+            placeholder="name"
+            class={input_classes("w-full")}
+          />
+
+          <%!-- The prefix segment already says "Existing"; this only speaks
+                when the linked identity is backed by other humans — a pen
+                name's real names are worth a line, "already in the library"
+                twice is not. --%>
+          <span
+            :if={@credit.mode == :link && @identity_backing[@credit.identity_id]}
+            class="text-xs text-zinc-400"
+            data-role="identity-backing"
+          >
+            {@identity_backing[@credit.identity_id]}
+          </span>
+        </form>
+
+        <%!-- A reference, not the person. The human lives once, in the People
+              section, because one human is one record — rendering them inside
+              every credit that named them is what made an author who reads
+              their own book appear twice, with a sentence apologising for it.
+              What a credit needs is enough to recognise who it means and a way
+              to get there. --%>
+        <div
+          :if={@credit.mode == :create and @persons != []}
+          class="flex flex-none flex-wrap gap-2"
+          data-role="credit-people"
+        >
+          <.link
+            :for={person <- Enum.take(@persons, person_chips())}
+            href={"#person-#{person.key}"}
+            class="bg-white/5 flex items-center gap-2 rounded-full py-1 pr-3 pl-1 text-xs text-zinc-300 hover:bg-white/10"
+          >
+            <img
+              :if={Field.value(person.image)}
+              src={preview_src(Field.value(person.image), nil)}
+              class="h-6 w-6 flex-none rounded-full object-cover"
+              alt=""
+            />
+            <span
+              :if={!Field.value(person.image)}
+              class="h-6 w-6 flex-none rounded-full bg-zinc-800"
+            />
+            {Field.value(person.name) || "unnamed"}
+          </.link>
+
+          <%!-- One credit standing for a dozen humans would push the row into
+                a paragraph of faces. The rest are a click away in the section
+                that lists every one of them. --%>
+          <.link
+            :if={length(@persons) > person_chips()}
+            href="#people"
+            title={Enum.map_join(Enum.drop(@persons, person_chips()), ", ", &(Field.value(&1.name) || "unnamed"))}
+            class="bg-white/10 flex items-center rounded-full px-3 py-1 text-xs tabular-nums text-zinc-300 hover:bg-white/20"
+          >
+            +{length(@persons) - person_chips()}
+          </.link>
+        </div>
+      </div>
 
       <%!-- The way back after a rename or a clear — the same chip the scalar
             fields have always had. Only speaks while the box disagrees with
@@ -887,7 +926,7 @@ defmodule AmbryWeb.Admin.Decisions do
           @credit.mode == :create && @credit.proposed_name &&
             @credit.proposed_name != @credit.name
         }
-        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+        class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       >
         <.microlabel>Proposed</.microlabel>
         <div class="flex flex-wrap items-center gap-1.5">
@@ -904,111 +943,354 @@ defmodule AmbryWeb.Admin.Decisions do
           </.proposal_chip>
         </div>
       </div>
+    </div>
+    """
+  end
 
-      <%!-- The photo and bio belong to the credit itself while there is one
-            implied person behind it, which is nearly always. Putting them
-            inside the pen-name fold hid them behind a control nobody would
-            click to get a picture — they were, for practical purposes, not
-            there at all. --%>
-      <.person_curation
-        :if={@credit.mode == :create and !@expanded and @persons != []}
-        person={hd(@persons)}
-        section={@section}
-        index={@index}
-        person_index={0}
-        kind={@kind}
-        appears={@appearances[hd(@persons).key] || []}
-        searching={@searching_person == hd(@persons).key}
-        expanded={@photos_expanded[hd(@persons).key] || false}
-        records={@person_records[hd(@persons).key] || []}
-        outcomes={@person_outcomes[hd(@persons).key] || []}
-      />
+  attr :person, PersonDecision, required: true
+  attr :group, :map, required: true, doc: "the credit that introduces this human"
+  attr :person_index, :integer, required: true
+  attr :removable, :boolean, default: false, doc: "only a pen name's extra people can be removed"
+  attr :searching, :boolean, default: false
+  attr :photos_expanded, :boolean, default: false
+  attr :records, :list, default: []
+  attr :locals, :list, default: [], doc: "people the library already has by this name"
+  attr :outcomes, :list, default: []
+  attr :appears, :list, default: []
+  attr :people, :list, default: [], doc: "the library's people, for the typeahead"
 
-      <%!-- Folded away until it matters, and unfolded automatically the moment
-            it does — a credit backed by somebody else, or by two people, can
-            never be hiding behind a collapsed control. --%>
-      <button
-        :if={@credit.mode == :create and !@expanded}
-        type="button"
-        phx-click="toggle-people"
-        phx-value-section={@section}
-        phx-value-index={@index}
-        class="pl-3 text-xs text-zinc-400 underline"
-      >
-        {@reveal}
-      </button>
+  @doc """
+  One human this import will create, as a decision card of their own.
 
-      <div :if={@credit.mode == :create and @expanded} class="space-y-3">
-        <.label class="pl-3 text-xs">{@backing}</.label>
+  The card is where a person's own questions live — what they are called, which
+  face, which biography — separately from the *credit*, which asks a different
+  question: which identity does this book credit. They were one control for a
+  long time, which is why an author reading their own book rendered twice.
 
-        <div
-          :for={{person, person_index} <- Enum.with_index(@persons)}
-          class="space-y-1 border-l-2 border-zinc-700 pl-3"
-        >
-          <form
-            id={"credit-#{@section}-#{@index}-person-#{person_index}"}
-            phx-change="person-change"
-            class="flex flex-wrap items-center gap-2"
+  ## The name box is the exception, not the furniture
+
+  A credited name is the human's name in almost every import, so the card
+  states it and offers nothing to type. The box appears when the name is
+  genuinely the person's own — the operator said the credit is a pen name, or
+  the credit stands for several humans, neither of whom it names. That is also
+  what "This is a pen name" was missing: with a name box on every card in
+  every state, the control had no visible effect at all.
+
+  The events still address the credit that introduces them (`section`,
+  `index`, `person_index`), because "remove this person" means removing them
+  from that credit — the person exists only as long as a credit names them.
+  """
+  def person_card(assigns) do
+    assigns =
+      assign(assigns,
+        own_name: assigns.person.own_name or not Credit.simple?(assigns.group.credit),
+        linked: linked_person(assigns.people, assigns.person)
+      )
+
+    ~H"""
+    <div
+      id={"person-#{@person.key}"}
+      class={["relative space-y-3 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@person)]}
+      data-role="person-card"
+    >
+      <%!-- A provider round-trip is the same kind of event as a matching job,
+            and gets the same answer: the card is not yours while it runs. A
+            button changing its own label to "Searching…" was the whole
+            indication, in a fold that could close over it. --%>
+      <.busy_overlay busy={@searching} label={"Looking for #{person_words(@person)}…"} />
+
+      <div class="space-y-3" inert={@searching}>
+        <%!-- Titled by the CREDIT, which is the one name on this card that
+              doesn't move: the box below is the human's name, and a header
+              that followed it re-titled the card letter by letter while the
+              operator typed the very thing the card is about. --%>
+        <div class="flex items-baseline justify-between gap-2 pl-3">
+          <div class="flex min-w-0 items-baseline gap-2">
+            <.label>{card_words(@group.credit, @person)}</.label>
+
+            <%!-- Where they are credited is a fact about this card, so it
+                  wears the status costume beside the title rather than a
+                  sentence under it. --%>
+            <.badge :if={@appears != []} color={:gray} class="text-xs">
+              {credited_words(@appears)}
+            </.badge>
+          </div>
+
+          <button
+            :if={@removable}
+            type="button"
+            phx-click="remove-person"
+            phx-value-section={@group.section}
+            phx-value-index={@group.index}
+            phx-value-person={@person_index}
+            title="not one of the people behind this name"
           >
-            <input type="hidden" name="key" value={person.key} />
+            <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
+          </button>
+        </div>
+
+        <%!-- One human on two credits is the ordinary reason a name appears
+              twice, so it is the default, and the badge above already says
+              which two. What is left is the escape hatch for the other case,
+              asked here because the card exists once per person. --%>
+        <p
+          :if={length(Enum.uniq_by(@appears, & &1.kind)) > 1}
+          class="pl-3 text-xs text-zinc-400"
+        >
+          <button
+            type="button"
+            phx-click="split-person"
+            phx-value-section={@group.section}
+            phx-value-index={@group.index}
+            phx-value-person={@person_index}
+            class="underline"
+          >
+            Not the same person?
+          </button>
+        </p>
+
+        <%!-- The 99-in-100 case: the credit names the human, the title says so,
+              and the card asks nothing. The link is the whole line — saying
+              "named by the credit" under a card titled by the credit was the
+              same fact twice. --%>
+        <p :if={@person.mode == :create and !@own_name} class="pl-3 text-xs text-zinc-400">
+          <button
+            type="button"
+            phx-click="separate-name"
+            phx-value-section={@group.section}
+            phx-value-index={@group.index}
+            class="underline"
+          >
+            {reveal_words(@group.kind)}
+          </button>
+        </p>
+
+        <%!-- The exception, revealed: a provider's spelling is a proposal, and
+              without a box to overrule it "David Wong" could only be imported
+              as a person called David Wong when the human is Jason Pargin. The
+              typeahead is also how they become somebody already in the
+              library. --%>
+        <div :if={@person.mode == :create and @own_name} class="space-y-1">
+          <p class="pl-3 text-xs text-zinc-400">{alias_words(@group.kind)}</p>
+
+          <form id={"person-#{@person.key}-identity"} phx-change="person-change">
+            <input type="hidden" name="key" value={@person.key} />
 
             <.live_component
               module={EntityResolver}
-              id={"credit-#{@section}-#{@index}-person-#{person_index}-resolver"}
+              id={"person-#{@person.key}-resolver"}
               name="person_id"
               text_name="name"
               options={@people}
-              value={if person.mode == :link, do: person.person_id}
-              text={Field.value(person.name) || ""}
+              value={nil}
+              text={Field.value(@person.name) || ""}
               placeholder="the person's real name"
               class={input_classes("w-full")}
             />
-
-            <button
-              :if={length(@persons) > 1}
-              type="button"
-              phx-click="remove-person"
-              phx-value-section={@section}
-              phx-value-index={@index}
-              phx-value-person={person_index}
-            >
-              <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
-            </button>
           </form>
 
-          <.person_curation
-            person={person}
-            section={@section}
-            index={@index}
-            person_index={person_index}
-            kind={@kind}
-            appears={@appearances[person.key] || []}
-            searching={@searching_person == person.key}
-            expanded={@photos_expanded[person.key] || false}
-            records={@person_records[person.key] || []}
-            outcomes={@person_outcomes[person.key] || []}
+          <%!-- Both escape hatches from the same state, on the rail under the
+                box they belong to. A shared pen name is the composite-author
+                case and it is asked here rather than on the credit, where it
+                changed a card the operator couldn't see. Narrators stay
+                one-to-one with a person by design. --%>
+          <div class="flex flex-wrap items-baseline gap-x-4 pl-3 text-xs text-zinc-400">
+            <span :if={@group.section == "work"}>
+              Is this pen name more than one person?
+              <button
+                type="button"
+                phx-click="add-person"
+                phx-value-section={@group.section}
+                phx-value-index={@group.index}
+                class="underline"
+              >
+                Add a person
+              </button>
+            </span>
+
+            <%!-- Every way in needs a way out: the reveal used to be a fold
+                  that could not be folded back. --%>
+            <button
+              :if={Credit.simple?(@group.credit)}
+              type="button"
+              phx-click="use-credited-name"
+              phx-value-key={@person.key}
+              class="underline"
+            >
+              No, {@group.credit.name} is their name
+            </button>
+          </div>
+        </div>
+
+        <%!-- A different KIND of question from the provider records below, and
+              the same shape the work level gives it: those describe a human,
+              this one IS one, and choosing them creates nobody. Matching
+              collects them whenever a credited name is already in the library
+              — which is exactly the author who turns up narrating. --%>
+        <div :if={@locals != [] or @person.mode == :link} class="space-y-2">
+          <p class="pl-3 text-xs text-zinc-400">
+            {local_people_words(@person, @locals)}
+          </p>
+
+          <.local_person_row
+            :for={local <- @locals}
+            local={local}
+            person_key={@person.key}
+            chosen={@person.mode == :link and @person.person_id == local["id"]}
+          />
+
+          <%!-- Linked to somebody the name search never offered (the typeahead
+                above), so the row is built from the library instead. --%>
+          <.local_person_row
+            :if={@person.mode == :link and not Enum.any?(@locals, &(&1["id"] == @person.person_id))}
+            local={@linked}
+            person_key={@person.key}
+            chosen={true}
           />
         </div>
 
-        <%!-- Narrators stay one-to-one with a Person by design; only the
-              author control grows a second entry. --%>
-        <button
-          :if={@section == "work"}
-          type="button"
-          phx-click="add-person"
-          phx-value-section={@section}
-          phx-value-index={@index}
-          class="pl-3 text-xs text-zinc-400 underline"
-        >
-          Add another person
-        </button>
-
-        <p :if={length(@persons) > 1} class="pl-3 text-xs text-zinc-400">
-          A shared pen name: {@credit.name} will be one author credited to {length(@persons)} people.
-        </p>
+        <.person_curation
+          person={@person}
+          section={@group.section}
+          index={@group.index}
+          person_index={@person_index}
+          kind={@group.kind}
+          appears={@appears}
+          searching={@searching}
+          expanded={@photos_expanded}
+          records={@records}
+          outcomes={@outcomes}
+        />
       </div>
     </div>
     """
+  end
+
+  defp person_words(person), do: Field.value(person.name) || "Unnamed person"
+
+  # The credited name, which is what this card is a card *about*. Falls back
+  # to the human's own name only when the credit has none — a cleared credit
+  # box mid-retype, where a blank title would name nothing at all.
+  defp card_words(%Credit{name: name}, person) when is_binary(name) do
+    if String.trim(name) == "", do: person_words(person), else: name
+  end
+
+  defp card_words(_credit, person), do: person_words(person)
+
+  defp reveal_words(:narrator), do: "This is a stage name"
+  defp reveal_words(_author), do: "This is a pen name"
+
+  defp alias_words(:narrator), do: "A stage name of"
+  defp alias_words(_author), do: "A pen name of"
+
+  # The library's own row for a person linked from the typeahead rather than
+  # from the rows below — enough to say who, and to take it back.
+  defp linked_person(people, %PersonDecision{mode: :link, person_id: id}) do
+    case Enum.find(people, &(&1.id == id)) do
+      nil -> %{"id" => id, "name" => "Somebody in your library"}
+      person -> %{"id" => person.id, "name" => person.label}
+    end
+  end
+
+  defp linked_person(_people, _person), do: nil
+
+  defp local_people_words(%PersonDecision{mode: :link}, _locals),
+    do: "This import will use the person you already have."
+
+  defp local_people_words(_person, [_one]),
+    do: "Somebody by this name is already in your library."
+
+  defp local_people_words(_person, locals),
+    do: "#{length(locals)} people by this name are already in your library."
+
+  attr :local, :map, required: true
+  attr :person_key, :string, required: true
+  attr :chosen, :boolean, required: true
+
+  @doc """
+  A person the library already has, offered instead of creating another.
+
+  The same well the local-book row is, because it is the same question one
+  level down: reusing a human is the outcome worth having, and the form's job
+  is to make it one click rather than a duplicate nobody notices until two
+  Andy Weirs are sitting in the people list.
+  """
+  def local_person_row(assigns) do
+    ~H"""
+    <div
+      class={[
+        "flex items-center gap-3 rounded-md p-3",
+        @chosen && "bg-brand-dark/10 ring-brand-dark/50 ring-2 ring-inset",
+        !@chosen && "bg-zinc-800/60"
+      ]}
+      data-role="local-person"
+      data-linked={@chosen && "true"}
+    >
+      <div class="min-w-0 flex-grow">
+        <p class="truncate text-sm font-semibold">{@local["name"]}</p>
+        <p :if={local_facts(@local)} class="truncate text-xs text-zinc-400">{local_facts(@local)}</p>
+      </div>
+
+      <button
+        :if={!@chosen}
+        type="button"
+        phx-click="link-person"
+        phx-value-key={@person_key}
+        phx-value-id={@local["id"]}
+        class={action_classes(:zinc, "flex-none")}
+      >
+        Yes, it's them
+      </button>
+
+      <button
+        :if={@chosen}
+        type="button"
+        phx-click="unlink-person"
+        phx-value-key={@person_key}
+        class={action_classes(:zinc, "flex-none")}
+      >
+        No, a new person
+      </button>
+    </div>
+    """
+  end
+
+  # What the library already knows about them, which is the whole reason to
+  # reuse the record rather than make a second one.
+  defp local_facts(local) do
+    [
+      local["has_image"] && "has a photo",
+      local["has_description"] && "has a biography"
+    ]
+    |> Enum.filter(& &1)
+    |> case do
+      [] -> nil
+      facts -> Enum.join(facts, " · ")
+    end
+  end
+
+  @doc """
+  Where this human is credited, as the badge beside the card's title.
+
+  The card is away from the credits, so it has to say what it belongs to.
+  A badge rather than a sentence because that is what it is: a fact about the
+  card, stated once, in the costume every other status fact wears. The
+  interesting half — that two credits mean one person rather than two of a
+  name — is a line of its own, since it comes with a control.
+  """
+  def credited_words(appears) do
+    appears
+    |> Enum.map(& &1.kind)
+    |> Enum.uniq()
+    |> Enum.map(fn
+      :author -> "author"
+      :narrator -> "narrator"
+      other -> to_string(other)
+    end)
+    |> case do
+      [] -> "Credited nowhere"
+      kinds -> "Credited as #{Enum.join(kinds, " and ")}"
+    end
   end
 
   attr :person, PersonDecision, required: true
@@ -1097,25 +1379,22 @@ defmodule AmbryWeb.Admin.Decisions do
           :if={is_nil(@image)}
           class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-700"
         />
-
-        <%!-- The same human on two credits: an author reading their own book.
-              Approval creates them once, so this is where the form says so —
-              on the row that would otherwise look like it was about to make a
-              second person of the same name. --%>
-        <p :if={@shared_with} class="min-w-0 text-xs text-zinc-400">
-          Same person as the {@shared_with}. One {Field.value(@person.name)} will be created.
-          <button
-            type="button"
-            phx-click="split-person"
-            phx-value-section={@section}
-            phx-value-index={@index}
-            phx-value-person={@person_index}
-            class="underline"
-          >
-            Not the same person?
-          </button>
-        </p>
       </div>
+
+      <%!-- The same three parts in the same order as the work and recording
+            levels, and now with the same name on them: the query, who
+            answered, and what they said. The person level used to carry no
+            label at all and its search hid in a fold under its own results. --%>
+      <.microlabel class="block pl-3">Provider records</.microlabel>
+
+      <.person_research_form
+        at={@at}
+        person_key={@person.key}
+        name={Field.value(@person.name)}
+        running={@searching}
+      />
+
+      <.provider_outcomes_row outcomes={@outcomes} retryable={false} />
 
       <%!-- Nothing found is a normal outcome, not a failure — plenty of
             narrators are in no database at all — but it should say so rather
@@ -1124,38 +1403,46 @@ defmodule AmbryWeb.Admin.Decisions do
         {@person.doubt_detail}
       </p>
 
-      <%!-- The same evidence rule as the work and recording levels, one
-            paradigm across all three: tick every record of THIS human, and
-            the photo and bio pools draw from the ticked set. The exact-name
-            gate decides the initial ticks; a differently-spelled record of
-            the right person is exactly what the checkbox is for. --%>
-      <p :if={@records != []} class="max-w-prose pl-3 text-xs text-zinc-400">
-        Tick every record of <span class="font-semibold">this person</span>. Check the name
-        carefully first; the photos and bios on offer come from the ticked records.
-      </p>
-
-      <.record_row
-        :for={record <- @records}
-        record={record}
-        event="toggle-person-source"
-        person_key={@person.key}
-        used={Enum.any?(@person.sources, &SourceRef.points_at?(&1, record))}
-      />
-
-      <.provider_outcomes_row outcomes={@outcomes} retryable={false} />
-
-      <.disclosure summary="Not the right person? Search again">
-        <div class="pt-2">
-          <.person_research_form
-            at={@at}
+      <%!-- Folded on the same threshold as the work and recording levels, and
+            for the same reason: a re-search under a new name leaves the old
+            name's records scored against a question nobody is asking any
+            more, and eight rows of equal weight is how the wrong human stays
+            in the running. A ticked record is never folded. --%>
+      <.record_list records={@records} used={&PersonDecision.uses?(@person, &1)}>
+        <:row :let={record}>
+          <.record_row
+            record={record}
+            event="toggle-person-source"
             person_key={@person.key}
-            name={Field.value(@person.name)}
-            running={@searching}
+            used={PersonDecision.uses?(@person, record)}
           />
-        </div>
-      </.disclosure>
+        </:row>
+      </.record_list>
 
-      <div :if={@photos != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
+      <%!-- The same answer the other two levels have. A person the matcher
+            doubted — it found humans of roughly this name and believed none
+            of them — stays outstanding until somebody says so, and this is
+            what says so. It costs nothing but the photo and the biography:
+            a name is all it takes to create a person. --%>
+      <div :if={@records != []} class="flex flex-wrap items-center gap-2 pt-1">
+        <button
+          type="button"
+          phx-click="uncatalogued-person"
+          phx-value-key={@person.key}
+          data-role="none-of-these"
+          class={[
+            "px-[11px] rounded-md border py-1 text-xs",
+            PersonDecision.uncatalogued?(@person) &&
+              "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
+            !PersonDecision.uncatalogued?(@person) &&
+              "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+          ]}
+        >
+          None of these
+        </button>
+      </div>
+
+      <div :if={@photos != []} class="grid-cols-[4rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
         <.microlabel class="pt-1">Photos</.microlabel>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -1229,7 +1516,7 @@ defmodule AmbryWeb.Admin.Decisions do
           </div>
         </div>
 
-        <div :if={@bios != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3">
+        <div :if={@bios != []} class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3">
           <.microlabel>Proposed</.microlabel>
 
           <div
@@ -1261,6 +1548,13 @@ defmodule AmbryWeb.Admin.Decisions do
   end
 
   defp photo_preview, do: @photo_preview
+
+  # How many faces a credit shows before it starts counting instead. Four is
+  # a composite author plus room to spare; a credit standing for more than
+  # that is a list, and the People section is where lists live.
+  @person_chips 4
+
+  defp person_chips, do: @person_chips
 
   defp shown_photos(photos, true), do: photos
   defp shown_photos(photos, _collapsed), do: Enum.take(photos, @photo_preview)
@@ -1423,16 +1717,18 @@ defmodule AmbryWeb.Admin.Decisions do
         with the state on the block's left rail (no extra check icon — the
         rail is the only settledness encoding, §2), controls below with
         their labels above them. --%>
-    <div class={[
-      "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-      (SeriesLink.resolved?(@link) && "border-brand-dark/60") || "border-amber-400/70"
-    ]}>
+    <div
+      class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@link)]}
+      data-role="series-link"
+    >
       <div class="flex items-center justify-between gap-2 pl-3">
         <div class="flex min-w-0 items-baseline gap-2">
           <.label>In series</.label>
 
+          <%!-- Only where it says something the rail can't (§2): "needs
+                confirming" beside an amber rail is the same fact twice. --%>
           <.badge
-            :if={!SeriesLink.resolved?(@link)}
+            :if={explained?(SeriesLink.state(@link))}
             color={elem(state_words(SeriesLink.state(@link)), 1)}
             class="text-xs"
           >
@@ -1514,7 +1810,7 @@ defmodule AmbryWeb.Admin.Decisions do
             stays reachable after a rename or a clear. --%>
       <div
         :if={@link.mode == :create && @link.proposed_name && @link.proposed_name != @link.name}
-        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+        class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       >
         <.microlabel>Proposed</.microlabel>
         <div class="flex flex-wrap items-center gap-1.5">
@@ -1572,10 +1868,7 @@ defmodule AmbryWeb.Admin.Decisions do
   def group_row(assigns) do
     ~H"""
     <div
-      class={[
-        "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
-        (GroupLink.resolved?(@link) && "border-brand-dark/60") || "border-amber-400/70"
-      ]}
+      class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@link)]}
       data-role="group-link"
     >
       <div class="flex items-center justify-between gap-2 pl-3">
@@ -1583,7 +1876,7 @@ defmodule AmbryWeb.Admin.Decisions do
           <.label>Part of a set</.label>
 
           <.badge
-            :if={!GroupLink.resolved?(@link)}
+            :if={explained?(GroupLink.state(@link))}
             color={elem(state_words(GroupLink.state(@link)), 1)}
             class="text-xs"
           >
@@ -1678,7 +1971,7 @@ defmodule AmbryWeb.Admin.Decisions do
             stays reachable after a rename or a clear. --%>
       <div
         :if={@link.mode == :create && @link.proposed_name && @link.proposed_name != @link.name}
-        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+        class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       >
         <.microlabel>Proposed</.microlabel>
         <div class="flex flex-wrap items-center gap-1.5">
@@ -1699,16 +1992,28 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  # The block's left rail is the decision's state, readable from a scroll:
-  # lime = settled, amber = waiting on the operator, red = blocked. A 4px
-  # rail renders crisp at any DPI where a tinted hairline goes mushy.
-  defp decision_rail(field) do
-    cond do
-      field.approved -> "border-brand-dark/60"
-      Field.state(field) == :missing -> "border-red-400/70"
-      true -> "border-amber-400/70"
-    end
-  end
+  @doc """
+  The block's left rail — the one thing that encodes settledness (§2).
+
+  Four tiers, because settled-versus-waiting threw away the question the
+  operator actually asks of a machine-matched import: has anyone looked at
+  this yet. A 4px rail renders crisp at any DPI where a tinted hairline goes
+  mushy.
+  """
+  def state_rail(%{__struct__: _} = decision), do: state_rail(Tier.of(decision))
+  def state_rail(:blocked), do: "border-red-400/70"
+  def state_rail(:waiting), do: "border-amber-400/70"
+  def state_rail(:unreviewed), do: "border-blue-400/70"
+  def state_rail(:reviewed), do: "border-brand-dark/60"
+
+  @doc """
+  Whether this state is worth a badge beside the rail.
+
+  The rail already says settled-or-not; a badge earns its place only when it
+  names a *reason* the colour can't — which values disagree, that nothing
+  proposed one at all, or which half of a membership is still blank.
+  """
+  def explained?(state), do: state in [:missing, :unnumbered, :ambiguous, :stale]
 
   @doc """
   A decision's state as words and a colour.
@@ -1719,24 +2024,25 @@ defmodule AmbryWeb.Admin.Decisions do
   """
   def state_words(:approved), do: {"settled", :brand}
   def state_words(:missing), do: {"nothing proposed it", :red}
+  # What is missing is the number, and a row that says "nothing proposed it"
+  # next to "from rreading-glasses" contradicts itself in two words.
+  def state_words(:unnumbered), do: {"needs a number", :red}
   def state_words(:ambiguous), do: {"sources disagree", :yellow}
   def state_words(:unconfirmed), do: {"needs confirming", :yellow}
   def state_words(:stale), do: {"files changed", :red}
   def state_words(_other), do: {"needs confirming", :yellow}
 
   @doc """
-  A level's identity state as a badge — `Ambry.Inbox.Draft.level_state/1`'s
-  words. One vocabulary for the queue and the form, or they drift.
+  A tier as words and a colour, for surfaces with no room for a rail.
 
-  "confirmed" is the operator's; "trusted" is the machine's. The distinction
-  is the point: the old badge showed match-time confidence forever, so a
-  human's answer could never update it — and a correct "unsure" match could
-  never be told "you were right" except by this.
+  A queue row is one line: it has nowhere to put a 4px edge per level, so it
+  says the same four states in words. Same vocabulary as the form's rail, or
+  the two drift — which is exactly what happened when the queue had its own.
   """
-  def level_state_words(:confirmed), do: {"confirmed", :brand}
-  def level_state_words(:trusted), do: {"trusted", :blue}
-  def level_state_words(:unsure), do: {"unsure", :yellow}
-  def level_state_words(:no_match), do: {"no match", :gray}
+  def tier_words(:blocked), do: {"blocked", :red}
+  def tier_words(:waiting), do: {"needs you", :yellow}
+  def tier_words(:unreviewed), do: {"matched", :blue}
+  def tier_words(:reviewed), do: {"reviewed", :brand}
 
   @doc """
   Where a cover value can actually be looked at.

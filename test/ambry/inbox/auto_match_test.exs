@@ -2,6 +2,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
   use Ambry.DataCase
   use Patch
 
+  alias Ambry.Inbox
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.InboxItem
   alias Ambry.Metadata.Provider
@@ -98,6 +99,35 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
       assert {[_edition], [outcome]} = AutoMatch.editions_for(records, hints)
       assert outcome["status"] == "ok"
+      assert outcome["count"] == 1
+    end
+
+    # One chip standing for four calls used to let any success speak for the
+    # group: a provider that answered about three works and was rate-limited
+    # on the fourth reported a clean `ok`, and that work's editions were never
+    # fetched or mentioned again. A failure now outranks an answer — while
+    # still carrying what did come back, because the editions already in hand
+    # are real.
+    @tag :capture_log
+    test "a failure outranks an answer, keeping the count of what came back" do
+      patch(Registry, :fetch, fn "hardcover" ->
+        {:ok,
+         %Registry.Entry{id: "hardcover", display_name: "Hardcover", capabilities: [:editions]}}
+      end)
+
+      patch(Providers, :editions, fn "hardcover", id, _opts ->
+        case id do
+          "w-1" -> {:ok, [%Provider.Book{id: "e-1", title: "A Reading"}]}
+          _rate_limited -> {:error, :rate_limited}
+        end
+      end)
+
+      records = for id <- ~w(w-1 w-2), do: %{"source" => "provider:hardcover", "id" => id}
+      hints = AutoMatch.hints(%InboxItem{path: "/d/A Book", tags: %{}})
+
+      assert {[_edition], [outcome]} = AutoMatch.editions_for(records, hints)
+      assert outcome["id"] == "hardcover:editions"
+      assert outcome["status"] == "failed"
       assert outcome["count"] == 1
     end
   end
@@ -473,13 +503,21 @@ defmodule Ambry.Inbox.AutoMatchTest do
       # this suite wasn't already making live calls is that the fake ids
       # happen not to parse.
       patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
-      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :not_stubbed} end)
+
+      patch(Providers, :book_details, fn _id, id, _opts ->
+        {:ok, %Provider.Book{provider: "test", id: id}}
+      end)
+
       # The people level asks every person-capable provider about every
       # credited human, which is real HTTP unless stubbed — and unlike the
       # book calls there is no fake id to save us, because a person is
       # searched by name.
       patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
-      patch(Providers, :author_details, fn _id, _author_id, _opts -> {:error, :not_stubbed} end)
+
+      patch(Providers, :author_details, fn _id, id, _opts ->
+        {:ok, %Provider.Author{provider: "test", id: id}}
+      end)
+
       :ok
     end
 
@@ -1280,17 +1318,182 @@ defmodule Ambry.Inbox.AutoMatchTest do
     end
   end
 
+  # **A call that failed and a call that found nothing must never look the
+  # same.** The search level always knew that; the calls *after* the search
+  # did not, and they are the majority — measured on a cold scan of 353
+  # releases, 84% of provider requests were the details behind a hit. A
+  # rate-limited one left the record thin (no description, no cover, no
+  # editions) and said nothing anywhere, so the item settled, went `ready`,
+  # and imported a book the provider actually knew more about.
+  describe "match/1 reports the calls made after the search" do
+    setup do
+      patch_work_results([book("The Way of Kings", ["Brandon Sanderson"])])
+      patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
+      patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
+      :ok
+    end
+
+    defp match_way_of_kings do
+      %{matches: matches} =
+        AutoMatch.match(item(title: "The Way of Kings", author: "Brandon Sanderson"))
+
+      matches
+    end
+
+    defp details_outcome(matches, provider_id \\ "rreading_glasses") do
+      Enum.find(matches["work"]["providers"], &(&1["id"] == "#{provider_id}:details"))
+    end
+
+    @tag :capture_log
+    test "a details call that couldn't be reached leaves a failed outcome" do
+      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :rate_limited} end)
+
+      assert %{"status" => "failed", "reason" => reason} = details_outcome(match_way_of_kings())
+      assert reason =~ "rate_limited"
+    end
+
+    # Thin is still usable — one enrichment call failing must not fail an item
+    # that otherwise matched. The record stays; only the silence goes.
+    @tag :capture_log
+    test "the record survives the failure, unhydrated" do
+      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :rate_limited} end)
+
+      assert [record | _rest] = match_way_of_kings()["work"]["candidates"]
+      assert record["title"] == "The Way of Kings"
+      refute record["hydrated"]
+    end
+
+    test "a details call that worked says so, so the retry chip can clear" do
+      patch(Providers, :book_details, fn _id, id, _opts ->
+        {:ok, %Provider.Book{provider: "test", id: id, description: "The full description"}}
+      end)
+
+      assert %{"status" => "ok"} = details_outcome(match_way_of_kings())
+    end
+
+    # The job is what comes back for it: `RunMatch` fails any match with an
+    # unreached provider, and a details failure is now one.
+    @tag :capture_log
+    test "the failure is what unreached_providers/1 reads" do
+      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :rate_limited} end)
+
+      item = %InboxItem{path: "/d/x", matches: match_way_of_kings()}
+
+      assert "rreading_glasses:details" in Inbox.unreached_providers(item)
+    end
+  end
+
   # The third level. Everything the form does well it does by asking outcome,
   # evidence and preference; people used to get a name string and nothing
   # else, which is why proposed people arrived with no face and no biography
   # and every import ended with a trip to the person form.
+  # The work and recording levels have ranked their candidates since they
+  # existed. People never did: the list was whatever order the providers were
+  # asked in, three hits each, so an obviously-wrong human sat above the right
+  # one — and because a proposal takes the FIRST candidate carrying a value,
+  # the wrong human's face and biography were the ones proposed.
+  describe "person_score/2 and rank_people/2" do
+    test "the same name, however it is spelled, is the best answer" do
+      assert AutoMatch.person_score("Brandon Sanderson", "Brandon Sanderson") == 1.0
+      assert AutoMatch.person_score("Émile Zola", "Emile Zola") == 1.0
+      assert AutoMatch.person_score("J.R.R. Tolkien", "JRR Tolkien") == 1.0
+    end
+
+    # The case Jaro gets backwards: measured, "Ty Franck" against "Tyler Corey
+    # Franck" scores lower than "Ty Franck" against a Corey mismatch.
+    test "a name contained in the other beats one that merely shares a word" do
+      contained = AutoMatch.person_score("Tyler Corey Franck", "Ty Franck")
+      # a different human who happens to share a surname — which is the floor
+      # `PersonSearch.plausible?/2` already filters at
+      shared = AutoMatch.person_score("Franck Ribéry", "Ty Franck")
+
+      assert contained > shared
+      assert shared > 0.0
+    end
+
+    # An author search keyed on book relevance returns the book's *author*
+    # when you search its narrator, and that name shares nothing with the one
+    # asked for.
+    test "a confidently-wrong hit from a book-relevance search scores nothing" do
+      assert AutoMatch.person_score("James S.A. Corey", "Jefferson Mays") == 0.0
+    end
+
+    # The measured case from `PersonSearch`'s moduledoc, which exact-token
+    # comparison misses: "Ty" is not a word of "Tyler Corey Franck".
+    test "a shortened first name is the same name" do
+      assert AutoMatch.person_score("Tyler Corey Franck", "Ty Franck") == 0.8
+      assert AutoMatch.person_score("Daniel Abraham", "Dan Abraham") == 0.8
+    end
+
+    test "nothing in common scores nothing" do
+      assert AutoMatch.person_score("Jefferson Mays", "Brandon Sanderson") == 0.0
+      assert AutoMatch.person_score(nil, "Brandon Sanderson") == 0.0
+    end
+
+    test "orders best first, whatever order the providers answered in" do
+      candidates = [
+        %{"name" => "James S.A. Corey", "id" => "wrong", "images" => ["a.jpg"]},
+        %{"name" => "Ty Franck", "id" => "right", "images" => ["b.jpg"]}
+      ]
+
+      assert [%{"id" => "right"}, %{"id" => "wrong"}] =
+               AutoMatch.rank_people(candidates, "Ty Franck")
+    end
+
+    # A face and a biography make a candidate both more useful and more likely
+    # to be the documented human.
+    test "an equally-named candidate with a photo and a bio comes first" do
+      candidates = [
+        %{"name" => "Brandon Sanderson", "id" => "bare", "images" => []},
+        %{
+          "name" => "Brandon Sanderson",
+          "id" => "full",
+          "images" => ["a.jpg"],
+          "description" => "Writes fantasy."
+        }
+      ]
+
+      assert [%{"id" => "full"}, %{"id" => "bare"}] =
+               AutoMatch.rank_people(candidates, "Brandon Sanderson")
+    end
+
+    # A re-search merges fresh records into a list staged under the old name.
+    # Scoring only the new arrivals left the old name's records wearing the
+    # 100% they earned when they were the question — the reported flow:
+    # looking up David Wong, then Jason Pargin, and getting one list where
+    # both are perfect answers.
+    test "a re-search re-scores what was already held, against the name now asked" do
+      held = [%{"name" => "David Wong", "id" => "held", "score" => 1.0, "images" => []}]
+      found = [%{"name" => "Jason Pargin", "id" => "found", "images" => []}]
+
+      assert [%{"id" => "found", "score" => 1.0}, %{"id" => "held", "score" => +0.0}] =
+               AutoMatch.rank_people(held ++ found, "Jason Pargin")
+    end
+
+    test "records staged without a score are scored on the way through" do
+      held = [%{"name" => "Ty Franck", "id" => "held", "images" => []}]
+      found = [%{"name" => "James S.A. Corey", "id" => "found", "score" => 0.6, "images" => []}]
+
+      assert [%{"id" => "held"}, %{"id" => "found"}] =
+               AutoMatch.rank_people(held ++ found, "Ty Franck")
+    end
+  end
+
   describe "match/1 people" do
     setup do
       patch(Providers, :search_books, fn _id, _query, _opts -> {:ok, []} end)
       patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
-      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :not_stubbed} end)
+
+      patch(Providers, :book_details, fn _id, id, _opts ->
+        {:ok, %Provider.Book{provider: "test", id: id}}
+      end)
+
       patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
-      patch(Providers, :author_details, fn _id, _author_id, _opts -> {:error, :not_stubbed} end)
+
+      patch(Providers, :author_details, fn _id, id, _opts ->
+        {:ok, %Provider.Author{provider: "test", id: id}}
+      end)
+
       :ok
     end
 

@@ -35,11 +35,12 @@ defmodule Ambry.Inbox.Progress do
   import Ecto.Query
 
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.RunImport
   alias Ambry.Inbox.RunMatch
   alias Ambry.Inbox.RunProbe
   alias Ambry.Repo
 
-  @workers [RunProbe, RunMatch]
+  @workers [RunProbe, RunMatch, RunImport]
 
   @doc """
   Whether a background job currently owns this item.
@@ -56,7 +57,7 @@ defmodule Ambry.Inbox.Progress do
   provider finally comes back. Anything typed into it in the meantime would be
   thrown away by a job the operator couldn't see.
   """
-  def busy?(status), do: status in [:working, :queued, :retrying]
+  def busy?(status), do: status in [:working, :queued, :retrying, :importing]
 
   @doc """
   The status of each given item, as a map of item id to status.
@@ -65,6 +66,7 @@ defmodule Ambry.Inbox.Progress do
 
   Statuses:
 
+    * `:importing` — the item is being added to the library
     * `:working` — a job is executing right now
     * `:retrying` — a job failed and is waiting to try again
     * `:queued` — a job is waiting to run
@@ -86,8 +88,15 @@ defmodule Ambry.Inbox.Progress do
     status(item, Map.get(job_states([item.id]), item.id, []))
   end
 
-  defp status(%InboxItem{} = item, states) do
+  defp status(%InboxItem{} = item, jobs) do
+    states = Enum.map(jobs, &elem(&1, 1))
+
     cond do
+      # Named apart from every other job because it is the one the operator
+      # started themselves and the one that takes minutes — "Working on it"
+      # over a row they just pressed Add on says nothing about whether the
+      # press landed.
+      importing?(jobs) -> :importing
       "executing" in states -> :working
       "retryable" in states -> :retrying
       Enum.any?(states, &(&1 in ~w(available scheduled))) -> :queued
@@ -110,11 +119,22 @@ defmodule Ambry.Inbox.Progress do
     from(j in "oban_jobs",
       where: j.worker in ^Enum.map(@workers, &worker_name/1),
       where: fragment("?->>'inbox_item_id'", j.args) in ^ids,
-      select: {fragment("?->>'inbox_item_id'", j.args), j.state}
+      select: {fragment("?->>'inbox_item_id'", j.args), j.worker, j.state}
     )
     |> Repo.all()
-    |> Enum.group_by(fn {id, _state} -> String.to_integer(id) end, fn {_id, state} -> state end)
+    |> Enum.group_by(
+      fn {id, _worker, _state} -> String.to_integer(id) end,
+      fn {_id, worker, state} -> {worker, state} end
+    )
   end
 
   defp worker_name(module), do: module |> to_string() |> String.replace_prefix("Elixir.", "")
+
+  @importing_states ~w(available scheduled executing retryable)
+
+  defp importing?(jobs) do
+    Enum.any?(jobs, fn {worker, state} ->
+      worker == worker_name(RunImport) and state in @importing_states
+    end)
+  end
 end
