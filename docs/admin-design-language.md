@@ -58,22 +58,52 @@ Every **decision block** (a `decision_row`, a series row, the work/recording
 identity clusters, the library-root chooser, an inbox queue item) wears a
 `border-l-4` rail that says its state at a scroll:
 
-| Rail | Meaning |
-|---|---|
-| `border-amber-400/70` | waiting on the operator |
-| `border-brand-dark/60` | settled / ready |
-| `border-red-400/70` | blocked (nothing proposed it, files changed) |
-| none / `border-zinc-700` | informational, or out of the queue |
+| Rail | Meaning | Condition |
+|---|---|---|
+| `border-red-400/70` | blocked — nothing proposed a value, or the files changed | not settled, and nothing to choose from |
+| `border-amber-400/70` | the machine couldn't settle it; look here | not settled |
+| `border-blue-400/70` | the machine settled it and nobody has looked | settled, not curated |
+| `border-brand-dark/60` | you've been here | curated |
+
+**Four tiers, not two, and the fourth is the point** (operator, 2026-08-13).
+Lime-versus-amber answered "is this settled" and threw away the more useful
+question, which is *did a human ever look at this*. A freshly matched import
+is now entirely blue, and greens accumulate as the operator works through it,
+so the form is a map of where they have been. Amber and red are what still
+need them; **blue is a legitimate end state** — the machine was confident and
+you don't have to look if you don't want to. The goal of an import is no
+amber and no red, never "all green", or every import becomes a chore of
+clicking chips that were already right.
+
+**Green is one-way.** It records that a human looked, which is a fact about
+history and cannot be un-done; a control that turned it back to blue would
+assert something false. What must always exist instead is a way back to the
+machine's *value* — reverting a field leaves it green, because you looked and
+decided the machine was right, which is exactly the distinction the tier
+buys. Green is set by changing a decision, never by merely touching the UI:
+unfolding something, scrolling, or opening a form marks nothing.
+
+**A card whose children disagree reads worst-first**: red if any child is
+red, else amber if any is amber, else green only if *every* child is green,
+else blue. That keeps a scroll honest — you look for amber, then decide
+whether you care about blue — and it is what makes an item's progress from
+all-blue to all-green mean anything.
 
 Evidence blocks (record lists) get no rail — they inform decisions, they
-aren't one. The records *cards* on the import form are decision blocks,
-not bare evidence (each carries the level's identity/doubt state), and
-both wear the rail with one reading: **amber only for an unsure match
-nobody has curated; lime for everything else** — trusted is settled, and
-nothing-found is settled too (there is nothing to choose between; the
-seeder approves both). One card must never rail a state the other card
-shows in a different color. The rail is the *only* thing that encodes
+aren't one. The records *cards* on the import form are decision blocks, not
+bare evidence (each carries the level's identity state), and they wear the
+same four tiers as everything else. One card must never rail a state another
+card shows in a different colour. The rail is the *only* thing that encodes
 settledness at block level; don't also dim, collapse, or re-order.
+
+**One vocabulary, and the rail is it.** The form used to carry two
+settledness systems with different words for the same states — per-decision
+("settled", "needs confirming") and per-level ("confirmed", "trusted",
+"unsure") — plus a Confirm button that, in every state where it was visible,
+changed nothing but its own badge. Identity and field decisions are the same
+shape (options, a choice, settled, touched-by-a-human), so they wear one
+encoding. **Importing is the confirmation**: pressing Add accepts every blue
+on the item, which is what the button was groping for.
 
 **Evidence before the decisions it feeds — within a section too.** §9 puts
 the evidence panel above the edit forms; the import form's sections follow
@@ -229,11 +259,38 @@ same content type wore a different anatomy depending on the form, which
 divergence by documenting both halves as intentional; that is how this one
 survived two audits.
 
+**The documented exception: a derived list has no add.** The import form's
+**New people** section lists one card per human the import will create, and
+the operator cannot add one there — a person exists because a *credit* names
+them (`Draft.referenced_keys/1` mints the decisions from the credits), so
+adding a person happens on the credit and appears here. The label and the
+rows are the ordinary grammar; the add below the container is absent, and
+that absence is the honest statement that this list is derived rather than
+built. People already in the library are *not* listed: they were chosen in
+the credit's typeahead, they carry their own curation which an import may
+never overwrite, and the one dangerous case — a name matching two existing
+identities — is a decision on the credit, where `Credit.state/1` computes it.
+
+**Pen names are bracketed, not nested.** One author credit can stand for
+several humans, so those person cards sit adjacent under a shared labelled
+rail naming the credit ("James S.A. Corey"), and each card also names its own
+role in its header. A bracket is a label and a rail, never a filled block —
+wrapping cards in a card is what eats the elevation ladder, and this is the
+same device the person rows used when they were nested inside a credit,
+promoted to group siblings instead.
+
 **Every form saves from the same place: the sticky footer slab**
 (`<.form_footer>` — shadowed `zinc-900`, `-bottom-4`, with `-mb-4` on the
 page wrapper per §3's sticky rule). A bare Save floating on the ground
 after the last card was the legacy forms' tell, at its worst on the
 47-row chapters form.
+
+**The footer is also where outstanding work is listed**, not merely counted.
+It is the one thing always in view, and `Draft.unresolved/1` already returns
+a section and a label for every decision still waiting — so it names them and
+links to them. Without that, a form long enough to have sections has work
+below the fold that nothing announces, which is the objection that decided
+where the New people section goes.
 
 **One form measure: `max-w-4xl`.** The import form always had it; the
 legacy forms sat at `3xl` and the two settings-ish pages centered
