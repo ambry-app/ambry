@@ -206,6 +206,14 @@ defmodule Ambry.Inbox.Draft.Edit do
     |> reseed(item, :recording)
   end
 
+  def uncatalogued(draft, %InboxItem{} = item, :work) do
+    draft
+    |> update_in([Access.key(:work)], fn work ->
+      %{work | sources: [], evidence_curated: true, doubt: :none, doubt_detail: nil}
+    end)
+    |> reseed(item, :work)
+  end
+
   # Ticking a record answers the question the level was asking, and a doubt
   # the operator has now overruled stops being a doubt.
   defp settle(decision, :recording),

@@ -209,21 +209,27 @@
             </:row>
           </.record_list>
 
-          <.provider_outcomes_row
-            outcomes={provider_outcomes(@item, "work")}
-            level="work"
-            retrying={@retrying}
-          />
-
-          <.disclosure summary="Not what you're looking for? Search again">
-            <div class="pt-2">
-              <.research_form
-                level="work"
-                fields={@item.draft.work.query_fields}
-                running={@researching == "work"}
-              />
-            </div>
-          </.disclosure>
+          <%!-- The same answer the audiobook level has always had, and the
+              level that needed it just as much: a doubted match leaves this
+              card outstanding until a record is ticked, so believing none of
+              them left ticking one you don't believe as the only way on. --%>
+          <div :if={records(@item, "work") != []} class="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              phx-click="uncatalogued"
+              phx-value-level="work"
+              data-role="none-of-these"
+              class={[
+                "px-[11px] rounded-md border py-1 text-xs",
+                Work.uncatalogued?(@item.draft.work) &&
+                  "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
+                !Work.uncatalogued?(@item.draft.work) &&
+                  "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+              ]}
+            >
+              None of these
+            </button>
+          </div>
         </div>
 
         <%!-- A different KIND of question from the records above: linking
@@ -458,6 +464,8 @@
             <button
               type="button"
               phx-click="uncatalogued"
+              phx-value-level="recording"
+              data-role="none-of-these"
               class={[
                 "px-[11px] rounded-md border py-1 text-xs",
                 Recording.uncatalogued?(@item.draft.recording) &&

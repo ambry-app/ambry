@@ -262,9 +262,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
-  def handle_event("uncatalogued", _params, socket) do
+  # "None of these" — a real answer at either level, and the only one available
+  # when nothing a provider returned describes the release.
+  def handle_event("uncatalogued", params, socket) do
     item = socket.assigns.item
-    {:noreply, edit(socket, &Draft.Edit.uncatalogued(&1, item))}
+    level = atom(params["level"] || "recording")
+    {:noreply, edit(socket, &Draft.Edit.uncatalogued(&1, item, level))}
   end
 
   def handle_event("move-credit", %{"section" => s, "index" => i, "direction" => d}, socket) do

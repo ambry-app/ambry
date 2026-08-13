@@ -147,6 +147,17 @@ defmodule Ambry.Inbox.Draft.Work do
   defp state_of(%SeriesLink{} = link), do: SeriesLink.state(link)
 
   @doc """
+  Whether the operator has said no record here describes this book.
+
+  The work level's mirror of `Recording.uncatalogued?/1`, and read the same
+  way: they touched the evidence and left nothing ticked, which is an answer.
+  Reading it off `sources == []` alone would claim the answer had been given
+  on every freshly matched item that happened to find nothing.
+  """
+  def uncatalogued?(%__MODULE__{sources: [], evidence_curated: true}), do: true
+  def uncatalogued?(%__MODULE__{}), do: false
+
+  @doc """
   Whether the operator has said this provider record describes the book.
   """
   def uses?(%__MODULE__{sources: sources}, record),

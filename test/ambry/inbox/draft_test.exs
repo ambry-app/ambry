@@ -1277,6 +1277,28 @@ defmodule Ambry.Inbox.DraftTest do
       assert Draft.curated?(Draft.Edit.new_book(item.draft, item))
     end
 
+    # A doubted work leaves its records card outstanding until something is
+    # ticked, and answering the identity question doesn't touch it — so
+    # believing none of them had exactly one way on: tick one you don't
+    # believe.
+    test "the work level can be settled as one no record describes" do
+      item =
+        item(%{
+          matches: matches([provider_candidate(%{"title" => "Something Else"})], confidence: 0.3),
+          tags: %{}
+        })
+
+      {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.work.doubt == :low_confidence
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label == "Book records"))
+
+      draft = Draft.Edit.uncatalogued(item.draft, item, :work)
+
+      assert Draft.Work.uncatalogued?(draft.work)
+      assert draft.work.sources == []
+      refute Enum.any?(Draft.unresolved(draft), &(&1.label == "Book records"))
+    end
+
     test "settling the recording as uncatalogued marks the draft curated" do
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
