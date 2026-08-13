@@ -66,15 +66,14 @@ identity clusters, the library-root chooser, an inbox queue item) wears a
 | none / `border-zinc-700` | informational, or out of the queue |
 
 Evidence blocks (record lists) get no rail — they inform decisions, they
-aren't one. The records *cards* on the import form are the boundary case:
-the recording-level card IS the identity decision (import blocks until it's
-answered), so it always wears the rail; the work-level card wears one only
-when it carries a live decision — amber for an unsure match nobody has
-curated (the state it puts in "Still to settle"), lime once a human settled
-it, none for a trusted match or a no-match, whose blue/gray badges already
-say "informational". A rail must never claim "waiting" for a step import
-doesn't require. The rail is the *only* thing that encodes settledness at
-block level; don't also dim, collapse, or re-order.
+aren't one. The records *cards* on the import form are decision blocks,
+not bare evidence (each carries the level's identity/doubt state), and
+both wear the rail with one reading: **amber only for an unsure match
+nobody has curated; lime for everything else** — trusted is settled, and
+nothing-found is settled too (there is nothing to choose between; the
+seeder approves both). One card must never rail a state the other card
+shows in a different color. The rail is the *only* thing that encodes
+settledness at block level; don't also dim, collapse, or re-order.
 
 **Evidence before the decisions it feeds — within a section too.** §9 puts
 the evidence panel above the edit forms; the import form's sections follow

@@ -989,18 +989,15 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def hint_rows(_item), do: []
 
   @doc """
-  The work records card's state rail.
-
-  Amber only when the records question is genuinely open — an unsure match
-  the operator hasn't curated, the one state this card puts in "Still to
-  settle". Lime once a human settled it. A trusted match and a no-match are
-  informational (blue and gray badges say which), so they wear no rail.
+  The work records card's state rail — the same reading as the recording
+  card's, which the seeder settles for every state but doubt: trusted is
+  settled, nothing-found is settled (nothing to choose between), and only
+  an unsure match nobody has curated is still waiting on the operator.
   """
   def work_records_rail(%Work{} = work) do
     case Draft.level_state(work) do
-      :confirmed -> "border-l-4 border-brand-dark/60"
       :unsure -> "border-l-4 border-amber-400/70"
-      _informational -> nil
+      _settled -> "border-l-4 border-brand-dark/60"
     end
   end
 
