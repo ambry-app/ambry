@@ -162,85 +162,97 @@
             databases say this is, before "do I already have it?". The records
             are how the operator recognizes the book, and ticking one asks its
             databases for audio editions, which feed the audiobook section. --%>
-        <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(Tier.of_evidence(@item.draft.work))]}>
-          <%!-- No badge and no Confirm button: the rail says which of the four
-              states this is, and pressing Add is what accepts the ones the
-              machine settled. The old pair said it twice in two vocabularies,
-              and the button changed nothing but its own word. The match score
-              stays in the tooltip, where it is history rather than state. --%>
-          <div class="flex items-baseline gap-2 pl-3">
-            <.label title={@item.draft.work.confidence && "match score #{@item.draft.work.confidence}"}>
-              Provider records
-            </.label>
-          </div>
+        <div class={[
+          "relative space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+          state_rail(Tier.of_evidence(@item.draft.work))
+        ]}>
+          <%!-- A provider round-trip is the same kind of event as a matching
+              job, and gets the same answer: the card is not yours while it
+              runs. The person cards have said so since they grew a search of
+              their own; these two were left with a button that changed its
+              own label. --%>
+          <.busy_overlay busy={@researching == "work"} label={searching_label(@item.draft.work.query_fields)} />
 
-          <%!-- The query, then who answered, then what they said. The search
-              that produced these records was folded away under the results it
-              produced, which reads backwards: a card of search results is a
-              search form with results below it. Editable in place, so the
-              wrong tag that sent this somewhere strange is visible and
-              fixable without opening anything. --%>
-          <.research_form
-            level="work"
-            fields={@item.draft.work.query_fields}
-            running={@researching == "work"}
-          />
+          <div class="space-y-2" inert={@researching == "work"}>
+            <%!-- No badge and no Confirm button: the rail says which of the four
+                states this is, and pressing Add is what accepts the ones the
+                machine settled. The old pair said it twice in two vocabularies,
+                and the button changed nothing but its own word. The match score
+                stays in the tooltip, where it is history rather than state. --%>
+            <div class="flex items-baseline gap-2 pl-3">
+              <.label title={@item.draft.work.confidence && "match score #{@item.draft.work.confidence}"}>
+                Provider records
+              </.label>
+            </div>
 
-          <.provider_outcomes_row
-            outcomes={provider_outcomes(@item, "work")}
-            level="work"
-            retrying={@retrying}
-          />
+            <%!-- The query, then who answered, then what they said. The search
+                that produced these records was folded away under the results it
+                produced, which reads backwards: a card of search results is a
+                search form with results below it. Editable in place, so the
+                wrong tag that sent this somewhere strange is visible and
+                fixable without opening anything. --%>
+            <.research_form
+              level="work"
+              fields={@item.draft.work.query_fields}
+              running={@researching == "work"}
+            />
 
-          <%!-- Same as the recording level: a doubted match adopts nothing, and
-              "found nothing" versus "found something we don't believe" have to
-              look different or the empty fields below are unexplained. --%>
-          <p
-            :if={doubt_message(@item.draft.work)}
-            class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
-            data-role="work-doubt"
-          >
-            {doubt_message(@item.draft.work)}
-          </p>
+            <.provider_outcomes_row
+              outcomes={provider_outcomes(@item, "work")}
+              level="work"
+              retrying={@retrying}
+            />
 
-          <p :if={records(@item, "work") == []} class="pl-3 text-sm text-zinc-400">
-            No provider had a record of this.
-          </p>
-
-          <.record_list
-            records={records(@item, "work")}
-            used={&Work.uses?(@item.draft.work, &1)}
-          >
-            <:row :let={record}>
-              <.record_row
-                record={record}
-                level="work"
-                used={Work.uses?(@item.draft.work, record)}
-                working={@enriching == record_ref(record)}
-              />
-            </:row>
-          </.record_list>
-
-          <%!-- The same answer the audiobook level has always had, and the
-              level that needed it just as much: a doubted match leaves this
-              card outstanding until a record is ticked, so believing none of
-              them left ticking one you don't believe as the only way on. --%>
-          <div :if={records(@item, "work") != []} class="flex flex-wrap items-center gap-2 pt-1">
-            <button
-              type="button"
-              phx-click="uncatalogued"
-              phx-value-level="work"
-              data-role="none-of-these"
-              class={[
-                "px-[11px] rounded-md border py-1 text-xs",
-                Work.uncatalogued?(@item.draft.work) &&
-                  "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
-                !Work.uncatalogued?(@item.draft.work) &&
-                  "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-              ]}
+            <%!-- Same as the recording level: a doubted match adopts nothing, and
+                "found nothing" versus "found something we don't believe" have to
+                look different or the empty fields below are unexplained. --%>
+            <p
+              :if={doubt_message(@item.draft.work)}
+              class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
+              data-role="work-doubt"
             >
-              None of these
-            </button>
+              {doubt_message(@item.draft.work)}
+            </p>
+
+            <p :if={records(@item, "work") == []} class="pl-3 text-sm text-zinc-400">
+              No provider had a record of this.
+            </p>
+
+            <.record_list
+              records={records(@item, "work")}
+              used={&Work.uses?(@item.draft.work, &1)}
+            >
+              <:row :let={record}>
+                <.record_row
+                  record={record}
+                  level="work"
+                  used={Work.uses?(@item.draft.work, record)}
+                  working={@enriching == record_ref(record)}
+                />
+              </:row>
+            </.record_list>
+
+            <%!-- The same answer the audiobook level has always had, and the
+                level that needed it just as much: a doubted match leaves this
+                card outstanding until a record is ticked, so believing none of
+                them left ticking one you don't believe as the only way on. --%>
+            <div :if={records(@item, "work") != []} class="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                phx-click="uncatalogued"
+                phx-value-level="work"
+                data-role="none-of-these"
+                class={[
+                  "px-[11px] rounded-md border py-1 text-xs",
+                  Work.uncatalogued?(@item.draft.work) &&
+                    "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
+                  !Work.uncatalogued?(@item.draft.work) &&
+                    "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                ]}
+              >
+                None of these
+              </button>
+            </div>
           </div>
         </div>
 
@@ -414,74 +426,83 @@
         <h2 class="text-xl font-bold text-zinc-100">Audiobook</h2>
 
         <div class={[
-          "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
+          "relative space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
           state_rail(Tier.of_evidence(@item.draft.recording))
         ]}>
-          <div class="flex items-baseline gap-2 pl-3">
-            <.label title={
-              @item.draft.recording.confidence &&
-                "match score #{@item.draft.recording.confidence}"
-            }>
-              Provider records
-            </.label>
-          </div>
+          <%!-- A provider round-trip is the same kind of event as a matching
+              job, and gets the same answer: the card is not yours while it
+              runs. The person cards have said so since they grew a search of
+              their own; these two were left with a button that changed its
+              own label. --%>
+          <.busy_overlay busy={@researching == "recording"} label={searching_label(@item.draft.recording.query_fields)} />
 
-          <.research_form
-            level="recording"
-            fields={@item.draft.recording.query_fields}
-            running={@researching == "recording"}
-          />
+          <div class="space-y-2" inert={@researching == "recording"}>
+            <div class="flex items-baseline gap-2 pl-3">
+              <.label title={
+                @item.draft.recording.confidence &&
+                  "match score #{@item.draft.recording.confidence}"
+              }>
+                Provider records
+              </.label>
+            </div>
 
-          <.provider_outcomes_row
-            outcomes={provider_outcomes(@item, "recording")}
-            level="recording"
-            retrying={@retrying}
-          />
+            <.research_form
+              level="recording"
+              fields={@item.draft.recording.query_fields}
+              running={@researching == "recording"}
+            />
 
-          <%!-- A doubted match used to be indistinguishable from no match at
-              all: both left every field empty and said nothing. The reason is
-              the whole difference between "tick one" and "type it in". --%>
-          <p
-            :if={doubt_message(@item.draft.recording)}
-            class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
-            data-role="doubt"
-          >
-            {doubt_message(@item.draft.recording)}
-          </p>
+            <.provider_outcomes_row
+              outcomes={provider_outcomes(@item, "recording")}
+              level="recording"
+              retrying={@retrying}
+            />
 
-          <.record_list
-            records={records(@item, "recording")}
-            used={&Recording.uses?(@item.draft.recording, &1)}
-          >
-            <:row :let={record}>
-              <.record_row
-                record={record}
-                level="recording"
-                used={Recording.uses?(@item.draft.recording, record)}
-                working={@enriching == record_ref(record)}
-              />
-            </:row>
-          </.record_list>
-
-          <div class="flex flex-wrap items-center gap-2 pt-1">
-            <%!-- px-[11px]: 1px border + 11px puts the label on the 12px text
-                rail, the same trick the inputs use; the ticked state keeps a
-                transparent border so toggling doesn't shift the box. --%>
-            <button
-              type="button"
-              phx-click="uncatalogued"
-              phx-value-level="recording"
-              data-role="none-of-these"
-              class={[
-                "px-[11px] rounded-md border py-1 text-xs",
-                Recording.uncatalogued?(@item.draft.recording) &&
-                  "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
-                !Recording.uncatalogued?(@item.draft.recording) &&
-                  "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-              ]}
+            <%!-- A doubted match used to be indistinguishable from no match at
+                all: both left every field empty and said nothing. The reason is
+                the whole difference between "tick one" and "type it in". --%>
+            <p
+              :if={doubt_message(@item.draft.recording)}
+              class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
+              data-role="doubt"
             >
-              None of these
-            </button>
+              {doubt_message(@item.draft.recording)}
+            </p>
+
+            <.record_list
+              records={records(@item, "recording")}
+              used={&Recording.uses?(@item.draft.recording, &1)}
+            >
+              <:row :let={record}>
+                <.record_row
+                  record={record}
+                  level="recording"
+                  used={Recording.uses?(@item.draft.recording, record)}
+                  working={@enriching == record_ref(record)}
+                />
+              </:row>
+            </.record_list>
+
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <%!-- px-[11px]: 1px border + 11px puts the label on the 12px text
+                  rail, the same trick the inputs use; the ticked state keeps a
+                  transparent border so toggling doesn't shift the box. --%>
+              <button
+                type="button"
+                phx-click="uncatalogued"
+                phx-value-level="recording"
+                data-role="none-of-these"
+                class={[
+                  "px-[11px] rounded-md border py-1 text-xs",
+                  Recording.uncatalogued?(@item.draft.recording) &&
+                    "bg-brand-dark/15 ring-brand-dark/50 border-transparent ring-2 ring-inset",
+                  !Recording.uncatalogued?(@item.draft.recording) &&
+                    "border-dashed border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                ]}
+              >
+                None of these
+              </button>
+            </div>
           </div>
         </div>
 

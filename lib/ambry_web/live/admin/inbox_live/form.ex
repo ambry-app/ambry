@@ -179,6 +179,20 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def busy_label(:queued), do: "Queued for matching…"
   def busy_label(_idle), do: "Working…"
 
+  @doc """
+  What a level's search is looking for, for the scrim that covers it.
+
+  Named rather than a bare "Searching…", because the operator has just typed
+  the words into the box above it and seeing them come back is what says the
+  click landed on the search they meant.
+  """
+  def searching_label(fields) do
+    case (fields || %{})["title"] do
+      title when is_binary(title) and title != "" -> "Looking for #{title}…"
+      _untitled -> "Searching…"
+    end
+  end
+
   # What a person is currently called, which is what a re-search asks about.
   defp person_name(draft, key) do
     case Draft.person(draft, key) do

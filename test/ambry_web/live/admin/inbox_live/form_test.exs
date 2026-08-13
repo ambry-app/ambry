@@ -12,6 +12,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.RunImport
   alias Ambry.Metadata.PersonSearch
+  alias Ambry.Metadata.Providers
   alias Ambry.Repo
 
   setup :register_and_log_in_admin_user
@@ -875,6 +876,35 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   end
 
   describe "records are evidence, not identities" do
+    # The person cards have worn the scrim since they grew a search of their
+    # own; these two were left with a button that changed its own label.
+    test "a level being searched wears the busy scrim", %{conn: conn} do
+      test_pid = self()
+
+      patch(Providers, :search_books, fn _id, _query, _opts ->
+        send(test_pid, {:searching, self()})
+        receive do: (:go -> :ok)
+        {:ok, []}
+      end)
+
+      item = probed_item() |> with_work_records()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html =
+        view
+        |> element("form#research-work")
+        |> render_submit(%{"level" => "work", "title" => "The Way of Kings"})
+
+      assert_receive {:searching, task}
+      assert html =~ "Looking for The Way of Kings…"
+
+      send(task, :go)
+      render_async(view)
+
+      refute render(view) =~ "Looking for The Way of Kings…"
+    end
+
     # Which database said this is the first thing an operator checks, and at
     # the end of the facts line it was the first thing truncation took.
     test "a record's provider is a badge, not the tail of a long line", %{conn: conn} do
