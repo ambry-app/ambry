@@ -412,6 +412,7 @@
             verb="Written by"
             identity_backing={@author_backing}
             persons={Draft.people_for(@item.draft, credit)}
+            people={@people}
           />
 
           <.add_button phx-click="add-credit" phx-value-section="work">
@@ -622,6 +623,7 @@
             verb="Read by"
             identity_backing={@narrator_backing}
             persons={Draft.people_for(@item.draft, credit)}
+            people={@people}
           />
 
           <.add_button phx-click="add-credit" phx-value-section="recording">

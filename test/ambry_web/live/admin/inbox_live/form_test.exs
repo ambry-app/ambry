@@ -535,6 +535,79 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert %{mode: :link, person_id: id} = person_keyed(item, "brandonsanderson")
       assert id == person.id
     end
+
+    # The operator's route: say the credit is a pen name, clear the box, type
+    # a letter, pick the human out of the typeahead. The draft keeps the "j"
+    # that was typed on the way — linking must not overwrite staged curation,
+    # because unlinking has to give it back — but nothing should *render* it.
+    test "a person linked through the typeahead reads as the library's own",
+         %{conn: conn} do
+      rowling = :person |> build(name: "J.K. Rowling") |> with_thumbnails() |> insert()
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#person-brandonsanderson button[phx-click='separate-name']")
+      |> render_click()
+
+      # typing narrows the typeahead, one keystroke at a time
+      view
+      |> element("#person-brandonsanderson-identity")
+      |> render_change(%{"key" => "brandonsanderson", "name" => "j"})
+
+      # and picking sends the id the resolver holds
+      view
+      |> element("#person-brandonsanderson-identity")
+      |> render_change(%{
+        "key" => "brandonsanderson",
+        "name" => "j",
+        "person_id" => to_string(rowling.id)
+      })
+
+      assert %{mode: :link, person_id: id} = person_keyed(item, "brandonsanderson")
+      assert id == rowling.id
+
+      chips =
+        view
+        |> element("#work [data-role='credit-people']")
+        |> render()
+        |> Floki.parse_fragment!()
+
+      assert Floki.text(chips) =~ "J.K. Rowling"
+      refute Floki.text(chips) |> String.trim() == "j"
+
+      # her library portrait, not whichever candidate the half-typed name found
+      assert Floki.find(chips, "img") |> Floki.attribute("src") ==
+               [rowling.thumbnails.extra_small]
+    end
+
+    # Linking answers "who is this"; a pen name answers "whose name is on the
+    # book". The second doesn't stop being true because the first was
+    # answered from the library.
+    test "a linked pen name still says whose pen name it is", %{conn: conn} do
+      rowling = insert(:person, name: "J.K. Rowling")
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#person-brandonsanderson button[phx-click='separate-name']")
+      |> render_click()
+
+      view
+      |> element("#person-brandonsanderson-identity")
+      |> render_change(%{
+        "key" => "brandonsanderson",
+        "name" => "j",
+        "person_id" => to_string(rowling.id)
+      })
+
+      card = view |> element("#person-brandonsanderson") |> render()
+
+      assert card =~ "A pen name of"
+      refute card =~ "This import will use the person you already have."
+    end
   end
 
   describe "credits — credited as / written by" do
