@@ -5,13 +5,23 @@ defmodule Ambry.Inbox.RunMatchTest do
   alias Ambry.Inbox
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.RunMatch
+  alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Providers
 
   setup do
     patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
-    patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :not_stubbed} end)
+    # Answering, not erroring: an unreachable provider now fails the job by
+    # design, so a stub that means "don't care" has to actually answer.
+    patch(Providers, :book_details, fn _id, id, _opts ->
+      {:ok, %Provider.Book{provider: "test", id: id}}
+    end)
+
     patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
-    patch(Providers, :author_details, fn _id, _author_id, _opts -> {:error, :not_stubbed} end)
+
+    patch(Providers, :author_details, fn _id, id, _opts ->
+      {:ok, %Provider.Author{provider: "test", id: id}}
+    end)
+
     :ok
   end
 
@@ -76,6 +86,34 @@ defmodule Ambry.Inbox.RunMatchTest do
       patch(Providers, :search_books, fn _id, _query, _opts -> {:ok, []} end)
 
       assert :ok = RunMatch.perform(job(item()))
+    end
+
+    # The search is not the only call, and for a long time it was the only one
+    # that could report a failure. A rate-limited *details* call left the
+    # record thin — no description, no cover, no edition list — reported
+    # success, and the item settled and went `ready` on evidence the provider
+    # would happily have given us.
+    @tag :capture_log
+    test "a details call that couldn't be reached puts the job back too" do
+      patch(Providers, :search_books, fn id, _query, _opts ->
+        if id == "rreading_glasses",
+          do:
+            {:ok,
+             [%Provider.Book{provider: "rreading_glasses", id: "rg-1", title: "The Way of Kings"}]},
+          else: {:ok, []}
+      end)
+
+      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :rate_limited} end)
+
+      item = item()
+
+      assert {:error, {:providers_unreached, unreached}} = RunMatch.perform(job(item))
+      assert "rreading_glasses:details" in unreached
+
+      # and the partial result is kept, because the retry re-asks only what it
+      # missed — provider errors are never cached, answers are
+      item = Inbox.get_item!(item.id)
+      assert [%{"title" => "The Way of Kings"}] = item.matches["work"]["candidates"]
     end
   end
 

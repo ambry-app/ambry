@@ -10,6 +10,8 @@ defmodule Ambry.Metadata do
   use Boundary,
     deps: [Ambry.Repo, Ambry.Utils, AmbryScraping],
     exports: [
+      # what a provider did when asked, and the ids the retry chips carry back
+      Outcome,
       {Provider, []},
       # with its submodules: `Match` is the shape every caller pattern-matches
       # on, the same reason `Provider`'s normalized structs are exported

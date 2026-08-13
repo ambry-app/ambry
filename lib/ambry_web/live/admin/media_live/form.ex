@@ -15,6 +15,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Inbox
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
+  alias Ambry.Metadata.Outcome
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
@@ -326,8 +327,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  def handle_event("retry-provider", %{"provider" => provider_id}, socket) do
+  def handle_event("retry-provider", %{"provider" => outcome_id}, socket) do
     query = Provider.Query.from_fields(socket.assigns.evidence.fields)
+    {provider_id, kind} = Outcome.split(outcome_id)
 
     with false <- Provider.Query.blank?(query),
          {:ok, entry} <- Registry.fetch(provider_id) do
@@ -338,11 +340,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
       {:noreply,
        socket
-       |> assign(retrying: provider_id)
-       |> start_async(:evidence_search, fn ->
-         {books, outcome} = MetadataSearch.books_one(entry, query)
-         {Inbox.score_records(books, entry, hints), [outcome]}
-       end)}
+       |> assign(retrying: outcome_id)
+       |> start_async(:evidence_search, fn -> retry_fan_out(entry, kind, query, hints) end)}
     else
       _no -> {:noreply, socket}
     end
@@ -412,6 +411,30 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # "Hardcover: 9" would describe a search whose records aren't shown, but a
   # work provider that was down took its editions with it, and that has to be
   # visible or the recordings list is short for no stated reason.
+  defp retry_fan_out(entry, :search, query, hints) do
+    {books, outcome} = MetadataSearch.books_one(entry, query)
+    {Inbox.score_records(books, entry, hints), [outcome]}
+  end
+
+  # The editions chip doesn't hang off a search anybody can re-run on its own:
+  # editions are asked of a *work record*, so retrying one means finding this
+  # provider's work records again and re-asking about those. Without this the
+  # chip's id (`hardcover:editions`) simply missed the registry and the button
+  # did nothing — visibly red, silently inert.
+  defp retry_fan_out(entry, :editions, query, hints) do
+    {found, _outcomes} = MetadataSearch.books(query, level: :work)
+
+    found
+    |> Enum.flat_map(fn {found_entry, books} ->
+      Inbox.score_records(books, found_entry, hints)
+    end)
+    |> Enum.filter(&(&1["source"] == "provider:#{entry.id}"))
+    |> Inbox.top_group()
+    |> Inbox.editions_of(hints)
+  end
+
+  defp retry_fan_out(_entry, _kind, _query, _hints), do: {[], []}
+
   defp recording_fan_out(query, hints) do
     {audible_found, audible_outcomes} = MetadataSearch.books(query, level: :recording)
 

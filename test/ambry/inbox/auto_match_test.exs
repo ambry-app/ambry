@@ -2,6 +2,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
   use Ambry.DataCase
   use Patch
 
+  alias Ambry.Inbox
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.InboxItem
   alias Ambry.Metadata.Provider
@@ -98,6 +99,35 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
       assert {[_edition], [outcome]} = AutoMatch.editions_for(records, hints)
       assert outcome["status"] == "ok"
+      assert outcome["count"] == 1
+    end
+
+    # One chip standing for four calls used to let any success speak for the
+    # group: a provider that answered about three works and was rate-limited
+    # on the fourth reported a clean `ok`, and that work's editions were never
+    # fetched or mentioned again. A failure now outranks an answer — while
+    # still carrying what did come back, because the editions already in hand
+    # are real.
+    @tag :capture_log
+    test "a failure outranks an answer, keeping the count of what came back" do
+      patch(Registry, :fetch, fn "hardcover" ->
+        {:ok,
+         %Registry.Entry{id: "hardcover", display_name: "Hardcover", capabilities: [:editions]}}
+      end)
+
+      patch(Providers, :editions, fn "hardcover", id, _opts ->
+        case id do
+          "w-1" -> {:ok, [%Provider.Book{id: "e-1", title: "A Reading"}]}
+          _rate_limited -> {:error, :rate_limited}
+        end
+      end)
+
+      records = for id <- ~w(w-1 w-2), do: %{"source" => "provider:hardcover", "id" => id}
+      hints = AutoMatch.hints(%InboxItem{path: "/d/A Book", tags: %{}})
+
+      assert {[_edition], [outcome]} = AutoMatch.editions_for(records, hints)
+      assert outcome["id"] == "hardcover:editions"
+      assert outcome["status"] == "failed"
       assert outcome["count"] == 1
     end
   end
@@ -473,13 +503,21 @@ defmodule Ambry.Inbox.AutoMatchTest do
       # this suite wasn't already making live calls is that the fake ids
       # happen not to parse.
       patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
-      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :not_stubbed} end)
+
+      patch(Providers, :book_details, fn _id, id, _opts ->
+        {:ok, %Provider.Book{provider: "test", id: id}}
+      end)
+
       # The people level asks every person-capable provider about every
       # credited human, which is real HTTP unless stubbed — and unlike the
       # book calls there is no fake id to save us, because a person is
       # searched by name.
       patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
-      patch(Providers, :author_details, fn _id, _author_id, _opts -> {:error, :not_stubbed} end)
+
+      patch(Providers, :author_details, fn _id, id, _opts ->
+        {:ok, %Provider.Author{provider: "test", id: id}}
+      end)
+
       :ok
     end
 
@@ -1280,6 +1318,71 @@ defmodule Ambry.Inbox.AutoMatchTest do
     end
   end
 
+  # **A call that failed and a call that found nothing must never look the
+  # same.** The search level always knew that; the calls *after* the search
+  # did not, and they are the majority — measured on a cold scan of 353
+  # releases, 84% of provider requests were the details behind a hit. A
+  # rate-limited one left the record thin (no description, no cover, no
+  # editions) and said nothing anywhere, so the item settled, went `ready`,
+  # and imported a book the provider actually knew more about.
+  describe "match/1 reports the calls made after the search" do
+    setup do
+      patch_work_results([book("The Way of Kings", ["Brandon Sanderson"])])
+      patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
+      patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
+      :ok
+    end
+
+    defp match_way_of_kings do
+      %{matches: matches} =
+        AutoMatch.match(item(title: "The Way of Kings", author: "Brandon Sanderson"))
+
+      matches
+    end
+
+    defp details_outcome(matches, provider_id \\ "rreading_glasses") do
+      Enum.find(matches["work"]["providers"], &(&1["id"] == "#{provider_id}:details"))
+    end
+
+    @tag :capture_log
+    test "a details call that couldn't be reached leaves a failed outcome" do
+      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :rate_limited} end)
+
+      assert %{"status" => "failed", "reason" => reason} = details_outcome(match_way_of_kings())
+      assert reason =~ "rate_limited"
+    end
+
+    # Thin is still usable — one enrichment call failing must not fail an item
+    # that otherwise matched. The record stays; only the silence goes.
+    @tag :capture_log
+    test "the record survives the failure, unhydrated" do
+      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :rate_limited} end)
+
+      assert [record | _rest] = match_way_of_kings()["work"]["candidates"]
+      assert record["title"] == "The Way of Kings"
+      refute record["hydrated"]
+    end
+
+    test "a details call that worked says so, so the retry chip can clear" do
+      patch(Providers, :book_details, fn _id, id, _opts ->
+        {:ok, %Provider.Book{provider: "test", id: id, description: "The full description"}}
+      end)
+
+      assert %{"status" => "ok"} = details_outcome(match_way_of_kings())
+    end
+
+    # The job is what comes back for it: `RunMatch` fails any match with an
+    # unreached provider, and a details failure is now one.
+    @tag :capture_log
+    test "the failure is what unreached_providers/1 reads" do
+      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :rate_limited} end)
+
+      item = %InboxItem{path: "/d/x", matches: match_way_of_kings()}
+
+      assert "rreading_glasses:details" in Inbox.unreached_providers(item)
+    end
+  end
+
   # The third level. Everything the form does well it does by asking outcome,
   # evidence and preference; people used to get a name string and nothing
   # else, which is why proposed people arrived with no face and no biography
@@ -1288,9 +1391,17 @@ defmodule Ambry.Inbox.AutoMatchTest do
     setup do
       patch(Providers, :search_books, fn _id, _query, _opts -> {:ok, []} end)
       patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
-      patch(Providers, :book_details, fn _id, _book_id, _opts -> {:error, :not_stubbed} end)
+
+      patch(Providers, :book_details, fn _id, id, _opts ->
+        {:ok, %Provider.Book{provider: "test", id: id}}
+      end)
+
       patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
-      patch(Providers, :author_details, fn _id, _author_id, _opts -> {:error, :not_stubbed} end)
+
+      patch(Providers, :author_details, fn _id, id, _opts ->
+        {:ok, %Provider.Author{provider: "test", id: id}}
+      end)
+
       :ok
     end
 

@@ -861,7 +861,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
              description: "An American author of epic fantasy.",
              images: images
            }
-         ], %{"id" => "wikidata", "name" => "Wikidata", "status" => "ok", "count" => 1}}
+         ], [%{"id" => "wikidata", "name" => "Wikidata", "status" => "ok", "count" => 1}]}
       end)
     end
   end

@@ -44,6 +44,7 @@ defmodule Ambry.Inbox.AutoMatch do
   alias Ambry.Books
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.ReleaseName
+  alias Ambry.Metadata.Outcome
   alias Ambry.Metadata.PersonSearch
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Providers
@@ -462,8 +463,8 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp search_person(name, opts) do
     Enum.reduce(PersonSearch.providers(), {[], []}, fn entry, {candidates, outcomes} ->
-      {matches, outcome} = PersonSearch.matches_with_outcome(entry, name, opts)
-      {candidates ++ Enum.map(matches, &person_candidate/1), outcomes ++ [outcome]}
+      {matches, provider_outcomes} = PersonSearch.matches_with_outcome(entry, name, opts)
+      {candidates ++ Enum.map(matches, &person_candidate/1), outcomes ++ provider_outcomes}
     end)
   end
 
@@ -738,13 +739,23 @@ defmodule Ambry.Inbox.AutoMatch do
   defp hydrate_top(%{"candidates" => candidates} = result, opts) do
     wanted = candidates |> top_group() |> MapSet.new(&ref/1)
 
-    %{
-      result
-      | "candidates" =>
-          Enum.map(candidates, fn record ->
-            if MapSet.member?(wanted, ref(record)), do: details(record, opts), else: record
-          end)
-    }
+    {hydrated, failures} =
+      Enum.map_reduce(candidates, [], fn record, failures ->
+        if MapSet.member?(wanted, ref(record)) do
+          case details_with_outcome(record, opts) do
+            {record, nil} -> {record, failures}
+            {record, outcome} -> {record, failures ++ [outcome]}
+          end
+        else
+          {record, failures}
+        end
+      end)
+
+    result
+    |> Map.put("candidates", hydrated)
+    # One chip per provider however many of its records were hydrated: asking
+    # Hardcover about four of its own works is four calls but one answer.
+    |> Map.put("providers", merge_outcomes(result["providers"] || [], tally(failures)))
   end
 
   defp hydrate_top(result, _opts), do: result
@@ -771,40 +782,81 @@ defmodule Ambry.Inbox.AutoMatch do
   may lack.
   """
   def details(record, opts \\ []) do
+    {record, _outcome} = details_with_outcome(record, opts)
+    record
+  end
+
+  @doc """
+  The same fetch, plus a failed outcome when the provider couldn't be reached.
+
+  **A thin record and an unfetched record are not the same thing**, and this
+  is the difference. Leaving the summary in place is still the right
+  behaviour — it is a usable candidate, and one enrichment call failing must
+  not fail an item that otherwise matched — but doing it *quietly* meant a
+  rate-limited details call cost the record its description, its cover, its
+  publisher and its edition list with nothing anywhere saying so. Measured on
+  a cold scan of 353 releases, the shared rreading-glasses instance 429'd
+  about 6% of requests, none of which surfaced.
+
+  The outcome is what makes it visible and what makes it come back:
+  `RunMatch` fails a job with any unreached provider, and provider errors are
+  never cached, so the retry re-asks exactly this call.
+  """
+  def details_with_outcome(record, opts \\ []) do
     case details_for(record, opts) do
-      nil -> record
-      fuller -> record |> Map.merge(fuller) |> hydrated()
+      # Not a provider record, or a provider the registry doesn't know: there
+      # is nothing to report and nothing a retry could do.
+      :no_provider ->
+        {record, nil}
+
+      {:ok, entry, fuller} ->
+        # Success is reported too, and it has to be: outcomes replace each
+        # other by id, so a details call that only ever spoke up when it
+        # failed would leave "couldn't be reached" on the chip forever, even
+        # after the retry that fixed it.
+        {record |> Map.merge(fuller) |> hydrated(), Outcome.ok(entry, 1, :details)}
+
+      {:error, entry, reason} ->
+        {record, Outcome.failed(entry, reason, :details)}
     end
   end
 
   defp details_for(%{"source" => "provider:" <> provider_id, "id" => id}, opts)
        when is_binary(id) do
-    case Providers.book_details(provider_id, id, opts) do
+    case Registry.fetch(provider_id) do
+      {:ok, entry} -> details_from(entry, id, opts)
+      {:error, _unknown} -> :no_provider
+    end
+  end
+
+  defp details_for(_record, _opts), do: :no_provider
+
+  defp details_from(entry, id, opts) do
+    case Providers.book_details(entry.id, id, opts) do
       {:ok, book} ->
         # Only fields the summary can be *missing*. The title, authors and
         # score stay as matched — re-deriving them here would silently move
         # what the operator already saw ranked.
-        %{
-          "description" => presence(book.description),
-          "cover_url" => presence(book.cover_url),
-          "publisher" => presence(book.publisher),
-          "series" => series_refs(book.series)
-        }
-        |> Enum.reject(fn {_key, value} -> value in [nil, []] end)
-        |> Map.new()
+        fuller =
+          %{
+            "description" => presence(book.description),
+            "cover_url" => presence(book.cover_url),
+            "publisher" => presence(book.publisher),
+            "series" => series_refs(book.series)
+          }
+          |> Enum.reject(fn {_key, value} -> value in [nil, []] end)
+          |> Map.new()
+
+        {:ok, entry, fuller}
 
       {:error, reason} ->
-        # Never fatal: the summary is still a usable candidate, and an item
-        # that matched shouldn't fail because one enrichment call didn't.
         Logger.warning(fn ->
-          "Auto-match: details for #{provider_id}/#{id}: #{inspect(reason)}"
+          "Auto-match: details for #{entry.id}/#{id}: #{inspect(reason)}"
         end)
 
-        nil
+        {:error, entry, reason}
     end
   end
-
-  defp details_for(_candidate, _opts), do: nil
 
   # An ASIN is a recording-level key, so when there is one it *is* the query:
   # a hit on it is definitive in a way no title match ever is.
@@ -1062,13 +1114,28 @@ defmodule Ambry.Inbox.AutoMatch do
   # row. It also hid a real number — the inbox de-duplicates outcomes by id and
   # keeps the last, so a provider that found thirteen editions for one work and
   # none for the next reported **none**.
+  #
+  # **A failure outranks an answer.** Collapsing four calls to one chip used to
+  # let any success speak for the group, so a provider that answered about
+  # three works and was rate-limited on the fourth reported a clean `ok` and
+  # the fourth work's editions were never seen again — the same silent miss in
+  # miniature. Now the chip says "couldn't be reached" while still carrying
+  # what did come back, and `RunMatch` sends the item round again for the rest.
+  @doc """
+  Collapses many calls to one provider into the one chip the operator reads.
+  """
+  def tally_outcomes(outcomes), do: tally(outcomes)
+
   defp tally(outcomes) do
     outcomes
     |> Enum.group_by(& &1["id"])
     |> Enum.map(fn {_id, [first | _rest] = group} ->
-      case Enum.filter(group, &(&1["status"] == "ok")) do
-        [] -> first
-        answered -> %{first | "status" => "ok", "count" => Enum.sum_by(answered, & &1["count"])}
+      answered = Enum.reject(group, &Outcome.failed?/1)
+      count = Enum.sum_by(answered, &(&1["count"] || 0))
+
+      case Enum.find(group, &Outcome.failed?/1) do
+        nil -> %{first | "status" => "ok", "count" => count}
+        failure -> %{failure | "count" => count}
       end
     end)
   end
@@ -1100,36 +1167,17 @@ defmodule Ambry.Inbox.AutoMatch do
             &(&1 |> provider_candidate(entry, hints) |> Map.put("of_work", of_work))
           )
 
-        {candidates,
-         [
-           %{
-             "id" => "#{provider_id}:editions",
-             "name" => "#{entry.display_name} editions",
-             "status" => "ok",
-             "count" => length(candidates)
-           }
-         ]}
+        {candidates, [Outcome.ok(entry, length(candidates), :editions)]}
 
       {:error, reason} ->
         Logger.warning(fn -> "Auto-match: editions for #{provider_id}: #{inspect(reason)}" end)
 
-        {[],
-         [
-           %{
-             "id" => "#{provider_id}:editions",
-             "name" => "#{provider_name(provider_id)} editions",
-             "status" => "failed",
-             "count" => 0,
-             "reason" => describe(reason)
-           }
-         ]}
-    end
-  end
-
-  defp provider_name(provider_id) do
-    case Registry.fetch(provider_id) do
-      {:ok, entry} -> entry.display_name
-      _unknown -> provider_id
+        # The registry is what names a provider on a chip, and an id it has
+        # never heard of can't be retried anyway.
+        case Registry.fetch(provider_id) do
+          {:ok, entry} -> {[], [Outcome.failed(entry, reason, :editions)]}
+          {:error, _unknown} -> {[], []}
+        end
     end
   end
 
@@ -1649,27 +1697,14 @@ defmodule Ambry.Inbox.AutoMatch do
         candidates =
           books |> Enum.take(@candidate_limit) |> Enum.map(&provider_candidate(&1, entry, hints))
 
-        {candidates,
-         %{
-           "id" => entry.id,
-           "name" => entry.display_name,
-           "status" => "ok",
-           "count" => length(candidates)
-         }}
+        {candidates, Outcome.ok(entry, length(candidates))}
 
       {:error, reason} ->
         Logger.warning(fn ->
           "Auto-match: #{entry.id} failed for #{inspect(to_string(query))}: #{inspect(reason)}"
         end)
 
-        {[],
-         %{
-           "id" => entry.id,
-           "name" => entry.display_name,
-           "status" => "failed",
-           "count" => 0,
-           "reason" => describe(reason)
-         }}
+        {[], Outcome.failed(entry, reason)}
     end
   end
 
@@ -1701,12 +1736,6 @@ defmodule Ambry.Inbox.AutoMatch do
       |> String.trim()
 
     if plainer != "" and plainer != String.trim(title), do: plainer
-  end
-
-  # Enough for the operator to tell a rate limit from a bad token from an
-  # instance being down, without leaking a whole HTTP response into jsonb.
-  defp describe(reason) do
-    reason |> inspect() |> String.slice(0, 200)
   end
 
   @doc """
