@@ -36,3 +36,70 @@ defmodule Ambry.ImagesTest do
     end
   end
 end
+
+defmodule Ambry.ImagesImportTest do
+  use ExUnit.Case, async: false
+  use Patch
+
+  alias Ambry.Images
+  alias Ambry.Paths
+
+  describe "import_url/1" do
+    # The download used to accept only an allowlisted `content-type` header,
+    # and Hardcover labels every asset `application/octet-stream` — so a photo
+    # the person picker offered failed to import, quietly.
+    test "imports an image the server labels application/octet-stream" do
+      png = encoded(".png")
+      stub_get("application/octet-stream", png)
+
+      assert {:ok, "/uploads/images/" <> filename} =
+               Images.import_url("https://assets.hardcover.app/author/1/x.png")
+
+      on_exit(fn -> File.rm(Paths.images_disk_path(filename)) end)
+
+      assert Path.extname(filename) == ".png"
+      assert File.read!(Paths.images_disk_path(filename)) == png
+    end
+
+    # The bytes name the file, so a mislabeled download can't land under an
+    # extension that lies about its contents.
+    test "the extension comes from the bytes, not the header" do
+      jpeg = encoded(".jpg")
+      stub_get("image/png", jpeg)
+
+      assert {:ok, "/uploads/images/" <> filename} =
+               Images.import_url("https://example.com/author.png")
+
+      on_exit(fn -> File.rm(Paths.images_disk_path(filename)) end)
+
+      assert Path.extname(filename) == ".jpg"
+    end
+
+    test "bytes that are not an image are still a failed download" do
+      stub_get("image/png", "<html></html>")
+
+      assert {:error, :failed_to_download_image} =
+               Images.import_url("https://example.com/not-really.png")
+    end
+
+    test "a non-200 response is a failed download" do
+      patch(Req, :get, fn _opts -> {:ok, %Req.Response{status: 404, body: "Not Found"}} end)
+
+      assert {:error, :failed_to_download_image} =
+               Images.import_url("https://example.com/gone.png")
+    end
+
+    defp stub_get(content_type, body) do
+      patch(Req, :get, fn _opts ->
+        {:ok,
+         %Req.Response{status: 200, headers: %{"content-type" => [content_type]}, body: body}}
+      end)
+    end
+
+    defp encoded(suffix) do
+      {:ok, image} = Image.new(8, 8, color: :red)
+      {:ok, binary} = Image.write(image, :memory, suffix: suffix)
+      binary
+    end
+  end
+end
