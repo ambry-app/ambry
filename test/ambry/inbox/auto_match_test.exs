@@ -1387,6 +1387,88 @@ defmodule Ambry.Inbox.AutoMatchTest do
   # evidence and preference; people used to get a name string and nothing
   # else, which is why proposed people arrived with no face and no biography
   # and every import ended with a trip to the person form.
+  # The work and recording levels have ranked their candidates since they
+  # existed. People never did: the list was whatever order the providers were
+  # asked in, three hits each, so an obviously-wrong human sat above the right
+  # one — and because a proposal takes the FIRST candidate carrying a value,
+  # the wrong human's face and biography were the ones proposed.
+  describe "person_score/2 and rank_people/2" do
+    test "the same name, however it is spelled, is the best answer" do
+      assert AutoMatch.person_score("Brandon Sanderson", "Brandon Sanderson") == 1.0
+      assert AutoMatch.person_score("Émile Zola", "Emile Zola") == 1.0
+      assert AutoMatch.person_score("J.R.R. Tolkien", "JRR Tolkien") == 1.0
+    end
+
+    # The case Jaro gets backwards: measured, "Ty Franck" against "Tyler Corey
+    # Franck" scores lower than "Ty Franck" against a Corey mismatch.
+    test "a name contained in the other beats one that merely shares a word" do
+      contained = AutoMatch.person_score("Tyler Corey Franck", "Ty Franck")
+      # a different human who happens to share a surname — which is the floor
+      # `PersonSearch.plausible?/2` already filters at
+      shared = AutoMatch.person_score("Franck Ribéry", "Ty Franck")
+
+      assert contained > shared
+      assert shared > 0.0
+    end
+
+    # An author search keyed on book relevance returns the book's *author*
+    # when you search its narrator, and that name shares nothing with the one
+    # asked for.
+    test "a confidently-wrong hit from a book-relevance search scores nothing" do
+      assert AutoMatch.person_score("James S.A. Corey", "Jefferson Mays") == 0.0
+    end
+
+    # The measured case from `PersonSearch`'s moduledoc, which exact-token
+    # comparison misses: "Ty" is not a word of "Tyler Corey Franck".
+    test "a shortened first name is the same name" do
+      assert AutoMatch.person_score("Tyler Corey Franck", "Ty Franck") == 0.8
+      assert AutoMatch.person_score("Daniel Abraham", "Dan Abraham") == 0.8
+    end
+
+    test "nothing in common scores nothing" do
+      assert AutoMatch.person_score("Jefferson Mays", "Brandon Sanderson") == 0.0
+      assert AutoMatch.person_score(nil, "Brandon Sanderson") == 0.0
+    end
+
+    test "orders best first, whatever order the providers answered in" do
+      candidates = [
+        %{"name" => "James S.A. Corey", "id" => "wrong", "images" => ["a.jpg"]},
+        %{"name" => "Ty Franck", "id" => "right", "images" => ["b.jpg"]}
+      ]
+
+      assert [%{"id" => "right"}, %{"id" => "wrong"}] =
+               AutoMatch.rank_people(candidates, "Ty Franck")
+    end
+
+    # A face and a biography make a candidate both more useful and more likely
+    # to be the documented human.
+    test "an equally-named candidate with a photo and a bio comes first" do
+      candidates = [
+        %{"name" => "Brandon Sanderson", "id" => "bare", "images" => []},
+        %{
+          "name" => "Brandon Sanderson",
+          "id" => "full",
+          "images" => ["a.jpg"],
+          "description" => "Writes fantasy."
+        }
+      ]
+
+      assert [%{"id" => "full"}, %{"id" => "bare"}] =
+               AutoMatch.rank_people(candidates, "Brandon Sanderson")
+    end
+
+    # A re-search merges fresh records into a list staged before people were
+    # scored at all; sorting those to the bottom would bury records the
+    # operator may already have ticked.
+    test "records staged without a score are scored on the way through" do
+      held = [%{"name" => "Ty Franck", "id" => "held", "images" => []}]
+      found = [%{"name" => "James S.A. Corey", "id" => "found", "score" => 0.6, "images" => []}]
+
+      assert [%{"id" => "held"}, %{"id" => "found"}] =
+               AutoMatch.rank_people(held ++ found, "Ty Franck")
+    end
+  end
+
   describe "match/1 people" do
     setup do
       patch(Providers, :search_books, fn _id, _query, _opts -> {:ok, []} end)

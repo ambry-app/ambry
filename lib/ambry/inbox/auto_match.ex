@@ -462,13 +462,25 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   defp search_person(name, opts) do
-    Enum.reduce(PersonSearch.providers(), {[], []}, fn entry, {candidates, outcomes} ->
-      {matches, provider_outcomes} = PersonSearch.matches_with_outcome(entry, name, opts)
-      {candidates ++ Enum.map(matches, &person_candidate/1), outcomes ++ provider_outcomes}
-    end)
+    {candidates, outcomes} =
+      Enum.reduce(PersonSearch.providers(), {[], []}, fn entry, {candidates, outcomes} ->
+        {matches, provider_outcomes} = PersonSearch.matches_with_outcome(entry, name, opts)
+
+        {candidates ++ Enum.map(matches, &person_candidate(&1, name)),
+         outcomes ++ provider_outcomes}
+      end)
+
+    {rank_people(candidates, name), outcomes}
   end
 
-  defp person_candidate(%PersonSearch.Match{} = match) do
+  @doc """
+  One provider's answer about a human, scored against the name we asked for.
+
+  Shared with `Ambry.Inbox.Lookup`, which builds the same records when the
+  operator searches a person again — it had its own copy, which is how the
+  two drifted into one being scored and the other not.
+  """
+  def person_candidate(%PersonSearch.Match{} = match, asked_for) do
     %{
       "source" => "provider:#{match.provider_id}",
       "provider_name" => match.provider_name,
@@ -478,8 +490,84 @@ defmodule Ambry.Inbox.AutoMatch do
       # what tells two same-named humans apart in a grid — TMDB's known-for
       # credits, mostly
       "note" => presence(match.note),
-      "images" => match.images
+      "images" => match.images,
+      "score" => person_score(match.name, asked_for)
     }
+  end
+
+  @doc """
+  How well a returned name answers the name we asked about.
+
+  **Not a string distance.** Jaro cannot separate a legitimate variant from a
+  different human — measured, "Ty Franck" against "Tyler Corey Franck" scores
+  *lower* than "Ty Franck" against a Corey mismatch — so the ordering is by
+  what the names structurally share, which is the same reasoning
+  `author_agreement/2` already follows:
+
+    * `1.0` — the same name once accents and punctuation are folded away
+      (`person_key/1`), so "Émile Zola" and "Emile Zola" are one person
+    * `0.8` — one name's words are all inside the other's: "Ty Franck" within
+      "Tyler Corey Franck", the pen-name-and-full-name case
+    * `0.6` — they share a word, which is the floor `PersonSearch` already
+      filters at
+    * `0.0` — nothing shared, which a filtered search shouldn't return
+
+  Ties are common and are broken by usefulness rather than by nothing: a
+  candidate carrying a photo and a biography is both more useful to the
+  operator and more likely to be the documented human, and a stable sort
+  leaves the operator's provider priority deciding the rest.
+  """
+  def person_score(name, asked_for) do
+    wanted = name_tokens(asked_for)
+    got = name_tokens(name)
+
+    cond do
+      person_key(name || "") == person_key(asked_for || "") -> 1.0
+      Enum.empty?(wanted) or Enum.empty?(got) -> 0.0
+      covered?(wanted, got) or covered?(got, wanted) -> 0.8
+      Enum.any?(wanted, fn word -> Enum.any?(got, &same_word?(&1, word)) end) -> 0.6
+      true -> 0.0
+    end
+  end
+
+  # Every word on one side answered by a word on the other.
+  defp covered?(words, others),
+    do: Enum.all?(words, fn word -> Enum.any?(others, &same_word?(&1, word)) end)
+
+  # A shortening is the same word: "Ty" is how Tyler Corey Franck is credited,
+  # and "Dan" is Daniel. Exact-token comparison missed exactly the case this
+  # scoring exists for, which is the one `Ambry.Metadata.PersonSearch`'s
+  # moduledoc names. Words under two characters were already dropped, so this
+  # can't collapse initials onto everything.
+  defp same_word?(word, other),
+    do: String.starts_with?(word, other) or String.starts_with?(other, word)
+
+  @doc """
+  People, best answer first.
+
+  The work and recording levels have ranked their candidates since they
+  existed; the person level never did, so the list was whatever order the
+  providers happened to be asked in — and the operator saw plainly wrong
+  humans above the right one.
+
+  Scores anything arriving without one, because a re-search merges fresh
+  records into a list staged before people were scored at all, and sorting
+  those to the bottom would bury records the operator may already have
+  ticked.
+  """
+  def rank_people(candidates, asked_for) do
+    candidates
+    |> Enum.map(fn candidate ->
+      Map.put_new_lazy(candidate, "score", fn -> person_score(candidate["name"], asked_for) end)
+    end)
+    |> Enum.sort_by(&{&1["score"] || 0.0, person_substance(&1)}, :desc)
+  end
+
+  # A face and a biography, as a tie-break between equally-named candidates.
+  defp person_substance(candidate) do
+    has_image = if candidate["images"] in [nil, []], do: 0, else: 1
+    has_bio = if presence(candidate["description"]), do: 1, else: 0
+    has_image + has_bio
   end
 
   # **Everyone any plausible reading of the evidence would credit**, which is

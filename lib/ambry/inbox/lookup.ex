@@ -217,20 +217,9 @@ defmodule Ambry.Inbox.Lookup do
 
       name ->
         {matches, outcomes} = Search.people(name)
-        update_person(item, key, name, Enum.map(matches, &person_record/1), outcomes)
+        found = Enum.map(matches, &AutoMatch.person_candidate(&1, name))
+        update_person(item, key, name, found, outcomes)
     end
-  end
-
-  defp person_record(match) do
-    %{
-      "source" => "provider:#{match.provider_id}",
-      "provider_name" => match.provider_name,
-      "id" => to_string(match.id),
-      "name" => match.name,
-      "description" => match.description,
-      "note" => match.note,
-      "images" => match.images
-    }
   end
 
   defp update_person(%InboxItem{} = item, key, name, found, outcomes) do
@@ -245,8 +234,11 @@ defmodule Ambry.Inbox.Lookup do
       |> Map.put("name", name)
       |> Map.put(
         "candidates",
-        (Map.get(held, "candidates", []) || []) ++
-          Enum.reject(found, &MapSet.member?(known, AutoMatch.ref(&1)))
+        AutoMatch.rank_people(
+          (Map.get(held, "candidates", []) || []) ++
+            Enum.reject(found, &MapSet.member?(known, AutoMatch.ref(&1))),
+          name
+        )
       )
       |> Map.put("providers", outcomes)
 
