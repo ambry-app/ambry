@@ -24,6 +24,28 @@ defmodule Ambry.Inbox do
 
   That's measured against a real downloads tree rather than assumed — see
   `directory_candidate/1`.
+
+  ## What a scan may change, and what it may not
+
+  The walk runs hourly over folders the operator is working in, so what it
+  is *allowed* to do matters more than what it finds. **Ownership decides,
+  not the walk**: every file the queue or the library already holds belongs
+  to something, and the grouping the walk proposes is consulted only for
+  files that belong to nothing.
+
+  A scan may therefore do exactly three things:
+
+    * create items from files nothing owns,
+    * give an unowned file to the item that owns the folder above it,
+    * drop a file that is gone from its owner (which marks that item's draft
+      stale, since the draft describes files that moved under it).
+
+  It may never move a file from one item to another, and it never touches an
+  imported item at all. That is what makes a split durable without a marker:
+  once the operator says five folders are five releases, the files are owned,
+  and re-walking the folder that holds them has nothing to say. It is a
+  property of the construction rather than a rule the code has to remember —
+  `record_candidate/3` groups by owner before it looks at anything else.
   """
 
   use Boundary,
@@ -183,13 +205,12 @@ defmodule Ambry.Inbox do
 
   defp scan(root, source) do
     if File.dir?(root) do
-      known = known_paths()
-      imported = imported_files()
+      ledger = ledger()
 
       results =
         root
         |> candidates()
-        |> Enum.flat_map(&List.wrap(record_candidate(&1, known, imported, source)))
+        |> Enum.flat_map(&List.wrap(record_candidate(&1, ledger, source)))
 
       {:ok,
        %{
@@ -1049,66 +1070,65 @@ defmodule Ambry.Inbox do
     path |> Path.extname() |> String.downcase() |> Kernel.in(Scanner.extensions())
   end
 
-  defp record_candidate({path, files}, known, imported, source) do
+  @doc false
+  # **Ownership decides, not the walk.** Every file the queue or the library
+  # already holds belongs to something, and a scan's only job is to find the
+  # ones that don't. Which release a *known* file belongs to is settled — the
+  # operator may have split its folder into five, or into thirty-five, and no
+  # amount of re-walking that folder is allowed to have an opinion about it.
+  #
+  # That is the whole of the safety property, and it is structural: this
+  # groups the candidate's files by who owns them *before* looking at
+  # anything, so the grouping the walk proposes is only ever consulted for
+  # files with no owner at all.
+  defp record_candidate({path, files}, ledger, source) do
+    files
+    |> Enum.group_by(&owner_of(&1, ledger))
+    |> Enum.flat_map(fn
+      {nil, orphans} -> List.wrap(adopt(path, files, orphans, source))
+      {:library, _theirs} -> [:skipped]
+      {%InboxItem{} = item, theirs} -> [refresh_owner(item, theirs, source)]
+    end)
+  end
+
+  # A file's owner, in the order that decides it: the item that already lists
+  # it, the library, then the nearest item *above* it — which is how a file
+  # that appears in a known release folder joins that release rather than
+  # becoming an item of its own.
+  defp owner_of(file, ledger) do
     cond do
-      Enum.any?(files, &MapSet.member?(imported, &1)) ->
-        :skipped
-
-      # The operator split this folder: a finer partition already exists.
-      # Respect it — re-recording the folder whole would re-merge what they
-      # just took apart, an hour later, silently. Tested *before* the
-      # same-path branch below, because a folder split can leave a child on
-      # the folder's own path (a stray file beside the subfolders), and
-      # refreshing that one with everything underneath is precisely the merge
-      # this exists to prevent.
-      children = partition_of(path, known) ->
-        refresh_partition(path, files, children, known, imported, source)
-
-      item = Map.get(known, path) ->
-        refresh_known(item, files, source)
-
-      true ->
-        create_item(path, files, source)
+      item = ledger.by_file[file] -> item
+      MapSet.member?(ledger.library, file) -> :library
+      item = nearest_owner(file, ledger.by_path) -> item
+      true -> nil
     end
   end
 
-  # The items the operator's own split left inside this folder, at whatever
-  # grain they chose: a per-file split leaves children keyed by file, a
-  # per-folder split by folder, and both are simply paths underneath.
-  defp partition_of(path, known) do
-    case Enum.filter(known, fn {child, _item} -> under?(child, path) end) do
-      [] -> nil
-      children -> Enum.map(children, fn {_path, item} -> item end)
-    end
+  # Walked up from the file rather than searched across every item: depth is
+  # single digits, the item list is hundreds, and this runs per file.
+  defp nearest_owner(file, by_path) do
+    file
+    |> Stream.unfold(fn
+      path when path in ["/", ".", ""] -> nil
+      path -> {Path.dirname(path), Path.dirname(path)}
+    end)
+    |> Enum.find_value(&Map.get(by_path, &1))
   end
 
-  # Each file goes to the *deepest* child that holds it, so a folder-split
-  # series gives every book folder its own files and a stray file at the top
-  # stays with whatever owns the top. A file no child claims becomes its own
-  # item — unless something already holds this folder itself, in which case
-  # the leftovers are its.
-  defp refresh_partition(path, files, children, known, imported, source) do
-    claimed = Enum.group_by(files, &claimant(&1, children))
-    refreshed = Enum.map(children, &refresh_known(&1, Map.get(claimed, &1.path, []), source))
-    leftover = Map.get(claimed, nil, [])
+  # An imported item is the record of what was imported; its source files may
+  # not even be where they were. Nothing about a scan may touch it.
+  defp refresh_owner(%InboxItem{status: :imported}, _files, _source), do: :skipped
+  defp refresh_owner(%InboxItem{} = item, files, source), do: refresh_known(item, files, source)
 
-    case Map.get(known, path) do
-      nil ->
-        refreshed ++ Enum.map(leftover, &record_candidate({&1, [&1]}, known, imported, source))
+  # Nobody owns these. A candidate that is entirely unowned is a release, at
+  # the grain the walk proposes; anything left over in a folder that is
+  # *partly* owned goes to the finest grain there is, because something has
+  # already declared that folder to be more than one release.
+  defp adopt(path, files, orphans, source) when files == orphans,
+    do: create_item(path, orphans, source)
 
-      item ->
-        refreshed ++ [refresh_known(item, leftover, source)]
-    end
-  end
-
-  defp claimant(file, children) do
-    children
-    |> Enum.filter(&(file == &1.path or under?(file, &1.path)))
-    |> Enum.max_by(&String.length(&1.path), fn -> nil end)
-    |> then(&(&1 && &1.path))
-  end
-
-  defp under?(path, parent), do: String.starts_with?(path, parent <> "/")
+  defp adopt(_path, _files, orphans, source),
+    do: Enum.map(orphans, &create_item(&1, [&1], source))
 
   # A known item's files can legitimately change (a torrent finished, a file
   # was replaced). Its status is left alone: ignored stays ignored.
@@ -1165,8 +1185,19 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp known_paths do
-    InboxItem |> select([i], {i.path, i}) |> Repo.all() |> Map.new()
+  # Who owns what, read once per scan.
+  #
+  # `by_file` is the authority — an item's own list of files — and `by_path`
+  # only answers for files nothing has claimed yet, so a new file in a known
+  # folder joins the item that holds the folder.
+  defp ledger do
+    items = Repo.all(InboxItem)
+
+    %{
+      by_file: for(item <- items, file <- item.files, into: %{}, do: {file, item}),
+      by_path: Map.new(items, &{&1.path, &1}),
+      library: imported_files()
+    }
   end
 
   # Files the library already has, by either route: a direct-play track or a
