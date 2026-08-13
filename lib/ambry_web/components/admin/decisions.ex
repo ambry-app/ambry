@@ -356,12 +356,24 @@ defmodule AmbryWeb.Admin.Decisions do
 
   attr :at, :string, required: true, doc: "where this renders — DOM ids key on place, not person"
   attr :person_key, :string, required: true
-  attr :name, :string, default: nil
+
+  attr :name, :string,
+    default: nil,
+    doc: "the name these records were searched for — not the person's own name"
+
   attr :running, :boolean, default: false
 
   @doc """
   The person level's search-again form — the work-level pattern with a name
   where the work has title and author.
+
+  The box holds the *query*, exactly as the work level's holds `query_fields`.
+  It used to render the person's name decision, so searching for anything else
+  worked and then snapped back to the pre-filled name the moment the results
+  landed — the one moment the operator needs to see what produced them. The
+  two are genuinely different questions: searching "Robert Galbraith" for a
+  person the import will create as "J.K. Rowling" is the case this form is
+  for, and neither answer should overwrite the other.
   """
   def person_research_form(assigns) do
     ~H"""
@@ -959,6 +971,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :appears, :list, default: []
   attr :people, :list, default: [], doc: "the library's people, for the typeahead"
 
+  attr :query_name, :string,
+    default: nil,
+    doc: "the name these records were searched for; falls back to the person's own"
+
   @doc """
   One human this import will create, as a decision card of their own.
 
@@ -1160,6 +1176,7 @@ defmodule AmbryWeb.Admin.Decisions do
           expanded={@photos_expanded}
           records={@records}
           outcomes={@outcomes}
+          query_name={@query_name}
         />
       </div>
     </div>
@@ -1304,6 +1321,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :records, :list, default: [], doc: "the provider records of people by this name"
   attr :outcomes, :list, default: [], doc: "what each person provider said when asked"
 
+  attr :query_name, :string,
+    default: nil,
+    doc: "the name these records were searched for; falls back to the person's own"
+
   # Enough to see there are alternatives without the row becoming a contact
   # sheet. TMDB keeps every headshot anyone has uploaded and a working actor
   # can have dozens.
@@ -1390,7 +1411,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <.person_research_form
         at={@at}
         person_key={@person.key}
-        name={Field.value(@person.name)}
+        name={@query_name || Field.value(@person.name)}
         running={@searching}
       />
 

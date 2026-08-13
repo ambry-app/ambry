@@ -680,6 +680,7 @@
               records={person_records(@item, person.key)}
               locals={person_locals(@item, person.key)}
               outcomes={person_outcomes(@item, person.key)}
+              query_name={person_query_name(@item, person.key)}
               appears={@appearances[person.key] || []}
               people={@people}
             />
@@ -696,6 +697,7 @@
             records={person_records(@item, hd(group.people).key)}
             locals={person_locals(@item, hd(group.people).key)}
             outcomes={person_outcomes(@item, hd(group.people).key)}
+            query_name={person_query_name(@item, hd(group.people).key)}
             appears={@appearances[hd(group.people).key] || []}
             people={@people}
           />

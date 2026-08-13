@@ -1133,6 +1133,32 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert person.description.source == "provider:wikidata"
     end
 
+    # The box holds the query, the way the work level's holds `query_fields`.
+    # It rendered the person's name decision instead, so a search for anything
+    # else worked and then snapped back the moment the results landed — at
+    # the one moment the operator needs to see what produced them.
+    test "the search box keeps the name that was searched for", %{conn: conn} do
+      patch_person_search()
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("form#research-person-work-0-0")
+      |> render_submit(%{"key" => "brandonsanderson", "name" => "Robert Galbraith"})
+
+      render_async(view)
+
+      assert view
+             |> render()
+             |> Floki.parse_document!()
+             |> Floki.find("form#research-person-work-0-0 input[name='name']")
+             |> Floki.attribute("value") == ["Robert Galbraith"]
+
+      # and the person is still the person: a query is not a rename
+      assert Field.value(person_keyed(item, "brandonsanderson").name) == "Brandon Sanderson"
+    end
+
     # A person the matcher doubted is seeded unapproved, and until this the
     # only control in the whole form that could approve one was linking them
     # to somebody already in the library — 96 of the operator's 344 queued

@@ -217,6 +217,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   """
   def person_locals(item, key), do: get_in(item.matches, ["people", key, "local"]) || []
 
+  @doc """
+  The name this person's records were searched for.
+
+  The person level's `query_fields`: seeded by matching with the credited
+  name and rewritten by every re-search, so the search box can hold the query
+  rather than the person's name decision — which is a different answer and
+  was snapping the box back the moment results arrived.
+  """
+  def person_query_name(item, key), do: get_in(item.matches, ["people", key, "name"])
+
   @impl Phoenix.LiveView
   def handle_event("validate", %{"inbox_item" => params}, socket) do
     params = curate_chapter_params(params, socket.assigns.item)
