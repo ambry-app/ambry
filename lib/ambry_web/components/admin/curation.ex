@@ -76,33 +76,11 @@ defmodule AmbryWeb.Admin.Curation do
         {@hint}
       </p>
 
+      <%!-- The query, then who answered, then what they said — the import
+          form's grammar, because a card of search results is a search form
+          with its results below it. Both surfaces had it upside down, with
+          the search under the records it produced. --%>
       <div class="mt-2 space-y-2 rounded-lg bg-zinc-900 p-4">
-        <.record_list records={@evidence.records} used={&Evidence.used?(@evidence, &1)}>
-          <:row :let={record}>
-            <.record_row
-              record={record}
-              used={Evidence.used?(@evidence, record)}
-              level={@level}
-              event="toggle-evidence"
-              note={Evidence.note(@evidence, record)}
-            />
-          </:row>
-        </.record_list>
-
-        <p
-          :if={@evidence.searched? and not @evidence.running? and @evidence.records == []}
-          class="pl-3 text-sm text-zinc-400"
-        >
-          Nothing came back. Try different words.
-        </p>
-
-        <.provider_outcomes_row
-          outcomes={@evidence.outcomes}
-          level={@level}
-          retrying={@retrying}
-          retryable={@level != "person"}
-        />
-
         <.research_form
           :if={@level != "person"}
           level={@level}
@@ -137,6 +115,32 @@ defmodule AmbryWeb.Admin.Curation do
             end}
           </.button>
         </form>
+
+        <.provider_outcomes_row
+          outcomes={@evidence.outcomes}
+          level={@level}
+          retrying={@retrying}
+          retryable={@level != "person"}
+        />
+
+        <.record_list records={@evidence.records} used={&Evidence.used?(@evidence, &1)}>
+          <:row :let={record}>
+            <.record_row
+              record={record}
+              used={Evidence.used?(@evidence, record)}
+              level={@level}
+              event="toggle-evidence"
+              note={Evidence.note(@evidence, record)}
+            />
+          </:row>
+        </.record_list>
+
+        <p
+          :if={@evidence.searched? and not @evidence.running? and @evidence.records == []}
+          class="pl-3 text-sm text-zinc-400"
+        >
+          Nothing came back. Try different words.
+        </p>
       </div>
     </.disclosure>
     """
@@ -230,7 +234,7 @@ defmodule AmbryWeb.Admin.Curation do
     ~H"""
     <div
       :if={@proposals != []}
-      class={["grid-cols-[4.5rem_minmax(0,1fr)] grid gap-x-2 pl-3", (@images? && "items-start") || "items-baseline"]}
+      class={["grid-cols-[4rem_minmax(0,1fr)] grid gap-x-2 pl-3", (@images? && "items-start") || "items-baseline"]}
       data-role="proposals"
     >
       <.microlabel class={@images? && "pt-1.5"}>Proposed</.microlabel>

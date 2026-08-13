@@ -49,10 +49,12 @@ defmodule AmbryWeb.Admin.Decisions do
     ~H"""
     <div
       :if={@outcomes != []}
-      class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+      class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       data-role="provider-outcomes"
     >
-      <.microlabel>Asked</.microlabel>
+      <%!-- Named for what it is now that it sits under the search rather than
+            after the records: these are what the search came back with. --%>
+      <.microlabel>Results</.microlabel>
 
       <div class="flex flex-wrap items-center gap-1.5">
         <%!-- A count is information, not an option — filled and quiet, so it
@@ -95,42 +97,6 @@ defmodule AmbryWeb.Admin.Decisions do
       </div>
     </div>
     """
-  end
-
-  attr :query, :string, default: nil
-  attr :fields, :map, default: %{}
-
-  @doc """
-  The search that produced this level's candidates.
-
-  Shown because the first question anyone asks a bad match is "what did you
-  even search for?" — and the answer is not obvious: the hints come from tags
-  first and the release name second, so a wrong author in an ID3 frame sends
-  the whole level somewhere strange with no visible cause.
-  """
-  def query_row(assigns) do
-    ~H"""
-    <div :if={@query || @fields != %{}} class="pl-3 text-xs text-zinc-400" data-role="query">
-      <span>Searched for</span>
-      <span :for={{key, value} <- ordered_fields(@fields)} class="ml-1">
-        <span class="text-zinc-400">{key}:</span>
-        <span class="font-mono text-zinc-400">{value}</span>
-      </span>
-      <span :if={@fields == %{}} class="font-mono ml-1 text-zinc-400">{@query}</span>
-      <p class="pt-0.5">
-        A provider whose narrow search comes back empty may widen it, so what matched can be broader
-        than this.
-      </p>
-    </div>
-    """
-  end
-
-  # Same order every time, and the order the query is actually built in.
-  defp ordered_fields(fields) do
-    for key <- ~w(title author narrator keywords),
-        value = fields[key],
-        value not in [nil, ""],
-        do: {key, value}
   end
 
   # Where a candidate stops being an alternative and starts being noise. Sits
@@ -273,16 +239,35 @@ defmodule AmbryWeb.Admin.Decisions do
         </span>
       </span>
       <div class="min-w-0 flex-grow">
-        <p class="flex items-baseline gap-2 truncate text-sm font-medium">
-          {candidate_title(@record)}
+        <%!-- Which database said this is the first thing an operator checks,
+              and it used to ride at the end of the facts line, where it was
+              the first thing truncation took. It is a fact about the record
+              rather than one of the record's own, so it wears the badge
+              costume and holds its width; the title gives way instead. --%>
+        <%!-- A div, not a p: `<.badge>` renders a div, and a div inside a
+              paragraph makes the parser close the paragraph early — which
+              put the badge on a line of its own instead of beside the
+              title. --%>
+        <div class="flex items-baseline gap-2 text-sm font-medium">
+          <span class="min-w-0 truncate">{candidate_title(@record)}</span>
+
           <span
             :if={@note}
-            class="bg-brand-dark/15 rounded-sm px-1.5 text-xs font-normal text-lime-300"
+            class="bg-brand-dark/15 flex-none rounded-sm px-1.5 text-xs font-normal text-lime-300"
             data-role="record-note"
           >
             {@note}
           </span>
-        </p>
+
+          <.badge
+            :if={candidate_origin(@record)}
+            color={:gray}
+            class="flex-none text-xs font-normal"
+            data-role="record-source"
+          >
+            {candidate_origin(@record)}
+          </.badge>
+        </div>
         <p class="truncate text-xs text-zinc-400">{candidate_facts(@record)}</p>
       </div>
       <span :if={@working} class="flex-none pt-0.5 text-xs text-zinc-400">
@@ -339,7 +324,18 @@ defmodule AmbryWeb.Admin.Decisions do
       data-linked={@linked && "true"}
     >
       <div class="min-w-0 flex-grow">
-        <p class="truncate text-sm font-semibold">{candidate_title(@book)}</p>
+        <div class="flex items-baseline gap-2 text-sm font-semibold">
+          <span class="min-w-0 truncate">{candidate_title(@book)}</span>
+
+          <.badge
+            :if={candidate_origin(@book)}
+            color={:gray}
+            class="flex-none text-xs font-normal"
+            data-role="record-source"
+          >
+            {candidate_origin(@book)}
+          </.badge>
+        </div>
         <p class="truncate text-xs text-zinc-400">{candidate_facts(@book)}</p>
       </div>
 
@@ -469,6 +465,12 @@ defmodule AmbryWeb.Admin.Decisions do
 
   Narrator and year lead because they are what tell two recordings of one work
   apart — the whole reason the recording level exists.
+
+  **Which database said so is not one of them.** It rode at the end of this
+  line for a while, which is precisely where a truncated line loses it: the
+  facts are what tell two records apart, the source is what the operator
+  weighs them by, and it belongs to the row rather than to the sentence. It
+  renders as a badge beside the title.
   """
   def candidate_facts(candidate) do
     [
@@ -482,7 +484,6 @@ defmodule AmbryWeb.Admin.Decisions do
       candidate["publisher"],
       series_line(candidate["series"]),
       candidate["asin"],
-      candidate_origin(candidate),
       candidate["also_from"] not in [nil, []] &&
         "also #{Enum.join(List.wrap(candidate["also_from"]), ", ")}"
     ]
@@ -660,7 +661,7 @@ defmodule AmbryWeb.Admin.Decisions do
           label on the first image's bottom edge. --%>
       <div
         :if={@field.candidates != []}
-        class={["grid-cols-[4.5rem_minmax(0,1fr)] grid gap-x-2 pl-3", (@preview && "items-start") || "items-baseline"]}
+        class={["grid-cols-[4rem_minmax(0,1fr)] grid gap-x-2 pl-3", (@preview && "items-start") || "items-baseline"]}
       >
         <.microlabel class={@preview && "pt-1.5"}>Proposed</.microlabel>
 
@@ -925,7 +926,7 @@ defmodule AmbryWeb.Admin.Decisions do
           @credit.mode == :create && @credit.proposed_name &&
             @credit.proposed_name != @credit.name
         }
-        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+        class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       >
         <.microlabel>Proposed</.microlabel>
         <div class="flex flex-wrap items-center gap-1.5">
@@ -1515,7 +1516,7 @@ defmodule AmbryWeb.Admin.Decisions do
           </div>
         </div>
 
-        <div :if={@bios != []} class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3">
+        <div :if={@bios != []} class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3">
           <.microlabel>Proposed</.microlabel>
 
           <div
@@ -1809,7 +1810,7 @@ defmodule AmbryWeb.Admin.Decisions do
             stays reachable after a rename or a clear. --%>
       <div
         :if={@link.mode == :create && @link.proposed_name && @link.proposed_name != @link.name}
-        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+        class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       >
         <.microlabel>Proposed</.microlabel>
         <div class="flex flex-wrap items-center gap-1.5">
@@ -1970,7 +1971,7 @@ defmodule AmbryWeb.Admin.Decisions do
             stays reachable after a rename or a clear. --%>
       <div
         :if={@link.mode == :create && @link.proposed_name && @link.proposed_name != @link.name}
-        class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+        class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       >
         <.microlabel>Proposed</.microlabel>
         <div class="flex flex-wrap items-center gap-1.5">

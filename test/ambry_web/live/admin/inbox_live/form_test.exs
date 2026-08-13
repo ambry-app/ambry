@@ -1038,9 +1038,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      view
-      |> element("button[phx-click='add-person'][phx-value-section='work'][phx-value-index='0']")
-      |> render_click()
+      add_second_person(view, "brandonsanderson")
 
       assert view
              |> render()
@@ -1437,7 +1435,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
       assert html =~ "Part of a set"
-      assert html =~ "not part of a set"
+      assert html =~ "Not part of a set."
 
       view |> element("button", "This audiobook is part of a set") |> render_click()
 

@@ -165,9 +165,14 @@ operator mostly doesn't need (evidence panels, file stats), not for the
 thing a section exists to edit.
 
 **One label column for annotated rows.** Any run of "label: value" rows
-(match lines, `Proposed`/`Asked` rows, the source line) shares a fixed label
-column via grid (`grid-cols-[<w>_minmax(0,1fr)]`), sized once per surface;
-wrapped content stays in the value column.
+(match lines, `Proposed`/`Results` rows, the source line) shares a fixed label
+column via grid (`grid-cols-[4rem_minmax(0,1fr)]`), sized once per surface;
+wrapped content stays in the value column. The width is the *widest label in
+the family* and nothing more — `Proposed` at 11px uppercase is a shade under
+4rem, and the column was 4.5rem for a while, which left the short ones
+(`Results`, `Photos`) sitting in a lake of air. The alignment is the point,
+so the answer is to size the column honestly, never to give each row its own
+width: `max-content` in separate grids lines nothing up at all.
 
 **A proposal-chip row is one line or a list, never a partial wrap.** A row
 that breaks just its last chip reads as an accident; either every chip

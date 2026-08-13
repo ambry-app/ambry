@@ -141,9 +141,7 @@
 
       <%!-- ==================== THE WORK ==================== --%>
       <section id="work" class="space-y-7" inert={@read_only}>
-        <h2 class="text-xl font-bold text-zinc-100">
-          The book
-        </h2>
+        <h2 class="text-xl font-bold text-zinc-100">Book</h2>
 
         <%!-- Evidence first, then the decisions it feeds (§9): what the
             databases say this is, before "do I already have it?". The records
@@ -157,9 +155,27 @@
               stays in the tooltip, where it is history rather than state. --%>
           <div class="flex items-baseline gap-2 pl-3">
             <.label title={@item.draft.work.confidence && "match score #{@item.draft.work.confidence}"}>
-              Records describing this book
+              Provider records
             </.label>
           </div>
+
+          <%!-- The query, then who answered, then what they said. The search
+              that produced these records was folded away under the results it
+              produced, which reads backwards: a card of search results is a
+              search form with results below it. Editable in place, so the
+              wrong tag that sent this somewhere strange is visible and
+              fixable without opening anything. --%>
+          <.research_form
+            level="work"
+            fields={@item.draft.work.query_fields}
+            running={@researching == "work"}
+          />
+
+          <.provider_outcomes_row
+            outcomes={provider_outcomes(@item, "work")}
+            level="work"
+            retrying={@retrying}
+          />
 
           <%!-- Same as the recording level: a doubted match adopts nothing, and
               "found nothing" versus "found something we don't believe" have to
@@ -172,27 +188,8 @@
             {doubt_message(@item.draft.work)}
           </p>
 
-          <p
-            :if={records(@item, "work") != [] and @item.draft.work.mode == :create}
-            class="max-w-prose pl-3 text-sm text-zinc-400"
-          >
-            Tick every record that describes this book. Ticking more than one is fine; each can
-            fill different fields.
-          </p>
-
-          <%!-- A linked book takes nothing from these records; they matter
-              because ticking one asks its databases for audio editions,
-              which is the route to a delisted recording. --%>
-          <p
-            :if={records(@item, "work") != [] and @item.draft.work.mode == :link}
-            class="max-w-prose pl-3 text-sm text-zinc-400"
-          >
-            Tick every record that describes this book. Ticked records are asked for their audio
-            editions, which feed the audiobook matches below.
-          </p>
-
-          <p :if={records(@item, "work") == []} class="max-w-prose pl-3 text-sm text-zinc-400">
-            No provider had a record of this. The fields below come from the file's own tags.
+          <p :if={records(@item, "work") == []} class="pl-3 text-sm text-zinc-400">
+            No provider had a record of this.
           </p>
 
           <.record_list
@@ -243,10 +240,6 @@
           <div class="flex items-baseline gap-2 pl-3">
             <.label>Is this a book you already have?</.label>
           </div>
-
-          <p class="max-w-prose pl-3 text-sm text-zinc-400">
-            If so, this import becomes another edition of that book.
-          </p>
 
           <.local_book_row
             :for={book <- local_records(@item, "work")}
@@ -348,7 +341,6 @@
                 form={work}
                 type="date"
                 control_class="max-w-48"
-                hint="The book's original publication date, not this audiobook's own date."
                 field={@item.draft.work.published}
               />
             </.inputs_for>
@@ -404,9 +396,7 @@
 
       <%!-- ==================== THE RECORDING ==================== --%>
       <section id="recording" class="space-y-7" inert={@read_only}>
-        <h2 class="text-xl font-bold text-zinc-100">
-          The audiobook
-        </h2>
+        <h2 class="text-xl font-bold text-zinc-100">Audiobook</h2>
 
         <div class={[
           "space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
@@ -417,9 +407,21 @@
               @item.draft.recording.confidence &&
                 "match score #{@item.draft.recording.confidence}"
             }>
-              Records describing this audiobook
+              Provider records
             </.label>
           </div>
+
+          <.research_form
+            level="recording"
+            fields={@item.draft.recording.query_fields}
+            running={@researching == "recording"}
+          />
+
+          <.provider_outcomes_row
+            outcomes={provider_outcomes(@item, "recording")}
+            level="recording"
+            retrying={@retrying}
+          />
 
           <%!-- A doubted match used to be indistinguishable from no match at
               all: both left every field empty and said nothing. The reason is
@@ -430,11 +432,6 @@
             data-role="doubt"
           >
             {doubt_message(@item.draft.recording)}
-          </p>
-
-          <p :if={records(@item, "recording") != []} class="max-w-prose pl-3 text-sm text-zinc-400">
-            Tick every record of <span class="font-semibold">this exact reading</span>. Check the
-            narrator first; that is what tells two audiobooks of one book apart.
           </p>
 
           <.record_list
@@ -450,12 +447,6 @@
               />
             </:row>
           </.record_list>
-
-          <.provider_outcomes_row
-            outcomes={provider_outcomes(@item, "recording")}
-            level="recording"
-            retrying={@retrying}
-          />
 
           <div class="flex flex-wrap items-center gap-2 pt-1">
             <%!-- px-[11px]: 1px border + 11px puts the label on the 12px text
@@ -477,20 +468,6 @@
               None of these
             </button>
           </div>
-
-          <.disclosure summary="Not what you're looking for? Search again">
-            <div class="pt-2">
-              <.research_form
-                level="recording"
-                fields={@item.draft.recording.query_fields}
-                running={@researching == "recording"}
-              />
-            </div>
-          </.disclosure>
-
-          <p class="pl-3 text-xs text-zinc-400">
-            Every import creates a new audiobook.
-          </p>
         </div>
 
         <.simple_form
@@ -509,8 +486,6 @@
                 form={recording}
                 control_class="max-w-xl"
                 placeholder="only if it differs from the book's title"
-                hint={"Leave empty unless this reading has its own title, " <>
-                "like \"The Way of Kings (1 of 3)\"."}
                 field={@item.draft.recording.title}
               />
 
@@ -521,7 +496,6 @@
                 form={recording}
                 type="date"
                 control_class="max-w-48"
-                hint="When this reading was published, which is rarely the book's own date."
                 field={@item.draft.recording.published}
               />
 
@@ -542,7 +516,6 @@
                 placeholder="image URL"
                 preview={true}
                 embedded_src={~p"/admin/inbox/#{@item}/embedded-cover"}
-                hint="Audiobook art is square; a portrait jacket is a print cover."
                 field={@item.draft.recording.cover}
               />
 
@@ -564,10 +537,7 @@
         <div class="space-y-2">
           <div :if={group_absent?(@item.draft)} class="space-y-2 rounded-lg bg-zinc-900 p-4">
             <.label class="pl-3">Part of a set</.label>
-            <p class="pl-3 text-sm text-zinc-400">
-              Most audiobooks are not part of a set. Sets are for GraphicAudio-style
-              "Part 1 of 2" releases and episodic seasons.
-            </p>
+            <p class="pl-3 text-sm text-zinc-400">Not part of a set.</p>
           </div>
 
           <.group_row

@@ -298,7 +298,7 @@ defmodule AmbryWeb.Admin.ChapterEditor do
     ~H"""
     <div
       :if={@chips != []}
-      class="grid-cols-[4.5rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
+      class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       data-role="proposals"
     >
       <.microlabel>Proposed</.microlabel>
