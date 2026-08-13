@@ -185,7 +185,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert draft.work.sources == []
       # nothing was adopted, so the title is a decision rather than a wrong answer
       refute draft.work.title.value == "Something Else"
-      assert Enum.any?(Draft.unresolved(draft), &(&1.label =~ "records describe this book"))
+      assert Enum.any?(Draft.unresolved(draft), &(&1.label == "Book records"))
     end
 
     # The doubt asks "which records describe this book". Ticking one is the
@@ -204,13 +204,13 @@ defmodule Ambry.Inbox.DraftTest do
       {:ok, item} = Inbox.prepare_draft(item)
 
       assert item.draft.work.doubt == :low_confidence
-      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label =~ "records describe this book"))
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.label == "Book records"))
 
       ticked =
         Draft.Edit.toggle_source(item.draft, item, :work, Enum.at(candidates, 1))
 
       assert ticked.work.doubt == :none
-      refute Enum.any?(Draft.unresolved(ticked), &(&1.label =~ "records describe this book"))
+      refute Enum.any?(Draft.unresolved(ticked), &(&1.label == "Provider records"))
 
       # and un-ticking the last one puts the question back
       untangled = Draft.Edit.toggle_source(ticked, item, :work, Enum.at(candidates, 1))
@@ -937,7 +937,7 @@ defmodule Ambry.Inbox.DraftTest do
 
       assert Enum.any?(
                Draft.unresolved(draft),
-               &(&1.label =~ "describe this recording" and &1.state == :unconfirmed)
+               &(&1.label == "Audiobook records" and &1.state == :unconfirmed)
              )
     end
 

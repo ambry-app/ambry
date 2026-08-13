@@ -147,7 +147,7 @@ defmodule Ambry.Inbox.Lookup do
 
     item
     |> update_records(level, &(&1 |> add(found) |> refine(item, level, hints)))
-    |> update_outcomes(level, [outcome])
+    |> update_outcomes(level, List.wrap(outcome), clear: Outcome.id(entry.id, :search))
   end
 
   # Every record of this provider's that matching meant to hydrate, not just
@@ -173,7 +173,9 @@ defmodule Ambry.Inbox.Lookup do
 
     item
     |> update_records(level, fn _existing -> records end)
-    |> update_outcomes(level, AutoMatch.tally_outcomes(outcomes))
+    |> update_outcomes(level, AutoMatch.tally_outcomes(outcomes),
+      clear: Outcome.id(entry.id, :details)
+    )
   end
 
   # Editions hang off the work records, whatever level the chip was rendered
@@ -192,7 +194,7 @@ defmodule Ambry.Inbox.Lookup do
 
     item
     |> update_records(level, &(&1 |> add(found) |> refine(item, level, hints)))
-    |> update_outcomes(level, outcomes)
+    |> update_outcomes(level, outcomes, clear: Outcome.id(entry.id, :editions))
   end
 
   defp retry(item, _level, _entry, _kind), do: {:ok, item}
@@ -326,17 +328,27 @@ defmodule Ambry.Inbox.Lookup do
     |> Repo.update()
   end
 
-  defp update_outcomes({:ok, item}, level, outcomes), do: update_outcomes(item, level, outcomes)
-  defp update_outcomes({:error, _reason} = error, _level, _outcomes), do: error
+  defp update_outcomes(item_or_result, level, outcomes, opts \\ [])
 
-  defp update_outcomes(%InboxItem{} = item, level, outcomes) do
+  defp update_outcomes({:ok, item}, level, outcomes, opts),
+    do: update_outcomes(item, level, outcomes, opts)
+
+  defp update_outcomes({:error, _reason} = error, _level, _outcomes, _opts), do: error
+
+  defp update_outcomes(%InboxItem{} = item, level, outcomes, opts) do
     matches = item.matches || %{}
     level_map = Map.get(matches, level, %{})
     existing = Map.get(level_map, "providers", []) || []
 
     # An outcome replaces the earlier one for the same provider: "couldn't be
     # reached" must stop saying that once it has been reached.
-    fresh = MapSet.new(outcomes, & &1["id"])
+    #
+    # `:clear` is what the retry chip needs on top of that. A retry that comes
+    # back with **nothing to report** — the provider turned out to implement
+    # no such call — would otherwise leave the failure it was retrying
+    # standing, which is a red chip that can be clicked forever and never
+    # goes away. Retrying an id is an answer about that id either way.
+    fresh = outcomes |> MapSet.new(& &1["id"]) |> maybe_clear(opts[:clear])
     kept = Enum.reject(existing, &MapSet.member?(fresh, &1["id"]))
 
     updated = Map.put(level_map, "providers", kept ++ outcomes)
@@ -345,6 +357,9 @@ defmodule Ambry.Inbox.Lookup do
     |> InboxItem.changeset(%{matches: Map.put(matches, level, updated)})
     |> Repo.update()
   end
+
+  defp maybe_clear(ids, nil), do: ids
+  defp maybe_clear(ids, id), do: MapSet.put(ids, id)
 
   defp remember_query({:ok, item}, level, query), do: remember_query(item, level, query)
   defp remember_query({:error, _reason} = error, _level, _query), do: error

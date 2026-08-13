@@ -131,6 +131,33 @@ defmodule Ambry.Inbox.LookupTest do
                get_in(item.matches, ["work", "providers"])
     end
 
+    # The reported flow: a details call the provider can never answer left a
+    # red chip that stayed red however often it was clicked, because a retry
+    # with nothing to report replaced nothing.
+    test "a retry with nothing to report clears the chip it was retrying" do
+      item =
+        item_with_records(
+          providers: [
+            %{
+              "id" => "hardcover:details",
+              "name" => "Hardcover details",
+              "status" => "failed",
+              "count" => 0,
+              "reason" => ":unsupported_capability"
+            }
+          ]
+        )
+
+      patch(Providers, :book_details, fn _id, _record_id, _opts ->
+        {:error, :unsupported_capability}
+      end)
+
+      {:ok, item} = Inbox.retry_provider(item, "work", "hardcover:details")
+
+      assert get_in(item.matches, ["work", "providers"]) == []
+      assert Inbox.unreached_providers(item) == []
+    end
+
     test "an editions chip re-asks the work for its editions" do
       item = item_with_records()
 

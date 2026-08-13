@@ -119,7 +119,7 @@ defmodule Ambry.Inbox.Draft.Work do
   # tag-derived. Saying so is what stops "the provider found nothing" and "the
   # provider found something we don't believe" looking identical.
   defp doubted(%__MODULE__{doubt: :low_confidence}),
-    do: [%{section: :work, label: "Which records describe this book", state: :unconfirmed}]
+    do: [%{section: :work, label: "Book records", state: :unconfirmed}]
 
   defp doubted(%__MODULE__{}), do: []
 

@@ -919,8 +919,10 @@ defmodule Ambry.Inbox.AutoMatch do
         # after the retry that fixed it.
         {record |> Map.merge(fuller) |> hydrated(), Outcome.ok(entry, 1, :details)}
 
+      # nil when the provider was never asked — it implements no details call,
+      # or it is switched off. `retry/4` and the hydrate path both drop it.
       {:error, entry, reason} ->
-        {record, Outcome.failed(entry, reason, :details)}
+        {record, Outcome.from_error(entry, reason, :details)}
     end
   end
 
@@ -1278,7 +1280,7 @@ defmodule Ambry.Inbox.AutoMatch do
         # The registry is what names a provider on a chip, and an id it has
         # never heard of can't be retried anyway.
         case Registry.fetch(provider_id) do
-          {:ok, entry} -> {[], [Outcome.failed(entry, reason, :editions)]}
+          {:ok, entry} -> {[], List.wrap(Outcome.from_error(entry, reason, :editions))}
           {:error, _unknown} -> {[], []}
         end
     end
@@ -1775,7 +1777,9 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Registry.enabled()
     |> Enum.map(&search_provider(&1, query, hints, opts))
     |> Enum.reduce({[], []}, fn {candidates, outcome}, {all, outcomes} ->
-      {all ++ candidates, outcomes ++ [outcome]}
+      # nil where the provider was never asked — switched off between the
+      # registry read and the call, or missing its credentials.
+      {all ++ candidates, outcomes ++ List.wrap(outcome)}
     end)
   end
 
@@ -1807,7 +1811,7 @@ defmodule Ambry.Inbox.AutoMatch do
           "Auto-match: #{entry.id} failed for #{inspect(to_string(query))}: #{inspect(reason)}"
         end)
 
-        {[], Outcome.failed(entry, reason)}
+        {[], Outcome.from_error(entry, reason)}
     end
   end
 

@@ -45,7 +45,7 @@ defmodule Ambry.Metadata.Search do
     |> Registry.enabled()
     |> Enum.reduce({[], []}, fn entry, {found, outcomes} ->
       {books, outcome} = books_one(entry, query, opts)
-      {found ++ [{entry, books}], outcomes ++ [outcome]}
+      {found ++ [{entry, books}], outcomes ++ List.wrap(outcome)}
     end)
   end
 
@@ -107,12 +107,12 @@ defmodule Ambry.Metadata.Search do
 
         {:error, reason} ->
           Logger.warning(fn -> "Metadata chapters: #{entry.id} failed: #{inspect(reason)}" end)
-          {found, outcomes ++ [failed_outcome(entry, reason)]}
+          {found, outcomes ++ List.wrap(failed_outcome(entry, reason))}
       end
     end)
   end
 
   defp ok_outcome(entry, count), do: Outcome.ok(entry, count)
 
-  defp failed_outcome(entry, reason), do: Outcome.failed(entry, reason)
+  defp failed_outcome(entry, reason), do: Outcome.from_error(entry, reason)
 end

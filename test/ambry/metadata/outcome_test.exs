@@ -13,6 +13,30 @@ defmodule Ambry.Metadata.OutcomeTest do
 
   defp entry, do: %Registry.Entry{id: "hardcover", display_name: "Hardcover"}
 
+  # Not every error is a failure to reach a provider, and treating them alike
+  # put a red "couldn't be reached, retry" chip on items whose retry could
+  # never succeed — and kept the matching job re-queuing itself for as long
+  # as it had attempts left.
+  describe "from_error/3" do
+    test "a provider that cannot be asked reports nothing at all" do
+      assert Outcome.from_error(entry(), :unsupported_capability, :details) == nil
+      assert Outcome.from_error(entry(), :provider_disabled, :details) == nil
+      assert Outcome.from_error(entry(), :provider_not_configured) == nil
+    end
+
+    # The provider answered. "It has no such record" is a count of zero, and
+    # a retry will get the same definite answer every time.
+    test "not-found is an answer, not a failure" do
+      assert %{"id" => "hardcover:details", "status" => "ok", "count" => 0} =
+               Outcome.from_error(entry(), :not_found, :details)
+    end
+
+    test "anything else is a failure worth retrying" do
+      assert %{"status" => "failed", "reason" => ":rate_limited"} =
+               Outcome.from_error(entry(), :rate_limited, :details)
+    end
+  end
+
   describe "ids" do
     test "a search is recorded under the provider's own id" do
       assert Outcome.id("hardcover") == "hardcover"

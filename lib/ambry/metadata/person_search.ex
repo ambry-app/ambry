@@ -102,12 +102,14 @@ defmodule Ambry.Metadata.PersonSearch do
           "Person search: #{entry.id} for #{inspect(query)}: #{inspect(reason)}"
         end)
 
-        {[], [Outcome.failed(entry, reason)]}
+        {[], List.wrap(Outcome.from_error(entry, reason))}
     end
   end
 
   defp details_outcome(_entry, []), do: []
-  defp details_outcome(entry, [reason | _rest]), do: [Outcome.failed(entry, reason, :details)]
+
+  defp details_outcome(entry, [reason | _rest]),
+    do: List.wrap(Outcome.from_error(entry, reason, :details))
 
   # The search hit is a summary; the details call is where the biography and
   # the full set of headshots live. Worth one request per plausible hit — this

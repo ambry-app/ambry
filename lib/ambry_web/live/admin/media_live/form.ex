@@ -413,7 +413,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # visible or the recordings list is short for no stated reason.
   defp retry_fan_out(entry, :search, query, hints) do
     {books, outcome} = MetadataSearch.books_one(entry, query)
-    {Inbox.score_records(books, entry, hints), [outcome]}
+    {Inbox.score_records(books, entry, hints), List.wrap(outcome)}
   end
 
   # The editions chip doesn't hang off a search anybody can re-run on its own:

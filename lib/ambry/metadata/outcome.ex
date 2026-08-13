@@ -74,6 +74,33 @@ defmodule Ambry.Metadata.Outcome do
     }
   end
 
+  # A provider that cannot be asked, as opposed to one that couldn't be
+  # reached: it doesn't implement this kind of call, it is switched off, or it
+  # has no credentials. No request was made, so there is nothing to report and
+  # nothing a retry could change.
+  @unaskable [:unsupported_capability, :provider_disabled, :provider_not_configured]
+
+  # The provider answered, and the answer is that it has no such record. That
+  # is "found nothing", which is a count of zero — not a failure.
+  @answered [:not_found]
+
+  @doc """
+  What to record when a call comes back an error.
+
+  **Not every error is a failure to reach a provider**, and treating them
+  alike is what put a permanent red "couldn't be reached, retry" chip on
+  items whose retry could never succeed: Audible implements no details call
+  at all, and a Hardcover details lookup that 404s is a definite answer. Both
+  also kept `Ambry.Inbox.unreached_providers/1` non-empty, which sent the
+  matching job round again for as long as it had attempts left.
+
+  Returns nil when there is nothing to say, so callers drop it.
+  """
+  def from_error(entry, reason, kind \\ :search)
+  def from_error(_entry, reason, _kind) when reason in @unaskable, do: nil
+  def from_error(entry, reason, kind) when reason in @answered, do: ok(entry, 0, kind)
+  def from_error(entry, reason, kind), do: failed(entry, reason, kind)
+
   @doc "True if this outcome says the provider couldn't be reached."
   def failed?(%{"status" => "failed"}), do: true
   def failed?(_outcome), do: false
