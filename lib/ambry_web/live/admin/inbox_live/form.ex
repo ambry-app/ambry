@@ -42,6 +42,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Books
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Chapters
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Seed
@@ -351,6 +352,24 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def handle_event("cancel-chapter-import", _params, socket) do
     {:noreply, assign(socket, chapter_import: nil)}
+  end
+
+  # The way back to the machine's value, which every other decision has and
+  # this one didn't: re-derive the rows from the probe and record that the
+  # operator chose them. Taking a value the rows already hold still counts as
+  # reviewing it — that is the whole point of the tier, and why agreeing with
+  # the files must not require editing them first.
+  def handle_event("take-file-chapters", _params, socket) do
+    case Seed.file_chapters(socket.assigns.item) do
+      %Chapters{chapters: [_row | _rest] = rows, chapter_marker_source: source} ->
+        {:noreply,
+         socket
+         |> edit(&Draft.Edit.set_chapters(&1, rows, source))
+         |> assign(chapter_import: nil, chapters_applied_asin: nil)}
+
+      _nothing_to_take ->
+        {:noreply, socket}
+    end
   end
 
   def handle_event("research", %{"level" => level} = params, socket) do
@@ -993,6 +1012,42 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
         )
     end
   end
+
+  @doc """
+  The files' own list as a proposal chip, or nil when they carry none.
+
+  Chosen when the staged rows still match what the probe read, so the chip
+  reports as well as offers. Files with no chapters propose nothing: a chip
+  that emptied the rows an operator typed by hand would be a destructive
+  control wearing a proposal's clothes.
+  """
+  def file_chapter_chip(item) do
+    case Seed.file_chapters(item) do
+      %Chapters{chapters: [_row | _rest] = rows} ->
+        %{chosen: same_chapters?(draft_chapter_rows(item), rows)}
+
+      _no_file_chapters ->
+        nil
+    end
+  end
+
+  # Compared on what the operator can see and change — a time and a title.
+  # `title_source` is bookkeeping about where a title came from, and two
+  # identical lists that disagree about it are still the same list.
+  defp same_chapters?(staged, from_files) when length(staged) == length(from_files) do
+    staged
+    |> Enum.zip(from_files)
+    |> Enum.all?(fn {row, file_row} ->
+      row.title == file_row.title and same_time?(row.time, file_row.time)
+    end)
+  end
+
+  defp same_chapters?(_staged, _from_files), do: false
+
+  defp same_time?(%Decimal{} = staged, %Decimal{} = from_file),
+    do: Decimal.equal?(staged, from_file)
+
+  defp same_time?(staged, from_file), do: staged == from_file
 
   # One chip per distinct ASIN among the ticked recording records — the
   # evidence panel is the search, so the chips are wherever its ticks are.

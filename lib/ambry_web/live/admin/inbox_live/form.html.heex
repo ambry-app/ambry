@@ -719,11 +719,16 @@
               <.inputs_for :let={recording} field={draft[:recording]}>
                 <.inputs_for :let={chapters} field={recording[:chapters]}>
                   <.marker_source_input form={chapters} />
-                  <.chapter_rows form={chapters} pending={@chapter_import}>
+                  <.chapter_rows
+                    form={chapters}
+                    pending={@chapter_import}
+                    rail={state_rail(Tier.of(@item.draft.recording.chapters))}
+                  >
                     <:proposals>
                       <.chapter_title_chips
                         id="chapter-title-chips"
                         chips={chapter_chips(@item, @chapters_applied_asin)}
+                        file={file_chapter_chip(@item)}
                       />
                     </:proposals>
                   </.chapter_rows>

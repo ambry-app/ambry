@@ -123,6 +123,11 @@ defmodule AmbryWeb.Admin.ChapterEditor do
     doc: "a form whose :chapters embed uses chapters_sort/chapters_drop"
 
   attr :pending, :any, default: nil, doc: "the pending title fetch, or nil"
+
+  attr :rail, :string,
+    default: nil,
+    doc: "the decision rail, where this card is one of a tree of decisions"
+
   slot :flag, doc: "a provenance flag, worn on the source line"
   slot :proposals, doc: "the title chips, inside the card after the rows"
 
@@ -130,6 +135,12 @@ defmodule AmbryWeb.Admin.ChapterEditor do
   The whole editor as one card: a source line, then the rows in their own
   scroll, with the pending title fetch rendered into them — a proposed
   column and a Take/Cancel header — rather than as a second surface.
+
+  In the inbox it wears a rail like every other decision card. It was the one
+  card in the tree that wore none, so the operator's eye ran down a column of
+  rails and found a gap where chapters should have been — reading as "not a
+  decision" for something the footer was counting all along. The media form
+  passes none: nothing there is staged, so there is no settledness to encode.
   """
   def chapter_rows(assigns) do
     markers = current_chapters(assigns.form)
@@ -149,7 +160,7 @@ defmodule AmbryWeb.Admin.ChapterEditor do
 
     ~H"""
     <div class="space-y-2">
-      <div class="space-y-3 rounded-lg bg-zinc-900 p-4">
+      <div class={["space-y-3 rounded-lg bg-zinc-900 p-4", @rail && "#{@rail} border-l-4"]}>
         <%!-- the card names itself: its facts live inside it, on the rail --%>
         <p class="flex items-baseline gap-2 pl-3 text-sm text-zinc-400">
           <span>{source_line(@markers, current_marker_source(@form))}</span>
@@ -288,22 +299,54 @@ defmodule AmbryWeb.Admin.ChapterEditor do
   attr :id, :string, required: true
   attr :chips, :list, required: true, doc: "maps with :asin, :title, :providers, :chosen"
 
+  attr :file, :map,
+    default: nil,
+    doc: "the files' own list as a chip (%{chosen: boolean}), or nil when they carry none"
+
   @doc """
   What the ticked evidence proposes for the titles: one chip per distinct
   ASIN, in the standard proposal anatomy. A chip is not a value here — it
   names an edition whose chapter list is one fetch away, so clicking loads
   the proposed column rather than applying anything.
+
+  ## The files are a proposal too
+
+  The first chip is the files' own list, and it applies immediately, the way
+  a credit's "go back to what the records proposed" chip does. Without it the
+  operator who wanted exactly what the files carry — the common case, since
+  that is what the rows are seeded from — had no way to *say so*: the card
+  only reached `:reviewed` by editing a row, so agreeing with it cost a
+  pointless edit and disagreeing was the only settled state.
+
+  It is chosen when the rows already match the files, which makes it a
+  statement as well as a control: this is still what the files said.
   """
   def chapter_title_chips(assigns) do
     ~H"""
     <div
-      :if={@chips != []}
+      :if={@chips != [] or @file}
       class="grid-cols-[4rem_minmax(0,1fr)] grid items-baseline gap-x-2 pl-3"
       data-role="proposals"
     >
       <.microlabel>Proposed</.microlabel>
 
       <div id={@id} phx-hook="fit-or-stack" class="flex flex-wrap items-center gap-1.5">
+        <.proposal_chip
+          :if={@file}
+          chosen={@file.chosen}
+          event="take-file-chapters"
+          title="take the timestamps and titles the files carry"
+        >
+          <span class={[
+            "text-[10px] flex-none uppercase tracking-wide",
+            @file.chosen && "bg-brand-dark rounded-sm px-1 text-zinc-900",
+            !@file.chosen && "text-zinc-500"
+          ]}>
+            files
+          </span>
+          <span>timestamps and titles as read</span>
+        </.proposal_chip>
+
         <.proposal_chip
           :for={chip <- @chips}
           chosen={chip.chosen}
