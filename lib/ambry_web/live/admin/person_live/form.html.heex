@@ -54,75 +54,183 @@
         />
       </.field_group>
 
-      <%!-- One human, two working names — the credits they appear under are
-          a different question from who they are, so they get their own
-          clusters side by side. --%>
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-7">
-        <.list_cluster label="Writing as">
-          <.inputs_for :let={author_person_form} field={@form[:author_people]}>
-            <.sort_input field={@form[:author_people_sort]} index={author_person_form.index} />
+      <%!-- Author and Narrator are credit NAMES, not roles, and the form used
+          to say so out loud: two lists to populate, where having just typed
+          "Stephen King" you were asked to add an author and the answer was
+          "Stephen King". Two questions instead, answered by a tick, with the
+          name stated rather than typed. "Both" is two ticks, not a case. --%>
+      <.field_group label="Credited as">
+        <%!-- Unticking can be refused — `delete_orphaned_authors/2` names the
+            book still crediting them — and with the list hidden there was
+            nowhere for that to land: the save simply didn't happen and said
+            nothing. --%>
+        <.field_errors field={@form[:author_people]} />
+        <.field_errors field={@form[:narrators]} />
 
-            <%= if linked_author_row?(author_person_form) do %>
-              <div class="relative">
-                <.input type="hidden" field={author_person_form[:author_id]} />
-                <.input
-                  type="text"
-                  name={"linked-author-#{author_person_form.index}"}
-                  value={linked_author_name(@authors, author_person_form[:author_id].value)}
-                  disabled
-                />
-                <.delete_button
-                  field={@form[:author_people_drop]}
-                  index={author_person_form.index}
-                  class="absolute top-3 right-2"
-                />
+        <div class="space-y-4">
+          <%!-- ── writes ─────────────────────────────────────────────── --%>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 pl-3">
+              <input type="hidden" name="person[writes]" value="false" />
+              <input
+                type="checkbox"
+                name="person[writes]"
+                value="true"
+                checked={@writes}
+                class="text-brand-dark h-4 w-4 rounded-sm border-transparent bg-zinc-800 focus:ring-brand-dark/20 focus:ring-4"
+              />
+              <span class="text-sm text-zinc-200">Writes books</span>
+              <span :if={@writes and not revealed?(assigns, :author)} class="text-sm text-zinc-400">
+                as {@form[:name].value}
+              </span>
+            </label>
+
+            <%!-- Revealed: the names themselves, which is the only state
+                where linking an existing author means anything specific. --%>
+            <div :if={revealed?(assigns, :author)} class="space-y-2 pl-6">
+              <.inputs_for :let={author_person_form} field={@form[:author_people]}>
+                <.sort_input field={@form[:author_people_sort]} index={author_person_form.index} />
+
+                <%= if linked_author_row?(author_person_form) do %>
+                  <div class="relative">
+                    <.input type="hidden" field={author_person_form[:author_id]} />
+                    <.input
+                      type="text"
+                      name={"linked-author-#{author_person_form.index}"}
+                      value={linked_author_name(@authors, author_person_form[:author_id].value)}
+                      disabled
+                    />
+                    <.delete_button
+                      field={@form[:author_people_drop]}
+                      index={author_person_form.index}
+                      class="absolute top-3 right-2"
+                    />
+                  </div>
+                <% else %>
+                  <.inputs_for :let={author_form} field={author_person_form[:author]}>
+                    <div class="relative">
+                      <.input field={author_form[:name]} />
+                      <.delete_button
+                        field={@form[:author_people_drop]}
+                        index={author_person_form.index}
+                        class="absolute top-3 right-2"
+                      />
+                    </div>
+                    <p
+                      :if={shared_with(author_person_form, @person) != []}
+                      class="pl-3 text-xs text-zinc-500"
+                    >
+                      Shared pen name with {Enum.join(shared_with(author_person_form, @person), ", ")}
+                    </p>
+                  </.inputs_for>
+                <% end %>
+              </.inputs_for>
+
+              <.input
+                field={@form[:link_author_id]}
+                type="autocomplete"
+                options={@authors}
+                label="Link a pen name somebody else also writes under"
+              />
+
+              <div class="flex flex-wrap items-baseline gap-x-4">
+                <.add_button field={@form[:author_people_sort]}>Add a pen name</.add_button>
+                <.delete_input field={@form[:author_people_drop]} />
+
+                <%!-- Every way in needs a way out — but only while the data
+                    still agrees, or the hatch would hide what it describes. --%>
+                <button
+                  :if={not @author_diverges}
+                  type="button"
+                  phx-click="hide-credit"
+                  phx-value-kind="author"
+                  class="text-xs text-zinc-400 underline"
+                >
+                  No, they write under their own name
+                </button>
               </div>
-            <% else %>
-              <.inputs_for :let={author_form} field={author_person_form[:author]}>
+            </div>
+
+            <%!-- Offered whether or not the box is ticked: linking a
+                shared pen name is how a person becomes an author at all in
+                the composite case, and routing that through "tick, then
+                delete the author it made" is not a route. --%>
+            <button
+              :if={not revealed?(assigns, :author)}
+              type="button"
+              phx-click="reveal-credit"
+              phx-value-kind="author"
+              class="pl-6 text-xs text-zinc-400 underline"
+            >
+              Writes under a pen name?
+            </button>
+          </div>
+
+          <%!-- ── narrates ───────────────────────────────────────────── --%>
+          <%!-- No linking hatch: a Narrator belongs to exactly one Person,
+              so there is no shared-narrator case to offer. The asymmetry is
+              the model's, and stating it beats faking symmetry. --%>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 pl-3">
+              <input type="hidden" name="person[narrates]" value="false" />
+              <input
+                type="checkbox"
+                name="person[narrates]"
+                value="true"
+                checked={@narrates}
+                class="text-brand-dark h-4 w-4 rounded-sm border-transparent bg-zinc-800 focus:ring-brand-dark/20 focus:ring-4"
+              />
+              <span class="text-sm text-zinc-200">Narrates audiobooks</span>
+              <span
+                :if={@narrates and not revealed?(assigns, :narrator)}
+                class="text-sm text-zinc-400"
+              >
+                as {@form[:name].value}
+              </span>
+            </label>
+
+            <div :if={revealed?(assigns, :narrator)} class="space-y-2 pl-6">
+              <.inputs_for :let={narrator_form} field={@form[:narrators]}>
+                <.sort_input field={@form[:narrators_sort]} index={narrator_form.index} />
+
                 <div class="relative">
-                  <.input field={author_form[:name]} />
+                  <.input field={narrator_form[:name]} container_class="grow" />
                   <.delete_button
-                    field={@form[:author_people_drop]}
-                    index={author_person_form.index}
+                    field={@form[:narrators_drop]}
+                    index={narrator_form.index}
                     class="absolute top-3 right-2"
                   />
                 </div>
-                <p :if={shared_with(author_person_form, @person) != []} class="pl-3 text-xs text-zinc-500">
-                  Shared pen name with {Enum.join(shared_with(author_person_form, @person), ", ")}
-                </p>
               </.inputs_for>
-            <% end %>
-          </.inputs_for>
 
-          <.input
-            field={@form[:link_author_id]}
-            type="autocomplete"
-            options={@authors}
-            label="Or link an existing author"
-          />
+              <div class="flex flex-wrap items-baseline gap-x-4">
+                <.add_button field={@form[:narrators_sort]}>Add a stage name</.add_button>
+                <.delete_input field={@form[:narrators_drop]} />
 
-          <:add>
-            <.add_button field={@form[:author_people_sort]}>Add author</.add_button>
-            <.delete_input field={@form[:author_people_drop]} />
-          </:add>
-        </.list_cluster>
-
-        <.list_cluster label="Narrating as">
-          <.inputs_for :let={narrator_form} field={@form[:narrators]}>
-            <.sort_input field={@form[:narrators_sort]} index={narrator_form.index} />
-
-            <div class="relative">
-              <.input field={narrator_form[:name]} container_class="grow" />
-              <.delete_button field={@form[:narrators_drop]} index={narrator_form.index} class="absolute top-3 right-2" />
+                <button
+                  :if={not @narrator_diverges}
+                  type="button"
+                  phx-click="hide-credit"
+                  phx-value-kind="narrator"
+                  class="text-xs text-zinc-400 underline"
+                >
+                  No, they narrate under their own name
+                </button>
+              </div>
             </div>
-          </.inputs_for>
 
-          <:add>
-            <.add_button field={@form[:narrators_sort]}>Add narrator</.add_button>
-            <.delete_input field={@form[:narrators_drop]} />
-          </:add>
-        </.list_cluster>
-      </div>
+            <button
+              :if={not revealed?(assigns, :narrator)}
+              type="button"
+              phx-click="reveal-credit"
+              phx-value-kind="narrator"
+              class="pl-6 text-xs text-zinc-400 underline"
+            >
+              Narrates under a stage name?
+            </button>
+          </div>
+        </div>
+      </.field_group>
 
       <.input type="hidden" field={@form[:image_type]} />
       <.input type="hidden" field={@form[:image_path]} />
