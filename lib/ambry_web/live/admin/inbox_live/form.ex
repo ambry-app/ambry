@@ -43,6 +43,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Chapters
+  alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Seed
@@ -771,7 +772,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      edit(socket, fn draft ->
-       update_in(draft.destination, &approve_destination(%{&1 | root_id: id}))
+       update_in(draft.destination, &Destination.choose(&1, %{root_id: id}))
      end)}
   end
 
@@ -780,7 +781,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      edit(socket, fn draft ->
-       update_in(draft.destination, &approve_destination(%{&1 | policy: policy}))
+       update_in(draft.destination, &Destination.choose(&1, %{policy: policy}))
      end)}
   end
 
@@ -1027,12 +1028,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       {int, ""} -> int
       _other -> nil
     end
-  end
-
-  # Approved is not a separate gesture: choosing the last missing half is
-  # the approval. Un-choosing either half un-approves.
-  defp approve_destination(destination) do
-    %{destination | approved: not is_nil(destination.root_id) and not is_nil(destination.policy)}
   end
 
   @placement_policies Source.import_policies()

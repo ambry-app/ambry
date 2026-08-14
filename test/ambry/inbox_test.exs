@@ -2,7 +2,9 @@ defmodule Ambry.InboxTest do
   use Ambry.DataCase
 
   alias Ambry.Inbox
+  alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Library
   alias Ambry.Library.Source
   alias Ambry.Media.Scanner
 
@@ -450,22 +452,58 @@ defmodule Ambry.InboxTest do
     end
   end
 
-  describe "prepare_draft/1 destination healing" do
-    test "a settled destination is left alone" do
+  # A draft is written once, at match time, and then only read. So a
+  # destination nobody touched has to be re-derived rather than remembered,
+  # or the first three hundred items queued behind a change keep proposing
+  # what the default used to be.
+  describe "prepare_draft/1 destination defaults" do
+    setup do
       dir = watched_root()
-      release_folder(dir, "Stays Settled", ["book.m4b"])
-      insert(:source, path: dir, import_policy: :copy)
-      insert(:root)
+      release_folder(dir, "Waiting Release", ["book.m4b"])
+      source = insert(:source, path: dir, import_policy: :hardlink)
+      root = insert(:root)
+
       {:ok, _counts} = Inbox.discover()
-      {[item], false} = Inbox.list_items(filter: "Stays Settled")
+      {[item], false} = Inbox.list_items(filter: "Waiting Release")
       {:ok, item} = Inbox.probe_item(item)
-
       {:ok, item} = Inbox.prepare_draft(item)
-      assert item.draft.destination.approved
 
-      {:ok, again} = Inbox.prepare_draft(Inbox.get_item!(item.id))
+      %{item: item, source: source, root: root}
+    end
 
-      assert again.draft.destination == item.draft.destination
+    test "a seeded destination is resolved, but not the operator's", %{item: item, root: root} do
+      assert item.draft.destination.root_id == root.id
+      assert item.draft.destination.policy == :hardlink
+      assert Destination.resolved?(item.draft.destination)
+      refute item.draft.destination.chosen
+    end
+
+    test "an untouched destination follows the default when it moves", ctx do
+      {:ok, _source} = Library.update_source(ctx.source, %{import_policy: :move})
+
+      {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
+
+      assert item.draft.destination.policy == :move
+      refute item.draft.destination.chosen
+    end
+
+    test "a destination the operator chose is never moved by a default", ctx do
+      chosen = Destination.choose(ctx.item.draft.destination, %{policy: :copy})
+      draft = %{ctx.item.draft | destination: chosen}
+      {:ok, _item} = Inbox.update_draft(ctx.item, Inbox.dump_draft(draft))
+
+      {:ok, _source} = Library.update_source(ctx.source, %{import_policy: :move})
+
+      {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
+
+      assert item.draft.destination.policy == :copy
+      assert item.draft.destination.chosen
+    end
+
+    test "re-preparing an unchanged item changes nothing", ctx do
+      {:ok, again} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
+
+      assert again.draft.destination == ctx.item.draft.destination
     end
   end
 

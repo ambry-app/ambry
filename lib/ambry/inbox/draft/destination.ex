@@ -24,11 +24,29 @@ defmodule Ambry.Inbox.Draft.Destination do
 
   `hardlink | symlink | copy | move` describes what happens to the *source* —
   preserve it for seeding, reference it in place, or clear it out — so its
-  default comes from where the files came from (`Source.import_policy`). An
-  item with no source has no default and the policy is a real outstanding
-  decision. Whether a hardlink is actually possible depends on the input and
-  output being on one filesystem, which is a fact about the *pairing* and can
-  only be checked once both ends are known.
+  default comes from where the files came from (`Source.import_policy`).
+  Whether a hardlink is actually *possible* depends on the input and output
+  being on one filesystem, which is a fact about the **pairing** and can only
+  be checked once both ends are known.
+
+  ## `chosen` is the whole point of this struct
+
+  A destination holds two values and one fact about them: did a human pick
+  these, or did they fall out of a default? Without that fact a seeded
+  default is indistinguishable from a decision, and the consequence is not
+  theoretical — a draft is written once, at match time, and then only ever
+  read. Change what the default *should* be and every already-seeded draft
+  keeps the old one forever, because nothing can tell "the operator wanted
+  hardlink" from "hardlink is what the default was on Tuesday".
+
+  So `chosen` means the operator picked, and an unchosen destination is
+  re-derived from current defaults every time the item is prepared
+  (`Inbox.prepare_draft/1`). Defaults follow the latest thinking; decisions
+  don't move.
+
+  There is deliberately no separate `approved` flag. It only ever held
+  `root_id != nil and policy != nil`, which is `resolved?/1` — a stored copy
+  of a derivable fact, free to disagree with the fields it was derived from.
   """
 
   use Ecto.Schema
@@ -40,7 +58,10 @@ defmodule Ambry.Inbox.Draft.Destination do
   embedded_schema do
     field :root_id, :id
     field :policy, Ecto.Enum, values: [:hardlink, :symlink, :copy, :move]
-    field :approved, :boolean, default: false
+
+    # Whether a human picked the two above. False means they are a default
+    # and may be re-derived; see the moduledoc.
+    field :chosen, :boolean, default: false
 
     # Filled in at render time from the registry rather than stored: roots are
     # configuration and can change between seeding a draft and approving it.
@@ -49,37 +70,24 @@ defmodule Ambry.Inbox.Draft.Destination do
 
   @doc false
   def changeset(destination, attrs) do
-    destination
-    |> cast(attrs, [:root_id, :policy, :approved])
-    |> validate_approved_is_placeable()
-  end
-
-  # An approved import with no root or no policy is not a decision — it's one
-  # that would fail at the moment of placement, which is precisely what the
-  # invariant exists to prevent.
-  defp validate_approved_is_placeable(changeset) do
-    if get_field(changeset, :approved) do
-      changeset
-      |> validate_present(:root_id, "needs a library root to import into")
-      |> validate_present(:policy, "needs a placement policy")
-    else
-      changeset
-    end
-  end
-
-  defp validate_present(changeset, field, message) do
-    if is_nil(get_field(changeset, field)),
-      do: add_error(changeset, field, message),
-      else: changeset
+    cast(destination, attrs, [:root_id, :policy, :chosen])
   end
 
   @doc """
   Whether the destination still needs a human.
+
+  Both halves present is the whole test, however they got there. An import
+  that knows its root and its policy will place; one missing either would
+  fail at the moment of placement, which is exactly what asking is for.
   """
-  def resolved?(%__MODULE__{approved: true, root_id: root_id, policy: policy}),
+  def resolved?(%__MODULE__{root_id: root_id, policy: policy}),
     do: not is_nil(root_id) and not is_nil(policy)
 
-  def resolved?(%__MODULE__{}), do: false
+  @doc """
+  Marks the destination as the operator's own, so defaults stop moving it.
+  """
+  def choose(%__MODULE__{} = destination, changes),
+    do: struct!(%{destination | chosen: true}, changes)
 
   def state(%__MODULE__{} = destination) do
     cond do

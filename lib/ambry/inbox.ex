@@ -58,6 +58,7 @@ defmodule Ambry.Inbox do
 
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Importer
   alias Ambry.Inbox.InboxItem
@@ -510,30 +511,28 @@ defmodule Ambry.Inbox do
   def prepare_draft(%InboxItem{status: :imported} = item), do: {:ok, item}
 
   def prepare_draft(%InboxItem{} = item) do
-    heal_destination(item)
+    refresh_destination(item)
   end
 
-  # A destination's *defaults* are derived — from the item's source — while
-  # its root and policy are the operator's to choose, so healing fills gaps
-  # without un-answering anything. The gap it exists for: an ad-hoc-scanned
-  # item adopts its source when the source's own scan next sees it, at which
-  # point the draft's sealed destination has no policy and the source now
-  # knows one. That's a fact the scan established, not a choice to preserve.
-  defp heal_destination(%InboxItem{} = item) do
-    stored = item.draft.destination
+  # A destination the operator has not touched is a *default*, and a default
+  # that was frozen at match time is the wrong default the moment anything it
+  # was derived from changes. A draft is written once and then only read, so
+  # nothing would ever revise it: import the first of three hundred queued
+  # releases, correct the policy while you're there, and the other two
+  # hundred and ninety-nine would keep proposing the old one forever.
+  #
+  # So an unchosen destination is re-derived here, on every prepare. A chosen
+  # one is never touched — that is the entire distinction `chosen` exists to
+  # draw.
+  defp refresh_destination(%InboxItem{draft: %{destination: %Destination{chosen: true}}} = item),
+    do: {:ok, item}
+
+  defp refresh_destination(%InboxItem{} = item) do
     fresh = Seed.destination(item)
 
-    cond do
-      is_nil(stored) ->
-        put_destination(item, fresh)
-
-      is_nil(stored.policy) and not is_nil(fresh.policy) ->
-        healed = %{stored | policy: fresh.policy, root_id: stored.root_id || fresh.root_id}
-        put_destination(item, %{healed | approved: not is_nil(healed.root_id)})
-
-      true ->
-        {:ok, item}
-    end
+    if item.draft.destination == fresh,
+      do: {:ok, item},
+      else: put_destination(item, fresh)
   end
 
   defp put_destination(item, destination) do

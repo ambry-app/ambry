@@ -6,6 +6,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
   use Ambry.DataCase
 
   alias Ambry.Inbox
+  alias Ambry.Inbox.Draft.Destination
   alias Ambry.Library
   alias Ambry.Media
   alias Ambry.Settings
@@ -388,7 +389,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
       {:ok, item} = Inbox.rebuild_draft(Repo.reload(item))
 
       assert item.draft.destination.root_id == chosen.id
-      assert item.draft.destination.approved
+      assert Destination.resolved?(item.draft.destination)
     end
 
     # Two recordings of one book used to render to one path and refuse; each

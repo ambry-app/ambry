@@ -285,8 +285,10 @@ defmodule Ambry.Inbox.Draft.Seed do
   # than fixed on the source. The single-root case — which is nearly all of
   # them — resolves silently: being asked to pick from a list of one is not a
   # decision, it's an interruption. The policy is seeded from the source the
-  # same way; an item with no source (ad-hoc scan) has no default and the
-  # policy stays an outstanding decision.
+  # same way.
+  #
+  # Everything here is a *default*. It is recomputed from scratch every time
+  # an item is prepared, and only an unchosen destination ever takes it.
   def destination(%InboxItem{} = item) do
     item = Repo.preload(item, :source)
 
@@ -308,11 +310,7 @@ defmodule Ambry.Inbox.Draft.Seed do
         {nil, _none_or_several} -> nil
       end
 
-    %Destination{
-      root_id: root && root.id,
-      policy: policy,
-      approved: not is_nil(root) and not is_nil(policy)
-    }
+    %Destination{root_id: root && root.id, policy: policy, chosen: false}
   end
 
   ## work
