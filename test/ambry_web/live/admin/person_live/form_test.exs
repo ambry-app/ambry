@@ -306,6 +306,28 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
       assert [%{name: "Robert Galbraith"}] = People.get_person!(person.id).authors
     end
 
+    # The operator's own case: Jason Pargin credited as "Baz", with a book
+    # already crediting that author. A rename does not unlink anything, so
+    # the book is not in the way — but "does the book block it" is exactly
+    # the question the row rewrite has to answer out loud.
+    test "renaming works even when a book credits the author", %{conn: conn} do
+      person = insert(:person, name: "Jason Pargin", authors: [build(:author, name: "Baz")])
+      [baz] = Ambry.Repo.preload(person, :authors).authors
+      insert(:book, book_authors: [build(:book_author, author: baz)])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+
+      view
+      |> element("#author-0-resolver-input")
+      |> render_change(%{"resolver" => %{"author-0-resolver" => "David Wong"}})
+
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+      assert [%{name: "David Wong"}] = People.get_person!(person.id).authors
+      # the same record, renamed — not a new author with the book left behind
+      assert %{name: "David Wong"} = Ambry.Repo.get(Ambry.People.Author, baz.id)
+    end
+
     # Relinking a row is safe for the same reason unticking is: the author it
     # pointed at is deleted only if nothing else wants it.
     test "picking a different author relinks the row and cleans up behind it", %{conn: conn} do
