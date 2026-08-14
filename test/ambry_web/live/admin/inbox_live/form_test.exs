@@ -535,6 +535,79 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert %{mode: :link, person_id: id} = person_keyed(item, "brandonsanderson")
       assert id == person.id
     end
+
+    # The operator's route: say the credit is a pen name, clear the box, type
+    # a letter, pick the human out of the typeahead. The draft keeps the "j"
+    # that was typed on the way — linking must not overwrite staged curation,
+    # because unlinking has to give it back — but nothing should *render* it.
+    test "a person linked through the typeahead reads as the library's own",
+         %{conn: conn} do
+      rowling = :person |> build(name: "J.K. Rowling") |> with_thumbnails() |> insert()
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#person-brandonsanderson button[phx-click='separate-name']")
+      |> render_click()
+
+      # typing narrows the typeahead, one keystroke at a time
+      view
+      |> element("#person-brandonsanderson-identity")
+      |> render_change(%{"key" => "brandonsanderson", "name" => "j"})
+
+      # and picking sends the id the resolver holds
+      view
+      |> element("#person-brandonsanderson-identity")
+      |> render_change(%{
+        "key" => "brandonsanderson",
+        "name" => "j",
+        "person_id" => to_string(rowling.id)
+      })
+
+      assert %{mode: :link, person_id: id} = person_keyed(item, "brandonsanderson")
+      assert id == rowling.id
+
+      chips =
+        view
+        |> element("#work [data-role='credit-people']")
+        |> render()
+        |> Floki.parse_fragment!()
+
+      assert Floki.text(chips) =~ "J.K. Rowling"
+      refute Floki.text(chips) |> String.trim() == "j"
+
+      # her library portrait, not whichever candidate the half-typed name found
+      assert Floki.find(chips, "img") |> Floki.attribute("src") ==
+               [rowling.thumbnails.extra_small]
+    end
+
+    # Linking answers "who is this"; a pen name answers "whose name is on the
+    # book". The second doesn't stop being true because the first was
+    # answered from the library.
+    test "a linked pen name still says whose pen name it is", %{conn: conn} do
+      rowling = insert(:person, name: "J.K. Rowling")
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#person-brandonsanderson button[phx-click='separate-name']")
+      |> render_click()
+
+      view
+      |> element("#person-brandonsanderson-identity")
+      |> render_change(%{
+        "key" => "brandonsanderson",
+        "name" => "j",
+        "person_id" => to_string(rowling.id)
+      })
+
+      card = view |> element("#person-brandonsanderson") |> render()
+
+      assert card =~ "A pen name of"
+      refute card =~ "This import will use the person you already have."
+    end
   end
 
   describe "credits — credited as / written by" do
@@ -905,6 +978,123 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       refute render(view) =~ "Looking for The Way of Kings…"
     end
 
+    # The test above re-submits the title the item already had, so stored and
+    # submitted agreed and the bug hid. Changing the value is the case: the
+    # box and the scrim both described the PREVIOUS search until this one
+    # landed — the typed words vanished from the box at the moment of the
+    # click, and the scrim named the wrong book.
+    test "a changed search is what the box and the scrim show, immediately",
+         %{conn: conn} do
+      test_pid = self()
+
+      patch(Providers, :search_books, fn _id, _query, _opts ->
+        send(test_pid, {:searching, self()})
+        receive do: (:go -> :ok)
+        {:ok, []}
+      end)
+
+      item = probed_item() |> with_work_records()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html =
+        view
+        |> element("form#research-work")
+        |> render_submit(%{
+          "level" => "work",
+          "title" => "Oathbringer",
+          "author" => "Sanderson"
+        })
+
+      assert_receive {:searching, task}
+
+      assert html =~ "Looking for Oathbringer…"
+      refute html =~ "Looking for The Way of Kings…"
+
+      # and the words are still in the boxes that were typed into
+      assert search_values(html, "#research-work") == %{
+               "title" => "Oathbringer",
+               "author" => "Sanderson"
+             }
+
+      send(task, :go)
+      render_async(view)
+
+      # the search landed: still what was asked for, now from storage
+      assert search_values(render(view), "#research-work") == %{
+               "title" => "Oathbringer",
+               "author" => "Sanderson"
+             }
+    end
+
+    # A recording matched by its ASIN stores `%{"keywords" => "B0…"}`, which
+    # this form has no box for — so the audiobook card showed three empty
+    # boxes above a Search button that submitted a blank query and, quite
+    # correctly, did nothing whatsoever. A dead control that said nothing
+    # about why.
+    test "a level searched by ASIN still starts from something submittable",
+         %{conn: conn} do
+      item =
+        probed_item()
+        |> with_recording_records()
+        |> then(fn item ->
+          item
+          |> InboxItem.changeset(%{
+            matches:
+              Map.update!(item.matches, "recording", fn level ->
+                Map.put(level, "query_fields", %{"keywords" => "B08BKGYQXW"})
+              end)
+          })
+          |> Repo.update!()
+        end)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # the boxes hold the hints matching itself searched with
+      values = search_values(html, "#research-recording")
+      assert values["title"] == "The Way of Kings"
+      refute values["title"] == ""
+    end
+
+    # The recording level is the same form with a narrator box, and gets the
+    # same rule — the point of fixing this once.
+    test "the recording level's search behaves the same", %{conn: conn} do
+      test_pid = self()
+
+      patch(Providers, :search_books, fn _id, _query, _opts ->
+        send(test_pid, {:searching, self()})
+        receive do: (:go -> :ok)
+        {:ok, []}
+      end)
+
+      item = probed_item() |> with_recording_records()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html =
+        view
+        |> element("form#research-recording")
+        |> render_submit(%{
+          "level" => "recording",
+          "title" => "Oathbringer",
+          "author" => "Sanderson",
+          "narrator" => "Kate Reading"
+        })
+
+      assert_receive {:searching, task}
+
+      assert html =~ "Looking for Oathbringer…"
+
+      assert search_values(html, "#research-recording") == %{
+               "title" => "Oathbringer",
+               "author" => "Sanderson",
+               "narrator" => "Kate Reading"
+             }
+
+      send(task, :go)
+      render_async(view)
+    end
+
     # Which database said this is the first thing an operator checks, and at
     # the end of the facts line it was the first thing truncation took.
     test "a record's provider is a badge, not the tail of a long line", %{conn: conn} do
@@ -1131,6 +1321,71 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       person = person_keyed(item, "brandonsanderson")
       assert Field.value(person.description) == "An American author of epic fantasy."
       assert person.description.source == "provider:wikidata"
+    end
+
+    # The box holds the query, the way the work level's holds `query_fields`.
+    # It rendered the person's name decision instead, so a search for anything
+    # else worked and then snapped back the moment the results landed — at
+    # the one moment the operator needs to see what produced them.
+    test "the search box keeps the name that was searched for", %{conn: conn} do
+      patch_person_search()
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("form#research-person-work-0-0")
+      |> render_submit(%{"key" => "brandonsanderson", "name" => "Robert Galbraith"})
+
+      render_async(view)
+
+      assert view
+             |> render()
+             |> Floki.parse_document!()
+             |> Floki.find("form#research-person-work-0-0 input[name='name']")
+             |> Floki.attribute("value") == ["Robert Galbraith"]
+
+      # and the person is still the person: a query is not a rename
+      assert Field.value(person_keyed(item, "brandonsanderson").name) == "Brandon Sanderson"
+    end
+
+    # The same rule as the work and recording levels, and the same two
+    # symptoms before it: the box fell back to the person's own name for the
+    # length of the round trip, and the scrim over it named that person while
+    # a search for somebody else was in flight.
+    test "a person search shows the searched name while it runs, not the person's",
+         %{conn: conn} do
+      test_pid = self()
+
+      patch(PersonSearch, :providers, fn -> [%{id: "wikidata", display_name: "Wikidata"}] end)
+
+      patch(PersonSearch, :matches_with_outcome, fn _provider, _query, _opts ->
+        send(test_pid, {:searching, self()})
+        receive do: (:go -> :ok)
+        {[], []}
+      end)
+
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html =
+        view
+        |> element("form#research-person-work-0-0")
+        |> render_submit(%{"key" => "brandonsanderson", "name" => "Robert Galbraith"})
+
+      assert_receive {:searching, task}
+
+      assert html =~ "Looking for Robert Galbraith…"
+      refute html =~ "Looking for Brandon Sanderson…"
+
+      assert html
+             |> Floki.parse_document!()
+             |> Floki.find("form#research-person-work-0-0 input[name='name']")
+             |> Floki.attribute("value") == ["Robert Galbraith"]
+
+      send(task, :go)
+      render_async(view)
     end
 
     # A person the matcher doubted is seeded unapproved, and until this the
@@ -1802,6 +2057,17 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
   defp person_keyed(item, key) do
     Enum.find(Inbox.get_item!(item.id).draft.people, &(&1.key == key))
+  end
+
+  # What a search form's text boxes are actually holding, which is the whole
+  # question when a search is in flight.
+  defp search_values(html, selector) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find("#{selector} input[type='text']")
+    |> Map.new(fn input ->
+      {Floki.attribute(input, "name") |> hd(), Floki.attribute(input, "value") |> hd()}
+    end)
   end
 
   defp probed_item(opts \\ []) do

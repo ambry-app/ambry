@@ -555,6 +555,15 @@ defmodule Ambry.Inbox do
   """
   defdelegate form_hints(fields), to: AutoMatch
 
+  @doc """
+  What this item's tags and release name say it is — the same hints matching
+  searched with.
+
+  The import form seeds its search boxes from these, so a re-search starts
+  from what was actually looked for rather than from nothing.
+  """
+  defdelegate hints(item), to: AutoMatch
+
   @doc "Provider books → scored, ranked evidence records (top-N per provider)."
   defdelegate score_records(books, entry, hints), to: AutoMatch, as: :records_from
 

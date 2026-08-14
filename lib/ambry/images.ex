@@ -18,8 +18,6 @@ defmodule Ambry.Images do
 
   require Logger
 
-  @accepted_mime ~w(image/jpeg image/png image/webp)
-
   @doc """
   Downloads an image and returns its web path.
   """
@@ -30,12 +28,20 @@ defmodule Ambry.Images do
     if valid_url?(url), do: download(url), else: {:error, :invalid_image_url}
   end
 
+  # The bytes decide, for the same reason they decide in `browser_safe/1`:
+  # this used to accept only a `content-type` header in an allowlist, and
+  # Hardcover's CDN labels every asset `application/octet-stream`. A PNG the
+  # operator picked from the person picker therefore passed `valid_url?` on
+  # its extension and then failed the download — silently, since a failed
+  # cover import is not fatal to an import. Sniffing the body means the
+  # preview and the import agree, and the file lands with the extension its
+  # bytes earn rather than the one its header claimed.
   defp download(url) do
-    with {:ok, response} <- Req.get(url: url, headers: [{"user-agent", user_agent()}]),
-         [mime | _rest] when mime in @accepted_mime <-
-           Req.Response.get_header(response, "content-type") do
+    with {:ok, %{status: 200, body: body}} when is_binary(body) <-
+           Req.get(url: url, headers: [{"user-agent", user_agent()}], decode_body: false),
+         {:ok, image, mime} <- browser_safe(body) do
       filename = generate_filename(mime)
-      File.write!(images_disk_path(filename), response.body)
+      File.write!(images_disk_path(filename), image)
 
       {:ok, web_path(filename)}
     else

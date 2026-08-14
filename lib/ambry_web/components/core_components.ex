@@ -605,60 +605,94 @@ defmodule AmbryWeb.CoreComponents do
     default: false,
     doc: "also accept an image pasted from the clipboard (adds a JS hook to the drop area)"
 
+  @doc """
+  The drop-or-choose control for a `live_upload`.
+
+  One dashed well rather than the browser's file input stapled to a second
+  box below it. The old one was the last control on the admin still wearing
+  pre-redesign clothes: a 1px-bordered native input whose `file:` button was
+  the only zinc-600 button left, sitting on `zinc-950` *inside* cards —
+  ground-colored, so the elevation ladder ran backwards (§1) — above a
+  browser `<progress>` bar and a `&times;` glyph for a cancel.
+
+  Now: the native input is `sr-only` and its label is the standard small
+  button (§6), so choosing and dropping are one surface. Dashes stay, at
+  2px — this is the one place §1 asks for them, because the box really is
+  saying "drop here". Entries are wells inside it with a real progress bar
+  and the standard remove button.
+  """
   def file_input(assigns) do
     ~H"""
-    <div>
-      <div class="space-y-2">
-        <.label :if={@label} class="pl-3">{@label}</.label>
-        <.live_file_input
-          upload={@upload}
-          class={
-            [
-              "!text-zinc-500 block w-full rounded-sm rounded-b-none border p-0",
-              "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
-              "file:p-[11px] file:cursor-pointer file:rounded-none file:border-0",
-              "file:bg-zinc-600 file:font-bold file:text-zinc-100 hover:file:bg-zinc-500"
-            ] ++ input_color_classes(@errors) ++ [@class]
-          }
-        />
-      </div>
+    <div class="space-y-2">
+      <.label :if={@label} class="pl-3">{@label}</.label>
+
       <div
         id={"#{@upload.ref}-drop-area"}
-        class="space-y-4 rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4 text-zinc-400"
+        class={
+          [
+            "bg-zinc-800/40 space-y-3 rounded-lg border-2 border-dashed border-zinc-700 p-4",
+            "text-zinc-400 transition-colors hover:border-zinc-600"
+          ] ++ [@class]
+        }
         phx-drop-target={@upload.ref}
         phx-hook={if @paste_upload, do: "paste-image"}
         data-upload-name={if @paste_upload, do: @upload.name}
       >
-        <.icon :if={@upload.entries == []} name="fa-upload" class="mx-auto my-4 block h-8 w-8 text-current" />
-        <p :if={@paste_upload && @upload.entries == []} class="text-center text-xs text-zinc-500">
-          drop, or paste from the clipboard
-        </p>
-        <div :if={@upload.entries != []} class="flex flex-wrap gap-4">
-          <article :for={entry <- @upload.entries} class="inline-block">
-            <figure>
-              <.live_image_preview_with_size
-                :if={UploadHelpers.image?(entry.client_type)}
-                entry={entry}
-                class={@image_preview_class}
-              />
-              <figcaption>{entry.client_name}</figcaption>
-            </figure>
-
-            <progress value={entry.progress} max="100">{entry.progress}%</progress>
-
-            <span
-              class="cursor-pointer text-2xl transition-colors hover:text-red-500"
-              phx-click={JS.push(@on_cancel, value: %{ref: entry.ref})}
-            >
-              &times;
-            </span>
-
-            <p :for={err <- upload_errors(@upload, entry)} class="text-red-500">
-              {UploadHelpers.upload_error_to_string(err)}
-            </p>
-          </article>
+        <%!-- The whole empty state is the affordance: one icon, one line
+            saying what this box accepts, one button. --%>
+        <div :if={@upload.entries == []} class="space-y-2 py-2 text-center">
+          <.icon name="fa-upload" class="mx-auto block h-6 w-6 text-zinc-500" />
+          <p class="text-xs text-zinc-500">
+            {if @paste_upload, do: "Drop a file here, or paste one", else: "Drop files here"}
+          </p>
         </div>
-        <p :for={err <- upload_errors(@upload)} class="text-red-500">
+
+        <div :if={@upload.entries != []} class="space-y-2">
+          <div
+            :for={entry <- @upload.entries}
+            class="flex items-center gap-3 rounded-md bg-zinc-800 p-3"
+            data-role="upload-entry"
+          >
+            <.live_image_preview_with_size
+              :if={UploadHelpers.image?(entry.client_type)}
+              entry={entry}
+              class={@image_preview_class || "h-12 w-12 rounded-md object-cover"}
+            />
+
+            <div class="min-w-0 flex-grow space-y-1">
+              <p class="truncate text-sm text-zinc-200">{entry.client_name}</p>
+
+              <%!-- A real bar rather than the browser's `<progress>`, which
+                  is unstyleable across engines and rendered as a grey
+                  lozenge that never matched anything else here. --%>
+              <div class="h-1 overflow-hidden rounded-full bg-zinc-700">
+                <div class="bg-brand-dark h-full transition-all" style={"width: #{entry.progress}%"} />
+              </div>
+
+              <p :for={err <- upload_errors(@upload, entry)} class="text-xs text-red-400">
+                {UploadHelpers.upload_error_to_string(err)}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              phx-click={JS.push(@on_cancel, value: %{ref: entry.ref})}
+              title="Don't upload this one"
+              class="flex-none"
+            >
+              <.icon name="fa-xmark" class="h-4 w-4 cursor-pointer hover:text-red-400" />
+            </button>
+          </div>
+        </div>
+
+        <div class="text-center">
+          <.live_file_input upload={@upload} class="sr-only" />
+          <label for={@upload.ref} class={action_classes()}>
+            {if @upload.entries == [], do: "Choose files", else: "Choose more"}
+          </label>
+        </div>
+
+        <p :for={err <- upload_errors(@upload)} class="text-center text-xs text-red-400">
           {UploadHelpers.upload_error_to_string(err)}
         </p>
       </div>

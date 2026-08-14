@@ -768,18 +768,25 @@ defmodule Ambry.Inbox.Draft.Seed do
       # ambiguity used to be invisible, showing up only as fields that
       # mysteriously stayed empty.
       approved: doubt in [:none, :nothing_found],
-      chapters: chapters_decision(item)
+      chapters: file_chapters(item)
     }
     |> put_recording_fields(records, tags, item)
   end
 
-  # The chapter list, exactly as the probe read it off the files — seeded
-  # approved, because the file's own answer is the lone proposer and a
-  # scalar with exactly one source auto-approves everywhere else here. nil
-  # until a probe has run: "not read yet" must stay distinguishable from
-  # "the files carry no chapters".
-  defp chapters_decision(%InboxItem{probe: %{"chapter_list" => rows} = probe})
-       when is_list(rows) do
+  @doc """
+  The chapter list, exactly as the probe read it off the files.
+
+  Seeded approved, because the file's own answer is the lone proposer and a
+  scalar with exactly one source auto-approves everywhere else here. nil
+  until a probe has run: "not read yet" must stay distinguishable from
+  "the files carry no chapters".
+
+  Public because the form offers this list back as a proposal — the chapters
+  card's way back to the machine's value, which every other decision has.
+  Re-deriving it there rather than keeping a second copy is what stops the
+  chip and the seeder from drifting into two answers about the same files.
+  """
+  def file_chapters(%InboxItem{probe: %{"chapter_list" => rows} = probe}) when is_list(rows) do
     %Chapters{
       chapter_marker_source: marker_source(probe["chapter_marker_source"]),
       approved: true,
@@ -788,7 +795,7 @@ defmodule Ambry.Inbox.Draft.Seed do
     }
   end
 
-  defp chapters_decision(_item), do: nil
+  def file_chapters(_item), do: nil
 
   defp chapter_row(row) do
     %Chapter{

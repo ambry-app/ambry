@@ -354,23 +354,48 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  attr :at, :string, required: true, doc: "where this renders — DOM ids key on place, not person"
-  attr :person_key, :string, required: true
-  attr :name, :string, default: nil
+  attr :at, :string,
+    default: nil,
+    doc: "where this renders — DOM ids key on place, not person; nil where there is only one"
+
+  attr :person_key, :string,
+    default: nil,
+    doc: "routes the search to one person; nil where the surface is about a single person"
+
+  attr :name, :string,
+    default: nil,
+    doc: "the name these records were searched for — not the person's own name"
+
+  attr :event, :string, default: "research-person"
+  attr :label, :string, default: "Search again"
   attr :running, :boolean, default: false
 
   @doc """
   The person level's search-again form — the work-level pattern with a name
   where the work has title and author.
+
+  The box holds the *query*, exactly as `research_form`'s holds its fields.
+  It used to render the person's name decision, so searching for anything else
+  worked and then snapped back to the pre-filled name the moment the results
+  landed — the one moment the operator needs to see what produced them. The
+  two are genuinely different questions: searching "Robert Galbraith" for a
+  person the import will create as "J.K. Rowling" is the case this form is
+  for, and neither answer should overwrite the other.
+
+  The person edit form hand-wrote this same markup, which is how the two
+  drifted: the copy there grew a three-way button label the inbox never got,
+  and a fix to either reached only half the people searches in the admin.
+  One component, parameterised by the two things that genuinely differ —
+  which event routes it, and whether there is a person key to route *to*.
   """
   def person_research_form(assigns) do
     ~H"""
     <form
-      id={"research-person-#{@at}"}
-      phx-submit="research-person"
+      id={["research-person", @at] |> Enum.reject(&is_nil/1) |> Enum.join("-")}
+      phx-submit={@event}
       class="flex flex-wrap items-end gap-2"
     >
-      <input type="hidden" name="key" value={@person_key} />
+      <input :if={@person_key} type="hidden" name="key" value={@person_key} />
 
       <label class="text-xs text-zinc-400">
         <span class="block pl-3">name</span>
@@ -378,7 +403,7 @@ defmodule AmbryWeb.Admin.Decisions do
       </label>
 
       <.button color={:zinc} type="submit" disabled={@running}>
-        {if @running, do: "Searching…", else: "Search again"}
+        {if @running, do: "Searching…", else: @label}
       </.button>
     </form>
     """
@@ -731,6 +756,10 @@ defmodule AmbryWeb.Admin.Decisions do
 
   attr :persons, :list, required: true, doc: "the PersonDecisions this credit references"
 
+  attr :people, :list,
+    default: [],
+    doc: "the library's people, so a linked person's chip shows the library's own name and face"
+
   attr :count, :integer,
     default: 1,
     doc: "how many rows the list holds — the reorder arrows' ends"
@@ -788,6 +817,8 @@ defmodule AmbryWeb.Admin.Decisions do
   end
 
   def credit_row(assigns) do
+    assigns = assign(assigns, :faces, Enum.map(assigns.persons, &person_face(&1, assigns.people)))
+
     ~H"""
     <%!-- A decision block, so it wears the state rail like every other one —
         the rail is the ONLY settledness encoding (design language §2); the
@@ -887,33 +918,30 @@ defmodule AmbryWeb.Admin.Decisions do
           data-role="credit-people"
         >
           <.link
-            :for={person <- Enum.take(@persons, person_chips())}
-            href={"#person-#{person.key}"}
+            :for={face <- Enum.take(@faces, person_chips())}
+            href={"#person-#{face.key}"}
             class="bg-white/5 flex items-center gap-2 rounded-full py-1 pr-3 pl-1 text-xs text-zinc-300 hover:bg-white/10"
           >
             <img
-              :if={Field.value(person.image)}
-              src={preview_src(Field.value(person.image), nil)}
+              :if={face.src}
+              src={face.src}
               class="h-6 w-6 flex-none rounded-full object-cover"
               alt=""
             />
-            <span
-              :if={!Field.value(person.image)}
-              class="h-6 w-6 flex-none rounded-full bg-zinc-800"
-            />
-            {Field.value(person.name) || "unnamed"}
+            <span :if={!face.src} class="h-6 w-6 flex-none rounded-full bg-zinc-800" />
+            {face.name}
           </.link>
 
           <%!-- One credit standing for a dozen humans would push the row into
                 a paragraph of faces. The rest are a click away in the section
                 that lists every one of them. --%>
           <.link
-            :if={length(@persons) > person_chips()}
+            :if={length(@faces) > person_chips()}
             href="#people"
-            title={Enum.map_join(Enum.drop(@persons, person_chips()), ", ", &(Field.value(&1.name) || "unnamed"))}
+            title={Enum.map_join(Enum.drop(@faces, person_chips()), ", ", & &1.name)}
             class="bg-white/10 flex items-center rounded-full px-3 py-1 text-xs tabular-nums text-zinc-300 hover:bg-white/20"
           >
-            +{length(@persons) - person_chips()}
+            +{length(@faces) - person_chips()}
           </.link>
         </div>
       </div>
@@ -959,6 +987,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :appears, :list, default: []
   attr :people, :list, default: [], doc: "the library's people, for the typeahead"
 
+  attr :query_name, :string,
+    default: nil,
+    doc: "the name these records were searched for; falls back to the person's own"
+
   @doc """
   One human this import will create, as a decision card of their own.
 
@@ -984,7 +1016,11 @@ defmodule AmbryWeb.Admin.Decisions do
     assigns =
       assign(assigns,
         own_name: assigns.person.own_name or not Credit.simple?(assigns.group.credit),
-        linked: linked_person(assigns.people, assigns.person)
+        linked: linked_person(assigns.people, assigns.person),
+        # A linked person is called what the library calls them, here as well
+        # as on the credit chip — the staged name is a leftover of finding
+        # them, not their name.
+        words: person_words(assigns.person, linked_person(assigns.people, assigns.person))
       )
 
     ~H"""
@@ -997,7 +1033,10 @@ defmodule AmbryWeb.Admin.Decisions do
             and gets the same answer: the card is not yours while it runs. A
             button changing its own label to "Searching…" was the whole
             indication, in a fold that could close over it. --%>
-      <.busy_overlay busy={@searching} label={"Looking for #{person_words(@person)}…"} />
+      <%!-- Named by the QUERY, like the work and recording scrims: a search
+            for a name other than this person's own said "Looking for
+            <the person>…" while looking for somebody else entirely. --%>
+      <.busy_overlay busy={@searching} label={"Looking for #{@query_name || @words}…"} />
 
       <div class="space-y-3" inert={@searching}>
         <%!-- Titled by the CREDIT, which is the one name on this card that
@@ -1006,7 +1045,7 @@ defmodule AmbryWeb.Admin.Decisions do
               operator typed the very thing the card is about. --%>
         <div class="flex items-baseline justify-between gap-2 pl-3">
           <div class="flex min-w-0 items-baseline gap-2">
-            <.label>{card_words(@group.credit, @person)}</.label>
+            <.label>{card_words(@group.credit, @words)}</.label>
 
             <%!-- Where they are credited is a fact about this card, so it
                   wears the status costume beside the title rather than a
@@ -1129,7 +1168,7 @@ defmodule AmbryWeb.Admin.Decisions do
               — which is exactly the author who turns up narrating. --%>
         <div :if={@locals != [] or @person.mode == :link} class="space-y-2">
           <p class="pl-3 text-xs text-zinc-400">
-            {local_people_words(@person, @locals)}
+            {local_people_words(@person, @locals, @group.kind)}
           </p>
 
           <.local_person_row
@@ -1160,22 +1199,24 @@ defmodule AmbryWeb.Admin.Decisions do
           expanded={@photos_expanded}
           records={@records}
           outcomes={@outcomes}
+          query_name={@query_name}
         />
       </div>
     </div>
     """
   end
 
-  defp person_words(person), do: Field.value(person.name) || "Unnamed person"
+  defp person_words(_person, %{"name" => name}), do: name
+  defp person_words(person, nil), do: Field.value(person.name) || "Unnamed person"
 
   # The credited name, which is what this card is a card *about*. Falls back
   # to the human's own name only when the credit has none — a cleared credit
   # box mid-retype, where a blank title would name nothing at all.
-  defp card_words(%Credit{name: name}, person) when is_binary(name) do
-    if String.trim(name) == "", do: person_words(person), else: name
+  defp card_words(%Credit{name: name}, words) when is_binary(name) do
+    if String.trim(name) == "", do: words, else: name
   end
 
-  defp card_words(_credit, person), do: person_words(person)
+  defp card_words(_credit, words), do: words
 
   defp reveal_words(:narrator), do: "This is a stage name"
   defp reveal_words(_author), do: "This is a pen name"
@@ -1188,19 +1229,55 @@ defmodule AmbryWeb.Admin.Decisions do
   defp linked_person(people, %PersonDecision{mode: :link, person_id: id}) do
     case Enum.find(people, &(&1.id == id)) do
       nil -> %{"id" => id, "name" => "Somebody in your library"}
-      person -> %{"id" => person.id, "name" => person.label}
+      person -> %{"id" => person.id, "name" => person.label, "image" => person.image}
     end
   end
 
   defp linked_person(_people, _person), do: nil
 
-  defp local_people_words(%PersonDecision{mode: :link}, _locals),
+  @doc """
+  What to show for a person: the library's own name and face where this
+  decision links to one, the staged fields where it will create one.
+
+  A linked decision keeps whatever was typed on the way to finding them, by
+  design — linking must not overwrite staged curation, because unlinking has
+  to give it back. But rendering it is wrong: type "j", pick J.K. Rowling
+  from the typeahead, and the credit chip read "j" beside the portrait of
+  whichever candidate the half-typed name had turned up.
+
+  The src is resolved here rather than by the caller because the two cases
+  need different handling — a library thumbnail is a local path served as-is,
+  a staged image may be a remote provider URL that has to go through the
+  proxy.
+  """
+  def person_face(person, people) do
+    case linked_person(people, person) do
+      nil ->
+        %{
+          key: person.key,
+          name: Field.value(person.name) || "unnamed",
+          src: preview_src(Field.value(person.image), nil)
+        }
+
+      linked ->
+        %{key: person.key, name: linked["name"], src: linked["image"]}
+    end
+  end
+
+  # Linking is an answer to "who is this", and a pen name is an answer to
+  # "whose name is on the book" — the second doesn't stop being true because
+  # the first was answered from the library. Saying so generically here threw
+  # away the more specific thing the card had been saying one state earlier.
+  defp local_people_words(%PersonDecision{mode: :link, own_name: true}, _locals, kind),
+    do: alias_words(kind)
+
+  defp local_people_words(%PersonDecision{mode: :link}, _locals, _kind),
     do: "This import will use the person you already have."
 
-  defp local_people_words(_person, [_one]),
+  defp local_people_words(_person, [_one], _kind),
     do: "Somebody by this name is already in your library."
 
-  defp local_people_words(_person, locals),
+  defp local_people_words(_person, locals, _kind),
     do: "#{length(locals)} people by this name are already in your library."
 
   attr :local, :map, required: true
@@ -1304,6 +1381,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :records, :list, default: [], doc: "the provider records of people by this name"
   attr :outcomes, :list, default: [], doc: "what each person provider said when asked"
 
+  attr :query_name, :string,
+    default: nil,
+    doc: "the name these records were searched for; falls back to the person's own"
+
   # Enough to see there are alternatives without the row becoming a contact
   # sheet. TMDB keeps every headshot anyone has uploaded and a working actor
   # can have dozens.
@@ -1390,7 +1471,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <.person_research_form
         at={@at}
         person_key={@person.key}
-        name={Field.value(@person.name)}
+        name={@query_name || Field.value(@person.name)}
         running={@searching}
       />
 

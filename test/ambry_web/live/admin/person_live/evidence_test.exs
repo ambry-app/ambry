@@ -149,6 +149,26 @@ defmodule AmbryWeb.Admin.PersonLive.EvidenceTest do
     assert html =~ ~s(value="Anthony Palmini")
   end
 
+  # This form and the import form's person cards render the same component
+  # now — the markup was hand-written in both places and had already drifted.
+  # The rule they share: the box holds the query, from the click onward, so a
+  # search for a name other than this person's own does not read as a rename
+  # and does not revert while it runs.
+  test "the box keeps the searched name, which is not the person's name", %{conn: conn} do
+    patch_providers()
+    person = insert(:person, name: "Anthony Palmini")
+
+    {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+
+    search(view, "Matt Dinniman")
+
+    assert view
+           |> render()
+           |> Floki.parse_document!()
+           |> Floki.find("form#research-person input[name='name']")
+           |> Floki.attribute("value") == ["Matt Dinniman"]
+  end
+
   describe "the provenance flag" do
     test "shows the recorded source in the field header", %{conn: conn} do
       person =

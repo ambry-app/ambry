@@ -42,6 +42,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Books
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Chapters
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Seed
@@ -69,6 +70,13 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(narrator_backing: People.narrator_backing_names())
      |> assign(people: People.people_for_select())
      |> assign(researching: nil, retrying: nil, enriching: nil)
+     # What the in-flight search asked for. The stored query only updates
+     # when results land, so a form that renders storage describes the
+     # PREVIOUS search for the whole round trip — the typed words vanish from
+     # the boxes at the click and the scrim names the wrong book. The edit
+     # forms have always captured this (`Evidence.begin/2`); this is the same
+     # discipline for the staged form.
+     |> assign(research_fields: %{}, searching_person_name: nil)
      # Which person is being looked up again, and whose photo strip is showing
      # in full. Both view state keyed by person key — the results themselves
      # are evidence and live on the item.
@@ -180,6 +188,66 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def busy_label(_idle), do: "Working…"
 
   @doc """
+  What a level's search box shows: the query in flight while one is running,
+  and the last one asked otherwise.
+
+  The stored query is only written when results land, so rendering it during
+  the round trip describes the *previous* search — which is why typed words
+  appeared to revert the moment Search was pressed and the scrim named the
+  wrong book. The edit forms never had this because `Evidence.begin/2`
+  records the submitted fields at the click; this is the same rule for a
+  form whose query lives in the database instead of a struct.
+  """
+  def search_fields(level, level, in_flight, _seeded), do: in_flight
+  def search_fields(_researching, _level, _in_flight, seeded), do: seeded
+
+  # The query keys a search form can submit — the same set
+  # `Provider.Query.from_fields/1` reads, so what comes back is exactly what
+  # was asked for.
+  @query_keys ~w(title author narrator)
+
+  defp submitted_fields(params), do: Map.take(params, @query_keys)
+
+  # What each level's boxes hold when no search is in flight.
+  #
+  # The stored query is what was last *asked*, and for a recording matched by
+  # its ASIN that is `%{"keywords" => "B0…"}` — a shape this form has no box
+  # for. So the audiobook card rendered three empty boxes above a button
+  # that submitted a blank query, which `Lookup.research/3` correctly treats
+  # as nothing to do: a dead control that said nothing about why. Falling
+  # back to the hints matching itself used means a box always holds
+  # something submittable, the way the edit forms seed their panel from the
+  # record they belong to.
+  #
+  # Wholesale, never per key: merging hints into a stored query would put
+  # back an author the operator deliberately cleared, which is the bug this
+  # whole pass is about.
+  defp search_seeds(item) do
+    hints = Inbox.hints(item)
+
+    from_hints =
+      %{"title" => hints[:title], "author" => hints[:author], "narrator" => hints[:narrator]}
+      |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+      |> Map.new()
+
+    draft = item.draft
+
+    %{
+      "work" => seeded_fields(draft && draft.work, from_hints),
+      "recording" => seeded_fields(draft && draft.recording, from_hints)
+    }
+  end
+
+  defp seeded_fields(nil, from_hints), do: from_hints
+
+  defp seeded_fields(decision, from_hints) do
+    case Map.take(decision.query_fields || %{}, @query_keys) do
+      no_text_fields when map_size(no_text_fields) == 0 -> from_hints
+      stored -> stored
+    end
+  end
+
+  @doc """
   What a level's search is looking for, for the scrim that covers it.
 
   Named rather than a bare "Searching…", because the operator has just typed
@@ -216,6 +284,23 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   them the form's only answer was a second Person of the same name.
   """
   def person_locals(item, key), do: get_in(item.matches, ["people", key, "local"]) || []
+
+  @doc """
+  The name this person's records were searched for.
+
+  The person level's `query_fields`: seeded by matching with the credited
+  name and rewritten by every re-search, so the search box can hold the query
+  rather than the person's name decision — which is a different answer and
+  was snapping the box back the moment results arrived.
+
+  In flight it is the name just submitted, for the same reason
+  `search_fields/3` is: until the results land, storage still describes the
+  previous search.
+  """
+  def person_query_name(_item, key, key, name) when is_binary(name), do: name
+
+  def person_query_name(item, key, _searching_key, _searching_name),
+    do: get_in(item.matches, ["people", key, "name"])
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"inbox_item" => params}, socket) do
@@ -343,12 +428,30 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, assign(socket, chapter_import: nil)}
   end
 
+  # The way back to the machine's value, which every other decision has and
+  # this one didn't: re-derive the rows from the probe and record that the
+  # operator chose them. Taking a value the rows already hold still counts as
+  # reviewing it — that is the whole point of the tier, and why agreeing with
+  # the files must not require editing them first.
+  def handle_event("take-file-chapters", _params, socket) do
+    case Seed.file_chapters(socket.assigns.item) do
+      %Chapters{chapters: [_row | _rest] = rows, chapter_marker_source: source} ->
+        {:noreply,
+         socket
+         |> edit(&Draft.Edit.set_chapters(&1, rows, source))
+         |> assign(chapter_import: nil, chapters_applied_asin: nil)}
+
+      _nothing_to_take ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("research", %{"level" => level} = params, socket) do
     item = socket.assigns.item
 
     {:noreply,
      socket
-     |> assign(researching: level)
+     |> assign(researching: level, research_fields: submitted_fields(params))
      |> start_async({:research, level}, fn -> Inbox.research(item, level, params) end)}
   end
 
@@ -503,7 +606,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      socket
-     |> assign(searching_person: key)
+     |> assign(searching_person: key, searching_person_name: name)
      |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
@@ -603,7 +706,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      socket
-     |> assign(searching_person: key)
+     |> assign(searching_person: key, searching_person_name: name)
      |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
@@ -733,17 +836,22 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @impl Phoenix.LiveView
 
   def handle_async({:person_search, _key}, {:ok, {:ok, item}}, socket) do
-    {:noreply, socket |> assign(searching_person: nil) |> load(item) |> resettle()}
+    {:noreply,
+     socket
+     |> assign(searching_person: nil, searching_person_name: nil)
+     |> load(item)
+     |> resettle()}
   end
 
   # A provider being down costs its results and nothing else — the person is
   # still perfectly importable without a face.
   def handle_async({:person_search, _key}, _failed, socket) do
-    {:noreply, assign(socket, searching_person: nil)}
+    {:noreply, assign(socket, searching_person: nil, searching_person_name: nil)}
   end
 
   def handle_async({:research, _level}, {:ok, {:ok, item}}, socket) do
-    {:noreply, socket |> assign(researching: nil) |> load(item) |> resettle()}
+    {:noreply,
+     socket |> assign(researching: nil, research_fields: %{}) |> load(item) |> resettle()}
   end
 
   def handle_async({:retry, _level}, {:ok, {:ok, item}}, socket) do
@@ -771,6 +879,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply,
      socket
      |> assign(researching: nil, retrying: nil, enriching: nil)
+     |> assign(research_fields: %{}, searching_person: nil, searching_person_name: nil)
      |> put_flash(:error, "That provider couldn't be reached just now.")}
   end
 
@@ -836,6 +945,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),
+      # What each level's search box starts from, resolved once per load
+      # rather than per render — the hints are parsed out of the release
+      # text.
+      search_seeds: search_seeds(item),
       # A recording group is reachable only through its book, so the picker
       # has options exactly when the work links a library book. A :create
       # work has no groups yet — the resolver is create-only there.
@@ -983,6 +1096,42 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
         )
     end
   end
+
+  @doc """
+  The files' own list as a proposal chip, or nil when they carry none.
+
+  Chosen when the staged rows still match what the probe read, so the chip
+  reports as well as offers. Files with no chapters propose nothing: a chip
+  that emptied the rows an operator typed by hand would be a destructive
+  control wearing a proposal's clothes.
+  """
+  def file_chapter_chip(item) do
+    case Seed.file_chapters(item) do
+      %Chapters{chapters: [_row | _rest] = rows} ->
+        %{chosen: same_chapters?(draft_chapter_rows(item), rows)}
+
+      _no_file_chapters ->
+        nil
+    end
+  end
+
+  # Compared on what the operator can see and change — a time and a title.
+  # `title_source` is bookkeeping about where a title came from, and two
+  # identical lists that disagree about it are still the same list.
+  defp same_chapters?(staged, from_files) when length(staged) == length(from_files) do
+    staged
+    |> Enum.zip(from_files)
+    |> Enum.all?(fn {row, file_row} ->
+      row.title == file_row.title and same_time?(row.time, file_row.time)
+    end)
+  end
+
+  defp same_chapters?(_staged, _from_files), do: false
+
+  defp same_time?(%Decimal{} = staged, %Decimal{} = from_file),
+    do: Decimal.equal?(staged, from_file)
+
+  defp same_time?(staged, from_file), do: staged == from_file
 
   # One chip per distinct ASIN among the ticked recording records — the
   # evidence panel is the search, so the chips are wherever its ticks are.
