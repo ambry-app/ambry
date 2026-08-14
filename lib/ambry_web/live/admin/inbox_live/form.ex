@@ -767,21 +767,30 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.approve_work(&1, params["approved"] == "true"))}
   end
 
+  # Re-defaulted after each pick, because the policy is a fact about the
+  # pairing: changing the root changes what "how the files come in" should
+  # propose, and an unpicked policy has no business keeping the answer that
+  # belonged to the previous root.
   def handle_event("choose-root", %{"root_id" => root_id}, socket) do
+    item = socket.assigns.item
     id = to_int(root_id)
 
     {:noreply,
      edit(socket, fn draft ->
-       update_in(draft.destination, &Destination.choose(&1, %{root_id: id}))
+       update_in(draft.destination, &(&1 |> Destination.choose_root(id) |> Seed.redefault(item)))
      end)}
   end
 
   def handle_event("choose-policy", %{"policy" => policy}, socket) do
+    item = socket.assigns.item
     policy = to_policy(policy)
 
     {:noreply,
      edit(socket, fn draft ->
-       update_in(draft.destination, &Destination.choose(&1, %{policy: policy}))
+       update_in(
+         draft.destination,
+         &(&1 |> Destination.choose_policy(policy) |> Seed.redefault(item))
+       )
      end)}
   end
 

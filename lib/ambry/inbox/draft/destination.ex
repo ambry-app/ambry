@@ -29,24 +29,31 @@ defmodule Ambry.Inbox.Draft.Destination do
   being on one filesystem, which is a fact about the **pairing** and can only
   be checked once both ends are known.
 
-  ## `chosen` is the whole point of this struct
+  ## The `chosen` flags are the whole point of this struct
 
-  A destination holds two values and one fact about them: did a human pick
-  these, or did they fall out of a default? Without that fact a seeded
-  default is indistinguishable from a decision, and the consequence is not
+  A destination holds two values and one fact about each: did a human pick
+  this, or did it fall out of a default? Without that fact a seeded default
+  is indistinguishable from a decision, and the consequence is not
   theoretical — a draft is written once, at match time, and then only ever
   read. Change what the default *should* be and every already-seeded draft
   keeps the old one forever, because nothing can tell "the operator wanted
   hardlink" from "hardlink is what the default was on Tuesday".
 
-  So `chosen` means the operator picked, and an unchosen destination is
-  re-derived from current defaults every time the item is prepared
-  (`Inbox.prepare_draft/1`). Defaults follow the latest thinking; decisions
-  don't move.
+  So an unchosen half is re-derived from current defaults every time the
+  item is prepared (`Inbox.prepare_draft/1`). Defaults follow the latest
+  thinking; decisions don't move. Clearing a picker back to its blank option
+  un-picks it and hands it back to the default, which is the only way to
+  change one's mind about having decided at all.
 
-  There is deliberately no separate `approved` flag. It only ever held
-  `root_id != nil and policy != nil`, which is `resolved?/1` — a stored copy
-  of a derivable fact, free to disagree with the fields it was derived from.
+  The two flags are separate because the two questions are. The policy is a
+  fact about the *pairing*, so picking a root re-derives an unchosen policy
+  rather than freezing whatever the previous root implied — with one flag,
+  answering "which root" would silently also answer "how", using the old
+  root's answer.
+
+  There is deliberately no `approved` flag. It only ever held `root_id !=
+  nil and policy != nil`, which is `resolved?/1` — a stored copy of a
+  derivable fact, free to disagree with the fields it was derived from.
   """
 
   use Ecto.Schema
@@ -59,9 +66,10 @@ defmodule Ambry.Inbox.Draft.Destination do
     field :root_id, :id
     field :policy, Ecto.Enum, values: [:hardlink, :symlink, :copy, :move]
 
-    # Whether a human picked the two above. False means they are a default
-    # and may be re-derived; see the moduledoc.
-    field :chosen, :boolean, default: false
+    # Whether a human picked each of the two above. False means it is a
+    # default and may be re-derived; see the moduledoc.
+    field :root_chosen, :boolean, default: false
+    field :policy_chosen, :boolean, default: false
 
     # Filled in at render time from the registry rather than stored: roots are
     # configuration and can change between seeding a draft and approving it.
@@ -70,7 +78,7 @@ defmodule Ambry.Inbox.Draft.Destination do
 
   @doc false
   def changeset(destination, attrs) do
-    cast(destination, attrs, [:root_id, :policy, :chosen])
+    cast(destination, attrs, [:root_id, :policy, :root_chosen, :policy_chosen])
   end
 
   @doc """
@@ -84,10 +92,20 @@ defmodule Ambry.Inbox.Draft.Destination do
     do: not is_nil(root_id) and not is_nil(policy)
 
   @doc """
-  Marks the destination as the operator's own, so defaults stop moving it.
+  Picks a root, or hands the choice back to the default when given `nil`.
+
+  Blank is how an operator un-decides. Recording it as "chose nothing" would
+  leave the import permanently unresolvable with no way back short of
+  rebuilding the draft.
   """
-  def choose(%__MODULE__{} = destination, changes),
-    do: struct!(%{destination | chosen: true}, changes)
+  def choose_root(%__MODULE__{} = destination, root_id),
+    do: %{destination | root_id: root_id, root_chosen: not is_nil(root_id)}
+
+  @doc """
+  Picks a policy, or hands the choice back to the default when given `nil`.
+  """
+  def choose_policy(%__MODULE__{} = destination, policy),
+    do: %{destination | policy: policy, policy_chosen: not is_nil(policy)}
 
   def state(%__MODULE__{} = destination) do
     cond do

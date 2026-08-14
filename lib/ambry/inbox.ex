@@ -514,23 +514,21 @@ defmodule Ambry.Inbox do
     refresh_destination(item)
   end
 
-  # A destination the operator has not touched is a *default*, and a default
-  # that was frozen at match time is the wrong default the moment anything it
+  # A destination half the operator has not picked is a *default*, and a
+  # default frozen at match time is the wrong default the moment anything it
   # was derived from changes. A draft is written once and then only read, so
   # nothing would ever revise it: import the first of three hundred queued
   # releases, correct the policy while you're there, and the other two
   # hundred and ninety-nine would keep proposing the old one forever.
   #
-  # So an unchosen destination is re-derived here, on every prepare. A chosen
-  # one is never touched — that is the entire distinction `chosen` exists to
-  # draw.
-  defp refresh_destination(%InboxItem{draft: %{destination: %Destination{chosen: true}}} = item),
-    do: {:ok, item}
-
+  # So the unchosen halves are re-derived here, on every prepare. The chosen
+  # ones are never touched — that is the entire distinction the flags exist
+  # to draw.
   defp refresh_destination(%InboxItem{} = item) do
-    fresh = Seed.destination(item)
+    stored = item.draft.destination || %Destination{}
+    fresh = Seed.redefault(stored, item)
 
-    if item.draft.destination == fresh,
+    if stored == fresh,
       do: {:ok, item},
       else: put_destination(item, fresh)
   end

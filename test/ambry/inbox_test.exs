@@ -475,7 +475,8 @@ defmodule Ambry.InboxTest do
       assert item.draft.destination.root_id == root.id
       assert item.draft.destination.policy == :hardlink
       assert Destination.resolved?(item.draft.destination)
-      refute item.draft.destination.chosen
+      refute item.draft.destination.root_chosen
+      refute item.draft.destination.policy_chosen
     end
 
     test "an untouched destination follows the default when it moves", ctx do
@@ -484,26 +485,74 @@ defmodule Ambry.InboxTest do
       {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
 
       assert item.draft.destination.policy == :move
-      refute item.draft.destination.chosen
+      refute item.draft.destination.policy_chosen
     end
 
-    test "a destination the operator chose is never moved by a default", ctx do
-      chosen = Destination.choose(ctx.item.draft.destination, %{policy: :copy})
-      draft = %{ctx.item.draft | destination: chosen}
-      {:ok, _item} = Inbox.update_draft(ctx.item, Inbox.dump_draft(draft))
+    test "a policy the operator chose is never moved by a default", ctx do
+      pick(ctx.item, &Destination.choose_policy(&1, :copy))
 
       {:ok, _source} = Library.update_source(ctx.source, %{import_policy: :move})
 
       {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
 
       assert item.draft.destination.policy == :copy
-      assert item.draft.destination.chosen
+      assert item.draft.destination.policy_chosen
+    end
+
+    # The two halves are separate decisions: "where" is not an answer to
+    # "how", and one flag would have made picking a root freeze whatever
+    # policy the previous root happened to imply.
+    test "picking a root leaves an unpicked policy free to follow the default", ctx do
+      other = insert(:root)
+      pick(ctx.item, &Destination.choose_root(&1, other.id))
+
+      {:ok, _source} = Library.update_source(ctx.source, %{import_policy: :move})
+
+      {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
+
+      assert item.draft.destination.root_id == other.id
+      assert item.draft.destination.root_chosen
+      assert item.draft.destination.policy == :move
+    end
+
+    # Blank is how an operator un-decides; recording it as a choice would
+    # leave the import unresolvable with no way back.
+    test "clearing a picker hands the choice back to the default", ctx do
+      other = insert(:root)
+      pick(ctx.item, &Destination.choose_root(&1, other.id))
+      pick(Inbox.get_item!(ctx.item.id), &Destination.choose_root(&1, nil))
+
+      {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
+
+      refute item.draft.destination.root_chosen
+      # two roots now, and no preference between them
+      assert is_nil(item.draft.destination.root_id)
+    end
+
+    # A root can be deleted between the choice and the next look, and a
+    # dangling id would seed a destination that only fails at placement.
+    test "a chosen root that has since been deleted is asked about again", ctx do
+      doomed = insert(:root)
+      pick(ctx.item, &Destination.choose_root(&1, doomed.id))
+      {:ok, _root} = Library.delete_root(doomed)
+
+      {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
+
+      assert is_nil(item.draft.destination.root_id)
+      refute Destination.resolved?(item.draft.destination)
     end
 
     test "re-preparing an unchanged item changes nothing", ctx do
       {:ok, again} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
 
       assert again.draft.destination == ctx.item.draft.destination
+    end
+
+    # What the form's pickers do: transform the stored destination and save.
+    defp pick(item, fun) do
+      draft = %{item.draft | destination: fun.(item.draft.destination)}
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+      item
     end
   end
 
