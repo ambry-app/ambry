@@ -89,17 +89,33 @@ defmodule AmbryWeb.Admin.MediaLive.Replace do
      |> push_patch(to: ~p"/admin/audiobooks/#{socket.assigns.media}/replace", replace: true)}
   end
 
-  # Consumes browser uploads into a fresh source folder, or references the
-  # server-side files selected via the file browser, returning the new
-  # source_path and the sorted list of source files for the replacement.
+  # Consumes browser uploads into a fresh source folder — or brings the
+  # server-side files selected via the file browser into one, since the
+  # database no longer stores absolute paths. Returns the new source_path
+  # and sorted source files in `/uploads/...` form.
   defp consume_audio_files(socket, %{"source_type" => "local_import"}) do
     case Enum.to_list(socket.assigns.selected_files) do
       [] ->
         {:error, :no_files}
 
       selected_files ->
-        {:ok, source_media_disk_path(Ecto.UUID.generate()),
-         Enum.sort(selected_files, NaturalOrder)}
+        source_path = source_media_disk_path(Ecto.UUID.generate())
+
+        files =
+          for file <- selected_files do
+            File.mkdir_p!(source_path)
+            dest = Path.join(source_path, Path.basename(file))
+
+            case File.ln(file, dest) do
+              :ok -> :ok
+              {:error, :eexist} -> :ok
+              {:error, _reason} -> File.cp!(file, dest)
+            end
+
+            Ambry.Paths.disk_to_web(dest)
+          end
+
+        {:ok, Ambry.Paths.disk_to_web(source_path), Enum.sort(files, NaturalOrder)}
     end
   end
 
@@ -112,12 +128,12 @@ defmodule AmbryWeb.Admin.MediaLive.Replace do
         dest = Path.join([source_path, entry.client_name])
         File.cp!(path, dest)
 
-        {:ok, dest}
+        {:ok, Ambry.Paths.disk_to_web(dest)}
       end)
 
     case audio_files do
       [] -> {:error, :no_files}
-      files -> {:ok, source_path, Enum.sort(files, NaturalOrder)}
+      files -> {:ok, Ambry.Paths.disk_to_web(source_path), Enum.sort(files, NaturalOrder)}
     end
   end
 

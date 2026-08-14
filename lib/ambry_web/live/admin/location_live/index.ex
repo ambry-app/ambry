@@ -44,23 +44,48 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
 
   def handle_event("delete-source", %{"id" => id}, socket) do
     source = Library.get_source!(id)
-    {:ok, _source} = Library.delete_source(source)
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Removed #{source.name}. Its files were left alone.")
-     |> load()}
+    case Library.delete_source(source) do
+      {:ok, _source} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Removed #{source.name}. Its files were left alone.")
+         |> load()}
+
+      {:error, {:referenced, %{inbox_items: items}}} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "#{source.name} still has #{items} inbox item#{plural(items)} resolving through it. " <>
+             "Import or remove them first."
+         )}
+    end
   end
 
   def handle_event("delete-root", %{"id" => id}, socket) do
     root = Library.get_root!(id)
-    {:ok, _root} = Library.delete_root(root)
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Removed #{root.name}. Its files were left alone.")
-     |> load()}
+    case Library.delete_root(root) do
+      {:ok, _root} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Removed #{root.name}. Its files were left alone.")
+         |> load()}
+
+      {:error, {:referenced, %{media: media}}} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "#{root.name} still holds #{media} recording#{plural(media)}. " <>
+             "The library serves them from there, so the root has to outlive them."
+         )}
+    end
   end
+
+  defp plural(1), do: ""
+  defp plural(_many), do: "s"
 
   defp load(socket) do
     sources = Library.list_sources()
@@ -80,35 +105,40 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
     )
   end
 
-  # Raw device numbers mean nothing to anyone, but "these two are on the same
-  # one" means everything here, so distinct devices get short labels in the
-  # order they're first seen.
+  # Raw device numbers mean nothing to anyone, but "these two can hardlink
+  # between each other" means everything here, so each distinct
+  # {device, mount} pair gets a short label in the order it's first seen.
+  # Both halves, because that is what `link(2)` actually requires — see
+  # `Ambry.Library.same_filesystem?/2`.
   defp label_filesystems(statuses) do
     statuses
     |> Map.values()
-    |> Enum.map(& &1.device)
-    |> Enum.reject(&is_nil/1)
+    |> Enum.reject(&is_nil(&1.device))
+    |> Enum.map(&{&1.device, &1.mount})
     |> Enum.uniq()
     |> Enum.with_index()
-    |> Map.new(fn {device, index} -> {device, <<?A + index>>} end)
+    |> Map.new(fn {key, index} -> {key, <<?A + index>>} end)
   end
 
-  defp on_import_label(:bring_in), do: "brings files in"
-  defp on_import_label(:leave_in_place), do: "leaves files in place"
-
-  defp on_import_blurb(:bring_in),
-    do: "Its files could vanish, so import places the library's own copy into a root."
-
-  defp on_import_blurb(:leave_in_place),
-    do: "Its files are trusted to stay. Imports reference them; Ambry never writes here."
-
-  defp on_import_class(:bring_in), do: "bg-blue-400/15 text-blue-300"
-  defp on_import_class(:leave_in_place), do: "bg-white/10 text-zinc-300"
+  # The tag for one row, or nil for an unreachable path.
+  defp filesystem_tag(_filesystems, %{device: nil}), do: nil
+  defp filesystem_tag(filesystems, status), do: filesystems[{status.device, status.mount}]
 
   defp policy_label(:hardlink), do: "hardlink"
+  defp policy_label(:symlink), do: "symlink"
   defp policy_label(:copy), do: "copy"
   defp policy_label(:move), do: "move"
-  defp policy_label(nil), do: nil
+
+  defp policy_blurb(:hardlink),
+    do: "Import hardlinks its files into a root — one copy of the bytes, seeding untouched."
+
+  defp policy_blurb(:symlink),
+    do:
+      "Import symlinks its files into a root. They're trusted to stay; the link dangles if they don't."
+
+  defp policy_blurb(:copy), do: "Import copies its files into a root, duplicating the bytes."
+
+  defp policy_blurb(:move), do: "Import moves its files into a root, leaving this folder clean."
 
   defp source_problem(status) do
     cond do

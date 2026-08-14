@@ -33,7 +33,9 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
 
     :media
     |> build(book: book, chapters: chapters)
-    |> with_source_files()
+    # A real copy in the media's own folder, so the edit form's re-read can
+    # probe it — same reason as the sibling `ChaptersTest`.
+    |> with_copied_source_files()
     |> insert()
   end
 

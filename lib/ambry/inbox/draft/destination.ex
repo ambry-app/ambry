@@ -2,6 +2,10 @@ defmodule Ambry.Inbox.Draft.Destination do
   @moduledoc """
   Where this import's files are going, and what will be done to them.
 
+  Every import places into a library root — there is no other place Ambry
+  serves from — so a destination is two choices: **which root**, and **which
+  policy** (hardlink, symlink, copy or move) brings the files in.
+
   ## Inputs and outputs are independent
 
   A watched folder is an *input*; a library root is an *output*. Any input may
@@ -16,13 +20,15 @@ defmodule Ambry.Inbox.Draft.Destination do
   location may still name a *preferred* root, which seeds the choice without
   binding it.
 
-  ## Policy belongs to the input; feasibility belongs to the pair
+  ## Policy is seeded by the input; feasibility belongs to the pair
 
-  `hardlink | copy | move` describes what you want done with the *source* —
-  preserve it for seeding, or clear it out — so it's a property of where the
-  files came from. Whether a hardlink is actually possible depends on the
-  input and output being on one filesystem, which is a fact about the
-  *pairing* and can only be checked once both ends are known.
+  `hardlink | symlink | copy | move` describes what happens to the *source* —
+  preserve it for seeding, reference it in place, or clear it out — so its
+  default comes from where the files came from (`Source.import_policy`). An
+  item with no source has no default and the policy is a real outstanding
+  decision. Whether a hardlink is actually possible depends on the input and
+  output being on one filesystem, which is a fact about the *pairing* and can
+  only be checked once both ends are known.
   """
 
   use Ecto.Schema
@@ -32,11 +38,8 @@ defmodule Ambry.Inbox.Draft.Destination do
   @primary_key false
 
   embedded_schema do
-    # :external adopts the files where they lie and is settled by definition —
-    # there is no destination to choose.
-    field :custody, Ecto.Enum, values: [:managed, :external], default: :external
     field :root_id, :id
-    field :policy, Ecto.Enum, values: [:hardlink, :copy, :move]
+    field :policy, Ecto.Enum, values: [:hardlink, :symlink, :copy, :move]
     field :approved, :boolean, default: false
 
     # Filled in at render time from the registry rather than stored: roots are
@@ -47,32 +50,35 @@ defmodule Ambry.Inbox.Draft.Destination do
   @doc false
   def changeset(destination, attrs) do
     destination
-    |> cast(attrs, [:custody, :root_id, :policy, :approved])
-    |> validate_managed_has_root()
+    |> cast(attrs, [:root_id, :policy, :approved])
+    |> validate_approved_is_placeable()
   end
 
-  # An approved managed import with no root is not a decision — it's one that
-  # would fail at the moment of placement, which is precisely what the
+  # An approved import with no root or no policy is not a decision — it's one
+  # that would fail at the moment of placement, which is precisely what the
   # invariant exists to prevent.
-  defp validate_managed_has_root(changeset) do
-    approved? = get_field(changeset, :approved)
-    managed? = get_field(changeset, :custody) == :managed
-
-    if approved? and managed? and is_nil(get_field(changeset, :root_id)) do
-      add_error(changeset, :root_id, "needs a library root to import into")
+  defp validate_approved_is_placeable(changeset) do
+    if get_field(changeset, :approved) do
+      changeset
+      |> validate_present(:root_id, "needs a library root to import into")
+      |> validate_present(:policy, "needs a placement policy")
     else
       changeset
     end
   end
 
+  defp validate_present(changeset, field, message) do
+    if is_nil(get_field(changeset, field)),
+      do: add_error(changeset, field, message),
+      else: changeset
+  end
+
   @doc """
   Whether the destination still needs a human.
-
-  External custody is settled by construction: the files stay exactly where
-  they are, so there is nothing to decide.
   """
-  def resolved?(%__MODULE__{custody: :external}), do: true
-  def resolved?(%__MODULE__{approved: true, root_id: id}), do: not is_nil(id)
+  def resolved?(%__MODULE__{approved: true, root_id: root_id, policy: policy}),
+    do: not is_nil(root_id) and not is_nil(policy)
+
   def resolved?(%__MODULE__{}), do: false
 
   def state(%__MODULE__{} = destination) do

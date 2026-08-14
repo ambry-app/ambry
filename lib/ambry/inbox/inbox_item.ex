@@ -6,6 +6,13 @@ defmodule Ambry.Inbox.InboxItem do
   organized until it's imported. `path` is the item's identity (the release
   folder, or a loose file), which is what makes rescans idempotent and keeps
   ignored items ignored.
+
+  `path` and `files` are stored relative to the item's source, so a source
+  whose mount point changes is a one-row edit and every queued item — and
+  the operator decisions staged on it — survives the move. An ad-hoc item
+  with no source stores absolute paths; that exception stays inside the
+  inbox, whose rows are transient. Resolve through `disk_path/1` and
+  `disk_files/1`, never by joining the columns against anything directly.
   """
 
   use Ecto.Schema
@@ -14,17 +21,20 @@ defmodule Ambry.Inbox.InboxItem do
 
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.ReleaseName
+  alias Ambry.Library
   alias Ambry.Library.Source
   alias Ambry.Media.Media
+  alias Ambry.Repo
 
   @statuses [:pending, :ignored, :imported]
 
   schema "inbox_items" do
     belongs_to :media, Media
 
-    # Where this was found, which is what says whether importing it should
-    # bring the files into a library root or adopt them where they lie.
-    # Nullable: items from an ad-hoc scan have no source to speak for them.
+    # Where this was found, which seeds the placement policy import brings
+    # its files into a library root with. Nullable: items from an ad-hoc
+    # scan have no source to speak for them, so the operator picks the
+    # policy at approval.
     belongs_to :source, Source
 
     field :path, :string
@@ -95,4 +105,30 @@ defmodule Ambry.Inbox.InboxItem do
       do: Path.join(Path.basename(Path.dirname(path)), base),
       else: base
   end
+
+  @doc """
+  The item's absolute path on disk.
+  """
+  def disk_path(%__MODULE__{path: path} = item), do: resolve!(item, path)
+
+  @doc """
+  The item's files as absolute disk paths, in discovery order.
+  """
+  def disk_files(%__MODULE__{files: files} = item), do: Enum.map(files, &resolve!(item, &1))
+
+  # An ad-hoc item's paths are already absolute; a sourced item resolves
+  # against its source. Raising on anything else is deliberate: these paths
+  # get probed, placed and (on undo) checked before deletion, and a path
+  # that can't resolve must never quietly become a relative one.
+  defp resolve!(%__MODULE__{source_id: nil}, path), do: path
+
+  defp resolve!(%__MODULE__{} = item, path) do
+    case Library.resolve(item_source(item), path) do
+      {:ok, absolute} -> absolute
+      {:error, reason} -> raise "unresolvable inbox path: #{inspect(reason)}"
+    end
+  end
+
+  defp item_source(%__MODULE__{source: %Source{} = source}), do: source
+  defp item_source(%__MODULE__{source_id: id}), do: Repo.get!(Source, id)
 end

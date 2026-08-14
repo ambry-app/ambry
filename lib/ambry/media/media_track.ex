@@ -19,6 +19,8 @@ defmodule Ambry.Media.MediaTrack do
   import Ecto.Changeset
 
   alias Ambry.Hashids
+  alias Ambry.Library
+  alias Ambry.Library.Root
   alias Ambry.Media.Media
   alias Ambry.Media.MediaTrack
 
@@ -26,6 +28,10 @@ defmodule Ambry.Media.MediaTrack do
 
   schema "media_tracks" do
     belongs_to :media, Media
+
+    # Which library root the file lives in; null means a legacy
+    # `/uploads/...` path. Resolve through `disk_path/1`.
+    belongs_to :library_root, Root
 
     field :index, :integer
     field :path, :string
@@ -48,6 +54,7 @@ defmodule Ambry.Media.MediaTrack do
     |> cast(attrs, [
       :index,
       :path,
+      :library_root_id,
       :size,
       :mime,
       :format,
@@ -67,14 +74,25 @@ defmodule Ambry.Media.MediaTrack do
   @doc """
   The URL clients fetch this track from.
 
-  The track's own path is a disk path that may be anywhere — the uploads
-  tree, a folder referenced in place, or a library root — so the URL is keyed
-  on the track instead, and ends in the file's real name so downloads keep
-  their real extension.
+  The track's own path is a stored path relative to its library root (or a
+  legacy `/uploads/...` path), so the URL is keyed on the track instead,
+  and ends in the file's real name so downloads keep their real extension.
   """
   def web_path(%MediaTrack{id: id, path: path}) do
     "/files/track/#{Hashids.encode(id)}/#{Path.basename(path)}"
   end
+
+  @doc """
+  The absolute disk path this track is served from.
+  """
+  def disk_path(%MediaTrack{path: "/uploads/" <> _rest = web_path}),
+    do: Library.resolve(nil, web_path)
+
+  def disk_path(%MediaTrack{library_root: %Root{} = root, path: path}),
+    do: Library.resolve(root, path)
+
+  def disk_path(%MediaTrack{library_root_id: root_id, path: path}),
+    do: Library.resolve(root_id, path)
 
   @doc """
   The absolute book-seconds range this track covers, as `{start, end}`.

@@ -9,7 +9,8 @@ defmodule Ambry.Media.ScannerTest do
     test "records what the file is, without touching it" do
       media = scannable_media(:m4a)
       [source_file] = media.source_files
-      before = File.stat!(source_file)
+      source_file_on_disk = Ambry.Paths.web_to_disk(source_file)
+      before = File.stat!(source_file_on_disk)
 
       assert {:ok, media} = Scanner.scan(media)
 
@@ -22,7 +23,7 @@ defmodule Ambry.Media.ScannerTest do
       assert track.format =~ "mp4"
       assert Decimal.equal?(track.start_offset, 0)
 
-      assert File.stat!(source_file).size == before.size
+      assert File.stat!(source_file_on_disk).size == before.size
     end
 
     test "gives the media the track's duration" do
@@ -143,7 +144,7 @@ defmodule Ambry.Media.ScannerTest do
 
     test "reports a file that has gone missing" do
       media = scannable_media(:m4a)
-      media.source_files |> hd() |> File.rm!()
+      media.source_files |> hd() |> Ambry.Paths.web_to_disk() |> File.rm!()
 
       assert {:error, :enoent} = Scanner.scan(media)
     end
@@ -248,6 +249,7 @@ defmodule Ambry.Media.ScannerTest do
   defp retag(flags, metadata) do
     media = scannable_media(:m4a)
     [source_file] = media.source_files
+    source_file = Ambry.Paths.web_to_disk(source_file)
     dir = Path.dirname(source_file)
     tagged_path = Path.join(dir, "tagged.m4b")
 
@@ -265,7 +267,9 @@ defmodule Ambry.Media.ScannerTest do
 
     File.rm!(source_file)
 
-    {:ok, media} = Media.update_media(media, %{source_files: [tagged_path]})
+    {:ok, media} =
+      Media.update_media(media, %{source_files: [Ambry.Paths.disk_to_web(tagged_path)]})
+
     Media.get_media!(media.id)
   end
 
@@ -294,6 +298,7 @@ defmodule Ambry.Media.ScannerTest do
   defp chaptered_media(attrs \\ []) do
     media = scannable_media(:m4a, 1, attrs)
     [source_file] = media.source_files
+    source_file = Ambry.Paths.web_to_disk(source_file)
 
     metadata_path = Path.join(Path.dirname(source_file), "chapters.txt")
 
@@ -330,7 +335,9 @@ defmodule Ambry.Media.ScannerTest do
 
     File.rm!(source_file)
 
-    {:ok, media} = Media.update_media(media, %{source_files: [chaptered_path]})
+    {:ok, media} =
+      Media.update_media(media, %{source_files: [Ambry.Paths.disk_to_web(chaptered_path)]})
+
     Media.get_media!(media.id)
   end
 end

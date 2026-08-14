@@ -15,7 +15,16 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Repo
 
   defp item(attrs) do
-    %InboxItem{path: "/downloads/Some Release", files: ["/downloads/Some Release/book.m4b"]}
+    # A settled environment — one root, a sourced item — so the destination
+    # resolves silently and these tests stay about the decision tree.
+    if Ambry.Library.list_roots() == [], do: insert(:root)
+    source = insert(:source)
+
+    %InboxItem{
+      path: "Some Release",
+      files: ["Some Release/book.m4b"],
+      source_id: source.id
+    }
     |> Map.merge(attrs)
     |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
   end
@@ -2702,7 +2711,7 @@ defmodule Ambry.Inbox.DraftTest do
       item =
         item(%{
           path:
-            "/downloads/[ACOTAR #1] A Court of Thorns and Roses [GraphicAudio]/[ACOTAR #1] A Court of Thorns and Roses - Part 1 of 2 [GraphicAudio] (chapterized).m4b",
+            "[ACOTAR #1] A Court of Thorns and Roses [GraphicAudio]/[ACOTAR #1] A Court of Thorns and Roses - Part 1 of 2 [GraphicAudio] (chapterized).m4b",
           matches: matches([provider_candidate(%{"title" => "A Court of Thorns and Roses"})]),
           # the publisher IS what distinguishes this set from the book's
           # other recordings, so it's the natural name
@@ -2726,7 +2735,7 @@ defmodule Ambry.Inbox.DraftTest do
     test "with no publisher anywhere, the proposal's name stays blank — never the book's" do
       item =
         item(%{
-          path: "/downloads/Some Book - Part 1 of 2/Some Book - Part 1 of 2.m4b",
+          path: "Some Book - Part 1 of 2/Some Book - Part 1 of 2.m4b",
           matches: matches([provider_candidate(%{})]),
           tags: %{}
         })
@@ -2788,7 +2797,7 @@ defmodule Ambry.Inbox.DraftTest do
     test "a reseed follows fresh detection for an uncurated proposal but never touches a curated or removed one" do
       item =
         item(%{
-          path: "/downloads/Some Book - Part 1 of 2/Some Book - Part 1 of 2.m4b",
+          path: "Some Book - Part 1 of 2/Some Book - Part 1 of 2.m4b",
           matches: matches([provider_candidate(%{})]),
           tags: %{}
         })
@@ -2822,7 +2831,7 @@ defmodule Ambry.Inbox.DraftTest do
 
       item =
         item(%{
-          path: "/downloads/Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
+          path: "Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
           matches: matches([provider_candidate(%{})]),
           tags: %{}
         })
@@ -2867,7 +2876,7 @@ defmodule Ambry.Inbox.DraftTest do
 
       item =
         item(%{
-          path: "/downloads/Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
+          path: "Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
           matches: matches([provider_candidate(%{})]),
           tags: %{}
         })
@@ -2899,7 +2908,7 @@ defmodule Ambry.Inbox.DraftTest do
 
       item =
         item(%{
-          path: "/downloads/ACOTAR - Part 2 of 2/ACOTAR - Part 2 of 2.m4b",
+          path: "ACOTAR - Part 2 of 2/ACOTAR - Part 2 of 2.m4b",
           matches:
             matches([
               provider_candidate(%{
@@ -2935,7 +2944,7 @@ defmodule Ambry.Inbox.DraftTest do
       # named anywhere — the number is the part's
       polluted =
         item(%{
-          path: "/downloads/Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
+          path: "Some Book - Part 2 of 2/Some Book - Part 2 of 2.m4b",
           tags: %{"series_number" => "2"}
         })
 
@@ -2946,7 +2955,7 @@ defmodule Ambry.Inbox.DraftTest do
       # a named series keeps its number even when it matches the part number
       named_series =
         item(%{
-          path: "/downloads/Another Book - Part 2 of 2/Another Book - Part 2 of 2.m4b",
+          path: "Another Book - Part 2 of 2/Another Book - Part 2 of 2.m4b",
           tags: %{"series" => "The Real Series", "series_number" => "2"}
         })
 
@@ -3063,7 +3072,7 @@ defmodule Ambry.Inbox.DraftTest do
       assert resolved.ready
 
       unresolved =
-        item(%{path: "/downloads/Another", matches: matches([]), tags: %{}})
+        item(%{path: "Another", matches: matches([]), tags: %{}})
 
       {:ok, unresolved} = Inbox.prepare_draft(unresolved)
       refute unresolved.ready
@@ -3090,7 +3099,7 @@ defmodule Ambry.Inbox.DraftTest do
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
-      moved = %{item | files: ["/downloads/Some Release/moved.m4b"]}
+      moved = %{item | files: ["Some Release/moved.m4b"]}
       stale = Seed.restale(item.draft, moved)
 
       assert stale.stale

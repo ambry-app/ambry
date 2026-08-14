@@ -11,7 +11,7 @@ defmodule AmbryWeb.AudiobookLiveTest do
       |> build(book: build(:book))
       |> with_image()
       |> with_thumbnails()
-      |> with_source_files()
+      |> with_copied_source_files()
       |> insert()
       |> with_output_files()
 

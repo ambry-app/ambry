@@ -8,12 +8,12 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
   setup :register_and_log_in_admin_user
 
   describe "new source" do
-    test "adds a bring-in source", %{conn: conn} do
+    test "adds a source", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/admin/locations/sources/new")
 
       view
       |> form("#location-form",
-        source: %{name: "Downloads NAS", path: "/data/downloads", on_import: "bring_in"}
+        source: %{name: "Downloads NAS", path: "/data/downloads"}
       )
       |> render_submit()
 
@@ -21,23 +21,14 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
 
       assert [source] = Library.list_sources()
       assert source.name == "Downloads NAS"
-      assert source.on_import == :bring_in
       assert source.import_policy == :hardlink
     end
 
-    test "shows the placement details only when files are brought in", %{conn: conn} do
-      {:ok, view, html} = live(conn, ~p"/admin/locations/sources/new")
+    test "always asks how the files come in", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/admin/locations/sources/new")
 
       assert html =~ "How the files come in"
-
-      html =
-        view
-        |> form("#location-form",
-          source: %{name: "C", path: "/data/c", on_import: "leave_in_place"}
-        )
-        |> render_change()
-
-      refute html =~ "How the files come in"
+      assert html =~ "Symlink"
     end
 
     # Finding out that a path is wrong at save time is late; finding out at
@@ -48,7 +39,7 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
       html =
         view
         |> form("#location-form",
-          source: %{name: "S", path: tmp_dir(), on_import: "bring_in"}
+          source: %{name: "S", path: tmp_dir()}
         )
         |> render_change()
 
@@ -57,7 +48,7 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
       html =
         view
         |> form("#location-form",
-          source: %{name: "S", path: "/mnt/nope", on_import: "bring_in"}
+          source: %{name: "S", path: "/mnt/nope"}
         )
         |> render_change()
 
@@ -69,7 +60,7 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
 
       html =
         view
-        |> form("#location-form", source: %{name: "S", path: "data/s", on_import: "bring_in"})
+        |> form("#location-form", source: %{name: "S", path: "data/s"})
         |> render_submit()
 
       assert html =~ "must be an absolute path"
@@ -81,7 +72,7 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
     test "adds a root, asking nothing but name and path", %{conn: conn} do
       {:ok, view, html} = live(conn, ~p"/admin/locations/roots/new")
 
-      refute html =~ "On import"
+      refute html =~ "How the files come in"
       refute html =~ "Watched"
 
       view

@@ -329,18 +329,19 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp rail_class(%{status: :imported}), do: "border-brand-dark/40 border-l-4"
   defp rail_class(_item), do: "border-l-4 border-zinc-700"
 
-  # Where an item came from is what decides its custody at import — whether
-  # the file gets brought into the library or referenced where it lies — so
-  # it's worth reading off the row.
-  defp source_label(%Source{name: name, on_import: on_import}),
-    do: "#{name} · #{custody_word(on_import)}"
+  # Where an item came from seeds how its files reach the library, so it's
+  # worth reading off the row.
+  defp source_label(%Source{name: name, import_policy: policy}),
+    do: "#{name} · #{policy_word(policy)}"
 
-  defp source_label(nil), do: "ad-hoc scan · adopted in place"
+  defp source_label(nil), do: "ad-hoc scan"
 
-  defp custody_word(:bring_in), do: "brought in on import"
-  defp custody_word(:leave_in_place), do: "referenced in place"
+  defp policy_word(:hardlink), do: "hardlinked in on import"
+  defp policy_word(:symlink), do: "symlinked in on import"
+  defp policy_word(:copy), do: "copied in on import"
+  defp policy_word(:move), do: "moved in on import"
 
-  defp source_color(%Source{on_import: :bring_in}), do: "bg-blue-400/15 text-blue-300"
+  defp source_color(%Source{}), do: "bg-blue-400/15 text-blue-300"
 
   defp source_color(_other), do: "bg-white/10 text-zinc-300"
 

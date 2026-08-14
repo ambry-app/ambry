@@ -100,7 +100,9 @@ defmodule Ambry.Media.MediaTest do
     end
 
     test "if the media's source path does not exist, returns an empty list" do
-      media = build(:media)
+      # the factory creates its workspace folder on disk, so point at one
+      # that was never made
+      media = build(:media, source_path: "/uploads/source_media/#{Ecto.UUID.generate()}")
 
       files = Media.files(media, [".mp3"])
 

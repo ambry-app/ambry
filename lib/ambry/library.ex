@@ -5,11 +5,12 @@ defmodule Ambry.Library do
   Two registries, deliberately separate because they are separate concepts:
 
     * **Sources** (`Ambry.Library.Source`) — watched folders audiobooks
-      arrive from. Read, never written. Each carries one promise: whether
-      its files can be trusted to stay (`on_import`).
-    * **Library roots** (`Ambry.Library.Root`) — the folders managed audio
-      is organized into. Written, never watched. Optional: a setup whose
-      sources are all trusted imports nothing into a root.
+      arrive from. Read, never written. Each carries a default placement
+      policy (`import_policy`) naming how import brings its files into a
+      root.
+    * **Library roots** (`Ambry.Library.Root`) — the folders the library's
+      audio is organized into, and the only place Ambry serves from.
+      Written, never watched. At least one is required to import anything.
 
   This module is also the place that answers "can these two paths share a
   hardlink?".
@@ -35,13 +36,15 @@ defmodule Ambry.Library do
   """
 
   use Boundary,
-    deps: [Ambry.Repo],
+    deps: [Ambry.Paths, Ambry.Repo],
     exports: [Source, Root, NamingTemplate, Placement]
 
   import Ecto.Query
 
+  alias Ambry.Library.Mounts
   alias Ambry.Library.Root
   alias Ambry.Library.Source
+  alias Ambry.Paths
   alias Ambry.Repo
 
   defmodule Status do
@@ -51,8 +54,12 @@ defmodule Ambry.Library do
     Deliberately not stored: a NAS that was mounted when the row was written
     tells you nothing about whether it's mounted now, and a stale "healthy"
     is worse than no answer.
+
+    `device` and `mount` together identify what a path can be hardlinked
+    with — see `Ambry.Library.same_filesystem?/2` for why it takes both.
+    `mount` is nil where the system offers no mount table.
     """
-    defstruct [:exists?, :directory?, :writable?, :device]
+    defstruct [:exists?, :directory?, :writable?, :device, :mount]
   end
 
   ## sources
@@ -86,8 +93,24 @@ defmodule Ambry.Library do
 
   @doc """
   Removes a source from the registry. Never touches the files it points at.
+
+  Refused with `{:error, {:referenced, %{inbox_items: n}}}` while inbox
+  items still resolve their paths through it — the database would refuse
+  too (`on_delete: :restrict`), but a count is an explanation and a
+  constraint violation is not.
   """
-  def delete_source(%Source{} = source), do: Repo.delete(source)
+  def delete_source(%Source{} = source) do
+    case references_to(source) do
+      %{inbox_items: 0} -> Repo.delete(source)
+      counts -> {:error, {:referenced, counts}}
+    end
+  end
+
+  defp references_to(%Source{id: id}) do
+    %{
+      inbox_items: Repo.aggregate(from(i in "inbox_items", where: i.source_id == ^id), :count)
+    }
+  end
 
   def change_source(%Source{} = source, attrs \\ %{}), do: Source.changeset(source, attrs)
 
@@ -121,24 +144,113 @@ defmodule Ambry.Library do
   Removes a root from the registry.
 
   This never touches the files it points at — deleting a row is not how an
-  operator says "delete my library".
+  operator says "delete my library". Refused with
+  `{:error, {:referenced, %{media: n, media_tracks: n}}}` while recordings
+  still resolve their paths through it; the database's
+  `on_delete: :restrict` backs the same rule, but a count is an
+  explanation and a constraint violation is not.
   """
-  def delete_root(%Root{} = root), do: Repo.delete(root)
+  def delete_root(%Root{} = root) do
+    case root_references(root) do
+      %{media: 0, media_tracks: 0} -> Repo.delete(root)
+      counts -> {:error, {:referenced, counts}}
+    end
+  end
+
+  defp root_references(%Root{id: id}) do
+    %{
+      media: Repo.aggregate(from(m in "media", where: m.library_root_id == ^id), :count),
+      media_tracks:
+        Repo.aggregate(from(t in "media_tracks", where: t.library_root_id == ^id), :count)
+    }
+  end
 
   def change_root(%Root{} = root, attrs \\ %{}), do: Root.changeset(root, attrs)
 
-  @doc """
-  Whether a path lies inside a registered library root.
+  ## stored-path resolution
+  #
+  # A stored path is either relative to a library root (the FK says which)
+  # or a legacy `/uploads/...` path with a null FK, resolved through
+  # `Ambry.Paths`. These are the only two cases; anything else is refused
+  # rather than guessed at.
 
-  This is derived, never declared: nobody should have to *tell* the system a
-  folder is inside the library. Import uses it to notice that bringing a
-  file in would be copying it to where it already is, and adopts in place
-  instead.
+  @doc """
+  Resolves a stored path to an absolute disk path.
+
+  Takes the root (record, id, or `nil` for the legacy uploads case) and the
+  stored string. Rejects a relative path containing `..` or starting with
+  `/` **before anything else** — `Path.join/2` traverses upward happily and
+  discards a joined-on absolute path entirely, and resolved paths feed
+  `File.rm_rf`.
   """
-  def inside_root?(path) when is_binary(path) do
-    Enum.any?(list_roots(), fn root ->
-      String.starts_with?(path <> "/", root.path <> "/")
-    end)
+  def resolve(nil, "/uploads/" <> _rest = web_path), do: {:ok, Paths.web_to_disk(web_path)}
+  def resolve(nil, path), do: {:error, {:unresolvable, path}}
+
+  def resolve(%Root{path: base}, relative), do: resolve_in(base, relative)
+
+  # Inbox item paths are relative to the *source* they were discovered in —
+  # a source is a location too, it's just never a place media lives.
+  def resolve(%Source{path: base}, relative), do: resolve_in(base, relative)
+
+  def resolve(root_id, relative) when is_integer(root_id) do
+    case fetch_root(root_id) do
+      {:ok, root} -> resolve(root, relative)
+      {:error, :not_found} -> {:error, {:no_root, root_id}}
+    end
+  end
+
+  defp resolve_in(base, relative) do
+    cond do
+      Path.type(relative) != :relative -> {:error, {:not_relative, relative}}
+      ".." in Path.split(relative) -> {:error, {:traversal, relative}}
+      true -> {:ok, Path.join(base, relative)}
+    end
+  end
+
+  @doc """
+  Same, raising on anything unresolvable.
+
+  For invariants the schema is meant to guarantee — a caller that has no
+  better answer than crashing should crash here, before the bad path
+  reaches the filesystem.
+  """
+  def resolve!(root, path) do
+    case resolve(root, path) do
+      {:ok, absolute} -> absolute
+      {:error, reason} -> raise "unresolvable stored path: #{inspect(reason)}"
+    end
+  end
+
+  @doc """
+  The stored (relative) form of an absolute path inside a location.
+
+  Refuses a path outside the location rather than emitting `../..`.
+  """
+  def relativize(%Root{path: base}, absolute), do: do_relativize(base, absolute)
+  def relativize(%Source{path: base}, absolute), do: do_relativize(base, absolute)
+
+  defp do_relativize(base, absolute) do
+    if String.starts_with?(absolute, base <> "/"),
+      do: {:ok, Path.relative_to(absolute, base)},
+      else: {:error, :outside_location}
+  end
+
+  @doc """
+  The root an absolute path lives in, with its relative form.
+
+  Longest-prefix match, matched on a path-segment boundary, so nested
+  locations resolve deterministically. For the backfill and the import
+  boundary only — runtime code reads the FK rather than inferring a
+  location.
+  """
+  def locate(absolute) when is_binary(absolute) do
+    list_roots()
+    |> Enum.filter(&String.starts_with?(absolute, &1.path <> "/"))
+    |> Enum.max_by(&String.length(&1.path), fn -> nil end)
+    |> case do
+      nil -> {:error, :no_location}
+      root -> {:ok, {root, Path.relative_to(absolute, root.path)}}
+    end
   end
 
   @doc """
@@ -170,17 +282,38 @@ defmodule Ambry.Library do
           exists?: true,
           directory?: stat.type == :directory,
           writable?: stat.access in [:write, :read_write],
-          device: stat.major_device
+          device: stat.major_device,
+          mount: mount_id(path)
         }
 
       {:error, _reason} ->
-        %Status{exists?: false, directory?: false, writable?: false, device: nil}
+        %Status{exists?: false, directory?: false, writable?: false, device: nil, mount: nil}
+    end
+  end
+
+  defp mount_id(path) do
+    with {:ok, mounts} <- Mounts.read(),
+         {:ok, mount} <- Mounts.mount_of(path, mounts) do
+      mount.id
+    else
+      _unavailable -> nil
     end
   end
 
   @doc """
-  Whether two paths sit on the same filesystem, and can therefore be
-  hardlinked between.
+  Whether two paths can be hardlinked between.
+
+  Two checks, because `link(2)` refuses in two different ways and each one
+  is invisible to the other check:
+
+    * **different `st_dev`** — different filesystems, and also btrfs
+      subvolumes, which share a mount but carry their own device and refuse
+      cross-subvolume links;
+    * **same `st_dev`, different mounts** — two mounts of one NFS export
+      share a superblock and the kernel still refuses to link across them.
+      This is the case a device comparison alone gets confidently wrong,
+      and it matters here because in production the same export can be
+      mounted more than once.
 
   Returns `{:error, reason}` rather than `false` when the question can't be
   answered — a missing mount must not read as "different filesystem, fall
@@ -190,7 +323,24 @@ defmodule Ambry.Library do
   def same_filesystem?(source, destination) do
     with {:ok, source_device} <- device(source),
          {:ok, destination_device} <- device(destination) do
-      {:ok, source_device == destination_device}
+      if source_device == destination_device,
+        do: same_mount?(source, destination),
+        else: {:ok, false}
+    end
+  end
+
+  defp same_mount?(source, destination) do
+    case Mounts.read() do
+      {:ok, mounts} ->
+        with {:ok, source_mount} <- Mounts.mount_of(source, mounts),
+             {:ok, destination_mount} <- Mounts.mount_of(destination, mounts) do
+          {:ok, source_mount.id == destination_mount.id}
+        end
+
+      # No mountinfo (not Linux): device equality is the best available
+      # answer, which is exactly what this check was before mounts existed.
+      :unavailable ->
+        {:ok, true}
     end
   end
 

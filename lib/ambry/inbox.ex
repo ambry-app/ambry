@@ -175,8 +175,8 @@ defmodule Ambry.Inbox do
   Scans one source, or one bare path.
 
   The bare-path form is for ad-hoc scans and for exercising the walk itself;
-  items it creates have no source, so import can't know what custody they
-  imply.
+  items it creates have no source, so they carry no default placement policy
+  and the operator chooses one at approval.
   """
   def discover(%Source{} = source) do
     with {:ok, counts} <- scan(source.path, source) do
@@ -233,10 +233,12 @@ defmodule Ambry.Inbox do
   needs to see it to act on it.
   """
   def probe_item(%InboxItem{} = item, opts \\ []) do
+    item = Repo.preload(item, :source)
+
     attrs =
       case item.files do
         [] -> %{issue: "no audio files found"}
-        files -> probe_recording(files)
+        _files -> probe_recording(InboxItem.disk_files(item))
       end
 
     with {:ok, item} <- update_item(item, attrs) do
@@ -298,17 +300,26 @@ defmodule Ambry.Inbox do
   #
   # Left alone when the walk comes back empty: an NFS mount that is briefly
   # away must not be recorded as "this release has no audio in it", and a
-  # genuinely empty folder is reported by probing instead.
-  defp refresh_files(%InboxItem{path: path} = item) do
-    case candidate(path) do
-      [{_path, files}] when files != [] and files != item.files ->
-        with {:ok, item} <- update_item(item, %{files: files}) do
-          # the draft describes files that just moved under it
-          mark_draft_stale(item)
+  # genuinely empty folder is reported by probing instead. The walk speaks
+  # absolutes; what gets stored is the source-relative form.
+  defp refresh_files(%InboxItem{} = item) do
+    item = Repo.preload(item, :source)
+
+    case candidate(InboxItem.disk_path(item)) do
+      [{_path, [_ | _] = files}] ->
+        stored = Enum.map(files, &stored_form(&1, item.source))
+
+        if stored == item.files do
           {:ok, item}
+        else
+          with {:ok, item} <- update_item(item, %{files: stored}) do
+            # the draft describes files that just moved under it
+            mark_draft_stale(item)
+            {:ok, item}
+          end
         end
 
-      _unchanged_or_unreachable ->
+      _empty_or_unreachable ->
         {:ok, item}
     end
   end
@@ -317,6 +328,14 @@ defmodule Ambry.Inbox do
     item
     |> InboxItem.changeset(attrs)
     |> Repo.update()
+  end
+
+  @doc """
+  An item's files as absolute disk paths, for callers holding an item whose
+  source may not be loaded.
+  """
+  def disk_files(%InboxItem{} = item) do
+    item |> Repo.preload(:source) |> InboxItem.disk_files()
   end
 
   @doc """
@@ -494,24 +513,33 @@ defmodule Ambry.Inbox do
     heal_destination(item)
   end
 
-  # Custody is *derived* — from where the files sit and what the item's
-  # source promises — never chosen by the operator, so re-deriving it
-  # un-answers nothing. It can change under a draft: an ad-hoc-scanned item
-  # adopts its source when the source's own scan next sees it, at which point
-  # a draft that sealed an external destination leaves the operator staring
-  # at "no library root" with no root picker rendered (the picker keys off
-  # the draft's custody). A changed custody replaces the destination with a
-  # fresh seed; an unchanged one leaves the operator's root choice alone.
+  # A destination's *defaults* are derived — from the item's source — while
+  # its root and policy are the operator's to choose, so healing fills gaps
+  # without un-answering anything. The gap it exists for: an ad-hoc-scanned
+  # item adopts its source when the source's own scan next sees it, at which
+  # point the draft's sealed destination has no policy and the source now
+  # knows one. That's a fact the scan established, not a choice to preserve.
   defp heal_destination(%InboxItem{} = item) do
+    stored = item.draft.destination
     fresh = Seed.destination(item)
 
-    if item.draft.destination && item.draft.destination.custody == fresh.custody do
-      {:ok, item}
-    else
-      item
-      |> InboxItem.put_draft(dump(%{item.draft | destination: fresh}))
-      |> Repo.update()
+    cond do
+      is_nil(stored) ->
+        put_destination(item, fresh)
+
+      is_nil(stored.policy) and not is_nil(fresh.policy) ->
+        healed = %{stored | policy: fresh.policy, root_id: stored.root_id || fresh.root_id}
+        put_destination(item, %{healed | approved: not is_nil(healed.root_id)})
+
+      true ->
+        {:ok, item}
     end
+  end
+
+  defp put_destination(item, destination) do
+    item
+    |> InboxItem.put_draft(dump(%{item.draft | destination: destination}))
+    |> Repo.update()
   end
 
   @doc """
@@ -623,39 +651,13 @@ defmodule Ambry.Inbox do
   lets the form refuse to offer a button that fails, and it tells the
   operator *where the file is going* before they commit to it.
 
-  Returns a map with `:custody`, a human `:summary`, and `:blocker` — nil when
-  placement will work.
+  Returns a map with a human `:summary` and a `:blocker` — nil when placement
+  will work.
   """
   def destination_preflight(%InboxItem{} = item) do
     item = Repo.preload(item, :source)
-
-    cond do
-      # Derived, never declared: bringing a file in from inside a root would
-      # be copying it to where it already is.
-      Library.inside_root?(item.path) ->
-        adopt_preflight("It's already inside a library root.")
-
-      is_nil(item.source) ->
-        adopt_preflight("It came from an ad-hoc scan with no source.")
-
-      item.source.on_import == :leave_in_place ->
-        adopt_preflight("Its source is trusted to keep its files.")
-
-      true ->
-        bring_in_preflight(item, item.source)
-    end
-  end
-
-  defp adopt_preflight(why) do
-    %{
-      custody: :external,
-      summary: "Referenced where it lies — #{why} Ambry will never move, rename or delete it.",
-      blocker: nil
-    }
-  end
-
-  defp bring_in_preflight(item, source) do
-    base = %{custody: :managed, blocker: nil, summary: nil}
+    base = %{blocker: nil, summary: nil}
+    policy = chosen_policy(item)
 
     case chosen_root(item) do
       {:error, reason} ->
@@ -664,11 +666,19 @@ defmodule Ambry.Inbox do
       {:ok, root} ->
         %{
           base
-          | summary: policy_summary(source.import_policy, root),
-            blocker: hardlink_blocker(item, source, root)
+          | summary: policy_summary(policy, root),
+            blocker: hardlink_blocker(item, policy, root)
         }
     end
   end
+
+  # The draft's choice, which the seed filled from the source. Falling back
+  # to the source covers a preflight taken before any draft exists.
+  defp chosen_policy(%InboxItem{draft: %{destination: %{policy: policy}}})
+       when not is_nil(policy), do: policy
+
+  defp chosen_policy(%InboxItem{source: %Source{import_policy: policy}}), do: policy
+  defp chosen_policy(%InboxItem{}), do: nil
 
   # The root the draft settled on, not one derived from the source: inputs
   # and outputs are independent, so this is a decision rather than a lookup.
@@ -692,6 +702,10 @@ defmodule Ambry.Inbox do
   defp policy_summary(:hardlink, root),
     do: "Hardlinked into #{root.path} — one copy of the bytes, the download keeps seeding."
 
+  defp policy_summary(:symlink, root),
+    do:
+      "Symlinked into #{root.path} — a pointer to the original, which dangles if the original ever moves or is deleted."
+
   defp policy_summary(:copy, root), do: "Copied into #{root.path}, duplicating the bytes."
 
   defp policy_summary(:move, root),
@@ -702,11 +716,10 @@ defmodule Ambry.Inbox do
   # The refusal this whole phase exists for: a hardlink cannot cross a
   # filesystem, and silently copying instead is the storage doubling the
   # roadmap set out to eliminate. Worth knowing before the click, not after.
-  defp hardlink_blocker(
-         %InboxItem{files: [file | _rest]},
-         %Source{import_policy: :hardlink},
-         root
-       ) do
+  # Symlink deliberately gets no blocker: it has no precondition to fail.
+  defp hardlink_blocker(%InboxItem{files: [_ | _]} = item, :hardlink, root) do
+    [file | _rest] = InboxItem.disk_files(item)
+
     case Library.same_filesystem?(Path.dirname(file), root.path) do
       {:ok, true} -> nil
       {:ok, false} -> describe_error({:cross_filesystem, file, root.path})
@@ -714,7 +727,7 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp hardlink_blocker(_item, _source, _root), do: nil
+  defp hardlink_blocker(_item, _policy, _root), do: nil
 
   @doc """
   A draft as params, for staging it back onto an item.
@@ -1110,9 +1123,22 @@ defmodule Ambry.Inbox do
   defp owner_of(file, ledger) do
     cond do
       item = ledger.by_file[file] -> item
-      MapSet.member?(ledger.library, file) -> :library
+      MapSet.member?(ledger.library, library_coordinates(file, ledger.roots)) -> :library
       item = nearest_owner(file, ledger.by_path) -> item
       true -> nil
+    end
+  end
+
+  # A scanned absolute path in the same coordinates the library stores: the
+  # root it falls in plus its relative form. A file under no root can only
+  # be claimed by an item, never by the library.
+  defp library_coordinates(file, roots) do
+    roots
+    |> Enum.filter(&String.starts_with?(file, &1.path <> "/"))
+    |> Enum.max_by(&String.length(&1.path), fn -> nil end)
+    |> case do
+      nil -> {nil, file}
+      root -> {root.id, Path.relative_to(file, root.path)}
     end
   end
 
@@ -1147,14 +1173,21 @@ defmodule Ambry.Inbox do
   #
   # An item found under a source adopts it if it had none — that's a fact
   # the scan just established, not a guess — but a source is never swapped
-  # out from under an item that already has one.
+  # out from under an item that already has one. Adopting rewrites the
+  # stored path and files into the source's coordinates, so the columns
+  # always agree with the FK.
   defp refresh_known(%InboxItem{} = item, files, source) do
+    item = Repo.preload(item, :source)
     adopts_source? = is_nil(item.source_id) and not is_nil(source)
+    owner = if adopts_source?, do: source, else: item.source
+
+    stored_files = Enum.map(files, &stored_form(&1, owner))
 
     changes =
       %{}
-      |> put_if(:files, files, item.files != files)
+      |> put_if(:files, stored_files, item.files != stored_files)
       |> put_if(:source_id, adopts_source? && source.id, adopts_source?)
+      |> put_if(:path, stored_form(InboxItem.disk_path(item), owner), adopts_source?)
 
     if changes == %{} do
       :skipped
@@ -1182,9 +1215,22 @@ defmodule Ambry.Inbox do
   defp put_if(map, _key, _value, false), do: map
   defp put_if(map, key, value, _truthy), do: Map.put(map, key, value)
 
+  # The stored form of an absolute path the walk produced: source-relative
+  # when the item has a source, absolute for the ad-hoc case.
+  defp stored_form(path, nil), do: path
+
+  defp stored_form(path, %Source{} = source) do
+    {:ok, relative} = Library.relativize(source, path)
+    relative
+  end
+
   defp create_item(path, files, source) do
     %InboxItem{}
-    |> InboxItem.changeset(%{path: path, files: files, source_id: source && source.id})
+    |> InboxItem.changeset(%{
+      path: stored_form(path, source),
+      files: Enum.map(files, &stored_form(&1, source)),
+      source_id: source && source.id
+    })
     |> Repo.insert()
     |> case do
       {:ok, item} ->
@@ -1202,25 +1248,48 @@ defmodule Ambry.Inbox do
   # `by_file` is the authority — an item's own list of files — and `by_path`
   # only answers for files nothing has claimed yet, so a new file in a known
   # folder joins the item that holds the folder.
+  # The walk speaks absolutes, so the ledger's keys are the items' resolved
+  # paths — the stored source-relative forms never meet a scanned path
+  # directly.
   defp ledger do
-    items = Repo.all(InboxItem)
+    items = InboxItem |> Repo.all() |> Repo.preload(:source)
 
     %{
-      by_file: for(item <- items, file <- item.files, into: %{}, do: {file, item}),
-      by_path: Map.new(items, &{&1.path, &1}),
-      library: imported_files()
+      by_file:
+        for(item <- items, file <- InboxItem.disk_files(item), into: %{}, do: {file, item}),
+      by_path: Map.new(items, &{InboxItem.disk_path(&1), &1}),
+      library: imported_files(),
+      roots: Library.list_roots()
     }
   end
 
   # Files the library already has, by either route: a direct-play track or a
-  # legacy media's recorded source files.
+  # recording's recorded source files. Compared as `{root_id, relative}`
+  # tuples rather than strings — two roots may legitimately hold the same
+  # relative path, and the stored columns are relative now. A scanned file
+  # only matches once `locate/1`d into the same coordinates, which happens
+  # in `owner_of/2`.
   defp imported_files do
-    track_paths = MediaTrack |> select([t], t.path) |> Repo.all()
+    track_paths = MediaTrack |> select([t], {t.library_root_id, t.path}) |> Repo.all()
 
     source_files =
-      Media |> select([m], m.source_files) |> Repo.all() |> List.flatten()
+      Media
+      |> select([m], {m.library_root_id, m.source_files})
+      |> Repo.all()
+      |> Enum.flat_map(fn {root_id, files} -> Enum.map(files || [], &{root_id, &1}) end)
 
-    MapSet.new(track_paths ++ source_files)
+    # Pre-refactor provenance: the absolute downloads paths a legacy media
+    # was transcoded from. They live under no root, so they compare in the
+    # same `{nil, absolute}` coordinates an unrooted scan file gets — and
+    # without them, every legacy recording's source would resurface as new.
+    legacy_files =
+      Media
+      |> select([m], m.legacy_source_files)
+      |> Repo.all()
+      |> Enum.reject(&is_nil/1)
+      |> Enum.flat_map(fn files -> Enum.map(files, &{nil, &1}) end)
+
+    MapSet.new(track_paths ++ source_files ++ legacy_files)
   end
 
   # The whole release, measured as the one recording it will become: the

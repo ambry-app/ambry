@@ -40,7 +40,11 @@ defmodule Ambry.Media.AuditTest do
     end
 
     test "when source folder is missing" do
-      media = insert(:media, source_path: "/some/path", book: build(:book))
+      media =
+        insert(:media,
+          source_path: "/uploads/source_media/missing-#{Ecto.UUID.generate()}",
+          book: build(:book)
+        )
 
       assert audit = Audit.get_media_file_details(media)
 
@@ -104,7 +108,7 @@ defmodule Ambry.Media.AuditTest do
         |> with_output_files()
 
       # an orphaned source folder with a file in it
-      orphaned_source_path = valid_source_path()
+      orphaned_source_path = Ambry.Paths.web_to_disk(valid_source_path())
       File.write!(Path.join(orphaned_source_path, "test.mp3"), "test")
 
       # an orphaned mp4 file
@@ -114,7 +118,7 @@ defmodule Ambry.Media.AuditTest do
       File.rm_rf!(Ambry.Paths.web_to_disk(media1.mp4_path))
 
       # a missing source folder
-      File.rm_rf!(media2.source_path)
+      File.rm_rf!(Ambry.Paths.web_to_disk(media2.source_path))
 
       assert %{
                orphaned_source_folders: _,

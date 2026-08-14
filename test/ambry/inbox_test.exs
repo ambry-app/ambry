@@ -350,22 +350,39 @@ defmodule Ambry.InboxTest do
   end
 
   describe "discover/1 and the existing library" do
+    # The scanned folder doubles as a registered root here — that's the one
+    # arrangement where a scan can meet the library's own files, and the
+    # comparison happens in {root, relative} coordinates.
     test "doesn't offer files the library already has as direct-play tracks" do
       root = watched_root()
-      release = release_folder(root, "Already Imported", ["book.m4b"])
+      _release = release_folder(root, "Already Imported", ["book.m4b"])
+      root_record = insert(:root, path: root)
 
-      media = insert(:media, book: build(:book))
-      insert(:media_track, media: media, path: Path.join(release, "book.m4b"))
+      media =
+        insert(:media,
+          book: build(:book),
+          library_root_id: root_record.id,
+          source_path: "Already Imported"
+        )
+
+      insert(:media_track,
+        media: media,
+        path: "Already Imported/book.m4b",
+        library_root_id: root_record.id
+      )
 
       assert {:ok, %{created: 0, skipped: 1}} = Inbox.discover(root)
       assert {[], false} = Inbox.list_items()
     end
 
+    # A legacy recording's downloads provenance is quarantined in
+    # `legacy_source_files`, and the ledger still honors it — otherwise every
+    # pre-refactor import would resurface as new on the next scan.
     test "doesn't offer files a legacy media was imported from" do
       root = watched_root()
       release = release_folder(root, "Already Imported", ["book.m4b"])
 
-      insert(:media, book: build(:book), source_files: [Path.join(release, "book.m4b")])
+      insert(:media, book: build(:book), legacy_source_files: [Path.join(release, "book.m4b")])
 
       assert {:ok, %{created: 0, skipped: 1}} = Inbox.discover(root)
       assert {[], false} = Inbox.list_items()
@@ -433,12 +450,11 @@ defmodule Ambry.InboxTest do
   end
 
   describe "prepare_draft/1 destination healing" do
-    # Custody is derived, never chosen — so re-deriving it un-answers
-    # nothing. It can change under a draft: an ad-hoc-scanned item adopts
-    # its source when that source's own scan next sees it, and a draft that
-    # sealed an external destination then leaves the operator staring at a
-    # root blocker with no root picker rendered.
-    test "re-derives the destination when the item adopts a source after drafting" do
+    # A destination's defaults are derived from the item's source, so healing
+    # fills gaps without un-answering anything. The gap: an ad-hoc-scanned
+    # item adopts its source when that source's own scan next sees it, and a
+    # draft sealed without a policy now has one on offer.
+    test "fills in the policy when the item adopts a source after drafting" do
       dir = watched_root()
       release_folder(dir, "Sourced Later", ["book.m4b"])
       {:ok, _counts} = Inbox.discover(dir)
@@ -446,27 +462,35 @@ defmodule Ambry.InboxTest do
       {:ok, item} = Inbox.probe_item(item)
 
       {:ok, item} = Inbox.prepare_draft(item)
-      assert item.draft.destination.custody == :external
+      assert item.draft.destination.policy == nil
+      refute item.draft.destination.approved
 
-      source = insert(:source, path: dir)
+      insert(:source, path: dir, import_policy: :copy)
       root = insert(:root)
-      item = item |> Ecto.Changeset.change(source_id: source.id) |> Repo.update!()
+      # the source's own scan is what adopts the item (and rewrites its
+      # stored paths into the source's coordinates)
+      assert {:ok, %{updated: 1}} = Inbox.discover()
 
       {:ok, healed} = Inbox.prepare_draft(Inbox.get_item!(item.id))
 
-      assert healed.draft.destination.custody == :managed
+      assert healed.draft.destination.policy == :copy
       # the single root auto-picks, exactly as a fresh seed would
       assert healed.draft.destination.root_id == root.id
+      assert healed.draft.destination.approved
     end
 
-    test "an unchanged custody leaves the stored destination alone" do
+    test "a settled destination is left alone" do
       dir = watched_root()
-      release_folder(dir, "Stays External", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(dir)
-      {[item], false} = Inbox.list_items(filter: "Stays External")
+      release_folder(dir, "Stays Settled", ["book.m4b"])
+      insert(:source, path: dir, import_policy: :copy)
+      insert(:root)
+      {:ok, _counts} = Inbox.discover()
+      {[item], false} = Inbox.list_items(filter: "Stays Settled")
       {:ok, item} = Inbox.probe_item(item)
 
       {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.destination.approved
+
       {:ok, again} = Inbox.prepare_draft(Inbox.get_item!(item.id))
 
       assert again.draft.destination == item.draft.destination
@@ -575,7 +599,7 @@ defmodule Ambry.InboxTest do
       downloads = insert(:source, path: watched_root())
 
       collection =
-        insert(:source, path: watched_root(), on_import: :leave_in_place, import_policy: nil)
+        insert(:source, path: watched_root(), import_policy: :symlink)
 
       release_folder(downloads.path, "Leviathan Wakes", ["book.m4b"])
       release_folder(collection.path, "Project Hail Mary", ["book.m4b"])
@@ -616,6 +640,8 @@ defmodule Ambry.InboxTest do
 
     # An item found under a source adopts it: that's a fact the scan just
     # established, not a guess about an item whose origin was never known.
+    # Adoption also rewrites the stored path into the source's coordinates,
+    # so the columns agree with the FK.
     test "backfills the source of an item discovered before sources existed" do
       root = watched_root()
       release = release_folder(root, "Leviathan Wakes", ["book.m4b"])
@@ -623,13 +649,15 @@ defmodule Ambry.InboxTest do
       assert {:ok, %{created: 1}} = Inbox.discover(root)
       assert {[item], false} = Inbox.list_items()
       assert is_nil(item.source_id)
+      assert item.path == release
 
       source = insert(:source, path: root)
 
       assert {:ok, %{updated: 1}} = Inbox.discover()
       assert {[item], false} = Inbox.list_items()
-      assert item.path == release
+      assert item.path == "Leviathan Wakes"
       assert item.source_id == source.id
+      assert InboxItem.disk_path(item) == release
     end
   end
 

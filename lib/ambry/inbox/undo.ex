@@ -105,11 +105,13 @@ defmodule Ambry.Inbox.Undo do
 
   # The check that makes this safe to offer. A `move` policy leaves the
   # library copy as the only copy, and `Media.delete_media/1` deletes a
-  # managed recording's files — so without the source on disk, "undo" would
-  # delete the release.
+  # recording's files — so without the source on disk, "undo" would delete
+  # the release.
   defp source_intact(%InboxItem{files: []}), do: :ok
 
-  defp source_intact(%InboxItem{files: files}) do
+  defp source_intact(%InboxItem{} = item) do
+    files = item |> Repo.preload(:source) |> InboxItem.disk_files()
+
     if Enum.all?(files, &File.exists?/1), do: :ok, else: {:error, :source_files_missing}
   end
 
@@ -118,9 +120,10 @@ defmodule Ambry.Inbox.Undo do
   defp drop_media(summary, nil), do: note(summary, :kept, "no audiobook: the item had none")
 
   defp drop_media(summary, %Media.Media{} = media) do
-    # Custody decides the bytes, as everywhere else: a managed recording's
-    # library copies go with it, an adopted one's files are somebody else's
-    # and are only ever dereferenced.
+    # The recording's library copies go with it. The originals they were
+    # placed from are untouched by construction — which is exactly why
+    # `source_intact/1` refused already if a move made the library copy the
+    # only one.
     case Media.delete_media(media) do
       {:ok, _media} -> note(summary, :deleted, "the audiobook")
       {:error, reason} -> note(summary, :kept, "the audiobook: #{inspect(reason)}")

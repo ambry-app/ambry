@@ -218,7 +218,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
 
   test "ignores and restores without touching files", %{conn: conn} do
     item = probed_item()
-    file = hd(item.files)
+    file = item |> Inbox.disk_files() |> hd()
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
@@ -244,7 +244,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   # length of a NAS copy.
   test "imports a settled item into the library, leaving files alone", %{conn: conn} do
     item = probed_item() |> settle()
-    file = hd(item.files)
+    file = item |> Inbox.disk_files() |> hd()
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
@@ -389,7 +389,22 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
       end
     end)
 
-    {:ok, _counts} = Inbox.discover(root)
+    # A settled destination needs a root to place into and a source to seed
+    # the policy; symlink keeps the fixtures where the test put them.
+    if Ambry.Library.list_roots() == [] do
+      library = Ambry.Paths.source_media_disk_path("library-#{Ecto.UUID.generate()}")
+      File.mkdir_p!(library)
+      insert(:root, path: library)
+    end
+
+    watched =
+      insert(:source,
+        path: root,
+        import_policy: :symlink,
+        name: "Watched #{Ecto.UUID.generate()}"
+      )
+
+    {:ok, _counts} = Inbox.discover(watched)
 
     {items, _more} = Inbox.list_items(filter: name)
     item = hd(items)

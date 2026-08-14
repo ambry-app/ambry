@@ -876,7 +876,9 @@ defmodule Ambry.MediaTest do
         |> insert()
         |> with_output_files()
 
-      assert File.dir?(media.source_path)
+      source_disk_path = Media.Media.source_path(media)
+
+      assert File.dir?(source_disk_path)
       assert media.mp4_path |> Paths.web_to_disk() |> File.exists?()
       assert media.mpd_path |> Paths.web_to_disk() |> File.exists?()
       assert media.hls_path |> Paths.web_to_disk() |> File.exists?()
@@ -895,7 +897,7 @@ defmodule Ambry.MediaTest do
                           Paths.web_to_disk(Paths.hls_playlist_path(media.hls_path)),
                           Paths.web_to_disk(media.image_path)
                         ],
-                        "folder_paths" => [media.source_path]
+                        "folder_paths" => [source_disk_path]
                       }
     end
   end
@@ -931,15 +933,10 @@ defmodule Ambry.MediaTest do
     end
 
     test "updates source files, marks the media pending, and queues reprocessing", %{media: media} do
-      new_source_path = Paths.source_media_disk_path(Ecto.UUID.generate())
-      new_source_files = [valid_audio(:mp3)]
+      %{source_path: new_source_path, source_files: new_source_files} =
+        attrs = replace_attrs(:mp3)
 
-      {:ok, replaced} =
-        Media.replace_media(media, %{
-          source_path: new_source_path,
-          source_files: new_source_files,
-          processor: :auto
-        })
+      {:ok, replaced} = Media.replace_media(media, attrs)
 
       assert replaced.source_path == new_source_path
       assert replaced.source_files == new_source_files
@@ -950,12 +947,7 @@ defmodule Ambry.MediaTest do
     end
 
     test "keeps the same streaming output URLs (overwrites in place)", %{media: media} do
-      {:ok, replaced} =
-        Media.replace_media(media, %{
-          source_path: Paths.source_media_disk_path(Ecto.UUID.generate()),
-          source_files: [valid_audio(:mp3)],
-          processor: :auto
-        })
+      {:ok, replaced} = Media.replace_media(media, replace_attrs(:mp3))
 
       assert replaced.mp4_path == media.mp4_path
       assert replaced.mpd_path == media.mpd_path
@@ -966,12 +958,7 @@ defmodule Ambry.MediaTest do
       media: media,
       playthrough: playthrough
     } do
-      {:ok, replaced} =
-        Media.replace_media(media, %{
-          source_path: Paths.source_media_disk_path(Ecto.UUID.generate()),
-          source_files: [valid_audio(:mp3)],
-          processor: :auto
-        })
+      {:ok, replaced} = Media.replace_media(media, replace_attrs(:mp3))
 
       assert Enum.map(replaced.chapters, & &1.title) == ["Chapter 1", "Chapter 2"]
 
@@ -980,26 +967,16 @@ defmodule Ambry.MediaTest do
     end
 
     test "deletes the old source folder with a background job", %{media: media} do
-      old_source_path = media.source_path
+      old_source_disk_path = Media.Media.source_path(media)
 
-      {:ok, _replaced} =
-        Media.replace_media(media, %{
-          source_path: Paths.source_media_disk_path(Ecto.UUID.generate()),
-          source_files: [valid_audio(:mp3)],
-          processor: :auto
-        })
+      {:ok, _replaced} = Media.replace_media(media, replace_attrs(:mp3))
 
       assert_enqueued worker: DeleteFiles,
-                      args: %{"disk_paths" => [], "folder_paths" => [old_source_path]}
+                      args: %{"disk_paths" => [], "folder_paths" => [old_source_disk_path]}
     end
 
     test "end-to-end: reprocessing regenerates the streaming files in place", %{media: media} do
-      {:ok, replaced} =
-        Media.replace_media(media, %{
-          source_path: Paths.source_media_disk_path(Ecto.UUID.generate()),
-          source_files: [valid_audio(:m4a)],
-          processor: :auto
-        })
+      {:ok, replaced} = Media.replace_media(media, replace_attrs(:m4a))
 
       # Simulate the enqueued RunProcessor Oban job running.
       {:ok, processed} = Ambry.Media.Processor.run!(Media.get_media!(replaced.id))
@@ -1099,5 +1076,22 @@ defmodule Ambry.MediaTest do
       assert description =~ "Sorcerer's Stone"
       refute description =~ "Philosopher's Stone"
     end
+  end
+
+  # `replace_media/2` takes stored-form (`/uploads/...`) paths, so build the
+  # new source workspace on disk the way an upload does and hand back the
+  # stored forms.
+  defp replace_attrs(type) do
+    disk_path = Paths.source_media_disk_path(Ecto.UUID.generate())
+    File.mkdir_p!(disk_path)
+
+    file_disk_path = Path.join(disk_path, "1-sample#{Path.extname(valid_audio(type))}")
+    File.cp!(valid_audio(type), file_disk_path)
+
+    %{
+      source_path: Paths.disk_to_web(disk_path),
+      source_files: [Paths.disk_to_web(file_disk_path)],
+      processor: :auto
+    }
   end
 end

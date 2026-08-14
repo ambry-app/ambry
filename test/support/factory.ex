@@ -203,7 +203,7 @@ defmodule Ambry.Factory do
   def media_track_factory do
     %MediaTrack{
       index: 0,
-      path: fn -> Ambry.Paths.source_media_disk_path("#{Ecto.UUID.generate()}.m4b") end,
+      path: fn -> "/uploads/source_media/#{Ecto.UUID.generate()}.m4b" end,
       size: trunc(Fake.uniform() * 500_000_000),
       mime: "audio/mp4",
       format: "mov,mp4,m4a,3gp,3g2,mj2",
@@ -234,10 +234,23 @@ defmodule Ambry.Factory do
     %{media | media_tracks: tracks}
   end
 
+  # The fixture is copied into the media's own workspace so the stored path
+  # has a resolvable `/uploads/...` form — absolute paths outside the
+  # uploads tree can no longer be stored. A copy, not a hardlink: the
+  # checkout and the uploads tree may sit on different filesystems.
   def with_source_files(%Media{} = media, type \\ :m4a, count \\ 1) do
-    audio_file_disk_path = valid_audio(type)
+    fixture = valid_audio(type)
+    folder = Media.source_path(media)
+    File.mkdir_p!(folder)
 
-    %{media | source_files: for(_ <- 1..count, do: audio_file_disk_path)}
+    files =
+      for index <- 1..count do
+        dest = Path.join(folder, "#{index}-source#{Path.extname(fixture)}")
+        if not File.exists?(dest), do: File.cp!(fixture, dest)
+        Ambry.Paths.disk_to_web(dest)
+      end
+
+    %{media | source_files: files}
   end
 
   @doc """
@@ -254,7 +267,7 @@ defmodule Ambry.Factory do
       for index <- 1..count do
         dest = Path.join(folder, "#{index}-sample#{Path.extname(fixture)}")
         File.cp!(fixture, dest)
-        dest
+        Ambry.Paths.disk_to_web(dest)
       end
 
     %{media | source_files: files}
@@ -400,10 +413,12 @@ defmodule Ambry.Factory do
 
   # Test files
 
+  # Stored form: paths in the database are `/uploads/...` (or
+  # root-relative), never absolute. The folder still exists on disk.
   def valid_source_path do
     path = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
     File.mkdir_p!(path)
-    path
+    Ambry.Paths.disk_to_web(path)
   end
 
   # Library sources and roots
@@ -412,7 +427,6 @@ defmodule Ambry.Factory do
     %Source{
       name: sequence(:source_name, &"Source #{&1}"),
       path: sequence(:source_path, &"/data/source-#{&1}"),
-      on_import: :bring_in,
       import_policy: :hardlink,
       enabled: true
     }

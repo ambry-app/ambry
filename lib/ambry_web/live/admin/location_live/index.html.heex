@@ -29,22 +29,17 @@
             <div class="flex flex-wrap items-baseline gap-2">
               <h3 class="font-semibold" data-role="source-name">{source.name}</h3>
 
-              <span class={["rounded-sm px-1.5 text-xs", on_import_class(source.on_import)]}>
-                {on_import_label(source.on_import)}
-              </span>
-
               <span
-                :if={policy_label(source.import_policy)}
-                class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-300"
-                title="How import brings the files in"
+                class="bg-blue-400/15 rounded-sm px-1.5 text-xs text-blue-300"
+                title="How import brings the files into a library root"
               >
                 {policy_label(source.import_policy)}
               </span>
 
               <span
-                :if={fs = @filesystems[@statuses[{:source, source.id}].device]}
+                :if={fs = filesystem_tag(@filesystems, @statuses[{:source, source.id}])}
                 class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-300"
-                title="Paths sharing this tag are on the same filesystem and can be hardlinked between"
+                title="Paths sharing this tag can be hardlinked between"
                 data-role="source-filesystem"
               >
                 <.icon name="fa-hard-drive" class="h-3 w-3 text-current" /> {fs}
@@ -59,7 +54,7 @@
               {source.path}
             </p>
 
-            <p class="mt-1 text-sm text-zinc-400">{on_import_blurb(source.on_import)}</p>
+            <p class="mt-1 text-sm text-zinc-400">{policy_blurb(source.import_policy)}</p>
 
             <p
               :if={problem = source_problem(@statuses[{:source, source.id}])}
@@ -119,11 +114,11 @@
         only here. A source can only hardlink into a root sharing its <span class="font-semibold">filesystem</span> tag.
       </p>
 
-      <%!-- Roots are optional by design: a setup whose sources all leave
-          files in place imports nothing into a tree of its own. --%>
+      <%!-- Roots are mandatory: every import places into one, so an empty
+          section is a blocker, not a fine choice. --%>
       <div :if={@roots == []} class="rounded-lg bg-zinc-900 p-8 text-center">
         <p class="mx-auto max-w-prose text-zinc-400">
-          No roots yet. Add one when a source needs to bring files in.
+          No roots yet. Nothing can be imported until there is one.
         </p>
         <.add_button navigate={~p"/admin/locations/roots/new"} class="mx-auto mt-3">
           Add a root
@@ -137,9 +132,9 @@
               <h3 class="font-semibold" data-role="root-name">{root.name}</h3>
 
               <span
-                :if={fs = @filesystems[@statuses[{:root, root.id}].device]}
+                :if={fs = filesystem_tag(@filesystems, @statuses[{:root, root.id}])}
                 class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-300"
-                title="Paths sharing this tag are on the same filesystem and can be hardlinked between"
+                title="Paths sharing this tag can be hardlinked between"
                 data-role="root-filesystem"
               >
                 <.icon name="fa-hard-drive" class="h-3 w-3 text-current" /> {fs}

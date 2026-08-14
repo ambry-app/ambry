@@ -104,8 +104,8 @@ defmodule Ambry.Inbox.Draft do
     )
   end
 
-  # Absent means nothing was staged about the bytes, which for an adopt-in-
-  # place item is the normal case rather than an omission.
+  # Absent only on drafts that predate the destination decision (an imported
+  # item's draft is frozen history); a live draft always stages one.
   defp destination(%__MODULE__{destination: nil}), do: []
 
   defp destination(%__MODULE__{destination: destination}) do
@@ -114,7 +114,7 @@ defmodule Ambry.Inbox.Draft do
       else: [
         %{
           section: :destination,
-          label: "Which library root to import into",
+          label: "Where the files go",
           state: Destination.state(destination)
         }
       ]
@@ -335,7 +335,6 @@ defmodule Ambry.Inbox.Draft do
   end
 
   defp destination_total(nil), do: 0
-  defp destination_total(%Destination{custody: :external}), do: 0
   defp destination_total(%Destination{}), do: 1
 
   defp work_total(nil), do: 1

@@ -22,17 +22,13 @@ defmodule Ambry.Inbox.Importer do
   with a guess — and inventing a series number or a publication date is
   exactly the confidently-wrong data the inbox exists to prevent.
 
-  ## Custody
+  ## Placement
 
-  Where an item came from decides what happens to its bytes:
-
-    * from a **bring-in** source, the file is placed into a library root
-      under the naming template — hardlinked, copied or moved per the
-      source's policy — and the recording becomes **managed**.
-    * from a **trusted** source, from inside a library root, or from an item
-      with no source at all, the file is referenced exactly where it lies
-      and the recording is **external**. Ambry never moves, copies, renames
-      or deletes it.
+  Every import places its files into a library root under the naming
+  template, by the policy the draft settled — hardlink, symlink, copy or
+  move. The original is untouched by construction for the first three and
+  deliberately gone for the last; there is no import that leaves the
+  library referencing a path outside a root.
 
   A hardlink cannot cross a filesystem, and here the downloads folder and the
   library can easily be on different NAS boxes. Import **refuses** in that
@@ -60,6 +56,7 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Library
   alias Ambry.Library.NamingTemplate
   alias Ambry.Library.Placement
   alias Ambry.Library.Root
@@ -142,7 +139,7 @@ defmodule Ambry.Inbox.Importer do
       with {:ok, item} <- claim(item),
            {:ok, people} <- resolve_people(item.draft),
            {:ok, book} <- resolve_book(item.draft.work, people),
-           {:ok, media} <- create_media(item, book, probes, people),
+           {:ok, media} <- create_media(item, book, probes, people, destination),
            {:ok, _item} <- link(item, media),
            {:ok, media, placements} <- place(destination, book, media, files),
            {:ok, media} <- publish(media) do
@@ -315,11 +312,11 @@ defmodule Ambry.Inbox.Importer do
 
   ## the recording
 
-  defp create_media(item, book, probes, people) do
+  defp create_media(item, book, probes, people, {root, _policy}) do
     recording = item.draft.recording
 
     with {:ok, group} <- resolve_group(recording.recording_group, book) do
-      do_create_media(item, book, probes, people, recording, group)
+      do_create_media(item, book, probes, people, recording, group, root)
     end
   end
 
@@ -341,16 +338,19 @@ defmodule Ambry.Inbox.Importer do
         parts_total: link.parts_total
       })
 
-  defp do_create_media(item, book, probes, people, recording, group) do
+  defp do_create_media(item, book, probes, people, recording, group, root) do
     {chapters, marker_source} = chapters(recording.chapters, probes)
 
     %{
       book_id: book.id,
-      # external until placement says otherwise; a downloads item is
-      # repointed to its library copy below
-      custody: :external,
-      source_path: item.path,
-      source_files: item.files,
+      # Created in the destination root's coordinates from the start: the
+      # path columns are CHECK-constrained to hold a resolvable stored form,
+      # and a CHECK cannot wait for the commit. These are placeholders in
+      # valid form — basenames under the right root — that placement
+      # rewrites to the real relative paths inside this same transaction.
+      library_root_id: root.id,
+      source_path: Path.basename(item.path),
+      source_files: Enum.map(item.files, &Path.basename/1),
       status: :pending,
       # The recording's settled place in its part set, if any.
       part_number: part_number(recording.recording_group),
@@ -358,7 +358,11 @@ defmodule Ambry.Inbox.Importer do
       duration: Scanner.total_duration(probes),
       chapters: chapters,
       chapter_marker_source: marker_source,
-      media_tracks: Scanner.track_attrs(probes),
+      media_tracks:
+        probes
+        |> Scanner.track_attrs()
+        |> Enum.map(&%{&1 | path: Path.basename(&1.path)})
+        |> Enum.map(&Map.put(&1, :library_root_id, root.id)),
       title: Field.value(recording.title),
       published: Field.date(recording.published),
       published_format: Field.format_atom(recording.published, :full),
@@ -490,23 +494,21 @@ defmodule Ambry.Inbox.Importer do
 
   ## placement
 
-  # What import should do with the bytes, decided by the draft's custody:
-  # only a bring-in source's item is placed; a trusted source's files are
-  # adopted exactly where they lie (that is the entire promise of external
-  # custody). Read off the draft rather than re-derived from the source: any
-  # input may feed any output, so which root this import goes to is a
-  # decision the operator made (or that resolved silently because there was
-  # only one), not a property of where the files were found.
-  defp destination(%InboxItem{draft: %{destination: %{custody: :managed} = destination}}) do
-    case Repo.get(Root, destination.root_id) do
-      %Root{} = root -> {:ok, {root, destination.policy}}
+  # Where import puts the bytes. Every import places into a root — there is
+  # no other place Ambry serves from. Read off the draft rather than
+  # re-derived from the source: any input may feed any output, so which root
+  # this import goes to and how the files come in are decisions the operator
+  # made (or that resolved silently because there was only one root and the
+  # source carried a policy), not properties of where the files were found.
+  defp destination(%InboxItem{draft: %{destination: %{root_id: root_id, policy: policy}}})
+       when is_integer(root_id) and not is_nil(policy) do
+    case Repo.get(Root, root_id) do
+      %Root{} = root -> {:ok, {root, policy}}
       nil -> {:error, :no_library_root}
     end
   end
 
-  defp destination(%InboxItem{}), do: {:ok, :adopt}
-
-  defp place(:adopt, _book, media, _files), do: {:ok, media, []}
+  defp destination(%InboxItem{}), do: {:error, :no_library_root}
 
   defp place({root, policy}, book, media, files) do
     # Forced: a freshly-created book carries its `book_authors` as insert
@@ -523,7 +525,7 @@ defmodule Ambry.Inbox.Importer do
          {:ok, filenames} <- NamingTemplate.filenames(values, files, filename_recording(media)),
          paths = Enum.map(filenames, &Path.join([root.path, folder, &1])),
          {:ok, placements} <- Placement.place_all(Enum.zip(files, paths), policy),
-         {:ok, media} <- adopt_managed(media, paths) do
+         {:ok, media} <- record_placement(media, root, paths) do
       {:ok, media, placements}
     end
   end
@@ -549,31 +551,38 @@ defmodule Ambry.Inbox.Importer do
   defp part_number(_absent_or_removed), do: nil
 
   # The recording now points at the library copies and Ambry owns those
-  # bytes. `source_path` is the folder those copies share, which for a
+  # names. `source_path` is the folder those copies share, which for a
   # multi-file recording is the subfolder of its own that placement gave it,
   # not the book folder it sits in.
-  defp adopt_managed(media, paths) do
-    with {:ok, _tracks} <- repoint_tracks(media, paths) do
+  defp record_placement(media, root, paths) do
+    with {:ok, _tracks} <- repoint_tracks(media, root, paths) do
       media
       |> Ecto.Changeset.change(%{
-        custody: :managed,
-        source_path: paths |> hd() |> Path.dirname(),
-        source_files: paths
+        library_root_id: root.id,
+        source_path: relativize!(root, paths |> hd() |> Path.dirname()),
+        source_files: Enum.map(paths, &relativize!(root, &1))
       })
       |> Repo.update()
     end
   end
 
+  # Placement just wrote these under the root, so being outside it is a bug
+  # worth crashing on rather than recording.
+  defp relativize!(root, absolute) do
+    {:ok, relative} = Library.relativize(root, absolute)
+    relative
+  end
+
   # Zipped by position, and the positions are the same order everywhere: the
   # probes were taken in it, the tracks were written in it, and the
   # destination names were rendered from it.
-  defp repoint_tracks(%{media_tracks: [_ | _] = tracks}, paths) do
+  defp repoint_tracks(%{media_tracks: [_ | _] = tracks}, root, paths) do
     tracks
     |> Enum.sort_by(& &1.index)
     |> Enum.zip(paths)
     |> Enum.reduce_while({:ok, []}, fn {track, path}, {:ok, acc} ->
       track
-      |> Ecto.Changeset.change(%{path: path})
+      |> Ecto.Changeset.change(%{path: relativize!(root, path), library_root_id: root.id})
       |> Repo.update()
       |> case do
         {:ok, track} -> {:cont, {:ok, [track | acc]}}
@@ -582,7 +591,7 @@ defmodule Ambry.Inbox.Importer do
     end)
   end
 
-  defp repoint_tracks(_no_tracks, _paths), do: {:error, :no_tracks}
+  defp repoint_tracks(_no_tracks, _root, _paths), do: {:error, :no_tracks}
 
   # A source that couldn't be removed is untidy, not broken: the library copy
   # exists and is recorded. Failing the import here would be worse than
@@ -610,12 +619,13 @@ defmodule Ambry.Inbox.Importer do
 
   defp chapters(_decision, probes), do: Scanner.chapters(probes)
 
-  # An item's files, in the order discovery recorded them — which is natural
-  # sort, and therefore the play order the operator saw listed on the form.
-  # A release the operator has decided is really two books is split into
-  # separate items first; this is the one they've said is one recording.
+  # An item's files as absolute disk paths, in the order discovery recorded
+  # them — which is natural sort, and therefore the play order the operator
+  # saw listed on the form. A release the operator has decided is really two
+  # books is split into separate items first; this is the one they've said
+  # is one recording.
   defp audio_files(%InboxItem{files: []}), do: {:error, :no_audio_files}
-  defp audio_files(%InboxItem{files: files}), do: {:ok, files}
+  defp audio_files(%InboxItem{} = item), do: {:ok, InboxItem.disk_files(item)}
 
   # Re-probed rather than trusting what discovery recorded: it costs one
   # ffprobe per file and buys current track data, plus a file that vanished

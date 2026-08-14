@@ -125,7 +125,6 @@ defmodule Ambry.Inbox.UndoTest do
 
     watched =
       insert(:source,
-        on_import: :bring_in,
         import_policy: Keyword.get(opts, :policy, :copy),
         path: downloads,
         name: "Downloads #{Ecto.UUID.generate()}"

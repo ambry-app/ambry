@@ -16,7 +16,7 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
   end
 
   defp apply_action(socket, :new_source, _params) do
-    source = %Source{on_import: :bring_in, import_policy: :hardlink}
+    source = %Source{import_policy: :hardlink}
 
     socket
     |> assign(page_title: "New Source", entity: source)
@@ -103,7 +103,6 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
     socket
     |> assign(:form, to_form(changeset))
     |> assign(:type, :source)
-    |> assign(:on_import, Changeset.get_field(changeset, :on_import))
     |> assign(:status, path_status(Changeset.get_field(changeset, :path)))
     |> assign(:root_options, root_options())
   end
@@ -112,7 +111,6 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
     socket
     |> assign(:form, to_form(changeset))
     |> assign(:type, :root)
-    |> assign(:on_import, nil)
     |> assign(:status, path_status(Changeset.get_field(changeset, :path)))
     |> assign(:root_options, [])
   end
@@ -134,19 +132,14 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
 
   defp path_status(_blank), do: nil
 
-  # The one question a source answers, asked in the operator's terms. What
-  # the folder is called or how tidy it looks never mattered; whether its
-  # files can be trusted to stay is the whole distinction.
-  defp on_import_options do
-    [
-      {"Bring the files in (this folder's files might not stay)", :bring_in},
-      {"Leave them where they are (these files are trusted to stay)", :leave_in_place}
-    ]
-  end
-
+  # The one question a source answers, asked in the operator's terms: what
+  # import does with these files. The old durability question ("can they be
+  # trusted to stay?") is answered by the choice — symlink if they'll stay,
+  # anything else if they might not.
   defp policy_options do
     [
       {"Hardlink (same filesystem only, no extra storage)", :hardlink},
+      {"Symlink (crosses filesystems; dangles if the source ever moves)", :symlink},
       {"Copy (duplicates the files)", :copy},
       {"Move (empties the source folder)", :move}
     ]
