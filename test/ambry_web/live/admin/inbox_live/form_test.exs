@@ -1918,13 +1918,19 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   end
 
   describe "destination" do
-    test "says where the file is going before anything is committed", %{conn: conn} do
+    test "is two pickers and no prose", %{conn: conn} do
       item = probed_item(policy: :symlink) |> settle()
 
       {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert html =~ "Symlinked into"
-      assert html =~ "dangles if the original ever moves"
+      assert html =~ "Library root"
+      assert html =~ "How the files come in"
+
+      # What import will do is the pickers' own values. Restating it in a
+      # sentence underneath is noise on every visit after the first.
+      refute html =~ "Symlinked into"
+      refute html =~ "dangles if the original"
+      refute html =~ "duplicating the bytes"
     end
   end
 

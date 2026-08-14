@@ -580,10 +580,11 @@ defmodule Ambry.InboxTest do
       assert preflight.blocker =~ "more than one library root"
     end
 
-    # An unanswered question must not read as a settled outcome. The old copy
-    # said "Placed into <root>." on a card whose rail was amber precisely
-    # because nothing had been decided.
-    test "an unpicked policy asks, rather than describing a placement" do
+    # The card does not narrate. What import will do is the two pickers'
+    # own values, read off the controls; prose appears only when something
+    # can't happen. A sentence restating a choice back at the operator is
+    # noise on every visit after the first.
+    test "an unpicked policy is outstanding, and nothing is narrated" do
       dir = watched_root()
       release_folder(dir, "No Policy Yet", ["book.m4b"])
       source = insert(:source, path: dir)
@@ -599,14 +600,15 @@ defmodule Ambry.InboxTest do
       assert is_nil(item.draft.destination.policy)
       assert Enum.any?(Draft.unresolved(item.draft), &(&1.section == :destination))
 
-      preflight = Inbox.destination_preflight(item)
-      assert preflight.summary =~ "Pick how these files come in"
-      refute preflight.summary =~ "Placed into"
+      refute Map.has_key?(Inbox.destination_preflight(item), :summary)
 
-      # The remembered pairing is what settles it from then on.
+      # The remembered pairing is what settles it from then on, still
+      # without a sentence about it.
       {:ok, _memory} = Library.remember_placement(source, root, :move)
       {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(item.id))
-      assert Inbox.destination_preflight(item).summary =~ "Moved into"
+
+      assert item.draft.destination.policy == :move
+      assert Inbox.destination_preflight(item) == %{blocker: nil}
     end
   end
 

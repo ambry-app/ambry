@@ -654,19 +654,10 @@ defmodule Ambry.Inbox do
   """
   def destination_preflight(%InboxItem{} = item) do
     item = Repo.preload(item, :source)
-    base = %{blocker: nil, summary: nil}
-    policy = chosen_policy(item)
 
     case chosen_root(item) do
-      {:error, reason} ->
-        %{base | blocker: describe_error(reason)}
-
-      {:ok, root} ->
-        %{
-          base
-          | summary: policy_summary(item, policy, root),
-            blocker: hardlink_blocker(item, policy, root)
-        }
+      {:error, reason} -> %{blocker: describe_error(reason)}
+      {:ok, root} -> %{blocker: hardlink_blocker(item, chosen_policy(item), root)}
     end
   end
 
@@ -694,33 +685,6 @@ defmodule Ambry.Inbox do
     case Library.list_roots() do
       [] -> {:error, :no_library_root}
       _some -> {:error, :ambiguous_library_root}
-    end
-  end
-
-  defp policy_summary(_item, :hardlink, root),
-    do: "Hardlinked into #{root.path}. One copy of the bytes, and the download keeps seeding."
-
-  defp policy_summary(_item, :symlink, root),
-    do: "Symlinked into #{root.path}. The link dangles if the original ever moves or is deleted."
-
-  defp policy_summary(_item, :copy, root), do: "Copied into #{root.path}, duplicating the bytes."
-
-  defp policy_summary(_item, :move, root),
-    do: "Moved into #{root.path}, leaving the source folder clean."
-
-  # Nothing chosen and nothing proposed. Saying "Placed into <root>" here
-  # described a placement that had not been decided, on a card whose rail
-  # was amber for exactly that reason. The honest line says why it is
-  # asking: hardlinking is the one default worth assuming, so where it is
-  # unavailable there is no safe guess and the three remaining doors mean
-  # three different things.
-  defp policy_summary(item, _unset, root) do
-    case hardlinkable(item, root) do
-      {:ok, false} ->
-        "These can't be hardlinked into #{root.path} (different filesystems). Pick how they come in."
-
-      _yes_or_unknown ->
-        "Pick how these files come in."
     end
   end
 
@@ -869,8 +833,8 @@ defmodule Ambry.Inbox do
   # rather than just what failed.
   def describe_error({:cross_filesystem, _source, _destination}),
     do:
-      "This folder and its library root are on different filesystems, so the file can't be " <>
-        "hardlinked. Point it at a root on the same disk, or set the source to copy or move."
+      "These files and the library root are on different filesystems, so they can't be " <>
+        "hardlinked. Choose copy or move, or a root on the same disk."
 
   # Occupied by a recording is now a *bug*, not a curation problem. Every
   # recording's name carries its own token, so two of them cannot render to
