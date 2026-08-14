@@ -11,11 +11,6 @@
         </.button>
       </div>
 
-      <p class="max-w-prose text-sm text-zinc-400">
-        Watched folders that audiobooks arrive from. Everything they hold reaches the library
-        through the inbox.
-      </p>
-
       <div :if={@sources == []} class="rounded-lg bg-zinc-900 p-8 text-center">
         <p class="text-zinc-400">No sources yet, so there is nothing to scan.</p>
         <.add_button navigate={~p"/admin/locations/sources/new"} class="mx-auto mt-3">
@@ -99,11 +94,6 @@
 
     <section class="space-y-3">
       <h2 class="text-xl font-bold text-zinc-100">Library roots</h2>
-
-      <p class="max-w-prose text-sm text-zinc-400">
-        The folders managed audio is organized into, using the naming template. Ambry writes
-        only here. A source can only hardlink into a root sharing its <span class="font-semibold">filesystem</span> tag.
-      </p>
 
       <%!-- Roots are mandatory: every import places into one, so an empty
           section is a blocker, not a fine choice. --%>

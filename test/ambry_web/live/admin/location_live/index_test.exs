@@ -28,9 +28,13 @@ defmodule AmbryWeb.Admin.LocationLive.IndexTest do
 
     assert html =~ "Downloads NAS"
     assert html =~ "/data/downloads"
-    assert html =~ "hardlink"
     assert html =~ "Old Library"
     assert html =~ "/data/library"
+
+    # A row is a name, a path and its facts. What a source or a root *is*
+    # is not restated in prose above the list on every visit.
+    refute html =~ "Watched folders that audiobooks arrive from"
+    refute html =~ "Ambry writes"
   end
 
   # The whole reason this page exists: hardlinks can't cross a filesystem, and
