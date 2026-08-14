@@ -56,6 +56,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
+  alias AmbryWeb.Components.EntityResolver
   alias Ecto.Changeset
 
   @scalar_kinds %{"name" => :name, "description" => :description, "image" => :image}
@@ -112,7 +113,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
     person_params =
       person_params
-      |> maybe_link_author()
+      |> normalize_author_rows(socket.assigns.person)
       |> apply_credits(socket.assigns.person, socket.assigns.reveal)
 
     socket =
@@ -139,7 +140,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   def handle_event("submit", %{"person" => person_params}, socket) do
     person_params =
       person_params
-      |> maybe_link_author()
+      |> normalize_author_rows(socket.assigns.person)
       |> apply_credits(socket.assigns.person, socket.assigns.reveal)
 
     socket =
@@ -482,50 +483,68 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   defp loaded(rows) when is_list(rows), do: rows
   defp loaded(_not_loaded), do: []
 
-  # Selecting an author in the "link an existing author" autocomplete stages an
-  # `author_people` row linking that author (unless it's already present).
-  defp maybe_link_author(%{"link_author_id" => id} = person_params) when id not in [nil, ""] do
-    author_people = person_params["author_people"] || %{}
+  # Each pen-name row is one typeahead, so a row means one of two things and
+  # the params have to say which.
+  #
+  # The resolver clears its id the moment you type, so a row carrying an id
+  # was *picked* and a row carrying only text was *typed*. What they mean
+  # differs for a row that already exists:
+  #
+  #   * picked — link this row to that author instead. The one it pointed at
+  #     is cleaned up by `delete_orphaned_authors/2` if nothing else wants
+  #     it, which is what makes relinking safe.
+  #   * typed — rename the author this row already points at. Emitting the
+  #     name without its id would read as "replace this author with a new
+  #     one", and `AuthorPerson` casts `:author` with `on_replace: :raise`,
+  #     so it raises rather than renaming.
+  #
+  # Both halves are also mutually exclusive on the way in: `cast_assoc` and
+  # a changed `author_id` in the same row is the same replace, by a longer
+  # route.
+  defp normalize_author_rows(params, person) do
+    case params["author_people"] do
+      rows when is_map(rows) ->
+        current = Map.new(loaded(person.author_people), &{to_string(&1.id), &1})
+        Map.put(params, "author_people", Map.new(rows, &normalize_row(&1, current)))
 
-    linked_ids =
-      author_people
-      |> Map.values()
-      |> Enum.flat_map(&[&1["author_id"], get_in(&1, ["author", "id"])])
-      |> Enum.reject(&is_nil/1)
-      |> Enum.map(&to_string/1)
-
-    person_params = Map.put(person_params, "link_author_id", "")
-
-    if to_string(id) in linked_ids do
-      person_params
-    else
-      next_index =
-        author_people
-        |> Map.keys()
-        |> Enum.map(&String.to_integer/1)
-        |> Enum.max(fn -> -1 end)
-        |> Kernel.+(1)
-        |> to_string()
-
-      sort = person_params["author_people_sort"] || []
-
-      person_params
-      |> Map.put("author_people", Map.put(author_people, next_index, %{"author_id" => id}))
-      |> Map.put("author_people_sort", sort ++ [next_index])
+      _absent ->
+        params
     end
   end
 
-  defp maybe_link_author(person_params), do: person_params
+  defp normalize_row({index, row}, current) do
+    author = existing_author(current, row["id"])
 
-  defp linked_author_row?(author_person_form) do
-    is_nil(author_person_form.data.id) and
-      author_person_form[:author_id].value not in [nil, ""]
+    normalized =
+      cond do
+        row["author_id"] not in [nil, ""] -> Map.delete(row, "author")
+        author -> row |> Map.delete("author_id") |> put_author_id(author.id)
+        true -> Map.delete(row, "author_id")
+      end
+
+    {index, normalized}
   end
 
-  defp linked_author_name(authors, value) do
-    Enum.find_value(authors, fn option ->
-      to_string(option.id) == to_string(value) && option.label
-    end)
+  defp existing_author(current, id) do
+    case current[to_string(id)] do
+      %{author: %Author{} = author} -> author
+      _none -> nil
+    end
+  end
+
+  defp put_author_id(row, id) do
+    Map.update(row, "author", %{"id" => to_string(id)}, &Map.put(&1, "id", to_string(id)))
+  end
+
+  # What the row's box shows. The nested author's name where the row has
+  # one; falling back to the linked author's own, for a row that links to
+  # somebody the operator picked and has not typed over.
+  defp author_row_name(author_person_form) do
+    case author_person_form[:author].value do
+      %Author{name: name} when is_binary(name) -> name
+      %Changeset{} = changeset -> Changeset.get_field(changeset, :name)
+      _none -> nil
+    end
   end
 
   defp shared_with(author_person_form, person) do
