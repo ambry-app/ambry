@@ -350,22 +350,39 @@ defmodule Ambry.InboxTest do
   end
 
   describe "discover/1 and the existing library" do
+    # The scanned folder doubles as a registered root here — that's the one
+    # arrangement where a scan can meet the library's own files, and the
+    # comparison happens in {root, relative} coordinates.
     test "doesn't offer files the library already has as direct-play tracks" do
       root = watched_root()
-      release = release_folder(root, "Already Imported", ["book.m4b"])
+      _release = release_folder(root, "Already Imported", ["book.m4b"])
+      root_record = insert(:root, path: root)
 
-      media = insert(:media, book: build(:book))
-      insert(:media_track, media: media, path: Path.join(release, "book.m4b"))
+      media =
+        insert(:media,
+          book: build(:book),
+          library_root_id: root_record.id,
+          source_path: "Already Imported"
+        )
+
+      insert(:media_track,
+        media: media,
+        path: "Already Imported/book.m4b",
+        library_root_id: root_record.id
+      )
 
       assert {:ok, %{created: 0, skipped: 1}} = Inbox.discover(root)
       assert {[], false} = Inbox.list_items()
     end
 
+    # A legacy recording's downloads provenance is quarantined in
+    # `legacy_source_files`, and the ledger still honors it — otherwise every
+    # pre-refactor import would resurface as new on the next scan.
     test "doesn't offer files a legacy media was imported from" do
       root = watched_root()
       release = release_folder(root, "Already Imported", ["book.m4b"])
 
-      insert(:media, book: build(:book), source_files: [Path.join(release, "book.m4b")])
+      insert(:media, book: build(:book), legacy_source_files: [Path.join(release, "book.m4b")])
 
       assert {:ok, %{created: 0, skipped: 1}} = Inbox.discover(root)
       assert {[], false} = Inbox.list_items()
@@ -448,9 +465,11 @@ defmodule Ambry.InboxTest do
       assert item.draft.destination.policy == nil
       refute item.draft.destination.approved
 
-      source = insert(:source, path: dir, import_policy: :copy)
+      insert(:source, path: dir, import_policy: :copy)
       root = insert(:root)
-      item = item |> Ecto.Changeset.change(source_id: source.id) |> Repo.update!()
+      # the source's own scan is what adopts the item (and rewrites its
+      # stored paths into the source's coordinates)
+      assert {:ok, %{updated: 1}} = Inbox.discover()
 
       {:ok, healed} = Inbox.prepare_draft(Inbox.get_item!(item.id))
 

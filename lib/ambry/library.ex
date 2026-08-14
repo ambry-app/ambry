@@ -88,8 +88,24 @@ defmodule Ambry.Library do
 
   @doc """
   Removes a source from the registry. Never touches the files it points at.
+
+  Refused with `{:error, {:referenced, %{inbox_items: n}}}` while inbox
+  items still resolve their paths through it — the database would refuse
+  too (`on_delete: :restrict`), but a count is an explanation and a
+  constraint violation is not.
   """
-  def delete_source(%Source{} = source), do: Repo.delete(source)
+  def delete_source(%Source{} = source) do
+    case references_to(source) do
+      %{inbox_items: 0} -> Repo.delete(source)
+      counts -> {:error, {:referenced, counts}}
+    end
+  end
+
+  defp references_to(%Source{id: id}) do
+    %{
+      inbox_items: Repo.aggregate(from(i in "inbox_items", where: i.source_id == ^id), :count)
+    }
+  end
 
   def change_source(%Source{} = source, attrs \\ %{}), do: Source.changeset(source, attrs)
 
@@ -123,9 +139,26 @@ defmodule Ambry.Library do
   Removes a root from the registry.
 
   This never touches the files it points at — deleting a row is not how an
-  operator says "delete my library".
+  operator says "delete my library". Refused with
+  `{:error, {:referenced, %{media: n, media_tracks: n}}}` while recordings
+  still resolve their paths through it; the database's
+  `on_delete: :restrict` backs the same rule, but a count is an
+  explanation and a constraint violation is not.
   """
-  def delete_root(%Root{} = root), do: Repo.delete(root)
+  def delete_root(%Root{} = root) do
+    case root_references(root) do
+      %{media: 0, media_tracks: 0} -> Repo.delete(root)
+      counts -> {:error, {:referenced, counts}}
+    end
+  end
+
+  defp root_references(%Root{id: id}) do
+    %{
+      media: Repo.aggregate(from(m in "media", where: m.library_root_id == ^id), :count),
+      media_tracks:
+        Repo.aggregate(from(t in "media_tracks", where: t.library_root_id == ^id), :count)
+    }
+  end
 
   def change_root(%Root{} = root, attrs \\ %{}), do: Root.changeset(root, attrs)
 

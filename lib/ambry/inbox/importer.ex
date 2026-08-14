@@ -22,17 +22,13 @@ defmodule Ambry.Inbox.Importer do
   with a guess — and inventing a series number or a publication date is
   exactly the confidently-wrong data the inbox exists to prevent.
 
-  ## Custody
+  ## Placement
 
-  Where an item came from decides what happens to its bytes:
-
-    * from a **bring-in** source, the file is placed into a library root
-      under the naming template — hardlinked, copied or moved per the
-      source's policy — and the recording becomes **managed**.
-    * from a **trusted** source, from inside a library root, or from an item
-      with no source at all, the file is referenced exactly where it lies
-      and the recording is **external**. Ambry never moves, copies, renames
-      or deletes it.
+  Every import places its files into a library root under the naming
+  template, by the policy the draft settled — hardlink, symlink, copy or
+  move. The original is untouched by construction for the first three and
+  deliberately gone for the last; there is no import that leaves the
+  library referencing a path outside a root.
 
   A hardlink cannot cross a filesystem, and here the downloads folder and the
   library can easily be on different NAS boxes. Import **refuses** in that
@@ -143,7 +139,7 @@ defmodule Ambry.Inbox.Importer do
       with {:ok, item} <- claim(item),
            {:ok, people} <- resolve_people(item.draft),
            {:ok, book} <- resolve_book(item.draft.work, people),
-           {:ok, media} <- create_media(item, book, probes, people),
+           {:ok, media} <- create_media(item, book, probes, people, destination),
            {:ok, _item} <- link(item, media),
            {:ok, media, placements} <- place(destination, book, media, files),
            {:ok, media} <- publish(media) do
@@ -316,11 +312,11 @@ defmodule Ambry.Inbox.Importer do
 
   ## the recording
 
-  defp create_media(item, book, probes, people) do
+  defp create_media(item, book, probes, people, {root, _policy}) do
     recording = item.draft.recording
 
     with {:ok, group} <- resolve_group(recording.recording_group, book) do
-      do_create_media(item, book, probes, people, recording, group)
+      do_create_media(item, book, probes, people, recording, group, root)
     end
   end
 
@@ -342,15 +338,19 @@ defmodule Ambry.Inbox.Importer do
         parts_total: link.parts_total
       })
 
-  defp do_create_media(item, book, probes, people, recording, group) do
+  defp do_create_media(item, book, probes, people, recording, group, root) do
     {chapters, marker_source} = chapters(recording.chapters, probes)
 
     %{
       book_id: book.id,
-      # the item's own paths until placement repoints them to the library
-      # copies below
-      source_path: item.path,
-      source_files: item.files,
+      # Created in the destination root's coordinates from the start: the
+      # path columns are CHECK-constrained to hold a resolvable stored form,
+      # and a CHECK cannot wait for the commit. These are placeholders in
+      # valid form — basenames under the right root — that placement
+      # rewrites to the real relative paths inside this same transaction.
+      library_root_id: root.id,
+      source_path: Path.basename(item.path),
+      source_files: Enum.map(item.files, &Path.basename/1),
       status: :pending,
       # The recording's settled place in its part set, if any.
       part_number: part_number(recording.recording_group),
@@ -358,7 +358,11 @@ defmodule Ambry.Inbox.Importer do
       duration: Scanner.total_duration(probes),
       chapters: chapters,
       chapter_marker_source: marker_source,
-      media_tracks: Scanner.track_attrs(probes),
+      media_tracks:
+        probes
+        |> Scanner.track_attrs()
+        |> Enum.map(&%{&1 | path: Path.basename(&1.path)})
+        |> Enum.map(&Map.put(&1, :library_root_id, root.id)),
       title: Field.value(recording.title),
       published: Field.date(recording.published),
       published_format: Field.format_atom(recording.published, :full),

@@ -44,23 +44,48 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
 
   def handle_event("delete-source", %{"id" => id}, socket) do
     source = Library.get_source!(id)
-    {:ok, _source} = Library.delete_source(source)
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Removed #{source.name}. Its files were left alone.")
-     |> load()}
+    case Library.delete_source(source) do
+      {:ok, _source} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Removed #{source.name}. Its files were left alone.")
+         |> load()}
+
+      {:error, {:referenced, %{inbox_items: items}}} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "#{source.name} still has #{items} inbox item#{plural(items)} resolving through it. " <>
+             "Import or remove them first."
+         )}
+    end
   end
 
   def handle_event("delete-root", %{"id" => id}, socket) do
     root = Library.get_root!(id)
-    {:ok, _root} = Library.delete_root(root)
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Removed #{root.name}. Its files were left alone.")
-     |> load()}
+    case Library.delete_root(root) do
+      {:ok, _root} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Removed #{root.name}. Its files were left alone.")
+         |> load()}
+
+      {:error, {:referenced, %{media: media}}} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "#{root.name} still holds #{media} recording#{plural(media)}. " <>
+             "The library serves them from there, so the root has to outlive them."
+         )}
+    end
   end
+
+  defp plural(1), do: ""
+  defp plural(_many), do: "s"
 
   defp load(socket) do
     sources = Library.list_sources()

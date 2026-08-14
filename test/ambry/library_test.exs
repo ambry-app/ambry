@@ -189,6 +189,110 @@ defmodule Ambry.LibraryTest do
     end
   end
 
+  describe "deleting a referenced location" do
+    test "a root holding recordings refuses with reference counts" do
+      root = insert(:root)
+
+      insert(:media,
+        book: build(:book),
+        library_root_id: root.id,
+        source_path: "Author/Book",
+        source_files: ["Author/Book/book.m4b"],
+        media_tracks: [
+          build(:media_track, path: "Author/Book/book.m4b", library_root_id: root.id)
+        ]
+      )
+
+      assert {:error, {:referenced, %{media: 1, media_tracks: 1}}} = Library.delete_root(root)
+      assert {:ok, _root} = Library.fetch_root(root.id)
+    end
+
+    test "a source with queued items refuses with reference counts" do
+      source = insert(:source)
+
+      Repo.insert!(%Ambry.Inbox.InboxItem{
+        source_id: source.id,
+        path: "Some Release",
+        files: ["Some Release/book.m4b"]
+      })
+
+      assert {:error, {:referenced, %{inbox_items: 1}}} = Library.delete_source(source)
+      assert {:ok, _source} = Library.fetch_source(source.id)
+    end
+
+    # The app-level refusal explains; the FK refuses even code that skips it.
+    test "the database refuses too" do
+      root = insert(:root)
+
+      insert(:media,
+        book: build(:book),
+        library_root_id: root.id,
+        source_path: "Author/Book"
+      )
+
+      assert_raise Ecto.ConstraintError, fn -> Repo.delete!(root) end
+    end
+  end
+
+  describe "the stored-path constraints" do
+    # The resolver's refusals protect the filesystem; these protect the
+    # database from code that never went through the resolver.
+    test "a rooted media may not store an absolute path" do
+      root = insert(:root)
+
+      assert_raise Postgrex.Error, ~r/media_source_path_resolvable/, fn ->
+        Repo.insert_all("media", [
+          %{
+            source_path: "/absolute/anywhere",
+            library_root_id: root.id,
+            full_cast: false,
+            status: "pending",
+            abridged: false,
+            book_id: insert(:book).id,
+            inserted_at: DateTime.utc_now(:second),
+            updated_at: DateTime.utc_now(:second)
+          }
+        ])
+      end
+    end
+
+    test "an unrooted track may only store an uploads path" do
+      media = insert(:media, book: build(:book))
+
+      assert_raise Postgrex.Error, ~r/media_tracks_path_resolvable/, fn ->
+        Repo.insert_all("media_tracks", [
+          %{
+            media_id: media.id,
+            index: 0,
+            path: "/mnt/downloads/book.m4b",
+            size: 1,
+            duration: Decimal.new(1),
+            start_offset: Decimal.new(0),
+            inserted_at: DateTime.utc_now(:second),
+            updated_at: DateTime.utc_now(:second)
+          }
+        ])
+      end
+    end
+
+    test "a sourced inbox item may not store an absolute path" do
+      source = insert(:source)
+
+      assert_raise Postgrex.Error, ~r/inbox_items_path_locatable/, fn ->
+        Repo.insert_all("inbox_items", [
+          %{
+            source_id: source.id,
+            path: "/mnt/downloads/Some Release",
+            files: ["Some Release/book.m4b"],
+            status: "pending",
+            inserted_at: DateTime.utc_now(:second),
+            updated_at: DateTime.utc_now(:second)
+          }
+        ])
+      end
+    end
+  end
+
   describe "listing" do
     test "sources and roots are separate registries" do
       source = insert(:source)

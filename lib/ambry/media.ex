@@ -64,16 +64,16 @@ defmodule Ambry.Media do
   defdelegate orphaned_files_audit(), to: Audit
 
   @doc """
-  Brings a recording's managed files back in line with the naming template.
+  Brings a recording's files back in line with the naming template.
 
   Asynchronous because it touches the filesystem, and safe to call after any
-  edit: a recording that is already where it belongs, external, or outside a
-  library root is a no-op.
+  edit: a recording that is already where it belongs, or that lives in the
+  legacy uploads tree rather than a library root, is a no-op.
   """
   def organize_async(%Media{id: id}), do: enqueue_organize(%{"media_id" => id})
 
   @doc """
-  The same, for every managed recording of a book.
+  The same, for every recording of a book.
 
   A book's title, primary author and primary series all appear in the path of
   every recording of it, so editing the book moves its files, not just its

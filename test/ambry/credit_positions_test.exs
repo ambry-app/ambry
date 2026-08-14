@@ -96,7 +96,7 @@ defmodule Ambry.CreditPositionsTest do
       {:ok, media} =
         Media.create_media(%{
           book_id: book.id,
-          source_path: "/tmp/#{Ecto.UUID.generate()}",
+          source_path: "/uploads/source_media/#{Ecto.UUID.generate()}",
           media_narrators: [%{narrator_id: second.id}, %{narrator_id: first.id}]
         })
 

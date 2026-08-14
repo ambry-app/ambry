@@ -1278,7 +1278,18 @@ defmodule Ambry.Inbox do
       |> Repo.all()
       |> Enum.flat_map(fn {root_id, files} -> Enum.map(files || [], &{root_id, &1}) end)
 
-    MapSet.new(track_paths ++ source_files)
+    # Pre-refactor provenance: the absolute downloads paths a legacy media
+    # was transcoded from. They live under no root, so they compare in the
+    # same `{nil, absolute}` coordinates an unrooted scan file gets — and
+    # without them, every legacy recording's source would resurface as new.
+    legacy_files =
+      Media
+      |> select([m], m.legacy_source_files)
+      |> Repo.all()
+      |> Enum.reject(&is_nil/1)
+      |> Enum.flat_map(fn files -> Enum.map(files, &{nil, &1}) end)
+
+    MapSet.new(track_paths ++ source_files ++ legacy_files)
   end
 
   # The whole release, measured as the one recording it will become: the
