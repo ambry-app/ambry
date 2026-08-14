@@ -7,6 +7,7 @@ defmodule Ambry.Inbox.ImporterTest do
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.GroupLink
+  alias Ambry.Inbox.InboxItem
   alias Ambry.Media
   alias Ambry.Media.Media.Chapter
   alias Ambry.Media.MediaTrack
@@ -33,7 +34,7 @@ defmodule Ambry.Inbox.ImporterTest do
 
     test "a symlink import never touches the originals" do
       item = tagged_item()
-      [file] = item.files
+      [file] = item |> Repo.preload(:source) |> InboxItem.disk_files()
       before = File.stat!(file)
 
       assert {:ok, media} = Inbox.import_item(item)
@@ -628,7 +629,7 @@ defmodule Ambry.Inbox.ImporterTest do
     @tag :capture_log
     test "refuses a file that vanished between discovery and approval" do
       item = tagged_item()
-      item.files |> hd() |> File.rm!()
+      item |> Repo.preload(:source) |> InboxItem.disk_files() |> hd() |> File.rm!()
 
       assert {:error, {:unreadable, _reason}} = Inbox.import_item(item)
 

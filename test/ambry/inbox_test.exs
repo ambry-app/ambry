@@ -621,6 +621,8 @@ defmodule Ambry.InboxTest do
 
     # An item found under a source adopts it: that's a fact the scan just
     # established, not a guess about an item whose origin was never known.
+    # Adoption also rewrites the stored path into the source's coordinates,
+    # so the columns agree with the FK.
     test "backfills the source of an item discovered before sources existed" do
       root = watched_root()
       release = release_folder(root, "Leviathan Wakes", ["book.m4b"])
@@ -628,13 +630,15 @@ defmodule Ambry.InboxTest do
       assert {:ok, %{created: 1}} = Inbox.discover(root)
       assert {[item], false} = Inbox.list_items()
       assert is_nil(item.source_id)
+      assert item.path == release
 
       source = insert(:source, path: root)
 
       assert {:ok, %{updated: 1}} = Inbox.discover()
       assert {[item], false} = Inbox.list_items()
-      assert item.path == release
+      assert item.path == "Leviathan Wakes"
       assert item.source_id == source.id
+      assert InboxItem.disk_path(item) == release
     end
   end
 

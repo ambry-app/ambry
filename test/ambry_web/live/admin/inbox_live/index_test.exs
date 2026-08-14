@@ -218,7 +218,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
 
   test "ignores and restores without touching files", %{conn: conn} do
     item = probed_item()
-    file = hd(item.files)
+    file = item |> Inbox.disk_files() |> hd()
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
@@ -244,7 +244,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   # length of a NAS copy.
   test "imports a settled item into the library, leaving files alone", %{conn: conn} do
     item = probed_item() |> settle()
-    file = hd(item.files)
+    file = item |> Inbox.disk_files() |> hd()
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 

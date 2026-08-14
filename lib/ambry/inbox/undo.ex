@@ -105,11 +105,13 @@ defmodule Ambry.Inbox.Undo do
 
   # The check that makes this safe to offer. A `move` policy leaves the
   # library copy as the only copy, and `Media.delete_media/1` deletes a
-  # managed recording's files — so without the source on disk, "undo" would
-  # delete the release.
+  # recording's files — so without the source on disk, "undo" would delete
+  # the release.
   defp source_intact(%InboxItem{files: []}), do: :ok
 
-  defp source_intact(%InboxItem{files: files}) do
+  defp source_intact(%InboxItem{} = item) do
+    files = item |> Repo.preload(:source) |> InboxItem.disk_files()
+
     if Enum.all?(files, &File.exists?/1), do: :ok, else: {:error, :source_files_missing}
   end
 

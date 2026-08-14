@@ -963,12 +963,13 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   # Embedded art and a provider cover are both real answers, so two of them is
   # a choice rather than a winner. The embedded candidate carries the audio
-  # file to extract from; approval does the extracting.
+  # file to extract from — resolved to a disk path, because approval hands
+  # the value straight to the extractor.
   defp cover_field(sources, tags, item) do
     embedded =
       if tags["has_cover_art"] && item.files != [] do
         %Candidate{
-          value: List.first(item.files),
+          value: item |> Repo.preload(:source) |> InboxItem.disk_files() |> List.first(),
           source: "embedded",
           label: "Embedded in the file",
           key: "embedded"

@@ -21,8 +21,8 @@ defmodule Ambry.Inbox.DraftTest do
     source = insert(:source)
 
     %InboxItem{
-      path: "/downloads/Some Release",
-      files: ["/downloads/Some Release/book.m4b"],
+      path: "Some Release",
+      files: ["Some Release/book.m4b"],
       source_id: source.id
     }
     |> Map.merge(attrs)
@@ -3099,7 +3099,7 @@ defmodule Ambry.Inbox.DraftTest do
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
-      moved = %{item | files: ["/downloads/Some Release/moved.m4b"]}
+      moved = %{item | files: ["Some Release/moved.m4b"]}
       stale = Seed.restale(item.draft, moved)
 
       assert stale.stale

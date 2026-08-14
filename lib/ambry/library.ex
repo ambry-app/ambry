@@ -148,18 +148,24 @@ defmodule Ambry.Library do
   def resolve(nil, "/uploads/" <> _rest = web_path), do: {:ok, Paths.web_to_disk(web_path)}
   def resolve(nil, path), do: {:error, {:unresolvable, path}}
 
-  def resolve(%Root{} = root, relative) do
-    cond do
-      Path.type(relative) != :relative -> {:error, {:not_relative, relative}}
-      ".." in Path.split(relative) -> {:error, {:traversal, relative}}
-      true -> {:ok, Path.join(root.path, relative)}
-    end
-  end
+  def resolve(%Root{path: base}, relative), do: resolve_in(base, relative)
+
+  # Inbox item paths are relative to the *source* they were discovered in —
+  # a source is a location too, it's just never a place media lives.
+  def resolve(%Source{path: base}, relative), do: resolve_in(base, relative)
 
   def resolve(root_id, relative) when is_integer(root_id) do
     case fetch_root(root_id) do
       {:ok, root} -> resolve(root, relative)
       {:error, :not_found} -> {:error, {:no_root, root_id}}
+    end
+  end
+
+  defp resolve_in(base, relative) do
+    cond do
+      Path.type(relative) != :relative -> {:error, {:not_relative, relative}}
+      ".." in Path.split(relative) -> {:error, {:traversal, relative}}
+      true -> {:ok, Path.join(base, relative)}
     end
   end
 

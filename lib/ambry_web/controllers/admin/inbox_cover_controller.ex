@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.InboxCoverController do
   def show(conn, %{"id" => id}) do
     # The path comes from the item's own files, never from a parameter.
     with {:ok, item} <- Inbox.fetch_item(id),
-         [path | _rest] <- item.files,
+         [path | _rest] <- Inbox.disk_files(item),
          {:ok, binary, mime} <- Images.read_embedded(path) do
       conn
       |> put_resp_content_type(mime, nil)

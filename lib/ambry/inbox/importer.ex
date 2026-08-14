@@ -615,12 +615,13 @@ defmodule Ambry.Inbox.Importer do
 
   defp chapters(_decision, probes), do: Scanner.chapters(probes)
 
-  # An item's files, in the order discovery recorded them — which is natural
-  # sort, and therefore the play order the operator saw listed on the form.
-  # A release the operator has decided is really two books is split into
-  # separate items first; this is the one they've said is one recording.
+  # An item's files as absolute disk paths, in the order discovery recorded
+  # them — which is natural sort, and therefore the play order the operator
+  # saw listed on the form. A release the operator has decided is really two
+  # books is split into separate items first; this is the one they've said
+  # is one recording.
   defp audio_files(%InboxItem{files: []}), do: {:error, :no_audio_files}
-  defp audio_files(%InboxItem{files: files}), do: {:ok, files}
+  defp audio_files(%InboxItem{} = item), do: {:ok, InboxItem.disk_files(item)}
 
   # Re-probed rather than trusting what discovery recorded: it costs one
   # ffprobe per file and buys current track data, plus a file that vanished
