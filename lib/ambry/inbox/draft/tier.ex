@@ -80,10 +80,11 @@ defmodule Ambry.Inbox.Draft.Tier do
   def of(%Work{} = work), do: worst([of_evidence(work), of_identity(work)])
   def of(%Recording{} = recording), do: of_evidence(recording)
 
-  # The destination has no `curated` flag of its own — choosing a root is the
-  # only way it is ever approved, so approved *is* the operator's answer.
-  def of(%Destination{approved: true}), do: :reviewed
-  def of(%Destination{}), do: :waiting
+  # A destination that knows where it is going is settled whether the
+  # operator picked or a default did — the silent single-root resolution is
+  # meant to be indistinguishable from an answer, not flagged as a guess.
+  def of(%Destination{} = destination),
+    do: if(Destination.resolved?(destination), do: :reviewed, else: :waiting)
 
   @doc """
   Which provider records describe this thing — the records card's own tier.

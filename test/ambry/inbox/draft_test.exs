@@ -15,10 +15,13 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Repo
 
   defp item(attrs) do
-    # A settled environment — one root, a sourced item — so the destination
-    # resolves silently and these tests stay about the decision tree.
-    if Ambry.Library.list_roots() == [], do: insert(:root)
+    # A settled environment — one root, a sourced item, a pairing that has
+    # imported before — so the destination resolves silently and these tests
+    # stay about the decision tree. The memory is what settles it: these
+    # paths don't exist on disk, so nothing can be derived from them.
+    root = List.first(Ambry.Library.list_roots()) || insert(:root)
     source = insert(:source)
+    {:ok, _memory} = Ambry.Library.remember_placement(source, root, :hardlink)
 
     %InboxItem{
       path: "Some Release",
@@ -277,12 +280,11 @@ defmodule Ambry.Inbox.DraftTest do
       candidates = [provider_candidate(%{"title" => "The Long Way to a Small, Angry Planet"})]
 
       item =
-        %InboxItem{path: "/downloads/The Long Way to a Small, Angry Planet"}
-        |> Map.merge(%{
+        item(%{
+          path: "The Long Way to a Small, Angry Planet",
           matches: matches(candidates, confidence: 0.5),
           tags: %{"book_title" => "Wayfarers, Book 1", "published" => "2014-01-01"}
         })
-        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
 
       {:ok, item} = Inbox.prepare_draft(item)
 
@@ -1843,12 +1845,11 @@ defmodule Ambry.Inbox.DraftTest do
   describe "the file's own name is a proposal, not a rival" do
     test "it is offered as a chip without making the field a question" do
       item =
-        %InboxItem{path: "/downloads/The Long Way to a Small, Angry Planet"}
-        |> Map.merge(%{
+        item(%{
+          path: "The Long Way to a Small, Angry Planet",
           matches: matches([]),
           tags: %{"book_title" => "Wayfarers, Book 1", "published" => "2014-01-01"}
         })
-        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
 
       draft = Seed.build(item)
 
@@ -1865,9 +1866,11 @@ defmodule Ambry.Inbox.DraftTest do
     # stops being advisory and answers the question.
     test "it settles the field when nothing else proposed anything" do
       item =
-        %InboxItem{path: "/downloads/Leviathan Wakes"}
-        |> Map.merge(%{matches: matches([]), tags: %{"published" => "2011-06-15"}})
-        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
+        item(%{
+          path: "Leviathan Wakes",
+          matches: matches([]),
+          tags: %{"published" => "2011-06-15"}
+        })
 
       draft = Seed.build(item)
 
@@ -1877,12 +1880,11 @@ defmodule Ambry.Inbox.DraftTest do
 
     test "it is not repeated as a second chip when it agrees" do
       item =
-        %InboxItem{path: "/downloads/Leviathan Wakes"}
-        |> Map.merge(%{
+        item(%{
+          path: "Leviathan Wakes",
           matches: matches([provider_candidate(%{})]),
           tags: %{"book_title" => "Leviathan Wakes"}
         })
-        |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
 
       draft = Seed.build(item)
 

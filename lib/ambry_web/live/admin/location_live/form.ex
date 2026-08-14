@@ -16,7 +16,7 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
   end
 
   defp apply_action(socket, :new_source, _params) do
-    source = %Source{import_policy: :hardlink}
+    source = %Source{}
 
     socket
     |> assign(page_title: "New Source", entity: source)
@@ -104,7 +104,6 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
     |> assign(:form, to_form(changeset))
     |> assign(:type, :source)
     |> assign(:status, path_status(Changeset.get_field(changeset, :path)))
-    |> assign(:root_options, root_options())
   end
 
   defp assign_root_form(socket, %Changeset{} = changeset) do
@@ -112,16 +111,7 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
     |> assign(:form, to_form(changeset))
     |> assign(:type, :root)
     |> assign(:status, path_status(Changeset.get_field(changeset, :path)))
-    |> assign(:root_options, [])
   end
-
-  defp root_options do
-    Enum.map(Library.list_roots(), &{&1.name, &1.id})
-  end
-
-  defp root_prompt([]), do: "No library roots yet"
-  defp root_prompt([{name, _id}]), do: "#{name} (the only root)"
-  defp root_prompt(_several), do: "Choose a library root"
 
   # Checking the path as it's typed is worth the stat call: "that folder isn't
   # there" is the single most common way one of these rows is wrong, and
@@ -131,17 +121,4 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
   end
 
   defp path_status(_blank), do: nil
-
-  # The one question a source answers, asked in the operator's terms: what
-  # import does with these files. The old durability question ("can they be
-  # trusted to stay?") is answered by the choice — symlink if they'll stay,
-  # anything else if they might not.
-  defp policy_options do
-    [
-      {"Hardlink (same filesystem only, no extra storage)", :hardlink},
-      {"Symlink (crosses filesystems; dangles if the source ever moves)", :symlink},
-      {"Copy (duplicates the files)", :copy},
-      {"Move (empties the source folder)", :move}
-    ]
-  end
 end

@@ -27,8 +27,9 @@ defmodule Ambry.Inbox.RunMatchTest do
 
   defp item do
     %InboxItem{
-      path: "/downloads/The Way of Kings",
-      files: ["/downloads/The Way of Kings/book.m4b"],
+      path: "The Way of Kings",
+      files: ["The Way of Kings/book.m4b"],
+      source_id: insert(:source).id,
       tags: %{"book_title" => "The Way of Kings", "authors" => ["Brandon Sanderson"]}
     }
     |> Map.from_struct()

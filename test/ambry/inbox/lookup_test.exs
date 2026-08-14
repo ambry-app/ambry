@@ -218,8 +218,9 @@ defmodule Ambry.Inbox.LookupTest do
 
     %InboxItem{}
     |> InboxItem.changeset(%{
-      path: "/downloads/Leviathan Wakes",
-      files: ["/downloads/Leviathan Wakes/book.m4b"],
+      path: "Leviathan Wakes",
+      files: ["Leviathan Wakes/book.m4b"],
+      source_id: insert(:source).id,
       matches: %{
         "work" => %{
           "candidates" => [record],

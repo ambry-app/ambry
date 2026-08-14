@@ -43,13 +43,14 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Chapters
+  alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
-  alias Ambry.Library.Source
+  alias Ambry.Library.Placement
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
   alias Ambry.People
@@ -766,21 +767,30 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.approve_work(&1, params["approved"] == "true"))}
   end
 
+  # Re-defaulted after each pick, because the policy is a fact about the
+  # pairing: changing the root changes what "how the files come in" should
+  # propose, and an unpicked policy has no business keeping the answer that
+  # belonged to the previous root.
   def handle_event("choose-root", %{"root_id" => root_id}, socket) do
+    item = socket.assigns.item
     id = to_int(root_id)
 
     {:noreply,
      edit(socket, fn draft ->
-       update_in(draft.destination, &approve_destination(%{&1 | root_id: id}))
+       update_in(draft.destination, &(&1 |> Destination.choose_root(id) |> Seed.redefault(item)))
      end)}
   end
 
   def handle_event("choose-policy", %{"policy" => policy}, socket) do
+    item = socket.assigns.item
     policy = to_policy(policy)
 
     {:noreply,
      edit(socket, fn draft ->
-       update_in(draft.destination, &approve_destination(%{&1 | policy: policy}))
+       update_in(
+         draft.destination,
+         &(&1 |> Destination.choose_policy(policy) |> Seed.redefault(item))
+       )
      end)}
   end
 
@@ -1029,27 +1039,19 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
-  # Approved is not a separate gesture: choosing the last missing half is
-  # the approval. Un-choosing either half un-approves.
-  defp approve_destination(destination) do
-    %{destination | approved: not is_nil(destination.root_id) and not is_nil(destination.policy)}
-  end
-
-  @placement_policies Source.import_policies()
+  @placement_policies Placement.policies()
 
   defp to_policy(value) do
     Enum.find(@placement_policies, &(to_string(&1) == value))
   end
 
-  # The same four doors the location form offers, worded for one import
-  # rather than a standing default.
+  # Named, not explained. Each label used to carry a parenthetical about
+  # what the door costs, which is a definition an operator reads once and
+  # then re-reads on every import forever. The one consequence that still
+  # needs saying is the one that stops an import, and it says itself when
+  # the impossible door is picked.
   defp placement_policies do
-    [
-      {"Hardlink (same filesystem only, no extra storage)", :hardlink},
-      {"Symlink (crosses filesystems; dangles if the source ever moves)", :symlink},
-      {"Copy (duplicates the files)", :copy},
-      {"Move (empties the source folder)", :move}
-    ]
+    Enum.map(Placement.policies(), &{Phoenix.Naming.humanize(&1), &1})
   end
 
   ## rendering helpers

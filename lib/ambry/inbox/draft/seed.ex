@@ -281,38 +281,91 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   ## destination
 
-  # Any input may feed any output, so the root is chosen per import rather
-  # than fixed on the source. The single-root case — which is nearly all of
-  # them — resolves silently: being asked to pick from a list of one is not a
-  # decision, it's an interruption. The policy is seeded from the source the
-  # same way; an item with no source (ad-hoc scan) has no default and the
-  # policy stays an outstanding decision.
-  def destination(%InboxItem{} = item) do
+  @doc """
+  A destination with nothing chosen: pure defaults.
+  """
+  def destination(%InboxItem{} = item), do: redefault(%Destination{}, item)
+
+  @doc """
+  Fills in whichever halves of a destination the operator hasn't picked.
+
+  Any input may feed any output, so the root is chosen per import rather than
+  fixed on the source, and the policy follows from the **pairing** rather
+  than from either end — which is why this runs again after a root is
+  picked. Choosing where the files go is not a statement about how they get
+  there, and freezing the policy at the moment the root changed would answer
+  a question nobody asked, using the previous root's answer.
+
+  Everything not chosen is recomputed from scratch on every prepare, so
+  correcting the first of three hundred queued releases corrects the other
+  two hundred and ninety-nine with it.
+  """
+  def redefault(%Destination{} = destination, %InboxItem{} = item) do
     item = Repo.preload(item, :source)
-
-    policy =
-      case item.source do
-        %Source{import_policy: policy} -> policy
-        nil -> nil
-      end
-
     roots = Library.list_roots()
 
-    # A source may still *prefer* a root; it just doesn't bind to one.
-    preferred = item.source && Enum.find(roots, &(&1.id == item.source.target_root_id))
-
     root =
-      case {preferred, roots} do
-        {%Root{} = root, _several} -> root
-        {nil, [only]} -> only
-        {nil, _none_or_several} -> nil
+      if destination.root_chosen,
+        # Filtered through the current registry rather than trusted: a root
+        # can be deleted between the choice and this, and a dangling id
+        # would seed a destination that only fails at placement.
+        do: find_root(roots, destination.root_id),
+        else: default_root(item.source, roots)
+
+    policy =
+      cond do
+        destination.policy_chosen -> destination.policy
+        is_nil(root) -> nil
+        true -> default_policy(item.source, root)
       end
 
-    %Destination{
-      root_id: root && root.id,
-      policy: policy,
-      approved: not is_nil(root) and not is_nil(policy)
-    }
+    %{destination | root_id: root && root.id, policy: policy}
+  end
+
+  # Where this source last imported, then the only root there is. The
+  # single-root case — which is nearly all of them — resolves silently:
+  # being asked to pick from a list of one is not a decision, it's an
+  # interruption.
+  #
+  # The memory is filtered through the current registry rather than
+  # trusted, for the same reason a chosen root is.
+  defp default_root(%Source{} = source, roots) do
+    remembered = Library.recall_placement(source)
+
+    find_root(roots, remembered && remembered.library_root_id) ||
+      case roots do
+        [only] -> only
+        _none_or_several -> nil
+      end
+  end
+
+  defp find_root(_roots, nil), do: nil
+  defp find_root(roots, id), do: Enum.find(roots, &(&1.id == id))
+
+  # What this exact pairing last did, and failing that what the disk allows.
+  defp default_policy(%Source{} = source, %Root{} = root) do
+    Library.recall_policy(source, root) || feasible_policy(source, root)
+  end
+
+  # Nothing remembered yet, so there is one thing worth assuming and three
+  # worth asking about.
+  #
+  # Where the pair shares a filesystem, hardlink dominates: no extra bytes,
+  # the source untouched, nothing to dangle. The only reason to prefer
+  # something else there is wanting the folder emptied, which is a
+  # preference rather than a safe default — and one import corrects it for
+  # every item behind it.
+  #
+  # Across filesystems the three remaining doors mean three genuinely
+  # different things — reference it, duplicate it, relocate it — with no
+  # dominant answer, and guessing wrong silently doubles the operator's
+  # storage. So this proposes nothing and the destination stays an
+  # outstanding decision, once per pairing.
+  defp feasible_policy(%Source{} = source, %Root{} = root) do
+    case Library.same_filesystem?(source.path, root.path) do
+      {:ok, true} -> :hardlink
+      _different_or_unknown -> nil
+    end
   end
 
   ## work

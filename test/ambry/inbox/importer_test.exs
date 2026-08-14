@@ -16,6 +16,28 @@ defmodule Ambry.Inbox.ImporterTest do
   alias Ambry.People.Person
 
   describe "approve/1" do
+    # The recording is in the library by the time this runs, so a raise here
+    # would discard a `max_attempts: 1` job for an import that succeeded and
+    # report a failure the operator would act on. `Placement.finalize/1`
+    # already states the rule for post-commit work; this holds the two
+    # pieces of bookkeeping beside it to the same one.
+    @tag :capture_log
+    test "bookkeeping that fails after the commit doesn't fail the import" do
+      item = tagged_item()
+
+      patch(Ambry.Library, :remember_placement, fn _source, _root, _policy ->
+        raise "the database went away"
+      end)
+
+      assert {:ok, media} = Inbox.import_item(item)
+      assert Media.get_media!(media.id)
+      assert Inbox.get_item!(item.id).status == :imported
+
+      # and the other piece still ran, rather than being skipped by the first
+      # one's failure
+      refute Inbox.get_item!(item.id).issue
+    end
+
     test "creates the whole graph from a tagged file" do
       item = tagged_item()
 
@@ -33,7 +55,7 @@ defmodule Ambry.Inbox.ImporterTest do
     end
 
     test "a symlink import never touches the originals" do
-      item = tagged_item()
+      item = tagged_item(policy: :symlink)
       [file] = item |> Repo.preload(:source) |> InboxItem.disk_files()
       before = File.stat!(file)
 
@@ -639,10 +661,11 @@ defmodule Ambry.Inbox.ImporterTest do
     end
   end
 
-  # A real tagged file discovered the way discovery would find it. The
-  # source's policy is symlink, so the originals stay exactly where the test
-  # put them — these tests are about the entity graph, and the placement
-  # policies get their workout in `ManagedImportTest`.
+  # A real tagged file discovered the way discovery would find it. Root and
+  # fixtures share a filesystem, so it hardlinks and the originals stay
+  # exactly where the test put them — these tests are about the entity
+  # graph, and the placement policies get their workout in
+  # `ManagedImportTest`. Pass `policy:` to exercise a different door.
   defp tagged_item(opts \\ []) do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
     name = Keyword.get(opts, :name, "The Way of Kings [M4B]")
@@ -668,12 +691,15 @@ defmodule Ambry.Inbox.ImporterTest do
       insert(:root, path: library)
     end
 
-    watched =
-      insert(:source,
-        path: root,
-        import_policy: :symlink,
-        name: "Watched #{Ecto.UUID.generate()}"
-      )
+    watched = insert(:source, path: root, name: "Watched #{Ecto.UUID.generate()}")
+
+    # The policy lives on the pairing now. Root and fixtures share a
+    # filesystem here, so it would default to hardlinking; a test that wants
+    # a different door seeds it the way an earlier import would have.
+    if policy = Keyword.get(opts, :policy) do
+      {:ok, _memory} =
+        Ambry.Library.remember_placement(watched, hd(Ambry.Library.list_roots()), policy)
+    end
 
     {:ok, _counts} = Inbox.discover(watched)
     {[item], false} = Inbox.list_items(filter: name)

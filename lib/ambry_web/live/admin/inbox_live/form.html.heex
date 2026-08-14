@@ -777,7 +777,7 @@
                 value={root.id}
                 selected={@item.draft.destination.root_id == root.id}
               >
-                {root.name} ({root.path})
+                {root.name}
               </option>
             </select>
           </form>
@@ -802,7 +802,6 @@
             </select>
           </form>
         </div>
-        <p :if={@destination.summary} class="text-sm text-zinc-400">{@destination.summary}</p>
         <p
           :if={@destination.blocker}
           class="flex items-baseline gap-1.5 pl-3 text-sm text-red-400"

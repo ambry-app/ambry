@@ -329,21 +329,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp rail_class(%{status: :imported}), do: "border-brand-dark/40 border-l-4"
   defp rail_class(_item), do: "border-l-4 border-zinc-700"
 
-  # Where an item came from seeds how its files reach the library, so it's
-  # worth reading off the row.
-  defp source_label(%Source{name: name, import_policy: policy}),
-    do: "#{name} · #{policy_word(policy)}"
-
-  defp source_label(nil), do: "ad-hoc scan"
-
-  defp policy_word(:hardlink), do: "hardlinked in on import"
-  defp policy_word(:symlink), do: "symlinked in on import"
-  defp policy_word(:copy), do: "copied in on import"
-  defp policy_word(:move), do: "moved in on import"
+  # Which watched folder this came from. What import will *do* with it is
+  # not here on purpose: that is a per-import decision now, it is stated in
+  # full on the item's own destination card, and there is no way to import
+  # without passing through it.
+  defp source_label(%Source{name: name}), do: name
 
   defp source_color(%Source{}), do: "bg-blue-400/15 text-blue-300"
-
-  defp source_color(_other), do: "bg-white/10 text-zinc-300"
 
   @doc """
   The candidate's name — usually the release name, and the most recognizable

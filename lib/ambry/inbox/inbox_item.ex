@@ -9,10 +9,12 @@ defmodule Ambry.Inbox.InboxItem do
 
   `path` and `files` are stored relative to the item's source, so a source
   whose mount point changes is a one-row edit and every queued item — and
-  the operator decisions staged on it — survives the move. An ad-hoc item
-  with no source stores absolute paths; that exception stays inside the
-  inbox, whose rows are transient. Resolve through `disk_path/1` and
-  `disk_files/1`, never by joining the columns against anything directly.
+  the operator decisions staged on it — survives the move. Resolve through
+  `disk_path/1` and `disk_files/1`, never by joining the columns against
+  anything directly.
+
+  Every item has a source. There is no other way in, which is what makes
+  the relative form an invariant rather than a convention.
   """
 
   use Ecto.Schema
@@ -31,10 +33,8 @@ defmodule Ambry.Inbox.InboxItem do
   schema "inbox_items" do
     belongs_to :media, Media
 
-    # Where this was found, which seeds the placement policy import brings
-    # its files into a library root with. Nullable: items from an ad-hoc
-    # scan have no source to speak for them, so the operator picks the
-    # policy at approval.
+    # The watched folder this was found in, and the base its `path` and
+    # `files` are relative to.
     belongs_to :source, Source
 
     field :path, :string
@@ -70,7 +70,8 @@ defmodule Ambry.Inbox.InboxItem do
       :media_id,
       :source_id
     ])
-    |> validate_required([:path, :status])
+    |> validate_required([:path, :status, :source_id])
+    |> foreign_key_constraint(:source_id)
     |> unique_constraint(:path)
   end
 
@@ -116,12 +117,9 @@ defmodule Ambry.Inbox.InboxItem do
   """
   def disk_files(%__MODULE__{files: files} = item), do: Enum.map(files, &resolve!(item, &1))
 
-  # An ad-hoc item's paths are already absolute; a sourced item resolves
-  # against its source. Raising on anything else is deliberate: these paths
-  # get probed, placed and (on undo) checked before deletion, and a path
-  # that can't resolve must never quietly become a relative one.
-  defp resolve!(%__MODULE__{source_id: nil}, path), do: path
-
+  # Raising is deliberate: these paths get probed, placed and (on undo)
+  # checked before deletion, and a path that can't resolve must never
+  # quietly become a relative one.
   defp resolve!(%__MODULE__{} = item, path) do
     case Library.resolve(item_source(item), path) do
       {:ok, absolute} -> absolute

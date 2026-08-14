@@ -6,7 +6,9 @@ defmodule Ambry.Inbox.ManagedImportTest do
   use Ambry.DataCase
 
   alias Ambry.Inbox
+  alias Ambry.Inbox.Draft.Destination
   alias Ambry.Library
+  alias Ambry.Library.ImportPreference
   alias Ambry.Media
   alias Ambry.Settings
 
@@ -235,7 +237,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     defp two_part_imports do
       root = new_dir("root")
-      insert(:root, path: root, name: "Library")
+      root_record = insert(:root, path: root, name: "Library")
 
       downloads = new_dir("downloads")
 
@@ -245,12 +247,8 @@ defmodule Ambry.Inbox.ManagedImportTest do
         File.cp!(tagged_audio(), Path.join(release, "book.m4b"))
       end
 
-      watched =
-        insert(:source,
-          import_policy: :copy,
-          path: downloads,
-          name: "Downloads #{Ecto.UUID.generate()}"
-        )
+      watched = insert(:source, path: downloads, name: "Downloads #{Ecto.UUID.generate()}")
+      {:ok, _memory} = Library.remember_placement(watched, root_record, :copy)
 
       {:ok, _counts} = Inbox.discover(watched)
       {items, false} = Inbox.list_items()
@@ -345,8 +343,11 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # With several roots the choice is about which NAS, and therefore about
     # whether hardlinking is possible at all. Guessing is not acceptable.
     test "refuses when several roots exist and none was chosen" do
+      # No memory to inherit and no preference to fall back on, so the root
+      # is a genuine question — asked once, and answered from then on.
+      %{item: item} = downloads_item(policy: :unremembered)
       insert(:root, path: new_dir("second-root"))
-      %{item: item} = downloads_item()
+      {:ok, item} = Inbox.prepare_draft(Repo.reload(item))
 
       assert {:error, {:unresolved, outstanding}} = Inbox.import_item(item)
       assert Enum.any?(outstanding, &(&1.section == :destination))
@@ -378,17 +379,57 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert String.starts_with?(placed, chosen.path)
     end
 
-    test "a source's preferred root preselects without binding" do
-      %{item: item, watched: watched} = downloads_item()
+    # Which of the four doors an import uses is a fact about the *pairing*,
+    # so it is learned rather than configured: the next import from a source
+    # proposes what the last one into that root actually did.
+    test "the next import proposes what the last one from this source did" do
+      %{item: item, watched: watched, root: root} = downloads_item(policy: :hardlink)
 
-      chosen = insert(:root, path: new_dir("preferred-root"))
+      item = pick(item, &Destination.choose_policy(&1, :move))
+      assert {:ok, _media} = Inbox.import_item(item)
 
-      {:ok, _watched} = Library.update_source(watched, %{target_root_id: chosen.id})
+      assert %ImportPreference{} = memory = Library.recall_placement(watched)
+      assert Library.get_root!(memory.library_root_id).path == root
+      assert memory.policy == :move
 
-      {:ok, item} = Inbox.rebuild_draft(Repo.reload(item))
+      # a fresh candidate from the same source starts where the last one
+      # ended up, not at the source's standing default
+      next = second_release(watched)
+      {:ok, next} = Inbox.prepare_draft(next)
 
-      assert item.draft.destination.root_id == chosen.id
-      assert item.draft.destination.approved
+      assert next.draft.destination.policy == :move
+      refute next.draft.destination.policy_chosen
+    end
+
+    # The reason the memory is written after the import rather than when the
+    # operator picks: the queue's Ready badge reads a stored column, so an
+    # item nobody has opened since would go on proposing the old default and
+    # look settled while proposing it.
+    test "items already queued follow the memory when it moves" do
+      %{item: item, watched: watched} = downloads_item(policy: :hardlink)
+
+      queued = second_release(watched)
+      {:ok, queued} = Inbox.prepare_draft(queued)
+      assert queued.draft.destination.policy == :hardlink
+
+      item = pick(item, &Destination.choose_policy(&1, :copy))
+      assert {:ok, _media} = Inbox.import_item(item)
+
+      # not reopened, not prepared — read straight back off the row
+      assert Repo.reload(queued).draft.destination.policy == :copy
+    end
+
+    test "a policy the operator picked for one release is not moved by the memory" do
+      %{item: item, watched: watched} = downloads_item(policy: :hardlink)
+
+      queued = second_release(watched)
+      {:ok, queued} = Inbox.prepare_draft(queued)
+      queued = pick(queued, &Destination.choose_policy(&1, :symlink))
+
+      item = pick(item, &Destination.choose_policy(&1, :copy))
+      assert {:ok, _media} = Inbox.import_item(item)
+
+      assert Repo.reload(queued).draft.destination.policy == :symlink
     end
 
     # Two recordings of one book used to render to one path and refuse; each
@@ -484,9 +525,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
         path -> path
       end
 
-    if root do
-      insert(:root, path: root, name: "Library")
-    end
+    root_record = if root, do: insert(:root, path: root, name: "Library")
 
     downloads = new_dir("downloads")
     release = Path.join(downloads, "The Way of Kings [M4B]")
@@ -503,12 +542,15 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     source = hd(sources)
 
-    watched =
-      insert(:source,
-        import_policy: policy,
-        path: downloads,
-        name: "Downloads #{Ecto.UUID.generate()}"
-      )
+    watched = insert(:source, path: downloads, name: "Downloads #{Ecto.UUID.generate()}")
+
+    # The policy is a memory of the pairing now, not a field on either end,
+    # so a test that wants a particular one seeds it the way an earlier
+    # import would have. `:unremembered` leaves the pairing blank, which is
+    # what a source that has never imported looks like.
+    if root_record && policy != :unremembered do
+      {:ok, _memory} = Library.remember_placement(watched, root_record, policy)
+    end
 
     {:ok, _counts} = Inbox.discover(watched)
     {[item], false} = Inbox.list_items()
@@ -527,6 +569,27 @@ defmodule Ambry.Inbox.ManagedImportTest do
       watched: watched,
       downloads: downloads
     }
+  end
+
+  # Another candidate under the same watched folder, probed and queued.
+  defp second_release(watched) do
+    release = Path.join(watched.path, "Words of Radiance [M4B]")
+    File.mkdir_p!(release)
+    File.cp!(tagged_audio(), Path.join(release, "book.m4b"))
+
+    {:ok, _counts} = Inbox.discover(watched)
+    {[item], false} = Inbox.list_items(filter: "Words of Radiance")
+    {:ok, item} = Inbox.probe_item(item)
+
+    item
+  end
+
+  # What the form's destination pickers do: transform the stored destination
+  # and save it back.
+  defp pick(item, fun) do
+    draft = %{item.draft | destination: fun.(item.draft.destination)}
+    {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+    item
   end
 
   defp new_dir(prefix) do

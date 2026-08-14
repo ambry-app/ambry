@@ -18,24 +18,6 @@ defmodule Ambry.LibraryTest do
       assert is_nil(source.last_scanned_at)
     end
 
-    test "defaults to hardlinking" do
-      assert {:ok, source} =
-               Library.create_source(%{name: "D", path: "/data/d"})
-
-      assert source.import_policy == :hardlink
-    end
-
-    test "keeps an explicit import policy" do
-      assert {:ok, source} =
-               Library.create_source(%{
-                 name: "D",
-                 path: "/data/d",
-                 import_policy: :move
-               })
-
-      assert source.import_policy == :move
-    end
-
     test "requires an absolute path" do
       assert {:error, changeset} =
                Library.create_source(%{name: "D", path: "relative/path"})

@@ -2,9 +2,9 @@ defmodule Ambry.Library.Placement do
   @moduledoc """
   Bringing a file into a library root.
 
-  Four policies, set per source. They are exhaustive: a file either shares
-  its bytes with the original (hard or soft), duplicates them, or relocates
-  them — there is no fifth door.
+  Four policies, chosen per import. They are exhaustive: a file either
+  shares its bytes with the original (hard or soft), duplicates them, or
+  relocates them — there is no fifth door.
 
     * `:hardlink` — **same filesystem required**. One inode, two names, no
       extra bytes. This is the point of the whole exercise: the torrent keeps
@@ -55,8 +55,15 @@ defmodule Ambry.Library.Placement do
 
   alias Ambry.Library
 
+  @policies [:hardlink, :symlink, :copy, :move]
+
   @enforce_keys [:source, :destination, :policy]
   defstruct [:source, :destination, :policy]
+
+  @doc """
+  The four doors, in the order they're offered.
+  """
+  def policies, do: @policies
 
   @doc """
   Places `source` at `destination` according to `policy`.
@@ -65,7 +72,7 @@ defmodule Ambry.Library.Placement do
   `finalize/1` once the surrounding transaction commits, or to `undo/1` if it
   doesn't.
   """
-  def place(source, destination, policy) when policy in [:hardlink, :symlink, :copy, :move] do
+  def place(source, destination, policy) when policy in @policies do
     with :ok <- readable(source),
          :ok <- vacant(destination),
          :ok <- File.mkdir_p(Path.dirname(destination)),

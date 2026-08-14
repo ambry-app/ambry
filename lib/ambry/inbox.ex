@@ -58,6 +58,7 @@ defmodule Ambry.Inbox do
 
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Importer
   alias Ambry.Inbox.InboxItem
@@ -70,6 +71,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.RunProbe
   alias Ambry.Inbox.Undo
   alias Ambry.Library
+  alias Ambry.Library.ImportPreference
   alias Ambry.Library.Root
   alias Ambry.Library.Source
   alias Ambry.Media.Media
@@ -172,20 +174,20 @@ defmodule Ambry.Inbox do
   end
 
   @doc """
-  Scans one source, or one bare path.
+  Scans one source.
 
-  The bare-path form is for ad-hoc scans and for exercising the walk itself;
-  items it creates have no source, so they carry no default placement policy
-  and the operator chooses one at approval.
+  A source is the only way into the inbox. Scanning a bare path used to be
+  possible and produced items with no source, which meant absolute stored
+  paths, no placement default, and a whole second shape for every function
+  that touches an item's files to handle. It was never reachable from the
+  UI, so the exception bought nothing and cost that.
   """
   def discover(%Source{} = source) do
-    with {:ok, counts} <- scan(source.path, source) do
+    with {:ok, counts} <- scan(source) do
       {:ok, _source} = Library.mark_scanned(source)
       {:ok, counts}
     end
   end
-
-  def discover(root) when is_binary(root), do: scan(root, nil)
 
   defp discover_one(%Source{} = source) do
     case discover(source) do
@@ -203,12 +205,12 @@ defmodule Ambry.Inbox do
 
   defp merge_counts(acc, counts), do: Map.merge(acc, counts, fn _key, a, b -> a + b end)
 
-  defp scan(root, source) do
-    if File.dir?(root) do
+  defp scan(%Source{} = source) do
+    if File.dir?(source.path) do
       ledger = ledger()
 
       results =
-        root
+        source.path
         |> candidates()
         |> Enum.flat_map(&List.wrap(record_candidate(&1, ledger, source)))
 
@@ -510,30 +512,26 @@ defmodule Ambry.Inbox do
   def prepare_draft(%InboxItem{status: :imported} = item), do: {:ok, item}
 
   def prepare_draft(%InboxItem{} = item) do
-    heal_destination(item)
+    refresh_destination(item)
   end
 
-  # A destination's *defaults* are derived — from the item's source — while
-  # its root and policy are the operator's to choose, so healing fills gaps
-  # without un-answering anything. The gap it exists for: an ad-hoc-scanned
-  # item adopts its source when the source's own scan next sees it, at which
-  # point the draft's sealed destination has no policy and the source now
-  # knows one. That's a fact the scan established, not a choice to preserve.
-  defp heal_destination(%InboxItem{} = item) do
-    stored = item.draft.destination
-    fresh = Seed.destination(item)
+  # A destination half the operator has not picked is a *default*, and a
+  # default frozen at match time is the wrong default the moment anything it
+  # was derived from changes. A draft is written once and then only read, so
+  # nothing would ever revise it: import the first of three hundred queued
+  # releases, correct the policy while you're there, and the other two
+  # hundred and ninety-nine would keep proposing the old one forever.
+  #
+  # So the unchosen halves are re-derived here, on every prepare. The chosen
+  # ones are never touched — that is the entire distinction the flags exist
+  # to draw.
+  defp refresh_destination(%InboxItem{} = item) do
+    stored = item.draft.destination || %Destination{}
+    fresh = Seed.redefault(stored, item)
 
-    cond do
-      is_nil(stored) ->
-        put_destination(item, fresh)
-
-      is_nil(stored.policy) and not is_nil(fresh.policy) ->
-        healed = %{stored | policy: fresh.policy, root_id: stored.root_id || fresh.root_id}
-        put_destination(item, %{healed | approved: not is_nil(healed.root_id)})
-
-      true ->
-        {:ok, item}
-    end
+    if stored == fresh,
+      do: {:ok, item},
+      else: put_destination(item, fresh)
   end
 
   defp put_destination(item, destination) do
@@ -656,28 +654,19 @@ defmodule Ambry.Inbox do
   """
   def destination_preflight(%InboxItem{} = item) do
     item = Repo.preload(item, :source)
-    base = %{blocker: nil, summary: nil}
-    policy = chosen_policy(item)
 
     case chosen_root(item) do
-      {:error, reason} ->
-        %{base | blocker: describe_error(reason)}
-
-      {:ok, root} ->
-        %{
-          base
-          | summary: policy_summary(policy, root),
-            blocker: hardlink_blocker(item, policy, root)
-        }
+      {:error, reason} -> %{blocker: describe_error(reason)}
+      {:ok, root} -> %{blocker: hardlink_blocker(item, chosen_policy(item), root)}
     end
   end
 
-  # The draft's choice, which the seed filled from the source. Falling back
-  # to the source covers a preflight taken before any draft exists.
+  # The draft's choice, or the default the seed put there. There is no
+  # source-level fallback any more: how the files come in is a fact about
+  # the pairing, so with no root settled there is nothing to fall back to.
   defp chosen_policy(%InboxItem{draft: %{destination: %{policy: policy}}})
        when not is_nil(policy), do: policy
 
-  defp chosen_policy(%InboxItem{source: %Source{import_policy: policy}}), do: policy
   defp chosen_policy(%InboxItem{}), do: nil
 
   # The root the draft settled on, not one derived from the source: inputs
@@ -699,35 +688,29 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp policy_summary(:hardlink, root),
-    do: "Hardlinked into #{root.path} — one copy of the bytes, the download keeps seeding."
-
-  defp policy_summary(:symlink, root),
-    do:
-      "Symlinked into #{root.path} — a pointer to the original, which dangles if the original ever moves or is deleted."
-
-  defp policy_summary(:copy, root), do: "Copied into #{root.path}, duplicating the bytes."
-
-  defp policy_summary(:move, root),
-    do: "Moved into #{root.path}, leaving the downloads folder clean."
-
-  defp policy_summary(_unset, root), do: "Placed into #{root.path}."
-
   # The refusal this whole phase exists for: a hardlink cannot cross a
   # filesystem, and silently copying instead is the storage doubling the
   # roadmap set out to eliminate. Worth knowing before the click, not after.
   # Symlink deliberately gets no blocker: it has no precondition to fail.
-  defp hardlink_blocker(%InboxItem{files: [_ | _]} = item, :hardlink, root) do
-    [file | _rest] = InboxItem.disk_files(item)
-
-    case Library.same_filesystem?(Path.dirname(file), root.path) do
+  defp hardlink_blocker(item, :hardlink, root) do
+    case hardlinkable(item, root) do
       {:ok, true} -> nil
-      {:ok, false} -> describe_error({:cross_filesystem, file, root.path})
+      {:ok, false} -> describe_error({:cross_filesystem, first_file(item), root.path})
       {:error, _reason} -> "Couldn't tell whether these are on the same filesystem."
     end
   end
 
   defp hardlink_blocker(_item, _policy, _root), do: nil
+
+  # Asked of the item's real files rather than its source's path: the
+  # default is derived from the pairing, but the answer that gates a
+  # placement has to be about the bytes being placed.
+  defp hardlinkable(%InboxItem{files: [_ | _]} = item, root),
+    do: Library.same_filesystem?(Path.dirname(first_file(item)), root.path)
+
+  defp hardlinkable(%InboxItem{}, _root), do: {:error, :no_files}
+
+  defp first_file(%InboxItem{} = item), do: item |> InboxItem.disk_files() |> hd()
 
   @doc """
   A draft as params, for staging it back onto an item.
@@ -756,7 +739,14 @@ defmodule Ambry.Inbox do
   def import_item(%InboxItem{} = item) do
     case Importer.import_item(item) do
       {:ok, media} ->
-        refresh_siblings(item)
+        # Bookkeeping, and it runs after the records are committed. Neither
+        # of these may fail the import — the library already holds the
+        # recording, so a job reported as failed would be a lie the operator
+        # acts on — and neither may skip the other, so they are guarded
+        # separately. `Placement.finalize/1` states the same rule one call
+        # further in, for the same reason.
+        after_commit(item, "remember the placement", fn -> remember_placement(item) end)
+        after_commit(item, "relink sibling drafts", fn -> refresh_siblings(item) end)
         {:ok, media}
 
       {:error, reason} = error ->
@@ -766,6 +756,64 @@ defmodule Ambry.Inbox do
         update_item(item, %{issue: describe_error(reason)})
         error
     end
+  end
+
+  # Work that happens once the import has committed is untidy when it
+  # fails, not broken. `RunImport` is `max_attempts: 1`, so a raise here
+  # would discard the job for a release the library actually has, and take
+  # the *other* piece of bookkeeping down with it.
+  defp after_commit(%InboxItem{} = item, what, work) do
+    work.()
+    :ok
+  rescue
+    error ->
+      Logger.error(fn ->
+        "Imported inbox item #{item.id}, but couldn't #{what}: " <>
+          Exception.message(error)
+      end)
+
+      :ok
+  end
+
+  # What the next import from this source should propose is what this one
+  # did. Remembered after the fact rather than when the operator picked: a
+  # choice made on a release that then failed to place is not what the
+  # source does.
+  defp remember_placement(%InboxItem{} = item) do
+    %InboxItem{source: source, draft: draft} = Repo.preload(item, :source)
+
+    with %Source{} = source <- source,
+         %Draft{destination: %Destination{root_id: id, policy: policy}} when not is_nil(policy) <-
+           draft,
+         %Root{} = root <- id && Repo.get(Root, id) do
+      previous = Library.recall_placement(source)
+      {:ok, _preference} = Library.remember_placement(source, root, policy)
+
+      if moved?(previous, root, policy), do: refresh_queued_destinations(source)
+    end
+
+    :ok
+  end
+
+  defp moved?(nil, _root, _policy), do: true
+  defp moved?(%ImportPreference{library_root_id: id, policy: p}, %Root{id: id}, p), do: false
+  defp moved?(%ImportPreference{}, _root, _policy), do: true
+
+  # The default just moved, and every queued item that was following the old
+  # one is now proposing the wrong thing. Opening each would fix it, but the
+  # queue's Ready badge reads a stored column — so nothing would look
+  # different until the operator opened all three hundred, which is the
+  # opposite of what remembering a choice is for.
+  #
+  # Only runs when the memory actually changed, which after the first import
+  # from a source is almost never.
+  defp refresh_queued_destinations(%Source{} = source) do
+    InboxItem
+    |> where([i], i.source_id == ^source.id and i.status == :pending)
+    |> Repo.all()
+    |> Enum.each(fn item ->
+      if item.draft, do: refresh_destination(item)
+    end)
   end
 
   @doc """
@@ -808,8 +856,8 @@ defmodule Ambry.Inbox do
   # rather than just what failed.
   def describe_error({:cross_filesystem, _source, _destination}),
     do:
-      "This folder and its library root are on different filesystems, so the file can't be " <>
-        "hardlinked. Point it at a root on the same disk, or set the source to copy or move."
+      "These files and the library root are on different filesystems, so they can't be " <>
+        "hardlinked. Choose copy or move, or a root on the same disk."
 
   # Occupied by a recording is now a *bug*, not a curation problem. Every
   # recording's name carries its own token, so two of them cannot render to
@@ -1112,7 +1160,7 @@ defmodule Ambry.Inbox do
     |> Enum.flat_map(fn
       {nil, orphans} -> List.wrap(adopt(path, files, orphans, source))
       {:library, _theirs} -> [:skipped]
-      {%InboxItem{} = item, theirs} -> [refresh_owner(item, theirs, source)]
+      {%InboxItem{} = item, theirs} -> [refresh_owner(item, theirs)]
     end)
   end
 
@@ -1155,8 +1203,8 @@ defmodule Ambry.Inbox do
 
   # An imported item is the record of what was imported; its source files may
   # not even be where they were. Nothing about a scan may touch it.
-  defp refresh_owner(%InboxItem{status: :imported}, _files, _source), do: :skipped
-  defp refresh_owner(%InboxItem{} = item, files, source), do: refresh_known(item, files, source)
+  defp refresh_owner(%InboxItem{status: :imported}, _files), do: :skipped
+  defp refresh_owner(%InboxItem{} = item, files), do: refresh_known(item, files)
 
   # Nobody owns these. A candidate that is entirely unowned is a release, at
   # the grain the walk proposes; anything left over in a folder that is
@@ -1169,32 +1217,20 @@ defmodule Ambry.Inbox do
     do: Enum.map(orphans, &create_item(&1, [&1], source))
 
   # A known item's files can legitimately change (a torrent finished, a file
-  # was replaced). Its status is left alone: ignored stays ignored.
-  #
-  # An item found under a source adopts it if it had none — that's a fact
-  # the scan just established, not a guess — but a source is never swapped
-  # out from under an item that already has one. Adopting rewrites the
-  # stored path and files into the source's coordinates, so the columns
-  # always agree with the FK.
-  defp refresh_known(%InboxItem{} = item, files, source) do
+  # was replaced). Its status is left alone: ignored stays ignored, and its
+  # source is never swapped out from under it — the item's own source is
+  # what its stored paths are relative to, so re-keying them to whichever
+  # source happened to walk over them would silently rewrite coordinates.
+  defp refresh_known(%InboxItem{} = item, files) do
     item = Repo.preload(item, :source)
-    adopts_source? = is_nil(item.source_id) and not is_nil(source)
-    owner = if adopts_source?, do: source, else: item.source
+    stored_files = Enum.map(files, &stored_form(&1, item.source))
 
-    stored_files = Enum.map(files, &stored_form(&1, owner))
-
-    changes =
-      %{}
-      |> put_if(:files, stored_files, item.files != stored_files)
-      |> put_if(:source_id, adopts_source? && source.id, adopts_source?)
-      |> put_if(:path, stored_form(InboxItem.disk_path(item), owner), adopts_source?)
-
-    if changes == %{} do
+    if item.files == stored_files do
       :skipped
     else
-      {:ok, item} = update_item(item, changes)
+      {:ok, item} = update_item(item, %{files: stored_files})
 
-      if item.status == :pending and Map.has_key?(changes, :files) do
+      if item.status == :pending do
         # The draft describes files that just moved under it. Say so; don't
         # re-seed over whatever the operator already decided.
         mark_draft_stale(item)
@@ -1215,10 +1251,9 @@ defmodule Ambry.Inbox do
   defp put_if(map, _key, _value, false), do: map
   defp put_if(map, key, value, _truthy), do: Map.put(map, key, value)
 
-  # The stored form of an absolute path the walk produced: source-relative
-  # when the item has a source, absolute for the ad-hoc case.
-  defp stored_form(path, nil), do: path
-
+  # The stored form of an absolute path the walk produced. Always
+  # source-relative: a source whose mount point changes is then a one-row
+  # edit, and every queued item survives the move.
   defp stored_form(path, %Source{} = source) do
     {:ok, relative} = Library.relativize(source, path)
     relative
@@ -1229,7 +1264,7 @@ defmodule Ambry.Inbox do
     |> InboxItem.changeset(%{
       path: stored_form(path, source),
       files: Enum.map(files, &stored_form(&1, source)),
-      source_id: source && source.id
+      source_id: source.id
     })
     |> Repo.insert()
     |> case do

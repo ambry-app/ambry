@@ -47,39 +47,6 @@
         <.input field={@form[:enabled]} type="checkbox" label="Watched" />
       </.field_group>
 
-      <.field_group :if={@type == :source} label="Bringing files in">
-        <div>
-          <.input
-            field={@form[:import_policy]}
-            type="select"
-            label="How the files come in"
-            options={policy_options()}
-          />
-          <p class="max-w-prose pl-3 text-sm text-zinc-400">
-            Hardlinking only works within a single filesystem. Import refuses across
-            filesystems instead of silently copying. Symlinking crosses filesystems, but
-            the library entry breaks if these files ever move.
-          </p>
-        </div>
-
-        <div>
-          <.input
-            field={@form[:target_root_id]}
-            type="select"
-            label="Preferred library root"
-            options={@root_options}
-            prompt={root_prompt(@root_options)}
-          />
-          <p class="max-w-prose pl-3 text-sm text-zinc-400">
-            Optional. Any source can import into any root; this preselects one.
-          </p>
-          <p :if={@root_options == []} class="max-w-prose pl-3 text-sm text-amber-400">
-            No library roots yet, so nothing can be brought in. Add one under Locations
-            first.
-          </p>
-        </div>
-      </.field_group>
-
       <.form_footer>
         <.button>Save</.button>
       </.form_footer>

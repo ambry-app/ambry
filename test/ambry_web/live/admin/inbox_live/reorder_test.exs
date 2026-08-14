@@ -17,6 +17,16 @@ defmodule AmbryWeb.Admin.InboxLive.ReorderTest do
 
   # The fixture credits two narrators via its composer tag, which is exactly
   # a list whose order the operator might want to change.
+
+  # Every item comes from a source; get-or-create so a rescan of the same
+  # tree is still one source.
+  defp discover(root) do
+    source =
+      Repo.get_by(Ambry.Library.Source, path: root) || insert(:source, path: root)
+
+    Inbox.discover(source)
+  end
+
   defp probed_item do
     dir = Ambry.Paths.source_media_disk_path("tagged-#{Ecto.UUID.generate()}")
     root = Path.join(dir, "The Way of Kings [M4B]")
@@ -42,7 +52,7 @@ defmodule AmbryWeb.Admin.InboxLive.ReorderTest do
         path
       ])
 
-    {:ok, _counts} = Inbox.discover(dir)
+    {:ok, _counts} = discover(dir)
     {[item], false} = Inbox.list_items(filter: "The Way of Kings")
     {:ok, item} = Inbox.probe_item(item)
     Repo.delete_all(Oban.Job)

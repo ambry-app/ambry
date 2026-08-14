@@ -1811,7 +1811,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       File.cp!(tagged_fixture(true, false, nil), Path.join(release, "one.m4b"))
       File.cp!(tagged_fixture(true, false, nil), Path.join(release, "two.m4b"))
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], _more} = Inbox.list_items(filter: "Two Novellas")
       {:ok, item} = Inbox.probe_item(item)
       Repo.delete_all(Oban.Job)
@@ -1848,7 +1848,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
         File.cp!(tagged_fixture(true, false, nil), Path.join(dir, "part#{file}.m4b"))
       end
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], _more} = Inbox.list_items(filter: "The Way of Kings")
       {:ok, item} = Inbox.probe_item(item)
       Repo.delete_all(Oban.Job)
@@ -1872,7 +1872,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
                ["The Way of Kings/1 of 3", "The Way of Kings/2 of 3", "The Way of Kings/3 of 3"]
 
       # a rescan must not re-merge what the operator just took apart
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {items, _more} = Inbox.list_items(filter: "The Way of Kings")
       assert length(items) == 3
     end
@@ -1895,7 +1895,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
         File.cp!(tagged_fixture(true, false, nil), Path.join(dir, "book.m4b"))
       end
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], _more} = Inbox.list_items(filter: "Discworld")
       {:ok, item} = Inbox.probe_item(item)
       Repo.delete_all(Oban.Job)
@@ -1908,7 +1908,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {items, _more} = Inbox.list_items(filter: "Discworld")
       assert length(items) == 3
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {items, _more} = Inbox.list_items(filter: "Discworld")
 
       assert length(items) == 3
@@ -1918,13 +1918,37 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   end
 
   describe "destination" do
-    test "says where the file is going before anything is committed", %{conn: conn} do
+    test "is two pickers and no prose", %{conn: conn} do
+      item = probed_item(policy: :symlink) |> settle()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "Library root"
+      assert html =~ "How the files come in"
+
+      # What import will do is the pickers' own values. Restating it in a
+      # sentence underneath is noise on every visit after the first.
+      refute html =~ "Symlinked into"
+      refute html =~ "dangles if the original"
+      refute html =~ "duplicating the bytes"
+    end
+
+    # The options name the four doors. They used to define them too, which
+    # is a thing you read once and then re-read on every import forever.
+    test "the pickers name things rather than define them", %{conn: conn} do
       item = probed_item() |> settle()
 
       {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert html =~ "Symlinked into"
-      assert html =~ "dangles if the original ever moves"
+      for door <- ~w(Hardlink Symlink Copy Move), do: assert(html =~ door)
+      refute html =~ "same filesystem only"
+      refute html =~ "empties the source folder"
+
+      # A root name is unique, so the path underneath it identified nothing
+      # the name didn't.
+      [root] = Ambry.Library.list_roots()
+      assert html =~ root.name
+      refute html =~ "#{root.name} (#{root.path})"
     end
   end
 
@@ -2049,6 +2073,15 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     view |> element("#person-#{key} button[phx-click='add-person']") |> render_click()
   end
 
+  # Every item comes from a source; get-or-create so a rescan of the same
+  # tree is still one source.
+  defp discover(root) do
+    source =
+      Repo.get_by(Ambry.Library.Source, path: root) || insert(:source, path: root)
+
+    Inbox.discover(source)
+  end
+
   defp watched_root do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
     File.mkdir_p!(root)
@@ -2086,20 +2119,24 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       Path.join(release, "book.m4b")
     )
 
-    # A settled destination needs a root to place into and a source to seed
-    # the policy; symlink keeps the fixtures where the test put them.
+    # A settled destination needs a root to place into. Root and fixtures
+    # share a filesystem here, so the policy defaults to hardlinking, which
+    # leaves the fixtures where the test put them.
     if Ambry.Library.list_roots() == [] do
       library = Ambry.Paths.source_media_disk_path("library-#{Ecto.UUID.generate()}")
       File.mkdir_p!(library)
       insert(:root, path: library)
     end
 
-    watched =
-      insert(:source,
-        path: root,
-        import_policy: :symlink,
-        name: "Watched #{Ecto.UUID.generate()}"
-      )
+    watched = insert(:source, path: root, name: "Watched #{Ecto.UUID.generate()}")
+
+    # The policy lives on the pairing now. Root and fixtures share a
+    # filesystem here, so it would default to hardlinking; a test that wants
+    # a different door seeds it the way an earlier import would have.
+    if policy = Keyword.get(opts, :policy) do
+      {:ok, _memory} =
+        Ambry.Library.remember_placement(watched, hd(Ambry.Library.list_roots()), policy)
+    end
 
     {:ok, _counts} = Inbox.discover(watched)
     {items, _more} = Inbox.list_items(filter: name)
