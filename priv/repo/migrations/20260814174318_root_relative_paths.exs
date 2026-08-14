@@ -46,6 +46,7 @@ defmodule Ambry.Repo.Migrations.RootRelativePaths do
 
     backfill_tracks(roots, uploads)
     backfill_media(roots, uploads)
+    backfill_inbox_items()
   end
 
   def down do
@@ -105,6 +106,27 @@ defmodule Ambry.Repo.Migrations.RootRelativePaths do
       []
     )
 
+    sources = repo().all(from(s in "sources", select: %{id: s.id, path: s.path}))
+
+    for source <- sources do
+      repo().update_all(
+        from(i in "inbox_items",
+          where: i.source_id == ^source.id,
+          update: [
+            set: [
+              path: fragment("? || '/' || path", ^source.path),
+              files:
+                fragment(
+                  "(SELECT coalesce(array_agg(? || '/' || f ORDER BY ord), '{}') FROM unnest(files) WITH ORDINALITY AS u(f, ord))",
+                  ^source.path
+                )
+            ]
+          ]
+        ),
+        []
+      )
+    end
+
     alter table(:media) do
       remove :library_root_id
       remove :legacy_source_files
@@ -158,6 +180,50 @@ defmodule Ambry.Repo.Migrations.RootRelativePaths do
           legacy_source_files: legacy_source_files
         ]
       )
+    end
+  end
+
+  # The surviving (imported) inbox items become source-relative like every
+  # newly discovered one. All-or-nothing per item: if its path or any file
+  # doesn't sit under its source, the source is dropped and the item keeps
+  # the ad-hoc absolute form — a half-relative row would satisfy nobody.
+  defp backfill_inbox_items do
+    sources = repo().all(from(s in "sources", select: %{id: s.id, path: s.path}))
+
+    items =
+      repo().all(
+        from(i in "inbox_items",
+          where: not is_nil(i.source_id),
+          select: %{id: i.id, source_id: i.source_id, path: i.path, files: i.files}
+        )
+      )
+
+    for item <- items do
+      source = Enum.find(sources, &(&1.id == item.source_id))
+      relativized = relativize_item(item, source)
+
+      case relativized do
+        {:ok, path, files} ->
+          repo().update_all(from(i in "inbox_items", where: i.id == ^item.id),
+            set: [path: path, files: files]
+          )
+
+        :outside ->
+          repo().update_all(from(i in "inbox_items", where: i.id == ^item.id),
+            set: [source_id: nil]
+          )
+      end
+    end
+  end
+
+  defp relativize_item(item, source) do
+    paths = [item.path | item.files || []]
+
+    if source && Enum.all?(paths, &String.starts_with?(&1, source.path <> "/")) do
+      [path | files] = Enum.map(paths, &Path.relative_to(&1, source.path))
+      {:ok, path, files}
+    else
+      :outside
     end
   end
 

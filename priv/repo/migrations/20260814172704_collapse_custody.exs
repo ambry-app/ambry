@@ -15,16 +15,23 @@ defmodule Ambry.Repo.Migrations.CollapseCustody do
       becomes a `symlink` one, which references the files where they lie
       exactly as before, via a link the library owns.
 
-  Inbox items are derived state and their drafts embed both a destination
-  `custody` and the old shape of these decisions, so they are deleted
-  wholesale and discovery repopulates them (operator-confirmed).
+  Queued inbox items are derived state and their drafts embed both a
+  destination `custody` and the old shape of these decisions, so they are
+  deleted and discovery repopulates them (operator-confirmed). **Imported
+  items survive**: an imported item is the record of what was imported and
+  the only thing standing between an already-imported release and its
+  resurfacing as a new candidate on the next scan — the library's copies
+  are placed in a root, so the ledger cannot recognize the originals.
+  Their frozen drafts still carry the old embedded shape, which Ecto
+  ignores on load.
   """
 
   use Ecto.Migration
 
   def up do
-    # Derived state; discovery rebuilds it on the next scan.
-    execute("DELETE FROM inbox_items")
+    # Derived state; discovery rebuilds it on the next scan. Imported items
+    # are history, not derived state, and stay.
+    execute("DELETE FROM inbox_items WHERE status != 'imported'")
 
     alter table(:media) do
       remove :custody
