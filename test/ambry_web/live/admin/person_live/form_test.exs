@@ -306,6 +306,81 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
       assert [%{name: "Robert Galbraith"}] = People.get_person!(person.id).authors
     end
 
+    # THE ONE THAT MATTERED. Driving the resolver's own input in a test
+    # exercises the component alone, and it dutifully clears its id and
+    # keeps the typed text. A browser does something else: the parent form's
+    # `validate` fires on the same keystroke, *before* the component's
+    # round trip, so it arrives carrying the hidden inputs' PREVIOUS values
+    # — and the parent then re-renders the component from its changeset,
+    # putting the old name back in the box being typed into.
+    #
+    # So this sends what Chrome actually sends: stale id, stale name, and
+    # the live text under `resolver[...]`. Before the fix it saved
+    # "successfully" and changed nothing.
+    test "renaming works from the params a browser really posts", %{conn: conn} do
+      person = insert(:person, name: "Jason Pargin", authors: [build(:author, name: "Baz")])
+      [baz] = Ambry.Repo.preload(person, :authors).authors
+      [ap] = Ambry.Repo.preload(person, :author_people).author_people
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+
+      stale = %{
+        "person" => %{
+          "name" => "Jason Pargin",
+          "writes" => "true",
+          "author_people" => %{
+            "0" => %{
+              "id" => to_string(ap.id),
+              "author_id" => to_string(baz.id),
+              "author" => %{"name" => "Baz"}
+            }
+          }
+        },
+        "resolver" => %{"author-0-resolver" => "David Wong"}
+      }
+
+      view |> element("#person-form") |> render_change(stale)
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+      assert %{name: "David Wong"} = Ambry.Repo.get(Ambry.People.Author, baz.id)
+    end
+
+    # …and the other half of the same params: an id the row did NOT have is
+    # the operator picking from the list, which links rather than renames.
+    # Told apart by the id alone, because the visible text says the picked
+    # author's name either way.
+    test "picking is told apart from typing by the id, not the text", %{conn: conn} do
+      person = insert(:person, name: "Ty Franck", authors: [build(:author, name: "Typo")])
+      [typo] = Ambry.Repo.preload(person, :authors).authors
+      [ap] = Ambry.Repo.preload(person, :author_people).author_people
+      corey = insert(:author, name: "James S.A. Corey")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+
+      picked = %{
+        "person" => %{
+          "name" => "Ty Franck",
+          "writes" => "true",
+          "author_people" => %{
+            "0" => %{
+              "id" => to_string(ap.id),
+              "author_id" => to_string(corey.id),
+              "author" => %{"name" => "Typo"}
+            }
+          }
+        },
+        "resolver" => %{"author-0-resolver" => "James S.A. Corey"}
+      }
+
+      view |> element("#person-form") |> render_change(picked)
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+      # linked to Corey, and "Typo" — wanted by nobody now — is gone
+      assert [%{name: "James S.A. Corey"}] = People.get_person!(person.id).authors
+      assert %{name: "James S.A. Corey"} = Ambry.Repo.get(Ambry.People.Author, corey.id)
+      refute Ambry.Repo.get(Ambry.People.Author, typo.id)
+    end
+
     # The operator's own case: Jason Pargin credited as "Baz", with a book
     # already crediting that author. A rename does not unlink anything, so
     # the book is not in the way — but "does the book block it" is exactly

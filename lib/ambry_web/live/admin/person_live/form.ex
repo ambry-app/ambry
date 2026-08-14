@@ -108,11 +108,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   def handle_params(_params, _url, socket), do: {:noreply, socket}
 
   @impl Phoenix.LiveView
-  def handle_event("validate", %{"person" => person_params}, socket) do
+  def handle_event("validate", %{"person" => person_params} = params, socket) do
     socket = assign(socket, reveal: reveal_after(socket.assigns.reveal, person_params))
 
     person_params =
       person_params
+      |> apply_typed_names(params["resolver"], socket.assigns.person)
       |> normalize_author_rows(socket.assigns.person)
       |> apply_credits(socket.assigns.person, socket.assigns.reveal)
 
@@ -137,9 +138,10 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> refresh_chips()}
   end
 
-  def handle_event("submit", %{"person" => person_params}, socket) do
+  def handle_event("submit", %{"person" => person_params} = params, socket) do
     person_params =
       person_params
+      |> apply_typed_names(params["resolver"], socket.assigns.person)
       |> normalize_author_rows(socket.assigns.person)
       |> apply_credits(socket.assigns.person, socket.assigns.reveal)
 
@@ -483,6 +485,66 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   defp loaded(rows) when is_list(rows), do: rows
   defp loaded(_not_loaded), do: []
 
+  # What is in the box right now, which is the only fresh thing in a change
+  # event mid-typing.
+  #
+  # The resolver keeps its answer in two hidden inputs and re-renders them
+  # after its own `filter` round trip — but the parent form's `validate`
+  # fires on the same keystroke, *before* that, carrying the hidden inputs'
+  # previous values. The parent then re-renders the component from its
+  # changeset, which puts the old name back in the box the operator is
+  # typing into. Renaming "Baz" to "David Wong" therefore posted
+  # `author_id=5, name="Baz"` and saved "successfully" having changed
+  # nothing at all.
+  #
+  # The visible box is published under `resolver[<id>]` on every keystroke,
+  # so that is what a rename is read from. A *pick* is told apart by its id:
+  # the resolver sets one, and it differs from the row's own.
+  defp apply_typed_names(params, resolver, person) when is_map(resolver) do
+    case params["author_people"] do
+      rows when is_map(rows) ->
+        current = Map.new(loaded(person.author_people), &{to_string(&1.id), &1})
+
+        Map.put(
+          params,
+          "author_people",
+          Map.new(rows, fn {index, row} ->
+            {index, apply_typed_name(row, resolver["author-#{index}-resolver"], current)}
+          end)
+        )
+
+      _absent ->
+        params
+    end
+  end
+
+  defp apply_typed_names(params, _resolver, _person), do: params
+
+  defp apply_typed_name(row, typed, current) do
+    original = existing_author(current, row["id"])
+
+    cond do
+      picked?(row, original) -> row
+      typed in [nil, ""] -> row
+      original && typed == original.name -> row
+      true -> row |> Map.delete("author_id") |> put_author_name(typed)
+    end
+  end
+
+  # An id the row did not already have is the operator choosing from the
+  # list; the row's own id, still sitting in a hidden input the component
+  # has not caught up with yet, is not.
+  defp picked?(%{"author_id" => id}, nil) when id not in [nil, ""], do: true
+
+  defp picked?(%{"author_id" => id}, %Author{id: original}) when id not in [nil, ""],
+    do: to_string(id) != to_string(original)
+
+  defp picked?(_row, _original), do: false
+
+  defp put_author_name(row, name) do
+    Map.update(row, "author", %{"name" => name}, &Map.put(&1, "name", name))
+  end
+
   # Each pen-name row is one typeahead, so a row means one of two things and
   # the params have to say which.
   #
@@ -517,7 +579,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
     normalized =
       cond do
-        row["author_id"] not in [nil, ""] -> Map.delete(row, "author")
+        # The same test `apply_typed_names/3` uses, and it has to be: reading
+        # a stale id as a pick is what threw the typed name away.
+        picked?(row, author) -> Map.delete(row, "author")
         author -> row |> Map.delete("author_id") |> put_author_id(author.id)
         true -> Map.delete(row, "author_id")
       end
