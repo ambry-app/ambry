@@ -23,7 +23,6 @@ alias Ambry.Thumbnails
 # dump media
 # Ambry.Media.Media |> Ambry.Repo.all() |> Ambry.Repo.preload(:media_narrators) |> IO.inspect(limit: :infinity); nil
 
-cwd = File.cwd!()
 
 Repo.transact(fn ->
   ## People ##
@@ -466,7 +465,7 @@ Repo.transact(fn ->
       blurhash: "L6P?aD8_-;_M_Mt7t7WW0ft6ofkB"
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/8ab5c5d5-be2d-4b7d-8021-c4b170f8ad9a",
+    source_path: "/uploads/source_media/8ab5c5d5-be2d-4b7d-8021-c4b170f8ad9a",
     mpd_path: "/uploads/media/e01fadd2-49ed-413e-8839-00dd2cf7137c.mpd",
     hls_path: "/uploads/media/e01fadd2-49ed-413e-8839-00dd2cf7137c.m3u8",
     mp4_path: "/uploads/media/e01fadd2-49ed-413e-8839-00dd2cf7137c.mp4",
@@ -497,7 +496,7 @@ Repo.transact(fn ->
       blurhash: "LSIzPHuhaenO^+%foLn%OFxGWBR*"
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/74a8b0f8-cf8c-4aa3-9949-7917655a77ce",
+    source_path: "/uploads/source_media/74a8b0f8-cf8c-4aa3-9949-7917655a77ce",
     mpd_path: "/uploads/media/480eb4cf-29b4-485f-8cad-6a88b32dd382.mpd",
     hls_path: "/uploads/media/480eb4cf-29b4-485f-8cad-6a88b32dd382.m3u8",
     mp4_path: "/uploads/media/480eb4cf-29b4-485f-8cad-6a88b32dd382.mp4",
@@ -528,7 +527,7 @@ Repo.transact(fn ->
       blurhash: "LPEyJfkC7QNbXAs:juNIK+f6wGoL"
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/09bb82ef-7e65-4fa1-8202-96175df67915",
+    source_path: "/uploads/source_media/09bb82ef-7e65-4fa1-8202-96175df67915",
     mpd_path: "/uploads/media/d52151bb-d906-4e30-bbae-a7e7eaac2593.mpd",
     hls_path: "/uploads/media/d52151bb-d906-4e30-bbae-a7e7eaac2593.m3u8",
     mp4_path: "/uploads/media/d52151bb-d906-4e30-bbae-a7e7eaac2593.mp4",
@@ -559,7 +558,7 @@ Repo.transact(fn ->
       blurhash: "LHEyYxD%-;M{M{oeRjaz~qWBayj["
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/eca00c0f-5078-4f77-b3cc-dc1ab1113531",
+    source_path: "/uploads/source_media/eca00c0f-5078-4f77-b3cc-dc1ab1113531",
     mpd_path: "/uploads/media/1e63b924-dcb0-4f9d-869b-9924cc6c4185.mpd",
     hls_path: "/uploads/media/1e63b924-dcb0-4f9d-869b-9924cc6c4185.m3u8",
     mp4_path: "/uploads/media/1e63b924-dcb0-4f9d-869b-9924cc6c4185.mp4",
@@ -590,7 +589,7 @@ Repo.transact(fn ->
       blurhash: "LBD0S*_L01IUIUxt%MIV02Rj_2oz"
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/ef4d8f9f-598e-4c7c-a4b8-81cae7fca005",
+    source_path: "/uploads/source_media/ef4d8f9f-598e-4c7c-a4b8-81cae7fca005",
     mpd_path: "/uploads/media/5b5db89a-674d-4044-b619-c01756062f6d.mpd",
     hls_path: "/uploads/media/5b5db89a-674d-4044-b619-c01756062f6d.m3u8",
     mp4_path: "/uploads/media/5b5db89a-674d-4044-b619-c01756062f6d.mp4",
@@ -621,7 +620,7 @@ Repo.transact(fn ->
       blurhash: "LAHV|R_K%e.6DloyRjV[MztQt6V["
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/bc68c3d5-936b-41be-8b15-13936d5c679c",
+    source_path: "/uploads/source_media/bc68c3d5-936b-41be-8b15-13936d5c679c",
     mpd_path: "/uploads/media/dac8816f-fb6a-4989-905a-0e6d9780a4c0.mpd",
     hls_path: "/uploads/media/dac8816f-fb6a-4989-905a-0e6d9780a4c0.m3u8",
     mp4_path: "/uploads/media/dac8816f-fb6a-4989-905a-0e6d9780a4c0.mp4",
@@ -652,7 +651,7 @@ Repo.transact(fn ->
       blurhash: "LLG7*hjt}qa|$Mj@S2azW-j@%1oL"
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/6df0fd4d-6612-479f-a1f0-43b1bf77c934",
+    source_path: "/uploads/source_media/6df0fd4d-6612-479f-a1f0-43b1bf77c934",
     mpd_path: "/uploads/media/6cdce5ec-a4ad-4b12-a8b8-9c486070d080.mpd",
     hls_path: "/uploads/media/6cdce5ec-a4ad-4b12-a8b8-9c486070d080.m3u8",
     mp4_path: "/uploads/media/6cdce5ec-a4ad-4b12-a8b8-9c486070d080.mp4",
@@ -683,7 +682,7 @@ Repo.transact(fn ->
       blurhash: "L4JEhvM|00?Z8}W:-.RQ|]az70xZ"
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/431f0e0d-e6b4-4fac-b65a-e9c46ca8f35a",
+    source_path: "/uploads/source_media/431f0e0d-e6b4-4fac-b65a-e9c46ca8f35a",
     mpd_path: "/uploads/media/e8f6e520-fec9-428c-a7b0-97780b6b7639.mpd",
     hls_path: "/uploads/media/e8f6e520-fec9-428c-a7b0-97780b6b7639.m3u8",
     mp4_path: "/uploads/media/e8f6e520-fec9-428c-a7b0-97780b6b7639.mp4",
@@ -714,7 +713,7 @@ Repo.transact(fn ->
       blurhash: "L8GbO{~W0K00cBM}^%xZ0z9a^7^+"
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/9a414550-7669-4124-b7c8-0c80a5b1ade4",
+    source_path: "/uploads/source_media/9a414550-7669-4124-b7c8-0c80a5b1ade4",
     mpd_path: "/uploads/media/871fdad3-1e3e-444c-9615-7317f50e6d31.mpd",
     hls_path: "/uploads/media/871fdad3-1e3e-444c-9615-7317f50e6d31.m3u8",
     mp4_path: "/uploads/media/871fdad3-1e3e-444c-9615-7317f50e6d31.mp4",
@@ -745,7 +744,7 @@ Repo.transact(fn ->
       blurhash: "L18qEF}-00?]?wt8In0200-p_2E2"
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/c2e1f1f2-983b-4e3c-8057-b1584cb44344",
+    source_path: "/uploads/source_media/c2e1f1f2-983b-4e3c-8057-b1584cb44344",
     mpd_path: "/uploads/media/690a5f6d-4592-4611-8f72-002aac108b0b.mpd",
     hls_path: "/uploads/media/690a5f6d-4592-4611-8f72-002aac108b0b.m3u8",
     mp4_path: "/uploads/media/690a5f6d-4592-4611-8f72-002aac108b0b.mp4",
@@ -776,7 +775,7 @@ Repo.transact(fn ->
       blurhash: "L1Am6o%100Ip^*x[9Zax00D*-UWB"
     },
     status: :ready,
-    source_path: "/app/uploads/source_media/92b8ff82-4904-450c-ac44-f7c6f3787db7",
+    source_path: "/uploads/source_media/92b8ff82-4904-450c-ac44-f7c6f3787db7",
     mpd_path: "/uploads/media/502f2012-70dc-4e61-b245-4cd0aa1db236.mpd",
     hls_path: "/uploads/media/502f2012-70dc-4e61-b245-4cd0aa1db236.m3u8",
     mp4_path: "/uploads/media/502f2012-70dc-4e61-b245-4cd0aa1db236.mp4",
