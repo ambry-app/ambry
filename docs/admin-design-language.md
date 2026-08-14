@@ -279,6 +279,14 @@ A person the operator matched to the library *from their own card* does stay,
 because that decision was made here: dropping the card the moment the link is
 made takes the way back with it.
 
+**The other documented exception: an upload sits inside its block.** A
+dropzone is not an add-button. `<.file_input>` is a control the block owns —
+the same way the media form's cover and the person form's photo own theirs —
+so it renders inside the card rather than under it, and supplemental files
+follow the cover rather than the series rows. The rule the `:add` slot
+encodes is about the *button that appends a row*, and reading a dropzone as
+one put the only file input in the admin outside the thing it belonged to.
+
 **A card asks nothing it can state.** The person card carries no name box in
 the ordinary import, because the credit names the human and a box on every
 card in every state is what left "This is a pen name" with no visible effect

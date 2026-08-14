@@ -431,13 +431,15 @@
 
           <.delete_input field={@form[:supplemental_files_drop]} />
 
-          <:add>
-            <.file_input
-              upload={@uploads.supplemental}
-              on_cancel="cancel-supplemental-upload"
-              image_preview_class="h-12 w-12 rounded-md object-cover"
-            />
-          </:add>
+          <%!-- Inside the card, not under it. A dropzone is not an add-button
+              — it is a control the block owns, the way the cover and the
+              person photo own theirs — and this was the only file input in
+              the admin standing outside the thing it belongs to. --%>
+          <.file_input
+            upload={@uploads.supplemental}
+            on_cancel="cancel-supplemental-upload"
+            image_preview_class="h-12 w-12 rounded-md object-cover"
+          />
         </.list_cluster>
 
         <.field_group>
