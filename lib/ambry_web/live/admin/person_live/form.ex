@@ -114,7 +114,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     person_params =
       person_params
       |> maybe_link_author()
-      |> apply_credits(socket.assigns.person, socket.assigns.reveal)
+      |> apply_credits(held(socket.assigns.form.source))
 
     socket =
       if person_params["image_type"] == "upload" do
@@ -141,7 +141,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     person_params =
       person_params
       |> maybe_link_author()
-      |> apply_credits(socket.assigns.person, socket.assigns.reveal)
+      |> apply_credits(held(socket.assigns.form.source))
 
     socket =
       assign(socket,
@@ -165,6 +165,40 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :image, ref)}
+  end
+
+  # Choosing is a named event, not a form field (the import form's rule).
+  # As a checkbox it was form data, so every add and every delete arrived
+  # carrying a tick state derived from the rows those very params were
+  # changing, and the two argued: adding a row posted "unticked" alongside
+  # it and swept it away again.
+  def handle_event("toggle-credit", %{"kind" => kind}, socket) do
+    kind = atom_kind(kind)
+    name = Changeset.get_field(socket.assigns.form.source, :name) || ""
+
+    {key, row} =
+      case kind do
+        :author -> {"author_people", %{"author" => %{"name" => name}}}
+        :narrator -> {"narrators", %{"name" => name}}
+      end
+
+    on? = if kind == :author, do: socket.assigns.writes, else: socket.assigns.narrates
+
+    params =
+      Map.put(socket.assigns.form.params, key, if(on?, do: %{}, else: %{"0" => row}))
+
+    changeset =
+      socket.assigns.person
+      |> People.change_person(params)
+      |> Map.put(:action, :validate)
+
+    {:noreply,
+     socket
+     |> assign(
+       reveal:
+         if(on?, do: MapSet.delete(socket.assigns.reveal, kind), else: socket.assigns.reveal)
+     )
+     |> assign_form(changeset)}
   end
 
   # Every way in needs a way out: the reveal used to be the permanent shape
@@ -325,8 +359,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     author_people = Changeset.get_field(changeset, :author_people) || []
     narrators = Changeset.get_field(changeset, :narrators) || []
 
-    reveal = socket.assigns[:reveal] || MapSet.new()
-
     socket
     |> assign(:form, to_form(changeset))
     # Revealed counts as on even with nothing in the list yet: taking the
@@ -334,8 +366,11 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     # link control, and the composite case (linking James S.A. Corey to his
     # second human) starts exactly there. Auto-creating an own-name author
     # for them would mean deleting it again a click later.
-    |> assign(:writes, author_people != [] or :author in reveal)
-    |> assign(:narrates, narrators != [] or :narrator in reveal)
+    # The rows and nothing else. It used to also count "revealed", so
+    # deleting the last credit left the box ticked until the save caught up
+    # — the control disagreeing with the thing it controls.
+    |> assign(:writes, author_people != [])
+    |> assign(:narrates, narrators != [])
     # Data that already disagrees with "credited under their own name" opens
     # revealed: a pen name hidden behind a control nobody clicked is a pen
     # name the operator can't see, and this form is where they go to find it.
@@ -400,105 +435,29 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   # case has to be "change nothing". Absent params mean "leave the
   # association alone" — Ecto's own rule — so an unrevealed credit says
   # nothing about rows it doesn't render, and only a real transition writes.
-  defp apply_credits(person_params, person, reveal) do
+  defp apply_credits(person_params, held) do
     person_params
-    |> reconcile_authors(person, :author in reveal)
-    |> reconcile_narrators(person, :narrator in reveal)
+    |> reconcile("author_people", held.author_people)
+    |> reconcile("narrators", held.narrators)
   end
 
-  defp reconcile_authors(params, person, revealed?) do
-    name = params["name"] || ""
-    rows = loaded(person.author_people)
-
-    cond do
-      # Unticked: the whole collection goes. `on_replace: :delete` unlinks
-      # the rows, and `People.update_person/3` then deletes what nothing
-      # credits — or refuses the save and names the book that still does.
-      params["writes"] == "false" ->
-        Map.put(params, "author_people", %{})
-
-      # Revealed: the operator is naming these themselves, in inputs that
-      # are already in the params. Nothing to reconcile and nothing to sync.
-      params["author_people"] != nil ->
-        params
-
-      # The tick itself.
-      # Ticked from the plain state: credited under their own name. Ticked
-      # from the revealed one: the operator is about to say what the name
-      # is, so the list starts empty.
-      rows == [] and params["writes"] == "true" and not revealed? ->
-        put_row(params, "author_people", %{"author" => %{"name" => name}})
-
-      name != person.name ->
-        Map.put(params, "author_people", author_sync(rows, person, name))
-
-      true ->
-        params
-    end
+  # What the form is holding right now, which is what its params are meant
+  # to describe.
+  defp held(%Changeset{} = changeset) do
+    %{
+      author_people: Changeset.get_field(changeset, :author_people) || [],
+      narrators: Changeset.get_field(changeset, :narrators) || []
+    }
   end
 
-  defp reconcile_narrators(params, person, revealed?) do
-    name = params["name"] || ""
-    rows = loaded(person.narrators)
-
-    cond do
-      params["narrates"] == "false" ->
-        Map.put(params, "narrators", %{})
-
-      params["narrators"] != nil ->
-        params
-
-      rows == [] and params["narrates"] == "true" and not revealed? ->
-        put_row(params, "narrators", %{"name" => name})
-
-      name != person.name ->
-        Map.put(params, "narrators", narrator_sync(rows, person, name))
-
-      true ->
-        params
-    end
+  # The form renders every credit it holds — openly when revealed, as hidden
+  # inputs when not — so absent params mean it holds none. Said plainly:
+  # emptying the list and unticking the box are the same instruction, and
+  # both have to reach `cast_assoc` as an empty collection or the rows in
+  # the database simply stay.
+  defp reconcile(params, key, held) do
+    if params[key] == nil and held == [], do: Map.put(params, key, %{}), else: params
   end
-
-  defp put_row(params, key, row), do: Map.put(params, key, %{"0" => row})
-
-  # A rename, carried to the credits that are this person's own name.
-  #
-  # The whole collection is re-emitted, because emitting some rows and not
-  # others would delete the rest — `cast_assoc` reads params as the complete
-  # list. Rows that don't sync are emitted as a bare id, which updates
-  # nothing.
-  # The author's own id rides along: `AuthorPerson` casts `:author` with
-  # `on_replace: :raise`, so params without it are read as "replace this
-  # author with a new one" and blow up rather than renaming.
-  defp author_sync(rows, person, new_name) do
-    index_rows(rows, fn author_person ->
-      if syncs_name?(author_person.author, person),
-        do: %{"author" => %{"id" => to_string(author_person.author.id), "name" => new_name}},
-        else: %{}
-    end)
-  end
-
-  defp narrator_sync(rows, person, new_name) do
-    index_rows(rows, fn narrator ->
-      if narrator.name == person.name, do: %{"name" => new_name}, else: %{}
-    end)
-  end
-
-  defp index_rows(rows, changes) do
-    rows
-    |> Enum.with_index()
-    |> Map.new(fn {row, index} ->
-      {to_string(index), Map.put(changes.(row), "id", to_string(row.id))}
-    end)
-  end
-
-  # Guarded twice: the credit has to *be* their current name, and a shared
-  # pen name is never touched — one of James S.A. Corey's two humans
-  # renaming themselves must not rename James S.A. Corey.
-  defp syncs_name?(%Author{} = author, person),
-    do: author.name == person.name and not shared?(author)
-
-  defp syncs_name?(_unloaded, _person), do: false
 
   defp loaded(rows) when is_list(rows), do: rows
   defp loaded(_not_loaded), do: []

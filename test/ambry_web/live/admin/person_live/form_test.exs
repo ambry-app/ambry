@@ -8,6 +8,14 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
 
   setup :register_and_log_in_admin_user
 
+  # The credit toggle is a named event, not form data — so tests press it
+  # rather than posting a value the form no longer carries.
+  defp tick(view, kind) do
+    view
+    |> element("button[phx-click='toggle-credit'][phx-value-kind='#{kind}']")
+    |> render_click()
+  end
+
   describe "field-level provenance" do
     # Display, lock-toggling and pending previews live with the inline
     # provenance flag now â covered in evidence_test.exs.
@@ -39,9 +47,8 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
       # nothing to fill in: the name is stated, not asked for
       refute html =~ "Writing as"
 
-      view
-      |> form("#person-form", %{"person" => %{"writes" => "true"}})
-      |> render_submit()
+      tick(view, "author")
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
 
       assert [%{name: "Stephen King"}] = People.get_person!(person.id).authors
     end
@@ -51,9 +58,8 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
-      view
-      |> form("#person-form", %{"person" => %{"narrates" => "true"}})
-      |> render_submit()
+      tick(view, "narrator")
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
 
       assert [%{name: "Stephen King"}] = People.get_person!(person.id).narrators
     end
@@ -63,9 +69,9 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
-      view
-      |> form("#person-form", %{"person" => %{"writes" => "true", "narrates" => "true"}})
-      |> render_submit()
+      tick(view, "author")
+      tick(view, "narrator")
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
 
       person = People.get_person!(person.id)
       assert [%{name: "Stephen King"}] = person.authors
@@ -82,9 +88,8 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
-      view
-      |> form("#person-form", %{"person" => %{"writes" => "false"}})
-      |> render_submit()
+      tick(view, "author")
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
 
       assert People.get_person!(person.id).authors == []
       refute Ambry.Repo.get(Ambry.People.Author, author.id)
@@ -101,10 +106,8 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
-      html =
-        view
-        |> form("#person-form", %{"person" => %{"writes" => "false"}})
-        |> render_submit()
+      tick(view, "author")
+      html = view |> form("#person-form", %{"person" => %{}}) |> render_submit()
 
       assert html =~ "in use by one or more books"
       assert [%{name: "Stephen King"}] = People.get_person!(person.id).authors
@@ -122,9 +125,13 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
+      # a browser validates on every keystroke, which is what keeps the
+      # collapsed credits tracking the name box
       view
       |> form("#person-form", %{"person" => %{"name" => "Richard Bachman"}})
-      |> render_submit()
+      |> render_change()
+
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
 
       person = People.get_person!(person.id)
       assert [%{name: "Richard Bachman"}] = person.authors

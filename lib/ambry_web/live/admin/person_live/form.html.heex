@@ -70,21 +70,54 @@
         <div class="space-y-4">
           <%!-- ── writes ─────────────────────────────────────────────── --%>
           <div class="space-y-2">
-            <label class="flex items-center gap-2 pl-3">
-              <input type="hidden" name="person[writes]" value="false" />
-              <input
-                type="checkbox"
-                name="person[writes]"
-                value="true"
-                checked={@writes}
-                class="text-brand-dark h-4 w-4 rounded-sm border-transparent bg-zinc-800 focus:ring-brand-dark/20 focus:ring-4"
-              />
-              <span class="text-sm text-zinc-200">Writes books</span>
-              <span :if={@writes and not revealed?(assigns, :author)} class="text-sm text-zinc-400">
-                as {@form[:name].value}
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={to_string(@writes)}
+              phx-click="toggle-credit"
+              phx-value-kind="author"
+              class="flex items-center gap-2 pl-3"
+            >
+              <span class={[
+                "flex h-4 w-4 flex-none items-center justify-center rounded-sm",
+                (@writes && "bg-brand-dark") || "bg-zinc-800"
+              ]}>
+                <.icon :if={@writes} name="fa-check" class="h-2.5 w-2.5 text-zinc-900" />
               </span>
-            </label>
+              <%!-- The label absorbs the "as": revealed, the names below it
+                  are what it is credited as, so the line reads into them
+                  rather than repeating the person's name beside the box. --%>
+              <span class="text-sm text-zinc-200">
+                Writes books{if revealed?(assigns, :author), do: " as"}
+              </span>
+            </button>
 
+            <%!-- Collapsed, the credits still ride along. A card that renders
+                nothing says nothing, and "said nothing" is indistinguishable
+                from "deleted them all" by the time the params arrive — so
+                ticking the box and pressing Save created no author at all.
+                Collapsed also means every credit here is their own name
+                (a pen name or a shared one forces the card open), which is
+                why the name can simply track the box above. --%>
+            <div :if={not revealed?(assigns, :author)} class="hidden">
+              <.inputs_for :let={author_person_form} field={@form[:author_people]}>
+                <input
+                  :if={author_person_form[:id].value}
+                  type="hidden"
+                  name={author_person_form[:id].name}
+                  value={author_person_form[:id].value}
+                />
+                <.inputs_for :let={author_form} field={author_person_form[:author]}>
+                  <input
+                    :if={author_form[:id].value}
+                    type="hidden"
+                    name={author_form[:id].name}
+                    value={author_form[:id].value}
+                  />
+                  <input type="hidden" name={author_form[:name].name} value={@form[:name].value} />
+                </.inputs_for>
+              </.inputs_for>
+            </div>
             <%!-- Revealed: the names themselves, which is the only state
                 where linking an existing author means anything specific. --%>
             <div :if={revealed?(assigns, :author)} class="space-y-2 pl-6">
@@ -189,24 +222,36 @@
               so there is no shared-narrator case to offer. The asymmetry is
               the model's, and stating it beats faking symmetry. --%>
           <div class="space-y-2">
-            <label class="flex items-center gap-2 pl-3">
-              <input type="hidden" name="person[narrates]" value="false" />
-              <input
-                type="checkbox"
-                name="person[narrates]"
-                value="true"
-                checked={@narrates}
-                class="text-brand-dark h-4 w-4 rounded-sm border-transparent bg-zinc-800 focus:ring-brand-dark/20 focus:ring-4"
-              />
-              <span class="text-sm text-zinc-200">Narrates audiobooks</span>
-              <span
-                :if={@narrates and not revealed?(assigns, :narrator)}
-                class="text-sm text-zinc-400"
-              >
-                as {@form[:name].value}
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={to_string(@narrates)}
+              phx-click="toggle-credit"
+              phx-value-kind="narrator"
+              class="flex items-center gap-2 pl-3"
+            >
+              <span class={[
+                "flex h-4 w-4 flex-none items-center justify-center rounded-sm",
+                (@narrates && "bg-brand-dark") || "bg-zinc-800"
+              ]}>
+                <.icon :if={@narrates} name="fa-check" class="h-2.5 w-2.5 text-zinc-900" />
               </span>
-            </label>
+              <span class="text-sm text-zinc-200">
+                Narrates audiobooks{if revealed?(assigns, :narrator), do: " as"}
+              </span>
+            </button>
 
+            <div :if={not revealed?(assigns, :narrator)} class="hidden">
+              <.inputs_for :let={narrator_form} field={@form[:narrators]}>
+                <input
+                  :if={narrator_form[:id].value}
+                  type="hidden"
+                  name={narrator_form[:id].name}
+                  value={narrator_form[:id].value}
+                />
+                <input type="hidden" name={narrator_form[:name].name} value={@form[:name].value} />
+              </.inputs_for>
+            </div>
             <div :if={revealed?(assigns, :narrator)} class="space-y-2 pl-6">
               <.inputs_for :let={narrator_form} field={@form[:narrators]}>
                 <.sort_input field={@form[:narrators_sort]} index={narrator_form.index} />
