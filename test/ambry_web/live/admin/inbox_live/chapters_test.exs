@@ -81,7 +81,7 @@ defmodule AmbryWeb.Admin.InboxLive.ChaptersTest do
          %{conn: conn} do
       item = chaptered_item()
 
-      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
       assert has_element?(view, "form#chapters-form")
       # two file-boundary rows, open by default because the list is short
