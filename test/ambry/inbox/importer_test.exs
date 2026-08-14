@@ -16,6 +16,28 @@ defmodule Ambry.Inbox.ImporterTest do
   alias Ambry.People.Person
 
   describe "approve/1" do
+    # The recording is in the library by the time this runs, so a raise here
+    # would discard a `max_attempts: 1` job for an import that succeeded and
+    # report a failure the operator would act on. `Placement.finalize/1`
+    # already states the rule for post-commit work; this holds the two
+    # pieces of bookkeeping beside it to the same one.
+    @tag :capture_log
+    test "bookkeeping that fails after the commit doesn't fail the import" do
+      item = tagged_item()
+
+      patch(Ambry.Library, :remember_placement, fn _source, _root, _policy ->
+        raise "the database went away"
+      end)
+
+      assert {:ok, media} = Inbox.import_item(item)
+      assert Media.get_media!(media.id)
+      assert Inbox.get_item!(item.id).status == :imported
+
+      # and the other piece still ran, rather than being skipped by the first
+      # one's failure
+      refute Inbox.get_item!(item.id).issue
+    end
+
     test "creates the whole graph from a tagged file" do
       item = tagged_item()
 

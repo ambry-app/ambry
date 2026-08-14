@@ -739,8 +739,14 @@ defmodule Ambry.Inbox do
   def import_item(%InboxItem{} = item) do
     case Importer.import_item(item) do
       {:ok, media} ->
-        remember_placement(item)
-        refresh_siblings(item)
+        # Bookkeeping, and it runs after the records are committed. Neither
+        # of these may fail the import — the library already holds the
+        # recording, so a job reported as failed would be a lie the operator
+        # acts on — and neither may skip the other, so they are guarded
+        # separately. `Placement.finalize/1` states the same rule one call
+        # further in, for the same reason.
+        after_commit(item, "remember the placement", fn -> remember_placement(item) end)
+        after_commit(item, "relink sibling drafts", fn -> refresh_siblings(item) end)
         {:ok, media}
 
       {:error, reason} = error ->
@@ -750,6 +756,23 @@ defmodule Ambry.Inbox do
         update_item(item, %{issue: describe_error(reason)})
         error
     end
+  end
+
+  # Work that happens once the import has committed is untidy when it
+  # fails, not broken. `RunImport` is `max_attempts: 1`, so a raise here
+  # would discard the job for a release the library actually has, and take
+  # the *other* piece of bookkeeping down with it.
+  defp after_commit(%InboxItem{} = item, what, work) do
+    work.()
+    :ok
+  rescue
+    error ->
+      Logger.error(fn ->
+        "Imported inbox item #{item.id}, but couldn't #{what}: " <>
+          Exception.message(error)
+      end)
+
+      :ok
   end
 
   # What the next import from this source should propose is what this one
