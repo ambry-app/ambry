@@ -14,27 +14,32 @@
 
       <%!-- The filters are the queue's primary navigation — a segmented
             control, not a row of text links. Counts ride along so the state
-            of the queue is readable without clicking anything. --%>
+            of the queue is readable without clicking anything.
+
+            One axis only: where an item is in its life, which is the one
+            thing about it that changes because a human decided something.
+            A "Ready" bucket lived here too and was removed — every draft
+            gets opened either way, so it only ever split work that was
+            going to be done in full, while making every row wear two
+            badges to explain which bucket it was in. Background job state
+            is deliberately not an axis either: a row that changed tabs
+            because a job started would vanish out from under the click
+            that started it. That belongs to the row's own overlay, and to
+            the ambient job widget. --%>
       <div class="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-zinc-900 p-1 text-sm">
-        <span phx-click="filter-status" phx-value-status="all" class={segment_class(!@status && !@ready)}>
+        <span phx-click="filter-status" phx-value-status="all" class={segment_class(!@status)}>
           All
         </span>
         <span
           :for={status <- @statuses}
           phx-click="filter-status"
           phx-value-status={status}
-          class={segment_class(!@ready && @status == status)}
+          class={segment_class(@status == status)}
         >
           {segment_label(status)}
           <span class={segment_count_class(status, Map.get(@counts, status, 0))}>
             {Map.get(@counts, status, 0)}
           </span>
-        </span>
-
-        <%!-- Everything settled, waiting on a click. The point of the whole
-              form is that this bucket is where items end up. --%>
-        <span phx-click="filter-ready" class={segment_class(@ready)} data-role="ready-filter">
-          Ready <span class={segment_count_class(:ready, @ready_count)}>{@ready_count}</span>
         </span>
       </div>
     </div>
@@ -154,11 +159,12 @@
         inert={busy?(@progress[item.id])}
       >
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:flex-col sm:items-end">
+          <%!-- One badge. Inside a tab named for the status, printing the
+                status on every row says nothing; what the row owes does. --%>
           <div class="flex items-center gap-2">
-            <.badge :if={item.ready and item.status == :pending} color={:brand} class="text-xs">
-              ready
+            <.badge color={elem(state_words(item), 1)} class="text-xs" data-role="item-state">
+              {elem(state_words(item), 0)}
             </.badge>
-            <.badge color={status_color(item.status)} class="text-xs">{item.status}</.badge>
           </div>
 
           <div class="flex items-center gap-2 text-xs text-zinc-400">
@@ -178,9 +184,13 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
-            <%!-- Only a settled item can be imported from here. Anything else
-                opens the form, because the queue has no way to say what's
-                outstanding and the form's whole job is to. --%>
+            <%!-- Only a settled item can be imported from here — the queue
+                has no way to say what's outstanding, and the form's whole job
+                is to. Import is the *extra* a settled row earns, though, not
+                a replacement for Open: these two were once mutually
+                exclusive, which left a ready item's action rail with no way
+                into its own form. Reviewing a draft before importing it is
+                the normal path, not the exception. --%>
             <span
               :if={item.status == :pending and item.ready}
               role="button"
@@ -194,9 +204,9 @@
             </span>
 
             <.link
-              :if={item.status == :pending and not item.ready}
+              :if={item.status == :pending}
               navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
-              title="Settle what's outstanding"
+              title="Look the draft over"
               class={action_class(:neutral)}
             >
               <%!-- fa-pencil, the app's edit glyph — pen-to-square isn't in

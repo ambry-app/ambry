@@ -123,29 +123,16 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   def handle_event("filter-status", %{"status" => status}, socket) do
     {:noreply,
-     push_patch(socket,
-       to: ~p"/admin/inbox?#{patch(socket, status: status, ready: nil, page: "1")}"
-     )}
-  end
-
-  def handle_event("filter-ready", _params, socket) do
-    ready = if !socket.assigns.ready, do: "true"
-
-    {:noreply,
-     push_patch(socket,
-       to: ~p"/admin/inbox?#{patch(socket, ready: ready, status: "pending", page: "1")}"
-     )}
+     push_patch(socket, to: ~p"/admin/inbox?#{patch(socket, status: status, page: "1")}")}
   end
 
   defp load_items(socket, params) do
     list_opts = get_list_opts(params)
     status = parse_status(params["status"])
-    ready = parse_ready(params["ready"])
 
     {items, has_more?} =
       Inbox.list_items(
         status: status,
-        ready: ready,
         filter: list_opts.filter,
         offset: page_to_offset(list_opts.page),
         limit: limit()
@@ -157,19 +144,16 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       # one query for the page, not one per row
       progress: Inbox.progress(items),
       counts: Inbox.count_by_status(),
-      ready_count: Inbox.count_ready(),
-      ready: ready,
       status: status,
       list_opts: list_opts,
       has_next: has_more?,
       has_prev: list_opts.page > 1,
       # Built from the full query, not the shared filter+page helpers —
-      # those drop status and ready, so paging out of "Imported" silently
-      # landed back on the default view.
-      next_page_path:
-        ~p"/admin/inbox?#{page_query(list_opts, status, ready, list_opts.page + 1)}",
+      # those drop the status, so paging out of "Imported" silently landed
+      # back on the default view.
+      next_page_path: ~p"/admin/inbox?#{page_query(list_opts, status, list_opts.page + 1)}",
       prev_page_path:
-        ~p"/admin/inbox?#{page_query(list_opts, status, ready, max(list_opts.page - 1, 1))}"
+        ~p"/admin/inbox?#{page_query(list_opts, status, max(list_opts.page - 1, 1))}"
     )
     |> assign(:statuses, @statuses)
     |> schedule_tick()
@@ -227,9 +211,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     %{
       "filter" => Keyword.get(overrides, :filter, socket.assigns.list_opts.filter),
       "page" => Keyword.get(overrides, :page, to_string(socket.assigns.list_opts.page)),
-      "status" => Keyword.get(overrides, :status, to_string(socket.assigns.status || "all")),
-      "ready" =>
-        Keyword.get(overrides, :ready, socket.assigns.ready && to_string(socket.assigns.ready))
+      "status" => Keyword.get(overrides, :status, to_string(socket.assigns.status || "all"))
     }
     |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
     |> Map.new()
@@ -246,14 +228,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   queue go" happens.
   """
   def return_query(assigns),
-    do: page_query(assigns.list_opts, assigns.status, assigns.ready, assigns.list_opts.page)
+    do: page_query(assigns.list_opts, assigns.status, assigns.list_opts.page)
 
-  defp page_query(list_opts, status, ready, page) do
+  defp page_query(list_opts, status, page) do
     %{
       "filter" => list_opts.filter,
       "page" => to_string(page),
-      "status" => to_string(status || "all"),
-      "ready" => ready && to_string(ready)
+      "status" => to_string(status || "all")
     }
     |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
     |> Map.new()
@@ -266,9 +247,6 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # work queue, and opening it means "what needs me", not "everything ever".
   defp parse_status("all"), do: nil
   defp parse_status(_anything), do: :pending
-
-  defp parse_ready("true"), do: true
-  defp parse_ready(_anything), do: nil
 
   # The segmented filter: the active segment reads as a raised tab, the rest
   # recede. Spans rather than buttons so the existing test selectors (and the
@@ -287,15 +265,14 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp segment_label(:ignored), do: "Ignored"
   defp segment_label(:imported), do: "Imported"
 
-  # Pending work glows amber and settled-but-unimported glows lime — but only
-  # while there IS any; a zero is just a zero.
+  # Pending work glows amber — but only while there IS any; a zero is just a
+  # zero.
   defp segment_count_class(status, count) do
     [
       "rounded-full px-1.5 text-xs font-bold tabular-nums",
       case {status, count} do
         {_status, 0} -> "bg-white/5 text-zinc-500"
         {:pending, _n} -> "bg-amber-400/15 text-amber-300"
-        {:ready, _n} -> "bg-brand-dark/15 text-lime-300"
         _other -> "bg-white/10 text-zinc-400"
       end
     ]
@@ -317,7 +294,33 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp button_color(:brand), do: :brand
   defp button_color(_quiet), do: :zinc
 
-  defp status_color(:pending), do: :yellow
+  @doc """
+  The row's one badge: what this item is, in the words that vary from row to
+  row.
+
+  One badge, not two. A pending row used to wear its status *and* its
+  readiness, but inside the Pending tab "pending" is the tab's own word
+  repeated on every row — it never told two rows apart. What does is how much
+  the row still owes, which is what a settled row's "ready" already said and
+  what an outstanding one now says with a number.
+
+  A draft that doesn't exist yet is not a pile of decisions to work through;
+  it is one nobody has asked. Counting it as one decision would send the
+  operator to a form with nothing on it, so it says what is actually true and
+  the card's progress line says what to do about it.
+  """
+  def state_words(%InboxItem{status: :pending, ready: true}), do: {"ready", :brand}
+  def state_words(%InboxItem{status: :pending, draft: nil}), do: {"not prepared", :yellow}
+
+  def state_words(%InboxItem{status: :pending, draft: draft}) do
+    case length(Draft.unresolved(draft)) do
+      1 -> {"1 decision needed", :yellow}
+      n -> {"#{n} decisions needed", :yellow}
+    end
+  end
+
+  def state_words(%InboxItem{status: status}), do: {to_string(status), status_color(status)}
+
   defp status_color(:imported), do: :brand
   defp status_color(:ignored), do: :gray
 

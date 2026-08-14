@@ -102,7 +102,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # The list state the operator arrived with, echoed back as a path. Only the
   # keys the index actually reads, so a hand-typed URL can't turn this into an
   # open redirect or a 500 on a junk param.
-  @list_params ~w(filter page status ready)
+  @list_params ~w(filter page status)
 
   defp return_to(params) do
     case Map.take(params, @list_params) do
