@@ -131,9 +131,10 @@ defmodule Ambry.Inbox.ProgressTest do
       %Ambry.Inbox.InboxItem{}
       |> Ambry.Inbox.InboxItem.changeset(
         Enum.into(attrs, %{
-          path: "/downloads/release-#{Ecto.UUID.generate()}",
-          files: ["/downloads/x/book.m4b"],
-          status: :pending
+          path: "release-#{Ecto.UUID.generate()}",
+          files: ["x/book.m4b"],
+          status: :pending,
+          source_id: insert(:source).id
         })
       )
       |> Repo.insert()

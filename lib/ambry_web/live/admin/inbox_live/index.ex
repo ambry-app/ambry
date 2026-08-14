@@ -334,16 +334,12 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp source_label(%Source{name: name, import_policy: policy}),
     do: "#{name} · #{policy_word(policy)}"
 
-  defp source_label(nil), do: "ad-hoc scan"
-
   defp policy_word(:hardlink), do: "hardlinked in on import"
   defp policy_word(:symlink), do: "symlinked in on import"
   defp policy_word(:copy), do: "copied in on import"
   defp policy_word(:move), do: "moved in on import"
 
   defp source_color(%Source{}), do: "bg-blue-400/15 text-blue-300"
-
-  defp source_color(_other), do: "bg-white/10 text-zinc-300"
 
   @doc """
   The candidate's name — usually the release name, and the most recognizable

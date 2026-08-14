@@ -172,20 +172,20 @@ defmodule Ambry.Inbox do
   end
 
   @doc """
-  Scans one source, or one bare path.
+  Scans one source.
 
-  The bare-path form is for ad-hoc scans and for exercising the walk itself;
-  items it creates have no source, so they carry no default placement policy
-  and the operator chooses one at approval.
+  A source is the only way into the inbox. Scanning a bare path used to be
+  possible and produced items with no source, which meant absolute stored
+  paths, no placement default, and a whole second shape for every function
+  that touches an item's files to handle. It was never reachable from the
+  UI, so the exception bought nothing and cost that.
   """
   def discover(%Source{} = source) do
-    with {:ok, counts} <- scan(source.path, source) do
+    with {:ok, counts} <- scan(source) do
       {:ok, _source} = Library.mark_scanned(source)
       {:ok, counts}
     end
   end
-
-  def discover(root) when is_binary(root), do: scan(root, nil)
 
   defp discover_one(%Source{} = source) do
     case discover(source) do
@@ -203,12 +203,12 @@ defmodule Ambry.Inbox do
 
   defp merge_counts(acc, counts), do: Map.merge(acc, counts, fn _key, a, b -> a + b end)
 
-  defp scan(root, source) do
-    if File.dir?(root) do
+  defp scan(%Source{} = source) do
+    if File.dir?(source.path) do
       ledger = ledger()
 
       results =
-        root
+        source.path
         |> candidates()
         |> Enum.flat_map(&List.wrap(record_candidate(&1, ledger, source)))
 
@@ -1112,7 +1112,7 @@ defmodule Ambry.Inbox do
     |> Enum.flat_map(fn
       {nil, orphans} -> List.wrap(adopt(path, files, orphans, source))
       {:library, _theirs} -> [:skipped]
-      {%InboxItem{} = item, theirs} -> [refresh_owner(item, theirs, source)]
+      {%InboxItem{} = item, theirs} -> [refresh_owner(item, theirs)]
     end)
   end
 
@@ -1155,8 +1155,8 @@ defmodule Ambry.Inbox do
 
   # An imported item is the record of what was imported; its source files may
   # not even be where they were. Nothing about a scan may touch it.
-  defp refresh_owner(%InboxItem{status: :imported}, _files, _source), do: :skipped
-  defp refresh_owner(%InboxItem{} = item, files, source), do: refresh_known(item, files, source)
+  defp refresh_owner(%InboxItem{status: :imported}, _files), do: :skipped
+  defp refresh_owner(%InboxItem{} = item, files), do: refresh_known(item, files)
 
   # Nobody owns these. A candidate that is entirely unowned is a release, at
   # the grain the walk proposes; anything left over in a folder that is
@@ -1169,32 +1169,20 @@ defmodule Ambry.Inbox do
     do: Enum.map(orphans, &create_item(&1, [&1], source))
 
   # A known item's files can legitimately change (a torrent finished, a file
-  # was replaced). Its status is left alone: ignored stays ignored.
-  #
-  # An item found under a source adopts it if it had none — that's a fact
-  # the scan just established, not a guess — but a source is never swapped
-  # out from under an item that already has one. Adopting rewrites the
-  # stored path and files into the source's coordinates, so the columns
-  # always agree with the FK.
-  defp refresh_known(%InboxItem{} = item, files, source) do
+  # was replaced). Its status is left alone: ignored stays ignored, and its
+  # source is never swapped out from under it — the item's own source is
+  # what its stored paths are relative to, so re-keying them to whichever
+  # source happened to walk over them would silently rewrite coordinates.
+  defp refresh_known(%InboxItem{} = item, files) do
     item = Repo.preload(item, :source)
-    adopts_source? = is_nil(item.source_id) and not is_nil(source)
-    owner = if adopts_source?, do: source, else: item.source
+    stored_files = Enum.map(files, &stored_form(&1, item.source))
 
-    stored_files = Enum.map(files, &stored_form(&1, owner))
-
-    changes =
-      %{}
-      |> put_if(:files, stored_files, item.files != stored_files)
-      |> put_if(:source_id, adopts_source? && source.id, adopts_source?)
-      |> put_if(:path, stored_form(InboxItem.disk_path(item), owner), adopts_source?)
-
-    if changes == %{} do
+    if item.files == stored_files do
       :skipped
     else
-      {:ok, item} = update_item(item, changes)
+      {:ok, item} = update_item(item, %{files: stored_files})
 
-      if item.status == :pending and Map.has_key?(changes, :files) do
+      if item.status == :pending do
         # The draft describes files that just moved under it. Say so; don't
         # re-seed over whatever the operator already decided.
         mark_draft_stale(item)
@@ -1215,10 +1203,9 @@ defmodule Ambry.Inbox do
   defp put_if(map, _key, _value, false), do: map
   defp put_if(map, key, value, _truthy), do: Map.put(map, key, value)
 
-  # The stored form of an absolute path the walk produced: source-relative
-  # when the item has a source, absolute for the ad-hoc case.
-  defp stored_form(path, nil), do: path
-
+  # The stored form of an absolute path the walk produced. Always
+  # source-relative: a source whose mount point changes is then a one-row
+  # edit, and every queued item survives the move.
   defp stored_form(path, %Source{} = source) do
     {:ok, relative} = Library.relativize(source, path)
     relative
@@ -1229,7 +1216,7 @@ defmodule Ambry.Inbox do
     |> InboxItem.changeset(%{
       path: stored_form(path, source),
       files: Enum.map(files, &stored_form(&1, source)),
-      source_id: source && source.id
+      source_id: source.id
     })
     |> Repo.insert()
     |> case do

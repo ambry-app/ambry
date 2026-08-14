@@ -76,8 +76,9 @@ defmodule Ambry.Inbox.RunImportTest do
   defp unsettled_item do
     %InboxItem{}
     |> InboxItem.changeset(%{
-      path: "/downloads/Nothing Settled Here",
-      files: ["/downloads/Nothing Settled Here/book.m4b"]
+      path: "Nothing Settled Here",
+      files: ["Nothing Settled Here/book.m4b"],
+      source_id: insert(:source).id
     })
     |> Repo.insert!()
   end

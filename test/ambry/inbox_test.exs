@@ -3,6 +3,7 @@ defmodule Ambry.InboxTest do
 
   alias Ambry.Inbox
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Library.Source
   alias Ambry.Media.Scanner
 
   describe "discover/1" do
@@ -10,11 +11,11 @@ defmodule Ambry.InboxTest do
       root = watched_root()
       release = release_folder(root, "The Way of Kings [M4B]", ["book.m4b"])
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       assert {[%InboxItem{} = item], false} = Inbox.list_items()
-      assert item.path == release
-      assert item.files == [Path.join(release, "book.m4b")]
+      assert InboxItem.disk_path(item) == release
+      assert InboxItem.disk_files(item) == [Path.join(release, "book.m4b")]
       assert item.status == :pending
     end
 
@@ -22,11 +23,11 @@ defmodule Ambry.InboxTest do
       root = watched_root()
       loose = copy_audio(root, "Project Hail Mary.m4b")
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       assert {[item], false} = Inbox.list_items()
-      assert item.path == loose
-      assert item.files == [loose]
+      assert InboxItem.disk_path(item) == loose
+      assert InboxItem.disk_files(item) == [loose]
     end
 
     test "finds audio nested inside a release folder" do
@@ -36,10 +37,10 @@ defmodule Ambry.InboxTest do
       File.mkdir_p!(nested)
       copy_audio(nested, "01.mp3")
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       assert {[item], false} = Inbox.list_items()
-      assert item.path == release
+      assert InboxItem.disk_path(item) == release
       assert [file] = item.files
       assert file =~ "Disc 1/01.mp3"
     end
@@ -48,10 +49,10 @@ defmodule Ambry.InboxTest do
       root = watched_root()
       release = release_folder(root, "Chaptered Book", ["01.mp3", "02.mp3", "03.mp3"])
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       assert {[item], false} = Inbox.list_items()
-      assert item.path == release
+      assert InboxItem.disk_path(item) == release
       assert length(item.files) == 3
     end
 
@@ -64,7 +65,7 @@ defmodule Ambry.InboxTest do
         release_folder(root, name, ["book.m4b"])
       end
 
-      assert {:ok, %{created: 3}} = Inbox.discover(root)
+      assert {:ok, %{created: 3}} = discover(root)
     end
 
     # Every shape below is copied from the operator's real downloads folder,
@@ -78,7 +79,7 @@ defmodule Ambry.InboxTest do
         release_folder(series, title, ["book.m4b"])
       end
 
-      assert {:ok, %{created: 3}} = Inbox.discover(root)
+      assert {:ok, %{created: 3}} = discover(root)
 
       {items, false} = Inbox.list_items()
 
@@ -97,7 +98,7 @@ defmodule Ambry.InboxTest do
         release_folder(book, part, ["01.mp3", "02.mp3"])
       end
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       {[item], false} = Inbox.list_items()
       assert InboxItem.name(item) == "1 The Way of Kings"
@@ -112,7 +113,7 @@ defmodule Ambry.InboxTest do
         release_folder(book, disc, ["01.mp3"])
       end
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       {[item], false} = Inbox.list_items()
       assert InboxItem.name(item) == "The Colorado Kid by Stephen King"
@@ -129,7 +130,7 @@ defmodule Ambry.InboxTest do
         release_folder(trilogy, book, ["book.m4b"])
       end
 
-      assert {:ok, %{created: 3}} = Inbox.discover(root)
+      assert {:ok, %{created: 3}} = discover(root)
     end
 
     test "looks inside an author folder holding a single book" do
@@ -137,7 +138,7 @@ defmodule Ambry.InboxTest do
       author = Path.join(root, "Dennis E. Taylor")
       release_folder(author, "Book 5 - Not Till We Are Lost", ["book.m4b"])
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       {[item], false} = Inbox.list_items()
       assert InboxItem.name(item) == "Book 5 - Not Till We Are Lost"
@@ -150,7 +151,7 @@ defmodule Ambry.InboxTest do
       File.mkdir_p!(extras)
       copy_audio(extras, "interview.mp3")
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       {[item], false} = Inbox.list_items()
       assert InboxItem.name(item) == "Dan Brown - Origin"
@@ -164,12 +165,12 @@ defmodule Ambry.InboxTest do
       File.write!(Path.join(junk, "cover.jpg"), "not audio")
       File.write!(Path.join(root, "readme.txt"), "not audio")
 
-      assert {:ok, %{created: 0}} = Inbox.discover(root)
+      assert {:ok, %{created: 0}} = discover(root)
       assert {[], false} = Inbox.list_items()
     end
 
     test "reports a watched location that isn't there" do
-      assert {:error, :watched_source_missing} = Inbox.discover("/nope/not/here")
+      assert {:error, :watched_source_missing} = discover("/nope/not/here")
     end
   end
 
@@ -195,9 +196,9 @@ defmodule Ambry.InboxTest do
 
       pair = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {items, false} = Inbox.list_items()
-      grains = Map.new(items, &{&1.path, Inbox.split_grains(&1)})
+      grains = Map.new(items, &{InboxItem.disk_path(&1), Inbox.split_grains(&1)})
 
       # parts of several files each: both grains say something different
       assert grains[set] == %{folder: 2, file: 4}
@@ -215,19 +216,19 @@ defmodule Ambry.InboxTest do
     test "a file already owned is never re-grouped, however the walk sees it" do
       root = watched_root()
       release = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
 
       # the operator says these are two books, at the finest grain
       {[item], false} = Inbox.list_items()
       {:ok, _children} = Inbox.split_item(item, :file)
 
       # the walk still sees one folder holding two files, and is not asked
-      assert {:ok, %{created: 0, updated: 0}} = Inbox.discover(root)
+      assert {:ok, %{created: 0, updated: 0}} = discover(root)
 
       {items, false} = Inbox.list_items()
       assert length(items) == 2
 
-      assert items |> Enum.flat_map(& &1.files) |> Enum.sort() ==
+      assert items |> Enum.flat_map(&InboxItem.disk_files/1) |> Enum.sort() ==
                [Path.join(release, "one.m4b"), Path.join(release, "two.m4b")]
     end
 
@@ -237,21 +238,21 @@ defmodule Ambry.InboxTest do
       for part <- ["1 of 2", "2 of 2"], do: release_folder(book, part, ["01.mp3", "02.mp3"])
       copy_audio(book, "stray.mp3")
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], false} = Inbox.list_items()
       assert length(item.files) == 5
 
       {:ok, _children} = Inbox.split_item(item, :folder)
       before = ownership()
 
-      assert {:ok, %{created: 0, updated: 0}} = Inbox.discover(root)
+      assert {:ok, %{created: 0, updated: 0}} = discover(root)
       assert ownership() == before
     end
 
     test "an imported item is never touched, even when its files have moved" do
       root = watched_root()
       release = release_folder(root, "Already Mine", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
 
       {[item], false} = Inbox.list_items()
       {:ok, item} = Inbox.update_item(item, %{status: :imported})
@@ -260,7 +261,7 @@ defmodule Ambry.InboxTest do
       File.rm_rf!(release)
       File.mkdir_p!(release)
 
-      assert {:ok, %{updated: 0}} = Inbox.discover(root)
+      assert {:ok, %{updated: 0}} = discover(root)
 
       assert %{status: :imported, files: files} = Inbox.get_item!(item.id)
       assert files == item.files
@@ -269,11 +270,11 @@ defmodule Ambry.InboxTest do
     test "a new file joins the item that owns its folder, rather than starting one" do
       root = watched_root()
       release = release_folder(root, "Growing Release", ["01.mp3"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
 
       copy_audio(release, "02.mp3")
 
-      assert {:ok, %{created: 0, updated: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 0, updated: 1}} = discover(root)
       assert {[item], false} = Inbox.list_items()
       assert length(item.files) == 2
     end
@@ -281,13 +282,13 @@ defmodule Ambry.InboxTest do
     test "a new file in a folder the operator took apart becomes its own item" do
       root = watched_root()
       release = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], false} = Inbox.list_items()
       {:ok, _children} = Inbox.split_item(item, :file)
 
       copy_audio(release, "three.m4b")
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       {items, false} = Inbox.list_items()
       assert length(items) == 3
@@ -300,8 +301,8 @@ defmodule Ambry.InboxTest do
       root = watched_root()
       release_folder(root, "A Book", ["book.m4b"])
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
-      assert {:ok, %{created: 0, skipped: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
+      assert {:ok, %{created: 0, skipped: 1}} = discover(root)
 
       assert {[_one], false} = Inbox.list_items()
     end
@@ -309,12 +310,12 @@ defmodule Ambry.InboxTest do
     test "never resurrects something ignored" do
       root = watched_root()
       release_folder(root, "Not Wanted", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
 
       {[item], false} = Inbox.list_items()
       {:ok, _item} = Inbox.ignore_item(item)
 
-      assert {:ok, %{created: 0}} = Inbox.discover(root)
+      assert {:ok, %{created: 0}} = discover(root)
 
       assert {[item], false} = Inbox.list_items()
       assert item.status == :ignored
@@ -323,11 +324,11 @@ defmodule Ambry.InboxTest do
     test "picks up files that appeared after the first look" do
       root = watched_root()
       release = release_folder(root, "Growing Set", ["01.mp3"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
 
       copy_audio(release, "02.mp3")
 
-      assert {:ok, %{updated: 1}} = Inbox.discover(root)
+      assert {:ok, %{updated: 1}} = discover(root)
 
       assert {[item], false} = Inbox.list_items()
       assert length(item.files) == 2
@@ -336,12 +337,12 @@ defmodule Ambry.InboxTest do
     test "leaves an ignored item ignored even when its files change" do
       root = watched_root()
       release = release_folder(root, "Growing Set", ["01.mp3"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], false} = Inbox.list_items()
       {:ok, _item} = Inbox.ignore_item(item)
 
       copy_audio(release, "02.mp3")
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
 
       assert {[item], false} = Inbox.list_items()
       assert item.status == :ignored
@@ -371,7 +372,7 @@ defmodule Ambry.InboxTest do
         library_root_id: root_record.id
       )
 
-      assert {:ok, %{created: 0, skipped: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 0, skipped: 1}} = discover(root)
       assert {[], false} = Inbox.list_items()
     end
 
@@ -384,7 +385,7 @@ defmodule Ambry.InboxTest do
 
       insert(:media, book: build(:book), legacy_source_files: [Path.join(release, "book.m4b")])
 
-      assert {:ok, %{created: 0, skipped: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 0, skipped: 1}} = discover(root)
       assert {[], false} = Inbox.list_items()
     end
   end
@@ -393,7 +394,7 @@ defmodule Ambry.InboxTest do
     test "records what the file is and what it claims about itself" do
       root = watched_root()
       release = release_folder(root, "Tagged Book", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], false} = Inbox.list_items()
 
       assert {:ok, item} = Inbox.probe_item(item)
@@ -409,7 +410,7 @@ defmodule Ambry.InboxTest do
     test "measures a multi-file release as the one recording it will become" do
       root = watched_root()
       release_folder(root, "Chaptered Book", ["01.mp3", "02.mp3"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], false} = Inbox.list_items()
 
       assert {:ok, item} = Inbox.probe_item(item)
@@ -428,7 +429,7 @@ defmodule Ambry.InboxTest do
 
       # The whole book, not the first file: the durations add up into one
       # timeline, and so do the bytes.
-      {:ok, one} = Scanner.probe_file(Path.join(item.path, "01.mp3"))
+      {:ok, one} = Scanner.probe_file(Path.join(InboxItem.disk_path(item), "01.mp3"))
       assert Decimal.equal?(Decimal.new(item.probe["duration"]), Decimal.mult(one.duration, 2))
       assert item.probe["size"] == one.size * 2
     end
@@ -439,7 +440,7 @@ defmodule Ambry.InboxTest do
       release = Path.join(root, "Broken")
       File.mkdir_p!(release)
       File.write!(Path.join(release, "book.m4b"), "this is not audio")
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], false} = Inbox.list_items()
 
       assert {:ok, item} = Inbox.probe_item(item)
@@ -450,35 +451,6 @@ defmodule Ambry.InboxTest do
   end
 
   describe "prepare_draft/1 destination healing" do
-    # A destination's defaults are derived from the item's source, so healing
-    # fills gaps without un-answering anything. The gap: an ad-hoc-scanned
-    # item adopts its source when that source's own scan next sees it, and a
-    # draft sealed without a policy now has one on offer.
-    test "fills in the policy when the item adopts a source after drafting" do
-      dir = watched_root()
-      release_folder(dir, "Sourced Later", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(dir)
-      {[item], false} = Inbox.list_items(filter: "Sourced Later")
-      {:ok, item} = Inbox.probe_item(item)
-
-      {:ok, item} = Inbox.prepare_draft(item)
-      assert item.draft.destination.policy == nil
-      refute item.draft.destination.approved
-
-      insert(:source, path: dir, import_policy: :copy)
-      root = insert(:root)
-      # the source's own scan is what adopts the item (and rewrites its
-      # stored paths into the source's coordinates)
-      assert {:ok, %{updated: 1}} = Inbox.discover()
-
-      {:ok, healed} = Inbox.prepare_draft(Inbox.get_item!(item.id))
-
-      assert healed.draft.destination.policy == :copy
-      # the single root auto-picks, exactly as a fresh seed would
-      assert healed.draft.destination.root_id == root.id
-      assert healed.draft.destination.approved
-    end
-
     test "a settled destination is left alone" do
       dir = watched_root()
       release_folder(dir, "Stays Settled", ["book.m4b"])
@@ -521,7 +493,7 @@ defmodule Ambry.InboxTest do
     test "take an item out of the queue and back, without touching files" do
       root = watched_root()
       release = release_folder(root, "A Book", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], false} = Inbox.list_items()
 
       {:ok, item} = Inbox.ignore_item(item)
@@ -538,7 +510,7 @@ defmodule Ambry.InboxTest do
       root = watched_root()
       release_folder(root, "Keeper", ["book.m4b"])
       release_folder(root, "Reject", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
 
       {items, false} = Inbox.list_items()
       reject = Enum.find(items, &(InboxItem.name(&1) == "Reject"))
@@ -556,9 +528,9 @@ defmodule Ambry.InboxTest do
     test "the queue is newest-found first" do
       root = watched_root()
       release_folder(root, "Found first", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       release_folder(root, "Found second", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
 
       assert {items, false} = Inbox.list_items(status: :pending)
       assert Enum.map(items, &InboxItem.name/1) == ["Found second", "Found first"]
@@ -571,7 +543,7 @@ defmodule Ambry.InboxTest do
       root = watched_root()
       release_folder(root, "Found first", ["book.m4b"])
       release_folder(root, "Found second", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
 
       {items, false} = Inbox.list_items()
       first = Enum.find(items, &(InboxItem.name(&1) == "Found first"))
@@ -638,25 +610,19 @@ defmodule Ambry.InboxTest do
       assert %DateTime{} = Ambry.Library.get_source!(source.id).last_scanned_at
     end
 
-    # An item found under a source adopts it: that's a fact the scan just
-    # established, not a guess about an item whose origin was never known.
-    # Adoption also rewrites the stored path into the source's coordinates,
-    # so the columns agree with the FK.
-    test "backfills the source of an item discovered before sources existed" do
-      root = watched_root()
-      release = release_folder(root, "Leviathan Wakes", ["book.m4b"])
+    # The stored columns are the source's coordinates, never the disk's:
+    # that is what lets a source's mount point move without stranding
+    # everything queued under it.
+    test "stores every path relative to the source it was found in" do
+      source = insert(:source, path: watched_root())
+      release = release_folder(source.path, "Leviathan Wakes", ["book.m4b"])
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = Inbox.discover()
+
       assert {[item], false} = Inbox.list_items()
-      assert is_nil(item.source_id)
-      assert item.path == release
-
-      source = insert(:source, path: root)
-
-      assert {:ok, %{updated: 1}} = Inbox.discover()
-      assert {[item], false} = Inbox.list_items()
-      assert item.path == "Leviathan Wakes"
       assert item.source_id == source.id
+      assert item.path == "Leviathan Wakes"
+      assert item.files == ["Leviathan Wakes/book.m4b"]
       assert InboxItem.disk_path(item) == release
     end
   end
@@ -669,12 +635,12 @@ defmodule Ambry.InboxTest do
     test "splits a folder of separate books into one item per file" do
       root = watched_root()
       release = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
       {[item], false} = Inbox.list_items()
 
       assert {:ok, children} = Inbox.split_item(item)
 
-      assert Enum.sort(Enum.map(children, & &1.path)) ==
+      assert Enum.sort(Enum.map(children, &InboxItem.disk_path/1)) ==
                Enum.sort([Path.join(release, "one.m4b"), Path.join(release, "two.m4b")])
 
       assert Enum.all?(children, &(&1.files == [&1.path]))
@@ -690,11 +656,11 @@ defmodule Ambry.InboxTest do
     test "a rescan respects the split instead of re-merging the folder" do
       root = watched_root()
       release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], false} = Inbox.list_items()
       {:ok, _children} = Inbox.split_item(item)
 
-      assert {:ok, %{created: 0}} = Inbox.discover(root)
+      assert {:ok, %{created: 0}} = discover(root)
 
       {items, false} = Inbox.list_items()
       assert length(items) == 2
@@ -704,30 +670,39 @@ defmodule Ambry.InboxTest do
     test "a file that appears in a split folder becomes its own item" do
       root = watched_root()
       release = release_folder(root, "Two Novellas", ["one.m4b", "two.m4b"])
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], false} = Inbox.list_items()
       {:ok, _children} = Inbox.split_item(item)
 
       copy_audio(release, "three.m4b")
 
-      assert {:ok, %{created: 1}} = Inbox.discover(root)
+      assert {:ok, %{created: 1}} = discover(root)
 
       {items, false} = Inbox.list_items()
       assert length(items) == 3
-      assert Enum.any?(items, &(&1.path == Path.join(release, "three.m4b")))
+      assert Enum.any?(items, &(InboxItem.disk_path(&1) == Path.join(release, "three.m4b")))
     end
 
     test "refuses an imported item and a single-file item" do
-      imported = raw_item(%{path: "/two", files: ["/a.m4b", "/b.m4b"], status: :imported})
+      imported = raw_item(%{path: "two", files: ["a.m4b", "b.m4b"], status: :imported})
       assert {:error, :already_imported} = Inbox.split_item(imported)
 
-      single = raw_item(%{path: "/only.m4b", files: ["/only.m4b"]})
+      single = raw_item(%{path: "only.m4b", files: ["only.m4b"]})
       assert {:error, :not_multi_file} = Inbox.split_item(single)
     end
   end
 
   defp raw_item(attrs) do
+    attrs = Map.put_new_lazy(attrs, :source_id, fn -> insert(:source).id end)
     %InboxItem{} |> InboxItem.changeset(attrs) |> Repo.insert!()
+  end
+
+  # Every item comes from a source, so the walk is only ever exercised
+  # through one. Get-or-create because rescanning the same tree is the point
+  # of half these tests.
+  defp discover(root) do
+    source = Repo.get_by(Source, path: root) || insert(:source, path: root)
+    Inbox.discover(source)
   end
 
   # Nothing in the inbox may modify what it finds, so every test works

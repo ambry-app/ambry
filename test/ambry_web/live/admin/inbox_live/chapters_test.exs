@@ -24,13 +24,23 @@ defmodule AmbryWeb.Admin.InboxLive.ChaptersTest do
   setup :register_and_log_in_admin_user
 
   # A two-file release, so the probe stages two file-boundary markers.
+
+  # Every item comes from a source; get-or-create so a rescan of the same
+  # tree is still one source.
+  defp discover(root) do
+    source =
+      Repo.get_by(Ambry.Library.Source, path: root) || insert(:source, path: root)
+
+    Inbox.discover(source)
+  end
+
   defp chaptered_item do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
     release = Path.join(root, "Chaptered Book")
     File.mkdir_p!(release)
     Enum.each(["01.mp3", "02.mp3"], &File.cp!(valid_audio(:mp3), Path.join(release, &1)))
 
-    {:ok, _counts} = Inbox.discover(root)
+    {:ok, _counts} = discover(root)
     {[item], false} = Inbox.list_items(filter: "Chaptered Book")
     {:ok, item} = Inbox.probe_item(item)
 

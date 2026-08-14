@@ -1811,7 +1811,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       File.cp!(tagged_fixture(true, false, nil), Path.join(release, "one.m4b"))
       File.cp!(tagged_fixture(true, false, nil), Path.join(release, "two.m4b"))
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], _more} = Inbox.list_items(filter: "Two Novellas")
       {:ok, item} = Inbox.probe_item(item)
       Repo.delete_all(Oban.Job)
@@ -1848,7 +1848,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
         File.cp!(tagged_fixture(true, false, nil), Path.join(dir, "part#{file}.m4b"))
       end
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], _more} = Inbox.list_items(filter: "The Way of Kings")
       {:ok, item} = Inbox.probe_item(item)
       Repo.delete_all(Oban.Job)
@@ -1872,7 +1872,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
                ["The Way of Kings/1 of 3", "The Way of Kings/2 of 3", "The Way of Kings/3 of 3"]
 
       # a rescan must not re-merge what the operator just took apart
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {items, _more} = Inbox.list_items(filter: "The Way of Kings")
       assert length(items) == 3
     end
@@ -1895,7 +1895,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
         File.cp!(tagged_fixture(true, false, nil), Path.join(dir, "book.m4b"))
       end
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {[item], _more} = Inbox.list_items(filter: "Discworld")
       {:ok, item} = Inbox.probe_item(item)
       Repo.delete_all(Oban.Job)
@@ -1908,7 +1908,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {items, _more} = Inbox.list_items(filter: "Discworld")
       assert length(items) == 3
 
-      {:ok, _counts} = Inbox.discover(root)
+      {:ok, _counts} = discover(root)
       {items, _more} = Inbox.list_items(filter: "Discworld")
 
       assert length(items) == 3
@@ -2047,6 +2047,15 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   defp add_second_person(view, key) do
     view |> element("#person-#{key} button[phx-click='separate-name']") |> render_click()
     view |> element("#person-#{key} button[phx-click='add-person']") |> render_click()
+  end
+
+  # Every item comes from a source; get-or-create so a rescan of the same
+  # tree is still one source.
+  defp discover(root) do
+    source =
+      Repo.get_by(Ambry.Library.Source, path: root) || insert(:source, path: root)
+
+    Inbox.discover(source)
   end
 
   defp watched_root do
