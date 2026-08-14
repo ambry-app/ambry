@@ -37,10 +37,11 @@ defmodule Ambry.Library do
 
   use Boundary,
     deps: [Ambry.Paths, Ambry.Repo],
-    exports: [Source, Root, NamingTemplate, Placement]
+    exports: [Source, Root, ImportPreference, NamingTemplate, Placement]
 
   import Ecto.Query
 
+  alias Ambry.Library.ImportPreference
   alias Ambry.Library.Mounts
   alias Ambry.Library.Root
   alias Ambry.Library.Source
@@ -166,6 +167,61 @@ defmodule Ambry.Library do
   end
 
   def change_root(%Root{} = root, attrs \\ %{}), do: Root.changeset(root, attrs)
+
+  ## remembered placement
+
+  @doc """
+  Records what an import from `source` into `root` just did.
+
+  Called once the import has committed, not when the operator picks: what
+  the next import should propose is what the last one *actually did*, and a
+  choice made on a release that then failed to place is not that. See
+  `Ambry.Library.ImportPreference` for why this is remembered rather than
+  configured.
+  """
+  def remember_placement(%Source{} = source, %Root{} = root, policy) do
+    attrs = %{
+      source_id: source.id,
+      library_root_id: root.id,
+      policy: policy,
+      last_used_at: DateTime.utc_now(:second)
+    }
+
+    %ImportPreference{}
+    |> ImportPreference.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: {:replace, [:policy, :last_used_at, :updated_at]},
+      conflict_target: [:source_id, :library_root_id]
+    )
+  end
+
+  @doc """
+  What this source last did, and where — `nil` until it has imported once.
+
+  The most recent pairing, which carries both halves of the proposal: the
+  root to offer, and the policy that went with it.
+  """
+  def recall_placement(%Source{id: id}) do
+    ImportPreference
+    |> where([p], p.source_id == ^id)
+    |> order_by([p], desc: p.last_used_at, desc: p.id)
+    |> limit(1)
+    |> Repo.one()
+  end
+
+  @doc """
+  The policy this pairing last used, or `nil`.
+
+  Asked per pairing rather than per source because the answer is a fact
+  about the pairing: the same downloads folder may hardlink into one root
+  and have to copy into another on a different disk.
+  """
+  def recall_policy(%Source{id: source_id}, %Root{id: root_id}) do
+    ImportPreference
+    |> where([p], p.source_id == ^source_id and p.library_root_id == ^root_id)
+    |> select([p], p.policy)
+    |> Repo.one()
+  end
 
   ## stored-path resolution
   #

@@ -8,6 +8,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Library
+  alias Ambry.Library.ImportPreference
   alias Ambry.Media
   alias Ambry.Settings
 
@@ -379,6 +380,59 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert String.starts_with?(placed, chosen.path)
     end
 
+    # Which of the four doors an import uses is a fact about the *pairing*,
+    # so it is learned rather than configured: the next import from a source
+    # proposes what the last one into that root actually did.
+    test "the next import proposes what the last one from this source did" do
+      %{item: item, watched: watched, root: root} = downloads_item(policy: :hardlink)
+
+      item = pick(item, &Destination.choose_policy(&1, :move))
+      assert {:ok, _media} = Inbox.import_item(item)
+
+      assert %ImportPreference{} = memory = Library.recall_placement(watched)
+      assert Library.get_root!(memory.library_root_id).path == root
+      assert memory.policy == :move
+
+      # a fresh candidate from the same source starts where the last one
+      # ended up, not at the source's standing default
+      next = second_release(watched)
+      {:ok, next} = Inbox.prepare_draft(next)
+
+      assert next.draft.destination.policy == :move
+      refute next.draft.destination.policy_chosen
+    end
+
+    # The reason the memory is written after the import rather than when the
+    # operator picks: the queue's Ready badge reads a stored column, so an
+    # item nobody has opened since would go on proposing the old default and
+    # look settled while proposing it.
+    test "items already queued follow the memory when it moves" do
+      %{item: item, watched: watched} = downloads_item(policy: :hardlink)
+
+      queued = second_release(watched)
+      {:ok, queued} = Inbox.prepare_draft(queued)
+      assert queued.draft.destination.policy == :hardlink
+
+      item = pick(item, &Destination.choose_policy(&1, :copy))
+      assert {:ok, _media} = Inbox.import_item(item)
+
+      # not reopened, not prepared — read straight back off the row
+      assert Repo.reload(queued).draft.destination.policy == :copy
+    end
+
+    test "a policy the operator picked for one release is not moved by the memory" do
+      %{item: item, watched: watched} = downloads_item(policy: :hardlink)
+
+      queued = second_release(watched)
+      {:ok, queued} = Inbox.prepare_draft(queued)
+      queued = pick(queued, &Destination.choose_policy(&1, :symlink))
+
+      item = pick(item, &Destination.choose_policy(&1, :copy))
+      assert {:ok, _media} = Inbox.import_item(item)
+
+      assert Repo.reload(queued).draft.destination.policy == :symlink
+    end
+
     test "a source's preferred root preselects without binding" do
       %{item: item, watched: watched} = downloads_item()
 
@@ -528,6 +582,27 @@ defmodule Ambry.Inbox.ManagedImportTest do
       watched: watched,
       downloads: downloads
     }
+  end
+
+  # Another candidate under the same watched folder, probed and queued.
+  defp second_release(watched) do
+    release = Path.join(watched.path, "Words of Radiance [M4B]")
+    File.mkdir_p!(release)
+    File.cp!(tagged_audio(), Path.join(release, "book.m4b"))
+
+    {:ok, _counts} = Inbox.discover(watched)
+    {[item], false} = Inbox.list_items(filter: "Words of Radiance")
+    {:ok, item} = Inbox.probe_item(item)
+
+    item
+  end
+
+  # What the form's destination pickers do: transform the stored destination
+  # and save it back.
+  defp pick(item, fun) do
+    draft = %{item.draft | destination: fun.(item.draft.destination)}
+    {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+    item
   end
 
   defp new_dir(prefix) do

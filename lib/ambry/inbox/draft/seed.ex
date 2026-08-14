@@ -322,11 +322,18 @@ defmodule Ambry.Inbox.Draft.Seed do
     %{destination | root_id: root && root.id, policy: policy}
   end
 
-  # What the source prefers, then the only root there is. The single-root
-  # case — which is nearly all of them — resolves silently: being asked to
-  # pick from a list of one is not a decision, it's an interruption.
+  # Where this source last imported, then what it prefers, then the only
+  # root there is. The single-root case — which is nearly all of them —
+  # resolves silently: being asked to pick from a list of one is not a
+  # decision, it's an interruption.
+  #
+  # The memory is filtered through the current registry rather than
+  # trusted, for the same reason a chosen root is.
   defp default_root(%Source{} = source, roots) do
-    find_root(roots, source.target_root_id) ||
+    remembered = Library.recall_placement(source)
+
+    find_root(roots, remembered && remembered.library_root_id) ||
+      find_root(roots, source.target_root_id) ||
       case roots do
         [only] -> only
         _none_or_several -> nil
@@ -336,7 +343,10 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp find_root(_roots, nil), do: nil
   defp find_root(roots, id), do: Enum.find(roots, &(&1.id == id))
 
-  defp default_policy(%Source{} = source, %Root{}), do: source.import_policy
+  # What this exact pairing last did, then the source's standing default.
+  defp default_policy(%Source{} = source, %Root{} = root) do
+    Library.recall_policy(source, root) || source.import_policy
+  end
 
   ## work
 

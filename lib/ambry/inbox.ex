@@ -71,6 +71,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.RunProbe
   alias Ambry.Inbox.Undo
   alias Ambry.Library
+  alias Ambry.Library.ImportPreference
   alias Ambry.Library.Root
   alias Ambry.Library.Source
   alias Ambry.Media.Media
@@ -753,6 +754,7 @@ defmodule Ambry.Inbox do
   def import_item(%InboxItem{} = item) do
     case Importer.import_item(item) do
       {:ok, media} ->
+        remember_placement(item)
         refresh_siblings(item)
         {:ok, media}
 
@@ -763,6 +765,47 @@ defmodule Ambry.Inbox do
         update_item(item, %{issue: describe_error(reason)})
         error
     end
+  end
+
+  # What the next import from this source should propose is what this one
+  # did. Remembered after the fact rather than when the operator picked: a
+  # choice made on a release that then failed to place is not what the
+  # source does.
+  defp remember_placement(%InboxItem{} = item) do
+    %InboxItem{source: source, draft: draft} = Repo.preload(item, :source)
+
+    with %Source{} = source <- source,
+         %Draft{destination: %Destination{root_id: id, policy: policy}} when not is_nil(policy) <-
+           draft,
+         %Root{} = root <- id && Repo.get(Root, id) do
+      previous = Library.recall_placement(source)
+      {:ok, _preference} = Library.remember_placement(source, root, policy)
+
+      if moved?(previous, root, policy), do: refresh_queued_destinations(source)
+    end
+
+    :ok
+  end
+
+  defp moved?(nil, _root, _policy), do: true
+  defp moved?(%ImportPreference{library_root_id: id, policy: p}, %Root{id: id}, p), do: false
+  defp moved?(%ImportPreference{}, _root, _policy), do: true
+
+  # The default just moved, and every queued item that was following the old
+  # one is now proposing the wrong thing. Opening each would fix it, but the
+  # queue's Ready badge reads a stored column — so nothing would look
+  # different until the operator opened all three hundred, which is the
+  # opposite of what remembering a choice is for.
+  #
+  # Only runs when the memory actually changed, which after the first import
+  # from a source is almost never.
+  defp refresh_queued_destinations(%Source{} = source) do
+    InboxItem
+    |> where([i], i.source_id == ^source.id and i.status == :pending)
+    |> Repo.all()
+    |> Enum.each(fn item ->
+      if item.draft, do: refresh_destination(item)
+    end)
   end
 
   @doc """
