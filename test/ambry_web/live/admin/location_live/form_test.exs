@@ -21,14 +21,17 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
 
       assert [source] = Library.list_sources()
       assert source.name == "Downloads NAS"
-      assert source.import_policy == :hardlink
     end
 
-    test "always asks how the files come in", %{conn: conn} do
+    # A source is a path and nothing else. How its files reach the library
+    # is a fact about the pairing with a root, decided per import and
+    # remembered there — asking it here could only ever be right for one
+    # destination.
+    test "asks nothing about placement", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/admin/locations/sources/new")
 
-      assert html =~ "How the files come in"
-      assert html =~ "Symlink"
+      refute html =~ "How the files come in"
+      refute html =~ "Preferred library root"
     end
 
     # Finding out that a path is wrong at save time is late; finding out at
@@ -94,14 +97,13 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
       {:ok, view, _html} = live(conn, ~p"/admin/locations/sources/#{source}/edit")
 
       view
-      |> form("#location-form", source: %{name: "New Name", import_policy: "move"})
+      |> form("#location-form", source: %{name: "New Name"})
       |> render_submit()
 
       assert_redirect(view, ~p"/admin/locations")
 
       source = Library.get_source!(source.id)
       assert source.name == "New Name"
-      assert source.import_policy == :move
     end
 
     test "updates a root", %{conn: conn} do

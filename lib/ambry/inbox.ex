@@ -670,12 +670,12 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # The draft's choice, which the seed filled from the source. Falling back
-  # to the source covers a preflight taken before any draft exists.
+  # The draft's choice, or the default the seed put there. There is no
+  # source-level fallback any more: how the files come in is a fact about
+  # the pairing, so with no root settled there is nothing to fall back to.
   defp chosen_policy(%InboxItem{draft: %{destination: %{policy: policy}}})
        when not is_nil(policy), do: policy
 
-  defp chosen_policy(%InboxItem{source: %Source{import_policy: policy}}), do: policy
   defp chosen_policy(%InboxItem{}), do: nil
 
   # The root the draft settled on, not one derived from the source: inputs

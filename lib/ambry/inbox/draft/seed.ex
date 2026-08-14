@@ -322,10 +322,10 @@ defmodule Ambry.Inbox.Draft.Seed do
     %{destination | root_id: root && root.id, policy: policy}
   end
 
-  # Where this source last imported, then what it prefers, then the only
-  # root there is. The single-root case — which is nearly all of them —
-  # resolves silently: being asked to pick from a list of one is not a
-  # decision, it's an interruption.
+  # Where this source last imported, then the only root there is. The
+  # single-root case — which is nearly all of them — resolves silently:
+  # being asked to pick from a list of one is not a decision, it's an
+  # interruption.
   #
   # The memory is filtered through the current registry rather than
   # trusted, for the same reason a chosen root is.
@@ -333,7 +333,6 @@ defmodule Ambry.Inbox.Draft.Seed do
     remembered = Library.recall_placement(source)
 
     find_root(roots, remembered && remembered.library_root_id) ||
-      find_root(roots, source.target_root_id) ||
       case roots do
         [only] -> only
         _none_or_several -> nil
@@ -343,9 +342,30 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp find_root(_roots, nil), do: nil
   defp find_root(roots, id), do: Enum.find(roots, &(&1.id == id))
 
-  # What this exact pairing last did, then the source's standing default.
+  # What this exact pairing last did, and failing that what the disk allows.
   defp default_policy(%Source{} = source, %Root{} = root) do
-    Library.recall_policy(source, root) || source.import_policy
+    Library.recall_policy(source, root) || feasible_policy(source, root)
+  end
+
+  # Nothing remembered yet, so there is one thing worth assuming and three
+  # worth asking about.
+  #
+  # Where the pair shares a filesystem, hardlink dominates: no extra bytes,
+  # the source untouched, nothing to dangle. The only reason to prefer
+  # something else there is wanting the folder emptied, which is a
+  # preference rather than a safe default — and one import corrects it for
+  # every item behind it.
+  #
+  # Across filesystems the three remaining doors mean three genuinely
+  # different things — reference it, duplicate it, relocate it — with no
+  # dominant answer, and guessing wrong silently doubles the operator's
+  # storage. So this proposes nothing and the destination stays an
+  # outstanding decision, once per pairing.
+  defp feasible_policy(%Source{} = source, %Root{} = root) do
+    case Library.same_filesystem?(source.path, root.path) do
+      {:ok, true} -> :hardlink
+      _different_or_unknown -> nil
+    end
   end
 
   ## work

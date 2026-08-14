@@ -50,7 +50,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
-  alias Ambry.Library.Source
+  alias Ambry.Library.Placement
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
   alias Ambry.People
@@ -1039,7 +1039,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
-  @placement_policies Source.import_policies()
+  @placement_policies Placement.policies()
 
   defp to_policy(value) do
     Enum.find(@placement_policies, &(to_string(&1) == value))

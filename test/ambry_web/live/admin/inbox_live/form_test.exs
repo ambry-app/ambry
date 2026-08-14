@@ -1919,7 +1919,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
   describe "destination" do
     test "says where the file is going before anything is committed", %{conn: conn} do
-      item = probed_item() |> settle()
+      item = probed_item(policy: :symlink) |> settle()
 
       {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
@@ -2095,20 +2095,24 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       Path.join(release, "book.m4b")
     )
 
-    # A settled destination needs a root to place into and a source to seed
-    # the policy; symlink keeps the fixtures where the test put them.
+    # A settled destination needs a root to place into. Root and fixtures
+    # share a filesystem here, so the policy defaults to hardlinking, which
+    # leaves the fixtures where the test put them.
     if Ambry.Library.list_roots() == [] do
       library = Ambry.Paths.source_media_disk_path("library-#{Ecto.UUID.generate()}")
       File.mkdir_p!(library)
       insert(:root, path: library)
     end
 
-    watched =
-      insert(:source,
-        path: root,
-        import_policy: :symlink,
-        name: "Watched #{Ecto.UUID.generate()}"
-      )
+    watched = insert(:source, path: root, name: "Watched #{Ecto.UUID.generate()}")
+
+    # The policy lives on the pairing now. Root and fixtures share a
+    # filesystem here, so it would default to hardlinking; a test that wants
+    # a different door seeds it the way an earlier import would have.
+    if policy = Keyword.get(opts, :policy) do
+      {:ok, _memory} =
+        Ambry.Library.remember_placement(watched, hd(Ambry.Library.list_roots()), policy)
+    end
 
     {:ok, _counts} = Inbox.discover(watched)
     {items, _more} = Inbox.list_items(filter: name)

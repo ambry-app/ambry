@@ -124,22 +124,6 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
   defp filesystem_tag(_filesystems, %{device: nil}), do: nil
   defp filesystem_tag(filesystems, status), do: filesystems[{status.device, status.mount}]
 
-  defp policy_label(:hardlink), do: "hardlink"
-  defp policy_label(:symlink), do: "symlink"
-  defp policy_label(:copy), do: "copy"
-  defp policy_label(:move), do: "move"
-
-  defp policy_blurb(:hardlink),
-    do: "Import hardlinks its files into a root — one copy of the bytes, seeding untouched."
-
-  defp policy_blurb(:symlink),
-    do:
-      "Import symlinks its files into a root. They're trusted to stay; the link dangles if they don't."
-
-  defp policy_blurb(:copy), do: "Import copies its files into a root, duplicating the bytes."
-
-  defp policy_blurb(:move), do: "Import moves its files into a root, leaving this folder clean."
-
   defp source_problem(status) do
     cond do
       !status.exists? -> "Not found. Is the volume mounted?"

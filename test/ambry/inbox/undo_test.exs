@@ -114,7 +114,7 @@ defmodule Ambry.Inbox.UndoTest do
   # it.
   defp downloads_item(opts \\ []) do
     root = new_dir("root")
-    insert(:root, path: root, name: "Library")
+    root_record = insert(:root, path: root, name: "Library")
 
     downloads = new_dir("downloads")
     release = Path.join(downloads, "The Way of Kings [M4B]")
@@ -123,12 +123,12 @@ defmodule Ambry.Inbox.UndoTest do
     source = Path.join(release, "book.m4b")
     File.cp!(tagged_audio(), source)
 
-    watched =
-      insert(:source,
-        import_policy: Keyword.get(opts, :policy, :copy),
-        path: downloads,
-        name: "Downloads #{Ecto.UUID.generate()}"
-      )
+    watched = insert(:source, path: downloads, name: "Downloads #{Ecto.UUID.generate()}")
+
+    # The policy lives on the pairing now, so a test that wants a particular
+    # one seeds it the way an earlier import would have.
+    {:ok, _memory} =
+      Ambry.Library.remember_placement(watched, root_record, Keyword.get(opts, :policy, :copy))
 
     {:ok, _counts} = Inbox.discover(watched)
     {[item], false} = Inbox.list_items()

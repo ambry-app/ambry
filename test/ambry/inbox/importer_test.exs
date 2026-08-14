@@ -33,7 +33,7 @@ defmodule Ambry.Inbox.ImporterTest do
     end
 
     test "a symlink import never touches the originals" do
-      item = tagged_item()
+      item = tagged_item(policy: :symlink)
       [file] = item |> Repo.preload(:source) |> InboxItem.disk_files()
       before = File.stat!(file)
 
@@ -639,10 +639,11 @@ defmodule Ambry.Inbox.ImporterTest do
     end
   end
 
-  # A real tagged file discovered the way discovery would find it. The
-  # source's policy is symlink, so the originals stay exactly where the test
-  # put them — these tests are about the entity graph, and the placement
-  # policies get their workout in `ManagedImportTest`.
+  # A real tagged file discovered the way discovery would find it. Root and
+  # fixtures share a filesystem, so it hardlinks and the originals stay
+  # exactly where the test put them — these tests are about the entity
+  # graph, and the placement policies get their workout in
+  # `ManagedImportTest`. Pass `policy:` to exercise a different door.
   defp tagged_item(opts \\ []) do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
     name = Keyword.get(opts, :name, "The Way of Kings [M4B]")
@@ -668,12 +669,15 @@ defmodule Ambry.Inbox.ImporterTest do
       insert(:root, path: library)
     end
 
-    watched =
-      insert(:source,
-        path: root,
-        import_policy: :symlink,
-        name: "Watched #{Ecto.UUID.generate()}"
-      )
+    watched = insert(:source, path: root, name: "Watched #{Ecto.UUID.generate()}")
+
+    # The policy lives on the pairing now. Root and fixtures share a
+    # filesystem here, so it would default to hardlinking; a test that wants
+    # a different door seeds it the way an earlier import would have.
+    if policy = Keyword.get(opts, :policy) do
+      {:ok, _memory} =
+        Ambry.Library.remember_placement(watched, hd(Ambry.Library.list_roots()), policy)
+    end
 
     {:ok, _counts} = Inbox.discover(watched)
     {[item], false} = Inbox.list_items(filter: name)

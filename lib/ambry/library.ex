@@ -5,9 +5,10 @@ defmodule Ambry.Library do
   Two registries, deliberately separate because they are separate concepts:
 
     * **Sources** (`Ambry.Library.Source`) — watched folders audiobooks
-      arrive from. Read, never written. Each carries a default placement
-      policy (`import_policy`) naming how import brings its files into a
-      root.
+      arrive from. Read, never written. A path and nothing else: how import
+      brings files out of one is a fact about the *pairing* with a root, so
+      it is remembered per pairing (`Ambry.Library.ImportPreference`)
+      rather than configured on either end.
     * **Library roots** (`Ambry.Library.Root`) — the folders the library's
       audio is organized into, and the only place Ambry serves from.
       Written, never watched. At least one is required to import anything.

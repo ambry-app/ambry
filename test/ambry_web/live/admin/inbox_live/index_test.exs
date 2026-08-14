@@ -389,8 +389,9 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
       end
     end)
 
-    # A settled destination needs a root to place into and a source to seed
-    # the policy; symlink keeps the fixtures where the test put them.
+    # A settled destination needs a root to place into. Root and fixtures
+    # share a filesystem here, so the policy defaults to hardlinking, which
+    # leaves the fixtures where the test put them.
     if Ambry.Library.list_roots() == [] do
       library = Ambry.Paths.source_media_disk_path("library-#{Ecto.UUID.generate()}")
       File.mkdir_p!(library)
@@ -398,11 +399,7 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     end
 
     watched =
-      insert(:source,
-        path: root,
-        import_policy: :symlink,
-        name: "Watched #{Ecto.UUID.generate()}"
-      )
+      insert(:source, path: root, name: "Watched #{Ecto.UUID.generate()}")
 
     {:ok, _counts} = Inbox.discover(watched)
 

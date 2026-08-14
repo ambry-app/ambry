@@ -30,13 +30,6 @@
               <h3 class="font-semibold" data-role="source-name">{source.name}</h3>
 
               <span
-                class="bg-blue-400/15 rounded-sm px-1.5 text-xs text-blue-300"
-                title="How import brings the files into a library root"
-              >
-                {policy_label(source.import_policy)}
-              </span>
-
-              <span
                 :if={fs = filesystem_tag(@filesystems, @statuses[{:source, source.id}])}
                 class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-300"
                 title="Paths sharing this tag can be hardlinked between"
@@ -53,8 +46,6 @@
             <p class="font-mono mt-1 truncate text-sm text-zinc-400" data-role="source-path">
               {source.path}
             </p>
-
-            <p class="mt-1 text-sm text-zinc-400">{policy_blurb(source.import_policy)}</p>
 
             <p
               :if={problem = source_problem(@statuses[{:source, source.id}])}

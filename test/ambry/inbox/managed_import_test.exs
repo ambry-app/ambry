@@ -237,7 +237,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     defp two_part_imports do
       root = new_dir("root")
-      insert(:root, path: root, name: "Library")
+      root_record = insert(:root, path: root, name: "Library")
 
       downloads = new_dir("downloads")
 
@@ -247,12 +247,8 @@ defmodule Ambry.Inbox.ManagedImportTest do
         File.cp!(tagged_audio(), Path.join(release, "book.m4b"))
       end
 
-      watched =
-        insert(:source,
-          import_policy: :copy,
-          path: downloads,
-          name: "Downloads #{Ecto.UUID.generate()}"
-        )
+      watched = insert(:source, path: downloads, name: "Downloads #{Ecto.UUID.generate()}")
+      {:ok, _memory} = Library.remember_placement(watched, root_record, :copy)
 
       {:ok, _counts} = Inbox.discover(watched)
       {items, false} = Inbox.list_items()
@@ -347,8 +343,11 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # With several roots the choice is about which NAS, and therefore about
     # whether hardlinking is possible at all. Guessing is not acceptable.
     test "refuses when several roots exist and none was chosen" do
+      # No memory to inherit and no preference to fall back on, so the root
+      # is a genuine question — asked once, and answered from then on.
+      %{item: item} = downloads_item(policy: :unremembered)
       insert(:root, path: new_dir("second-root"))
-      %{item: item} = downloads_item()
+      {:ok, item} = Inbox.prepare_draft(Repo.reload(item))
 
       assert {:error, {:unresolved, outstanding}} = Inbox.import_item(item)
       assert Enum.any?(outstanding, &(&1.section == :destination))
@@ -431,19 +430,6 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert {:ok, _media} = Inbox.import_item(item)
 
       assert Repo.reload(queued).draft.destination.policy == :symlink
-    end
-
-    test "a source's preferred root preselects without binding" do
-      %{item: item, watched: watched} = downloads_item()
-
-      chosen = insert(:root, path: new_dir("preferred-root"))
-
-      {:ok, _watched} = Library.update_source(watched, %{target_root_id: chosen.id})
-
-      {:ok, item} = Inbox.rebuild_draft(Repo.reload(item))
-
-      assert item.draft.destination.root_id == chosen.id
-      assert Destination.resolved?(item.draft.destination)
     end
 
     # Two recordings of one book used to render to one path and refuse; each
@@ -539,9 +525,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
         path -> path
       end
 
-    if root do
-      insert(:root, path: root, name: "Library")
-    end
+    root_record = if root, do: insert(:root, path: root, name: "Library")
 
     downloads = new_dir("downloads")
     release = Path.join(downloads, "The Way of Kings [M4B]")
@@ -558,12 +542,15 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     source = hd(sources)
 
-    watched =
-      insert(:source,
-        import_policy: policy,
-        path: downloads,
-        name: "Downloads #{Ecto.UUID.generate()}"
-      )
+    watched = insert(:source, path: downloads, name: "Downloads #{Ecto.UUID.generate()}")
+
+    # The policy is a memory of the pairing now, not a field on either end,
+    # so a test that wants a particular one seeds it the way an earlier
+    # import would have. `:unremembered` leaves the pairing blank, which is
+    # what a source that has never imported looks like.
+    if root_record && policy != :unremembered do
+      {:ok, _memory} = Library.remember_placement(watched, root_record, policy)
+    end
 
     {:ok, _counts} = Inbox.discover(watched)
     {[item], false} = Inbox.list_items()

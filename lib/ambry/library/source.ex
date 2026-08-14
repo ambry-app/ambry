@@ -2,12 +2,25 @@ defmodule Ambry.Library.Source do
   @moduledoc """
   A watched folder audiobooks arrive from. Read, never written.
 
-  Import always places a source's files into a library root; the source
-  carries the default `import_policy` naming how — hardlink, symlink, copy
-  or move. The durability question the operator used to answer separately
-  ("can these files be trusted to stay?") is answered by the choice itself:
-  pick `:symlink` if they'll stay, `:hardlink`/`:copy`/`:move` if they
-  might not.
+  A source is a path and nothing else — where to look, and whether to keep
+  looking. What happens to what it finds is decided at import, because that
+  is where the question can be answered.
+
+  ## Why placement isn't configured here
+
+  Import places a source's files into a library root by hardlinking,
+  symlinking, copying or moving them, and this used to carry a default
+  naming which. Two things were wrong with that. Whether a hardlink is even
+  *possible* depends on the source and the root sharing a filesystem, which
+  one end cannot know — the same downloads folder may hardlink into one root
+  and have to copy into another on a different disk. And the field was never
+  binding: every import could change it, which makes it a default rather
+  than a setting, and a default that is overridden half the time is better
+  learned than typed.
+
+  So the pairing remembers instead (`Ambry.Library.ImportPreference`), and
+  the source's preferred root went the same way: the root it most recently
+  imported into is the one it proposes next.
 
   How organized the folder is doesn't matter and isn't asked: discovery
   measures release boundaries from the tree itself, and a messy downloads
@@ -18,43 +31,22 @@ defmodule Ambry.Library.Source do
 
   import Ecto.Changeset
 
-  alias Ambry.Library.Root
-
-  @import_policies [:hardlink, :symlink, :copy, :move]
-
   schema "sources" do
-    # A *preferred* root, not a binding one: any source may feed any root,
-    # and which one an import uses is a per-import decision this only seeds.
-    # Pairing each source with a same-filesystem root is what makes
-    # hardlinking possible, so complex setups pair them explicitly.
-    belongs_to :target_root, Root
-
     field :name, :string
     field :path, :string
-    field :import_policy, Ecto.Enum, values: @import_policies, default: :hardlink
     field :enabled, :boolean, default: true
     field :last_scanned_at, :utc_datetime
 
     timestamps(type: :utc_datetime)
   end
 
-  def import_policies, do: @import_policies
-
   @doc false
   def changeset(source, attrs) do
     source
-    |> cast(attrs, [
-      :name,
-      :path,
-      :import_policy,
-      :enabled,
-      :last_scanned_at,
-      :target_root_id
-    ])
+    |> cast(attrs, [:name, :path, :enabled, :last_scanned_at])
     |> update_change(:path, &normalize_path/1)
-    |> validate_required([:name, :path, :import_policy])
+    |> validate_required([:name, :path])
     |> validate_absolute_path()
-    |> foreign_key_constraint(:target_root_id)
     |> unique_constraint(:path)
     |> unique_constraint(:name)
   end

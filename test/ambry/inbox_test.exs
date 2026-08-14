@@ -460,8 +460,9 @@ defmodule Ambry.InboxTest do
     setup do
       dir = watched_root()
       release_folder(dir, "Waiting Release", ["book.m4b"])
-      source = insert(:source, path: dir, import_policy: :hardlink)
-      root = insert(:root)
+      source = insert(:source, path: dir)
+      root = insert(:root, path: watched_root())
+      {:ok, _memory} = Library.remember_placement(source, root, :hardlink)
 
       {:ok, _counts} = Inbox.discover()
       {[item], false} = Inbox.list_items(filter: "Waiting Release")
@@ -480,7 +481,7 @@ defmodule Ambry.InboxTest do
     end
 
     test "an untouched destination follows the default when it moves", ctx do
-      {:ok, _source} = Library.update_source(ctx.source, %{import_policy: :move})
+      {:ok, _memory} = Library.remember_placement(ctx.source, ctx.root, :move)
 
       {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
 
@@ -491,7 +492,7 @@ defmodule Ambry.InboxTest do
     test "a policy the operator chose is never moved by a default", ctx do
       pick(ctx.item, &Destination.choose_policy(&1, :copy))
 
-      {:ok, _source} = Library.update_source(ctx.source, %{import_policy: :move})
+      {:ok, _memory} = Library.remember_placement(ctx.source, ctx.root, :move)
 
       {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
 
@@ -501,32 +502,35 @@ defmodule Ambry.InboxTest do
 
     # The two halves are separate decisions: "where" is not an answer to
     # "how", and one flag would have made picking a root freeze whatever
-    # policy the previous root happened to imply.
+    # policy the previous root happened to imply — here, the first root's
+    # remembered hardlink following the operator to a root that has its own
+    # answer.
     test "picking a root leaves an unpicked policy free to follow the default", ctx do
-      other = insert(:root)
-      pick(ctx.item, &Destination.choose_root(&1, other.id))
+      other = insert(:root, path: watched_root())
+      {:ok, _memory} = Library.remember_placement(ctx.source, other, :move)
 
-      {:ok, _source} = Library.update_source(ctx.source, %{import_policy: :move})
+      pick(ctx.item, &Destination.choose_root(&1, other.id))
 
       {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
 
       assert item.draft.destination.root_id == other.id
       assert item.draft.destination.root_chosen
       assert item.draft.destination.policy == :move
+      refute item.draft.destination.policy_chosen
     end
 
     # Blank is how an operator un-decides; recording it as a choice would
     # leave the import unresolvable with no way back.
     test "clearing a picker hands the choice back to the default", ctx do
-      other = insert(:root)
+      other = insert(:root, path: watched_root())
       pick(ctx.item, &Destination.choose_root(&1, other.id))
       pick(Inbox.get_item!(ctx.item.id), &Destination.choose_root(&1, nil))
 
       {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(ctx.item.id))
 
       refute item.draft.destination.root_chosen
-      # two roots now, and no preference between them
-      assert is_nil(item.draft.destination.root_id)
+      # back to the remembered root, not stuck on the one just cleared
+      assert item.draft.destination.root_id == ctx.root.id
     end
 
     # A root can be deleted between the choice and the next look, and a
@@ -658,7 +662,7 @@ defmodule Ambry.InboxTest do
       downloads = insert(:source, path: watched_root())
 
       collection =
-        insert(:source, path: watched_root(), import_policy: :symlink)
+        insert(:source, path: watched_root())
 
       release_folder(downloads.path, "Leviathan Wakes", ["book.m4b"])
       release_folder(collection.path, "Project Hail Mary", ["book.m4b"])

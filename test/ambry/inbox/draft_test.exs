@@ -15,10 +15,13 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Repo
 
   defp item(attrs) do
-    # A settled environment — one root, a sourced item — so the destination
-    # resolves silently and these tests stay about the decision tree.
-    if Ambry.Library.list_roots() == [], do: insert(:root)
+    # A settled environment — one root, a sourced item, a pairing that has
+    # imported before — so the destination resolves silently and these tests
+    # stay about the decision tree. The memory is what settles it: these
+    # paths don't exist on disk, so nothing can be derived from them.
+    root = List.first(Ambry.Library.list_roots()) || insert(:root)
     source = insert(:source)
+    {:ok, _memory} = Ambry.Library.remember_placement(source, root, :hardlink)
 
     %InboxItem{
       path: "Some Release",
