@@ -22,9 +22,10 @@ defmodule Ambry.Inbox.InboxItem do
   schema "inbox_items" do
     belongs_to :media, Media
 
-    # Where this was found, which is what says whether importing it should
-    # bring the files into a library root or adopt them where they lie.
-    # Nullable: items from an ad-hoc scan have no source to speak for them.
+    # Where this was found, which seeds the placement policy import brings
+    # its files into a library root with. Nullable: items from an ad-hoc
+    # scan have no source to speak for them, so the operator picks the
+    # policy at approval.
     belongs_to :source, Source
 
     field :path, :string

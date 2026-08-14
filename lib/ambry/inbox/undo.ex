@@ -118,9 +118,10 @@ defmodule Ambry.Inbox.Undo do
   defp drop_media(summary, nil), do: note(summary, :kept, "no audiobook: the item had none")
 
   defp drop_media(summary, %Media.Media{} = media) do
-    # Custody decides the bytes, as everywhere else: a managed recording's
-    # library copies go with it, an adopted one's files are somebody else's
-    # and are only ever dereferenced.
+    # The recording's library copies go with it. The originals they were
+    # placed from are untouched by construction — which is exactly why
+    # `source_intact/1` refused already if a move made the library copy the
+    # only one.
     case Media.delete_media(media) do
       {:ok, _media} -> note(summary, :deleted, "the audiobook")
       {:error, reason} -> note(summary, :kept, "the audiobook: #{inspect(reason)}")

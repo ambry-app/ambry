@@ -346,9 +346,8 @@ defmodule Ambry.Inbox.Importer do
 
     %{
       book_id: book.id,
-      # external until placement says otherwise; a downloads item is
-      # repointed to its library copy below
-      custody: :external,
+      # the item's own paths until placement repoints them to the library
+      # copies below
       source_path: item.path,
       source_files: item.files,
       status: :pending,
@@ -490,23 +489,21 @@ defmodule Ambry.Inbox.Importer do
 
   ## placement
 
-  # What import should do with the bytes, decided by the draft's custody:
-  # only a bring-in source's item is placed; a trusted source's files are
-  # adopted exactly where they lie (that is the entire promise of external
-  # custody). Read off the draft rather than re-derived from the source: any
-  # input may feed any output, so which root this import goes to is a
-  # decision the operator made (or that resolved silently because there was
-  # only one), not a property of where the files were found.
-  defp destination(%InboxItem{draft: %{destination: %{custody: :managed} = destination}}) do
-    case Repo.get(Root, destination.root_id) do
-      %Root{} = root -> {:ok, {root, destination.policy}}
+  # Where import puts the bytes. Every import places into a root — there is
+  # no other place Ambry serves from. Read off the draft rather than
+  # re-derived from the source: any input may feed any output, so which root
+  # this import goes to and how the files come in are decisions the operator
+  # made (or that resolved silently because there was only one root and the
+  # source carried a policy), not properties of where the files were found.
+  defp destination(%InboxItem{draft: %{destination: %{root_id: root_id, policy: policy}}})
+       when is_integer(root_id) and not is_nil(policy) do
+    case Repo.get(Root, root_id) do
+      %Root{} = root -> {:ok, {root, policy}}
       nil -> {:error, :no_library_root}
     end
   end
 
-  defp destination(%InboxItem{}), do: {:ok, :adopt}
-
-  defp place(:adopt, _book, media, _files), do: {:ok, media, []}
+  defp destination(%InboxItem{}), do: {:error, :no_library_root}
 
   defp place({root, policy}, book, media, files) do
     # Forced: a freshly-created book carries its `book_authors` as insert
@@ -523,7 +520,7 @@ defmodule Ambry.Inbox.Importer do
          {:ok, filenames} <- NamingTemplate.filenames(values, files, filename_recording(media)),
          paths = Enum.map(filenames, &Path.join([root.path, folder, &1])),
          {:ok, placements} <- Placement.place_all(Enum.zip(files, paths), policy),
-         {:ok, media} <- adopt_managed(media, paths) do
+         {:ok, media} <- record_placement(media, paths) do
       {:ok, media, placements}
     end
   end
@@ -549,14 +546,13 @@ defmodule Ambry.Inbox.Importer do
   defp part_number(_absent_or_removed), do: nil
 
   # The recording now points at the library copies and Ambry owns those
-  # bytes. `source_path` is the folder those copies share, which for a
+  # names. `source_path` is the folder those copies share, which for a
   # multi-file recording is the subfolder of its own that placement gave it,
   # not the book folder it sits in.
-  defp adopt_managed(media, paths) do
+  defp record_placement(media, paths) do
     with {:ok, _tracks} <- repoint_tracks(media, paths) do
       media
       |> Ecto.Changeset.change(%{
-        custody: :managed,
         source_path: paths |> hd() |> Path.dirname(),
         source_files: paths
       })

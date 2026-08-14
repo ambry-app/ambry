@@ -15,7 +15,16 @@ defmodule Ambry.Inbox.DraftTest do
   alias Ambry.Repo
 
   defp item(attrs) do
-    %InboxItem{path: "/downloads/Some Release", files: ["/downloads/Some Release/book.m4b"]}
+    # A settled environment — one root, a sourced item — so the destination
+    # resolves silently and these tests stay about the decision tree.
+    if Ambry.Library.list_roots() == [], do: insert(:root)
+    source = insert(:source)
+
+    %InboxItem{
+      path: "/downloads/Some Release",
+      files: ["/downloads/Some Release/book.m4b"],
+      source_id: source.id
+    }
     |> Map.merge(attrs)
     |> then(&(%InboxItem{} |> InboxItem.changeset(Map.from_struct(&1)) |> Repo.insert!()))
   end

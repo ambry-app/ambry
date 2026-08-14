@@ -30,16 +30,17 @@ defmodule Ambry.Inbox.ImporterTest do
       assert Decimal.compare(media.duration, 0) == :gt
     end
 
-    test "references the files where they lie and never touches them" do
+    test "a symlink import never touches the originals" do
       item = tagged_item()
       [file] = item.files
       before = File.stat!(file)
 
       assert {:ok, media} = Inbox.import_item(item)
 
-      assert media.custody == :external
-      assert media.source_files == item.files
-      assert [%{path: ^file}] = Media.get_media!(media.id).media_tracks
+      media = Media.get_media!(media.id)
+      assert [%{path: placed}] = media.media_tracks
+      assert media.source_files == [placed]
+      assert File.read_link!(placed) == file
 
       assert File.exists?(file)
       assert File.stat!(file).size == before.size
@@ -634,7 +635,10 @@ defmodule Ambry.Inbox.ImporterTest do
     end
   end
 
-  # A real tagged file discovered the way discovery would find it.
+  # A real tagged file discovered the way discovery would find it. The
+  # source's policy is symlink, so the originals stay exactly where the test
+  # put them — these tests are about the entity graph, and the placement
+  # policies get their workout in `ManagedImportTest`.
   defp tagged_item(opts \\ []) do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
     name = Keyword.get(opts, :name, "The Way of Kings [M4B]")
@@ -652,7 +656,22 @@ defmodule Ambry.Inbox.ImporterTest do
         Enum.each(names, &File.cp!(valid_audio(:mp3), Path.join(release, &1)))
     end
 
-    {:ok, _counts} = Inbox.discover(root)
+    # One root for the whole test — a second one would make every
+    # destination ambiguous, which is its own test elsewhere.
+    if Ambry.Library.list_roots() == [] do
+      library = Ambry.Paths.source_media_disk_path("library-#{Ecto.UUID.generate()}")
+      File.mkdir_p!(library)
+      insert(:root, path: library)
+    end
+
+    watched =
+      insert(:source,
+        path: root,
+        import_policy: :symlink,
+        name: "Watched #{Ecto.UUID.generate()}"
+      )
+
+    {:ok, _counts} = Inbox.discover(watched)
     {[item], false} = Inbox.list_items(filter: name)
     {:ok, item} = Inbox.probe_item(item)
 

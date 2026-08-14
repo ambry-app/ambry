@@ -13,11 +13,11 @@ defmodule AmbryWeb.Admin.LocationLive.IndexTest do
     assert html =~ "No sources yet"
   end
 
-  # Roots are optional by design: leave-in-place setups run without any.
-  test "an empty roots section says roots are optional", %{conn: conn} do
+  # Roots are mandatory now: every import places into one.
+  test "an empty roots section says imports need one", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/admin/locations")
 
-    assert html =~ "Add one when a source needs to bring files in"
+    assert html =~ "Nothing can be imported until there is one"
   end
 
   test "lists sources and roots as two sections", %{conn: conn} do
@@ -28,7 +28,7 @@ defmodule AmbryWeb.Admin.LocationLive.IndexTest do
 
     assert html =~ "Downloads NAS"
     assert html =~ "/data/downloads"
-    assert html =~ "brings files in"
+    assert html =~ "hardlink"
     assert html =~ "Old Library"
     assert html =~ "/data/library"
   end
@@ -72,9 +72,7 @@ defmodule AmbryWeb.Admin.LocationLive.IndexTest do
     assert Library.get_source!(source.id).enabled
   end
 
-  # Removing a source or root is a registry edit, never a disk operation —
-  # for a leave-in-place source, touching the files would break the only
-  # promise external custody makes.
+  # Removing a source or root is a registry edit, never a disk operation.
   test "deleting a source leaves its files alone", %{conn: conn} do
     dir = tmp_dir()
     file = Path.join(dir, "book.m4b")

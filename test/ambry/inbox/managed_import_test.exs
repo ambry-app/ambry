@@ -31,7 +31,6 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert {:ok, media} = Inbox.import_item(item)
 
       media = Media.get_media!(media.id)
-      assert media.custody == :managed
 
       assert [placed] = media.source_files
 
@@ -233,7 +232,6 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
       watched =
         insert(:source,
-          on_import: :bring_in,
           import_policy: :copy,
           path: downloads,
           name: "Downloads #{Ecto.UUID.generate()}"
@@ -350,7 +348,6 @@ defmodule Ambry.Inbox.ManagedImportTest do
       {:ok, item} =
         Inbox.update_draft(item, %{
           "destination" => %{
-            "custody" => "managed",
             "root_id" => chosen.id,
             "policy" => "hardlink",
             "approved" => true
@@ -442,21 +439,24 @@ defmodule Ambry.Inbox.ManagedImportTest do
   end
 
   describe "other sources" do
-    test "a leave-in-place source is still adopted exactly where it lies" do
-      %{item: item, source: source} =
-        downloads_item(on_import: :leave_in_place, policy: nil)
+    # The successor to leave-in-place: the files stay exactly where they are
+    # and the library holds pointers to them, but the pointers are Ambry's
+    # own names inside a root, organized by the template like everything
+    # else.
+    test "a symlink source's files stay where they lie, referenced by links" do
+      %{item: item, source: source, root: root} = downloads_item(policy: :symlink)
 
       assert {:ok, media} = Inbox.import_item(item)
 
       media = Media.get_media!(media.id)
-      assert media.custody == :external
-      assert media.source_files == [source]
+      assert [placed] = media.source_files
+      assert String.starts_with?(placed, root)
+      assert File.read_link(placed) == {:ok, source}
       assert File.exists?(source)
     end
   end
 
   defp downloads_item(opts \\ []) do
-    on_import = Keyword.get(opts, :on_import, :bring_in)
     policy = Keyword.get(opts, :policy, :hardlink)
 
     root =
@@ -487,7 +487,6 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     watched =
       insert(:source,
-        on_import: on_import,
         import_policy: policy,
         path: downloads,
         name: "Downloads #{Ecto.UUID.generate()}"

@@ -175,8 +175,8 @@ defmodule Ambry.Inbox do
   Scans one source, or one bare path.
 
   The bare-path form is for ad-hoc scans and for exercising the walk itself;
-  items it creates have no source, so import can't know what custody they
-  imply.
+  items it creates have no source, so they carry no default placement policy
+  and the operator chooses one at approval.
   """
   def discover(%Source{} = source) do
     with {:ok, counts} <- scan(source.path, source) do
@@ -494,24 +494,33 @@ defmodule Ambry.Inbox do
     heal_destination(item)
   end
 
-  # Custody is *derived* — from where the files sit and what the item's
-  # source promises — never chosen by the operator, so re-deriving it
-  # un-answers nothing. It can change under a draft: an ad-hoc-scanned item
-  # adopts its source when the source's own scan next sees it, at which point
-  # a draft that sealed an external destination leaves the operator staring
-  # at "no library root" with no root picker rendered (the picker keys off
-  # the draft's custody). A changed custody replaces the destination with a
-  # fresh seed; an unchanged one leaves the operator's root choice alone.
+  # A destination's *defaults* are derived — from the item's source — while
+  # its root and policy are the operator's to choose, so healing fills gaps
+  # without un-answering anything. The gap it exists for: an ad-hoc-scanned
+  # item adopts its source when the source's own scan next sees it, at which
+  # point the draft's sealed destination has no policy and the source now
+  # knows one. That's a fact the scan established, not a choice to preserve.
   defp heal_destination(%InboxItem{} = item) do
+    stored = item.draft.destination
     fresh = Seed.destination(item)
 
-    if item.draft.destination && item.draft.destination.custody == fresh.custody do
-      {:ok, item}
-    else
-      item
-      |> InboxItem.put_draft(dump(%{item.draft | destination: fresh}))
-      |> Repo.update()
+    cond do
+      is_nil(stored) ->
+        put_destination(item, fresh)
+
+      is_nil(stored.policy) and not is_nil(fresh.policy) ->
+        healed = %{stored | policy: fresh.policy, root_id: stored.root_id || fresh.root_id}
+        put_destination(item, %{healed | approved: not is_nil(healed.root_id)})
+
+      true ->
+        {:ok, item}
     end
+  end
+
+  defp put_destination(item, destination) do
+    item
+    |> InboxItem.put_draft(dump(%{item.draft | destination: destination}))
+    |> Repo.update()
   end
 
   @doc """
@@ -623,39 +632,12 @@ defmodule Ambry.Inbox do
   lets the form refuse to offer a button that fails, and it tells the
   operator *where the file is going* before they commit to it.
 
-  Returns a map with `:custody`, a human `:summary`, and `:blocker` — nil when
-  placement will work.
+  Returns a map with a human `:summary` and a `:blocker` — nil when placement
+  will work.
   """
   def destination_preflight(%InboxItem{} = item) do
-    item = Repo.preload(item, :source)
-
-    cond do
-      # Derived, never declared: bringing a file in from inside a root would
-      # be copying it to where it already is.
-      Library.inside_root?(item.path) ->
-        adopt_preflight("It's already inside a library root.")
-
-      is_nil(item.source) ->
-        adopt_preflight("It came from an ad-hoc scan with no source.")
-
-      item.source.on_import == :leave_in_place ->
-        adopt_preflight("Its source is trusted to keep its files.")
-
-      true ->
-        bring_in_preflight(item, item.source)
-    end
-  end
-
-  defp adopt_preflight(why) do
-    %{
-      custody: :external,
-      summary: "Referenced where it lies — #{why} Ambry will never move, rename or delete it.",
-      blocker: nil
-    }
-  end
-
-  defp bring_in_preflight(item, source) do
-    base = %{custody: :managed, blocker: nil, summary: nil}
+    base = %{blocker: nil, summary: nil}
+    policy = chosen_policy(item)
 
     case chosen_root(item) do
       {:error, reason} ->
@@ -664,9 +646,22 @@ defmodule Ambry.Inbox do
       {:ok, root} ->
         %{
           base
-          | summary: policy_summary(source.import_policy, root),
-            blocker: hardlink_blocker(item, source, root)
+          | summary: policy_summary(policy, root),
+            blocker: hardlink_blocker(item, policy, root)
         }
+    end
+  end
+
+  # The draft's choice, which the seed filled from the source. Falling back
+  # to the source covers a preflight taken before any draft exists.
+  defp chosen_policy(%InboxItem{} = item) do
+    case item do
+      %InboxItem{draft: %{destination: %{policy: policy}}} when not is_nil(policy) ->
+        policy
+
+      _no_draft_choice ->
+        item = Repo.preload(item, :source)
+        item.source && item.source.import_policy
     end
   end
 
@@ -706,11 +701,8 @@ defmodule Ambry.Inbox do
   # The refusal this whole phase exists for: a hardlink cannot cross a
   # filesystem, and silently copying instead is the storage doubling the
   # roadmap set out to eliminate. Worth knowing before the click, not after.
-  defp hardlink_blocker(
-         %InboxItem{files: [file | _rest]},
-         %Source{import_policy: :hardlink},
-         root
-       ) do
+  # Symlink deliberately gets no blocker: it has no precondition to fail.
+  defp hardlink_blocker(%InboxItem{files: [file | _rest]}, :hardlink, root) do
     case Library.same_filesystem?(Path.dirname(file), root.path) do
       {:ok, true} -> nil
       {:ok, false} -> describe_error({:cross_filesystem, file, root.path})
@@ -718,7 +710,7 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp hardlink_blocker(_item, _source, _root), do: nil
+  defp hardlink_blocker(_item, _policy, _root), do: nil
 
   @doc """
   A draft as params, for staging it back onto an item.

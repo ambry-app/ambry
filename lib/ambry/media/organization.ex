@@ -1,6 +1,6 @@
 defmodule Ambry.Media.Organization do
   @moduledoc """
-  Keeping a managed recording's files where the naming template says.
+  Keeping a recording's files where the naming template says.
 
   A library tree organized once at import drifts the moment anything is
   corrected: fix a misspelled title, reorder a book's authors, add the series
@@ -9,13 +9,11 @@ defmodule Ambry.Media.Organization do
 
   ## What it will and won't touch
 
-  Only `managed` recordings whose files sit inside a **registered library
-  root**. That's two separate guards doing two separate jobs:
-
-    * custody keeps it away from external files, which Ambry has promised
-      never to write to;
-    * the root check keeps it away from the legacy uploads library, which is
-      `managed` but isn't template-organized and belongs to Phase 4.
+  Only files inside a **registered library root** — which keeps it away from
+  the legacy uploads library, which isn't template-organized and belongs to
+  Phase 4. Every recording in a root is organizable: what lives there is
+  always Ambry's own name for the bytes (a hardlink, a symlink, a copy), and
+  renaming a name never touches an original.
 
   A rename stays inside the root the file already lives in, so it's always a
   move within one filesystem — never a copy, never a cross-device problem.
@@ -67,14 +65,13 @@ defmodule Ambry.Media.Organization do
   end
 
   @doc """
-  Organizes every managed recording.
+  Organizes every recording.
 
   The backstop for everything an edit-time trigger can't see — most obviously
   a change to the template itself, which invalidates every path at once.
   """
   def organize_all do
     Media
-    |> where([m], m.custody == :managed)
     |> Repo.all()
     |> Enum.reduce(%{moved: 0, noop: 0, failed: 0}, fn media, counts ->
       case organize(media) do
@@ -93,18 +90,18 @@ defmodule Ambry.Media.Organization do
   end
 
   @doc """
-  The managed recordings of one book, for after its metadata changed.
+  The recordings of one book, for after its metadata changed.
   """
   def book_media(book_id) do
     Media
-    |> where([m], m.book_id == ^book_id and m.custody == :managed)
+    |> where([m], m.book_id == ^book_id)
     |> Repo.all()
   end
 
   # The root the file already lives in. Not the location's *target* root —
   # this is about where the bytes are now, and a rename never moves a
   # recording between roots.
-  defp root_for(%Media{custody: :managed, source_path: path}) when is_binary(path) do
+  defp root_for(%Media{source_path: path}) when is_binary(path) do
     case Enum.find(Library.list_roots(), &inside?(path, &1.path)) do
       nil -> :noop
       root -> {:ok, root}

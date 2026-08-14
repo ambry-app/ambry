@@ -93,22 +93,21 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
     |> Map.new(fn {device, index} -> {device, <<?A + index>>} end)
   end
 
-  defp on_import_label(:bring_in), do: "brings files in"
-  defp on_import_label(:leave_in_place), do: "leaves files in place"
-
-  defp on_import_blurb(:bring_in),
-    do: "Its files could vanish, so import places the library's own copy into a root."
-
-  defp on_import_blurb(:leave_in_place),
-    do: "Its files are trusted to stay. Imports reference them; Ambry never writes here."
-
-  defp on_import_class(:bring_in), do: "bg-blue-400/15 text-blue-300"
-  defp on_import_class(:leave_in_place), do: "bg-white/10 text-zinc-300"
-
   defp policy_label(:hardlink), do: "hardlink"
+  defp policy_label(:symlink), do: "symlink"
   defp policy_label(:copy), do: "copy"
   defp policy_label(:move), do: "move"
-  defp policy_label(nil), do: nil
+
+  defp policy_blurb(:hardlink),
+    do: "Import hardlinks its files into a root — one copy of the bytes, seeding untouched."
+
+  defp policy_blurb(:symlink),
+    do:
+      "Import symlinks its files into a root. They're trusted to stay; the link dangles if they don't."
+
+  defp policy_blurb(:copy), do: "Import copies its files into a root, duplicating the bytes."
+
+  defp policy_blurb(:move), do: "Import moves its files into a root, leaving this folder clean."
 
   defp source_problem(status) do
     cond do

@@ -433,12 +433,11 @@ defmodule Ambry.InboxTest do
   end
 
   describe "prepare_draft/1 destination healing" do
-    # Custody is derived, never chosen — so re-deriving it un-answers
-    # nothing. It can change under a draft: an ad-hoc-scanned item adopts
-    # its source when that source's own scan next sees it, and a draft that
-    # sealed an external destination then leaves the operator staring at a
-    # root blocker with no root picker rendered.
-    test "re-derives the destination when the item adopts a source after drafting" do
+    # A destination's defaults are derived from the item's source, so healing
+    # fills gaps without un-answering anything. The gap: an ad-hoc-scanned
+    # item adopts its source when that source's own scan next sees it, and a
+    # draft sealed without a policy now has one on offer.
+    test "fills in the policy when the item adopts a source after drafting" do
       dir = watched_root()
       release_folder(dir, "Sourced Later", ["book.m4b"])
       {:ok, _counts} = Inbox.discover(dir)
@@ -446,27 +445,33 @@ defmodule Ambry.InboxTest do
       {:ok, item} = Inbox.probe_item(item)
 
       {:ok, item} = Inbox.prepare_draft(item)
-      assert item.draft.destination.custody == :external
+      assert item.draft.destination.policy == nil
+      refute item.draft.destination.approved
 
-      source = insert(:source, path: dir)
+      source = insert(:source, path: dir, import_policy: :copy)
       root = insert(:root)
       item = item |> Ecto.Changeset.change(source_id: source.id) |> Repo.update!()
 
       {:ok, healed} = Inbox.prepare_draft(Inbox.get_item!(item.id))
 
-      assert healed.draft.destination.custody == :managed
+      assert healed.draft.destination.policy == :copy
       # the single root auto-picks, exactly as a fresh seed would
       assert healed.draft.destination.root_id == root.id
+      assert healed.draft.destination.approved
     end
 
-    test "an unchanged custody leaves the stored destination alone" do
+    test "a settled destination is left alone" do
       dir = watched_root()
-      release_folder(dir, "Stays External", ["book.m4b"])
-      {:ok, _counts} = Inbox.discover(dir)
-      {[item], false} = Inbox.list_items(filter: "Stays External")
+      release_folder(dir, "Stays Settled", ["book.m4b"])
+      insert(:source, path: dir, import_policy: :copy)
+      insert(:root)
+      {:ok, _counts} = Inbox.discover()
+      {[item], false} = Inbox.list_items(filter: "Stays Settled")
       {:ok, item} = Inbox.probe_item(item)
 
       {:ok, item} = Inbox.prepare_draft(item)
+      assert item.draft.destination.approved
+
       {:ok, again} = Inbox.prepare_draft(Inbox.get_item!(item.id))
 
       assert again.draft.destination == item.draft.destination
@@ -575,7 +580,7 @@ defmodule Ambry.InboxTest do
       downloads = insert(:source, path: watched_root())
 
       collection =
-        insert(:source, path: watched_root(), on_import: :leave_in_place, import_policy: nil)
+        insert(:source, path: watched_root(), import_policy: :symlink)
 
       release_folder(downloads.path, "Leviathan Wakes", ["book.m4b"])
       release_folder(collection.path, "Project Hail Mary", ["book.m4b"])

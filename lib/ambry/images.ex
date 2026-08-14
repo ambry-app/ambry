@@ -10,8 +10,8 @@ defmodule Ambry.Images do
   that drift.
 
   Everything written here is Ambry's own, under the uploads path — never a
-  file the library references in place. That distinction is what makes these
-  safe to delete with a record regardless of its custody.
+  file inside a library root. That distinction is what makes these safe to
+  delete with a record unconditionally.
   """
 
   import Ambry.Paths

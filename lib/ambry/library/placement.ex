@@ -131,9 +131,6 @@ defmodule Ambry.Library.Placement do
 
   def finalize(%__MODULE__{}), do: :ok
 
-  # An adopted item was never placed, so there's nothing to finish.
-  def finalize(nil), do: :ok
-
   @doc """
   Removes a placement, for when the surrounding transaction failed.
 

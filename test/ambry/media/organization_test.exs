@@ -88,20 +88,9 @@ defmodule Ambry.Media.OrganizationTest do
       assert File.dir?(root)
     end
 
-    # External custody promises Ambry never writes to those files, and a
-    # rename is a write.
-    test "never moves an external recording" do
-      %{media: media, file: file} = organized_media(custody: :external)
-
-      {:ok, _book} = Books.update_book(Books.get_book!(media.book_id), %{title: "Oathbringer"})
-
-      assert {:ok, :noop} = Organization.organize(reload(media))
-      assert File.exists?(file)
-    end
-
-    # The legacy uploads library is `managed` but isn't template-organized —
+    # The legacy uploads library isn't template-organized —
     # it's Phase 4's to migrate, not this function's to rearrange.
-    test "never moves a managed recording that lives outside a library root" do
+    test "never moves a recording that lives outside a library root" do
       %{media: media, file: file} = organized_media(register_root: false)
 
       assert {:ok, :noop} = Organization.organize(reload(media))
@@ -317,7 +306,6 @@ defmodule Ambry.Media.OrganizationTest do
         # the recording's own date wins over the book's in the template, and
         # the factory would otherwise pick a random one
         published: ~D[2010-08-31],
-        custody: Keyword.get(opts, :custody, :managed),
         source_path: folder,
         source_files: [placeholder],
         mp4_path: nil,

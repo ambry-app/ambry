@@ -5,11 +5,12 @@ defmodule Ambry.Library do
   Two registries, deliberately separate because they are separate concepts:
 
     * **Sources** (`Ambry.Library.Source`) — watched folders audiobooks
-      arrive from. Read, never written. Each carries one promise: whether
-      its files can be trusted to stay (`on_import`).
-    * **Library roots** (`Ambry.Library.Root`) — the folders managed audio
-      is organized into. Written, never watched. Optional: a setup whose
-      sources are all trusted imports nothing into a root.
+      arrive from. Read, never written. Each carries a default placement
+      policy (`import_policy`) naming how import brings its files into a
+      root.
+    * **Library roots** (`Ambry.Library.Root`) — the folders the library's
+      audio is organized into, and the only place Ambry serves from.
+      Written, never watched. At least one is required to import anything.
 
   This module is also the place that answers "can these two paths share a
   hardlink?".
@@ -126,20 +127,6 @@ defmodule Ambry.Library do
   def delete_root(%Root{} = root), do: Repo.delete(root)
 
   def change_root(%Root{} = root, attrs \\ %{}), do: Root.changeset(root, attrs)
-
-  @doc """
-  Whether a path lies inside a registered library root.
-
-  This is derived, never declared: nobody should have to *tell* the system a
-  folder is inside the library. Import uses it to notice that bringing a
-  file in would be copying it to where it already is, and adopts in place
-  instead.
-  """
-  def inside_root?(path) when is_binary(path) do
-    Enum.any?(list_roots(), fn root ->
-      String.starts_with?(path <> "/", root.path <> "/")
-    end)
-  end
 
   @doc """
   Every registered path, source or root.

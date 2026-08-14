@@ -6,23 +6,21 @@ defmodule Ambry.LibraryTest do
   alias Ambry.Library.Source
 
   describe "create_source/1" do
-    test "creates a bring-in source" do
+    test "creates a source" do
       assert {:ok, %Source{} = source} =
                Library.create_source(%{
                  name: "Downloads",
-                 path: "/data/downloads",
-                 on_import: :bring_in
+                 path: "/data/downloads"
                })
 
       assert source.path == "/data/downloads"
-      assert source.on_import == :bring_in
       assert source.enabled
       assert is_nil(source.last_scanned_at)
     end
 
-    test "defaults a bring-in source to hardlinking" do
+    test "defaults to hardlinking" do
       assert {:ok, source} =
-               Library.create_source(%{name: "D", path: "/data/d", on_import: :bring_in})
+               Library.create_source(%{name: "D", path: "/data/d"})
 
       assert source.import_policy == :hardlink
     end
@@ -32,35 +30,15 @@ defmodule Ambry.LibraryTest do
                Library.create_source(%{
                  name: "D",
                  path: "/data/d",
-                 on_import: :bring_in,
                  import_policy: :move
                })
 
       assert source.import_policy == :move
     end
 
-    # A leave-in-place source imports nothing into a root, so carrying a
-    # policy or a preferred root would only ever mislead whoever reads the
-    # row later.
-    test "clears the policy and preferred root for a leave-in-place source" do
-      {:ok, root} = Library.create_root(%{name: "R", path: "/data/library"})
-
-      assert {:ok, source} =
-               Library.create_source(%{
-                 name: "Collection",
-                 path: "/data/collection",
-                 on_import: :leave_in_place,
-                 import_policy: :hardlink,
-                 target_root_id: root.id
-               })
-
-      assert is_nil(source.import_policy)
-      assert is_nil(source.target_root_id)
-    end
-
     test "requires an absolute path" do
       assert {:error, changeset} =
-               Library.create_source(%{name: "D", path: "relative/path", on_import: :bring_in})
+               Library.create_source(%{name: "D", path: "relative/path"})
 
       assert "must be an absolute path" in errors_on(changeset).path
     end
@@ -69,8 +47,7 @@ defmodule Ambry.LibraryTest do
       assert {:ok, source} =
                Library.create_source(%{
                  name: "D",
-                 path: "  /data/downloads/  ",
-                 on_import: :bring_in
+                 path: "  /data/downloads/  "
                })
 
       assert source.path == "/data/downloads"
@@ -82,8 +59,7 @@ defmodule Ambry.LibraryTest do
       assert {:error, changeset} =
                Library.create_source(%{
                  name: "Other",
-                 path: "/data/downloads",
-                 on_import: :bring_in
+                 path: "/data/downloads"
                })
 
       assert "has already been taken" in errors_on(changeset).path
@@ -95,8 +71,7 @@ defmodule Ambry.LibraryTest do
       assert {:error, changeset} =
                Library.create_source(%{
                  name: "Downloads",
-                 path: "/data/other",
-                 on_import: :bring_in
+                 path: "/data/other"
                })
 
       assert "has already been taken" in errors_on(changeset).name
@@ -144,17 +119,6 @@ defmodule Ambry.LibraryTest do
       insert(:root)
 
       assert Library.watched_sources() |> Enum.map(& &1.id) == [watched.id]
-    end
-  end
-
-  describe "inside_root?/1" do
-    test "derived from the path, on segment boundaries" do
-      insert(:root, path: "/data/library")
-
-      assert Library.inside_root?("/data/library/Author/Book")
-      assert Library.inside_root?("/data/library")
-      refute Library.inside_root?("/data/library-other/Book")
-      refute Library.inside_root?("/data/downloads/Book")
     end
   end
 

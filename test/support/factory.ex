@@ -412,7 +412,6 @@ defmodule Ambry.Factory do
     %Source{
       name: sequence(:source_name, &"Source #{&1}"),
       path: sequence(:source_path, &"/data/source-#{&1}"),
-      on_import: :bring_in,
       import_policy: :hardlink,
       enabled: true
     }

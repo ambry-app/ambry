@@ -21,7 +21,6 @@ defmodule Ambry.Media.Media do
   alias Ambry.Thumbnails
 
   @statuses [:pending, :processing, :error, :ready]
-  @custodies [:managed, :external]
 
   # Where this recording's chapter *markers* came from. One value for the
   # whole list, because markers arrive as a timeline from a single extractor
@@ -64,10 +63,6 @@ defmodule Ambry.Media.Media do
     # unplugged disk doesn't destroy what each recording's status used to be.
     field :missing_since, :utc_datetime
 
-    # what Ambry may do to these bytes: `managed` files are its own to
-    # organize and delete, `external` files are read where they lie and never
-    # touched (roadmap 3a)
-    field :custody, Ecto.Enum, values: @custodies, default: :managed
     field :abridged, :boolean, default: false
 
     # display-title override: how this recording's title differs from the
@@ -103,8 +98,6 @@ defmodule Ambry.Media.Media do
 
   def statuses, do: @statuses
 
-  def custodies, do: @custodies
-
   def marker_sources, do: @marker_sources
 
   def provenance_fields, do: @provenance_fields
@@ -121,7 +114,6 @@ defmodule Ambry.Media.Media do
       :recording_group_id,
       :source_path,
       :source_files,
-      :custody,
       :published,
       :published_format,
       :notes,

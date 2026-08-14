@@ -392,30 +392,27 @@ defmodule Ambry.Media do
     Library.registered_paths()
   end
 
-  # Deletion semantics by custody (roadmap 3a).
+  # Deletion semantics (roadmap 3a, custody collapsed by the paths refactor).
   #
-  # `managed` means Ambry owns the bytes — the legacy transcoded library, or
-  # a file placed into a library root — and removing the recording removes
-  # them. If that file is a hardlink, only this name goes; the seeding copy
-  # in the downloads folder is a separate name for the same inode and is
-  # untouched, which is exactly why hardlinking is safe to delete from.
+  # Every recording's files are Ambry's own name for the bytes — a file
+  # placed into a library root, or the legacy transcoded workspace — and
+  # removing the recording removes that name. The original a placement was
+  # made from is untouched by construction: a hardlink is a separate name
+  # for the same inode, a symlink is unlinked without being followed, a
+  # copy never knew its original, and a move's original is already gone.
   #
-  # `external` means the files belong to someone else's workflow and are
-  # merely referenced. Removal deletes records only.
-  #
-  # This is not a nicety. `source_path` for an inbox-approved external
-  # recording is the operator's own downloads folder, and the deletion worker
-  # runs `File.rm_rf` on every folder it's given.
+  # This is still worth care: the deletion worker runs `File.rm_rf` on
+  # every folder it's given, so `source_path` must always be a folder that
+  # is Ambry's to remove.
   #
   # Transcoded outputs, images and thumbnails are always Ambry's own, under
-  # the uploads path, so they're removed regardless of custody.
+  # the uploads path, so they're removed too.
   # A folder shared with a sibling is not this media's to remove: a
   # multi-part recording places every part in one book folder, so deleting
   # part 1 with an rm_rf of `source_path` would take part 2's file with it.
   # A shared folder yields only the media's own files; the folder itself
   # goes with its last part.
-  defp source_deletions(%Media{custody: :managed, source_path: path} = media)
-       when is_binary(path) do
+  defp source_deletions(%Media{source_path: path} = media) when is_binary(path) do
     if shared_source_path?(media),
       do: {[], media.source_files || []},
       else: {[path], []}
@@ -548,7 +545,6 @@ defmodule Ambry.Media do
         processor: processor
       }) do
     old_source_path = media.source_path
-    old_custody = media.custody
 
     with {:ok, updated_media} <-
            update_media(media, %{
@@ -557,22 +553,19 @@ defmodule Ambry.Media do
              status: :pending
            }),
          {:ok, _job} <- run_processor_async(updated_media, processor) do
-      delete_old_source_folder_async(old_custody, old_source_path, source_path)
+      delete_old_source_folder_async(old_source_path, source_path)
       {:ok, updated_media}
     end
   end
 
-  # Same custody rule as deletion: the old folder is only Ambry's to remove
-  # if it was managed. Replacing the files of an external recording must not
-  # take the original source folder with it.
-  defp delete_old_source_folder_async(_custody, old_source_path, new_source_path)
+  # Same rule as deletion: the old folder is Ambry's name for the bytes and
+  # goes with the replacement; any original it was placed from is untouched
+  # by construction.
+  defp delete_old_source_folder_async(old_source_path, new_source_path)
        when old_source_path in [nil, new_source_path], do: {:ok, :noop}
 
-  defp delete_old_source_folder_async(:managed, old_source_path, _new_source_path),
+  defp delete_old_source_folder_async(old_source_path, _new_source_path),
     do: try_delete_files_async([], [old_source_path])
-
-  defp delete_old_source_folder_async(_external, _old_source_path, _new_source_path),
-    do: {:ok, :noop}
 
   defdelegate available_processors(media_or_filenames), to: Processor, as: :matched_processors
 

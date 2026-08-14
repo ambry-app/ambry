@@ -284,43 +284,34 @@ defmodule Ambry.Inbox.Draft.Seed do
   # Any input may feed any output, so the root is chosen per import rather
   # than fixed on the source. The single-root case — which is nearly all of
   # them — resolves silently: being asked to pick from a list of one is not a
-  # decision, it's an interruption.
+  # decision, it's an interruption. The policy is seeded from the source the
+  # same way; an item with no source (ad-hoc scan) has no default and the
+  # policy stays an outstanding decision.
   def destination(%InboxItem{} = item) do
     item = Repo.preload(item, :source)
 
-    cond do
-      # Derived, never declared: a file already inside a root is already
-      # home, whatever its source promised.
-      Library.inside_root?(item.path) ->
-        %Destination{custody: :external, approved: true}
+    policy =
+      case item.source do
+        %Source{import_policy: policy} -> policy
+        nil -> nil
+      end
 
-      match?(%Source{on_import: :bring_in}, item.source) ->
-        managed_destination(item.source)
-
-      true ->
-        %Destination{custody: :external, approved: true}
-    end
-  end
-
-  defp managed_destination(source) do
     roots = Library.list_roots()
 
     # A source may still *prefer* a root; it just doesn't bind to one.
-    preferred = Enum.find(roots, &(&1.id == source.target_root_id))
+    preferred = item.source && Enum.find(roots, &(&1.id == item.source.target_root_id))
 
-    case {preferred, roots} do
-      {%Root{} = root, _several} -> settled(root, source)
-      {nil, [only]} -> settled(only, source)
-      {nil, _none_or_several} -> %Destination{custody: :managed, policy: source.import_policy}
-    end
-  end
+    root =
+      case {preferred, roots} do
+        {%Root{} = root, _several} -> root
+        {nil, [only]} -> only
+        {nil, _none_or_several} -> nil
+      end
 
-  defp settled(root, source) do
     %Destination{
-      custody: :managed,
-      root_id: root.id,
-      policy: source.import_policy,
-      approved: true
+      root_id: root && root.id,
+      policy: policy,
+      approved: not is_nil(root) and not is_nil(policy)
     }
   end
 

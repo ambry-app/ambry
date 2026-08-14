@@ -49,6 +49,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Library.Source
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
   alias Ambry.People
@@ -770,7 +771,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      edit(socket, fn draft ->
-       update_in(draft.destination, &%{&1 | root_id: id, approved: not is_nil(id)})
+       update_in(draft.destination, &approve_destination(%{&1 | root_id: id}))
+     end)}
+  end
+
+  def handle_event("choose-policy", %{"policy" => policy}, socket) do
+    policy = to_policy(policy)
+
+    {:noreply,
+     edit(socket, fn draft ->
+       update_in(draft.destination, &approve_destination(%{&1 | policy: policy}))
      end)}
   end
 
@@ -1017,6 +1027,29 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       {int, ""} -> int
       _other -> nil
     end
+  end
+
+  # Approved is not a separate gesture: choosing the last missing half is
+  # the approval. Un-choosing either half un-approves.
+  defp approve_destination(destination) do
+    %{destination | approved: not is_nil(destination.root_id) and not is_nil(destination.policy)}
+  end
+
+  @placement_policies Source.import_policies()
+
+  defp to_policy(value) do
+    Enum.find(@placement_policies, &(to_string(&1) == value))
+  end
+
+  # The same four doors the location form offers, worded for one import
+  # rather than a standing default.
+  defp placement_policies do
+    [
+      {"Hardlink (same filesystem only, no extra storage)", :hardlink},
+      {"Symlink (crosses filesystems; dangles if the source ever moves)", :symlink},
+      {"Copy (duplicates the files)", :copy},
+      {"Move (empties the source folder)", :move}
+    ]
   end
 
   ## rendering helpers

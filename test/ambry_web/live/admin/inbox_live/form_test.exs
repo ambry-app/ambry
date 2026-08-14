@@ -1923,8 +1923,8 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert html =~ "Referenced where it lies"
-      assert html =~ "never move, rename or delete"
+      assert html =~ "Symlinked into"
+      assert html =~ "dangles if the original ever moves"
     end
   end
 
@@ -2086,7 +2086,22 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       Path.join(release, "book.m4b")
     )
 
-    {:ok, _counts} = Inbox.discover(root)
+    # A settled destination needs a root to place into and a source to seed
+    # the policy; symlink keeps the fixtures where the test put them.
+    if Ambry.Library.list_roots() == [] do
+      library = Ambry.Paths.source_media_disk_path("library-#{Ecto.UUID.generate()}")
+      File.mkdir_p!(library)
+      insert(:root, path: library)
+    end
+
+    watched =
+      insert(:source,
+        path: root,
+        import_policy: :symlink,
+        name: "Watched #{Ecto.UUID.generate()}"
+      )
+
+    {:ok, _counts} = Inbox.discover(watched)
     {items, _more} = Inbox.list_items(filter: name)
     {:ok, item} = items |> hd() |> Inbox.probe_item()
 

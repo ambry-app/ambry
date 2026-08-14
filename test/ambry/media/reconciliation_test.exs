@@ -130,7 +130,6 @@ defmodule Ambry.Media.ReconciliationTest do
       insert(:media,
         book: build(:book),
         status: Keyword.get(opts, :status, :pending),
-        custody: :managed,
         source_path: dir,
         source_files: [file],
         mp4_path: nil,

@@ -44,21 +44,10 @@
       </.field_group>
 
       <.field_group :if={@type == :source}>
-        <.input
-          field={@form[:on_import]}
-          type="select"
-          label="On import"
-          options={on_import_options()}
-        />
-        <p class="max-w-prose pl-3 text-sm text-zinc-400">
-          Whether import copies these files into the library or references them where they
-          are.
-        </p>
-
         <.input field={@form[:enabled]} type="checkbox" label="Watched" />
       </.field_group>
 
-      <.field_group :if={@type == :source and @on_import == :bring_in} label="Bringing files in">
+      <.field_group :if={@type == :source} label="Bringing files in">
         <div>
           <.input
             field={@form[:import_policy]}
@@ -68,7 +57,8 @@
           />
           <p class="max-w-prose pl-3 text-sm text-zinc-400">
             Hardlinking only works within a single filesystem. Import refuses across
-            filesystems instead of silently copying.
+            filesystems instead of silently copying. Symlinking crosses filesystems, but
+            the library entry breaks if these files ever move.
           </p>
         </div>
 
