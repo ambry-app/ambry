@@ -37,9 +37,9 @@
               </span>
 
               <span
-                :if={fs = @filesystems[@statuses[{:source, source.id}].device]}
+                :if={fs = filesystem_tag(@filesystems, @statuses[{:source, source.id}])}
                 class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-300"
-                title="Paths sharing this tag are on the same filesystem and can be hardlinked between"
+                title="Paths sharing this tag can be hardlinked between"
                 data-role="source-filesystem"
               >
                 <.icon name="fa-hard-drive" class="h-3 w-3 text-current" /> {fs}
@@ -132,9 +132,9 @@
               <h3 class="font-semibold" data-role="root-name">{root.name}</h3>
 
               <span
-                :if={fs = @filesystems[@statuses[{:root, root.id}].device]}
+                :if={fs = filesystem_tag(@filesystems, @statuses[{:root, root.id}])}
                 class="bg-white/10 rounded-sm px-1.5 text-xs text-zinc-300"
-                title="Paths sharing this tag are on the same filesystem and can be hardlinked between"
+                title="Paths sharing this tag can be hardlinked between"
                 data-role="root-filesystem"
               >
                 <.icon name="fa-hard-drive" class="h-3 w-3 text-current" /> {fs}

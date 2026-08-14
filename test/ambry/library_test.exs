@@ -380,11 +380,78 @@ defmodule Ambry.LibraryTest do
     end
   end
 
+  describe "the mount table" do
+    alias Ambry.Library.Mounts
+
+    # A realistic mountinfo excerpt: a root mount, a NAS export mounted
+    # twice (one superblock — same 0:70 — two mounts), a mount point with an
+    # escaped space, and an overmount shadowing /mnt/old.
+    @mountinfo """
+    40 1 0:34 /@ / rw,relatime shared:1 - btrfs /dev/nvme0n1p2 rw
+    91 40 0:70 / /mnt/nas-a rw,relatime shared:401 - nfs4 nas:/export rw
+    92 40 0:70 / /mnt/nas-b rw,relatime shared:402 - nfs4 nas:/export rw
+    93 40 0:71 / /mnt/my\\040nas rw,relatime shared:403 - nfs4 nas2:/export rw
+    94 40 0:72 / /mnt/old rw shared:404 - ext4 /dev/sdb1 rw
+    95 40 0:73 / /mnt/old rw shared:405 - ext4 /dev/sdc1 rw
+    """
+
+    test "parses ids and unescapes mount points" do
+      mounts = Mounts.parse(@mountinfo)
+
+      assert %{id: 40, mount_point: "/"} in mounts
+      assert %{id: 93, mount_point: "/mnt/my nas"} in mounts
+    end
+
+    test "matches the longest mount point on a segment boundary" do
+      mounts = Mounts.parse(@mountinfo)
+
+      assert {:ok, %{id: 91}} = Mounts.mount_of("/mnt/nas-a/downloads/book.m4b", mounts)
+      # /mnt/nas-a is not a prefix of /mnt/nas-abc
+      assert {:ok, %{id: 40}} = Mounts.mount_of("/mnt/nas-abc/file", mounts)
+      assert {:ok, %{id: 40}} = Mounts.mount_of("/home/x", mounts)
+    end
+
+    test "an overmount shadows the mount it covers" do
+      mounts = Mounts.parse(@mountinfo)
+
+      assert {:ok, %{id: 95}} = Mounts.mount_of("/mnt/old/file", mounts)
+    end
+
+    # The case this module exists for: one NFS export mounted twice is one
+    # superblock (one st_dev) and two mounts, and link(2) refuses across
+    # them — so the two sides of the export must never share a mount id.
+    test "two mounts of one export are two different mounts" do
+      mounts = Mounts.parse(@mountinfo)
+
+      assert {:ok, %{id: a}} = Mounts.mount_of("/mnt/nas-a/downloads", mounts)
+      assert {:ok, %{id: b}} = Mounts.mount_of("/mnt/nas-b/library", mounts)
+      refute a == b
+    end
+  end
+
+  # A real second filesystem, found at compile time — same trick as
+  # PlacementTest, so the refusal is exercised against the kernel.
+  @other_filesystem Enum.find(["/dev/shm", "/tmp"], fn candidate ->
+                      with true <- File.dir?(candidate),
+                           {:ok, %{major_device: theirs}} <- File.stat(candidate),
+                           {:ok, %{major_device: ours}} <- File.stat(File.cwd!()) do
+                        theirs != ours
+                      else
+                        _unusable -> false
+                      end
+                    end)
+
   describe "same_filesystem?/2" do
-    test "two paths on the same filesystem" do
+    test "two paths on the same filesystem and mount" do
       dir = tmp_dir()
       assert {:ok, true} = Library.same_filesystem?(dir, tmp_dir())
       assert {:ok, true} = Library.same_filesystem?(dir, dir)
+    end
+
+    if @other_filesystem do
+      test "two paths on different filesystems" do
+        assert {:ok, false} = Library.same_filesystem?(tmp_dir(), @other_filesystem)
+      end
     end
 
     # A missing mount must never read as "different filesystem", because the

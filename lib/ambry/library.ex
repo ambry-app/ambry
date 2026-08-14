@@ -41,6 +41,7 @@ defmodule Ambry.Library do
 
   import Ecto.Query
 
+  alias Ambry.Library.Mounts
   alias Ambry.Library.Root
   alias Ambry.Library.Source
   alias Ambry.Paths
@@ -53,8 +54,12 @@ defmodule Ambry.Library do
     Deliberately not stored: a NAS that was mounted when the row was written
     tells you nothing about whether it's mounted now, and a stale "healthy"
     is worse than no answer.
+
+    `device` and `mount` together identify what a path can be hardlinked
+    with — see `Ambry.Library.same_filesystem?/2` for why it takes both.
+    `mount` is nil where the system offers no mount table.
     """
-    defstruct [:exists?, :directory?, :writable?, :device]
+    defstruct [:exists?, :directory?, :writable?, :device, :mount]
   end
 
   ## sources
@@ -277,17 +282,38 @@ defmodule Ambry.Library do
           exists?: true,
           directory?: stat.type == :directory,
           writable?: stat.access in [:write, :read_write],
-          device: stat.major_device
+          device: stat.major_device,
+          mount: mount_id(path)
         }
 
       {:error, _reason} ->
-        %Status{exists?: false, directory?: false, writable?: false, device: nil}
+        %Status{exists?: false, directory?: false, writable?: false, device: nil, mount: nil}
+    end
+  end
+
+  defp mount_id(path) do
+    with {:ok, mounts} <- Mounts.read(),
+         {:ok, mount} <- Mounts.mount_of(path, mounts) do
+      mount.id
+    else
+      _unavailable -> nil
     end
   end
 
   @doc """
-  Whether two paths sit on the same filesystem, and can therefore be
-  hardlinked between.
+  Whether two paths can be hardlinked between.
+
+  Two checks, because `link(2)` refuses in two different ways and each one
+  is invisible to the other check:
+
+    * **different `st_dev`** — different filesystems, and also btrfs
+      subvolumes, which share a mount but carry their own device and refuse
+      cross-subvolume links;
+    * **same `st_dev`, different mounts** — two mounts of one NFS export
+      share a superblock and the kernel still refuses to link across them.
+      This is the case a device comparison alone gets confidently wrong,
+      and it matters here because in production the same export can be
+      mounted more than once.
 
   Returns `{:error, reason}` rather than `false` when the question can't be
   answered — a missing mount must not read as "different filesystem, fall
@@ -297,7 +323,24 @@ defmodule Ambry.Library do
   def same_filesystem?(source, destination) do
     with {:ok, source_device} <- device(source),
          {:ok, destination_device} <- device(destination) do
-      {:ok, source_device == destination_device}
+      if source_device == destination_device,
+        do: same_mount?(source, destination),
+        else: {:ok, false}
+    end
+  end
+
+  defp same_mount?(source, destination) do
+    case Mounts.read() do
+      {:ok, mounts} ->
+        with {:ok, source_mount} <- Mounts.mount_of(source, mounts),
+             {:ok, destination_mount} <- Mounts.mount_of(destination, mounts) do
+          {:ok, source_mount.id == destination_mount.id}
+        end
+
+      # No mountinfo (not Linux): device equality is the best available
+      # answer, which is exactly what this check was before mounts existed.
+      :unavailable ->
+        {:ok, true}
     end
   end
 

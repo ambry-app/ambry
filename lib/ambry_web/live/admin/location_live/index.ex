@@ -105,18 +105,24 @@ defmodule AmbryWeb.Admin.LocationLive.Index do
     )
   end
 
-  # Raw device numbers mean nothing to anyone, but "these two are on the same
-  # one" means everything here, so distinct devices get short labels in the
-  # order they're first seen.
+  # Raw device numbers mean nothing to anyone, but "these two can hardlink
+  # between each other" means everything here, so each distinct
+  # {device, mount} pair gets a short label in the order it's first seen.
+  # Both halves, because that is what `link(2)` actually requires — see
+  # `Ambry.Library.same_filesystem?/2`.
   defp label_filesystems(statuses) do
     statuses
     |> Map.values()
-    |> Enum.map(& &1.device)
-    |> Enum.reject(&is_nil/1)
+    |> Enum.reject(&is_nil(&1.device))
+    |> Enum.map(&{&1.device, &1.mount})
     |> Enum.uniq()
     |> Enum.with_index()
-    |> Map.new(fn {device, index} -> {device, <<?A + index>>} end)
+    |> Map.new(fn {key, index} -> {key, <<?A + index>>} end)
   end
+
+  # The tag for one row, or nil for an unreachable path.
+  defp filesystem_tag(_filesystems, %{device: nil}), do: nil
+  defp filesystem_tag(filesystems, status), do: filesystems[{status.device, status.mount}]
 
   defp policy_label(:hardlink), do: "hardlink"
   defp policy_label(:symlink), do: "symlink"
