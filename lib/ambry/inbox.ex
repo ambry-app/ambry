@@ -692,6 +692,10 @@ defmodule Ambry.Inbox do
   defp policy_summary(:hardlink, root),
     do: "Hardlinked into #{root.path} — one copy of the bytes, the download keeps seeding."
 
+  defp policy_summary(:symlink, root),
+    do:
+      "Symlinked into #{root.path} — a pointer to the original, which dangles if the original ever moves or is deleted."
+
   defp policy_summary(:copy, root), do: "Copied into #{root.path}, duplicating the bytes."
 
   defp policy_summary(:move, root),

@@ -88,6 +88,56 @@ defmodule Ambry.Library.PlacementTest do
     end
   end
 
+  describe "symlink" do
+    test "writes an absolute link that resolves", %{root: root, source: source} do
+      destination = Path.join([root, "Author", "Title", "Title.m4b"])
+
+      assert {:ok, placement} = Placement.place(source, destination, :symlink)
+      assert placement.policy == :symlink
+
+      assert File.read!(destination) == "audio bytes"
+      # Absolute deliberately: a relative link only survives when link and
+      # target move as one tree, which is the hardlink case anyway.
+      assert {:ok, target} = File.read_link(destination)
+      assert target == source
+      assert Path.type(target) == :absolute
+    end
+
+    if @other_filesystem do
+      test "crosses filesystems, which is its whole reason to exist", %{source: source} do
+        root = tmp_dir(Path.join(@other_filesystem, "ambry-placement"))
+        on_exit(fn -> File.rm_rf(root) end)
+
+        destination = Path.join([root, "Author", "Title.m4b"])
+
+        assert {:ok, _placement} = Placement.place(source, destination, :symlink)
+        assert File.read!(destination) == "audio bytes"
+      end
+    end
+
+    test "undo removes the link and leaves the target", %{root: root, source: source} do
+      destination = Path.join([root, "Author", "Title.m4b"])
+
+      assert {:ok, placement} = Placement.place(source, destination, :symlink)
+      assert :ok = Placement.undo(placement)
+
+      refute File.exists?(destination)
+      assert File.read!(source) == "audio bytes"
+    end
+
+    # `File.exists?` follows links, so a dangling one reads as absent — but
+    # the name is occupied, and clobbering it would be the collision the
+    # vacancy check exists to surface.
+    test "a dangling link still counts as an occupied destination", %{root: root, source: source} do
+      destination = Path.join(root, "Title.m4b")
+      File.mkdir_p!(root)
+      File.ln_s!("/nope/gone.m4b", destination)
+
+      assert {:error, {:destination_exists, ^destination}} =
+               Placement.place(source, destination, :symlink)
+    end
+  end
+
   describe "copy" do
     test "duplicates the file", %{root: root, source: source} do
       destination = Path.join(root, "Title.m4b")
@@ -234,6 +284,24 @@ defmodule Ambry.Library.PlacementTest do
       refute File.dir?(Path.join([root, "Author", "Series"]))
       assert File.exists?(keep)
       assert File.dir?(root)
+    end
+  end
+
+  # Recording deletion hands the recording's folder to `File.rm_rf`. These pin
+  # the Erlang behaviour that makes symlink placement safe to delete from:
+  # rm_rf unlinks a symlink — file or directory — without traversing into it.
+  describe "deleting a folder that contains symlinks" do
+    test "removes links, never their targets", %{root: root, source: source} do
+      book_folder = Path.join(root, "Book")
+      File.mkdir_p!(book_folder)
+      File.ln_s!(source, Path.join(book_folder, "Title.m4b"))
+      File.ln_s!(Path.dirname(source), Path.join(book_folder, "linked-dir"))
+
+      {:ok, _removed} = File.rm_rf(book_folder)
+
+      refute File.dir?(book_folder)
+      assert File.read!(source) == "audio bytes"
+      assert File.dir?(Path.dirname(source))
     end
   end
 

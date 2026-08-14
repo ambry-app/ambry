@@ -147,6 +147,7 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
   defp policy_options do
     [
       {"Hardlink (same filesystem only, no extra storage)", :hardlink},
+      {"Symlink (crosses filesystems; dangles if the source ever moves)", :symlink},
       {"Copy (duplicates the files)", :copy},
       {"Move (empties the source folder)", :move}
     ]

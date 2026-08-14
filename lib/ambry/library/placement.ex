@@ -2,14 +2,36 @@ defmodule Ambry.Library.Placement do
   @moduledoc """
   Bringing a file into a library root.
 
-  Three policies, set per bring-in source:
+  Four policies, set per source. They are exhaustive: a file either shares
+  its bytes with the original (hard or soft), duplicates them, or relocates
+  them — there is no fifth door.
 
     * `:hardlink` — **same filesystem required**. One inode, two names, no
       extra bytes. This is the point of the whole exercise: the torrent keeps
       seeding from the downloads folder while the library serves the same
       bytes.
+    * `:symlink` — the cross-filesystem answer to the same question, with
+      real burdens the operator accepts by choosing it (below).
     * `:copy` — duplicates. Honest and always possible.
     * `:move` — the library gets the file and the source folder is left clean.
+
+  ## What choosing symlink takes on
+
+  A symlink stores a path *string*, not a reference to the bytes, so the
+  library entry dangles if the target is moved or deleted — reconciliation
+  reports the recording missing, which is the honest answer, and recreating
+  the link is the only repair. Links are written **absolute**: a relative
+  link survives only when link and target move as one tree, and that is
+  exactly the shared-filesystem case where `:hardlink` is available and
+  strictly better. Two consequences worth telling the operator at the point
+  of choosing: the link breaks if either mount path changes, and a link
+  written from inside a container encodes the *container's* view of the
+  path — the same tree read from the NAS host sees dangling links. Not a
+  data-loss risk; the bytes are untouched. But the library tree stops being
+  self-describing outside Ambry.
+
+  Unlike `:hardlink`, symlink has no precondition to fail — that is the
+  point of having it — so it gets no feasibility blocker.
 
   ## Why hardlink refuses instead of falling back
 
@@ -43,7 +65,7 @@ defmodule Ambry.Library.Placement do
   `finalize/1` once the surrounding transaction commits, or to `undo/1` if it
   doesn't.
   """
-  def place(source, destination, policy) when policy in [:hardlink, :copy, :move] do
+  def place(source, destination, policy) when policy in [:hardlink, :symlink, :copy, :move] do
     with :ok <- readable(source),
          :ok <- vacant(destination),
          :ok <- File.mkdir_p(Path.dirname(destination)),
@@ -142,6 +164,16 @@ defmodule Ambry.Library.Placement do
     Library.same_filesystem?(source, root_path)
   end
 
+  # Absolute target, deliberately — see the moduledoc. `source` is already
+  # absolute everywhere placement is reached (sources and roots both validate
+  # it), so this writes the link content as given rather than re-deriving it.
+  defp transfer(source, destination, :symlink) do
+    case File.ln_s(source, destination) do
+      :ok -> :ok
+      {:error, reason} -> {:error, {:symlink_failed, reason}}
+    end
+  end
+
   defp transfer(source, destination, :copy) do
     case File.cp(source, destination) do
       :ok -> :ok
@@ -175,9 +207,13 @@ defmodule Ambry.Library.Placement do
 
   # Never clobber. A collision means two recordings rendered to the same
   # path, which is a curation problem the operator has to see, not something
-  # to paper over with " (2)".
+  # to paper over with " (2)". `lstat` rather than `exists?`: a dangling
+  # symlink occupies the name too, and `exists?` follows links.
   defp vacant(destination) do
-    if File.exists?(destination), do: {:error, {:destination_exists, destination}}, else: :ok
+    case File.lstat(destination) do
+      {:ok, _occupied} -> {:error, {:destination_exists, destination}}
+      {:error, _absent} -> :ok
+    end
   end
 
   # An undone placement shouldn't leave "Brandon Sanderson/The Stormlight

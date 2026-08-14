@@ -36,7 +36,7 @@ defmodule Ambry.Inbox.Draft.Destination do
     # there is no destination to choose.
     field :custody, Ecto.Enum, values: [:managed, :external], default: :external
     field :root_id, :id
-    field :policy, Ecto.Enum, values: [:hardlink, :copy, :move]
+    field :policy, Ecto.Enum, values: [:hardlink, :symlink, :copy, :move]
     field :approved, :boolean, default: false
 
     # Filled in at render time from the registry rather than stored: roots are

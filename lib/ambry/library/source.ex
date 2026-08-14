@@ -26,7 +26,7 @@ defmodule Ambry.Library.Source do
   alias Ambry.Library.Root
 
   @on_import [:bring_in, :leave_in_place]
-  @import_policies [:hardlink, :copy, :move]
+  @import_policies [:hardlink, :symlink, :copy, :move]
 
   schema "sources" do
     # A *preferred* root, not a binding one: any source may feed any root,
