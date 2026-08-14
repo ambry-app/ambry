@@ -1932,6 +1932,24 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       refute html =~ "dangles if the original"
       refute html =~ "duplicating the bytes"
     end
+
+    # The options name the four doors. They used to define them too, which
+    # is a thing you read once and then re-read on every import forever.
+    test "the pickers name things rather than define them", %{conn: conn} do
+      item = probed_item() |> settle()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      for door <- ~w(Hardlink Symlink Copy Move), do: assert(html =~ door)
+      refute html =~ "same filesystem only"
+      refute html =~ "empties the source folder"
+
+      # A root name is unique, so the path underneath it identified nothing
+      # the name didn't.
+      [root] = Ambry.Library.list_roots()
+      assert html =~ root.name
+      refute html =~ "#{root.name} (#{root.path})"
+    end
   end
 
   # Two plausible works from one provider, so the record list is a real

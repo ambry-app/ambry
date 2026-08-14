@@ -1045,15 +1045,13 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     Enum.find(@placement_policies, &(to_string(&1) == value))
   end
 
-  # The same four doors the location form offers, worded for one import
-  # rather than a standing default.
+  # Named, not explained. Each label used to carry a parenthetical about
+  # what the door costs, which is a definition an operator reads once and
+  # then re-reads on every import forever. The one consequence that still
+  # needs saying is the one that stops an import, and it says itself when
+  # the impossible door is picked.
   defp placement_policies do
-    [
-      {"Hardlink (same filesystem only, no extra storage)", :hardlink},
-      {"Symlink (crosses filesystems; dangles if the source ever moves)", :symlink},
-      {"Copy (duplicates the files)", :copy},
-      {"Move (empties the source folder)", :move}
-    ]
+    Enum.map(Placement.policies(), &{Phoenix.Naming.humanize(&1), &1})
   end
 
   ## rendering helpers
