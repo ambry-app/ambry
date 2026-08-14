@@ -664,7 +664,7 @@ defmodule Ambry.Inbox do
       {:ok, root} ->
         %{
           base
-          | summary: policy_summary(policy, root),
+          | summary: policy_summary(item, policy, root),
             blocker: hardlink_blocker(item, policy, root)
         }
     end
@@ -697,35 +697,56 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp policy_summary(:hardlink, root),
-    do: "Hardlinked into #{root.path} — one copy of the bytes, the download keeps seeding."
+  defp policy_summary(_item, :hardlink, root),
+    do: "Hardlinked into #{root.path}. One copy of the bytes, and the download keeps seeding."
 
-  defp policy_summary(:symlink, root),
-    do:
-      "Symlinked into #{root.path} — a pointer to the original, which dangles if the original ever moves or is deleted."
+  defp policy_summary(_item, :symlink, root),
+    do: "Symlinked into #{root.path}. The link dangles if the original ever moves or is deleted."
 
-  defp policy_summary(:copy, root), do: "Copied into #{root.path}, duplicating the bytes."
+  defp policy_summary(_item, :copy, root), do: "Copied into #{root.path}, duplicating the bytes."
 
-  defp policy_summary(:move, root),
-    do: "Moved into #{root.path}, leaving the downloads folder clean."
+  defp policy_summary(_item, :move, root),
+    do: "Moved into #{root.path}, leaving the source folder clean."
 
-  defp policy_summary(_unset, root), do: "Placed into #{root.path}."
+  # Nothing chosen and nothing proposed. Saying "Placed into <root>" here
+  # described a placement that had not been decided, on a card whose rail
+  # was amber for exactly that reason. The honest line says why it is
+  # asking: hardlinking is the one default worth assuming, so where it is
+  # unavailable there is no safe guess and the three remaining doors mean
+  # three different things.
+  defp policy_summary(item, _unset, root) do
+    case hardlinkable(item, root) do
+      {:ok, false} ->
+        "These can't be hardlinked into #{root.path} (different filesystems). Pick how they come in."
+
+      _yes_or_unknown ->
+        "Pick how these files come in."
+    end
+  end
 
   # The refusal this whole phase exists for: a hardlink cannot cross a
   # filesystem, and silently copying instead is the storage doubling the
   # roadmap set out to eliminate. Worth knowing before the click, not after.
   # Symlink deliberately gets no blocker: it has no precondition to fail.
-  defp hardlink_blocker(%InboxItem{files: [_ | _]} = item, :hardlink, root) do
-    [file | _rest] = InboxItem.disk_files(item)
-
-    case Library.same_filesystem?(Path.dirname(file), root.path) do
+  defp hardlink_blocker(item, :hardlink, root) do
+    case hardlinkable(item, root) do
       {:ok, true} -> nil
-      {:ok, false} -> describe_error({:cross_filesystem, file, root.path})
+      {:ok, false} -> describe_error({:cross_filesystem, first_file(item), root.path})
       {:error, _reason} -> "Couldn't tell whether these are on the same filesystem."
     end
   end
 
   defp hardlink_blocker(_item, _policy, _root), do: nil
+
+  # Asked of the item's real files rather than its source's path: the
+  # default is derived from the pairing, but the answer that gates a
+  # placement has to be about the bytes being placed.
+  defp hardlinkable(%InboxItem{files: [_ | _]} = item, root),
+    do: Library.same_filesystem?(Path.dirname(first_file(item)), root.path)
+
+  defp hardlinkable(%InboxItem{}, _root), do: {:error, :no_files}
+
+  defp first_file(%InboxItem{} = item), do: item |> InboxItem.disk_files() |> hd()
 
   @doc """
   A draft as params, for staging it back onto an item.

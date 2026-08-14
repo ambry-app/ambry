@@ -2,6 +2,7 @@ defmodule Ambry.InboxTest do
   use Ambry.DataCase
 
   alias Ambry.Inbox
+  alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library
@@ -577,6 +578,35 @@ defmodule Ambry.InboxTest do
 
       preflight = Inbox.destination_preflight(item)
       assert preflight.blocker =~ "more than one library root"
+    end
+
+    # An unanswered question must not read as a settled outcome. The old copy
+    # said "Placed into <root>." on a card whose rail was amber precisely
+    # because nothing had been decided.
+    test "an unpicked policy asks, rather than describing a placement" do
+      dir = watched_root()
+      release_folder(dir, "No Policy Yet", ["book.m4b"])
+      source = insert(:source, path: dir)
+      # An unmounted root: nothing can be derived from a path that isn't
+      # there, and guessing is what the whole refusal exists to prevent.
+      root = insert(:root, path: "/data/not-mounted")
+
+      {:ok, _counts} = Inbox.discover()
+      {[item], false} = Inbox.list_items(filter: "No Policy Yet")
+      {:ok, item} = Inbox.probe_item(item)
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert is_nil(item.draft.destination.policy)
+      assert Enum.any?(Draft.unresolved(item.draft), &(&1.section == :destination))
+
+      preflight = Inbox.destination_preflight(item)
+      assert preflight.summary =~ "Pick how these files come in"
+      refute preflight.summary =~ "Placed into"
+
+      # The remembered pairing is what settles it from then on.
+      {:ok, _memory} = Library.remember_placement(source, root, :move)
+      {:ok, item} = Inbox.prepare_draft(Inbox.get_item!(item.id))
+      assert Inbox.destination_preflight(item).summary =~ "Moved into"
     end
   end
 
