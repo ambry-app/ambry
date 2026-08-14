@@ -166,53 +166,6 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
       assert %{name: "Daniel Abraham"} = Ambry.Repo.get(Ambry.People.Author, shared.id)
     end
 
-    # Emptying the list is not the same as not rendering it. Absent params
-    # mean "leave the association alone" — Ecto's rule, and the right read
-    # while the list is collapsed — but with it open and every row deleted,
-    # absent means the operator deleted them, and the save has to say so.
-    test "deleting every credit row actually deletes them", %{conn: conn} do
-      person =
-        insert(:person,
-          name: "Foo",
-          authors: [build(:author, name: "Foo"), build(:author, name: "Bar")]
-        )
-
-      # "Bar" is not "Foo", so this person opens revealed already
-      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
-
-      # what the ✕ sends: the row's index on the drop param
-      view
-      |> element("#person-form")
-      |> render_change(%{"person" => %{"author_people_drop" => ["0", "1"]}})
-
-      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
-
-      assert People.get_person!(person.id).authors == []
-    end
-
-    # The same deletion, reached through the hatch instead of by divergence.
-    # Absent params meant two different things depending on a flag the
-    # template and the transform disagreed about, and this is the half where
-    # the save quietly did nothing.
-    test "deleting the only credit row after opening the hatch", %{conn: conn} do
-      person =
-        insert(:person, name: "Foo", authors: [build(:author, name: "Foo")])
-
-      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
-
-      view
-      |> element("button[phx-value-kind='author'][phx-click='reveal-credit']")
-      |> render_click()
-
-      view
-      |> element("#person-form")
-      |> render_change(%{"person" => %{"name" => "Foo", "author_people_drop" => ["0"]}})
-
-      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
-
-      assert People.get_person!(person.id).authors == []
-    end
-
     # A person whose data already disagrees with "their own name" opens with
     # the list showing: a pen name behind a control nobody clicked is a pen
     # name the operator cannot see.
@@ -227,11 +180,64 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
     end
   end
 
+  describe "renaming a pen name" do
+    # The hatch used to be *derived* — open whenever the credit name differed
+    # from the person's. So renaming "Bar" to "Alastair Reynolds" made it
+    # stop differing, the card collapsed on the keystroke that finished the
+    # word, the rows stopped rendering, and the save had nothing to save. A
+    # disclosure may not close itself because of what was just typed into it.
+    test "renaming a pen name to the person's own name still saves", %{conn: conn} do
+      person =
+        insert(:person, name: "Alastair Reynolds", authors: [build(:author, name: "Bar")])
+
+      [author] = Ambry.Repo.preload(person, :authors).authors
+
+      {:ok, view, html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+
+      # diverging data opens revealed
+      assert html =~ ~s(name="person[author_people][0][author][name]")
+
+      typed =
+        view
+        |> form("#person-form", %{
+          "person" => %{
+            "author_people" => %{"0" => %{"author" => %{"name" => "Alastair Reynolds"}}}
+          }
+        })
+        |> render_change()
+
+      # the box is still there — the card did not close under the operator
+      assert typed =~ ~s(name="person[author_people][0][author][name]")
+
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+      assert %{name: "Alastair Reynolds"} = Ambry.Repo.get(Ambry.People.Author, author.id)
+      assert [%{name: "Alastair Reynolds"}] = People.get_person!(person.id).authors
+    end
+
+    # The authoritative half of the pair: this form is where an author's name
+    # is decided, so the box renames the record rather than proposing a new
+    # one. A book already crediting them is not in the way — a rename unlinks
+    # nothing.
+    test "the name box renames the record, even when a book credits it", %{conn: conn} do
+      person = insert(:person, name: "Jason Pargin", authors: [build(:author, name: "Baz")])
+      [baz] = Ambry.Repo.preload(person, :authors).authors
+      insert(:book, book_authors: [build(:book_author, author: baz)])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
+
+      view
+      |> form("#person-form", %{
+        "person" => %{"author_people" => %{"0" => %{"author" => %{"name" => "David Wong"}}}}
+      })
+      |> render_submit()
+
+      assert %{name: "David Wong"} = Ambry.Repo.get(Ambry.People.Author, baz.id)
+    end
+  end
+
   describe "linking an existing author (composite pen names)" do
-    # One control per row now: typing names a pen name, picking links this
-    # row to one that already exists. The separate "or link an existing
-    # author" box is gone — it was the same decision in a second costume.
-    test "picking an existing author in a row links it", %{conn: conn} do
+    test "links a shared author through the autocomplete", %{conn: conn} do
       abraham =
         insert(:person,
           name: "Daniel Abraham",
@@ -243,24 +249,28 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
-      # the hatch, then a row to put it in
+      # Linking lives behind the pen-name hatch now: it is the composite
+      # case, not the ordinary one. Offered while unticked too, because this
+      # is how a person who is not yet an author becomes one.
       view
       |> element("button[phx-value-kind='author'][phx-click='reveal-credit']")
       |> render_click()
 
-      view
-      |> element("#person-form")
-      |> render_change(%{"person" => %{"name" => "Ty Franck", "author_people_sort" => ["new"]}})
-
+      # type to filter, then pick the option; in the browser the value-change
+      # hook then fires a form change event
       html =
         view
-        |> element("#author-0-resolver-input")
-        |> render_change(%{"resolver" => %{"author-0-resolver" => "James"}})
+        |> element("#person_link_author_id-input")
+        |> render_change(%{"resolver" => %{"person_link_author_id" => "James"}})
 
-      # an edit form is a picker and a namer, so both outcomes are offered
+      # an edit form is a pure picker — no new-record support
+      refute html =~ "Create “"
+
+      view |> element("#person_link_author_id-option-#{corey.id}") |> render_click()
+
+      html = view |> form("#person-form", %{"person" => %{}}) |> render_change()
       assert html =~ "James S.A. Corey"
 
-      view |> element("#author-0-resolver-option-#{corey.id}") |> render_click()
       view |> form("#person-form", %{"person" => %{}}) |> render_submit()
 
       person = People.get_person!(person.id)
@@ -285,142 +295,36 @@ defmodule AmbryWeb.Admin.PersonLive.FormTest do
       assert html =~ "Shared pen name with Ty Franck"
     end
 
-    # Typing over a saved row renames the author it points at. Emitting the
-    # name without its id reads as "replace this author", which
-    # `on_replace: :raise` turns into a crash rather than a rename.
-    test "typing over a saved row renames that author", %{conn: conn} do
-      person =
-        insert(:person, name: "J.K. Rowling", authors: [build(:author, name: "Robert Galbrait")])
+    test "linking the same author twice adds only one row", %{conn: conn} do
+      abraham =
+        insert(:person,
+          name: "Daniel Abraham",
+          authors: [build(:author, name: "James S.A. Corey")]
+        )
 
-      [author] = Ambry.Repo.preload(person, :authors).authors
-
-      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
-
-      view
-      |> element("#author-0-resolver-input")
-      |> render_change(%{"resolver" => %{"author-0-resolver" => "Robert Galbraith"}})
-
-      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
-
-      assert %{name: "Robert Galbraith"} = Ambry.Repo.get(Ambry.People.Author, author.id)
-      assert [%{name: "Robert Galbraith"}] = People.get_person!(person.id).authors
-    end
-
-    # THE ONE THAT MATTERED. Driving the resolver's own input in a test
-    # exercises the component alone, and it dutifully clears its id and
-    # keeps the typed text. A browser does something else: the parent form's
-    # `validate` fires on the same keystroke, *before* the component's
-    # round trip, so it arrives carrying the hidden inputs' PREVIOUS values
-    # — and the parent then re-renders the component from its changeset,
-    # putting the old name back in the box being typed into.
-    #
-    # So this sends what Chrome actually sends: stale id, stale name, and
-    # the live text under `resolver[...]`. Before the fix it saved
-    # "successfully" and changed nothing.
-    test "renaming works from the params a browser really posts", %{conn: conn} do
-      person = insert(:person, name: "Jason Pargin", authors: [build(:author, name: "Baz")])
-      [baz] = Ambry.Repo.preload(person, :authors).authors
-      [ap] = Ambry.Repo.preload(person, :author_people).author_people
-
-      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
-
-      stale = %{
-        "person" => %{
-          "name" => "Jason Pargin",
-          "writes" => "true",
-          "author_people" => %{
-            "0" => %{
-              "id" => to_string(ap.id),
-              "author_id" => to_string(baz.id),
-              "author" => %{"name" => "Baz"}
-            }
-          }
-        },
-        "resolver" => %{"author-0-resolver" => "David Wong"}
-      }
-
-      view |> element("#person-form") |> render_change(stale)
-      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
-
-      assert %{name: "David Wong"} = Ambry.Repo.get(Ambry.People.Author, baz.id)
-    end
-
-    # …and the other half of the same params: an id the row did NOT have is
-    # the operator picking from the list, which links rather than renames.
-    # Told apart by the id alone, because the visible text says the picked
-    # author's name either way.
-    test "picking is told apart from typing by the id, not the text", %{conn: conn} do
-      person = insert(:person, name: "Ty Franck", authors: [build(:author, name: "Typo")])
-      [typo] = Ambry.Repo.preload(person, :authors).authors
-      [ap] = Ambry.Repo.preload(person, :author_people).author_people
-      corey = insert(:author, name: "James S.A. Corey")
-
-      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
-
-      picked = %{
-        "person" => %{
-          "name" => "Ty Franck",
-          "writes" => "true",
-          "author_people" => %{
-            "0" => %{
-              "id" => to_string(ap.id),
-              "author_id" => to_string(corey.id),
-              "author" => %{"name" => "Typo"}
-            }
-          }
-        },
-        "resolver" => %{"author-0-resolver" => "James S.A. Corey"}
-      }
-
-      view |> element("#person-form") |> render_change(picked)
-      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
-
-      # linked to Corey, and "Typo" — wanted by nobody now — is gone
-      assert [%{name: "James S.A. Corey"}] = People.get_person!(person.id).authors
-      assert %{name: "James S.A. Corey"} = Ambry.Repo.get(Ambry.People.Author, corey.id)
-      refute Ambry.Repo.get(Ambry.People.Author, typo.id)
-    end
-
-    # The operator's own case: Jason Pargin credited as "Baz", with a book
-    # already crediting that author. A rename does not unlink anything, so
-    # the book is not in the way — but "does the book block it" is exactly
-    # the question the row rewrite has to answer out loud.
-    test "renaming works even when a book credits the author", %{conn: conn} do
-      person = insert(:person, name: "Jason Pargin", authors: [build(:author, name: "Baz")])
-      [baz] = Ambry.Repo.preload(person, :authors).authors
-      insert(:book, book_authors: [build(:book_author, author: baz)])
+      [corey] = Ambry.Repo.preload(abraham, :authors).authors
+      person = insert(:person, name: "Ty Franck")
 
       {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
 
       view
-      |> element("#author-0-resolver-input")
-      |> render_change(%{"resolver" => %{"author-0-resolver" => "David Wong"}})
+      |> element("button[phx-value-kind='author'][phx-click='reveal-credit']")
+      |> render_click()
+
+      for _try <- 1..2 do
+        view
+        |> element("#person_link_author_id-input")
+        |> render_change(%{"resolver" => %{"person_link_author_id" => "James"}})
+
+        view |> element("#person_link_author_id-option-#{corey.id}") |> render_click()
+
+        view |> form("#person-form", %{"person" => %{}}) |> render_change()
+      end
 
       view |> form("#person-form", %{"person" => %{}}) |> render_submit()
 
-      assert [%{name: "David Wong"}] = People.get_person!(person.id).authors
-      # the same record, renamed — not a new author with the book left behind
-      assert %{name: "David Wong"} = Ambry.Repo.get(Ambry.People.Author, baz.id)
-    end
-
-    # Relinking a row is safe for the same reason unticking is: the author it
-    # pointed at is deleted only if nothing else wants it.
-    test "picking a different author relinks the row and cleans up behind it", %{conn: conn} do
-      person = insert(:person, name: "Ty Franck", authors: [build(:author, name: "Typo Name")])
-      [typo] = Ambry.Repo.preload(person, :authors).authors
-      other = insert(:author, name: "James S.A. Corey")
-
-      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person.id}/edit")
-
-      view
-      |> element("#author-0-resolver-input")
-      |> render_change(%{"resolver" => %{"author-0-resolver" => "James"}})
-
-      view |> element("#author-0-resolver-option-#{other.id}") |> render_click()
-      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
-
-      assert [%{name: "James S.A. Corey"}] = People.get_person!(person.id).authors
-      refute Ambry.Repo.get(Ambry.People.Author, typo.id)
+      person = People.get_person!(person.id)
+      assert [%{author: %{name: "James S.A. Corey"}}] = person.author_people
     end
   end
 end

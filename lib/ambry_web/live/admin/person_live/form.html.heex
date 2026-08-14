@@ -88,46 +88,73 @@
             <%!-- Revealed: the names themselves, which is the only state
                 where linking an existing author means anything specific. --%>
             <div :if={revealed?(assigns, :author)} class="space-y-2 pl-6">
-              <%!-- One control per row: type a name and it is created (or
-                  this row's author renamed), pick one and the row links to
-                  it instead. Two controls for one decision — a name box in
-                  the card and "or link an existing author" under it — is
-                  what made this cluster read as two unrelated things. --%>
               <.inputs_for :let={author_person_form} field={@form[:author_people]}>
                 <.sort_input field={@form[:author_people_sort]} index={author_person_form.index} />
 
-                <div class="flex items-center gap-2">
-                  <.live_component
-                    module={EntityResolver}
-                    id={"author-#{author_person_form.index}-resolver"}
-                    name={author_person_form[:author_id].name}
-                    text_name={author_person_form[:author].name <> "[name]"}
-                    options={@authors}
-                    value={author_person_form[:author_id].value}
-                    text={author_row_name(author_person_form)}
-                    placeholder="the name books are credited to"
-                    class={input_classes("w-full")}
-                  />
-
-                  <.delete_button
-                    field={@form[:author_people_drop]}
-                    index={author_person_form.index}
-                    class="flex-none"
-                  />
-                </div>
-
-                <p
-                  :if={shared_with(author_person_form, @person) != []}
-                  class="pl-3 text-xs text-zinc-500"
-                >
-                  Shared pen name with {Enum.join(shared_with(author_person_form, @person), ", ")}
-                </p>
+                <%= if linked_author_row?(author_person_form) do %>
+                  <div class="relative">
+                    <.input type="hidden" field={author_person_form[:author_id]} />
+                    <.input
+                      type="text"
+                      name={"linked-author-#{author_person_form.index}"}
+                      value={linked_author_name(@authors, author_person_form[:author_id].value)}
+                      disabled
+                    />
+                    <.delete_button
+                      field={@form[:author_people_drop]}
+                      index={author_person_form.index}
+                      class="absolute top-3 right-2"
+                    />
+                  </div>
+                <% else %>
+                  <.inputs_for :let={author_form} field={author_person_form[:author]}>
+                    <div class="relative">
+                      <.input field={author_form[:name]} />
+                      <.delete_button
+                        field={@form[:author_people_drop]}
+                        index={author_person_form.index}
+                        class="absolute top-3 right-2"
+                      />
+                    </div>
+                    <p
+                      :if={shared_with(author_person_form, @person) != []}
+                      class="pl-3 text-xs text-zinc-500"
+                    >
+                      Shared pen name with {Enum.join(shared_with(author_person_form, @person), ", ")}
+                    </p>
+                  </.inputs_for>
+                <% end %>
               </.inputs_for>
 
-              <div class="flex flex-wrap items-baseline gap-x-4">
-                <.add_button field={@form[:author_people_sort]}>Add a pen name</.add_button>
-                <.delete_input field={@form[:author_people_drop]} />
+              <%!-- Two ways to add a name, side by side and each saying which
+                  it is. The boxes above are authoritative — this form is
+                  where an author's name is *decided*, so typing in one
+                  renames the record and nothing about that is a guess. The
+                  picker below only ever links a name that already exists,
+                  which is the composite case and nothing else.
 
+                  They were one control for a while, a typeahead where typing
+                  created and picking linked. It could not work: a rename and
+                  a create are the same gesture in a picker, so renaming
+                  wore the "new" badge while quietly renaming, and the two
+                  meanings fought over the same hidden inputs on every
+                  keystroke. Separate controls, separate promises. --%>
+              <div class="flex flex-wrap items-end gap-x-4 gap-y-2">
+                <div class="flex items-baseline gap-x-4">
+                  <.add_button field={@form[:author_people_sort]}>Add a pen name</.add_button>
+                  <.delete_input field={@form[:author_people_drop]} />
+                </div>
+
+                <.input
+                  field={@form[:link_author_id]}
+                  type="autocomplete"
+                  options={@authors}
+                  label="Or link one that already exists"
+                  container_class="min-w-64 grow"
+                />
+              </div>
+
+              <div class="flex flex-wrap items-baseline gap-x-4">
                 <%!-- Every way in needs a way out — but only while the data
                     still agrees, or the hatch would hide what it describes. --%>
                 <button

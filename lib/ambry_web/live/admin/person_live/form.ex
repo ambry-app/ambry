@@ -56,7 +56,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
-  alias AmbryWeb.Components.EntityResolver
   alias Ecto.Changeset
 
   @scalar_kinds %{"name" => :name, "description" => :description, "image" => :image}
@@ -83,6 +82,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     changeset = People.change_person(person, %{"image_type" => "upload"})
 
     socket
+    |> assign(reveal: seed_reveal(person))
     |> assign_form(changeset)
     |> assign(
       page_title: person.name,
@@ -108,13 +108,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   def handle_params(_params, _url, socket), do: {:noreply, socket}
 
   @impl Phoenix.LiveView
-  def handle_event("validate", %{"person" => person_params} = params, socket) do
+  def handle_event("validate", %{"person" => person_params}, socket) do
     socket = assign(socket, reveal: reveal_after(socket.assigns.reveal, person_params))
 
     person_params =
       person_params
-      |> apply_typed_names(params["resolver"], socket.assigns.person)
-      |> normalize_author_rows(socket.assigns.person)
+      |> maybe_link_author()
       |> apply_credits(socket.assigns.person, socket.assigns.reveal)
 
     socket =
@@ -138,11 +137,10 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> refresh_chips()}
   end
 
-  def handle_event("submit", %{"person" => person_params} = params, socket) do
+  def handle_event("submit", %{"person" => person_params}, socket) do
     person_params =
       person_params
-      |> apply_typed_names(params["resolver"], socket.assigns.person)
-      |> normalize_author_rows(socket.assigns.person)
+      |> maybe_link_author()
       |> apply_credits(socket.assigns.person, socket.assigns.reveal)
 
     socket =
@@ -361,8 +359,28 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   Either because the operator asked, or because the data says something the
   checkbox alone cannot.
   """
-  def revealed?(assigns, :author), do: :author in assigns.reveal or assigns.author_diverges
-  def revealed?(assigns, :narrator), do: :narrator in assigns.reveal or assigns.narrator_diverges
+  def revealed?(assigns, kind), do: kind in assigns.reveal
+
+  # Seeded once, from the record as it was opened — never re-derived from the
+  # changeset. Deriving it per render meant the hatch was computed from the
+  # very field the operator was typing in: renaming the pen name "Bar" to
+  # "Alastair Reynolds" made it stop differing from his name, so the card
+  # collapsed mid-edit, stopped rendering the rows, and dropped the rename on
+  # the floor. A disclosure may not close itself because of what was just
+  # typed into it.
+  defp seed_reveal(%Person{} = person) do
+    Enum.reduce(
+      [
+        {:author, Enum.any?(loaded(person.author_people), &author_diverges?(&1, person.name))},
+        {:narrator, Enum.any?(loaded(person.narrators), &(&1.name != person.name))}
+      ],
+      MapSet.new(),
+      fn
+        {kind, true}, reveal -> MapSet.put(reveal, kind)
+        {_kind, false}, reveal -> reveal
+      end
+    )
+  end
 
   # Unticking collapses the hatch with it — a revealed list under an
   # unchecked box describes credits that no longer exist.
@@ -485,130 +503,50 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   defp loaded(rows) when is_list(rows), do: rows
   defp loaded(_not_loaded), do: []
 
-  # What is in the box right now, which is the only fresh thing in a change
-  # event mid-typing.
-  #
-  # The resolver keeps its answer in two hidden inputs and re-renders them
-  # after its own `filter` round trip — but the parent form's `validate`
-  # fires on the same keystroke, *before* that, carrying the hidden inputs'
-  # previous values. The parent then re-renders the component from its
-  # changeset, which puts the old name back in the box the operator is
-  # typing into. Renaming "Baz" to "David Wong" therefore posted
-  # `author_id=5, name="Baz"` and saved "successfully" having changed
-  # nothing at all.
-  #
-  # The visible box is published under `resolver[<id>]` on every keystroke,
-  # so that is what a rename is read from. A *pick* is told apart by its id:
-  # the resolver sets one, and it differs from the row's own.
-  defp apply_typed_names(params, resolver, person) when is_map(resolver) do
-    case params["author_people"] do
-      rows when is_map(rows) ->
-        current = Map.new(loaded(person.author_people), &{to_string(&1.id), &1})
+  # Selecting an author in the "link an existing author" autocomplete stages an
+  # `author_people` row linking that author (unless it's already present).
+  defp maybe_link_author(%{"link_author_id" => id} = person_params) when id not in [nil, ""] do
+    author_people = person_params["author_people"] || %{}
 
-        Map.put(
-          params,
-          "author_people",
-          Map.new(rows, fn {index, row} ->
-            {index, apply_typed_name(row, resolver["author-#{index}-resolver"], current)}
-          end)
-        )
+    linked_ids =
+      author_people
+      |> Map.values()
+      |> Enum.flat_map(&[&1["author_id"], get_in(&1, ["author", "id"])])
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&to_string/1)
 
-      _absent ->
-        params
+    person_params = Map.put(person_params, "link_author_id", "")
+
+    if to_string(id) in linked_ids do
+      person_params
+    else
+      next_index =
+        author_people
+        |> Map.keys()
+        |> Enum.map(&String.to_integer/1)
+        |> Enum.max(fn -> -1 end)
+        |> Kernel.+(1)
+        |> to_string()
+
+      sort = person_params["author_people_sort"] || []
+
+      person_params
+      |> Map.put("author_people", Map.put(author_people, next_index, %{"author_id" => id}))
+      |> Map.put("author_people_sort", sort ++ [next_index])
     end
   end
 
-  defp apply_typed_names(params, _resolver, _person), do: params
+  defp maybe_link_author(person_params), do: person_params
 
-  defp apply_typed_name(row, typed, current) do
-    original = existing_author(current, row["id"])
-
-    cond do
-      picked?(row, original) -> row
-      typed in [nil, ""] -> row
-      original && typed == original.name -> row
-      true -> row |> Map.delete("author_id") |> put_author_name(typed)
-    end
+  defp linked_author_row?(author_person_form) do
+    is_nil(author_person_form.data.id) and
+      author_person_form[:author_id].value not in [nil, ""]
   end
 
-  # An id the row did not already have is the operator choosing from the
-  # list; the row's own id, still sitting in a hidden input the component
-  # has not caught up with yet, is not.
-  defp picked?(%{"author_id" => id}, nil) when id not in [nil, ""], do: true
-
-  defp picked?(%{"author_id" => id}, %Author{id: original}) when id not in [nil, ""],
-    do: to_string(id) != to_string(original)
-
-  defp picked?(_row, _original), do: false
-
-  defp put_author_name(row, name) do
-    Map.update(row, "author", %{"name" => name}, &Map.put(&1, "name", name))
-  end
-
-  # Each pen-name row is one typeahead, so a row means one of two things and
-  # the params have to say which.
-  #
-  # The resolver clears its id the moment you type, so a row carrying an id
-  # was *picked* and a row carrying only text was *typed*. What they mean
-  # differs for a row that already exists:
-  #
-  #   * picked — link this row to that author instead. The one it pointed at
-  #     is cleaned up by `delete_orphaned_authors/2` if nothing else wants
-  #     it, which is what makes relinking safe.
-  #   * typed — rename the author this row already points at. Emitting the
-  #     name without its id would read as "replace this author with a new
-  #     one", and `AuthorPerson` casts `:author` with `on_replace: :raise`,
-  #     so it raises rather than renaming.
-  #
-  # Both halves are also mutually exclusive on the way in: `cast_assoc` and
-  # a changed `author_id` in the same row is the same replace, by a longer
-  # route.
-  defp normalize_author_rows(params, person) do
-    case params["author_people"] do
-      rows when is_map(rows) ->
-        current = Map.new(loaded(person.author_people), &{to_string(&1.id), &1})
-        Map.put(params, "author_people", Map.new(rows, &normalize_row(&1, current)))
-
-      _absent ->
-        params
-    end
-  end
-
-  defp normalize_row({index, row}, current) do
-    author = existing_author(current, row["id"])
-
-    normalized =
-      cond do
-        # The same test `apply_typed_names/3` uses, and it has to be: reading
-        # a stale id as a pick is what threw the typed name away.
-        picked?(row, author) -> Map.delete(row, "author")
-        author -> row |> Map.delete("author_id") |> put_author_id(author.id)
-        true -> Map.delete(row, "author_id")
-      end
-
-    {index, normalized}
-  end
-
-  defp existing_author(current, id) do
-    case current[to_string(id)] do
-      %{author: %Author{} = author} -> author
-      _none -> nil
-    end
-  end
-
-  defp put_author_id(row, id) do
-    Map.update(row, "author", %{"id" => to_string(id)}, &Map.put(&1, "id", to_string(id)))
-  end
-
-  # What the row's box shows. The nested author's name where the row has
-  # one; falling back to the linked author's own, for a row that links to
-  # somebody the operator picked and has not typed over.
-  defp author_row_name(author_person_form) do
-    case author_person_form[:author].value do
-      %Author{name: name} when is_binary(name) -> name
-      %Changeset{} = changeset -> Changeset.get_field(changeset, :name)
-      _none -> nil
-    end
+  defp linked_author_name(authors, value) do
+    Enum.find_value(authors, fn option ->
+      to_string(option.id) == to_string(value) && option.label
+    end)
   end
 
   defp shared_with(author_person_form, person) do

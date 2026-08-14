@@ -31,6 +31,10 @@ defmodule Ambry.People.Person do
 
     field :field_provenance, :map, default: %{}
 
+    # form-only: staging input for linking an existing author, see
+    # AmbryWeb.Admin.PersonLive.Form
+    field :link_author_id, :integer, virtual: true
+
     timestamps(type: :utc_datetime)
   end
 
