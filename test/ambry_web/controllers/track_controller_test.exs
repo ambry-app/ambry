@@ -160,14 +160,15 @@ defmodule AmbryWeb.TrackControllerTest do
 
   defp served_track do
     media = :media |> build(book: build(:book)) |> with_copied_source_files(:m4a) |> insert()
-    [source_file] = media.source_files
+    [source_file] = Ambry.Media.Media.source_file_paths(media)
 
     # the real fixture, under the media's own source folder, named as a
     # client would see it
     path = Path.join(Path.dirname(source_file), "sample.m4a")
     File.rename!(source_file, path)
 
-    track = insert(:media_track, media: media, path: path, mime: "audio/mp4")
+    track =
+      insert(:media_track, media: media, path: Ambry.Paths.disk_to_web(path), mime: "audio/mp4")
 
     %{track: track, path: path, contents: File.read!(path)}
   end

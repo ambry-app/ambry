@@ -10,6 +10,7 @@ defmodule Ambry.Media.OrganizationTest do
 
   alias Ambry.Books
   alias Ambry.Media.Media
+  alias Ambry.Media.MediaTrack
   alias Ambry.Media.Organization
   alias Ambry.Repo
   alias Ambry.Settings
@@ -35,9 +36,10 @@ defmodule Ambry.Media.OrganizationTest do
       refute File.exists?(file)
 
       media = reload(media)
-      assert media.source_files == [moved]
-      assert media.source_path == Path.dirname(moved)
-      assert [%{path: ^moved}] = media.media_tracks
+      assert Media.source_file_paths(media) == [moved]
+      assert Media.source_path(media) == Path.dirname(moved)
+      assert [track] = media.media_tracks
+      assert MediaTrack.disk_path(track) == {:ok, moved}
     end
 
     test "does nothing when the file is already where it belongs" do
@@ -51,7 +53,7 @@ defmodule Ambry.Media.OrganizationTest do
     # suffix, so re-organizing one part of a set "corrected" it onto its
     # sibling's path.
     test "a part of a set keeps its part suffix" do
-      %{media: media, folder: folder, file: file} = organized_media()
+      %{media: media, folder: folder, file: file, root_record: root_record} = organized_media()
 
       part_file =
         Path.join(folder, "The Way of Kings - Part 2 of 3 [#{Media.filename_token(media)}].m4b")
@@ -60,13 +62,15 @@ defmodule Ambry.Media.OrganizationTest do
 
       group = insert(:recording_group, parts_total: 3)
       [track] = media.media_tracks
-      {:ok, _track} = track |> Ecto.Changeset.change(%{path: part_file}) |> Repo.update()
+
+      {:ok, _track} =
+        track |> Ecto.Changeset.change(%{path: stored(part_file, root_record)}) |> Repo.update()
 
       media
       |> Ecto.Changeset.change(%{
         part_number: 2,
         recording_group_id: group.id,
-        source_files: [part_file]
+        source_files: [stored(part_file, root_record)]
       })
       |> Repo.update!()
 
@@ -196,9 +200,18 @@ defmodule Ambry.Media.OrganizationTest do
       refute Enum.any?(files, &File.exists?/1)
 
       media = reload(media)
-      assert media.source_files == moved
-      assert media.source_path == subfolder
-      assert media.media_tracks |> Enum.sort_by(& &1.index) |> Enum.map(& &1.path) == moved
+      assert Media.source_file_paths(media) == moved
+      assert Media.source_path(media) == subfolder
+
+      track_paths =
+        media.media_tracks
+        |> Enum.sort_by(& &1.index)
+        |> Enum.map(fn track ->
+          {:ok, path} = MediaTrack.disk_path(track)
+          path
+        end)
+
+      assert track_paths == moved
     end
 
     test "does nothing when the files are already where they belong" do
@@ -211,7 +224,9 @@ defmodule Ambry.Media.OrganizationTest do
     # A file that maps to itself is skipped, not refused. Otherwise adding
     # one file to a forty-file recording would fail on the other thirty-nine.
     test "renames only the files whose names actually changed" do
-      %{media: media, root: root, files: files} = organized_multi_file_media()
+      %{media: media, root: root, root_record: root_record, files: files} =
+        organized_multi_file_media()
+
       subfolder = Path.dirname(hd(files))
 
       # A fourth file arrives under the release's own name and is scanned in.
@@ -220,11 +235,18 @@ defmodule Ambry.Media.OrganizationTest do
       arrived = Path.join(subfolder, "bonus-epilogue.mp3")
       File.write!(arrived, "audio 4")
 
-      insert(:media_track, media: media, path: arrived, index: 3)
+      insert(:media_track,
+        media: media,
+        path: stored(arrived, root_record),
+        index: 3,
+        library_root_id: root_record.id
+      )
 
       {:ok, _media} =
         media
-        |> Ecto.Changeset.change(%{source_files: files ++ [arrived]})
+        |> Ecto.Changeset.change(%{
+          source_files: Enum.map(files ++ [arrived], &stored(&1, root_record))
+        })
         |> Repo.update()
 
       assert {:ok, :moved} = Organization.organize(reload(media))
@@ -239,13 +261,14 @@ defmodule Ambry.Media.OrganizationTest do
       assert Enum.map(files, &File.read!/1) == ["audio 1", "audio 2", "audio 3"]
 
       media = reload(media)
-      assert media.source_files == files ++ [renamed]
+      assert Media.source_file_paths(media) == files ++ [renamed]
       assert File.dir?(Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)"]))
     end
   end
 
   defp organized_multi_file_media do
-    %{media: media, root: root, folder: folder, file: file, book: book} = organized_media()
+    %{media: media, root: root, root_record: root_record, folder: folder, file: file, book: book} =
+      organized_media()
 
     File.rm!(file)
     subfolder = Path.join(folder, "The Way of Kings [#{Media.filename_token(media)}]")
@@ -263,23 +286,39 @@ defmodule Ambry.Media.OrganizationTest do
     files
     |> Enum.with_index()
     |> Enum.each(fn {path, index} ->
-      insert(:media_track, media: media, path: path, index: index)
+      insert(:media_track,
+        media: media,
+        path: stored(path, root_record),
+        index: index,
+        library_root_id: root_record.id
+      )
     end)
 
     {:ok, media} =
       media
-      |> Ecto.Changeset.change(%{source_path: subfolder, source_files: files})
+      |> Ecto.Changeset.change(%{
+        source_path: stored(subfolder, root_record),
+        source_files: Enum.map(files, &stored(&1, root_record))
+      })
       |> Repo.update()
 
-    %{media: reload(media), root: root, files: files, folder: folder, book: book}
+    %{
+      media: reload(media),
+      root: root,
+      root_record: root_record,
+      files: files,
+      folder: folder,
+      book: book
+    }
   end
 
   defp organized_media(opts \\ []) do
     root = new_dir("root")
 
-    if Keyword.get(opts, :register_root, true) do
-      insert(:root, path: root)
-    end
+    root_record =
+      if Keyword.get(opts, :register_root, true) do
+        insert(:root, path: root)
+      end
 
     author = insert(:author, name: "Brandon Sanderson")
 
@@ -306,36 +345,59 @@ defmodule Ambry.Media.OrganizationTest do
         # the recording's own date wins over the book's in the template, and
         # the factory would otherwise pick a random one
         published: ~D[2010-08-31],
-        source_path: folder,
-        source_files: [placeholder],
+        library_root_id: root_record && root_record.id,
+        source_path: stored(folder, root_record),
+        source_files: [stored(placeholder, root_record)],
         mp4_path: nil,
         hls_path: nil,
         mpd_path: nil,
-        media_tracks: [build(:media_track, path: placeholder)]
+        media_tracks: [
+          build(:media_track,
+            path: stored(placeholder, root_record),
+            library_root_id: root_record && root_record.id
+          )
+        ]
       )
 
     file = Path.join(folder, "The Way of Kings [#{Media.filename_token(media)}].m4b")
     File.rename!(placeholder, file)
-    {:ok, media} = repoint(media, [file])
+    {:ok, media} = repoint(media, [file], root_record)
 
-    %{media: reload(media), root: root, file: file, folder: folder, book: book}
+    %{
+      media: reload(media),
+      root: root,
+      root_record: root_record,
+      file: file,
+      folder: folder,
+      book: book
+    }
   end
 
   # Points a fixture's media and its tracks at the files it actually has.
-  defp repoint(media, files) do
+  defp repoint(media, files, root_record) do
     media = Repo.preload(media, :media_tracks, force: true)
 
     media.media_tracks
     |> Enum.sort_by(& &1.index)
     |> Enum.zip(files)
     |> Enum.each(fn {track, path} ->
-      {:ok, _track} = track |> Ecto.Changeset.change(%{path: path}) |> Repo.update()
+      {:ok, _track} =
+        track |> Ecto.Changeset.change(%{path: stored(path, root_record)}) |> Repo.update()
     end)
 
     media
-    |> Ecto.Changeset.change(%{source_path: files |> hd() |> Path.dirname(), source_files: files})
+    |> Ecto.Changeset.change(%{
+      source_path: files |> hd() |> Path.dirname() |> stored(root_record),
+      source_files: Enum.map(files, &stored(&1, root_record))
+    })
     |> Repo.update()
   end
+
+  # The stored form of an absolute path: root-relative when the fixture lives
+  # in a registered library root, `/uploads/...` when it doesn't (the fixture
+  # dirs all sit under the uploads tree).
+  defp stored(absolute, nil), do: Ambry.Paths.disk_to_web(absolute)
+  defp stored(absolute, root_record), do: Path.relative_to(absolute, root_record.path)
 
   defp reload(media) do
     media.id

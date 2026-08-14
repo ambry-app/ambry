@@ -9,6 +9,7 @@ defmodule Ambry.Inbox.ImporterTest do
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Media
   alias Ambry.Media.Media.Chapter
+  alias Ambry.Media.MediaTrack
   alias Ambry.People.Author
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -38,8 +39,10 @@ defmodule Ambry.Inbox.ImporterTest do
       assert {:ok, media} = Inbox.import_item(item)
 
       media = Media.get_media!(media.id)
-      assert [%{path: placed}] = media.media_tracks
-      assert media.source_files == [placed]
+      assert [track] = media.media_tracks
+      assert media.source_files == [track.path]
+
+      assert {:ok, placed} = MediaTrack.disk_path(track)
       assert File.read_link!(placed) == file
 
       assert File.exists?(file)

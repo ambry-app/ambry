@@ -10,6 +10,8 @@ defmodule Ambry.Media.Media do
 
   alias Ambry.Books.Book
   alias Ambry.Hashids
+  alias Ambry.Library
+  alias Ambry.Library.Root
   alias Ambry.Media.Media
   alias Ambry.Media.Media.Chapter
   alias Ambry.Media.MediaNarrator
@@ -74,8 +76,21 @@ defmodule Ambry.Media.Media do
     # set is nonsense, enforced by CHECK); the set's total lives on the group
     field :part_number, :integer
 
+    # Which library root the recording's files live in. Null means the
+    # legacy uploads tree, where `source_path` is a `/uploads/...` path —
+    # the same convention the transcoded-output columns below always used.
+    belongs_to :library_root, Root
+
+    # Root-relative (or `/uploads/...`) — resolve through `source_path/2`
+    # and `files/2`, never join these against anything directly.
     field :source_path, :string
     field :source_files, {:array, :string}, default: []
+
+    # Absolute paths a pre-refactor recording was transcoded from, pointing
+    # into a downloads folder that is a source, not a root. Provenance for
+    # Phase 4's relink, never served and never deleted.
+    field :legacy_source_files, {:array, :string}
+
     field :mpd_path, :string
     field :hls_path, :string
     field :mp4_path, :string
@@ -114,6 +129,7 @@ defmodule Ambry.Media.Media do
       :recording_group_id,
       :source_path,
       :source_files,
+      :library_root_id,
       :published,
       :published_format,
       :notes,
@@ -412,8 +428,16 @@ defmodule Ambry.Media.Media do
   def source_id(%Media{source_path: nil}), do: Ecto.UUID.generate()
   def source_id(%Media{source_path: source_path}), do: Path.basename(source_path)
 
-  def source_path(%Media{source_path: source_path}, file \\ "") when is_binary(source_path) do
-    Path.join([source_path, file])
+  @doc """
+  The absolute disk path of the recording's source folder, or of a file in
+  it.
+
+  The stored column is root-relative (or `/uploads/...` for legacy rows);
+  this is the one place it becomes a real path.
+  """
+  def source_path(%Media{source_path: source_path} = media, file \\ "")
+      when is_binary(source_path) do
+    Path.join([resolve!(media, source_path), file])
   end
 
   def output_id(media) do
@@ -432,26 +456,49 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  def out_path(%Media{source_path: source_path}, file \\ "") when is_binary(source_path) do
-    Path.join([source_path, "_out", file])
+  def out_path(%Media{source_path: source_path} = media, file \\ "")
+      when is_binary(source_path) do
+    Path.join([resolve!(media, source_path), "_out", file])
   end
 
-  def files(%Media{source_files: [_ | _] = source_files}, extensions) do
-    Processor.Shared.filter_filenames(source_files, extensions)
+  @doc """
+  The recording's audio files as absolute disk paths, filtered by extension.
+  """
+  def files(%Media{source_files: [_ | _] = source_files} = media, extensions) do
+    source_files
+    |> Processor.Shared.filter_filenames(extensions)
+    |> Enum.map(&resolve!(media, &1))
   end
 
   # DEPRECATED but still used by any older media that didn't set source_files
-  def files(%Media{source_path: source_path}, extensions) when is_binary(source_path) do
-    case File.ls(source_path) do
+  def files(%Media{source_path: source_path} = media, extensions) when is_binary(source_path) do
+    base = resolve!(media, source_path)
+
+    case File.ls(base) do
       {:ok, paths} ->
         paths
         |> Processor.Shared.filter_filenames(extensions)
-        |> Enum.map(&Path.join(source_path, &1))
+        |> Enum.map(&Path.join(base, &1))
 
       {:error, _posix} ->
         []
     end
   end
+
+  @doc """
+  Every recorded source file as an absolute disk path, in play order.
+  """
+  def source_file_paths(%Media{source_files: files} = media) when is_list(files) do
+    Enum.map(files, &resolve!(media, &1))
+  end
+
+  def source_file_paths(%Media{}), do: []
+
+  # The `/uploads/...` case carries its location in the string itself, so it
+  # resolves the same whether or not the row also names a root.
+  defp resolve!(_media, "/uploads/" <> _rest = web_path), do: Library.resolve!(nil, web_path)
+  defp resolve!(%Media{library_root: %Root{} = root}, path), do: Library.resolve!(root, path)
+  defp resolve!(%Media{library_root_id: root_id}, path), do: Library.resolve!(root_id, path)
 
   # if the image_path changes, clear the thumbnails embed
   # Moving a marker makes the timeline the operator's, wherever it started

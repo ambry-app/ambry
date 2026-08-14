@@ -36,13 +36,14 @@ defmodule Ambry.Library do
   """
 
   use Boundary,
-    deps: [Ambry.Repo],
+    deps: [Ambry.Paths, Ambry.Repo],
     exports: [Source, Root, NamingTemplate, Placement]
 
   import Ecto.Query
 
   alias Ambry.Library.Root
   alias Ambry.Library.Source
+  alias Ambry.Paths
   alias Ambry.Repo
 
   defmodule Status do
@@ -127,6 +128,86 @@ defmodule Ambry.Library do
   def delete_root(%Root{} = root), do: Repo.delete(root)
 
   def change_root(%Root{} = root, attrs \\ %{}), do: Root.changeset(root, attrs)
+
+  ## stored-path resolution
+  #
+  # A stored path is either relative to a library root (the FK says which)
+  # or a legacy `/uploads/...` path with a null FK, resolved through
+  # `Ambry.Paths`. These are the only two cases; anything else is refused
+  # rather than guessed at.
+
+  @doc """
+  Resolves a stored path to an absolute disk path.
+
+  Takes the root (record, id, or `nil` for the legacy uploads case) and the
+  stored string. Rejects a relative path containing `..` or starting with
+  `/` **before anything else** — `Path.join/2` traverses upward happily and
+  discards a joined-on absolute path entirely, and resolved paths feed
+  `File.rm_rf`.
+  """
+  def resolve(nil, "/uploads/" <> _rest = web_path), do: {:ok, Paths.web_to_disk(web_path)}
+  def resolve(nil, path), do: {:error, {:unresolvable, path}}
+
+  def resolve(%Root{} = root, relative) do
+    cond do
+      Path.type(relative) != :relative -> {:error, {:not_relative, relative}}
+      ".." in Path.split(relative) -> {:error, {:traversal, relative}}
+      true -> {:ok, Path.join(root.path, relative)}
+    end
+  end
+
+  def resolve(root_id, relative) when is_integer(root_id) do
+    case fetch_root(root_id) do
+      {:ok, root} -> resolve(root, relative)
+      {:error, :not_found} -> {:error, {:no_root, root_id}}
+    end
+  end
+
+  @doc """
+  Same, raising on anything unresolvable.
+
+  For invariants the schema is meant to guarantee — a caller that has no
+  better answer than crashing should crash here, before the bad path
+  reaches the filesystem.
+  """
+  def resolve!(root, path) do
+    case resolve(root, path) do
+      {:ok, absolute} -> absolute
+      {:error, reason} -> raise "unresolvable stored path: #{inspect(reason)}"
+    end
+  end
+
+  @doc """
+  The stored (relative) form of an absolute path inside a location.
+
+  Refuses a path outside the location rather than emitting `../..`.
+  """
+  def relativize(%Root{path: base}, absolute), do: do_relativize(base, absolute)
+  def relativize(%Source{path: base}, absolute), do: do_relativize(base, absolute)
+
+  defp do_relativize(base, absolute) do
+    if String.starts_with?(absolute, base <> "/"),
+      do: {:ok, Path.relative_to(absolute, base)},
+      else: {:error, :outside_location}
+  end
+
+  @doc """
+  The root an absolute path lives in, with its relative form.
+
+  Longest-prefix match, matched on a path-segment boundary, so nested
+  locations resolve deterministically. For the backfill and the import
+  boundary only — runtime code reads the FK rather than inferring a
+  location.
+  """
+  def locate(absolute) when is_binary(absolute) do
+    list_roots()
+    |> Enum.filter(&String.starts_with?(absolute, &1.path <> "/"))
+    |> Enum.max_by(&String.length(&1.path), fn -> nil end)
+    |> case do
+      nil -> {:error, :no_location}
+      root -> {:ok, {root, Path.relative_to(absolute, root.path)}}
+    end
+  end
 
   @doc """
   Every registered path, source or root.

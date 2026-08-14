@@ -31,13 +31,17 @@ defmodule Ambry.Media.Audit do
   defp unwrap(nil), do: nil
   defp unwrap([single]), do: single
 
+  # `Media.source_path/2` resolves the stored root-relative (or
+  # `/uploads/...`) path to a real folder on disk.
   defp source_file_stats(media) do
-    case File.ls(media.source_path) do
+    base = Media.source_path(media)
+
+    case File.ls(base) do
       {:ok, relative_paths} ->
         relative_paths
         |> Enum.sort(NaturalOrder)
         |> Enum.flat_map(fn path ->
-          file_stat(Path.join([media.source_path, path]))
+          file_stat(Path.join([base, path]))
         end)
 
       {:error, posix} ->

@@ -27,7 +27,7 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
         media_narrators: [%{narrator: narrator}]
       )
       |> with_thumbnails()
-      |> with_source_files()
+      |> with_copied_source_files()
       |> insert()
       |> with_output_files()
 

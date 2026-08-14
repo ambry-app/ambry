@@ -414,15 +414,23 @@ defmodule Ambry.Media do
   # goes with its last part.
   defp source_deletions(%Media{source_path: path} = media) when is_binary(path) do
     if shared_source_path?(media),
-      do: {[], media.source_files || []},
-      else: {[path], []}
+      do: {[], Media.source_file_paths(media)},
+      else: {[Media.source_path(media)], []}
   end
 
   defp source_deletions(%Media{}), do: {[], []}
 
-  defp shared_source_path?(%Media{id: id, source_path: path}) do
-    Repo.exists?(from(m in Media, where: m.source_path == ^path and m.id != ^id))
+  # Compared as {root, relative} rather than as strings: two roots may
+  # legitimately hold the same relative path, and they are different folders.
+  defp shared_source_path?(%Media{id: id, source_path: path, library_root_id: root_id}) do
+    Media
+    |> where([m], m.source_path == ^path and m.id != ^id)
+    |> same_root(root_id)
+    |> Repo.exists?()
   end
+
+  defp same_root(query, nil), do: where(query, [m], is_nil(m.library_root_id))
+  defp same_root(query, root_id), do: where(query, [m], m.library_root_id == ^root_id)
 
   defp all_file_paths(%Media{} = media) do
     %Media{
@@ -544,7 +552,8 @@ defmodule Ambry.Media do
         source_files: source_files,
         processor: processor
       }) do
-    old_source_path = media.source_path
+    old_stored = media.source_path
+    old_disk = old_stored && Media.source_path(media)
 
     with {:ok, updated_media} <-
            update_media(media, %{
@@ -553,19 +562,19 @@ defmodule Ambry.Media do
              status: :pending
            }),
          {:ok, _job} <- run_processor_async(updated_media, processor) do
-      delete_old_source_folder_async(old_source_path, source_path)
+      delete_old_source_folder_async(old_stored, old_disk, source_path)
       {:ok, updated_media}
     end
   end
 
   # Same rule as deletion: the old folder is Ambry's name for the bytes and
   # goes with the replacement; any original it was placed from is untouched
-  # by construction.
-  defp delete_old_source_folder_async(old_source_path, new_source_path)
-       when old_source_path in [nil, new_source_path], do: {:ok, :noop}
+  # by construction. Compared in stored form, deleted in resolved form.
+  defp delete_old_source_folder_async(old_stored, _old_disk, new_source_path)
+       when old_stored in [nil, new_source_path], do: {:ok, :noop}
 
-  defp delete_old_source_folder_async(old_source_path, _new_source_path),
-    do: try_delete_files_async([], [old_source_path])
+  defp delete_old_source_folder_async(_old_stored, old_disk, _new_source_path),
+    do: try_delete_files_async([], [old_disk])
 
   defdelegate available_processors(media_or_filenames), to: Processor, as: :matched_processors
 

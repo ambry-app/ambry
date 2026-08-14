@@ -32,23 +32,27 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
       media = Media.get_media!(media.id)
 
+      # stored relative to the root the record itself names
+      assert media.library_root_id
       assert [placed] = media.source_files
 
       assert placed ==
                Path.join([
-                 root,
                  "Brandon Sanderson",
                  "The Way of Kings (2010)",
                  "The Way of Kings [#{Media.filename_token(media)}].m4b"
                ])
 
-      assert File.exists?(placed)
+      assert [placed_on_disk] = Media.Media.source_file_paths(media)
+      assert placed_on_disk == Path.join(root, placed)
+      assert File.exists?(placed_on_disk)
 
       # the whole point: one inode, two names, no extra bytes
-      assert {:ok, %{links: 2}} = File.stat(placed)
+      assert {:ok, %{links: 2}} = File.stat(placed_on_disk)
       assert File.exists?(source)
 
-      assert [%{path: ^placed}] = media.media_tracks
+      assert [%{path: ^placed, library_root_id: root_id}] = media.media_tracks
+      assert root_id == media.library_root_id
       assert media.source_path == Path.dirname(placed)
     end
 
@@ -59,7 +63,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert {:ok, media} = Inbox.import_item(item)
       media = Media.get_media!(media.id)
 
-      book_folder = Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)"])
+      book_folder = Path.join("Brandon Sanderson", "The Way of Kings (2010)")
 
       # A subfolder, because the book folder is shared with every other
       # recording of the same work — and indexed names, because play order
@@ -75,7 +79,9 @@ defmodule Ambry.Inbox.ManagedImportTest do
                Path.join(recording_folder, "The Way of Kings - 003.m4b")
              ]
 
-      assert Enum.all?(media.source_files, &File.exists?/1)
+      placed_on_disk = Media.Media.source_file_paths(media)
+      assert placed_on_disk == Enum.map(media.source_files, &Path.join(root, &1))
+      assert Enum.all?(placed_on_disk, &File.exists?/1)
       assert media.source_path == recording_folder
 
       # 01 before 02 before 10: the order the operator saw, not the order the
@@ -85,7 +91,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
              |> Enum.map(& &1.path) == media.source_files
 
       # Every one hardlinked, and every source still seeding.
-      assert Enum.all?(media.source_files, &match?({:ok, %{links: 2}}, File.stat(&1)))
+      assert Enum.all?(placed_on_disk, &match?({:ok, %{links: 2}}, File.stat(&1)))
       assert Enum.all?(sources, &File.exists?/1)
     end
 
@@ -131,15 +137,17 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
       assert {:ok, media} = Inbox.import_item(item)
 
-      assert [placed] = Media.get_media!(media.id).source_files
+      media = Media.get_media!(media.id)
+      assert [placed] = media.source_files
 
       assert placed ==
                Path.join([
-                 root,
                  "Brandon Sanderson",
                  "2010 - The Way of Kings",
                  "The Way of Kings [#{Media.filename_token(media)}].m4b"
                ])
+
+      assert Media.Media.source_file_paths(media) == [Path.join(root, placed)]
     end
 
     test "moves instead, leaving the downloads folder clean" do
@@ -147,7 +155,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
       assert {:ok, media} = Inbox.import_item(item)
 
-      assert [placed] = Media.get_media!(media.id).source_files
+      assert [placed] = Media.Media.source_file_paths(Media.get_media!(media.id))
       assert File.exists?(placed)
       # the source is removed only after the records committed
       refute File.exists?(source)
@@ -158,7 +166,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
       assert {:ok, media} = Inbox.import_item(item)
 
-      assert [placed] = Media.get_media!(media.id).source_files
+      assert [placed] = Media.Media.source_file_paths(Media.get_media!(media.id))
       assert File.exists?(source)
       assert {:ok, %{links: 1}} = File.stat(placed)
     end
@@ -181,10 +189,13 @@ defmodule Ambry.Inbox.ManagedImportTest do
     test "two part imports share the folder with distinct filenames" do
       %{media1: media1, media2: media2, root: root} = two_part_imports()
 
-      folder = Path.join([root, "Brandon Sanderson", "The Way of Kings (2010)"])
+      folder = Path.join("Brandon Sanderson", "The Way of Kings (2010)")
 
-      assert [placed1] = Media.get_media!(media1.id).source_files
-      assert [placed2] = Media.get_media!(media2.id).source_files
+      media1 = Media.get_media!(media1.id)
+      media2 = Media.get_media!(media2.id)
+
+      assert [placed1] = media1.source_files
+      assert [placed2] = media2.source_files
 
       assert placed1 ==
                Path.join(
@@ -198,8 +209,12 @@ defmodule Ambry.Inbox.ManagedImportTest do
                  "The Way of Kings - Part 2 of 2 [#{Media.filename_token(media2)}].m4b"
                )
 
-      assert File.exists?(placed1)
-      assert File.exists?(placed2)
+      assert [disk1] = Media.Media.source_file_paths(media1)
+      assert [disk2] = Media.Media.source_file_paths(media2)
+      assert disk1 == Path.join(root, placed1)
+      assert disk2 == Path.join(root, placed2)
+      assert File.exists?(disk1)
+      assert File.exists?(disk2)
     end
 
     # The deletion worker rm_rfs a managed media's source folder. Parts share
@@ -207,8 +222,8 @@ defmodule Ambry.Inbox.ManagedImportTest do
     test "deleting one part leaves its sibling's file alone" do
       %{media1: media1, media2: media2} = two_part_imports()
 
-      [placed1] = Media.get_media!(media1.id).source_files
-      [placed2] = Media.get_media!(media2.id).source_files
+      [placed1] = Media.Media.source_file_paths(Media.get_media!(media1.id))
+      [placed2] = Media.Media.source_file_paths(Media.get_media!(media2.id))
 
       assert {:ok, _deleted} = Media.delete_media(Media.get_media!(media1.id))
       # file deletion happens in a background job on the default queue
@@ -356,7 +371,10 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
       assert {:ok, media} = Inbox.import_item(item)
 
-      assert [placed] = Media.get_media!(media.id).source_files
+      media = Media.get_media!(media.id)
+      assert media.library_root_id == chosen.id
+
+      assert [placed] = Media.Media.source_file_paths(media)
       assert String.starts_with?(placed, chosen.path)
     end
 
@@ -390,8 +408,8 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
       assert {:ok, media2} = Inbox.import_item(settle(second))
 
-      [placed1] = Media.get_media!(media1.id).source_files
-      [placed2] = Media.get_media!(media2.id).source_files
+      [placed1] = Media.Media.source_file_paths(Media.get_media!(media1.id))
+      [placed2] = Media.Media.source_file_paths(Media.get_media!(media2.id))
 
       # Same book folder, different files, both on disk.
       assert Path.dirname(placed1) == Path.dirname(placed2)
@@ -449,7 +467,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert {:ok, media} = Inbox.import_item(item)
 
       media = Media.get_media!(media.id)
-      assert [placed] = media.source_files
+      assert [placed] = Media.Media.source_file_paths(media)
       assert String.starts_with?(placed, root)
       assert File.read_link(placed) == {:ok, source}
       assert File.exists?(source)

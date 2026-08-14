@@ -41,8 +41,8 @@ defmodule Ambry.Media.DeletionCustodyTest do
       media =
         insert(:media,
           book: build(:book),
-          source_path: folder,
-          source_files: [file],
+          source_path: Ambry.Paths.disk_to_web(folder),
+          source_files: [Ambry.Paths.disk_to_web(file)],
           mpd_path: nil,
           hls_path: nil,
           mp4_path: nil
@@ -74,8 +74,8 @@ defmodule Ambry.Media.DeletionCustodyTest do
       media =
         insert(:media,
           book: build(:book),
-          source_path: folder,
-          source_files: [file],
+          source_path: Ambry.Paths.disk_to_web(folder),
+          source_files: [Ambry.Paths.disk_to_web(file)],
           mpd_path: nil,
           hls_path: nil,
           mp4_path: nil
@@ -121,8 +121,8 @@ defmodule Ambry.Media.DeletionCustodyTest do
       media =
         insert(:media,
           book: build(:book),
-          source_path: folder,
-          source_files: [file],
+          source_path: Ambry.Paths.disk_to_web(folder),
+          source_files: [Ambry.Paths.disk_to_web(file)],
           mpd_path: nil,
           hls_path: nil,
           mp4_path: nil
@@ -147,8 +147,8 @@ defmodule Ambry.Media.DeletionCustodyTest do
 
       assert {:ok, _media} =
                Media.replace_media(media, %{
-                 source_path: new_folder,
-                 source_files: [new_file],
+                 source_path: Ambry.Paths.disk_to_web(new_folder),
+                 source_files: [Ambry.Paths.disk_to_web(new_file)],
                  processor: :mp4_concat
                })
 
@@ -167,8 +167,8 @@ defmodule Ambry.Media.DeletionCustodyTest do
     media =
       insert(:media,
         book: build(:book),
-        source_path: folder,
-        source_files: [file],
+        source_path: Ambry.Paths.disk_to_web(folder),
+        source_files: [Ambry.Paths.disk_to_web(file)],
         mpd_path: nil,
         hls_path: nil,
         mp4_path: nil

@@ -621,6 +621,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     folder_id = Media.Media.source_id(socket.assigns.media)
     source_folder = source_media_disk_path(folder_id)
 
+    # Stored in `/uploads/...` form: paths in the database are root-relative
+    # or uploads-relative, never absolute.
     audio_files =
       consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
         File.mkdir_p!(source_folder)
@@ -628,7 +630,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         dest = Path.join([source_folder, entry.client_name])
         File.cp!(path, dest)
 
-        {:ok, dest}
+        {:ok, Ambry.Paths.disk_to_web(dest)}
       end)
 
     existing_source_files = socket.assigns.media.source_files
@@ -638,7 +640,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         media_params
       else
         Map.merge(media_params, %{
-          "source_path" => source_folder,
+          "source_path" => Ambry.Paths.disk_to_web(source_folder),
           "source_files" => Enum.sort(existing_source_files ++ audio_files, NaturalOrder)
         })
       end
@@ -650,17 +652,35 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:ok, media_params}
   end
 
+  # The selected files live in the local-import folder, which is nowhere the
+  # database may point any more — so they're brought into the media's own
+  # uploads workspace first, exactly like an upload. A hardlink when the two
+  # share a filesystem, a copy otherwise: this is transcode input, not the
+  # library's copy of the bytes.
   defp handle_audio_files_import(socket, %{"source_type" => "local_import"} = media_params) do
     folder_id = Media.Media.source_id(socket.assigns.media)
     source_folder = source_media_disk_path(folder_id)
 
+    imported_files =
+      for file <- socket.assigns.selected_files do
+        File.mkdir_p!(source_folder)
+        dest = Path.join(source_folder, Path.basename(file))
+
+        case File.ln(file, dest) do
+          :ok -> :ok
+          {:error, :eexist} -> :ok
+          {:error, _reason} -> File.cp!(file, dest)
+        end
+
+        Ambry.Paths.disk_to_web(dest)
+      end
+
     existing_source_files = socket.assigns.media.source_files
-    selected_files = Enum.to_list(socket.assigns.selected_files)
-    new_source_files = Enum.sort(existing_source_files ++ selected_files, NaturalOrder)
+    new_source_files = Enum.sort(existing_source_files ++ imported_files, NaturalOrder)
 
     {:ok,
      Map.merge(media_params, %{
-       "source_path" => source_folder,
+       "source_path" => Ambry.Paths.disk_to_web(source_folder),
        "source_files" => new_source_files
      })}
   end

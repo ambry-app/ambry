@@ -99,6 +99,96 @@ defmodule Ambry.LibraryTest do
     end
   end
 
+  describe "stored-path resolution" do
+    test "resolves a root-relative path" do
+      root = insert(:root, path: "/data/library")
+
+      assert Library.resolve(root, "Author/Book (2010)/Book.m4b") ==
+               {:ok, "/data/library/Author/Book (2010)/Book.m4b"}
+
+      assert Library.resolve(root.id, "Book.m4b") == {:ok, "/data/library/Book.m4b"}
+    end
+
+    test "resolves a legacy /uploads path with no root" do
+      assert {:ok, resolved} = Library.resolve(nil, "/uploads/source_media/abc")
+      assert resolved == Ambry.Paths.web_to_disk("/uploads/source_media/abc")
+    end
+
+    # These feed `File.rm_rf`, so the refusals are the first check, not an
+    # afterthought.
+    test "refuses traversal and absolute paths before anything else" do
+      root = insert(:root, path: "/data/library")
+
+      assert {:error, {:traversal, _path}} = Library.resolve(root, "../outside/Book.m4b")
+      assert {:error, {:traversal, _path}} = Library.resolve(root, "Author/../../etc/passwd")
+      assert {:error, {:not_relative, _path}} = Library.resolve(root, "/etc/passwd")
+      assert {:error, {:unresolvable, _path}} = Library.resolve(nil, "/anywhere/else")
+    end
+
+    # The real library has spaces, brackets and unicode in nearly every path.
+    test "relativize then resolve round-trips awkward real-world paths" do
+      root = insert(:root, path: "/data/library")
+
+      for path <- [
+            "/data/library/Sarah J. Maas/[ACOTAR #1] A Court of Thorns and Roses (chapterized)/01 – Chäpter Öne.m4b",
+            "/data/library/single.m4b"
+          ] do
+        assert {:ok, relative} = Library.relativize(root, path)
+        assert Library.resolve(root, relative) == {:ok, path}
+      end
+    end
+
+    test "relativize refuses a path outside its location" do
+      root = insert(:root, path: "/data/library")
+
+      assert Library.relativize(root, "/data/library-other/Book.m4b") ==
+               {:error, :outside_location}
+    end
+
+    test "locate picks the longest matching root on a segment boundary" do
+      insert(:root, path: "/data")
+      inner = insert(:root, path: "/data/library")
+      insert(:root, path: "/data/library-other")
+
+      assert {:ok, {root, "Book.m4b"}} = Library.locate("/data/library/Book.m4b")
+      assert root.id == inner.id
+
+      assert {:error, :no_location} = Library.locate("/somewhere/else.m4b")
+    end
+
+    # The motivating regression: the library moved mounts and every stored
+    # absolute path broke. Now the mount is one row, and every dependent
+    # resolution follows it with zero row updates.
+    test "a changed root path carries every resolution with it" do
+      root = insert(:root, path: "/mnt/old-nas/library")
+
+      media =
+        insert(:media,
+          book: build(:book),
+          library_root_id: root.id,
+          source_path: "Author/Book",
+          source_files: ["Author/Book/book.m4b"],
+          media_tracks: [
+            build(:media_track, path: "Author/Book/book.m4b", library_root_id: root.id)
+          ]
+        )
+
+      {:ok, _root} = Library.update_root(root, %{path: "/srv/media/library"})
+
+      media = Repo.reload(media) |> Repo.preload([:media_tracks, :library_root], force: true)
+
+      assert Ambry.Media.Media.source_path(media) == "/srv/media/library/Author/Book"
+
+      assert Ambry.Media.Media.source_file_paths(media) ==
+               ["/srv/media/library/Author/Book/book.m4b"]
+
+      assert [track] = media.media_tracks
+
+      assert Ambry.Media.MediaTrack.disk_path(track) ==
+               {:ok, "/srv/media/library/Author/Book/book.m4b"}
+    end
+  end
+
   describe "listing" do
     test "sources and roots are separate registries" do
       source = insert(:source)

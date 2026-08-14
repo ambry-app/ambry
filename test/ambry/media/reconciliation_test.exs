@@ -82,8 +82,8 @@ defmodule Ambry.Media.ReconciliationTest do
     # Calling it missing would cry wolf on exactly the recordings Phase 4 is
     # going to reclaim.
     test "ignores source files that only ever fed a transcode" do
-      %{media: media} = legacy_media()
-      File.rm_rf!(media.source_path)
+      %{media: media, dir: dir} = legacy_media()
+      File.rm_rf!(dir)
 
       assert Reconciliation.missing_files(Repo.preload(media, :media_tracks)) == []
     end
@@ -130,12 +130,12 @@ defmodule Ambry.Media.ReconciliationTest do
       insert(:media,
         book: build(:book),
         status: Keyword.get(opts, :status, :pending),
-        source_path: dir,
-        source_files: [file],
+        source_path: Ambry.Paths.disk_to_web(dir),
+        source_files: [Ambry.Paths.disk_to_web(file)],
         mp4_path: nil,
         hls_path: nil,
         mpd_path: nil,
-        media_tracks: [build(:media_track, path: file)]
+        media_tracks: [build(:media_track, path: Ambry.Paths.disk_to_web(file))]
       )
 
     %{media: Repo.preload(media, :media_tracks), file: file, dir: dir}
@@ -155,14 +155,14 @@ defmodule Ambry.Media.ReconciliationTest do
       insert(:media,
         book: build(:book),
         status: :ready,
-        source_path: dir,
-        source_files: [source],
+        source_path: Ambry.Paths.disk_to_web(dir),
+        source_files: [Ambry.Paths.disk_to_web(source)],
         mp4_path: "/uploads/media/#{filename}",
         hls_path: nil,
         mpd_path: nil
       )
 
-    %{media: media, mp4: mp4, source: source}
+    %{media: media, mp4: mp4, source: source, dir: dir}
   end
 
   defp new_dir(prefix) do

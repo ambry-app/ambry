@@ -1106,9 +1106,22 @@ defmodule Ambry.Inbox do
   defp owner_of(file, ledger) do
     cond do
       item = ledger.by_file[file] -> item
-      MapSet.member?(ledger.library, file) -> :library
+      MapSet.member?(ledger.library, library_coordinates(file, ledger.roots)) -> :library
       item = nearest_owner(file, ledger.by_path) -> item
       true -> nil
+    end
+  end
+
+  # A scanned absolute path in the same coordinates the library stores: the
+  # root it falls in plus its relative form. A file under no root can only
+  # be claimed by an item, never by the library.
+  defp library_coordinates(file, roots) do
+    roots
+    |> Enum.filter(&String.starts_with?(file, &1.path <> "/"))
+    |> Enum.max_by(&String.length(&1.path), fn -> nil end)
+    |> case do
+      nil -> {nil, file}
+      root -> {root.id, Path.relative_to(file, root.path)}
     end
   end
 
@@ -1204,17 +1217,25 @@ defmodule Ambry.Inbox do
     %{
       by_file: for(item <- items, file <- item.files, into: %{}, do: {file, item}),
       by_path: Map.new(items, &{&1.path, &1}),
-      library: imported_files()
+      library: imported_files(),
+      roots: Library.list_roots()
     }
   end
 
   # Files the library already has, by either route: a direct-play track or a
-  # legacy media's recorded source files.
+  # recording's recorded source files. Compared as `{root_id, relative}`
+  # tuples rather than strings — two roots may legitimately hold the same
+  # relative path, and the stored columns are relative now. A scanned file
+  # only matches once `locate/1`d into the same coordinates, which happens
+  # in `owner_of/2`.
   defp imported_files do
-    track_paths = MediaTrack |> select([t], t.path) |> Repo.all()
+    track_paths = MediaTrack |> select([t], {t.library_root_id, t.path}) |> Repo.all()
 
     source_files =
-      Media |> select([m], m.source_files) |> Repo.all() |> List.flatten()
+      Media
+      |> select([m], {m.library_root_id, m.source_files})
+      |> Repo.all()
+      |> Enum.flat_map(fn {root_id, files} -> Enum.map(files || [], &{root_id, &1}) end)
 
     MapSet.new(track_paths ++ source_files)
   end

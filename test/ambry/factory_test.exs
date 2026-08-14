@@ -249,9 +249,15 @@ defmodule Ambry.FactoryTest do
 
       assert %Media{} = media
       assert is_binary(media.source_path)
+      assert String.starts_with?(media.source_path, "/uploads/")
 
+      # stored form is web-style; resolve to disk to check the files exist
       for path <- media.source_files do
         assert is_binary(path)
+        assert String.starts_with?(path, "/uploads/")
+      end
+
+      for path <- Media.source_file_paths(media) do
         assert File.exists?(path)
       end
     end

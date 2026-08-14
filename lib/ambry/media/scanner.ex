@@ -34,10 +34,12 @@ defmodule Ambry.Media.Scanner do
   finding in the roadmap's 1b.
   """
 
+  alias Ambry.Library
   alias Ambry.Media, as: MediaContext
   alias Ambry.Media.Chapters.FromFiles
   alias Ambry.Media.Media
   alias Ambry.Media.Scanner.Probe
+  alias Ambry.Paths
 
   @extensions ~w(.mp3 .mp4 .m4a .m4b .flac .ogg .opus .wav)
 
@@ -95,17 +97,13 @@ defmodule Ambry.Media.Scanner do
     end
   end
 
-  # `Media.files/2` yields names relative to the source folder for media that
-  # recorded `source_files`, and absolute paths for the older ones that
-  # didn't. The sort matters for the second kind: `File.ls/1` returns
-  # whatever order the filesystem felt like, which for a 40-file book is a
-  # shuffled audiobook.
+  # `Media.files/2` resolves to absolute disk paths. The sort matters for
+  # media without recorded `source_files`: `File.ls/1` returns whatever
+  # order the filesystem felt like, which for a 40-file book is a shuffled
+  # audiobook.
   defp files(media) do
     media
     |> Media.files(@extensions)
-    |> Enum.map(fn file ->
-      if Path.type(file) == :absolute, do: file, else: Media.source_path(media, file)
-    end)
     |> Enum.sort(NaturalOrder)
   end
 
@@ -131,15 +129,57 @@ defmodule Ambry.Media.Scanner do
     end
   end
 
+  # Tracks store {root FK, relative path}, never the absolute the probe ran
+  # on — a file outside the media's root and the uploads tree has no stored
+  # form, and the scan refuses rather than writing an unservable path.
   defp write_tracks(media, probes) do
-    attrs =
-      %{
-        media_tracks: track_attrs(probes),
-        duration: total_duration(probes)
-      }
-      |> maybe_put_chapters(media, probes)
+    with {:ok, tracks} <- stored_tracks(media, probes) do
+      attrs =
+        %{
+          media_tracks: tracks,
+          duration: total_duration(probes)
+        }
+        |> maybe_put_chapters(media, probes)
 
-    MediaContext.update_media(media, attrs)
+      MediaContext.update_media(media, attrs)
+    end
+  end
+
+  defp stored_tracks(media, probes) do
+    probes
+    |> track_attrs()
+    |> Enum.reduce_while({:ok, []}, fn attrs, {:ok, acc} ->
+      case stored_track_path(media, attrs.path) do
+        {:ok, {root_id, stored}} ->
+          attrs = attrs |> Map.put(:path, stored) |> Map.put(:library_root_id, root_id)
+          {:cont, {:ok, [attrs | acc]}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, tracks} -> {:ok, Enum.reverse(tracks)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp stored_track_path(%Media{library_root_id: root_id}, absolute) when is_integer(root_id) do
+    {:ok, root} = Library.fetch_root(root_id)
+
+    case Library.relativize(root, absolute) do
+      {:ok, relative} -> {:ok, {root_id, relative}}
+      {:error, :outside_location} -> uploads_stored_form(absolute)
+    end
+  end
+
+  defp stored_track_path(%Media{}, absolute), do: uploads_stored_form(absolute)
+
+  defp uploads_stored_form(absolute) do
+    case Paths.disk_to_web(absolute) do
+      "/uploads/" <> _rest = web_path -> {:ok, {nil, web_path}}
+      _outside -> {:error, {:outside_library, absolute}}
+    end
   end
 
   @doc """

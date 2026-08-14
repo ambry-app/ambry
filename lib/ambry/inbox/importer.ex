@@ -60,6 +60,7 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Library
   alias Ambry.Library.NamingTemplate
   alias Ambry.Library.Placement
   alias Ambry.Library.Root
@@ -520,7 +521,7 @@ defmodule Ambry.Inbox.Importer do
          {:ok, filenames} <- NamingTemplate.filenames(values, files, filename_recording(media)),
          paths = Enum.map(filenames, &Path.join([root.path, folder, &1])),
          {:ok, placements} <- Placement.place_all(Enum.zip(files, paths), policy),
-         {:ok, media} <- record_placement(media, paths) do
+         {:ok, media} <- record_placement(media, root, paths) do
       {:ok, media, placements}
     end
   end
@@ -549,27 +550,35 @@ defmodule Ambry.Inbox.Importer do
   # names. `source_path` is the folder those copies share, which for a
   # multi-file recording is the subfolder of its own that placement gave it,
   # not the book folder it sits in.
-  defp record_placement(media, paths) do
-    with {:ok, _tracks} <- repoint_tracks(media, paths) do
+  defp record_placement(media, root, paths) do
+    with {:ok, _tracks} <- repoint_tracks(media, root, paths) do
       media
       |> Ecto.Changeset.change(%{
-        source_path: paths |> hd() |> Path.dirname(),
-        source_files: paths
+        library_root_id: root.id,
+        source_path: relativize!(root, paths |> hd() |> Path.dirname()),
+        source_files: Enum.map(paths, &relativize!(root, &1))
       })
       |> Repo.update()
     end
   end
 
+  # Placement just wrote these under the root, so being outside it is a bug
+  # worth crashing on rather than recording.
+  defp relativize!(root, absolute) do
+    {:ok, relative} = Library.relativize(root, absolute)
+    relative
+  end
+
   # Zipped by position, and the positions are the same order everywhere: the
   # probes were taken in it, the tracks were written in it, and the
   # destination names were rendered from it.
-  defp repoint_tracks(%{media_tracks: [_ | _] = tracks}, paths) do
+  defp repoint_tracks(%{media_tracks: [_ | _] = tracks}, root, paths) do
     tracks
     |> Enum.sort_by(& &1.index)
     |> Enum.zip(paths)
     |> Enum.reduce_while({:ok, []}, fn {track, path}, {:ok, acc} ->
       track
-      |> Ecto.Changeset.change(%{path: path})
+      |> Ecto.Changeset.change(%{path: relativize!(root, path), library_root_id: root.id})
       |> Repo.update()
       |> case do
         {:ok, track} -> {:cont, {:ok, [track | acc]}}
@@ -578,7 +587,7 @@ defmodule Ambry.Inbox.Importer do
     end)
   end
 
-  defp repoint_tracks(_no_tracks, _paths), do: {:error, :no_tracks}
+  defp repoint_tracks(_no_tracks, _root, _paths), do: {:error, :no_tracks}
 
   # A source that couldn't be removed is untidy, not broken: the library copy
   # exists and is recorded. Failing the import here would be worse than

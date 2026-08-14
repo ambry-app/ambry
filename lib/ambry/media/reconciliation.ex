@@ -32,6 +32,7 @@ defmodule Ambry.Media.Reconciliation do
   import Ecto.Query
 
   alias Ambry.Media.Media
+  alias Ambry.Media.MediaTrack
   alias Ambry.Paths
   alias Ambry.Repo
 
@@ -86,12 +87,15 @@ defmodule Ambry.Media.Reconciliation do
   end
 
   @doc """
-  The files a recording is served from.
+  The files a recording is served from, as absolute disk paths.
   """
   def playable_files(%Media{media_tracks: tracks} = media) when is_list(tracks) do
-    case Enum.map(tracks, & &1.path) do
+    case Enum.map(tracks, &MediaTrack.disk_path/1) do
       [] -> legacy_outputs(media)
-      track_paths -> track_paths
+      # A stored path that cannot resolve cannot be served either; raising
+      # here keeps a broken invariant loud instead of letting a sweep read
+      # it as one more missing file.
+      resolved -> Enum.map(resolved, fn {:ok, path} -> path end)
     end
   end
 
