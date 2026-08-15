@@ -456,6 +456,13 @@ and then waited to be dismissed.
 - **A toast that is a state rather than an event never times out.** The
   connection notices are the live state of the socket; timing one out would
   claim the connection came back.
+- **Never put a display utility on an element hidden by the `hidden`
+  attribute.** `[hidden] { display: none }` comes from the UA stylesheet, so
+  an author-level `flex` (or `block`, or `grid`) on the same element
+  outranks it. A `flex` on the flash root once made both connection notices
+  visible on every navigation, for the moment between first paint and
+  `phx-connected` firing — too brief to read and impossible to miss. Put the
+  layout on an inner element.
 
 **An ambient indicator renders its quiet state too.** The header's
 background-work widget shows a dim dot and the word Idle when nothing is

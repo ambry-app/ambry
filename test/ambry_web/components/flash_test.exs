@@ -70,6 +70,31 @@ defmodule AmbryWeb.FlashTest do
     end
   end
 
+  # `[hidden] { display: none }` comes from the UA stylesheet, so ANY
+  # author-level display utility on the same element outranks it. A `flex`
+  # here once made both connection toasts visible on every navigation, for
+  # the moment between first paint and `phx-connected` firing — too brief to
+  # read and impossible to miss.
+  @display_utilities ~w(flex inline-flex block inline-block grid inline-grid table contents)
+
+  test "nothing hidden by attribute carries a display utility" do
+    html = doc(group(%{}))
+
+    for id <- ["#client-error", "#server-error"] do
+      toast = Floki.find(html, id)
+
+      assert Floki.attribute(toast, "hidden") != [],
+             "expected #{id} to be hidden until the socket says otherwise"
+
+      classes =
+        toast |> Floki.attribute("class") |> List.first() |> to_string() |> String.split()
+
+      assert classes -- @display_utilities == classes,
+             "#{id} carries a display utility, which defeats its `hidden` attribute: " <>
+               inspect(classes -- (classes -- @display_utilities))
+    end
+  end
+
   # Severity is the icon's job (design language §8). A solid bright fill was
   # the loudest thing on any page it appeared over, for a message that is
   # usually "saved".

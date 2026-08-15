@@ -162,23 +162,29 @@ defmodule AmbryWeb.CoreComponents do
       phx-mounted={@dismiss_after && flash_in()}
       role="alert"
       title="Dismiss"
-      class={[
-        "pointer-events-auto flex max-w-md cursor-pointer items-start gap-2 rounded-md",
-        "shadow-black/40 bg-zinc-900 px-3 py-2 shadow-lg"
-      ]}
+      class={["pointer-events-auto max-w-md cursor-pointer rounded-md", "shadow-black/40 bg-zinc-900 px-3 py-2 shadow-lg"]}
       {@rest}
     >
-      <.icon
-        :if={@kind == :info}
-        name="fa-circle-check"
-        class="text-brand-dark mt-1 h-3.5 w-3.5 flex-none"
-      />
-      <.icon
-        :if={@kind == :error}
-        name="fa-circle-exclamation"
-        class="mt-1 h-3.5 w-3.5 flex-none text-red-400"
-      />
-      <p class="min-w-0 break-words text-sm text-zinc-200">{msg}</p>
+      <%!-- The row is an inner element, and that is load-bearing. The
+            connection toasts are hidden with the `hidden` ATTRIBUTE, which
+            is a UA-stylesheet rule (`[hidden] { display: none }`) that any
+            author-level display utility outranks — so a `flex` up on the
+            root un-hides them, and they showed on every navigation for the
+            moment before LiveView connected and ran `phx-connected`. Keep
+            display utilities off the element `hidden` is applied to. --%>
+      <div class="flex items-start gap-2">
+        <.icon
+          :if={@kind == :info}
+          name="fa-circle-check"
+          class="text-brand-dark mt-1 h-3.5 w-3.5 flex-none"
+        />
+        <.icon
+          :if={@kind == :error}
+          name="fa-circle-exclamation"
+          class="mt-1 h-3.5 w-3.5 flex-none text-red-400"
+        />
+        <p class="min-w-0 break-words text-sm text-zinc-200">{msg}</p>
+      </div>
     </div>
     """
   end
