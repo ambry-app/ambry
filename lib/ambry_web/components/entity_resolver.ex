@@ -9,10 +9,17 @@ defmodule AmbryWeb.Components.EntityResolver do
   picker for edit forms, where inventing records makes no sense.
 
   It participates in the surrounding form the way a native control would:
-  two hidden inputs (the chosen id under `name`, the typed name under
-  `text_name`) fire the parent form's `phx-change` whenever they move, via
-  the same dispatch-value-change hook the old autocomplete used. Parent
-  LiveViews keep their existing handlers and param shapes.
+  two hidden inputs carry the answer (the chosen id under `name`, the typed
+  name under `text_name`), and the parent form's `phx-change` fires when they
+  move. Parent LiveViews keep their existing handlers and param shapes.
+
+  **The form is told by this component, not by watching the DOM.** Every
+  interaction here is handled server-side, so the hidden inputs hold the new
+  answer only after the patch lands; `moved/1` pushes `entity-resolver:moved`
+  and the `entity-resolver-input` hook turns it into an `input` event once it
+  does. What this replaced watched the value attribute mutate instead, which
+  cannot tell an operator's pick from the parent re-rendering this row around
+  a different record — and reported the second one to the form as an edit.
 
   The list is plain markup with `phx-click` options and a small keyboard
   hook — deliberately not a `<datalist>`, which mobile Firefox does not
@@ -50,12 +57,17 @@ defmodule AmbryWeb.Components.EntityResolver do
       phx-hook="combobox-nav"
       phx-click-away={@open && JS.push("close", target: @myself)}
     >
+      <%!-- One of the two carries the hook, not both: firing `input` on any
+          input in a form makes LiveView serialize the whole form, so a
+          second dispatch is a second identical round trip. This one always
+          exists; the text input is optional. --%>
       <input
         type="hidden"
         id={"#{@id}-value"}
         name={@name}
         value={Phoenix.HTML.Form.normalize_value("hidden", @value)}
-        phx-hook="dispatch-value-change"
+        data-resolver={@id}
+        phx-hook="entity-resolver-input"
       />
       <input
         :if={@text_name}
@@ -63,7 +75,6 @@ defmodule AmbryWeb.Components.EntityResolver do
         id={"#{@id}-text"}
         name={@text_name}
         value={@text}
-        phx-hook="dispatch-value-change"
       />
       <input
         type="text"
@@ -206,26 +217,54 @@ defmodule AmbryWeb.Components.EntityResolver do
     # With create support on, what's typed IS the new record's name until an
     # existing record is picked — same live behaviour the plain text input
     # had. A pure picker only ever changes on a pick.
-    socket =
-      if socket.assigns.text_name,
-        do: assign(socket, value: nil, text: query),
-        else: socket
-
-    {:noreply, socket}
+    if socket.assigns.text_name,
+      do: {:noreply, socket |> assign(value: nil, text: query) |> moved()},
+      else: {:noreply, socket}
   end
 
   def handle_event("pick", %{"id" => id}, socket) do
-    {:noreply, assign(socket, value: id, open: false, query: nil)}
+    {:noreply, socket |> assign(value: id, open: false, query: nil) |> moved()}
   end
 
   def handle_event("create", _params, socket) do
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(
        value: nil,
        text: effective_query(socket.assigns) || "",
        open: false,
        query: nil
-     )}
+     )
+     |> moved()}
+  end
+
+  # Tells the surrounding form that this control moved, the way a native input
+  # would have.
+  #
+  # **Only the three handlers above call it, and that is the whole point.** The
+  # hidden inputs are ordinary markup rendered from assigns, so they change
+  # for two unrelated reasons: the operator picked or typed something here, or
+  # the parent re-rendered this row around a different record entirely. The
+  # DOM cannot tell those apart — the old hook watched the value attribute
+  # mutate and fired on both, so a seeder that re-derived a credit's name had
+  # its own work reported back to it as an operator edit, and the credit was
+  # marked curated for something no human did.
+  #
+  # **The answer travels in the event, not just the signal to go looking for
+  # it.** `push_event/3` is dispatched after the patch, so the hidden inputs
+  # ought to hold the new answer by the time this arrives — except that a
+  # `phx-change` already in flight locks a form's inputs, and typing here
+  # starts one on every keystroke. Measured: typing "Alastair" and clicking
+  # the match sent the form `identity_id=""` twice, because the debounced
+  # filter's round trip was still open and the pick's patch could not be
+  # written into the locked input. Carrying the values means the hook has
+  # them whatever the DOM is allowed to say.
+  defp moved(socket) do
+    push_event(socket, "entity-resolver:moved", %{
+      id: socket.assigns.id,
+      value: to_string(socket.assigns.value || ""),
+      text: socket.assigns[:text_name] && to_string(socket.assigns.text || "")
+    })
   end
 
   # While typing, show the query; otherwise the picked record's label, or the

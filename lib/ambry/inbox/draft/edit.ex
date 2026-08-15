@@ -329,6 +329,16 @@ defmodule Ambry.Inbox.Draft.Edit do
   def rename_credit(draft, section, index, name) do
     was = Enum.at(credits_in(draft, section), index)
 
+    if was && was.name == name,
+      do: draft,
+      else: do_rename_credit(draft, section, index, name, was)
+  end
+
+  # Renaming something to what it is already called is not an edit, and must
+  # not spend the credit's `curated` flag saying it was. Cheap insurance
+  # rather than the fix for anything: a form that echoes a value back is
+  # asserting nothing, whatever made it echo.
+  defp do_rename_credit(draft, section, index, name, was) do
     draft
     |> update_credit(section, index, fn credit ->
       # Clearing the box un-confirms: a credit cannot stay settled with
