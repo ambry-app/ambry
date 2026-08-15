@@ -57,6 +57,7 @@ defmodule Ambry.Inbox do
   import Ecto.Query
 
   alias Ambry.Inbox.AutoMatch
+  alias Ambry.Inbox.Claims
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Seed
@@ -434,16 +435,74 @@ defmodule Ambry.Inbox do
       # *ticked* and re-deriving from the ticked set would ignore it. Once the
       # operator has decided anything, their draft is re-derived around them
       # instead — `resettle/2` keeps every curated choice.
-      cond do
-        is_nil(item.draft) ->
-          rebuild_draft(item)
+      restage_draft(item)
+    end
+  end
 
-        Draft.curated?(item.draft) ->
-          update_draft(item, item.draft |> Draft.Edit.resettle(item) |> dump())
+  # Which update depends on whether a human has been here. An untouched draft
+  # is rebuilt outright, because new evidence is not *ticked* and re-deriving
+  # from the ticked set would ignore it. Once the operator has decided
+  # anything, their draft is re-derived around them instead — `resettle/2`
+  # keeps every curated choice.
+  defp restage_draft(%InboxItem{} = item) do
+    cond do
+      is_nil(item.draft) ->
+        rebuild_draft(item)
 
-        true ->
-          rebuild_draft(item)
-      end
+      Draft.curated?(item.draft) ->
+        update_draft(item, item.draft |> Draft.Edit.resettle(item) |> dump())
+
+      true ->
+        rebuild_draft(item)
+    end
+  end
+
+  @doc """
+  Accepts or rejects one of the claims the file makes about itself.
+
+  The operator's way to say "no, this isn't right" about a source rather than
+  about an answer. Rejecting re-grades every record already stored and
+  re-stages the draft; it asks no provider anything, because nothing about
+  the catalogue changed — see `Ambry.Inbox.AutoMatch.rescore/1`.
+
+  An imported item's evidence is the record of what was imported, so it is
+  read-only here like everything else about it.
+  """
+  def toggle_claim(%InboxItem{status: :imported}, _key), do: {:error, :already_imported}
+
+  def toggle_claim(%InboxItem{} = item, key) do
+    with true <- key in Claims.keys(),
+         {:ok, item} <- update_item(item, %{rejected_claims: Claims.toggle(item, key)}),
+         {:ok, item} <- restage_matches(item) do
+      restage_draft(item)
+    else
+      false -> {:error, :unknown_claim}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  One row per claim the file makes, and whether the operator believes it.
+
+  What the import form's "What the files say" panel renders, and the reason
+  `Claims` stays internal: the web layer asks the context what the file
+  claims, not the module that decides.
+  """
+  defdelegate claim_rows(item), to: Claims, as: :rows
+
+  @doc """
+  The item's tags with the rejected ones removed.
+
+  Anything rendering what a file says about itself wants this and not the
+  column, or the queue would keep summarizing an item by a tag the form has
+  already been told is wrong.
+  """
+  defdelegate accepted_tags(item), to: Claims, as: :tags
+
+  defp restage_matches(%InboxItem{} = item) do
+    case AutoMatch.rescore(item) do
+      nil -> {:ok, item}
+      matches -> update_item(item, %{matches: matches})
     end
   end
 

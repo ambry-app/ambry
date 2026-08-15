@@ -42,6 +42,7 @@ defmodule Ambry.Inbox.AutoMatch do
   """
 
   alias Ambry.Books
+  alias Ambry.Inbox.Claims
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.ReleaseName
   alias Ambry.Metadata.Outcome
@@ -116,7 +117,7 @@ defmodule Ambry.Inbox.AutoMatch do
         # one thing neither of the others could ask about first: a file's tags
         # name a narrator, but the *cast* only exists once a record has been
         # found. The work names its authors, the recording names its readers.
-        "people" => match_people(work, recording, item.tags || %{}, opts),
+        "people" => match_people(work, recording, Claims.tags(item), opts),
         "hints" => stringify_hints(hints)
       }
     }
@@ -743,8 +744,8 @@ defmodule Ambry.Inbox.AutoMatch do
   whose *name* yields an author.
   """
   def hints(%InboxItem{} = item) do
-    tags = item.tags || %{}
-    parsed = ReleaseName.parse(item.path)
+    tags = Claims.tags(item)
+    parsed = Claims.parsed_name(item)
     tag_parsed = ReleaseName.parse(tags["book_title"] || "")
     part = part_hint(parsed, tag_parsed)
 
@@ -792,24 +793,13 @@ defmodule Ambry.Inbox.AutoMatch do
       # its narrator in a shape no field captures — `extract_narrator/1` only
       # knows "(read by X)" — so `narrator` comes out nil, the narrator scorer
       # no-ops, and Wil Wheaton's edition takes the item at 1.0.
-      raw: raw_text(item)
+      #
+      # Rejected sources are absent from here too: a control that governed
+      # searching but not verifying would be a half answer to "this isn't
+      # right". See `Ambry.Inbox.Claims`.
+      raw: Claims.raw_text(item)
     }
   end
-
-  # Basenames only: the parent directories are the source root, which is the
-  # operator's filesystem layout and says nothing about this release.
-  defp raw_text(%InboxItem{} = item) do
-    [Path.basename(item.path || "")]
-    |> Enum.concat(Enum.map(item.files || [], &Path.basename/1))
-    |> Enum.concat(tag_text(item.tags))
-    |> Enum.join(" ")
-  end
-
-  defp tag_text(tags) when is_map(tags) do
-    tags |> Map.values() |> List.flatten() |> Enum.filter(&is_binary/1)
-  end
-
-  defp tag_text(_tags), do: []
 
   # Local Books are kept in their own list, not ranked among the provider
   # records. Reusing a Book you already have and importing one you don't are
@@ -1411,6 +1401,176 @@ defmodule Ambry.Inbox.AutoMatch do
   defp corroboration(%{"narrator_evidence" => "supported"}), do: 2
   defp corroboration(%{"narrator_evidence" => "contradicted"}), do: 0
   defp corroboration(_record), do: 1
+
+  @doc """
+  Re-grades the records already stored, against hints that have moved.
+
+  The operator rejecting one of the file's claims changes every number on the
+  page and has nobody to ask: the records are here, and what moved is the
+  yardstick. Re-running `match/2` would spend a round of provider calls to be
+  handed the same records back, and would throw away any a re-search had
+  added. Measured on the twelve items whose author tag was junk, rejecting it
+  lifts eleven of them from around 0.5 to 1.0 without a single request.
+
+  Local Books are re-queried rather than re-scored: which Books are worth
+  offering at all is a keyword search over the hints, so a rejected title
+  changes the *list* and not merely its order.
+
+  People are deliberately left alone. Their evidence is keyed by name and
+  earning a new key means searching for it, which is a provider call and so
+  the per-person "search again" button's job. A newly credited person simply
+  arrives without a face, which is what that button is for.
+  """
+  def rescore(%InboxItem{matches: matches} = item) when is_map(matches) do
+    believed = hints(item)
+    stated = hints(%{item | rejected_claims: []})
+
+    # Whether the operator is currently disbelieving anything, which is
+    # exactly how long the memory of where matching put things is worth
+    # keeping.
+    rejected? = (item.rejected_claims || []) != []
+
+    matches
+    |> Map.put("hints", stringify_hints(believed))
+    |> rescore_level("work", believed, stated, rejected?)
+    |> rescore_level("recording", believed, stated, rejected?)
+  end
+
+  def rescore(%InboxItem{}), do: nil
+
+  defp rescore_level(matches, level, believed, stated, rejected?) do
+    case Map.get(matches, level) do
+      %{} = stored ->
+        Map.put(matches, level, rescored(stored, level, believed, stated, rejected?))
+
+      _absent ->
+        matches
+    end
+  end
+
+  defp rescored(stored, level, believed, stated, rejected?) do
+    held = stored |> Map.get("candidates", []) |> List.wrap()
+
+    candidates =
+      held
+      |> Enum.with_index()
+      |> Enum.map(fn {record, place} -> regrade(record, believed, stated, place) end)
+      |> reweigh(level, believed)
+      |> reorder()
+      |> forget_places(rejected?)
+
+    stored
+    |> restate(held, candidates, believed)
+    |> relocalize(level, believed)
+  end
+
+  # Confidence is only recomputed when something about the grading actually
+  # moved. Matching measures it over every candidate it saw and *then* keeps
+  # the best eight, so recomputing from the eight that survived answers a
+  # narrower question than the stored number did: a rival that lost its place
+  # in the list stops counting as doubt, and an item nobody touched would
+  # quietly grow more confident for no reason. When a rejection does move
+  # something, the truncated list is the best that can be had without asking
+  # the providers again, and is used.
+  defp restate(stored, held, candidates, believed) do
+    cond do
+      candidates == held ->
+        stored
+
+      # Every record is back on the grade matching gave it, so the level's own
+      # number goes back to the one matching gave *it* — which it has to be
+      # kept for, because recomputing it here can only ever answer the
+      # narrower question.
+      Enum.all?(candidates, &(not Map.has_key?(&1, "matched_score"))) ->
+        stored
+        |> Map.put("candidates", candidates)
+        |> Map.put("confidence", Map.get(stored, "matched_confidence", stored["confidence"]))
+        |> Map.delete("matched_confidence")
+
+      true ->
+        stored
+        |> Map.put("candidates", candidates)
+        |> Map.put("confidence", confidence(candidates, believed.author))
+        |> Map.put_new("matched_confidence", stored["confidence"])
+    end
+  end
+
+  # **A rejection that cannot change how a record is graded leaves its grade
+  # alone**, and that is what makes toggling a box on and off land back where
+  # it started. Re-deriving unconditionally does not: matching may have scored
+  # a record against a title the refinement loop found rather than one the
+  # file ever said, and that title cannot be recovered without asking the
+  # providers again. So the record is graded twice — once believing the file
+  # entirely, once believing the operator — and only a record the two disagree
+  # about is re-graded at all.
+  defp regrade(record, believed, stated, place) do
+    # What matching left, kept aside for as long as this record is carrying a
+    # grade that isn't it. Without somewhere to keep it, a re-graded record's
+    # score *becomes* the thing later rescores compare against, and putting
+    # the claim back would find nothing to disagree with and leave the
+    # rejection's grade standing forever — a checkbox that only worked once.
+    matched = record["matched_score"] || record["base_score"] || record["score"] || 0.0
+
+    # And where matching had it, for the same reason: a rejection that really
+    # does move the scores reorders the list, so by the time the claim is put
+    # back the order it should return to is no longer anywhere on the item.
+    place = record["matched_place"] || place
+
+    # The evidence pass re-derives from an untouched base (see `verdict/2`),
+    # so the base is put back and the verdict cleared before `reweigh/3` runs
+    # again. Without this a record whose rival stops being corroborated would
+    # keep the penalty it was given for losing a contest that no longer
+    # happens.
+    restored =
+      record
+      |> Map.drop(["base_score", "narrator_evidence"])
+      |> Map.put("score", matched)
+      |> Map.put("matched_place", place)
+
+    fresh = grade(record, believed)
+
+    if fresh == grade(record, stated),
+      do: Map.delete(restored, "matched_score"),
+      else: restored |> Map.put("score", fresh) |> Map.put("matched_score", matched)
+  end
+
+  # Best first, exactly as `order_candidates/1` ranks, with **where matching
+  # had it** as the last tiebreak. Records tied at 1.0 are common (five, on
+  # one measured item) and a plain re-sort shuffles them, which is not
+  # cosmetic: `Seed` adopts fields from the head of the list, so rejecting a
+  # claim and then putting it back could hand the import a different cover
+  # and a different publisher than it started with.
+  defp reorder(candidates),
+    do:
+      Enum.sort_by(candidates, &{-(&1["score"] || 0.0), -corroboration(&1), &1["matched_place"]})
+
+  # Places are kept for as long as the operator is disbelieving anything, and
+  # forgotten the moment they are not. Tying it to whether a record's own
+  # grade moved is not enough: rejecting the narrator tag reorders a list
+  # purely through `apply_narrator_evidence/2` without moving a single score,
+  # and a record with nothing of its own to restore is exactly the one that
+  # gets pushed out of place by a record that has.
+  defp forget_places(candidates, true), do: candidates
+
+  defp forget_places(candidates, false),
+    do: Enum.map(candidates, &Map.delete(&1, "matched_place"))
+
+  defp grade(record, hints) do
+    score(
+      record["title"],
+      record["authors"],
+      record["narrators"],
+      record["asin"],
+      record["series"],
+      hints
+    )
+  end
+
+  defp reweigh(candidates, "recording", hints), do: apply_narrator_evidence(candidates, hints)
+  defp reweigh(candidates, _level, _hints), do: candidates
+
+  defp relocalize(stored, "work", hints), do: Map.put(stored, "local", local_books(hints))
+  defp relocalize(stored, _level, _hints), do: stored
 
   defp query_fields(nil), do: %{}
 

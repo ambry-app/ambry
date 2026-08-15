@@ -1230,6 +1230,72 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert html =~ "What the files say"
       assert html =~ "Michael Kramer"
     end
+
+    test "every claim the file makes wears a checkbox", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      claims =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("[data-role='claim']")
+        |> Floki.attribute("data-claim")
+
+      # the tags, and the two sources a tag can fall through to
+      assert "tag:authors" in claims
+      assert "name" in claims
+      assert "files" in claims
+
+      assert has_element?(view, "input[phx-click='toggle-claim'][phx-value-key='tag:authors']")
+    end
+
+    # The whole point of the panel: what the checkbox does is visible in the
+    # column beside it, without a word of explanation.
+    test "unchecking a claim takes it out of what is searched", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert used_to_search(html) =~ "Brandon Sanderson"
+
+      html =
+        view
+        |> element("input[phx-click='toggle-claim'][phx-value-key='tag:authors']")
+        |> render_click()
+
+      refute used_to_search(html) =~ "Brandon Sanderson"
+
+      # and putting it back puts it back
+      html =
+        view
+        |> element("input[phx-click='toggle-claim'][phx-value-key='tag:authors']")
+        |> render_click()
+
+      assert used_to_search(html) =~ "Brandon Sanderson"
+    end
+
+    test "an imported item's claims cannot be argued with", %{conn: conn} do
+      item = probed_item()
+      {:ok, item} = Inbox.update_item(item, %{status: :imported})
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      boxes =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("input[phx-click='toggle-claim']")
+
+      assert boxes != []
+      assert Enum.all?(boxes, &(Floki.attribute(&1, "disabled") != []))
+    end
+  end
+
+  defp used_to_search(html) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find("[data-role='hints']")
+    |> Floki.text()
   end
 
   describe "fetching on demand" do

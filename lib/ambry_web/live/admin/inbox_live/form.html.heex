@@ -53,16 +53,36 @@
             one) and the form used to show none of them, so a match that went
             somewhere strange had no visible cause. --%>
         <.disclosure
-          :if={tag_rows(@item) != [] or hint_rows(@item) != []}
+          :if={claim_rows(@item) != [] or hint_rows(@item) != []}
           summary="What the files say"
           class="text-sm text-zinc-400"
           container_class="pt-2"
+          open={@files_open}
+          summary_attrs={%{"phx-click" => "toggle-files"}}
         >
           <div class="grid grid-cols-1 gap-4 pt-2 pl-3 sm:grid-cols-2">
-            <div :if={tag_rows(@item) != []} data-role="tags">
-              <p class="text-xs font-bold text-zinc-300">Embedded tags</p>
-              <p :for={{label, value} <- tag_rows(@item)} class="text-xs text-zinc-400">
-                <span class="text-zinc-400">{label}:</span> {value}
+            <div :if={claim_rows(@item) != []} data-role="tags">
+              <p class="text-xs font-bold text-zinc-300">From the files</p>
+              <label
+                :for={row <- claim_rows(@item)}
+                class="flex items-center gap-2 py-0.5 text-xs text-zinc-400"
+                data-role="claim"
+                data-claim={row.key}
+              >
+                <input
+                  type="checkbox"
+                  checked={row.accepted}
+                  disabled={@item.status == :imported}
+                  phx-click="toggle-claim"
+                  phx-value-key={row.key}
+                  class="flex-none rounded border-zinc-600 bg-zinc-800 text-lime-600 focus:ring-lime-500 disabled:opacity-40"
+                />
+                <span class={["truncate", !row.accepted && "text-zinc-600"]}>
+                  <span>{row.label}:</span> {row.value}
+                </span>
+              </label>
+              <p class="pt-1 text-xs text-zinc-400">
+                Uncheck anything the file gets wrong.
               </p>
             </div>
 

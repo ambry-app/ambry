@@ -83,6 +83,11 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      # in full. Both view state keyed by person key — the results themselves
      # are evidence and live on the item.
      |> assign(searching_person: nil, photos_expanded: %{})
+     # Whether the file's own claims are showing. Server state, not the
+     # browser's: a `<details>` the client opened loses its `open` on the
+     # next patch, and every checkbox in this one *is* a patch — so
+     # rejecting a claim slammed the panel shut on the operator mid-pass.
+     |> assign(files_open: false)
      |> assign(library_query: nil, library_results: [], ticking: false)
      # The pending chapter-title fetch, and which ASIN's titles were last
      # poured — the chips' chosen state.
@@ -119,7 +124,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # `undo-import` is the one write an imported item allows, and only where
   # the dev flag is on — undoing is the opposite of editing the record: it
   # deletes what the record describes rather than making it lie.
-  @view_events ~w(toggle-photos undo-import)
+  @view_events ~w(toggle-photos toggle-files undo-import)
 
   defp refuse_when_imported(event, _params, socket) do
     if socket.assigns.read_only and event not in @view_events do
@@ -445,6 +450,23 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
       _nothing_to_take ->
         {:noreply, socket}
+    end
+  end
+
+  # Pure view state, which is why an imported item is still allowed it: the
+  # panel is how you find out what a finished import believed.
+  def handle_event("toggle-files", _params, socket) do
+    {:noreply, update(socket, :files_open, &(not &1))}
+  end
+
+  # Synchronous, unlike every other control that changes the evidence: nothing
+  # is asked of anybody. The records are already here and only the yardstick
+  # moved, so the page can just re-render with the new numbers rather than
+  # putting a scrim over the card to wait for nothing.
+  def handle_event("toggle-claim", %{"key" => key}, socket) do
+    case Inbox.toggle_claim(socket.assigns.item, key) do
+      {:ok, item} -> {:noreply, load(socket, item)}
+      {:error, _reason} -> {:noreply, socket}
     end
   end
 
@@ -1184,42 +1206,34 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   @doc """
-  What the files themselves said, before anybody interpreted it.
+  What the files themselves say, and whether the operator believes it.
 
   The tags are the primary source — 98% of the operator's real releases carry
   a usable one — so when a match goes somewhere strange this is where the
-  cause is, and it was previously visible nowhere in the form.
+  cause is. Each row carries a checkbox because being the primary source is
+  not the same as being right: a release tagged with its narrator in the
+  author field sent the whole item somewhere strange with nothing on the page
+  able to say so. See `Ambry.Inbox.Claims`.
   """
-  def tag_rows(%InboxItem{tags: tags}) when is_map(tags) do
-    for key <- ~w(book_title authors narrators series series_number published publisher asin),
-        value = tags[key],
-        value not in [nil, "", []] do
-      {tag_label(key), format_tag(value)}
-    end
-  end
-
-  def tag_rows(_item), do: []
-
-  defp tag_label("book_title"), do: "title"
-  defp tag_label("series_number"), do: "series no."
-  defp tag_label(key), do: String.replace(key, "_", " ")
-
-  defp format_tag(value) when is_list(value), do: Enum.join(value, ", ")
-  defp format_tag(value), do: to_string(value)
+  defdelegate claim_rows(item), to: Inbox
 
   attr :files, :list, required: true
 
   @doc """
-  The search terms auto-match derived, and where each came from.
+  The search terms the file's accepted claims currently add up to.
 
-  Tags win over the release name because they're measurably more reliable, but
-  that means a wrong tag beats a right folder name — worth being able to see.
+  Tags win over the release name because they're measurably more reliable,
+  which also means a wrong tag beats a right folder name. Derived live rather
+  than read back from the stored match, so rejecting a claim beside it shows
+  its consequence here in the same breath.
   """
-  def hint_rows(%InboxItem{matches: %{"hints" => hints}}) when is_map(hints) do
-    for key <- ~w(title author narrator series asin),
+  def hint_rows(%InboxItem{} = item) do
+    hints = Inbox.hints(item)
+
+    for key <- ~w(title author narrator series asin)a,
         value = hints[key],
         value not in [nil, ""],
-        do: {key, value}
+        do: {to_string(key), value}
   end
 
   def hint_rows(_item), do: []

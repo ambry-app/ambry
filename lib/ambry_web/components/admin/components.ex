@@ -451,6 +451,11 @@ defmodule AmbryWeb.Admin.Components do
     default: nil,
     doc: "pins the fold open from the server — a client-toggled open dies on the next patch"
 
+  attr :summary_attrs, :map,
+    default: %{},
+    doc:
+      "bindings for the summary itself — a `phx-click` here is how `open` gets something to pin"
+
   attr :rest, :global
   slot :inner_block, required: true
 
@@ -460,10 +465,13 @@ defmodule AmbryWeb.Admin.Components do
   def disclosure(assigns) do
     ~H"""
     <details class={["group", @container_class]} open={@open} {@rest}>
-      <summary class={[
-        "relative cursor-pointer list-none pl-3 :[&:-webkit-details-marker]:hidden",
-        @class || "text-xs text-zinc-400"
-      ]}>
+      <summary
+        class={[
+          "relative cursor-pointer list-none pl-3 :[&:-webkit-details-marker]:hidden",
+          @class || "text-xs text-zinc-400"
+        ]}
+        {@summary_attrs}
+      >
         <%!-- Two icons swapped on open, not one rotated: rotating the CSS-mask
             span rasterizes a grey sliver of the box edge past the mask. --%>
         <.icon

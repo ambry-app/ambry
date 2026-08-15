@@ -55,6 +55,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Books
   alias Ambry.Books.Series
   alias Ambry.Inbox.AutoMatch
+  alias Ambry.Inbox.Claims
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Candidate
   alias Ambry.Inbox.Draft.Chapters
@@ -100,7 +101,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   """
   def build(%InboxItem{} = item) do
     hints = AutoMatch.hints(item)
-    tags = item.tags || %{}
+    tags = Claims.tags(item)
     matches = item.matches || %{}
 
     work_level = Map.get(matches, "work", %{})
@@ -230,8 +231,8 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp proposed_group_name(_recording), do: ""
 
   defp detect_part(draft, item) do
-    parsed = ReleaseName.parse(item.path)
-    tag_parsed = ReleaseName.parse((item.tags || %{})["book_title"] || "")
+    parsed = Claims.parsed_name(item)
+    tag_parsed = ReleaseName.parse(Claims.tags(item)["book_title"] || "")
 
     cond do
       is_integer(parsed.parts_total) ->
@@ -444,7 +445,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   def reseed_work(%Work{} = work, %InboxItem{} = item) do
     work
     |> follow_query(item, "work")
-    |> put_work_fields(records(item, "work"), AutoMatch.hints(item), item.tags || %{}, item)
+    |> put_work_fields(records(item, "work"), AutoMatch.hints(item), Claims.tags(item), item)
   end
 
   # What was asked of the providers is evidence, not a decision — nobody
@@ -867,7 +868,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   def reseed_recording(%Recording{} = recording, %InboxItem{} = item) do
     recording
     |> follow_query(item, "recording")
-    |> put_recording_fields(records(item, "recording"), item.tags || %{}, item)
+    |> put_recording_fields(records(item, "recording"), Claims.tags(item), item)
   end
 
   # **Only records of this recording describe this recording.** Work-level

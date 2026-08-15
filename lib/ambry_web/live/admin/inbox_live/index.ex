@@ -350,7 +350,9 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   A one-line summary of what the file says it is, which is what makes an item
   identifiable at a glance before anything has been matched.
   """
-  def tag_summary(%InboxItem{tags: tags}) when is_map(tags) do
+  def tag_summary(%InboxItem{tags: tags} = item) when is_map(tags) do
+    tags = Inbox.accepted_tags(item)
+
     [
       tags["book_title"],
       join_names(tags["authors"]),

@@ -45,6 +45,12 @@ defmodule Ambry.Inbox.InboxItem do
     field :matches, :map
     field :issue, :string
 
+    # The claims the file makes about itself that the operator has rejected.
+    # Read through `Ambry.Inbox.Claims`, never against `tags` or `path`
+    # directly — the whole point is that nothing gets to believe a file
+    # without asking.
+    field :rejected_claims, {:array, :string}, default: []
+
     # Derived from the draft, denormalized so the queue filters and counts in
     # SQL. `put_draft/2` is its only writer.
     field :ready, :boolean, default: false
@@ -67,6 +73,7 @@ defmodule Ambry.Inbox.InboxItem do
       :tags,
       :matches,
       :issue,
+      :rejected_claims,
       :media_id,
       :source_id
     ])
