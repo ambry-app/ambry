@@ -146,6 +146,7 @@ defmodule AmbrySchema.SyncTest do
       recordingGroupsChangedSince(since: $since) {
         id
         name
+        showLabel
         partsTotal
       }
       mediaChangedSince(since: $since) {
@@ -167,6 +168,7 @@ defmodule AmbrySchema.SyncTest do
       {:ok, group} =
         Ambry.Media.create_recording_group(%{
           name: "Season One",
+          show_label: true,
           parts_total: 3,
           book_id: book.id
         })
@@ -188,7 +190,9 @@ defmodule AmbrySchema.SyncTest do
 
       assert %{
                "data" => %{
-                 "recordingGroupsChangedSince" => [%{"name" => "Season One", "partsTotal" => 3}],
+                 "recordingGroupsChangedSince" => [
+                   %{"name" => "Season One", "showLabel" => true, "partsTotal" => 3}
+                 ],
                  "mediaChangedSince" => [
                    %{
                      "partNumber" => 1,
