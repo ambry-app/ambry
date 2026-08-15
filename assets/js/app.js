@@ -23,7 +23,7 @@ import topbar from "topbar"
 
 import { AutoDismissHook } from "./hooks/auto-dismiss"
 import { ComboboxNavHook } from "./hooks/combobox-nav"
-import { DispatchValueChangeHook } from "./hooks/dispatch-value-change"
+import { EntityResolverInputHook } from "./hooks/entity-resolver-input"
 import { FitOrStackHook } from "./hooks/fit-or-stack"
 import { HeaderScrollspyHook } from "./hooks/header-scrollspy"
 import { ImageSizeHook } from "./hooks/image-size"
@@ -48,7 +48,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "maintain-attrs": MainTainAttrsHook,
     "infinite-scroll": InfiniteScrollHook,
     "combobox-nav": ComboboxNavHook,
-    "dispatch-value-change": DispatchValueChangeHook,
+    "entity-resolver-input": EntityResolverInputHook,
     "fit-or-stack": FitOrStackHook,
     "image-size": ImageSizeHook,
     "scroll-match": ScrollMatchHook,

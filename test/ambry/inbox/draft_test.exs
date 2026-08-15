@@ -1185,6 +1185,25 @@ defmodule Ambry.Inbox.DraftTest do
       assert credit.approved
     end
 
+    # A form that echoes a credit's current name back is asserting nothing,
+    # whatever made it echo — and spending `curated` on it is expensive: a
+    # curated draft is re-derived around the operator rather than rebuilt, so
+    # the machine can never revise the credit again. The echo used to arrive
+    # from `dispatch-value-change`, which fired on the server's own patches.
+    test "renaming a credit to what it is already called is not an edit" do
+      work = [provider_candidate(%{"authors" => ["David Wong"]})]
+
+      item = item(%{matches: matches(work), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert [%{name: "David Wong", curated: false}] = item.draft.work.authors
+
+      draft = Draft.Edit.rename_credit(item.draft, :work, 0, "David Wong")
+
+      assert [%{name: "David Wong", curated: false}] = draft.work.authors
+      assert draft == item.draft
+    end
+
     test "un-ticking a work record leaves a curated credit behind" do
       work = [provider_candidate(%{"authors" => ["David Wong"]})]
 
