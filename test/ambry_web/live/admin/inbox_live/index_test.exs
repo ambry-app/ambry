@@ -42,6 +42,35 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert html =~ item.path
   end
 
+  # The overview's issue count used to link at the bare queue, which showed
+  # every pending item and named none of them — the number was clickable and
+  # still unanswerable.
+  test "shows only the items the overview counted, and says so", %{conn: conn} do
+    trouble = probed_item(name: "Trouble [M4B]", files: ["book.m4b"], unreadable: true)
+    fine = probed_item(name: "Fine [M4B]")
+
+    {:ok, view, html} = live(conn, ~p"/admin/inbox?problem=issue&status=pending")
+
+    assert html =~ "Queue items with an issue"
+    assert html =~ trouble.path
+    refute html =~ fine.path
+
+    # An issue narrows the tab rather than replacing it, so leaving the
+    # filter keeps the operator where they were.
+    way_out = view |> element("a[data-role='problem-filter']") |> render()
+    assert way_out =~ "status=pending"
+    refute way_out =~ "problem=issue"
+  end
+
+  test "a problem list that comes up dry says which list is empty", %{conn: conn} do
+    _fine = probed_item(name: "Fine [M4B]")
+
+    {:ok, _view, html} = live(conn, ~p"/admin/inbox?problem=issue&status=pending")
+
+    assert html =~ "Nothing here is carrying an issue."
+    refute html =~ "Nothing waiting"
+  end
+
   test "counts a multi-file release's files on the row", %{conn: conn} do
     _item = probed_item(files: ["01.mp3", "02.mp3"])
 

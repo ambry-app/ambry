@@ -7,6 +7,21 @@
       next_page_path={@next_page_path}
       prev_page_path={@prev_page_path}
     />
+    <%!-- The list is narrowed by something the operator chose on the
+          overview, so it says which list this is and offers the way out.
+          Leaving it keeps the tab and the search — an issue narrows the
+          queue, it doesn't replace it. --%>
+    <div :if={problem_words(@list_opts[:problem])} class="flex items-baseline gap-2 pt-2">
+      <.microlabel>Showing</.microlabel>
+      <.link
+        navigate={~p"/admin/inbox?#{Map.delete(return_query(assigns), "problem")}"}
+        class="bg-amber-400/15 flex items-center gap-1.5 rounded-md px-3 py-1 text-sm text-amber-300 hover:bg-amber-400/25"
+        data-role="problem-filter"
+      >
+        {problem_words(@list_opts[:problem])}
+        <.icon name="fa-xmark" class="h-3 w-3 text-current" />
+      </.link>
+    </div>
     <div class="flex flex-wrap items-center gap-3 pt-2">
       <.button phx-click="scan">
         <.icon name="fa-magnifying-glass" class="mr-2 h-4 w-4" /> Scan for new
@@ -47,7 +62,11 @@
 
   <.flex_table rows={@items} filter={@list_opts.filter} row_class={&rail_class/1}>
     <:empty>
-      Nothing waiting. Use <span class="font-bold">Scan for new</span> to look in the watched folder.
+      <%= if words = problem_empty_words(@list_opts[:problem]) do %>
+        {words}
+      <% else %>
+        Nothing waiting. Use <span class="font-bold">Scan for new</span> to look in the watched folder.
+      <% end %>
     </:empty>
 
     <:row :let={item}>
