@@ -192,7 +192,10 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
         words: "Queue items with an issue",
         count: queue.issues,
         tone: :amber,
-        navigate: ~p"/admin/inbox"
+        # `status=pending` because that is what the count counts — landing on
+        # a list that disagrees with the number that was clicked is its own
+        # small betrayal.
+        navigate: ~p"/admin/inbox?problem=issue&status=pending"
       },
       %{
         words: "Ready to publish, held by the switch",

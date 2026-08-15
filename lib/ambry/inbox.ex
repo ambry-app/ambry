@@ -95,6 +95,7 @@ defmodule Ambry.Inbox do
       InboxItem
       |> filter_by_status(opts[:status])
       |> filter_by_path(opts[:filter])
+      |> filter_by_issue(opts[:issue])
       |> order_by(^newest_first(opts[:status]))
       |> offset(^Keyword.get(opts, :offset, 0))
       |> limit(^over_limit)
@@ -1130,6 +1131,12 @@ defmodule Ambry.Inbox do
   defp filter_by_path(query, blank) when blank in [nil, ""], do: query
 
   defp filter_by_path(query, filter), do: where(query, [i], ilike(i.path, ^"%#{filter}%"))
+
+  # An issue cuts across the three buckets rather than replacing them (see
+  # `queue_summary/0`), so it narrows whatever list is already showing
+  # instead of being a status of its own.
+  defp filter_by_issue(query, true), do: where(query, [i], not is_nil(i.issue))
+  defp filter_by_issue(query, _no), do: query
 
   defp candidates(root) do
     root |> entries() |> Enum.flat_map(&candidate/1)

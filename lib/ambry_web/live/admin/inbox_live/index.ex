@@ -127,13 +127,14 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   end
 
   defp load_items(socket, params) do
-    list_opts = get_list_opts(params)
+    list_opts = params |> get_list_opts() |> Map.put(:problem, parse_problem(params))
     status = parse_status(params["status"])
 
     {items, has_more?} =
       Inbox.list_items(
         status: status,
         filter: list_opts.filter,
+        issue: list_opts.problem == "issue",
         offset: page_to_offset(list_opts.page),
         limit: limit()
       )
@@ -211,7 +212,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     %{
       "filter" => Keyword.get(overrides, :filter, socket.assigns.list_opts.filter),
       "page" => Keyword.get(overrides, :page, to_string(socket.assigns.list_opts.page)),
-      "status" => Keyword.get(overrides, :status, to_string(socket.assigns.status || "all"))
+      "status" => Keyword.get(overrides, :status, to_string(socket.assigns.status || "all")),
+      "problem" => Keyword.get(overrides, :problem, to_string(socket.assigns.list_opts[:problem]))
     }
     |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
     |> Map.new()
@@ -234,11 +236,40 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     %{
       "filter" => list_opts.filter,
       "page" => to_string(page),
-      "status" => to_string(status || "all")
+      "status" => to_string(status || "all"),
+      "problem" => to_string(list_opts[:problem])
     }
     |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
     |> Map.new()
   end
+
+  # The overview counts queue items carrying an issue, and a count the
+  # operator can't open is half an answer — so it links here naming the
+  # trouble, exactly as the audiobooks list does. An issue is not a status:
+  # it cuts across the three buckets (see `Inbox.queue_summary/0`), so it
+  # narrows the tab the operator is on rather than replacing it.
+  @problems %{
+    "issue" => %{
+      words: "Queue items with an issue",
+      empty: "Nothing here is carrying an issue."
+    }
+  }
+
+  defp parse_problem(params) do
+    problem = params |> Map.get("problem", "") |> String.trim()
+
+    if Map.has_key?(@problems, problem), do: problem
+  end
+
+  @doc "What the overview sent the operator here to look at, if anything."
+  def problem_words(problem) when is_map_key(@problems, problem), do: @problems[problem].words
+  def problem_words(_none), do: nil
+
+  @doc "What an empty list means when it is a problem list that came up dry."
+  def problem_empty_words(problem) when is_map_key(@problems, problem),
+    do: @problems[problem].empty
+
+  def problem_empty_words(_none), do: nil
 
   defp parse_status(status) when status in ["pending", "ignored", "imported"],
     do: String.to_existing_atom(status)
