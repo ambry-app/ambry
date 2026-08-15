@@ -57,7 +57,7 @@ defmodule Ambry.Jobs do
   because those are the only two things it is covering for.
   """
 
-  use Boundary, deps: [Ambry, Ambry.PubSub]
+  use Boundary, deps: [Ambry, Ambry.PubSub], exports: [PubSub.JobActivity]
 
   import Ecto.Query
 

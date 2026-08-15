@@ -52,16 +52,18 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   alias Ambry.Books
   alias Ambry.Inbox
   alias Ambry.Jobs
+  alias Ambry.Jobs.PubSub.JobActivity
   alias Ambry.Library
   alias Ambry.Media
   alias Ambry.People
 
-  # How often the page looks again. Jobs move without announcing themselves —
-  # there is no pubsub for "Oban started executing" — so the ambient widget
-  # has to poll, and the two rates are the difference between watching an
-  # import and leaving the tab open all afternoon.
-  @busy_tick 3_000
-  @idle_tick 30_000
+  # Signals arrive in bursts — a queue draining forty items is forty of them
+  # — and the answer to a burst is one reload.
+  @debounce 250
+
+  # The slow half (see `slow_load/1`) and the backstop for the housekeeping
+  # plugins that move the counts without announcing it.
+  @heartbeat 30_000
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -70,42 +72,71 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
       Books.subscribe_to_series_crud_messages()
       People.subscribe_to_person_crud_messages()
       Media.subscribe_to_media_crud_messages()
+      # The same signals the header indicator watches, so the two agree
+      # rather than the page trailing it by a tick.
+      Jobs.subscribe()
+      Process.send_after(self(), :heartbeat, @heartbeat)
     end
 
-    {:ok, socket |> assign(page_title: "Overview", header_title: "Overview") |> load()}
+    {:ok,
+     socket
+     |> assign(page_title: "Overview", header_title: "Overview", reload_queued: false)
+     |> load()
+     |> slow_load()}
   end
 
   @impl Phoenix.LiveView
-  def handle_info(:refresh, socket), do: {:noreply, load(socket)}
-
-  # Every CRUD broadcast lands here; they all mean the same thing to a page
-  # that is only ever showing aggregates.
-  def handle_info(message, socket) when is_struct(message), do: {:noreply, load(socket)}
-
-  defp load(socket) do
-    jobs = Jobs.summary()
-
-    socket
-    |> assign(
-      queue: Inbox.queue_summary(),
-      jobs: jobs,
-      failures: Jobs.recent_failures(),
-      providers: Inbox.provider_health(),
-      media_problems: Media.problem_counts(),
-      unreachable: Library.unreachable_locations(),
-      inventory: inventory()
-    )
-    |> schedule_tick(jobs)
+  def handle_info(:reload, socket) do
+    {:noreply, socket |> assign(reload_queued: false) |> load()}
   end
 
-  # One timer at a time, cancelled and re-armed on every load, so a burst of
-  # pubsub messages doesn't leave a tab firing five refreshes a second.
-  defp schedule_tick(socket, jobs) do
-    if timer = socket.assigns[:timer], do: Process.cancel_timer(timer)
+  def handle_info(:heartbeat, socket) do
+    Process.send_after(self(), :heartbeat, @heartbeat)
 
-    delay = if Jobs.busy?(jobs), do: @busy_tick, else: @idle_tick
+    {:noreply, socket |> load() |> slow_load()}
+  end
 
-    assign(socket, timer: Process.send_after(self(), :refresh, delay))
+  # A job moving is the bursty signal — a queue draining forty items sends
+  # forty — so those wait for the debounce.
+  def handle_info(%JobActivity{}, socket), do: {:noreply, nudge(socket)}
+  def handle_info({:notification, :insert, _payload}, socket), do: {:noreply, nudge(socket)}
+
+  # Every CRUD broadcast lands here; they all mean the same thing to a page
+  # that is only ever showing aggregates. Not debounced: one of these is a
+  # human having just done something, and making them wait a quarter second
+  # to see it buys nothing.
+  def handle_info(_message, socket), do: {:noreply, load(socket)}
+
+  defp nudge(%{assigns: %{reload_queued: true}} = socket), do: socket
+
+  defp nudge(socket) do
+    Process.send_after(self(), :reload, @debounce)
+
+    assign(socket, reload_queued: true)
+  end
+
+  # The cheap half: about three milliseconds all together, so it can run on
+  # every signal.
+  defp load(socket) do
+    assign(socket,
+      queue: Inbox.queue_summary(),
+      jobs: Jobs.summary(),
+      failures: Jobs.recent_failures(),
+      media_problems: Media.problem_counts(),
+      inventory: inventory()
+    )
+  end
+
+  # The expensive half, on the heartbeat only. `provider_health/0` walks the
+  # matches jsonb of every open queue item — 39ms against 343 of them — and
+  # `unreachable_locations/0` stats the filesystem, which on an unmounted NFS
+  # share is exactly the call you don't want on a hot path. Neither answer
+  # changes between one job and the next.
+  defp slow_load(socket) do
+    assign(socket,
+      providers: Inbox.provider_health(),
+      unreachable: Library.unreachable_locations()
+    )
   end
 
   defp inventory do
