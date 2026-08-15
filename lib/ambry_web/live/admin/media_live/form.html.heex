@@ -170,10 +170,15 @@
                   type="autocomplete"
                   options={@recording_groups}
                 />
+                <%!-- `flex` is load-bearing, not decoration: it collapses the
+                    button to the icon's own box, which is what puts `top-3` on
+                    the input's centre line. `.delete_button` carries it for the
+                    list rows; this one is hand-rolled because removing the
+                    group is an event, not a drop input, so it has to say it. --%>
                 <button
                   type="button"
                   phx-click="remove-group-row"
-                  class="absolute top-3 right-2"
+                  class="absolute top-3 right-2 flex"
                   title="Not part of a set"
                 >
                   <.icon
