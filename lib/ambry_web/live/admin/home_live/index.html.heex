@@ -1,49 +1,169 @@
-<.layout title={@page_title} user={@current_user}>
-  <.cards_grid>
-    <.card navigate={~p"/admin/people"} icon="fa-user-group">
-      <.stat>
-        <:title>Authors</:title>
-        <:stat><span data-role="author-count">{@people_count.authors}</span></:stat>
-      </.stat>
-      <.stat>
-        <:title>Narrators</:title>
-        <:stat><span data-role="narrator-count">{@people_count.narrators}</span></:stat>
-      </.stat>
-    </.card>
+<.layout title={@page_title} user={@current_user} socket={@socket}>
+  <div class="max-w-6xl space-y-14">
+    <section class="space-y-4">
+      <h2 class="text-xl font-bold text-zinc-100">Needs you</h2>
 
-    <.card navigate={~p"/admin/books"} icon="fa-book">
-      <.stat>
-        <:title>Books</:title>
-        <:stat><span data-role="book-count">{@books_count}</span></:stat>
-      </.stat>
-    </.card>
+      <div class="grid gap-7 md:grid-cols-2">
+        <.card label="Inbox" navigate={~p"/admin/inbox"} link_words="Open the queue">
+          <div :if={@queue.pending > 0} class="flex gap-8">
+            <.headline_stat count={@queue.ready} tone={:brand} role="ready-count">
+              ready to import
+            </.headline_stat>
+            <.headline_stat count={@queue.decisions_needed} tone={:amber} role="decisions-count">
+              waiting on a decision
+            </.headline_stat>
+          </div>
+          <.all_clear :if={@queue.pending == 0}>
+            Nothing waiting. Scan a source to look for more.
+          </.all_clear>
+        </.card>
 
-    <.card navigate={~p"/admin/series"} icon="fa-book-journal-whills">
-      <.stat>
-        <:title>Series</:title>
-        <:stat><span data-role="series-count">{@series_count}</span></:stat>
-      </.stat>
-    </.card>
+        <.card label="Problems">
+          <div :if={problem_rows(assigns) != []} class="space-y-2">
+            <.link
+              :for={row <- problem_rows(assigns)}
+              navigate={row.navigate}
+              class="bg-zinc-800/60 flex items-baseline justify-between gap-4 rounded-md px-3 py-2 hover:bg-zinc-800"
+              data-role="problem-row"
+            >
+              <span class="text-sm text-zinc-300">{row.words}</span>
+              <span class={["text-sm font-bold tabular-nums", count_class(row.tone)]}>
+                {row.count}
+              </span>
+            </.link>
+          </div>
+          <.all_clear :if={problem_rows(assigns) == []}>
+            Nothing's wrong.
+          </.all_clear>
+        </.card>
+      </div>
+    </section>
 
-    <.card navigate={~p"/admin/audiobooks"} icon="fa-file-audio">
-      <.stat>
-        <:title>Audiobooks</:title>
-        <:stat><span data-role="media-count">{@media_count}</span></:stat>
-      </.stat>
-    </.card>
+    <section class="space-y-4">
+      <h2 class="text-xl font-bold text-zinc-100">Background work</h2>
 
-    <.card navigate={~p"/admin/audit"} icon="fa-file-waveform">
-      <.stat>
-        <:title>Files</:title>
-        <:stat><span data-role="file-count">{@files_count}</span></:stat>
-      </.stat>
-    </.card>
+      <div class="grid gap-7 md:grid-cols-2">
+        <.card label="Queues" navigate={~p"/admin/oban"} link_words="Oban" new_tab>
+          <p class="pl-3 text-sm text-zinc-300" data-role="work-words">{work_words(@jobs)}</p>
 
-    <.card navigate={~p"/admin/users"} icon="fa-users-gear">
-      <.stat>
-        <:title>Users</:title>
-        <:stat><span data-role="user-count">{@users_count}</span></:stat>
-      </.stat>
-    </.card>
-  </.cards_grid>
+          <div
+            :if={working_queues(@jobs) != []}
+            class="grid-cols-[5rem_minmax(0,1fr)] grid gap-x-4 gap-y-1 pt-3 pl-3"
+          >
+            <%= for queue <- working_queues(@jobs) do %>
+              <span class="text-sm text-zinc-400">{queue.queue}</span>
+              <span class="text-sm tabular-nums text-zinc-300" data-role="queue-line">
+                {queue_words(queue)}
+              </span>
+            <% end %>
+          </div>
+
+          <p :if={@queue.unprepared > 0} class="pt-3 pl-3 text-sm text-zinc-400">
+            {@queue.unprepared} queue items haven't been read yet.
+          </p>
+        </.card>
+
+        <.card label="Recent failures" navigate={~p"/admin/oban"} link_words="Oban" new_tab>
+          <div :if={@failures != []} class="space-y-2">
+            <div
+              :for={failure <- @failures}
+              class="bg-zinc-800/60 rounded-md px-3 py-2"
+              data-role="job-failure"
+            >
+              <div class="flex items-baseline justify-between gap-4">
+                <span class="text-sm text-zinc-200">{worker_words(failure.worker)}</span>
+                <span class="text-xs tabular-nums text-zinc-500">{failure_time(failure.at)}</span>
+              </div>
+              <%!-- Wrapped rather than truncated: the error is the whole
+                    point of this card, and an ellipsis on a phone hides
+                    exactly the end of the line that names the failure. It
+                    is already only the first line of the exception, so
+                    wrapping costs two rows, not a stack trace.
+
+                    Ordinary wrapping, NOT `whitespace-pre-wrap`: this value
+                    holds no meaningful internal spacing, and pre-wrap
+                    preserves the template's own newline and indentation
+                    around the interpolation, which rendered as a mystery
+                    indent on the first line. `break-words` is what matters
+                    here — these errors carry long unbroken paths. --%>
+              <p :if={failure.error} class="font-mono break-words text-xs text-red-300">
+                {failure.error}
+              </p>
+            </div>
+          </div>
+          <.all_clear :if={@failures == []}>
+            No job has failed in the last day.
+          </.all_clear>
+        </.card>
+      </div>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-xl font-bold text-zinc-100">Metadata providers</h2>
+
+      <.card label="How they've been answering" navigate={~p"/admin/metadata-providers"} link_words="Providers">
+        <div :if={@providers != []} class="grid gap-x-8 gap-y-1 pl-3 sm:grid-cols-2">
+          <div
+            :for={provider <- @providers}
+            class="flex items-baseline justify-between gap-4"
+            data-role="provider-health"
+          >
+            <span class="truncate text-sm text-zinc-300" title={provider.reason}>
+              {provider.name}
+            </span>
+            <span class={["whitespace-nowrap text-sm tabular-nums", provider_class(provider_tone(provider))]}>
+              {call_words(provider)}
+            </span>
+          </div>
+        </div>
+        <.all_clear :if={@providers == []}>
+          Nothing in the queue has asked a provider yet.
+        </.all_clear>
+      </.card>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-xl font-bold text-zinc-100">Library</h2>
+
+      <.card label="What's in it">
+        <%!-- No file count. `Ambry.Media.Audit` still understands only the
+              legacy uploads tree and knows nothing about library roots, so
+              on a direct-play library it reports zero — and a zero that is
+              simply wrong is worse than a tile that isn't there. It comes
+              back with the audit rewrite. --%>
+        <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6">
+          <.inventory_stat navigate={~p"/admin/books"} count={@inventory.books} role="book-count">
+            Books
+          </.inventory_stat>
+          <.inventory_stat
+            navigate={~p"/admin/audiobooks"}
+            count={@inventory.media}
+            role="media-count"
+          >
+            Audiobooks
+          </.inventory_stat>
+          <.inventory_stat
+            navigate={~p"/admin/people"}
+            count={@inventory.authors}
+            role="author-count"
+          >
+            Authors
+          </.inventory_stat>
+          <.inventory_stat
+            navigate={~p"/admin/people"}
+            count={@inventory.narrators}
+            role="narrator-count"
+          >
+            Narrators
+          </.inventory_stat>
+          <.inventory_stat navigate={~p"/admin/series"} count={@inventory.series} role="series-count">
+            Series
+          </.inventory_stat>
+          <.inventory_stat navigate={~p"/admin/users"} count={@inventory.users} role="user-count">
+            Users
+          </.inventory_stat>
+        </div>
+      </.card>
+    </section>
+  </div>
 </.layout>

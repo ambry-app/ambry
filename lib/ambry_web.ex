@@ -85,6 +85,22 @@ defmodule AmbryWeb do
     end
   end
 
+  @doc """
+  A LiveView mounted inside another one rather than by the router.
+
+  No layout, because it renders into a hole in a page that already has one.
+  Its point is a lifecycle of its own: its timers, its state and its
+  re-renders belong to its own process, so a widget that polls does not
+  drag the page it sits on through a render every time it ticks.
+  """
+  def nested_live_view do
+    quote do
+      use Phoenix.LiveView, layout: false
+
+      unquote(html_helpers())
+    end
+  end
+
   def live_component do
     quote do
       use Phoenix.LiveComponent

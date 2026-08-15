@@ -39,6 +39,20 @@ config :ambry, Oban,
   # Prune jobs older than 1 day
   plugins: [
     {Oban.Plugins.Pruner, max_age: 86_400},
+    # A job whose node died stays `executing` forever without this: the
+    # pruner only ever touches finished jobs, so an orphan is invisible to
+    # it. Two of them had been sitting in the dev database for two days,
+    # and the cost is not cosmetic — `Ambry.Inbox.Progress` reads a job's
+    # state, so their items wore the busy scrim and refused clicks
+    # permanently, and the overview counted them as work in flight.
+    #
+    # **The window has to outlast the longest legitimate job**, because
+    # Lifeline is naive: it rescues by age alone and cannot tell a dead
+    # node from a slow one. The longest thing Ambry runs is an import
+    # copying a release off a NAS, minutes rather than hours — but running
+    # one twice would place the same files twice, so the margin is wider
+    # than the hour Lifeline defaults to.
+    {Oban.Plugins.Lifeline, rescue_after: to_timeout(hour: 2)},
     # Discovery hourly: a watched folder gains releases on its own schedule
     # and the operator shouldn't have to press a button to find out.
     #

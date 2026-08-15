@@ -11,6 +11,12 @@ defmodule AmbryWeb.Admin.Components do
 
   attr :user, User, required: true
   attr :title, :string, required: true
+  # The header hosts a nested LiveView, which needs the parent socket to
+  # mount into. Required rather than defaulted: a default would answer "a
+  # new admin page forgot it" by silently dropping the indicator from that
+  # one page, which is the failure mode this project keeps paying for.
+  # Required makes it a compile warning, and CI treats warnings as errors.
+  attr :socket, Phoenix.LiveView.Socket, required: true
 
   slot :inner_block, required: true
   slot :subheader
@@ -18,7 +24,7 @@ defmodule AmbryWeb.Admin.Components do
   def layout(assigns) do
     ~H"""
     <div class="relative flex h-screen min-w-0 grow flex-col">
-      <.layout_header user={@user} title={@title}>
+      <.layout_header user={@user} title={@title} socket={@socket}>
         {render_slot(@subheader)}
       </.layout_header>
 
@@ -45,6 +51,7 @@ defmodule AmbryWeb.Admin.Components do
 
   attr :user, User, required: true
   attr :title, :string, required: true
+  attr :socket, Phoenix.LiveView.Socket, required: true
 
   slot :inner_block, required: true
 
@@ -62,6 +69,14 @@ defmodule AmbryWeb.Admin.Components do
         <div class="grow overflow-hidden text-ellipsis whitespace-nowrap pl-0 text-2xl font-bold text-zinc-100 sm:pl-4 lg:pl-0">
           {@title}
         </div>
+        <%!-- A LiveView of its own, not a component: it polls, and a poll
+              that lives on the page's socket makes the page re-render every
+              tick. Sticky so a live navigation doesn't tear it down and
+              rebuild it, which would blink the spinner off mid-job. --%>
+        {live_render(@socket, AmbryWeb.Admin.JobIndicatorLive,
+          id: "admin-job-indicator",
+          sticky: true
+        )}
         <div
           phx-click-away={hide_menu("admin-user-menu")}
           phx-window-keydown={hide_menu("admin-user-menu")}

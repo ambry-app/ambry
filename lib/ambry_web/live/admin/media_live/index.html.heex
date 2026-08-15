@@ -1,4 +1,4 @@
-<.layout title={@page_title} user={@current_user}>
+<.layout title={@page_title} user={@current_user} socket={@socket}>
   <:subheader>
     <.list_controls
       search_form={@search_form}
@@ -8,6 +8,19 @@
       next_page_path={@next_page_path}
       prev_page_path={@prev_page_path}
     />
+    <%!-- The list is narrowed by something the operator chose on another
+          page, so it says which list this is and offers the way out. --%>
+    <div :if={problem_words(@list_opts[:problem])} class="flex items-baseline gap-2 pt-2">
+      <.microlabel>Showing</.microlabel>
+      <.link
+        navigate={~p"/admin/audiobooks"}
+        class="bg-amber-400/15 flex items-center gap-1.5 rounded-md px-3 py-1 text-sm text-amber-300 hover:bg-amber-400/25"
+        data-role="problem-filter"
+      >
+        {problem_words(@list_opts[:problem])}
+        <.icon name="fa-xmark" class="h-3 w-3 text-current" />
+      </.link>
+    </div>
     <.sort_button_bar>
       <.sort_button current_sort={@current_sort} sort_field="status">Status</.sort_button>
       <.sort_button current_sort={@current_sort} sort_field="book">Title</.sort_button>
@@ -26,10 +39,14 @@
     row_click={fn media -> JS.navigate(~p"/admin/audiobooks/#{media}/edit") end}
   >
     <:empty>
-      No audiobooks yet.
-      <.brand_link navigate={~p"/admin/audiobooks/new"}>
-        Create one.
-      </.brand_link>
+      <%= if words = problem_empty_words(@list_opts[:problem]) do %>
+        {words}
+      <% else %>
+        No audiobooks yet.
+        <.brand_link navigate={~p"/admin/audiobooks/new"}>
+          Create one.
+        </.brand_link>
+      <% end %>
     </:empty>
 
     <:row :let={media}>

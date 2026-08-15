@@ -20,7 +20,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <.layout title={@page_title} user={@current_user}>
+    <.layout title={@page_title} user={@current_user} socket={@socket}>
       <div class="max-w-4xl space-y-8">
         <section>
           <h2 class="mb-1 text-lg font-bold">Direct play</h2>

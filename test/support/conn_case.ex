@@ -30,6 +30,7 @@ defmodule AmbryWeb.ConnCase do
       # Import conveniences for testing with connections
       import Ambry.Factory
       import Ambry.InboxHelpers
+      import Ambry.ObanHelpers
       import AmbryWeb.ConnCase
       import Phoenix.ConnTest
       import Plug.Conn

@@ -163,6 +163,47 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  The recordings that are in a state somebody has to do something about.
+
+  Four counts, each of which names a different job:
+
+    * `missing` — the nightly reconciliation couldn't read the files. Clients
+      are being offered something that isn't there.
+    * `errored` — processing gave up.
+    * `streaming_only` — no tracks, so the only way to play it is the legacy
+      transcoding pipeline. It works, and it costs double the disk; clearing
+      one means relinking it to its source (Phase 4). This is deliberately
+      not phrased as progress toward a cutover — the cutover ends, and a
+      widget that has to be retired the week after it lands was never
+      describing the library, only the calendar.
+    * `awaiting_switch` — direct-play recordings held back by the operator
+      switch. The same predicate `publish_pending_direct_play/0` uses, so the
+      number is exactly what turning it on would release.
+
+  Zero is the answer that means "nothing to do", so every key is always
+  present: an absent key and a zero read alike in a template, and only one of
+  them is a measurement.
+  """
+  def problem_counts do
+    tracked = from(t in MediaTrack, select: t.media_id, distinct: true)
+
+    from(m in Media,
+      select: %{
+        missing: filter(count(m.id), not is_nil(m.missing_since)),
+        errored: filter(count(m.id), m.status == :error),
+        streaming_only: filter(count(m.id), m.id not in subquery(tracked)),
+        awaiting_switch:
+          filter(
+            count(m.id),
+            m.status == :pending and is_nil(m.missing_since) and is_nil(m.mp4_path) and
+              is_nil(m.hls_path) and is_nil(m.mpd_path) and m.id in subquery(tracked)
+          )
+      }
+    )
+    |> Repo.one()
+  end
+
+  @doc """
   Gets a single media.
 
   Raises `Ecto.NoResultsError` if the Media does not exist.

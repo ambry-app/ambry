@@ -226,6 +226,23 @@ holds it up by the same 16px again. Both halves need saying: `-bottom-4` on
 the bar, `-mb-4` on the page's content wrapper. Measured in Chrome — 16px,
 then 80px at the bottom of the page, before the fix; 0 and 0 after.
 
+**A grid or flex item that can hold a long string needs `min-w-0`.** Its
+automatic minimum size is the min-content width of its contents, so one
+unbroken run of characters — an exception message, a path, a provider id —
+makes the whole column refuse to shrink and pushes the page sideways on a
+phone. Measured on the overview's failure card: 711px of card in a 390px
+viewport. **Truncating the string does not fix it**; `truncate` clamps the
+element, not its contribution to the ancestor's minimum. The item has to be
+allowed to be narrower than its contents, and then the text inside it
+wraps (`break-words`) or truncates as it likes.
+
+Wrap rather than truncate when the string *is* the content — an ellipsis on
+a phone hides the end of the line, which for an error is the part that names
+the failure. And prefer ordinary wrapping to `whitespace-pre-wrap` unless
+the value really carries meaningful spacing: pre-wrap also preserves the
+template's own newline and indentation around the interpolation, which
+renders as a mystery indent on the first line.
+
 **Corners share baselines.** A card's right rail aligns its first element
 with the title line and its last with the content's last line
 (`self-stretch` + `justify-between`).
@@ -415,6 +432,50 @@ quiet-row-action costume is worded, but an index row carrying five verbs
 in words; pencils and trash cans on index rows stay icon-only with
 `title` text. Queue cards (the inbox) have room and stakes, and stay
 worded.
+
+## 6b. Toasts and ambient chrome
+
+**A flash is a toast: top centre, quiet, and gone on its own.** They used to
+be solid lime and red slabs pinned top *right*, which is where the admin
+keeps the user menu and the job indicator, and they stayed until clicked —
+so a "saved" notice covered the two controls most likely to be wanted next
+and then waited to be dismissed.
+
+- The rail is `fixed top-4 left-1/2 -translate-x-1/2` and
+  `pointer-events-none`, so an empty one is not an invisible lid over the
+  top of the page; each toast turns pointer events back on for itself.
+- The box is the ordinary floating-layer fill (`zinc-900` + shadow, §1),
+  **not a coloured slab**. Only the glyph is coloured, per §8's rule that
+  the icon carries the severity so the words don't have to.
+- No severity heading. "Success!" above "Saved." says nothing the icon
+  doesn't and makes a one-line toast two lines.
+- It dismisses itself — 5s for info, 10s for an error, held open while
+  hovered, because a message that vanishes mid-sentence is the complaint
+  that replaces "they never go away". Dismissing must clear the flash
+  *server-side*, not just hide it, or it returns on the next navigation.
+- **A toast that is a state rather than an event never times out.** The
+  connection notices are the live state of the socket; timing one out would
+  claim the connection came back.
+- **Never put a display utility on an element hidden by the `hidden`
+  attribute.** `[hidden] { display: none }` comes from the UA stylesheet, so
+  an author-level `flex` (or `block`, or `grid`) on the same element
+  outranks it. A `flex` on the flash root once made both connection notices
+  visible on every navigation, for the moment between first paint and
+  `phx-connected` firing — too brief to read and impossible to miss. Put the
+  layout on an inner element.
+
+**An ambient indicator renders its quiet state too.** The header's
+background-work widget shows a dim dot and the word Idle when nothing is
+running. A widget that only appears when there is news is indistinguishable
+from a broken one, and rendering the calm state is what makes the busy state
+mean something. Where the state is genuinely two questions — here, "is it
+busy" and "did something break" — they get two marks, because only one of
+them is a reason to stop what you are doing.
+
+**A link that leaves the app says so before it is clicked.** Oban Web and
+the Phoenix dashboard open in a new tab with
+`fa-arrow-up-right-from-square` beside the label — the admin is a page you
+leave open while you watch something, and taking the tab costs you that.
 
 ## 7. Controls
 
