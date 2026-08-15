@@ -321,6 +321,43 @@ defmodule Ambry.Library do
     Enum.map(list_sources(), & &1.path) ++ Enum.map(list_roots(), & &1.path)
   end
 
+  @doc """
+  Every registered location Ambry currently cannot read, with why.
+
+  An unmounted NAS is the failure the rest of the system is careful to
+  survive quietly — discovery counts a source it couldn't open rather than
+  failing the run, so one dead mount doesn't stop the others — and the cost
+  of that care is that nothing ever says so out loud. This is where it gets
+  said.
+
+  A disabled source is skipped: it is not being scanned on purpose, so
+  whether its path resolves today is not a fact about anything. Roots are
+  always checked, because a root that has gone away breaks playback of
+  everything already in it.
+
+  Reads the filesystem, once per location. There are a handful of them.
+  """
+  def unreachable_locations do
+    sources = Enum.map(list_sources(enabled: true), &{:source, &1})
+    roots = Enum.map(list_roots(), &{:root, &1})
+
+    (sources ++ roots)
+    |> Enum.flat_map(fn {kind, location} ->
+      case trouble(kind, status(location)) do
+        nil -> []
+        trouble -> [%{kind: kind, name: location.name, path: location.path, trouble: trouble}]
+      end
+    end)
+  end
+
+  # Imports write into roots and only read from sources, so a read-only mount
+  # is a problem for one and unremarkable for the other. Everything else is
+  # the same question asked twice.
+  defp trouble(_kind, %Status{exists?: false}), do: :missing
+  defp trouble(_kind, %Status{directory?: false}), do: :not_a_directory
+  defp trouble(:root, %Status{writable?: false}), do: :read_only
+  defp trouble(_kind, _fine), do: nil
+
   ## disk
 
   @doc """

@@ -1078,6 +1078,54 @@ defmodule Ambry.MediaTest do
     end
   end
 
+  describe "problem_counts/0" do
+    test "an empty library has no problems" do
+      assert %{missing: 0, errored: 0, streaming_only: 0, awaiting_switch: 0} =
+               Media.problem_counts()
+    end
+
+    test "counts recordings whose files couldn't be read" do
+      media(%{missing_since: DateTime.utc_now(:second)})
+      media(%{})
+
+      assert %{missing: 1} = Media.problem_counts()
+    end
+
+    test "counts recordings that failed processing" do
+      media(%{status: :error})
+
+      assert %{errored: 1} = Media.problem_counts()
+    end
+
+    test "a recording with no tracks can only be streamed" do
+      media(%{}, tracks: false)
+      media(%{}, tracks: true)
+
+      assert %{streaming_only: 1} = Media.problem_counts()
+    end
+
+    test "awaiting the switch is exactly what publishing would release" do
+      # Direct-play and pending: held back by the operator switch.
+      media(%{status: :pending}, tracks: true)
+      # Pending with legacy artifacts is waiting on transcoding, not the
+      # switch, and publishing it would hand clients an unplayable recording.
+      media(%{status: :pending, mp4_path: "/uploads/media/x.mp4"}, tracks: true)
+      # Missing files, so publishing it would be worse than leaving it.
+      media(%{status: :pending, missing_since: DateTime.utc_now(:second)}, tracks: true)
+      # Already published.
+      media(%{status: :ready}, tracks: true)
+
+      assert %{awaiting_switch: 1} = Media.problem_counts()
+    end
+  end
+
+  defp media(attrs, opts \\ []) do
+    media = build(:media, Map.to_list(Map.put_new(attrs, :book, build(:book))))
+    media = if Keyword.get(opts, :tracks, false), do: with_tracks(media), else: media
+
+    insert(media)
+  end
+
   # `replace_media/2` takes stored-form (`/uploads/...`) paths, so build the
   # new source workspace on disk the way an upload does and hand back the
   # stored forms.

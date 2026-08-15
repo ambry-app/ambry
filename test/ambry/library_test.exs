@@ -458,6 +458,44 @@ defmodule Ambry.LibraryTest do
     end
   end
 
+  describe "unreachable_locations/0" do
+    test "reachable locations are not reported" do
+      dir = tmp_dir()
+      insert(:source, name: "Downloads", path: dir)
+      insert(:root, name: "Library", path: dir)
+
+      assert Library.unreachable_locations() == []
+    end
+
+    test "reports a source whose path isn't there" do
+      insert(:source, name: "NAS", path: "/mnt/not-mounted/downloads")
+
+      assert [%{kind: :source, name: "NAS", trouble: :missing}] = Library.unreachable_locations()
+    end
+
+    test "reports a root whose path isn't there" do
+      insert(:root, name: "Audiobooks", path: "/mnt/not-mounted/library")
+
+      assert [%{kind: :root, name: "Audiobooks", trouble: :missing}] =
+               Library.unreachable_locations()
+    end
+
+    test "a disabled source is not being scanned, so its path is nobody's problem" do
+      insert(:source, name: "Old", path: "/mnt/not-mounted/old", enabled: false)
+
+      assert Library.unreachable_locations() == []
+    end
+
+    test "reports a path that exists but isn't a folder" do
+      file = Path.join(tmp_dir(), "not-a-folder")
+      File.write!(file, "")
+
+      insert(:source, name: "Oops", path: file)
+
+      assert [%{trouble: :not_a_directory}] = Library.unreachable_locations()
+    end
+  end
+
   defp tmp_dir do
     dir = Ambry.Paths.source_media_disk_path("library-test-#{Ecto.UUID.generate()}")
     File.mkdir_p!(dir)

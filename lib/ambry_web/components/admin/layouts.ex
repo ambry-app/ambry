@@ -8,6 +8,7 @@ defmodule AmbryWeb.Admin.Layouts do
   embed_templates "layouts/*"
 
   attr :active_path, :string, required: true
+  attr :inbox_pending, :integer, default: 0
 
   def side_nav(assigns) do
     ~H"""
@@ -43,6 +44,16 @@ defmodule AmbryWeb.Admin.Layouts do
         <.link navigate={~p"/admin/inbox"} class={nav_class(@active_path =~ "/admin/inbox")}>
           <.icon name="fa-inbox" class="h-5 w-5 text-current" />
           <p>Inbox</p>
+          <%!-- The one count in the nav, because the inbox is the one item
+                that is a queue. Amber only while there is something in it;
+                a zero would just be a badge that never goes away. --%>
+          <span
+            :if={@inbox_pending > 0}
+            class="bg-amber-400/15 ml-auto rounded-full px-1.5 text-xs font-bold tabular-nums text-amber-300"
+            data-role="inbox-pending-badge"
+          >
+            {@inbox_pending}
+          </span>
         </.link>
         <.link navigate={~p"/admin/locations"} class={nav_class(@active_path =~ "/admin/locations")}>
           <.icon name="fa-folder-tree" class="h-5 w-5 text-current" />

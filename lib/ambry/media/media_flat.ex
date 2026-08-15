@@ -29,6 +29,7 @@ defmodule Ambry.Media.MediaFlat do
     field :published_format, Ecto.Enum, values: [:full, :year_month, :year]
     field :publisher, :string
     field :has_description, :boolean
+    field :direct_play, :boolean
 
     timestamps(type: :utc_datetime)
   end
@@ -65,4 +66,10 @@ defmodule Ambry.Media.MediaFlat do
 
   def filter(query, :has_chapters, true), do: from(p in query, where: p.chapters > 0)
   def filter(query, :has_chapters, false), do: from(p in query, where: p.chapters == 0)
+
+  def filter(query, :missing, true), do: from(p in query, where: not is_nil(p.missing_since))
+  def filter(query, :missing, false), do: from(p in query, where: is_nil(p.missing_since))
+
+  def filter(query, :direct_play, direct_play?),
+    do: from(p in query, where: p.direct_play == ^direct_play?)
 end

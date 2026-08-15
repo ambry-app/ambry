@@ -815,9 +815,132 @@ defmodule Ambry.InboxTest do
     end
   end
 
+  describe "queue_summary/0" do
+    test "splits pending into ready, waiting on a decision, and never asked" do
+      ready_item(%{path: "ready"})
+      drafted_item(%{path: "drafted"})
+      raw_item(%{path: "never-asked"})
+
+      assert %{pending: 3, ready: 1, decisions_needed: 1, unprepared: 1} = Inbox.queue_summary()
+    end
+
+    test "the three buckets always add up to pending" do
+      for n <- 1..4, do: drafted_item(%{path: "d#{n}"})
+      for n <- 1..2, do: ready_item(%{path: "r#{n}"})
+
+      summary = Inbox.queue_summary()
+
+      assert summary.ready + summary.decisions_needed + summary.unprepared == summary.pending
+    end
+
+    test "settled items are history, not queue" do
+      raw_item(%{path: "gone", status: :imported})
+      raw_item(%{path: "no-thanks", status: :ignored})
+
+      assert %{pending: 0, ready: 0, decisions_needed: 0, unprepared: 0} = Inbox.queue_summary()
+    end
+
+    test "issues cut across the buckets rather than forming one" do
+      ready_item(%{path: "ready-but-troubled", issue: "couldn't read a tag"})
+
+      assert %{pending: 1, ready: 1, issues: 1} = Inbox.queue_summary()
+    end
+  end
+
+  describe "provider_health/0" do
+    test "rolls outcomes up per recorded id, keeping kinds apart" do
+      raw_item(%{
+        path: "one",
+        matches: %{
+          "work" => %{
+            "providers" => [
+              %{"id" => "hardcover", "name" => "Hardcover", "status" => "ok", "count" => 3},
+              %{
+                "id" => "hardcover:details",
+                "name" => "Hardcover details",
+                "status" => "failed",
+                "count" => 0,
+                "reason" => "rate limited"
+              }
+            ]
+          }
+        }
+      })
+
+      raw_item(%{
+        path: "two",
+        matches: %{
+          "recording" => %{
+            "providers" => [
+              %{"id" => "hardcover", "name" => "Hardcover", "status" => "ok", "count" => 1}
+            ]
+          }
+        }
+      })
+
+      health = Map.new(Inbox.provider_health(), &{&1.id, &1})
+
+      assert %{calls: 2, failures: 0} = health["hardcover"]
+      assert %{calls: 1, failures: 1, reason: "rate limited"} = health["hardcover:details"]
+    end
+
+    test "reads person-level outcomes too" do
+      raw_item(%{
+        path: "one",
+        matches: %{
+          "people" => %{
+            "author:Andy Weir" => %{
+              "providers" => [
+                %{"id" => "wikidata", "name" => "Wikipedia", "status" => "ok", "count" => 2}
+              ]
+            }
+          }
+        }
+      })
+
+      assert [%{id: "wikidata", calls: 1}] = Inbox.provider_health()
+    end
+
+    test "describes the open queue, not what has already been imported" do
+      outcomes = %{
+        "work" => %{
+          "providers" => [
+            %{"id" => "audible", "name" => "Audible", "status" => "ok", "count" => 1}
+          ]
+        }
+      }
+
+      raw_item(%{path: "done", status: :imported, matches: outcomes})
+
+      assert Inbox.provider_health() == []
+    end
+
+    test "an item that was never matched contributes nothing and crashes nothing" do
+      raw_item(%{path: "unmatched"})
+
+      assert Inbox.provider_health() == []
+    end
+  end
+
   defp raw_item(attrs) do
     attrs = Map.put_new_lazy(attrs, :source_id, fn -> insert(:source).id end)
     %InboxItem{} |> InboxItem.changeset(attrs) |> Repo.insert!()
+  end
+
+  # An empty draft is one nobody has resolved, which is exactly the
+  # "waiting on a decision" bucket.
+  defp drafted_item(attrs) do
+    attrs |> raw_item() |> InboxItem.put_draft(%{}) |> Repo.update!()
+  end
+
+  # `ready` is set here rather than by resolving a whole draft: the summary
+  # reads the column, and building a genuinely resolved draft would be
+  # testing `Draft.resolved?/1` a second time in the wrong file.
+  defp ready_item(attrs) do
+    attrs
+    |> drafted_item()
+    |> Ecto.Changeset.change(ready: true)
+    |> Repo.update!()
   end
 
   # Every item comes from a source, so the walk is only ever exercised

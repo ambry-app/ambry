@@ -134,6 +134,91 @@ defmodule Ambry.Inbox do
     |> Map.new()
   end
 
+  @doc """
+  What the pending pile is made of.
+
+  `count_by_status/0` sizes the tabs; this answers the question the operator
+  opens the admin with, which is how much of the queue is *theirs*. "Pending"
+  is three different errands wearing one word:
+
+    * **ready** — the machine settled every decision and the only thing left
+      is a human agreeing. Still work: nothing auto-publishes, so somebody
+      has to look and press Add.
+    * **decisions needed** — the machine couldn't settle something.
+    * **unprepared** — no draft, so nobody has asked yet. This one is
+      *waiting on the machine*, not on the operator, which is why the
+      overview reports it beside the jobs rather than beside the other two.
+
+  `issues` cuts across all three: an item can be ready and still carry the
+  record of something that went wrong. It is counted, not subtracted.
+  """
+  def queue_summary do
+    counts =
+      InboxItem
+      |> where([i], i.status == :pending)
+      |> select([i], %{
+        pending: count(i.id),
+        ready: filter(count(i.id), i.ready),
+        unprepared: filter(count(i.id), is_nil(i.draft)),
+        issues: filter(count(i.id), not is_nil(i.issue))
+      })
+      |> Repo.one()
+
+    # The three buckets partition the pile, so the middle one is what the
+    # other two leave behind rather than its own count — a query that asked
+    # for it separately could disagree with the total by a row inserted
+    # between the two, and a summary that doesn't add up is worse than a
+    # coarse one.
+    Map.put(
+      counts,
+      :decisions_needed,
+      counts.pending - counts.ready - counts.unprepared
+    )
+  end
+
+  @doc """
+  How the providers have been answering, across the queue that's still open.
+
+  One row per recorded outcome id — `hardcover` searched, `hardcover:details`
+  hydrated — because those succeed and fail independently and rolling them
+  together is exactly the mistake `Ambry.Metadata.Outcome` exists to prevent.
+
+  Read from the items themselves rather than a log: an outcome is written
+  where it is *used*, so this is the same evidence the import form shows,
+  aggregated. It therefore describes the open queue, not all history — an
+  imported item's troubles are over and don't belong in a health reading.
+  """
+  def provider_health do
+    """
+    SELECT prov->>'id' AS id,
+           prov->>'name' AS name,
+           count(*) AS calls,
+           count(*) FILTER (WHERE prov->>'status' = 'failed') AS failures,
+           max(prov->>'reason') FILTER (WHERE prov->>'status' = 'failed') AS reason
+    FROM inbox_items i
+    CROSS JOIN LATERAL (
+      SELECT i.matches->'work' AS level
+      UNION ALL
+      SELECT i.matches->'recording'
+      UNION ALL
+      SELECT value FROM jsonb_each(COALESCE(i.matches->'people', '{}'::jsonb))
+    ) lv
+    CROSS JOIN LATERAL jsonb_array_elements(
+      CASE WHEN jsonb_typeof(lv.level->'providers') = 'array'
+           THEN lv.level->'providers'
+           ELSE '[]'::jsonb END
+    ) AS prov
+    WHERE i.status = 'pending' AND i.matches IS NOT NULL
+    GROUP BY 1, 2
+    ORDER BY 4 DESC, 1
+    """
+    |> Repo.query!([])
+    |> Map.fetch!(:rows)
+    |> Enum.map(fn [id, name, calls, failures, reason] ->
+      %{id: id, name: name, calls: calls, failures: failures, reason: reason}
+    end)
+  end
+
   def get_item!(id), do: Repo.get!(InboxItem, id)
 
   def fetch_item(id), do: Repo.fetch(InboxItem, id)

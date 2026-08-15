@@ -17,6 +17,7 @@ defmodule Ambry do
       {Inbox, []},
       {Hashids, []},
       {Images, []},
+      {Jobs, []},
       {Library, []},
       {Media, []},
       {Metadata, []},
