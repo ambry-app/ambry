@@ -59,16 +59,18 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
 
     # Returning them to an unfiltered page one is how "where did my queue go"
-    # happens — they were on the ready tab, and that is where they go back.
+    # happens — they were on page three of Pending, and that is where they go
+    # back. An unknown param is dropped rather than echoed, so a hand-typed
+    # URL can't turn this into an open redirect.
     test "importing returns to the list the operator came from", %{conn: conn} do
       item = probed_item() |> settle()
 
-      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}?status=pending&ready=true")
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}?status=pending&page=3&junk=1")
 
       view |> element("button[data-role='import']") |> render_click()
 
       # params come back in map order, which is fine — it is the same list
-      assert_redirect(view, ~p"/admin/inbox?ready=true&status=pending")
+      assert_redirect(view, ~p"/admin/inbox?page=3&status=pending")
     end
 
     # A stale tab can still send the event twice, and the second one must not

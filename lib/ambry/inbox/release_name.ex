@@ -38,10 +38,15 @@ defmodule Ambry.Inbox.ReleaseName do
   ]
 
   # Quality/format noise that shows up in brackets and parens.
+  #
+  # `disc` and the bare small number are a pair: `noise?/1` splits a bracket
+  # on whitespace and requires *every* word to be noise, so "[Disc 1]" needs
+  # both halves listed. The bare number also finishes the job `cd\d*` only
+  # half did — it matched "CD1" but never "CD 1".
   @noise ~r/^(m4b|mp3|m4a|flac|ogg|opus|aax|aaxc|unabridged|abridged|audiobook|
               retail|complete|chapterized|chaptered|dramatized|dramatised|graphicaudio|
-              \d{4}|\d+\s*k(bps)?|\d+kb|v\d+|cd\d*|web|h?\d{2,3}\.\d+|
-              \d+(\.\d+)?\s*(mb|gb)|\d{1,2}[.:]\d{2}[.:]\d{2})$/xi
+              \d{4}|\d+\s*k(bps)?|\d+kb|v\d+|cd\d*|discs?\d*|web|h?\d{2,3}\.\d+|
+              \d{1,3}|\d+(\.\d+)?\s*(mb|gb)|\d{1,2}[.:]\d{2}[.:]\d{2})$/xi
 
   @asin ~r/\b(B0[A-Z0-9]{8})\b/
 
@@ -91,6 +96,7 @@ defmodule Ambry.Inbox.ReleaseName do
     |> remove_noise_brackets()
     |> remove_noise_parens()
     |> remove_noise_subtitle()
+    |> remove_series_tail()
     |> remove_part_phrase()
     |> remove_sequence_numbers()
     |> collapse_spaces()
@@ -190,6 +196,28 @@ defmodule Ambry.Inbox.ReleaseName do
   @noise_subtitle ~r/\s*[:—-]\s+an?\s+(novel|memoir|thriller|mystery|novella)\s*$/i
 
   defp remove_noise_subtitle(title), do: Regex.replace(@noise_subtitle, title, "")
+
+  # "Kill Joy - A Good Girl's Guide to Murder Series, Book 0" — the series
+  # statement a tag title carries in its tail. Real information, which is why
+  # only the *query* loses it: the series parser reads its own fields off the
+  # unstripped title, and the verbatim tag stays on offer as a chip. As a
+  # title search it is poison — the catalogue title is "Kill Joy", and the
+  # whole string returns nothing from any provider.
+  #
+  # A separator has to introduce it, and the run before "Series" may not
+  # cross another one, so a book actually called "The Series" keeps its name.
+  @series_tail ~r/\s*[-–—:,]\s*[^-–—:]*\bseries,?\s+book\s+[\d.]+\s*$/i
+
+  # The same tail without the word, which only a comma is trusted to
+  # introduce: "Wayfarers, Book 4" is a statement about a series, while
+  # "Book 4" attached by a dash could be the title.
+  @book_tail ~r/,\s*book\s+[\d.]+\s*$/i
+
+  defp remove_series_tail(title) do
+    title
+    |> then(&Regex.replace(@series_tail, &1, ""))
+    |> then(&Regex.replace(@book_tail, &1, ""))
+  end
 
   @doc """
   The best search string for a provider: title and author when both are

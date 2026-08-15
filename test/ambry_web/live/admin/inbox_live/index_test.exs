@@ -26,7 +26,10 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert html =~ "Sanderson"
     # the facts
     assert html =~ "aac"
-    assert html =~ "pending"
+    # and what it still owes, which is the row's one badge. Nothing has
+    # matched this yet, so there are no decisions to count — the badge says
+    # that rather than inventing one.
+    assert item_states(html) == ["not prepared"]
   end
 
   @tag :capture_log
@@ -160,8 +163,8 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   end
 
   # The page links used to be built from the shared filter+page helpers,
-  # which drop status and ready — so paging through "Imported" silently
-  # landed back on the default pending view.
+  # which drop the status — so paging through "Imported" silently landed
+  # back on the default pending view.
   test "the page links keep the status filter", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=ignored&page=2")
 
@@ -300,20 +303,38 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert Inbox.get_item!(item.id).status == :pending
   end
 
-  test "the ready bucket counts what is waiting on a click", %{conn: conn} do
+  # Readiness was a tab and is now a badge. Every draft gets opened either
+  # way, so the bucket only ever split work that was going to be done in
+  # full — and it cost every row a second badge to say which bucket it was
+  # in. What varies from row to row is how much the row still owes.
+  test "a row says what it still owes rather than which tab it is in", %{conn: conn} do
     ready = probed_item(name: "Settled") |> settle()
-    _outstanding = probed_item(name: "Outstanding")
+    {:ok, _outstanding} = probed_item(name: "Outstanding") |> Inbox.prepare_draft()
+
+    {:ok, view, html} = live(conn, ~p"/admin/inbox")
+
+    refute has_element?(view, "span[data-role='ready-filter']")
+
+    states = item_states(html)
+    assert "ready" in states
+    assert Enum.any?(states, &(&1 =~ ~r/\d+ decisions? needed/))
+    # the tab's own word, which never told two rows apart
+    refute "pending" in states
+
+    # the flag is still stored rather than recomputed per render — the
+    # import button reads it, and `put_draft/2` is what keeps it honest
+    assert Inbox.get_item!(ready.id).ready
+  end
+
+  # These were once mutually exclusive, so a settled item's action rail had
+  # no way into its own form and the title link was the only road in.
+  test "a settled row offers both Import and Open", %{conn: conn} do
+    item = probed_item() |> settle()
 
     {:ok, view, _html} = live(conn, ~p"/admin/inbox")
 
-    html = view |> element("span[data-role='ready-filter']") |> render_click()
-
-    assert html =~ "Settled"
-    refute html =~ "Outstanding"
-    assert Inbox.count_ready() == 1
-    # the flag is stored, not recomputed per render — that's what lets the
-    # bucket be a plain SQL filter
-    assert Inbox.get_item!(ready.id).ready
+    assert has_element?(view, "span[phx-click='import'][phx-value-id='#{item.id}']")
+    assert has_element?(view, "a[href^='/admin/inbox/#{item.id}']")
   end
 
   test "filters by status", %{conn: conn} do
@@ -366,6 +387,16 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
 
       refute has_element?(view, "[data-role='busy-overlay']")
     end
+  end
+
+  # The rows' badges, as text. Read out of the markup rather than asserted
+  # against the raw HTML: the formatter puts the badge's content on its own
+  # line, so an exact-string match on the rendered page is a whitespace bet.
+  defp item_states(html) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find("[data-role='item-state']")
+    |> Enum.map(&(&1 |> Floki.text() |> String.trim()))
   end
 
   defp probed_item(opts \\ []) do

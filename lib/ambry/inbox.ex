@@ -94,7 +94,6 @@ defmodule Ambry.Inbox do
     items =
       InboxItem
       |> filter_by_status(opts[:status])
-      |> filter_by_ready(opts[:ready])
       |> filter_by_path(opts[:filter])
       |> order_by(^newest_first(opts[:status]))
       |> offset(^Keyword.get(opts, :offset, 0))
@@ -133,18 +132,6 @@ defmodule Ambry.Inbox do
     |> select([i], {i.status, count(i.id)})
     |> Repo.all()
     |> Map.new()
-  end
-
-  @doc """
-  How many pending items are fully settled and waiting on a click.
-
-  Reads the denormalized flag rather than loading every draft — the whole
-  reason it's stored.
-  """
-  def count_ready do
-    InboxItem
-    |> where([i], i.status == :pending and i.ready == true)
-    |> Repo.aggregate(:count)
   end
 
   def get_item!(id), do: Repo.get!(InboxItem, id)
@@ -1054,9 +1041,6 @@ defmodule Ambry.Inbox do
 
   defp filter_by_status(query, nil), do: query
   defp filter_by_status(query, status), do: where(query, [i], i.status == ^status)
-
-  defp filter_by_ready(query, nil), do: query
-  defp filter_by_ready(query, ready?), do: where(query, [i], i.ready == ^ready?)
 
   defp filter_by_path(query, blank) when blank in [nil, ""], do: query
 

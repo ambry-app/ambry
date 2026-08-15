@@ -1345,13 +1345,32 @@ defmodule Ambry.Inbox.DraftTest do
     end
 
     # A level found nothing, which is an answer rather than a failure: there
-    # is nothing to choose between, so it does not wait on the operator.
-    test "a level that found nothing is settled, not waiting" do
+    # is nothing to choose between, so it does not block the import. It is
+    # not a *match* either — saying "matched" over an empty candidate list is
+    # how the queue came to print "matched · no match" on one line — so it
+    # gets its own tier rather than borrowing either neighbour's.
+    test "a level that found nothing says so, and still imports" do
       item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
       {:ok, item} = Inbox.prepare_draft(item)
 
       assert item.draft.recording.doubt == :nothing_found
-      assert Tier.of(item.draft.recording) == :unreviewed
+      assert Tier.of(item.draft.recording) == :uncatalogued
+      # the tier is display; the invariant reads `approved` directly, and a
+      # release no catalogue lists has to stay importable from its own tags
+      assert item.draft.recording.approved
+      refute Enum.any?(Draft.unresolved(item.draft), &(&1.label == "Audiobook records"))
+    end
+
+    # Looking is the only answer the level can take, so it stops flagging
+    # itself once a human has been there — same as any other reviewed
+    # decision, and the reason this isn't just permanently amber.
+    test "a reviewed uncatalogued level stops asking" do
+      item = item(%{matches: matches([provider_candidate(%{})]), tags: %{}})
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      reviewed = %{item.draft.recording | evidence_curated: true}
+
+      assert Tier.of(reviewed) == :reviewed
     end
 
     test "the tick survives the reseed it triggers" do

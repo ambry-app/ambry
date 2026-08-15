@@ -1325,6 +1325,164 @@ defmodule Ambry.Inbox.AutoMatchTest do
   # rate-limited one left the record thin (no description, no cover, no
   # editions) and said nothing anywhere, so the item settled, went `ready`,
   # and imported a book the provider actually knew more about.
+  # A level that finds nothing is nearly always the *question* being wrong
+  # rather than the book being absent — measured on the operator's queue,
+  # five of the seven empty levels had a perfectly findable book behind a
+  # polluted title. So a query that comes back empty is widened rather than
+  # given up on.
+  describe "match/1 widens a query that found nothing" do
+    setup do
+      patch(Providers, :editions, fn _id, _work_id, _opts -> {:ok, []} end)
+      patch(Providers, :search_authors, fn _id, _query, _opts -> {:ok, []} end)
+
+      patch(Providers, :book_details, fn _id, id, _opts ->
+        {:ok, %Provider.Book{provider: "test", id: id}}
+      end)
+
+      :ok
+    end
+
+    # Answers only the queries a test names and records every one it is
+    # asked, because "which question was asked" is what these assertions are
+    # actually about. Everything else finds nothing, which is the condition
+    # the ladder exists for. `search_books` runs in the calling process, so
+    # the test's own mailbox is the log.
+    defp patch_by_query(answers) do
+      test = self()
+
+      patch(Providers, :search_books, fn _id, query, _opts ->
+        send(test, {:searched, query})
+
+        {:ok,
+         Enum.find_value(answers, [], fn {match, books} -> query_says?(query, match) && books end)}
+      end)
+    end
+
+    defp query_says?(query, match), do: to_string(query) =~ match
+
+    defp queries_asked, do: drain_queries([])
+
+    defp drain_queries(acc) do
+      receive do
+        {:searched, query} -> drain_queries([query | acc])
+      after
+        0 -> acc |> Enum.reverse() |> Enum.uniq()
+      end
+    end
+
+    # An ASIN that doesn't resolve — regional, delisted, or simply wrong —
+    # used to end the recording level at zero with the title question never
+    # asked, which made carrying an ASIN strictly worse than carrying none.
+    test "an ASIN that resolves to nothing falls back to the title" do
+      patch_by_query([{"Wintersmith", [book("Wintersmith", ["Terry Pratchett"])]}])
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Wintersmith", author: "Terry Pratchett", asin: "B000000000"))
+
+      assert [best | _rest] = matches["recording"]["candidates"]
+      assert best["title"] == "Wintersmith"
+      # the query reported is the one that answered, not the one that failed
+      refute matches["recording"]["query"] == "B000000000"
+    end
+
+    # The ladder stops at the first answer, so the definitive key still wins
+    # and still costs exactly one round of calls.
+    test "an ASIN that resolves is the only recording question asked" do
+      patch_by_query([
+        {"B003ZWFO7E", [book("Kings, The Way Of", ["Brandon Sanderson"], asin: "B003ZWFO7E")]},
+        {"The Way of Kings", [book("A Different Edition", ["Brandon Sanderson"])]}
+      ])
+
+      %{matches: matches} =
+        AutoMatch.match(
+          item(title: "The Way of Kings", narrator: "Michael Kramer", asin: "B003ZWFO7E")
+        )
+
+      assert matches["recording"]["query"] == "B003ZWFO7E"
+      assert [best] = matches["recording"]["candidates"]
+      assert best["asin"] == "B003ZWFO7E"
+
+      # the narrator rides only on the recording level's title query, so its
+      # absence is proof the ladder stopped at the key
+      refute Enum.any?(queries_asked(), & &1.narrator)
+    end
+
+    # The release name is a genuinely different question, not a better one:
+    # no amount of cleaning turns "DW35-Wintersmith" into the title on disk.
+    test "the release name is asked when the tag title finds nothing" do
+      patch_by_query([{"Discworld 35 Wintersmith", [book("Wintersmith", ["Terry Pratchett"])]}])
+
+      %{matches: matches} =
+        AutoMatch.match(
+          item(
+            title: "DW35-Wintersmith",
+            author: "Terry Pratchett",
+            path: "/downloads/Discworld 35 Wintersmith"
+          )
+        )
+
+      assert [best | _rest] = matches["work"]["candidates"]
+      assert best["title"] == "Wintersmith"
+    end
+
+    # "Wild - Cheryl Strayed" parses with the author on both sides, so the
+    # release "title" is the author's name. Searching an author's name for a
+    # title finds their other books — the one shape of junk worth refusing up
+    # front rather than leaving to the ranker.
+    test "a release name that is only the author's name is not asked" do
+      patch_by_query([])
+
+      AutoMatch.match(
+        item(
+          title: "Wild [Disc 1]",
+          author: "Cheryl Strayed",
+          path: "/downloads/Wild - Cheryl Strayed"
+        )
+      )
+
+      titles = queries_asked() |> Enum.map(& &1.title) |> Enum.reject(&is_nil/1)
+
+      # the disc marker is stripped, so the question worth asking is asked;
+      # the author's own name is never asked *as a title*
+      assert "Wild" in titles
+      refute "Cheryl Strayed" in titles
+    end
+
+    # Outcomes are per call, and a provider that was rate-limited on the
+    # first question and never asked the second must still say so — or a
+    # level looks answered when it was only partly asked.
+    @tag :capture_log
+    test "a failure on the first question survives the second" do
+      patch(Providers, :search_books, fn id, query, _opts ->
+        cond do
+          work_provider?(id) -> {:ok, []}
+          query_says?(query, "B000000000") -> {:error, :rate_limited}
+          true -> {:ok, [book("Wintersmith", ["Terry Pratchett"])]}
+        end
+      end)
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Wintersmith", author: "Terry Pratchett", asin: "B000000000"))
+
+      # the second question answered, and the first one's failure is still on
+      # the record — a level that was only partly asked must not look answered
+      assert matches["recording"]["candidates"] != []
+      assert Enum.any?(matches["recording"]["providers"], &(&1["status"] == "failed"))
+    end
+
+    # One entry per provider however many questions it was asked, or the
+    # form's chip row grows a duplicate for every rung of the ladder.
+    test "asking twice does not report the provider twice" do
+      patch_by_query([{"Wintersmith", [book("Wintersmith", ["Terry Pratchett"])]}])
+
+      %{matches: matches} =
+        AutoMatch.match(item(title: "Wintersmith", author: "Terry Pratchett", asin: "B000000000"))
+
+      ids = Enum.map(matches["recording"]["providers"], & &1["id"])
+      assert ids == Enum.uniq(ids)
+    end
+  end
+
   describe "match/1 reports the calls made after the search" do
     setup do
       patch_work_results([book("The Way of Kings", ["Brandon Sanderson"])])
@@ -1662,7 +1820,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
   defp item(opts) do
     %InboxItem{
-      path: "/downloads/#{Keyword.get(opts, :title, "Unknown")}",
+      path: Keyword.get(opts, :path, "/downloads/#{Keyword.get(opts, :title, "Unknown")}"),
       tags:
         %{
           "book_title" => opts[:title],
