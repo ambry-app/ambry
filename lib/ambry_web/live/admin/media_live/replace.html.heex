@@ -1,4 +1,4 @@
-<.layout title={@page_title} user={@current_user} jobs={@admin_jobs}>
+<.layout title={@page_title} user={@current_user} socket={@socket}>
   <.modal :if={@select_files} id="select-files-modal" show on_cancel={close_file_browser(@media)}>
     <.live_component id="file-browser" module={FileBrowser} root_path={Application.get_env(:ambry, :source_path)} />
   </.modal>

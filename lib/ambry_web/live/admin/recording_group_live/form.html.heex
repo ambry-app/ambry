@@ -1,4 +1,4 @@
-<.layout title={@page_title} user={@current_user} jobs={@admin_jobs}>
+<.layout title={@page_title} user={@current_user} socket={@socket}>
   <div class="-mb-4 max-w-4xl">
     <.simple_form id="group-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
       <.field_group>

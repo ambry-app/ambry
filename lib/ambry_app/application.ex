@@ -20,6 +20,10 @@ defmodule AmbryApp.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Ambry.Supervisor]
+    # One global handler, republishing Oban's job telemetry through PubSub
+    # so displays can watch instead of poll. See `Ambry.Jobs`.
+    :ok = Ambry.Jobs.attach_telemetry()
+
     Supervisor.start_link(children(config_env), opts)
   end
 

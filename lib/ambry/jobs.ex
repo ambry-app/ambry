@@ -32,11 +32,85 @@ defmodule Ambry.Jobs do
   this table. Anything that has to outlive that is written onto the record it
   concerns — an inbox item's `issue`, a recording's `missing_since` — and the
   overview reads those separately.
+
+  ## Watching, rather than asking every few seconds
+
+  `subscribe/0` puts a process on the two signals Oban already emits, so a
+  display can react to a job moving instead of checking whether one has:
+
+    * **`Oban.Notifier`, `:insert` channel** — Oban's own pub/sub, which on
+      Postgres is `LISTEN/NOTIFY`. Fires when jobs are inserted, and also
+      when the Stager promotes `scheduled` rows to `available`, so "queued"
+      is live without anyone announcing it by hand at eight call sites.
+    * **`[:oban, :job, :start | :stop | :exception]` telemetry** — the
+      execution transitions. `attach_telemetry/0` hangs one global handler
+      on these at boot and republishes them through `Ambry.PubSub`, so the
+      cost is one broadcast per job rather than one telemetry handler per
+      viewer, and a subscriber that crashes cannot take a handler down
+      inside the process running somebody's import.
+
+  **Between them they cover every transition a queue makes on its own.**
+  What they do not cover is the housekeeping: `Oban.Plugins.Lifeline`
+  rescuing a job orphaned by a dead node, and `Oban.Plugins.Pruner` deleting
+  a discarded one a day later. Neither announces itself, so a display should
+  still hold a slow heartbeat — but slow, minutes rather than seconds,
+  because those are the only two things it is covering for.
   """
+
+  use Boundary, deps: [Ambry, Ambry.PubSub]
 
   import Ecto.Query
 
+  alias Ambry.Jobs.PubSub.JobActivity
+  alias Ambry.PubSub
   alias Ambry.Repo
+
+  @telemetry_events [
+    [:oban, :job, :start],
+    [:oban, :job, :stop],
+    [:oban, :job, :exception]
+  ]
+
+  @doc """
+  Republishes Oban's job telemetry through `Ambry.PubSub`. Called once at boot.
+
+  Idempotent: `:telemetry` refuses a duplicate handler id, and a second call
+  in the same VM (a test, a release upgrade) is a no-op rather than an error.
+  """
+  def attach_telemetry do
+    case :telemetry.attach_many(
+           "ambry-job-activity",
+           @telemetry_events,
+           &__MODULE__.handle_telemetry/4,
+           :no_config
+         ) do
+      :ok -> :ok
+      {:error, :already_exists} -> :ok
+    end
+  end
+
+  @doc false
+  # Runs inside the process executing the job, so it does exactly one thing.
+  def handle_telemetry([:oban, :job, event], _measurements, %{job: job}, _config) do
+    event |> JobActivity.new(job.queue) |> PubSub.broadcast()
+
+    :ok
+  end
+
+  def handle_telemetry(_event, _measurements, _metadata, _config), do: :ok
+
+  @doc """
+  Watch for anything that would change what `summary/0` returns.
+
+  The caller will receive `%Ambry.Jobs.PubSub.JobActivity{}` structs and
+  Oban's own `{:notification, :insert, payload}` messages. Both mean the same
+  thing — go and look again — so a caller is free to treat them alike, and
+  should debounce: a queue draining forty items emits forty of these.
+  """
+  def subscribe do
+    :ok = PubSub.subscribe(JobActivity.topic())
+    :ok = Oban.Notifier.listen([:insert])
+  end
 
   @doc """
   Per-queue counts, plus the totals.

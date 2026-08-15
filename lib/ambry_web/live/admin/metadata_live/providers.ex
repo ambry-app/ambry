@@ -21,7 +21,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <.layout title={@page_title} user={@current_user} jobs={@admin_jobs}>
+    <.layout title={@page_title} user={@current_user} socket={@socket}>
       <div class="max-w-4xl space-y-8">
         <p class="text-zinc-400">
           Priority sets the order providers appear in on import forms. Changes apply

@@ -2,6 +2,7 @@ defmodule Ambry.JobsTest do
   use Ambry.DataCase, async: false
 
   alias Ambry.Jobs
+  alias Ambry.Jobs.PubSub.JobActivity
 
   describe "summary/0" do
     test "reports every configured queue, including the empty ones" do
@@ -53,6 +54,75 @@ defmodule Ambry.JobsTest do
       assert summary.running == 0
     end
   end
+
+  describe "subscribe/0 and the telemetry bridge" do
+    # The whole reason the header indicator is not on a three-second timer.
+    # If this stops working the display silently degrades to whatever the
+    # slow heartbeat catches, which is the kind of regression nobody
+    # notices for a month.
+    setup do
+      :ok = Jobs.attach_telemetry()
+      :ok = Jobs.subscribe()
+    end
+
+    test "a job starting reaches a subscriber" do
+      emit(:start, "metadata")
+
+      assert_receive %JobActivity{event: :start, queue: "metadata"}
+    end
+
+    test "a job finishing reaches a subscriber" do
+      emit(:stop, "media")
+
+      assert_receive %JobActivity{event: :stop, queue: "media"}
+    end
+
+    test "a job blowing up reaches a subscriber" do
+      emit(:exception, "media")
+
+      assert_receive %JobActivity{event: :exception, queue: "media"}
+    end
+
+    test "attaching twice is not an error" do
+      assert :ok = Jobs.attach_telemetry()
+    end
+  end
+
+  # A real `%Oban.Job{}` and the metadata Oban actually publishes, because
+  # ours is not the only handler on these events. A half-built map crashed
+  # Sentry's Oban reporter, and a telemetry handler that raises is
+  # **detached globally** — so a lazy fixture here silently turned off error
+  # reporting for every test after it.
+  defp emit(event, queue) do
+    job = %Oban.Job{
+      id: System.unique_integer([:positive]),
+      args: %{},
+      queue: queue,
+      worker: "Ambry.Inbox.RunProbe",
+      attempt: 1,
+      max_attempts: 3,
+      tags: [],
+      errors: []
+    }
+
+    metadata =
+      %{job: job, conf: Oban.config(), state: :success, result: :ok}
+      |> Map.merge(exception_metadata(event))
+
+    :telemetry.execute([:oban, :job, event], %{duration: 1, queue_time: 1}, metadata)
+  end
+
+  defp exception_metadata(:exception) do
+    %{
+      state: :failure,
+      kind: :error,
+      reason: %RuntimeError{message: "boom"},
+      stacktrace: [],
+      error: %RuntimeError{message: "boom"}
+    }
+  end
+
+  defp exception_metadata(_event), do: %{}
 
   describe "busy?/1" do
     test "a job waiting to retry counts as busy" do
