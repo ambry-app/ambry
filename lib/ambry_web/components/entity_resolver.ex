@@ -159,7 +159,7 @@ defmodule AmbryWeb.Components.EntityResolver do
           Create “{@equery}”
         </li>
         <li
-          :if={@matches == [] and not (@text_name && present?(@equery))}
+          :if={@matches == [] and !(@text_name && present?(@equery))}
           class="px-3 py-2 text-zinc-500"
         >
           No matches
