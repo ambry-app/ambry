@@ -91,10 +91,22 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
         errors: [%{"error" => "** (File.Error) could not copy\n    stack"}]
       )
 
-      {:ok, view, _html} = live(conn, ~p"/admin")
+      {:ok, _view, html} = live(conn, ~p"/admin")
 
-      assert has_element?(view, "[data-role='job-failure']", "RunImport")
-      assert has_element?(view, "[data-role='job-failure']", "could not copy")
+      # Floki text rather than `has_element?`: a substring match happily
+      # passes on the full `Ambry.Inbox.RunImport`, which is exactly the bug
+      # that shipped — Oban stores the worker without an `Elixir.` prefix,
+      # so the clause that stripped one never fired.
+      text =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("[data-role='job-failure']")
+        |> Floki.text()
+        |> String.replace(~r/\s+/, " ")
+
+      assert text =~ "RunImport"
+      refute text =~ "Ambry.Inbox.RunImport"
+      assert text =~ "** (File.Error) could not copy"
     end
 
     test "reports how the providers have been answering", %{conn: conn} do

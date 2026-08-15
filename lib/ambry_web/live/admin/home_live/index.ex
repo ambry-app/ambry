@@ -234,9 +234,14 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
     |> Enum.join(", ")
   end
 
-  @doc "Oban's fully-qualified worker name, as the operator would say it."
-  def worker_words("Elixir." <> module), do: module |> String.split(".") |> List.last()
-  def worker_words(worker), do: worker
+  @doc """
+  Oban's worker name, as the operator would say it.
+
+  Oban stores it *without* the `Elixir.` prefix, so matching on one was a
+  clause that never fired and every failure wore its full module path. Take
+  the last segment and don't care how it was written.
+  """
+  def worker_words(worker) when is_binary(worker), do: worker |> String.split(".") |> List.last()
 
   def failure_time(nil), do: nil
   def failure_time(at), do: Calendar.strftime(at, "%x %X")
@@ -272,17 +277,38 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   # "Open" is five links the eye can't tell apart, and two of them land on
   # the Oban dashboard while the others don't.
   attr :link_words, :string, default: nil
+  # Oban Web is a different application living under the same auth, and the
+  # overview is a page the operator leaves open. Sending them there in the
+  # same tab costs them the thing they were watching, so it opens beside it —
+  # and says so with the icon, because a link that behaves differently has to
+  # look different before it is clicked.
+  attr :new_tab, :boolean, default: false
   slot :inner_block, required: true
 
   # A card names itself: the label lives inside, at the top, on the text rail
   # (design language §3b).
   defp card(assigns) do
     ~H"""
-    <div class="rounded-lg bg-zinc-900 p-4">
+    <%!-- `min-w-0` is load-bearing, not decoration. A grid item's automatic
+          minimum size is the min-content width of what's inside it, so one
+          long unbroken string anywhere in a card — an error, a path, a
+          provider id — makes the whole column refuse to shrink and pushes
+          the page sideways on a phone. Measured: 711px of card in a 390px
+          viewport. Truncating the string does not fix it; the item has to
+          be allowed to be narrower than its contents. --%>
+    <div class="min-w-0 rounded-lg bg-zinc-900 p-4">
       <div class="flex items-baseline justify-between gap-4 pl-3">
         <h3 class="text-sm font-semibold text-zinc-200">{@label}</h3>
-        <.link :if={@navigate} navigate={@navigate} class="text-brand-dark text-sm hover:underline">
+        <.link
+          :if={@navigate}
+          navigate={!@new_tab && @navigate}
+          href={@new_tab && @navigate}
+          target={@new_tab && "_blank"}
+          rel={@new_tab && "noopener"}
+          class="text-brand-dark flex items-center gap-1.5 text-sm hover:underline"
+        >
           {@link_words}
+          <.icon :if={@new_tab} name="fa-arrow-up-right-from-square" class="h-3 w-3 text-current" />
         </.link>
       </div>
       <div class="pt-3">

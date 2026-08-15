@@ -43,7 +43,7 @@
       <h2 class="text-xl font-bold text-zinc-100">Background work</h2>
 
       <div class="grid gap-7 md:grid-cols-2">
-        <.card label="Queues" navigate={~p"/admin/oban"} link_words="Oban">
+        <.card label="Queues" navigate={~p"/admin/oban"} link_words="Oban" new_tab>
           <p class="pl-3 text-sm text-zinc-300" data-role="work-words">{work_words(@jobs)}</p>
 
           <div
@@ -63,7 +63,7 @@
           </p>
         </.card>
 
-        <.card label="Recent failures" navigate={~p"/admin/oban"} link_words="Oban">
+        <.card label="Recent failures" navigate={~p"/admin/oban"} link_words="Oban" new_tab>
           <div :if={@failures != []} class="space-y-2">
             <div
               :for={failure <- @failures}
@@ -74,7 +74,19 @@
                 <span class="text-sm text-zinc-200">{worker_words(failure.worker)}</span>
                 <span class="text-xs tabular-nums text-zinc-500">{failure_time(failure.at)}</span>
               </div>
-              <p :if={failure.error} class="font-mono truncate text-xs text-red-300" title={failure.error}>
+              <%!-- Wrapped rather than truncated: the error is the whole
+                    point of this card, and an ellipsis on a phone hides
+                    exactly the end of the line that names the failure. It
+                    is already only the first line of the exception, so
+                    wrapping costs two rows, not a stack trace.
+
+                    Ordinary wrapping, NOT `whitespace-pre-wrap`: this value
+                    holds no meaningful internal spacing, and pre-wrap
+                    preserves the template's own newline and indentation
+                    around the interpolation, which rendered as a mystery
+                    indent on the first line. `break-words` is what matters
+                    here — these errors carry long unbroken paths. --%>
+              <p :if={failure.error} class="font-mono break-words text-xs text-red-300">
                 {failure.error}
               </p>
             </div>
