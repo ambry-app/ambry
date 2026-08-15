@@ -21,6 +21,7 @@ import "phoenix_html"
 import { LiveSocket } from "phoenix_live_view"
 import topbar from "topbar"
 
+import { AutoDismissHook } from "./hooks/auto-dismiss"
 import { ComboboxNavHook } from "./hooks/combobox-nav"
 import { DispatchValueChangeHook } from "./hooks/dispatch-value-change"
 import { FitOrStackHook } from "./hooks/fit-or-stack"
@@ -53,6 +54,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "scroll-match": ScrollMatchHook,
     "paste-image": PasteImageHook,
     "sticky-footer": StickyFooterHook,
+    "auto-dismiss": AutoDismissHook,
   },
 })
 

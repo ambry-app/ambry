@@ -121,17 +121,24 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
-  Renders flash notices.
+  Renders one flash notice.
+
+  A toast, not a panel. It sits in the `flash_group` rail at top centre, so it
+  positions itself relative to that rather than to the viewport.
 
   ## Examples
 
       <.flash kind={:info} flash={@flash} />
-      <.flash kind={:info} phx-mounted={show("#flash")}>Welcome Back!</.flash>
+      <.flash kind={:info}>Welcome Back!</.flash>
   """
   attr :id, :string, doc: "the optional id of flash container"
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
-  attr :title, :string, default: nil
   attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
+
+  attr :dismiss_after, :integer,
+    default: nil,
+    doc: "milliseconds before it clears itself; nil never does"
+
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
   slot :inner_block, doc: "the optional inner block that renders the flash message"
@@ -140,34 +147,52 @@ defmodule AmbryWeb.CoreComponents do
     assigns = assign_new(assigns, :id, fn -> "flash-#{assigns.kind}" end)
 
     ~H"""
+    <%!-- Severity is the icon's job, not the fill's. A solid lime slab with
+          black text was the loudest thing on any page it appeared over, for a
+          message that is usually "saved" — so the box is the same zinc-900 as
+          every other floating layer (§1: shadows are for things that float)
+          and only the glyph is coloured (§8: an icon carries the severity so
+          the words don't have to). --%>
     <div
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
+      phx-hook={@dismiss_after && "auto-dismiss"}
+      data-dismiss-after={@dismiss_after}
+      phx-mounted={@dismiss_after && flash_in()}
       role="alert"
+      title="Dismiss"
       class={[
-        "fixed top-2 right-2 z-50 w-80 rounded-sm p-3 shadow-md ring-1 sm:w-96",
-        "shadow-zinc-900/5 fill-zinc-900 text-zinc-900",
-        @kind == :info && "bg-lime-400 ring-lime-400",
-        @kind == :error && "bg-red-400 ring-red-400"
+        "pointer-events-auto flex max-w-md cursor-pointer items-start gap-2 rounded-md",
+        "shadow-black/40 bg-zinc-900 px-3 py-2 shadow-lg"
       ]}
       {@rest}
     >
-      <p :if={@title} class="flex items-center gap-1.5 text-sm font-semibold leading-6">
-        <.icon :if={@kind == :info} name="fa-circle-info" class="h-4 w-4" />
-        <.icon :if={@kind == :error} name="fa-circle-exclamation" class="h-4 w-4" />
-        {@title}
-      </p>
-      <p class="mt-2 text-sm leading-5">{msg}</p>
-      <button type="button" class="group absolute top-1 right-1 p-2" aria-label={gettext("close")}>
-        <.icon name="fa-xmark" class="h-5 w-5 opacity-20 hover:opacity-40" />
-      </button>
+      <.icon
+        :if={@kind == :info}
+        name="fa-circle-check"
+        class="text-brand-dark mt-1 h-3.5 w-3.5 flex-none"
+      />
+      <.icon
+        :if={@kind == :error}
+        name="fa-circle-exclamation"
+        class="mt-1 h-3.5 w-3.5 flex-none text-red-400"
+      />
+      <p class="min-w-0 break-words text-sm text-zinc-200">{msg}</p>
     </div>
     """
   end
 
   @doc """
-  Shows the flash group with standard titles and content.
+  The rail every flash appears in: top centre, stacked, newest below.
+
+  Top centre rather than top right, which is where these used to sit and
+  where the admin keeps its own controls — a toast over the user menu and
+  the job indicator covered the two things most likely to be wanted next.
+
+  The rail is `pointer-events-none` so an empty one is not an invisible lid
+  over the top of the page; each toast turns pointer events back on for
+  itself.
 
   ## Examples
 
@@ -176,31 +201,48 @@ defmodule AmbryWeb.CoreComponents do
   attr :flash, :map, required: true, doc: "the map of flash messages"
   attr :id, :string, default: "flash-group", doc: "the optional id of flash container"
 
+  # Long enough to read, short enough that it is gone before it is in the
+  # way. An error gets longer because it is likelier to be worth reading
+  # twice, and hovering either one holds it open (see the auto-dismiss hook).
+  @info_dismiss_after 5_000
+  @error_dismiss_after 10_000
+
   def flash_group(assigns) do
+    assigns =
+      assign(assigns,
+        info_dismiss_after: @info_dismiss_after,
+        error_dismiss_after: @error_dismiss_after
+      )
+
     ~H"""
-    <div id={@id}>
-      <.flash kind={:info} title={gettext("Success!")} flash={@flash} />
-      <.flash kind={:error} title={gettext("Error!")} flash={@flash} />
+    <div
+      id={@id}
+      class="pointer-events-none fixed top-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col items-center gap-2 px-4"
+    >
+      <.flash kind={:info} flash={@flash} dismiss_after={@info_dismiss_after} />
+      <.flash kind={:error} flash={@flash} dismiss_after={@error_dismiss_after} />
+      <%!-- The connection toasts never dismiss themselves: they are not a
+            report of something that happened, they are the current state of
+            the socket, and phx-connected is what takes them away. --%>
       <.flash
         id="client-error"
         kind={:error}
-        title="We've lost connection to the server"
         phx-disconnected={show(".phx-client-error #client-error")}
         phx-connected={hide("#client-error")}
         hidden
       >
-        Attempting to reconnect <.icon name="fa-rotate" class="ml-1 h-3 w-3 animate-spin" />
+        Lost connection. Attempting to reconnect <.icon name="fa-rotate" class="ml-1 h-3 w-3 animate-spin" />
       </.flash>
 
       <.flash
         id="server-error"
         kind={:error}
-        title="Something went wrong!"
         phx-disconnected={show(".phx-server-error #server-error")}
         phx-connected={hide("#server-error")}
         hidden
       >
-        Hang in there while we get back on track <.icon name="fa-rotate" class="ml-1 h-3 w-3 animate-spin" />
+        Something went wrong. Hang in there while we get back on track
+        <.icon name="fa-rotate" class="ml-1 h-3 w-3 animate-spin" />
       </.flash>
     </div>
     """
@@ -1757,6 +1799,17 @@ defmodule AmbryWeb.CoreComponents do
       to: "##{id}",
       time: 100,
       transition: transition_out()
+    )
+  end
+
+  # A toast drops in from above, because that is where it came from. The
+  # shared `transition_in/0` rises from below, which is right for a menu
+  # anchored at the bottom of its trigger and wrong for this.
+  def flash_in do
+    JS.transition(
+      {"transition-all transform ease-out duration-200", "opacity-0 -translate-y-2",
+       "opacity-100 translate-y-0"},
+      time: 200
     )
   end
 

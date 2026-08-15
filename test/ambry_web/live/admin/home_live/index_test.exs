@@ -25,7 +25,7 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
       assert has_element?(view, "*", "Nothing waiting.")
       assert has_element?(view, "*", "Nothing's wrong.")
       assert has_element?(view, "[data-role='work-words']", "Nothing running.")
-      assert has_element?(view, "*", "No job has given up in the last day.")
+      assert has_element?(view, "*", "No job has failed in the last day.")
       assert has_element?(view, "*", "Nothing in the queue has asked a provider yet.")
     end
 
@@ -203,22 +203,5 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
 
   defp ready_item(path) do
     path |> drafted_item() |> Ecto.Changeset.change(ready: true) |> Repo.update!()
-  end
-
-  # Straight into the table: `discarded` is a state Oban will not insert.
-  defp insert_job(attrs) do
-    defaults = %{
-      state: "available",
-      queue: "default",
-      worker: "Ambry.Inbox.RunProbe",
-      args: %{},
-      errors: [],
-      attempt: 0,
-      max_attempts: 20,
-      inserted_at: ~N[2026-08-01 00:00:00],
-      scheduled_at: ~N[2026-08-01 00:00:00]
-    }
-
-    Repo.insert_all("oban_jobs", [Map.merge(defaults, Map.new(attrs))])
   end
 end

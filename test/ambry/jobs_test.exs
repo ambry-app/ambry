@@ -2,7 +2,6 @@ defmodule Ambry.JobsTest do
   use Ambry.DataCase, async: false
 
   alias Ambry.Jobs
-  alias Ambry.Repo
 
   describe "summary/0" do
     test "reports every configured queue, including the empty ones" do
@@ -106,24 +105,5 @@ defmodule Ambry.JobsTest do
 
       assert Jobs.recent_failures() == []
     end
-  end
-
-  # Straight into the table rather than through Oban.insert/1: these tests are
-  # about reading states, and several of them (discarded, cancelled) are ones
-  # Oban will not let you insert.
-  defp insert_job(attrs) do
-    defaults = %{
-      state: "available",
-      queue: "default",
-      worker: "Ambry.Inbox.RunProbe",
-      args: %{},
-      errors: [],
-      attempt: 0,
-      max_attempts: 20,
-      inserted_at: ~N[2026-08-01 00:00:00],
-      scheduled_at: ~N[2026-08-01 00:00:00]
-    }
-
-    Repo.insert_all("oban_jobs", [Map.merge(defaults, Map.new(attrs))])
   end
 end

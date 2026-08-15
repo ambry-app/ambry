@@ -1,4 +1,4 @@
-<.layout title={@page_title} user={@current_user}>
+<.layout title={@page_title} user={@current_user} jobs={@admin_jobs}>
   <div class="max-w-6xl space-y-14">
     <section class="space-y-4">
       <h2 class="text-xl font-bold text-zinc-100">Needs you</h2>
@@ -92,7 +92,7 @@
             </div>
           </div>
           <.all_clear :if={@failures == []}>
-            No job has given up in the last day.
+            No job has failed in the last day.
           </.all_clear>
         </.card>
       </div>

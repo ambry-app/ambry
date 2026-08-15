@@ -108,9 +108,14 @@ defmodule AmbryWeb.Admin.Layouts do
         </.link>
       </div>
       <div class="py-3">
-        <.link navigate={~p"/admin/dashboard"} class={nav_class()}>
+        <%!-- Phoenix's own dashboard, like Oban's, is a different application
+              wearing the same auth. Sending the operator there in the same tab
+              costs them whatever they were on; the icon is what says so before
+              they click. --%>
+        <.link href={~p"/admin/dashboard"} target="_blank" rel="noopener" class={nav_class()}>
           <.icon name="fa-brands-phoenix-framework" class="h-5 w-5 text-current" />
           <p>Phoenix Dashboard</p>
+          <.icon name="fa-arrow-up-right-from-square" class="ml-auto h-3 w-3 text-current" />
         </.link>
       </div>
       <div class="absolute bottom-0 w-full py-3">

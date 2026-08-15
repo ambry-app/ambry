@@ -6,11 +6,18 @@ defmodule AmbryWeb.Admin.Components do
   import AmbryWeb.Gravatar
 
   alias Ambry.Accounts.User
+  alias Ambry.Jobs
   alias Phoenix.HTML.Form
   alias Phoenix.HTML.FormField
 
   attr :user, User, required: true
   attr :title, :string, required: true
+  # Required rather than defaulted on purpose. Every admin page gets this
+  # from `AmbryWeb.Admin.NavHooks`, so the only way it can be missing is a
+  # new surface that forgot to pass it — and a defaulted attr would answer
+  # that by silently dropping the indicator from one page. Required makes it
+  # a compile warning, which CI treats as an error.
+  attr :jobs, :map, required: true
 
   slot :inner_block, required: true
   slot :subheader
@@ -18,7 +25,7 @@ defmodule AmbryWeb.Admin.Components do
   def layout(assigns) do
     ~H"""
     <div class="relative flex h-screen min-w-0 grow flex-col">
-      <.layout_header user={@user} title={@title}>
+      <.layout_header user={@user} title={@title} jobs={@jobs}>
         {render_slot(@subheader)}
       </.layout_header>
 
@@ -45,6 +52,7 @@ defmodule AmbryWeb.Admin.Components do
 
   attr :user, User, required: true
   attr :title, :string, required: true
+  attr :jobs, :map, required: true
 
   slot :inner_block, required: true
 
@@ -62,6 +70,7 @@ defmodule AmbryWeb.Admin.Components do
         <div class="grow overflow-hidden text-ellipsis whitespace-nowrap pl-0 text-2xl font-bold text-zinc-100 sm:pl-4 lg:pl-0">
           {@title}
         </div>
+        <.job_indicator jobs={@jobs} />
         <div
           phx-click-away={hide_menu("admin-user-menu")}
           phx-window-keydown={hide_menu("admin-user-menu")}
@@ -79,6 +88,73 @@ defmodule AmbryWeb.Admin.Components do
       {render_slot(@inner_block)}
     </header>
     """
+  end
+
+  attr :jobs, :map, required: true
+
+  @doc """
+  The ambient background-work indicator, in the header of every admin page.
+
+  The overview has a whole section about the queues; this is the glance
+  version, and it exists because the moment an operator most wants to know
+  whether the server is working is while they are somewhere else — mid-form,
+  having just pressed Import.
+
+  **It renders in the idle state too.** A widget that only appears when there
+  is news is indistinguishable from a broken one, so a quiet server gets a
+  dim dot and the word Idle rather than nothing at all. That is also what
+  makes the spinner mean something when it does show up.
+
+  Failures get their own count beside it, because "busy" and "broken" are
+  different answers and only one of them is a reason to stop what you are
+  doing. Below `sm` the words drop and the dot, spinner and failure count
+  carry it — the header is competing with the page title there.
+  """
+  def job_indicator(assigns) do
+    ~H"""
+    <.link
+      href={~p"/admin/oban"}
+      target="_blank"
+      rel="noopener"
+      title={job_detail(@jobs)}
+      class="bg-white/5 flex flex-none items-center gap-2 rounded-md px-2 py-1 hover:bg-white/10"
+      data-role="job-indicator"
+    >
+      <.icon
+        :if={Jobs.busy?(@jobs)}
+        name="fa-rotate"
+        class="h-3.5 w-3.5 animate-spin text-zinc-300"
+      />
+      <span :if={!Jobs.busy?(@jobs)} class="h-2 w-2 rounded-full bg-zinc-600" />
+      <span class="hidden text-xs text-zinc-300 sm:inline">{job_words(@jobs)}</span>
+      <span
+        :if={@jobs.failed > 0}
+        class="bg-red-400/15 rounded-sm px-1 text-xs font-bold tabular-nums text-red-300"
+        data-role="job-indicator-failed"
+      >
+        {@jobs.failed}
+      </span>
+    </.link>
+    """
+  end
+
+  # One fact, most-active first: what the server is doing right now beats what
+  # it is about to do. The rest is in the tooltip rather than the header,
+  # which has a page title to leave room for.
+  defp job_words(%{running: n}) when n > 0, do: "#{n} running"
+  defp job_words(%{queued: n}) when n > 0, do: "#{n} queued"
+  defp job_words(%{retrying: n}) when n > 0, do: "#{n} retrying"
+  defp job_words(_idle), do: "Idle"
+
+  defp job_detail(jobs) do
+    [
+      "#{jobs.running} running",
+      "#{jobs.queued} queued",
+      "#{jobs.retrying} waiting to retry",
+      "#{jobs.failed} failed recently"
+    ]
+    |> Enum.join(", ")
+    |> Kernel.<>(". Opens the Oban dashboard.")
   end
 
   attr :search_form, Form, default: nil
