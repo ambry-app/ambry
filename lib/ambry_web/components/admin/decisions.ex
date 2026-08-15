@@ -2076,14 +2076,19 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   The block's left rail — the one thing that encodes settledness (§2).
 
-  Four tiers, because settled-versus-waiting threw away the question the
+  The tiers exist because settled-versus-waiting threw away the question the
   operator actually asks of a machine-matched import: has anyone looked at
   this yet. A 4px rail renders crisp at any DPI where a tinted hairline goes
   mushy.
+
+  `:uncatalogued` shares amber with `:waiting`: both want a look, and the
+  rail says *how settled*, not *what to do about it* — the badge beside it
+  is where the two part company.
   """
   def state_rail(%{__struct__: _} = decision), do: state_rail(Tier.of(decision))
   def state_rail(:blocked), do: "border-red-400/70"
   def state_rail(:waiting), do: "border-amber-400/70"
+  def state_rail(:uncatalogued), do: "border-amber-400/70"
   def state_rail(:unreviewed), do: "border-blue-400/70"
   def state_rail(:reviewed), do: "border-brand-dark/60"
 
@@ -2117,11 +2122,18 @@ defmodule AmbryWeb.Admin.Decisions do
   A tier as words and a colour, for surfaces with no room for a rail.
 
   A queue row is one line: it has nowhere to put a 4px edge per level, so it
-  says the same four states in words. Same vocabulary as the form's rail, or
-  the two drift — which is exactly what happened when the queue had its own.
+  says the same states in words. Same vocabulary as the form's rail, or the
+  two drift — which is exactly what happened when the queue had its own.
+
+  `:uncatalogued` is the one tier the words say more than the rail does: it
+  shares amber with `:waiting` because both want a look, but "nothing found"
+  and "needs you" ask for completely different things, and the queue printing
+  "matched" over an empty candidate list is what made the distinction worth
+  having.
   """
   def tier_words(:blocked), do: {"blocked", :red}
   def tier_words(:waiting), do: {"needs you", :yellow}
+  def tier_words(:uncatalogued), do: {"nothing found", :yellow}
   def tier_words(:unreviewed), do: {"matched", :blue}
   def tier_words(:reviewed), do: {"reviewed", :brand}
 

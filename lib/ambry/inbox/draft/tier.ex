@@ -49,10 +49,15 @@ defmodule Ambry.Inbox.Draft.Tier do
   alias Ambry.Inbox.Draft.Work
 
   @typedoc "Worst to best, which is also the order `worst/1` ranks them in."
-  @type t :: :blocked | :waiting | :unreviewed | :reviewed
+  @type t :: :blocked | :waiting | :uncatalogued | :unreviewed | :reviewed
 
   # Best first. `worst/1` takes the last one it finds.
-  @order [:reviewed, :unreviewed, :waiting, :blocked]
+  #
+  # `:uncatalogued` sits below `:unreviewed` and above `:waiting`: it is
+  # worth a look and shouldn't be mistaken for a match, but it is not a
+  # question the operator can answer by choosing something — there is
+  # nothing to choose between.
+  @order [:reviewed, :unreviewed, :uncatalogued, :waiting, :blocked]
 
   @doc """
   The tier of one decision.
@@ -106,8 +111,17 @@ defmodule Ambry.Inbox.Draft.Tier do
   def of_identity(%Work{} = work),
     do: from(if(work.approved, do: :approved, else: :unconfirmed), work.curated)
 
-  # A level that found nothing is settled: there is nothing to choose
-  # between, and the seeder approves it. A doubted one is not.
+  # A level that found nothing is settled — there is nothing to choose
+  # between, and the seeder approves it so a release no catalogue lists can
+  # still be imported from its own tags. Settled is not the same as
+  # *matched*, though, and saying "matched" over an empty candidate list is
+  # how the queue came to print "matched · no match" on one line. It gets
+  # its own word: the fields below it came from the file, not a provider.
+  #
+  # Worth surfacing rather than hiding because with this many providers a
+  # level that finds nothing is usually a polluted query, not an absent
+  # book — five of the seven measured on the operator's queue.
+  defp level_state(_approved, :nothing_found), do: :uncatalogued
   defp level_state(_approved, :low_confidence), do: :unconfirmed
   defp level_state(true, _doubt), do: :approved
   defp level_state(_unapproved, _doubt), do: :unconfirmed
@@ -116,6 +130,12 @@ defmodule Ambry.Inbox.Draft.Tier do
 
   defp from(:approved, true), do: :reviewed
   defp from(:approved, _untouched), do: :unreviewed
+
+  # A human who has been through a level nothing was found for has answered
+  # the only question it poses — "is this really not listed anywhere" — so
+  # it stops flagging itself, the same way any other reviewed decision does.
+  defp from(:uncatalogued, true), do: :reviewed
+  defp from(:uncatalogued, _untouched), do: :uncatalogued
   defp from(:missing, _curated), do: :blocked
 
   # A membership the operator has to number is as blocked as a field nobody
@@ -149,6 +169,8 @@ defmodule Ambry.Inbox.Draft.Tier do
   Whether this tier still wants the operator.
 
   What the footer counts and what "no amber, no red" means in code.
+  `:uncatalogued` is in: it renders amber, and a tier that draws the eye
+  while claiming not to want it is the aggregate lying.
   """
-  def outstanding?(tier), do: tier in [:blocked, :waiting]
+  def outstanding?(tier), do: tier in [:blocked, :waiting, :uncatalogued]
 end

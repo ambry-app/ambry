@@ -82,9 +82,19 @@ defmodule Ambry.Inbox.Draft.TierTest do
     end
 
     # "Found nothing" is an answer, not a failure — there is nothing to choose
-    # between, and plenty of narrators are in no database at all.
-    test "a level that found nothing is settled" do
-      assert Tier.of(%Recording{approved: true, doubt: :nothing_found}) == :unreviewed
+    # between, and plenty of narrators are in no database at all. It is its
+    # own tier rather than `:unreviewed` because it is not a match, and it
+    # ranks below one: worth a look, above the tiers that block.
+    test "a level that found nothing says so" do
+      assert Tier.of(%Recording{approved: true, doubt: :nothing_found}) == :uncatalogued
+      assert Tier.worst([:unreviewed, :uncatalogued]) == :uncatalogued
+      assert Tier.worst([:uncatalogued, :waiting]) == :waiting
+    end
+
+    test "a human who has looked settles a level that found nothing" do
+      recording = %Recording{approved: true, doubt: :nothing_found, evidence_curated: true}
+
+      assert Tier.of(recording) == :reviewed
     end
 
     test "a recording is never linked, so it has no identity question" do

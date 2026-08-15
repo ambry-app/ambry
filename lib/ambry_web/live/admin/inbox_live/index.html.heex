@@ -97,8 +97,15 @@
               </.badge>
               <%!-- basis-48 + grow keeps the title from being shrunk out of
                     existence (meta wraps down instead); max-w-fit stops the grow
-                    at the title's own width so the provenance stays beside it. --%>
-              <span class="min-w-0 max-w-fit grow basis-48 overflow-hidden text-ellipsis whitespace-nowrap">
+                    at the title's own width so the provenance stays beside it.
+
+                    Nothing here when nothing was found: the badge beside it
+                    already says so, and printing "no match" next to it was
+                    half of the line that read "matched · no match". --%>
+              <span
+                :if={match.best}
+                class="min-w-0 max-w-fit grow basis-48 overflow-hidden text-ellipsis whitespace-nowrap"
+              >
                 {candidate_label(match.best)}
               </span>
               <span :if={candidate_origin(match.best)} class="flex-none text-xs text-zinc-400">

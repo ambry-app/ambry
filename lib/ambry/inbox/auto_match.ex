@@ -818,14 +818,20 @@ defmodule Ambry.Inbox.AutoMatch do
   # about a book. Ranking them together made the form ask one question that
   # was really two.
   defp match_work(hints, opts) do
-    query = work_query(hints)
-
-    {candidates, outcomes} = provider_books(:work, query, hints, opts)
+    {query, candidates, outcomes} = search_ladder(:work, work_queries(hints), hints, opts)
 
     query
     |> level_result(candidates, outcomes, hints.author)
     |> Map.put("local", local_books(hints))
     |> hydrate_top(opts)
+  end
+
+  # The work level asks the same two questions the recording level does,
+  # minus the ASIN — that is a recording key and names an edition, not a work.
+  defp work_queries(hints) do
+    tagged = work_query(hints)
+
+    [tagged, release_title_query(hints, tagged)] |> Enum.reject(&is_nil/1)
   end
 
   # A search hit is a summary, not the record. Measured against
@@ -963,11 +969,10 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
-  # An ASIN is a recording-level key, so when there is one it *is* the query:
-  # a hit on it is definitive in a way no title match ever is.
-  defp match_recording(%{asin: asin} = hints, work, opts) when is_binary(asin) do
-    query = %Provider.Query{keywords: asin}
-    {candidates, outcomes} = provider_books(:recording, query, hints, opts)
+  defp match_recording(hints, work, opts) do
+    {query, candidates, outcomes} =
+      search_ladder(:recording, recording_queries(hints), hints, opts)
+
     {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints, opts)
 
     level_result(
@@ -978,27 +983,96 @@ defmodule Ambry.Inbox.AutoMatch do
     )
   end
 
-  # Structured, not concatenated. Audible's catalog matches `title` against
-  # the title alone, so the old `"#{title} #{author}"` string searched for a
-  # book literally called that and returned nothing — the recording level came
-  # up empty on every single item. The narrator goes in too: it is the field
-  # that tells two recordings of one work apart.
-  defp match_recording(hints, work, opts) do
-    query = %Provider.Query{
-      title: hints.title,
-      author: hints.author,
-      narrator: hints.narrator
-    }
+  # An ASIN is a recording-level key, so when there is one it leads: a hit on
+  # it is definitive in a way no title match ever is.
+  #
+  # It no longer *replaces* the title search, though. An ASIN that doesn't
+  # resolve — regional, delisted, or simply wrong — used to end the level at
+  # zero candidates with the title question never asked, which made having an
+  # ASIN strictly worse than not having one. Measured on the operator's queue:
+  # two items whose work level matched at confidence 1.0 had recording levels
+  # that found nothing, both because a tagged ASIN returned no rows.
+  defp recording_queries(hints) do
+    # Structured, not concatenated. Audible's catalog matches `title` against
+    # the title alone, so the old `"#{title} #{author}"` string searched for a
+    # book literally called that and returned nothing — the recording level
+    # came up empty on every single item. The narrator goes in too: it is the
+    # field that tells two recordings of one work apart.
+    tagged = %Provider.Query{title: hints.title, author: hints.author, narrator: hints.narrator}
 
-    {candidates, outcomes} = provider_books(:recording, query, hints, opts)
-    {editions, edition_outcomes} = editions_for(top_group(work["candidates"]), hints, opts)
+    [
+      hints.asin && %Provider.Query{keywords: hints.asin},
+      tagged,
+      release_title_query(hints, tagged)
+    ]
+    |> Enum.reject(&is_nil/1)
+  end
 
-    level_result(
-      query,
-      candidates |> Kernel.++(editions) |> dedupe_records() |> apply_narrator_evidence(hints),
-      outcomes ++ edition_outcomes,
-      hints.author
-    )
+  # The release name as a second question, asked only when the tag title's
+  # question came back empty.
+  #
+  # Not a *better* source — the two disagree on 105 of 198 releases and
+  # neither wins reliably, which is why the tags still lead and this is a
+  # fallback rather than a merge. It is a genuinely *different* question,
+  # which is the point: "DW35-Wintersmith" in the tags is "Discworld 35
+  # Wintersmith" on disk, and no amount of cleaning turns the first into the
+  # second. Asking costs nothing on the items that already matched, and
+  # whatever comes back is ranked against the file's own raw text, so a bad
+  # question returning bad answers is ranked out rather than adopted.
+  defp release_title_query(%{release_title: release} = hints, template) when is_binary(release) do
+    cond do
+      same_question?(release, hints.title) -> nil
+      # A name that parsed to nothing but the author is not a second opinion
+      # about the title. "Wild - Cheryl Strayed" splits with the author on
+      # both sides, and searching an author's name for a title finds their
+      # other books — the one shape of junk worth refusing up front rather
+      # than leaving to the ranker.
+      same_question?(release, hints.author) -> nil
+      true -> %{template | title: release, keywords: nil}
+    end
+  end
+
+  defp release_title_query(_hints, _template), do: nil
+
+  # Same question, allowing for punctuation and case — the two sources
+  # writing one title differently is not a second opinion worth a round trip.
+  defp same_question?(one, two) when is_binary(one) and is_binary(two),
+    do: comparable(one) == comparable(two)
+
+  defp same_question?(_one, _two), do: false
+
+  defp comparable(text), do: text |> String.downcase() |> String.replace(~r/[^\p{L}\p{N}]+/u, "")
+
+  # Asks each query in turn, stopping at the first that finds anything.
+  #
+  # A level that finds nothing is nearly always the *question* being wrong
+  # rather than the book being absent: of the seven levels on the operator's
+  # 343-item queue that came up empty, five had a perfectly findable book
+  # behind a polluted title and two were genuinely uncatalogued. So the
+  # ladder widens the question rather than giving up, which is what a
+  # provider does internally when its own search misses.
+  #
+  # Every attempt's outcomes are kept and tallied, not just the winner's: a
+  # provider that was rate-limited on the first question and never asked the
+  # second must still say so, or the level looks like it was answered when
+  # it was only partly asked.
+  #
+  # The query reported back is the one that found something, or the last one
+  # tried — "we went this far and still found nothing" is the useful thing to
+  # say on a level that failed, and it is what the form prints.
+  defp search_ladder(level, queries, hints, opts, outcomes \\ [])
+
+  defp search_ladder(_level, [], _hints, _opts, outcomes), do: {nil, [], tally(outcomes)}
+
+  defp search_ladder(level, [query | rest], hints, opts, outcomes) do
+    {candidates, fresh} = provider_books(level, query, hints, opts)
+    outcomes = outcomes ++ fresh
+
+    if candidates == [] and rest != [] do
+      search_ladder(level, rest, hints, opts, outcomes)
+    else
+      {query, candidates, tally(outcomes)}
+    end
   end
 
   @doc """
