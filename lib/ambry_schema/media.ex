@@ -90,8 +90,11 @@ defmodule AmbrySchema.Media do
   end
 
   node object(:recording_group) do
-    @desc "Admin-only organizational label; clients should not display it"
+    @desc "This set's name, shown to readers only when `show_label` says so"
     field :name, non_null(:string)
+
+    @desc "Whether to show `name` on this set's tile; an operator choice, never inferred"
+    field :show_label, non_null(:boolean)
 
     @desc "How many releases the set has, when known (\"Part 2 of 3\")"
     field :parts_total, :integer
