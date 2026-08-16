@@ -66,7 +66,8 @@ defmodule Ambry.Library.NamingTemplate do
   end
 
   @doc """
-  The filename for a recording's file, keeping the source's extension.
+  The filename for a recording's file, keeping the source's extension (except
+  that audio MPEG-4 is named `.m4b` whatever it arrived as — see `extname/1`).
 
   See `filenames/3` — `recording` describes which recording this is.
   """
@@ -178,7 +179,29 @@ defmodule Ambry.Library.NamingTemplate do
   # re-organize.
   defp index_width(count), do: max(3, count |> to_string() |> String.length())
 
-  defp extname(source_path), do: source_path |> Path.extname() |> String.downcase()
+  # `.mp4`, `.m4a` and `.m4b` are the *same container* — ISO base media, MPEG-4
+  # part 14 — and the extension only says what a player should expect to find
+  # inside: generic, audio, or audio that is a book. Ambry places nothing but
+  # audiobook audio into a root, so the honest name for all three here is
+  # `.m4b`, and it is the one that makes the tree readable by everything else:
+  # audiobook players key their whole behaviour off it, remembering position
+  # and shelving the file as a book rather than a song.
+  #
+  # Nothing about the bytes changes, and nothing in Ambry depends on the
+  # difference — `Probe` maps all three to `audio/mp4` already. This is purely
+  # so a library that outlives Ambry is a library, not a pile of `.mp4`s.
+  #
+  # Every other format keeps its extension, because renaming those *would* be
+  # a lie: an mp3 is not an m4b, whatever a library would prefer.
+  defp extname(source_path) do
+    source_path
+    |> Path.extname()
+    |> String.downcase()
+    |> case do
+      ext when ext in [".mp4", ".m4a"] -> ".m4b"
+      ext -> ext
+    end
+  end
 
   defp part_suffix(nil), do: ""
 

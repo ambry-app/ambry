@@ -128,6 +128,22 @@ defmodule Ambry.Library.NamingTemplateTest do
                NamingTemplate.filename(@book, "/downloads/x/BOOK.MP3")
     end
 
+    # One container, three extensions saying what a player should expect
+    # inside. A root holds nothing but audiobook audio, so `.m4b` is the true
+    # one — and the one other audiobook software keys its behaviour off.
+    test "names audio MPEG-4 as the audiobook it is" do
+      assert {:ok, "The Way of Kings.m4b"} = NamingTemplate.filename(@book, "x/book.mp4")
+      assert {:ok, "The Way of Kings.m4b"} = NamingTemplate.filename(@book, "x/book.m4a")
+      assert {:ok, "The Way of Kings.m4b"} = NamingTemplate.filename(@book, "x/BOOK.MP4")
+    end
+
+    # Renaming these would be a lie rather than a tidy-up.
+    test "leaves every other format's extension alone" do
+      assert {:ok, "The Way of Kings.mp3"} = NamingTemplate.filename(@book, "x/book.mp3")
+      assert {:ok, "The Way of Kings.flac"} = NamingTemplate.filename(@book, "x/book.flac")
+      assert {:ok, "The Way of Kings.opus"} = NamingTemplate.filename(@book, "x/book.opus")
+    end
+
     test "sanitizes the title" do
       assert {:ok, "ACDC Live.m4b"} =
                NamingTemplate.filename(%{@book | title: "AC/DC Live"}, "a.m4b")
@@ -209,10 +225,18 @@ defmodule Ambry.Library.NamingTemplateTest do
 
     test "keeps each file's own extension" do
       assert {:ok, [first, second]} =
-               NamingTemplate.filenames(@book, ["/x/a.MP3", "/x/b.m4a"])
+               NamingTemplate.filenames(@book, ["/x/a.MP3", "/x/b.flac"])
 
       assert first =~ ".mp3"
-      assert second =~ ".m4a"
+      assert second =~ ".flac"
+    end
+
+    test "names audio MPEG-4 as the audiobook it is, file by file" do
+      assert {:ok, [first, second]} =
+               NamingTemplate.filenames(@book, ["/x/a.mp4", "/x/b.m4a"])
+
+      assert first =~ ".m4b"
+      assert second =~ ".m4b"
     end
 
     test "a part of a set takes its suffix into the subfolder name too" do
