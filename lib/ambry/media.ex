@@ -37,7 +37,6 @@ defmodule Ambry.Media do
   alias Ambry.Media.Media
   alias Ambry.Media.MediaFlat
   alias Ambry.Media.MediaTrack
-  alias Ambry.Media.Processor
   alias Ambry.Media.PubSub.MediaCreated
   alias Ambry.Media.PubSub.MediaDeleted
   alias Ambry.Media.PubSub.MediaProgress
@@ -50,7 +49,6 @@ defmodule Ambry.Media do
   alias Ambry.Media.RunOrganize
   alias Ambry.Media.RunProcessor
   alias Ambry.Media.RunPublishPending
-  alias Ambry.Media.RunScan
   alias Ambry.Media.Scanner
   alias Ambry.Paths
   alias Ambry.PubSub
@@ -613,70 +611,6 @@ defmodule Ambry.Media do
   See `Ambry.Media.Media.filename_token/1`.
   """
   defdelegate filename_token(media), to: Media
-
-  @doc """
-  Scans a media's source files asynchronously.
-  """
-  def scan_media_async(%Media{} = media) do
-    %{media_id: media.id}
-    |> RunScan.new()
-    |> Oban.insert()
-  end
-
-  @doc """
-  Replaces a media's source audio files with a new set of files and re-runs
-  processing, overwriting the streaming output files in place.
-
-  This is intended for swapping in corrected files for the *same*
-  edition/recording (for example, fixing a corrupt, mistagged, or low-quality
-  source) — not for switching to a different edition. Because the timeline is
-  expected to line up, chapters and listeners' saved positions are deliberately
-  left untouched.
-
-  The streaming output files keep the same URLs (they are overwritten in place);
-  `Plug.Static` serves them with mtime-based ETags, so clients revalidate and
-  pick up the new audio the next time they play. Offline downloads in the mobile
-  app are *not* automatically invalidated and must be re-downloaded by the user.
-
-  The previous source folder is deleted asynchronously once the new files are in
-  place.
-
-  ## Examples
-
-      iex> replace_media(media, %{source_path: path, source_files: files, processor: :auto})
-      {:ok, %Media{}}
-
-  """
-  def replace_media(%Media{} = media, %{
-        source_path: source_path,
-        source_files: source_files,
-        processor: processor
-      }) do
-    old_stored = media.source_path
-    old_disk = old_stored && Media.source_path(media)
-
-    with {:ok, updated_media} <-
-           update_media(media, %{
-             source_path: source_path,
-             source_files: source_files,
-             status: :pending
-           }),
-         {:ok, _job} <- run_processor_async(updated_media, processor) do
-      delete_old_source_folder_async(old_stored, old_disk, source_path)
-      {:ok, updated_media}
-    end
-  end
-
-  # Same rule as deletion: the old folder is Ambry's name for the bytes and
-  # goes with the replacement; any original it was placed from is untouched
-  # by construction. Compared in stored form, deleted in resolved form.
-  defp delete_old_source_folder_async(old_stored, _old_disk, new_source_path)
-       when old_stored in [nil, new_source_path], do: {:ok, :noop}
-
-  defp delete_old_source_folder_async(_old_stored, old_disk, _new_source_path),
-    do: try_delete_files_async([], [old_disk])
-
-  defdelegate available_processors(media_or_filenames), to: Processor, as: :matched_processors
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking media changes.

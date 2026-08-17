@@ -2,7 +2,6 @@
   <:subheader>
     <.list_controls
       search_form={@search_form}
-      new_path={~p"/admin/audiobooks/new"}
       has_next={@has_next}
       has_prev={@has_prev}
       next_page_path={@next_page_path}
@@ -43,8 +42,8 @@
         {words}
       <% else %>
         No audiobooks yet.
-        <.brand_link navigate={~p"/admin/audiobooks/new"}>
-          Create one.
+        <.brand_link navigate={~p"/admin/inbox"}>
+          Import one.
         </.brand_link>
       <% end %>
     </:empty>
@@ -106,23 +105,6 @@
               class="h-4 w-4 text-current transition-colors hover:text-lime-400"
             />
           </.link>
-          <.link navigate={~p"/admin/audiobooks/#{media}/replace"} title="Replace audio">
-            <.icon
-              name="fa-upload"
-              class="h-4 w-4 text-current transition-colors hover:text-lime-400"
-            />
-          </.link>
-          <span
-            phx-click="scan"
-            phx-value-id={media.id}
-            title="Scan files for direct play"
-            data-confirm="Scan this audiobook's source files? Nothing is copied or modified, and clients see no change."
-          >
-            <.icon
-              name="fa-magnifying-glass"
-              class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-blue-400"
-            />
-          </span>
           <span phx-click="delete" phx-value-id={media.id} data-confirm="Are you sure?">
             <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
           </span>

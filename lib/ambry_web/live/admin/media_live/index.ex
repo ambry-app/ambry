@@ -124,19 +124,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:noreply, refresh_media(socket)}
   end
 
-  def handle_event("scan", %{"id" => id}, socket) do
-    media = Media.get_media!(id)
-    {:ok, _job} = Media.scan_media_async(media)
-
-    {:noreply,
-     put_flash(
-       socket,
-       :info,
-       "Scanning files for #{media.book.title}. This records what the files are; " <>
-         "it doesn't change what clients see."
-     )}
-  end
-
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
     params =
       socket

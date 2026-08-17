@@ -204,9 +204,7 @@ defmodule AmbryWeb.Router do
       live "/locations/roots/:id/edit", LocationLive.Form, :edit_root
 
       live "/audiobooks", MediaLive.Index
-      live "/audiobooks/new", MediaLive.Form, :new
       live "/audiobooks/:id/edit", MediaLive.Form, :edit
-      live "/audiobooks/:id/replace", MediaLive.Replace
 
       live "/users", UserLive.Index
       live "/users/new", UserLive.Form, :new

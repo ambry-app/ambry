@@ -269,29 +269,6 @@ defmodule Ambry.Media.DeletionCustodyTest do
     end
   end
 
-  describe "replacing a recording's files" do
-    # The old folder is Ambry's name for the bytes and goes with the
-    # replacement, exactly like deletion.
-    test "removes the old source folder once the new files are in place" do
-      %{media: media, folder: folder, file: file} = library_media()
-      new_folder = new_dir("replacement")
-      new_file = Path.join(new_folder, "better.m4b")
-      File.write!(new_file, "better audio")
-
-      assert {:ok, _media} =
-               Media.replace_media(media, %{
-                 source_path: Ambry.Paths.disk_to_web(new_folder),
-                 source_files: [Ambry.Paths.disk_to_web(new_file)],
-                 processor: :mp4_concat
-               })
-
-      run_deletion_jobs()
-
-      refute File.exists?(file)
-      refute File.dir?(folder)
-    end
-  end
-
   defp library_media do
     folder = new_dir("library")
     file = Path.join(folder, "book.m4b")
