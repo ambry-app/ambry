@@ -508,32 +508,6 @@ defmodule Ambry.People do
     Enum.find_value(people, &(&1.thumbnails && &1.thumbnails.extra_small))
   end
 
-  @doc """
-  Who is really behind each identity, when that's worth saying.
-
-  Maps identity id to the backing people's names, only for identities where
-  the names add something — a pen name's real names, a stage name's real
-  person, a shared pen name's several humans. An identity whose person is
-  simply named the same is omitted; repeating the name is noise.
-  """
-  def author_backing_names do
-    Author
-    |> preload(:people)
-    |> Repo.all()
-    |> Map.new(fn author -> {author.id, backing(author.name, author.people)} end)
-    |> Map.reject(fn {_id, names} -> names == nil end)
-  end
-
-  def narrator_backing_names do
-    Narrator
-    |> preload(:person)
-    |> Repo.all()
-    |> Map.new(fn narrator ->
-      {narrator.id, backing(narrator.name, List.wrap(narrator.person))}
-    end)
-    |> Map.reject(fn {_id, names} -> names == nil end)
-  end
-
   defp backing(identity_name, people) do
     case Enum.map(people, & &1.name) do
       [] -> nil
