@@ -72,9 +72,11 @@ config :ambry, Oban,
   ],
   # `metadata` is deliberately serial: auto-matching a freshly scanned library
   # is hundreds of lookups against shared public instances that rate-limit.
-  # The `media` queue went with the transcode pipeline — it existed to keep a
-  # handful of ffmpeg runs from starving the host, and nothing enqueues to it.
-  queues: [default: 10, pub_sub: 10, images: 4, metadata: 1]
+  # `media` is kept low because it is the queue that touches the filesystem —
+  # discovery, probing, importing, organizing, reconciliation — and a probe
+  # decode-counts a VBR mp3. It outlived the transcode pipeline it was
+  # originally sized for.
+  queues: [default: 10, pub_sub: 10, media: 4, images: 4, metadata: 1]
 
 config :ambry,
   ecto_repos: [Ambry.Repo],
