@@ -21,7 +21,6 @@ defmodule Ambry.Media do
       Scanner.Tags,
       PubSub.MediaCreated,
       PubSub.MediaDeleted,
-      PubSub.MediaProgress,
       PubSub.MediaUpdated,
       PubSub.RecordingGroupCreated,
       PubSub.RecordingGroupDeleted,
@@ -40,7 +39,6 @@ defmodule Ambry.Media do
   alias Ambry.Media.MediaTrack
   alias Ambry.Media.PubSub.MediaCreated
   alias Ambry.Media.PubSub.MediaDeleted
-  alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.Media.PubSub.MediaUpdated
   alias Ambry.Media.PubSub.RecordingGroupCreated
   alias Ambry.Media.PubSub.RecordingGroupDeleted
@@ -48,7 +46,6 @@ defmodule Ambry.Media do
   alias Ambry.Media.RecordingGroup
   alias Ambry.Media.RecordingGroupForm
   alias Ambry.Media.RunOrganize
-  alias Ambry.Media.RunProcessor
   alias Ambry.Media.RunPublishPending
   alias Ambry.Media.Scanner
   alias Ambry.Paths
@@ -92,9 +89,10 @@ defmodule Ambry.Media do
 
   Deliberately narrow. A recording qualifies only if it is `pending`, has
   tracks, has **no** legacy transcoded paths, and isn't currently missing.
-  That last pair matters: a legacy recording sitting in `pending` is waiting
-  on transcoding, not on this switch, and publishing a recording whose files
-  have vanished would hand clients something unplayable.
+  That last pair matters: a legacy recording sitting in `pending` was waiting
+  on a transcode that will now never run — this switch was never what it
+  needed — and publishing a recording whose files have vanished would hand
+  clients something unplayable.
   """
   def publish_pending_direct_play do
     Media
@@ -366,7 +364,8 @@ defmodule Ambry.Media do
 
     * `missing` — the nightly reconciliation couldn't read the files. Clients
       are being offered something that isn't there.
-    * `errored` — processing gave up.
+    * `errored` — the retired transcode pipeline gave up on it, and nothing
+      will pick it back up: the way out is to import the files again.
     * `streaming_only` — no tracks, so the only way to play it is the legacy
       transcoding pipeline. It works, and it costs double the disk; clearing
       one means relinking it to its source (Phase 4). This is deliberately
@@ -857,15 +856,6 @@ defmodule Ambry.Media do
   def generate_thumbnails_async(_media), do: {:ok, :noop}
 
   @doc """
-  Runs a processor asynchronously for the given media.
-  """
-  def run_processor_async(%Media{} = media, processor) do
-    %{media_id: media.id, processor: processor}
-    |> RunProcessor.new()
-    |> Oban.insert()
-  end
-
-  @doc """
   Scans a media's source files into direct-play tracks.
 
   Delegates to `Ambry.Media.Scanner`; returns `{:ok, media}` or
@@ -1315,12 +1305,5 @@ defmodule Ambry.Media do
     :ok = PubSub.subscribe(MediaCreated.wildcard_topic())
     :ok = PubSub.subscribe(MediaUpdated.wildcard_topic())
     :ok = PubSub.subscribe(MediaDeleted.wildcard_topic())
-  end
-
-  @doc """
-  Subscribes media processing progress messages.
-  """
-  def subscribe_to_media_progress_messages do
-    :ok = PubSub.subscribe(MediaProgress.wildcard_topic())
   end
 end

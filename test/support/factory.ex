@@ -273,15 +273,43 @@ defmodule Ambry.Factory do
     %{media | source_files: files}
   end
 
-  def with_output_files(media, processor \\ :auto)
+  @doc """
+  Gives a media the packaged artifacts a transcode used to leave behind.
 
-  def with_output_files(%Media{__meta__: %{state: :loaded}} = media, processor) do
-    {:ok, media} = Ambry.Media.Processor.run!(media, processor)
+  Ambry does not transcode any more — the pipeline retired with the last
+  upload form — but the library is full of recordings that were transcoded
+  before that, and serving them is still the server's job. So this writes
+  the four files shaka-packager produced, under the names it produced them
+  with, instead of producing them: same columns, same disk layout, no
+  ffmpeg and no packager.
+
+  The bytes are placeholders. Nothing left in the codebase reads inside a
+  packaged artifact — they are served as opaque files and deleted as opaque
+  files — so a test that needs one needs its name, its size and its
+  existence.
+  """
+  def with_output_files(%Media{__meta__: %{state: :loaded}} = media) do
+    id = Ecto.UUID.generate()
+    File.mkdir_p!(Ambry.Paths.media_disk_path())
+
+    for name <- ["#{id}.mp4", "#{id}.mpd", "#{id}.m3u8", "#{id}_0.m3u8"] do
+      File.write!(Ambry.Paths.media_disk_path(name), "packaged: #{name}\n")
+    end
+
+    {:ok, media} =
+      Ambry.Media.update_media(media, %{
+        mp4_path: "/uploads/media/#{id}.mp4",
+        mpd_path: "/uploads/media/#{id}.mpd",
+        hls_path: "/uploads/media/#{id}.m3u8",
+        duration: Decimal.new("3600.0"),
+        status: :ready
+      })
+
     media
   end
 
-  def with_output_files(_media, _processor),
-    do: raise("Generating media output files requires database persisted media")
+  def with_output_files(_media),
+    do: raise("Giving a media output files requires database persisted media")
 
   def media_narrator_factory do
     %MediaNarrator{

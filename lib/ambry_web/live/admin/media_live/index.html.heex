@@ -120,16 +120,6 @@
           Added {Calendar.strftime(media.inserted_at, "%x")}
         </p>
       </div>
-
-      <div
-        :if={media.status == :processing && @processing_media_progress_map[media.id]}
-        class="absolute right-0 bottom-0 left-0 bg-zinc-800"
-      >
-        <div
-          class="h-[2px] bg-lime-400"
-          style={"width: #{processing_progress_percent(@processing_media_progress_map[media.id])}%"}
-        />
-      </div>
     </:row>
   </.flex_table>
 </.layout>

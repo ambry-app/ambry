@@ -8,9 +8,9 @@ defmodule Ambry.Media.Scanner.Probe do
 
   ## Durations
 
-  `Ambry.Media.Processor.Shared.get_inaccurate_duration/1` trusts whatever the
-  container claims, which is only safe for the MP4s that pipeline produced
-  itself. Source files are not so cooperative: a VBR mp3 with no Xing/VBRI
+  The retired transcode pipeline trusted whatever the container claimed,
+  which was only safe because it was reading MP4s it had produced itself.
+  Source files are not so cooperative: a VBR mp3 with no Xing/VBRI
   header has no duration to report, so ffprobe extrapolates one from the first
   frame's bitrate and can be minutes wrong over a long book.
 

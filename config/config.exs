@@ -70,10 +70,11 @@ config :ambry, Oban,
        {"30 4 * * *", Ambry.Media.RunOrganize}
      ]}
   ],
-  # Keep number of media workers low to not starve the host of resources
   # `metadata` is deliberately serial: auto-matching a freshly scanned library
   # is hundreds of lookups against shared public instances that rate-limit.
-  queues: [default: 10, pub_sub: 10, media: 4, images: 4, metadata: 1]
+  # The `media` queue went with the transcode pipeline — it existed to keep a
+  # handful of ffmpeg runs from starving the host, and nothing enqueues to it.
+  queues: [default: 10, pub_sub: 10, images: 4, metadata: 1]
 
 config :ambry,
   ecto_repos: [Ambry.Repo],

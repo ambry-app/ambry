@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Ambry is a self-hosted audiobook library server built with Elixir/Phoenix. Users upload audiobooks, which are processed and transcoded for streaming via browser or mobile app. The mobile app code is in a separate repository.
+Ambry is a self-hosted audiobook library server built with Elixir/Phoenix. Audiobooks arrive through the inbox, are placed into a library root, and are served as the files they already are ("direct play") to the browser and the mobile app. The mobile app code is in a separate repository.
 
 ## Development Commands
 
@@ -59,16 +59,21 @@ Each context manages a domain with Ecto schemas, queries, and business logic:
 - `Accounts` - User authentication, sessions, admin management
 - `Books` - Books, Series, SeriesBook associations
 - `People` - Person (authors/narrators), Author, Narrator entities
-- `Media` - Audiobook media files, player state, bookmarks, processing
+- `Media` - Audiobook media files, tracks, player state, bookmarks
 - `Search` - Full-text search with PostgreSQL trigrams
 - `PubSub` - Event broadcasting via Phoenix.PubSub + Oban for async
 
-### Media Processing Pipeline
+### Audio: direct play, and the transcodes that predate it
 
-Audio processing uses FFmpeg and shaka-packager. Processors in `lib/ambry/media/processor/`:
-- MP3, MP4 (single file and concatenation)
-- Opus concatenation
-- HLS packaging for streaming
+Nothing is transcoded. `Ambry.Media.Scanner` probes a file with ffprobe and
+writes `media_tracks`; clients are served those files directly.
+
+Recordings imported before that still have their packaged artifacts —
+`mp4_path` / `mpd_path` / `hls_path`, produced by a since-removed
+ffmpeg + shaka-packager pipeline — and the server still serves and deletes
+them. It cannot make more. A recording is "legacy" exactly when it has no
+tracks; `Ambry.Media.Media`'s `source_path` / `source_files` are that
+pipeline's record of what it consumed, and an imported recording has neither.
 
 ### Flat Views Pattern
 
@@ -97,7 +102,7 @@ Relay-compatible GraphQL schema for mobile app. Uses Dataloader for batching.
 ## External Requirements
 
 - PostgreSQL database
-- FFmpeg and shaka-packager for audio transcoding
+- FFmpeg (ffprobe, for reading durations, tags and chapters)
 
 ## Tidewave MCP Server
 

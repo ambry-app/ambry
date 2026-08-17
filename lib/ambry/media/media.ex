@@ -16,7 +16,6 @@ defmodule Ambry.Media.Media do
   alias Ambry.Media.Media.Chapter
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.MediaTrack
-  alias Ambry.Media.Processor
   alias Ambry.Media.RecordingGroup
   alias Ambry.Provenance
   alias Ambry.Repo.SupplementalFile
@@ -462,9 +461,6 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  def source_id(%Media{source_path: nil}), do: Ecto.UUID.generate()
-  def source_id(%Media{source_path: source_path}), do: Path.basename(source_path)
-
   @doc """
   The absolute disk path of the folder this recording was transcoded from,
   or of a file in it.
@@ -494,22 +490,17 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  def out_path(%Media{source_path: source_path} = media, file \\ "")
-      when is_binary(source_path) do
-    Path.join([resolve!(media, source_path), "_out", file])
-  end
-
   @doc """
   The files this recording was transcoded from, as absolute disk paths,
   filtered by extension.
 
-  Source bookkeeping, not playback: these are the processor's inputs. A
-  direct-play recording has none — nothing transcoded it — and answers from
-  `media_tracks` instead, which is `Ambry.Media.Scanner.audio_files/1`.
+  Source bookkeeping, not playback: these are what the transcode consumed,
+  back when Ambry transcoded. An imported recording has none, and answers
+  from `media_tracks` instead — `Ambry.Media.Scanner.audio_files/1`.
   """
   def files(%Media{source_files: [_ | _] = source_files} = media, extensions) do
     source_files
-    |> Processor.Shared.filter_filenames(extensions)
+    |> filter_audio(extensions)
     |> Enum.map(&resolve!(media, &1))
   end
 
@@ -520,7 +511,7 @@ defmodule Ambry.Media.Media do
     case File.ls(base) do
       {:ok, paths} ->
         paths
-        |> Processor.Shared.filter_filenames(extensions)
+        |> filter_audio(extensions)
         |> Enum.map(&Path.join(base, &1))
 
       {:error, _posix} ->
@@ -529,8 +520,18 @@ defmodule Ambry.Media.Media do
   end
 
   # A recording with no transcode sources recorded at all: an import, which
-  # was never transcoded and has no processor to feed.
+  # was never transcoded.
   def files(%Media{}, _extensions), do: []
+
+  # Natural order, not string order: a 40-file recording's file 10 sorts
+  # after file 9 here and nowhere else. `File.ls/1` above returns whatever
+  # order the filesystem felt like, and the stored list is only as ordered
+  # as whoever wrote it.
+  defp filter_audio(paths, extensions) do
+    paths
+    |> Enum.filter(&(Path.extname(&1) in extensions))
+    |> Enum.sort(NaturalOrder)
+  end
 
   @doc """
   The same list unfiltered, in play order.
