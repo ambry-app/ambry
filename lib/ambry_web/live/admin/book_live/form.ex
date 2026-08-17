@@ -26,6 +26,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
+  alias AmbryWeb.Admin.Revert
   alias Ecto.Changeset
 
   # the scalar fields evidence can propose, by their wire names
@@ -39,6 +40,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
      |> assign(
        retrying: nil,
        chips: %{},
+       reverts: %{},
        provenance_hints: %{},
        authors: People.authors_for_select(),
        series: Books.series_for_select(),
@@ -190,6 +192,26 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       {:noreply, accept_params(socket, proposal.params, proposal.source)}
     else
       _missing -> {:noreply, socket}
+    end
+  end
+
+  # The way back out of a chip. Restores the field from the saved record and
+  # drops the pending provenance with it: nothing was accepted after all, so
+  # nothing should be recorded as accepted.
+  def handle_event("revert-field", %{"field" => field}, socket) do
+    case Map.fetch(@scalar_kinds, field) do
+      {:ok, kind} ->
+        params = Map.merge(socket.assigns.form.params, Revert.params(socket.assigns.book, kind))
+        hints = Map.delete(socket.assigns.provenance_hints, field)
+
+        {:noreply,
+         socket
+         |> assign_form(Books.change_book(socket.assigns.book, params))
+         |> assign(provenance_hints: hints)
+         |> refresh_chips()}
+
+      :error ->
+        {:noreply, socket}
     end
   end
 
@@ -368,8 +390,11 @@ defmodule AmbryWeb.Admin.BookLive.Form do
         %{}
       end
 
-    assign(socket, chips: chips)
+    assign(socket, chips: chips, reverts: reverts(socket))
   end
+
+  defp reverts(%{assigns: %{form: form, book: book}}),
+    do: Revert.offers(form, book, [:title, :published])
 
   defp current_labels(changeset, assoc, key, options) do
     labels = Map.new(options, &{&1.id, &1.label})

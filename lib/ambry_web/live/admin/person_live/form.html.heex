@@ -20,6 +20,7 @@
           record={@person}
           hints={@provenance_hints}
           proposals={@chips[:name] || []}
+          revert={@reverts[:name]}
         />
       </.field_group>
 
@@ -51,6 +52,7 @@
           id="proposals-description"
           field="description"
           proposals={@chips[:description] || []}
+          revert={@reverts[:description]}
         />
       </.field_group>
 
@@ -322,7 +324,12 @@
               <.icon name="fa-triangle-exclamation" class="h-3 w-3 text-amber-300" /> thumbnails not generated yet
             <% end %>
           </p>
-          <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
+          <.proposal_row
+            id="proposals-image"
+            field="image"
+            proposals={@chips[:image] || []}
+            revert={@reverts[:image]}
+          />
         </.field_group>
       <% else %>
         <.field_group>
@@ -353,7 +360,12 @@
             image_preview_class="h-40 w-40 rounded-full object-cover object-top"
           />
 
-          <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
+          <.proposal_row
+            id="proposals-image"
+            field="image"
+            proposals={@chips[:image] || []}
+            revert={@reverts[:image]}
+          />
         </.field_group>
       <% end %>
 

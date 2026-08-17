@@ -56,6 +56,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
+  alias AmbryWeb.Admin.Revert
   alias Ecto.Changeset
 
   # The trio that carries a chosen cover through the form: two say where it
@@ -72,6 +73,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> assign(
        retrying: nil,
        chips: %{},
+       reverts: %{},
        provenance_hints: %{},
        authors: People.authors_for_select(),
        # The escape hatches, once clicked. Data that already diverges reveals
@@ -242,6 +244,26 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> refresh_chips()}
   end
 
+  # The way back out of a chip. Restores the field from the saved record and
+  # drops the pending provenance with it: nothing was accepted after all, so
+  # nothing should be recorded as accepted.
+  def handle_event("revert-field", %{"field" => field}, socket) do
+    case Map.fetch(@scalar_kinds, field) do
+      {:ok, kind} ->
+        params = Map.merge(socket.assigns.form.params, Revert.params(socket.assigns.person, kind))
+        hints = Map.drop(socket.assigns.provenance_hints, [field, "image_path"])
+
+        {:noreply,
+         socket
+         |> assign_form(People.change_person(socket.assigns.person, params))
+         |> assign(provenance_hints: hints)
+         |> refresh_chips()}
+
+      :error ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("accept-proposal", %{"field" => field, "key" => key}, socket) do
     with {:ok, kind} <- Map.fetch(@scalar_kinds, field),
          %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
@@ -306,8 +328,11 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
         %{}
       end
 
-    assign(socket, chips: chips)
+    assign(socket, chips: chips, reverts: reverts(socket))
   end
+
+  defp reverts(%{assigns: %{form: form, person: person}}),
+    do: Revert.offers(form, person, [:name, :description, :image])
 
   defp cancel_all_uploads(socket, upload) do
     Enum.reduce(socket.assigns.uploads[upload].entries, socket, fn entry, socket ->

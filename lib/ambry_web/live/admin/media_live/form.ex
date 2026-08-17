@@ -23,6 +23,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
+  alias AmbryWeb.Admin.Revert
   alias Ecto.Changeset
   alias Phoenix.LiveView.AsyncResult
 
@@ -318,7 +319,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   def handle_event("revert-field", %{"field" => field}, socket) do
     case Map.fetch(@scalar_kinds, field) do
       {:ok, kind} ->
-        params = Map.merge(socket.assigns.form.params, saved_params(kind, socket.assigns.media))
+        params = Map.merge(socket.assigns.form.params, Revert.params(socket.assigns.media, kind))
         hints = Map.drop(socket.assigns.provenance_hints, [field, "image_path"])
 
         {:noreply,
@@ -519,82 +520,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     assign(socket, chips: chips, reverts: reverts(socket))
   end
 
-  defp saved_params(:published, media) do
-    %{
-      "published" => media.published,
-      "published_format" => media.published_format
-    }
-  end
-
-  defp saved_params(:publisher, media), do: %{"publisher" => media.publisher}
-  defp saved_params(:description, media), do: %{"description" => media.description}
-
-  # Back to the picture on the record, and back to the picker's resting
-  # state: leaving `url_import` selected would re-import on the next save.
-  defp saved_params(:image, media) do
-    %{
-      "image_path" => media.image_path,
-      "image_type" => "upload",
-      "image_import_url" => ""
-    }
-  end
-
-  # What each field would go back to, and nothing when it is already there.
-  #
-  # A chip changes a field in one click, and until now the only way out was
-  # reloading the page — which throws away every other edit on the form. The
-  # saved value is offered as one more option in the same row, so undoing a
-  # click costs a click.
-  defp reverts(%{assigns: %{media: %Media.Media{id: id}}} = socket) when is_integer(id) do
-    %{
-      published: revert_date(socket),
-      publisher: revert_scalar(socket, :publisher),
-      description: revert_scalar(socket, :description),
-      image: revert_image(socket)
-    }
-  end
-
-  defp reverts(_unsaved), do: %{}
-
-  defp revert_scalar(%{assigns: %{form: form, media: media}}, field) do
-    saved = Map.fetch!(media, field)
-
-    if to_string(Changeset.get_field(form.source, field) || "") != to_string(saved || ""),
-      do: %{display: display_value(saved)}
-  end
-
-  # Both halves or neither: the date and its precision are one decision here,
-  # exactly as the chips propose them.
-  defp revert_date(%{assigns: %{form: form, media: media}}) do
-    current =
-      {Changeset.get_field(form.source, :published),
-       Changeset.get_field(form.source, :published_format)}
-
-    if current != {media.published, media.published_format},
-      do: %{display: display_value(media.published)}
-  end
-
-  # The picture, not its path: choosing a cover is the one decision on this
-  # form where words are the wrong answer.
-  defp revert_image(%{assigns: %{form: form, media: media}}) do
-    params = form.params
-
-    changed? =
-      params["image_type"] in ["url_import", "embedded"] or
-        to_string(params["image_path"] || media.image_path || "") !=
-          to_string(media.image_path || "")
-
-    if changed?,
-      do: %{display: display_value(media.image_path), image: media.image_path}
-  end
-
-  defp display_value(nil), do: "nothing"
-  defp display_value(%Date{} = date), do: Date.to_iso8601(date)
-  defp display_value(value) when is_binary(value), do: truncate(value)
-  defp display_value(value), do: to_string(value)
-
-  defp truncate(value) when byte_size(value) > 40, do: String.slice(value, 0, 37) <> "…"
-  defp truncate(value), do: value
+  defp reverts(%{assigns: %{form: form, media: media}}),
+    do: Revert.offers(form, media, [:published, :publisher, :description, :image])
 
   defp cancel_all_uploads(socket, upload) do
     Enum.reduce(socket.assigns.uploads[upload].entries, socket, fn entry, socket ->

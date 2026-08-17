@@ -143,6 +143,64 @@ defmodule AmbryWeb.Admin.PersonLive.EvidenceTest do
              Provenance.entry(person, :image_path)
   end
 
+  describe "going back to the saved value" do
+    test "is offered once a field differs, and not before", %{conn: conn} do
+      person = insert(:person, name: "M. Dinniman", description: "A writer.")
+      patch_providers()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person}/edit")
+      search(view, "Matt Dinniman")
+      tick_first_record(view)
+
+      refute has_element?(view, ~s{#proposals-person_name button[phx-click="revert-field"]})
+
+      view |> element(~s{#proposals-person_name button}) |> render_click()
+
+      assert has_element?(view, ~s{#proposals-person_name button[phx-click="revert-field"]})
+    end
+
+    test "restores the field and drops what would have been recorded", %{conn: conn} do
+      person = insert(:person, name: "M. Dinniman", description: "A writer.")
+      patch_providers()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person}/edit")
+      search(view, "Matt Dinniman")
+      tick_first_record(view)
+
+      view |> element(~s{#proposals-person_name button}) |> render_click()
+
+      html =
+        view
+        |> element(~s{#proposals-person_name button[phx-click="revert-field"]})
+        |> render_click()
+
+      refute html =~ "will record"
+
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+      person = Ambry.People.get_person!(person.id)
+      assert person.name == "M. Dinniman"
+      assert Provenance.entry(person, :name) == nil
+    end
+
+    test "puts a photo back, picture and all", %{conn: conn} do
+      %{web_path: saved_photo} = Ambry.Factory.valid_image(:person)
+      person = insert(:person, name: "Matt Dinniman", image_path: saved_photo)
+      patch_providers()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person}/edit")
+      search(view, "Matt Dinniman")
+      tick_first_record(view)
+
+      view |> element(~s{#proposals-image button}) |> render_click()
+      view |> element(~s{#proposals-image button[phx-click="revert-field"]}) |> render_click()
+
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+      assert Ambry.People.get_person!(person.id).image_path == saved_photo
+    end
+  end
+
   test "accepting a bio fills the description with provider provenance", %{conn: conn} do
     patch_providers()
 

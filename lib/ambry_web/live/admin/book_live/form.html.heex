@@ -22,6 +22,7 @@
           record={@book}
           hints={@provenance_hints}
           proposals={@chips[:title] || []}
+          revert={@reverts[:title]}
         />
 
         <div class="space-y-1">
@@ -32,6 +33,7 @@
             record={@book}
             hints={@provenance_hints}
             proposals={@chips[:published] || []}
+            revert={@reverts[:published]}
           />
           <span class="block pl-3 text-sm text-zinc-400">
             {preview_date_format(@form)}

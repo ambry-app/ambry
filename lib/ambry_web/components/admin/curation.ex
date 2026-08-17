@@ -299,12 +299,10 @@ defmodule AmbryWeb.Admin.Curation do
   the lock UI returns if and when a consumer exists.
   """
   def provenance_flag(assigns) do
+    entry = assigns.record && assigns.record.id && Provenance.entry(assigns.record, assigns.field)
+
     assigns =
-      assign(assigns,
-        hint: assigns.hints[to_string(assigns.field)],
-        entry:
-          assigns.record && assigns.record.id && Provenance.entry(assigns.record, assigns.field)
-      )
+      assign(assigns, hint: news(assigns.hints[to_string(assigns.field)], entry), entry: entry)
 
     ~H"""
     <%!-- A pending source shows even on an unsaved record — accepting a
@@ -355,5 +353,19 @@ defmodule AmbryWeb.Admin.Curation do
   defp normalize(value), do: value |> to_string() |> String.trim()
 
   # source_words resolves provider ids to display names for everyone now
+  # A hint that names the source already recorded is not news. Clicking a chip
+  # that is already the chosen one — because the value came from there and was
+  # saved from there — turned the flag amber and announced a change that was
+  # not one.
+  defp news(nil, _entry), do: nil
+
+  defp news(hint, %{"source" => source} = entry) do
+    if !(hint.source == source and to_string(hint.record) == to_string(entry["record"])) do
+      hint
+    end
+  end
+
+  defp news(hint, _nothing_recorded), do: hint
+
   defp source_label(source), do: source_words(source)
 end
