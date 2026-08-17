@@ -64,6 +64,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
+  alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.SourceRef
   alias Ambry.Inbox.Draft.Work
@@ -72,6 +73,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   alias Ambry.Library
   alias Ambry.Library.Root
   alias Ambry.Library.Source
+  alias Ambry.Media
   alias Ambry.Media.Media.Chapter
   alias Ambry.People.Author
   alias Ambry.People.Narrator
@@ -111,6 +113,7 @@ defmodule Ambry.Inbox.Draft.Seed do
     %Draft{
       evidence: evidence(item),
       stale: false,
+      replacement: replacement(item),
       work: work,
       recording: recording(recording_level, hints, tags, item),
       destination: destination(item)
@@ -277,6 +280,36 @@ defmodule Ambry.Inbox.Draft.Seed do
   # and their probe. Neither a rename nor a replacement can slip past it.
   defp evidence(%InboxItem{} = item) do
     :erlang.phash2({item.files, item.probe}) |> Integer.to_string()
+  end
+
+  ## replacement
+
+  @doc """
+  A replacement decision with nothing chosen: the path evidence, or `:new`.
+  """
+  def replacement(%InboxItem{} = item), do: repropose(%Replacement{}, item)
+
+  @doc """
+  Re-derives an unanswered replacement decision from the path evidence.
+
+  Discovery no longer hides a file a recording was imported from, so the
+  provenance that used to remove the row proposes this decision instead. A
+  proposal is never approved: "the files this was made from turned up again"
+  is evidence, and "these files should replace it" is the operator's.
+
+  An answered decision is left exactly alone, which is what `curated` is for
+  — otherwise every prepare would put the proposal back over the operator's
+  "no, a new audiobook".
+  """
+  def repropose(%Replacement{curated: true} = replacement, _item), do: replacement
+
+  def repropose(%Replacement{} = replacement, %InboxItem{} = item) do
+    item = Repo.preload(item, :source)
+
+    case Media.imported_from(InboxItem.disk_files(item)) do
+      {:ok, media} -> %{replacement | mode: :replace, media_id: media.id, approved: false}
+      :none -> %{replacement | mode: :new, media_id: nil, approved: true}
+    end
   end
 
   ## destination

@@ -45,6 +45,7 @@ defmodule Ambry.Inbox.Draft.Tier do
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
+  alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.Work
 
@@ -90,6 +91,9 @@ defmodule Ambry.Inbox.Draft.Tier do
   # meant to be indistinguishable from an answer, not flagged as a guess.
   def of(%Destination{} = destination),
     do: if(Destination.resolved?(destination), do: :reviewed, else: :waiting)
+
+  def of(%Replacement{} = replacement),
+    do: from(Replacement.state(replacement), replacement.curated)
 
   @doc """
   Which provider records describe this thing — the records card's own tier.

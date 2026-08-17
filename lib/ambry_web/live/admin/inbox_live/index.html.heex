@@ -217,16 +217,27 @@
                 exclusive, which left a ready item's action rail with no way
                 into its own form. Reviewing a draft before importing it is
                 the normal path, not the exception. --%>
+            <%!-- A replacement is not an addition, and this button acts
+                without the form being opened, so it says which it is. --%>
             <span
               :if={item.status == :pending and item.ready}
               role="button"
               phx-click="import"
               phx-value-id={item.id}
-              title="Add to the library"
-              data-confirm="Add this to the library?"
+              title={
+                if replacing?(item),
+                  do: "Replace this audiobook's files",
+                  else: "Add to the library"
+              }
+              data-confirm={
+                if replacing?(item),
+                  do: "Replace this audiobook's files with these?",
+                  else: "Add this to the library?"
+              }
               class={action_class(:brand)}
             >
-              <.icon name="fa-check" class="h-3 w-3 text-current" /> Import
+              <.icon name="fa-check" class="h-3 w-3 text-current" />
+              {if replacing?(item), do: "Replace", else: "Import"}
             </span>
 
             <.link

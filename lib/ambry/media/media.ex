@@ -159,6 +159,7 @@ defmodule Ambry.Media.Media do
       drop_param: :supplemental_files_drop
     )
     |> validate_part_fields()
+    |> clear_legacy_provenance()
     |> maybe_clear_thumbnails()
     |> status_based_validation(opts)
     |> validate_image_path()
@@ -181,6 +182,21 @@ defmodule Ambry.Media.Media do
     case Map.get(sources, "chapters") do
       nil -> changeset
       source -> Provenance.track_changes(changeset, [:chapters], %{"chapters" => source})
+    end
+  end
+
+  # A recording with a real placement has no business carrying the absolute
+  # downloads paths it was once transcoded from — that is
+  # `media_legacy_source_files_quarantined`, and a CHECK cannot wait for the
+  # commit, so the two changes have to travel in one statement. Replacing a
+  # legacy recording's files is the one thing that moves a row across that
+  # line, and it is the kind of invariant to make true by construction rather
+  # than to remember at the one call site that needs it.
+  defp clear_legacy_provenance(changeset) do
+    if get_change(changeset, :library_root_id) && get_field(changeset, :legacy_source_files) do
+      put_change(changeset, :legacy_source_files, nil)
+    else
+      changeset
     end
   end
 

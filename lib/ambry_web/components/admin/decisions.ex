@@ -354,6 +354,63 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
+  attr :recording, :map, required: true, doc: "%{id:, label:, facts:, direct_play:}"
+  attr :chosen, :boolean, required: true
+
+  @doc """
+  An audiobook in the library these files might be a better copy of.
+
+  The work level's local-book costume, one level down and answering the
+  question one level up: not "which book is this" but "is this an audiobook
+  you already have, in better files". Same anatomy on purpose — the proposal
+  the path evidence makes and a recording found by searching are the same
+  answer, and a row that looked different depending on which had produced it
+  would be claiming a difference that isn't there.
+  """
+  def local_recording_row(assigns) do
+    ~H"""
+    <div
+      class={[
+        "flex items-start gap-3 rounded-md p-3",
+        @chosen && "bg-brand-dark/10 ring-brand-dark/50 ring-2 ring-inset",
+        !@chosen && "bg-zinc-800/60"
+      ]}
+      data-role="local-recording"
+      data-chosen={@chosen && "true"}
+    >
+      <div class="min-w-0 flex-grow">
+        <div class="flex items-baseline gap-2 text-sm font-semibold">
+          <span class="min-w-0 truncate">{@recording.label}</span>
+
+          <%!-- Which recordings still cost double the disk is the whole
+              reason somebody is on this form, so the row says it. --%>
+          <.badge
+            :if={!@recording.direct_play}
+            color={:gray}
+            class="flex-none text-xs font-normal"
+            data-role="streaming-only"
+          >
+            streaming only
+          </.badge>
+        </div>
+        <p class="truncate text-xs text-zinc-400">{@recording.facts}</p>
+      </div>
+
+      <button
+        :if={!@chosen}
+        type="button"
+        phx-click="replace-recording"
+        phx-value-id={@recording.id}
+        class={action_classes(:zinc, "flex-none")}
+      >
+        Yes, replace its files
+      </button>
+
+      <span :if={@chosen} class="flex-none text-xs text-zinc-400">replacing this</span>
+    </div>
+    """
+  end
+
   attr :at, :string,
     default: nil,
     doc: "where this renders — DOM ids key on place, not person; nil where there is only one"

@@ -21,12 +21,41 @@ defmodule Ambry.Inbox.Draft.Edit do
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
+  alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.SourceRef
   alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.Media.Media.Chapter
+
+  @doc """
+  Settles that these files replace an audiobook the library already has.
+
+  The answer that collapses the rest of the form: the audiobook keeps its
+  book, its credits, its chapters and its metadata, and this import is about
+  its files. Nothing else on the draft is touched, so changing the answer
+  back leaves every decision where the operator left it.
+  """
+  def replace_recording(draft, media_id) when is_integer(media_id) do
+    update_in(
+      draft,
+      [Access.key(:replacement)],
+      &Replacement.replace(with_replacement(&1), media_id)
+    )
+  end
+
+  @doc """
+  Settles that this is an audiobook the library doesn't have yet.
+  """
+  def new_recording(draft) do
+    update_in(draft, [Access.key(:replacement)], &Replacement.new(with_replacement(&1)))
+  end
+
+  # A draft staged before the decision existed answers it now rather than
+  # crashing: the operator is looking at the control.
+  defp with_replacement(nil), do: %Replacement{}
+  defp with_replacement(%Replacement{} = replacement), do: replacement
 
   @doc """
   Accepts one of a scalar's proposed candidates.

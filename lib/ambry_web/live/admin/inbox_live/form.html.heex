@@ -138,21 +138,6 @@
             Open the audiobook
           </.brand_link>
         </p>
-
-        <%!-- Development only, and absent everywhere else: the form is
-            designed by running the same awkward release through it until it
-            reads right, and every release could otherwise be imported once. --%>
-        <div :if={@can_undo} class="pt-3 pl-3">
-          <button
-            type="button"
-            phx-click="undo-import"
-            data-confirm="Delete the records this import created and put the item back in the queue? Files this import placed in the library are deleted too; the ones it was found as are left alone."
-            data-role="undo-import"
-            class={action_classes()}
-          >
-            Undo this import (dev)
-          </button>
-        </div>
       </section>
 
       <%!-- The invariant, rendered. Nothing here is a surprise at import time. --%>
@@ -173,8 +158,130 @@
         </ul>
       </section>
 
+      <%!-- ==================== NEW OR A REPLACEMENT ==================== --%>
+      <%!-- Asked before anything else, because answering it yes settles
+          everything below: the audiobook already has its book, its credits,
+          its chapters and its metadata, and this import is about its files.
+          Ordinary imports answer it silently — nothing in the library claims
+          these files — and see a card with a search in it and nothing to
+          do. --%>
+      <%!-- Absent on an item imported before the decision existed: its draft
+          is the frozen record of that import, and nothing may touch it. --%>
+      <section
+        :if={@item.draft.replacement}
+        id="replacement"
+        class="space-y-2"
+        inert={@read_only}
+      >
+        <h2 class="text-xl font-bold text-zinc-100">New or a replacement</h2>
+
+        <div
+          class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(Tier.of(@item.draft.replacement))]}
+          data-role="replacement"
+        >
+          <div class="flex items-baseline gap-2 pl-3">
+            <.label>Does this replace an audiobook you already have?</.label>
+          </div>
+
+          <%!-- Why this recording is being offered. Only for the proposal:
+              once a human has answered, the row is their answer and saying
+              where it came from describes a decision they have moved past. --%>
+          <p
+            :if={@replaces && !@item.draft.replacement.curated}
+            class="pl-3 text-sm text-zinc-400"
+            data-role="replacement-evidence"
+          >
+            This audiobook was imported from these files.
+          </p>
+
+          <.local_recording_row
+            :if={@replaces}
+            recording={@replaces}
+            chosen={@replacing}
+          />
+
+          <%!-- The escape hatch, and the only route to an audiobook whose
+              provenance was never recorded — every recording uploaded before
+              the inbox existed. --%>
+          <form
+            phx-submit="search-recordings"
+            phx-change="search-recordings"
+            id="recording-search"
+            class="flex flex-wrap items-center gap-2 pt-1"
+          >
+            <input
+              type="text"
+              name="query"
+              value={@recording_query}
+              placeholder="search the library by title, author or narrator"
+              phx-debounce="300"
+              class={input_classes("min-w-64 px-[11px] max-w-xl flex-grow py-2 leading-6")}
+            />
+            <.button type="submit" color={:zinc}>Search</.button>
+          </form>
+
+          <p
+            :if={@recording_query not in [nil, ""] and @recording_results == []}
+            class="pl-3 text-sm text-zinc-400"
+          >
+            No audiobook in the library matches that.
+          </p>
+
+          <%!-- The row already above is not repeated here. --%>
+          <.local_recording_row
+            :for={recording <- search_results(@recording_results, @replaces)}
+            recording={recording}
+            chosen={false}
+          />
+
+          <button
+            type="button"
+            phx-click="new-recording"
+            data-role="new-recording"
+            class={[
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm",
+              (!@replacing and @item.draft.replacement.approved) &&
+                "bg-brand-dark/15 ring-brand-dark/50 ring-2 ring-inset",
+              !(!@replacing and @item.draft.replacement.approved) &&
+                "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
+            ]}
+          >
+            <.icon
+              :if={!@replacing and @item.draft.replacement.approved}
+              name="fa-check"
+              class="text-brand-dark h-3 w-3 flex-none"
+            /> No, a new audiobook
+          </button>
+
+          <%!-- The answer stopped being true. Not a decision to make again:
+              the audiobook it named is gone, and the form says so where the
+              choice was made. --%>
+          <p
+            :if={@replacement_blocker}
+            class="flex items-baseline gap-1.5 pl-3 text-sm text-red-400"
+            data-role="replacement-blocker"
+          >
+            <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
+            {@replacement_blocker}
+          </p>
+
+          <%!-- The one consequence of a replacement that isn't reversible.
+              Hidden when the existing files are a known hardlink: the bytes
+              have another name then, and removing this one destroys
+              nothing. --%>
+          <p
+            :if={@replacing and only_copy?(@replaces)}
+            class="bg-amber-400/10 border-amber-400/80 flex items-baseline gap-1.5 rounded-md border-l-4 p-3 text-sm"
+            data-role="replace-warning"
+          >
+            <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-amber-300" />
+            This will replace the existing files. If you don't have a backup, they will be lost.
+          </p>
+        </div>
+      </section>
+
       <%!-- ==================== THE WORK ==================== --%>
-      <section id="work" class="space-y-7" inert={@read_only}>
+      <section :if={!@replacing} id="work" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">Book</h2>
 
         <%!-- Evidence first, then the decisions it feeds (§9): what the
@@ -442,7 +549,7 @@
       </section>
 
       <%!-- ==================== THE RECORDING ==================== --%>
-      <section id="recording" class="space-y-7" inert={@read_only}>
+      <section :if={!@replacing} id="recording" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">Audiobook</h2>
 
         <div class={[
@@ -648,7 +755,7 @@
           matched to the library from their own card stays, because that
           decision was made here and needs a way back. --%>
       <section
-        :if={Draft.people_groups(@item.draft) != []}
+        :if={!@replacing and Draft.people_groups(@item.draft) != []}
         id="people"
         class="space-y-7"
         inert={@read_only}
@@ -712,7 +819,7 @@
           files; a ticked ASIN-bearing record grows a title chip, and the
           fetched titles render into the rows as a proposed column. The rows
           scroll inside the card, so a 47-chapter book stays a card. --%>
-      <section id="chapters" class="space-y-2" inert={@read_only}>
+      <section :if={!@replacing} id="chapters" class="space-y-2" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">Chapters</h2>
 
         <%= if @item.draft.recording && @item.draft.recording.chapters do %>
@@ -826,13 +933,16 @@
           80px of gap before, 0 and 0 after. --%>
       <.form_footer>
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+          <%!-- Named for what pressing it does. A replacement doesn't add
+              anything: it takes an audiobook's files away and puts these in
+              their place, and the button that does that says so. --%>
           <.button
             :if={!@read_only}
             phx-click="import"
-            disabled={@unresolved != [] or @destination.blocker != nil}
+            disabled={@unresolved != [] or @blocker != nil}
             data-role="import"
           >
-            Add to the library
+            {if @replacing, do: "Replace the files", else: "Add to the library"}
           </.button>
 
           <.button :if={!@read_only} type="button" color={:zinc} phx-click="ignore">Ignore</.button>
@@ -858,8 +968,8 @@
             {length(@unresolved)} decision{if length(@unresolved) > 1, do: "s"} still to settle.
           </.link>
 
-          <p :if={@unresolved == [] and @destination.blocker} class="text-sm text-red-400">
-            Everything is settled, but the files can't be placed yet. See Files &amp; destination.
+          <p :if={@unresolved == [] and @blocker} class="text-sm text-red-400">
+            Everything is settled, but this can't be imported yet. The reason is above.
           </p>
         </div>
       </.form_footer>

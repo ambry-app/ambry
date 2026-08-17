@@ -15,6 +15,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library.Source
@@ -70,15 +71,16 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   # the queue froze for the length of a NAS copy, with no sign the click had
   # landed. The row wears the busy overlay instead, same as any other job.
   def handle_event("import", %{"id" => id}, socket) do
-    id
-    |> Inbox.get_item!()
-    |> Inbox.import_item_async()
-    |> case do
+    item = Inbox.get_item!(id)
+
+    case Inbox.import_item_async(item) do
       {:ok, job} ->
         message =
-          if job.conflict?,
-            do: "Already adding this one.",
-            else: "Adding to the library. The row will say when it's done."
+          cond do
+            job.conflict? -> "Already working on this one."
+            replacing?(item) -> "Replacing the files. The row will say when it's done."
+            true -> "Adding to the library. The row will say when it's done."
+          end
 
         {:noreply, socket |> put_flash(:info, message) |> reload()}
 
@@ -354,6 +356,17 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   defp status_color(:imported), do: :brand
   defp status_color(:ignored), do: :gray
+
+  @doc """
+  Whether this item replaces an audiobook the library already has.
+
+  The queue's Import is the one control that acts without the form being
+  opened, so it has to name what it will do: a replacement takes an
+  audiobook's files away and puts these in their place. What that costs — the
+  existing files, unless they are a known hardlink — is a question about the
+  disk, and it stays on the form where it can be answered.
+  """
+  def replacing?(%InboxItem{draft: draft}), do: Replacement.replacing?(draft && draft.replacement)
 
   # The card's left edge carries the item's state — a 4px rail reads from
   # across the room and renders crisp at any DPI, unlike hairline borders.
