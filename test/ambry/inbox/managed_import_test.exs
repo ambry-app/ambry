@@ -696,6 +696,189 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
   end
 
+  # A replacement's destination names are rendered from the recording, not
+  # from the files, so the shape of the *count* decides everything: one file
+  # lands in the book folder as `Title [token].ext`, several land in a
+  # `Title [token]/` subfolder as `Title - 001.ext`. Crossing between those
+  # two shapes, and changing how many files there are within the second, is
+  # where the names an import takes and the names it has to give up stop
+  # lining up — so each transition gets a test that looks at the disk.
+  describe "replacing files, when the count changes" do
+    test "several files replacing one" do
+      %{media: media, placed: [only]} = placed_recording(["book.m4b"])
+      book_folder = Path.dirname(only)
+
+      %{item: item, sources: sources} = replacement_item(media, ["01.m4b", "02.m4b", "03.m4b"])
+      assert {:ok, _replaced} = Inbox.import_item(item)
+      assert %{failure: 0} = Oban.drain_queue(queue: :default)
+
+      replaced = Media.get_media!(media.id)
+      placed = Media.Media.source_file_paths(replaced)
+
+      # a recording of its own now: a subfolder inside the book folder it
+      # used to sit in directly
+      assert length(placed) == 3
+      assert [folder] = placed |> Enum.map(&Path.dirname/1) |> Enum.uniq()
+      assert Path.dirname(folder) == book_folder
+      assert inodes(placed) == inodes(sources)
+
+      # the one file it was is gone, and the book folder holds nothing but
+      # the new subfolder — no leftovers, nothing set aside
+      refute File.exists?(only)
+      assert File.ls!(book_folder) == [Path.basename(folder)]
+      assert length(replaced.media_tracks) == 3
+    end
+
+    test "one file replacing several" do
+      %{media: media, placed: old} = placed_recording(["01.m4b", "02.m4b", "03.m4b"])
+      folder = Path.dirname(hd(old))
+      book_folder = Path.dirname(folder)
+
+      %{item: item, sources: sources} = replacement_item(media, ["book.m4b"])
+      assert {:ok, _replaced} = Inbox.import_item(item)
+      assert %{failure: 0} = Oban.drain_queue(queue: :default)
+
+      replaced = Media.get_media!(media.id)
+
+      # back in the book folder directly, and the subfolder it emptied is
+      # pruned rather than left standing
+      assert [placed] = Media.Media.source_file_paths(replaced)
+      assert Path.dirname(placed) == book_folder
+      assert inodes([placed]) == inodes(sources)
+
+      refute File.exists?(folder)
+      assert File.ls!(book_folder) == [Path.basename(placed)]
+      assert length(replaced.media_tracks) == 1
+    end
+
+    # The case the names really do collide in: 001 and 002 are taken by the
+    # recording being replaced, and 003 and 004 have to go.
+    test "fewer files replacing more" do
+      %{media: media, placed: old} = placed_recording(["01.m4b", "02.m4b", "03.m4b", "04.m4b"])
+      folder = Path.dirname(hd(old))
+
+      %{item: item, sources: sources} = replacement_item(media, ["01.m4b", "02.m4b"])
+      assert {:ok, _replaced} = Inbox.import_item(item)
+      assert %{failure: 0} = Oban.drain_queue(queue: :default)
+
+      replaced = Media.get_media!(media.id)
+      placed = Media.Media.source_file_paths(replaced)
+
+      # the same two names, the other two files behind them
+      assert placed == Enum.take(old, 2)
+      assert inodes(placed) == inodes(sources)
+
+      # and the names it no longer needs are gone, with nothing set aside
+      refute File.exists?(Enum.at(old, 2))
+      refute File.exists?(Enum.at(old, 3))
+      assert length(File.ls!(folder)) == 2
+      assert length(replaced.media_tracks) == 2
+
+      # the timeline is the new files', not a leftover of the old ones
+      assert Decimal.equal?(
+               replaced.duration,
+               Enum.reduce(replaced.media_tracks, Decimal.new(0), &Decimal.add(&2, &1.duration))
+             )
+    end
+
+    test "more files replacing fewer" do
+      %{media: media, placed: old} = placed_recording(["01.m4b", "02.m4b"])
+      folder = Path.dirname(hd(old))
+
+      %{item: item, sources: sources} =
+        replacement_item(media, ["01.m4b", "02.m4b", "03.m4b", "04.m4b"])
+
+      assert {:ok, _replaced} = Inbox.import_item(item)
+      assert %{failure: 0} = Oban.drain_queue(queue: :default)
+
+      replaced = Media.get_media!(media.id)
+      placed = Media.Media.source_file_paths(replaced)
+
+      assert length(placed) == 4
+      assert Enum.take(placed, 2) == old
+      assert inodes(placed) == inodes(sources)
+      assert length(File.ls!(folder)) == 4
+      assert length(replaced.media_tracks) == 4
+    end
+
+    # Every name collides, so every one is set aside and given back.
+    test "the same number of files, name for name" do
+      %{media: media, placed: old} = placed_recording(["01.m4b", "02.m4b", "03.m4b"])
+      folder = Path.dirname(hd(old))
+      before = inodes(old)
+
+      %{item: item, sources: sources} = replacement_item(media, ["01.m4b", "02.m4b", "03.m4b"])
+      assert {:ok, _replaced} = Inbox.import_item(item)
+      assert %{failure: 0} = Oban.drain_queue(queue: :default)
+
+      replaced = Media.get_media!(media.id)
+      placed = Media.Media.source_file_paths(replaced)
+
+      assert placed == old
+      assert inodes(placed) == inodes(sources)
+      refute inodes(placed) == before
+      assert length(File.ls!(folder)) == 3
+      assert length(replaced.media_tracks) == 3
+    end
+
+    # A rip in another format takes none of the old names, so every one of
+    # them is retired rather than reused — and the folder is left holding
+    # exactly the new files.
+    test "a different format replacing the same number of files" do
+      %{media: media, placed: old} = placed_recording(["01.m4b", "02.m4b"])
+      folder = Path.dirname(hd(old))
+
+      %{item: item, sources: sources} = replacement_item(media, ["01.mp3", "02.mp3"])
+      assert {:ok, _replaced} = Inbox.import_item(item)
+      assert %{failure: 0} = Oban.drain_queue(queue: :default)
+
+      replaced = Media.get_media!(media.id)
+      placed = Media.Media.source_file_paths(replaced)
+
+      assert length(placed) == 2
+      assert Enum.all?(placed, &(Path.extname(&1) == ".mp3"))
+      assert inodes(placed) == inodes(sources)
+      assert Enum.all?(old, &(not File.exists?(&1)))
+      assert Enum.sort(File.ls!(folder)) == placed |> Enum.map(&Path.basename/1) |> Enum.sort()
+    end
+
+    # An ordinary import, so the recording being replaced is a real placed
+    # one rather than a fixture — the names it occupies are the names the
+    # template renders, which is the whole point of these cases.
+    defp placed_recording(files) do
+      %{item: item} = downloads_item(files: files, name: "Original #{Ecto.UUID.generate()}")
+      {:ok, media} = Inbox.import_item(item)
+      media = Media.get_media!(media.id)
+
+      %{media: media, placed: Media.Media.source_file_paths(media)}
+    end
+
+    # Another release of the same book in its own watched folder, settled as a
+    # replacement for that recording. The root is the one already registered.
+    #
+    # Nothing else about it is settled, on purpose: the recording it replaces
+    # has the book, the credits and the metadata, so a replacement is
+    # importable without any of that being answered — and an untagged rip,
+    # which is exactly what the format case needs, could not answer it anyway.
+    defp replacement_item(media, files) do
+      %{item: item, sources: sources} =
+        downloads_item(
+          root: :reuse,
+          files: files,
+          settle: false,
+          name: "Replacement #{Ecto.UUID.generate()}"
+        )
+
+      %{item: replace_with(item, media), sources: sources}
+    end
+
+    # What is actually behind each name. Every policy here is `:hardlink`, so
+    # a placed file shares its inode with the source it was placed from —
+    # which is how a test can tell "the new file took this name" from "the
+    # old one is still there under it".
+    defp inodes(paths), do: Enum.map(paths, &File.stat!(&1).inode)
+  end
+
   describe "other sources" do
     # The successor to leave-in-place: the files stay exactly where they are
     # and the library holds pointers to them, but the pointers are Ambry's
@@ -740,7 +923,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
       |> Keyword.get(:files, ["book.m4b"])
       |> Enum.map(fn name ->
         path = Path.join(release, name)
-        File.cp!(tagged_audio(), path)
+        File.cp!(fixture_for(name), path)
         path
       end)
 
@@ -795,6 +978,17 @@ defmodule Ambry.Inbox.ManagedImportTest do
     draft = %{item.draft | destination: fun.(item.draft.destination)}
     {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
     item
+  end
+
+  # A name's extension has to match its bytes. The destination keeps the
+  # extension the source had, so a `.mp3` holding mp4 data would be a lie the
+  # probe reads straight through — and it is the extension that decides
+  # whether a replacement takes the names the old files hold.
+  defp fixture_for(name) do
+    case Path.extname(name) do
+      ".mp3" -> valid_audio(:mp3)
+      _m4b -> tagged_audio()
+    end
   end
 
   defp new_dir(prefix) do
