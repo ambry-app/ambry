@@ -6,7 +6,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   """
   use AmbryWeb, :admin_live_view
 
-  import Ambry.Paths
   import AmbryWeb.Admin.ChapterEditor
   import AmbryWeb.Admin.Curation
   import AmbryWeb.Admin.ParamHelpers
@@ -22,7 +21,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.People
   alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
-  alias AmbryWeb.Admin.MediaLive.Form.FileBrowser
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
   alias Ecto.Changeset
@@ -40,7 +38,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:ok,
      socket
      |> allow_image_upload(:image)
-     |> allow_audio_upload(:audio)
      |> allow_supplemental_file_upload(:supplemental)
      |> assign(
        retrying: nil,
@@ -48,12 +45,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        chapter_import: nil,
        chapters_applied_asin: nil,
        provenance_hints: %{},
-       select_files: false,
-       selected_files: MapSet.new(),
        source_files_expanded: false,
        narrators: People.narrators_for_select(),
-       books: Ambry.Books.books_for_select(),
-       local_import_path: Ambry.Paths.local_import_path()
+       books: Ambry.Books.books_for_select()
      )
      |> apply_action(socket.assigns.live_action, params)}
   end
@@ -61,11 +55,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   defp apply_action(socket, :edit, %{"id" => id}) do
     media = Media.get_media!(id)
 
-    changeset =
-      Media.change_media(
-        media,
-        %{"image_type" => "upload", "source_type" => default_source_type(socket)}
-      )
+    changeset = Media.change_media(media, %{"image_type" => "upload"})
 
     socket
     |> assign_form(changeset)
@@ -82,27 +72,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       evidence:
         Evidence.new(seed_fields(media, socket.assigns), known: Evidence.known_from(media))
     )
-  end
-
-  defp apply_action(socket, :new, _params) do
-    media = %Media.Media{media_narrators: []}
-
-    changeset =
-      Media.change_media(
-        media,
-        %{"image_type" => "upload", "source_type" => default_source_type(socket)}
-      )
-
-    socket
-    |> assign_form(changeset)
-    |> assign(
-      page_title: "New Audiobook",
-      media: media,
-      recording_groups: [],
-      file_stats: nil,
-      group_row_visible: false
-    )
-    |> assign(evidence: Evidence.new(%{}))
   end
 
   # The search the recording itself suggests: its book's title and author, and
@@ -152,21 +121,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  defp default_source_type(socket) do
-    if socket.assigns.local_import_path do
-      "local_import"
-    else
-      "upload"
-    end
-  end
-
   @impl Phoenix.LiveView
-  def handle_params(%{"browse" => _}, _url, socket) do
-    {:noreply, assign(socket, select_files: true)}
-  end
-
   def handle_params(_params, _url, socket) do
-    {:noreply, assign(socket, select_files: false)}
+    {:noreply, socket}
   end
 
   @impl Phoenix.LiveView
@@ -209,9 +166,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
          {:ok, media_params} <-
            handle_image_import(media_params["image_import_url"], media_params),
          {:ok, media_params} <-
-           handle_supplemental_files_upload(socket, media_params, :supplemental),
-         {:ok, media_params} <- handle_audio_files_upload(socket, media_params, :audio),
-         {:ok, media_params} <- handle_audio_files_import(socket, media_params) do
+           handle_supplemental_files_upload(socket, media_params, :supplemental) do
       save_media(socket, socket.assigns.live_action, media_params)
     else
       {:error, %Changeset{} = changeset} -> {:noreply, assign_form(socket, changeset)}
@@ -225,10 +180,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     media_params = Reordering.move(changeset, socket.assigns.form.params, params)
 
     {:noreply, assign_form(socket, Media.change_media(socket.assigns.media, media_params))}
-  end
-
-  def handle_event("cancel-upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :audio, ref)}
   end
 
   # ── the part set ───────────────────────────────────────────────────────
@@ -592,14 +543,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     |> Enum.reject(&is_nil/1)
   end
 
-  @impl Phoenix.LiveView
-  def handle_info({:files_selected, files}, socket) do
-    {:noreply,
-     socket
-     |> assign(selected_files: files)
-     |> push_patch(to: media_path(socket.assigns.media), replace: true)}
-  end
-
   defp cancel_all_uploads(socket, upload) do
     Enum.reduce(socket.assigns.uploads[upload].entries, socket, fn entry, socket ->
       cancel_upload(socket, upload, entry.ref)
@@ -615,78 +558,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> Map.update!("supplemental_files", fn files_params ->
        map_to_list(files_params) ++ uploaded_supplemental_files_params
      end)}
-  end
-
-  defp handle_audio_files_upload(socket, %{"source_type" => "upload"} = media_params, name) do
-    folder_id = Media.Media.source_id(socket.assigns.media)
-    source_folder = source_media_disk_path(folder_id)
-
-    # Stored in `/uploads/...` form: paths in the database are root-relative
-    # or uploads-relative, never absolute.
-    audio_files =
-      consume_uploaded_entries(socket, name, fn %{path: path}, entry ->
-        File.mkdir_p!(source_folder)
-
-        dest = Path.join([source_folder, entry.client_name])
-        File.cp!(path, dest)
-
-        {:ok, Ambry.Paths.disk_to_web(dest)}
-      end)
-
-    existing_source_files = socket.assigns.media.source_files
-
-    media_params =
-      if audio_files == [] do
-        media_params
-      else
-        Map.merge(media_params, %{
-          "source_path" => Ambry.Paths.disk_to_web(source_folder),
-          "source_files" => Enum.sort(existing_source_files ++ audio_files, NaturalOrder)
-        })
-      end
-
-    {:ok, media_params}
-  end
-
-  defp handle_audio_files_upload(_socket, media_params, _name) do
-    {:ok, media_params}
-  end
-
-  # The selected files live in the local-import folder, which is nowhere the
-  # database may point any more — so they're brought into the media's own
-  # uploads workspace first, exactly like an upload. A hardlink when the two
-  # share a filesystem, a copy otherwise: this is transcode input, not the
-  # library's copy of the bytes.
-  defp handle_audio_files_import(socket, %{"source_type" => "local_import"} = media_params) do
-    folder_id = Media.Media.source_id(socket.assigns.media)
-    source_folder = source_media_disk_path(folder_id)
-
-    imported_files =
-      for file <- socket.assigns.selected_files do
-        File.mkdir_p!(source_folder)
-        dest = Path.join(source_folder, Path.basename(file))
-
-        case File.ln(file, dest) do
-          :ok -> :ok
-          {:error, :eexist} -> :ok
-          {:error, _reason} -> File.cp!(file, dest)
-        end
-
-        Ambry.Paths.disk_to_web(dest)
-      end
-
-    existing_source_files = socket.assigns.media.source_files
-    new_source_files = Enum.sort(existing_source_files ++ imported_files, NaturalOrder)
-
-    {:ok,
-     Map.merge(media_params, %{
-       "source_path" => Ambry.Paths.disk_to_web(source_folder),
-       "source_files" => new_source_files
-     })}
-  end
-
-  defp handle_audio_files_import(_socket, media_params) do
-    {:ok, media_params}
   end
 
   defp changeset_valid?(socket, media_params) do
@@ -719,31 +590,12 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
     case Media.update_media(socket.assigns.media, media_params, opts) do
       {:ok, media} ->
-        maybe_start_processor!(media, media_params, :edit)
         # a title override or a changed date moves the folder
         {:ok, _job} = Media.organize_async(media)
 
         {:noreply,
          socket
          |> put_flash(:info, "Updated audiobook for #{media.book.title}")
-         |> push_navigate(to: ~p"/admin/audiobooks")}
-
-      {:error, %Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
-    end
-  end
-
-  defp save_media(socket, :new, media_params) do
-    opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
-
-    case Media.create_media(media_params, opts) do
-      {:ok, media} ->
-        media = Media.get_media!(media.id)
-        maybe_start_processor!(media, media_params, :new)
-
-        {:noreply,
-         socket
-         |> put_flash(:info, "Created new audiobook for #{media.book.title}")
          |> push_navigate(to: ~p"/admin/audiobooks")}
 
       {:error, %Changeset{} = changeset} ->
@@ -761,46 +613,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       media_narrator_count: length(Changeset.get_assoc(changeset, :media_narrators))
     )
   end
-
-  defp maybe_start_processor!(media, media_params, :new) do
-    processor =
-      case parse_requested_processor(media_params["processor"]) do
-        :none_specified -> :auto
-        processor -> processor
-      end
-
-    Media.run_processor_async(media, processor)
-  end
-
-  defp maybe_start_processor!(media, media_params, :edit) do
-    case parse_requested_processor(media_params["processor"]) do
-      :none_specified ->
-        :noop
-
-      processor ->
-        Media.run_processor_async(media, processor)
-    end
-  end
-
-  defp processors(%Media.Media{source_path: path} = media, [_ | _] = uploads)
-       when is_binary(path) do
-    filenames = Enum.map(uploads, & &1.client_name)
-    {media, filenames} |> Media.available_processors() |> Enum.map(&{&1.name(), &1})
-  end
-
-  defp processors(_media, [_ | _] = uploads) do
-    filenames = Enum.map(uploads, & &1.client_name)
-    filenames |> Media.available_processors() |> Enum.map(&{&1.name(), &1})
-  end
-
-  defp processors(%Media.Media{source_path: path} = media, _uploads) when is_binary(path) do
-    media |> Media.available_processors() |> Enum.map(&{&1.name(), &1})
-  end
-
-  defp processors(_media, _uploads), do: []
-
-  defp parse_requested_processor(""), do: :none_specified
-  defp parse_requested_processor(string), do: String.to_existing_atom(string)
 
   # Components
 
@@ -852,11 +664,4 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       published: Ecto.Changeset.get_field(form.source, :published)
     })
   end
-
-  defp media_path(media, params \\ %{})
-  defp media_path(%Media.Media{id: nil}, params), do: ~p"/admin/audiobooks/new?#{params}"
-  defp media_path(media, params), do: ~p"/admin/audiobooks/#{media}/edit?#{params}"
-
-  defp open_file_browser(media), do: JS.patch(media_path(media, %{browse: :files}))
-  defp close_modal(media), do: JS.patch(media_path(media), replace: true)
 end

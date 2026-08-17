@@ -1,8 +1,4 @@
 <.layout title={@page_title} user={@current_user} socket={@socket}>
-  <.modal :if={@select_files} id="select-files-modal" show on_cancel={close_modal(@media)}>
-    <.live_component id="file-browser" module={FileBrowser} root_path={Application.get_env(:ambry, :source_path)} />
-  </.modal>
-
   <div class="-mb-4 max-w-4xl space-y-7">
     <%!-- Evidence first, then the decisions it feeds — the import form's
         order. Its search is a form of its own, so it lives outside the
@@ -298,67 +294,13 @@
         </.chapter_rows>
       </.form_section>
 
-      <%!-- What the bytes are and what has been done to them — a different
-          question from what the recording IS, and the one place on this form
-          where saving does work rather than recording a fact. --%>
-      <.form_section title="Audio and processing" id="audio">
+      <%!-- What the bytes are — a different question from what the recording
+          IS. Nothing here is editable any more: the files arrive through the
+          inbox and this says what they are. --%>
+      <.form_section title="Audio" id="audio">
         <%!-- A fact display, not a dropzone — the dashed costume this list
             used to wear promised "drop files here" and couldn't deliver. --%>
         <.file_list :if={@live_action == :edit} files={@media.source_files} label="Audio file(s)" />
-
-        <.field_group :if={@live_action == :new}>
-          <%= if @local_import_path do %>
-            <.tabs
-              field={@form[:source_type]}
-              options={[
-                {"Upload from your file-system", "upload"},
-                {"Import from server file-system", "local_import"}
-              ]}
-            >
-              <.label>Audio file(s)</.label>
-            </.tabs>
-          <% else %>
-            <.label>Audio file(s)</.label>
-            <.input type="hidden" field={@form[:source_type]} />
-          <% end %>
-
-          <.note>
-            <:label>Supported formats</:label>
-            mp3, mp4, m4a, m4b, opus
-          </.note>
-
-          <div :if={@form[:source_type].value == "upload"} class="space-y-2">
-            <.file_input upload={@uploads.audio} on_cancel="cancel-upload" />
-            <.field_errors field={@form[:source_path]} />
-          </div>
-
-          <div :if={@form[:source_type].value == "local_import"} class="space-y-2">
-            <div>
-              <div class="flex items-center overflow-hidden rounded-sm rounded-b-none border border-transparent bg-zinc-800 text-zinc-300 sm:text-sm sm:leading-6">
-                <button
-                  class="py-[7px] px-[11px] bg-zinc-700 font-semibold text-zinc-100 hover:bg-zinc-600"
-                  type="button"
-                  phx-click={open_file_browser(@media)}
-                >
-                  Browse...
-                </button>
-                <p class="overflow-hidden text-ellipsis whitespace-nowrap px-2">
-                  {Enum.count(@selected_files)} File(s) selected
-                </p>
-              </div>
-              <div class="max-h-64 space-y-4 overflow-x-auto rounded-b-sm border-2 border-t-0 border-dashed border-zinc-600 bg-zinc-950 p-4">
-                <.icon
-                  :if={Enum.empty?(@selected_files)}
-                  name="fa-file-circle-exclamation"
-                  class="mx-auto my-4 block h-8 w-8 text-current"
-                />
-                <p :for={file <- Enum.sort(@selected_files, NaturalOrder)}>
-                  {Path.basename(file)}
-                </p>
-              </div>
-            </div>
-          </div>
-        </.field_group>
 
         <.field_group :if={@file_stats}>
           <%!-- The one fold costume (§3): summary on the rail, chevron
@@ -446,23 +388,6 @@
             image_preview_class="h-12 w-12 rounded-md object-cover"
           />
         </.list_cluster>
-
-        <.field_group>
-          <.label for={@form[:processor].name} class="pl-3">
-            {if @live_action == :new, do: "Processor", else: "Re-run processor?"}
-          </.label>
-
-          <.note :if={@live_action == :edit}>
-            This will re-process the source audio files and replace the output streaming files.
-          </.note>
-
-          <.input
-            type="select"
-            field={@form[:processor]}
-            prompt={if @live_action == :new, do: "auto-select", else: "no"}
-            options={processors(@media, @uploads.audio.entries)}
-          />
-        </.field_group>
       </.form_section>
 
       <.form_footer>
