@@ -57,6 +57,7 @@ defmodule Ambry.Inbox do
   import Ecto.Query
 
   alias Ambry.Inbox.AutoMatch
+  alias Ambry.Inbox.Content
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Seed
@@ -1241,13 +1242,20 @@ defmodule Ambry.Inbox do
   end
 
   # A file's owner, in the order that decides it: the item that already lists
-  # it, the library, then the nearest item *above* it — which is how a file
-  # that appears in a known release folder joins that release rather than
-  # becoming an item of its own.
+  # it, the library — by path, then by content — then the nearest item *above*
+  # it, which is how a file that appears in a known release folder joins that
+  # release rather than becoming an item of its own.
+  #
+  # The two library questions are different questions, not a fallback. A path
+  # answers "have I imported this file"; content answers "do I already hold
+  # these bytes", which is what a copy, a hardlink under another name, or a
+  # relinked recording's original looks like. Neither subsumes the other, and
+  # the cheap one goes first.
   defp owner_of(file, ledger) do
     cond do
       item = ledger.by_file[file] -> item
       MapSet.member?(ledger.library, library_coordinates(file, ledger.roots)) -> :library
+      Content.holds?(ledger.contents, file) -> :library
       item = nearest_owner(file, ledger.by_path) -> item
       true -> nil
     end
@@ -1364,13 +1372,15 @@ defmodule Ambry.Inbox do
   # directly.
   defp ledger do
     items = InboxItem |> Repo.all() |> Repo.preload(:source)
+    roots = Library.list_roots()
 
     %{
       by_file:
         for(item <- items, file <- InboxItem.disk_files(item), into: %{}, do: {file, item}),
       by_path: Map.new(items, &{InboxItem.disk_path(&1), &1}),
       library: imported_files(),
-      roots: Library.list_roots()
+      contents: Content.index(roots),
+      roots: roots
     }
   end
 

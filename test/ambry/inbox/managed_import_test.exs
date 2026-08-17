@@ -439,10 +439,13 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
       assert {:ok, media1} = Inbox.import_item(first)
 
-      # A second reading of the same work, in its own release folder.
+      # A second reading of the same work, in its own release folder — a
+      # different narrator, and so genuinely different bytes. A copy of the
+      # first file would be skipped by the scan as something the library
+      # already holds, which is what a second *copy* is.
       second_release = Path.join(downloads, "The Way of Kings [Re-read]")
       File.mkdir_p!(second_release)
-      File.cp!(tagged_audio(), Path.join(second_release, "book.m4b"))
+      File.cp!(tagged_audio(composer: "Kate Reading"), Path.join(second_release, "book.m4b"))
       {:ok, _counts} = Inbox.discover(watched)
       {[second], false} = Inbox.list_items(filter: "Re-read")
       {:ok, second} = Inbox.probe_item(second)
@@ -572,10 +575,14 @@ defmodule Ambry.Inbox.ManagedImportTest do
   end
 
   # Another candidate under the same watched folder, probed and queued.
+  #
+  # Its own file, not a copy of the imported one: a scan skips a release whose
+  # bytes the library already holds, however it is named, so a second release
+  # made by copying the first is not a second release at all.
   defp second_release(watched) do
     release = Path.join(watched.path, "Words of Radiance [M4B]")
     File.mkdir_p!(release)
-    File.cp!(tagged_audio(), Path.join(release, "book.m4b"))
+    File.cp!(tagged_audio(album: "Words of Radiance"), Path.join(release, "book.m4b"))
 
     {:ok, _counts} = Inbox.discover(watched)
     {[item], false} = Inbox.list_items(filter: "Words of Radiance")

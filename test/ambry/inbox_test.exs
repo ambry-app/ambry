@@ -393,6 +393,46 @@ defmodule Ambry.InboxTest do
     end
   end
 
+  # A path answers "have I imported this file", which is the only question a
+  # path can answer. These are the cases where the answer is yes and the path
+  # cannot see it: the library holds the same bytes under a different name.
+  describe "discover/1 and the library's bytes" do
+    # What a relinked server-import recording looks like from the downloads
+    # side: the library's copy is a second name for the same inode.
+    test "doesn't offer a hardlink of a file the library serves" do
+      %{root: root, library: library, track: track} = library_with_a_track()
+      hardlink = Path.join(root, "Seeding Still.m4b")
+      File.ln!(Path.join(library.path, track.path), hardlink)
+
+      assert {:ok, %{created: 0, skipped: 1}} = discover(root)
+      assert {[], false} = Inbox.list_items()
+    end
+
+    # The 40 measured in production: downloaded, then imported through the
+    # upload form, which copies. Different folder, sometimes a different
+    # extension, same bytes.
+    test "doesn't offer a byte-identical copy under another name" do
+      %{root: root, library: library, track: track} = library_with_a_track()
+      File.cp!(Path.join(library.path, track.path), Path.join(root, "Romancing the Duke.mp4"))
+
+      assert {:ok, %{created: 0, skipped: 1}} = discover(root)
+      assert {[], false} = Inbox.list_items()
+    end
+
+    # Size indexes; it does not decide. A different recording of the same
+    # length is a different book and has to be offered.
+    test "offers a file of the same size that isn't the same file" do
+      %{root: root, library: library, track: track} = library_with_a_track()
+      impostor = Path.join(root, "A Different Reading.m4b")
+      File.cp!(Path.join(library.path, track.path), impostor)
+      corrupt_a_byte(impostor)
+
+      assert {:ok, %{created: 1}} = discover(root)
+      assert {[item], false} = Inbox.list_items()
+      assert InboxItem.disk_files(item) == [impostor]
+    end
+  end
+
   describe "probe_item/1" do
     test "records what the file is and what it claims about itself" do
       root = watched_root()
@@ -963,6 +1003,45 @@ defmodule Ambry.InboxTest do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
     File.mkdir_p!(root)
     root
+  end
+
+  # A watched folder, and a separate library root holding one real file that
+  # a real track points at — the arrangement every content question is asked
+  # in, and deliberately not the same folder.
+  defp library_with_a_track do
+    root = watched_root()
+    path = Ambry.Paths.source_media_disk_path("library-#{Ecto.UUID.generate()}")
+    File.mkdir_p!(Path.join(path, "The Library's Copy"))
+
+    library = insert(:root, path: path)
+    copy_audio(Path.join(path, "The Library's Copy"), "book.m4b")
+
+    media =
+      insert(:media,
+        book: build(:book),
+        library_root_id: library.id,
+        source_path: "The Library's Copy"
+      )
+
+    track =
+      insert(:media_track,
+        media: media,
+        path: "The Library's Copy/book.m4b",
+        library_root_id: library.id,
+        size: File.stat!(Path.join(path, "The Library's Copy/book.m4b")).size
+      )
+
+    %{root: root, library: library, track: track}
+  end
+
+  # Same length, different bytes — the only thing that separates a twin from
+  # a coincidence.
+  defp corrupt_a_byte(path) do
+    contents = File.read!(path)
+    at = div(byte_size(contents), 2)
+    <<head::binary-size(^at), byte, tail::binary>> = contents
+
+    File.write!(path, <<head::binary, Bitwise.bxor(byte, 0xFF), tail::binary>>)
   end
 
   defp release_folder(root, name, filenames) do
