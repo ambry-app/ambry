@@ -155,6 +155,176 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "new or a replacement" do
+    # The ordinary import must not grow a question it has to answer three
+    # hundred times: nothing in the library claims these files, so the answer
+    # is already given and the card is a search with nothing to do in it.
+    test "an ordinary import answers it silently", %{conn: conn} do
+      item = probed_item() |> settle()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='replacement']")
+      refute has_element?(view, "[data-role='local-recording']")
+      refute html =~ "Whether this replaces an audiobook you already have"
+      assert has_element?(view, "[data-role='import']", "Add to the library")
+    end
+
+    test "the path evidence proposes a recording, and blocks until answered", %{conn: conn} do
+      item = probed_item()
+      _media = library_recording(from: item)
+      item = settle(item)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "This audiobook was imported from these files"
+      assert has_element?(view, "[data-role='local-recording']", "The Way of Kings")
+      assert has_element?(view, "[data-role='streaming-only']")
+
+      assert html =~ "Whether this replaces an audiobook you already have"
+      assert has_element?(view, "button[data-role='import'][disabled]")
+    end
+
+    test "answering it collapses the rest of the form", %{conn: conn} do
+      item = probed_item()
+      _media = library_recording(from: item)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # unsettled, so the book and audiobook sections are full of outstanding
+      # decisions — and none of them are questions about a recording that
+      # already exists
+      assert has_element?(view, "#work")
+
+      html = view |> element("[data-role='local-recording'] button") |> render_click()
+
+      refute has_element?(view, "#work")
+      refute has_element?(view, "#recording")
+      refute has_element?(view, "#chapters")
+      assert has_element?(view, "#destination")
+
+      refute html =~ "Still to settle"
+      assert has_element?(view, "[data-role='import']", "Replace the files")
+    end
+
+    # Green is one-way, but the way back to the machine's value never closes:
+    # the declined proposal stays on the form.
+    test "declining it keeps the row and puts the questions back", %{conn: conn} do
+      item = probed_item()
+      _media = library_recording(from: item)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      view |> element("[data-role='local-recording'] button") |> render_click()
+      view |> element("[data-role='new-recording']") |> render_click()
+
+      assert has_element?(view, "#work")
+      assert has_element?(view, "[data-role='local-recording']")
+      assert has_element?(view, "[data-role='import']", "Add to the library")
+    end
+
+    test "any audiobook in the library is reachable by searching", %{conn: conn} do
+      item = probed_item() |> settle()
+      media = library_recording()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "[data-role='local-recording']")
+
+      view
+      |> element("#recording-search")
+      |> render_change(%{"query" => "Kings"})
+
+      assert has_element?(view, "[data-role='local-recording']")
+
+      view |> element("[data-role='local-recording'] button") |> render_click()
+
+      assert %{mode: :replace, media_id: media_id} =
+               Inbox.get_item!(item.id).draft.replacement
+
+      assert media_id == media.id
+    end
+
+    test "nothing matching says so", %{conn: conn} do
+      item = probed_item() |> settle()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html = view |> element("#recording-search") |> render_change(%{"query" => "Neuromancer"})
+
+      assert html =~ "No audiobook in the library matches that"
+    end
+
+    # The one consequence of a replacement that can't be taken back.
+    test "warns that the existing files will be lost", %{conn: conn} do
+      item = probed_item()
+      _media = library_recording(from: item)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      view |> element("[data-role='local-recording'] button") |> render_click()
+
+      assert has_element?(view, "[data-role='replace-warning']")
+    end
+
+    # A hardlinked library copy shares its inode with the source it was placed
+    # from. The bytes have another name, so removing this one destroys
+    # nothing, and there is nothing to warn about.
+    test "says nothing when the existing files are a known hardlink", %{conn: conn} do
+      item = probed_item()
+      _media = library_recording(from: item, hardlinked: true)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      view |> element("[data-role='local-recording'] button") |> render_click()
+
+      refute has_element?(view, "[data-role='replace-warning']")
+    end
+
+    # An answer can stop being true: nothing stops the audiobook being
+    # deleted between the choice and the click, and the form may not offer a
+    # button that fails.
+    test "an audiobook deleted since it was chosen blocks the import", %{conn: conn} do
+      item = probed_item() |> settle()
+      media = library_recording()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      view |> element("#recording-search") |> render_change(%{"query" => "Kings"})
+      view |> element("[data-role='local-recording'] button") |> render_click()
+
+      {:ok, _deleted} = Ambry.Media.delete_media(Ambry.Media.get_media!(media.id))
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "has been deleted"
+      assert has_element?(view, "button[data-role='import'][disabled]")
+    end
+
+    # An audiobook in the library as the reclaim finds them: no tracks,
+    # streamed from a packaged artifact, with a real file behind it so the
+    # link count means something.
+    defp library_recording(opts \\ []) do
+      workspace = Ambry.Paths.source_media_disk_path(Ecto.UUID.generate())
+      File.mkdir_p!(workspace)
+      served = Path.join(workspace, "book.m4b")
+      File.write!(served, "served bytes")
+
+      if opts[:hardlinked] do
+        File.ln!(served, Path.join(workspace, "the-other-name.m4b"))
+      end
+
+      insert(:media,
+        book: build(:book, title: "The Way of Kings"),
+        source_path: Ambry.Paths.disk_to_web(workspace),
+        source_files: [Ambry.Paths.disk_to_web(served)],
+        mp4_path: Ambry.Paths.disk_to_web(served),
+        legacy_source_files: legacy_source_files(opts[:from])
+      )
+    end
+
+    defp legacy_source_files(nil), do: nil
+
+    defp legacy_source_files(%InboxItem{} = item),
+      do: item |> Repo.preload(:source) |> InboxItem.disk_files()
+  end
+
   describe "settling decisions" do
     # The bulk "take the top suggestion" button is gone on purpose (operator:
     # they would rather settle each section with eyes on it than in bulk), so

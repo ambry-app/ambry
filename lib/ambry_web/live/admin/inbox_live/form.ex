@@ -46,6 +46,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
+  alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.Draft.Work
@@ -84,6 +85,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      # are evidence and live on the item.
      |> assign(searching_person: nil, photos_expanded: %{})
      |> assign(library_query: nil, library_results: [], ticking: false)
+     # The replace decision's typeahead. Session state like the library
+     # search above it: what was searched for is not part of the import.
+     |> assign(recording_query: nil, recording_results: [])
      # The pending chapter-title fetch, and which ASIN's titles were last
      # poured — the chips' chosen state.
      |> assign(chapter_import: nil, chapters_applied_asin: nil)
@@ -317,6 +321,27 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   def handle_event("waive-field", %{"section" => section, "field" => field}, socket) do
     {:noreply, edit(socket, &Draft.Edit.waive_field(&1, atom(section), atom(field)))}
+  end
+
+  # The decision above every other one: these files are a better copy of
+  # something the library already has, so nothing below is in question.
+  def handle_event("replace-recording", %{"id" => id}, socket) do
+    case to_int(id) do
+      nil -> {:noreply, socket}
+      media_id -> {:noreply, edit(socket, &Draft.Edit.replace_recording(&1, media_id))}
+    end
+  end
+
+  def handle_event("new-recording", _params, socket) do
+    {:noreply, edit(socket, &Draft.Edit.new_recording/1)}
+  end
+
+  # The same escape hatch the work level has, for the same reason: a
+  # recording whose provenance was never recorded — or was recorded against a
+  # path that has since moved — is reachable no other way.
+  def handle_event("search-recordings", %{"query" => query}, socket) do
+    results = query |> Media.match_media() |> Enum.map(&local_recording/1)
+    {:noreply, assign(socket, recording_query: query, recording_results: results)}
   end
 
   def handle_event("link-book", %{"id" => id}, socket) do
@@ -809,9 +834,11 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     case Inbox.import_item_async(socket.assigns.item) do
       {:ok, job} ->
         message =
-          if job.conflict?,
-            do: "Already adding this one.",
-            else: "Adding to the library. The row will say when it's done."
+          cond do
+            job.conflict? -> "Already working on this one."
+            socket.assigns.replacing -> "Replacing the files. The row will say when it's done."
+            true -> "Adding to the library. The row will say when it's done."
+          end
 
         {:noreply,
          socket
@@ -937,6 +964,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   defp load(socket, item) do
     job = Inbox.job_status(item)
+    destination = Inbox.destination_preflight(item)
+    replaces = replaces(item.draft)
+    replacing = Replacement.replacing?(item.draft && item.draft.replacement)
 
     assign(socket,
       item: item,
@@ -944,6 +974,21 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       form: to_form(Inbox.change_draft(item)),
       unresolved: Draft.unresolved(item.draft),
       progress: Draft.progress(item.draft),
+      # Whether this import is about an audiobook the library already has,
+      # which is what decides whether the rest of the form is a question at
+      # all.
+      replacing: replacing,
+      # The recording under that decision — the operator's choice, or the
+      # proposal the path evidence made, or the one they declined. All three
+      # render the same row: they are the same answer at different degrees of
+      # confidence, and a declined proposal is how the way back stays open.
+      replaces: replaces,
+      replacement_blocker: replacement_blocker(replacing, replaces),
+      # Why the button is off when every decision is settled. Both halves are
+      # facts about the world rather than about the draft — a root that went
+      # away, an audiobook that was deleted — so they're read here and not
+      # counted as outstanding decisions.
+      blocker: destination.blocker || replacement_blocker(replacing, replaces),
       # What each level's search box starts from, resolved once per load
       # rather than per render — the hints are parsed out of the release
       # text.
@@ -956,7 +1001,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       # author". Derived, never stored — one human is one record now, and a
       # second copy of "who is where" is what used to drift.
       appearances: Draft.appearances(item.draft),
-      destination: Inbox.destination_preflight(item),
+      destination: destination,
       # Which ways of dividing this item would actually divide it, for the
       # split controls. Both grains exist on a GraphicAudio set; a folder of
       # three files has only the finer one.
@@ -1224,6 +1269,76 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   def provider_outcomes(_item, _level), do: []
+
+  defp replaces(%Draft{replacement: %Replacement{media_id: id}}) when is_integer(id),
+    do: id |> Media.get_media_flat() |> local_recording()
+
+  defp replaces(_no_proposal), do: nil
+
+  # A recording can be deleted between the moment it was chosen and the
+  # moment the button is pressed, and the one thing this form may not do is
+  # offer an action that fails. Not an unresolved *decision* — the operator
+  # answered the question, and the answer stopped being true.
+  defp replacement_blocker(true, nil),
+    do:
+      "The audiobook this was going to replace has been deleted. " <>
+        "Choose another, or say this is a new audiobook."
+
+  defp replacement_blocker(_replacing, _replaces), do: nil
+
+  @doc """
+  Whether replacing this recording's files would destroy the only copy.
+
+  Read at render rather than stored, because it is a fact about the disk
+  right now: a library copy hardlinked from a torrent that has since been
+  removed is down to one name, and the draft was written before that
+  happened. See `Ambry.Media.only_copy?/1` for why the link count is the
+  test and not the policy the import remembered.
+  """
+  def only_copy?(nil), do: false
+  def only_copy?(%{id: id}), do: Media.only_copy?(id)
+
+  # The same shape a searched-for recording arrives in, so the row component
+  # can't tell the proposal from a search hit.
+  defp local_recording(nil), do: nil
+
+  defp local_recording(media) do
+    %{
+      id: media.id,
+      label: recording_label(media),
+      facts: recording_facts(media),
+      direct_play: media.direct_play
+    }
+  end
+
+  # The book's title unless this recording overrides it, plus its place in a
+  # set — the same composition `Media.display_title/1` makes, off the flat
+  # row's own columns.
+  defp recording_label(media) do
+    title = media.title || media.book
+
+    case Media.Media.part_label(media) do
+      nil -> title
+      part -> "#{title} (#{part})"
+    end
+  end
+
+  # The credit stack, on one line, in the joins the vocabulary uses.
+  defp recording_facts(media) do
+    [
+      names(media.authors),
+      names(media.narrators) && "read by #{names(media.narrators)}",
+      format_timecode(media.duration)
+    ]
+    |> Enum.filter(&is_binary/1)
+    |> Enum.join(" · ")
+  end
+
+  defp names([]), do: nil
+  defp names(people), do: people |> Enum.map_join(", ", & &1.name) |> presence()
+
+  defp presence(""), do: nil
+  defp presence(value), do: value
 
   # Shaped like a stored local record, so the row component can't tell a
   # searched-for book from a matched one — they are the same answer.

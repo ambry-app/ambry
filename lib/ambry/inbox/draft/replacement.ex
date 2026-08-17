@@ -68,10 +68,17 @@ defmodule Ambry.Inbox.Draft.Replacement do
   @doc """
   Whether this import is replacing an existing audiobook's files.
 
+  **Answered, not proposed.** Everything that keys on this hides the rest of
+  the form, and a form collapsed on the strength of a guess is one that
+  decided for the operator: until they confirm, the book and audiobook
+  decisions below are still theirs to make and still outstanding.
+
   Absent on drafts that predate the decision, which are ordinary imports.
   """
   def replacing?(nil), do: false
-  def replacing?(%__MODULE__{mode: :replace, media_id: id}), do: is_integer(id)
+
+  def replacing?(%__MODULE__{mode: :replace, media_id: id, approved: true}), do: is_integer(id)
+
   def replacing?(%__MODULE__{}), do: false
 
   @doc """
@@ -93,7 +100,11 @@ defmodule Ambry.Inbox.Draft.Replacement do
 
   @doc """
   Settles that this is an audiobook the library doesn't have yet.
+
+  The proposal is kept rather than cleared: a declined suggestion still has
+  to be on the form, or "no" would be the one decision on it with no way
+  back.
   """
   def new(%__MODULE__{} = replacement),
-    do: %{replacement | mode: :new, media_id: nil, approved: true, curated: true}
+    do: %{replacement | mode: :new, approved: true, curated: true}
 end

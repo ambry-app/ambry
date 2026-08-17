@@ -38,7 +38,11 @@ defmodule Ambry.Inbox.Draft.Edit do
   back leaves every decision where the operator left it.
   """
   def replace_recording(draft, media_id) when is_integer(media_id) do
-    update_in(draft, [Access.key(:replacement)], &Replacement.replace(with_replacement(&1), media_id))
+    update_in(
+      draft,
+      [Access.key(:replacement)],
+      &Replacement.replace(with_replacement(&1), media_id)
+    )
   end
 
   @doc """

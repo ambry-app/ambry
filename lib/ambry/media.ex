@@ -165,6 +165,15 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  One recording's flat row, or nil.
+
+  For a surface that already speaks that shape: the import form renders the
+  replacement it proposed and the ones a search returned with one component,
+  because they are the same answer.
+  """
+  def get_media_flat(id), do: Repo.get(MediaFlat, id)
+
+  @doc """
   The recording these files were imported into, if any.
 
   A recording records where its audio came from in three places: the tracks
@@ -562,22 +571,30 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Whether every file this recording is served from has another name on disk.
+  Whether this recording's files are the only name their bytes have.
 
-  A hardlinked library copy shares its inode with the source it was placed
-  from, so removing the library's name doesn't destroy the bytes. The link
-  count is what says that *now*: a recording hardlinked from a torrent that
-  has since been removed has a link count of 1, and the honest answer there
-  is no.
+  What the replace decision's warning asks. A hardlinked library copy shares
+  its inode with the source it was placed from, so the bytes have another
+  name and removing this one destroys nothing — there is nothing to warn
+  about. The link count is what says that *now*, which is the honest test: a
+  recording hardlinked from a torrent that has since been removed has a link
+  count of 1, and its files really are the last copy.
 
-  False for a recording with nothing to ask about, and false for any file
-  that can't be stat'd — this gates a warning about losing files, and a
-  warning that hides when it shouldn't is worse than one that always shows.
+  True for a recording with nothing to ask about, and true for any file that
+  can't be stat'd. A warning that hides when it shouldn't is worse than one
+  that always shows.
   """
-  def all_hardlinked?(%Media{} = media) do
+  def only_copy?(media_id) when is_integer(media_id) do
+    case Repo.get(Media, media_id) do
+      nil -> false
+      media -> only_copy?(media)
+    end
+  end
+
+  def only_copy?(%Media{} = media) do
     case served_files(media) do
-      [] -> false
-      files -> Enum.all?(files, &hardlinked?/1)
+      [] -> true
+      files -> not Enum.all?(files, &hardlinked?/1)
     end
   end
 

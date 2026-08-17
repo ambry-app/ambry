@@ -677,7 +677,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
             legacy_source_files: opts[:from],
             mp4_path: Ambry.Paths.disk_to_web(Path.join(workspace, "book.mp4"))
           ],
-          Keyword.drop(opts, [:from])
+          Keyword.delete(opts, :from)
         )
       )
     end
