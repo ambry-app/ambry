@@ -3,11 +3,9 @@ defmodule Ambry.ObanQueuesTest do
   Every worker's queue has to exist, or its jobs sit in the database forever.
 
   Oban accepts an insert into a queue nothing is running — there is no
-  producer to refuse it — so the failure is silent and looks exactly like a
-  feature that stopped working for no reason. Removing the `media` queue
-  during the transcode retirement did this to discovery, probing, importing,
-  organizing, reconciliation and publish-pending in one line, and the whole
-  suite stayed green because tests drain queues by name.
+  producer to refuse it — so dropping a queue silently stops every feature
+  behind it, and looks like nothing at all. Tests drain queues by name, so
+  they don't notice either: this is the only thing that does.
   """
   use ExUnit.Case, async: true
 

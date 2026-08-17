@@ -369,8 +369,8 @@ defmodule Ambry.Media.OrganizationTest do
     {:ok, media}
   end
 
-  # Where a recording's files are, in play order: its tracks, which for an
-  # imported recording is the only place they are recorded.
+  # Where a recording's files are, in play order: its tracks, which is the
+  # only place an imported recording records them.
   defp track_disk_paths(%{media_tracks: tracks}) do
     tracks
     |> Enum.sort_by(& &1.index)

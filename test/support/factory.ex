@@ -238,12 +238,10 @@ defmodule Ambry.Factory do
   Gives a persisted media the tracks an import would write for real audio.
 
   Real files, really probed: what a test wants when it cares about codecs,
-  sizes, seek accuracy or a duration that has to add up. The scanner that
-  once did this in one call is gone — importing is how a recording gets
-  tracks — so this does what the importer does with the probes it takes.
-
-  The recording comes out in an import's shape: tracks, and neither of the
-  transcode columns.
+  sizes, seek accuracy or a duration that has to add up. Does what
+  `Ambry.Inbox.Importer` does with the probes it takes, so the recording
+  comes out in an import's shape — tracks, and neither of the transcode
+  columns.
   """
   def with_probed_tracks(%Media{__meta__: %{state: :loaded}} = media, type \\ :m4a, count \\ 1) do
     media = media.id |> Ambry.Media.get_media!() |> with_copied_source_files(type, count)
@@ -307,19 +305,15 @@ defmodule Ambry.Factory do
   end
 
   @doc """
-  Gives a media the packaged artifacts a transcode used to leave behind.
+  Gives a media the packaged artifacts of a transcode.
 
-  Ambry does not transcode any more — the pipeline retired with the last
-  upload form — but the library is full of recordings that were transcoded
-  before that, and serving them is still the server's job. So this writes
-  the four files shaka-packager produced, under the names it produced them
-  with, instead of producing them: same columns, same disk layout, no
-  ffmpeg and no packager.
+  Ambry serves recordings that were transcoded elsewhere but cannot produce
+  one, so this writes the four files a packager leaves behind, under the
+  names it gives them: same columns, same disk layout.
 
-  The bytes are placeholders. Nothing left in the codebase reads inside a
-  packaged artifact — they are served as opaque files and deleted as opaque
-  files — so a test that needs one needs its name, its size and its
-  existence.
+  The bytes are placeholders. Nothing reads inside a packaged artifact —
+  they are served as opaque files and deleted as opaque files — so a test
+  that needs one needs its name, its size and its existence.
   """
   def with_output_files(%Media{__meta__: %{state: :loaded}} = media) do
     id = Ecto.UUID.generate()

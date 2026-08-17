@@ -99,10 +99,9 @@ defmodule Ambry.Media.Audit do
 
     # Transcoded recordings only. This audit is entirely about the uploads
     # tree — a transcode's inputs under `source_media/`, its outputs under
-    # `media/` — and an imported recording has neither, so including one
-    # reported it broken in all five columns for the crime of never having
-    # been transcoded. `Ambry.Media.Reconciliation` is what watches the
-    # files an imported recording is served from.
+    # `media/` — and an imported recording has neither, so it would read as
+    # broken in all five columns. `Ambry.Media.Reconciliation` is what
+    # watches the files an imported recording is served from.
     placed = from(t in MediaTrack, select: t.media_id)
 
     query =

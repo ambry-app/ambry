@@ -2,20 +2,12 @@ defmodule Ambry.Repo.Migrations.RetirePlacedSourceColumns do
   @moduledoc """
   Clears `source_path` and `source_files` on every recording that has tracks.
 
-  Those two columns are the transcode pipeline's bookkeeping: the folder and
-  the files a processor was pointed at when it produced a recording's
-  mpd/hls/mp4. Placement started filling them in with the *library copies*
-  of an imported recording — a recording nothing ever transcoded — so they
-  claimed a transcode that never ran, from inputs that are in fact the
-  recording's own served tracks.
+  Those two columns state what a transcode consumed. A recording with tracks
+  was imported rather than transcoded, so it has no such fact to state, and
+  `media_tracks` is what it is served from, organized by and deleted with.
 
-  Nothing reads them for such a recording; `media_tracks` is what it is
-  served from, organized by and deleted with. The writers have stopped, and
-  this clears the rows they already wrote.
-
-  The down migration reconstructs the values from `media_tracks` rather than
-  pretending to restore an original, because that is exactly where they came
-  from.
+  The down migration reconstructs the values from `media_tracks`, which is
+  where they can be derived from.
   """
 
   use Ecto.Migration

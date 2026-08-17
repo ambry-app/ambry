@@ -88,10 +88,10 @@ defmodule Ambry.Media do
 
   Deliberately narrow. A recording qualifies only if it is `pending`, has
   tracks, has **no** legacy transcoded paths, and isn't currently missing.
-  That last pair matters: a legacy recording sitting in `pending` was waiting
-  on a transcode that will now never run — this switch was never what it
-  needed — and publishing a recording whose files have vanished would hand
-  clients something unplayable.
+  That last pair matters: a legacy recording sitting in `pending` has no
+  tracks to publish and this switch is not what it is waiting on, and
+  publishing a recording whose files have vanished would hand clients
+  something unplayable.
   """
   def publish_pending_direct_play do
     Media
@@ -251,19 +251,17 @@ defmodule Ambry.Media do
   @doc """
   The recording these files were imported into, if any.
 
-  Three eras answer this three ways, and the library holds all three at
-  once: an **imported** recording answers with the tracks it is served
-  from; a **web-upload-era** one with the `source_files` its transcode
-  consumed, which are the copies the upload form made; a
+  Three kinds of recording answer this three ways, and the library holds
+  all three at once: an **imported** one answers with the tracks it is
+  served from; a **web-upload-era** one with the `source_files` its
+  transcode consumed, which are copies the upload form made; a
   **server-import-era** one with `legacy_source_files`, the absolute
-  downloads paths its transcode consumed before the paths refactor
-  quarantined them.
+  downloads paths its transcode consumed, quarantined there because they
+  point outside every root.
 
   The last two are transcode bookkeeping, which is exactly why they answer
   this question: what a recording was made from is what a file turning up
-  again would be replacing. Discovery used to read all three to *hide* a
-  file; the import form reads them to propose a replacement, which is the
-  same fact put to honest use.
+  again would be replacing.
 
   Compared as absolute disk paths on both sides, so which stored form a
   recording happens to use (root-relative, `/uploads/...`, or absolute) never
@@ -363,8 +361,8 @@ defmodule Ambry.Media do
 
     * `missing` — the nightly reconciliation couldn't read the files. Clients
       are being offered something that isn't there.
-    * `errored` — the retired transcode pipeline gave up on it, and nothing
-      will pick it back up: the way out is to import the files again.
+    * `errored` — a transcode gave up on it, and nothing will pick it back
+      up: the way out is to import the files again.
     * `streaming_only` — no tracks, so the only way to play it is the legacy
       transcoding pipeline. It works, and it costs double the disk; clearing
       one means relinking it to its source (Phase 4). This is deliberately

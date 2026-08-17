@@ -54,9 +54,7 @@ RUN mix release --path /app --quiet
 FROM docker.io/alpine:3.22.5 AS elixir-runner
 
 # ffmpeg is here for ffprobe: durations, tags and chapter markers are read
-# off files that are then served untouched. Nothing transcodes any more, so
-# shaka-packager is gone — recordings packaged before that are served as the
-# files they already are.
+# off files that are then served untouched.
 RUN apk --update upgrade && \
   apk add openssl ncurses-libs libstdc++ ffmpeg curl
 

@@ -562,10 +562,9 @@ defmodule Ambry.Inbox.ManagedImportTest do
       refute replaced.hls_path
       refute replaced.mpd_path
 
-      # The transcode is gone, and so is every record of what fed it: the
-      # two source columns, and the pre-refactor provenance the CHECK
-      # `media_legacy_source_files_quarantined` forbids a placed recording
-      # from keeping.
+      # No transcode, so no record of what fed one: the two source columns,
+      # and the provenance the CHECK `media_legacy_source_files_quarantined`
+      # forbids a placed recording from holding.
       assert replaced.source_path == nil
       assert replaced.source_files == []
       refute replaced.legacy_source_files
@@ -998,8 +997,8 @@ defmodule Ambry.Inbox.ManagedImportTest do
   end
 
   # Where an import put the files, in play order. `media_tracks` is the only
-  # place it says so: `source_path` and `source_files` are what a transcode
-  # consumed, and an import is not transcoded.
+  # place it says so: `source_path` and `source_files` state what a
+  # transcode consumed, and an import has no transcode.
   defp track_paths(%{media_tracks: tracks}),
     do: tracks |> Enum.sort_by(& &1.index) |> Enum.map(& &1.path)
 

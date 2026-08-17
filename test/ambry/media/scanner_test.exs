@@ -153,8 +153,8 @@ defmodule Ambry.Media.ScannerTest do
   end
 
   # The same files, recorded the way an import records them: tracks, and no
-  # transcode bookkeeping — nothing transcoded it. What the edit form's tag
-  # evidence has to read for every recording the inbox has ever imported.
+  # transcode bookkeeping. What the edit form's tag evidence reads for every
+  # imported recording.
   defp imported_media(media) do
     Enum.each(Enum.with_index(media.source_files), fn {path, index} ->
       insert(:media_track, media: media, path: path, index: index)
@@ -236,8 +236,8 @@ defmodule Ambry.Media.ScannerTest do
     |> then(&Media.get_media!(&1.id))
   end
 
-  # A real audio file on disk and nothing else. The probes take paths, not
-  # recordings — that is the point of them — so these tests need no rows.
+  # A real audio file on disk and nothing else: the probes take paths rather
+  # than recordings, so these tests need no rows.
   defp fixture_file(type) do
     dir = Ambry.Paths.source_media_disk_path("probe-#{Ecto.UUID.generate()}")
     File.mkdir_p!(dir)

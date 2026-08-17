@@ -3,14 +3,14 @@ defmodule Ambry.Media.Scanner.Probe do
   Reads what an audio file actually *is*: container, codec, size, duration,
   and any embedded chapter markers.
 
-  This is the direct-play replacement for transcoding: nothing is decoded,
-  repackaged, or written — the file is measured and left alone.
+  Nothing is decoded, repackaged, or written: the file is measured and left
+  alone.
 
   ## Durations
 
-  The retired transcode pipeline trusted whatever the container claimed,
-  which was only safe because it was reading MP4s it had produced itself.
-  Source files are not so cooperative: a VBR mp3 with no Xing/VBRI
+  A container's claimed duration is only trustworthy when something
+  produced that container to a known recipe. Arbitrary source files are not
+  so cooperative: a VBR mp3 with no Xing/VBRI
   header has no duration to report, so ffprobe extrapolates one from the first
   frame's bitrate and can be minutes wrong over a long book.
 

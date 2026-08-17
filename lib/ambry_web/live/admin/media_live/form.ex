@@ -77,17 +77,15 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   # What the recording is played from, in play order, in the stored form the
-  # database holds — root-relative, or `/uploads/...` for a track that
-  # predates the roots. A transcoded recording has no tracks and plays its
-  # packaged artifacts, which the fold below is about; its `source_files`
-  # are what the transcode consumed, and belong there with them.
+  # database holds — root-relative, or `/uploads/...` for a track outside
+  # every root. A transcoded recording has no tracks: it plays the packaged
+  # artifacts the fold below describes, beside the sources they were made
+  # from.
   defp audio_files(%{media_tracks: tracks}),
     do: tracks |> Enum.sort_by(& &1.index) |> Enum.map(& &1.path)
 
   # Only a transcoded recording has streaming files, and only it pays for
-  # the `File.ls` and four `File.stat`s that describe them. Asked of an
-  # imported recording it listed that recording's own tracks back at itself
-  # under a heading about a transcode that never ran.
+  # the `File.ls` and four `File.stat`s that describe them.
   defp legacy_file_stats(%{media_tracks: [_ | _]}), do: nil
   defp legacy_file_stats(media), do: Media.get_media_file_details(media)
 

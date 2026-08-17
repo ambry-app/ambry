@@ -193,7 +193,7 @@ defmodule Ambry.Media.Organization do
 
   # File operations happen in absolutes; what gets *written back* is the
   # stored form — relative to the root the rename stayed inside. Only the
-  # tracks: `organize/1` only ever runs on a recording that has them
+  # tracks: `organize/1` runs only on a recording that has them
   # (`current_files/1` is where it stops otherwise), and they are that
   # recording's whole record of where its files are.
   defp repoint(media, root, pairs) do

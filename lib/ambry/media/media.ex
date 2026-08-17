@@ -77,22 +77,18 @@ defmodule Ambry.Media.Media do
 
     # Which library root this recording's paths are relative to — its
     # tracks' when it has them, its transcode sources' when it doesn't.
-    # Null means the legacy uploads tree, where paths are `/uploads/...` —
-    # the same convention the transcoded-output columns below always used.
+    # Null means the uploads tree, where paths are `/uploads/...`, which is
+    # also where the transcoded-output columns below point.
     belongs_to :library_root, Root
 
     # **Transcode source bookkeeping**, and nothing else: the folder and the
-    # files the processor was pointed at when it produced the mp4/mpd/hls
-    # trio below. They were never served, never played, and never a record
-    # of what the recording *is* — resolve them through `source_path/2` and
-    # `files/2`, and never join them against anything directly.
+    # files a transcode consumed to produce the mp4/mpd/hls trio below.
+    # Never served and never played — resolve them through `source_path/2`
+    # and `files/2`, and never join them against anything directly.
     #
-    # An imported recording leaves both empty, because nothing transcoded
-    # it. Its files are `media_tracks`, which is what it is served from,
-    # organized by and deleted with. Placement filled these in for a while
-    # — pointing "what we transcoded from" at the library copies of a
-    # recording with no transcode — and that is what put a recording's own
-    # tracks under a heading about streaming files.
+    # Only a transcoded recording has them. An imported one leaves both
+    # empty: its files are `media_tracks`, which is what it is served from,
+    # organized by and deleted with.
     field :source_path, :string
     field :source_files, {:array, :string}, default: []
 
@@ -384,10 +380,8 @@ defmodule Ambry.Media.Media do
     |> maybe_validate_paths(opts)
   end
 
-  # A transcoded recording must say what it was transcoded from; there is
-  # nowhere else that fact lives, and an artifact whose inputs are unknown
-  # is un-reprocessable. An imported recording has no such fact, and
-  # requiring one is what had placement inventing a value for it.
+  # A transcoded recording must say what it was transcoded from: nowhere
+  # else holds that fact. An imported recording has no such fact to state.
   defp validate_source_path(changeset) do
     if direct_play?(changeset),
       do: changeset,
@@ -465,9 +459,9 @@ defmodule Ambry.Media.Media do
   The absolute disk path of the folder this recording was transcoded from,
   or of a file in it.
 
-  The stored column is root-relative (or `/uploads/...` for legacy rows);
-  this is the one place it becomes a real path. Only a transcoded recording
-  has one — see the field's comment.
+  The stored column is root-relative (or `/uploads/...`); this is the one
+  place it becomes a real path. Only a transcoded recording has one — see
+  the field's comment.
   """
   def source_path(%Media{source_path: source_path} = media, file \\ "")
       when is_binary(source_path) do
@@ -494,9 +488,9 @@ defmodule Ambry.Media.Media do
   The files this recording was transcoded from, as absolute disk paths,
   filtered by extension.
 
-  Source bookkeeping, not playback: these are what the transcode consumed,
-  back when Ambry transcoded. An imported recording has none, and answers
-  from `media_tracks` instead — `Ambry.Media.Scanner.audio_files/1`.
+  Source bookkeeping, not playback: what a transcode consumed. An imported
+  recording has none, and answers from `media_tracks` instead —
+  `Ambry.Media.Scanner.audio_files/1`.
   """
   def files(%Media{source_files: [_ | _] = source_files} = media, extensions) do
     source_files
@@ -519,14 +513,12 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  # A recording with no transcode sources recorded at all: an import, which
-  # was never transcoded.
+  # An imported recording: nothing transcoded it, so there is nothing here.
   def files(%Media{}, _extensions), do: []
 
   # Natural order, not string order: a 40-file recording's file 10 sorts
-  # after file 9 here and nowhere else. `File.ls/1` above returns whatever
-  # order the filesystem felt like, and the stored list is only as ordered
-  # as whoever wrote it.
+  # after file 9. `File.ls/1` above returns whatever order the filesystem
+  # felt like, and the stored list is only as ordered as whoever wrote it.
   defp filter_audio(paths, extensions) do
     paths
     |> Enum.filter(&(Path.extname(&1) in extensions))
@@ -536,7 +528,7 @@ defmodule Ambry.Media.Media do
   @doc """
   The same list unfiltered, in play order.
 
-  Empty for an imported recording — see `files/2` for why.
+  Empty for an imported recording — see `files/2`.
   """
   def source_file_paths(%Media{source_files: files} = media) when is_list(files) do
     Enum.map(files, &resolve!(media, &1))

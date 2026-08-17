@@ -1,6 +1,6 @@
 defmodule Ambry.Media.Scanner do
   @moduledoc """
-  Measures audio files, instead of transcoding them into something else.
+  Measures audio files.
 
   Files are probed, never copied, rewritten or repackaged, and what comes
   back is what a recording is made of: ordered `media_tracks` attributes, a
@@ -21,9 +21,9 @@ defmodule Ambry.Media.Scanner do
   either way.
 
   Order is the order the caller passes, which is discovery's order,
-  natural-sorted: `Disc 2` after `Disc 1`, `track10.mp3` after `track2.mp3`.
-  That is the order the operator was shown. Embedded track-number tags are
-  deliberately *not* consulted — a visible filename the operator can check
+  natural-sorted: `Disc 2` after `Disc 1`, `track10.mp3` after `track2.mp3`
+  — the order the operator is shown. Embedded track-number tags are
+  deliberately *not* consulted: a visible filename the operator can check
   beats a tag they can't, and the ordering has to be one they can predict
   from the folder.
 
@@ -79,15 +79,14 @@ defmodule Ambry.Media.Scanner do
   @doc """
   The audio files a media is made of, in play order.
 
-  Two different recordings answer this two different ways, and the
-  difference is the whole shape of the library right now: an **imported**
-  recording is made of its tracks, which is what clients are served; a
+  Two kinds of recording answer this two different ways. An **imported**
+  one is made of its tracks, which is what clients are served. A
   **transcoded** one is made of the sources it was transcoded from
-  (`Media.files/2`), because its packaged artifacts are not audio files
-  anyone can read tags off — shaka-packager strips them.
+  (`Media.files/2`): its packaged artifacts carry no tags, so they are no
+  use to anything that reads a file to learn about the recording.
 
-  Asking the tracks first is what keeps this honest for an imported
-  recording, which has no transcode sources at all.
+  The tracks are asked first, since an imported recording has no transcode
+  sources at all.
   """
   def audio_files(%Media{media_tracks: [_ | _] = tracks}) do
     {:ok, tracks |> Enum.sort_by(& &1.index) |> Enum.map(&MediaTrack.disk_path!/1)}

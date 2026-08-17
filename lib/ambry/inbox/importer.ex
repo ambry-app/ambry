@@ -237,9 +237,7 @@ defmodule Ambry.Inbox.Importer do
   #
   # `source_path` and `source_files` are cleared in the same statement, and
   # for the same reason `clear_legacy_provenance/1` clears the third: they
-  # are the bookkeeping of the transcode this replacement just retired —
-  # what it was made from, back when it was made. With the artifacts gone
-  # there is nothing left for them to describe.
+  # describe a transcode, and a recording served from tracks has none.
   defp repoint(media, probes, {root, _policy}) do
     %{
       library_root_id: root.id,
@@ -488,9 +486,9 @@ defmodule Ambry.Inbox.Importer do
       # and a CHECK cannot wait for the commit. They start as placeholders
       # in valid form — basenames under the right root — that placement
       # rewrites to the real relative paths inside this same transaction.
-      # `source_path` / `source_files` stay empty: they are the transcode
-      # pipeline's bookkeeping of what it was fed, and an import is not
-      # transcoded. Its files are its tracks.
+      # `source_path` / `source_files` stay empty: they are a transcode's
+      # bookkeeping of what it consumed, and an import has no transcode.
+      # Its files are its tracks.
       library_root_id: root.id,
       status: :pending,
       # The recording's settled place in its part set, if any.
@@ -709,11 +707,10 @@ defmodule Ambry.Inbox.Importer do
   defp part_number(_absent_or_removed), do: nil
 
   # The recording now points at the library copies and Ambry owns those
-  # names — in `media_tracks`, and only there. Placement used to write
-  # `source_path` / `source_files` here too, which said something untrue:
-  # those columns are what a transcode consumed, and this recording was
-  # never transcoded. What it left behind was a recording's own tracks
-  # showing up wherever the UI asked "what was this made from".
+  # names — in `media_tracks`, and only there. Not in `source_path` /
+  # `source_files`, which state what a transcode consumed: an imported
+  # recording has no transcode, and saying otherwise would answer "what was
+  # this made from" with the recording's own files.
   defp record_placement(media, root, paths) do
     with {:ok, _tracks} <- repoint_tracks(media, root, paths) do
       media

@@ -2,11 +2,8 @@ defmodule Ambry.Media.Chapters.Utils do
   @moduledoc """
   Reading ffprobe's chapter JSON.
 
-  What is left of the chapter strategies: the transcode pipeline had its own
-  probes here — metadata, an accurate duration, an mp4 chapter dump, each
-  shelling out from a recording's source folder — and they went with it.
-  `Ambry.Media.Scanner.Probe` asks ffprobe for chapters now, and this is the
-  shape-checking it hands the answer to.
+  `Ambry.Media.Scanner.Probe` asks ffprobe for a file's chapters; this is
+  the shape-checking it hands the answer to.
   """
 
   require Logger

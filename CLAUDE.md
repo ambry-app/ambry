@@ -63,17 +63,17 @@ Each context manages a domain with Ecto schemas, queries, and business logic:
 - `Search` - Full-text search with PostgreSQL trigrams
 - `PubSub` - Event broadcasting via Phoenix.PubSub + Oban for async
 
-### Audio: direct play, and the transcodes that predate it
+### Audio: direct play, and the transcoded recordings beside it
 
-Nothing is transcoded. `Ambry.Media.Scanner` probes a file with ffprobe and
-writes `media_tracks`; clients are served those files directly.
+Ambry does not transcode. `Ambry.Media.Scanner` probes a file with ffprobe
+and the importer writes `media_tracks`; clients are served those files
+directly.
 
-Recordings imported before that still have their packaged artifacts —
-`mp4_path` / `mpd_path` / `hls_path`, produced by a since-removed
-ffmpeg + shaka-packager pipeline — and the server still serves and deletes
-them. It cannot make more. A recording is "legacy" exactly when it has no
-tracks; `Ambry.Media.Media`'s `source_path` / `source_files` are that
-pipeline's record of what it consumed, and an imported recording has neither.
+Some recordings are instead served from packaged artifacts — `mp4_path` /
+`mpd_path` / `hls_path` — which the server serves and deletes but cannot
+produce. A recording is one of these exactly when it has no tracks, and its
+`source_path` / `source_files` state what its transcode consumed. An
+imported recording has neither.
 
 ### Flat Views Pattern
 

@@ -2,10 +2,9 @@ defmodule AmbryWeb.Admin.MediaLive.FilesTest do
   @moduledoc """
   What the Audio section of the edit form says a recording is made of.
 
-  Two eras, two answers: an imported recording is its tracks, and a
+  Two kinds of recording, two answers: an imported one is its tracks, and a
   transcoded one is its packaged artifacts plus the sources they were made
-  from. Asking one of them the other's question is what put a recording's
-  own tracks behind a "Streaming files" fold.
+  from. Neither may be shown the other's.
   """
   use AmbryWeb.ConnCase, async: true
 
