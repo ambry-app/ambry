@@ -9,9 +9,9 @@ defmodule Ambry.Media.Relink do
 
   Two halves, and the split is the safety property:
 
-    * **`plan/1` writes nothing.** Safe to point at production before anything
+    * **`plan/2` writes nothing.** Safe to point at production before anything
       else exists, one recording at a time, and read the answer.
-    * **`relink/1` does it**, and only ever for a plan that came back `:ok`,
+    * **`relink/2` does it**, and only ever for a plan that came back `:ok`,
       re-measured immediately beforehand.
 
   Even the doing half adds rather than replaces. Nothing is deleted, nothing
@@ -53,6 +53,26 @@ defmodule Ambry.Media.Relink do
   A recording with tracks already is not a candidate, and neither is one whose
   files cannot be found at all.
 
+  ## Which copy of the bytes it relinks
+
+  A recording's *recorded* source is not always the nearest copy of its audio.
+  40 of the upload era's recordings were downloaded first and then imported
+  through the web upload form, which copies into `source_media/<uuid>/` — so
+  the recording points at a copy on the uploads volume while the original is
+  still sitting on the destination NAS, still seeding, unrecorded anywhere.
+
+  Placing the recorded source would copy ~18G across the wire to write bytes
+  that are already on the other end, and leave the library holding a third
+  copy of them. So when every one of a recording's sources has a byte-identical
+  twin on the destination filesystem, the plan relinks *the twins* instead:
+  one hardlink each, no bytes, and the uploads-side originals left untouched
+  for the later pass that empties that volume.
+
+  Size indexes the search and a head-and-tail digest decides it, all of them
+  or none — see `twin_index/1`. And because the substitution happens before
+  the duration gate below, what gets verified against the recording's stored
+  duration is the file that will actually be placed.
+
   ## The duration gate
 
   The one check that catches a path pointing at the wrong file. Sum the probed
@@ -93,6 +113,7 @@ defmodule Ambry.Media.Relink do
   alias Ambry.Library.NamingTemplate
   alias Ambry.Library.Placement
   alias Ambry.Library.Root
+  alias Ambry.Library.Source
   alias Ambry.Media.Media
   alias Ambry.Media.MediaTrack
   alias Ambry.Media.Processor.Shared
@@ -109,6 +130,11 @@ defmodule Ambry.Media.Relink do
   @drift_per_boundary_ms 65
   @drift_headroom 1.5
   @minimum_tolerance_seconds 2.0
+
+  # Read from each end of a candidate twin — the figure the reclaim's census
+  # used to confirm all 40 of them. Paid once per recording, against a
+  # decision that otherwise copies a gigabyte across the wire.
+  @digest_window 8 * 1024 * 1024
 
   defmodule Plan do
     @moduledoc """
@@ -133,7 +159,8 @@ defmodule Ambry.Media.Relink do
       :tolerance,
       :root,
       :policy,
-      :destinations
+      :destinations,
+      :twins
     ]
   end
 
@@ -142,15 +169,24 @@ defmodule Ambry.Media.Relink do
 
   Pass a media id or a loaded `Media`. Probing reads each source file's
   header, so this costs an ffprobe per file and no decoding.
+
+  ## Options
+
+    * `:twins` — a prebuilt index from `twin_index/1`. Only consulted for a
+      recording whose sources are on the wrong filesystem, and worth passing
+      for a batch: the index is a walk of every source folder, which is one
+      walk per batch rather than one per recording.
   """
-  def plan(media_id) when is_integer(media_id) do
+  def plan(media, opts \\ [])
+
+  def plan(media_id, opts) when is_integer(media_id) do
     case Repo.get(Media, media_id) do
       nil -> {:error, :not_found}
-      media -> plan(media)
+      media -> plan(media, opts)
     end
   end
 
-  def plan(%Media{} = media) do
+  def plan(%Media{} = media, opts) do
     media = preload_for_plan(media)
     era = era(media)
     sources = sources(media, era)
@@ -165,6 +201,8 @@ defmodule Ambry.Media.Relink do
     }
     |> refuse_if_already_direct_play(media)
     |> refuse_if_sources_missing()
+    |> choose_root()
+    |> prefer_twins_on_the_destination(opts)
     |> check_duration(media)
     |> propose_destination(media)
     |> settle_verdict()
@@ -210,6 +248,8 @@ defmodule Ambry.Media.Relink do
   @doc """
   Relinks one recording. **This writes**, unlike everything above it.
 
+  Takes the same options as `plan/2`, which it re-runs.
+
   Places the recording's sources into the library root, points the recording
   at the placed copies, and scans them into tracks. Returns
   `{:ok, media, plan}` with the scanned recording and the plan it acted on,
@@ -251,15 +291,17 @@ defmodule Ambry.Media.Relink do
   the bytes arrived intact, and for a hardlink it costs nothing — the second
   probe reads the same inode.
   """
-  def relink(media_id) when is_integer(media_id) do
+  def relink(media, opts \\ [])
+
+  def relink(media_id, opts) when is_integer(media_id) do
     case Repo.get(Media, media_id) do
       nil -> {:error, :not_found}
-      media -> relink(media)
+      media -> relink(media, opts)
     end
   end
 
-  def relink(%Media{} = media) do
-    case plan(media) do
+  def relink(%Media{} = media, opts) do
+    case plan(media, opts) do
       %Plan{verdict: :ok} = plan -> execute(plan, media)
       %Plan{} = refused -> {:error, refused}
     end
@@ -498,23 +540,188 @@ defmodule Ambry.Media.Relink do
   end
 
   # ==========================================================================
+  # The bytes may already be on the destination
+  # ==========================================================================
+
+  @doc """
+  Indexes the audio under every source that shares a filesystem with `root`.
+
+  The input to the twin substitution below, by size, because size is what
+  makes a full comparison worth attempting at all. Costs a walk of each
+  matching source — 3,707 files in the production downloads folder — so build
+  it once for a batch and pass it to `plan/2`.
+
+  Only *sources* are searched. A file already inside a library root is the
+  library's own audio, and rearranging how the library stores itself is a
+  different question from where a recording's bytes come from.
+  """
+  def twin_index(%Root{} = root) do
+    Library.list_sources()
+    |> Enum.filter(&same_filesystem?(&1.path, root.path))
+    |> Enum.flat_map(&audio_under/1)
+    |> Enum.reduce(%{}, fn {path, size}, index ->
+      Map.update(index, size, [path], &[path | &1])
+    end)
+  end
+
+  # A recording whose sources are on the wrong filesystem has to copy them
+  # across — unless the same bytes are *already* sitting on the destination,
+  # which for this library is true of 40 recordings.
+  #
+  # They were downloaded and then imported through the web upload form, which
+  # copies into `source_media/<uuid>/`, so the recording's recorded source is
+  # the copy and the downloaded original — still on the destination NAS, still
+  # seeding — was never recorded anywhere. Copying the uploads-side file over
+  # would write ~18G of bytes that are already there, and leave the library
+  # holding a third copy of them.
+  #
+  # So when every one of a recording's sources has a byte-identical twin on
+  # the destination, the plan relinks *the twins*: one hardlink each, zero
+  # bytes, and the uploads-side originals left untouched for the later pass
+  # that empties that volume.
+  #
+  # **All of them or none.** `Placement.place_all/2` takes one policy for a
+  # recording, and a half-twinned recording would need two; the census found
+  # zero partial matches across the 40, because a release is downloaded and
+  # imported as a unit.
+  defp prefer_twins_on_the_destination(%Plan{problems: [_ | _]} = plan, _opts), do: plan
+
+  defp prefer_twins_on_the_destination(%Plan{root: root} = plan, opts) do
+    case policy(plan.sources, root) do
+      # Already on the destination filesystem: there is nothing a twin could
+      # improve on, and looking for one would be a walk for no reason.
+      {:ok, :hardlink} ->
+        plan
+
+      {:ok, :copy} ->
+        substitute_twins(plan, opts[:twins] || twin_index(root))
+
+      # Reported by `place_into/3`, which asks the same question and has the
+      # words for it.
+      {:error, _undecidable} ->
+        plan
+    end
+  end
+
+  defp substitute_twins(plan, index) do
+    twins = Enum.map(plan.sources, &twin_of(&1, index))
+    found = Enum.count(twins, & &1)
+    plan = %{plan | twins: {found, length(twins)}}
+
+    if found == length(twins),
+      do: %{plan | sources: Enum.map(twins, &source/1)},
+      else: plan
+  end
+
+  # Size indexes, the digest decides. A head and tail of 8MB is what the
+  # reclaim's census used to confirm all 40 twins, and this runs once per
+  # recording rather than on a schedule, so it is the cheap half of a decision
+  # that otherwise moves a gigabyte.
+  defp twin_of(%{path: path}, index) do
+    case File.stat(path) do
+      {:ok, %File.Stat{size: size}} ->
+        index |> Map.get(size, []) |> Enum.find(&(digest(&1) == digest(path)))
+
+      {:error, _unreadable} ->
+        nil
+    end
+  end
+
+  defp audio_under(%Source{path: path}) do
+    path
+    |> walk()
+    |> Enum.filter(&(Path.extname(&1) in @extensions))
+    |> Enum.flat_map(fn file ->
+      case File.stat(file) do
+        {:ok, %File.Stat{size: size}} -> [{file, size}]
+        {:error, _unreadable} -> []
+      end
+    end)
+  end
+
+  defp walk(dir) do
+    case File.ls(dir) do
+      {:ok, entries} ->
+        entries
+        |> Enum.map(&Path.join(dir, &1))
+        |> Enum.flat_map(fn path -> if File.dir?(path), do: walk(path), else: [path] end)
+
+      {:error, _unreadable} ->
+        []
+    end
+  end
+
+  defp same_filesystem?(path, root_path) do
+    match?({:ok, true}, Library.same_filesystem?(path, root_path))
+  end
+
+  # `{:unreadable, path, reason}` rather than nil on failure: two files nobody
+  # can read are not the same file, and this comparison is about to decide
+  # which bytes a recording is made of.
+  defp digest(path) do
+    case File.open(path, [:read, :binary, :raw]) do
+      {:ok, io} ->
+        try do
+          :crypto.hash(:sha256, [read_at(io, 0), tail(io, path)])
+        after
+          File.close(io)
+        end
+
+      {:error, reason} ->
+        {:unreadable, path, reason}
+    end
+  end
+
+  defp tail(io, path) do
+    case File.stat(path) do
+      {:ok, %File.Stat{size: size}} when size > @digest_window ->
+        read_at(io, size - @digest_window)
+
+      _small_or_gone ->
+        ""
+    end
+  end
+
+  defp read_at(io, offset) do
+    case :file.pread(io, offset, @digest_window) do
+      {:ok, bytes} -> bytes
+      _eof_or_error -> ""
+    end
+  end
+
+  # ==========================================================================
   # Where it would go
   # ==========================================================================
+
+  @doc """
+  The root a relink places into.
+
+  There is one root in this deployment and this is not the place to invent a
+  choice between several; the oldest is the answer until something asks a
+  better question. Public because a batch has to build its twin index against
+  the same root every plan will use.
+  """
+  def destination_root do
+    case Library.list_roots() do
+      [] -> :none
+      roots -> {:ok, Enum.min_by(roots, & &1.id)}
+    end
+  end
+
+  defp choose_root(%Plan{problems: [_ | _]} = plan), do: plan
+
+  defp choose_root(plan) do
+    case destination_root() do
+      :none -> problem(plan, "no library root exists to place into")
+      {:ok, root} -> %{plan | root: root}
+    end
+  end
 
   # Only computed for a plan that is otherwise sound: rendering a destination
   # for a recording that cannot be relinked invites reading it as an intention.
   defp propose_destination(%Plan{problems: [_ | _]} = plan, _media), do: plan
 
-  defp propose_destination(plan, media) do
-    case Library.list_roots() do
-      [] ->
-        problem(plan, "no library root exists to place into")
-
-      roots ->
-        root = Enum.min_by(roots, & &1.id)
-        place_into(plan, media, root)
-    end
-  end
+  defp propose_destination(plan, media), do: place_into(plan, media, plan.root)
 
   defp place_into(plan, media, %Root{} = root) do
     values = Books.naming_values(media.book, media)

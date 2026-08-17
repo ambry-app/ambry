@@ -5,6 +5,20 @@ defmodule Ambry.Media.RelinkTest do
   alias Ambry.Media.Relink
   alias Ambry.Media.Scanner
 
+  # The upload era's shape, found at compile time rather than mocked: its
+  # sources are on the uploads volume and the root is on another NAS, which is
+  # the only arrangement where a twin can save anything. Test fixtures live
+  # under `System.tmp_dir!()`, so the root has to go somewhere else.
+  @other_filesystem Enum.find(["/dev/shm", "/var/tmp"], fn candidate ->
+                      with true <- File.dir?(candidate),
+                           {:ok, %{major_device: theirs}} <- File.stat(candidate),
+                           {:ok, %{major_device: ours}} <- File.stat(System.tmp_dir!()) do
+                        theirs != ours
+                      else
+                        _unusable -> false
+                      end
+                    end)
+
   # Every plan that gets as far as proposing a destination needs a root that
   # actually exists on disk — the filesystem question is asked of the real
   # path, deliberately, so a fabricated one cannot answer it.
@@ -284,6 +298,145 @@ defmodule Ambry.Media.RelinkTest do
       assert plan.verdict == :refused
       assert Enum.any?(plan.problems, &(&1 =~ "already has 1 track"))
     end
+  end
+
+  if @other_filesystem do
+    describe "plan/2 — the bytes may already be on the destination" do
+      # The 40 measured in production: downloaded, then imported through the
+      # web upload form, which copies. The download is still on the
+      # destination NAS, still seeding, and copying the uploads-side file over
+      # would write bytes that are already there.
+      test "hardlinks a twin on the destination instead of copying the original" do
+        %{media: media, twin: twin, source: source} = twinned_media(1)
+
+        plan = Relink.plan(Media.get_media!(media.id))
+
+        assert plan.verdict == :ok
+        assert plan.policy == :hardlink
+        assert plan.twins == {1, 1}
+        assert Enum.map(plan.sources, & &1.path) == [twin]
+        refute source in Enum.map(plan.sources, & &1.path)
+      end
+
+      test "copies the original when nothing on the destination matches it" do
+        %{media: media, source: source} = twinned_media(1, twins: 0)
+
+        plan = Relink.plan(Media.get_media!(media.id))
+
+        assert plan.policy == :copy
+        assert plan.twins == {0, 1}
+        assert Enum.map(plan.sources, & &1.path) == [source]
+      end
+
+      # All of them or none: `Placement.place_all/2` takes one policy for a
+      # recording, and the census found no partial matches — a release is
+      # downloaded and imported as a unit.
+      test "copies everything when only some files have twins" do
+        %{media: media, sources: sources} = twinned_media(2, twins: 1)
+
+        plan = Relink.plan(Media.get_media!(media.id))
+
+        assert plan.policy == :copy
+        assert plan.twins == {1, 2}
+        assert Enum.map(plan.sources, & &1.path) == sources
+      end
+
+      # Size indexes; the digest decides. Same length, different bytes.
+      test "does not take a same-sized file that isn't the same file" do
+        %{media: media, twin: twin, source: source} = twinned_media(1)
+        corrupt_a_byte(twin)
+
+        plan = Relink.plan(Media.get_media!(media.id))
+
+        assert plan.policy == :copy
+        assert plan.twins == {0, 1}
+        assert Enum.map(plan.sources, & &1.path) == [source]
+      end
+    end
+
+    describe "relink/2 — placing a twin" do
+      test "gives the library a second name for bytes already on the NAS", %{} do
+        %{media: media, twin: twin, source: source, root: root} = twinned_media(1)
+
+        assert {:ok, relinked, plan} = Relink.relink(Media.get_media!(media.id))
+
+        assert plan.policy == :hardlink
+        [placed] = Enum.map(relinked.source_files, &Path.join(root.path, &1))
+
+        # one inode, three names, and no bytes written anywhere
+        assert File.stat!(placed).inode == File.stat!(twin).inode
+        assert File.stat!(placed).links == 2
+
+        # and the uploads-side original is still there, untouched: emptying
+        # that volume is a later pass over recordings verified playing
+        assert File.regular?(source)
+      end
+    end
+  end
+
+  # A recording whose sources are on the uploads volume, a root on another
+  # filesystem, and a downloads source alongside the root holding `twins` of
+  # the recording's files byte for byte.
+  defp twinned_media(count, opts \\ []) do
+    Repo.delete_all(Ambry.Library.Root)
+
+    root = insert(:root, path: elsewhere("root"))
+    downloads = elsewhere("downloads")
+    insert(:source, path: downloads)
+
+    media = distinct_file_media(count)
+    sources = Enum.map(media.source_files, &Ambry.Paths.web_to_disk/1)
+
+    twins =
+      sources
+      |> Enum.take(Keyword.get(opts, :twins, count))
+      |> Enum.with_index(1)
+      |> Enum.map(fn {source, index} ->
+        twin = Path.join(downloads, "The Download - #{index}.m4b")
+        File.cp!(source, twin)
+        twin
+      end)
+
+    %{
+      media: media,
+      root: root,
+      sources: sources,
+      source: hd(sources),
+      twin: List.first(twins)
+    }
+  end
+
+  # The standard fixture copies one file `count` times, which for a twin test
+  # would mean every source matches every twin. A recording whose files differ
+  # is what makes "some of them have twins" a state that can exist at all.
+  defp distinct_file_media(1), do: legacy_media(:m4a, 1)
+
+  defp distinct_file_media(2) do
+    media = :media |> build(book: build(:book)) |> with_copied_source_files(:m4a, 1)
+    folder = media.source_files |> hd() |> Ambry.Paths.web_to_disk() |> Path.dirname()
+    second = Path.join(folder, "2-sample.mp3")
+    File.cp!(valid_audio(:mp3), second)
+
+    %{media | source_files: media.source_files ++ [Ambry.Paths.disk_to_web(second)]}
+    |> insert()
+    |> then(&Media.get_media!(&1.id))
+    |> give_it_the_transcode_duration()
+  end
+
+  defp elsewhere(prefix) do
+    path = Path.join(@other_filesystem, "ambry-relink-#{prefix}-#{Ecto.UUID.generate()}")
+    File.mkdir_p!(path)
+    on_exit(fn -> File.rm_rf(path) end)
+    path
+  end
+
+  # Same length, different bytes.
+  defp corrupt_a_byte(path) do
+    contents = File.read!(path)
+    at = div(byte_size(contents), 2)
+    <<head::binary-size(^at), byte, tail::binary>> = contents
+
+    File.write!(path, <<head::binary, Bitwise.bxor(byte, 0xFF), tail::binary>>)
   end
 
   defp legacy_media(type, count) do

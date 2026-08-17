@@ -52,6 +52,12 @@ defmodule Ambry.Media.Relink.Console do
 
   A real run pays that twice, once to plan and once to scan what it placed.
   That is the check that the placed bytes are the bytes.
+
+  Before either, a batch walks every source that shares a filesystem with the
+  library root, so a recording whose bytes are already on the destination can
+  hardlink them instead of copying its own copy across. One walk for the
+  batch, seconds, and it is what makes the difference between an 84G transfer
+  and a 102G one.
   """
 
   alias Ambry.Media.Media
@@ -66,12 +72,13 @@ defmodule Ambry.Media.Relink.Console do
   """
   def report(opts \\ []) do
     media_list = select(opts)
+    twins = twin_index()
 
     heading("Planning #{length(media_list)} recording(s) — about #{estimate(media_list)}.")
 
     media_list
     |> Enum.map(fn media ->
-      plan = Relink.plan(media)
+      plan = Relink.plan(media, twins: twins)
       print_plan(plan)
       plan
     end)
@@ -85,7 +92,7 @@ defmodule Ambry.Media.Relink.Console do
   With `dry_run: false` this places files and writes to the database, one
   recording at a time, printing each outcome as it happens rather than at the
   end. Nothing is deleted and nothing is published either way; see
-  `Relink.relink/1`.
+  `Relink.relink/2`.
   """
   def run(opts \\ []) do
     if Keyword.get(opts, :dry_run, true) do
@@ -101,13 +108,14 @@ defmodule Ambry.Media.Relink.Console do
 
   defp perform(opts) do
     media_list = select(opts)
+    twins = twin_index()
     stop_on_error? = Keyword.get(opts, :stop_on_error, true)
 
     heading("Relinking #{length(media_list)} recording(s) — about #{estimate(media_list)}.")
 
     media_list
     |> Enum.reduce_while([], fn media, results ->
-      result = relink_and_print(media)
+      result = relink_and_print(media, twins)
 
       if stop_on_error? and match?({:failed, _id, _reason}, result) do
         heading("Stopped at the first error. Pass stop_on_error: false to carry on regardless.")
@@ -121,14 +129,43 @@ defmodule Ambry.Media.Relink.Console do
     |> tap(&print_run_summary/1)
   end
 
-  defp relink_and_print(media) do
-    case Relink.relink(media) do
+  # Once for the batch, not once per recording: it is a walk of every source
+  # that shares a filesystem with the root — 3,707 files in production — and
+  # every plan asks the same question of it.
+  #
+  # Built even for a batch that turns out not to need it (a server-import
+  # recording's sources are already on the destination, so nothing could
+  # improve on a hardlink). Seconds, once, and knowing in advance which
+  # recordings will need it costs the same walk.
+  defp twin_index do
+    case Relink.destination_root() do
+      {:ok, root} ->
+        index = Relink.twin_index(root)
+
+        index
+        |> Map.values()
+        |> Enum.map(&length/1)
+        |> Enum.sum()
+        |> case do
+          0 -> :nothing_to_say
+          count -> heading("Indexed #{count} file(s) already on the destination filesystem.")
+        end
+
+        index
+
+      :none ->
+        %{}
+    end
+  end
+
+  defp relink_and_print(media, twins) do
+    case Relink.relink(media, twins: twins) do
       {:ok, media, plan} ->
         print_title(plan.media_id, plan.title)
 
         detail(
-          "relinked: #{length(media.media_tracks)} track(s), #{plan.policy}, " <>
-            "#{fmt(plan.probed_duration)}"
+          "relinked: #{length(media.media_tracks)} track(s), #{plan.policy} " <>
+            "#{twins(plan.twins)}#{fmt(plan.probed_duration)}"
         )
 
         print_paths(media.source_files)
@@ -192,7 +229,7 @@ defmodule Ambry.Media.Relink.Console do
 
     detail(
       "era=#{plan.era} files=#{length(plan.sources)} " <>
-        "policy=#{plan.policy || "-"} verdict=#{plan.verdict}"
+        "policy=#{plan.policy || "-"}#{twins(plan.twins)} verdict=#{plan.verdict}"
     )
 
     if plan.stored_duration do
@@ -220,6 +257,14 @@ defmodule Ambry.Media.Relink.Console do
       _all_shown -> :ok
     end
   end
+
+  # The whole recording found on the destination is the interesting case and
+  # says so plainly. A partial match is worth seeing too: it means the plan
+  # is about to copy bytes some of which are already there, which is either a
+  # split release or something worth a look before a batch of 233.
+  defp twins(nil), do: ""
+  defp twins({same, same}), do: "(twinned) "
+  defp twins({found, total}), do: "(twins #{found}/#{total}) "
 
   # Root-relative, because the root prefix is the same on every line and the
   # part that differs is the part being checked.
