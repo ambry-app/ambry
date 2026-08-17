@@ -254,12 +254,19 @@ defmodule Ambry.Media do
   @doc """
   The recording these files were imported into, if any.
 
-  A recording records where its audio came from in three places: the tracks
-  it is served from, the `source_files` a placement wrote, and — for anything
-  imported before the paths refactor — the absolute `legacy_source_files` it
-  was transcoded from. Discovery used to read all three to *hide* a file; the
-  import form reads them to propose a replacement, which is the same fact put
-  to honest use.
+  Three eras answer this three ways, and the library holds all three at
+  once: an **imported** recording answers with the tracks it is served
+  from; a **web-upload-era** one with the `source_files` its transcode
+  consumed, which are the copies the upload form made; a
+  **server-import-era** one with `legacy_source_files`, the absolute
+  downloads paths its transcode consumed before the paths refactor
+  quarantined them.
+
+  The last two are transcode bookkeeping, which is exactly why they answer
+  this question: what a recording was made from is what a file turning up
+  again would be replacing. Discovery used to read all three to *hide* a
+  file; the import form reads them to propose a replacement, which is the
+  same fact put to honest use.
 
   Compared as absolute disk paths on both sides, so which stored form a
   recording happens to use (root-relative, `/uploads/...`, or absolute) never

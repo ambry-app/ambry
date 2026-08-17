@@ -51,8 +51,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        reverts: %{},
        chapter_import: nil,
        chapters_applied_asin: nil,
-       provenance_hints: %{},
-       source_files_expanded: false
+       provenance_hints: %{}
      )
      |> apply_action(socket.assigns.live_action, params)}
   end
@@ -68,13 +67,29 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       page_title: Media.Media.display_title(media),
       media: media,
       book_id: media.book_id,
-      file_stats: Media.get_media_file_details(media),
+      audio_files: audio_files(media),
+      file_stats: legacy_file_stats(media),
       # View state, not derived per render: deriving it from the typeahead's
       # value made the row vanish mid-edit the moment the box was cleared.
       group_row_visible: media.recording_group_id != nil or media.part_number != nil
     )
     |> assign(evidence: Evidence.new(seed_fields(media), known: Evidence.known_from(media)))
   end
+
+  # What the recording is played from, in play order, in the stored form the
+  # database holds — root-relative, or `/uploads/...` for a track that
+  # predates the roots. A transcoded recording has no tracks and plays its
+  # packaged artifacts, which the fold below is about; its `source_files`
+  # are what the transcode consumed, and belong there with them.
+  defp audio_files(%{media_tracks: tracks}),
+    do: tracks |> Enum.sort_by(& &1.index) |> Enum.map(& &1.path)
+
+  # Only a transcoded recording has streaming files, and only it pays for
+  # the `File.ls` and four `File.stat`s that describe them. Asked of an
+  # imported recording it listed that recording's own tracks back at itself
+  # under a heading about a transcode that never ran.
+  defp legacy_file_stats(%{media_tracks: [_ | _]}), do: nil
+  defp legacy_file_stats(media), do: Media.get_media_file_details(media)
 
   # The search the recording itself suggests: its book's title and author, and
   # its first narrator — the field that tells two recordings of one work apart.

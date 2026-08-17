@@ -740,7 +740,10 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <div :if={@files != []} class={["space-y-1 rounded-lg bg-zinc-900 p-4", @class]}>
       <.label :if={@label} class="pl-3">{@label}</.label>
-      <p :if={@common != ""} class="font-mono truncate text-xs text-zinc-500">{@common}/</p>
+      <%!-- The directory every file shares, printed once so the names below
+          are names. On the rail like the label above it and the rows below
+          it: three left edges is what this card used to have. --%>
+      <p :if={@common != ""} class="font-mono truncate pl-3 text-xs text-zinc-500">{@common}/</p>
       <div class="max-h-64 overflow-y-auto pr-2">
         <ul class="space-y-0.5 pt-1">
           <li :for={file <- @files} class="font-mono truncate pl-3 text-xs text-zinc-400">

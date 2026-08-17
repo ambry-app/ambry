@@ -218,11 +218,34 @@ defmodule Ambry.Media.ScannerTest do
       refute Ambry.Media.Scanner.Tags.any?(tags)
     end
 
+    test "reads them off the tracks when the recording was imported" do
+      media = imported_media(tagged_media())
+
+      assert {:ok, tags} = Scanner.tags(media)
+      assert tags.book_title == "The Way of Kings"
+    end
+
     test "reports a media with nothing to read" do
       media = insert(:media, book: build(:book))
 
       assert {:error, :no_audio_files} = Scanner.tags(media)
     end
+  end
+
+  # The same files, recorded the way an import records them: tracks, and no
+  # transcode bookkeeping — nothing transcoded it. What the edit form's tag
+  # evidence has to read for every recording the inbox has ever imported.
+  defp imported_media(media) do
+    Enum.each(Enum.with_index(media.source_files), fn {path, index} ->
+      insert(:media_track, media: media, path: path, index: index)
+    end)
+
+    {:ok, media} =
+      media.id
+      |> Media.get_media!()
+      |> Media.update_media(%{source_path: nil, source_files: []})
+
+    Media.get_media!(media.id)
   end
 
   # Tagged the way a real rip is: freeform MP4 atoms for the things the

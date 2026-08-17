@@ -6,6 +6,7 @@ defmodule Ambry.Media.Audit do
   import Ecto.Query
 
   alias Ambry.Media.Media
+  alias Ambry.Media.MediaTrack
   alias Ambry.Paths
   alias Ambry.Repo
 
@@ -96,8 +97,17 @@ defmodule Ambry.Media.Audit do
 
     existing_files = Paths.media_disk_path() |> File.ls!() |> MapSet.new()
 
+    # Transcoded recordings only. This audit is entirely about the uploads
+    # tree — a transcode's inputs under `source_media/`, its outputs under
+    # `media/` — and an imported recording has neither, so including one
+    # reported it broken in all five columns for the crime of never having
+    # been transcoded. `Ambry.Media.Reconciliation` is what watches the
+    # files an imported recording is served from.
+    placed = from(t in MediaTrack, select: t.media_id)
+
     query =
       from(m in Media,
+        where: m.id not in subquery(placed),
         select: %{
           id: m.id,
           source_folder: fragment("regexp_replace(source_path, '^.*/', '')"),

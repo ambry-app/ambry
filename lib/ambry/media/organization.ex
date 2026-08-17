@@ -172,7 +172,7 @@ defmodule Ambry.Media.Organization do
 
   defp do_move(media, root, pairs) do
     with :ok <- rename_all(pairs),
-         {:ok, _media} <- repoint(media, root, pairs) do
+         {:ok, _tracks} <- repoint(media, root, pairs) do
       pairs |> Enum.map(&elem(&1, 0)) |> prune()
       {:ok, :moved}
     else
@@ -192,20 +192,14 @@ defmodule Ambry.Media.Organization do
   end
 
   # File operations happen in absolutes; what gets *written back* is the
-  # stored form — relative to the root the rename stayed inside.
+  # stored form — relative to the root the rename stayed inside. Only the
+  # tracks: `organize/1` only ever runs on a recording that has them
+  # (`current_files/1` is where it stops otherwise), and they are that
+  # recording's whole record of where its files are.
   defp repoint(media, root, pairs) do
     moved = Map.new(pairs)
 
-    Repo.transact(fn ->
-      with {:ok, _tracks} <- repoint_tracks(media, root, moved) do
-        media
-        |> Ecto.Changeset.change(%{
-          source_path: relativize!(root, pairs |> List.last() |> elem(1) |> Path.dirname()),
-          source_files: media |> replace_paths(moved) |> Enum.map(&relativize!(root, &1))
-        })
-        |> Repo.update()
-      end
-    end)
+    Repo.transact(fn -> repoint_tracks(media, root, moved) end)
   end
 
   defp repoint_tracks(%Media{media_tracks: tracks}, root, moved) do
@@ -221,18 +215,6 @@ defmodule Ambry.Media.Organization do
         {:error, changeset} -> {:halt, {:error, changeset}}
       end
     end)
-  end
-
-  defp replace_paths(%Media{source_files: [_ | _]} = media, moved) do
-    media |> Media.source_file_paths() |> Enum.map(&Map.get(moved, &1, &1))
-  end
-
-  # A recording old enough to have no `source_files` gets the one thing that
-  # is certainly true afterwards: where its tracks are now.
-  defp replace_paths(%Media{media_tracks: tracks}, moved) do
-    tracks
-    |> Enum.sort_by(& &1.index)
-    |> Enum.map(&Map.get(moved, track_disk_path!(&1), track_disk_path!(&1)))
   end
 
   defp relativize!(root, absolute) do

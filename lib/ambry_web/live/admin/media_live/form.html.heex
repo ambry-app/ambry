@@ -317,10 +317,17 @@
           IS. Nothing here is editable any more: the files arrive through the
           inbox and this says what they are. --%>
       <.form_section title="Audio" id="audio">
-        <%!-- A fact display, not a dropzone — the dashed costume this list
-            used to wear promised "drop files here" and couldn't deliver. --%>
-        <.file_list :if={@live_action == :edit} files={@media.source_files} label="Audio file(s)" />
+        <%!-- The files this recording is served from, which is its tracks —
+            a fact display, not a dropzone: the dashed costume this list used
+            to wear promised "drop files here" and couldn't deliver. Empty,
+            and absent, for a transcoded recording, whose audio is the
+            packaged trio in the fold below. --%>
+        <.file_list files={@audio_files} label="Files" />
 
+        <%!-- Transcoded recordings only, and assigned nil otherwise: an
+            imported recording has no packaged artifacts and no transcode
+            sources, so the fold opened onto four "missing" rows and a
+            listing of its own tracks. --%>
         <.field_group :if={@file_stats}>
           <%!-- The one fold costume (§3): summary on the rail, chevron
               hanging in the gutter — not a lime "show" link, which wore the

@@ -38,6 +38,7 @@ defmodule Ambry.Media.Scanner do
   alias Ambry.Media, as: MediaContext
   alias Ambry.Media.Chapters.FromFiles
   alias Ambry.Media.Media
+  alias Ambry.Media.MediaTrack
   alias Ambry.Media.Scanner.Probe
   alias Ambry.Paths
 
@@ -92,9 +93,20 @@ defmodule Ambry.Media.Scanner do
   @doc """
   The audio files a media is made of, in play order.
 
-  Public because placement and organization have to move the same files in
-  the same order this writes tracks in.
+  Two different recordings answer this two different ways, and the
+  difference is the whole shape of the library right now: an **imported**
+  recording is made of its tracks, which is what clients are served; a
+  **transcoded** one is made of the sources it was transcoded from
+  (`Media.files/2`), because its packaged artifacts are not audio files
+  anyone can read tags off — shaka-packager strips them.
+
+  Asking the tracks first is what keeps this honest for an imported
+  recording, which has no transcode sources at all.
   """
+  def audio_files(%Media{media_tracks: [_ | _] = tracks}) do
+    {:ok, tracks |> Enum.sort_by(& &1.index) |> Enum.map(&MediaTrack.disk_path!/1)}
+  end
+
   def audio_files(%Media{} = media) do
     case files(media) do
       [] -> {:error, :no_audio_files}
