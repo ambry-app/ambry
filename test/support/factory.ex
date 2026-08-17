@@ -234,6 +234,39 @@ defmodule Ambry.Factory do
     %{media | media_tracks: tracks}
   end
 
+  @doc """
+  Gives a persisted media the tracks an import would write for real audio.
+
+  Real files, really probed: what a test wants when it cares about codecs,
+  sizes, seek accuracy or a duration that has to add up. The scanner that
+  once did this in one call is gone — importing is how a recording gets
+  tracks — so this does what the importer does with the probes it takes.
+
+  The recording comes out in an import's shape: tracks, and neither of the
+  transcode columns.
+  """
+  def with_probed_tracks(%Media{__meta__: %{state: :loaded}} = media, type \\ :m4a, count \\ 1) do
+    media = media.id |> Ambry.Media.get_media!() |> with_copied_source_files(type, count)
+    paths = Enum.map(media.source_files, &Ambry.Paths.web_to_disk/1)
+
+    {:ok, probes} = Ambry.Media.Scanner.probe_all(paths)
+
+    tracks =
+      probes
+      |> Ambry.Media.Scanner.track_attrs()
+      |> Enum.map(&%{&1 | path: Ambry.Paths.disk_to_web(&1.path)})
+
+    {:ok, media} =
+      Ambry.Media.update_media(media, %{
+        media_tracks: tracks,
+        duration: Ambry.Media.Scanner.total_duration(probes),
+        source_path: nil,
+        source_files: []
+      })
+
+    Ambry.Media.get_media!(media.id)
+  end
+
   # The fixture is copied into the media's own workspace so the stored path
   # has a resolvable `/uploads/...` form — absolute paths outside the
   # uploads tree can no longer be stored. A copy, not a hardlink: the

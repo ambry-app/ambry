@@ -47,7 +47,6 @@ defmodule Ambry.Media do
   alias Ambry.Media.RecordingGroupForm
   alias Ambry.Media.RunOrganize
   alias Ambry.Media.RunPublishPending
-  alias Ambry.Media.Scanner
   alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
@@ -854,14 +853,6 @@ defmodule Ambry.Media do
   end
 
   def generate_thumbnails_async(_media), do: {:ok, :noop}
-
-  @doc """
-  Scans a media's source files into direct-play tracks.
-
-  Delegates to `Ambry.Media.Scanner`; returns `{:ok, media}` or
-  `{:error, reason}`.
-  """
-  defdelegate scan_media(media), to: Scanner, as: :scan
 
   @doc """
   The short identifier a recording's files carry in the library.
