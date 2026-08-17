@@ -1,15 +1,26 @@
 defmodule Ambry.Media.Relink do
   @moduledoc """
-  Working out what upgrading a legacy recording to direct play would do.
+  Upgrading a legacy recording to direct play.
 
   A recording imported before direct play existed was transcoded: its audio
   lives twice on disk, once as the files it came from and once as the packaged
   artifact Ambry serves. Relinking points the recording at the originals —
   placed into a library root and scanned into tracks — so the artifact can go.
 
-  **This module only plans. It writes nothing**, which is what makes it safe to
-  run against production before anything else exists, one recording at a time,
-  and read the answer.
+  Two halves, and the split is the safety property:
+
+    * **`plan/1` writes nothing.** Safe to point at production before anything
+      else exists, one recording at a time, and read the answer.
+    * **`relink/1` does it**, and only ever for a plan that came back `:ok`,
+      re-measured immediately beforehand.
+
+  Even the doing half adds rather than replaces. Nothing is deleted, nothing
+  is published, the artifacts stay, and the recording goes on being served
+  exactly as it was — so a relink is undone by deleting what it placed. The
+  irreversible half of the reclaim (emptying the old sources, clearing the
+  legacy paths, deleting 246G of artifacts) is a separate later pass over
+  recordings that have been verified playing, and it should never be a side
+  effect of the reversible one.
 
   ## Why a plan is a separate thing from doing it
 
@@ -84,6 +95,7 @@ defmodule Ambry.Media.Relink do
   alias Ambry.Library.Root
   alias Ambry.Media.Media
   alias Ambry.Media.MediaTrack
+  alias Ambry.Media.Processor.Shared
   alias Ambry.Media.Scanner
   alias Ambry.Repo
   alias Ambry.Settings
@@ -192,6 +204,158 @@ defmodule Ambry.Media.Relink do
   end
 
   # ==========================================================================
+  # Doing it
+  # ==========================================================================
+
+  @doc """
+  Relinks one recording. **This writes**, unlike everything above it.
+
+  Places the recording's sources into the library root, points the recording
+  at the placed copies, and scans them into tracks. Returns
+  `{:ok, media, plan}` with the scanned recording and the plan it acted on,
+  `{:error, %Plan{}}` when the plan refuses, or `{:error, reason}` when a step
+  failed.
+
+  The plan comes back because it is the record of what was done and why — which
+  files, which policy, what the durations said — and a batch that relinks four
+  hundred recordings has nothing else to write down.
+
+  ## What it deliberately does not do
+
+  **Nothing is deleted and nothing is published.** The recording keeps its
+  `mp4_path`/`mpd_path`/`hls_path` and its status, so it goes on being served
+  exactly as before — the artifacts are retired in a separate, later pass over
+  recordings that have been verified playing, and clients are not told about
+  the new tracks until that pass clears the trio (`tracks_changed_since/1`).
+
+  The source files are left alone too. The policy the plan chose is `:hardlink`
+  or `:copy` and neither has anything to finalize, which is the point: this
+  half of the reclaim adds a name or a copy, and is undone by deleting it.
+  `Placement.finalize/1` is not called, because the only thing it would ever do
+  is the `:move` delete, and a delete that destroys the last copy of a
+  recording on the old NAS needs more confidence than "the transaction
+  committed".
+
+  ## Why it re-plans instead of taking a plan
+
+  A plan is a measurement of the world at a moment, and the world here is a
+  live downloads folder. Executing a plan made an hour ago — or made by a
+  survey that took an hour to reach this recording — is exactly how a relink
+  points a recording at a file that was replaced in the meantime. The probe is
+  the gate, so the gate runs immediately before the write or it isn't one.
+
+  ## What it costs
+
+  Two probe passes: the plan's, over the sources, and the scan's, over the
+  placed files. That is not waste. For a copy it is the only thing that checks
+  the bytes arrived intact, and for a hardlink it costs nothing — the second
+  probe reads the same inode.
+  """
+  def relink(media_id) when is_integer(media_id) do
+    case Repo.get(Media, media_id) do
+      nil -> {:error, :not_found}
+      media -> relink(media)
+    end
+  end
+
+  def relink(%Media{} = media) do
+    case plan(media) do
+      %Plan{verdict: :ok} = plan -> execute(plan, media)
+      %Plan{} = refused -> {:error, refused}
+    end
+  end
+
+  # Files first, database second. A file placed before a failed commit is a
+  # stray in the library that `undo/1` removes; a commit before a failed
+  # placement is a recording pointing at nothing.
+  defp execute(%Plan{} = plan, media) do
+    pairs = Enum.zip(Enum.map(plan.sources, & &1.path), plan.destinations)
+
+    case Placement.place_all(pairs, plan.policy) do
+      {:ok, placements} ->
+        case record_and_scan(plan, media) do
+          {:ok, media} ->
+            {:ok, media, plan}
+
+          {:error, reason} ->
+            Placement.undo(placements)
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, {:placement_failed, reason}}
+    end
+  end
+
+  # Repoint, then scan — the opposite order from an import, which repoints the
+  # tracks it already has. There are none here, so the scan is what creates
+  # them, and it derives each one's root and relative path from where the
+  # recording now says its files are.
+  defp record_and_scan(plan, media) do
+    Repo.transact(fn ->
+      with {:ok, media} <- repoint(media, plan),
+           {:ok, media} <- Scanner.scan(Repo.preload(media, :media_tracks)),
+           :ok <- verify(media, plan) do
+        {:ok, media}
+      end
+    end)
+  end
+
+  # `legacy_source_files` goes with the repoint, and not by choice: a recording
+  # with a real placement may not carry it (`media_legacy_source_files_
+  # quarantined`, added by the paths refactor). What it recorded — the
+  # downloads-side paths this recording was transcoded from — is what the
+  # inbox ledger used to know those files were already imported, so relinking
+  # would resurface them as new releases if the ledger still compared paths
+  # alone. It compares content now, and a hardlinked placement is the same
+  # bytes by the strictest possible test.
+  #
+  # Written through `Ecto.Changeset.change/2` rather than the media changeset,
+  # which deliberately doesn't cast any of these.
+  defp repoint(media, plan) do
+    media
+    |> Ecto.Changeset.change(%{
+      library_root_id: plan.root.id,
+      source_path: relativize!(plan.root, plan.destinations |> hd() |> Path.dirname()),
+      source_files: Enum.map(plan.destinations, &relativize!(plan.root, &1)),
+      legacy_source_files: nil
+    })
+    |> Repo.update()
+  end
+
+  # The plan's duration check, asked again of the files that were actually
+  # placed. For a copy this is the only thing that would catch a short write;
+  # for a hardlink it re-confirms the same inode and costs nothing. A failure
+  # here rolls the transaction back and the placement with it.
+  #
+  # `media.duration` is the scan's own total now — it replaced the transcode's
+  # figure, which is the more accurate of the two, so the comparison is
+  # against the duration the plan read before any of this started.
+  defp verify(media, plan) do
+    placed = length(plan.destinations)
+    tracks = length(media.media_tracks)
+    drift = seconds(media.duration) - plan.stored_duration
+
+    cond do
+      tracks != placed ->
+        {:error, {:track_count_mismatch, tracks, placed}}
+
+      abs(drift) > plan.tolerance ->
+        {:error, {:placed_duration_mismatch, fmt(drift, :signed), fmt(plan.tolerance)}}
+
+      true ->
+        :ok
+    end
+  end
+
+  # Placement just wrote these under the root, so being outside it is a bug
+  # worth crashing on rather than recording.
+  defp relativize!(root, absolute) do
+    {:ok, relative} = Library.relativize(root, absolute)
+    relative
+  end
+
+  # ==========================================================================
   # Which files, and where they are
   # ==========================================================================
 
@@ -203,8 +367,16 @@ defmodule Ambry.Media.Relink do
   defp era(%Media{source_files: [_ | _]}), do: :recorded_list
   defp era(%Media{}), do: :web_upload
 
+  # Filtered and natural-sorted the way `Media.files/2` does it for every
+  # other era, because the order here is the order the recording plays in:
+  # the destination filenames are numbered by position, so a list in
+  # filesystem order would place `Chapter 10` first and renumber the book
+  # into nonsense. `Media.files/2` sorts on the way through, which is what
+  # the transcode read, so matching it is matching what was heard.
   defp sources(%Media{} = media, :server_import) do
-    Enum.map(media.legacy_source_files, &source/1)
+    media.legacy_source_files
+    |> Shared.filter_filenames(@extensions)
+    |> Enum.map(&source/1)
   end
 
   defp sources(%Media{} = media, _era) do

@@ -45,6 +45,24 @@ defmodule Ambry.Media.RelinkTest do
       assert plan.verdict == :ok
     end
 
+    # The destination filenames are numbered by position, so the order the
+    # sources come out in *is* the order the relinked book plays in. A
+    # recorded list is not sorted — `Media.files/2` sorts on the way through,
+    # which is the order the transcode read and therefore the order the
+    # stored duration and every saved position belong to.
+    test "reads a recorded list in play order, not the order it was stored in" do
+      media = server_import_media(:m4a, 10)
+      scrambled = Enum.reverse(media.legacy_source_files)
+
+      {:ok, media} =
+        media |> Ecto.Changeset.change(%{legacy_source_files: scrambled}) |> Repo.update()
+
+      plan = Relink.plan(Media.get_media!(media.id))
+
+      assert Enum.map(plan.sources, & &1.path) == Enum.sort(scrambled, NaturalOrder)
+      assert plan.sources |> List.last() |> Map.fetch!(:path) =~ "10-sample"
+    end
+
     test "refuses a recording whose files are gone" do
       media = legacy_media(:m4a, 1)
       media.source_files |> Enum.map(&Ambry.Paths.web_to_disk/1) |> Enum.each(&File.rm!/1)
@@ -181,6 +199,93 @@ defmodule Ambry.Media.RelinkTest do
     end
   end
 
+  describe "relink/1" do
+    test "places the sources into the root and scans them into tracks", %{root: root} do
+      media = legacy_media(:m4a, 2)
+
+      assert {:ok, relinked, _plan} = Relink.relink(media)
+
+      assert relinked.library_root_id == root.id
+      assert length(relinked.media_tracks) == 2
+
+      assert Enum.all?(relinked.source_files, &(not String.starts_with?(&1, "/")))
+      assert Enum.all?(relinked.media_tracks, &(&1.library_root_id == root.id))
+
+      for file <- relinked.source_files do
+        assert File.regular?(Path.join(root.path, file))
+      end
+    end
+
+    # The whole point of placing before deleting anything: the reclaim's first
+    # half only ever adds, so it is undone by removing what it added.
+    test "leaves the originals, the artifacts and the status alone" do
+      media = legacy_media(:m4a, 1)
+      originals = Enum.map(media.source_files, &Ambry.Paths.web_to_disk/1)
+
+      assert {:ok, relinked, _plan} = Relink.relink(media)
+
+      assert Enum.all?(originals, &File.regular?/1)
+      assert relinked.status == media.status
+      assert relinked.mp4_path == media.mp4_path
+      assert relinked.mpd_path == media.mpd_path
+      assert relinked.hls_path == media.hls_path
+    end
+
+    # Provenance that a placed recording is forbidden to carry
+    # (`media_legacy_source_files_quarantined`). What it recorded is why the
+    # inbox ledger has to compare content and not only paths.
+    test "clears the legacy provenance a placed recording may not keep" do
+      media = server_import_media(:m4a, 1)
+
+      assert {:ok, relinked, _plan} = Relink.relink(media)
+
+      assert relinked.legacy_source_files == nil
+      assert length(relinked.media_tracks) == 1
+    end
+
+    test "refuses whatever the plan refuses, and writes nothing", %{root: root} do
+      media = legacy_media(:m4a, 1)
+
+      {:ok, media} =
+        media |> Ecto.Changeset.change(%{duration: Decimal.new("9999.0")}) |> Repo.update()
+
+      assert {:error, plan} = Relink.relink(Media.get_media!(media.id))
+
+      assert plan.verdict == :refused
+      assert File.ls!(root.path) == []
+      assert Media.get_media!(media.id).library_root_id == nil
+    end
+
+    # Placement is all-or-nothing per recording, and a half-placed recording
+    # is a book that plays up to chapter one and stops.
+    test "leaves nothing behind when a file can't be placed", %{root: root} do
+      media = legacy_media(:m4a, 2)
+      plan = Relink.plan(media)
+      [_first, second] = plan.destinations
+
+      File.mkdir_p!(Path.dirname(second))
+      File.write!(second, "in the way")
+
+      assert {:error, {:placement_failed, {:destination_exists, ^second}}} = Relink.relink(media)
+
+      assert Media.get_media!(media.id).library_root_id == nil
+      placed = root.path |> Path.join("**/*") |> Path.wildcard() |> Enum.filter(&File.regular?/1)
+      assert placed == [second]
+    end
+
+    # Not a guard anyone wrote: a relinked recording has tracks, and a
+    # recording with tracks is not a candidate.
+    test "refuses a recording it already relinked" do
+      media = legacy_media(:m4a, 1)
+
+      assert {:ok, _relinked, _plan} = Relink.relink(media)
+      assert {:error, plan} = Relink.relink(Media.get_media!(media.id))
+
+      assert plan.verdict == :refused
+      assert Enum.any?(plan.problems, &(&1 =~ "already has 1 track"))
+    end
+  end
+
   defp legacy_media(type, count) do
     :media
     |> build(book: build(:book))
@@ -188,6 +293,22 @@ defmodule Ambry.Media.RelinkTest do
     |> insert()
     |> then(&Media.get_media!(&1.id))
     |> give_it_the_transcode_duration()
+  end
+
+  # The 204 server-import-era recordings: no recorded `source_files` at all,
+  # and absolute paths into a downloads folder that is a source, not a root.
+  defp server_import_media(type, count) do
+    media = legacy_media(type, count)
+
+    {:ok, media} =
+      media
+      |> Ecto.Changeset.change(%{
+        source_files: [],
+        legacy_source_files: Enum.map(media.source_files, &Ambry.Paths.web_to_disk/1)
+      })
+      |> Repo.update()
+
+    Media.get_media!(media.id)
   end
 
   # A legacy recording's stored duration came from its transcode, which is
