@@ -402,11 +402,17 @@ defmodule Ambry.Media do
 
   """
   def delete_media(%Media{} = media) do
+    # Worked out *before* the delete: `media_tracks` cascades on
+    # `on_delete: :delete_all`, so by the time the row is gone the record of
+    # what this recording owned on disk is gone with it — and deletion would
+    # silently fall through to whatever `source_path` happens to say.
+    deletions = source_deletions(media)
+
     Repo.transact(fn ->
       with {:ok, deleted_media} <- Repo.delete(media),
            :ok <- delete_orphaned_recording_group(media.recording_group_id),
            :ok <- Search.delete(deleted_media),
-           {:ok, _job} <- delete_all_files_async(deleted_media),
+           {:ok, _job} <- delete_all_files_async(deleted_media, deletions),
            {:ok, _job} <- broadcast_media_deleted(deleted_media) do
         {:ok, deleted_media}
       end
@@ -419,11 +425,12 @@ defmodule Ambry.Media do
     |> PubSub.broadcast_async()
   end
 
-  defp delete_all_files_async(%Media{} = media) do
-    {folders, own_files} = source_deletions(media)
+  defp delete_all_files_async(%Media{} = media, deletions) do
+    %{folders: folders, files: files, prune_from: prune_from} = deletions
 
-    try_delete_files_async(all_file_paths(media) ++ own_files, folders,
-      prune_until: if(folders != [], do: library_root_paths())
+    try_delete_files_async(all_file_paths(media) ++ files, folders,
+      prune_until: if(folders != [] or prune_from != [], do: library_root_paths()),
+      prune_from: prune_from
     )
   end
 
@@ -442,24 +449,76 @@ defmodule Ambry.Media do
   # for the same inode, a symlink is unlinked without being followed, a
   # copy never knew its original, and a move's original is already gone.
   #
-  # This is still worth care: the deletion worker runs `File.rm_rf` on
-  # every folder it's given, so `source_path` must always be a folder that
-  # is Ambry's to remove.
-  #
   # Transcoded outputs, images and thumbnails are always Ambry's own, under
   # the uploads path, so they're removed too.
-  # A folder shared with a sibling is not this media's to remove: a
-  # multi-part recording places every part in one book folder, so deleting
-  # part 1 with an rm_rf of `source_path` would take part 2's file with it.
-  # A shared folder yields only the media's own files; the folder itself
-  # goes with its last part.
-  defp source_deletions(%Media{source_path: path} = media) when is_binary(path) do
-    if shared_source_path?(media),
-      do: {[], Media.source_file_paths(media)},
-      else: {[Media.source_path(media)], []}
+  #
+  # ## A recording with tracks deletes files, never folders
+  #
+  # `media_tracks` names every file the recording is served from, so those
+  # are exactly what deletion removes — one `File.rm/1` each, and nothing
+  # else. No folder is handed to `rm_rf` at all.
+  #
+  # The point is not that a folder might hold something foreign — a root is
+  # Ambry's, and nothing else writes there. It is that a folder deletion has
+  # to be *right*, and a file deletion cannot be wrong. A book folder really
+  # is shared: every recording of that book sits in it, and a single-file
+  # recording sits in it directly. Removing only the files you own makes "is
+  # this folder shared", "does another part of the set live here" and "is
+  # this somehow the library root itself" stop being questions. An earlier
+  # draft of this answered all three, and getting them right was harder than
+  # not asking.
+  #
+  # What it leaves behind is empty folders, which is a tidiness problem
+  # rather than a correctness one, and pruning already solves it: after the
+  # files go, walk up from where they were removing folders that are now
+  # empty, stopping at a registered root.
+  #
+  # `source_path` is the fallback, and only for a recording with no tracks.
+  # There it still means what it first meant — the upload workspace Ambry
+  # created, which holds more than the audio (progress files, the `_out`
+  # folder) and genuinely is Ambry's to remove wholesale. That clause, and
+  # the last `rm_rf` with it, retires when the reclaim leaves nothing
+  # without tracks.
+  defp source_deletions(%Media{} = media) do
+    case owned_tracks(media) do
+      [] -> legacy_source_deletions(media)
+      tracks -> track_deletions(tracks)
+    end
   end
 
-  defp source_deletions(%Media{}), do: {[], []}
+  # Asked of the database rather than a preload, and *before* the row is
+  # deleted: `media_tracks` cascades on `on_delete: :delete_all`, so asking
+  # afterwards returns an empty list and falls silently through to the legacy
+  # clause. An unloaded assoc reads the same way. One cheap query is the
+  # right price for an operation that removes files.
+  defp owned_tracks(%Media{id: id}) do
+    Repo.all(from t in MediaTrack, where: t.media_id == ^id)
+  end
+
+  defp track_deletions(tracks) do
+    files = Enum.flat_map(tracks, &resolved_disk_path/1)
+    %{folders: [], files: files, prune_from: files}
+  end
+
+  defp resolved_disk_path(track) do
+    case MediaTrack.disk_path(track) do
+      {:ok, path} -> [path]
+      {:error, _reason} -> []
+    end
+  end
+
+  # A folder shared with a sibling is not this media's to remove: a
+  # multi-part recording places every part in one book folder, so deleting
+  # part 1 with an rm_rf of the folder would take part 2's file with it.
+  # A shared folder yields only the media's own files; the folder itself
+  # goes with its last part.
+  defp legacy_source_deletions(%Media{source_path: path} = media) when is_binary(path) do
+    if shared_source_path?(media),
+      do: %{folders: [], files: Media.source_file_paths(media), prune_from: []},
+      else: %{folders: [Media.source_path(media)], files: [], prune_from: []}
+  end
+
+  defp legacy_source_deletions(%Media{}), do: %{folders: [], files: [], prune_from: []}
 
   # Compared as {root, relative} rather than as strings: two roots may
   # legitimately hold the same relative path, and they are different folders.
