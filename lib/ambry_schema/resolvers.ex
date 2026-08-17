@@ -14,6 +14,7 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.Books.Universe
   alias Ambry.Deletions.Deletion
   alias Ambry.Hashids
+  alias Ambry.Media, as: MediaContext
   alias Ambry.Media.Media
   alias Ambry.Media.MediaNarrator
   alias Ambry.Media.MediaTrack
@@ -108,8 +109,11 @@ defmodule AmbrySchema.Resolvers do
   def media_narrators_changed_since(args, _resolution),
     do: Sync.changes_since(MediaNarrator, args[:since])
 
+  # Not a plain projection like its neighbours: a recording still serving its
+  # packaged artifacts has no business handing clients tracks. See
+  # `Ambry.Media.tracks_changed_since/1`.
   def media_tracks_changed_since(args, _resolution),
-    do: Sync.changes_since(MediaTrack, args[:since])
+    do: MediaContext.tracks_changed_since(args[:since])
 
   def recording_groups_changed_since(args, _resolution),
     do: Sync.changes_since(RecordingGroup, args[:since])

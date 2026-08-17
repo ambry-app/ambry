@@ -122,6 +122,68 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  The tracks a client may be told about, changed since `since`.
+
+  Sync's answer for `media_tracks`, and deliberately not a plain
+  `Sync.changes_since/2`: a recording is only *served* through its tracks once
+  it has no legacy artifacts left, and until then handing them out offers
+  clients a second, contradictory way to play it.
+
+  ## Why the legacy trio, and not the publishing predicate
+
+  "Is this recording served as tracks yet" is exactly "are `mp4_path`,
+  `mpd_path` and `hls_path` all null" — the trio is the packaged artifact, and
+  its absence is what makes the tracks the only way in.
+
+  The publishing gate looks similar and answers a different question. It keys
+  on `status == :pending`, which is true of a recording waiting to be
+  published for the first time and false of a back-catalogue recording that
+  has been `:ready` for years and stays that way through a relink. Using it
+  here would withhold nothing from exactly the recordings this exists for.
+
+  ## What it buys
+
+  Relinking the back catalogue (`Ambry.Media.Relink`) writes tracks for a
+  recording that is still serving its artifacts, and every client syncs every
+  track row that exists on its next sync. A 2c-era app branches on
+  `mediaTracks.length > 0` before it looks at anything else, so tracks
+  arriving early make it abandon a download it already holds and stream
+  instead — silently, while still calling the recording downloaded.
+
+  With this filter the relink is invisible: tracks accumulate server-side and
+  reach clients at the moment the artifacts are cleared, which is the moment
+  they became the truth.
+
+  ## "Changed" includes "became visible"
+
+  A withheld track's `updated_at` is the day it was scanned, which may be
+  months before the recording stopped serving artifacts. Filtering on it alone
+  would reveal the tracks to nobody: the reveal is a change to the *media*
+  row, not to the tracks.
+
+  So a track is returned when either row changed since — which makes the
+  reveal true by construction rather than by remembering to touch every track
+  when the artifacts are cleared. It costs re-sending a recording's tracks
+  whenever the recording itself is edited, and a track upsert is idempotent.
+  """
+  def tracks_changed_since(since) do
+    query =
+      from t in MediaTrack,
+        join: m in Media,
+        on: m.id == t.media_id,
+        where: is_nil(m.mp4_path) and is_nil(m.hls_path) and is_nil(m.mpd_path)
+
+    query =
+      if since do
+        from [t, m] in query, where: t.updated_at >= ^since or m.updated_at >= ^since
+      else
+        query
+      end
+
+    {:ok, Repo.all(query)}
+  end
+
+  @doc """
   Returns a limited list of media and whether or not there are more.
 
   By default, it will limit to the first 10 results. Supply `offset` and `limit`

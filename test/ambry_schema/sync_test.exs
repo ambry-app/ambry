@@ -225,6 +225,80 @@ defmodule AmbrySchema.SyncTest do
     end
   end
 
+  describe "mediaTracksChangedSince" do
+    @query ~G"""
+    query Sync($since: DateTime) {
+      mediaTracksChangedSince(since: $since) {
+        index
+        path
+      }
+    }
+    """
+    test "returns the tracks of a recording that is served by them", %{conn: conn} do
+      media = insert(:media, book: build(:book))
+      insert(:media_track, media: media, index: 0)
+
+      conn = post(conn, "/gql", %{"query" => @query, "variables" => %{}})
+
+      assert %{"data" => %{"mediaTracksChangedSince" => [%{"index" => 0}]}} =
+               json_response(conn, 200)
+    end
+
+    test "withholds them while the recording still serves its artifacts", %{conn: conn} do
+      media =
+        insert(:media,
+          book: build(:book),
+          mp4_path: "/uploads/media/#{Ecto.UUID.generate()}.mp4",
+          mpd_path: "/uploads/media/#{Ecto.UUID.generate()}.mpd",
+          hls_path: "/uploads/media/#{Ecto.UUID.generate()}.m3u8"
+        )
+
+      insert(:media_track, media: media, index: 0)
+
+      conn = post(conn, "/gql", %{"query" => @query, "variables" => %{}})
+
+      assert %{"data" => %{"mediaTracksChangedSince" => []}} = json_response(conn, 200)
+    end
+
+    # The reveal is a change to the media row; the tracks were written months
+    # earlier and their own timestamps say so. A client that has synced since
+    # then still has to be told about them.
+    test "hands them over when the artifacts are cleared, however old they are", %{conn: conn} do
+      media =
+        insert(:media,
+          book: build(:book),
+          status: :ready,
+          mp4_path: "/uploads/media/#{Ecto.UUID.generate()}.mp4",
+          mpd_path: "/uploads/media/#{Ecto.UUID.generate()}.mpd",
+          hls_path: "/uploads/media/#{Ecto.UUID.generate()}.m3u8"
+        )
+
+      insert(:media_track,
+        media: media,
+        index: 0,
+        inserted_at: ~U[2020-01-01 00:00:00Z],
+        updated_at: ~U[2020-01-01 00:00:00Z]
+      )
+
+      since = %{"since" => "2024-01-01T00:00:00Z"}
+
+      conn = post(conn, "/gql", %{"query" => @query, "variables" => since})
+
+      assert %{"data" => %{"mediaTracksChangedSince" => []}} = json_response(conn, 200)
+
+      {:ok, _media} =
+        media
+        |> Ambry.Repo.preload(:media_tracks)
+        |> Ambry.Media.update_media(%{mp4_path: nil, mpd_path: nil, hls_path: nil})
+
+      conn =
+        post(build_conn_with_same_auth(conn), "/gql", %{"query" => @query, "variables" => since})
+
+      assert %{"data" => %{"mediaTracksChangedSince" => [%{"index" => 0}]}} =
+               json_response(conn, 200)
+    end
+  end
+
   defp build_conn_with_same_auth(conn) do
     auth_header = Plug.Conn.get_req_header(conn, "authorization")
 
