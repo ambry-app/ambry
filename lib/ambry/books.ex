@@ -43,6 +43,7 @@ defmodule Ambry.Books do
   alias Ambry.Books.SeriesFlat
   alias Ambry.Books.Universe
   alias Ambry.Books.UniverseFlat
+  alias Ambry.Ecto.NameSearch
   alias Ambry.Media.Media
   alias Ambry.PubSub
   alias Ambry.Repo
@@ -353,21 +354,51 @@ defmodule Ambry.Books do
   end
 
   @doc """
-  Returns all books for use in `Select` components, as rich options: cover,
+  Books matching what somebody typed into a picker, as rich options: cover,
   title, and the authors — the fact that tells two same-titled books apart.
+
+  **Keyword-scored, not substring-matched** (`BookFlat.by_keywords/2`), so
+  "sanderson kings" finds The Way of Kings and a term that misses costs
+  nothing. That search was built for matching a file against the library and
+  it is the better answer here too: a person typing knows the author's name
+  more often than they know the exact title.
+
+  With nothing typed, the first page by title — a box that has just been
+  focused should show what is there, not nothing.
   """
-  def books_for_select do
-    BookFlat
-    |> order_by(asc: :title)
+  def search_books(phrase, limit) do
+    case match_keywords(phrase) do
+      [] -> BookFlat |> order_by(asc: :title) |> limit(^limit)
+      terms -> BookFlat.by_keywords(terms, limit)
+    end
     |> Repo.all()
-    |> Enum.map(
-      &%{
-        id: &1.id,
-        label: &1.title,
-        image: List.first(&1.thumbnails || []),
-        detail: book_select_detail(&1)
-      }
-    )
+    |> Enum.map(&book_option/1)
+  end
+
+  @doc """
+  One book as a picker option, or nil.
+
+  What lets a picker name the book it is already holding. The preloaded list
+  it replaced was providing this silently, which is most of why it was
+  preloaded at all.
+  """
+  def book_option(nil), do: nil
+  def book_option(""), do: nil
+
+  def book_option(id) when is_binary(id) or is_integer(id) do
+    case Repo.get(BookFlat, id) do
+      nil -> nil
+      book -> book_option(book)
+    end
+  end
+
+  def book_option(%BookFlat{} = book) do
+    %{
+      id: book.id,
+      label: book.title,
+      image: List.first(book.thumbnails || []),
+      detail: book_select_detail(book)
+    }
   end
 
   defp book_select_detail(%BookFlat{authors: authors}) do
@@ -595,13 +626,19 @@ defmodule Ambry.Books do
   end
 
   @doc """
-  Returns all series for use in `Select` components.
+  Series matching what somebody typed into a picker.
   """
-  def series_for_select do
-    query = from s in Series, select: {s.name, s.id}, order_by: s.name
-
-    Repo.all(query)
+  def search_series(phrase, limit) do
+    Series
+    |> NameSearch.narrow(:name, phrase, limit)
+    |> select([s], {s.name, s.id})
+    |> Repo.all()
   end
+
+  @doc """
+  One series as a picker option, or nil.
+  """
+  def series_option(id), do: name_option(Series, id)
 
   @doc """
   Subscribes to all series CRUD messages.
@@ -737,12 +774,29 @@ defmodule Ambry.Books do
   end
 
   @doc """
-  Returns all universes for use in `Select` components.
+  Universes matching what somebody typed into a picker.
   """
-  def universes_for_select do
-    query = from u in Universe, select: {u.name, u.id}, order_by: u.name
+  def search_universes(phrase, limit) do
+    Universe
+    |> NameSearch.narrow(:name, phrase, limit)
+    |> select([u], {u.name, u.id})
+    |> Repo.all()
+  end
 
-    Repo.all(query)
+  @doc """
+  One universe as a picker option, or nil.
+  """
+  def universe_option(id), do: name_option(Universe, id)
+
+  # Both of the above hold nothing but a name, so their option is the same
+  # `{label, id}` pair the picker takes for any simple list.
+  defp name_option(_schema, blank) when blank in [nil, ""], do: nil
+
+  defp name_option(schema, id) do
+    case Repo.get(schema, id) do
+      nil -> nil
+      record -> {record.name, record.id}
+    end
   end
 
   @doc """

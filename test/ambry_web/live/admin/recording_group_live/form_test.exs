@@ -87,10 +87,11 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
              |> Floki.attribute("value") == [to_string(media.id)]
     end
 
-    # Regression: validate re-derives member options from the posted book_id,
-    # but the edit page renders the book as static text (posts nothing) — so
-    # any keystroke in any field emptied the options, and every member
-    # typeahead displayed blank (its label lookup by id found nothing).
+    # Regression: the member picker's records follow the posted book_id, but
+    # the edit page renders the book as static text (posts nothing) — so any
+    # keystroke in any field used to leave it scoped to no book at all. What
+    # keeps the box readable now is that naming what it holds is a lookup by
+    # id (`Media.media_option/1`) rather than a search of the current scope.
     test "editing another field leaves the member typeaheads displaying their picks", %{
       conn: conn
     } do
@@ -100,14 +101,14 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
 
       {:ok, view, html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
 
-      assert resolver_display(html) == "A Court of Thorns and Roses"
+      assert resolver_display(html) == "A Court of Thorns and Roses (Part 1)"
 
       html =
         view
         |> form("#group-form")
         |> render_change(%{recording_group_form: %{name: "Renamed"}})
 
-      assert resolver_display(html) == "A Court of Thorns and Roses"
+      assert resolver_display(html) == "A Court of Thorns and Roses (Part 1)"
     end
 
     test "saving edits facts and the member list together", %{conn: conn} do

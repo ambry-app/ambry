@@ -41,10 +41,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
        retrying: nil,
        chips: %{},
        reverts: %{},
-       provenance_hints: %{},
-       authors: People.authors_for_select(),
-       series: Books.series_for_select(),
-       universes: Books.universes_for_select()
+       provenance_hints: %{}
      )
      |> apply_action(socket.assigns.live_action, params)}
   end
@@ -59,10 +56,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       book: book
     )
     |> assign_form(changeset)
-    |> assign(
-      evidence:
-        Evidence.new(seed_fields(book, socket.assigns.authors), known: Evidence.known_from(book))
-    )
+    |> assign(evidence: Evidence.new(seed_fields(book), known: Evidence.known_from(book)))
   end
 
   defp apply_action(socket, :new, _params) do
@@ -79,17 +73,14 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   # The search the record itself suggests: its title, and its first author.
-  defp seed_fields(book, author_options) do
-    labels = Map.new(author_options, &{&1.id, &1.label})
-
-    author =
-      case book.book_authors do
-        [%{author_id: author_id} | _rest] -> labels[author_id]
-        _empty -> nil
-      end
-
-    %{"title" => book.title, "author" => author}
+  # Read off the loaded credit rather than looked up in a list of every author
+  # in the library, which is what it used to need.
+  defp seed_fields(book) do
+    %{"title" => book.title, "author" => first_author(book)}
   end
+
+  defp first_author(%{book_authors: [%{author: %{name: name}} | _rest]}), do: name
+  defp first_author(_book), do: nil
 
   @impl Phoenix.LiveView
   def handle_params(_params, _url, socket), do: {:noreply, socket}
@@ -261,7 +252,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     socket
     |> append_row(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
     |> assign(
-      authors: People.authors_for_select(),
       provenance_hints:
         ProvenanceHints.for_list(socket.assigns.provenance_hints, "book_authors", proposal.source)
     )
@@ -280,7 +270,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     socket
     |> append_row(:series_books, row, ~w(series_id book_number))
     |> assign(
-      series: Books.series_for_select(),
       provenance_hints:
         ProvenanceHints.for_list(socket.assigns.provenance_hints, "series_books", proposal.source)
     )
@@ -379,12 +368,14 @@ defmodule AmbryWeb.Admin.BookLive.Form do
             evidence
             |> Evidence.proposals(:authors)
             |> mark_present(
-              current_labels(form.source, :book_authors, :author_id, socket.assigns.authors)
+              current_labels(form.source, :book_authors, :author_id, &People.author_option/1)
             ),
           series:
             evidence
             |> Evidence.proposals(:series)
-            |> mark_present(current_series_names(form.source, socket.assigns.series))
+            |> mark_present(
+              current_labels(form.source, :series_books, :series_id, &Books.series_option/1)
+            )
         }
       else
         %{}
@@ -396,23 +387,20 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   defp reverts(%{assigns: %{form: form, book: book}}),
     do: Revert.offers(form, book, [:title, :published])
 
-  defp current_labels(changeset, assoc, key, options) do
-    labels = Map.new(options, &{&1.id, &1.label})
-
+  # Which proposals the record already holds, by name, so a chip for one of
+  # them reads as present rather than as an offer. Asked of the context rather
+  # than found in a preloaded list of every author and series in the library —
+  # the same lookup `EntityResolver`'s `fetch` makes, for the same reason.
+  defp current_labels(changeset, assoc, key, fetch) do
     changeset
     |> Changeset.get_field(assoc)
-    |> Enum.map(&labels[Map.get(&1, key)])
+    |> Enum.map(fn row -> row |> Map.get(key) |> fetch.() |> option_label() end)
     |> Enum.reject(&is_nil/1)
   end
 
-  defp current_series_names(changeset, options) do
-    names = Map.new(options, fn {name, id} -> {id, name} end)
-
-    changeset
-    |> Changeset.get_field(:series_books)
-    |> Enum.map(&names[&1.series_id])
-    |> Enum.reject(&is_nil/1)
-  end
+  defp option_label(%{label: label}), do: label
+  defp option_label({label, _id}), do: label
+  defp option_label(nil), do: nil
 
   defp save_book(socket, :edit, book_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]

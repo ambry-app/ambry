@@ -18,7 +18,8 @@
             field={@form[:book_id]}
             label="Book"
             type="autocomplete"
-            options={@books}
+            search={&Books.search_books/2}
+            fetch={&Books.book_option/1}
             container_class="max-w-xl"
           />
 
@@ -116,7 +117,8 @@
                 <.input
                   field={media_narrator_form[:narrator_id]}
                   type="autocomplete"
-                  options={@narrators}
+                  search={&People.search_narrators/2}
+                  fetch={&People.narrator_option/1}
                 />
                 <.delete_button
                   field={@form[:media_narrators_drop]}
@@ -158,7 +160,8 @@
                 <.input
                   field={@form[:recording_group_id]}
                   type="autocomplete"
-                  options={@recording_groups}
+                  search={&Media.search_recording_groups(@book_id, &1, &2)}
+                  fetch={&Media.recording_group_option/1}
                 />
                 <%!-- `flex` is load-bearing, not decoration: it collapses the
                     button to the icon's own box, which is what puts `top-3` on

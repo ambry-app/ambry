@@ -405,17 +405,52 @@ defmodule Ambry.BooksTest do
     end
   end
 
-  describe "books_for_select/0" do
+  describe "search_books/2" do
     test "returns rich options: title, cover, authors" do
       insert_list(3, :book)
-
-      list = Books.books_for_select()
 
       assert [
                %{id: _, label: _, image: _, detail: _},
                %{id: _, label: _, image: _, detail: _},
                %{id: _, label: _, image: _, detail: _}
-             ] = list
+             ] = Books.search_books("", 10)
+    end
+
+    # Keyword-scored rather than substring-matched, which is the whole reason
+    # this and not an in-memory filter over every book: the author's name is
+    # what a person typing knows, and it isn't in the title.
+    test "finds a book by its author's name" do
+      book =
+        insert(:book,
+          title: "The Way of Kings",
+          book_authors: [
+            build(:book_author, author: build(:author, name: "Brandon Sanderson"))
+          ]
+        )
+
+      assert [%{id: id}] = Books.search_books("sanderson kings", 10)
+      assert id == book.id
+    end
+
+    test "stops at the limit" do
+      insert_list(4, :book)
+
+      assert length(Books.search_books("", 2)) == 2
+    end
+  end
+
+  describe "book_option/1" do
+    # What lets a filled picker name what it holds, which the preloaded list
+    # it replaced was answering silently.
+    test "names one book, and nothing for one that is gone" do
+      book = insert(:book)
+
+      assert %{id: id, label: label} = Books.book_option(book.id)
+      assert id == book.id
+      assert label == book.title
+
+      refute Books.book_option(nil)
+      refute Books.book_option(book.id + 1000)
     end
   end
 
@@ -743,17 +778,47 @@ defmodule Ambry.BooksTest do
     end
   end
 
-  describe "series_for_select/0" do
-    test "returns all series names and ids only" do
+  describe "search_series/2" do
+    test "returns name and id pairs" do
       insert_list(3, :series)
 
-      list = Books.series_for_select()
+      assert [{_, _}, {_, _}, {_, _}] = Books.search_series("", 10)
+    end
 
-      assert [
-               {_, _},
-               {_, _},
-               {_, _}
-             ] = list
+    test "matches on the name, and a prefix outranks a substring" do
+      insert(:series, name: "The Stormlight Archive")
+      insert(:series, name: "Stormlight Shorts")
+
+      assert [{"Stormlight Shorts", _}, {"The Stormlight Archive", _}] =
+               Books.search_series("stormlight", 10)
+    end
+
+    # `unaccent` is the SQL twin of the NFD fold the in-memory filter did, and
+    # losing it would split a narrator or a series across two spellings.
+    test "folds accents" do
+      series = insert(:series, name: "Los Niños")
+
+      assert [{_, id}] = Books.search_series("ninos", 10)
+      assert id == series.id
+    end
+
+    # A name is operator input and `%` is legal in one; unescaped it would
+    # match every row in the table.
+    test "treats a wildcard as a character" do
+      insert(:series, name: "Mistborn")
+
+      assert Books.search_series("%", 10) == []
+    end
+  end
+
+  describe "series_option/1" do
+    test "names one series, and nothing for one that is gone" do
+      series = insert(:series)
+
+      assert {name, id} = Books.series_option(series.id)
+      assert {name, id} == {series.name, series.id}
+
+      refute Books.series_option(nil)
     end
   end
 
@@ -820,10 +885,10 @@ defmodule Ambry.BooksTest do
       assert %{name: "Cosmere", books: 1} = universe_flat
     end
 
-    test "universes_for_select/0 returns name/id tuples" do
+    test "search_universes/2 returns name/id tuples" do
       {:ok, universe} = Books.create_universe(%{name: "Cosmere"})
 
-      assert [{"Cosmere", id}] = Books.universes_for_select()
+      assert [{"Cosmere", id}] = Books.search_universes("", 10)
       assert id == universe.id
     end
 

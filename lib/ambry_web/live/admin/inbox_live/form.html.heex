@@ -194,45 +194,23 @@
             This audiobook was imported from these files.
           </p>
 
-          <.local_recording_row
-            :if={@replaces}
-            recording={@replaces}
-            chosen={@replacing}
-          />
+          <.local_recording_row :if={@replaces && !@replacing} recording={@replaces} />
 
           <%!-- The escape hatch, and the only route to an audiobook whose
               provenance was never recorded — every recording uploaded before
               the inbox existed. --%>
-          <form
-            phx-submit="search-recordings"
-            phx-change="search-recordings"
-            id="recording-search"
-            class="flex flex-wrap items-center gap-2 pt-1"
-          >
-            <input
-              type="text"
-              name="query"
-              value={@recording_query}
+          <form id="recording-search" phx-change="replace-recording" class="max-w-xl pt-1">
+            <.live_component
+              module={EntityResolver}
+              id="replace-recording-resolver"
+              name="id"
+              search={&Media.search_media/2}
+              fetch={&Media.media_option/1}
+              value={if @replacing, do: @item.draft.replacement.media_id}
               placeholder="search the library by title, author or narrator"
-              phx-debounce="300"
-              class={input_classes("min-w-64 px-[11px] max-w-xl flex-grow py-2 leading-6")}
+              class={input_classes("w-full")}
             />
-            <.button type="submit" color={:zinc}>Search</.button>
           </form>
-
-          <p
-            :if={@recording_query not in [nil, ""] and @recording_results == []}
-            class="pl-3 text-sm text-zinc-400"
-          >
-            No audiobook in the library matches that.
-          </p>
-
-          <%!-- The row already above is not repeated here. --%>
-          <.local_recording_row
-            :for={recording <- search_results(@recording_results, @replaces)}
-            recording={recording}
-            chosen={false}
-          />
 
           <button
             type="button"
@@ -405,36 +383,21 @@
               copy of Philosopher's Stone is tagged "HP1 - The Philosopher's
               Stone", and the US edition of the same work is called Sorcerer's
               Stone, which no amount of string cleverness should be expected to
-              connect. So there is always a way to go and look. --%>
-          <form
-            phx-submit="search-library"
-            phx-change="search-library"
-            id="library-search"
-            class="flex flex-wrap items-center gap-2 pt-1"
-          >
-            <input
-              type="text"
-              name="query"
-              value={@library_query}
+              connect. So there is always a way to go and look — the same
+              typeahead every other picker in the admin uses, over the same
+              keyword search that produced the rows above. --%>
+          <form id="library-search" phx-change="link-book" class="max-w-xl pt-1">
+            <.live_component
+              module={EntityResolver}
+              id="library-book-resolver"
+              name="id"
+              search={&Books.search_books/2}
+              fetch={&Books.book_option/1}
+              value={if @item.draft.work.mode == :link, do: @item.draft.work.book_id}
               placeholder="search the library by title, author or series"
-              phx-debounce="300"
-              class={input_classes("min-w-64 px-[11px] max-w-xl flex-grow py-2 leading-6")}
+              class={input_classes("w-full")}
             />
-            <.button type="submit" color={:zinc}>Search</.button>
           </form>
-
-          <p
-            :if={@library_query not in [nil, ""] and @library_results == []}
-            class="pl-3 text-sm text-zinc-400"
-          >
-            Nothing in the library matches that.
-          </p>
-
-          <.local_book_row
-            :for={book <- @library_results}
-            book={book}
-            linked={@item.draft.work.mode == :link and @item.draft.work.book_id == book["id"]}
-          />
 
           <button
             type="button"
@@ -515,11 +478,8 @@
             index={index}
             count={length(@item.draft.work.authors)}
             section="work"
-            identities={@authors}
             verb="Written by"
-            identity_backing={@author_backing}
             persons={Draft.people_for(@item.draft, credit)}
-            people={@people}
           />
 
           <.add_button phx-click="add-credit" phx-value-section="work">
@@ -541,7 +501,6 @@
             link={link}
             index={index}
             count={length(@item.draft.work.series)}
-            options={@series}
           />
 
           <.add_button phx-click="add-series">Add a series</.add_button>
@@ -706,7 +665,7 @@
           <.group_row
             :if={@item.draft.recording.recording_group}
             link={@item.draft.recording.recording_group}
-            options={@group_options}
+            book_id={linked_book_id(@item.draft)}
           />
 
           <.add_button :if={group_absent?(@item.draft)} phx-click="add-group">
@@ -726,11 +685,8 @@
             index={index}
             count={length(@item.draft.recording.narrators)}
             section="recording"
-            identities={@narrators}
             verb="Read by"
-            identity_backing={@narrator_backing}
             persons={Draft.people_for(@item.draft, credit)}
-            people={@people}
           />
 
           <.add_button phx-click="add-credit" phx-value-section="recording">
@@ -791,7 +747,6 @@
               outcomes={person_outcomes(@item, person.key)}
               query_name={person_query_name(@item, person.key, @searching_person, @searching_person_name)}
               appears={@appearances[person.key] || []}
-              people={@people}
             />
           </div>
 
@@ -808,7 +763,6 @@
             outcomes={person_outcomes(@item, hd(group.people).key)}
             query_name={person_query_name(@item, hd(group.people).key, @searching_person, @searching_person_name)}
             appears={@appearances[hd(group.people).key] || []}
-            people={@people}
           />
         </div>
       </section>

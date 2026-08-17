@@ -10,7 +10,8 @@
           :if={@group.media == []}
           field={@form[:book_id]}
           type="autocomplete"
-          options={@books}
+          search={&Books.search_books/2}
+          fetch={&Books.book_option/1}
           label="Book"
         />
         <div :if={@group.media != []} class="space-y-2">
@@ -55,7 +56,8 @@
             <.input
               field={member_form[:media_id]}
               type="autocomplete"
-              options={@media_options}
+              search={&Media.search_book_media(@book_id, &1, &2)}
+              fetch={&Media.media_option/1}
               container_class="grow"
             />
             <.delete_button

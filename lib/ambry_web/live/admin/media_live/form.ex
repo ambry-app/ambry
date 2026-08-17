@@ -11,6 +11,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   import AmbryWeb.Admin.ParamHelpers
   import AmbryWeb.Admin.UploadHelpers
 
+  alias Ambry.Books
   alias Ambry.Images
   alias Ambry.Inbox
   alias Ambry.Media
@@ -51,9 +52,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        chapter_import: nil,
        chapters_applied_asin: nil,
        provenance_hints: %{},
-       source_files_expanded: false,
-       narrators: People.narrators_for_select(),
-       books: Ambry.Books.books_for_select()
+       source_files_expanded: false
      )
      |> apply_action(socket.assigns.live_action, params)}
   end
@@ -68,16 +67,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     |> assign(
       page_title: Media.Media.display_title(media),
       media: media,
-      recording_groups: Media.recording_groups_for_select(media.book_id),
+      book_id: media.book_id,
       file_stats: Media.get_media_file_details(media),
       # View state, not derived per render: deriving it from the typeahead's
       # value made the row vanish mid-edit the moment the box was cleared.
       group_row_visible: media.recording_group_id != nil or media.part_number != nil
     )
-    |> assign(
-      evidence:
-        Evidence.new(seed_fields(media, socket.assigns), known: Evidence.known_from(media))
-    )
+    |> assign(evidence: Evidence.new(seed_fields(media), known: Evidence.known_from(media)))
   end
 
   # The search the recording itself suggests: its book's title and author, and
@@ -88,20 +84,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # and conversation starters: Audible's catalog takes `author` as a real
   # parameter, and the scorer needs it to tell a content farm's companion work
   # from the book.
-  defp seed_fields(media, assigns) do
-    books = Map.new(assigns.books, &{&1.id, &1.label})
-    narrators = Map.new(assigns.narrators, &{&1.id, &1.label})
-
-    narrator =
-      case media.media_narrators do
-        [%{narrator_id: narrator_id} | _rest] -> narrators[narrator_id]
-        _empty -> nil
-      end
+  defp seed_fields(media) do
+    book = Books.book_option(media.book_id)
 
     %{
-      "title" => books[media.book_id],
-      "author" => first_author(assigns.books, media.book_id),
-      "narrator" => narrator
+      "title" => book && book.label,
+      "author" => book && first_author(book),
+      "narrator" => first_narrator(media)
     }
   end
 
@@ -114,18 +103,22 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       else: image_path
   end
 
-  # `books_for_select`'s `detail` is the book's author names, comma-joined for
-  # display. One name, like the inbox's own hints: a query naming every author
-  # of a collaboration matches nothing at a storefront.
-  defp first_author(books, book_id) do
-    case Enum.find(books, &(&1.id == book_id)) do
-      %{detail: detail} when is_binary(detail) ->
-        detail |> String.split(",") |> hd() |> String.trim()
+  # `Books.book_option/1`'s `detail` is the book's author names, comma-joined
+  # for display. One name, like the inbox's own hints: a query naming every
+  # author of a collaboration matches nothing at a storefront.
+  defp first_author(%{detail: detail}) when is_binary(detail),
+    do: detail |> String.split(",") |> hd() |> String.trim()
 
-      _none ->
-        nil
+  defp first_author(_book), do: nil
+
+  defp first_narrator(%{media_narrators: [%{narrator_id: id} | _rest]}) do
+    case People.narrator_option(id) do
+      %{label: label} -> label
+      nil -> nil
     end
   end
+
+  defp first_narrator(_media), do: nil
 
   @impl Phoenix.LiveView
   def handle_params(_params, _url, socket) do
@@ -152,8 +145,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      socket
      |> assign_form(changeset)
      |> assign(
-       # groups follow the chosen book — a set belongs to one book
-       recording_groups: Media.recording_groups_for_select(media_params["book_id"]),
+       # the set picker follows the chosen book — a set belongs to one book
+       book_id: media_params["book_id"],
        provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, media_params)
      )
      |> refresh_chips()}

@@ -54,7 +54,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Library.Placement
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
-  alias Ambry.People
+  alias AmbryWeb.Components.EntityResolver
   alias Phoenix.LiveView.AsyncResult
 
   require Logger
@@ -67,11 +67,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:ok,
      socket
      |> assign(page_title: InboxItem.name(item))
-     |> assign(series: Books.series_for_select())
-     |> assign(authors: People.authors_for_select(), narrators: People.narrators_for_select())
-     |> assign(author_backing: People.author_backing_names())
-     |> assign(narrator_backing: People.narrator_backing_names())
-     |> assign(people: People.people_for_select())
      |> assign(researching: nil, retrying: nil, enriching: nil)
      # What the in-flight search asked for. The stored query only updates
      # when results land, so a form that renders storage describes the
@@ -84,10 +79,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      # in full. Both view state keyed by person key — the results themselves
      # are evidence and live on the item.
      |> assign(searching_person: nil, photos_expanded: %{})
-     |> assign(library_query: nil, library_results: [], ticking: false)
-     # The replace decision's typeahead. Session state like the library
-     # search above it: what was searched for is not part of the import.
-     |> assign(recording_query: nil, recording_results: [])
+     |> assign(ticking: false)
      # The pending chapter-title fetch, and which ASIN's titles were last
      # poured — the chips' chosen state.
      |> assign(chapter_import: nil, chapters_applied_asin: nil)
@@ -325,6 +317,11 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   # The decision above every other one: these files are a better copy of
   # something the library already has, so nothing below is in question.
+  #
+  # A blank id is the surrounding form reporting itself for some other reason,
+  # not an answer — the way back from a replacement is the chip beside the
+  # box, the same as at the work level. (`EntityResolver` only reports a pure
+  # picker's value when something is picked, so this is belt and braces.)
   def handle_event("replace-recording", %{"id" => id}, socket) do
     case to_int(id) do
       nil -> {:noreply, socket}
@@ -336,32 +333,13 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.new_recording/1)}
   end
 
-  # The same escape hatch the work level has, for the same reason: a
-  # recording whose provenance was never recorded — or was recorded against a
-  # path that has since moved — is reachable no other way.
-  def handle_event("search-recordings", %{"query" => query}, socket) do
-    results = query |> Media.match_media() |> Enum.map(&local_recording/1)
-    {:noreply, assign(socket, recording_query: query, recording_results: results)}
-  end
-
   def handle_event("link-book", %{"id" => id}, socket) do
     item = socket.assigns.item
-    {:noreply, edit(socket, &Draft.Edit.link_book(&1, item, to_int(id)))}
-  end
 
-  # The escape hatch. Matching finds the ordinary case and cannot be expected
-  # to find every one: a file tagged "HP1 - The Philosopher's Stone" and a book
-  # called "Harry Potter and the Sorcerer's Stone" are the same work and no
-  # string comparison should be asked to know that. Rather than chase it, give
-  # the operator a way to go and look.
-  def handle_event("search-library", %{"query" => query}, socket) do
-    results =
-      case Books.match_keywords(query) do
-        [] -> []
-        terms -> terms |> Books.match_books(10) |> Enum.map(&local_book/1)
-      end
-
-    {:noreply, assign(socket, library_query: query, library_results: results)}
+    case to_int(id) do
+      nil -> {:noreply, socket}
+      book_id -> {:noreply, edit(socket, &Draft.Edit.link_book(&1, item, book_id))}
+    end
   end
 
   def handle_event("new-book", _params, socket) do
@@ -993,10 +971,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       # rather than per render — the hints are parsed out of the release
       # text.
       search_seeds: search_seeds(item),
-      # A recording group is reachable only through its book, so the picker
-      # has options exactly when the work links a library book. A :create
-      # work has no groups yet — the resolver is create-only there.
-      group_options: group_options(item.draft),
       # Where each person is credited, so a row can say "same person as the
       # author". Derived, never stored — one human is one record now, and a
       # second copy of "who is where" is what used to drift.
@@ -1031,10 +1005,15 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp direction("up"), do: :up
   defp direction(_down), do: :down
 
-  defp group_options(%Draft{work: %Work{mode: :link, book_id: book_id}}) when not is_nil(book_id),
-    do: Media.recording_groups_for_select(book_id)
+  @doc """
+  The book this import links, if it links one.
 
-  defp group_options(_draft), do: []
+  A set is reachable only through its book, so the set picker offers something
+  exactly when the work links a library book — a `:create` work has no sets
+  yet, and there the resolver is create-only.
+  """
+  def linked_book_id(%Draft{work: %Work{mode: :link, book_id: book_id}}), do: book_id
+  def linked_book_id(_draft), do: nil
 
   defp group_absent?(%Draft{recording: %Recording{recording_group: nil}}), do: true
   defp group_absent?(%Draft{}), do: false
@@ -1271,19 +1250,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def provider_outcomes(_item, _level), do: []
 
   defp replaces(%Draft{replacement: %Replacement{media_id: id}}) when is_integer(id),
-    do: id |> Media.get_media_flat() |> local_recording()
+    do: Media.media_option(id)
 
   defp replaces(_no_proposal), do: nil
-
-  @doc """
-  Search hits, minus the one the card is already showing.
-
-  The chosen recording (or the proposed one) has its own row above the search,
-  and rendering it twice would ask the same question in two places with two
-  different answers to the "is this it" state.
-  """
-  def search_results(results, nil), do: results
-  def search_results(results, shown), do: Enum.reject(results, &(&1.id == shown.id))
 
   # A recording can be deleted between the moment it was chosen and the
   # moment the button is pressed, and the one thing this form may not do is
@@ -1307,59 +1276,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   """
   def only_copy?(nil), do: false
   def only_copy?(%{id: id}), do: Media.only_copy?(id)
-
-  # The same shape a searched-for recording arrives in, so the row component
-  # can't tell the proposal from a search hit.
-  defp local_recording(nil), do: nil
-
-  defp local_recording(media) do
-    %{
-      id: media.id,
-      label: recording_label(media),
-      facts: recording_facts(media),
-      direct_play: media.direct_play
-    }
-  end
-
-  # The book's title unless this recording overrides it, plus its place in a
-  # set — the same composition `Media.display_title/1` makes, off the flat
-  # row's own columns.
-  defp recording_label(media) do
-    title = media.title || media.book
-
-    case Media.Media.part_label(media) do
-      nil -> title
-      part -> "#{title} (#{part})"
-    end
-  end
-
-  # The credit stack, on one line, in the joins the vocabulary uses.
-  defp recording_facts(media) do
-    [
-      names(media.authors),
-      names(media.narrators) && "read by #{names(media.narrators)}",
-      format_timecode(media.duration)
-    ]
-    |> Enum.filter(&is_binary/1)
-    |> Enum.join(" · ")
-  end
-
-  defp names([]), do: nil
-  defp names(people), do: people |> Enum.map_join(", ", & &1.name) |> presence()
-
-  defp presence(""), do: nil
-  defp presence(value), do: value
-
-  # Shaped like a stored local record, so the row component can't tell a
-  # searched-for book from a matched one — they are the same answer.
-  defp local_book(book) do
-    %{
-      "id" => book.id,
-      "title" => book.title,
-      "authors" => Enum.map(book.authors || [], & &1.name),
-      "published" => book.published && Date.to_iso8601(book.published)
-    }
-  end
 
   @doc "How a provider record is referred to."
   defdelegate record_ref(record), to: Inbox

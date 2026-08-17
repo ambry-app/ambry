@@ -9,6 +9,7 @@ defmodule Ambry.Media.MediaFlat do
   alias Ambry.People.PersonName
 
   schema "media_flat" do
+    field :book_id, :id
     field :title, :string
     field :part_number, :integer
     field :parts_total, :integer

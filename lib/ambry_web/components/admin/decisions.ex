@@ -20,12 +20,15 @@ defmodule AmbryWeb.Admin.Decisions do
 
   import AmbryWeb.CoreComponents
 
+  alias Ambry.Books
   alias Ambry.Inbox.Draft.Credit
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.Tier
+  alias Ambry.Media
+  alias Ambry.People
   alias AmbryWeb.Components.EntityResolver
 
   attr :outcomes, :list, required: true
@@ -354,50 +357,29 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  attr :recording, :map, required: true, doc: "%{id:, label:, facts:, direct_play:}"
-  attr :chosen, :boolean, required: true
+  attr :recording, :map, required: true, doc: "an `Ambry.Media.media_option/1` map"
 
   @doc """
   An audiobook in the library these files might be a better copy of.
 
   The work level's local-book costume, one level down and answering the
   question one level up: not "which book is this" but "is this an audiobook
-  you already have, in better files". Same anatomy on purpose — the proposal
-  the path evidence makes and a recording found by searching are the same
-  answer, and a row that looked different depending on which had produced it
-  would be claiming a difference that isn't there.
+  you already have, in better files".
+
+  **Only ever a proposal.** Once the operator has answered, the answer lives in
+  the picker beside this — a row and a filled box both claiming to hold it is
+  one answer rendered twice, free to disagree about which is the real one. So
+  this offers, and the box states.
   """
   def local_recording_row(assigns) do
     ~H"""
-    <div
-      class={[
-        "flex items-start gap-3 rounded-md p-3",
-        @chosen && "bg-brand-dark/10 ring-brand-dark/50 ring-2 ring-inset",
-        !@chosen && "bg-zinc-800/60"
-      ]}
-      data-role="local-recording"
-      data-chosen={@chosen && "true"}
-    >
+    <div class="bg-zinc-800/60 flex items-start gap-3 rounded-md p-3" data-role="local-recording">
       <div class="min-w-0 flex-grow">
-        <div class="flex items-baseline gap-2 text-sm font-semibold">
-          <span class="min-w-0 truncate">{@recording.label}</span>
-
-          <%!-- Which recordings still cost double the disk is the whole
-              reason somebody is on this form, so the row says it. --%>
-          <.badge
-            :if={!@recording.direct_play}
-            color={:gray}
-            class="flex-none text-xs font-normal"
-            data-role="streaming-only"
-          >
-            streaming only
-          </.badge>
-        </div>
-        <p class="truncate text-xs text-zinc-400">{@recording.facts}</p>
+        <p class="truncate text-sm font-semibold">{@recording.label}</p>
+        <p class="truncate text-xs text-zinc-400">{@recording.detail}</p>
       </div>
 
       <button
-        :if={!@chosen}
         type="button"
         phx-click="replace-recording"
         phx-value-id={@recording.id}
@@ -405,8 +387,6 @@ defmodule AmbryWeb.Admin.Decisions do
       >
         Yes, replace its files
       </button>
-
-      <span :if={@chosen} class="flex-none text-xs text-zinc-400">replacing this</span>
     </div>
     """
   end
@@ -804,18 +784,8 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :credit, Credit, required: true
   attr :index, :integer, required: true
   attr :section, :string, required: true
-  attr :identities, :list, required: true
   attr :verb, :string, required: true, doc: ~s(the visible label — "Written by")
-
-  attr :identity_backing, :map,
-    default: %{},
-    doc: "identity id => the backing people's names, where they add something"
-
   attr :persons, :list, required: true, doc: "the PersonDecisions this credit references"
-
-  attr :people, :list,
-    default: [],
-    doc: "the library's people, so a linked person's chip shows the library's own name and face"
 
   attr :count, :integer,
     default: 1,
@@ -874,7 +844,7 @@ defmodule AmbryWeb.Admin.Decisions do
   end
 
   def credit_row(assigns) do
-    assigns = assign(assigns, :faces, Enum.map(assigns.persons, &person_face(&1, assigns.people)))
+    assigns = assign(assigns, :faces, Enum.map(assigns.persons, &person_face/1))
 
     ~H"""
     <%!-- A decision block, so it wears the state rail like every other one —
@@ -943,7 +913,8 @@ defmodule AmbryWeb.Admin.Decisions do
             id={"credit-#{@section}-#{@index}-resolver"}
             name="identity_id"
             text_name="name"
-            options={@identities}
+            search={identity_search(@credit.kind)}
+            fetch={identity_fetch(@credit.kind)}
             value={if @credit.mode == :link, do: @credit.identity_id}
             text={@credit.name || ""}
             placeholder="name"
@@ -955,11 +926,11 @@ defmodule AmbryWeb.Admin.Decisions do
                 name's real names are worth a line, "already in the library"
                 twice is not. --%>
           <span
-            :if={@credit.mode == :link && @identity_backing[@credit.identity_id]}
+            :if={identity_backing(@credit)}
             class="text-xs text-zinc-400"
             data-role="identity-backing"
           >
-            {@identity_backing[@credit.identity_id]}
+            {identity_backing(@credit)}
           </span>
         </form>
 
@@ -1042,7 +1013,6 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :locals, :list, default: [], doc: "people the library already has by this name"
   attr :outcomes, :list, default: []
   attr :appears, :list, default: []
-  attr :people, :list, default: [], doc: "the library's people, for the typeahead"
 
   attr :query_name, :string,
     default: nil,
@@ -1073,11 +1043,11 @@ defmodule AmbryWeb.Admin.Decisions do
     assigns =
       assign(assigns,
         own_name: assigns.person.own_name or not Credit.simple?(assigns.group.credit),
-        linked: linked_person(assigns.people, assigns.person),
+        linked: linked_person(assigns.person),
         # A linked person is called what the library calls them, here as well
         # as on the credit chip — the staged name is a leftover of finding
         # them, not their name.
-        words: person_words(assigns.person, linked_person(assigns.people, assigns.person))
+        words: person_words(assigns.person, linked_person(assigns.person))
       )
 
     ~H"""
@@ -1177,7 +1147,8 @@ defmodule AmbryWeb.Admin.Decisions do
               id={"person-#{@person.key}-resolver"}
               name="person_id"
               text_name="name"
-              options={@people}
+              search={&People.search_people/2}
+              fetch={&People.person_option/1}
               value={nil}
               text={Field.value(@person.name) || ""}
               placeholder="the person's real name"
@@ -1283,14 +1254,14 @@ defmodule AmbryWeb.Admin.Decisions do
 
   # The library's own row for a person linked from the typeahead rather than
   # from the rows below — enough to say who, and to take it back.
-  defp linked_person(people, %PersonDecision{mode: :link, person_id: id}) do
-    case Enum.find(people, &(&1.id == id)) do
+  defp linked_person(%PersonDecision{mode: :link, person_id: id}) do
+    case People.person_option(id) do
       nil -> %{"id" => id, "name" => "Somebody in your library"}
       person -> %{"id" => person.id, "name" => person.label, "image" => person.image}
     end
   end
 
-  defp linked_person(_people, _person), do: nil
+  defp linked_person(_person), do: nil
 
   @doc """
   What to show for a person: the library's own name and face where this
@@ -1307,8 +1278,8 @@ defmodule AmbryWeb.Admin.Decisions do
   a staged image may be a remote provider URL that has to go through the
   proxy.
   """
-  def person_face(person, people) do
-    case linked_person(people, person) do
+  def person_face(person) do
+    case linked_person(person) do
       nil ->
         %{
           key: person.key,
@@ -1336,6 +1307,29 @@ defmodule AmbryWeb.Admin.Decisions do
 
   defp local_people_words(_person, locals, _kind),
     do: "#{length(locals)} people by this name are already in your library."
+
+  # Which records a control offers is a property of what it is picking, not a
+  # decision the caller makes: a "Written by" row can only ever resolve an
+  # Author. Naming the source here rather than taking a list as an attr is
+  # what let the import form stop loading every author, narrator and person in
+  # the library on mount.
+  defp identity_search(:author), do: &People.search_authors/2
+  defp identity_search(:narrator), do: &People.search_narrators/2
+
+  defp identity_fetch(:author), do: &People.author_option/1
+  defp identity_fetch(:narrator), do: &People.narrator_option/1
+
+  # Who is really behind a linked identity, when the names add something. The
+  # same `detail` the typeahead's rows carry, read off the one record this
+  # credit points at — it used to be a map of every identity in the library.
+  defp identity_backing(%Credit{mode: :link, kind: kind, identity_id: id}) when not is_nil(id) do
+    case identity_fetch(kind).(id) do
+      %{detail: detail} -> detail
+      nil -> nil
+    end
+  end
+
+  defp identity_backing(%Credit{}), do: nil
 
   attr :local, :map, required: true
   attr :person_key, :string, required: true
@@ -1811,7 +1805,6 @@ defmodule AmbryWeb.Admin.Decisions do
 
   attr :link, SeriesLink, required: true
   attr :index, :integer, required: true
-  attr :options, :list, required: true
 
   attr :count, :integer,
     default: 1,
@@ -1924,7 +1917,8 @@ defmodule AmbryWeb.Admin.Decisions do
             id={"series-#{@index}-resolver"}
             name="series_id"
             text_name="name"
-            options={@options}
+            search={&Books.search_series/2}
+            fetch={&Books.series_option/1}
             value={if @link.mode == :link, do: @link.series_id}
             text={@link.name || ""}
             placeholder="series name"
@@ -1970,7 +1964,10 @@ defmodule AmbryWeb.Admin.Decisions do
   end
 
   attr :link, GroupLink, required: true
-  attr :options, :list, required: true
+
+  attr :book_id, :any,
+    default: nil,
+    doc: "the book whose sets this offers — a set belongs to a book the way its members do"
 
   @doc """
   The recording's place in a part set — which group it joins or creates, and
@@ -2064,7 +2061,8 @@ defmodule AmbryWeb.Admin.Decisions do
             id="group-resolver"
             name="recording_group_id"
             text_name="name"
-            options={@options}
+            search={&Media.search_recording_groups(@book_id, &1, &2)}
+            fetch={&Media.recording_group_option/1}
             value={if @link.mode == :link, do: @link.recording_group_id}
             text={@link.name || ""}
             placeholder="set name"
