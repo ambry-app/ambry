@@ -392,7 +392,7 @@ defmodule Ambry.MediaTest do
       assert %{part_number: 1, recording_group: %{name: "Season One", parts_total: 3}} = media
 
       assert [%{label: "Season One", detail: "1 of 3 parts"}] =
-               Media.recording_groups_for_select(book_id)
+               Media.search_recording_groups(book_id, "", 10)
     end
 
     test "a part number requires a group" do
@@ -420,7 +420,7 @@ defmodule Ambry.MediaTest do
 
       assert updated.recording_group_id == nil
       assert updated.part_number == nil
-      assert [] = Media.recording_groups_for_select(book_id)
+      assert [] = Media.search_recording_groups(book_id, "", 10)
       assert Ambry.Repo.aggregate(Ambry.Media.RecordingGroup, :count) == 0
     end
 

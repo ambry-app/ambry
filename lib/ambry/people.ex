@@ -21,6 +21,7 @@ defmodule Ambry.People do
   import Ambry.Utils
   import Ecto.Query
 
+  alias Ambry.Ecto.NameSearch
   alias Ambry.Paths
   alias Ambry.People.Author
   alias Ambry.People.AuthorPerson
@@ -433,22 +434,35 @@ defmodule Ambry.People do
   def get_narrator!(id), do: Narrator |> preload(:person) |> Repo.get!(id)
 
   @doc """
-  Returns all narrators for use in `Select` components, as rich options:
+  Narrators matching what somebody typed into a picker, as rich options:
   the person's portrait, and their real name when the stage name hides it.
   """
-  def narrators_for_select do
+  def search_narrators(phrase, limit) do
     Narrator
+    |> NameSearch.narrow(:name, phrase, limit)
     |> preload(:person)
-    |> order_by(asc: :name)
     |> Repo.all()
-    |> Enum.map(
-      &%{
-        id: &1.id,
-        label: &1.name,
-        image: portrait(List.wrap(&1.person)),
-        detail: backing(&1.name, List.wrap(&1.person))
-      }
-    )
+    |> Enum.map(&narrator_option/1)
+  end
+
+  @doc """
+  One narrator as a picker option, or nil.
+  """
+  def narrator_option(blank) when blank in [nil, ""], do: nil
+
+  def narrator_option(%Narrator{} = narrator) do
+    people = List.wrap(narrator.person)
+
+    %{
+      id: narrator.id,
+      label: narrator.name,
+      image: portrait(people),
+      detail: backing(narrator.name, people)
+    }
+  end
+
+  def narrator_option(id) do
+    Narrator |> preload(:person) |> Repo.get(id) |> narrator_option()
   end
 
   # Authors
@@ -461,22 +475,33 @@ defmodule Ambry.People do
   def get_author!(id), do: Author |> preload(:people) |> Repo.get!(id)
 
   @doc """
-  Returns all authors for use in `Select` components, as rich options: a
+  Authors matching what somebody typed into a picker, as rich options: a
   portrait, and the human(s) behind a pen name when that's worth saying.
   """
-  def authors_for_select do
+  def search_authors(phrase, limit) do
     Author
+    |> NameSearch.narrow(:name, phrase, limit)
     |> preload(:people)
-    |> order_by(asc: :name)
     |> Repo.all()
-    |> Enum.map(
-      &%{
-        id: &1.id,
-        label: &1.name,
-        image: portrait(&1.people),
-        detail: backing(&1.name, &1.people)
-      }
-    )
+    |> Enum.map(&author_option/1)
+  end
+
+  @doc """
+  One author as a picker option, or nil.
+  """
+  def author_option(blank) when blank in [nil, ""], do: nil
+
+  def author_option(%Author{} = author) do
+    %{
+      id: author.id,
+      label: author.name,
+      image: portrait(author.people),
+      detail: backing(author.name, author.people)
+    }
+  end
+
+  def author_option(id) do
+    Author |> preload(:people) |> Repo.get(id) |> author_option()
   end
 
   defp portrait(people) do
@@ -518,23 +543,32 @@ defmodule Ambry.People do
   end
 
   @doc """
-  Returns all people for use in `Select` components.
+  People matching what somebody typed into a picker.
 
   People rather than identities: this is what the import form's "who is behind
   this credit" control picks from, where the answer is a human, not a name
   they publish under.
   """
-  def people_for_select do
+  def search_people(phrase, limit) do
     Person
-    |> order_by(asc: :name)
+    |> NameSearch.narrow(:name, phrase, limit)
     |> Repo.all()
-    |> Enum.map(
-      &%{
-        id: &1.id,
-        label: &1.name,
-        image: &1.thumbnails && &1.thumbnails.extra_small,
-        detail: nil
-      }
-    )
+    |> Enum.map(&person_option/1)
   end
+
+  @doc """
+  One person as a picker option, or nil.
+  """
+  def person_option(blank) when blank in [nil, ""], do: nil
+
+  def person_option(%Person{} = person) do
+    %{
+      id: person.id,
+      label: person.name,
+      image: person.thumbnails && person.thumbnails.extra_small,
+      detail: nil
+    }
+  end
+
+  def person_option(id), do: Person |> Repo.get(id) |> person_option()
 end

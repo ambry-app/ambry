@@ -573,17 +573,44 @@ defmodule Ambry.PeopleTest do
     end
   end
 
-  describe "narrators_for_select/0" do
+  describe "search_narrators/2" do
     test "returns rich options: name, portrait, backing person when it adds something" do
       insert(:person, narrators: build_list(3, :narrator))
-
-      list = People.narrators_for_select()
 
       assert [
                %{id: _, label: _, image: _, detail: _},
                %{id: _, label: _, image: _, detail: _},
                %{id: _, label: _, image: _, detail: _}
-             ] = list
+             ] = People.search_narrators("", 10)
+    end
+
+    test "matches on the name and stops at the limit" do
+      insert(:person, narrators: [build(:narrator, name: "Michael Kramer")])
+      insert(:person, narrators: [build(:narrator, name: "Kate Reading")])
+
+      assert [%{label: "Michael Kramer"}] = People.search_narrators("kramer", 10)
+      assert length(People.search_narrators("", 1)) == 1
+    end
+
+    # The library's "Patricia Rodríguez" and a file's "Patricia Rodriguez" are
+    # one narrator; a picker that couldn't find her by the second spelling is
+    # how a second person of the same name gets created.
+    test "folds accents" do
+      insert(:person, narrators: [build(:narrator, name: "Patricia Rodríguez")])
+
+      assert [%{label: "Patricia Rodríguez"}] = People.search_narrators("Rodriguez", 10)
+    end
+  end
+
+  describe "narrator_option/1" do
+    test "names one narrator, and nothing for one that is gone" do
+      person = insert(:person, narrators: [build(:narrator)])
+      [narrator] = person.narrators
+
+      assert %{id: id, label: label} = People.narrator_option(narrator.id)
+      assert {id, label} == {narrator.id, narrator.name}
+
+      refute People.narrator_option(nil)
     end
   end
 
@@ -602,17 +629,60 @@ defmodule Ambry.PeopleTest do
     end
   end
 
-  describe "authors_for_select/0" do
+  describe "search_authors/2" do
     test "returns rich options: name, portrait, backing people when they add something" do
       insert(:person, authors: build_list(3, :author))
-
-      list = People.authors_for_select()
 
       assert [
                %{id: _, label: _, image: _, detail: _},
                %{id: _, label: _, image: _, detail: _},
                %{id: _, label: _, image: _, detail: _}
-             ] = list
+             ] = People.search_authors("", 10)
+    end
+
+    test "matches on the name" do
+      insert(:person, authors: [build(:author, name: "Brandon Sanderson")])
+      insert(:person, authors: [build(:author, name: "Andy Weir")])
+
+      assert [%{label: "Brandon Sanderson"}] = People.search_authors("sanderson", 10)
+    end
+  end
+
+  describe "author_option/1" do
+    # The `detail` is who is really behind the identity, which is what the
+    # credit row prints beside a linked pen name — it used to come from a map
+    # of every author in the library.
+    test "names one author, and says who is behind a pen name" do
+      person =
+        insert(:person, name: "Jason Pargin", authors: [build(:author, name: "David Wong")])
+
+      [%{author: author}] = person.author_people
+
+      assert %{id: id, label: "David Wong", detail: "Jason Pargin"} =
+               People.author_option(author.id)
+
+      assert id == author.id
+      refute People.author_option(nil)
+    end
+  end
+
+  describe "search_people/2" do
+    test "matches on the name" do
+      insert(:person, name: "Brandon Sanderson")
+      insert(:person, name: "Andy Weir")
+
+      assert [%{label: "Brandon Sanderson"}] = People.search_people("sanderson", 10)
+    end
+  end
+
+  describe "person_option/1" do
+    test "names one person, and nothing for one that is gone" do
+      person = insert(:person)
+
+      assert %{id: id, label: label} = People.person_option(person.id)
+      assert {id, label} == {person.id, person.name}
+
+      refute People.person_option(nil)
     end
   end
 end

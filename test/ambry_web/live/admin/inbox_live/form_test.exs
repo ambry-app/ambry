@@ -179,7 +179,9 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       assert html =~ "This audiobook was imported from these files"
       assert has_element?(view, "[data-role='local-recording']", "The Way of Kings")
-      assert has_element?(view, "[data-role='streaming-only']")
+      # which recordings still cost double the disk is the reason somebody is
+      # on this form, so the row says it
+      assert has_element?(view, "[data-role='local-recording']", "streaming only")
 
       assert html =~ "Whether this replaces an audiobook you already have"
       assert has_element?(view, "button[data-role='import'][disabled]")
@@ -231,12 +233,11 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       refute has_element?(view, "[data-role='local-recording']")
 
       view
-      |> element("#recording-search")
-      |> render_change(%{"query" => "Kings"})
+      |> element("#replace-recording-resolver-input")
+      |> render_change(%{"resolver" => %{"replace-recording-resolver" => "Kings"}})
 
-      assert has_element?(view, "[data-role='local-recording']")
-
-      view |> element("[data-role='local-recording'] button") |> render_click()
+      view |> element("#replace-recording-resolver-option-#{media.id}") |> render_click()
+      view |> form("#recording-search") |> render_change()
 
       assert %{mode: :replace, media_id: media_id} =
                Inbox.get_item!(item.id).draft.replacement
@@ -249,9 +250,12 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      html = view |> element("#recording-search") |> render_change(%{"query" => "Neuromancer"})
+      html =
+        view
+        |> element("#replace-recording-resolver-input")
+        |> render_change(%{"resolver" => %{"replace-recording-resolver" => "Neuromancer"}})
 
-      assert html =~ "No audiobook in the library matches that"
+      assert html =~ "No matches"
     end
 
     # The one consequence of a replacement that can't be taken back.
@@ -286,8 +290,13 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       media = library_recording()
 
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
-      view |> element("#recording-search") |> render_change(%{"query" => "Kings"})
-      view |> element("[data-role='local-recording'] button") |> render_click()
+
+      view
+      |> element("#replace-recording-resolver-input")
+      |> render_change(%{"resolver" => %{"replace-recording-resolver" => "Kings"}})
+
+      view |> element("#replace-recording-resolver-option-#{media.id}") |> render_click()
+      view |> form("#recording-search") |> render_change()
 
       {:ok, _deleted} = Ambry.Media.delete_media(Ambry.Media.get_media!(media.id))
 
@@ -424,18 +433,64 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       # reachable from the default state, with nothing matched
       assert html =~ "search the library by title, author or series"
 
-      html =
-        view |> form("#library-search") |> render_change(%{"query" => "sorcerer stone"})
-
-      assert html =~ "Harry Potter and the Sorcerer&#39;s Stone"
-
       view
-      |> element("button[phx-click='link-book'][phx-value-id='#{book.id}']")
-      |> render_click()
+      |> element("#library-book-resolver-input")
+      |> render_change(%{"resolver" => %{"library-book-resolver" => "sorcerer stone"}})
+
+      assert has_element?(view, "#library-book-resolver-option-#{book.id}")
+
+      view |> element("#library-book-resolver-option-#{book.id}") |> render_click()
+      view |> form("#library-search") |> render_change()
 
       draft = Inbox.get_item!(item.id).draft
       assert draft.work.mode == :link
       assert draft.work.book_id == book.id
+    end
+
+    # The keyword search the matched rows come from, not a substring of the
+    # title: the author's name is what a person typing knows.
+    test "a book is reachable by its author's name", %{conn: conn} do
+      book =
+        insert(:book,
+          title: "The Way of Kings",
+          book_authors: [build(:book_author, author: build(:author, name: "Brandon Sanderson"))]
+        )
+
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#library-book-resolver-input")
+      |> render_change(%{"resolver" => %{"library-book-resolver" => "sanderson kings"}})
+
+      assert has_element?(view, "#library-book-resolver-option-#{book.id}")
+    end
+
+    # The `fetch` half of a source, and it is load-bearing: there is no longer
+    # a list of every book to find the linked one's name in, so a picker that
+    # couldn't ask by id would render blank over a real answer.
+    test "the box names the book it is holding, unsearched", %{conn: conn} do
+      book = insert(:book, title: "Harry Potter and the Sorcerer's Stone")
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> element("#library-book-resolver-input")
+      |> render_change(%{"resolver" => %{"library-book-resolver" => "sorcerer"}})
+
+      view |> element("#library-book-resolver-option-#{book.id}") |> render_click()
+      view |> form("#library-search") |> render_change()
+
+      # a fresh mount: nothing has been typed, and the box still says which
+      # book this import is linked to
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html
+             |> Floki.parse_document!()
+             |> Floki.find(~s{input[name="resolver[library-book-resolver]"]})
+             |> Floki.attribute("value") == ["Harry Potter and the Sorcerer's Stone"]
     end
 
     test "says so when the library has nothing like it", %{conn: conn} do
@@ -444,9 +499,11 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
 
       html =
-        view |> form("#library-search") |> render_change(%{"query" => "nothing like this"})
+        view
+        |> element("#library-book-resolver-input")
+        |> render_change(%{"resolver" => %{"library-book-resolver" => "nothing like this"}})
 
-      assert html =~ "Nothing in the library matches that"
+      assert html =~ "No matches"
     end
   end
 

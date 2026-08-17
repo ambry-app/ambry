@@ -32,6 +32,7 @@ defmodule Ambry.Media do
   import Ecto.Query
 
   alias Ambry.Books
+  alias Ambry.Ecto.NameSearch
   alias Ambry.Library
   alias Ambry.Media.Audit
   alias Ambry.Media.Media
@@ -147,31 +148,108 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Recordings matching a phrase, best-known-first, for a typeahead.
+  Recordings matching what somebody typed into a picker, as rich options.
 
-  The import form's replace decision needs to reach any audiobook in the
-  library by title, book, author or narrator — the same search the index
-  offers, without its pagination.
+  Reaches any audiobook in the library by title, book, author, narrator,
+  series or universe — the same search the index offers, without its
+  pagination. With nothing typed, the first page by book.
   """
-  def match_media(phrase, limit \\ 10)
-  def match_media(phrase, _limit) when phrase in [nil, ""], do: []
-
-  def match_media(phrase, limit) do
+  def search_media(phrase, limit) do
     MediaFlat
-    |> MediaFlat.filter(%{search: phrase})
+    |> media_matching(phrase)
     |> order_by([m], asc: m.book, asc: m.part_number, asc: m.id)
     |> limit(^limit)
     |> Repo.all()
+    |> Enum.map(&media_option/1)
   end
 
   @doc """
-  One recording's flat row, or nil.
+  The same, within one book: what a set may hold.
 
-  For a surface that already speaks that shape: the import form renders the
-  replacement it proposed and the ones a search returned with one component,
-  because they are the same answer.
+  A set belongs to a book the way its members do, so its member picker offers
+  that book's recordings and nothing else.
   """
-  def get_media_flat(id), do: Repo.get(MediaFlat, id)
+  def search_book_media(book_id, phrase, limit)
+  def search_book_media(blank, _phrase, _limit) when blank in [nil, ""], do: []
+
+  def search_book_media(book_id, phrase, limit) do
+    MediaFlat
+    |> where([m], m.book_id == ^book_id)
+    |> media_matching(phrase)
+    |> order_by([m], asc: m.part_number, asc: m.id)
+    |> limit(^limit)
+    |> Repo.all()
+    |> Enum.map(&media_option/1)
+  end
+
+  defp media_matching(query, phrase) do
+    case String.trim(phrase || "") do
+      "" -> query
+      typed -> MediaFlat.filter(query, :search, typed)
+    end
+  end
+
+  @doc """
+  One recording as a picker option, or nil.
+
+  What lets a picker name the recording it is already holding — the preloaded
+  list this replaced was answering that silently, since the id was in it.
+
+  Built off the flat view rather than the record so that every surface
+  describes a recording the same way: its display title, its cover, and what
+  actually tells two recordings of one book apart.
+  """
+  def media_option(blank) when blank in [nil, ""], do: nil
+
+  def media_option(%MediaFlat{} = media) do
+    %{
+      id: media.id,
+      label: media_option_label(media),
+      image: media.thumbnail,
+      detail: media_option_detail(media)
+    }
+  end
+
+  def media_option(id), do: MediaFlat |> Repo.get(id) |> media_option()
+
+  # The book's title unless this recording overrides it, plus its place in a
+  # set — the composition `Media.display_title/1` makes, off the view's own
+  # columns.
+  defp media_option_label(%MediaFlat{} = media) do
+    title = media.title || media.book
+
+    case Media.part_label(media) do
+      nil -> title
+      part -> "#{title} (#{part})"
+    end
+  end
+
+  # The credit stack on one line, in the joins the vocabulary uses, then the
+  # facts that separate two readings of one book. "Streaming only" is in here
+  # because which recordings still cost double the disk is the whole reason
+  # somebody is looking at this list.
+  defp media_option_detail(%MediaFlat{} = media) do
+    [
+      names(media.narrators) && "read by #{names(media.narrators)}",
+      media.publisher,
+      media.published && media.published.year,
+      media.duration && format_duration(media.duration),
+      !media.direct_play && "streaming only"
+    ]
+    |> Enum.filter(&(is_binary(&1) or is_integer(&1)))
+    |> Enum.map_join(" · ", &to_string/1)
+    |> presence()
+  end
+
+  defp names([]), do: nil
+  defp names(nil), do: nil
+  defp names(people), do: people |> Enum.map_join(", ", & &1.name) |> presence()
+
+  # hh:mm, which is how long an audiobook is talked about.
+  defp format_duration(seconds) do
+    total = seconds |> Decimal.round() |> Decimal.to_integer()
+    "#{div(total, 3600)}h #{total |> rem(3600) |> div(60)}m"
+  end
 
   @doc """
   The recording these files were imported into, if any.
@@ -1018,55 +1096,6 @@ defmodule Ambry.Media do
     end)
   end
 
-  @doc """
-  Returns one book's recordings for `Select` components, as rich options:
-  cover, display title, and what actually tells two recordings of one book
-  apart — publisher, year, and the narrator when the cast is small (a
-  full-cast roster reads as noise, so it collapses to a count).
-  """
-  def media_for_select(nil), do: []
-  def media_for_select(""), do: []
-
-  def media_for_select(book_id) do
-    query =
-      from m in Media,
-        where: m.book_id == ^book_id,
-        order_by: m.id,
-        preload: [:book, :recording_group, media_narrators: :narrator]
-
-    query
-    |> Repo.all()
-    |> Enum.map(
-      &%{
-        id: &1.id,
-        label: &1.title || &1.book.title,
-        image: &1.thumbnails && &1.thumbnails.extra_small,
-        detail: media_select_detail(&1)
-      }
-    )
-  end
-
-  defp media_select_detail(%Media{} = media) do
-    narrators = Enum.map(media.media_narrators, & &1.narrator.name)
-
-    [
-      media.publisher,
-      media.published && media.published.year,
-      case narrators do
-        [] -> nil
-        [one] -> one
-        [one, two] -> "#{one}, #{two}"
-        [first | rest] -> "#{first} +#{length(rest)}"
-      end,
-      # picking a grouped recording MOVES it — the one membership fact
-      # that's a warning rather than decoration
-      media.recording_group && "in “#{media.recording_group.name}”"
-    ]
-    |> Enum.reject(&is_nil/1)
-    |> Enum.map_join(" · ", &to_string/1)
-    |> presence()
-  end
-
   defp presence(""), do: nil
   defp presence(other), do: other
 
@@ -1087,26 +1116,35 @@ defmodule Ambry.Media do
   empty group is offerable because the FK carries the book even before
   any member does.
   """
-  def recording_groups_for_select(nil), do: []
-  def recording_groups_for_select(""), do: []
+  def search_recording_groups(book_id, phrase, limit)
+  def search_recording_groups(nil, _phrase, _limit), do: []
+  def search_recording_groups("", _phrase, _limit), do: []
 
-  def recording_groups_for_select(book_id) do
-    query =
-      from g in RecordingGroup,
-        where: g.book_id == ^book_id,
-        order_by: g.id,
-        preload: :media
-
-    query
+  def search_recording_groups(book_id, phrase, limit) do
+    RecordingGroup
+    |> where([g], g.book_id == ^book_id)
+    |> NameSearch.narrow(:name, phrase, limit)
+    |> preload(:media)
     |> Repo.all()
-    |> Enum.map(
-      &%{
-        id: &1.id,
-        label: &1.name,
-        image: first_member_thumbnail(&1),
-        detail: parts_progress(&1)
-      }
-    )
+    |> Enum.map(&recording_group_option/1)
+  end
+
+  @doc """
+  One recording group as a picker option, or nil.
+  """
+  def recording_group_option(blank) when blank in [nil, ""], do: nil
+
+  def recording_group_option(%RecordingGroup{} = group) do
+    %{
+      id: group.id,
+      label: group.name,
+      image: first_member_thumbnail(group),
+      detail: parts_progress(group)
+    }
+  end
+
+  def recording_group_option(id) do
+    RecordingGroup |> preload(:media) |> Repo.get(id) |> recording_group_option()
   end
 
   defp first_member_thumbnail(%RecordingGroup{media: media}) do

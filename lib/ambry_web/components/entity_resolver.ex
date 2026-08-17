@@ -25,6 +25,31 @@ defmodule AmbryWeb.Components.EntityResolver do
   hook — deliberately not a `<datalist>`, which mobile Firefox does not
   support and which cannot offer a create row.
 
+  ## Where the options come from
+
+  Two functions, passed in:
+
+      search={&Books.search_books/2}   # (phrase, limit) -> [option]
+      fetch={&Books.book_option/1}     #  id             -> option | nil
+
+  **The search runs per keystroke, server-side.** What this replaced took the
+  whole table as a list and filtered it in memory, which meant every form
+  holding a book picker loaded every book — with its cover — on mount, and the
+  filtering was `String.contains?` over one label, so "sanderson kings" found
+  nothing. The context owns the query instead: it can score, join, and stop at
+  a limit.
+
+  **`fetch` is not decoration.** A filled box has to name what it holds, and
+  the preloaded list was answering that silently — the id was in it, so its
+  label was there to find. Without a by-id lookup a pure picker renders blank
+  over a perfectly good value.
+
+  Captured remote functions rather than an MFA tuple or a source atom:
+  `&Mod.fun/arity` is checked at compile time (an undefined one is a warning,
+  and CI runs `--warnings-as-errors`), it is stable across renders so change
+  tracking behaves, and it is greppable — the call site says which queries
+  back the box.
+
   ## Options
 
   Plain `{label, id}` tuples, or maps for richer rows:
@@ -46,7 +71,8 @@ defmodule AmbryWeb.Components.EntityResolver do
   def render(assigns) do
     assigns =
       assigns
-      |> assign(:equery, effective_query(assigns))
+      |> assign(:held, held(assigns))
+      |> then(&assign(&1, :equery, effective_query(&1)))
       |> then(&assign(&1, :matches, matches(&1)))
       |> then(&assign(&1, :imaged, Enum.any?(&1.matches, fn option -> option.image end)))
 
@@ -176,16 +202,6 @@ defmodule AmbryWeb.Components.EntityResolver do
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
-    assigns =
-      case assigns do
-        %{options: options} ->
-          options = Enum.map(options, &normalize_option/1)
-          %{assigns | options: options}
-
-        _no_options ->
-          assigns
-      end
-
     {:ok,
      socket
      |> assign(assigns)
@@ -195,11 +211,6 @@ defmodule AmbryWeb.Components.EntityResolver do
      |> assign_new(:placeholder, fn -> nil end)
      |> assign_new(:class, fn -> nil end)}
   end
-
-  defp normalize_option({label, id}), do: %{id: id, label: label, image: nil, detail: nil}
-
-  defp normalize_option(%{id: _, label: _} = option),
-    do: Map.merge(%{image: nil, detail: nil}, option)
 
   @impl Phoenix.LiveComponent
   def handle_event("open", _params, socket) do
@@ -267,21 +278,19 @@ defmodule AmbryWeb.Components.EntityResolver do
     })
   end
 
-  # While typing, show the query; otherwise the picked record's label, or the
+  # The record this box is holding, so it can say its name. Asked of the
+  # source, because there is no longer a list to find it in — and not asked at
+  # all while the operator is typing, which is the common case and the one
+  # where the answer would be thrown away.
+  defp held(%{query: query}) when is_binary(query), do: nil
+  defp held(%{value: nil}), do: nil
+  defp held(%{value: value, fetch: fetch}), do: normalize(fetch.(value))
+
+  # While typing, show the query; otherwise the held record's label, or the
   # name being created.
   defp display_value(%{query: query}) when is_binary(query), do: query
-
-  defp display_value(%{value: value, options: options, text: text}) do
-    case value do
-      nil ->
-        text
-
-      value ->
-        Enum.find_value(options, text, fn option ->
-          to_string(option.id) == to_string(value) && option.label
-        end)
-    end
-  end
+  defp display_value(%{held: %{label: label}}), do: label
+  defp display_value(%{text: text}), do: text
 
   # What the list filters on: the query while typing, otherwise whatever the
   # field currently holds — an open filled field must never list records that
@@ -289,26 +298,20 @@ defmodule AmbryWeb.Components.EntityResolver do
   defp effective_query(%{query: query}) when is_binary(query), do: query
   defp effective_query(assigns), do: display_value(assigns)
 
-  defp matches(%{equery: query, options: options}) when is_binary(query) and query != "" do
-    folded = fold(query)
+  # Only while the list is open. The search is a database query now, and a
+  # closed box has nothing to show — running one per parent render would be a
+  # query per keystroke of every other field on the form.
+  defp matches(%{open: false}), do: []
 
-    options
-    |> Enum.filter(fn option -> String.contains?(fold(option.label), folded) end)
-    |> Enum.sort_by(fn option ->
-      {!String.starts_with?(fold(option.label), folded), option.label}
-    end)
-    |> Enum.take(@limit)
+  defp matches(%{equery: query, search: search}) do
+    query |> search.(@limit) |> Enum.map(&normalize/1)
   end
 
-  defp matches(%{options: options}), do: Enum.take(options, @limit)
+  defp normalize(nil), do: nil
+  defp normalize({label, id}), do: %{id: id, label: label, image: nil, detail: nil}
 
-  # Case- and accent-insensitive: "Rodriguez" finds "Patricia Rodríguez".
-  defp fold(string) do
-    string
-    |> String.normalize(:nfd)
-    |> String.replace(~r/\p{Mn}/u, "")
-    |> String.downcase()
-  end
+  defp normalize(%{id: _id, label: _label} = option),
+    do: Map.merge(%{image: nil, detail: nil}, option)
 
   defp present?(nil), do: false
   defp present?(string), do: String.trim(string) != ""

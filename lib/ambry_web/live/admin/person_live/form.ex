@@ -75,7 +75,6 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
        chips: %{},
        reverts: %{},
        provenance_hints: %{},
-       authors: People.authors_for_select(),
        # The escape hatches, once clicked. Data that already diverges reveals
        # itself without them — see `revealed?/2`.
        reveal: MapSet.new()
@@ -534,10 +533,15 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
       author_person_form[:author_id].value not in [nil, ""]
   end
 
-  defp linked_author_name(authors, value) do
-    Enum.find_value(authors, fn option ->
-      to_string(option.id) == to_string(value) && option.label
-    end)
+  # What a linked author is called. Asked of the context rather than found in
+  # a preloaded list, which is the same move `EntityResolver`'s `fetch` makes
+  # and for the same reason: naming a record is a lookup, not a reason to hold
+  # every record of that kind in memory.
+  defp linked_author_name(value) do
+    case People.author_option(value) do
+      %{label: label} -> label
+      nil -> nil
+    end
   end
 
   defp shared_with(author_person_form, person) do

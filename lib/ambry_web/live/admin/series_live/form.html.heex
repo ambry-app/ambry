@@ -19,7 +19,8 @@
             <.input
               field={series_book_form[:book_id]}
               type="autocomplete"
-              options={@books}
+              search={&Books.search_books/2}
+              fetch={&Books.book_option/1}
               container_class="grow"
             />
             <.delete_button

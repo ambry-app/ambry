@@ -60,7 +60,12 @@
               edges) --%>
           <div class="relative flex items-start gap-2">
             <div class="relative grow">
-              <.input field={book_author_form[:author_id]} type="autocomplete" options={@authors} />
+              <.input
+                field={book_author_form[:author_id]}
+                type="autocomplete"
+                search={&People.search_authors/2}
+                fetch={&People.author_option/1}
+              />
               <.delete_button
                 field={@form[:book_authors_drop]}
                 index={book_author_form.index}
@@ -116,7 +121,8 @@
               <.input
                 field={series_book_form[:series_id]}
                 type="autocomplete"
-                options={@series}
+                search={&Books.search_series/2}
+                fetch={&Books.series_option/1}
               />
               <.delete_button
                 field={@form[:series_books_drop]}
@@ -156,7 +162,12 @@
           <.sort_input field={@form[:book_universes_sort]} index={book_universe_form.index} />
 
           <div class="relative">
-            <.input field={book_universe_form[:universe_id]} type="autocomplete" options={@universes} />
+            <.input
+              field={book_universe_form[:universe_id]}
+              type="autocomplete"
+              search={&Books.search_universes/2}
+              fetch={&Books.universe_option/1}
+            />
             <.delete_button
               field={@form[:book_universes_drop]}
               index={book_universe_form.index}

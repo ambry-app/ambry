@@ -2,13 +2,14 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
   @moduledoc false
   use AmbryWeb, :admin_live_view
 
+  alias Ambry.Books
   alias Ambry.Media
   alias Ambry.Media.RecordingGroup
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, books: Ambry.Books.books_for_select())}
+    {:ok, socket}
   end
 
   @impl Phoenix.LiveView
@@ -26,7 +27,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
       # the composed display: the name is local to the book
       page_title: "#{group.name} (#{group.book.title})",
       group: group,
-      media_options: Media.media_for_select(group.book_id)
+      book_id: group.book_id
     )
   end
 
@@ -39,7 +40,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     |> assign(
       page_title: "New Set",
       group: group,
-      media_options: []
+      book_id: nil
     )
   end
 
@@ -53,15 +54,11 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     {:noreply,
      socket
      |> assign_form(changeset)
-     # Member options follow the chosen book — the set can only hold its
-     # book's recordings. On the edit page with members the book renders as
-     # static text and posts nothing, so fall back to the group's own book:
-     # without it, any keystroke emptied the options and every member
-     # typeahead displayed blank (label lookup by id found nothing).
-     |> assign(
-       media_options:
-         Media.media_for_select(group_params["book_id"] || socket.assigns.group.book_id)
-     )}
+     # The member picker searches within the chosen book — a set can only hold
+     # its own book's recordings. On the edit page with members the book
+     # renders as static text and posts nothing, so this falls back to the
+     # group's own book.
+     |> assign(book_id: group_params["book_id"] || socket.assigns.group.book_id)}
   end
 
   def handle_event("submit", %{"recording_group_form" => group_params}, socket) do

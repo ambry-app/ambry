@@ -132,7 +132,7 @@
                     <.input
                       type="text"
                       name={"linked-author-#{author_person_form.index}"}
-                      value={linked_author_name(@authors, author_person_form[:author_id].value)}
+                      value={linked_author_name(author_person_form[:author_id].value)}
                       disabled
                     />
                     <.delete_button
@@ -183,7 +183,8 @@
                 <.input
                   field={@form[:link_author_id]}
                   type="autocomplete"
-                  options={@authors}
+                  search={&People.search_authors/2}
+                  fetch={&People.author_option/1}
                   label="Or link one that already exists"
                   container_class="min-w-64 grow"
                 />

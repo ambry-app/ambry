@@ -7,7 +7,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, books: Books.books_for_select())}
+    {:ok, socket}
   end
 
   @impl Phoenix.LiveView

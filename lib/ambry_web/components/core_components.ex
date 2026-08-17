@@ -425,6 +425,15 @@ defmodule AmbryWeb.CoreComponents do
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
+
+  attr :search, :any,
+    default: nil,
+    doc: ~s|autocomplete: `fn phrase, limit -> [option]`, e.g. `&Books.search_books/2`|
+
+  attr :fetch, :any,
+    default: nil,
+    doc: ~s|autocomplete: `fn id -> option \| nil`, so a filled box can name what it holds|
+
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
   attr :class, :string, default: nil, doc: "class overrides"
   attr :container_class, :string, default: nil, doc: "extra classes for the container div"
@@ -521,7 +530,8 @@ defmodule AmbryWeb.CoreComponents do
         module={EntityResolver}
         id={@id}
         name={@name}
-        options={@options}
+        search={@search}
+        fetch={@fetch}
         value={@value}
         class={
           ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
