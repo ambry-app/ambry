@@ -141,6 +141,11 @@ defmodule Ambry.Media.RelinkTest do
       assert plan.root.id == root.id
       assert [destination] = plan.destinations
       assert String.starts_with?(destination, root.path)
+      # Fixtures and the test root share a filesystem, so this is the
+      # hardlink branch. The other one is a copy, never a move: the delete
+      # half of a move is what would make a relink one-way, and the
+      # upload-era originals are the only copy there is.
+      assert plan.policy == :hardlink
       # the per-recording token is what keeps two readings of one book apart
       assert destination =~ Media.Media.filename_token(media)
     end

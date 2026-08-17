@@ -360,10 +360,25 @@ defmodule Ambry.Media.Relink do
   end
 
   # Hardlink where the sources and the root share a filesystem, which is the
-  # whole point — no bytes move and the recording keeps its second name only
-  # until the artifact goes. Otherwise this is a move, and a move deletes: the
-  # plan says so rather than quietly proposing it, because the two have very
-  # different consequences if the relink turns out to be wrong.
+  # whole point — no bytes move, and the recording simply gains a second name
+  # for them.
+  #
+  # Otherwise **copy, deliberately, and not move**. A move is place-then-delete
+  # and the delete is what makes a relink one-way: the upload-era originals in
+  # `source_media` are the only copy those recordings have.
+  #
+  # Note what the two policies actually differ on. The destination gains the
+  # same bytes either way — the copy has to land there regardless — so its free
+  # space says nothing about which to pick. The *only* difference is whether
+  # the originals on the other NAS are deleted now or later, and deleting them
+  # now buys back space on a volume that is not short of it while spending the
+  # last copy before anything has been heard.
+  #
+  # So the reclaim happens in two deliberate acts. This one adds a copy and is
+  # reversible by deleting it. Emptying `source_media` is a later pass over
+  # recordings that have already been verified playing, and it is the one that
+  # cannot be undone — which is exactly why it should not be a side effect of
+  # this one.
   #
   # **`hardlinkable?/2` answers `{:ok, boolean}` or `{:error, reason}` despite
   # the name**, and the error is what an unmounted root looks like —
@@ -376,7 +391,7 @@ defmodule Ambry.Media.Relink do
   defp policy([%{path: path} | _], %Root{path: root_path}) do
     case Placement.hardlinkable?(path, root_path) do
       {:ok, true} -> {:ok, :hardlink}
-      {:ok, false} -> {:ok, :move}
+      {:ok, false} -> {:ok, :copy}
       {:error, reason} -> {:error, {:undecidable_policy, reason}}
     end
   end
