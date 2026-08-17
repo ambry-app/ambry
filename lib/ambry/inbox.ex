@@ -77,6 +77,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Media.Media
   alias Ambry.Media.MediaTrack
   alias Ambry.Media.Scanner
+  alias Ambry.Media.Scanner.Tags
   alias Ambry.Repo
 
   require Logger
@@ -1453,22 +1454,5 @@ defmodule Ambry.Inbox do
     if Enum.any?(accuracies, &(&1 == :approximate)), do: "approximate", else: "exact"
   end
 
-  defp tags_map(tags) do
-    %{
-      "title" => tags.title,
-      "book_title" => tags.book_title,
-      "authors" => tags.authors,
-      "narrators" => tags.narrators,
-      "series" => tags.series,
-      "series_number" => tags.series_number && Decimal.to_string(tags.series_number),
-      "published" => tags.published && Date.to_iso8601(tags.published),
-      "published_format" => tags.published_format && to_string(tags.published_format),
-      "description" => tags.description,
-      "publisher" => tags.publisher,
-      "genre" => tags.genre,
-      "language" => tags.language,
-      "asin" => tags.asin,
-      "has_cover_art" => tags.has_cover_art
-    }
-  end
+  defp tags_map(tags), do: Tags.to_map(tags)
 end

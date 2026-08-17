@@ -56,7 +56,12 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
+  alias AmbryWeb.Admin.Revert
   alias Ecto.Changeset
+
+  # The trio that carries a chosen cover through the form: two say where it
+  # comes from and the third is the one being replaced.
+  @image_params ~w(image_type image_import_url image_path)
 
   @scalar_kinds %{"name" => :name, "description" => :description, "image" => :image}
 
@@ -68,6 +73,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> assign(
        retrying: nil,
        chips: %{},
+       reverts: %{},
        provenance_hints: %{},
        authors: People.authors_for_select(),
        # The escape hatches, once clicked. Data that already diverges reveals
@@ -238,6 +244,26 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> refresh_chips()}
   end
 
+  # The way back out of a chip. Restores the field from the saved record and
+  # drops the pending provenance with it: nothing was accepted after all, so
+  # nothing should be recorded as accepted.
+  def handle_event("revert-field", %{"field" => field}, socket) do
+    case Map.fetch(@scalar_kinds, field) do
+      {:ok, kind} ->
+        params = Map.merge(socket.assigns.form.params, Revert.params(socket.assigns.person, kind))
+        hints = Map.drop(socket.assigns.provenance_hints, [field, "image_path"])
+
+        {:noreply,
+         socket
+         |> assign_form(People.change_person(socket.assigns.person, params))
+         |> assign(provenance_hints: hints)
+         |> refresh_chips()}
+
+      :error ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("accept-proposal", %{"field" => field, "key" => key}, socket) do
     with {:ok, kind} <- Map.fetch(@scalar_kinds, field),
          %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
@@ -287,20 +313,26 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
             evidence
             |> Evidence.proposals(:description)
             |> mark_chosen(%{"description" => Changeset.get_field(form.source, :description)}),
+          # From the params, not the changeset: `image_type`,
+          # `image_import_url` and the cleared `image_path` are form state
+          # rather than schema fields, so `get_field/2` answers nil for all
+          # three and no cover proposal ever came back chosen. The chip went
+          # grey the moment it was clicked, which is the one moment it should
+          # not have.
           image:
             evidence
             |> Evidence.proposals(:image)
-            |> mark_chosen(%{
-              "image_type" => Changeset.get_field(form.source, :image_type),
-              "image_import_url" => Changeset.get_field(form.source, :image_import_url)
-            })
+            |> mark_chosen(Map.take(form.params, @image_params))
         }
       else
         %{}
       end
 
-    assign(socket, chips: chips)
+    assign(socket, chips: chips, reverts: reverts(socket))
   end
+
+  defp reverts(%{assigns: %{form: form, person: person}}),
+    do: Revert.offers(form, person, [:name, :description, :image])
 
   defp cancel_all_uploads(socket, upload) do
     Enum.reduce(socket.assigns.uploads[upload].entries, socket, fn entry, socket ->

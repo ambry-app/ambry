@@ -140,6 +140,7 @@ defmodule AmbryWeb.Admin.Curation do
   attr :record, :any, default: nil, doc: "the persisted struct provenance is read from"
   attr :hints, :map, default: %{}, doc: "pending provenance hints, field name → hint"
   attr :proposals, :list, default: [], doc: "what ticked evidence proposes, `:chosen` included"
+  attr :revert, :map, default: nil, doc: "the saved value to go back to, when it differs"
   attr :rest, :global
 
   @doc """
@@ -164,6 +165,7 @@ defmodule AmbryWeb.Admin.Curation do
         id={"proposals-#{@field.id}"}
         field={to_string(@field.field)}
         proposals={@proposals}
+        revert={@revert}
       />
     </div>
     """
@@ -175,6 +177,7 @@ defmodule AmbryWeb.Admin.Curation do
   attr :record, :any, default: nil
   attr :hints, :map, default: %{}
   attr :proposals, :list, default: []
+  attr :revert, :map, default: nil
 
   @doc """
   A curated composite date: label, provenance, one date+precision control,
@@ -196,6 +199,7 @@ defmodule AmbryWeb.Admin.Curation do
         id={"proposals-#{@date_field.id}"}
         field={to_string(@date_field.field)}
         proposals={@proposals}
+        revert={@revert}
       />
     </div>
     """
@@ -205,6 +209,10 @@ defmodule AmbryWeb.Admin.Curation do
   attr :field, :string, required: true, doc: "what the accept event names the field"
   attr :proposals, :list, required: true
   attr :event, :string, default: "accept-proposal"
+
+  attr :revert, :map,
+    default: nil,
+    doc: ~s(`%{display:, image:}` for the saved value — rendered only while the field differs)
 
   @doc """
   A "Proposed" chip row — the decision_row options row, fed by ticked
@@ -219,7 +227,7 @@ defmodule AmbryWeb.Admin.Curation do
 
     ~H"""
     <div
-      :if={@proposals != []}
+      :if={@proposals != [] or @revert}
       class={["grid-cols-[4rem_minmax(0,1fr)] grid gap-x-2 pl-3", (@images? && "items-start") || "items-baseline"]}
       data-role="proposals"
     >
@@ -248,6 +256,29 @@ defmodule AmbryWeb.Admin.Curation do
             class="mt-1 h-20 w-20 rounded-sm object-cover"
           />
         </.proposal_chip>
+
+        <%!-- The way back. A chip changes a field in one click and the only
+            other way out was reloading the page and losing the rest of the
+            edit, so the saved value is offered as an option too — ghost,
+            because it is the escape hatch rather than a proposal, and absent
+            entirely while the field still holds what was saved. --%>
+        <.proposal_chip
+          :if={@revert}
+          chosen={false}
+          ghost
+          event="revert-field"
+          values={%{field: @field}}
+          title="Go back to the saved value"
+        >
+          <span class="text-[10px] flex-none uppercase tracking-wide text-zinc-500">saved</span>
+          <span :if={!@revert[:image]}>{@revert.display}</span>
+          <.image_with_size
+            :if={@revert[:image]}
+            id={"#{@id}-saved"}
+            src={@revert.image}
+            class="mt-1 h-20 w-20 rounded-sm object-cover"
+          />
+        </.proposal_chip>
       </div>
     </div>
     """
@@ -268,12 +299,10 @@ defmodule AmbryWeb.Admin.Curation do
   the lock UI returns if and when a consumer exists.
   """
   def provenance_flag(assigns) do
+    entry = assigns.record && assigns.record.id && Provenance.entry(assigns.record, assigns.field)
+
     assigns =
-      assign(assigns,
-        hint: assigns.hints[to_string(assigns.field)],
-        entry:
-          assigns.record && assigns.record.id && Provenance.entry(assigns.record, assigns.field)
-      )
+      assign(assigns, hint: news(assigns.hints[to_string(assigns.field)], entry), entry: entry)
 
     ~H"""
     <%!-- A pending source shows even on an unsaved record — accepting a
@@ -324,5 +353,19 @@ defmodule AmbryWeb.Admin.Curation do
   defp normalize(value), do: value |> to_string() |> String.trim()
 
   # source_words resolves provider ids to display names for everyone now
+  # A hint that names the source already recorded is not news. Clicking a chip
+  # that is already the chosen one — because the value came from there and was
+  # saved from there — turned the flag amber and announced a change that was
+  # not one.
+  defp news(nil, _entry), do: nil
+
+  defp news(hint, %{"source" => source} = entry) do
+    if !(hint.source == source and to_string(hint.record) == to_string(entry["record"])) do
+      hint
+    end
+  end
+
+  defp news(hint, _nothing_recorded), do: hint
+
   defp source_label(source), do: source_words(source)
 end

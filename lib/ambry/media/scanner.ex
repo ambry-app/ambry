@@ -58,16 +58,21 @@ defmodule Ambry.Media.Scanner do
   @doc """
   Reads a media's embedded tags without writing anything.
 
-  This is the tags-first half of discovery: what the file claims about
-  itself, for 1g auto-match to turn into a pre-filled inbox item. Nothing
-  here is applied to any record — tags propose, the operator confirms.
+  What the file claims about itself: the tags-first half of discovery, and
+  the only evidence a recording imported before the inbox existed carries of
+  its own. Nothing here is applied to any record — tags propose, the operator
+  confirms.
+
+  Cheap on purpose. It reads the tags rather than probing the file, so it
+  costs one ffprobe of a header instead of the decode-count a VBR mp3 needs
+  before anyone can trust its duration — this runs while an edit form is
+  being looked at, and a fourteen-second answer is not one.
 
   Returns `{:ok, %Tags{}}` or `{:error, reason}`.
   """
   def tags(%Media{} = media) do
-    with {:ok, [first | rest]} <- audio_files(media),
-         {:ok, probe} <- Probe.run(first, single_file: rest == []) do
-      {:ok, probe.tags}
+    with {:ok, [first | rest]} <- audio_files(media) do
+      Probe.tags(first, single_file: rest == [])
     end
   end
 

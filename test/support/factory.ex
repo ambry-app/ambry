@@ -461,9 +461,44 @@ defmodule Ambry.Factory do
   tests list that directory and expect only folders.
   """
   def tagged_audio(opts \\ []) do
-    dir = Ambry.Paths.source_media_disk_path("fixture-#{Ecto.UUID.generate()}")
-    File.mkdir_p!(dir)
-    path = Path.join(dir, "tagged.m4b")
+    if Keyword.get(opts, :cover_art, false),
+      do: tagged_mp3_with_art(opts),
+      else: tagged_m4b(opts)
+  end
+
+  defp tagged_m4b(opts) do
+    path = fixture_path("tagged.m4b")
+
+    {_output, 0} =
+      System.cmd(
+        "ffmpeg",
+        ["-v", "quiet", "-i", valid_audio(:m4a), "-c", "copy"] ++
+          metadata_args(opts) ++ [path]
+      )
+
+    path
+  end
+
+  # Cover art rides along as an attached_pic video stream. ffmpeg's mov muxer
+  # is fussy about writing one, so an art-bearing fixture is an mp3 — which
+  # the probe and the extractor treat identically.
+  defp tagged_mp3_with_art(opts) do
+    path = fixture_path("tagged-art.mp3")
+    art = Path.rootname(path) <> ".jpg"
+
+    {_output, 0} =
+      System.cmd("ffmpeg", [
+        "-v",
+        "quiet",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=red:s=64x64:d=1",
+        "-frames:v",
+        "1",
+        art
+      ])
 
     {_output, 0} =
       System.cmd(
@@ -471,22 +506,42 @@ defmodule Ambry.Factory do
         [
           "-v",
           "quiet",
+          "-y",
           "-i",
-          valid_audio(:m4a),
+          valid_audio(:mp3),
+          "-i",
+          art,
+          "-map",
+          "0:a",
+          "-map",
+          "1:v",
           "-c",
           "copy",
-          "-metadata",
-          "album=#{Keyword.get(opts, :album, "The Way of Kings")}",
-          "-metadata",
-          "artist=#{Keyword.get(opts, :artist, "Brandon Sanderson")}",
-          "-metadata",
-          "composer=#{Keyword.get(opts, :composer, "Michael Kramer, Kate Reading")}"
-        ] ++
-          if(Keyword.get(opts, :dated, true), do: ["-metadata", "date=2010-08-31"], else: []) ++
-          [path]
+          "-id3v2_version",
+          "3"
+        ] ++ metadata_args(opts) ++ [path]
       )
 
+    File.rm(art)
     path
+  end
+
+  defp metadata_args(opts) do
+    [
+      "-metadata",
+      "album=#{Keyword.get(opts, :album, "The Way of Kings")}",
+      "-metadata",
+      "artist=#{Keyword.get(opts, :artist, "Brandon Sanderson")}",
+      "-metadata",
+      "composer=#{Keyword.get(opts, :composer, "Michael Kramer, Kate Reading")}"
+    ] ++
+      if Keyword.get(opts, :dated, true), do: ["-metadata", "date=2010-08-31"], else: []
+  end
+
+  defp fixture_path(filename) do
+    dir = Ambry.Paths.source_media_disk_path("fixture-#{Ecto.UUID.generate()}")
+    File.mkdir_p!(dir)
+    Path.join(dir, filename)
   end
 
   def valid_audio(:flac), do: "test/support/files/sample.flac"

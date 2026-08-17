@@ -110,6 +110,97 @@ defmodule AmbryWeb.Admin.PersonLive.EvidenceTest do
              Provenance.entry(person, :image_path)
   end
 
+  # The same accept against a person who already has a photo. The URL input
+  # that carries the choice is only rendered when there is no photo, so this
+  # one recorded the provenance and then saved the old picture — the operator
+  # had to delete the photo first and choose twice.
+  test "accepting a photo replaces the one already there", %{conn: conn} do
+    patch_providers()
+
+    %{web_path: existing} = Ambry.Factory.valid_image(:person)
+    %{web_path: replacement} = Ambry.Factory.valid_image(:person)
+    person = insert(:person, name: "Matt Dinniman", image_path: existing)
+
+    patch(AmbryWeb.Admin.UploadHelpers, :handle_image_import, fn _url -> {:ok, replacement} end)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/people/#{person}/edit")
+    search(view, "Matt Dinniman")
+    tick_first_record(view)
+
+    refute has_element?(view, "#proposals-image button .fa-check")
+
+    view |> element(~s{#proposals-image button}) |> render_click()
+
+    # the chip says it is the one in use, and saving makes that true
+    assert has_element?(view, "#proposals-image button .fa-check")
+
+    view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+    person = Ambry.People.get_person!(person.id)
+    assert person.image_path == replacement
+
+    assert %{"source" => "provider:rreading_glasses", "locked" => false} =
+             Provenance.entry(person, :image_path)
+  end
+
+  describe "going back to the saved value" do
+    test "is offered once a field differs, and not before", %{conn: conn} do
+      person = insert(:person, name: "M. Dinniman", description: "A writer.")
+      patch_providers()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person}/edit")
+      search(view, "Matt Dinniman")
+      tick_first_record(view)
+
+      refute has_element?(view, ~s{#proposals-person_name button[phx-click="revert-field"]})
+
+      view |> element(~s{#proposals-person_name button}) |> render_click()
+
+      assert has_element?(view, ~s{#proposals-person_name button[phx-click="revert-field"]})
+    end
+
+    test "restores the field and drops what would have been recorded", %{conn: conn} do
+      person = insert(:person, name: "M. Dinniman", description: "A writer.")
+      patch_providers()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person}/edit")
+      search(view, "Matt Dinniman")
+      tick_first_record(view)
+
+      view |> element(~s{#proposals-person_name button}) |> render_click()
+
+      html =
+        view
+        |> element(~s{#proposals-person_name button[phx-click="revert-field"]})
+        |> render_click()
+
+      refute html =~ "will record"
+
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+      person = Ambry.People.get_person!(person.id)
+      assert person.name == "M. Dinniman"
+      assert Provenance.entry(person, :name) == nil
+    end
+
+    test "puts a photo back, picture and all", %{conn: conn} do
+      %{web_path: saved_photo} = Ambry.Factory.valid_image(:person)
+      person = insert(:person, name: "Matt Dinniman", image_path: saved_photo)
+      patch_providers()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/people/#{person}/edit")
+      search(view, "Matt Dinniman")
+      tick_first_record(view)
+
+      view |> element(~s{#proposals-image button}) |> render_click()
+      view |> element(~s{#proposals-image button[phx-click="revert-field"]}) |> render_click()
+
+      view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+      assert Ambry.People.get_person!(person.id).image_path == saved_photo
+    end
+  end
+
   test "accepting a bio fills the description with provider provenance", %{conn: conn} do
     patch_providers()
 

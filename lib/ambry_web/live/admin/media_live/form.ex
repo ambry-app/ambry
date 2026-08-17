@@ -11,6 +11,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   import AmbryWeb.Admin.ParamHelpers
   import AmbryWeb.Admin.UploadHelpers
 
+  alias Ambry.Images
   alias Ambry.Inbox
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
@@ -19,12 +20,16 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
-  alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
+  alias AmbryWeb.Admin.Revert
   alias Ecto.Changeset
   alias Phoenix.LiveView.AsyncResult
+
+  # The trio that carries a chosen cover through the form: two say where it
+  # comes from and the third is the one being replaced.
+  @image_params ~w(image_type image_import_url image_path)
 
   @scalar_kinds %{
     "published" => :published,
@@ -42,6 +47,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> assign(
        retrying: nil,
        chips: %{},
+       reverts: %{},
        chapter_import: nil,
        chapters_applied_asin: nil,
        provenance_hints: %{},
@@ -165,6 +171,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
          {:ok, media_params} <- handle_image_upload(socket, media_params, :image),
          {:ok, media_params} <-
            handle_image_import(media_params["image_import_url"], media_params),
+         {:ok, media_params} <- handle_embedded_image(socket, media_params),
          {:ok, media_params} <-
            handle_supplemental_files_upload(socket, media_params, :supplemental) do
       save_media(socket, socket.assigns.live_action, media_params)
@@ -274,6 +281,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       {:noreply,
        socket
        |> assign(evidence: Evidence.begin(socket.assigns.evidence, fields))
+       |> read_file_tags()
        |> start_async(:evidence_search, fn -> recording_fan_out(query, hints) end)}
     end
   end
@@ -305,6 +313,26 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> refresh_chips()}
   end
 
+  # The way back out of a chip. Restores the field from the saved record and
+  # drops the pending provenance with it: nothing was accepted after all, so
+  # nothing should be recorded as accepted.
+  def handle_event("revert-field", %{"field" => field}, socket) do
+    case Map.fetch(@scalar_kinds, field) do
+      {:ok, kind} ->
+        params = Map.merge(socket.assigns.form.params, Revert.params(socket.assigns.media, kind))
+        hints = Map.drop(socket.assigns.provenance_hints, [field, "image_path"])
+
+        {:noreply,
+         socket
+         |> assign_form(Media.change_media(socket.assigns.media, params))
+         |> assign(provenance_hints: hints)
+         |> refresh_chips()}
+
+      _unknown ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("accept-proposal", %{"field" => field, "key" => key}, socket) do
     with {:ok, kind} <- Map.fetch(@scalar_kinds, field),
          %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
@@ -319,30 +347,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        |> refresh_chips()}
     else
       _missing -> {:noreply, socket}
-    end
-  end
-
-  def handle_event("accept-entity", %{"field" => "narrators", "key" => key}, socket) do
-    case Evidence.find_proposal(socket.assigns.evidence, :narrators, key) do
-      %{} = proposal ->
-        narrator_id = resolve_narrator(proposal.params["name"], proposal.source)
-
-        {:noreply,
-         socket
-         |> append_narrator_row(narrator_id)
-         |> assign(
-           narrators: People.narrators_for_select(),
-           provenance_hints:
-             ProvenanceHints.for_list(
-               socket.assigns.provenance_hints,
-               "media_narrators",
-               proposal.source
-             )
-         )
-         |> refresh_chips()}
-
-      _missing ->
-        {:noreply, socket}
     end
   end
 
@@ -386,6 +390,20 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp retry_fan_out(_entry, _kind, _query, _hints), do: {[], []}
 
+  # The recording's own file is evidence too, and searching is when the
+  # operator asked what else this recording could say about itself — so it is
+  # when the file gets read, alongside the providers, rather than on every
+  # page load. Reading it is an ffprobe against a NAS, and a form nobody came
+  # to curate should not pay for one.
+  #
+  # Once only: the file does not change while the form is open, and a second
+  # search must not cost a second probe.
+  defp read_file_tags(%{assigns: %{evidence: %{tags: nil}, media: media}} = socket) do
+    start_async(socket, :file_tags, fn -> Media.Scanner.tags(media) end)
+  end
+
+  defp read_file_tags(socket), do: socket
+
   defp recording_fan_out(query, hints) do
     {audible_found, audible_outcomes} = MetadataSearch.books(query, level: :recording)
 
@@ -425,6 +443,20 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> put_flash(:error, "Searching the providers failed. Try again.")}
   end
 
+  def handle_async(:file_tags, {:ok, {:ok, tags}}, socket) do
+    evidence =
+      Evidence.absorb_tags(socket.assigns.evidence, tags,
+        embedded_cover_src: ~p"/admin/audiobooks/#{socket.assigns.media}/embedded-cover"
+      )
+
+    {:noreply, socket |> assign(evidence: evidence) |> refresh_chips()}
+  end
+
+  # A recording whose files have gone, or a container ffprobe won't read, has
+  # nothing to say about itself. That is not an error worth a flash: the panel
+  # simply holds one record fewer.
+  def handle_async(:file_tags, _unreadable, socket), do: {:noreply, socket}
+
   def handle_async(:chapter_titles, {:ok, fetched}, socket) do
     {:noreply, update_pending_import(socket, &AsyncResult.ok(&1, fetched))}
   end
@@ -449,56 +481,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   # The narrator identity a proposed credit names — an existing narrator of
   # that name, the identity added to an existing person, or a new person.
-  defp resolve_narrator(name, source) do
-    case Ambry.Search.find_first(name, Person) do
-      nil ->
-        {:ok, %{narrators: [narrator]}} =
-          People.create_person(
-            %{name: name, narrators: [%{name: name}]},
-            provenance: %{"name" => source}
-          )
-
-        narrator.id
-
-      %Person{narrators: []} = person ->
-        {:ok, %{narrators: [narrator]}} =
-          People.update_person(person, %{narrators: [%{name: person.name}]})
-
-        narrator.id
-
-      %Person{narrators: narrators} ->
-        credited =
-          Enum.find(narrators, &(String.downcase(&1.name) == String.downcase(name))) ||
-            List.first(narrators)
-
-        credited.id
-    end
-  end
-
-  defp append_narrator_row(socket, narrator_id) do
-    changeset = socket.assigns.form.source
-
-    rows =
-      changeset
-      |> Changeset.get_field(:media_narrators)
-      |> Enum.map(fn row ->
-        base = if row.id, do: %{"id" => to_string(row.id)}, else: %{}
-        Map.put(base, "narrator_id", to_string(row.narrator_id))
-      end)
-
-    params =
-      socket.assigns.form.params
-      |> Map.drop(["media_narrators_sort", "media_narrators_drop"])
-      |> Map.put("media_narrators", rows ++ [%{"narrator_id" => to_string(narrator_id)}])
-
-    assign_form(socket, Media.change_media(socket.assigns.media, params))
-  end
-
   defp refresh_chips(socket) do
     %{evidence: evidence, form: form} = socket.assigns
 
     chips =
-      if evidence && Evidence.any_used?(evidence) do
+      if evidence && Evidence.proposing?(evidence) do
         %{
           published:
             evidence
@@ -515,33 +502,26 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
             evidence
             |> Evidence.proposals(:description)
             |> mark_chosen(%{"description" => Changeset.get_field(form.source, :description)}),
+          # From the params, not the changeset: `image_type`,
+          # `image_import_url` and the cleared `image_path` are form state
+          # rather than schema fields, so `get_field/2` answers nil for all
+          # three and no cover proposal ever came back chosen. The chip went
+          # grey the moment it was clicked, which is the one moment it should
+          # not have.
           image:
             evidence
             |> Evidence.proposals(:image)
-            |> mark_chosen(%{
-              "image_type" => Changeset.get_field(form.source, :image_type),
-              "image_import_url" => Changeset.get_field(form.source, :image_import_url)
-            }),
-          narrators:
-            evidence
-            |> Evidence.proposals(:narrators)
-            |> mark_present(current_narrator_names(form.source, socket.assigns.narrators))
+            |> mark_chosen(Map.take(form.params, @image_params))
         }
       else
         %{}
       end
 
-    assign(socket, chips: chips)
+    assign(socket, chips: chips, reverts: reverts(socket))
   end
 
-  defp current_narrator_names(changeset, options) do
-    labels = Map.new(options, &{&1.id, &1.label})
-
-    changeset
-    |> Changeset.get_field(:media_narrators)
-    |> Enum.map(&labels[&1.narrator_id])
-    |> Enum.reject(&is_nil/1)
-  end
+  defp reverts(%{assigns: %{form: form, media: media}}),
+    do: Revert.offers(form, media, [:published, :publisher, :description, :image])
 
   defp cancel_all_uploads(socket, upload) do
     Enum.reduce(socket.assigns.uploads[upload].entries, socket, fn entry, socket ->
@@ -576,6 +556,21 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       {:error, _reason} -> {:error, :failed_upload}
     end
   end
+
+  # The file's own art, extracted at save the way an import extracts it. The
+  # path is taken from the recording rather than from a param: what the form
+  # accepted was "this recording's embedded cover", and the only honest
+  # reading of that is the recording's own files.
+  defp handle_embedded_image(socket, %{"image_type" => "embedded"} = media_params) do
+    with [path | _rest] <- Media.Media.files(socket.assigns.media, Media.Scanner.extensions()),
+         {:ok, web_path} <- Images.extract_embedded(path) do
+      {:ok, Map.put(media_params, "image_path", web_path)}
+    else
+      _no_art -> {:error, :failed_import}
+    end
+  end
+
+  defp handle_embedded_image(_socket, media_params), do: {:ok, media_params}
 
   defp handle_image_import(url, media_params) do
     case handle_image_import(url) do

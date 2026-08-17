@@ -127,6 +127,90 @@ defmodule AmbryWeb.Admin.BookLive.EvidenceTest do
     assert %{"source" => "manual", "locked" => true} = Provenance.entry(book, :title)
   end
 
+  # Clicking the chip a value already came from announced a change that was
+  # not one: the field says "from rreading-glasses" and one click on the chip
+  # it is already wearing turned that amber.
+  test "clicking the chip a saved value already came from is not news", %{conn: conn} do
+    patch_search()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/books/new")
+    search(view, %{"title" => "Dungeon Crawler Carl"})
+    tick_first_record(view)
+
+    view |> element(~s{#proposals-book_title button}) |> render_click()
+    view |> element(~s{#proposals-book_published button}) |> render_click()
+    view |> element(~s{#proposals-authors button}) |> render_click()
+    view |> form("#book-form", %{"book" => %{}}) |> render_submit()
+
+    book = Ambry.Repo.one!(Ambry.Books.Book)
+    assert %{"source" => "provider:rreading_glasses"} = Provenance.entry(book, :title)
+
+    # back on the saved record, the chip is the one in use — clicking it again
+    # changes nothing, so nothing is pending
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+    search(view, %{"title" => "Dungeon Crawler Carl"})
+    tick_first_record(view)
+
+    html = view |> element(~s{#proposals-book_title button}) |> render_click()
+
+    refute html =~ "will record"
+    assert html =~ "from rreading-glasses"
+  end
+
+  describe "going back to the saved value" do
+    test "is offered once a field differs, and not before", %{conn: conn} do
+      book = insert(:book, title: "Dungeon Crawler Carl")
+      patch_search()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+      search(view, %{"title" => "Dungeon Crawler Carl"})
+      tick_first_record(view)
+
+      refute has_element?(view, ~s{#proposals-book_published button[phx-click="revert-field"]})
+
+      view |> element(~s{#proposals-book_published button}) |> render_click()
+
+      assert has_element?(view, ~s{#proposals-book_published button[phx-click="revert-field"]})
+    end
+
+    test "restores the field and drops what would have been recorded", %{conn: conn} do
+      book = insert(:book, title: "Dungeon Crawler Karl")
+      patch_search()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+      search(view, %{"title" => "Dungeon Crawler Carl"})
+      tick_first_record(view)
+
+      view |> element(~s{#proposals-book_title button}) |> render_click()
+
+      html =
+        view
+        |> element(~s{#proposals-book_title button[phx-click="revert-field"]})
+        |> render_click()
+
+      refute html =~ "will record"
+
+      view |> form("#book-form", %{"book" => %{}}) |> render_submit()
+
+      book = Ambry.Books.get_book!(book.id)
+      assert book.title == "Dungeon Crawler Karl"
+      assert Provenance.entry(book, :title) == nil
+    end
+
+    # A form creating a record has nothing to go back to.
+    test "is not offered on a new book", %{conn: conn} do
+      patch_search()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/new")
+      search(view, %{"title" => "Dungeon Crawler Carl"})
+      tick_first_record(view)
+
+      view |> element(~s{#proposals-book_title button}) |> render_click()
+
+      refute has_element?(view, ~s{button[phx-click="revert-field"]})
+    end
+  end
+
   test "accepting entity chips creates the missing author and series", %{conn: conn} do
     patch_search()
 

@@ -74,6 +74,23 @@ defmodule Ambry.Media.Scanner.Probe do
     end
   end
 
+  @doc """
+  The tags of one file, without measuring it.
+
+  `run/2` decode-counts every VBR mp3 with no index, because a duration it
+  can trust is worth reading the whole file for. Tags sit in the container
+  header and are not: this is one ffprobe, and it answers for a file whose
+  duration `run/2` would refuse to guess at.
+
+  Returns `{:ok, %Tags{}}` or `{:error, reason}`.
+  """
+  def tags(path, opts \\ []) do
+    with {:ok, json} <- ffprobe(path),
+         {:ok, data} <- decode(json) do
+      {:ok, parse_tags(data, data["format"] || %{}, opts)}
+    end
+  end
+
   defp build(path, size, data, opts) do
     format = data["format"] || %{}
 
@@ -92,7 +109,7 @@ defmodule Ambry.Media.Scanner.Probe do
            duration: duration,
            seek_accuracy: seek_accuracy,
            chapters: chapters(data),
-           tags: tags(data, format, opts)
+           tags: parse_tags(data, format, opts)
          }}
     end
   end
@@ -128,7 +145,7 @@ defmodule Ambry.Media.Scanner.Probe do
     end
   end
 
-  defp tags(data, format, opts) do
+  defp parse_tags(data, format, opts) do
     Tags.parse(
       format["tags"] || %{},
       Keyword.put(opts, :has_cover_art, cover_art?(data))
