@@ -1275,6 +1275,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   defp replaces(_no_proposal), do: nil
 
+  @doc """
+  Search hits, minus the one the card is already showing.
+
+  The chosen recording (or the proposed one) has its own row above the search,
+  and rendering it twice would ask the same question in two places with two
+  different answers to the "is this it" state.
+  """
+  def search_results(results, nil), do: results
+  def search_results(results, shown), do: Enum.reject(results, &(&1.id == shown.id))
+
   # A recording can be deleted between the moment it was chosen and the
   # moment the button is pressed, and the one thing this form may not do is
   # offer an action that fails. Not an unresolved *decision* — the operator

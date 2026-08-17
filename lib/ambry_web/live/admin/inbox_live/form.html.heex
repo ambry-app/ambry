@@ -227,10 +227,11 @@
             No audiobook in the library matches that.
           </p>
 
+          <%!-- The row already above is not repeated here. --%>
           <.local_recording_row
-            :for={recording <- @recording_results}
+            :for={recording <- search_results(@recording_results, @replaces)}
             recording={recording}
-            chosen={(@replacing and @replaces) && @replaces.id == recording.id}
+            chosen={false}
           />
 
           <button
