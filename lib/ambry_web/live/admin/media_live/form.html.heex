@@ -40,6 +40,7 @@
                 record={@media}
                 hints={@provenance_hints}
                 proposals={@chips[:published] || []}
+                revert={@reverts[:published]}
               />
               <span class="block pl-3 text-sm text-zinc-400">
                 {preview_date_format(@form)}
@@ -51,6 +52,7 @@
               record={@media}
               hints={@provenance_hints}
               proposals={@chips[:publisher] || []}
+              revert={@reverts[:publisher]}
             />
           </div>
 
@@ -88,6 +90,7 @@
             id="proposals-description"
             field="description"
             proposals={@chips[:description] || []}
+            revert={@reverts[:description]}
           />
         </.field_group>
 
@@ -129,15 +132,6 @@
               />
             </div>
           </.inputs_for>
-
-          <:proposals>
-            <.proposal_row
-              id="proposals-narrators"
-              field="narrators"
-              event="accept-entity"
-              proposals={@chips[:narrators] || []}
-            />
-          </:proposals>
 
           <:add>
             <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
@@ -231,7 +225,12 @@
                 <.icon name="fa-triangle-exclamation" class="h-3 w-3 text-amber-300" /> thumbnails not generated yet
               <% end %>
             </p>
-            <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
+            <.proposal_row
+              id="proposals-image"
+              field="image"
+              proposals={@chips[:image] || []}
+              revert={@reverts[:image]}
+            />
           </.field_group>
         <% else %>
           <.field_group>
@@ -270,7 +269,12 @@
               <p class="text-sm text-zinc-400">Taken from the file when you save.</p>
             </div>
 
-            <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
+            <.proposal_row
+              id="proposals-image"
+              field="image"
+              proposals={@chips[:image] || []}
+              revert={@reverts[:image]}
+            />
           </.field_group>
         <% end %>
 

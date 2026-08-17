@@ -19,6 +19,7 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
       provider: "audible",
       id: "B0983R6VP1",
       title: "The Martian",
+      publisher: Keyword.get(opts, :publisher),
       cover_url: Keyword.get(opts, :cover_url, "https://example.test/covers/martian.jpg"),
       published: %Provider.PublishedDate{date: ~D[2013-02-11], display_format: :full},
       authors: [%Provider.Contributor{id: "1", name: "Andy Weir", role: "author"}]
@@ -171,8 +172,22 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
       search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
 
       assert has_element?(view, "#proposals-media_published button", "2010-08-31")
-      assert has_element?(view, "#proposals-narrators button", "Michael Kramer")
-      assert has_element?(view, "#proposals-narrators button", "Kate Reading")
+
+      assert has_element?(view, "#proposals-media_publisher button") or
+               has_element?(view, "#proposals-media_published button")
+    end
+
+    # Narrators are credited people, and a chip that resolves a name silently
+    # created one when it matched nothing. This form does not create people.
+    test "do not propose narrators", %{conn: conn} do
+      media = tagged_media()
+      patch_search()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+      search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
+
+      refute has_element?(view, "#proposals-narrators")
+      assert Ambry.Repo.aggregate(Ambry.People.Person, :count) == 0
     end
 
     test "accepting one fills the field and records the file as the source", %{conn: conn} do
@@ -213,6 +228,21 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
       assert %{"source" => "embedded"} = Ambry.Provenance.entry(media, :image_path)
     end
 
+    # The import form offers a cover that way round — provider covers, then
+    # the file's own art — and one order in two places is one thing to learn.
+    test "offer the file's own cover last, as the import form does", %{conn: conn} do
+      media = tagged_media(cover_art: true)
+      patch_search()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+      search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
+      tick_first_record(view)
+
+      row = view |> element("#proposals-image") |> render()
+
+      assert :binary.match(row, "Embedded in the file") > :binary.match(row, "AUDIBLE")
+    end
+
     test "preview the embedded art rather than describing it", %{conn: conn} do
       media = tagged_media(cover_art: true)
 
@@ -233,6 +263,71 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
 
       refute html =~ "the file&#39;s tags"
       assert html =~ "1 records, 0 ticked"
+    end
+  end
+
+  describe "going back to the saved value" do
+    test "is offered once a field differs, and not before", %{conn: conn} do
+      media = martian()
+      {:ok, media} = Media.update_media(media, %{publisher: "Podium Audio"})
+
+      patch_search(result_book(publisher: "Crown"))
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+      search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
+      tick_first_record(view)
+
+      refute has_element?(view, "#proposals-media_publisher button", "saved")
+
+      view |> element("#proposals-media_publisher button", "Crown") |> render_click()
+
+      assert has_element?(view, "#proposals-media_publisher button", "Podium Audio")
+    end
+
+    test "restores the field and drops what would have been recorded", %{conn: conn} do
+      media = martian()
+      {:ok, media} = Media.update_media(media, %{publisher: "Podium Audio"})
+
+      patch_search(result_book(publisher: "Crown"))
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+      search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
+      tick_first_record(view)
+
+      view |> element("#proposals-media_publisher button", "Crown") |> render_click()
+
+      html =
+        view
+        |> element(~s{#proposals-media_publisher button[phx-click="revert-field"]})
+        |> render_click()
+
+      # the field is back, and nothing is pending against it
+      assert html =~ "Podium Audio"
+      refute html =~ "will record"
+
+      view |> form("#media-form", %{"media" => %{}}) |> render_submit()
+
+      media = Media.get_media!(media.id)
+      assert media.publisher == "Podium Audio"
+    end
+
+    test "puts a cover back, picture and all", %{conn: conn} do
+      media = martian()
+      saved_cover = on_disk("evidence-saved-cover.jpg")
+      {:ok, media} = Media.update_media(media, %{image_path: saved_cover})
+
+      patch_search()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+      search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
+      tick_first_record(view)
+
+      view |> element(~s{#proposals-image button}) |> render_click()
+      view |> element(~s{#proposals-image button[phx-click="revert-field"]}) |> render_click()
+
+      view |> form("#media-form", %{"media" => %{}}) |> render_submit()
+
+      assert Media.get_media!(media.id).image_path == saved_cover
     end
   end
 

@@ -237,8 +237,8 @@ defmodule AmbryWeb.Admin.Evidence do
   (every display name that agrees — the chip's source tag).
 
   The field kinds mirror what provider records can know. Scalars merge
-  params directly; `:authors`, `:narrators` and `:series` propose entities
-  and the LiveView owns resolving them into rows.
+  params directly; `:authors` and `:series` propose entities and the LiveView
+  owns resolving them into rows.
   """
   def proposals(%__MODULE__{} = evidence, field) do
     # Ticked records first: when a provider and the file agree on a value they
@@ -319,12 +319,6 @@ defmodule AmbryWeb.Admin.Evidence do
     end
   end
 
-  defp field_values(record, :narrators) do
-    for name <- List.wrap(record["narrators"]) do
-      value(record, String.downcase(name), name, %{"name" => name})
-    end
-  end
-
   defp field_values(record, :series) do
     for %{"name" => name} = series <- List.wrap(record["series"]) do
       number = series["number"]
@@ -390,7 +384,10 @@ defmodule AmbryWeb.Admin.Evidence do
         providers: holders |> Enum.map(& &1.provider) |> Enum.uniq()
       }
     end)
-    |> Enum.sort_by(& &1.display)
+    # Alphabetical, except the file's own art, which goes last — the import
+    # form offers a cover that way round (`from_records(...) ++ [embedded]`)
+    # and one order in two places is one thing to learn.
+    |> Enum.sort_by(&{&1.source == "embedded", &1.display})
   end
 
   defp digest(term) do

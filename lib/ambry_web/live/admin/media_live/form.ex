@@ -20,7 +20,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
-  alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
@@ -47,6 +46,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> assign(
        retrying: nil,
        chips: %{},
+       reverts: %{},
        chapter_import: nil,
        chapters_applied_asin: nil,
        provenance_hints: %{},
@@ -312,6 +312,26 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> refresh_chips()}
   end
 
+  # The way back out of a chip. Restores the field from the saved record and
+  # drops the pending provenance with it: nothing was accepted after all, so
+  # nothing should be recorded as accepted.
+  def handle_event("revert-field", %{"field" => field}, socket) do
+    case Map.fetch(@scalar_kinds, field) do
+      {:ok, kind} ->
+        params = Map.merge(socket.assigns.form.params, saved_params(kind, socket.assigns.media))
+        hints = Map.drop(socket.assigns.provenance_hints, [field, "image_path"])
+
+        {:noreply,
+         socket
+         |> assign_form(Media.change_media(socket.assigns.media, params))
+         |> assign(provenance_hints: hints)
+         |> refresh_chips()}
+
+      _unknown ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("accept-proposal", %{"field" => field, "key" => key}, socket) do
     with {:ok, kind} <- Map.fetch(@scalar_kinds, field),
          %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
@@ -326,30 +346,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        |> refresh_chips()}
     else
       _missing -> {:noreply, socket}
-    end
-  end
-
-  def handle_event("accept-entity", %{"field" => "narrators", "key" => key}, socket) do
-    case Evidence.find_proposal(socket.assigns.evidence, :narrators, key) do
-      %{} = proposal ->
-        narrator_id = resolve_narrator(proposal.params["name"], proposal.source)
-
-        {:noreply,
-         socket
-         |> append_narrator_row(narrator_id)
-         |> assign(
-           narrators: People.narrators_for_select(),
-           provenance_hints:
-             ProvenanceHints.for_list(
-               socket.assigns.provenance_hints,
-               "media_narrators",
-               proposal.source
-             )
-         )
-         |> refresh_chips()}
-
-      _missing ->
-        {:noreply, socket}
     end
   end
 
@@ -484,51 +480,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   # The narrator identity a proposed credit names — an existing narrator of
   # that name, the identity added to an existing person, or a new person.
-  defp resolve_narrator(name, source) do
-    case Ambry.Search.find_first(name, Person) do
-      nil ->
-        {:ok, %{narrators: [narrator]}} =
-          People.create_person(
-            %{name: name, narrators: [%{name: name}]},
-            provenance: %{"name" => source}
-          )
-
-        narrator.id
-
-      %Person{narrators: []} = person ->
-        {:ok, %{narrators: [narrator]}} =
-          People.update_person(person, %{narrators: [%{name: person.name}]})
-
-        narrator.id
-
-      %Person{narrators: narrators} ->
-        credited =
-          Enum.find(narrators, &(String.downcase(&1.name) == String.downcase(name))) ||
-            List.first(narrators)
-
-        credited.id
-    end
-  end
-
-  defp append_narrator_row(socket, narrator_id) do
-    changeset = socket.assigns.form.source
-
-    rows =
-      changeset
-      |> Changeset.get_field(:media_narrators)
-      |> Enum.map(fn row ->
-        base = if row.id, do: %{"id" => to_string(row.id)}, else: %{}
-        Map.put(base, "narrator_id", to_string(row.narrator_id))
-      end)
-
-    params =
-      socket.assigns.form.params
-      |> Map.drop(["media_narrators_sort", "media_narrators_drop"])
-      |> Map.put("media_narrators", rows ++ [%{"narrator_id" => to_string(narrator_id)}])
-
-    assign_form(socket, Media.change_media(socket.assigns.media, params))
-  end
-
   defp refresh_chips(socket) do
     %{evidence: evidence, form: form} = socket.assigns
 
@@ -559,27 +510,91 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
           image:
             evidence
             |> Evidence.proposals(:image)
-            |> mark_chosen(Map.take(form.params, @image_params)),
-          narrators:
-            evidence
-            |> Evidence.proposals(:narrators)
-            |> mark_present(current_narrator_names(form.source, socket.assigns.narrators))
+            |> mark_chosen(Map.take(form.params, @image_params))
         }
       else
         %{}
       end
 
-    assign(socket, chips: chips)
+    assign(socket, chips: chips, reverts: reverts(socket))
   end
 
-  defp current_narrator_names(changeset, options) do
-    labels = Map.new(options, &{&1.id, &1.label})
-
-    changeset
-    |> Changeset.get_field(:media_narrators)
-    |> Enum.map(&labels[&1.narrator_id])
-    |> Enum.reject(&is_nil/1)
+  defp saved_params(:published, media) do
+    %{
+      "published" => media.published,
+      "published_format" => media.published_format
+    }
   end
+
+  defp saved_params(:publisher, media), do: %{"publisher" => media.publisher}
+  defp saved_params(:description, media), do: %{"description" => media.description}
+
+  # Back to the picture on the record, and back to the picker's resting
+  # state: leaving `url_import` selected would re-import on the next save.
+  defp saved_params(:image, media) do
+    %{
+      "image_path" => media.image_path,
+      "image_type" => "upload",
+      "image_import_url" => ""
+    }
+  end
+
+  # What each field would go back to, and nothing when it is already there.
+  #
+  # A chip changes a field in one click, and until now the only way out was
+  # reloading the page — which throws away every other edit on the form. The
+  # saved value is offered as one more option in the same row, so undoing a
+  # click costs a click.
+  defp reverts(%{assigns: %{media: %Media.Media{id: id}}} = socket) when is_integer(id) do
+    %{
+      published: revert_date(socket),
+      publisher: revert_scalar(socket, :publisher),
+      description: revert_scalar(socket, :description),
+      image: revert_image(socket)
+    }
+  end
+
+  defp reverts(_unsaved), do: %{}
+
+  defp revert_scalar(%{assigns: %{form: form, media: media}}, field) do
+    saved = Map.fetch!(media, field)
+
+    if to_string(Changeset.get_field(form.source, field) || "") != to_string(saved || ""),
+      do: %{display: display_value(saved)}
+  end
+
+  # Both halves or neither: the date and its precision are one decision here,
+  # exactly as the chips propose them.
+  defp revert_date(%{assigns: %{form: form, media: media}}) do
+    current =
+      {Changeset.get_field(form.source, :published),
+       Changeset.get_field(form.source, :published_format)}
+
+    if current != {media.published, media.published_format},
+      do: %{display: display_value(media.published)}
+  end
+
+  # The picture, not its path: choosing a cover is the one decision on this
+  # form where words are the wrong answer.
+  defp revert_image(%{assigns: %{form: form, media: media}}) do
+    params = form.params
+
+    changed? =
+      params["image_type"] in ["url_import", "embedded"] or
+        to_string(params["image_path"] || media.image_path || "") !=
+          to_string(media.image_path || "")
+
+    if changed?,
+      do: %{display: display_value(media.image_path), image: media.image_path}
+  end
+
+  defp display_value(nil), do: "nothing"
+  defp display_value(%Date{} = date), do: Date.to_iso8601(date)
+  defp display_value(value) when is_binary(value), do: truncate(value)
+  defp display_value(value), do: to_string(value)
+
+  defp truncate(value) when byte_size(value) > 40, do: String.slice(value, 0, 37) <> "…"
+  defp truncate(value), do: value
 
   defp cancel_all_uploads(socket, upload) do
     Enum.reduce(socket.assigns.uploads[upload].entries, socket, fn entry, socket ->
