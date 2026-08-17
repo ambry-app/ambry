@@ -11,6 +11,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   import AmbryWeb.Admin.ParamHelpers
   import AmbryWeb.Admin.UploadHelpers
 
+  alias Ambry.Images
   alias Ambry.Inbox
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
@@ -25,6 +26,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias AmbryWeb.Admin.Reordering
   alias Ecto.Changeset
   alias Phoenix.LiveView.AsyncResult
+
+  # The trio that carries a chosen cover through the form: two say where it
+  # comes from and the third is the one being replaced.
+  @image_params ~w(image_type image_import_url image_path)
 
   @scalar_kinds %{
     "published" => :published,
@@ -165,6 +170,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
          {:ok, media_params} <- handle_image_upload(socket, media_params, :image),
          {:ok, media_params} <-
            handle_image_import(media_params["image_import_url"], media_params),
+         {:ok, media_params} <- handle_embedded_image(socket, media_params),
          {:ok, media_params} <-
            handle_supplemental_files_upload(socket, media_params, :supplemental) do
       save_media(socket, socket.assigns.live_action, media_params)
@@ -274,6 +280,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       {:noreply,
        socket
        |> assign(evidence: Evidence.begin(socket.assigns.evidence, fields))
+       |> read_file_tags()
        |> start_async(:evidence_search, fn -> recording_fan_out(query, hints) end)}
     end
   end
@@ -386,6 +393,20 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp retry_fan_out(_entry, _kind, _query, _hints), do: {[], []}
 
+  # The recording's own file is evidence too, and searching is when the
+  # operator asked what else this recording could say about itself — so it is
+  # when the file gets read, alongside the providers, rather than on every
+  # page load. Reading it is an ffprobe against a NAS, and a form nobody came
+  # to curate should not pay for one.
+  #
+  # Once only: the file does not change while the form is open, and a second
+  # search must not cost a second probe.
+  defp read_file_tags(%{assigns: %{evidence: %{tags: nil}, media: media}} = socket) do
+    start_async(socket, :file_tags, fn -> Media.Scanner.tags(media) end)
+  end
+
+  defp read_file_tags(socket), do: socket
+
   defp recording_fan_out(query, hints) do
     {audible_found, audible_outcomes} = MetadataSearch.books(query, level: :recording)
 
@@ -424,6 +445,20 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      |> assign(evidence: %{socket.assigns.evidence | running?: false}, retrying: nil)
      |> put_flash(:error, "Searching the providers failed. Try again.")}
   end
+
+  def handle_async(:file_tags, {:ok, {:ok, tags}}, socket) do
+    evidence =
+      Evidence.absorb_tags(socket.assigns.evidence, tags,
+        embedded_cover_src: ~p"/admin/audiobooks/#{socket.assigns.media}/embedded-cover"
+      )
+
+    {:noreply, socket |> assign(evidence: evidence) |> refresh_chips()}
+  end
+
+  # A recording whose files have gone, or a container ffprobe won't read, has
+  # nothing to say about itself. That is not an error worth a flash: the panel
+  # simply holds one record fewer.
+  def handle_async(:file_tags, _unreadable, socket), do: {:noreply, socket}
 
   def handle_async(:chapter_titles, {:ok, fetched}, socket) do
     {:noreply, update_pending_import(socket, &AsyncResult.ok(&1, fetched))}
@@ -498,7 +533,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     %{evidence: evidence, form: form} = socket.assigns
 
     chips =
-      if evidence && Evidence.any_used?(evidence) do
+      if evidence && Evidence.proposing?(evidence) do
         %{
           published:
             evidence
@@ -515,13 +550,16 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
             evidence
             |> Evidence.proposals(:description)
             |> mark_chosen(%{"description" => Changeset.get_field(form.source, :description)}),
+          # From the params, not the changeset: `image_type`,
+          # `image_import_url` and the cleared `image_path` are form state
+          # rather than schema fields, so `get_field/2` answers nil for all
+          # three and no cover proposal ever came back chosen. The chip went
+          # grey the moment it was clicked, which is the one moment it should
+          # not have.
           image:
             evidence
             |> Evidence.proposals(:image)
-            |> mark_chosen(%{
-              "image_type" => Changeset.get_field(form.source, :image_type),
-              "image_import_url" => Changeset.get_field(form.source, :image_import_url)
-            }),
+            |> mark_chosen(Map.take(form.params, @image_params)),
           narrators:
             evidence
             |> Evidence.proposals(:narrators)
@@ -576,6 +614,21 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       {:error, _reason} -> {:error, :failed_upload}
     end
   end
+
+  # The file's own art, extracted at save the way an import extracts it. The
+  # path is taken from the recording rather than from a param: what the form
+  # accepted was "this recording's embedded cover", and the only honest
+  # reading of that is the recording's own files.
+  defp handle_embedded_image(socket, %{"image_type" => "embedded"} = media_params) do
+    with [path | _rest] <- Media.Media.files(socket.assigns.media, Media.Scanner.extensions()),
+         {:ok, web_path} <- Images.extract_embedded(path) do
+      {:ok, Map.put(media_params, "image_path", web_path)}
+    else
+      _no_art -> {:error, :failed_import}
+    end
+  end
+
+  defp handle_embedded_image(_socket, media_params), do: {:ok, media_params}
 
   defp handle_image_import(url, media_params) do
     case handle_image_import(url) do

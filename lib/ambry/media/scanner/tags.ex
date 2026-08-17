@@ -81,6 +81,35 @@ defmodule Ambry.Media.Scanner.Tags do
     |> put_published(tags)
   end
 
+  @doc """
+  The string-keyed form, for callers that store or render tags rather than
+  match on them.
+
+  One normalization with two consumers: the inbox writes it onto an item as
+  what the file said, and the edit forms turn it into a record the evidence
+  panel can propose from. `published` becomes an ISO8601 string and
+  `series_number` a plain string, because both are headed for JSON and for
+  form params.
+  """
+  def to_map(%Tags{} = tags) do
+    %{
+      "title" => tags.title,
+      "book_title" => tags.book_title,
+      "authors" => tags.authors,
+      "narrators" => tags.narrators,
+      "series" => tags.series,
+      "series_number" => tags.series_number && Decimal.to_string(tags.series_number),
+      "published" => tags.published && Date.to_iso8601(tags.published),
+      "published_format" => tags.published_format && to_string(tags.published_format),
+      "description" => tags.description,
+      "publisher" => tags.publisher,
+      "genre" => tags.genre,
+      "language" => tags.language,
+      "asin" => tags.asin,
+      "has_cover_art" => tags.has_cover_art
+    }
+  end
+
   # Which of `album` and `title` holds the book depends on how many files
   # there are, and getting it backwards is expensive: it's the search query.
   #

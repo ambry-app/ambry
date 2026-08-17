@@ -258,6 +258,18 @@
               image_preview_class="h-48 w-48 rounded-sm"
             />
 
+            <%!-- Neither tab is the answer here: the art is a stream inside
+                the audio file, and it is taken out when the form saves. The
+                picture is the whole point of the choice, so it shows. --%>
+            <div :if={@form[:image_type].value == "embedded"} class="space-y-2 pl-3">
+              <.image_with_size
+                id={"embedded-cover-#{@media.id}"}
+                src={~p"/admin/audiobooks/#{@media}/embedded-cover"}
+                class="h-48 w-48 rounded-sm object-cover"
+              />
+              <p class="text-sm text-zinc-400">Taken from the file when you save.</p>
+            </div>
+
             <.proposal_row id="proposals-image" field="image" proposals={@chips[:image] || []} />
           </.field_group>
         <% end %>

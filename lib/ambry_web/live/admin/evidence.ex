@@ -18,6 +18,14 @@ defmodule AmbryWeb.Admin.Evidence do
   same law as inbox evidence: **added, never replaced**, so a re-search
   cannot un-tick what the operator chose.
   """
+  # What a tags record can propose — if it carries none of these there is
+  # nothing to offer and no row worth rendering.
+  import AmbryWeb.Admin.Decisions, only: [source_words: 1]
+
+  alias Ambry.Media.Scanner.Tags
+
+  @tags_fields ~w(title authors narrators published publisher description series asin
+                  embedded_cover)
 
   defstruct fields: %{},
             searched?: false,
@@ -25,7 +33,8 @@ defmodule AmbryWeb.Admin.Evidence do
             records: [],
             outcomes: [],
             used: MapSet.new(),
-            known: %{}
+            known: %{},
+            tags: nil
 
   @type t :: %__MODULE__{}
 
@@ -114,6 +123,70 @@ defmodule AmbryWeb.Admin.Evidence do
   end
 
   @doc """
+  Holds the recording's own file tags as a source of proposals.
+
+  The file is evidence, and for a recording imported before the inbox existed
+  it is the only evidence that came with it: a narrator in the composer tag, a
+  publisher, a date, sometimes a description. The inbox has proposed from tags
+  since it existed, and after import there was no way back to a value the
+  operator skipped — this is that way back.
+
+  **Not a record.** A record is a claim about a book that might be this one,
+  which is why the panel lists them for ticking; the file is this recording,
+  so there is nothing to identify and nothing to tick. It proposes the way the
+  import form's tag candidates propose — as chips under the fields, labelled
+  with where they came from — and the record list stays what it is, a list of
+  what the databases said.
+  """
+  def absorb_tags(%__MODULE__{} = evidence, %Tags{} = tags, opts \\ []) do
+    %{evidence | tags: evidence.tags || tags_record(tags, opts)}
+  end
+
+  @doc """
+  Whether anything can propose: a ticked record, or the file's own tags.
+
+  The gate for rendering chips at all, and deliberately not `any_used?/1` —
+  tags propose without being ticked.
+  """
+  def proposing?(%__MODULE__{} = evidence), do: any_used?(evidence) or evidence.tags != nil
+
+  # The cover is the one thing here that isn't a tag: art is a stream in the
+  # container, so the record carries where it can be *seen* rather than a URL
+  # to fetch, and accepting it extracts at save time the way an import does.
+  # The caller supplies that address, which keeps routes out of this module.
+  #
+  # "the file's tags" rather than a provider's display name, because that is
+  # what the import form calls it (`source_words/1`), and a chip that says one
+  # thing here and another there is two vocabularies for one fact.
+  defp tags_record(%Tags{} = tags, opts) do
+    map = Tags.to_map(tags)
+
+    record = %{
+      "source" => "tags",
+      "provider_name" => source_words("tags"),
+      "id" => "file",
+      "title" => map["book_title"],
+      "authors" => map["authors"],
+      "narrators" => map["narrators"],
+      "published" => map["published"],
+      "published_format" => map["published_format"],
+      "publisher" => map["publisher"],
+      "description" => map["description"],
+      "series" => tags_series(map),
+      "asin" => map["asin"],
+      "embedded_cover" => map["has_cover_art"] && opts[:embedded_cover_src]
+    }
+
+    if Enum.any?(@tags_fields, &(record[&1] not in [nil, "", []])), do: record
+  end
+
+  defp tags_series(%{"series" => name} = map) when is_binary(name) do
+    [%{"name" => name, "number" => map["series_number"]}]
+  end
+
+  defp tags_series(_no_series), do: []
+
+  @doc """
   What a record already gave this library record, as a short note for its
   row — `"filled title · published"` — or nil for a record provenance never
   pointed at.
@@ -168,8 +241,9 @@ defmodule AmbryWeb.Admin.Evidence do
   and the LiveView owns resolving them into rows.
   """
   def proposals(%__MODULE__{} = evidence, field) do
-    evidence
-    |> used_records()
+    # Ticked records first: when a provider and the file agree on a value they
+    # become one chip, and the first holder is the source it records.
+    (used_records(evidence) ++ List.wrap(evidence.tags))
     |> Enum.flat_map(&field_values(&1, field))
     |> group()
   end
@@ -216,14 +290,27 @@ defmodule AmbryWeb.Admin.Evidence do
   # Accepting a cover routes through the forms' existing URL-import machinery
   # (`image_type`/`image_import_url`), which downloads at submit time —
   # ProvenanceHints already knows this pair maps to `image_path`.
+  #
+  # Clearing `image_path` is part of accepting, and it is what makes the
+  # choice take effect rather than merely look accepted. The forms render the
+  # URL input — the only control that carries the chosen URL back on submit —
+  # in the branch for a record with *no* image. So a cover chosen against an
+  # existing one marked its chip chosen, wrote a provenance hint, and then
+  # posted nothing: the operator had to delete the old cover first and make
+  # the same decision twice. Picking a cover is replacing the cover.
   defp field_values(record, :image) do
     urls = List.wrap(record["images"] || present(record["cover_url"]))
 
-    for url <- urls do
-      record
-      |> value(url, url, %{"image_type" => "url_import", "image_import_url" => url})
-      |> Map.put(:image, url)
-    end
+    embedded_cover(record) ++
+      for url <- urls do
+        record
+        |> value(url, url, %{
+          "image_type" => "url_import",
+          "image_import_url" => url,
+          "image_path" => ""
+        })
+        |> Map.put(:image, url)
+      end
   end
 
   defp field_values(record, :authors) do
@@ -249,6 +336,23 @@ defmodule AmbryWeb.Admin.Evidence do
       })
     end
   end
+
+  # The file's own art, which no URL can name: the chip previews it through
+  # the address the caller gave, and accepting it means "extract this on
+  # save" rather than "download that". Labelled as the import form labels
+  # it, because it is the same decision about the same picture.
+  defp embedded_cover(%{"embedded_cover" => src}) when is_binary(src) do
+    [
+      %{"source" => "embedded", "provider_name" => "Embedded in the file", "id" => "cover"}
+      |> value(:embedded, "Embedded in the file", %{
+        "image_type" => "embedded",
+        "image_path" => ""
+      })
+      |> Map.put(:image, src)
+    ]
+  end
+
+  defp embedded_cover(_no_art), do: []
 
   defp value(record, group_key, display, params) do
     %{

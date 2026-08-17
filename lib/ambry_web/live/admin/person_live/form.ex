@@ -58,6 +58,10 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias AmbryWeb.Admin.ProvenanceHints
   alias Ecto.Changeset
 
+  # The trio that carries a chosen cover through the form: two say where it
+  # comes from and the third is the one being replaced.
+  @image_params ~w(image_type image_import_url image_path)
+
   @scalar_kinds %{"name" => :name, "description" => :description, "image" => :image}
 
   @impl Phoenix.LiveView
@@ -287,13 +291,16 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
             evidence
             |> Evidence.proposals(:description)
             |> mark_chosen(%{"description" => Changeset.get_field(form.source, :description)}),
+          # From the params, not the changeset: `image_type`,
+          # `image_import_url` and the cleared `image_path` are form state
+          # rather than schema fields, so `get_field/2` answers nil for all
+          # three and no cover proposal ever came back chosen. The chip went
+          # grey the moment it was clicked, which is the one moment it should
+          # not have.
           image:
             evidence
             |> Evidence.proposals(:image)
-            |> mark_chosen(%{
-              "image_type" => Changeset.get_field(form.source, :image_type),
-              "image_import_url" => Changeset.get_field(form.source, :image_import_url)
-            })
+            |> mark_chosen(Map.take(form.params, @image_params))
         }
       else
         %{}

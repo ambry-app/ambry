@@ -110,6 +110,39 @@ defmodule AmbryWeb.Admin.PersonLive.EvidenceTest do
              Provenance.entry(person, :image_path)
   end
 
+  # The same accept against a person who already has a photo. The URL input
+  # that carries the choice is only rendered when there is no photo, so this
+  # one recorded the provenance and then saved the old picture — the operator
+  # had to delete the photo first and choose twice.
+  test "accepting a photo replaces the one already there", %{conn: conn} do
+    patch_providers()
+
+    %{web_path: existing} = Ambry.Factory.valid_image(:person)
+    %{web_path: replacement} = Ambry.Factory.valid_image(:person)
+    person = insert(:person, name: "Matt Dinniman", image_path: existing)
+
+    patch(AmbryWeb.Admin.UploadHelpers, :handle_image_import, fn _url -> {:ok, replacement} end)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/people/#{person}/edit")
+    search(view, "Matt Dinniman")
+    tick_first_record(view)
+
+    refute has_element?(view, "#proposals-image button .fa-check")
+
+    view |> element(~s{#proposals-image button}) |> render_click()
+
+    # the chip says it is the one in use, and saving makes that true
+    assert has_element?(view, "#proposals-image button .fa-check")
+
+    view |> form("#person-form", %{"person" => %{}}) |> render_submit()
+
+    person = Ambry.People.get_person!(person.id)
+    assert person.image_path == replacement
+
+    assert %{"source" => "provider:rreading_glasses", "locked" => false} =
+             Provenance.entry(person, :image_path)
+  end
+
   test "accepting a bio fills the description with provider provenance", %{conn: conn} do
     patch_providers()
 

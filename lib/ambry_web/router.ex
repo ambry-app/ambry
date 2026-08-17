@@ -220,7 +220,8 @@ defmodule AmbryWeb.Router do
     end
 
     get "/image-proxy", ImageProxyController, :show
-    get "/inbox/:id/embedded-cover", InboxCoverController, :show
+    get "/inbox/:id/embedded-cover", EmbeddedCoverController, :inbox_item
+    get "/audiobooks/:id/embedded-cover", EmbeddedCoverController, :media
 
     live_dashboard "/dashboard", metrics: AmbryWeb.Telemetry
     oban_dashboard "/oban"
