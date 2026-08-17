@@ -63,7 +63,6 @@ defmodule Ambry.Inbox.ImporterTest do
 
       media = Media.get_media!(media.id)
       assert [track] = media.media_tracks
-      assert media.source_files == [track.path]
 
       assert {:ok, placed} = MediaTrack.disk_path(track)
       assert File.read_link!(placed) == file

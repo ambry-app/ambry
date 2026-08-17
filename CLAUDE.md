@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Ambry is a self-hosted audiobook library server built with Elixir/Phoenix. Users upload audiobooks, which are processed and transcoded for streaming via browser or mobile app. The mobile app code is in a separate repository.
+Ambry is a self-hosted audiobook library server built with Elixir/Phoenix. Audiobooks arrive through the inbox, are placed into a library root, and are served as the files they already are ("direct play") to the browser and the mobile app. The mobile app code is in a separate repository.
 
 ## Development Commands
 
@@ -59,16 +59,21 @@ Each context manages a domain with Ecto schemas, queries, and business logic:
 - `Accounts` - User authentication, sessions, admin management
 - `Books` - Books, Series, SeriesBook associations
 - `People` - Person (authors/narrators), Author, Narrator entities
-- `Media` - Audiobook media files, player state, bookmarks, processing
+- `Media` - Audiobook media files, tracks, player state, bookmarks
 - `Search` - Full-text search with PostgreSQL trigrams
 - `PubSub` - Event broadcasting via Phoenix.PubSub + Oban for async
 
-### Media Processing Pipeline
+### Audio: direct play, and the transcoded recordings beside it
 
-Audio processing uses FFmpeg and shaka-packager. Processors in `lib/ambry/media/processor/`:
-- MP3, MP4 (single file and concatenation)
-- Opus concatenation
-- HLS packaging for streaming
+Ambry does not transcode. `Ambry.Media.Scanner` probes a file with ffprobe
+and the importer writes `media_tracks`; clients are served those files
+directly.
+
+Some recordings are instead served from packaged artifacts — `mp4_path` /
+`mpd_path` / `hls_path` — which the server serves and deletes but cannot
+produce. A recording is one of these exactly when it has no tracks, and its
+`source_path` / `source_files` state what its transcode consumed. An
+imported recording has neither.
 
 ### Flat Views Pattern
 
@@ -97,7 +102,7 @@ Relay-compatible GraphQL schema for mobile app. Uses Dataloader for batching.
 ## External Requirements
 
 - PostgreSQL database
-- FFmpeg and shaka-packager for audio transcoding
+- FFmpeg (ffprobe, for reading durations, tags and chapters)
 
 ## Tidewave MCP Server
 

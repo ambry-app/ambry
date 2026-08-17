@@ -53,16 +53,10 @@ RUN mix release --path /app --quiet
 # --------------------------
 FROM docker.io/alpine:3.22.5 AS elixir-runner
 
-ARG SHAKA_PACKAGER_VERSION=3.4.2
-
+# ffmpeg is here for ffprobe: durations, tags and chapter markers are read
+# off files that are then served untouched.
 RUN apk --update upgrade && \
   apk add openssl ncurses-libs libstdc++ ffmpeg curl
-
-RUN curl -L \
-  -o /usr/local/bin/shaka-packager \
-  https://github.com/shaka-project/shaka-packager/releases/download/v$SHAKA_PACKAGER_VERSION/packager-linux-x64
-
-RUN chmod +x /usr/local/bin/shaka-packager
 
 
 

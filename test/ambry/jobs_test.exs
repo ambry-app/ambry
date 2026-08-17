@@ -11,7 +11,7 @@ defmodule Ambry.JobsTest do
       names = Enum.map(summary.queues, & &1.queue)
 
       assert "default" in names
-      assert "media" in names
+      assert "images" in names
       assert "metadata" in names
     end
 

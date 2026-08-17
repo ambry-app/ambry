@@ -70,9 +70,11 @@ config :ambry, Oban,
        {"30 4 * * *", Ambry.Media.RunOrganize}
      ]}
   ],
-  # Keep number of media workers low to not starve the host of resources
   # `metadata` is deliberately serial: auto-matching a freshly scanned library
   # is hundreds of lookups against shared public instances that rate-limit.
+  # `media` is kept low because it is the queue that touches the filesystem —
+  # discovery, probing, importing, organizing, reconciliation — and a probe
+  # decode-counts a VBR mp3.
   queues: [default: 10, pub_sub: 10, media: 4, images: 4, metadata: 1]
 
 config :ambry,

@@ -8,7 +8,6 @@ on:
 
 env:
   MIX_ENV: test
-  SHAKE_PACKAGER_VERSION: 3.4.2
 
 jobs:
   compile:
@@ -69,12 +68,6 @@ jobs:
     steps:
       - name: Setup ffmpeg
         uses: AnimMouse/setup-ffmpeg@v1
-      - name: Setup shaka-packager
-        run: |
-          curl -L -o /usr/local/bin/shaka-packager https://github.com/shaka-project/shaka-packager/releases/download/v$SHAKE_PACKAGER_VERSION/packager-linux-x64
-          chmod +x /usr/local/bin/shaka-packager
-          stat $(which shaka-packager)
-          shaka-packager --version
       - name: Checkout
         uses: actions/checkout@v7
       - name: Set up Elixir

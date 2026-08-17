@@ -4,7 +4,6 @@ defmodule AmbrySchema.MediaTracksTest do
   import Absinthe.Relay.Node, only: [to_global_id: 2]
   import Ambry.GraphQLSigil
 
-  alias Ambry.Media
   alias Ambry.Media.MediaTrack
 
   setup :register_and_put_user_api_token
@@ -168,7 +167,7 @@ defmodule AmbrySchema.MediaTracksTest do
     end
   end
 
-  describe "a scanned recording end to end" do
+  describe "an imported recording end to end" do
     @query ~G"""
     query Media($id: ID!) {
       node(id: $id) {
@@ -184,15 +183,12 @@ defmodule AmbrySchema.MediaTracksTest do
       }
     }
     """
-    test "is playable straight from what the scanner wrote", %{conn: conn} do
+    test "is playable straight from what the probe wrote", %{conn: conn} do
       media =
         :media
         |> build(book: build(:book))
-        |> with_copied_source_files(:m4a)
         |> insert()
-        |> then(&Media.get_media!(&1.id))
-
-      {:ok, media} = Media.scan_media(media)
+        |> with_probed_tracks()
 
       conn = post(conn, "/gql", %{"query" => @query, "variables" => %{id: gid(media)}})
 

@@ -234,6 +234,37 @@ defmodule Ambry.Factory do
     %{media | media_tracks: tracks}
   end
 
+  @doc """
+  Gives a persisted media the tracks an import would write for real audio.
+
+  Real files, really probed: what a test wants when it cares about codecs,
+  sizes, seek accuracy or a duration that has to add up. Does what
+  `Ambry.Inbox.Importer` does with the probes it takes, so the recording
+  comes out in an import's shape — tracks, and neither of the transcode
+  columns.
+  """
+  def with_probed_tracks(%Media{__meta__: %{state: :loaded}} = media, type \\ :m4a, count \\ 1) do
+    media = media.id |> Ambry.Media.get_media!() |> with_copied_source_files(type, count)
+    paths = Enum.map(media.source_files, &Ambry.Paths.web_to_disk/1)
+
+    {:ok, probes} = Ambry.Media.Scanner.probe_all(paths)
+
+    tracks =
+      probes
+      |> Ambry.Media.Scanner.track_attrs()
+      |> Enum.map(&%{&1 | path: Ambry.Paths.disk_to_web(&1.path)})
+
+    {:ok, media} =
+      Ambry.Media.update_media(media, %{
+        media_tracks: tracks,
+        duration: Ambry.Media.Scanner.total_duration(probes),
+        source_path: nil,
+        source_files: []
+      })
+
+    Ambry.Media.get_media!(media.id)
+  end
+
   # The fixture is copied into the media's own workspace so the stored path
   # has a resolvable `/uploads/...` form — absolute paths outside the
   # uploads tree can no longer be stored. A copy, not a hardlink: the
@@ -273,15 +304,39 @@ defmodule Ambry.Factory do
     %{media | source_files: files}
   end
 
-  def with_output_files(media, processor \\ :auto)
+  @doc """
+  Gives a media the packaged artifacts of a transcode.
 
-  def with_output_files(%Media{__meta__: %{state: :loaded}} = media, processor) do
-    {:ok, media} = Ambry.Media.Processor.run!(media, processor)
+  Ambry serves recordings that were transcoded elsewhere but cannot produce
+  one, so this writes the four files a packager leaves behind, under the
+  names it gives them: same columns, same disk layout.
+
+  The bytes are placeholders. Nothing reads inside a packaged artifact —
+  they are served as opaque files and deleted as opaque files — so a test
+  that needs one needs its name, its size and its existence.
+  """
+  def with_output_files(%Media{__meta__: %{state: :loaded}} = media) do
+    id = Ecto.UUID.generate()
+    File.mkdir_p!(Ambry.Paths.media_disk_path())
+
+    for name <- ["#{id}.mp4", "#{id}.mpd", "#{id}.m3u8", "#{id}_0.m3u8"] do
+      File.write!(Ambry.Paths.media_disk_path(name), "packaged: #{name}\n")
+    end
+
+    {:ok, media} =
+      Ambry.Media.update_media(media, %{
+        mp4_path: "/uploads/media/#{id}.mp4",
+        mpd_path: "/uploads/media/#{id}.mpd",
+        hls_path: "/uploads/media/#{id}.m3u8",
+        duration: Decimal.new("3600.0"),
+        status: :ready
+      })
+
     media
   end
 
-  def with_output_files(_media, _processor),
-    do: raise("Generating media output files requires database persisted media")
+  def with_output_files(_media),
+    do: raise("Giving a media output files requires database persisted media")
 
   def media_narrator_factory do
     %MediaNarrator{

@@ -116,8 +116,9 @@ and get started using Ambry!
 Ambry is a [Phoenix](https://phoenixframework.org/)
 [LiveView](https://github.com/phoenixframework/phoenix_live_view) application,
 so to run the server on your machine for local development follow standard steps
-for phoenix applications. To be able to transcode audio files, you'll also need
-ffmpeg and shaka-packager available in your path.
+for phoenix applications. You'll also need ffmpeg available in your path: Ambry
+reads durations, tags and chapter markers off audio files with ffprobe, and
+serves the files themselves untouched.
 
 ### Requirements
 
@@ -126,7 +127,6 @@ ffmpeg and shaka-packager available in your path.
 - [Elixir](https://elixir-lang.org/) and [Erlang/OTP](https://www.erlang.org/)
   installed
 - [FFmpeg](https://ffmpeg.org/) installed
-- [shaka-packager](https://github.com/google/shaka-packager) installed
 
 For Elixir/Erlang you can easily install all the right versions using
 [asdf](https://asdf-vm.com/) by running `asdf install` from within the root

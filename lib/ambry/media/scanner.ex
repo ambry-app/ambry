@@ -1,15 +1,16 @@
 defmodule Ambry.Media.Scanner do
   @moduledoc """
-  Scans a media's source files and records what they are, instead of
-  transcoding them into something else.
+  Measures audio files.
 
-  This is the direct-play import step: the files are probed, never copied,
-  rewritten, or repackaged, and what comes back is written as the media's
-  ordered `media_tracks` plus a total duration for the book timeline.
+  Files are probed, never copied, rewritten or repackaged, and what comes
+  back is what a recording is made of: ordered `media_tracks` attributes, a
+  total duration for the book timeline, the chapter markers the files carry
+  and the tags they claim.
 
-  Scanning does not publish: a scanned media keeps whatever status it had, so
-  this can run over the existing library without changing what clients see.
-  Only the inbox approval flow (Phase 3) makes a direct-play media `ready`.
+  Nothing here writes to a recording. `Ambry.Inbox.Importer` is what turns
+  probes into a recording — on an import and on a replacement alike — and
+  this module is the arithmetic it shares with the inbox, which measures the
+  same files before anything about them exists in the library.
 
   ## Multi-file recordings
 
@@ -19,12 +20,12 @@ defmodule Ambry.Media.Scanner do
   already speaks absolute book-seconds. Nothing is decoded or rewritten here
   either way.
 
-  Order is the order `Media.files/2` yields, natural-sorted: `Disc 2` after
-  `Disc 1`, `track10.mp3` after `track2.mp3`. That is the same order
-  discovery recorded the files in, so an inbox import re-derives exactly what
-  the operator was shown. Embedded track-number tags are deliberately *not*
-  consulted — a visible filename the operator can check beats a tag they
-  can't, and the ordering has to be one they can predict from the folder.
+  Order is the order the caller passes, which is discovery's order,
+  natural-sorted: `Disc 2` after `Disc 1`, `track10.mp3` after `track2.mp3`
+  — the order the operator is shown. Embedded track-number tags are
+  deliberately *not* consulted: a visible filename the operator can check
+  beats a tag they can't, and the ordering has to be one they can predict
+  from the folder.
 
   ## Tags describe the release, not each file
 
@@ -34,26 +35,12 @@ defmodule Ambry.Media.Scanner do
   finding in the roadmap's 1b.
   """
 
-  alias Ambry.Library
-  alias Ambry.Media, as: MediaContext
   alias Ambry.Media.Chapters.FromFiles
   alias Ambry.Media.Media
+  alias Ambry.Media.MediaTrack
   alias Ambry.Media.Scanner.Probe
-  alias Ambry.Paths
 
   @extensions ~w(.mp3 .mp4 .m4a .m4b .flac .ogg .opus .wav)
-
-  @doc """
-  Scans a media's source files, replacing its tracks with what's on disk.
-
-  Returns `{:ok, media}` with the updated media, or `{:error, reason}`.
-  """
-  def scan(%Media{} = media) do
-    with {:ok, paths} <- audio_files(media),
-         {:ok, probes} <- probe_all(paths) do
-      write_tracks(media, probes)
-    end
-  end
 
   @doc """
   Reads a media's embedded tags without writing anything.
@@ -92,9 +79,19 @@ defmodule Ambry.Media.Scanner do
   @doc """
   The audio files a media is made of, in play order.
 
-  Public because placement and organization have to move the same files in
-  the same order this writes tracks in.
+  Two kinds of recording answer this two different ways. An **imported**
+  one is made of its tracks, which is what clients are served. A
+  **transcoded** one is made of the sources it was transcoded from
+  (`Media.files/2`): its packaged artifacts carry no tags, so they are no
+  use to anything that reads a file to learn about the recording.
+
+  The tracks are asked first, since an imported recording has no transcode
+  sources at all.
   """
+  def audio_files(%Media{media_tracks: [_ | _] = tracks}) do
+    {:ok, tracks |> Enum.sort_by(& &1.index) |> Enum.map(&MediaTrack.disk_path!/1)}
+  end
+
   def audio_files(%Media{} = media) do
     case files(media) do
       [] -> {:error, :no_audio_files}
@@ -131,59 +128,6 @@ defmodule Ambry.Media.Scanner do
     |> case do
       {:ok, probes} -> {:ok, Enum.reverse(probes)}
       {:error, reason} -> {:error, reason}
-    end
-  end
-
-  # Tracks store {root FK, relative path}, never the absolute the probe ran
-  # on — a file outside the media's root and the uploads tree has no stored
-  # form, and the scan refuses rather than writing an unservable path.
-  defp write_tracks(media, probes) do
-    with {:ok, tracks} <- stored_tracks(media, probes) do
-      attrs =
-        %{
-          media_tracks: tracks,
-          duration: total_duration(probes)
-        }
-        |> maybe_put_chapters(media, probes)
-
-      MediaContext.update_media(media, attrs)
-    end
-  end
-
-  defp stored_tracks(media, probes) do
-    probes
-    |> track_attrs()
-    |> Enum.reduce_while({:ok, []}, fn attrs, {:ok, acc} ->
-      case stored_track_path(media, attrs.path) do
-        {:ok, {root_id, stored}} ->
-          attrs = attrs |> Map.put(:path, stored) |> Map.put(:library_root_id, root_id)
-          {:cont, {:ok, [attrs | acc]}}
-
-        {:error, reason} ->
-          {:halt, {:error, reason}}
-      end
-    end)
-    |> case do
-      {:ok, tracks} -> {:ok, Enum.reverse(tracks)}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  defp stored_track_path(%Media{library_root_id: root_id}, absolute) when is_integer(root_id) do
-    {:ok, root} = Library.fetch_root(root_id)
-
-    case Library.relativize(root, absolute) do
-      {:ok, relative} -> {:ok, {root_id, relative}}
-      {:error, :outside_location} -> uploads_stored_form(absolute)
-    end
-  end
-
-  defp stored_track_path(%Media{}, absolute), do: uploads_stored_form(absolute)
-
-  defp uploads_stored_form(absolute) do
-    case Paths.disk_to_web(absolute) do
-      "/uploads/" <> _rest = web_path -> {:ok, {nil, web_path}}
-      _outside -> {:error, {:outside_library, absolute}}
     end
   end
 
@@ -233,17 +177,4 @@ defmodule Ambry.Media.Scanner do
   def total_duration(probes) do
     Enum.reduce(probes, Decimal.new(0), &Decimal.add(&2, &1.duration))
   end
-
-  # Embedded markers are only offered to a media that has none. Chapters are
-  # curated data, and the merge that pours provider titles onto file-derived
-  # markers is its own piece of work (the roadmap's 1h) — until it exists,
-  # scanning must never overwrite what an operator has already confirmed.
-  defp maybe_put_chapters(attrs, %Media{chapters: []}, probes) do
-    case chapters(probes) do
-      {[], _source} -> attrs
-      {chapters, source} -> Map.merge(attrs, %{chapters: chapters, chapter_marker_source: source})
-    end
-  end
-
-  defp maybe_put_chapters(attrs, _media, _probes), do: attrs
 end

@@ -95,6 +95,19 @@ defmodule Ambry.Media.MediaTrack do
     do: Library.resolve(root_id, path)
 
   @doc """
+  The same, for callers with nothing sensible to do about an unresolvable
+  path.
+
+  A stored path that cannot resolve cannot be served either, so it is a
+  broken invariant rather than a missing file, and it belongs in the log as
+  one.
+  """
+  def disk_path!(%MediaTrack{} = track) do
+    {:ok, path} = disk_path(track)
+    path
+  end
+
+  @doc """
   The absolute book-seconds range this track covers, as `{start, end}`.
   """
   def range(%MediaTrack{start_offset: start_offset, duration: duration}) do

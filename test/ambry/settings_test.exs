@@ -75,14 +75,9 @@ defmodule Ambry.SettingsTest do
   end
 
   defp scanned_media do
-    media =
-      :media
-      |> build(book: build(:book))
-      |> with_copied_source_files(:m4a)
-      |> insert()
-      |> then(&Media.get_media!(&1.id))
-
-    {:ok, media} = Media.scan_media(media)
-    Media.get_media!(media.id)
+    :media
+    |> build(book: build(:book))
+    |> insert()
+    |> with_probed_tracks()
   end
 end

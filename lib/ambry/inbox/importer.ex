@@ -207,7 +207,7 @@ defmodule Ambry.Inbox.Importer do
       with {:ok, item} <- claim(item),
            {:ok, media} <- existing_recording(media_id),
            retired = Media.retired_files(media),
-           {:ok, media} <- repoint(media, item, probes, destination),
+           {:ok, media} <- repoint(media, probes, destination),
            {:ok, _item} <- link(item, media),
            {:ok, media, placements, vacated} <-
              place(destination, media.book, media, files, retired.files),
@@ -224,9 +224,9 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
-  # The recording's files, and nothing else about it. The paths are
+  # The recording's files, and nothing else about it. The track paths are
   # placeholders in valid form — basenames under the destination root — for
-  # the same reason `do_create_media/7` writes them that way: the path CHECKs
+  # the same reason `do_create_media/6` writes them that way: the path CHECKs
   # cannot wait for the commit, and placement rewrites them to the real
   # relative paths inside this same transaction.
   #
@@ -234,11 +234,15 @@ defmodule Ambry.Inbox.Importer do
   # replace them, which is what keeps the recording playable at every instant
   # a reader could see: a recording with neither is one `maybe_validate_paths`
   # refuses, and rightly.
-  defp repoint(media, item, probes, {root, _policy}) do
+  #
+  # `source_path` and `source_files` are cleared in the same statement, and
+  # for the same reason `clear_legacy_provenance/1` clears the third: they
+  # describe a transcode, and a recording served from tracks has none.
+  defp repoint(media, probes, {root, _policy}) do
     %{
       library_root_id: root.id,
-      source_path: Path.basename(item.path),
-      source_files: Enum.map(item.files, &Path.basename/1),
+      source_path: nil,
+      source_files: [],
       duration: Scanner.total_duration(probes),
       mp4_path: nil,
       mpd_path: nil,
@@ -450,7 +454,7 @@ defmodule Ambry.Inbox.Importer do
     recording = item.draft.recording
 
     with {:ok, group} <- resolve_group(recording.recording_group, book) do
-      do_create_media(item, book, probes, people, recording, group, root)
+      do_create_media(book, probes, people, recording, group, root)
     end
   end
 
@@ -472,19 +476,20 @@ defmodule Ambry.Inbox.Importer do
         parts_total: link.parts_total
       })
 
-  defp do_create_media(item, book, probes, people, recording, group, root) do
+  defp do_create_media(book, probes, people, recording, group, root) do
     {chapters, marker_source} = chapters(recording.chapters, probes)
 
     %{
       book_id: book.id,
       # Created in the destination root's coordinates from the start: the
-      # path columns are CHECK-constrained to hold a resolvable stored form,
-      # and a CHECK cannot wait for the commit. These are placeholders in
-      # valid form — basenames under the right root — that placement
+      # track paths are CHECK-constrained to hold a resolvable stored form,
+      # and a CHECK cannot wait for the commit. They start as placeholders
+      # in valid form — basenames under the right root — that placement
       # rewrites to the real relative paths inside this same transaction.
+      # `source_path` / `source_files` stay empty: they are a transcode's
+      # bookkeeping of what it consumed, and an import has no transcode.
+      # Its files are its tracks.
       library_root_id: root.id,
-      source_path: Path.basename(item.path),
-      source_files: Enum.map(item.files, &Path.basename/1),
       status: :pending,
       # The recording's settled place in its part set, if any.
       part_number: part_number(recording.recording_group),
@@ -702,17 +707,14 @@ defmodule Ambry.Inbox.Importer do
   defp part_number(_absent_or_removed), do: nil
 
   # The recording now points at the library copies and Ambry owns those
-  # names. `source_path` is the folder those copies share, which for a
-  # multi-file recording is the subfolder of its own that placement gave it,
-  # not the book folder it sits in.
+  # names — in `media_tracks`, and only there. Not in `source_path` /
+  # `source_files`, which state what a transcode consumed: an imported
+  # recording has no transcode, and saying otherwise would answer "what was
+  # this made from" with the recording's own files.
   defp record_placement(media, root, paths) do
     with {:ok, _tracks} <- repoint_tracks(media, root, paths) do
       media
-      |> Ecto.Changeset.change(%{
-        library_root_id: root.id,
-        source_path: relativize!(root, paths |> hd() |> Path.dirname()),
-        source_files: Enum.map(paths, &relativize!(root, &1))
-      })
+      |> Ecto.Changeset.change(%{library_root_id: root.id})
       |> Repo.update()
     end
   end

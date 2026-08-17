@@ -21,7 +21,6 @@ defmodule Ambry.Media do
       Scanner.Tags,
       PubSub.MediaCreated,
       PubSub.MediaDeleted,
-      PubSub.MediaProgress,
       PubSub.MediaUpdated,
       PubSub.RecordingGroupCreated,
       PubSub.RecordingGroupDeleted,
@@ -40,7 +39,6 @@ defmodule Ambry.Media do
   alias Ambry.Media.MediaTrack
   alias Ambry.Media.PubSub.MediaCreated
   alias Ambry.Media.PubSub.MediaDeleted
-  alias Ambry.Media.PubSub.MediaProgress
   alias Ambry.Media.PubSub.MediaUpdated
   alias Ambry.Media.PubSub.RecordingGroupCreated
   alias Ambry.Media.PubSub.RecordingGroupDeleted
@@ -48,9 +46,7 @@ defmodule Ambry.Media do
   alias Ambry.Media.RecordingGroup
   alias Ambry.Media.RecordingGroupForm
   alias Ambry.Media.RunOrganize
-  alias Ambry.Media.RunProcessor
   alias Ambry.Media.RunPublishPending
-  alias Ambry.Media.Scanner
   alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
@@ -92,9 +88,10 @@ defmodule Ambry.Media do
 
   Deliberately narrow. A recording qualifies only if it is `pending`, has
   tracks, has **no** legacy transcoded paths, and isn't currently missing.
-  That last pair matters: a legacy recording sitting in `pending` is waiting
-  on transcoding, not on this switch, and publishing a recording whose files
-  have vanished would hand clients something unplayable.
+  That last pair matters: a legacy recording sitting in `pending` has no
+  tracks to publish and this switch is not what it is waiting on, and
+  publishing a recording whose files have vanished would hand clients
+  something unplayable.
   """
   def publish_pending_direct_play do
     Media
@@ -254,12 +251,17 @@ defmodule Ambry.Media do
   @doc """
   The recording these files were imported into, if any.
 
-  A recording records where its audio came from in three places: the tracks
-  it is served from, the `source_files` a placement wrote, and — for anything
-  imported before the paths refactor — the absolute `legacy_source_files` it
-  was transcoded from. Discovery used to read all three to *hide* a file; the
-  import form reads them to propose a replacement, which is the same fact put
-  to honest use.
+  Three kinds of recording answer this three ways, and the library holds
+  all three at once: an **imported** one answers with the tracks it is
+  served from; a **web-upload-era** one with the `source_files` its
+  transcode consumed, which are copies the upload form made; a
+  **server-import-era** one with `legacy_source_files`, the absolute
+  downloads paths its transcode consumed, quarantined there because they
+  point outside every root.
+
+  The last two are transcode bookkeeping, which is exactly why they answer
+  this question: what a recording was made from is what a file turning up
+  again would be replacing.
 
   Compared as absolute disk paths on both sides, so which stored form a
   recording happens to use (root-relative, `/uploads/...`, or absolute) never
@@ -359,7 +361,8 @@ defmodule Ambry.Media do
 
     * `missing` — the nightly reconciliation couldn't read the files. Clients
       are being offered something that isn't there.
-    * `errored` — processing gave up.
+    * `errored` — a transcode gave up on it, and nothing will pick it back
+      up: the way out is to import the files again.
     * `streaming_only` — no tracks, so the only way to play it is the legacy
       transcoding pipeline. It works, and it costs double the disk; clearing
       one means relinking it to its source (Phase 4). This is deliberately
@@ -850,23 +853,6 @@ defmodule Ambry.Media do
   def generate_thumbnails_async(_media), do: {:ok, :noop}
 
   @doc """
-  Runs a processor asynchronously for the given media.
-  """
-  def run_processor_async(%Media{} = media, processor) do
-    %{media_id: media.id, processor: processor}
-    |> RunProcessor.new()
-    |> Oban.insert()
-  end
-
-  @doc """
-  Scans a media's source files into direct-play tracks.
-
-  Delegates to `Ambry.Media.Scanner`; returns `{:ok, media}` or
-  `{:error, reason}`.
-  """
-  defdelegate scan_media(media), to: Scanner, as: :scan
-
-  @doc """
   The short identifier a recording's files carry in the library.
 
   See `Ambry.Media.Media.filename_token/1`.
@@ -1308,12 +1294,5 @@ defmodule Ambry.Media do
     :ok = PubSub.subscribe(MediaCreated.wildcard_topic())
     :ok = PubSub.subscribe(MediaUpdated.wildcard_topic())
     :ok = PubSub.subscribe(MediaDeleted.wildcard_topic())
-  end
-
-  @doc """
-  Subscribes media processing progress messages.
-  """
-  def subscribe_to_media_progress_messages do
-    :ok = PubSub.subscribe(MediaProgress.wildcard_topic())
   end
 end
