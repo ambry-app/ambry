@@ -138,21 +138,6 @@
             Open the audiobook
           </.brand_link>
         </p>
-
-        <%!-- Development only, and absent everywhere else: the form is
-            designed by running the same awkward release through it until it
-            reads right, and every release could otherwise be imported once. --%>
-        <div :if={@can_undo} class="pt-3 pl-3">
-          <button
-            type="button"
-            phx-click="undo-import"
-            data-confirm="Delete the records this import created and put the item back in the queue? Files this import placed in the library are deleted too; the ones it was found as are left alone."
-            data-role="undo-import"
-            class={action_classes()}
-          >
-            Undo this import (dev)
-          </button>
-        </div>
       </section>
 
       <%!-- The invariant, rendered. Nothing here is a surprise at import time. --%>

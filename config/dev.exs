@@ -64,10 +64,6 @@ config :ambry, AmbryWeb.Endpoint,
     ]
   ]
 
-# Undo an import: delete what it created and put the item back in the queue.
-# Development and test only, never prod — see `Ambry.Inbox.Undo`.
-config :ambry, allow_undo_import: true
-
 # Enable dev routes for dashboard and mailbox
 config :ambry, dev_routes: true
 

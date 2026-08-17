@@ -29,9 +29,15 @@ defmodule Ambry.Inbox do
 
   The walk runs hourly over folders the operator is working in, so what it
   is *allowed* to do matters more than what it finds. **Ownership decides,
-  not the walk**: every file the queue or the library already holds belongs
-  to something, and the grouping the walk proposes is consulted only for
-  files that belong to nothing.
+  not the walk**: every file the queue already holds belongs to something,
+  and the grouping the walk proposes is consulted only for files that belong
+  to nothing.
+
+  **The library owns nothing here.** Discovery hides no file on the grounds
+  that a recording was once imported from it — a release the library already
+  holds is exactly what an operator upgrading it to direct play wants to
+  see, and the queue is the work list. That provenance is still read; it
+  pre-fills the import form's replace decision instead of removing the row.
 
   A scan may therefore do exactly three things:
 
@@ -69,12 +75,10 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.RunImport
   alias Ambry.Inbox.RunMatch
   alias Ambry.Inbox.RunProbe
-  alias Ambry.Inbox.Undo
   alias Ambry.Library
   alias Ambry.Library.ImportPreference
   alias Ambry.Library.Root
   alias Ambry.Library.Source
-  alias Ambry.Media.Media
   alias Ambry.Media.MediaTrack
   alias Ambry.Media.Scanner
   alias Ambry.Media.Scanner.Tags
@@ -690,18 +694,6 @@ defmodule Ambry.Inbox do
   defdelegate research_person(item, key, name), to: Lookup
 
   @doc """
-  Deletes what an import created and puts the item back in the queue.
-
-  Development only — `undo_available?/0` says whether this build has it. The
-  awkward releases are the ones worth running through the form, and each of
-  them could only be imported once; see `Ambry.Inbox.Undo`.
-  """
-  defdelegate undo_import(item), to: Undo
-
-  @doc "Whether this build can undo an import at all."
-  defdelegate undo_available?, to: Undo, as: :available?
-
-  @doc """
   Asks one provider again — the one that was unreachable during matching.
   """
   defdelegate retry_provider(item, level, provider_id), to: Lookup
@@ -962,18 +954,6 @@ defmodule Ambry.Inbox do
   def describe_error(:not_divisible),
     do: "These files are all in one folder, so splitting by folder would change nothing."
 
-  def describe_error(:undo_unavailable), do: "Undoing an import is a development-only tool."
-
-  def describe_error(:not_imported),
-    do: "This item isn't in the library, so there's nothing to undo."
-
-  # Refused rather than half-done: a `move` policy leaves the library copy as
-  # the only copy, and deleting it would be a loss rather than an undo.
-  def describe_error(:source_files_missing),
-    do:
-      "The files this was found as are gone, so the library copy is the only one left. " <>
-        "Undoing would delete it."
-
   # The invariant, phrased for a human. It names the count rather than the
   # decisions because the form lists them properly — this is the flash you get
   # if you somehow reached import from the queue.
@@ -1221,49 +1201,42 @@ defmodule Ambry.Inbox do
   end
 
   @doc false
-  # **Ownership decides, not the walk.** Every file the queue or the library
-  # already holds belongs to something, and a scan's only job is to find the
-  # ones that don't. Which release a *known* file belongs to is settled — the
-  # operator may have split its folder into five, or into thirty-five, and no
-  # amount of re-walking that folder is allowed to have an opinion about it.
+  # **Ownership decides, not the walk.** Every file the queue already holds
+  # belongs to something, and a scan's only job is to find the ones that
+  # don't. Which release a *known* file belongs to is settled — the operator
+  # may have split its folder into five, or into thirty-five, and no amount
+  # of re-walking that folder is allowed to have an opinion about it.
   #
   # That is the whole of the safety property, and it is structural: this
   # groups the candidate's files by who owns them *before* looking at
   # anything, so the grouping the walk proposes is only ever consulted for
   # files with no owner at all.
+  #
+  # **The library is not an owner.** Discovery used to skip any file a
+  # recording had been imported from, which made a release the library
+  # already holds invisible — and invisible is exactly the wrong answer for
+  # the operator upgrading a legacy recording to direct play, because that
+  # release is the work. The provenance is still read, one step further on:
+  # it pre-fills the import form's replace decision (`Ambry.Media.imported_from/1`),
+  # demoted from a filter to a suggestion the operator confirms.
   defp record_candidate({path, files}, ledger, source) do
     files
     |> Enum.group_by(&owner_of(&1, ledger))
     |> Enum.flat_map(fn
       {nil, orphans} -> List.wrap(adopt(path, files, orphans, source))
-      {:library, _theirs} -> [:skipped]
       {%InboxItem{} = item, theirs} -> [refresh_owner(item, theirs)]
     end)
   end
 
   # A file's owner, in the order that decides it: the item that already lists
-  # it, the library, then the nearest item *above* it — which is how a file
-  # that appears in a known release folder joins that release rather than
-  # becoming an item of its own.
+  # it, then the nearest item *above* it — which is how a file that appears
+  # in a known release folder joins that release rather than becoming an item
+  # of its own.
   defp owner_of(file, ledger) do
     cond do
       item = ledger.by_file[file] -> item
-      MapSet.member?(ledger.library, library_coordinates(file, ledger.roots)) -> :library
       item = nearest_owner(file, ledger.by_path) -> item
       true -> nil
-    end
-  end
-
-  # A scanned absolute path in the same coordinates the library stores: the
-  # root it falls in plus its relative form. A file under no root can only
-  # be claimed by an item, never by the library.
-  defp library_coordinates(file, roots) do
-    roots
-    |> Enum.filter(&String.starts_with?(file, &1.path <> "/"))
-    |> Enum.max_by(&String.length(&1.path), fn -> nil end)
-    |> case do
-      nil -> {nil, file}
-      root -> {root.id, Path.relative_to(file, root.path)}
     end
   end
 
@@ -1369,39 +1342,8 @@ defmodule Ambry.Inbox do
     %{
       by_file:
         for(item <- items, file <- InboxItem.disk_files(item), into: %{}, do: {file, item}),
-      by_path: Map.new(items, &{InboxItem.disk_path(&1), &1}),
-      library: imported_files(),
-      roots: Library.list_roots()
+      by_path: Map.new(items, &{InboxItem.disk_path(&1), &1})
     }
-  end
-
-  # Files the library already has, by either route: a direct-play track or a
-  # recording's recorded source files. Compared as `{root_id, relative}`
-  # tuples rather than strings — two roots may legitimately hold the same
-  # relative path, and the stored columns are relative now. A scanned file
-  # only matches once `locate/1`d into the same coordinates, which happens
-  # in `owner_of/2`.
-  defp imported_files do
-    track_paths = MediaTrack |> select([t], {t.library_root_id, t.path}) |> Repo.all()
-
-    source_files =
-      Media
-      |> select([m], {m.library_root_id, m.source_files})
-      |> Repo.all()
-      |> Enum.flat_map(fn {root_id, files} -> Enum.map(files || [], &{root_id, &1}) end)
-
-    # Pre-refactor provenance: the absolute downloads paths a legacy media
-    # was transcoded from. They live under no root, so they compare in the
-    # same `{nil, absolute}` coordinates an unrooted scan file gets — and
-    # without them, every legacy recording's source would resurface as new.
-    legacy_files =
-      Media
-      |> select([m], m.legacy_source_files)
-      |> Repo.all()
-      |> Enum.reject(&is_nil/1)
-      |> Enum.flat_map(fn files -> Enum.map(files, &{nil, &1}) end)
-
-    MapSet.new(track_paths ++ source_files ++ legacy_files)
   end
 
   # The whole release, measured as the one recording it will become: the

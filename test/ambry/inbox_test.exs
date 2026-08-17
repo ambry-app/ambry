@@ -354,10 +354,24 @@ defmodule Ambry.InboxTest do
   end
 
   describe "discover/1 and the existing library" do
+    # Discovery used to skip these, which made a release the library already
+    # holds invisible — and that release is exactly the work when a legacy
+    # recording is being upgraded to direct play. The provenance is now a
+    # suggestion on the import form, not a filter here.
+    test "offers files a legacy media was imported from" do
+      root = watched_root()
+      release = release_folder(root, "Already Imported", ["book.m4b"])
+
+      insert(:media, book: build(:book), legacy_source_files: [Path.join(release, "book.m4b")])
+
+      assert {:ok, %{created: 1}} = discover(root)
+      assert {[item], false} = Inbox.list_items()
+      assert item.path == "Already Imported"
+    end
+
     # The scanned folder doubles as a registered root here — that's the one
-    # arrangement where a scan can meet the library's own files, and the
-    # comparison happens in {root, relative} coordinates.
-    test "doesn't offer files the library already has as direct-play tracks" do
+    # arrangement where a scan can meet the library's own files.
+    test "offers files the library already serves as direct-play tracks" do
       root = watched_root()
       _release = release_folder(root, "Already Imported", ["book.m4b"])
       root_record = insert(:root, path: root)
@@ -375,21 +389,8 @@ defmodule Ambry.InboxTest do
         library_root_id: root_record.id
       )
 
-      assert {:ok, %{created: 0, skipped: 1}} = discover(root)
-      assert {[], false} = Inbox.list_items()
-    end
-
-    # A legacy recording's downloads provenance is quarantined in
-    # `legacy_source_files`, and the ledger still honors it — otherwise every
-    # pre-refactor import would resurface as new on the next scan.
-    test "doesn't offer files a legacy media was imported from" do
-      root = watched_root()
-      release = release_folder(root, "Already Imported", ["book.m4b"])
-
-      insert(:media, book: build(:book), legacy_source_files: [Path.join(release, "book.m4b")])
-
-      assert {:ok, %{created: 0, skipped: 1}} = discover(root)
-      assert {[], false} = Inbox.list_items()
+      assert {:ok, %{created: 1}} = discover(root)
+      assert {[_item], false} = Inbox.list_items()
     end
   end
 

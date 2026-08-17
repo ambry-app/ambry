@@ -117,9 +117,8 @@ defmodule Ambry.Inbox.InboxItem do
   """
   def disk_files(%__MODULE__{files: files} = item), do: Enum.map(files, &resolve!(item, &1))
 
-  # Raising is deliberate: these paths get probed, placed and (on undo)
-  # checked before deletion, and a path that can't resolve must never
-  # quietly become a relative one.
+  # Raising is deliberate: these paths get probed and placed, and a path that
+  # can't resolve must never quietly become a relative one.
   defp resolve!(%__MODULE__{} = item, path) do
     case Library.resolve(item_source(item), path) do
       {:ok, absolute} -> absolute
