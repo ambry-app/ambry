@@ -105,6 +105,7 @@ defmodule Ambry.Utils do
   def try_delete_files_async(disk_paths, folder_paths \\ [], opts \\ []) do
     %{"disk_paths" => disk_paths, "folder_paths" => folder_paths}
     |> maybe_put("prune_until", opts[:prune_until])
+    |> maybe_put("prune_from", opts[:prune_from])
     |> DeleteFiles.new()
     |> Oban.insert()
   end

@@ -136,6 +136,139 @@ defmodule Ambry.Media.DeletionCustodyTest do
     end
   end
 
+  # `media_tracks` names every file a recording is served from, so those are
+  # exactly what deletion removes — and nothing else. No folder is handed to
+  # `rm_rf` at all, which is what makes "did I just delete someone else's
+  # audio" un-askable rather than answered correctly.
+  describe "a recording with tracks" do
+    test "deletes the files its tracks name, not whatever source_path says" do
+      library = new_dir("library")
+      folder = Path.join(library, "Some Author/Some Book")
+      File.mkdir_p!(folder)
+      file = Path.join(folder, "book.m4b")
+      File.write!(file, "audio")
+
+      # The vestigial upload-era folder: still named by the column, nothing
+      # of this recording in it, and emphatically not Ambry's to remove.
+      stale = new_dir("stale-source")
+      bystander = Path.join(stale, "someone-elses.m4b")
+      File.write!(bystander, "not ours")
+
+      root = insert(:root, path: library)
+
+      media =
+        insert(:media,
+          book: build(:book),
+          source_path: Ambry.Paths.disk_to_web(stale),
+          source_files: [],
+          mpd_path: nil,
+          hls_path: nil,
+          mp4_path: nil
+        )
+
+      insert(:media_track,
+        media: media,
+        library_root_id: root.id,
+        path: "Some Author/Some Book/book.m4b"
+      )
+
+      assert {:ok, _media} = Media.delete_media(media)
+      run_deletion_jobs()
+
+      refute File.exists?(file)
+      assert File.read!(bystander) == "not ours"
+      assert File.dir?(stale)
+    end
+
+    # The real shared case: a book folder holds every recording of that book,
+    # and a single-file recording sits directly in it.
+    test "leaves a sibling recording's file in the folder they share" do
+      library = new_dir("library")
+      root = insert(:root, path: library)
+
+      folder = Path.join(library, "Some Book")
+      File.mkdir_p!(folder)
+      mine = Path.join(folder, "mine.m4b")
+      theirs = Path.join(folder, "theirs.m4b")
+      File.write!(mine, "audio")
+      File.write!(theirs, "sibling")
+
+      media = insert(:media, book: build(:book), mpd_path: nil, hls_path: nil, mp4_path: nil)
+      sibling = insert(:media, book: build(:book), mpd_path: nil, hls_path: nil, mp4_path: nil)
+      insert(:media_track, media: media, library_root_id: root.id, path: "Some Book/mine.m4b")
+
+      insert(:media_track,
+        media: sibling,
+        library_root_id: root.id,
+        path: "Some Book/theirs.m4b"
+      )
+
+      assert {:ok, _media} = Media.delete_media(media)
+      run_deletion_jobs()
+
+      refute File.exists?(mine)
+      assert File.read!(theirs) == "sibling"
+      assert File.dir?(folder)
+    end
+
+    # Tidiness, not correctness: once the files are gone the folder they were
+    # in is empty and worth clearing, walking up until something is left.
+    test "prunes the folders its files leave empty, stopping at the root" do
+      library = new_dir("library")
+      root = insert(:root, path: library)
+
+      folder = Path.join(library, "Some Author/Some Book")
+      File.mkdir_p!(folder)
+      file = Path.join(folder, "book.m4b")
+      File.write!(file, "audio")
+
+      media = insert(:media, book: build(:book), mpd_path: nil, hls_path: nil, mp4_path: nil)
+
+      insert(:media_track,
+        media: media,
+        library_root_id: root.id,
+        path: "Some Author/Some Book/book.m4b"
+      )
+
+      assert {:ok, _media} = Media.delete_media(media)
+      run_deletion_jobs()
+
+      refute File.dir?(folder)
+      refute File.dir?(Path.join(library, "Some Author"))
+      assert File.dir?(library)
+    end
+
+    test "stops pruning where the author still has another book" do
+      library = new_dir("library")
+      root = insert(:root, path: library)
+
+      author = Path.join(library, "Some Author")
+      keeper = Path.join([author, "Another Book", "keep.m4b"])
+      File.mkdir_p!(Path.dirname(keeper))
+      File.write!(keeper, "another book")
+
+      folder = Path.join(author, "Some Book")
+      File.mkdir_p!(folder)
+      file = Path.join(folder, "book.m4b")
+      File.write!(file, "audio")
+
+      media = insert(:media, book: build(:book), mpd_path: nil, hls_path: nil, mp4_path: nil)
+
+      insert(:media_track,
+        media: media,
+        library_root_id: root.id,
+        path: "Some Author/Some Book/book.m4b"
+      )
+
+      assert {:ok, _media} = Media.delete_media(media)
+      run_deletion_jobs()
+
+      refute File.dir?(folder)
+      assert File.exists?(keeper)
+      assert File.dir?(author)
+    end
+  end
+
   describe "replacing a recording's files" do
     # The old folder is Ambry's name for the bytes and goes with the
     # replacement, exactly like deletion.
