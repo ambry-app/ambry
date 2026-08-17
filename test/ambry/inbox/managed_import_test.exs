@@ -6,6 +6,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
   use Ambry.DataCase
 
   alias Ambry.Inbox
+  alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Library
   alias Ambry.Library.ImportPreference
@@ -497,6 +498,204 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
   end
 
+  describe "replacing an audiobook's files" do
+    # The whole back-catalog reclaim, one decision at a time: a legacy
+    # recording was transcoded from a downloads folder, the folder is still
+    # there, and discovery no longer hides it. What the operator gets is a
+    # queued item that already knows which audiobook it belongs to.
+    test "the path evidence proposes it, unapproved" do
+      %{item: item, source: source} = downloads_item()
+      media = legacy_media(from: [source])
+
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert %{mode: :replace, media_id: media_id, approved: false} = item.draft.replacement
+      assert media_id == media.id
+
+      assert %{section: :replacement} =
+               Enum.find(Draft.unresolved(item.draft), &(&1.section == :replacement))
+    end
+
+    # Evidence is not an answer. A release the library was built from turning
+    # up again says nothing about whether these files should take its place.
+    test "an unanswered proposal blocks the import" do
+      %{item: item, source: source} = downloads_item()
+      _media = legacy_media(from: [source])
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert {:error, {:unresolved, _outstanding}} = Inbox.import_item(item)
+    end
+
+    test "answering it settles everything the audiobook already knows" do
+      %{item: item} = downloads_item(settle: false)
+      media = legacy_media()
+
+      item = replace_with(item, media)
+
+      # No book, no credits, no chapters: the audiobook has all of them, and
+      # none of them are in question.
+      assert Draft.unresolved(item.draft) == []
+    end
+
+    test "the recording keeps its own records and gains the files" do
+      %{item: item, root: root, source: source} = downloads_item()
+      media = legacy_media(from: [source], title: "The Way of Kings")
+      before_count = Repo.aggregate(Media.Media, :count)
+
+      item = replace_with(item, media)
+
+      assert {:ok, replaced} = Inbox.import_item(item)
+      assert replaced.id == media.id
+      assert Repo.aggregate(Media.Media, :count) == before_count
+
+      replaced = Media.get_media!(media.id)
+
+      # the same audiobook: its book, its title, its description
+      assert replaced.book_id == media.book_id
+      assert replaced.title == "The Way of Kings"
+      assert replaced.description == media.description
+
+      # played from tracks in the library now, not from packaged artifacts
+      assert [track] = replaced.media_tracks
+      assert [placed] = replaced.source_files
+      assert track.path == placed
+      assert replaced.library_root_id
+      assert File.exists?(Path.join(root, placed))
+
+      refute replaced.mp4_path
+      refute replaced.hls_path
+      refute replaced.mpd_path
+
+      # a placed recording may not keep its pre-refactor provenance —
+      # `media_legacy_source_files_quarantined`
+      refute replaced.legacy_source_files
+
+      assert %{status: :imported, media_id: media_id} = Inbox.get_item!(item.id)
+      assert media_id == media.id
+    end
+
+    test "the artifacts it was streamed from are deleted" do
+      %{item: item, source: source} = downloads_item()
+      media = legacy_media(from: [source])
+      artifact = Ambry.Paths.web_to_disk(media.mp4_path)
+
+      item = replace_with(item, media)
+      assert {:ok, _replaced} = Inbox.import_item(item)
+      assert %{failure: 0} = Oban.drain_queue(queue: :default)
+
+      refute File.exists?(artifact)
+    end
+
+    # Same book, same recording, so the same token and the same rendered
+    # filename. Placement never clobbers, and its own name is the one thing
+    # it may take.
+    test "replacing files the recording already occupies" do
+      %{item: first, source: old_source} = downloads_item()
+      {:ok, media} = Inbox.import_item(first)
+      [placed] = Media.Media.source_file_paths(Media.get_media!(media.id))
+      assert File.stat!(placed).inode == File.stat!(old_source).inode
+
+      %{item: second, source: new_source} =
+        downloads_item(root: :reuse, name: "The Way of Kings [FLAC rip]")
+
+      second = replace_with(second, media)
+
+      assert {:ok, _replaced} = Inbox.import_item(second)
+      assert %{failure: 0} = Oban.drain_queue(queue: :default)
+
+      # the same name, the other file behind it
+      replaced = Media.get_media!(media.id)
+      assert [^placed] = Media.Media.source_file_paths(replaced)
+      assert File.stat!(placed).inode == File.stat!(new_source).inode
+      refute File.exists?(placed <> ".ambry-replaced")
+    end
+
+    # Chapters are curated data and these files are a new rip of a recording
+    # somebody has already been through — the rule `Ambry.Media.Scanner` has
+    # always followed for a rescan.
+    test "chapters the recording already has survive" do
+      %{item: item, source: source} = downloads_item()
+
+      media =
+        legacy_media(
+          from: [source],
+          chapters: [%{time: Decimal.new(0), title: "The operator's own"}],
+          chapter_marker_source: :manual
+        )
+
+      item = replace_with(item, media)
+      assert {:ok, _replaced} = Inbox.import_item(item)
+
+      replaced = Media.get_media!(media.id)
+      assert [%{title: "The operator's own"}] = replaced.chapters
+      assert replaced.chapter_marker_source == :manual
+    end
+
+    # A legacy recording is published on the strength of the artifacts a
+    # replacement retires, so with the switch off it goes back to pending and
+    # is released with the rest when the switch is turned on.
+    test "a published legacy recording waits for the switch" do
+      {:ok, _setting} = Settings.set_direct_play_publishing(false)
+      %{item: item, source: source} = downloads_item()
+      media = legacy_media(from: [source], status: :ready)
+
+      item = replace_with(item, media)
+      assert {:ok, _replaced} = Inbox.import_item(item)
+      assert Media.get_media!(media.id).status == :pending
+
+      {:ok, _setting} = Settings.set_direct_play_publishing(true)
+      assert {:ok, %{published: 1}} = Media.publish_pending_direct_play()
+      assert Media.get_media!(media.id).status == :ready
+    end
+
+    test "a published recording stays published when the switch is on" do
+      {:ok, _setting} = Settings.set_direct_play_publishing(true)
+      %{item: item, source: source} = downloads_item()
+      media = legacy_media(from: [source], status: :ready)
+
+      item = replace_with(item, media)
+      assert {:ok, _replaced} = Inbox.import_item(item)
+      assert Media.get_media!(media.id).status == :ready
+    end
+
+    # A recording transcoded before the paths refactor: artifacts under the
+    # uploads tree, no tracks, and the absolute downloads paths it was made
+    # from quarantined in `legacy_source_files`.
+    defp legacy_media(opts \\ []) do
+      id = Ecto.UUID.generate()
+      workspace = Ambry.Paths.source_media_disk_path(id)
+      File.mkdir_p!(workspace)
+      File.write!(Path.join(workspace, "book.mp4"), "transcoded")
+
+      insert(
+        :media,
+        Keyword.merge(
+          [
+            book: build(:book),
+            status: :pending,
+            source_path: Ambry.Paths.disk_to_web(workspace),
+            legacy_source_files: opts[:from],
+            mp4_path: Ambry.Paths.disk_to_web(Path.join(workspace, "book.mp4"))
+          ],
+          Keyword.drop(opts, [:from])
+        )
+      )
+    end
+
+    # What the form's replace control does: settle the decision and save it.
+    defp replace_with(item, media) do
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      {:ok, item} =
+        Inbox.update_draft(
+          item,
+          item.draft |> Draft.Edit.replace_recording(media.id) |> Inbox.dump_draft()
+        )
+
+      item
+    end
+  end
+
   describe "other sources" do
     # The successor to leave-in-place: the files stay exactly where they are
     # and the library holds pointers to them, but the pointers are Ambry's
@@ -517,18 +716,23 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
   defp downloads_item(opts \\ []) do
     policy = Keyword.get(opts, :policy, :hardlink)
+    name = Keyword.get(opts, :name, "The Way of Kings [M4B]")
 
-    root =
+    # `:reuse` is a second downloads folder feeding the root that is already
+    # registered. A second root record for one path would make every
+    # destination ambiguous, which is a different test.
+    root_record =
       case Keyword.get(opts, :root, :default) do
         :none -> nil
-        :default -> new_dir("root")
-        path -> path
+        :reuse -> hd(Library.list_roots())
+        :default -> insert(:root, path: new_dir("root"), name: "Library")
+        path -> insert(:root, path: path, name: "Library")
       end
 
-    root_record = if root, do: insert(:root, path: root, name: "Library")
+    root = root_record && root_record.path
 
     downloads = new_dir("downloads")
-    release = Path.join(downloads, "The Way of Kings [M4B]")
+    release = Path.join(downloads, name)
     File.mkdir_p!(release)
 
     sources =
@@ -553,13 +757,14 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     {:ok, _counts} = Inbox.discover(watched)
-    {[item], false} = Inbox.list_items()
+    {[item], false} = Inbox.list_items(filter: name)
     {:ok, item} = Inbox.probe_item(item)
 
     # Approval executes a resolved draft, so these tests arrange one the way
     # the import form would leave it — what they're actually about is what
-    # happens to the bytes afterwards.
-    item = settle(item)
+    # happens to the bytes afterwards. A replacement settles the same
+    # decisions by collapsing them, so those tests ask for the raw item.
+    item = if Keyword.get(opts, :settle, true), do: settle(item), else: item
 
     %{
       item: item,

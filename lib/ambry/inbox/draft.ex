@@ -44,11 +44,17 @@ defmodule Ambry.Inbox.Draft do
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.Recording
+  alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.Work
 
   @primary_key false
 
   embedded_schema do
+    # Asked first, because answering it yes settles everything below: the
+    # audiobook being replaced already has its book, credits, chapters and
+    # metadata, and only the files are in question.
+    embeds_one :replacement, Replacement, on_replace: :update
+
     embeds_one :work, Work, on_replace: :update
     embeds_one :recording, Recording, on_replace: :update
     embeds_one :destination, Destination, on_replace: :update
@@ -69,6 +75,7 @@ defmodule Ambry.Inbox.Draft do
   def changeset(draft, attrs) do
     draft
     |> cast(attrs, [:evidence, :stale])
+    |> cast_embed(:replacement)
     |> cast_embed(:work)
     |> cast_embed(:recording)
     |> cast_embed(:destination)
@@ -85,7 +92,31 @@ defmodule Ambry.Inbox.Draft do
   def unresolved(nil), do: [%{section: :draft, label: "Not yet prepared", state: :missing}]
 
   def unresolved(%__MODULE__{} = draft) do
-    stale(draft) ++ work(draft) ++ recording(draft) ++ people(draft) ++ destination(draft)
+    stale(draft) ++ replacement(draft) ++ described(draft) ++ destination(draft)
+  end
+
+  # Replacing an audiobook collapses the rest: it already has its book, its
+  # credits, its chapters and its metadata, and this import is about its
+  # files. Only where the new ones go is still a question.
+  defp described(%__MODULE__{} = draft) do
+    if Replacement.replacing?(draft.replacement),
+      do: [],
+      else: work(draft) ++ recording(draft) ++ people(draft)
+  end
+
+  # Absent on drafts that predate the decision, which are ordinary imports.
+  defp replacement(%__MODULE__{replacement: nil}), do: []
+
+  defp replacement(%__MODULE__{replacement: replacement}) do
+    if Replacement.resolved?(replacement),
+      do: [],
+      else: [
+        %{
+          section: :replacement,
+          label: "Whether this replaces an audiobook you already have",
+          state: Replacement.state(replacement)
+        }
+      ]
   end
 
   # Asked once per human rather than once per credit. A self-narrated book
@@ -288,7 +319,8 @@ defmodule Ambry.Inbox.Draft do
     # Both were missed here, so a draft whose only human input was either
     # one was rebuilt wholesale by the next background re-match. The group
     # link carries its own curated flag, like a series link.
-    Enum.any?(fields(draft), &(&1 && &1.curated)) or
+    (draft.replacement && draft.replacement.curated) == true or
+      Enum.any?(fields(draft), &(&1 && &1.curated)) or
       Enum.any?(credits(draft), fn {_kind, _section, _index, credit} -> credit.curated end) or
       Enum.any?((draft.work && draft.work.series) || [], & &1.curated) or
       Enum.any?(draft.people, & &1.curated) or
@@ -330,8 +362,21 @@ defmodule Ambry.Inbox.Draft do
   # stored: a stored total is a second source of truth waiting to drift from
   # the first.
   defp total(%__MODULE__{} = draft) do
-    work_total(draft.work) + recording_total(draft.recording) +
-      length(draft.people) + destination_total(draft.destination)
+    replacement_total(draft.replacement) + described_total(draft) +
+      destination_total(draft.destination)
+  end
+
+  defp replacement_total(nil), do: 0
+  defp replacement_total(%Replacement{}), do: 1
+
+  # A replacement asks nothing about the audiobook itself, so counting those
+  # decisions would leave the header reporting work that isn't there.
+  defp described_total(%__MODULE__{} = draft) do
+    if Replacement.replacing?(draft.replacement) do
+      0
+    else
+      work_total(draft.work) + recording_total(draft.recording) + length(draft.people)
+    end
   end
 
   defp destination_total(nil), do: 0

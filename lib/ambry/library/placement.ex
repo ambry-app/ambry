@@ -57,8 +57,21 @@ defmodule Ambry.Library.Placement do
 
   @policies [:hardlink, :symlink, :copy, :move]
 
+  # Recognizable in a directory listing, and outside every audio extension
+  # the scanner knows, so a leftover can never be picked up as a track.
+  @aside_suffix ".ambry-replaced"
+
   @enforce_keys [:source, :destination, :policy]
   defstruct [:source, :destination, :policy]
+
+  defmodule Vacated do
+    @moduledoc """
+    A file moved out of the way of a replacement, and where it went.
+    """
+
+    @enforce_keys [:original, :aside]
+    defstruct [:original, :aside]
+  end
 
   @doc """
   The four doors, in the order they're offered.
@@ -137,6 +150,78 @@ defmodule Ambry.Library.Placement do
   end
 
   def finalize(%__MODULE__{}), do: :ok
+
+  @doc """
+  Frees names the caller is about to place onto, reversibly.
+
+  Placement never clobbers, and it must not start now: a collision normally
+  means two recordings rendered to one path, which is a bug to see rather
+  than something to overwrite. **Replacing an audiobook's files is the one
+  case where the name in the way is the caller's own** — the same recording,
+  rendering to the same path, whose old file is about to be retired anyway —
+  and there the refusal is the wrong answer.
+
+  So the old file is moved aside rather than deleted, and nothing is
+  destroyed until the database says the replacement committed: `restore/1`
+  puts it back if the placement fails, `discard/1` removes it once the
+  records are in. A rename inside one directory is cheap and atomic, which is
+  the whole reason this can sit inside the transaction.
+
+  Paths that aren't occupied are skipped, so the ordinary case costs one
+  `lstat` each.
+  """
+  def vacate(paths) do
+    Enum.reduce_while(paths, {:ok, []}, fn path, {:ok, moved} ->
+      case set_aside(path) do
+        :vacant -> {:cont, {:ok, moved}}
+        {:ok, vacated} -> {:cont, {:ok, [vacated | moved]}}
+        {:error, reason} -> {:halt, restore_and_fail(moved, reason)}
+      end
+    end)
+    |> case do
+      {:ok, moved} -> {:ok, Enum.reverse(moved)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp set_aside(path) do
+    case File.lstat(path) do
+      {:error, _absent} ->
+        :vacant
+
+      {:ok, _occupied} ->
+        aside = path <> @aside_suffix
+
+        case File.rename(path, aside) do
+          :ok -> {:ok, %Vacated{original: path, aside: aside}}
+          {:error, reason} -> {:error, {:vacate_failed, path, reason}}
+        end
+    end
+  end
+
+  defp restore_and_fail(moved, reason) do
+    restore(moved)
+    {:error, reason}
+  end
+
+  @doc """
+  Puts vacated files back, for when the placement or its records didn't land.
+  """
+  def restore(vacated) when is_list(vacated) do
+    Enum.each(vacated, fn %Vacated{original: original, aside: aside} ->
+      File.rename(aside, original)
+    end)
+
+    :ok
+  end
+
+  @doc """
+  Removes vacated files, once the records that replaced them have committed.
+  """
+  def discard(vacated) when is_list(vacated) do
+    Enum.each(vacated, fn %Vacated{aside: aside} -> File.rm(aside) end)
+    :ok
+  end
 
   @doc """
   Removes a placement, for when the surrounding transaction failed.

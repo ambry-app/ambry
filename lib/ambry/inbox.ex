@@ -65,6 +65,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Destination
+  alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.Seed
   alias Ambry.Inbox.Importer
   alias Ambry.Inbox.InboxItem
@@ -590,32 +591,32 @@ defmodule Ambry.Inbox do
   def prepare_draft(%InboxItem{status: :imported} = item), do: {:ok, item}
 
   def prepare_draft(%InboxItem{} = item) do
-    refresh_destination(item)
+    fresh =
+      item.draft
+      |> refresh_destination(item)
+      |> refresh_replacement(item)
+
+    if fresh == item.draft,
+      do: {:ok, item},
+      else: item |> InboxItem.put_draft(dump(fresh)) |> Repo.update()
   end
 
-  # A destination half the operator has not picked is a *default*, and a
-  # default frozen at match time is the wrong default the moment anything it
-  # was derived from changes. A draft is written once and then only read, so
+  # A decision the operator has not answered is a *default*, and a default
+  # frozen at match time is the wrong default the moment anything it was
+  # derived from changes. A draft is written once and then only read, so
   # nothing would ever revise it: import the first of three hundred queued
   # releases, correct the policy while you're there, and the other two
   # hundred and ninety-nine would keep proposing the old one forever.
   #
-  # So the unchosen halves are re-derived here, on every prepare. The chosen
-  # ones are never touched — that is the entire distinction the flags exist
-  # to draw.
-  defp refresh_destination(%InboxItem{} = item) do
-    stored = item.draft.destination || %Destination{}
-    fresh = Seed.redefault(stored, item)
-
-    if stored == fresh,
-      do: {:ok, item},
-      else: put_destination(item, fresh)
+  # So the unanswered ones are re-derived here, on every prepare. The
+  # answered ones are never touched — that is the entire distinction the
+  # `chosen` and `curated` flags exist to draw.
+  defp refresh_destination(%Draft{} = draft, item) do
+    %{draft | destination: Seed.redefault(draft.destination || %Destination{}, item)}
   end
 
-  defp put_destination(item, destination) do
-    item
-    |> InboxItem.put_draft(dump(%{item.draft | destination: destination}))
-    |> Repo.update()
+  defp refresh_replacement(%Draft{} = draft, item) do
+    %{draft | replacement: Seed.repropose(draft.replacement || %Replacement{}, item)}
   end
 
   @doc """
@@ -878,7 +879,7 @@ defmodule Ambry.Inbox do
     |> where([i], i.source_id == ^source.id and i.status == :pending)
     |> Repo.all()
     |> Enum.each(fn item ->
-      if item.draft, do: refresh_destination(item)
+      if item.draft, do: prepare_draft(item)
     end)
   end
 

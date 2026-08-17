@@ -54,6 +54,7 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.Draft.PersonDecision
+  alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
   alias Ambry.Library
@@ -92,12 +93,41 @@ defmodule Ambry.Inbox.Importer do
          {:ok, probes} <- probe_all(files),
          :ok <- resolved(item),
          {:ok, destination} <- destination(item),
-         {:ok, {media, placements}} <- create(item, files, probes, destination) do
-      # Only now, with the records committed, is it safe to remove a moved
-      # file's source.
-      log_finalize(Placement.finalize(placements), item)
-      {:ok, media}
+         {:ok, outcome} <- create(item, files, probes, destination) do
+      # Only now, with the records committed, is anything destroyed: a moved
+      # file's source, the names a replacement moved aside, and the files the
+      # recording it replaced was served from.
+      finish(outcome, item)
+      {:ok, outcome.media}
     end
+  end
+
+  # Everything that had to wait for the commit. None of it may fail the
+  # import — the library holds the recording, and a job reported as failed is
+  # a lie the operator acts on — so each part says so where it happens.
+  defp finish(outcome, item) do
+    log_finalize(Placement.finalize(outcome.placements), item)
+    Placement.discard(outcome.vacated)
+    retire(outcome)
+    :ok
+  end
+
+  defp retire(%{retired: nil}), do: :ok
+
+  defp retire(%{retired: retired, placements: placements}) do
+    # A retired name that placement just wrote to is the *new* file wearing
+    # the old name, which is exactly what a like-for-like replacement
+    # produces. Deleting it would undo the import that just succeeded.
+    placed = Enum.map(placements, & &1.destination)
+
+    {:ok, _job} =
+      Media.delete_files_async(%{
+        retired
+        | files: retired.files -- placed,
+          prune_from: retired.prune_from -- placed
+      })
+
+    :ok
   end
 
   # Import is claimed under a row lock before anything is created or any
@@ -126,12 +156,24 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
+  # The one branch in the whole module, and it is the smallest one there is:
+  # a replacement repoints an existing recording where an ordinary import
+  # creates one. Everything either side of that — the claim, the item link,
+  # placement, the finish — is the same code, because it is the same import.
+  defp create(%InboxItem{draft: draft} = item, files, probes, destination) do
+    if Replacement.replacing?(draft.replacement) do
+      replace(item, files, probes, destination, draft.replacement.media_id)
+    else
+      add(item, files, probes, destination)
+    end
+  end
+
   # Placement is deliberately the LAST thing inside the transaction, with
   # nothing but the commit after it. Fail earlier and no bytes have moved;
   # fail at the commit and the worst case is a stray file in the library,
   # which the audit tooling surfaces — never a file whose source was already
   # deleted and whose record didn't survive.
-  defp create(item, files, probes, destination) do
+  defp add(item, files, probes, destination) do
     Repo.transact(fn ->
       # People first, and for the whole draft at once: the same human can be
       # behind two credits, and each credit creating its own left a
@@ -141,12 +183,104 @@ defmodule Ambry.Inbox.Importer do
            {:ok, book} <- resolve_book(item.draft.work, people),
            {:ok, media} <- create_media(item, book, probes, people, destination),
            {:ok, _item} <- link(item, media),
-           {:ok, media, placements} <- place(destination, book, media, files),
+           {:ok, media, placements, vacated} <- place(destination, book, media, files, []),
            {:ok, media} <- publish(media) do
-        {:ok, {media, placements}}
+        {:ok, %{media: media, placements: placements, vacated: vacated, retired: nil}}
       end
     end)
   end
+
+  # Better files for an audiobook the library already has.
+  #
+  # What it is *not* allowed to do is as much of the point as what it does:
+  # the book, the credits, the chapters and every scalar the recording
+  # carries are its own, curated by whoever curated them, and a replacement
+  # that reseeded any of it from tonight's providers would be a data loss
+  # wearing an upgrade's clothes. Only the files move.
+  #
+  # The old files are read *first* — `media_tracks` is the record of what
+  # this recording owns on disk, and once new tracks are written the old ones
+  # are gone — and destroyed *last*, after the commit, so a failure anywhere
+  # in here leaves the recording playing exactly what it played before.
+  defp replace(item, files, probes, destination, media_id) do
+    Repo.transact(fn ->
+      with {:ok, item} <- claim(item),
+           {:ok, media} <- existing_recording(media_id),
+           retired = Media.retired_files(media),
+           {:ok, media} <- repoint(media, item, probes, destination),
+           {:ok, _item} <- link(item, media),
+           {:ok, media, placements, vacated} <-
+             place(destination, media.book, media, files, retired.files),
+           {:ok, media} <- republish(media) do
+        {:ok, %{media: media, placements: placements, vacated: vacated, retired: retired}}
+      end
+    end)
+  end
+
+  defp existing_recording(media_id) do
+    case Repo.get(Media.Media, media_id) do
+      nil -> {:error, :no_such_recording}
+      media -> {:ok, Repo.preload(media, [:media_tracks, :book, :recording_group])}
+    end
+  end
+
+  # The recording's files, and nothing else about it. The paths are
+  # placeholders in valid form — basenames under the destination root — for
+  # the same reason `do_create_media/7` writes them that way: the path CHECKs
+  # cannot wait for the commit, and placement rewrites them to the real
+  # relative paths inside this same transaction.
+  #
+  # The packaged artifacts go in the same statement as the tracks that
+  # replace them, which is what keeps the recording playable at every instant
+  # a reader could see: a recording with neither is one `maybe_validate_paths`
+  # refuses, and rightly.
+  defp repoint(media, item, probes, {root, _policy}) do
+    %{
+      library_root_id: root.id,
+      source_path: Path.basename(item.path),
+      source_files: Enum.map(item.files, &Path.basename/1),
+      duration: Scanner.total_duration(probes),
+      mp4_path: nil,
+      mpd_path: nil,
+      hls_path: nil,
+      media_tracks:
+        probes
+        |> Scanner.track_attrs()
+        |> Enum.map(&%{&1 | path: Path.basename(&1.path)})
+        |> Enum.map(&Map.put(&1, :library_root_id, root.id))
+    }
+    |> with_file_chapters(media, probes)
+    |> then(&Media.update_media(media, &1))
+  end
+
+  # Markers the recording doesn't have yet, and never over ones it does — the
+  # rule `Ambry.Media.Scanner` has always followed for a rescan, and for the
+  # same reason: chapters are curated data and these files are a new rip of a
+  # recording somebody has already been through.
+  defp with_file_chapters(attrs, %{chapters: []}, probes) do
+    case Scanner.chapters(probes) do
+      {[], _source} -> attrs
+      {chapters, source} -> Map.merge(attrs, %{chapters: chapters, chapter_marker_source: source})
+    end
+  end
+
+  defp with_file_chapters(attrs, _has_chapters, _probes), do: attrs
+
+  # A published recording stays published: replacing its files doesn't
+  # re-publish anything. A *legacy* one, though, was published on the
+  # strength of the artifacts this replacement just retired — so where the
+  # fleet can't play tracks yet it goes back to pending, and
+  # `Ambry.Media.publish_pending_direct_play/0` releases it with the rest
+  # when the switch is turned on.
+  defp republish(%{status: :ready} = media) do
+    if Settings.direct_play_publishing?() do
+      {:ok, media}
+    else
+      Media.update_media(media, %{status: :pending})
+    end
+  end
+
+  defp republish(media), do: {:ok, media}
 
   ## the work
 
@@ -510,7 +644,7 @@ defmodule Ambry.Inbox.Importer do
 
   defp destination(%InboxItem{}), do: {:error, :no_library_root}
 
-  defp place({root, policy}, book, media, files) do
+  defp place({root, policy}, book, media, files, retiring) do
     # Forced: a freshly-created book carries its `book_authors` as insert
     # results with the nested `author` unloaded, and a reused one carries
     # nothing at all. Without this every folder silently loses its author
@@ -524,9 +658,26 @@ defmodule Ambry.Inbox.Importer do
     with {:ok, folder} <- NamingTemplate.render(Settings.library_naming_template(), values),
          {:ok, filenames} <- NamingTemplate.filenames(values, files, filename_recording(media)),
          paths = Enum.map(filenames, &Path.join([root.path, folder, &1])),
-         {:ok, placements} <- Placement.place_all(Enum.zip(files, paths), policy),
+         {:ok, vacated} <- Placement.vacate(Enum.filter(paths, &(&1 in retiring))),
+         {:ok, placements} <- place_all(Enum.zip(files, paths), policy, vacated),
          {:ok, media} <- record_placement(media, root, paths) do
-      {:ok, media, placements}
+      {:ok, media, placements, vacated}
+    end
+  end
+
+  # A recording rendering to the same names it already occupies is what a
+  # like-for-like replacement *is* — same book, same recording, so the same
+  # token and the same filenames — and placement never clobbers. Its own
+  # names are the one thing it may take, so they're moved aside rather than
+  # overwritten, and put back if the placement then fails.
+  defp place_all(pairs, policy, vacated) do
+    case Placement.place_all(pairs, policy) do
+      {:ok, placements} ->
+        {:ok, placements}
+
+      {:error, reason} ->
+        Placement.restore(vacated)
+        {:error, reason}
     end
   end
 

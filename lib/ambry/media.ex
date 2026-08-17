@@ -147,6 +147,111 @@ defmodule Ambry.Media do
   end
 
   @doc """
+  Recordings matching a phrase, best-known-first, for a typeahead.
+
+  The import form's replace decision needs to reach any audiobook in the
+  library by title, book, author or narrator — the same search the index
+  offers, without its pagination.
+  """
+  def match_media(phrase, limit \\ 10)
+  def match_media(phrase, _limit) when phrase in [nil, ""], do: []
+
+  def match_media(phrase, limit) do
+    MediaFlat
+    |> MediaFlat.filter(%{search: phrase})
+    |> order_by([m], asc: m.book, asc: m.part_number, asc: m.id)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
+  @doc """
+  The recording these files were imported into, if any.
+
+  A recording records where its audio came from in three places: the tracks
+  it is served from, the `source_files` a placement wrote, and — for anything
+  imported before the paths refactor — the absolute `legacy_source_files` it
+  was transcoded from. Discovery used to read all three to *hide* a file; the
+  import form reads them to propose a replacement, which is the same fact put
+  to honest use.
+
+  Compared as absolute disk paths on both sides, so which stored form a
+  recording happens to use (root-relative, `/uploads/...`, or absolute) never
+  has to be reasoned about at the comparison. The query that gathers
+  candidates is deliberately loose — it may over-match across roots — and the
+  overlap below is what decides.
+
+  Returns `{:ok, media}` for the recording with the most files in common, or
+  `:none`.
+  """
+  def imported_from(paths)
+  def imported_from([]), do: :none
+
+  def imported_from(paths) when is_list(paths) do
+    wanted = MapSet.new(paths)
+
+    paths
+    |> candidate_media()
+    |> Enum.map(fn media ->
+      {media, Enum.count(recorded_files(media), &MapSet.member?(wanted, &1))}
+    end)
+    |> Enum.reject(fn {_media, shared} -> shared == 0 end)
+    |> case do
+      [] -> :none
+      scored -> {:ok, scored |> Enum.max_by(fn {m, shared} -> {shared, -m.id} end) |> elem(0)}
+    end
+  end
+
+  # Anything whose stored provenance *could* name one of these paths. Only
+  # a file that falls inside a library root can be named by a relative
+  # column, so a downloads folder — which is every ordinary source — costs
+  # one query on the legacy column and nothing else.
+  defp candidate_media(paths) do
+    relatives = root_relative_forms(paths)
+
+    legacy =
+      Media
+      |> where([m], fragment("? && ?::text[]", m.legacy_source_files, ^paths))
+      |> Repo.all()
+
+    placed =
+      if relatives == [] do
+        []
+      else
+        track_media_ids =
+          MediaTrack |> where([t], t.path in ^relatives) |> select([t], t.media_id) |> Repo.all()
+
+        Media
+        |> where(
+          [m],
+          m.id in ^track_media_ids or
+            (not is_nil(m.library_root_id) and
+               fragment("? && ?::text[]", m.source_files, ^relatives))
+        )
+        |> Repo.all()
+      end
+
+    (legacy ++ placed) |> Enum.uniq_by(& &1.id) |> Repo.preload(:media_tracks)
+  end
+
+  # The stored form each path would have if a recording held it, for the
+  # roots it might fall under. Roots are read once rather than per path.
+  defp root_relative_forms(paths) do
+    roots = Library.list_roots()
+
+    for path <- paths,
+        root <- roots,
+        String.starts_with?(path, root.path <> "/"),
+        do: Path.relative_to(path, root.path)
+  end
+
+  # Everywhere a recording says where its audio came from, as absolute paths.
+  defp recorded_files(%Media{} = media) do
+    Media.source_file_paths(media) ++
+      (media.legacy_source_files || []) ++
+      Enum.flat_map(media.media_tracks, &resolved_disk_path/1)
+  end
+
+  @doc """
   Returns the number of uploaded media.
 
   ## Examples
@@ -424,12 +529,69 @@ defmodule Ambry.Media do
   end
 
   defp delete_all_files_async(%Media{} = media, deletions) do
-    %{folders: folders, files: files, prune_from: prune_from} = deletions
+    delete_files_async(%{deletions | files: all_file_paths(media) ++ deletions.files})
+  end
 
-    try_delete_files_async(all_file_paths(media) ++ files, folders,
+  @doc """
+  The files a replacement retires: what this recording is served from now,
+  plus the packaged artifacts it was streamed from.
+
+  Read **before** the replacement writes anything, for the same reason
+  `delete_media/1` reads it before the delete: `media_tracks` is the record
+  of what a recording owns on disk, and once new tracks are written the old
+  ones are gone. Same deletion semantics as `delete_media/1` — see
+  `source_deletions/1` — because they are the same question.
+
+  The cover and its thumbnails are deliberately absent. A replacement changes
+  a recording's files, not the recording: its artwork, credits and chapters
+  belong to the same audiobook and stay.
+  """
+  def retired_files(%Media{} = media) do
+    deletions = source_deletions(media)
+    %{deletions | files: artifact_paths(media) ++ deletions.files}
+  end
+
+  @doc """
+  Deletes a worked-out set of files in the background, pruning what it empties.
+  """
+  def delete_files_async(%{folders: folders, files: files, prune_from: prune_from}) do
+    try_delete_files_async(files, folders,
       prune_until: if(folders != [] or prune_from != [], do: library_root_paths()),
       prune_from: prune_from
     )
+  end
+
+  @doc """
+  Whether every file this recording is served from has another name on disk.
+
+  A hardlinked library copy shares its inode with the source it was placed
+  from, so removing the library's name doesn't destroy the bytes. The link
+  count is what says that *now*: a recording hardlinked from a torrent that
+  has since been removed has a link count of 1, and the honest answer there
+  is no.
+
+  False for a recording with nothing to ask about, and false for any file
+  that can't be stat'd — this gates a warning about losing files, and a
+  warning that hides when it shouldn't is worse than one that always shows.
+  """
+  def all_hardlinked?(%Media{} = media) do
+    case served_files(media) do
+      [] -> false
+      files -> Enum.all?(files, &hardlinked?/1)
+    end
+  end
+
+  defp hardlinked?(path) do
+    match?({:ok, %File.Stat{links: links}} when links > 1, File.stat(path))
+  end
+
+  # What the recording plays from right now: its tracks where it has them,
+  # its recorded source files where it doesn't.
+  defp served_files(%Media{} = media) do
+    case owned_tracks(media) do
+      [] -> Media.source_file_paths(media)
+      tracks -> Enum.flat_map(tracks, &resolved_disk_path/1)
+    end
   end
 
   # The registered locations are where pruning stops: a root's existence is
@@ -531,18 +693,7 @@ defmodule Ambry.Media do
   defp same_root(query, root_id), do: where(query, [m], m.library_root_id == ^root_id)
 
   defp all_file_paths(%Media{} = media) do
-    %Media{
-      mpd_path: mpd_path,
-      hls_path: hls_path,
-      mp4_path: mp4_path
-    } = media
-
-    media_files = [
-      mpd_path,
-      hls_path,
-      mp4_path,
-      Paths.hls_playlist_path(hls_path)
-    ]
+    media_files = artifact_web_paths(media)
 
     image_files = [media.image_path]
 
@@ -565,6 +716,21 @@ defmodule Ambry.Media do
     |> Enum.filter(& &1)
     |> Enum.uniq()
     |> Enum.map(&Paths.web_to_disk/1)
+  end
+
+  # The packaged outputs a legacy recording streams and downloads from,
+  # always Ambry's own under the uploads path. Named apart from the artwork
+  # because a replacement retires these and keeps that.
+  defp artifact_paths(%Media{} = media) do
+    media
+    |> artifact_web_paths()
+    |> Enum.filter(& &1)
+    |> Enum.uniq()
+    |> Enum.map(&Paths.web_to_disk/1)
+  end
+
+  defp artifact_web_paths(%Media{} = media) do
+    [media.mpd_path, media.hls_path, media.mp4_path, Paths.hls_playlist_path(media.hls_path)]
   end
 
   @doc """
