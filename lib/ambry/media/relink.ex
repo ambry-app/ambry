@@ -359,13 +359,21 @@ defmodule Ambry.Media.Relink do
   # Which files, and where they are
   # ==========================================================================
 
-  # `source_files` is authoritative when a recording has it. The upload era
-  # has neither that nor `legacy_source_files`, and its files are found by
-  # listing the folder `source_path` names — the same fallback `Media.files/2`
-  # has always used for these rows.
-  defp era(%Media{legacy_source_files: [_ | _]}), do: :server_import
-  defp era(%Media{source_files: [_ | _]}), do: :recorded_list
-  defp era(%Media{}), do: :web_upload
+  @doc """
+  Which era a recording was imported in, and so how its sources are recorded.
+
+  `source_files` is authoritative when a recording has it. The upload era has
+  neither that nor `legacy_source_files`, and its files are found by listing
+  the folder `source_path` names — the same fallback `Media.files/2` has
+  always used for these rows.
+
+  A property of the row alone, so it costs nothing and can be used to pick a
+  batch: the two eras want relinking in a deliberate order, cheapest and most
+  reversible first.
+  """
+  def era(%Media{legacy_source_files: [_ | _]}), do: :server_import
+  def era(%Media{source_files: [_ | _]}), do: :recorded_list
+  def era(%Media{}), do: :web_upload
 
   # Filtered and natural-sorted the way `Media.files/2` does it for every
   # other era, because the order here is the order the recording plays in:
