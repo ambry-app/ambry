@@ -3,6 +3,7 @@ defmodule Ambry.Search.Reference do
 
   alias Ambry.Books.Book
   alias Ambry.Books.Series
+  alias Ambry.Books.Universe
   alias Ambry.Media.Media
   alias Ambry.People.Author
   alias Ambry.People.Narrator
@@ -16,6 +17,7 @@ defmodule Ambry.Search.Reference do
   def new(%Narrator{id: id}), do: %__MODULE__{type: :narrator, id: id}
   def new(%Person{id: id}), do: %__MODULE__{type: :person, id: id}
   def new(%Series{id: id}), do: %__MODULE__{type: :series, id: id}
+  def new(%Universe{id: id}), do: %__MODULE__{type: :universe, id: id}
 
   defmodule Type do
     @moduledoc false
@@ -45,5 +47,6 @@ defmodule Ambry.Search.Reference do
     defp load_type("narrator"), do: :narrator
     defp load_type("person"), do: :person
     defp load_type("series"), do: :series
+    defp load_type("universe"), do: :universe
   end
 end

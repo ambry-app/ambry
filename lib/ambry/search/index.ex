@@ -14,7 +14,7 @@ defmodule Ambry.Search.Index do
   trigger turns into a weighted `tsvector`:
 
     * `primary` (A) — the thing's own name: a book's title, a person's pen
-      names, a series' name
+      names, a series' or universe's name
     * `secondary` (B) — the names it is credited alongside
     * `tertiary` (C) — the real people behind those credits, when they are
       named differently
@@ -35,6 +35,7 @@ defmodule Ambry.Search.Index do
 
   alias Ambry.Books.Book
   alias Ambry.Books.Series
+  alias Ambry.Books.Universe
   alias Ambry.People.Author
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -53,7 +54,7 @@ defmodule Ambry.Search.Index do
       Repo.all(
         from book in Book,
           where: book.id in ^book_ids,
-          preload: [:series, authors: [:people], media: [narrators: [:person]]]
+          preload: [:series, :universes, authors: [:people], media: [narrators: [:person]]]
       )
 
     write!(:book, book_ids, books, &book_record/1)
@@ -82,6 +83,20 @@ defmodule Ambry.Search.Index do
     series = Enum.reject(series, &Enum.empty?(&1.series_books))
 
     write!(:series, series_ids, series, &series_record/1)
+  end
+
+  def index!(:universe, universe_ids) do
+    universes =
+      Repo.all(
+        from universe in Universe,
+          where: universe.id in ^universe_ids,
+          preload: [books: [authors: [:people]]]
+      )
+
+    # Empty universes are pruned for the same reason empty series are.
+    universes = Enum.reject(universes, &Enum.empty?(&1.books))
+
+    write!(:universe, universe_ids, universes, &universe_record/1)
   end
 
   defp write!(type, requested_ids, found, record_fun) do
@@ -115,7 +130,7 @@ defmodule Ambry.Search.Index do
   defp book_record(book) do
     narrators = Enum.flat_map(book.media, & &1.narrators)
 
-    secondary_names = names(book.series ++ book.authors ++ narrators)
+    secondary_names = names(book.series ++ book.universes ++ book.authors ++ narrators)
     tertiary_names = person_names(book.authors ++ narrators)
 
     # recording display-title overrides are searchable alongside the book
@@ -160,6 +175,20 @@ defmodule Ambry.Search.Index do
       primary: series.name,
       secondary: join(names(series.authors)),
       tertiary: join(person_names(series.authors))
+    }
+  end
+
+  # A universe is found by its own name and by who writes in it — the same
+  # shape as a series, for the same reason: "the Sanderson one" is how people
+  # remember a shelf they cannot name.
+  defp universe_record(universe) do
+    authors = Enum.flat_map(universe.books, & &1.authors)
+
+    %{
+      reference: Reference.new(universe),
+      primary: universe.name,
+      secondary: join(names(authors)),
+      tertiary: join(person_names(authors))
     }
   end
 

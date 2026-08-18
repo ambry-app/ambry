@@ -41,6 +41,12 @@ defmodule Ambry.Search do
 
   @results_limit 36
 
+  # Universes are indexed — a book is findable by the universe it belongs to,
+  # and the admin picker searches them — but they are left out of user search
+  # because there is no public universe page for a result to land on. Adding
+  # `:universe` here is the second half of that feature, not this half.
+  @user_facing_types [:book, :person, :series]
+
   @doc """
   Rebuilds the entire index, from scratch.
 
@@ -89,7 +95,7 @@ defmodule Ambry.Search do
   match would have been a regression.
   """
   def query(query_string) do
-    Query.build(query_string, joiner: :all, partial: true)
+    Query.build(query_string, joiner: :all, partial: true, types: @user_facing_types)
   end
 
   def all(query, opts \\ []) do

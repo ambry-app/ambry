@@ -56,6 +56,15 @@ defmodule Ambry.Search.QueryTest do
     dirisu = insert(:person, name: "Ṣọpẹ́ Dìrísù")
     insert(:narrator, name: "Ṣọpẹ́ Dìrísù", person: dirisu)
 
+    cosmere =
+      insert(:universe,
+        name: "The Cosmere",
+        book_universes: [
+          %{book_id: way_of_kings.id},
+          %{book_id: mistborn.id}
+        ]
+      )
+
     # The British title on the book, the American one on the recording. Both
     # have to find it.
     philosophers_stone = insert(:book, title: "Harry Potter and the Philosopher's Stone")
@@ -67,6 +76,7 @@ defmodule Ambry.Search.QueryTest do
 
     %{
       way_of_kings: way_of_kings,
+      cosmere: cosmere,
       mistborn: mistborn,
       stormlight: stormlight,
       truly_devious: truly_devious,
@@ -165,6 +175,20 @@ defmodule Ambry.Search.QueryTest do
 
       assert "The Way of Kings" in book_hits
       refute "Brandon Sanderson" in book_hits
+    end
+  end
+
+  describe "universes" do
+    test "a shelf nobody can name a book of is findable by its own name" do
+      hits = hits("cosmere")
+
+      assert "The Cosmere" in hits
+      assert "The Way of Kings" in hits
+      assert "Mistborn: The Final Empire" in hits
+    end
+
+    test "and by who writes in it" do
+      assert "The Cosmere" in hits("sanderson", joiner: :any, types: [:universe])
     end
   end
 

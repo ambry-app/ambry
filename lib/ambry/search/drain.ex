@@ -13,23 +13,26 @@ defmodule Ambry.Search.Drain do
 
     * a **book** record quotes its media's titles, its series' names, its
       authors' and narrators' names, and the names of the people behind them
-    * a **series** record quotes the names of its books' authors, and the
-      people behind them
+    * a **series** record, and a **universe** record, quote the names of their
+      books' authors and the people behind them
     * a **person** record quotes their author and narrator pen names
 
   So the expansion is two hops at most, and deliberately not a closure:
 
-      direct books  = books, media's books, a series' books is NOT this,
-                      an author's/narrator's/person's/universe's books
-      direct series = series
-      books  = direct books ∪ books of direct series
-      series = direct series ∪ series of direct books
+      direct books     = books, media's books, an author's, a narrator's,
+                         a person's — never a series' or a universe's
+      direct series    = series
+      direct universes = universes
+      books     = direct books ∪ books of direct series ∪ books of direct universes
+      series    = direct series ∪ series of direct books
+      universes = direct universes ∪ universes of direct books
 
-  A series rename changes its books' `secondary`, so it pulls its books in. A
-  book change can change its series' `secondary` (the series quotes its books'
-  authors) or empty the series entirely, so it pulls its series in. Neither
-  needs to go further: the books reached through a series did not themselves
-  change, and the series reached through a book did not change name.
+  A series or universe rename changes its books' `secondary`, so it pulls its
+  books in. A book change can change its series' and universes' `secondary`
+  (both quote their books' authors) or empty one entirely, so it pulls them
+  in. Neither needs to go further: the books reached through a series did not
+  themselves change, and the series reached through a book did not change
+  name.
 
   ## Author and narrator are not symmetric
 
@@ -125,13 +128,20 @@ defmodule Ambry.Search.Drain do
   defp rebuild!(grouped) do
     direct_books = direct_books(grouped)
     direct_series = ids(grouped, :series)
+    direct_universes = ids(grouped, :universe)
 
-    books = combine(direct_books, books_of_series(direct_series))
+    books =
+      direct_books
+      |> combine(books_of_series(direct_series))
+      |> combine(books_of_universe(direct_universes))
+
     series = combine(direct_series, series_of_books(direct_books))
+    universes = combine(direct_universes, universes_of_books(direct_books))
     people = people(grouped)
 
     Index.index!(:book, books)
     Index.index!(:series, series)
+    Index.index!(:universe, universes)
     Index.index!(:person, people)
   end
 
@@ -140,7 +150,6 @@ defmodule Ambry.Search.Drain do
     [
       ids(grouped, :book),
       books_of_media(ids(grouped, :media)),
-      books_of_universe(ids(grouped, :universe)),
       books_of_author(ids(grouped, :author)),
       books_of_narrator(ids(grouped, :narrator)),
       books_of_person(ids(grouped, :person))
@@ -181,6 +190,12 @@ defmodule Ambry.Search.Drain do
 
   defp series_of_books(book_ids) do
     all(from(sb in SeriesBook, where: sb.book_id in ^book_ids, select: sb.series_id))
+  end
+
+  defp universes_of_books([]), do: []
+
+  defp universes_of_books(book_ids) do
+    all(from(bu in BookUniverse, where: bu.book_id in ^book_ids, select: bu.universe_id))
   end
 
   defp books_of_universe([]), do: []
