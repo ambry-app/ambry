@@ -37,7 +37,7 @@ defmodule Ambry.Search do
   alias Ambry.People.Person
   alias Ambry.Repo
   alias Ambry.Search.Drain
-  alias Ambry.Search.Record
+  alias Ambry.Search.Query
 
   @results_limit 36
 
@@ -51,24 +51,10 @@ defmodule Ambry.Search do
   defdelegate reindex_all!, to: Drain
 
   @doc """
-  Waits for the index to reflect everything written so far.
-
-  In production this is a no-op: the listener has already drained, or is about
-  to, and no caller should be waiting on it. In test there is no listener —
-  the SQL sandbox holds every write in an uncommitted transaction, so a
-  `NOTIFY` is never delivered and an Oban job never runs — so this drains
-  inline. It is called by the read paths rather than by tests, so that a test
-  which writes and then searches sees what the running system would a
-  millisecond later, without having to know that a queue exists.
+  Waits for the index to reflect everything written so far. See
+  `Ambry.Search.Drain.settle/0`.
   """
-  if Application.compile_env(:ambry, [__MODULE__, :settle_inline], false) do
-    def settle do
-      {:ok, _count} = Drain.run()
-      :ok
-    end
-  else
-    def settle, do: :ok
-  end
+  defdelegate settle, to: Drain
 
   def search(query_string) do
     query_string
@@ -94,63 +80,16 @@ defmodule Ambry.Search do
   The index, narrowed to what matches `query_string`, as a composable
   queryable.
 
-  Every read path in the app composes from here — `search/1`, the GraphQL
-  connection — which is why `settle/0` is called here rather than in each of
-  them. Outside test it compiles to nothing.
-
-  Both sides parse with `ambry_english`, so a query folds accents the same way
-  the stored vector did. The config is passed explicitly rather than leaning
-  on `default_text_search_config`, which is session state.
+  User search is `:all` — every word you typed has to appear somewhere — with
+  `partial: true` on the last word. The partial is not a search-as-you-type
+  affordance here (this page is submitted, not live); it replaces the `ILIKE
+  '%…%'` arm this query used to carry beside the tsquery. That arm was
+  load-bearing in one direction only: `sander` found Sanderson through the
+  substring, never through the tsquery, and dropping it without a prefix
+  match would have been a regression.
   """
   def query(query_string) do
-    :ok = settle()
-
-    like = "%#{query_string}%"
-
-    from record in Record,
-      where:
-        fragment("? @@ plainto_tsquery('ambry_english', ?)", record.search_vector, ^query_string) or
-          ilike(record.primary, ^like) or ilike(record.secondary, ^like) or
-          ilike(record.tertiary, ^like),
-      order_by: [
-        {:desc,
-         fragment(
-           "ts_rank_cd(?, plainto_tsquery('ambry_english', ?))",
-           record.search_vector,
-           ^query_string
-         )},
-        {:desc,
-         fragment(
-           """
-           CASE
-             WHEN ? ILIKE ? THEN 1
-             WHEN ? ILIKE ? THEN 0.4
-             WHEN ? ILIKE ? THEN 0.2
-             ELSE 0
-           END
-           """,
-           record.primary,
-           ^like,
-           record.secondary,
-           ^like,
-           record.tertiary,
-           ^like
-         )},
-        {:desc,
-         fragment(
-           """
-           COALESCE(similarity(?, ?), 0) +
-           COALESCE(similarity(?, ?), 0) +
-           COALESCE(similarity(?, ?), 0)
-           """,
-           record.primary,
-           ^query_string,
-           record.secondary,
-           ^query_string,
-           record.tertiary,
-           ^query_string
-         )}
-      ]
+    Query.build(query_string, joiner: :all, partial: true)
   end
 
   def all(query, opts \\ []) do

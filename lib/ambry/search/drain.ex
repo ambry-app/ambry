@@ -57,6 +57,29 @@ defmodule Ambry.Search.Drain do
   @batch_size 500
 
   @doc """
+  Waits for the index to reflect everything written so far.
+
+  In production a no-op: `Ambry.Search.Listener` has already drained, or is
+  about to, and no read should be waiting on it. In test there is no listener
+  — the SQL sandbox holds every write in a transaction that never commits, so
+  the `NOTIFY` the enqueue trigger raises is never delivered and an Oban job
+  never runs — so this drains inline.
+
+  Called from `Ambry.Search.Query.build/2`, which every read path composes
+  from, rather than from the tests themselves. A test that writes and then
+  searches is then in the same position as a caller a millisecond later,
+  without having to know that a queue exists.
+  """
+  if Application.compile_env(:ambry, [Ambry.Search, :settle_inline], false) do
+    def settle do
+      {:ok, _count} = run()
+      :ok
+    end
+  else
+    def settle, do: :ok
+  end
+
+  @doc """
   Drains the queue until it is empty, returning how many references it took.
 
   Each batch claims and rebuilds inside one transaction, so a rebuild that
