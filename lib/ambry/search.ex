@@ -26,7 +26,7 @@ defmodule Ambry.Search do
       Ambry.PubSub,
       Ambry.Repo
     ],
-    exports: [Listener]
+    exports: [Listener, Query]
 
   import Ecto.Query
 

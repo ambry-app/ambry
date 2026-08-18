@@ -119,15 +119,18 @@ defmodule Ambry.Search.DrainTest do
       assert fetch_record(book_two).secondary =~ series_name
     end
 
-    test "a series with no books is not indexed" do
-      series = insert(:series, series_books: [])
+    test "a series with no books is indexed anyway" do
+      # The admin series list searches the index, and an empty series is
+      # exactly the row an operator goes there to find. User search hides it
+      # separately, by having no visible book to show.
+      %{name: name} = series = insert(:series, series_books: [])
 
       drain()
 
-      assert nil == fetch_record(series)
+      assert %{primary: ^name} = fetch_record(series)
     end
 
-    test "emptying a series removes its record" do
+    test "emptying a series keeps the record but drops its books" do
       [book_one, book_two] = insert_pair(:book, series_books: [])
 
       %{series_books: [%{id: series_book_id_one}, %{id: series_book_id_two}]} =
@@ -152,6 +155,23 @@ defmodule Ambry.Search.DrainTest do
           }
         })
 
+      drain()
+
+      assert fetch_record(series)
+      refute fetch_record(series).secondary
+    end
+
+    test "deleting a series removes its record" do
+      [book_one, _book_two] = insert_pair(:book, series_books: [])
+
+      series =
+        insert(:series, series_books: [%{book_id: book_one.id, book_number: 1}])
+
+      drain()
+
+      assert fetch_record(series)
+
+      {:ok, _series} = Books.delete_series(series)
       drain()
 
       assert nil == fetch_record(series)

@@ -7,6 +7,7 @@ defmodule Ambry.Books.BookFlat do
 
   alias Ambry.Books.SeriesBookType
   alias Ambry.People.PersonName
+  alias Ambry.Search.Query
 
   schema "books_flat" do
     field :title, :string
@@ -113,21 +114,7 @@ defmodule Ambry.Books.BookFlat do
   end
 
   def filter(query, :search, search_string) do
-    search_string = "%#{search_string}%"
-
     from b in query,
-      where:
-        ilike(b.title, ^search_string) or ilike(b.universes, ^search_string) or
-          fragment(
-            "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ?)",
-            b.series,
-            ^search_string
-          ) or
-          fragment(
-            "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
-            b.authors,
-            ^search_string,
-            ^search_string
-          )
+      where: b.id in subquery(Query.ids(search_string, :book))
   end
 end

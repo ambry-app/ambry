@@ -26,9 +26,18 @@ defmodule Ambry.Search.Index do
   answer is to delete its record — which is how deletion works now that
   nothing calls a `Search.delete/1` by hand.
 
-  A series with no books is pruned the same way, for a different reason: it
-  is about to be deleted by the admin's own emptiness rule, and a series that
-  shows up in search with nothing behind it is a dead link.
+  ## Everything that exists is indexed, including empty shelves
+
+  A series or universe with no books used to be left out, so that user search
+  would not offer a dead link. That rule cannot survive the admin lists
+  moving onto the index: an empty series is *precisely* what an operator
+  opens the series list to find, and it would have been the one row search
+  could not reach.
+
+  Nothing is lost by dropping it. `AmbryWeb.SearchLive` already hides a
+  series none of whose books have a ready edition, which an empty one
+  trivially is — the prune was a second copy of a rule the view already
+  enforces, in the one place where it was wrong.
   """
 
   import Ecto.Query
@@ -79,9 +88,6 @@ defmodule Ambry.Search.Index do
           preload: [:series_books, authors: [:people]]
       )
 
-    # An empty series is pruned rather than indexed; see the moduledoc.
-    series = Enum.reject(series, &Enum.empty?(&1.series_books))
-
     write!(:series, series_ids, series, &series_record/1)
   end
 
@@ -92,9 +98,6 @@ defmodule Ambry.Search.Index do
           where: universe.id in ^universe_ids,
           preload: [books: [authors: [:people]]]
       )
-
-    # Empty universes are pruned for the same reason empty series are.
-    universes = Enum.reject(universes, &Enum.empty?(&1.books))
 
     write!(:universe, universe_ids, universes, &universe_record/1)
   end

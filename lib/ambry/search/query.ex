@@ -128,4 +128,24 @@ defmodule Ambry.Search.Query do
         asc: record.primary
       ]
   end
+
+  @doc """
+  The ids of one kind of record matching `phrase`, for an `IN` against a flat
+  view.
+
+  What an admin list filter needs. The five of them each had their own
+  `ILIKE` chain — one per searchable column, hand-unrolled over the array
+  columns, and no two of them agreeing on what "search" meant. They ask the
+  index instead now, which is how a list filter picks up punctuation folding
+  and accents without anyone writing either down again.
+
+  Ordering is dropped: the list has its own sort, and an `ORDER BY` inside an
+  `IN` is work nobody reads.
+  """
+  def ids(phrase, type, opts \\ []) do
+    phrase
+    |> build(Keyword.put(opts, :types, [type]))
+    |> exclude(:order_by)
+    |> select([record], fragment("(?).id", record.reference))
+  end
 end
