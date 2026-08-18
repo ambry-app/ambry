@@ -800,12 +800,20 @@ defmodule Ambry.BooksTest do
       assert id == series.id
     end
 
-    # A name is operator input and `%` is legal in one; unescaped it would
-    # match every row in the table.
-    test "treats a wildcard as a character" do
+    # There is no `LIKE` pattern left to escape: the phrase is a parameter to
+    # `plainto_tsquery`, which sees `%` as punctuation and returns no lexemes
+    # at all. So a phrase of nothing but wildcards is a phrase with nothing
+    # searchable in it, and gets what an empty box gets — the first page.
+    #
+    # A weaker guarantee than the escaping it replaces would be a regression;
+    # this is a stronger one, and the visible change is that `%` now shows
+    # the first page rather than nothing.
+    test "a wildcard is punctuation, not a pattern" do
       insert(:series, name: "Mistborn")
 
-      assert Books.search_series("%", 10) == []
+      assert [{"Mistborn", _}] = Books.search_series("%", 10)
+      assert [{"Mistborn", _}] = Books.search_series("", 10)
+      assert Books.search_series("Wolf", 10) == []
     end
   end
 
