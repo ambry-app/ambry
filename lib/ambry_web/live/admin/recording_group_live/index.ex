@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
   use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.ReturnTo, only: [query: 1]
 
   alias Ambry.Media
   alias Ambry.Media.PubSub.RecordingGroupCreated
@@ -40,6 +41,8 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
     {:noreply,
      socket
      |> assign(search_form: to_form(%{"query" => params["filter"]}, as: :search))
+     # The record a form just sent the operator back to, if they came from one.
+     |> assign(focus: params["focus"])
      |> maybe_update_groups(params)}
   end
 
@@ -49,32 +52,34 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {groups, has_more?} = list_groups(list_opts, @default_sort)
-
-      assign(socket,
-        list_opts: list_opts,
-        groups: groups,
-        has_next: has_more?,
-        has_prev: list_opts.page > 1,
-        next_page_path: ~p"/admin/sets?#{next_opts(list_opts)}",
-        prev_page_path: ~p"/admin/sets?#{prev_opts(list_opts)}",
-        current_sort: list_opts.sort || @default_sort
-      )
+      load_groups(socket, list_opts)
     else
       socket
     end
   end
 
-  defp refresh_groups(socket) do
-    list_opts = get_list_opts(socket)
+  defp load_groups(socket, list_opts) do
+    {groups, has_more?, total} = list_groups(list_opts, @default_sort)
 
-    params = %{
-      "filter" => to_string(list_opts.filter),
-      "page" => to_string(list_opts.page)
-    }
-
-    maybe_update_groups(socket, params, true)
+    assign(socket,
+      list_opts: list_opts,
+      groups: groups,
+      has_next: has_more?,
+      has_prev: list_opts.page > 1,
+      page_info: page_info(list_opts, length(groups), total),
+      next_page_path: ~p"/admin/sets?#{next_opts(list_opts)}",
+      prev_page_path: ~p"/admin/sets?#{prev_opts(list_opts)}",
+      current_sort: list_opts.sort || @default_sort
+    )
   end
+
+  # The list it is already showing, re-queried — not rebuilt out of string
+  # params. It used to hand `maybe_update_*` a map of `"filter"` and `"page"`
+  # and nothing else, and since a missing `"sort"` parses as `nil` and
+  # `Map.merge` lets the new `nil` win, every PubSub event silently threw the
+  # operator's sort away and put the list back on the default — while the
+  # address bar went on claiming the sort they had chosen.
+  defp refresh_groups(socket), do: load_groups(socket, get_list_opts(socket))
 
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
@@ -103,15 +108,21 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/sets?#{patch_opts(list_opts)}")}
   end
 
+  # The page and the total, from one set of filters. Counted here rather than
+  # in the component so the "of 435" can never describe a different query from
+  # the rows above it.
   defp list_groups(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
-    Media.list_recording_groups(
-      page_to_offset(opts.page),
-      limit(),
-      filters,
-      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
-    )
+    {groups, has_more?} =
+      Media.list_recording_groups(
+        page_to_offset(opts.page),
+        limit(),
+        filters,
+        sort_to_order(opts.sort || default_sort, @valid_sort_fields)
+      )
+
+    {groups, has_more?, Media.count_recording_groups(filters)}
   end
 
   defp thumbnails(group) do
@@ -137,4 +148,10 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
   def handle_info(%RecordingGroupCreated{}, socket), do: {:noreply, refresh_groups(socket)}
   def handle_info(%RecordingGroupUpdated{}, socket), do: {:noreply, refresh_groups(socket)}
   def handle_info(%RecordingGroupDeleted{}, socket), do: {:noreply, refresh_groups(socket)}
+
+  @doc """
+  The list state a row link carries, so the form it opens can come back here
+  rather than to the front of an unfiltered, default-sorted page one.
+  """
+  def return_query(assigns), do: query(assigns.list_opts)
 end

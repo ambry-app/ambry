@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
   use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.ReturnTo, only: [query: 1]
 
   alias Ambry.Books
   alias Ambry.Books.PubSub.UniverseCreated
@@ -40,6 +41,8 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
     {:noreply,
      socket
      |> assign(search_form: to_form(%{"query" => params["filter"]}, as: :search))
+     # The record a form just sent the operator back to, if they came from one.
+     |> assign(focus: params["focus"])
      |> maybe_update_universes(params)}
   end
 
@@ -49,32 +52,34 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {universes, has_more?} = list_universes(list_opts, @default_sort)
-
-      assign(socket,
-        list_opts: list_opts,
-        universes: universes,
-        has_next: has_more?,
-        has_prev: list_opts.page > 1,
-        next_page_path: ~p"/admin/universes?#{next_opts(list_opts)}",
-        prev_page_path: ~p"/admin/universes?#{prev_opts(list_opts)}",
-        current_sort: list_opts.sort || @default_sort
-      )
+      load_universes(socket, list_opts)
     else
       socket
     end
   end
 
-  defp refresh_universes(socket) do
-    list_opts = get_list_opts(socket)
+  defp load_universes(socket, list_opts) do
+    {universes, has_more?, total} = list_universes(list_opts, @default_sort)
 
-    params = %{
-      "filter" => to_string(list_opts.filter),
-      "page" => to_string(list_opts.page)
-    }
-
-    maybe_update_universes(socket, params, true)
+    assign(socket,
+      list_opts: list_opts,
+      universes: universes,
+      has_next: has_more?,
+      has_prev: list_opts.page > 1,
+      page_info: page_info(list_opts, length(universes), total),
+      next_page_path: ~p"/admin/universes?#{next_opts(list_opts)}",
+      prev_page_path: ~p"/admin/universes?#{prev_opts(list_opts)}",
+      current_sort: list_opts.sort || @default_sort
+    )
   end
+
+  # The list it is already showing, re-queried — not rebuilt out of string
+  # params. It used to hand `maybe_update_*` a map of `"filter"` and `"page"`
+  # and nothing else, and since a missing `"sort"` parses as `nil` and
+  # `Map.merge` lets the new `nil` win, every PubSub event silently threw the
+  # operator's sort away and put the list back on the default — while the
+  # address bar went on claiming the sort they had chosen.
+  defp refresh_universes(socket), do: load_universes(socket, get_list_opts(socket))
 
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
@@ -103,19 +108,31 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/universes?#{patch_opts(list_opts)}")}
   end
 
+  # The page and the total, from one set of filters. Counted here rather than
+  # in the component so the "of 435" can never describe a different query from
+  # the rows above it.
   defp list_universes(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
-    Books.list_universes(
-      page_to_offset(opts.page),
-      limit(),
-      filters,
-      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
-    )
+    {universes, has_more?} =
+      Books.list_universes(
+        page_to_offset(opts.page),
+        limit(),
+        filters,
+        sort_to_order(opts.sort || default_sort, @valid_sort_fields)
+      )
+
+    {universes, has_more?, Books.count_universes(filters)}
   end
 
   @impl Phoenix.LiveView
   def handle_info(%UniverseCreated{}, socket), do: {:noreply, refresh_universes(socket)}
   def handle_info(%UniverseUpdated{}, socket), do: {:noreply, refresh_universes(socket)}
   def handle_info(%UniverseDeleted{}, socket), do: {:noreply, refresh_universes(socket)}
+
+  @doc """
+  The list state a row link carries, so the form it opens can come back here
+  rather than to the front of an unfiltered, default-sorted page one.
+  """
+  def return_query(assigns), do: query(assigns.list_opts)
 end

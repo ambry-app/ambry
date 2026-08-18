@@ -3,11 +3,14 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
   use AmbryWeb, :admin_live_view
 
   alias Ambry.Books
+  alias AmbryWeb.Admin.ReturnTo
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
-  def mount(_params, _session, socket) do
-    {:ok, socket}
+  def mount(params, _session, socket) do
+    # The list the operator came from, kept so every way out of this form goes
+    # back to it. See `AmbryWeb.Admin.ReturnTo`.
+    {:ok, assign(socket, list_params: ReturnTo.list_params(params))}
   end
 
   @impl Phoenix.LiveView
@@ -59,7 +62,9 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Updated #{series.name}")
-         |> push_navigate(to: ~p"/admin/series")}
+         |> push_navigate(
+           to: ReturnTo.path(~p"/admin/series", socket.assigns.list_params, series.id)
+         )}
 
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
@@ -72,7 +77,9 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Created #{series.name}")
-         |> push_navigate(to: ~p"/admin/series")}
+         |> push_navigate(
+           to: ReturnTo.path(~p"/admin/series", socket.assigns.list_params, series.id)
+         )}
 
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}

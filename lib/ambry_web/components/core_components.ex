@@ -75,12 +75,17 @@ defmodule AmbryWeb.CoreComponents do
 
   def modal(assigns) do
     ~H"""
+    <%!-- Above the admin's side nav, not below it: this covers the whole
+          viewport, and the nav is one of the things it is covering. The wrapper
+          is `relative` with a z-index, so it is a stacking context and the one
+          number here is what the whole modal is worth. See the ladder on
+          `AmbryWeb.Admin.Components.layout_header/1`. --%>
     <div
       id={@id}
       phx-mounted={@show && show_modal(@id)}
       phx-remove={hide_modal(@id)}
       data-cancel={JS.exec(@on_cancel, "phx-remove")}
-      class="relative z-40 hidden"
+      class="z-[80] relative hidden"
     >
       <div
         id={"#{@id}-bg"}
@@ -223,7 +228,7 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div
       id={@id}
-      class="pointer-events-none fixed top-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col items-center gap-2 px-4"
+      class="z-[100] pointer-events-none fixed top-4 left-1/2 flex w-full max-w-md -translate-x-1/2 flex-col items-center gap-2 px-4"
     >
       <.flash kind={:info} flash={@flash} dismiss_after={@info_dismiss_after} />
       <.flash kind={:error} flash={@flash} dismiss_after={@error_dismiss_after} />

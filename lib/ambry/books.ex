@@ -169,7 +169,8 @@ defmodule Ambry.Books do
   defdelegate match_keywords(phrase), to: BookFlat, as: :keywords
 
   @doc """
-  Returns the number of books.
+  Returns the number of books, under the same filters `list_books/4` lists
+  with — so a list can say what page it is of.
 
   ## Examples
 
@@ -177,9 +178,9 @@ defmodule Ambry.Books do
       1
 
   """
-  @spec count_books :: integer()
-  def count_books do
-    Repo.aggregate(Book, :count)
+  @spec count_books(map()) :: integer()
+  def count_books(filters \\ %{}) do
+    filters |> BookFlat.count_query() |> Repo.one()
   end
 
   @doc """
@@ -495,9 +496,9 @@ defmodule Ambry.Books do
       iex> count_series()
       1
   """
-  @spec count_series :: integer()
-  def count_series do
-    Repo.aggregate(Series, :count)
+  @spec count_series(map()) :: integer()
+  def count_series(filters \\ %{}) do
+    filters |> SeriesFlat.count_query() |> Repo.one()
   end
 
   @doc """
@@ -690,11 +691,12 @@ defmodule Ambry.Books do
   end
 
   @doc """
-  Returns the number of universes.
+  Returns the number of universes, under the same filters `list_universes/4`
+  lists with.
   """
-  @spec count_universes :: integer()
-  def count_universes do
-    Repo.aggregate(Universe, :count)
+  @spec count_universes(map()) :: integer()
+  def count_universes(filters \\ %{}) do
+    filters |> UniverseFlat.count_query() |> Repo.one()
   end
 
   @doc """

@@ -24,6 +24,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
+  alias AmbryWeb.Admin.ReturnTo
   alias AmbryWeb.Admin.Revert
   alias Ecto.Changeset
   alias Phoenix.LiveView.AsyncResult
@@ -53,6 +54,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        chapters_applied_asin: nil,
        provenance_hints: %{}
      )
+     # The list the operator came from, kept so every way out of this form
+     # goes back to it. See `AmbryWeb.Admin.ReturnTo`.
+     |> assign(list_params: ReturnTo.list_params(params))
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -597,7 +601,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Updated audiobook for #{media.book.title}")
-         |> push_navigate(to: ~p"/admin/audiobooks")}
+         |> push_navigate(
+           to: ReturnTo.path(~p"/admin/audiobooks", socket.assigns.list_params, media.id)
+         )}
 
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}

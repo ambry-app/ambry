@@ -11,6 +11,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   import AmbryWeb.Admin.Decisions, only: [tier_words: 1]
   import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.ReturnTo, only: [query: 2]
   import AmbryWeb.TimeUtils
 
   alias Ambry.Inbox
@@ -132,14 +133,16 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     list_opts = params |> get_list_opts() |> Map.put(:problem, parse_problem(params))
     status = parse_status(params["status"])
 
+    # One set of options for the page and for the total, so the queue's "of
+    # 355" cannot describe a different query from the rows above it.
+    query = [
+      status: status,
+      filter: list_opts.filter,
+      issue: list_opts.problem == "issue"
+    ]
+
     {items, has_more?} =
-      Inbox.list_items(
-        status: status,
-        filter: list_opts.filter,
-        issue: list_opts.problem == "issue",
-        offset: page_to_offset(list_opts.page),
-        limit: limit()
-      )
+      Inbox.list_items(query ++ [offset: page_to_offset(list_opts.page), limit: limit()])
 
     socket
     |> assign(
@@ -152,6 +155,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       list_opts: list_opts,
       has_next: has_more?,
       has_prev: list_opts.page > 1,
+      page_info: page_info(list_opts, length(items), Inbox.count_items(query)),
       # Built from the full query, not the shared filter+page helpers —
       # those drop the status, so paging out of "Imported" silently landed
       # back on the default view.
@@ -231,19 +235,15 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   the plain Back button — returns to the tab and page the operator was on.
   Landing them on an unfiltered page one after an import is how "where did my
   queue go" happens.
+
+  The status is stated even when it is "all", because this queue's default tab
+  is not its unfiltered one.
   """
   def return_query(assigns),
     do: page_query(assigns.list_opts, assigns.status, assigns.list_opts.page)
 
   defp page_query(list_opts, status, page) do
-    %{
-      "filter" => list_opts.filter,
-      "page" => to_string(page),
-      "status" => to_string(status || "all"),
-      "problem" => to_string(list_opts[:problem])
-    }
-    |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
-    |> Map.new()
+    query(list_opts, %{"page" => page, "status" => to_string(status || "all")})
   end
 
   # The overview counts queue items carrying an issue, and a count the

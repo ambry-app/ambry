@@ -5,7 +5,7 @@
 <html lang="en" style="scrollbar-gutter: stable; color-scheme: dark;">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <link rel="icon" type="image/svg+xml" href={~p"/favicon.svg"} />
     <link rel="icon" type="image/png" href={~p"/favicon.png"} sizes="16x16" />
@@ -24,36 +24,13 @@
         window.location = 'ambry://media/' + globalId;
       })();
     </script>
-    <script type="text/javascript">
-      // fix mobile browser viewport height shenanigans.
-      // https://www.markusantonwolf.com/blog/solution-to-the-mobile-viewport-height-issue-with-tailwind-css/
-      // see tailwind.config.js for other half
-
-      function setViewHeight() {
-        const vh = window.innerHeight * 0.01
-        document.documentElement.style.setProperty('--vh', `${vh}px`)
-      }
-
-      setViewHeight()
-
-      window.addEventListener('resize', () => {
-        this.setViewHeight()
-      })
-
-      // end viewport fix
-    </script>
   </head>
   <body class="bg-black text-zinc-200 selection:bg-brand-dark selection:text-black">
-    <%= if @current_user do %>
-      <%!-- Root layout for the app --%>
-      <div class="flex h-screen flex-col">
-        <div class="grow overflow-hidden">
-          {@inner_content}
-        </div>
-      </div>
-    <% else %>
-      <%!-- Root layout for auth pages --%>
-      {@inner_content}
-    <% end %>
+    <%!-- Both branches are now just the content: the document is the scroller
+          everywhere. The signed-in branch used to be an `h-screen` shell whose
+          child was `overflow-hidden`, which made `#main-content` the scrollport
+          — and LiveView only ever restores `window.scrollY`, so back from a
+          book's page always landed at the top of the library. --%>
+    {@inner_content}
   </body>
 </html>

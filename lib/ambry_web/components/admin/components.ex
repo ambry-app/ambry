@@ -25,25 +25,43 @@ defmodule AmbryWeb.Admin.Components do
 
   def layout(assigns) do
     ~H"""
-    <div class="relative flex h-screen min-w-0 grow flex-col">
+    <div class="min-w-0">
       <.layout_header user={@user} title={@title} socket={@socket}>
         {render_slot(@subheader)}
       </.layout_header>
 
-      <main class="flex grow flex-col overflow-hidden">
-        <div id="main-content" class="grow overflow-y-auto overflow-x-hidden p-4" phx-hook="header-scrollspy">
-          {render_slot(@inner_block)}
-        </div>
+      <%!-- `#main-content` keeps its id and its `p-4` — the sticky-footer hook
+            and §3's sticky-bar arithmetic both name it — but it is no longer a
+            scrollport. It was `overflow-y-auto` inside an `h-screen` shell,
+            and that one declaration is why nothing in the admin could remember
+            a scroll position: LiveView's restoration reads and writes
+            `window.scrollY` and nothing else.
+
+            It carries no horizontal overflow guard, and that is deliberate.
+            `overflow-x-hidden` can't come back — `hidden` on one axis forces
+            the other to `auto`, which would quietly make this a scrollport
+            again and re-break every sticky box inside it — and `overflow-x:
+            clip` would put an untested clipping ancestor between every sticky
+            bar in the admin and the viewport it is positioned against, to
+            defend against a stray wide child that may not exist. §3's
+            `min-w-0` rule is where that defect actually gets fixed; a
+            horizontal scrollbar is the signal to go and apply it, which is
+            exactly what the old guard was suppressing. --%>
+      <main id="main-content" class="p-4">
+        {render_slot(@inner_block)}
       </main>
 
       <%!-- The image lightbox — tiny previews and chips are for telling
           records apart, and sometimes that takes the full-size art. Opened
           by any [data-zoomable] magnifier (see app.js); click or Escape
-          closes. phx-update="ignore": it's pure client state. --%>
+          closes. phx-update="ignore": it's pure client state.
+
+          Near the top of the ladder on layout_header/1: it opens from inside
+          content that a modal may itself be covering. --%>
       <div
         id="image-lightbox"
         phx-update="ignore"
-        class="bg-black/85 fixed inset-0 z-50 hidden cursor-zoom-out items-center justify-center p-8 backdrop-blur"
+        class="bg-black/85 z-[90] fixed inset-0 hidden cursor-zoom-out items-center justify-center p-8 backdrop-blur"
       >
         <img class="max-h-full max-w-full rounded-sm object-contain shadow-2xl" />
       </div>
@@ -57,9 +75,40 @@ defmodule AmbryWeb.Admin.Components do
 
   slot :inner_block, required: true
 
+  # **The z-index ladder for the whole admin.** One list, here, because content
+  # scrolls *under* the chrome now instead of sitting in a box below it, and
+  # almost all of this shares the root stacking context: an `index_row` is
+  # `relative` with no z-index of its own, so its layers are not scoped to the
+  # card and compete directly with the page's chrome.
+  #
+  #   10   the clickable layer inside a card (a row's action rail)
+  #   20   a busy scrim over a single card
+  #   30   the sticky page footers — `sticky_slab_classes/0`
+  #   35   a typeahead's popup: clear of the sticky footer it may open over,
+  #        under the scrims that mean the form is not yours right now
+  #   40   a page-wide busy scrim (the import form's), which has to cover the
+  #        Save button or it is only advisory
+  #   50   this header, and the public one
+  #   60   the drawer's scrim
+  #   70   the side nav drawer
+  #   80   a modal — it covers the viewport, and the nav is part of what it is
+  #        covering, so it sits above the nav rather than beside it
+  #   90   the image lightbox, which opens from inside a modal's content
+  #   100  flash toasts, which are the one thing that outranks everything
+  #
+  # Gaps in the tens are deliberate: the ladder has been renumbered twice in
+  # one branch already, and each of those was a value that had nowhere to go.
+  #
+  # A tie is not a tie — equal z-index falls back to DOM order, and page
+  # content always comes after the header. So anything that must stay above
+  # the page needs a strictly greater number, not an equal one.
   defp layout_header(assigns) do
     ~H"""
-    <header id="nav-header" class="space-y-4 p-4">
+    <header
+      id="nav-header"
+      phx-hook="header-scrollspy"
+      class="sticky top-0 z-50 space-y-4 border-zinc-900 bg-zinc-950 p-4"
+    >
       <div class="flex items-center gap-3">
         <span class="cursor-pointer lg:hidden" phx-click={open_sidebar()}>
           <.icon name="fa-bars" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
@@ -101,13 +150,19 @@ defmodule AmbryWeb.Admin.Components do
   attr :search_form, Form, default: nil
   attr :new_path, :string, default: nil
   attr :new_text, :string, default: "New"
-  attr :has_next, :boolean, default: false
-  attr :has_prev, :boolean, default: false
-  attr :next_page_path, :string, default: nil
-  attr :prev_page_path, :string, default: nil
 
   slot :inner_block
 
+  @doc """
+  The header's controls: how you narrow a list, and how you add to it.
+
+  Paging used to live here too, as two bare chevrons in the top right corner.
+  That put the control for moving through a list as far from the list as the
+  page allows, gave no page number and no total, and — because the header
+  doesn't move — meant a "next page" click left the scroll where it was, so
+  the operator arrived looking at the *bottom* of the page they just asked
+  for. It is `pagination_footer/1` now, under the last row.
+  """
   def list_controls(assigns) do
     ~H"""
     <div class="flex items-end gap-4">
@@ -122,12 +177,6 @@ defmodule AmbryWeb.Admin.Components do
         <.button navigate={@new_path}>
           <.icon name="fa-plus" class="mr-2 h-4 w-4 text-current" />{@new_text}
         </.button>
-      </div>
-      <div :if={@prev_page_path}>
-        <.pagination_chevron active={@has_prev} name="fa-chevron-left" to={@prev_page_path} />
-      </div>
-      <div :if={@next_page_path}>
-        <.pagination_chevron active={@has_next} name="fa-chevron-right" to={@next_page_path} />
       </div>
     </div>
     """
@@ -206,21 +255,98 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  attr :active, :boolean, required: true
-  attr :name, :string, required: true
-  attr :to, :string, required: true
+  attr :info, :map, required: true, doc: "from `PaginationHelpers.page_info/3`"
+  attr :has_next, :boolean, required: true
+  attr :has_prev, :boolean, required: true
+  attr :next_page_path, :string, required: true
+  attr :prev_page_path, :string, required: true
 
-  defp pagination_chevron(assigns) do
+  @doc """
+  Where a list says how far through it you are, and moves you.
+
+  The list's own footer, sticky, in `form_footer/1`'s costume — because it is
+  the same object doing the same job. Paging belongs to the list, so it sits
+  at the list's end rather than in a corner of the header, where two bare
+  chevrons used to sit as far from the rows as the page allows. But a page is
+  50 rows, which is two or three screens, so a bar purely *in* the flow would
+  trade one kind of "far away" for another: reaching page 3 from the top of
+  the list would mean scrolling to the bottom first, to find a control that
+  used to be one click away.
+
+  Sticky answers both. It rides the bottom of the window while there are rows
+  below it, and settles into place at the end of the scroll — and the
+  sticky-footer hook takes off its shadow and rounds its bottom corners when
+  the page has nothing to scroll, so a single-page list gets an ordinary card
+  rather than a slab promising an edge that isn't there.
+
+  It carries the numbers the chevrons never had: which rows these are, how
+  many there are, and which page of how many.
+  """
+  def pagination_footer(assigns) do
+    ~H"""
+    <div
+      :if={@has_prev or @has_next}
+      id="pagination"
+      phx-hook="sticky-footer"
+      class={[sticky_slab_classes(), "mt-3 -mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"]}
+      data-role="pagination"
+    >
+      <%!-- "1 to 50", not "1&ndash;50": §8 keeps en dashes out of rendered
+            text and joins with words instead. --%>
+      <p class="text-sm text-zinc-400" data-role="pagination-range">
+        <%= if @info.first do %>
+          Showing {@info.first} to {@info.last}{if @info.total, do: " of #{@info.total}"}
+        <% else %>
+          Nothing on this page
+        <% end %>
+      </p>
+
+      <div class="flex items-center gap-2">
+        <.pagination_step active={@has_prev} to={@prev_page_path} icon="fa-chevron-left">
+          Previous
+        </.pagination_step>
+
+        <%!-- Tabular figures, so the number doesn't jitter the buttons
+              sideways as the operator pages through. --%>
+        <p class="px-1 text-sm tabular-nums text-zinc-400" data-role="pagination-page">
+          Page {@info.page}{if @info.pages, do: " of #{@info.pages}"}
+        </p>
+
+        <.pagination_step active={@has_next} to={@next_page_path} icon="fa-chevron-right" trailing>
+          Next
+        </.pagination_step>
+      </div>
+    </div>
+    """
+  end
+
+  attr :active, :boolean, required: true
+  attr :to, :string, required: true
+  attr :icon, :string, required: true
+  attr :trailing, :boolean, default: false, doc: "put the glyph after the word"
+  slot :inner_block, required: true
+
+  # Worded, like every other action in this admin (§3a): two bare chevrons in
+  # a corner were the only control on a list page that made you know what a
+  # glyph meant. An unavailable step is present and dead rather than absent,
+  # so the bar keeps its shape at both ends of the list.
+  defp pagination_step(assigns) do
     ~H"""
     <%= if @active do %>
-      <.link patch={@to} class="cursor-pointer">
-        <.icon
-          name={@name}
-          class="h-5 w-5 text-zinc-500 hover:text-zinc-100"
-        />
+      <.link
+        patch={@to}
+        class="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-semibold text-zinc-100 hover:bg-zinc-700"
+      >
+        <.icon :if={!@trailing} name={@icon} class="h-3 w-3 text-current" />
+        {render_slot(@inner_block)}
+        <.icon :if={@trailing} name={@icon} class="h-3 w-3 text-current" />
       </.link>
     <% else %>
-      <.icon name={@name} class="h-5 w-5 text-zinc-900" />
+      <span class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold text-zinc-600">
+        <.icon :if={!@trailing} name={@icon} class="h-3 w-3 text-current" />
+        {render_slot(@inner_block)}
+        <.icon :if={@trailing} name={@icon} class="h-3 w-3 text-current" />
+      </span>
     <% end %>
     """
   end
@@ -234,29 +360,46 @@ defmodule AmbryWeb.Admin.Components do
   hand-built its own anatomy inside one anonymous slot — and ten of them
   drifted apart doing it.
   """
+  attr :id, :string, default: "list", doc: "the list-scroll-reset hook needs one"
   attr :rows, :list, required: true
   attr :filter, :string, default: nil
+
+  attr :list_state, :any,
+    default: nil,
+    doc: "what identifies this view (page, filter, sort). A change scrolls back to the top."
+
+  attr :focus, :any,
+    default: nil,
+    doc: "a record to scroll to and light up, named by a form the operator is returning from"
 
   slot :empty
   slot :row, required: true
 
   def flex_table(assigns) do
     ~H"""
-    <%= if @rows == [] do %>
-      <p :if={@empty} class="text-lg font-semibold" data-role="empty-message">
-        <%= if @filter do %>
-          No results for "{@filter}"
-        <% else %>
-          {render_slot(@empty)}
-        <% end %>
-      </p>
-    <% else %>
-      <%!-- Rows are separate raised cards on the ground, not one bordered slab
-            sliced by hairline dividers — elevation and gaps do the separating. --%>
-      <div class="space-y-3">
-        <div :for={row <- @rows}>{render_slot(@row, row)}</div>
-      </div>
-    <% end %>
+    <%!-- The hook lives out here rather than on the rows, so it survives a
+          filter that empties the list and is still mounted when the next one
+          fills it again. --%>
+    <div id={@id} phx-hook="list-scroll-reset" data-list-state={inspect(@list_state)}>
+      <%!-- A second hook needs a second element; they are different jobs on
+            the same list and the scroll reset must not fire for a focus. --%>
+      <div id={"#{@id}-focus"} phx-hook="focus-row" data-focus={@focus} class="hidden" />
+      <%= if @rows == [] do %>
+        <p :if={@empty} class="text-lg font-semibold" data-role="empty-message">
+          <%= if @filter do %>
+            No results for "{@filter}"
+          <% else %>
+            {render_slot(@empty)}
+          <% end %>
+        </p>
+      <% else %>
+        <%!-- Rows are separate raised cards on the ground, not one bordered slab
+              sliced by hairline dividers — elevation and gaps do the separating. --%>
+        <div class="space-y-3">
+          <div :for={row <- @rows}>{render_slot(@row, row)}</div>
+        </div>
+      <% end %>
+    </div>
     """
   end
 
@@ -303,6 +446,11 @@ defmodule AmbryWeb.Admin.Components do
   ("Origin", not "Import record"). One slot entry per verb is what keeps them
   all in one costume.
   """
+  attr :record_id, :any,
+    default: nil,
+    doc:
+      "the row's record, so a form can send the operator back to it (see `AmbryWeb.Admin.ReturnTo`)"
+
   attr :navigate, :string, default: nil, doc: "where the whole card goes; omit for a dead row"
   attr :patch, :string, default: nil, doc: "same, when the destination is a patch (a modal)"
 
@@ -342,6 +490,7 @@ defmodule AmbryWeb.Admin.Components do
     <%!-- flex-wrap below sm lets the right rail drop to a full-width bottom
           line instead of squeezing the content column on phones. --%>
     <div
+      id={@record_id && "row-#{@record_id}"}
       class={[
         "relative flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-zinc-900 p-4 sm:flex-nowrap",
         (@navigate || @patch) && "hover:bg-zinc-800/50",
@@ -986,6 +1135,28 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  @doc """
+  The costume a bar wears when it is pinned to the bottom of the page.
+
+  Two of them: `form_footer/1`, where a form is saved, and
+  `pagination_footer/1`, which moves through a list. Stated once so they
+  cannot drift, because they are the same object doing the same job — the
+  thing this page is *for*, at the end of the thing, reachable without
+  scrolling to find it.
+
+  `bottom-0` because a sticky box is positioned against its scrollport and the
+  viewport has no padding. (It was `-bottom-4` when `#main-content` was the
+  scrollport, reaching through that box's own `p-4`.) `-mb-4` is the other
+  half: a sticky box can't leave its containing block, so without it the
+  block's bottom edge holds the bar 16px up at the end of the scroll, with the
+  page's ground showing through underneath. A form puts that negative margin
+  on its content wrapper, since the wrapper is the containing block there; the
+  pagination bar is a direct child of `#main-content` and wears it itself.
+  """
+  def sticky_slab_classes do
+    "shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 z-30 rounded-t-lg bg-zinc-900"
+  end
+
   attr :id, :string, default: "form-footer", doc: "the sticky-footer hook needs one"
   attr :class, :any, default: nil
   attr :rest, :global
@@ -999,21 +1170,21 @@ defmodule AmbryWeb.Admin.Components do
   ground after the last card. The chapters form is the argument — 47 rows
   long, with the Save at the bottom of the scroll.
 
-  §3's sticky-bar rule applies: the scroller pads `p-4`, so the slab wears
-  `-bottom-4` and the page's content wrapper must wear `-mb-4`, or the bar
-  parks 16px shy of the window with the page showing through underneath.
+  §3's sticky-bar rule applies, and the document being the scroller is what
+  sets the offset: a sticky box is positioned against its scrollport, and the
+  viewport has no padding, so `bottom-0` puts the slab flush with the bottom
+  of the window. (It was `-bottom-4` when `#main-content` was the scrollport,
+  reaching through that box's own `p-4`.) The page's content wrapper still
+  wears `-mb-4`, for the other half: a sticky box can't leave its containing
+  block, so without it the wrapper's bottom edge holds the bar 16px up at the
+  end of the scroll.
   """
   def form_footer(assigns) do
     ~H"""
     <%!-- The sticky-footer hook rounds the bottom corners (and drops the
         floating shadow) whenever the page has nothing to scroll — a slab
         that never sticks is an ordinary card and dresses like one. --%>
-    <section
-      id={@id}
-      phx-hook="sticky-footer"
-      class={["shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky -bottom-4 rounded-t-lg bg-zinc-900 p-4", @class]}
-      {@rest}
-    >
+    <section id={@id} phx-hook="sticky-footer" class={[sticky_slab_classes(), "p-4", @class]} {@rest}>
       <div class="flex flex-wrap items-center gap-2">
         {render_slot(@inner_block)}
       </div>

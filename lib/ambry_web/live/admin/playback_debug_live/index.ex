@@ -70,13 +70,15 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {playthroughs, has_more?} = list_playthroughs(socket.assigns.selected_user.id, list_opts)
+      {playthroughs, has_more?, total} =
+        list_playthroughs(socket.assigns.selected_user.id, list_opts)
 
       assign(socket,
         list_opts: list_opts,
         playthroughs: playthroughs,
         has_next: has_more?,
         has_prev: list_opts.page > 1,
+        page_info: page_info(list_opts, length(playthroughs), total),
         next_page_path:
           ~p"/admin/users/#{socket.assigns.selected_user.id}/playthroughs?#{next_opts(list_opts)}",
         prev_page_path:
@@ -114,16 +116,21 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
      )}
   end
 
+  # The page and the total, from one set of filters, so the footer's count can
+  # never describe a different query from the rows above it.
   defp list_playthroughs(user_id, opts) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
     filters = Map.put(filters, :user_id, user_id)
 
-    Playback.list_playthroughs_flat(
-      page_to_offset(opts.page),
-      limit(),
-      filters,
-      sort_to_order(opts.sort || @default_sort, @valid_sort_fields)
-    )
+    {playthroughs, has_more?} =
+      Playback.list_playthroughs_flat(
+        page_to_offset(opts.page),
+        limit(),
+        filters,
+        sort_to_order(opts.sort || @default_sort, @valid_sort_fields)
+      )
+
+    {playthroughs, has_more?, Playback.count_playthroughs_flat(filters)}
   end
 
   defp format_date(nil), do: "-"

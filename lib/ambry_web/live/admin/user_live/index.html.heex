@@ -4,10 +4,6 @@
       search_form={@search_form}
       new_path={~p"/admin/users/new"}
       new_text="Invite"
-      has_next={@has_next}
-      has_prev={@has_prev}
-      next_page_path={@next_page_path}
-      prev_page_path={@prev_page_path}
     />
     <.sort_button_bar>
       <.sort_button current_sort={@current_sort} sort_field="email">Email</.sort_button>
@@ -19,7 +15,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table rows={@users} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} rows={@users} filter={@list_opts.filter}>
     <:row :let={user}>
       <.index_row navigate={~p"/admin/users/#{user}/playthroughs"}>
         <:cover>
@@ -119,4 +115,12 @@
       </.index_row>
     </:row>
   </.flex_table>
+
+  <.pagination_footer
+    info={@page_info}
+    has_next={@has_next}
+    has_prev={@has_prev}
+    next_page_path={@next_page_path}
+    prev_page_path={@prev_page_path}
+  />
 </.layout>

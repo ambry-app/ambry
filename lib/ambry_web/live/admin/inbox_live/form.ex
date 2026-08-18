@@ -54,6 +54,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Library.Placement
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
+  alias AmbryWeb.Admin.ReturnTo
   alias AmbryWeb.Components.EntityResolver
   alias Phoenix.LiveView.AsyncResult
 
@@ -92,17 +93,11 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> load(item)}
   end
 
-  # The list state the operator arrived with, echoed back as a path. Only the
-  # keys the index actually reads, so a hand-typed URL can't turn this into an
-  # open redirect or a 500 on a junk param.
-  @list_params ~w(filter page status)
-
-  defp return_to(params) do
-    case Map.take(params, @list_params) do
-      empty when map_size(empty) == 0 -> ~p"/admin/inbox"
-      list -> ~p"/admin/inbox?#{list}"
-    end
-  end
+  # The list state the operator arrived with, echoed back as a path. The
+  # whitelist is `ReturnTo`'s now, which is how this stopped dropping
+  # `problem`: a form opened from a queue narrowed to "Files couldn't be read"
+  # used to return to the whole queue.
+  defp return_to(params), do: ReturnTo.path(~p"/admin/inbox", ReturnTo.list_params(params))
 
   # An imported item's draft is the record of what was imported — the operator
   # already created the library records from it, and an edit here would make

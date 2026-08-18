@@ -1,12 +1,6 @@
 <.layout title={@page_title} user={@current_user} socket={@socket}>
   <:subheader>
-    <.list_controls
-      search_form={@search_form}
-      has_next={@has_next}
-      has_prev={@has_prev}
-      next_page_path={@next_page_path}
-      prev_page_path={@prev_page_path}
-    />
+    <.list_controls search_form={@search_form} />
     <%!-- The list is narrowed by something the operator chose on another
           page, so it says which list this is and offers the way out. --%>
     <div :if={problem_words(@list_opts[:problem])} class="flex items-baseline gap-2 pt-2">
@@ -32,7 +26,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table rows={@media} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} focus={@focus} rows={@media} filter={@list_opts.filter}>
     <:empty>
       <%= if words = problem_empty_words(@list_opts[:problem]) do %>
         {words}
@@ -45,7 +39,7 @@
     </:empty>
 
     <:row :let={media}>
-      <.index_row navigate={~p"/admin/audiobooks/#{media}/edit"}>
+      <.index_row record_id={media.id} navigate={~p"/admin/audiobooks/#{media}/edit?#{return_query(assigns)}"}>
         <:cover>
           <div class={["h-16 w-16 rounded-sm", if(!media.thumbnail, do: "bg-zinc-800")]}>
             <img :if={media.thumbnail} src={media.thumbnail} alt="" class="h-full w-full rounded-sm" />
@@ -103,7 +97,7 @@
           </span>
         </:facts>
 
-        <:action navigate={~p"/admin/audiobooks/#{media}/edit"} icon="fa-pencil">Edit</:action>
+        <:action navigate={~p"/admin/audiobooks/#{media}/edit?#{return_query(assigns)}"} icon="fa-pencil">Edit</:action>
         <:action
           icon="fa-trash"
           color={:red}
@@ -118,4 +112,12 @@
       </.index_row>
     </:row>
   </.flex_table>
+
+  <.pagination_footer
+    info={@page_info}
+    has_next={@has_next}
+    has_prev={@has_prev}
+    next_page_path={@next_page_path}
+    prev_page_path={@prev_page_path}
+  />
 </.layout>

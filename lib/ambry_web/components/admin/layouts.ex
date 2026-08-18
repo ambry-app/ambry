@@ -14,10 +14,15 @@ defmodule AmbryWeb.Admin.Layouts do
     ~H"""
     <%!-- Scrim behind the drawer on small screens — without it the drawer
           floats over full-brightness content and doesn't read as a layer. --%>
-    <div id="side-bar-scrim" class="z-[9] bg-black/40 fixed inset-0 hidden lg:hidden" aria-hidden="true" />
+    <div id="side-bar-scrim" class="bg-black/40 z-[60] fixed inset-0 hidden lg:hidden" aria-hidden="true" />
+    <%!-- `fixed`, not a flex child of an `h-screen` shell: the nav is the one
+          thing on the page that genuinely doesn't scroll, and saying so here
+          is what lets the document scroll everywhere else. `inset-y-0` is a
+          real viewport height now that `h-screen` is no longer a JS-measured
+          custom property. --%>
     <nav
       id="side-bar"
-      class="absolute inset-0 z-10 h-screen w-64 shrink-0 -translate-x-full transform bg-zinc-900 opacity-0 duration-100 ease-out lg:relative lg:transform-none lg:opacity-100"
+      class="z-[70] fixed inset-y-0 left-0 flex w-64 -translate-x-full transform flex-col bg-zinc-900 opacity-0 duration-100 ease-out lg:transform-none lg:opacity-100"
       phx-click-away={Components.close_sidebar()}
       phx-window-keydown={Components.close_sidebar()}
       phx-key="escape"
@@ -31,94 +36,101 @@ defmodule AmbryWeb.Admin.Layouts do
           <.title class="h-6 lg:h-7" />
         </.link>
       </div>
-      <%!-- Grouped by how the admin is actually used: the daily intake loop,
-            the catalog it feeds, and the once-a-quarter machinery — instead
-            of twelve peers in one flat list. --%>
-      <div class="py-3">
-        <.link navigate={~p"/admin"} class={nav_class(@active_path == "/admin")}>
-          <.icon name="fa-binoculars" class="h-5 w-5 text-current" />
-          <p>Overview</p>
-        </.link>
+      <%!-- The links scroll, the logo and the way out don't. The nav is
+            ~720px of items, so on a short laptop window it used to be
+            silently clipped by the shell's `overflow-hidden` — and the way
+            out was an `absolute bottom-0` block sitting on top of whatever
+            it overlapped. --%>
+      <div class="grow overflow-y-auto">
+        <%!-- Grouped by how the admin is actually used: the daily intake loop,
+              the catalog it feeds, and the once-a-quarter machinery — instead
+              of twelve peers in one flat list. --%>
+        <div class="py-3">
+          <.link navigate={~p"/admin"} class={nav_class(@active_path == "/admin")}>
+            <.icon name="fa-binoculars" class="h-5 w-5 text-current" />
+            <p>Overview</p>
+          </.link>
 
-        <p class={group_class()}>Intake</p>
-        <.link navigate={~p"/admin/inbox"} class={nav_class(@active_path =~ "/admin/inbox")}>
-          <.icon name="fa-inbox" class="h-5 w-5 text-current" />
-          <p>Inbox</p>
-          <%!-- The one count in the nav, because the inbox is the one item
+          <p class={group_class()}>Intake</p>
+          <.link navigate={~p"/admin/inbox"} class={nav_class(@active_path =~ "/admin/inbox")}>
+            <.icon name="fa-inbox" class="h-5 w-5 text-current" />
+            <p>Inbox</p>
+            <%!-- The one count in the nav, because the inbox is the one item
                 that is a queue. Amber only while there is something in it;
                 a zero would just be a badge that never goes away. --%>
-          <span
-            :if={@inbox_pending > 0}
-            class="bg-amber-400/15 ml-auto rounded-full px-1.5 text-xs font-bold tabular-nums text-amber-300"
-            data-role="inbox-pending-badge"
+            <span
+              :if={@inbox_pending > 0}
+              class="bg-amber-400/15 ml-auto rounded-full px-1.5 text-xs font-bold tabular-nums text-amber-300"
+              data-role="inbox-pending-badge"
+            >
+              {@inbox_pending}
+            </span>
+          </.link>
+          <.link navigate={~p"/admin/locations"} class={nav_class(@active_path =~ "/admin/locations")}>
+            <.icon name="fa-folder-tree" class="h-5 w-5 text-current" />
+            <p>Locations</p>
+          </.link>
+
+          <p class={group_class()}>Library</p>
+          <.link navigate={~p"/admin/books"} class={nav_class(@active_path =~ "/admin/books")}>
+            <.icon name="fa-book" class="h-5 w-5 text-current" />
+            <p>Books</p>
+          </.link>
+          <.link navigate={~p"/admin/people"} class={nav_class(@active_path =~ "/admin/people")}>
+            <.icon name="fa-user-group" class="h-5 w-5 text-current" />
+            <p>Authors & Narrators</p>
+          </.link>
+          <.link navigate={~p"/admin/series"} class={nav_class(@active_path =~ "/admin/series")}>
+            <.icon name="fa-book-journal-whills" class="h-5 w-5 text-current" />
+            <p>Series</p>
+          </.link>
+          <.link navigate={~p"/admin/sets"} class={nav_class(@active_path =~ "/admin/sets")}>
+            <.icon name="fa-layer-group" class="h-5 w-5 text-current" />
+            <p>Sets</p>
+          </.link>
+          <.link navigate={~p"/admin/universes"} class={nav_class(@active_path =~ "/admin/universes")}>
+            <.icon name="fa-globe" class="h-5 w-5 text-current" />
+            <p>Universes</p>
+          </.link>
+          <.link navigate={~p"/admin/audiobooks"} class={nav_class(@active_path =~ "/admin/audiobooks")}>
+            <.icon name="fa-file-audio" class="h-5 w-5 text-current" />
+            <p>Audiobooks</p>
+          </.link>
+
+          <p class={group_class()}>System</p>
+          <.link navigate={~p"/admin/audit"} class={nav_class(@active_path =~ "/admin/audit")}>
+            <.icon name="fa-file-waveform" class="h-5 w-5 text-current" />
+            <p>File Audit</p>
+          </.link>
+          <.link
+            navigate={~p"/admin/metadata-providers"}
+            class={nav_class(@active_path =~ "/admin/metadata-providers")}
           >
-            {@inbox_pending}
-          </span>
-        </.link>
-        <.link navigate={~p"/admin/locations"} class={nav_class(@active_path =~ "/admin/locations")}>
-          <.icon name="fa-folder-tree" class="h-5 w-5 text-current" />
-          <p>Locations</p>
-        </.link>
-
-        <p class={group_class()}>Library</p>
-        <.link navigate={~p"/admin/books"} class={nav_class(@active_path =~ "/admin/books")}>
-          <.icon name="fa-book" class="h-5 w-5 text-current" />
-          <p>Books</p>
-        </.link>
-        <.link navigate={~p"/admin/people"} class={nav_class(@active_path =~ "/admin/people")}>
-          <.icon name="fa-user-group" class="h-5 w-5 text-current" />
-          <p>Authors & Narrators</p>
-        </.link>
-        <.link navigate={~p"/admin/series"} class={nav_class(@active_path =~ "/admin/series")}>
-          <.icon name="fa-book-journal-whills" class="h-5 w-5 text-current" />
-          <p>Series</p>
-        </.link>
-        <.link navigate={~p"/admin/sets"} class={nav_class(@active_path =~ "/admin/sets")}>
-          <.icon name="fa-layer-group" class="h-5 w-5 text-current" />
-          <p>Sets</p>
-        </.link>
-        <.link navigate={~p"/admin/universes"} class={nav_class(@active_path =~ "/admin/universes")}>
-          <.icon name="fa-globe" class="h-5 w-5 text-current" />
-          <p>Universes</p>
-        </.link>
-        <.link navigate={~p"/admin/audiobooks"} class={nav_class(@active_path =~ "/admin/audiobooks")}>
-          <.icon name="fa-file-audio" class="h-5 w-5 text-current" />
-          <p>Audiobooks</p>
-        </.link>
-
-        <p class={group_class()}>System</p>
-        <.link navigate={~p"/admin/audit"} class={nav_class(@active_path =~ "/admin/audit")}>
-          <.icon name="fa-file-waveform" class="h-5 w-5 text-current" />
-          <p>File Audit</p>
-        </.link>
-        <.link
-          navigate={~p"/admin/metadata-providers"}
-          class={nav_class(@active_path =~ "/admin/metadata-providers")}
-        >
-          <.icon name="fa-screwdriver-wrench" class="h-5 w-5 text-current" />
-          <p>Metadata Providers</p>
-        </.link>
-        <.link navigate={~p"/admin/settings"} class={nav_class(@active_path =~ "/admin/settings")}>
-          <.icon name="fa-sliders" class="h-5 w-5 text-current" />
-          <p>Settings</p>
-        </.link>
-        <.link navigate={~p"/admin/users"} class={nav_class(@active_path =~ "/admin/users")}>
-          <.icon name="fa-users-gear" class="h-5 w-5 text-current" />
-          <p>Manage Users</p>
-        </.link>
+            <.icon name="fa-screwdriver-wrench" class="h-5 w-5 text-current" />
+            <p>Metadata Providers</p>
+          </.link>
+          <.link navigate={~p"/admin/settings"} class={nav_class(@active_path =~ "/admin/settings")}>
+            <.icon name="fa-sliders" class="h-5 w-5 text-current" />
+            <p>Settings</p>
+          </.link>
+          <.link navigate={~p"/admin/users"} class={nav_class(@active_path =~ "/admin/users")}>
+            <.icon name="fa-users-gear" class="h-5 w-5 text-current" />
+            <p>Manage Users</p>
+          </.link>
+        </div>
+        <div class="py-3">
+          <%!-- Phoenix's own dashboard, like Oban's, is a different application
+                wearing the same auth. Sending the operator there in the same tab
+                costs them whatever they were on; the icon is what says so before
+                they click. --%>
+          <.link href={~p"/admin/dashboard"} target="_blank" rel="noopener" class={nav_class()}>
+            <.icon name="fa-brands-phoenix-framework" class="h-5 w-5 text-current" />
+            <p>Phoenix Dashboard</p>
+            <.icon name="fa-arrow-up-right-from-square" class="ml-auto h-3 w-3 text-current" />
+          </.link>
+        </div>
       </div>
-      <div class="py-3">
-        <%!-- Phoenix's own dashboard, like Oban's, is a different application
-              wearing the same auth. Sending the operator there in the same tab
-              costs them whatever they were on; the icon is what says so before
-              they click. --%>
-        <.link href={~p"/admin/dashboard"} target="_blank" rel="noopener" class={nav_class()}>
-          <.icon name="fa-brands-phoenix-framework" class="h-5 w-5 text-current" />
-          <p>Phoenix Dashboard</p>
-          <.icon name="fa-arrow-up-right-from-square" class="ml-auto h-3 w-3 text-current" />
-        </.link>
-      </div>
-      <div class="absolute bottom-0 w-full py-3">
+      <div class="flex-none py-3">
         <.link navigate={~p"/"} class={nav_class()}>
           <.icon name="fa-arrow-right-from-bracket" class="scale-[-1] h-5 w-5 text-current" />
           <p>Exit Admin</p>

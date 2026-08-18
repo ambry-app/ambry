@@ -40,7 +40,9 @@ Rules that fall out of this:
 - **No 1px container borders.** A box is a fill. If an edge must be drawn,
   it is ≥2px: a `ring-2 ring-inset` for selection, a `border-l-4` rail for
   state, a `border-l-2` indent guide. Dashed 1px borders are allowed only on
-  ghost escape hatches, where looking faint is the point.
+  ghost escape hatches, where looking faint is the point. The header's
+  scroll-spy seam is the other exception, and it is not a container edge —
+  see §3.
 - **Dashed means "drop here" or "not chosen" — never "here is a fact".**
   Dropzones and ghost hatches wear dashes; a read-only file list is a plain
   card (`<.file_list>`: mono, muted, the common directory printed once).
@@ -240,14 +242,67 @@ rather than `py-2`, and the inbox's segmented filter bar (`p-1` + `py-1.5`
 segments) lands on it too. §7 says adjacent bar controls share exact height;
 this is the number.
 
-**A sticky bar has to be told about the scroller's padding.** `#main-content`
-scrolls with `p-4`, and a sticky offset is measured from the scrollport's
-**content** box — so `bottom-0` parks a bar 16px shy of the window edge with
-the page showing through underneath. A sticky box also can't leave its
+**The document is the scroller, and the chrome is sticky.** There is no app
+shell: the body scrolls, the side nav is `fixed inset-y-0`, the page header is
+`sticky top-0`, and the content clears the nav with `lg:pl-64`. This is not a
+style preference — LiveView sets `history.scrollRestoration = "manual"` and
+then saves and restores `window.scrollY` and nothing else, so an admin whose
+scrolling happened inside `#main-content` could not restore a position on
+back, forward, or anything else. `#main-content` survives as an id and its
+`p-4`, because the hooks and the arithmetic below name it.
+
+**A sticky bar still has to be told about its containing block.** The offset
+itself is now the simple half: the viewport has no padding, so `bottom-0` puts
+a bar flush with the bottom of the window. But a sticky box can't leave its
 containing block, so at the end of the scroll that block's own bottom edge
-holds it up by the same 16px again. Both halves need saying: `-bottom-4` on
-the bar, `-mb-4` on the page's content wrapper. Measured in Chrome — 16px,
-then 80px at the bottom of the page, before the fix; 0 and 0 after.
+holds the bar up by `#main-content`'s 16px — which is what `-mb-4` on the
+page's content wrapper is for, and it is still required. (It was `-bottom-4`
+plus `-mb-4` when `#main-content` was the scrollport and the offset had to
+reach through that box's own padding.)
+
+**Content passes behind the chrome, so the chrome is opaque and above it.**
+The header paints `bg-zinc-950`, and there is one z-index ladder for the whole
+admin, stated once on `layout_header/1`, in tens with the gaps left in on
+purpose:
+
+| z | what |
+|---|---|
+| 10 | the clickable layer inside a card (a row's action rail) |
+| 20 | a busy scrim over a single card |
+| 30 | the sticky page footers (`sticky_slab_classes/0`) |
+| 35 | a typeahead's popup |
+| 40 | a page-wide busy scrim |
+| 50 | the page header, admin and public |
+| 60 | the drawer's scrim |
+| 70 | the side nav drawer |
+| 80 | a modal |
+| 90 | the image lightbox |
+| 100 | flash toasts |
+
+Rows matter here because `index_row` is `relative` with no z-index of its own,
+so its layers are **not** scoped to the card and compete directly with the
+page's chrome. That is what a bar with no z-index at all looks like: the
+sticky pagination footer painted above a row's card body and *underneath* the
+same row's action rail, so its controls flickered in and out of view depending
+which part of the list they crossed. **Anything pinned over the page needs a
+number, not a DOM position** — a tie falls back to document order, and page
+content always comes after the header.
+
+Two rules the renumbering was worth writing down. **A full-viewport overlay
+goes above the nav, not beside it**: the modal sat below the sidebar for a
+while, because a nav that is `fixed` is a peer of everything rather than a
+column the content sits next to. And **a scrim has to cover the control it is
+protecting the operator from** — the import form's page-wide scrim is 40
+rather than `busy_overlay/1`'s own 20 precisely so it covers the sticky Save,
+and stays under the header so the job indicator explaining the wait is still
+lit.
+
+**The header's separator is a hairline, drawn only when there is something
+above it.** `border-b border-zinc-900`, toggled by the `header-scrollspy`
+hook against `window.scrollY` — the same treatment as the public header, and
+the one place §1's no-1px-borders rule doesn't hold: this is not a container
+edge, it is the seam where scrolled content passes under the chrome, and an
+elevation step can't draw a seam between two things that overlap.
 
 **A grid or flex item that can hold a long string needs `min-w-0`.** Its
 automatic minimum size is the min-content width of its contents, so one
@@ -369,6 +424,55 @@ which is what every pre-redesign list did while writing the rule's classes.
 
 **64px is the row's height floor.** People rows were 48px, so they were
 visibly shorter than every other list's on the same page of the same app.
+
+**Paging is the list's own sticky footer.** The header holds what *narrows* a
+list (search, sort, and the one button that adds to it); `pagination_footer/1`
+holds what *moves through* it. Two bare chevrons in the top right corner was
+the old arrangement, and it was wrong three ways: the control for moving
+through a list sat as far from the rows as the page allows, it never said
+which page you were on or how many there were, and because the header doesn't
+move, clicking "next" left the scroll where it was so the operator arrived
+looking at the bottom of the page they had just asked for.
+
+**Sticky, not merely in the flow** — this is the correction worth recording,
+because putting the bar at the foot of the rows and stopping there only trades
+one kind of "far away" for another. A page is 50 rows, two or three screens,
+so reaching page 3 from the top of a list would mean scrolling to the bottom
+to find a control that used to be one click away. It wears `form_footer/1`'s
+costume, from `sticky_slab_classes/0`, because it is the same object doing the
+same job: the thing the page is *for*, at the end of the thing, reachable
+without hunting. Both bars settle into place at the end of the scroll, and the
+`sticky-footer` hook undresses them into ordinary cards when the page has
+nothing to scroll.
+
+The footer states the range and the total ("Showing 51 to 100 of 435", "Page 2
+of 9"), its steps are worded like every other action (§3a), an unavailable
+step is dead rather than absent so the bar keeps its shape at both ends, and
+`list-scroll-reset` takes the page back to the top whenever the page, the sort
+or the search changes.
+
+**A page is 50 rows.** It was 10 for years, which made a 435-audiobook
+library 44 pages deep with no way to tell which one you were on.
+
+**A form goes back where it came from, to the record it just saved.** Every
+form used to end with `push_navigate(to: ~p"/admin/books")` — the front of an
+unfiltered, default-sorted page one, whoever you were and wherever you had
+been. `AmbryWeb.Admin.ReturnTo` is the two halves of the fix: a list writes
+its state into every row link, and the form reads it back and returns there,
+naming the record so the list can scroll to it and flash it (`focus-row`).
+It anchors to the **record**, not to a scroll offset, because those are
+different answers the moment an edit changes the sort key — rename a book on
+a title-sorted list and its row moves, so the pixel the operator left from
+belongs to somebody else now. A row that is gone or off-page focuses nothing
+and they land at the top, which is the honest result. The "New" button
+deliberately carries no list state: a record that doesn't exist yet cannot be
+on the page you were filtering.
+
+**Counted where the rows are queried, from the same filters.** A total
+assembled anywhere else eventually describes a different query from the rows
+above it. The flat views make this cheap when nothing is filtering: their
+credit arrays are correlated subqueries in the target list and the planner
+drops every one of them for a bare count.
 
 ## 3b. Forms are blocks, like everything else
 

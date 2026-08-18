@@ -60,13 +60,14 @@ defmodule AmbryWeb.Admin.UserDevicesLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {devices, has_more?} = list_devices(socket.assigns.selected_user.id, list_opts)
+      {devices, has_more?, total} = list_devices(socket.assigns.selected_user.id, list_opts)
 
       assign(socket,
         list_opts: list_opts,
         devices: devices,
         has_next: has_more?,
         has_prev: list_opts.page > 1,
+        page_info: page_info(list_opts, length(devices), total),
         next_page_path:
           ~p"/admin/users/#{socket.assigns.selected_user.id}/devices?#{next_opts(list_opts)}",
         prev_page_path:
@@ -104,16 +105,21 @@ defmodule AmbryWeb.Admin.UserDevicesLive.Index do
      )}
   end
 
+  # The page and the total, from one set of filters, so the footer's count can
+  # never describe a different query from the rows above it.
   defp list_devices(user_id, opts) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
     filters = Map.put(filters, :user_id, user_id)
 
-    Playback.list_devices_flat(
-      page_to_offset(opts.page),
-      limit(),
-      filters,
-      sort_to_order(opts.sort || @default_sort, @valid_sort_fields)
-    )
+    {devices, has_more?} =
+      Playback.list_devices_flat(
+        page_to_offset(opts.page),
+        limit(),
+        filters,
+        sort_to_order(opts.sort || @default_sort, @valid_sort_fields)
+      )
+
+    {devices, has_more?, Playback.count_devices_flat(filters)}
   end
 
   defp format_date(nil), do: "-"

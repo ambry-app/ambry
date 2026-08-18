@@ -3,10 +3,6 @@
     <.list_controls
       search_form={@search_form}
       new_path={~p"/admin/universes/new"}
-      has_next={@has_next}
-      has_prev={@has_prev}
-      next_page_path={@next_page_path}
-      prev_page_path={@prev_page_path}
     />
     <.sort_button_bar>
       <.sort_button current_sort={@current_sort} sort_field="name">Name</.sort_button>
@@ -15,7 +11,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table rows={@universes} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} focus={@focus} rows={@universes} filter={@list_opts.filter}>
     <:empty>
       No universes yet.
       <.brand_link navigate={~p"/admin/universes/new"}>
@@ -24,7 +20,7 @@
     </:empty>
 
     <:row :let={universe}>
-      <.index_row navigate={~p"/admin/universes/#{universe}/edit"}>
+      <.index_row record_id={universe.id} navigate={~p"/admin/universes/#{universe}/edit?#{return_query(assigns)}"}>
         <:cover>
           <.multi_image paths={universe.thumbnails} />
         </:cover>
@@ -42,7 +38,11 @@
           />
         </:facts>
 
-        <:action navigate={~p"/admin/universes/#{universe}/edit"} icon="fa-pencil" role="edit-universe">
+        <:action
+          navigate={~p"/admin/universes/#{universe}/edit?#{return_query(assigns)}"}
+          icon="fa-pencil"
+          role="edit-universe"
+        >
           Edit
         </:action>
         <:action
@@ -62,4 +62,12 @@
       </.index_row>
     </:row>
   </.flex_table>
+
+  <.pagination_footer
+    info={@page_info}
+    has_next={@has_next}
+    has_prev={@has_prev}
+    next_page_path={@next_page_path}
+    prev_page_path={@prev_page_path}
+  />
 </.layout>

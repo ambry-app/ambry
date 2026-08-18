@@ -4,10 +4,16 @@
           rebuilds an untouched draft when one finally comes back — so a form
           with a job on it is not the operator's to edit yet, and says so
           over the whole thing rather than in a badge. --%>
+    <%!-- `z-40` overrides `busy_overlay/1`'s own `z-20`, which is sized for a
+          scrim over one card. This one owns the whole form, and the form has a
+          sticky footer with the Save in it — at 20 the scrim would have fallen
+          behind the one control it most needs to cover. It stays under the
+          header (50) so the job indicator that explains the wait is still
+          lit. --%>
     <.busy_overlay
       busy={busy?(assigns)}
       label={busy_label(@job)}
-      class="sticky top-0 h-screen"
+      class="sticky top-0 z-40 h-screen"
     />
 
     <div class="-mb-4 max-w-4xl space-y-14" inert={busy?(assigns)}>
@@ -876,15 +882,12 @@
       </section>
 
       <%!-- ==================== THE BUTTON ==================== --%>
-      <%!-- `-bottom-4` and the container's `-mb-4` are one fix, not two.
-          A sticky offset is measured from the scrollport's CONTENT box, so
-          `bottom-0` inside `#main-content`'s `p-4` parks the bar 16px shy of
-          the window with the page showing through underneath; and a sticky box
-          can't leave its containing block, so at the end of the scroll the
-          container's own bottom edge holds it 16px up again. The offset
-          reaches into the scroller's padding, the negative margin lets the
-          containing block reach the same place. Measured in Chrome: 16px then
-          80px of gap before, 0 and 0 after. --%>
+      <%!-- The container's `-mb-4` is half of `form_footer`'s `bottom-0`: a
+          sticky box can't leave its containing block, so without it this
+          wrapper's own bottom edge holds the bar 16px up at the end of the
+          scroll, inside `#main-content`'s `p-4`. The negative margin lets the
+          containing block reach the bottom of the page, where the offset
+          already puts the bar. --%>
       <.form_footer>
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <%!-- Named for what pressing it does. A replacement doesn't add

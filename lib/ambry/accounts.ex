@@ -75,9 +75,9 @@ defmodule Ambry.Accounts do
       1
 
   """
-  @spec count_users :: integer()
-  def count_users do
-    Repo.aggregate(User, :count)
+  @spec count_users(map()) :: integer()
+  def count_users(filters \\ %{}) do
+    filters |> UserFlat.count_query() |> Repo.one()
   end
 
   @doc """
