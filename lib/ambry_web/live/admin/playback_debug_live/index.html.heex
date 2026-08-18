@@ -29,77 +29,75 @@
     />
   </.modal>
 
-  <div class="h-[calc(100vh-10rem)] flex flex-col">
-    <.flex_table rows={@playthroughs}>
-      <:empty>
-        No playthroughs found for this user.
-      </:empty>
+  <.flex_table rows={@playthroughs}>
+    <:empty>
+      No playthroughs found for this user.
+    </:empty>
 
-      <:row :let={playthrough}>
-        <.index_row patch={~p"/admin/users/#{@selected_user.id}/playthroughs/#{playthrough.id}"}>
-          <:cover>
-            <div class={[
-              "h-16 w-16 rounded-sm",
-              if(!playthrough.media_thumbnail,
-                do: "flex items-center justify-center bg-zinc-800"
-              )
-            ]}>
-              <img
-                :if={playthrough.media_thumbnail}
-                src={playthrough.media_thumbnail}
-                alt=""
-                class="h-full w-full rounded-sm object-cover"
-              />
-              <.icon
-                :if={!playthrough.media_thumbnail}
-                name="fa-circle-play"
-                class="h-8 w-8 text-zinc-400"
-              />
-            </div>
-          </:cover>
+    <:row :let={playthrough}>
+      <.index_row patch={~p"/admin/users/#{@selected_user.id}/playthroughs/#{playthrough.id}"}>
+        <:cover>
+          <div class={[
+            "h-16 w-16 rounded-sm",
+            if(!playthrough.media_thumbnail,
+              do: "flex items-center justify-center bg-zinc-800"
+            )
+          ]}>
+            <img
+              :if={playthrough.media_thumbnail}
+              src={playthrough.media_thumbnail}
+              alt=""
+              class="h-full w-full rounded-sm object-cover"
+            />
+            <.icon
+              :if={!playthrough.media_thumbnail}
+              name="fa-circle-play"
+              class="h-8 w-8 text-zinc-400"
+            />
+          </div>
+        </:cover>
 
-          <:headline>{playthrough_label(playthrough)}</:headline>
+        <:headline>{playthrough_label(playthrough)}</:headline>
 
-          <p
-            class="font-mono overflow-hidden text-ellipsis whitespace-nowrap text-xs text-zinc-400"
-            title={playthrough.id}
-          >
-            {String.slice(playthrough.id, 0, 8)}
+        <p
+          class="font-mono overflow-hidden text-ellipsis whitespace-nowrap text-xs text-zinc-400"
+          title={playthrough.id}
+        >
+          {String.slice(playthrough.id, 0, 8)}
+        </p>
+
+        <%!-- The app's badge, not a bespoke solid chip: these were the last
+              `bg-red-900 text-red-200` slabs in the admin, against §5's
+              soft-tint rule. --%>
+        <:badges>
+          <.badge color={status_color(playthrough.status)} class="text-xs">
+            {status_label(playthrough)}
+          </.badge>
+        </:badges>
+
+        <:facts>
+          <span title="Current position" class="flex items-center gap-1">
+            <span :if={playthrough.progress_percent} class="font-semibold tabular-nums text-zinc-100">
+              {Decimal.round(playthrough.progress_percent, 1)}%
+            </span>
+            <span class="tabular-nums">
+              ({playthrough.position && Decimal.round(playthrough.position, 1)}s)
+            </span>
+          </span>
+          <span :if={playthrough.rate} title="Playback rate" class="tabular-nums text-zinc-500">
+            {Decimal.to_string(playthrough.rate)}x
+          </span>
+        </:facts>
+
+        <:footer>
+          <p title={format_full_datetime(playthrough.last_event_at)}>
+            Last event {format_date(playthrough.last_event_at)}
           </p>
-
-          <%!-- The app's badge, not a bespoke solid chip: these were the last
-                `bg-red-900 text-red-200` slabs in the admin, against §5's
-                soft-tint rule. --%>
-          <:badges>
-            <.badge color={status_color(playthrough.status)} class="text-xs">
-              {status_label(playthrough)}
-            </.badge>
-          </:badges>
-
-          <:facts>
-            <span title="Current position" class="flex items-center gap-1">
-              <span :if={playthrough.progress_percent} class="font-semibold tabular-nums text-zinc-100">
-                {Decimal.round(playthrough.progress_percent, 1)}%
-              </span>
-              <span class="tabular-nums">
-                ({playthrough.position && Decimal.round(playthrough.position, 1)}s)
-              </span>
-            </span>
-            <span :if={playthrough.rate} title="Playback rate" class="tabular-nums text-zinc-500">
-              {Decimal.to_string(playthrough.rate)}x
-            </span>
-          </:facts>
-
-          <:footer>
-            <p title={format_full_datetime(playthrough.last_event_at)}>
-              Last event {format_date(playthrough.last_event_at)}
-            </p>
-            <p title={format_full_datetime(playthrough.started_at)}>
-              Started {format_date(playthrough.started_at)}
-            </p>
-          </:footer>
-        </.index_row>
-      </:row>
-    </.flex_table>
-  </div>
+          <p title={format_full_datetime(playthrough.started_at)}>
+            Started {format_date(playthrough.started_at)}
+          </p>
+        </:footer>
+      </.index_row>
+    </:row>
+  </.flex_table>
 </.layout>

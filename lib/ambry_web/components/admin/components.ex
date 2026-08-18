@@ -25,25 +25,38 @@ defmodule AmbryWeb.Admin.Components do
 
   def layout(assigns) do
     ~H"""
-    <div class="relative flex h-screen min-w-0 grow flex-col">
+    <div class="min-w-0">
       <.layout_header user={@user} title={@title} socket={@socket}>
         {render_slot(@subheader)}
       </.layout_header>
 
-      <main class="flex grow flex-col overflow-hidden">
-        <div id="main-content" class="grow overflow-y-auto overflow-x-hidden p-4" phx-hook="header-scrollspy">
-          {render_slot(@inner_block)}
-        </div>
+      <%!-- `#main-content` keeps its id and its `p-4` — the sticky-footer hook
+            and §3's sticky-bar arithmetic both name it — but it is no longer a
+            scrollport. It was `overflow-y-auto` inside an `h-screen` shell,
+            and that one declaration is why nothing in the admin could remember
+            a scroll position: LiveView's restoration reads and writes
+            `window.scrollY` and nothing else.
+
+            `overflow-x-clip` is what's left of the `overflow-x-hidden` it used
+            to carry. `hidden` on one axis forces the other to `auto`, which
+            would quietly make this a scrollport again and re-break every
+            sticky box inside it; `clip` guards a stray wide child without
+            becoming a scroll container. --%>
+      <main id="main-content" class="overflow-x-clip p-4">
+        {render_slot(@inner_block)}
       </main>
 
       <%!-- The image lightbox — tiny previews and chips are for telling
           records apart, and sometimes that takes the full-size art. Opened
           by any [data-zoomable] magnifier (see app.js); click or Escape
-          closes. phx-update="ignore": it's pure client state. --%>
+          closes. phx-update="ignore": it's pure client state.
+
+          Top of the ladder on layout_header/1: it opens from inside content
+          that a modal may itself be covering. --%>
       <div
         id="image-lightbox"
         phx-update="ignore"
-        class="bg-black/85 fixed inset-0 z-50 hidden cursor-zoom-out items-center justify-center p-8 backdrop-blur"
+        class="bg-black/85 z-[70] fixed inset-0 hidden cursor-zoom-out items-center justify-center p-8 backdrop-blur"
       >
         <img class="max-h-full max-w-full rounded-sm object-contain shadow-2xl" />
       </div>
@@ -57,9 +70,27 @@ defmodule AmbryWeb.Admin.Components do
 
   slot :inner_block, required: true
 
+  # The z-index ladder, now that content scrolls *under* the chrome instead of
+  # inside a box below it. Everything here shares the root stacking context —
+  # an `index_row` is `relative` with no z-index, so its `z-10` rail and `z-20`
+  # busy overlay are not scoped to the card, and a row that scrolled under a
+  # z-10 header would have painted straight over it (same index, later in the
+  # DOM, later wins).
+  #
+  #   10/20  row internals (rail, busy overlay)
+  #   30     this header
+  #   40     the drawer's scrim
+  #   50     the side nav drawer
+  #   60     a modal — it covers the viewport, and the nav is part of what it
+  #          is covering, so it sits above the nav rather than beside it
+  #   70     the image lightbox, which opens from inside a modal's content
   defp layout_header(assigns) do
     ~H"""
-    <header id="nav-header" class="space-y-4 p-4">
+    <header
+      id="nav-header"
+      phx-hook="header-scrollspy"
+      class="sticky top-0 z-30 space-y-4 border-zinc-900 bg-zinc-950 p-4"
+    >
       <div class="flex items-center gap-3">
         <span class="cursor-pointer lg:hidden" phx-click={open_sidebar()}>
           <.icon name="fa-bars" class="h-6 w-6 text-current lg:h-7 lg:w-7" />
@@ -999,9 +1030,14 @@ defmodule AmbryWeb.Admin.Components do
   ground after the last card. The chapters form is the argument — 47 rows
   long, with the Save at the bottom of the scroll.
 
-  §3's sticky-bar rule applies: the scroller pads `p-4`, so the slab wears
-  `-bottom-4` and the page's content wrapper must wear `-mb-4`, or the bar
-  parks 16px shy of the window with the page showing through underneath.
+  §3's sticky-bar rule applies, and the document being the scroller is what
+  sets the offset: a sticky box is positioned against its scrollport, and the
+  viewport has no padding, so `bottom-0` puts the slab flush with the bottom
+  of the window. (It was `-bottom-4` when `#main-content` was the scrollport,
+  reaching through that box's own `p-4`.) The page's content wrapper still
+  wears `-mb-4`, for the other half: a sticky box can't leave its containing
+  block, so without it the wrapper's bottom edge holds the bar 16px up at the
+  end of the scroll.
   """
   def form_footer(assigns) do
     ~H"""
@@ -1011,7 +1047,7 @@ defmodule AmbryWeb.Admin.Components do
     <section
       id={@id}
       phx-hook="sticky-footer"
-      class={["shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky -bottom-4 rounded-t-lg bg-zinc-900 p-4", @class]}
+      class={["shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 rounded-t-lg bg-zinc-900 p-4", @class]}
       {@rest}
     >
       <div class="flex flex-wrap items-center gap-2">

@@ -876,15 +876,12 @@
       </section>
 
       <%!-- ==================== THE BUTTON ==================== --%>
-      <%!-- `-bottom-4` and the container's `-mb-4` are one fix, not two.
-          A sticky offset is measured from the scrollport's CONTENT box, so
-          `bottom-0` inside `#main-content`'s `p-4` parks the bar 16px shy of
-          the window with the page showing through underneath; and a sticky box
-          can't leave its containing block, so at the end of the scroll the
-          container's own bottom edge holds it 16px up again. The offset
-          reaches into the scroller's padding, the negative margin lets the
-          containing block reach the same place. Measured in Chrome: 16px then
-          80px of gap before, 0 and 0 after. --%>
+      <%!-- The container's `-mb-4` is half of `form_footer`'s `bottom-0`: a
+          sticky box can't leave its containing block, so without it this
+          wrapper's own bottom edge holds the bar 16px up at the end of the
+          scroll, inside `#main-content`'s `p-4`. The negative margin lets the
+          containing block reach the bottom of the page, where the offset
+          already puts the bar. --%>
       <.form_footer>
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <%!-- Named for what pressing it does. A replacement doesn't add

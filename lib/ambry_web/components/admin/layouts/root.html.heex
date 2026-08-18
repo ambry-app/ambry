@@ -5,7 +5,7 @@
 <html lang="en" style="scrollbar-gutter: stable; color-scheme: dark;">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <link rel="icon" type="image/svg+xml" href={~p"/favicon.svg"} />
     <link rel="icon" type="image/png" href={~p"/favicon.png"} sizes="16x16" />
@@ -17,33 +17,17 @@
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
-    <script type="text/javascript">
-      // fix mobile browser viewport height shenanigans.
-      // https://www.markusantonwolf.com/blog/solution-to-the-mobile-viewport-height-issue-with-tailwind-css/
-      // see tailwind.config.js for other half
-
-      function setViewHeight() {
-        const vh = window.innerHeight * 0.01
-        document.documentElement.style.setProperty('--vh', `${vh}px`)
-      }
-
-      setViewHeight()
-
-      window.addEventListener('resize', () => {
-        this.setViewHeight()
-      })
-
-      // end viewport fix
-    </script>
   </head>
   <%!-- zinc-950 ground, not black: pure black under 1px lines is what made
         borders look harsh and "mushy" on high-DPI — the new admin system
         separates surfaces by elevation (bg contrast), not hairlines. --%>
+  <%!-- No app-shell wrapper: the document is the scroller. An `h-screen`
+        shell with an `overflow-hidden` child was what made `#main-content`
+        the scrollport, and LiveView only ever saves and restores
+        `window.scrollY` (it sets `history.scrollRestoration = "manual"`, so
+        the browser won't do it either) — which meant nothing in the admin
+        could remember where you were. --%>
   <body class="bg-zinc-950 text-zinc-300 antialiased selection:bg-brand-dark selection:text-black">
-    <div class="flex h-screen flex-col">
-      <div class="grow overflow-hidden">
-        {@inner_content}
-      </div>
-    </div>
+    {@inner_content}
   </body>
 </html>

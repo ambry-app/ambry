@@ -40,7 +40,9 @@ Rules that fall out of this:
 - **No 1px container borders.** A box is a fill. If an edge must be drawn,
   it is ≥2px: a `ring-2 ring-inset` for selection, a `border-l-4` rail for
   state, a `border-l-2` indent guide. Dashed 1px borders are allowed only on
-  ghost escape hatches, where looking faint is the point.
+  ghost escape hatches, where looking faint is the point. The header's
+  scroll-spy seam is the other exception, and it is not a container edge —
+  see §3.
 - **Dashed means "drop here" or "not chosen" — never "here is a fact".**
   Dropzones and ghost hatches wear dashes; a read-only file list is a plain
   card (`<.file_list>`: mono, muted, the common directory printed once).
@@ -240,14 +242,41 @@ rather than `py-2`, and the inbox's segmented filter bar (`p-1` + `py-1.5`
 segments) lands on it too. §7 says adjacent bar controls share exact height;
 this is the number.
 
-**A sticky bar has to be told about the scroller's padding.** `#main-content`
-scrolls with `p-4`, and a sticky offset is measured from the scrollport's
-**content** box — so `bottom-0` parks a bar 16px shy of the window edge with
-the page showing through underneath. A sticky box also can't leave its
+**The document is the scroller, and the chrome is sticky.** There is no app
+shell: the body scrolls, the side nav is `fixed inset-y-0`, the page header is
+`sticky top-0`, and the content clears the nav with `lg:pl-64`. This is not a
+style preference — LiveView sets `history.scrollRestoration = "manual"` and
+then saves and restores `window.scrollY` and nothing else, so an admin whose
+scrolling happened inside `#main-content` could not restore a position on
+back, forward, or anything else. `#main-content` survives as an id and its
+`p-4`, because the hooks and the arithmetic below name it.
+
+**A sticky bar still has to be told about its containing block.** The offset
+itself is now the simple half: the viewport has no padding, so `bottom-0` puts
+a bar flush with the bottom of the window. But a sticky box can't leave its
 containing block, so at the end of the scroll that block's own bottom edge
-holds it up by the same 16px again. Both halves need saying: `-bottom-4` on
-the bar, `-mb-4` on the page's content wrapper. Measured in Chrome — 16px,
-then 80px at the bottom of the page, before the fix; 0 and 0 after.
+holds the bar up by `#main-content`'s 16px — which is what `-mb-4` on the
+page's content wrapper is for, and it is still required. (It was `-bottom-4`
+plus `-mb-4` when `#main-content` was the scrollport and the offset had to
+reach through that box's own padding.)
+
+**Content passes behind the chrome, so the chrome is opaque and above it.**
+The header paints `bg-zinc-950`, and there is one z-index ladder for the whole
+admin, stated on `layout_header/1`: 10/20 for a row's rail and busy overlay,
+30 for the header, 40 for the drawer's scrim, 50 for the drawer, 60 for a
+modal, 70 for the lightbox. Rows matter here because `index_row` is `relative`
+with no z-index of its own, so its layers are not scoped to the card — a row
+that scrolls under a header of the same index paints straight over it. **A
+full-viewport overlay goes above the nav, not beside it**: the modal sat at 40
+for a while and rendered underneath the sidebar, because a nav that is `fixed`
+is a peer of everything now rather than a column the content sits next to.
+
+**The header's separator is a hairline, drawn only when there is something
+above it.** `border-b border-zinc-900`, toggled by the `header-scrollspy`
+hook against `window.scrollY` — the same treatment as the public header, and
+the one place §1's no-1px-borders rule doesn't hold: this is not a container
+edge, it is the seam where scrolled content passes under the chrome, and an
+elevation step can't draw a seam between two things that overlap.
 
 **A grid or flex item that can hold a long string needs `min-w-0`.** Its
 automatic minimum size is the min-content width of its contents, so one

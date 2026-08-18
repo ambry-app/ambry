@@ -31,7 +31,11 @@ defmodule AmbryWeb.Layouts do
 
   def nav_header(assigns) do
     ~H"""
-    <header id="nav-header" class="border-zinc-900">
+    <%!-- Sticky rather than a fixed row in an `h-screen` shell: same result —
+          the header stays put while the page moves under it — without taking
+          the scroll off the document. `bg-black` matches the body, because
+          content now passes behind it. --%>
+    <header id="nav-header" phx-hook="header-scrollspy" class="sticky top-0 z-30 border-zinc-900 bg-black">
       <div class="flex p-4 text-zinc-500">
         <div class="flex-1">
           <.link navigate={~p"/"} class="flex">
