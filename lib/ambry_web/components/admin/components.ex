@@ -37,12 +37,17 @@ defmodule AmbryWeb.Admin.Components do
             a scroll position: LiveView's restoration reads and writes
             `window.scrollY` and nothing else.
 
-            `overflow-x-clip` is what's left of the `overflow-x-hidden` it used
-            to carry. `hidden` on one axis forces the other to `auto`, which
-            would quietly make this a scrollport again and re-break every
-            sticky box inside it; `clip` guards a stray wide child without
-            becoming a scroll container. --%>
-      <main id="main-content" class="overflow-x-clip p-4">
+            It carries no horizontal overflow guard, and that is deliberate.
+            `overflow-x-hidden` can't come back — `hidden` on one axis forces
+            the other to `auto`, which would quietly make this a scrollport
+            again and re-break every sticky box inside it — and `overflow-x:
+            clip` would put an untested clipping ancestor between every sticky
+            bar in the admin and the viewport it is positioned against, to
+            defend against a stray wide child that may not exist. §3's
+            `min-w-0` rule is where that defect actually gets fixed; a
+            horizontal scrollbar is the signal to go and apply it, which is
+            exactly what the old guard was suppressing. --%>
+      <main id="main-content" class="p-4">
         {render_slot(@inner_block)}
       </main>
 
@@ -246,20 +251,31 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   Where a list says how far through it you are, and moves you.
 
-  Under the last row, in the scroll flow, because that is where the operator
-  is when they want it — and because a control that never moves cannot say
-  "you have reached the end of this page", which is the whole cue for using
-  it. It carries the numbers the chevrons never had: which rows these are,
-  how many there are, and which page of how many.
+  The list's own footer, sticky, in `form_footer/1`'s costume — because it is
+  the same object doing the same job. Paging belongs to the list, so it sits
+  at the list's end rather than in a corner of the header, where two bare
+  chevrons used to sit as far from the rows as the page allows. But a page is
+  50 rows, which is two or three screens, so a bar purely *in* the flow would
+  trade one kind of "far away" for another: reaching page 3 from the top of
+  the list would mean scrolling to the bottom first, to find a control that
+  used to be one click away.
 
-  A `zinc-900` bar, so it reads as a peer of `sort_button_bar/1` at the other
-  end of the list rather than as another row.
+  Sticky answers both. It rides the bottom of the window while there are rows
+  below it, and settles into place at the end of the scroll — and the
+  sticky-footer hook takes off its shadow and rounds its bottom corners when
+  the page has nothing to scroll, so a single-page list gets an ordinary card
+  rather than a slab promising an edge that isn't there.
+
+  It carries the numbers the chevrons never had: which rows these are, how
+  many there are, and which page of how many.
   """
   def pagination_footer(assigns) do
     ~H"""
     <div
       :if={@has_prev or @has_next}
-      class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-zinc-900 px-4 py-3"
+      id="pagination"
+      phx-hook="sticky-footer"
+      class={[sticky_slab_classes(), "mt-3 -mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"]}
       data-role="pagination"
     >
       <%!-- "1 to 50", not "1&ndash;50": §8 keeps en dashes out of rendered
@@ -1106,6 +1122,28 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  @doc """
+  The costume a bar wears when it is pinned to the bottom of the page.
+
+  Two of them: `form_footer/1`, where a form is saved, and
+  `pagination_footer/1`, which moves through a list. Stated once so they
+  cannot drift, because they are the same object doing the same job — the
+  thing this page is *for*, at the end of the thing, reachable without
+  scrolling to find it.
+
+  `bottom-0` because a sticky box is positioned against its scrollport and the
+  viewport has no padding. (It was `-bottom-4` when `#main-content` was the
+  scrollport, reaching through that box's own `p-4`.) `-mb-4` is the other
+  half: a sticky box can't leave its containing block, so without it the
+  block's bottom edge holds the bar 16px up at the end of the scroll, with the
+  page's ground showing through underneath. A form puts that negative margin
+  on its content wrapper, since the wrapper is the containing block there; the
+  pagination bar is a direct child of `#main-content` and wears it itself.
+  """
+  def sticky_slab_classes do
+    "shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 rounded-t-lg bg-zinc-900"
+  end
+
   attr :id, :string, default: "form-footer", doc: "the sticky-footer hook needs one"
   attr :class, :any, default: nil
   attr :rest, :global
@@ -1133,12 +1171,7 @@ defmodule AmbryWeb.Admin.Components do
     <%!-- The sticky-footer hook rounds the bottom corners (and drops the
         floating shadow) whenever the page has nothing to scroll — a slab
         that never sticks is an ordinary card and dresses like one. --%>
-    <section
-      id={@id}
-      phx-hook="sticky-footer"
-      class={["shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 rounded-t-lg bg-zinc-900 p-4", @class]}
-      {@rest}
-    >
+    <section id={@id} phx-hook="sticky-footer" class={[sticky_slab_classes(), "p-4", @class]} {@rest}>
       <div class="flex flex-wrap items-center gap-2">
         {render_slot(@inner_block)}
       </div>

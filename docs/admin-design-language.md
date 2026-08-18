@@ -399,19 +399,31 @@ which is what every pre-redesign list did while writing the rule's classes.
 **64px is the row's height floor.** People rows were 48px, so they were
 visibly shorter than every other list's on the same page of the same app.
 
-**Paging lives under the last row, and it carries numbers.** The header holds
-what *narrows* a list (search, sort, and the one button that adds to it);
-`pagination_footer/1` holds what *moves through* it. Two bare chevrons in the
-top right corner was the old arrangement, and it was wrong three ways: the
-control for moving through a list sat as far from the list as the page
-allows, it never said which page you were on or how many there were, and
-because the header doesn't move, clicking "next" left the scroll where it was
-so the operator arrived looking at the bottom of the page they had just asked
-for. The footer states the range and the total ("Showing 51 to 100 of 435",
-"Page 2 of 9"), its steps are worded like every other action (§3a), an
-unavailable step is dead rather than absent so the bar keeps its shape at both
-ends, and `list-scroll-reset` takes the page back to the top whenever the
-page, the sort or the search changes.
+**Paging is the list's own sticky footer.** The header holds what *narrows* a
+list (search, sort, and the one button that adds to it); `pagination_footer/1`
+holds what *moves through* it. Two bare chevrons in the top right corner was
+the old arrangement, and it was wrong three ways: the control for moving
+through a list sat as far from the rows as the page allows, it never said
+which page you were on or how many there were, and because the header doesn't
+move, clicking "next" left the scroll where it was so the operator arrived
+looking at the bottom of the page they had just asked for.
+
+**Sticky, not merely in the flow** — this is the correction worth recording,
+because putting the bar at the foot of the rows and stopping there only trades
+one kind of "far away" for another. A page is 50 rows, two or three screens,
+so reaching page 3 from the top of a list would mean scrolling to the bottom
+to find a control that used to be one click away. It wears `form_footer/1`'s
+costume, from `sticky_slab_classes/0`, because it is the same object doing the
+same job: the thing the page is *for*, at the end of the thing, reachable
+without hunting. Both bars settle into place at the end of the scroll, and the
+`sticky-footer` hook undresses them into ordinary cards when the page has
+nothing to scroll.
+
+The footer states the range and the total ("Showing 51 to 100 of 435", "Page 2
+of 9"), its steps are worded like every other action (§3a), an unavailable
+step is dead rather than absent so the bar keeps its shape at both ends, and
+`list-scroll-reset` takes the page back to the top whenever the page, the sort
+or the search changes.
 
 **A page is 50 rows.** It was 10 for years, which made a 435-audiobook
 library 44 pages deep with no way to tell which one you were on.
