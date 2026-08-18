@@ -111,6 +111,7 @@ config :sentry,
   enable_source_code_context: true,
   root_source_code_paths: [File.cwd!()],
   client: Ambry.SentryFinchHTTPClient,
+  before_send: {Ambry.SentryFilter, :before_send},
   integrations: [
     oban: [capture_errors: true]
   ]
