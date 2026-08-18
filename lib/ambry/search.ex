@@ -1,6 +1,21 @@
 defmodule Ambry.Search do
   @moduledoc """
   A context for aggregate search across books, authors, narrators and series.
+
+  ## The index maintains itself
+
+  Nothing calls this module to keep the index current. Row triggers on the
+  library's tables fill `Ambry.Search.Queue`, `Ambry.Search.Listener` notices
+  and `Ambry.Search.Drain` rebuilds what changed. That is a deliberate
+  inversion: index maintenance used to be twelve hand-placed calls in the
+  contexts' `with` chains, and any write by another path — the inbox importer
+  most of all, which its boundary forbids from calling this module — drifted
+  the index silently. The server rebuilt the whole index on every boot to hide
+  it.
+
+  A write is therefore reflected in search a moment after it commits, not
+  within the same call. Nothing in the app may depend on that moment being
+  zero; `settle/0` exists so tests don't have to.
   """
 
   use Boundary,
@@ -10,55 +25,49 @@ defmodule Ambry.Search do
       Ambry.People,
       Ambry.PubSub,
       Ambry.Repo
-    ]
+    ],
+    exports: [Listener]
 
   import Ecto.Query
 
   alias Ambry.Books
   alias Ambry.Books.Book
   alias Ambry.Books.Series
-  alias Ambry.Media.Media
   alias Ambry.People
   alias Ambry.People.Person
   alias Ambry.Repo
-  alias Ambry.Search.Index
+  alias Ambry.Search.Drain
   alias Ambry.Search.Record
 
   @results_limit 36
 
-  defdelegate refresh_entire_index!, to: Index
+  @doc """
+  Rebuilds the entire index, from scratch.
 
-  def insert(%Person{id: id}), do: do_insert(:person, id)
-  def insert(%Media{id: id}), do: do_insert(:media, id)
-  def insert(%Book{id: id}), do: do_insert(:book, id)
-  def insert(%Series{id: id}), do: do_insert(:series, id)
+  What the admin's reindex button calls. Not needed for correctness — the
+  triggers cover that — but a schema change to what a record holds needs one
+  pass over the library, and so does an operator who does not believe us.
+  """
+  defdelegate reindex_all!, to: Drain
 
-  def update(%Person{id: id}), do: do_update(:person, id)
-  def update(%Media{id: id}), do: do_update(:media, id)
-  def update(%Book{id: id}), do: do_update(:book, id)
-  def update(%Series{id: id}), do: do_update(:series, id)
+  @doc """
+  Waits for the index to reflect everything written so far.
 
-  def delete(%Person{id: id}), do: do_delete(:person, id)
-  def delete(%Media{id: id}), do: do_delete(:media, id)
-  def delete(%Book{id: id}), do: do_delete(:book, id)
-  def delete(%Series{id: id}), do: do_delete(:series, id)
-
-  defp do_insert(type, id) do
-    Index.insert!(type, id)
-  rescue
-    reason -> {:error, reason}
-  end
-
-  defp do_update(type, id) do
-    Index.update!(type, id)
-  rescue
-    reason -> {:error, reason}
-  end
-
-  defp do_delete(type, id) do
-    Index.delete!(type, id)
-  rescue
-    reason -> {:error, reason}
+  In production this is a no-op: the listener has already drained, or is about
+  to, and no caller should be waiting on it. In test there is no listener —
+  the SQL sandbox holds every write in an uncommitted transaction, so a
+  `NOTIFY` is never delivered and an Oban job never runs — so this drains
+  inline. It is called by the read paths rather than by tests, so that a test
+  which writes and then searches sees what the running system would a
+  millisecond later, without having to know that a queue exists.
+  """
+  if Application.compile_env(:ambry, [__MODULE__, :settle_inline], false) do
+    def settle do
+      {:ok, _count} = Drain.run()
+      :ok
+    end
+  else
+    def settle, do: :ok
   end
 
   def search(query_string) do
@@ -81,17 +90,35 @@ defmodule Ambry.Search do
     end)
   end
 
+  @doc """
+  The index, narrowed to what matches `query_string`, as a composable
+  queryable.
+
+  Every read path in the app composes from here — `search/1`, the GraphQL
+  connection — which is why `settle/0` is called here rather than in each of
+  them. Outside test it compiles to nothing.
+
+  Both sides parse with `ambry_english`, so a query folds accents the same way
+  the stored vector did. The config is passed explicitly rather than leaning
+  on `default_text_search_config`, which is session state.
+  """
   def query(query_string) do
+    :ok = settle()
+
     like = "%#{query_string}%"
 
     from record in Record,
       where:
-        fragment("? @@ plainto_tsquery(?)", record.search_vector, ^query_string) or
+        fragment("? @@ plainto_tsquery('ambry_english', ?)", record.search_vector, ^query_string) or
           ilike(record.primary, ^like) or ilike(record.secondary, ^like) or
           ilike(record.tertiary, ^like),
       order_by: [
         {:desc,
-         fragment("ts_rank_cd(?, plainto_tsquery(?))", record.search_vector, ^query_string)},
+         fragment(
+           "ts_rank_cd(?, plainto_tsquery('ambry_english', ?))",
+           record.search_vector,
+           ^query_string
+         )},
         {:desc,
          fragment(
            """

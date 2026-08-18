@@ -41,7 +41,7 @@ defmodule AmbrySchema.SearchTest do
     end
 
     test "returns book by title", %{conn: conn} do
-      %{id: id, title: book_title} = :book |> insert() |> with_search_index()
+      %{id: id, title: book_title} = :book |> insert()
       gid = to_global_id("Book", id)
 
       conn =
@@ -67,7 +67,6 @@ defmodule AmbrySchema.SearchTest do
       book =
         :book
         |> insert(series_books: [build(:series_book, series: build(:series))])
-        |> with_search_index()
 
       %{id: id, series_books: [%{series: %{id: series_id, name: series_name}}]} = book
 
@@ -97,11 +96,13 @@ defmodule AmbrySchema.SearchTest do
         |> insert(
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
-      %{id: id, book_authors: [%{author: %{name: author_name}}]} = book
+      %{
+        id: id,
+        book_authors: [%{author: %{name: author_name, author_people: [%{person_id: person_id}]}}]
+      } = book
 
-      gid = to_global_id("Book", id)
+      gids = Enum.sort([to_global_id("Book", id), to_global_id("Person", person_id)])
 
       conn =
         post(conn, "/gql", %{
@@ -109,17 +110,8 @@ defmodule AmbrySchema.SearchTest do
           "variables" => %{query: author_name}
         })
 
-      assert %{
-               "data" => %{
-                 "search" => %{
-                   "edges" => [
-                     %{
-                       "node" => %{"id" => ^gid}
-                     }
-                   ]
-                 }
-               }
-             } = json_response(conn, 200)
+      assert %{"data" => %{"search" => %{"edges" => edges}}} = json_response(conn, 200)
+      assert edges |> Enum.map(& &1["node"]["id"]) |> Enum.sort() == gids
     end
 
     test "returns book by author person name", %{conn: conn} do
@@ -130,12 +122,15 @@ defmodule AmbrySchema.SearchTest do
             build(:book_author, author: build(:author, person: build(:person)))
           ]
         )
-        |> with_search_index()
 
-      %{id: id, book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]} =
-        book
+      %{
+        id: id,
+        book_authors: [
+          %{author: %{author_people: [%{person: %{id: person_id, name: person_name}}]}}
+        ]
+      } = book
 
-      gid = to_global_id("Book", id)
+      gids = Enum.sort([to_global_id("Book", id), to_global_id("Person", person_id)])
 
       conn =
         post(conn, "/gql", %{
@@ -143,17 +138,8 @@ defmodule AmbrySchema.SearchTest do
           "variables" => %{query: person_name}
         })
 
-      assert %{
-               "data" => %{
-                 "search" => %{
-                   "edges" => [
-                     %{
-                       "node" => %{"id" => ^gid}
-                     }
-                   ]
-                 }
-               }
-             } = json_response(conn, 200)
+      assert %{"data" => %{"search" => %{"edges" => edges}}} = json_response(conn, 200)
+      assert edges |> Enum.map(& &1["node"]["id"]) |> Enum.sort() == gids
     end
 
     test "returns book by media narrator name", %{conn: conn} do
@@ -165,11 +151,13 @@ defmodule AmbrySchema.SearchTest do
             build(:media_narrator, narrator: build(:narrator, person: build(:person)))
           ]
         )
-        |> with_search_index()
 
-      %{book: %{id: id}, media_narrators: [%{narrator: %{name: narrator_name}}]} = media
+      %{
+        book: %{id: id},
+        media_narrators: [%{narrator: %{name: narrator_name, person_id: person_id}}]
+      } = media
 
-      gid = to_global_id("Book", id)
+      gids = Enum.sort([to_global_id("Book", id), to_global_id("Person", person_id)])
 
       conn =
         post(conn, "/gql", %{
@@ -177,17 +165,8 @@ defmodule AmbrySchema.SearchTest do
           "variables" => %{query: narrator_name}
         })
 
-      assert %{
-               "data" => %{
-                 "search" => %{
-                   "edges" => [
-                     %{
-                       "node" => %{"id" => ^gid}
-                     }
-                   ]
-                 }
-               }
-             } = json_response(conn, 200)
+      assert %{"data" => %{"search" => %{"edges" => edges}}} = json_response(conn, 200)
+      assert edges |> Enum.map(& &1["node"]["id"]) |> Enum.sort() == gids
     end
 
     test "returns book by media narrator person name", %{conn: conn} do
@@ -199,14 +178,13 @@ defmodule AmbrySchema.SearchTest do
             build(:media_narrator, narrator: build(:narrator, person: build(:person)))
           ]
         )
-        |> with_search_index()
 
       %{
         book: %{id: id},
-        media_narrators: [%{narrator: %{person: %{name: person_name}}}]
+        media_narrators: [%{narrator: %{person: %{id: person_id, name: person_name}}}]
       } = media
 
-      gid = to_global_id("Book", id)
+      gids = Enum.sort([to_global_id("Book", id), to_global_id("Person", person_id)])
 
       conn =
         post(conn, "/gql", %{
@@ -214,21 +192,12 @@ defmodule AmbrySchema.SearchTest do
           "variables" => %{query: person_name}
         })
 
-      assert %{
-               "data" => %{
-                 "search" => %{
-                   "edges" => [
-                     %{
-                       "node" => %{"id" => ^gid}
-                     }
-                   ]
-                 }
-               }
-             } = json_response(conn, 200)
+      assert %{"data" => %{"search" => %{"edges" => edges}}} = json_response(conn, 200)
+      assert edges |> Enum.map(& &1["node"]["id"]) |> Enum.sort() == gids
     end
 
     test "returns person by name", %{conn: conn} do
-      %{id: id, name: person_name} = :person |> insert() |> with_search_index()
+      %{id: id, name: person_name} = :person |> insert()
       gid = to_global_id("Person", id)
 
       conn =
@@ -251,7 +220,7 @@ defmodule AmbrySchema.SearchTest do
     end
 
     test "returns person by author name", %{conn: conn} do
-      person = :person |> insert(authors: [build(:author)]) |> with_search_index()
+      person = :person |> insert(authors: [build(:author)])
       %{id: id, author_people: [%{author: %{name: author_name}}]} = person
       gid = to_global_id("Person", id)
 
@@ -275,7 +244,7 @@ defmodule AmbrySchema.SearchTest do
     end
 
     test "returns person by narrator name", %{conn: conn} do
-      person = :person |> insert(narrators: [build(:narrator)]) |> with_search_index()
+      person = :person |> insert(narrators: [build(:narrator)])
       %{id: id, narrators: [%{name: narrator_name}]} = person
       gid = to_global_id("Person", id)
 
@@ -302,7 +271,6 @@ defmodule AmbrySchema.SearchTest do
       book =
         :book
         |> insert(series_books: [build(:series_book, series: build(:series))])
-        |> with_search_index()
 
       %{id: book_id, series_books: [%{series: %{id: id, name: series_name}}]} = book
 
@@ -339,12 +307,11 @@ defmodule AmbrySchema.SearchTest do
           series_books: [build(:series_book, series: build(:series))],
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
       %{
         id: book_id,
         series_books: [%{series: %{id: id}}],
-        book_authors: [%{author: %{name: author_name}}]
+        book_authors: [%{author: %{name: author_name, author_people: [%{person_id: person_id}]}}]
       } = book
 
       gid = to_global_id("Series", id)
@@ -368,7 +335,7 @@ defmodule AmbrySchema.SearchTest do
       # titles and series names
 
       returned_ids = edges |> Enum.map(& &1["node"]["id"]) |> Enum.sort()
-      expected_ids = Enum.sort([gid, book_gid])
+      expected_ids = Enum.sort([gid, book_gid, to_global_id("Person", person_id)])
 
       assert returned_ids == expected_ids
     end
@@ -382,12 +349,13 @@ defmodule AmbrySchema.SearchTest do
             build(:book_author, author: build(:author, person: build(:person)))
           ]
         )
-        |> with_search_index()
 
       %{
         id: book_id,
         series_books: [%{series: %{id: id}}],
-        book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]
+        book_authors: [
+          %{author: %{author_people: [%{person: %{id: person_id, name: person_name}}]}}
+        ]
       } = book
 
       gid = to_global_id("Series", id)
@@ -411,7 +379,7 @@ defmodule AmbrySchema.SearchTest do
       # titles and series names
 
       returned_ids = edges |> Enum.map(& &1["node"]["id"]) |> Enum.sort()
-      expected_ids = Enum.sort([gid, book_gid])
+      expected_ids = Enum.sort([gid, book_gid, to_global_id("Person", person_id)])
 
       assert returned_ids == expected_ids
     end

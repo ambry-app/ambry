@@ -276,7 +276,7 @@ defmodule Ambry.BooksTest do
     end
 
     test "updates the search index" do
-      %{id: book_id, title: original_title} = book = :book |> insert() |> with_search_index()
+      %{id: book_id, title: original_title} = book = :book |> insert()
       %{title: new_title} = params_for(:book)
 
       assert [%{id: ^book_id}] = Ambry.Search.search(original_title)
@@ -319,7 +319,7 @@ defmodule Ambry.BooksTest do
     end
 
     test "updates the search index" do
-      book = %{id: book_id, title: title} = :book |> insert() |> with_search_index()
+      book = %{id: book_id, title: title} = :book |> insert()
 
       assert [%{id: ^book_id}] = Ambry.Search.search(title)
 
@@ -677,7 +677,6 @@ defmodule Ambry.BooksTest do
       series =
         :series
         |> insert(series_books: [build(:series_book, book: book)])
-        |> with_search_index()
 
       %{id: series_id, name: original_name} = series
 
@@ -727,7 +726,6 @@ defmodule Ambry.BooksTest do
       series =
         :series
         |> insert(series_books: [build(:series_book, book: book)])
-        |> with_search_index()
 
       %{id: series_id, name: name} = series
 

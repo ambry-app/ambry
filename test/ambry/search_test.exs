@@ -8,7 +8,7 @@ defmodule Ambry.SearchTest do
 
   describe "search/1" do
     test "returns book by title" do
-      %{id: id, title: book_title} = :book |> insert() |> with_search_index()
+      %{id: id, title: book_title} = :book |> insert()
 
       assert [%{id: ^id}] = Search.search(book_title)
     end
@@ -17,7 +17,6 @@ defmodule Ambry.SearchTest do
       book =
         :book
         |> insert(series_books: [build(:series_book, series: build(:series))])
-        |> with_search_index()
 
       %{id: id, series_books: [%{series: %{id: series_id, name: series_name}}]} = book
 
@@ -31,7 +30,6 @@ defmodule Ambry.SearchTest do
 
       :media
       |> insert(book: book, title: "Harry Potter and the Sorcerer's Stone")
-      |> with_search_index()
 
       %{id: id} = book
 
@@ -39,34 +37,39 @@ defmodule Ambry.SearchTest do
       assert [%{id: ^id}] = Search.search("Philosopher's Stone")
     end
 
-    test "returns book by author name" do
+    test "returns book (and person) by author name" do
       book =
         :book
         |> insert(
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
-      %{id: id, book_authors: [%{author: %{name: author_name}}]} = book
+      %{
+        id: id,
+        book_authors: [%{author: %{name: author_name, author_people: [%{person_id: person_id}]}}]
+      } = book
 
-      assert [%{id: ^id}] = Search.search(author_name)
+      assert result_ids(author_name) == Enum.sort([id, person_id])
     end
 
-    test "returns book by author person name" do
+    test "returns book (and person) by author person name" do
       book =
         :book
         |> insert(
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
-      %{id: id, book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]} =
-        book
+      %{
+        id: id,
+        book_authors: [
+          %{author: %{author_people: [%{person: %{id: person_id, name: person_name}}]}}
+        ]
+      } = book
 
-      assert [%{id: ^id}] = Search.search(person_name)
+      assert result_ids(person_name) == Enum.sort([id, person_id])
     end
 
-    test "returns book by media narrator name" do
+    test "returns book (and person) by media narrator name" do
       media =
         :media
         |> insert(
@@ -75,14 +78,16 @@ defmodule Ambry.SearchTest do
             build(:media_narrator, narrator: build(:narrator, person: build(:person)))
           ]
         )
-        |> with_search_index()
 
-      %{book: %{id: id}, media_narrators: [%{narrator: %{name: narrator_name}}]} = media
+      %{
+        book: %{id: id},
+        media_narrators: [%{narrator: %{name: narrator_name, person_id: person_id}}]
+      } = media
 
-      assert [%{id: ^id}] = Search.search(narrator_name)
+      assert result_ids(narrator_name) == Enum.sort([id, person_id])
     end
 
-    test "returns book by media narrator person name" do
+    test "returns book (and person) by media narrator person name" do
       media =
         :media
         |> insert(
@@ -91,29 +96,31 @@ defmodule Ambry.SearchTest do
             build(:media_narrator, narrator: build(:narrator, person: build(:person)))
           ]
         )
-        |> with_search_index()
 
-      %{book: %{id: id}, media_narrators: [%{narrator: %{person: %{name: person_name}}}]} = media
+      %{
+        book: %{id: id},
+        media_narrators: [%{narrator: %{person: %{id: person_id, name: person_name}}}]
+      } = media
 
-      assert [%{id: ^id}] = Search.search(person_name)
+      assert result_ids(person_name) == Enum.sort([id, person_id])
     end
 
     test "returns person by name" do
-      %{id: id, name: person_name} = :person |> insert() |> with_search_index()
+      %{id: id, name: person_name} = :person |> insert()
 
       assert [%{id: ^id}] = Search.search(person_name)
     end
 
     test "returns person by author name" do
       %{id: id, author_people: [%{author: %{name: author_name}}]} =
-        :person |> insert(authors: [build(:author)]) |> with_search_index()
+        :person |> insert(authors: [build(:author)])
 
       assert [%{id: ^id}] = Search.search(author_name)
     end
 
     test "returns person by narrator name" do
       %{id: id, narrators: [%{name: narrator_name}]} =
-        :person |> insert(narrators: [build(:narrator)]) |> with_search_index()
+        :person |> insert(narrators: [build(:narrator)])
 
       assert [%{id: ^id}] = Search.search(narrator_name)
     end
@@ -125,17 +132,14 @@ defmodule Ambry.SearchTest do
           series_books: [build(:series_book, series: build(:series))],
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
       %{
         id: book_id,
         series_books: [%{series: %{id: id}}],
-        book_authors: [%{author: %{name: author_name}}]
+        book_authors: [%{author: %{name: author_name, author_people: [%{person_id: person_id}]}}]
       } = book
 
-      assert results = Search.search(author_name)
-      result_ids = results |> Enum.map(& &1.id) |> Enum.sort()
-      assert result_ids == Enum.sort([id, book_id])
+      assert result_ids(author_name) == Enum.sort([id, book_id, person_id])
     end
 
     test "returns series (and book) by author person name" do
@@ -145,23 +149,22 @@ defmodule Ambry.SearchTest do
           series_books: [build(:series_book, series: build(:series))],
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
       %{
         id: book_id,
         series_books: [%{series: %{id: id}}],
-        book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]
+        book_authors: [
+          %{author: %{author_people: [%{person: %{id: person_id, name: person_name}}]}}
+        ]
       } = book
 
-      assert results = Search.search(person_name)
-      result_ids = results |> Enum.map(& &1.id) |> Enum.sort()
-      assert result_ids == Enum.sort([id, book_id])
+      assert result_ids(person_name) == Enum.sort([id, book_id, person_id])
     end
   end
 
   describe "find_first/2" do
     test "returns book by title" do
-      %{id: id, title: book_title} = :book |> insert() |> with_search_index()
+      %{id: id, title: book_title} = :book |> insert()
       assert %{id: ^id} = Search.find_first(book_title, Book)
     end
 
@@ -169,7 +172,6 @@ defmodule Ambry.SearchTest do
       book =
         :book
         |> insert(series_books: [build(:series_book, series: build(:series))])
-        |> with_search_index()
 
       %{id: id, series_books: [%{series: %{name: series_name}}]} = book
 
@@ -181,7 +183,6 @@ defmodule Ambry.SearchTest do
 
       :media
       |> insert(book: book, title: "Harry Potter and the Sorcerer's Stone")
-      |> with_search_index()
 
       %{id: id} = book
 
@@ -195,7 +196,6 @@ defmodule Ambry.SearchTest do
         |> insert(
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
       %{id: id, book_authors: [%{author: %{name: author_name}}]} = book
 
@@ -208,7 +208,6 @@ defmodule Ambry.SearchTest do
         |> insert(
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
       %{id: id, book_authors: [%{author: %{author_people: [%{person: %{name: person_name}}]}}]} =
         book
@@ -225,7 +224,6 @@ defmodule Ambry.SearchTest do
             build(:media_narrator, narrator: build(:narrator, person: build(:person)))
           ]
         )
-        |> with_search_index()
 
       %{book: %{id: id}, media_narrators: [%{narrator: %{name: narrator_name}}]} = media
 
@@ -241,7 +239,6 @@ defmodule Ambry.SearchTest do
             build(:media_narrator, narrator: build(:narrator, person: build(:person)))
           ]
         )
-        |> with_search_index()
 
       %{
         book: %{id: id},
@@ -252,21 +249,21 @@ defmodule Ambry.SearchTest do
     end
 
     test "returns person by name" do
-      %{id: id, name: person_name} = :person |> insert() |> with_search_index()
+      %{id: id, name: person_name} = :person |> insert()
 
       assert %{id: ^id} = Search.find_first(person_name, Person)
     end
 
     test "returns person by author name" do
       %{id: id, author_people: [%{author: %{name: author_name}}]} =
-        :person |> insert(authors: [build(:author)]) |> with_search_index()
+        :person |> insert(authors: [build(:author)])
 
       assert %{id: ^id} = Search.find_first(author_name, Person)
     end
 
     test "returns person by narrator name" do
       %{id: id, narrators: [%{name: narrator_name}]} =
-        :person |> insert(narrators: [build(:narrator)]) |> with_search_index()
+        :person |> insert(narrators: [build(:narrator)])
 
       assert %{id: ^id} = Search.find_first(narrator_name, Person)
     end
@@ -275,7 +272,6 @@ defmodule Ambry.SearchTest do
       book =
         :book
         |> insert(series_books: [build(:series_book, series: build(:series))])
-        |> with_search_index()
 
       %{series_books: [%{series: %{id: id, name: series_name}}]} = book
 
@@ -289,7 +285,6 @@ defmodule Ambry.SearchTest do
           series_books: [build(:series_book, series: build(:series))],
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
       %{
         series_books: [%{series: %{id: id}}],
@@ -306,7 +301,6 @@ defmodule Ambry.SearchTest do
           series_books: [build(:series_book, series: build(:series))],
           book_authors: [build(:book_author, author: build(:author, person: build(:person)))]
         )
-        |> with_search_index()
 
       %{
         series_books: [%{series: %{id: id}}],
@@ -315,5 +309,12 @@ defmodule Ambry.SearchTest do
 
       assert %{id: ^id} = Search.find_first(person_name, Series)
     end
+  end
+
+  # A full index means a name finds every record that quotes it: the book, the
+  # series it is in, and the person behind the credit. Before the triggers, a
+  # test indexed only the record it was about and could assert a single hit.
+  defp result_ids(query) do
+    query |> Search.search() |> Enum.map(& &1.id) |> Enum.sort()
   end
 end

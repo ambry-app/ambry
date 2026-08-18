@@ -1,6 +1,7 @@
 defmodule Ambry.MediaTest do
   use Ambry.DataCase
 
+  alias Ambry.Books.Book
   alias Ambry.Media
   alias Ambry.Paths
   alias Ambry.Thumbnails.GenerateThumbnails
@@ -336,7 +337,10 @@ defmodule Ambry.MediaTest do
       %{id: book_id} = insert(:book)
       %{id: narrator_id, name: narrator_name} = insert(:narrator, person: build(:person))
 
-      assert [] = Ambry.Search.search(narrator_name)
+      # The narrator's own person is already indexed — everything is, now that
+      # the index maintains itself — so the question is only ever about the
+      # book.
+      assert is_nil(searched_book(narrator_name))
 
       params =
         :media
@@ -348,7 +352,7 @@ defmodule Ambry.MediaTest do
 
       assert {:ok, _media} = Media.create_media(params)
 
-      assert [%{id: ^book_id}] = Ambry.Search.search(narrator_name)
+      assert %{id: ^book_id} = searched_book(narrator_name)
     end
   end
 
@@ -815,7 +819,6 @@ defmodule Ambry.MediaTest do
             )
           ]
         )
-        |> with_search_index()
 
       %{id: new_narrator_id} =
         insert(:narrator,
@@ -823,14 +826,14 @@ defmodule Ambry.MediaTest do
           person: build(:person, name: new_narrator_name)
         )
 
-      assert [%{id: ^book_id}] = Ambry.Search.search(narrator_name)
-      assert [] = Ambry.Search.search(new_narrator_name)
+      assert %{id: ^book_id} = searched_book(narrator_name)
+      assert is_nil(searched_book(new_narrator_name))
 
       {:ok, _updated_media} =
         Media.update_media(media, %{media_narrators: [%{narrator_id: new_narrator_id}]})
 
-      assert [%{id: ^book_id}] = Ambry.Search.search(new_narrator_name)
-      assert [] = Ambry.Search.search(narrator_name)
+      assert %{id: ^book_id} = searched_book(new_narrator_name)
+      assert is_nil(searched_book(narrator_name))
     end
   end
 
@@ -858,13 +861,12 @@ defmodule Ambry.MediaTest do
             build(:media_narrator, narrator: build(:narrator, person: build(:person)))
           ]
         )
-        |> with_search_index()
 
-      assert [%{id: ^book_id}] = Ambry.Search.search(narrator_name)
+      assert %{id: ^book_id} = searched_book(narrator_name)
 
       {:ok, _media} = Media.delete_media(media)
 
-      assert [] = Ambry.Search.search(narrator_name)
+      assert is_nil(searched_book(narrator_name))
     end
 
     test "deletes all related files from disk using a background job" do
@@ -1025,4 +1027,9 @@ defmodule Ambry.MediaTest do
 
     insert(media)
   end
+
+  # Whether a narrator's name reaches the *book*. Their person always matches
+  # it — a person is indexed the moment they exist — so a bare result count
+  # would be asking a different question.
+  defp searched_book(query), do: Ambry.Search.find_first(query, Book)
 end

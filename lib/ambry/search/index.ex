@@ -1,13 +1,40 @@
 defmodule Ambry.Search.Index do
   @moduledoc """
-  Context for updating search index records.
+  What a search record is made of, and how it gets written.
+
+  Called only by `Ambry.Search.Drain`, which decides *which* records need
+  rebuilding; this module decides what goes in one. The split matters because
+  the two questions go stale for different reasons — the graph changes when a
+  schema gains an association, the record shape changes when somebody decides
+  a new field should be searchable.
+
+  ## Weights
+
+  Each record is three text columns, which the `update_index_search_vector`
+  trigger turns into a weighted `tsvector`:
+
+    * `primary` (A) — the thing's own name: a book's title, a person's pen
+      names, a series' name
+    * `secondary` (B) — the names it is credited alongside
+    * `tertiary` (C) — the real people behind those credits, when they are
+      named differently
+
+  ## Rebuilding is also pruning
+
+  `index!/2` is given the ids the drain thinks are dirty, not the ids that
+  exist. A book that was deleted arrives here as an id with no row, and the
+  answer is to delete its record — which is how deletion works now that
+  nothing calls a `Search.delete/1` by hand.
+
+  A series with no books is pruned the same way, for a different reason: it
+  is about to be deleted by the admin's own emptiness rule, and a series that
+  shows up in search with nothing behind it is a dead link.
   """
 
   import Ecto.Query
 
   alias Ambry.Books.Book
   alias Ambry.Books.Series
-  alias Ambry.Media.Media
   alias Ambry.People.Author
   alias Ambry.People.Narrator
   alias Ambry.People.Person
@@ -15,94 +42,13 @@ defmodule Ambry.Search.Index do
   alias Ambry.Search.Record
   alias Ambry.Search.Reference
 
-  # Insert
+  @doc """
+  Rebuilds the records for `ids` of `type`, deleting the ones with nothing
+  behind them.
+  """
+  def index!(_type, []), do: :ok
 
-  def insert!(:book, book_id) do
-    book = Book |> Repo.get!(book_id) |> Repo.preload([:series])
-    series_ids = Enum.map(book.series, & &1.id)
-
-    index!(:book, [book_id])
-    index!(:series, series_ids)
-  end
-
-  def insert!(:media, media_id) do
-    book_id =
-      Repo.one!(
-        from media in Media,
-          where: media.id == ^media_id,
-          select: media.book_id
-      )
-
-    index!(:book, [book_id])
-  end
-
-  def insert!(:person, person_id) do
-    index!(:person, [person_id])
-  end
-
-  def insert!(:series, series_id) do
-    series = Series |> Repo.get!(series_id) |> Repo.preload([:books])
-    book_ids = Enum.map(series.books, & &1.id)
-
-    index!(:series, [series_id])
-    index!(:book, book_ids)
-  end
-
-  # Update
-
-  def update!(:book, book_id) do
-    reindex_dependents!(:book, book_id)
-    index!(:book, [book_id])
-  end
-
-  def update!(:media, media_id) do
-    reindex_dependents!(:media, media_id)
-    insert!(:media, media_id)
-  end
-
-  def update!(:person, person_id) do
-    reindex_dependents!(:person, person_id)
-    index!(:person, [person_id])
-  end
-
-  def update!(:series, series_id) do
-    reindex_dependents!(:series, series_id)
-    index!(:series, [series_id])
-  end
-
-  # Delete
-
-  def delete!(type, id) do
-    reference = %Reference{type: type, id: id}
-
-    {_count, nil} =
-      Repo.delete_all(
-        from record in Record,
-          where: record.reference == type(^reference, Reference.Type)
-      )
-
-    reindex_dependents!(type, id)
-  end
-
-  # Nuke it
-
-  # WARNING: drops and rebuilds the entire index, possibly really heavy
-  def refresh_entire_index! do
-    Repo.delete_all(Record)
-
-    book_ids = Repo.all(from book in Book, select: book.id)
-    index!(:book, book_ids)
-
-    person_ids = Repo.all(from person in Person, select: person.id)
-    index!(:person, person_ids)
-
-    series_ids = Repo.all(from series in Series, select: series.id)
-    index!(:series, series_ids)
-  end
-
-  # Private Impl
-
-  defp index!(:book, book_ids) do
+  def index!(:book, book_ids) do
     books =
       Repo.all(
         from book in Book,
@@ -110,23 +56,10 @@ defmodule Ambry.Search.Index do
           preload: [:series, authors: [:people], media: [narrators: [:person]]]
       )
 
-    books
-    |> Enum.map(&book_record/1)
-    |> insert_records!()
+    write!(:book, book_ids, books, &book_record/1)
   end
 
-  defp index!(:media, media_ids) do
-    books_ids =
-      Repo.all(
-        from media in Media,
-          where: media.id in ^media_ids,
-          select: media.book_id
-      )
-
-    index!(:book, books_ids)
-  end
-
-  defp index!(:person, person_ids) do
+  def index!(:person, person_ids) do
     people =
       Repo.all(
         from person in Person,
@@ -134,12 +67,10 @@ defmodule Ambry.Search.Index do
           preload: [:authors, :narrators]
       )
 
-    people
-    |> Enum.map(&person_record/1)
-    |> insert_records!()
+    write!(:person, person_ids, people, &person_record/1)
   end
 
-  defp index!(:series, series_ids) do
+  def index!(:series, series_ids) do
     series =
       Repo.all(
         from series in Series,
@@ -147,16 +78,36 @@ defmodule Ambry.Search.Index do
           preload: [:series_books, authors: [:people]]
       )
 
-    {series_to_insert, series_to_delete} =
-      Enum.split_with(series, &(not Enum.empty?(&1.series_books)))
+    # An empty series is pruned rather than indexed; see the moduledoc.
+    series = Enum.reject(series, &Enum.empty?(&1.series_books))
 
-    series_to_insert
-    |> Enum.map(&series_record/1)
+    write!(:series, series_ids, series, &series_record/1)
+  end
+
+  defp write!(type, requested_ids, found, record_fun) do
+    found_ids = MapSet.new(found, & &1.id)
+
+    requested_ids
+    |> Enum.reject(&MapSet.member?(found_ids, &1))
+    |> then(&delete!(type, &1))
+
+    found
+    |> Enum.map(record_fun)
     |> insert_records!()
+  end
 
-    Enum.each(series_to_delete, fn series ->
-      delete!(:series, series.id)
-    end)
+  defp delete!(_type, []), do: :ok
+
+  defp delete!(type, ids) do
+    type = to_string(type)
+
+    {_count, nil} =
+      Repo.delete_all(
+        from record in Record,
+          where:
+            fragment("(?).type = ?", record.reference, ^type) and
+              fragment("(?).id = ANY(?)", record.reference, ^ids)
+      )
 
     :ok
   end
@@ -164,14 +115,8 @@ defmodule Ambry.Search.Index do
   defp book_record(book) do
     narrators = Enum.flat_map(book.media, & &1.narrators)
 
-    {secondary_names, secondary_dependencies} = names(book.series ++ book.authors ++ narrators)
-
-    {tertiary_names, tertiary_dependencies} = person_names(book.authors ++ narrators)
-
-    media_dependencies = Enum.map(book.media, &Reference.new/1)
-
-    dependencies =
-      Enum.uniq(secondary_dependencies ++ tertiary_dependencies ++ media_dependencies)
+    secondary_names = names(book.series ++ book.authors ++ narrators)
+    tertiary_names = person_names(book.authors ++ narrators)
 
     # recording display-title overrides are searchable alongside the book
     # title (e.g. find "Sorcerer's Stone" under the British-titled book)
@@ -179,7 +124,6 @@ defmodule Ambry.Search.Index do
 
     %{
       reference: Reference.new(book),
-      dependencies: dependencies,
       primary: join(Enum.uniq([book.title | media_titles])),
       secondary: join(secondary_names),
       tertiary: join(tertiary_names)
@@ -205,34 +149,24 @@ defmodule Ambry.Search.Index do
 
     %{
       reference: Reference.new(person),
-      dependencies: [],
       primary: primary,
       secondary: secondary
     }
   end
 
   defp series_record(series) do
-    {secondary_names, secondary_dependencies} = names(series.authors)
-    {tertiary_names, tertiary_dependencies} = person_names(series.authors)
-    book_dependencies = Enum.flat_map(series.books, &references/1)
-    dependencies = Enum.uniq(book_dependencies ++ secondary_dependencies ++ tertiary_dependencies)
-
     %{
       reference: Reference.new(series),
-      dependencies: dependencies,
       primary: series.name,
-      secondary: join(secondary_names),
-      tertiary: join(tertiary_names)
+      secondary: join(names(series.authors)),
+      tertiary: join(person_names(series.authors))
     }
   end
 
-  defp names(structs) do
-    names = structs |> Enum.map(& &1.name) |> Enum.uniq()
-    references = structs |> Enum.flat_map(&references/1) |> Enum.uniq()
+  defp names(structs), do: structs |> Enum.map(& &1.name) |> Enum.uniq()
 
-    {names, references}
-  end
-
+  # The real people behind a credit, named only when they are named
+  # differently — a pen name that matches the person adds nothing.
   defp person_names(authors_or_narrators) do
     authors_or_narrators
     |> Enum.flat_map(fn identity ->
@@ -240,20 +174,12 @@ defmodule Ambry.Search.Index do
       |> people_of()
       |> Enum.reject(&(&1.name == identity.name))
     end)
-    |> Enum.map(&{&1.name, Reference.new(&1)})
+    |> Enum.map(& &1.name)
     |> Enum.uniq()
-    |> Enum.unzip()
   end
 
   defp people_of(%Author{people: people}), do: people
   defp people_of(%Narrator{person: person}), do: [person]
-
-  defp references(%Author{} = author), do: author |> people_of() |> Enum.map(&Reference.new/1)
-
-  defp references(%Narrator{} = narrator),
-    do: narrator |> people_of() |> Enum.map(&Reference.new/1)
-
-  defp references(struct), do: [Reference.new(struct)]
 
   defp join([]), do: nil
   defp join(items), do: Enum.join(items, " ")
@@ -268,27 +194,6 @@ defmodule Ambry.Search.Index do
           conflict_target: [:reference]
         )
     end)
-
-    :ok
-  end
-
-  defp reindex_dependents!(type, id) do
-    reference = %Reference{type: type, id: id}
-
-    records =
-      Repo.all(
-        from record in Record,
-          where:
-            fragment(
-              "? = ANY(?)",
-              type(^reference, Reference.Type),
-              record.dependencies
-            )
-      )
-
-    for {type, records} <- Enum.group_by(records, & &1.reference.type) do
-      index!(type, Enum.map(records, & &1.reference.id))
-    end
 
     :ok
   end

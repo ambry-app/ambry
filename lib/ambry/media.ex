@@ -50,7 +50,6 @@ defmodule Ambry.Media do
   alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
-  alias Ambry.Search
   alias Ambry.Settings
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
@@ -519,7 +518,6 @@ defmodule Ambry.Media do
       changeset = Media.changeset(%Media{}, attrs, opts)
 
       with {:ok, media} <- Repo.insert(changeset),
-           :ok <- Search.insert(media),
            {:ok, _job_or_noop} <- generate_thumbnails_async(media),
            {:ok, _job} <- broadcast_media_created(media) do
         {:ok, media}
@@ -562,7 +560,6 @@ defmodule Ambry.Media do
 
       with {:ok, updated_media} <- Repo.update(changeset),
            :ok <- delete_orphaned_recording_group(media.recording_group_id),
-           :ok <- Search.update(updated_media),
            {:ok, _job_or_noop} <- delete_unused_files_async(media, updated_media),
            {:ok, _job_or_noop} <- generate_thumbnails_async(updated_media),
            {:ok, _job} <- broadcast_media_updated(updated_media) do
@@ -621,7 +618,6 @@ defmodule Ambry.Media do
     Repo.transact(fn ->
       with {:ok, deleted_media} <- Repo.delete(media),
            :ok <- delete_orphaned_recording_group(media.recording_group_id),
-           :ok <- Search.delete(deleted_media),
            {:ok, _job} <- delete_all_files_async(deleted_media, deletions),
            {:ok, _job} <- broadcast_media_deleted(deleted_media) do
         {:ok, deleted_media}

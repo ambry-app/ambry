@@ -26,7 +26,6 @@ defmodule Ambry.Factory do
   alias Ambry.Playback.DeviceUser
   alias Ambry.Playback.PlaybackEvent
   alias Ambry.Playback.Playthrough
-  alias Ambry.Search.Index
 
   # Users
 
@@ -403,31 +402,6 @@ defmodule Ambry.Factory do
       position: nil,
       playback_rate: nil
     )
-  end
-
-  # Search indexes
-
-  def with_search_index(%_{__meta__: %{state: :built}}),
-    do: raise("Inserting search indexes requires database persisted records")
-
-  def with_search_index(%Person{id: id} = person) do
-    Index.insert!(:person, id)
-    person
-  end
-
-  def with_search_index(%Book{id: id} = book) do
-    Index.insert!(:book, id)
-    book
-  end
-
-  def with_search_index(%Series{id: id} = series) do
-    Index.insert!(:series, id)
-    series
-  end
-
-  def with_search_index(%Media{id: id} = media) do
-    Index.insert!(:media, id)
-    media
   end
 
   # Images and Thumbnails

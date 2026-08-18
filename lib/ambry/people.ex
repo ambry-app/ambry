@@ -33,7 +33,6 @@ defmodule Ambry.People do
   alias Ambry.People.PubSub.PersonUpdated
   alias Ambry.PubSub
   alias Ambry.Repo
-  alias Ambry.Search
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
 
@@ -178,7 +177,6 @@ defmodule Ambry.People do
       changeset = Person.changeset(%Person{}, attrs, opts)
 
       with {:ok, person} <- Repo.insert(changeset),
-           :ok <- Search.insert(person),
            {:ok, _job_or_noop} <- generate_thumbnails_async(person),
            {:ok, _job} <- broadcast_person_created(person) do
         {:ok, person}
@@ -213,7 +211,6 @@ defmodule Ambry.People do
 
       with {:ok, updated_person} <- Repo.update(changeset),
            :ok <- delete_orphaned_authors(person, changeset),
-           :ok <- Search.update(updated_person),
            {:ok, _job_or_noop} <- delete_unused_files_async(person, updated_person),
            {:ok, _job_or_noop} <- generate_thumbnails_async(updated_person),
            {:ok, _job} <- broadcast_person_updated(updated_person) do
@@ -308,7 +305,6 @@ defmodule Ambry.People do
 
       with :ok <- delete_exclusive_authors(person),
            {:ok, deleted_person} <- Repo.delete(changeset),
-           :ok <- Search.delete(deleted_person),
            {:ok, _job_or_noop} <- delete_all_files_async(deleted_person),
            {:ok, _job} <- broadcast_person_deleted(deleted_person) do
         {:ok, deleted_person}

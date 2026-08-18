@@ -6,7 +6,7 @@ defmodule AmbryWeb.SearchLiveTest do
   setup :register_and_log_in_user
 
   test "renders search results page when searching for a book", %{conn: conn} do
-    %{title: book_title} = :book |> insert() |> with_search_index()
+    %{title: book_title} = :book |> insert()
 
     {:ok, _view, html} = live(conn, ~p"/search/#{book_title}")
 
@@ -14,7 +14,7 @@ defmodule AmbryWeb.SearchLiveTest do
   end
 
   test "renders search results page when searching for a person", %{conn: conn} do
-    %{name: person_name} = :person |> insert() |> with_search_index()
+    %{name: person_name} = :person |> insert()
 
     {:ok, _view, html} = live(conn, ~p"/search/#{person_name}")
 
@@ -25,7 +25,6 @@ defmodule AmbryWeb.SearchLiveTest do
     book =
       :book
       |> insert(series_books: [build(:series_book, series: build(:series))])
-      |> with_search_index()
 
     %{series_books: [%{series: %{name: series_name}}]} = book
 
