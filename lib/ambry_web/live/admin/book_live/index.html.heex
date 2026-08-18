@@ -18,11 +18,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table
-    rows={@books}
-    filter={@list_opts.filter}
-    row_click={fn book -> JS.navigate(~p"/admin/books/#{book}/edit") end}
-  >
+  <.flex_table rows={@books} filter={@list_opts.filter}>
     <:empty>
       No books yet.
       <.brand_link navigate={~p"/admin/books/new"}>
@@ -31,44 +27,70 @@
     </:empty>
 
     <:row :let={book}>
-      <div class="flex-shrink-0">
-        <.multi_image paths={book.thumbnails} />
-      </div>
-      <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
-        <p class="overflow-hidden text-ellipsis" data-role="book-title">{book.title}</p>
-        <p class="overflow-hidden text-ellipsis text-sm text-zinc-400" data-role="book-authors">
-          {book.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
-        </p>
-        <p class="overflow-hidden text-ellipsis text-sm text-zinc-400" data-role="book-series">
+      <.index_row navigate={~p"/admin/books/#{book}/edit"}>
+        <:cover>
+          <.multi_image paths={book.thumbnails} />
+        </:cover>
+
+        <:headline>
+          <span data-role="book-title">{book.title}</span>
+        </:headline>
+
+        <%!-- The credit stack's one order: series, then bare author names
+              (§8). This list read title / authors / series for years, which
+              put the same three facts in a different order on every surface
+              that showed them. --%>
+        <p
+          :if={book.series != []}
+          class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+          data-role="book-series"
+        >
           {book.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ")}
         </p>
-      </div>
-      <div class="hidden w-32 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
-        <div class="flex gap-4">
-          <span :if={book.media > 0} title="# of audiobooks" data-role="book-media-count">
-            {book.media} <.icon name="fa-file-audio" class="h-4 w-4 text-current" />
-          </span>
-        </div>
-      </div>
-      <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
-        <div class="flex gap-2 pb-2">
-          <.link navigate={~p"/admin/books/#{book}/edit"} data-role="edit-book">
-            <.icon
-              name="fa-pencil"
-              class="h-4 w-4 text-current transition-colors hover:text-lime-400"
-            />
-          </.link>
-          <span phx-click="delete" phx-value-id={book.id} data-confirm="Are you sure?" data-role="delete-book">
-            <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
-          </span>
-        </div>
-        <p class="text-sm text-zinc-400" data-role="book-published">
-          Published {format_published(book, :short)}
+        <p class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-300" data-role="book-authors">
+          {book.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
-        <p class="text-sm text-zinc-400" data-role="book-added">
-          Added {Calendar.strftime(book.inserted_at, "%x")}
+
+        <%!-- When it came out is prose about the book, so it reads like it
+              and sits with the credits. It spent a while as "Published
+              8/30/22" in the corner that says "Added 8/17/26", where two
+              dates in one column read as two timestamps. --%>
+        <p
+          :if={record_meta(book) != ""}
+          class="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+          data-role="book-published"
+        >
+          {record_meta(book)}
         </p>
-      </div>
+
+        <:facts>
+          <.row_fact
+            :if={book.media > 0}
+            icon="fa-file-audio"
+            count={book.media}
+            title="# of audiobooks"
+            data-role="book-media-count"
+          />
+        </:facts>
+
+        <:action navigate={~p"/admin/books/#{book}/edit"} icon="fa-pencil" role="edit-book">
+          Edit
+        </:action>
+        <:action
+          icon="fa-trash"
+          color={:red}
+          click="delete"
+          value={book.id}
+          confirm="Delete this book? A book that has audiobooks can't be deleted."
+          role="delete-book"
+        >
+          Delete
+        </:action>
+
+        <:footer>
+          <span data-role="book-added">Added {Calendar.strftime(book.inserted_at, "%x")}</span>
+        </:footer>
+      </.index_row>
     </:row>
   </.flex_table>
 </.layout>

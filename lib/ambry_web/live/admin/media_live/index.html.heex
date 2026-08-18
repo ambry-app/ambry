@@ -32,11 +32,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table
-    rows={@media}
-    filter={@list_opts.filter}
-    row_click={fn media -> JS.navigate(~p"/admin/audiobooks/#{media}/edit") end}
-  >
+  <.flex_table rows={@media} filter={@list_opts.filter}>
     <:empty>
       <%= if words = problem_empty_words(@list_opts[:problem]) do %>
         {words}
@@ -49,77 +45,88 @@
     </:empty>
 
     <:row :let={media}>
-      <div class="flex flex-shrink-0 flex-col items-start">
-        <div class={["h-16 w-16", if(!media.thumbnail, do: "bg-zinc-800")]}>
-          <img :if={media.thumbnail} src={media.thumbnail} class="h-full w-full" />
-        </div>
-        <.badge :if={media.status != :ready} color={status_color(media.status)} class="!px-0 w-16 text-center text-xs">
-          {media.status}
-        </.badge>
-        <.badge
-          :if={media.missing_since}
-          color={:red}
-          class="!px-0 w-16 text-center text-xs"
-          title={"Files couldn't be read since #{Calendar.strftime(media.missing_since, "%x %X")}"}
-          data-role="media-missing"
-        >
-          missing
-        </.badge>
-      </div>
+      <.index_row navigate={~p"/admin/audiobooks/#{media}/edit"}>
+        <:cover>
+          <div class={["h-16 w-16 rounded-sm", if(!media.thumbnail, do: "bg-zinc-800")]}>
+            <img :if={media.thumbnail} src={media.thumbnail} alt="" class="h-full w-full rounded-sm" />
+          </div>
+        </:cover>
 
-      <div class="min-w-0 flex-grow overflow-hidden text-ellipsis whitespace-nowrap">
-        <p class="overflow-hidden text-ellipsis">{media_display_title(media)}</p>
-        <p class="overflow-hidden text-ellipsis text-sm text-zinc-400">
-          {media.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
-        </p>
-        <p class="overflow-hidden text-ellipsis text-sm text-zinc-400">
-          read by {media.narrators |> Enum.map(& &1.name) |> Enum.join(", ")}
-        </p>
-        <p class="overflow-hidden text-ellipsis text-sm text-zinc-400">
+        <:headline>{media_display_title(media)}</:headline>
+
+        <%!-- The credit stack's one order: series, bare author names, then
+              the narrators muted (§8). This list read authors / read by /
+              series, which is neither the mobile app's order nor the inbox's. --%>
+        <p :if={media.series != []} class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400">
           {media.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ")}
         </p>
-      </div>
-
-      <div class="hidden w-36 flex-none flex-col items-end gap-1 text-zinc-400 sm:flex">
-        <div class="flex gap-4">
-          <span :if={!media.has_description} title="Missing description">
-            <.icon name="fa-paragraph" class="h-4 w-4 text-red-600" />
-          </span>
-          <span :if={media.abridged} title="Abridged">
-            <.icon name="fa-clock" class="h-4 w-4 text-current" />
-          </span>
-          <span :if={media.full_cast} title="Full cast">
-            <.icon name="fa-users" class="h-4 w-4 text-current" />
-          </span>
-          <span :if={media.chapters > 0} title="# of chapters">
-            {media.chapters} <.icon name="fa-book-bookmark" class="h-4 w-4 text-current" />
-          </span>
-        </div>
-      </div>
-
-      <div class="flex w-36 flex-none flex-col items-end justify-between whitespace-nowrap">
-        <div class="flex gap-2 pb-2">
-          <.link navigate={~p"/admin/audiobooks/#{media}/edit"}>
-            <.icon
-              name="fa-pencil"
-              class="h-4 w-4 text-current transition-colors hover:text-lime-400"
-            />
-          </.link>
-          <span phx-click="delete" phx-value-id={media.id} data-confirm="Are you sure?">
-            <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-600" />
-          </span>
-        </div>
-
-        <p :if={media.duration} class="text-sm text-zinc-400">
-          Duration {format_timecode(media.duration)}
+        <p :if={media.authors != []} class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-300">
+          {media.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
-        <p :if={media.published} class="text-sm text-zinc-400">
-          Published {format_published(media, :short)}
+        <p :if={media.narrators != []} class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400">
+          Read by {media.narrators |> Enum.map(& &1.name) |> Enum.join(", ")}
         </p>
-        <p class="text-sm text-zinc-400">
-          Added {Calendar.strftime(media.inserted_at, "%x")}
+
+        <%!-- State badges belong on the rail with every other list's, not
+              tucked under the cover where this was the only surface to put
+              them. --%>
+        <:badges>
+          <.badge :if={media.status != :ready} color={status_color(media.status)} class="text-xs">
+            {media.status}
+          </.badge>
+          <.badge
+            :if={media.missing_since}
+            color={:red}
+            class="text-xs"
+            title={"Files couldn't be read since #{Calendar.strftime(media.missing_since, "%x %X")}"}
+            data-role="media-missing"
+          >
+            missing
+          </.badge>
+        </:badges>
+
+        <%!-- When it came out, who put it out, how long it is: prose about
+              the recording, so it reads like prose and sits with the credits.
+              These were terse cells in the rail ("8/30/22", "14:04:02"),
+              which is the shape a spreadsheet wants, not a reader. --%>
+        <p
+          :if={record_meta(media) != ""}
+          class="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+        >
+          {record_meta(media)}
         </p>
-      </div>
+
+        <:facts>
+          <.row_fact
+            :if={media.chapters > 0}
+            icon="fa-book-bookmark"
+            count={media.chapters}
+            title="# of chapters"
+          />
+          <span :if={!media.has_description} class="flex items-center" title="Missing description">
+            <.icon name="fa-paragraph" class="h-3.5 w-3.5 text-amber-300" />
+          </span>
+          <span :if={media.abridged} class="flex items-center" title="Abridged">
+            <.icon name="fa-clock" class="h-3.5 w-3.5 text-current" />
+          </span>
+          <span :if={media.full_cast} class="flex items-center" title="Full cast">
+            <.icon name="fa-users" class="h-3.5 w-3.5 text-current" />
+          </span>
+        </:facts>
+
+        <:action navigate={~p"/admin/audiobooks/#{media}/edit"} icon="fa-pencil">Edit</:action>
+        <:action
+          icon="fa-trash"
+          color={:red}
+          click="delete"
+          value={media.id}
+          confirm="Delete this audiobook? Its audio files are deleted from disk too."
+        >
+          Delete
+        </:action>
+
+        <:footer>Added {Calendar.strftime(media.inserted_at, "%x")}</:footer>
+      </.index_row>
     </:row>
   </.flex_table>
 </.layout>

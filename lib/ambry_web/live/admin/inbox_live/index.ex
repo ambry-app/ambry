@@ -146,6 +146,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       items: items,
       # one query for the page, not one per row
       progress: Inbox.progress(items),
+      audiobooks: Inbox.audiobooks(items),
       counts: Inbox.count_by_status(),
       status: status,
       list_opts: list_opts,
@@ -311,22 +312,6 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     ]
   end
 
-  # Row actions wear words. An unlabeled 16px icon is neither a label nor a
-  # touch target, and the queue's actions are consequential enough to name.
-  # The same small-action costume every other card action wears, widened to a
-  # uniform column so the right rail reads as a column rather than a rag.
-  defp action_class(tone) do
-    [
-      action_classes(button_color(tone), "sm:w-28"),
-      tone == :danger && "hover:bg-red-400/10 hover:text-red-300"
-    ]
-  end
-
-  # Import is the row's primary action and wears the primary costume; the
-  # rest are ordinary secondaries, with Ignore revealing red on hover.
-  defp button_color(:brand), do: :brand
-  defp button_color(_quiet), do: :zinc
-
   @doc """
   The row's one badge: what this item is, in the words that vary from row to
   row.
@@ -356,6 +341,26 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   defp status_color(:imported), do: :brand
   defp status_color(:ignored), do: :gray
+
+  @doc """
+  What the Import button promises, or why it won't.
+
+  A disabled control that doesn't say what is missing is just a dead button;
+  the count comes from the same `Draft.unresolved/1` the form lists in full.
+  """
+  def import_title(%InboxItem{ready: false, draft: nil}),
+    do: "Nothing has been proposed for this yet"
+
+  def import_title(%InboxItem{ready: false, draft: draft}) do
+    case length(Draft.unresolved(draft)) do
+      1 -> "Open it and settle 1 decision first"
+      n -> "Open it and settle #{n} decisions first"
+    end
+  end
+
+  def import_title(item) do
+    if replacing?(item), do: "Replace this audiobook's files", else: "Add to the library"
+  end
 
   @doc """
   Whether this item replaces an audiobook the library already has.
@@ -502,4 +507,33 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   def candidate_origin(%{"provider_name" => name}) when is_binary(name), do: name
   def candidate_origin(%{"source" => "provider:" <> id}), do: id
   def candidate_origin(_candidate), do: nil
+
+  @doc """
+  When the operator imported this item.
+
+  `updated_at` is the moment the status changed, and nothing writes to an
+  item afterwards — a scan skips imported items outright, and every write
+  path refuses one. It is already what the imported tab sorts by.
+  """
+  def imported_at(%InboxItem{updated_at: at}), do: at
+
+  # The library's own state, which only an imported row can have: the badges
+  # the audiobooks list wears, in the same colors, on the cover it belongs to.
+  # `:ready` renders nothing — every audiobook is meant to be ready, so saying
+  # it on all of them hides the ones that aren't.
+  defp library_status_color(:pending), do: :yellow
+  defp library_status_color(:processing), do: :blue
+  defp library_status_color(:error), do: :red
+
+  @doc """
+  Bare names, comma joined: the credit stack's author and narrator lines
+  (design language §8).
+  """
+  def person_names(people), do: people |> Enum.map_join(", ", & &1.name)
+
+  @doc """
+  The series line of the credit stack, "Name #3", comma joined when a book
+  sits in more than one.
+  """
+  def series_words(series), do: series |> Enum.map_join(", ", &"#{&1.name} ##{&1.number}")
 end

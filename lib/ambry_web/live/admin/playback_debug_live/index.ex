@@ -148,26 +148,16 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.Index do
     end
   end
 
-  defp status_badge_class(playthrough) do
-    case playthrough.status do
-      :deleted ->
-        "rounded px-1 bg-red-900 text-red-200"
-
-      :in_progress ->
-        "rounded px-1 bg-blue-900 text-blue-200"
-
-      :finished ->
-        "rounded px-1 bg-green-900 text-green-200"
-
-      :abandoned ->
-        "rounded px-1 bg-orange-900 text-orange-200"
-
-      _ ->
-        "rounded px-1 bg-zinc-700 text-zinc-200"
-    end
-  end
+  # `<.badge>`'s tints, not five hand-rolled solid chips: these were the last
+  # `bg-red-900 text-red-200` slabs in the admin, against §5's soft-tint rule.
+  # Amber for abandoned rather than orange, which is not a color the admin has.
+  defp status_color(:deleted), do: :red
+  defp status_color(:in_progress), do: :blue
+  defp status_color(:finished), do: :brand
+  defp status_color(:abandoned), do: :yellow
+  defp status_color(_unknown), do: :gray
 
   defp status_label(playthrough) do
-    playthrough.status
+    playthrough.status |> to_string() |> String.replace("_", " ")
   end
 end

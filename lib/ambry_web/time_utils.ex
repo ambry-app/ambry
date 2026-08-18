@@ -26,6 +26,9 @@ defmodule AmbryWeb.TimeUtils do
 
   @doc """
   Formats a decimal number of seconds into a human readable string.
+
+  Counts agree with their nouns: this rendered "1 hours and 1 minutes" for as
+  long as it was only ever read on one page.
   """
   def duration_display(nil), do: nil
 
@@ -37,9 +40,12 @@ defmodule AmbryWeb.TimeUtils do
     minutes = div(remainder, 60)
 
     if hours == 0 do
-      "#{minutes} minutes"
+      count(minutes, "minute")
     else
-      "#{hours} hours and #{minutes} minutes"
+      "#{count(hours, "hour")} and #{count(minutes, "minute")}"
     end
   end
+
+  defp count(1, noun), do: "1 #{noun}"
+  defp count(n, noun), do: "#{n} #{noun}s"
 end

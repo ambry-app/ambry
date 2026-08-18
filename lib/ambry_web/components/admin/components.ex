@@ -4,6 +4,7 @@ defmodule AmbryWeb.Admin.Components do
   use AmbryWeb, :html
 
   import AmbryWeb.Gravatar
+  import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
   alias Ambry.Accounts.User
   alias Phoenix.HTML.Form
@@ -223,13 +224,17 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  @doc """
+  The shell a list page's rows sit in: the spacing, and what an empty list
+  says.
+
+  The rows themselves are `index_row/1`. This used to own their geometry too,
+  through a `:row` slot and a `row_click` callback, which meant every surface
+  hand-built its own anatomy inside one anonymous slot — and ten of them
+  drifted apart doing it.
+  """
   attr :rows, :list, required: true
   attr :filter, :string, default: nil
-  attr :row_click, :any, default: nil
-
-  attr :row_class, :any,
-    default: nil,
-    doc: "optional fun row -> extra classes; how a row wears per-item state (e.g. a state rail)"
 
   slot :empty
   slot :row, required: true
@@ -245,48 +250,299 @@ defmodule AmbryWeb.Admin.Components do
         <% end %>
       </p>
     <% else %>
-      <.admin_table_container>
-        <.admin_table_row
-          :for={row <- @rows}
-          class={@row_class && @row_class.(row)}
-          phx-click={@row_click && @row_click.(row)}
-        >
-          {render_slot(@row, row)}
-        </.admin_table_row>
-      </.admin_table_container>
+      <%!-- Rows are separate raised cards on the ground, not one bordered slab
+            sliced by hairline dividers — elevation and gaps do the separating. --%>
+      <div class="space-y-3">
+        <div :for={row <- @rows}>{render_slot(@row, row)}</div>
+      </div>
     <% end %>
     """
   end
 
-  slot :inner_block, required: true
+  @doc """
+  One row of a list page, in the one anatomy they all share.
 
-  defp admin_table_container(assigns) do
-    ~H"""
-    <%!-- Rows are separate raised cards on the ground, not one bordered slab
-          sliced by hairline dividers — elevation and gaps do the separating. --%>
-    <div class="space-y-3">
-      {render_slot(@inner_block)}
-    </div>
-    """
+  **The whole card is the link.** The headline is a real `<a>` whose `::after`
+  covers the card, which is the only way to get both halves of what the two
+  older idioms each had half of: the library lists made the whole row
+  clickable with `JS.navigate` on the div (a big target, but not a link — no
+  focus, no middle click, no open-in-new-tab), and the inbox linked only its
+  title (a real link, a 200px target). It also fixes a defect neither idiom
+  could see: LiveView dispatches a click to the *closest* `phx-click`
+  ancestor, so an `<a>` nested inside a `JS.navigate` row fired the anchor
+  **and** the row, which on the users list meant clicking Devices also
+  navigated to Playthroughs.
+
+  Everything the operator can click therefore sits in a `z-10` layer above
+  that pseudo-element; the busy overlay is `z-20` and covers both.
+
+  The slots are the anatomy, and each has exactly one home:
+
+    * `:cover` — a 64px image, at the card's left edge (§3: an image is
+      content, so it sits on the rail like the words beside it).
+    * `:headline` — the title. Always the link, always `font-semibold`.
+    * `:inner_block` — the credit stack and meta lines under the headline.
+    * `:badges` — state, at the top of the right rail, on the headline's
+      baseline. Not under the cover: one home per kind of thing, and the
+      media list was the only surface that put them there.
+    * `:facts` — the glyph-and-count strip. It used to be its own
+      `hidden sm:flex` column, which didn't fold on a phone, it *vanished*.
+    * `:action` — one entry per verb, worded. Never icon-only: §6's exception
+      for that was written for a five-verb media row whose verbs have all
+      since moved onto the form.
+    * `:footer` — **system timestamps only** (added, imported, joined, last
+      seen). A publication date and a duration are facts about the work, not
+      a record of something the app did, and reading them in the column that
+      says "Added 8/17/26" made them look like both.
+
+  **The rail is 224px, which is two buttons wide, and actions wrap.** Four
+  buttons stacked one per line is tall and ragged; two rows of two is neither.
+  So the rail is sized to the pair rather than the label, and the constraint
+  that falls out is on the *labels*: keep them short enough that two fit
+  ("Origin", not "Import record"). One slot entry per verb is what keeps them
+  all in one costume.
+  """
+  attr :navigate, :string, default: nil, doc: "where the whole card goes; omit for a dead row"
+  attr :patch, :string, default: nil, doc: "same, when the destination is a patch (a modal)"
+
+  attr :class, :any,
+    default: nil,
+    doc: "per-item state, e.g. the queue's `border-l-4` rail"
+
+  attr :inert, :boolean,
+    default: false,
+    doc: "takes the row's content out of the tab order, for a row an :overlay owns"
+
+  attr :rest, :global
+
+  slot :overlay, doc: "a scrim over the whole card, e.g. `busy_overlay/1`"
+  slot :cover
+  slot :headline
+  slot :badges
+  slot :facts
+  slot :footer
+  slot :inner_block
+
+  slot :action do
+    attr :navigate, :string
+    attr :patch, :string
+    attr :icon, :string, required: true
+    attr :color, :atom, doc: "one of zinc (default), brand, or red"
+    attr :click, :string, doc: "a phx-click event name"
+    attr :value, :any, doc: "the phx-value-id that rides with it"
+    attr :confirm, :string
+    attr :title, :string
+    attr :disabled, :boolean
+    attr :role, :string, doc: "a data-role, for tests"
   end
 
-  attr :class, :any, default: nil
-  attr :rest, :global
-  slot :inner_block, required: true
-
-  defp admin_table_row(assigns) do
+  def index_row(assigns) do
     ~H"""
-    <%!-- flex-wrap below sm lets a row's right rail drop to a full-width
-          bottom line instead of squeezing the content column on phones. --%>
+    <%!-- flex-wrap below sm lets the right rail drop to a full-width bottom
+          line instead of squeezing the content column on phones. --%>
     <div
       class={[
-        "relative flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-zinc-900 p-4 sm:flex-nowrap",
+        "relative flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-zinc-900 p-4 sm:flex-nowrap",
+        (@navigate || @patch) && "hover:bg-zinc-800/50",
         @class
       ]}
       {@rest}
     >
-      {render_slot(@inner_block)}
+      <%!-- A direct child of the card, so its `inset-0` measures the card and
+            nothing clips it: the content column below is `overflow-hidden`,
+            which would have cropped a scrim rendered inside it. --%>
+      {render_slot(@overlay)}
+
+      <div :if={@cover != []} class="flex-none" inert={@inert}>{render_slot(@cover)}</div>
+
+      <div class="min-w-0 flex-grow overflow-hidden" inert={@inert}>
+        <p :if={@headline != []} class="overflow-hidden text-ellipsis whitespace-nowrap font-semibold">
+          <%= if @navigate || @patch do %>
+            <%!-- after:inset-0 against the card's own `relative`: the anchor
+                  stays an ordinary inline element (so the headline still
+                  truncates and wraps normally) and only its pseudo-element
+                  spreads to the card's edges. --%>
+            <.link navigate={@navigate} patch={@patch} class="after:absolute after:inset-0">
+              {render_slot(@headline)}
+            </.link>
+          <% else %>
+            {render_slot(@headline)}
+          <% end %>
+        </p>
+
+        {render_slot(@inner_block)}
+      </div>
+
+      <%!-- The rail's corners share the card's baselines: the badges align
+            with the headline, the dates with the content's last line
+            (self-stretch + justify-between — without the stretch the column
+            is content-height and justify-between does nothing, which is why
+            the older lists' dates sat jammed under their icons). --%>
+      <div
+        :if={[@badges, @facts, @action, @footer] != [[], [], [], []]}
+        class="relative z-10 flex w-full flex-none flex-wrap items-center gap-x-3 gap-y-2 sm:w-56 sm:flex-col sm:items-end sm:justify-between sm:self-stretch"
+        inert={@inert}
+      >
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:flex-col sm:items-end">
+          <div :if={@badges != []} class="flex flex-wrap items-center gap-1.5">
+            {render_slot(@badges)}
+          </div>
+
+          <%!-- The row's measurements: counts, boolean glyphs, a duration, a
+                publication date. Wraps rather than overflowing, because this
+                is the one strip whose contents vary most per surface. --%>
+          <div
+            :if={@facts != []}
+            class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-zinc-400"
+          >
+            {render_slot(@facts)}
+          </div>
+
+          <%!-- Content-sized and right-aligned, not one fixed width per rail:
+                that rule was written when the queue stacked four identical
+                buttons, and sharing one rail across every list would force
+                the widest label anywhere onto every "Edit". Right alignment
+                is what makes the edge read as a column; the fixed width never
+                was. Which of the two layouts applies is decided by the number
+                of verbs, never by what fits. --%>
+          <div
+            :if={@action != []}
+            class="flex flex-wrap items-center justify-end gap-1.5"
+            data-role="row-actions"
+          >
+            <.row_action
+              :for={action <- @action}
+              navigate={action[:navigate]}
+              patch={action[:patch]}
+              icon={action.icon}
+              color={Map.get(action, :color, :zinc)}
+              disabled={Map.get(action, :disabled, false)}
+              phx-click={action[:click]}
+              phx-value-id={action[:value]}
+              data-confirm={action[:confirm]}
+              data-role={action[:role]}
+              title={action[:title]}
+            >
+              {render_slot(action)}
+            </.row_action>
+          </div>
+        </div>
+
+        <div
+          :if={@footer != []}
+          class="whitespace-nowrap text-right text-xs text-zinc-400"
+          data-role="row-footer"
+        >
+          {render_slot(@footer)}
+        </div>
+      </div>
     </div>
+    """
+  end
+
+  @doc """
+  A record's descriptive line: when it came out, who put it out, how long it
+  is.
+
+  Lives with the credits in the content column rather than in the rail,
+  because it is prose about the work and reads like it — "Published August
+  30, 2022 by Recorded Books · 32 hours and 43 minutes". These spent a while
+  as terse cells in the rail (`8/30/22`, `14:04:02`), which is the shape a
+  spreadsheet wants, not a reader.
+
+  Takes either flat view: a book has no publisher and no duration, so it
+  reduces to the published clause on its own.
+  """
+  def record_meta(record) do
+    [published_clause(record), record |> Map.get(:duration) |> duration_display()]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" · ")
+  end
+
+  defp published_clause(record) do
+    case {format_published(record), Map.get(record, :publisher)} do
+      {nil, _publisher} -> nil
+      {published, nil} -> "Published #{published}"
+      {published, publisher} -> "Published #{published} by #{publisher}"
+    end
+  end
+
+  @doc """
+  One worded action on a list row, in the one costume they all wear.
+
+  A link when it goes somewhere, a `role="button"` span when it fires an
+  event — the two the older lists spelled out by hand, differently, on every
+  surface. `:red` reveals the danger fill on hover rather than wearing it, so
+  a row of actions doesn't read as a row of warnings (§6).
+  """
+  attr :navigate, :string, default: nil
+  attr :patch, :string, default: nil
+  attr :icon, :string, required: true
+  attr :color, :atom, default: :zinc, doc: "one of zinc, brand, or red"
+
+  attr :disabled, :boolean,
+    default: false,
+    doc: "present but refusing, so the rail keeps its shape and its order"
+
+  attr :rest, :global, include: ~w(title)
+
+  slot :inner_block, required: true
+
+  # A disabled action is still an action: it holds its place and its order.
+  #
+  # `disabled:` variants are a `:disabled` pseudo-class, which a `<span>` can
+  # never match, so the refusing state is spelled out. It also drops the click
+  # binding rather than relying on `pointer-events-none` alone — that stops a
+  # mouse and nothing else.
+  def row_action(%{disabled: true} = assigns) do
+    ~H"""
+    <span
+      role="button"
+      aria-disabled="true"
+      class={[row_action_class(@color), "pointer-events-none opacity-40"]}
+      {Map.drop(@rest, [:"phx-click", :"phx-value-id", :"data-confirm"])}
+    >
+      <.icon name={@icon} class="h-3 w-3 text-current" />{render_slot(@inner_block)}
+    </span>
+    """
+  end
+
+  def row_action(%{navigate: nil, patch: nil} = assigns) do
+    ~H"""
+    <span role="button" class={row_action_class(@color)} {@rest}>
+      <.icon name={@icon} class="h-3 w-3 text-current" />{render_slot(@inner_block)}
+    </span>
+    """
+  end
+
+  def row_action(assigns) do
+    ~H"""
+    <.link navigate={@navigate} patch={@patch} class={row_action_class(@color)} {@rest}>
+      <.icon name={@icon} class="h-3 w-3 text-current" />{render_slot(@inner_block)}
+    </.link>
+    """
+  end
+
+  defp row_action_class(:red),
+    do: [action_classes(:zinc), "hover:bg-red-400/10 hover:text-red-300"]
+
+  defp row_action_class(color), do: action_classes(color)
+
+  @doc """
+  A count with its glyph, for the row rail's facts strip.
+
+  Numbers first, glyph after — the number is what is being read and the
+  glyph says which number it is.
+  """
+  attr :icon, :string, required: true
+  attr :count, :integer, default: nil
+  attr :rest, :global, include: ~w(title)
+
+  def row_fact(assigns) do
+    ~H"""
+    <span class="flex items-center gap-1 tabular-nums" {@rest}>
+      {@count}<.icon name={@icon} class="h-3.5 w-3.5 text-current" />
+    </span>
     """
   end
 

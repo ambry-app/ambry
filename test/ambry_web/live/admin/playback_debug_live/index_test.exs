@@ -22,7 +22,8 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.IndexTest do
 
       assert html =~ "Playthroughs for debug_user@example.com"
       assert html =~ "Test Book"
-      assert html =~ "in_progress"
+      # The badge wears the status in words, not the schema atom (§8)
+      assert html =~ "in progress"
     end
 
     test "clicking a playthrough opens the events modal", %{conn: conn} do
@@ -39,9 +40,9 @@ defmodule AmbryWeb.Admin.PlaybackDebugLive.IndexTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/users/#{user.id}/playthroughs")
 
-      # Click the row - target the div with the phx-click attribute
+      # The whole card is a real link now, not a div carrying JS.patch
       view
-      |> element("[phx-click*='#{playthrough.id}']")
+      |> element("a[href*='#{playthrough.id}']")
       |> render_click()
 
       # Assert modal is shown and contains the event

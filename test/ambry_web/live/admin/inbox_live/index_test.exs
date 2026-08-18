@@ -202,9 +202,30 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
            |> has_element?()
   end
 
+  # The rail's shape and the order of its buttons used to change from row to
+  # row as Import appeared and disappeared, which moved the primary action
+  # under the cursor while the operator worked down the list.
+  test "Import holds its place on a row that isn't settled yet", %{conn: conn} do
+    {:ok, _item} = probed_item() |> Inbox.prepare_draft()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+
+    assert has_element?(view, "span[aria-disabled='true']", "Import")
+    refute has_element?(view, "span[phx-click='import']")
+  end
+
+  test "Import is live once the row is settled", %{conn: conn} do
+    _settled = probed_item() |> settle()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+
+    assert has_element?(view, "span[phx-click='import']", "Import")
+    refute has_element?(view, "span[aria-disabled='true']")
+  end
+
   # An imported item's draft is the record of what was imported; re-matching
-  # would rebuild it. The row keeps Open-by-title for looking, loses the
-  # actions that write.
+  # would rebuild it. The row keeps a way into the record for looking, loses
+  # the actions that write.
   test "an imported item's row offers no re-match", %{conn: conn} do
     item = probed_item() |> settle()
     {:ok, _media} = Ambry.Inbox.import_item(item)
@@ -212,6 +233,56 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=imported")
 
     refute has_element?(view, "span[phx-click='rescan'][phx-value-id='#{item.id}']")
+    assert has_element?(view, "a[href^='/admin/inbox/#{item.id}']")
+  end
+
+  # Once it is imported, what the operator cares about is the audiobook, not
+  # the release folder it arrived in. The matching details describe a decision
+  # already taken and only make finished work read like work.
+  test "an imported row is the audiobook it became", %{conn: conn} do
+    item = probed_item() |> settle()
+    {:ok, media} = Ambry.Inbox.import_item(item)
+
+    {:ok, view, html} = live(conn, ~p"/admin/inbox?status=imported")
+
+    # the library record, in the credit stack's words
+    assert html =~ "The Way of Kings"
+    assert html =~ "Brandon Sanderson"
+    assert has_element?(view, "a[href='/admin/audiobooks/#{media.id}/edit']")
+
+    # and none of the matching details, nor the files it came from
+    refute html =~ item.path
+    refute html =~ "reviewed"
+    assert item_states(html) == []
+  end
+
+  # "Found" is when discovery tripped over the folder, which for a finished
+  # row is the least interesting date it has. `updated_at` is stamped by the
+  # status change and nothing writes to an imported item afterwards.
+  test "an imported row is dated by the import, not the discovery", %{conn: conn} do
+    item = probed_item() |> settle()
+    {:ok, _media} = Ambry.Inbox.import_item(item)
+
+    {:ok, _view, html} = live(conn, ~p"/admin/inbox?status=imported")
+
+    assert html =~ "Imported #{Calendar.strftime(Inbox.get_item!(item.id).updated_at, "%x")}"
+    refute html =~ "Found "
+  end
+
+  # Deleting an audiobook nilifies the link rather than taking the record of
+  # the import with it, so the row outlives the thing it describes. It says
+  # so, rather than falling back to matching details for a result that is
+  # gone.
+  test "an imported row whose audiobook was deleted says so", %{conn: conn} do
+    item = probed_item() |> settle()
+    {:ok, media} = Ambry.Inbox.import_item(item)
+    {:ok, _deleted} = Ambry.Media.delete_media(media)
+
+    {:ok, view, html} = live(conn, ~p"/admin/inbox?status=imported")
+
+    assert html =~ "The audiobook this became has been deleted."
+    refute has_element?(view, "a[href='/admin/audiobooks/#{media.id}/edit']")
+    assert has_element?(view, "a[href^='/admin/inbox/#{item.id}']")
   end
 
   # `RunMatch` is unique over a 60-second window and Oban answers a conflict

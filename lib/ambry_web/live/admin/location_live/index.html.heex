@@ -55,36 +55,38 @@
             </p>
           </div>
 
-          <div class="flex flex-none gap-3">
-            <span
+          <%!-- Worded, like every other card's actions: an unlabeled 16px
+                glyph is neither a label nor a touch target, and "the eye"
+                never said which way it was about to go. --%>
+          <div class="flex flex-none flex-wrap justify-end gap-1.5">
+            <.row_action
+              icon={(source.enabled && "fa-eye-slash") || "fa-eye"}
               phx-click="toggle"
               phx-value-id={source.id}
-              class="cursor-pointer"
-              title={(source.enabled && "Pause") || "Resume"}
+              title={(source.enabled && "Stop scanning this folder") || "Scan this folder again"}
               data-role="toggle-source"
             >
-              <.icon
-                name={(source.enabled && "fa-eye") || "fa-eye-slash"}
-                class="h-4 w-4 text-current transition-colors hover:text-lime-400"
-              />
-            </span>
+              {(source.enabled && "Pause") || "Resume"}
+            </.row_action>
 
-            <.link navigate={~p"/admin/locations/sources/#{source}/edit"} data-role="edit-source">
-              <.icon
-                name="fa-pencil"
-                class="h-4 w-4 text-current transition-colors hover:text-lime-400"
-              />
-            </.link>
+            <.row_action
+              navigate={~p"/admin/locations/sources/#{source}/edit"}
+              icon="fa-pencil"
+              data-role="edit-source"
+            >
+              Edit
+            </.row_action>
 
-            <span
+            <.row_action
+              icon="fa-trash"
+              color={:red}
               phx-click="delete-source"
               phx-value-id={source.id}
               data-confirm="Remove this source? Files on disk are left alone."
-              class="cursor-pointer"
               data-role="delete-source"
             >
-              <.icon name="fa-trash" class="h-4 w-4 text-current transition-colors hover:text-red-600" />
-            </span>
+              Remove
+            </.row_action>
           </div>
         </div>
       </div>
@@ -135,23 +137,25 @@
             </p>
           </div>
 
-          <div class="flex flex-none gap-3">
-            <.link navigate={~p"/admin/locations/roots/#{root}/edit"} data-role="edit-root">
-              <.icon
-                name="fa-pencil"
-                class="h-4 w-4 text-current transition-colors hover:text-lime-400"
-              />
-            </.link>
+          <div class="flex flex-none flex-wrap justify-end gap-1.5">
+            <.row_action
+              navigate={~p"/admin/locations/roots/#{root}/edit"}
+              icon="fa-pencil"
+              data-role="edit-root"
+            >
+              Edit
+            </.row_action>
 
-            <span
+            <.row_action
+              icon="fa-trash"
+              color={:red}
               phx-click="delete-root"
               phx-value-id={root.id}
               data-confirm="Remove this root? Files on disk are left alone."
-              class="cursor-pointer"
               data-role="delete-root"
             >
-              <.icon name="fa-trash" class="h-4 w-4 text-current transition-colors hover:text-red-600" />
-            </span>
+              Remove
+            </.row_action>
           </div>
         </div>
       </div>

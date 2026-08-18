@@ -60,7 +60,7 @@
     </div>
   </:subheader>
 
-  <.flex_table rows={@items} filter={@list_opts.filter} row_class={&rail_class/1}>
+  <.flex_table rows={@items} filter={@list_opts.filter}>
     <:empty>
       <%= if words = problem_empty_words(@list_opts[:problem]) do %>
         {words}
@@ -69,131 +69,257 @@
       <% end %>
     </:empty>
 
+    <%!-- An imported row stops being a candidate. What matched it, how sure
+          the machine was, and which files it came from are the record of a
+          decision already taken — they live on the item's own form, and
+          leaving them on the row makes finished work read like work. So the
+          row becomes the audiobook it produced, in the audiobooks list's own
+          cover-and-credits shape, because it is the same thing. --%>
     <:row :let={item}>
-      <%!-- A job is about to change this row underneath whoever is reading
-            it, so it says so over the whole row rather than in a corner. --%>
-      <.busy_overlay busy={busy?(@progress[item.id])} label={progress_label(@progress[item.id])} />
-
-      <div class="min-w-0 flex-grow overflow-hidden" inert={busy?(@progress[item.id])}>
-        <.link navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"} class="hover:underline">
-          <p class="overflow-hidden text-ellipsis whitespace-nowrap font-semibold">
-            {item_name(item)}
-          </p>
-        </.link>
-
-        <%!-- One meta line, not two: what the tags say and what the probe
-              measured are both identity, and each extra line raises the
-              card's density for free. --%>
-        <p
-          :if={Enum.any?([tag_summary(item), probe_summary(item)], &(&1 != ""))}
-          class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
-        >
-          {[tag_summary(item), probe_summary(item)] |> Enum.reject(&(&1 == "")) |> Enum.join(" · ")}
-        </p>
-
-        <%!-- The annotated rows — matches and the files' source — share one
-              label column, so every badge and chip starts on the same rail
-              (design language §1). The value cell owns its own wrapping: when
-              width runs out the meta drops a line INSIDE the column, and the
-              candidate title is the last thing to ellipsize. --%>
-        <div class="mt-2 space-y-0.5">
-          <div
-            :for={match <- match_summary(item)}
-            class="grid-cols-[5rem_minmax(0,1fr)] grid items-baseline gap-x-2 text-sm"
+      <%= if item.status == :imported do %>
+        <%= if audiobook = @audiobooks[item.id] do %>
+          <.index_row
+            navigate={~p"/admin/audiobooks/#{audiobook.id}/edit"}
+            class={rail_class(item)}
           >
-            <span class="text-xs text-zinc-400">{level_word(match.level)}</span>
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <%!-- The form's rail, in words, because a row is one line and has
-                  nowhere to put a 4px edge per level. Same four states, same
-                  vocabulary — the queue and the form drifted apart when they
-                  each had their own. --%>
+            <:cover>
+              <div class={["h-16 w-16 rounded-sm", if(!audiobook.thumbnail, do: "bg-zinc-800")]}>
+                <img
+                  :if={audiobook.thumbnail}
+                  src={audiobook.thumbnail}
+                  alt=""
+                  class="h-full w-full rounded-sm"
+                />
+              </div>
+            </:cover>
+
+            <:headline>{media_display_title(audiobook)}</:headline>
+
+            <%!-- The credit stack, in its one order: series, bare author
+                  names, narrators muted underneath (§8). --%>
+            <p
+              :if={audiobook.series != []}
+              class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+            >
+              {series_words(audiobook.series)}
+            </p>
+            <p
+              :if={audiobook.authors != []}
+              class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-300"
+            >
+              {person_names(audiobook.authors)}
+            </p>
+            <p
+              :if={audiobook.narrators != []}
+              class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+            >
+              Read by {person_names(audiobook.narrators)}
+            </p>
+
+            <%!-- No "imported" badge: the footer's date already says it, and
+                  what varies from one imported row to the next is the state
+                  of the audiobook, which is what these say. --%>
+            <:badges>
               <.badge
-                color={elem(tier_words(match.tier), 1)}
+                :if={audiobook.status != :ready}
+                color={library_status_color(audiobook.status)}
                 class="text-xs"
-                title={match.confidence && "match score #{match.confidence}"}
               >
-                {elem(tier_words(match.tier), 0)}
+                {audiobook.status}
               </.badge>
-              <%!-- basis-48 + grow keeps the title from being shrunk out of
-                    existence (meta wraps down instead); max-w-fit stops the grow
-                    at the title's own width so the provenance stays beside it.
-
-                    Nothing here when nothing was found: the badge beside it
-                    already says so, and printing "no match" next to it was
-                    half of the line that read "matched · no match". --%>
-              <span
-                :if={match.best}
-                class="min-w-0 max-w-fit grow basis-48 overflow-hidden text-ellipsis whitespace-nowrap"
+              <.badge
+                :if={audiobook.missing_since}
+                color={:red}
+                class="text-xs"
+                title={"Files couldn't be read since #{Calendar.strftime(audiobook.missing_since, "%x %X")}"}
+                data-role="audiobook-missing"
               >
-                {candidate_label(match.best)}
-              </span>
-              <span :if={candidate_origin(match.best)} class="flex-none text-xs text-zinc-400">
-                ({candidate_origin(match.best)})
-              </span>
-              <span :if={match.alternatives > 0} class="flex-none text-xs text-zinc-400">
-                +{match.alternatives} other{if match.alternatives > 1, do: "s"}
-              </span>
-            </div>
-          </div>
+                missing
+              </.badge>
+            </:badges>
 
-          <p
-            :if={progress_label(@progress[item.id])}
-            class="text-xs text-zinc-400"
-            data-role="item-progress"
+            <%!-- The audiobooks list's line, verbatim: same helper, same
+                  place, same words. It was an inline middle-dot line here and
+                  a footer column there, which is two answers to one question. --%>
+            <p
+              :if={record_meta(audiobook) != ""}
+              class="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+            >
+              {record_meta(audiobook)}
+            </p>
+
+            <:facts>
+              <.row_fact
+                :if={audiobook.chapters > 0}
+                icon="fa-book-bookmark"
+                count={audiobook.chapters}
+                title="# of chapters"
+              />
+            </:facts>
+
+            <:action
+              navigate={~p"/admin/audiobooks/#{audiobook.id}/edit"}
+              icon="fa-pencil"
+              title="Edit this audiobook"
+            >
+              Edit
+            </:action>
+
+            <%!-- The way back to where it came from — the files, the matches,
+                  the decisions that produced it. Off the row by design, one
+                  click away because a wrong import is diagnosed there. --%>
+            <:action
+              navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
+              icon="fa-inbox"
+              title="What was imported, and from where"
+            >
+              Import record
+            </:action>
+
+            <:footer>Imported {Calendar.strftime(imported_at(item), "%x")}</:footer>
+          </.index_row>
+        <% else %>
+          <%!-- Deleting an audiobook nilifies the link rather than taking the
+                record of the import with it, so the row outlives the thing it
+                describes. It says that, instead of falling back to matching
+                details for a result that is gone. --%>
+          <.index_row
+            navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
+            class={rail_class(item)}
           >
-            {progress_label(@progress[item.id])}
+            <:headline>
+              <span class="text-zinc-400">{item_name(item)}</span>
+            </:headline>
+
+            <p class="text-sm text-zinc-400">The audiobook this became has been deleted.</p>
+
+            <:action
+              navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
+              icon="fa-inbox"
+              title="What was imported, and from where"
+            >
+              Import record
+            </:action>
+
+            <:footer>Imported {Calendar.strftime(imported_at(item), "%x")}</:footer>
+          </.index_row>
+        <% end %>
+      <% else %>
+        <.index_row
+          navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
+          class={rail_class(item)}
+          inert={busy?(@progress[item.id])}
+        >
+          <%!-- A job is about to change this row underneath whoever is
+                reading it, so it says so over the whole row rather than in a
+                corner. --%>
+          <:overlay>
+            <.busy_overlay
+              busy={busy?(@progress[item.id])}
+              label={progress_label(@progress[item.id])}
+            />
+          </:overlay>
+
+          <:headline>{item_name(item)}</:headline>
+
+          <%!-- One meta line, not two: what the tags say and what the probe
+                measured are both identity, and each extra line raises the
+                card's density for free. --%>
+          <p
+            :if={Enum.any?([tag_summary(item), probe_summary(item)], &(&1 != ""))}
+            class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+          >
+            {[tag_summary(item), probe_summary(item)] |> Enum.reject(&(&1 == "")) |> Enum.join(" · ")}
           </p>
 
-          <%!-- Which watched folder this came from, on the same rail as the
-                match badges above it. What import will do to the bytes is
-                deliberately not here: it is a per-import decision, stated
-                in full on the item's own destination card, and no item can
-                be imported without going through that card. --%>
-          <div class="grid-cols-[5rem_minmax(0,1fr)] grid items-baseline gap-x-2">
-            <span class="text-xs text-zinc-400">source</span>
-            <p class="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-zinc-400">
-              <span class={["mr-1 rounded-sm px-1 py-0.5", source_color(item.source)]}>
-                {source_label(item.source)}
-              </span>
-              <span class="font-mono">{item.path}</span>
+          <%!-- The annotated rows — matches and the files' source — share one
+                label column, so every badge and chip starts on the same rail
+                (design language §1). The value cell owns its own wrapping: when
+                width runs out the meta drops a line INSIDE the column, and the
+                candidate title is the last thing to ellipsize. --%>
+          <div class="mt-2 space-y-0.5">
+            <div
+              :for={match <- match_summary(item)}
+              class="grid-cols-[5rem_minmax(0,1fr)] grid items-baseline gap-x-2 text-sm"
+            >
+              <span class="text-xs text-zinc-400">{level_word(match.level)}</span>
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <%!-- The form's rail, in words, because a row is one line and has
+                    nowhere to put a 4px edge per level. Same four states, same
+                    vocabulary — the queue and the form drifted apart when they
+                    each had their own. --%>
+                <.badge
+                  color={elem(tier_words(match.tier), 1)}
+                  class="text-xs"
+                  title={match.confidence && "match score #{match.confidence}"}
+                >
+                  {elem(tier_words(match.tier), 0)}
+                </.badge>
+                <%!-- basis-48 + grow keeps the title from being shrunk out of
+                      existence (meta wraps down instead); max-w-fit stops the grow
+                      at the title's own width so the provenance stays beside it.
+
+                      Nothing here when nothing was found: the badge beside it
+                      already says so, and printing "no match" next to it was
+                      half of the line that read "matched · no match". --%>
+                <span
+                  :if={match.best}
+                  class="min-w-0 max-w-fit grow basis-48 overflow-hidden text-ellipsis whitespace-nowrap"
+                >
+                  {candidate_label(match.best)}
+                </span>
+                <span :if={candidate_origin(match.best)} class="flex-none text-xs text-zinc-400">
+                  ({candidate_origin(match.best)})
+                </span>
+                <span :if={match.alternatives > 0} class="flex-none text-xs text-zinc-400">
+                  +{match.alternatives} other{if match.alternatives > 1, do: "s"}
+                </span>
+              </div>
+            </div>
+
+            <p
+              :if={progress_label(@progress[item.id])}
+              class="text-xs text-zinc-400"
+              data-role="item-progress"
+            >
+              {progress_label(@progress[item.id])}
+            </p>
+
+            <%!-- Which watched folder this came from, on the same rail as the
+                  match badges above it. What import will do to the bytes is
+                  deliberately not here: it is a per-import decision, stated
+                  in full on the item's own destination card, and no item can
+                  be imported without going through that card. --%>
+            <div class="grid-cols-[5rem_minmax(0,1fr)] grid items-baseline gap-x-2">
+              <span class="text-xs text-zinc-400">source</span>
+              <p class="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-zinc-400">
+                <span class={["mr-1 rounded-sm px-1 py-0.5", source_color(item.source)]}>
+                  {source_label(item.source)}
+                </span>
+                <span class="font-mono">{item.path}</span>
+              </p>
+            </div>
+
+            <%!-- The blocker reads last: it's the row's verdict, not one fact
+                  among the others, and the eye leaves the card on it. --%>
+            <p
+              :if={item.issue}
+              class="mt-2 flex items-baseline gap-1.5 overflow-hidden text-ellipsis text-sm text-red-400"
+            >
+              <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
+              <span class="min-w-0">{item.issue}</span>
             </p>
           </div>
 
-          <%!-- The blocker reads last: it's the row's verdict, not one fact
-                among the others, and the eye leaves the card on it. --%>
-          <p
-            :if={item.issue}
-            class="mt-2 flex items-baseline gap-1.5 overflow-hidden text-ellipsis text-sm text-red-400"
-          >
-            <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
-            <span class="min-w-0">{item.issue}</span>
-          </p>
-        </div>
-      </div>
-
-      <%!-- One rail with fixed slots — status, meta, actions, date — instead
-            of two competing columns. On phones it drops to a full-width
-            bottom line (the row container wraps) rather than squeezing the
-            titles; the actions carry words because a 16px icon is neither a
-            label nor a touch target. --%>
-      <%!-- The rail's corners share the card's baselines: status aligns with
-            the title line, the date with the content's last line
-            (self-stretch + justify-between). Actions are uniform width so
-            the right edge reads as a column, not a rag. --%>
-      <div
-        class="flex w-full flex-none flex-wrap items-center gap-x-3 gap-y-2 sm:w-44 sm:flex-col sm:items-end sm:justify-between sm:self-stretch"
-        inert={busy?(@progress[item.id])}
-      >
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:flex-col sm:items-end">
           <%!-- One badge. Inside a tab named for the status, printing the
                 status on every row says nothing; what the row owes does. --%>
-          <div class="flex items-center gap-2">
+          <:badges>
             <.badge color={elem(state_words(item), 1)} class="text-xs" data-role="item-state">
               {elem(state_words(item), 0)}
             </.badge>
-          </div>
+          </:badges>
 
-          <div class="flex items-center gap-2 text-xs text-zinc-400">
+          <:facts>
             <span
               :if={file_count(item) > 1}
               title="Audio files"
@@ -207,97 +333,94 @@
             <span :if={item.tags && item.tags["has_cover_art"]} title="Embedded cover art">
               <.icon name="fa-image" class="h-3.5 w-3.5 text-current" />
             </span>
-          </div>
+          </:facts>
 
-          <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
-            <%!-- Only a settled item can be imported from here — the queue
-                has no way to say what's outstanding, and the form's whole job
-                is to. Import is the *extra* a settled row earns, though, not
-                a replacement for Open: these two were once mutually
-                exclusive, which left a ready item's action rail with no way
-                into its own form. Reviewing a draft before importing it is
-                the normal path, not the exception. --%>
-            <%!-- A replacement is not an addition, and this button acts
-                without the form being opened, so it says which it is. --%>
-            <span
-              :if={item.status == :pending and item.ready}
-              role="button"
-              phx-click="import"
-              phx-value-id={item.id}
-              title={
-                if replacing?(item),
-                  do: "Replace this audiobook's files",
-                  else: "Add to the library"
-              }
-              data-confirm={
-                if replacing?(item),
-                  do: "Replace this audiobook's files with these?",
-                  else: "Add this to the library?"
-              }
-              class={action_class(:brand)}
-            >
-              <.icon name="fa-check" class="h-3 w-3 text-current" />
-              {if replacing?(item), do: "Replace", else: "Import"}
-            </span>
+          <%!-- Import is on every pending row, and refuses on the ones that
+              aren't settled yet. It used to be absent until a row was ready,
+              so the rail's shape and the order of its buttons changed from
+              row to row and the primary action moved under the cursor. A
+              disabled button in its own place says the same thing — not yet —
+              without rearranging everything around it, and its title says
+              what is missing.
 
-            <.link
-              :if={item.status == :pending}
-              navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
-              title="Look the draft over"
-              class={action_class(:neutral)}
-            >
-              <%!-- fa-pencil, the app's edit glyph — pen-to-square isn't in
-                  the vendored set, and a missing name renders a blank mask. --%>
-              <.icon name="fa-pencil" class="h-3 w-3 text-current" /> Open
-            </.link>
+              Only a settled item can actually be imported from here: the
+              queue has no way to say what's outstanding, and the form's
+              whole job is to. Import is the *extra* a settled row earns,
+              though, not a replacement for Open — these two were once
+              mutually exclusive, which left a ready item's action rail with
+              no way into its own form. --%>
+          <%!-- A replacement is not an addition, and this button acts
+              without the form being opened, so it says which it is. --%>
+          <:action
+            :if={item.status == :pending}
+            icon="fa-check"
+            color={:brand}
+            disabled={!item.ready}
+            click="import"
+            value={item.id}
+            title={import_title(item)}
+            confirm={
+              if replacing?(item),
+                do: "Replace this audiobook's files with these?",
+                else: "Add this to the library?"
+            }
+          >
+            {if replacing?(item), do: "Replace", else: "Import"}
+          </:action>
 
-            <%!-- One action, because "re-read the files" and "look for matches
-                again" were never separable: the tags matching leans on come
-                out of the probe, so asking again without re-reading asks the
-                same question. Re-reads the folder, re-probes, and re-queries
-                every provider with the cache bypassed. --%>
-            <span
-              :if={item.status != :imported}
-              role="button"
-              phx-click="rescan"
-              phx-value-id={item.id}
-              title="Re-read the files and ask the providers again"
-              class={action_class(:neutral)}
-            >
-              <.icon name="fa-rotate" class="h-3 w-3 text-current" /> Re-match
-            </span>
+          <%!-- fa-pencil, the app's edit glyph — pen-to-square isn't in
+              the vendored set, and a missing name renders a blank mask. --%>
+          <:action
+            :if={item.status == :pending}
+            navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
+            icon="fa-pencil"
+            title="Look the draft over"
+          >
+            Open
+          </:action>
 
-            <%!-- Only a pending item can be ignored: an ignored one already
-                is, and ignoring an imported one is nonsense — it's in the
-                library. --%>
-            <span
-              :if={item.status == :pending}
-              role="button"
-              phx-click="ignore"
-              phx-value-id={item.id}
-              title="Ignore (files are not touched)"
-              class={action_class(:danger)}
-            >
-              <.icon name="fa-xmark" class="h-3 w-3 text-current" /> Ignore
-            </span>
+          <%!-- One action, because "re-read the files" and "look for matches
+              again" were never separable: the tags matching leans on come
+              out of the probe, so asking again without re-reading asks the
+              same question. Re-reads the folder, re-probes, and re-queries
+              every provider with the cache bypassed. --%>
+          <:action
+            icon="fa-rotate"
+            click="rescan"
+            value={item.id}
+            title="Re-read the files and ask the providers again"
+          >
+            Re-match
+          </:action>
 
-            <span
-              :if={item.status == :ignored}
-              role="button"
-              phx-click="restore"
-              phx-value-id={item.id}
-              title="Put back in the queue"
-              class={action_class(:brand)}
-            >
-              <.icon name="fa-rotate-left" class="h-3 w-3 text-current" /> Restore
-            </span>
-          </div>
-        </div>
+          <%!-- Only a pending item can be ignored: an ignored one already
+              is, and ignoring an imported one is nonsense — it's in the
+              library. --%>
+          <:action
+            :if={item.status == :pending}
+            icon="fa-xmark"
+            color={:red}
+            click="ignore"
+            value={item.id}
+            title="Ignore (files are not touched)"
+          >
+            Ignore
+          </:action>
 
-        <p class="text-xs text-zinc-400">
-          Found {Calendar.strftime(item.inserted_at, "%x")}
-        </p>
-      </div>
+          <:action
+            :if={item.status == :ignored}
+            icon="fa-rotate-left"
+            color={:brand}
+            click="restore"
+            value={item.id}
+            title="Put back in the queue"
+          >
+            Restore
+          </:action>
+
+          <:footer>Found {Calendar.strftime(item.inserted_at, "%x")}</:footer>
+        </.index_row>
+      <% end %>
     </:row>
   </.flex_table>
 </.layout>

@@ -6,7 +6,6 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.PaginationHelpers
-  import AmbryWeb.TimeUtils
 
   alias Ambry.Media
   alias Ambry.Media.PubSub.MediaCreated

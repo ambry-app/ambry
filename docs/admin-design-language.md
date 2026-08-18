@@ -111,6 +111,29 @@ the same order internally: the records card first, then the identity and
 field decisions below it (the work section asked "already have it?" above
 the records for a while, which had the operator deciding before seeing).
 
+## 2b. A finished row shows the result, not the process
+
+A queue row is about the work it is asking for, so while the item is open it
+wears the workflow: what matched, how sure the machine was, which files it
+came from, what is still outstanding. **The moment the workflow ends, all of
+that becomes history and the row becomes the thing it produced.** An imported
+inbox row is the audiobook — cover, title, series, credits, the library's own
+state badges — in the same shape the audiobooks list draws, because it is the
+same thing; the release folder and the match tiers are on the item's form,
+one worded action away.
+
+Two things follow. **A settled row is dated by the moment it settled**, not
+by the moment it was found: "Found" is the least interesting date a finished
+row has. And **the status badge goes**, because the row's shape and its date
+already say it — this is §2's "one badge, and it says what varies" arriving
+at its end state, where what varies is the *result's* state (missing files, a
+recording still processing) rather than the item's.
+
+The row must still be able to state that its result is gone: a record that
+outlives the thing it describes says so plainly rather than falling back to
+the process view, which would describe a decision whose outcome no longer
+exists.
+
 ## 3. Geometry
 
 **Two left edges, never three.** Every container has exactly two
@@ -246,6 +269,88 @@ renders as a mystery indent on the first line.
 **Corners share baselines.** A card's right rail aligns its first element
 with the title line and its last with the content's last line
 (`self-stretch` + `justify-between`).
+
+## 3a. One row anatomy, for every list
+
+Ten list pages grew their rows independently inside one anonymous `:row`
+slot, and read like it: four rail widths, three title weights, two places to
+put a state badge, and a facts column that vanished on a phone instead of
+folding. `<.index_row>` is the anatomy, and each thing has exactly one home:
+
+| Slot | What goes in it |
+|---|---|
+| `:cover` | a 64px image at the card's left edge; round for a face, `rounded-sm` for a cover |
+| `:headline` | the title, `font-semibold`, and always the link |
+| default | the credit stack and meta lines under the headline |
+| `:badges` | state, top of the rail, on the headline's baseline |
+| `:facts` | counts and boolean glyphs, nothing that reads as a sentence |
+| `:action` | one entry per verb, worded, right-aligned |
+| `:footer` | **system timestamps only**, at the card's bottom baseline |
+| `:overlay` | a scrim that owns the whole card (`busy_overlay/1`) |
+
+**The footer corner is a record of what the app did, and nothing else** —
+Added, Imported, Joined, Found, Last seen. A duration and a publication date
+are facts about the *work*; putting them in the column that says "Added
+8/17/26" made three lines of date read as three timestamps.
+
+**And what they are instead is a sentence, not a cell.** `record_meta/1` is
+the last line of the content column, under the credits: "Published August 30,
+2022 by Recorded Books · 32 hours and 43 minutes". They passed through the
+facts strip on the way out of the footer, as `8/30/22` and `14:04:02`, which
+is the shape a spreadsheet wants rather than a reader — and the full words
+cost nothing, because that line is a line either way. **The rule that falls
+out: `:facts` holds what you count and glance at, the meta line holds what
+you read.** One helper for both flat views, so the audiobooks list and the
+queue's imported rows cannot phrase it differently again.
+
+**The rail is `w-56` (224px), which is two buttons wide, and actions wrap.**
+Four buttons stacked one per line is tall and ragged; two rows of two is
+neither, and wrapping was never the problem — the 176px rail was. 224px is
+measured, not guessed: the tightest real pair is Playthroughs (120px) beside
+Devices (86px), 211px with the gap, and every other pair on every list is
+under 183px. Three never fit, which is what makes the queue's four verbs a
+clean 2 × 2.
+
+The constraint that falls out lands on the **labels**, so keep them inside
+the budget the rail was sized for — twelve characters, "Playthroughs" being
+the longest — and don't put two long ones side by side. The inbox's second
+action is "Origin" rather than "Import record" for exactly this reason.
+
+(`fit-or-stack` is **not** the tool here. It is for metadata chip rows, where
+the number of chips genuinely varies per record; a rail's verbs are fixed by
+the surface, so its width can just be right.)
+
+**A verb that isn't available yet is disabled, not absent.** The queue's
+Import used to appear only once a row was settled, so the rail's shape and
+the order of its buttons changed from row to row and the primary action moved
+under the cursor as the operator worked down the list. A disabled button in
+its own place says "not yet" without rearranging everything around it — and
+it has to say *why* in its `title`, or it is only a dead button. Note that
+`disabled:` variants are a `:disabled` pseudo-class and a `<span>` can never
+match one, so `row_action` spells the state out and drops the binding.
+
+**The whole card is the link, and it is a real one.** The headline is an
+`<a>` whose `::after` covers the card. The two older idioms each had half of
+this: the library lists made the whole row clickable with `JS.navigate` on
+the div — a big target, but not a link, so no focus, no middle click, no
+open-in-new-tab — and the queue linked only its title, a real link with a
+200px target. It also fixes a defect neither could see: LiveView dispatches a
+click to the *closest* `phx-click` ancestor, so an `<a>` nested inside a
+`JS.navigate` row fired both, which on the users list meant clicking Devices
+also navigated to Playthroughs. Everything clickable therefore sits in a
+`z-10` layer above the pseudo-element; an overlay is `z-20` above both.
+
+**A row that goes nowhere is not a link and wears no pointer.** The old
+container hardcoded `cursor-pointer` on every row whether or not it had a
+destination, so the queue and the devices list invited clicks on dead space.
+
+**The rail needs `self-stretch` or its `justify-between` is decoration.**
+The card is `items-center`, so an unstretched rail is content-height and the
+dates sit jammed under the actions instead of on the card's bottom baseline —
+which is what every pre-redesign list did while writing the rule's classes.
+
+**64px is the row's height floor.** People rows were 48px, so they were
+visibly shorter than every other list's on the same page of the same app.
 
 ## 3b. Forms are blocks, like everything else
 
@@ -386,7 +491,7 @@ primary button and the chosen chip's source tag.
 |---|---|
 | Primary action | solid `bg-brand-dark text-zinc-900` (the loudest thing on the page) |
 | Secondary button | filled `bg-zinc-800 text-zinc-200 hover:bg-zinc-700`, borderless |
-| Quiet row action | filled `bg-white/5 text-zinc-300 hover:bg-white/10`, worded, uniform width per rail |
+| Quiet row action | `<.row_action>`: the `:sm` button costume, always worded, content-sized, right-aligned |
 | Danger | `bg-red-400/10 text-red-300`, or red text revealed on hover |
 | Status badge | `<.badge>`: soft tint + colored text, borderless |
 | Count chip | `bg-white/10 text-zinc-300 tabular-nums` |
@@ -426,12 +531,26 @@ form's ✕. The trash can is reserved for actions that destroy something
 real — the file audit's deletes, an index row's delete — with red revealed
 on hover (§6 danger).
 
-**Documented exception — icon-only actions on dense index rows.** The
-quiet-row-action costume is worded, but an index row carrying five verbs
-(media: chapters, edit, replace, search, delete) would drown its content
-in words; pencils and trash cans on index rows stay icon-only with
-`title` text. Queue cards (the inbox) have room and stakes, and stay
-worded.
+**Row actions are worded, everywhere.** This used to have an exception for
+"an index row carrying five verbs (media: chapters, edit, replace, search,
+delete)", and the exception outlived its case: those five verbs moved onto
+the media form during the redesign, leaving that row with two, while the
+inbox carried four and wore words for them. A rule kept alive only by the
+thing it excepted no longer existing is a rule to delete. `<.row_action>` is
+the one costume — a link when it goes somewhere, a `role="button"` span when
+it fires an event — and the trash can survives only where §6's danger rule
+puts it, on a row that is not itself a link (the file audit's deletes).
+
+**Actions are content-sized and right-aligned, not one fixed width per
+rail.** The fixed width was written when the queue was the only surface with
+a rail and stacked four identical buttons down it. One shared rail across
+every list would force the widest label anywhere onto every "Edit". Right
+alignment is what makes the edge read as a column; the fixed width never was.
+How a rail lays out is decided by its verb count (§3a), never by measurement.
+
+**Every destructive confirm names what dies and what survives.** "Are you
+sure?" was on five index rows, including the one that deletes an audiobook's
+audio files off the disk.
 
 ## 6b. Toasts and ambient chrome
 
