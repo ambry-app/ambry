@@ -30,7 +30,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
         }
       })
 
-      assert_redirect(view, "/admin/sets")
+      assert_returns_to_sets(view)
 
       {[group], false} = Media.list_recording_groups()
       assert %{name: "Season One", parts_total: 2, part_word: "episode"} = group
@@ -49,7 +49,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
         recording_group_form: %{name: "Awaiting Parts", book_id: to_string(book.id)}
       })
 
-      assert_redirect(view, "/admin/sets")
+      assert_returns_to_sets(view)
 
       {[group], false} = Media.list_recording_groups()
       assert %{name: "Awaiting Parts", media: []} = group
@@ -262,7 +262,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
         }
       })
 
-      assert_redirect(view, "/admin/sets")
+      assert_returns_to_sets(view)
 
       updated = Media.get_recording_group!(group.id)
       assert %{name: "After", show_label: true} = updated
@@ -280,5 +280,18 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
     |> Floki.find(~s{input[name="resolver[recording_group_form_members_0_media_id]"]})
     |> Floki.attribute("value")
     |> List.first()
+  end
+
+  # Saving returns to the sets list naming the record it saved, so the list can
+  # scroll to it and light it up. It used to be a bare `/admin/sets` — the
+  # front of an unfiltered, default-sorted page one, whoever you were and
+  # wherever you had been.
+  defp assert_returns_to_sets(view) do
+    {path, _flash} = assert_redirect(view)
+    %{path: path, query: query} = URI.parse(path)
+
+    assert path == "/admin/sets"
+    assert %{"focus" => focus} = URI.decode_query(query || "")
+    assert focus != ""
   end
 end

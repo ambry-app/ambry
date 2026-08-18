@@ -236,6 +236,48 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
     end
   end
 
+  describe "Returning from a form" do
+    test "a row link carries the list state the operator is looking at", %{conn: conn} do
+      insert(:book, title: "Findable")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books?filter=Findable&sort=title&page=1")
+
+      assert view
+             |> element("[data-role=edit-book]")
+             |> render() =~ "filter=Findable"
+    end
+
+    test "saving comes back to that list, at that record", %{conn: conn} do
+      book = insert(:book, title: "Findable")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit?filter=Findable&sort=title")
+
+      view |> form("#book-form") |> render_submit(%{book: %{title: "Still findable"}})
+
+      {path, _flash} = assert_redirect(view)
+      %{path: path, query: query} = URI.parse(path)
+
+      assert path == "/admin/books"
+
+      # The filter and the sort the operator left, and the record they edited
+      # — it used to be a bare `/admin/books`, the front of an unfiltered,
+      # default-sorted page one.
+      assert %{"filter" => "Findable", "sort" => "title", "focus" => focus} =
+               URI.decode_query(query)
+
+      assert focus == to_string(book.id)
+    end
+
+    test "the row it names is the one the list can find", %{conn: conn} do
+      book = insert(:book, title: "Findable")
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books?focus=#{book.id}")
+
+      assert has_element?(view, "#row-#{book.id}")
+      assert has_element?(view, "[data-focus='#{book.id}']")
+    end
+  end
+
   defp titles(view) do
     view
     |> render()

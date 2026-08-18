@@ -339,6 +339,10 @@ defmodule AmbryWeb.Admin.Components do
     default: nil,
     doc: "what identifies this view (page, filter, sort). A change scrolls back to the top."
 
+  attr :focus, :any,
+    default: nil,
+    doc: "a record to scroll to and light up, named by a form the operator is returning from"
+
   slot :empty
   slot :row, required: true
 
@@ -348,6 +352,9 @@ defmodule AmbryWeb.Admin.Components do
           filter that empties the list and is still mounted when the next one
           fills it again. --%>
     <div id={@id} phx-hook="list-scroll-reset" data-list-state={inspect(@list_state)}>
+      <%!-- A second hook needs a second element; they are different jobs on
+            the same list and the scroll reset must not fire for a focus. --%>
+      <div id={"#{@id}-focus"} phx-hook="focus-row" data-focus={@focus} class="hidden" />
       <%= if @rows == [] do %>
         <p :if={@empty} class="text-lg font-semibold" data-role="empty-message">
           <%= if @filter do %>
@@ -410,6 +417,11 @@ defmodule AmbryWeb.Admin.Components do
   ("Origin", not "Import record"). One slot entry per verb is what keeps them
   all in one costume.
   """
+  attr :record_id, :any,
+    default: nil,
+    doc:
+      "the row's record, so a form can send the operator back to it (see `AmbryWeb.Admin.ReturnTo`)"
+
   attr :navigate, :string, default: nil, doc: "where the whole card goes; omit for a dead row"
   attr :patch, :string, default: nil, doc: "same, when the destination is a patch (a modal)"
 
@@ -449,6 +461,7 @@ defmodule AmbryWeb.Admin.Components do
     <%!-- flex-wrap below sm lets the right rail drop to a full-width bottom
           line instead of squeezing the content column on phones. --%>
     <div
+      id={@record_id && "row-#{@record_id}"}
       class={[
         "relative flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-zinc-900 p-4 sm:flex-nowrap",
         (@navigate || @patch) && "hover:bg-zinc-800/50",

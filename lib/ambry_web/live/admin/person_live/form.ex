@@ -56,6 +56,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
+  alias AmbryWeb.Admin.ReturnTo
   alias AmbryWeb.Admin.Revert
   alias Ecto.Changeset
 
@@ -79,6 +80,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
        # itself without them — see `revealed?/2`.
        reveal: MapSet.new()
      )
+     # The list the operator came from, kept so every way out of this form
+     # goes back to it. See `AmbryWeb.Admin.ReturnTo`.
+     |> assign(list_params: ReturnTo.list_params(params))
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -363,7 +367,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Updated #{person.name}")
-         |> push_navigate(to: ~p"/admin/people")}
+         |> push_navigate(
+           to: ReturnTo.path(~p"/admin/people", socket.assigns.list_params, person.id)
+         )}
 
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
@@ -378,7 +384,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Created #{person.name}")
-         |> push_navigate(to: ~p"/admin/people")}
+         |> push_navigate(
+           to: ReturnTo.path(~p"/admin/people", socket.assigns.list_params, person.id)
+         )}
 
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}

@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.ReturnTo, only: [query: 1]
 
   alias Ambry.Books
   alias Ambry.Books.PubSub.SeriesCreated
@@ -41,6 +42,8 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     {:noreply,
      socket
      |> assign(search_form: to_form(%{"query" => params["filter"]}, as: :search))
+     # The record a form just sent the operator back to, if they came from one.
+     |> assign(focus: params["focus"])
      |> maybe_update_series(params)}
   end
 
@@ -127,4 +130,10 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
   def handle_info(%SeriesCreated{}, socket), do: {:noreply, refresh_series(socket)}
   def handle_info(%SeriesUpdated{}, socket), do: {:noreply, refresh_series(socket)}
   def handle_info(%SeriesDeleted{}, socket), do: {:noreply, refresh_series(socket)}
+
+  @doc """
+  The list state a row link carries, so the form it opens can come back here
+  rather than to the front of an unfiltered, default-sorted page one.
+  """
+  def return_query(assigns), do: query(assigns.list_opts)
 end

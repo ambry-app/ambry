@@ -12,7 +12,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table list_state={@list_opts} rows={@series} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} focus={@focus} rows={@series} filter={@list_opts.filter}>
     <:empty>
       No series yet.
       <.brand_link navigate={~p"/admin/series/new"}>
@@ -21,7 +21,7 @@
     </:empty>
 
     <:row :let={series}>
-      <.index_row navigate={~p"/admin/series/#{series}/edit"}>
+      <.index_row record_id={series.id} navigate={~p"/admin/series/#{series}/edit?#{return_query(assigns)}"}>
         <:cover>
           <.multi_image paths={series.thumbnails} />
         </:cover>
@@ -43,7 +43,11 @@
           />
         </:facts>
 
-        <:action navigate={~p"/admin/series/#{series}/edit"} icon="fa-pencil" role="edit-series">
+        <:action
+          navigate={~p"/admin/series/#{series}/edit?#{return_query(assigns)}"}
+          icon="fa-pencil"
+          role="edit-series"
+        >
           Edit
         </:action>
         <:action

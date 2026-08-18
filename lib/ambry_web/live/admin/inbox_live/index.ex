@@ -11,6 +11,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   import AmbryWeb.Admin.Decisions, only: [tier_words: 1]
   import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.ReturnTo, only: [query: 2]
   import AmbryWeb.TimeUtils
 
   alias Ambry.Inbox
@@ -234,19 +235,15 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   the plain Back button — returns to the tab and page the operator was on.
   Landing them on an unfiltered page one after an import is how "where did my
   queue go" happens.
+
+  The status is stated even when it is "all", because this queue's default tab
+  is not its unfiltered one.
   """
   def return_query(assigns),
     do: page_query(assigns.list_opts, assigns.status, assigns.list_opts.page)
 
   defp page_query(list_opts, status, page) do
-    %{
-      "filter" => list_opts.filter,
-      "page" => to_string(page),
-      "status" => to_string(status || "all"),
-      "problem" => to_string(list_opts[:problem])
-    }
-    |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
-    |> Map.new()
+    query(list_opts, %{"page" => page, "status" => to_string(status || "all")})
   end
 
   # The overview counts queue items carrying an issue, and a count the

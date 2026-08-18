@@ -416,6 +416,20 @@ page, the sort or the search changes.
 **A page is 50 rows.** It was 10 for years, which made a 435-audiobook
 library 44 pages deep with no way to tell which one you were on.
 
+**A form goes back where it came from, to the record it just saved.** Every
+form used to end with `push_navigate(to: ~p"/admin/books")` — the front of an
+unfiltered, default-sorted page one, whoever you were and wherever you had
+been. `AmbryWeb.Admin.ReturnTo` is the two halves of the fix: a list writes
+its state into every row link, and the form reads it back and returns there,
+naming the record so the list can scroll to it and flash it (`focus-row`).
+It anchors to the **record**, not to a scroll offset, because those are
+different answers the moment an edit changes the sort key — rename a book on
+a title-sorted list and its row moves, so the pixel the operator left from
+belongs to somebody else now. A row that is gone or off-page focuses nothing
+and they land at the top, which is the honest result. The "New" button
+deliberately carries no list state: a record that doesn't exist yet cannot be
+on the page you were filtering.
+
 **Counted where the rows are queried, from the same filters.** A total
 assembled anywhere else eventually describes a different query from the rows
 above it. The flat views make this cheap when nothing is filtering: their

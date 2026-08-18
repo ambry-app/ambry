@@ -13,7 +13,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table list_state={@list_opts} rows={@people} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} focus={@focus} rows={@people} filter={@list_opts.filter}>
     <:empty>
       No people yet.
       <.brand_link navigate={~p"/admin/people/new"}>
@@ -22,7 +22,7 @@
     </:empty>
 
     <:row :let={person}>
-      <.index_row navigate={~p"/admin/people/#{person}/edit"}>
+      <.index_row record_id={person.id} navigate={~p"/admin/people/#{person}/edit?#{return_query(assigns)}"}>
         <%!-- A face is round where a cover is square, but it is the same 64px
               box: people rows used to be 48px, so they were visibly shorter
               than every other list's. --%>
@@ -75,7 +75,11 @@
           />
         </:facts>
 
-        <:action navigate={~p"/admin/people/#{person}/edit"} icon="fa-pencil" role="edit-person">
+        <:action
+          navigate={~p"/admin/people/#{person}/edit?#{return_query(assigns)}"}
+          icon="fa-pencil"
+          role="edit-person"
+        >
           Edit
         </:action>
         <:action

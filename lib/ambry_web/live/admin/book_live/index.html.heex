@@ -14,7 +14,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table list_state={@list_opts} rows={@books} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} focus={@focus} rows={@books} filter={@list_opts.filter}>
     <:empty>
       No books yet.
       <.brand_link navigate={~p"/admin/books/new"}>
@@ -23,7 +23,7 @@
     </:empty>
 
     <:row :let={book}>
-      <.index_row navigate={~p"/admin/books/#{book}/edit"}>
+      <.index_row record_id={book.id} navigate={~p"/admin/books/#{book}/edit?#{return_query(assigns)}"}>
         <:cover>
           <.multi_image paths={book.thumbnails} />
         </:cover>
@@ -58,7 +58,7 @@
           />
         </:facts>
 
-        <:action navigate={~p"/admin/books/#{book}/edit"} icon="fa-pencil" role="edit-book">
+        <:action navigate={~p"/admin/books/#{book}/edit?#{return_query(assigns)}"} icon="fa-pencil" role="edit-book">
           Edit
         </:action>
         <:action

@@ -5,11 +5,14 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
   alias Ambry.Books
   alias Ambry.Media
   alias Ambry.Media.RecordingGroup
+  alias AmbryWeb.Admin.ReturnTo
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
-  def mount(_params, _session, socket) do
-    {:ok, socket}
+  def mount(params, _session, socket) do
+    # The list the operator came from, kept so every way out of this form goes
+    # back to it. See `AmbryWeb.Admin.ReturnTo`.
+    {:ok, assign(socket, list_params: ReturnTo.list_params(params))}
   end
 
   @impl Phoenix.LiveView
@@ -71,7 +74,9 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Updated #{group.name}")
-         |> push_navigate(to: ~p"/admin/sets")}
+         |> push_navigate(
+           to: ReturnTo.path(~p"/admin/sets", socket.assigns.list_params, group.id)
+         )}
 
       {:error, error} ->
         {:noreply, handle_save_error(socket, error)}
@@ -84,7 +89,9 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
         {:noreply,
          socket
          |> put_flash(:info, "Created #{group.name}")
-         |> push_navigate(to: ~p"/admin/sets")}
+         |> push_navigate(
+           to: ReturnTo.path(~p"/admin/sets", socket.assigns.list_params, group.id)
+         )}
 
       {:error, error} ->
         {:noreply, handle_save_error(socket, error)}

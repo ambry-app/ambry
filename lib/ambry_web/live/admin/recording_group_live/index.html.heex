@@ -10,7 +10,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table list_state={@list_opts} rows={@groups} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} focus={@focus} rows={@groups} filter={@list_opts.filter}>
     <:empty>
       No sets yet.
       <.brand_link navigate={~p"/admin/sets/new"}>
@@ -19,7 +19,7 @@
     </:empty>
 
     <:row :let={group}>
-      <.index_row navigate={~p"/admin/sets/#{group}/edit"}>
+      <.index_row record_id={group.id} navigate={~p"/admin/sets/#{group}/edit?#{return_query(assigns)}"}>
         <:cover>
           <.multi_image paths={thumbnails(group)} />
         </:cover>
@@ -36,7 +36,7 @@
           <span data-role="group-parts">{parts_summary(group)}</span>
         </:facts>
 
-        <:action navigate={~p"/admin/sets/#{group}/edit"} icon="fa-pencil" role="edit-group">
+        <:action navigate={~p"/admin/sets/#{group}/edit?#{return_query(assigns)}"} icon="fa-pencil" role="edit-group">
           Edit
         </:action>
         <:action

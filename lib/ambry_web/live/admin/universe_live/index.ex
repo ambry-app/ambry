@@ -6,6 +6,7 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
   use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.PaginationHelpers
+  import AmbryWeb.Admin.ReturnTo, only: [query: 1]
 
   alias Ambry.Books
   alias Ambry.Books.PubSub.UniverseCreated
@@ -40,6 +41,8 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
     {:noreply,
      socket
      |> assign(search_form: to_form(%{"query" => params["filter"]}, as: :search))
+     # The record a form just sent the operator back to, if they came from one.
+     |> assign(focus: params["focus"])
      |> maybe_update_universes(params)}
   end
 
@@ -126,4 +129,10 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
   def handle_info(%UniverseCreated{}, socket), do: {:noreply, refresh_universes(socket)}
   def handle_info(%UniverseUpdated{}, socket), do: {:noreply, refresh_universes(socket)}
   def handle_info(%UniverseDeleted{}, socket), do: {:noreply, refresh_universes(socket)}
+
+  @doc """
+  The list state a row link carries, so the form it opens can come back here
+  rather than to the front of an unfiltered, default-sorted page one.
+  """
+  def return_query(assigns), do: query(assigns.list_opts)
 end

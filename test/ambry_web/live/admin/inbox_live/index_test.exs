@@ -197,9 +197,17 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   test "the page links keep the status filter", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/admin/inbox?status=ignored&page=2")
 
-    assert view
-           |> element("a[href*='status=ignored'][href*='page=1']")
-           |> has_element?()
+    # No `page=1`: that is the default, and stating it is what `patch_opts/1`
+    # has always dropped. The status is the part that has to survive.
+    assert hrefs(view, "[data-role=pagination] a") == ["/admin/inbox?status=ignored"]
+  end
+
+  defp hrefs(view, selector) do
+    view
+    |> render()
+    |> Floki.parse_fragment!()
+    |> Floki.find(selector)
+    |> Enum.flat_map(&Floki.attribute(&1, "href"))
   end
 
   # The rail's shape and the order of its buttons used to change from row to

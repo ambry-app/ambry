@@ -25,6 +25,7 @@ import { AutoDismissHook } from "./hooks/auto-dismiss"
 import { ComboboxNavHook } from "./hooks/combobox-nav"
 import { EntityResolverInputHook } from "./hooks/entity-resolver-input"
 import { FitOrStackHook } from "./hooks/fit-or-stack"
+import { FocusRowHook } from "./hooks/focus-row"
 import { HeaderScrollspyHook } from "./hooks/header-scrollspy"
 import { ImageSizeHook } from "./hooks/image-size"
 import { InfiniteScrollHook } from "./hooks/infinite-scroll"
@@ -52,6 +53,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "combobox-nav": ComboboxNavHook,
     "entity-resolver-input": EntityResolverInputHook,
     "fit-or-stack": FitOrStackHook,
+    "focus-row": FocusRowHook,
     "image-size": ImageSizeHook,
     "scroll-match": ScrollMatchHook,
     "paste-image": PasteImageHook,

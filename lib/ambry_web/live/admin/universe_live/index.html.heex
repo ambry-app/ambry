@@ -11,7 +11,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table list_state={@list_opts} rows={@universes} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} focus={@focus} rows={@universes} filter={@list_opts.filter}>
     <:empty>
       No universes yet.
       <.brand_link navigate={~p"/admin/universes/new"}>
@@ -20,7 +20,7 @@
     </:empty>
 
     <:row :let={universe}>
-      <.index_row navigate={~p"/admin/universes/#{universe}/edit"}>
+      <.index_row record_id={universe.id} navigate={~p"/admin/universes/#{universe}/edit?#{return_query(assigns)}"}>
         <:cover>
           <.multi_image paths={universe.thumbnails} />
         </:cover>
@@ -38,7 +38,11 @@
           />
         </:facts>
 
-        <:action navigate={~p"/admin/universes/#{universe}/edit"} icon="fa-pencil" role="edit-universe">
+        <:action
+          navigate={~p"/admin/universes/#{universe}/edit?#{return_query(assigns)}"}
+          icon="fa-pencil"
+          role="edit-universe"
+        >
           Edit
         </:action>
         <:action

@@ -73,6 +73,19 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert_redirect(view, ~p"/admin/inbox?page=3&status=pending")
     end
 
+    test "returning keeps the issue the queue was narrowed to", %{conn: conn} do
+      item = probed_item() |> settle()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}?status=pending&problem=issue")
+
+      view |> element("button[data-role='import']") |> render_click()
+
+      # `problem` was missing from this form's whitelist, so importing out of a
+      # queue narrowed to an issue dropped the operator back into the whole
+      # queue.
+      assert_redirect(view, ~p"/admin/inbox?problem=issue&status=pending")
+    end
+
     # A stale tab can still send the event twice, and the second one must not
     # queue a second copy of a multi-gigabyte placement.
     test "a second import click doesn't queue a second job", %{conn: conn} do
