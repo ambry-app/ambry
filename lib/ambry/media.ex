@@ -357,7 +357,8 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Returns the number of uploaded media.
+  Returns the number of recordings, under the same filters `list_media/4`
+  lists with — so a list can say what page it is of.
 
   ## Examples
 
@@ -365,9 +366,9 @@ defmodule Ambry.Media do
       1
 
   """
-  @spec count_media :: integer()
-  def count_media do
-    Repo.aggregate(Media, :count)
+  @spec count_media(map()) :: integer()
+  def count_media(filters \\ %{}) do
+    filters |> MediaFlat.count_query() |> Repo.one()
   end
 
   @doc """
@@ -920,17 +921,22 @@ defmodule Ambry.Media do
   defp recording_group_filter(query, _filters), do: query
 
   # accepts the pagination helpers' `{field, dir}` shape as well as plain
-  # keyword orders, like the flat schemas' order/2 does
-  defp recording_group_order(query, {field, dir}), do: order_by(query, [{^dir, ^field}])
-  defp recording_group_order(query, nil), do: order_by(query, asc: :name)
-  defp recording_group_order(query, order), do: order_by(query, ^order)
+  # keyword orders, like the flat schemas' order/2 does — including their
+  # `id` tiebreaker, without which two groups sharing a name have no defined
+  # order between two queries and can swap across a page boundary
+  defp recording_group_order(query, {field, dir}),
+    do: order_by(query, ^[{dir, field}, {:asc, :id}])
+
+  defp recording_group_order(query, nil), do: order_by(query, asc: :name, asc: :id)
+  defp recording_group_order(query, order), do: order_by(query, ^(order ++ [asc: :id]))
 
   @doc """
-  Returns the number of recording groups.
+  Returns the number of recording groups, under the same filters
+  `list_recording_groups/4` lists with.
   """
-  @spec count_recording_groups :: integer()
-  def count_recording_groups do
-    Repo.aggregate(RecordingGroup, :count)
+  @spec count_recording_groups(map()) :: integer()
+  def count_recording_groups(filters \\ %{}) do
+    RecordingGroup |> recording_group_filter(filters) |> Repo.aggregate(:count)
   end
 
   @doc """

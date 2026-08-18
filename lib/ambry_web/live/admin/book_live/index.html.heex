@@ -3,10 +3,6 @@
     <.list_controls
       search_form={@search_form}
       new_path={~p"/admin/books/new"}
-      has_next={@has_next}
-      has_prev={@has_prev}
-      next_page_path={@next_page_path}
-      prev_page_path={@prev_page_path}
     />
     <.sort_button_bar>
       <.sort_button current_sort={@current_sort} sort_field="title">Title</.sort_button>
@@ -18,7 +14,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table rows={@books} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} rows={@books} filter={@list_opts.filter}>
     <:empty>
       No books yet.
       <.brand_link navigate={~p"/admin/books/new"}>
@@ -82,4 +78,12 @@
       </.index_row>
     </:row>
   </.flex_table>
+
+  <.pagination_footer
+    info={@page_info}
+    has_next={@has_next}
+    has_prev={@has_prev}
+    next_page_path={@next_page_path}
+    prev_page_path={@prev_page_path}
+  />
 </.layout>

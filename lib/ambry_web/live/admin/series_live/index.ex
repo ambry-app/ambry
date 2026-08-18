@@ -50,32 +50,34 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {series, has_more?} = list_series(list_opts, @default_sort)
-
-      assign(socket,
-        list_opts: list_opts,
-        series: series,
-        has_next: has_more?,
-        has_prev: list_opts.page > 1,
-        next_page_path: ~p"/admin/series?#{next_opts(list_opts)}",
-        prev_page_path: ~p"/admin/series?#{prev_opts(list_opts)}",
-        current_sort: list_opts.sort || @default_sort
-      )
+      load_series(socket, list_opts)
     else
       socket
     end
   end
 
-  defp refresh_series(socket) do
-    list_opts = get_list_opts(socket)
+  defp load_series(socket, list_opts) do
+    {series, has_more?, total} = list_series(list_opts, @default_sort)
 
-    params = %{
-      "filter" => to_string(list_opts.filter),
-      "page" => to_string(list_opts.page)
-    }
-
-    maybe_update_series(socket, params, true)
+    assign(socket,
+      list_opts: list_opts,
+      series: series,
+      has_next: has_more?,
+      has_prev: list_opts.page > 1,
+      page_info: page_info(list_opts, length(series), total),
+      next_page_path: ~p"/admin/series?#{next_opts(list_opts)}",
+      prev_page_path: ~p"/admin/series?#{prev_opts(list_opts)}",
+      current_sort: list_opts.sort || @default_sort
+    )
   end
+
+  # The list it is already showing, re-queried — not rebuilt out of string
+  # params. It used to hand `maybe_update_*` a map of `"filter"` and `"page"`
+  # and nothing else, and since a missing `"sort"` parses as `nil` and
+  # `Map.merge` lets the new `nil` win, every PubSub event silently threw the
+  # operator's sort away and put the list back on the default — while the
+  # address bar went on claiming the sort they had chosen.
+  defp refresh_series(socket), do: load_series(socket, get_list_opts(socket))
 
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
@@ -104,15 +106,21 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/series?#{patch_opts(list_opts)}")}
   end
 
+  # The page and the total, from one set of filters. Counted here rather than
+  # in the component so the "of 435" can never describe a different query from
+  # the rows above it.
   defp list_series(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
-    Books.list_series(
-      page_to_offset(opts.page),
-      limit(),
-      filters,
-      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
-    )
+    {series, has_more?} =
+      Books.list_series(
+        page_to_offset(opts.page),
+        limit(),
+        filters,
+        sort_to_order(opts.sort || default_sort, @valid_sort_fields)
+      )
+
+    {series, has_more?, Books.count_series(filters)}
   end
 
   @impl Phoenix.LiveView

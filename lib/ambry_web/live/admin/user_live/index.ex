@@ -47,20 +47,25 @@ defmodule AmbryWeb.Admin.UserLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {users, has_more?} = list_users(list_opts, @default_sort)
-
-      assign(socket,
-        list_opts: list_opts,
-        users: users,
-        has_next: has_more?,
-        has_prev: list_opts.page > 1,
-        next_page_path: ~p"/admin/users?#{next_opts(list_opts)}",
-        prev_page_path: ~p"/admin/users?#{prev_opts(list_opts)}",
-        current_sort: list_opts.sort || @default_sort
-      )
+      load_users(socket, list_opts)
     else
       socket
     end
+  end
+
+  defp load_users(socket, list_opts) do
+    {users, has_more?, total} = list_users(list_opts, @default_sort)
+
+    assign(socket,
+      list_opts: list_opts,
+      users: users,
+      has_next: has_more?,
+      has_prev: list_opts.page > 1,
+      page_info: page_info(list_opts, length(users), total),
+      next_page_path: ~p"/admin/users?#{next_opts(list_opts)}",
+      prev_page_path: ~p"/admin/users?#{prev_opts(list_opts)}",
+      current_sort: list_opts.sort || @default_sort
+    )
   end
 
   @impl Phoenix.LiveView
@@ -146,14 +151,20 @@ defmodule AmbryWeb.Admin.UserLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/users?#{patch_opts(list_opts)}")}
   end
 
+  # The page and the total, from one set of filters. Counted here rather than
+  # in the component so the "of 435" can never describe a different query from
+  # the rows above it.
   defp list_users(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}
 
-    Accounts.list_users(
-      page_to_offset(opts.page),
-      limit(),
-      filters,
-      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
-    )
+    {users, has_more?} =
+      Accounts.list_users(
+        page_to_offset(opts.page),
+        limit(),
+        filters,
+        sort_to_order(opts.sort || default_sort, @valid_sort_fields)
+      )
+
+    {users, has_more?, Accounts.count_users(filters)}
   end
 end

@@ -78,35 +78,43 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     list_opts = Map.merge(old_list_opts, new_list_opts)
 
     if list_opts != old_list_opts || force do
-      {media, has_more?} = list_media(list_opts, @default_sort)
-
-      assign(socket,
-        list_opts: list_opts,
-        media: media,
-        has_next: has_more?,
-        has_prev: list_opts.page > 1,
-        next_page_path: ~p"/admin/audiobooks?#{next_opts(list_opts)}",
-        prev_page_path: ~p"/admin/audiobooks?#{prev_opts(list_opts)}",
-        current_sort: list_opts.sort || @default_sort
-      )
+      load_media(socket, list_opts)
     else
       socket
     end
   end
 
-  # Every rebuild goes back through params, so anything the page is currently
-  # narrowed by has to be restated here or it is silently dropped — a search
-  # inside "Files couldn't be read" would quietly widen to the whole library.
-  defp refresh_media(socket) do
-    list_opts = get_list_opts(socket)
+  defp load_media(socket, list_opts) do
+    {media, has_more?, total} = list_media(list_opts, @default_sort)
 
-    maybe_update_media(socket, current_params(list_opts), true)
+    assign(socket,
+      list_opts: list_opts,
+      media: media,
+      has_next: has_more?,
+      has_prev: list_opts.page > 1,
+      page_info: page_info(list_opts, length(media), total),
+      next_page_path: ~p"/admin/audiobooks?#{next_opts(list_opts)}",
+      prev_page_path: ~p"/admin/audiobooks?#{prev_opts(list_opts)}",
+      current_sort: list_opts.sort || @default_sort
+    )
   end
 
-  defp current_params(list_opts, overrides \\ %{}) do
+  # The list it is already showing, re-queried. This used to go back out
+  # through `current_params/2`, which is a lossy round trip: a key it doesn't
+  # restate parses as `nil` and `Map.merge` lets that `nil` win. `problem` was
+  # restated after a search inside "Files couldn't be read" quietly widened to
+  # the whole library; `sort` never was, so any recording created, updated or
+  # deleted anywhere put the operator's sort back to the default underneath
+  # them, with the address bar still naming the sort they had picked.
+  defp refresh_media(socket), do: load_media(socket, get_list_opts(socket))
+
+  # Still a params round trip, because the search box legitimately *changes*
+  # the list state; every key the page can be narrowed by has to be here.
+  defp current_params(list_opts, overrides) do
     %{
       "filter" => to_string(list_opts.filter),
       "page" => to_string(list_opts.page),
+      "sort" => to_string(list_opts.sort),
       "problem" => to_string(list_opts[:problem])
     }
     |> Map.merge(overrides)
@@ -141,18 +149,24 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     {:noreply, push_patch(socket, to: ~p"/admin/audiobooks?#{patch_opts(list_opts)}")}
   end
 
+  # The page and the total, from one set of filters. Counted here rather than
+  # in the component so the "of 435" can never describe a different query from
+  # the rows above it.
   defp list_media(opts, default_sort) do
     filters =
       if opts.filter, do: %{search: opts.filter}, else: %{}
 
     filters = Map.merge(filters, problem_filters(opts[:problem]))
 
-    Media.list_media(
-      page_to_offset(opts.page),
-      limit(),
-      filters,
-      sort_to_order(opts.sort || default_sort, @valid_sort_fields)
-    )
+    {media, has_more?} =
+      Media.list_media(
+        page_to_offset(opts.page),
+        limit(),
+        filters,
+        sort_to_order(opts.sort || default_sort, @valid_sort_fields)
+      )
+
+    {media, has_more?, Media.count_media(filters)}
   end
 
   @impl Phoenix.LiveView

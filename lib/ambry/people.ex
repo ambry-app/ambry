@@ -80,19 +80,21 @@ defmodule Ambry.People do
   end
 
   @doc """
-  Returns the number of people (authors & narrators).
+  How many people the library holds, and how many of them write and read.
 
-  Note that `total` will not always be `authors` + `narrators`, because people
-  are sometimes both.
+  Named for what it is rather than `count_people`, which now answers the
+  list's question — one number, under the list's filters. Note that `total`
+  will not always be `authors` + `narrators`, because people are sometimes
+  both, which is the other reason this was never a count.
 
   ## Examples
 
-      iex> count_people()
+      iex> people_summary()
       %{authors: 3, narrators: 2, total: 4}
 
   """
-  @spec count_people :: %{total: integer(), authors: integer(), narrators: integer()}
-  def count_people do
+  @spec people_summary :: %{total: integer(), authors: integer(), narrators: integer()}
+  def people_summary do
     Repo.one(
       from p in PersonFlat,
         select: %{
@@ -101,6 +103,19 @@ defmodule Ambry.People do
           narrators: count(fragment("CASE WHEN ? THEN 1 END", p.is_narrator))
         }
     )
+  end
+
+  @doc """
+  Returns the number of people, under the same filters `list_people/4` lists
+  with — so a list can say what page it is of.
+
+  A plain integer, and a different question from `people_summary/0`: that one
+  answers "what is in the library" for the overview, in three numbers that
+  deliberately don't add up (a person is often both an author and a narrator).
+  """
+  @spec count_people(map()) :: integer()
+  def count_people(filters \\ %{}) do
+    filters |> PersonFlat.count_query() |> Repo.one()
   end
 
   @doc """

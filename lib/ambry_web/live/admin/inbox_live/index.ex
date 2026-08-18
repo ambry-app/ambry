@@ -132,14 +132,16 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     list_opts = params |> get_list_opts() |> Map.put(:problem, parse_problem(params))
     status = parse_status(params["status"])
 
+    # One set of options for the page and for the total, so the queue's "of
+    # 355" cannot describe a different query from the rows above it.
+    query = [
+      status: status,
+      filter: list_opts.filter,
+      issue: list_opts.problem == "issue"
+    ]
+
     {items, has_more?} =
-      Inbox.list_items(
-        status: status,
-        filter: list_opts.filter,
-        issue: list_opts.problem == "issue",
-        offset: page_to_offset(list_opts.page),
-        limit: limit()
-      )
+      Inbox.list_items(query ++ [offset: page_to_offset(list_opts.page), limit: limit()])
 
     socket
     |> assign(
@@ -152,6 +154,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       list_opts: list_opts,
       has_next: has_more?,
       has_prev: list_opts.page > 1,
+      page_info: page_info(list_opts, length(items), Inbox.count_items(query)),
       # Built from the full query, not the shared filter+page helpers —
       # those drop the status, so paging out of "Imported" silently landed
       # back on the default view.

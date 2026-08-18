@@ -140,7 +140,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   end
 
   defp inventory do
-    people = People.count_people()
+    people = People.people_summary()
 
     %{
       authors: people.authors,

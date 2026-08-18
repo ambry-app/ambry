@@ -102,6 +102,13 @@ defmodule Ambry.Playback do
   end
 
   @doc """
+  How many playthroughs a list would have, under the filters it lists with.
+  """
+  def count_playthroughs_flat(filters) do
+    filters |> PlaythroughFlat.count_query() |> Repo.one()
+  end
+
+  @doc """
   Lists devices from the flat view with filtering, sorting, and pagination.
   """
   def list_devices_flat(offset, limit, filters, order_by) do
@@ -120,6 +127,13 @@ defmodule Ambry.Playback do
     else
       {results, false}
     end
+  end
+
+  @doc """
+  How many devices a list would have, under the filters it lists with.
+  """
+  def count_devices_flat(filters) do
+    filters |> DeviceFlat.count_query() |> Repo.one()
   end
 
   @doc """

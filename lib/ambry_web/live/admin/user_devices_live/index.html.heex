@@ -1,12 +1,6 @@
 <.layout title={@page_title} user={@current_user} socket={@socket}>
   <:subheader>
-    <.list_controls
-      search_form={@search_form}
-      has_next={@has_next}
-      has_prev={@has_prev}
-      next_page_path={@next_page_path}
-      prev_page_path={@prev_page_path}
-    />
+    <.list_controls search_form={@search_form} />
     <.sort_button_bar>
       <.sort_button current_sort={@current_sort} sort_field="type">Type</.sort_button>
       <.sort_button current_sort={@current_sort} sort_field="brand">Brand</.sort_button>
@@ -18,7 +12,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table rows={@devices}>
+  <.flex_table list_state={@list_opts} rows={@devices}>
     <:empty>
       No devices found for this user.
     </:empty>
@@ -66,4 +60,12 @@
       </.index_row>
     </:row>
   </.flex_table>
+
+  <.pagination_footer
+    info={@page_info}
+    has_next={@has_next}
+    has_prev={@has_prev}
+    next_page_path={@next_page_path}
+    prev_page_path={@prev_page_path}
+  />
 </.layout>

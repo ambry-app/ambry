@@ -132,6 +132,20 @@ defmodule Ambry.Inbox do
   defp newest_first(_pending_or_all), do: [desc: :inserted_at, desc: :id]
 
   @doc """
+  How many items a list would have, under the filters it lists with.
+
+  Takes the same options as `list_items/1` and ignores the paging ones, so
+  the queue's "of 355" cannot drift from what the queue is showing.
+  """
+  def count_items(opts \\ []) do
+    InboxItem
+    |> filter_by_status(opts[:status])
+    |> filter_by_path(opts[:filter])
+    |> filter_by_issue(opts[:issue])
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
   Counts items per status, for at-a-glance badges.
   """
   def count_by_status do

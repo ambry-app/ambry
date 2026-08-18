@@ -94,11 +94,11 @@ defmodule Ambry.PeopleTest do
     end
   end
 
-  describe "count_people/0" do
+  describe "people_summary/0" do
     test "returns the number of people in the database" do
       insert_list(3, :person)
 
-      assert %{authors: 0, narrators: 0, total: 3} = People.count_people()
+      assert %{authors: 0, narrators: 0, total: 3} = People.people_summary()
     end
   end
 

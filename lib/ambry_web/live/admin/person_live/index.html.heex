@@ -3,10 +3,6 @@
     <.list_controls
       search_form={@search_form}
       new_path={~p"/admin/people/new"}
-      has_next={@has_next}
-      has_prev={@has_prev}
-      next_page_path={@next_page_path}
-      prev_page_path={@prev_page_path}
     />
     <.sort_button_bar>
       <.sort_button current_sort={@current_sort} sort_field="name">Name</.sort_button>
@@ -17,7 +13,7 @@
     </.sort_button_bar>
   </:subheader>
 
-  <.flex_table rows={@people} filter={@list_opts.filter}>
+  <.flex_table list_state={@list_opts} rows={@people} filter={@list_opts.filter}>
     <:empty>
       No people yet.
       <.brand_link navigate={~p"/admin/people/new"}>
@@ -99,4 +95,12 @@
       </.index_row>
     </:row>
   </.flex_table>
+
+  <.pagination_footer
+    info={@page_info}
+    has_next={@has_next}
+    has_prev={@has_prev}
+    next_page_path={@next_page_path}
+    prev_page_path={@prev_page_path}
+  />
 </.layout>

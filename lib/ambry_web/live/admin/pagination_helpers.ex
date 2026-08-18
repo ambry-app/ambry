@@ -3,10 +3,35 @@ defmodule AmbryWeb.Admin.PaginationHelpers do
   Helpers for building paginated / filterable lists.
   """
 
-  @limit 10
+  # 50, not the 10 this shipped with for years. The operator's library is 435
+  # audiobooks: at ten a page that is 44 pages reachable only by clicking a
+  # chevron 44 times, and the page number they are on was never on screen.
+  @limit 50
 
   def limit do
     @limit
+  end
+
+  @doc """
+  What a list's footer says: which rows these are, and how many there are.
+
+  `nil` for `total` is allowed and means "not counted" — the footer then
+  states the page number without claiming a total it doesn't have.
+  """
+  def page_info(list_opts, row_count, total) do
+    first = page_to_offset(list_opts.page) + 1
+
+    %{
+      page: list_opts.page,
+      # A list with no rows at all has no first row, so the range collapses
+      # rather than reading "Showing 1-0 of 0".
+      first: if(row_count > 0, do: first),
+      last: if(row_count > 0, do: first + row_count - 1),
+      total: total,
+      # At least one page, always: "Page 1 of 0" is what an empty list used to
+      # say when the arithmetic was left to `ceil/1` alone.
+      pages: if(total, do: max(1, ceil(total / @limit)))
+    }
   end
 
   def get_list_opts(%Phoenix.LiveView.Socket{} = socket) do
