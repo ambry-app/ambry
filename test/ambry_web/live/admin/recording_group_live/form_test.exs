@@ -111,6 +111,138 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       assert resolver_display(html) == "A Court of Thorns and Roses (Part 1)"
     end
 
+    # The label composes a part suffix onto the title, and no column holds
+    # "A Court of Thorns and Roses (Part 1 of 2)" — so opening the box
+    # searched for exactly that and reported "No matches" about the recording
+    # it was already holding.
+    test "opening a member picker finds the recording it is holding", %{conn: conn} do
+      book = insert(:book, title: "A Court of Thorns and Roses")
+      group = insert(:recording_group, name: "Graphic Audio", book: book, parts_total: 2)
+      held = insert(:media, book: book, part_number: 1, recording_group: group)
+      sibling = insert(:media, book: book, part_number: 2, recording_group: group)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      html =
+        view
+        |> element("#recording_group_form_members_0_media_id-input")
+        |> render_focus()
+
+      refute html =~ "No matches"
+      assert html =~ ~s(phx-value-id="#{held.id}")
+      assert html =~ ~s(phx-value-id="#{sibling.id}")
+    end
+
+    # Opening a filled box used to drop its own record somewhere in an
+    # alphabetical run of near-identical siblings, so confirming what was
+    # already chosen meant reading the whole list.
+    test "the held recording leads the list and says it is the held one", %{conn: conn} do
+      book = insert(:book, title: "A Court of Thorns and Roses")
+      group = insert(:recording_group, name: "Graphic Audio", book: book, parts_total: 3)
+      _first = insert(:media, book: book, part_number: 1, recording_group: group)
+      _second = insert(:media, book: book, part_number: 2, recording_group: group)
+      third = insert(:media, book: book, part_number: 3, recording_group: group)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      # the third member's box holds part 3, which the search orders last
+      html =
+        view
+        |> element("#recording_group_form_members_2_media_id-input")
+        |> render_focus()
+
+      options =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("#recording_group_form_members_2_media_id-list li[role='option']")
+
+      assert options |> List.first() |> Floki.attribute("phx-value-id") == [to_string(third.id)]
+      assert options |> List.first() |> Floki.attribute("aria-selected") == ["true"]
+
+      # and it is the only one carrying the chosen mark
+      assert Enum.count(options, &(Floki.find(&1, ".fa-check") != [])) == 1
+      assert Enum.count(options, &(Floki.attribute(&1, "aria-selected") == ["true"])) == 1
+    end
+
+    # The one credit a picker of audiobooks can be asked to disambiguate by,
+    # and the row listed everything except it.
+    test "a member picker's rows name the author", %{conn: conn} do
+      author = insert(:author, name: "Sarah J. Maas")
+
+      book =
+        insert(:book, title: "A Court of Thorns and Roses", book_authors: [%{author: author}])
+
+      group = insert(:recording_group, name: "Graphic Audio", book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      html =
+        view
+        |> element("#recording_group_form_members_0_media_id-input")
+        |> render_focus()
+
+      assert html =~ "Sarah J. Maas"
+    end
+
+    # A GraphicAudio cast runs to a dozen people, and a row that prints all
+    # twelve buries the title it was meant to help identify.
+    test "a picker row credits the first narrator and counts the rest", %{conn: conn} do
+      book = insert(:book, title: "A Court of Thorns and Roses")
+      group = insert(:recording_group, name: "Graphic Audio", book: book)
+
+      insert(:media,
+        book: book,
+        part_number: 1,
+        recording_group: group,
+        media_narrators: [
+          build(:media_narrator,
+            narrator: build(:narrator, name: "Karen Foley", person: build(:person))
+          ),
+          build(:media_narrator,
+            narrator: build(:narrator, name: "Eric Messner", person: build(:person))
+          ),
+          build(:media_narrator,
+            narrator: build(:narrator, name: "Melody Muze", person: build(:person))
+          )
+        ]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      html =
+        view
+        |> element("#recording_group_form_members_0_media_id-input")
+        |> render_focus()
+
+      assert html =~ "read by Karen Foley and 2 others"
+      refute html =~ "Melody Muze"
+    end
+
+    # The detail line already carries five facts, so where a recording sits
+    # rides the label's own line instead, muted.
+    test "a picker row trails its series on the label line", %{conn: conn} do
+      series = insert(:series, name: "A Court of Thorns and Roses")
+
+      book =
+        insert(:book,
+          title: "A Court of Thorns and Roses",
+          series_books: [build(:series_book, series: series, book_number: 1)]
+        )
+
+      group = insert(:recording_group, name: "Graphic Audio", book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      html =
+        view
+        |> element("#recording_group_form_members_0_media_id-input")
+        |> render_focus()
+
+      assert html =~ "A Court of Thorns and Roses #1"
+    end
+
     test "saving edits facts and the member list together", %{conn: conn} do
       book = insert(:book)
       group = insert(:recording_group, name: "Before", book: book)

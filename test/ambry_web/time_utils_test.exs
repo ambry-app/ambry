@@ -27,7 +27,9 @@ defmodule AmbryWeb.TimeUtilsTest do
     end
 
     test "with hours" do
-      assert "1 hours and 35 minutes" = TimeUtils.duration_display(5755)
+      assert "1 hour and 35 minutes" = TimeUtils.duration_display(5755)
+      assert "1 hour and 1 minute" = TimeUtils.duration_display(3661)
+      assert "1 minute" = TimeUtils.duration_display(60)
     end
   end
 end

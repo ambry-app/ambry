@@ -26,6 +26,27 @@ defmodule AmbryWeb.Admin.MediaLive.SetPickerTest do
       refute html =~ "Create “"
     end
 
+    # Hiding the row stopped the form *mentioning* the set rather than saying
+    # it was gone, and `cast` only changes the keys it is handed — so the
+    # picker vanished, Save reported success, and the recording came back
+    # still in its set.
+    test "taking an audiobook out of a set sticks", %{conn: conn} do
+      book = insert(:book)
+      group = insert(:recording_group, book: book, name: "Graphic Audio")
+      media = insert(:media, book: book, recording_group: group, part_number: 2)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
+
+      view |> element("button[phx-click='remove-group-row']") |> render_click()
+
+      view |> form("#media-form") |> render_submit()
+
+      reloaded = Ambry.Media.get_media!(media.id)
+
+      assert reloaded.recording_group_id == nil
+      assert reloaded.part_number == nil
+    end
+
     test "opens with an empty option list after filtering everything out", %{conn: conn} do
       book = insert(:book)
       insert(:recording_group, book: book, name: "Unabridged")

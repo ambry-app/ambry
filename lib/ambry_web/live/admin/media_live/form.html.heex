@@ -154,6 +154,14 @@
               Not part of a set.
             </p>
 
+            <%!-- The removal has to be *stated*, not merely stopped being
+                mentioned. Hiding the row took its two inputs out of the DOM,
+                so the submit posted neither key and `cast` changes only what
+                it is handed — the picker vanished, Save reported success, and
+                the recording came back still in its set. --%>
+            <.input :if={!@group_row_visible} type="hidden" field={@form[:recording_group_id]} />
+            <.input :if={!@group_row_visible} type="hidden" field={@form[:part_number]} />
+
             <div :if={@group_row_visible} class="flex items-start gap-2">
               <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
               <div class="relative grow">

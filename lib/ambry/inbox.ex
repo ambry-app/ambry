@@ -80,6 +80,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Library.ImportPreference
   alias Ambry.Library.Root
   alias Ambry.Library.Source
+  alias Ambry.Media.MediaFlat
   alias Ambry.Media.MediaTrack
   alias Ambry.Media.Scanner
   alias Ambry.Media.Scanner.Tags
@@ -973,6 +974,40 @@ defmodule Ambry.Inbox do
   What is happening to each of these items in the background.
   """
   defdelegate progress(items), to: Progress, as: :statuses
+
+  @doc """
+  The audiobooks these items became, keyed by **item** id.
+
+  One query for a page of items, like `progress/1` — the queue renders an
+  imported row as the audiobook it produced, and a query per row is how a
+  list page gets slow quietly.
+
+  An imported item can have no audiobook: deleting one nilifies the link
+  rather than taking the record of the import with it, so a missing key here
+  is a fact the row has to be able to state.
+  """
+  def audiobooks(items) do
+    media_ids = items |> Enum.map(& &1.media_id) |> Enum.reject(&is_nil/1)
+
+    if media_ids == [] do
+      %{}
+    else
+      by_media_id =
+        MediaFlat
+        |> where([m], m.id in ^media_ids)
+        |> Repo.all()
+        |> Map.new(&{&1.id, &1})
+
+      items
+      |> Enum.flat_map(fn item ->
+        case Map.fetch(by_media_id, item.media_id) do
+          {:ok, audiobook} -> [{item.id, audiobook}]
+          :error -> []
+        end
+      end)
+      |> Map.new()
+    end
+  end
 
   @doc """
   What a background job is doing to one item.

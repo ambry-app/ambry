@@ -33,7 +33,7 @@
                 type="button"
                 phx-click="delete-file"
                 phx-value-id={file.id}
-                data-confirm="Are you sure?"
+                data-confirm="Delete this file from disk? Nothing in the library references it."
                 title="Delete this file"
               >
                 <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-400" />
@@ -64,7 +64,7 @@
                 type="button"
                 phx-click="delete-folder"
                 phx-value-id={folder.id}
-                data-confirm="Are you sure?"
+                data-confirm="Delete this folder from disk? Nothing in the library references it."
                 title="Delete this folder"
               >
                 <.icon name="fa-trash" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-400" />
