@@ -4,10 +4,16 @@
           rebuilds an untouched draft when one finally comes back — so a form
           with a job on it is not the operator's to edit yet, and says so
           over the whole thing rather than in a badge. --%>
+    <%!-- `z-40` overrides `busy_overlay/1`'s own `z-20`, which is sized for a
+          scrim over one card. This one owns the whole form, and the form has a
+          sticky footer with the Save in it — at 20 the scrim would have fallen
+          behind the one control it most needs to cover. It stays under the
+          header (50) so the job indicator that explains the wait is still
+          lit. --%>
     <.busy_overlay
       busy={busy?(assigns)}
       label={busy_label(@job)}
-      class="sticky top-0 h-screen"
+      class="sticky top-0 z-40 h-screen"
     />
 
     <div class="-mb-4 max-w-4xl space-y-14" inert={busy?(assigns)}>

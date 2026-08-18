@@ -157,11 +157,15 @@ defmodule AmbryWeb.Components.EntityResolver do
           are not the same width, so the input's corners stay visible either
           side of the seam, and squaring them removed a curve that was doing
           no harm to close a join nobody could see. --%>
+      <%!-- `z-[35]` is a rung on the ladder in
+            `AmbryWeb.Admin.Components.layout_header/1`: clear of the sticky
+            footer this may open over near the bottom of a form, under the
+            scrims that mean the form is not the operator's right now. --%>
       <ul
         :if={@open}
         id={"#{@id}-list"}
         role="listbox"
-        class="min-w-48 absolute z-50 max-h-64 w-full overflow-auto rounded-b-md bg-zinc-800 text-sm shadow-xl"
+        class="min-w-48 z-[35] absolute max-h-64 w-full overflow-auto rounded-b-md bg-zinc-800 text-sm shadow-xl"
       >
         <%!-- The held record is marked, not painted. Being first in the list
             is most of the signal already, and the input two pixels above it

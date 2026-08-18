@@ -56,12 +56,12 @@ defmodule AmbryWeb.Admin.Components do
           by any [data-zoomable] magnifier (see app.js); click or Escape
           closes. phx-update="ignore": it's pure client state.
 
-          Top of the ladder on layout_header/1: it opens from inside content
-          that a modal may itself be covering. --%>
+          Near the top of the ladder on layout_header/1: it opens from inside
+          content that a modal may itself be covering. --%>
       <div
         id="image-lightbox"
         phx-update="ignore"
-        class="bg-black/85 z-[70] fixed inset-0 hidden cursor-zoom-out items-center justify-center p-8 backdrop-blur"
+        class="bg-black/85 z-[90] fixed inset-0 hidden cursor-zoom-out items-center justify-center p-8 backdrop-blur"
       >
         <img class="max-h-full max-w-full rounded-sm object-contain shadow-2xl" />
       </div>
@@ -75,26 +75,39 @@ defmodule AmbryWeb.Admin.Components do
 
   slot :inner_block, required: true
 
-  # The z-index ladder, now that content scrolls *under* the chrome instead of
-  # inside a box below it. Everything here shares the root stacking context —
-  # an `index_row` is `relative` with no z-index, so its `z-10` rail and `z-20`
-  # busy overlay are not scoped to the card, and a row that scrolled under a
-  # z-10 header would have painted straight over it (same index, later in the
-  # DOM, later wins).
+  # **The z-index ladder for the whole admin.** One list, here, because content
+  # scrolls *under* the chrome now instead of sitting in a box below it, and
+  # almost all of this shares the root stacking context: an `index_row` is
+  # `relative` with no z-index of its own, so its layers are not scoped to the
+  # card and compete directly with the page's chrome.
   #
-  #   10/20  row internals (rail, busy overlay)
-  #   30     this header
-  #   40     the drawer's scrim
-  #   50     the side nav drawer
-  #   60     a modal — it covers the viewport, and the nav is part of what it
-  #          is covering, so it sits above the nav rather than beside it
-  #   70     the image lightbox, which opens from inside a modal's content
+  #   10   the clickable layer inside a card (a row's action rail)
+  #   20   a busy scrim over a single card
+  #   30   the sticky page footers — `sticky_slab_classes/0`
+  #   35   a typeahead's popup: clear of the sticky footer it may open over,
+  #        under the scrims that mean the form is not yours right now
+  #   40   a page-wide busy scrim (the import form's), which has to cover the
+  #        Save button or it is only advisory
+  #   50   this header, and the public one
+  #   60   the drawer's scrim
+  #   70   the side nav drawer
+  #   80   a modal — it covers the viewport, and the nav is part of what it is
+  #        covering, so it sits above the nav rather than beside it
+  #   90   the image lightbox, which opens from inside a modal's content
+  #   100  flash toasts, which are the one thing that outranks everything
+  #
+  # Gaps in the tens are deliberate: the ladder has been renumbered twice in
+  # one branch already, and each of those was a value that had nowhere to go.
+  #
+  # A tie is not a tie — equal z-index falls back to DOM order, and page
+  # content always comes after the header. So anything that must stay above
+  # the page needs a strictly greater number, not an equal one.
   defp layout_header(assigns) do
     ~H"""
     <header
       id="nav-header"
       phx-hook="header-scrollspy"
-      class="sticky top-0 z-30 space-y-4 border-zinc-900 bg-zinc-950 p-4"
+      class="sticky top-0 z-50 space-y-4 border-zinc-900 bg-zinc-950 p-4"
     >
       <div class="flex items-center gap-3">
         <span class="cursor-pointer lg:hidden" phx-click={open_sidebar()}>
@@ -1141,7 +1154,7 @@ defmodule AmbryWeb.Admin.Components do
   pagination bar is a direct child of `#main-content` and wears it itself.
   """
   def sticky_slab_classes do
-    "shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 rounded-t-lg bg-zinc-900"
+    "shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 z-30 rounded-t-lg bg-zinc-900"
   end
 
   attr :id, :string, default: "form-footer", doc: "the sticky-footer hook needs one"

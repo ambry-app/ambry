@@ -262,14 +262,40 @@ reach through that box's own padding.)
 
 **Content passes behind the chrome, so the chrome is opaque and above it.**
 The header paints `bg-zinc-950`, and there is one z-index ladder for the whole
-admin, stated on `layout_header/1`: 10/20 for a row's rail and busy overlay,
-30 for the header, 40 for the drawer's scrim, 50 for the drawer, 60 for a
-modal, 70 for the lightbox. Rows matter here because `index_row` is `relative`
-with no z-index of its own, so its layers are not scoped to the card — a row
-that scrolls under a header of the same index paints straight over it. **A
-full-viewport overlay goes above the nav, not beside it**: the modal sat at 40
-for a while and rendered underneath the sidebar, because a nav that is `fixed`
-is a peer of everything now rather than a column the content sits next to.
+admin, stated once on `layout_header/1`, in tens with the gaps left in on
+purpose:
+
+| z | what |
+|---|---|
+| 10 | the clickable layer inside a card (a row's action rail) |
+| 20 | a busy scrim over a single card |
+| 30 | the sticky page footers (`sticky_slab_classes/0`) |
+| 35 | a typeahead's popup |
+| 40 | a page-wide busy scrim |
+| 50 | the page header, admin and public |
+| 60 | the drawer's scrim |
+| 70 | the side nav drawer |
+| 80 | a modal |
+| 90 | the image lightbox |
+| 100 | flash toasts |
+
+Rows matter here because `index_row` is `relative` with no z-index of its own,
+so its layers are **not** scoped to the card and compete directly with the
+page's chrome. That is what a bar with no z-index at all looks like: the
+sticky pagination footer painted above a row's card body and *underneath* the
+same row's action rail, so its controls flickered in and out of view depending
+which part of the list they crossed. **Anything pinned over the page needs a
+number, not a DOM position** — a tie falls back to document order, and page
+content always comes after the header.
+
+Two rules the renumbering was worth writing down. **A full-viewport overlay
+goes above the nav, not beside it**: the modal sat below the sidebar for a
+while, because a nav that is `fixed` is a peer of everything rather than a
+column the content sits next to. And **a scrim has to cover the control it is
+protecting the operator from** — the import form's page-wide scrim is 40
+rather than `busy_overlay/1`'s own 20 precisely so it covers the sticky Save,
+and stays under the header so the job indicator explaining the wait is still
+lit.
 
 **The header's separator is a hairline, drawn only when there is something
 above it.** `border-b border-zinc-900`, toggled by the `header-scrollspy`

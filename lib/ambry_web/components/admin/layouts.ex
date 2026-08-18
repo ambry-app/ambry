@@ -14,7 +14,7 @@ defmodule AmbryWeb.Admin.Layouts do
     ~H"""
     <%!-- Scrim behind the drawer on small screens — without it the drawer
           floats over full-brightness content and doesn't read as a layer. --%>
-    <div id="side-bar-scrim" class="bg-black/40 fixed inset-0 z-40 hidden lg:hidden" aria-hidden="true" />
+    <div id="side-bar-scrim" class="bg-black/40 z-[60] fixed inset-0 hidden lg:hidden" aria-hidden="true" />
     <%!-- `fixed`, not a flex child of an `h-screen` shell: the nav is the one
           thing on the page that genuinely doesn't scroll, and saying so here
           is what lets the document scroll everywhere else. `inset-y-0` is a
@@ -22,7 +22,7 @@ defmodule AmbryWeb.Admin.Layouts do
           custom property. --%>
     <nav
       id="side-bar"
-      class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full transform flex-col bg-zinc-900 opacity-0 duration-100 ease-out lg:transform-none lg:opacity-100"
+      class="z-[70] fixed inset-y-0 left-0 flex w-64 -translate-x-full transform flex-col bg-zinc-900 opacity-0 duration-100 ease-out lg:transform-none lg:opacity-100"
       phx-click-away={Components.close_sidebar()}
       phx-window-keydown={Components.close_sidebar()}
       phx-key="escape"

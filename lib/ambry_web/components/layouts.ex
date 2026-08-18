@@ -35,7 +35,7 @@ defmodule AmbryWeb.Layouts do
           the header stays put while the page moves under it — without taking
           the scroll off the document. `bg-black` matches the body, because
           content now passes behind it. --%>
-    <header id="nav-header" phx-hook="header-scrollspy" class="sticky top-0 z-30 border-zinc-900 bg-black">
+    <header id="nav-header" phx-hook="header-scrollspy" class="sticky top-0 z-50 border-zinc-900 bg-black">
       <div class="flex p-4 text-zinc-500">
         <div class="flex-1">
           <.link navigate={~p"/"} class="flex">
