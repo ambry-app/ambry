@@ -148,11 +148,20 @@ defmodule AmbryWeb.Components.EntityResolver do
       >
         new
       </span>
+      <%!-- Flush against the box that opened it: the list is that box's
+          contents spilling downward, not a panel that happens to be nearby.
+          Square on top, rounded below.
+
+          The input keeps its own radius. Squaring its bottom corners to meet
+          the list was tried and looked worse (operator, 2026-08-18): the two
+          are not the same width, so the input's corners stay visible either
+          side of the seam, and squaring them removed a curve that was doing
+          no harm to close a join nobody could see. --%>
       <ul
         :if={@open}
         id={"#{@id}-list"}
         role="listbox"
-        class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md bg-zinc-800 text-sm shadow-xl"
+        class="min-w-48 absolute z-50 max-h-64 w-full overflow-auto rounded-b-md bg-zinc-800 text-sm shadow-xl"
       >
         <%!-- The held record is marked, not painted. Being first in the list
             is most of the signal already, and the input two pixels above it
