@@ -165,46 +165,4 @@ defmodule AmbrySchema.BooksTest do
              } = json_response(conn, 200)
     end
   end
-
-  describe "books connection" do
-    @query ~G"""
-    query Books {
-      books(first: 1) {
-        __typename
-      }
-    }
-    """
-    test "returns an unauthorized error if missing api token", %{conn: conn} do
-      conn = remove_user_api_token(conn)
-
-      conn =
-        post(conn, "/gql", %{
-          "query" => @query
-        })
-
-      assert %{
-               "data" => %{"books" => nil},
-               "errors" => [
-                 %{
-                   "locations" => [%{"column" => 3, "line" => 2}],
-                   "message" => "unauthorized",
-                   "path" => ["books"]
-                 }
-               ]
-             } = json_response(conn, 200)
-    end
-
-    test "resolves the books connection", %{conn: conn} do
-      conn =
-        post(conn, "/gql", %{
-          "query" => @query
-        })
-
-      assert %{
-               "data" => %{
-                 "books" => %{"__typename" => "BookConnection"}
-               }
-             } = json_response(conn, 200)
-    end
-  end
 end

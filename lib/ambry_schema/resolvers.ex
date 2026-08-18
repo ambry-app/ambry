@@ -25,7 +25,6 @@ defmodule AmbrySchema.Resolvers do
   alias Ambry.People.Person
   alias Ambry.Playback
   alias Ambry.Repo
-  alias Ambry.Search
   alias Ambry.Sync
 
   def create_session(%{email: email, password: password}, _resolution) do
@@ -48,12 +47,6 @@ defmodule AmbrySchema.Resolvers do
   def current_user(_args, %{context: %{current_user: user}}), do: {:ok, user}
   def current_user(_args, _resolution), do: {:ok, nil}
 
-  def list_books(args, _resolution) do
-    Book
-    |> order_by({:desc, :inserted_at})
-    |> Connection.from_query(&Repo.all/1, args)
-  end
-
   def list_authored_books(%Author{} = author, args, _resolution) do
     author
     |> Ecto.assoc(:books)
@@ -67,18 +60,6 @@ defmodule AmbrySchema.Resolvers do
         order_by: [desc: :published]
 
     Connection.from_query(query, &Repo.all/1, args)
-  end
-
-  def search(%{query: query} = args, _resolution) do
-    query_string = String.trim(query)
-
-    if String.length(query_string) < 3 do
-      {:error, "query must be at least 3 characters"}
-    else
-      query_string
-      |> Search.query()
-      |> Connection.from_query(&Search.all/1, args)
-    end
   end
 
   def people_changed_since(args, _resolution), do: Sync.changes_since(Person, args[:since])

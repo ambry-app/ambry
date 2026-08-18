@@ -34,8 +34,6 @@ defmodule AmbrySchema.People do
     field :updated_at, non_null(:datetime)
 
     field :image_path, :string, deprecate: "use `thumbnails` instead"
-
-    interface :search_result
   end
 
   node object(:author) do

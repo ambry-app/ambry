@@ -38,8 +38,6 @@ defmodule AmbrySchema.Books do
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
-
-    interface :search_result
   end
 
   node object(:universe) do
@@ -78,8 +76,6 @@ defmodule AmbrySchema.Books do
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
-
-    interface :search_result
   end
 
   node object(:book_author) do
@@ -95,12 +91,4 @@ defmodule AmbrySchema.Books do
 
   connection(node_type: :book)
   connection(node_type: :series_book)
-
-  object :book_queries do
-    connection field :books, node_type: :book do
-      middleware AmbrySchema.AuthMiddleware
-
-      resolve &Resolvers.list_books/2
-    end
-  end
 end
