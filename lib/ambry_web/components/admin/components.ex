@@ -441,23 +441,69 @@ defmodule AmbryWeb.Admin.Components do
   end
 
   @doc """
-  A record's descriptive line: when it came out, who put it out, how long it
-  is.
+  The credit stack's own lines: bare author names, then the narrators muted.
 
-  Lives with the credits in the content column rather than in the rail,
-  because it is prose about the work and reads like it — "Published August
-  30, 2022 by Recorded Books · 32 hours and 43 minutes". These spent a while
-  as terse cells in the rail (`8/30/22`, `14:04:02`), which is the shape a
-  spreadsheet wants, not a reader.
+  What is left of the stack once the series moves to `record_meta/1` — and
+  what is left is exactly the part every record has, which is what lets a row
+  be three fixed lines and one variable one. Names join with commas and
+  nothing is prefixed with "by" (§8); "Read by" is the one word that stays,
+  because a list of names with no label is a list of authors.
+  """
+  attr :authors, :list, default: []
+  attr :narrators, :list, default: []
+
+  def credit_lines(assigns) do
+    ~H"""
+    <p
+      :if={@authors != []}
+      class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-300"
+    >
+      {names(@authors)}
+    </p>
+    <p
+      :if={@narrators != []}
+      class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+    >
+      Read by {names(@narrators)}
+    </p>
+    """
+  end
+
+  defp names(people), do: Enum.map_join(people, ", ", & &1.name)
+
+  @doc """
+  A row's last line: where it sits, when it came out, who put it out, how
+  long it is.
+
+  **The row's first lines are what every record has, and this line is
+  everything that varies.** Title, authors and narrators are always there, so
+  they are always three lines; series, publisher, published and duration are
+  each sometimes there, so they share the fourth and it collapses to nothing
+  when a record has none of them. A series that owned a line of its own made
+  every audiobook row taller for a fact most rows state in four words.
+
+  It lives with the credits rather than in the rail because it is prose and
+  reads like it — "The Stormlight Archive #1 · Published August 30, 2022 by
+  Recorded Books · 32 hours and 43 minutes". These spent a while as terse
+  cells in the rail (`8/30/22`, `14:04:02`), which is the shape a spreadsheet
+  wants, not a reader.
 
   Takes either flat view: a book has no publisher and no duration, so it
-  reduces to the published clause on its own.
+  reduces to its series and its date.
   """
   def record_meta(record) do
-    [published_clause(record), record |> Map.get(:duration) |> duration_display()]
+    [
+      record |> Map.get(:series) |> series_clause(),
+      published_clause(record),
+      record |> Map.get(:duration) |> duration_display()
+    ]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" · ")
   end
+
+  defp series_clause(nil), do: nil
+  defp series_clause([]), do: nil
+  defp series_clause(series), do: Enum.map_join(series, ", ", &"#{&1.name} ##{&1.number}")
 
   defp published_clause(record) do
     case {format_published(record), Map.get(record, :publisher)} do

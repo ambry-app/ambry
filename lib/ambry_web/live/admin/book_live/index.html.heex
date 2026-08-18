@@ -36,29 +36,18 @@
           <span data-role="book-title">{book.title}</span>
         </:headline>
 
-        <%!-- The credit stack's one order: series, then bare author names
-              (§8). This list read title / authors / series for years, which
-              put the same three facts in a different order on every surface
-              that showed them. --%>
-        <p
-          :if={book.series != []}
-          class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
-          data-role="book-series"
-        >
-          {book.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ")}
-        </p>
-        <p class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-300" data-role="book-authors">
-          {book.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
-        </p>
+        <div data-role="book-authors">
+          <.credit_lines authors={book.authors} />
+        </div>
 
-        <%!-- When it came out is prose about the book, so it reads like it
-              and sits with the credits. It spent a while as "Published
-              8/30/22" in the corner that says "Added 8/17/26", where two
-              dates in one column read as two timestamps. --%>
+        <%!-- Everything that varies, on one line: the series it sits in and
+              when it came out. Each owned a line of its own once, which cost
+              every row two lines to state facts most rows say in a dozen
+              words. --%>
         <p
           :if={record_meta(book) != ""}
           class="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
-          data-role="book-published"
+          data-role="book-series"
         >
           {record_meta(book)}
         </p>

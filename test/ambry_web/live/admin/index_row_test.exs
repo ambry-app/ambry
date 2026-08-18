@@ -9,6 +9,9 @@ defmodule AmbryWeb.Admin.IndexRowTest do
 
   import Phoenix.LiveViewTest
 
+  alias Ambry.Books.SeriesBookType
+  alias AmbryWeb.Admin.Components
+
   setup :register_and_log_in_admin_user
 
   # The library lists made the whole row clickable with `JS.navigate` on the
@@ -153,10 +156,13 @@ defmodule AmbryWeb.Admin.IndexRowTest do
   # In words a person reads, not the cells these were on the way out of the
   # footer ("8/30/22", "14:04:02"), which is the shape a spreadsheet wants.
   # `record_meta/1` is one helper, so the audiobooks list and the queue's
-  # imported rows cannot phrase the same three facts differently again.
+  # imported rows cannot phrase the same facts differently again.
   test "the meta line reads as a sentence, with the publisher in it", %{conn: conn} do
+    series = insert(:series)
+    book = insert(:book, series_books: [build(:series_book, series: series, book_number: 1)])
+
     insert(:media,
-      book: build(:book),
+      book: book,
       published: ~D[2022-08-30],
       published_format: :full,
       publisher: "Recorded Books",
@@ -165,8 +171,56 @@ defmodule AmbryWeb.Admin.IndexRowTest do
 
     {:ok, _view, html} = live(conn, ~p"/admin/audiobooks")
 
-    assert html =~ "Published August 30, 2022 by Recorded Books · 32 hours and 43 minutes"
+    assert html =~
+             "#{series.name} #1 · Published August 30, 2022 by Recorded Books · " <>
+               "32 hours and 43 minutes"
+
     refute html =~ "32:43:00"
+  end
+
+  # Title, authors and narrators are what every record has, so they are always
+  # three lines; the series, the publisher, the date and the duration are each
+  # sometimes there, so they share the fourth — and it disappears entirely
+  # when a record has none of them. A series owning a line of its own is what
+  # made these rows tall.
+  describe "the variable line" do
+    test "puts the series in front and keeps one order" do
+      full = %{
+        series: [%SeriesBookType{name: "The Stormlight Archive", number: Decimal.new(1)}],
+        published: ~D[2022-08-30],
+        published_format: :full,
+        publisher: "Recorded Books",
+        duration: Decimal.new("117780")
+      }
+
+      assert Components.record_meta(full) ==
+               "The Stormlight Archive #1 · Published August 30, 2022 by Recorded Books · " <>
+                 "32 hours and 43 minutes"
+    end
+
+    test "collapses to nothing when nothing varies" do
+      bare = %{
+        series: [],
+        published: nil,
+        published_format: nil,
+        publisher: nil,
+        duration: nil
+      }
+
+      assert Components.record_meta(bare) == ""
+    end
+
+    # A book has neither of the audiobook-only halves, so the same helper
+    # reduces rather than rendering empty joins.
+    test "reduces for a record with no publisher and no duration" do
+      book = %{
+        series: [%SeriesBookType{name: "Mistborn", number: Decimal.new(2)}],
+        published: ~D[2007-08-21],
+        published_format: :year
+      }
+
+      assert Components.record_meta(book) == "Mistborn #2 · Published 2007"
+    end
   end
 
   defp rows(conn, path) do

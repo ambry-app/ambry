@@ -54,18 +54,7 @@
 
         <:headline>{media_display_title(media)}</:headline>
 
-        <%!-- The credit stack's one order: series, bare author names, then
-              the narrators muted (§8). This list read authors / read by /
-              series, which is neither the mobile app's order nor the inbox's. --%>
-        <p :if={media.series != []} class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400">
-          {media.series |> Enum.map(&"#{&1.name} ##{&1.number}") |> Enum.join(", ")}
-        </p>
-        <p :if={media.authors != []} class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-300">
-          {media.authors |> Enum.map(& &1.name) |> Enum.join(", ")}
-        </p>
-        <p :if={media.narrators != []} class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400">
-          Read by {media.narrators |> Enum.map(& &1.name) |> Enum.join(", ")}
-        </p>
+        <.credit_lines authors={media.authors} narrators={media.narrators} />
 
         <%!-- State badges belong on the rail with every other list's, not
               tucked under the cover where this was the only surface to put
@@ -85,10 +74,10 @@
           </.badge>
         </:badges>
 
-        <%!-- When it came out, who put it out, how long it is: prose about
-              the recording, so it reads like prose and sits with the credits.
-              These were terse cells in the rail ("8/30/22", "14:04:02"),
-              which is the shape a spreadsheet wants, not a reader. --%>
+        <%!-- Everything that varies, on one line: the series, when it came
+              out, who put it out, how long it is. The three lines above are
+              what every audiobook has, so they are always three lines and
+              this is always the fourth. --%>
         <p
           :if={record_meta(media) != ""}
           class="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"

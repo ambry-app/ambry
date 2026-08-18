@@ -524,16 +524,4 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp library_status_color(:pending), do: :yellow
   defp library_status_color(:processing), do: :blue
   defp library_status_color(:error), do: :red
-
-  @doc """
-  Bare names, comma joined: the credit stack's author and narrator lines
-  (design language §8).
-  """
-  def person_names(people), do: people |> Enum.map_join(", ", & &1.name)
-
-  @doc """
-  The series line of the credit stack, "Name #3", comma joined when a book
-  sits in more than one.
-  """
-  def series_words(series), do: series |> Enum.map_join(", ", &"#{&1.name} ##{&1.number}")
 end

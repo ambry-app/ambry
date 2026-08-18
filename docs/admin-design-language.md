@@ -294,14 +294,32 @@ are facts about the *work*; putting them in the column that says "Added
 8/17/26" made three lines of date read as three timestamps.
 
 **And what they are instead is a sentence, not a cell.** `record_meta/1` is
-the last line of the content column, under the credits: "Published August 30,
-2022 by Recorded Books · 32 hours and 43 minutes". They passed through the
-facts strip on the way out of the footer, as `8/30/22` and `14:04:02`, which
-is the shape a spreadsheet wants rather than a reader — and the full words
-cost nothing, because that line is a line either way. **The rule that falls
-out: `:facts` holds what you count and glance at, the meta line holds what
-you read.** One helper for both flat views, so the audiobooks list and the
-queue's imported rows cannot phrase it differently again.
+the last line of the content column, under the credits. They passed through
+the facts strip on the way out of the footer, as `8/30/22` and `14:04:02`,
+which is the shape a spreadsheet wants rather than a reader — and the full
+words cost nothing, because that line is a line either way. **The rule that
+falls out: `:facts` holds what you count and glance at, the meta line holds
+what you read.** One helper for both flat views, so the audiobooks list and
+the queue's imported rows cannot phrase it differently again.
+
+**Three fixed lines, then one variable one.** Title, authors and narrators
+are what every record has, so a row is always those three; the series, the
+publisher, the publication date and the duration are each only sometimes
+there, so they share the fourth and it collapses to nothing when a record has
+none of them:
+
+> **The Way of Kings**
+> Brandon Sanderson
+> Read by Michael Kramer, Kate Reading
+> The Stormlight Archive #1 · Published August 30, 2022 by Recorded Books · 32 hours and 43 minutes
+
+**This moves the series out of the credit stack, and it is the one place that
+diverges from §8.** The argument is density and not convenience: a series
+that owns a line of its own makes every audiobook row taller to state a fact
+most rows say in four words, and on a row a series reads as a locator
+alongside the publisher rather than as a credit alongside the people. The
+detail pages and the mobile app keep §8's stack intact — the divergence is
+this surface's, and it stops here.
 
 **The rail is `w-56` (224px), which is two buttons wide, and actions wrap.**
 Four buttons stacked one per line is tall and ragged; two rows of two is
@@ -627,7 +645,8 @@ The admin routes follow the words: `/admin/audiobooks`, `/admin/sets`.
 
 **Credits are the mobile app's stack**: title (bold), series
 ("Name #3"), bare author names — no "by" — then "Read by …" muted, with
-size and color carrying the roles. "Narrated by" is retired as a verb;
+size and color carrying the roles. (Index rows are the documented
+exception: the series moves down to their variable line, §3a.) "Narrated by" is retired as a verb;
 the noun "Narrator" stays. When one line must hold it all (page titles,
 match rows, option labels), the joins are words: "The Martian by Andy
 Weir read by R.C. Bray". Names join with commas.

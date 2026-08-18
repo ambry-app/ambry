@@ -95,26 +95,7 @@
 
             <:headline>{media_display_title(audiobook)}</:headline>
 
-            <%!-- The credit stack, in its one order: series, bare author
-                  names, narrators muted underneath (§8). --%>
-            <p
-              :if={audiobook.series != []}
-              class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
-            >
-              {series_words(audiobook.series)}
-            </p>
-            <p
-              :if={audiobook.authors != []}
-              class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-300"
-            >
-              {person_names(audiobook.authors)}
-            </p>
-            <p
-              :if={audiobook.narrators != []}
-              class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
-            >
-              Read by {person_names(audiobook.narrators)}
-            </p>
+            <.credit_lines authors={audiobook.authors} narrators={audiobook.narrators} />
 
             <%!-- No "imported" badge: the footer's date already says it, and
                   what varies from one imported row to the next is the state
