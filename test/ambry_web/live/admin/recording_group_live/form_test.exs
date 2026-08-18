@@ -133,6 +133,37 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       assert html =~ ~s(phx-value-id="#{sibling.id}")
     end
 
+    # Opening a filled box used to drop its own record somewhere in an
+    # alphabetical run of near-identical siblings, so confirming what was
+    # already chosen meant reading the whole list.
+    test "the held recording leads the list and says it is the held one", %{conn: conn} do
+      book = insert(:book, title: "A Court of Thorns and Roses")
+      group = insert(:recording_group, name: "Graphic Audio", book: book, parts_total: 3)
+      _first = insert(:media, book: book, part_number: 1, recording_group: group)
+      _second = insert(:media, book: book, part_number: 2, recording_group: group)
+      third = insert(:media, book: book, part_number: 3, recording_group: group)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      # the third member's box holds part 3, which the search orders last
+      html =
+        view
+        |> element("#recording_group_form_members_2_media_id-input")
+        |> render_focus()
+
+      options =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("#recording_group_form_members_2_media_id-list li[role='option']")
+
+      assert options |> List.first() |> Floki.attribute("phx-value-id") == [to_string(third.id)]
+      assert options |> List.first() |> Floki.attribute("aria-selected") == ["true"]
+
+      # and it is the only one carrying the chosen mark
+      assert Enum.count(options, &(Floki.find(&1, ".fa-check") != [])) == 1
+      assert Enum.count(options, &(Floki.attribute(&1, "aria-selected") == ["true"])) == 1
+    end
+
     # The one credit a picker of audiobooks can be asked to disambiguate by,
     # and the row listed everything except it.
     test "a member picker's rows name the author", %{conn: conn} do

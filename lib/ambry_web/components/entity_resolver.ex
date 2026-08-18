@@ -151,15 +151,25 @@ defmodule AmbryWeb.Components.EntityResolver do
         role="listbox"
         class="min-w-48 absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md bg-zinc-800 text-sm shadow-xl"
       >
+        <%!-- The held record is marked, not painted. Being first in the list
+            is most of the signal already, and the input two pixels above it
+            is wearing a lime focus ring — a brand fill and an inset brand
+            ring under that made the whole corner of the form green. So it
+            takes a neutral lift off the list's own ground and one lime
+            check, the app's mark for chosen (§6) at the smallest size it
+            comes in. --%>
         <li
           :for={option <- @matches}
           id={"#{@id}-option-#{option.id}"}
           role="option"
-          aria-selected={to_string(to_string(option.id) == to_string(@value))}
+          aria-selected={to_string(selected?(option, @value))}
           phx-click="pick"
           phx-value-id={option.id}
           phx-target={@myself}
-          class="cursor-pointer px-3 py-2 data-[active]:bg-zinc-700 hover:bg-zinc-700"
+          class={[
+            "cursor-pointer px-3 py-2 data-[active]:bg-zinc-700 hover:bg-zinc-700",
+            if(selected?(option, @value), do: "bg-white/5")
+          ]}
         >
           <div class="flex min-w-0 items-center gap-2.5">
             <img
@@ -175,12 +185,17 @@ defmodule AmbryWeb.Components.EntityResolver do
             >
               {String.first(option.label)}
             </span>
-            <span class="min-w-0">
+            <span class="min-w-0 grow">
               <span class="block truncate">{option.label}</span>
               <span :if={option.detail} class="block truncate text-xs text-zinc-400">
                 {option.detail}
               </span>
             </span>
+            <.icon
+              :if={selected?(option, @value)}
+              name="fa-check"
+              class="text-brand-dark h-3.5 w-3.5 flex-none"
+            />
           </div>
         </li>
         <li
@@ -318,9 +333,30 @@ defmodule AmbryWeb.Components.EntityResolver do
   # query per keystroke of every other field on the form.
   defp matches(%{open: false}), do: []
 
-  defp matches(%{equery: query, search: search}) do
-    query |> search.(@limit) |> Enum.map(&normalize/1)
+  defp matches(%{equery: query, search: search} = assigns) do
+    query
+    |> search.(@limit)
+    |> Enum.map(&normalize/1)
+    |> pin(assigns.held)
   end
+
+  # What the field is already holding leads the list.
+  #
+  # Opening a filled box used to drop its own record somewhere in an
+  # alphabetical run of near-identical siblings — every recording of one book,
+  # every narrator with the same first name — so confirming what was already
+  # chosen meant reading the whole list. It is pinned whether or not the
+  # search surfaced it, which also means a box can no longer say "No matches"
+  # while holding something: an ordering that depends on the query is exactly
+  # what made that possible.
+  #
+  # `held` is nil while the operator is typing, so the pin is for the opened
+  # field, not for a search in progress — once you type, the list is an answer
+  # to what you typed.
+  defp pin(found, nil), do: found
+  defp pin(found, held), do: [held | Enum.reject(found, &same_record?(&1, held))]
+
+  defp same_record?(%{id: left}, %{id: right}), do: to_string(left) == to_string(right)
 
   defp normalize(nil), do: nil
 
@@ -328,6 +364,10 @@ defmodule AmbryWeb.Components.EntityResolver do
 
   defp normalize(%{id: _id, label: _label} = option),
     do: Map.merge(%{image: nil, detail: nil, query: nil}, option)
+
+  defp selected?(_option, nil), do: false
+  defp selected?(_option, ""), do: false
+  defp selected?(%{id: id}, value), do: to_string(id) == to_string(value)
 
   defp present?(nil), do: false
   defp present?(string), do: String.trim(string) != ""
