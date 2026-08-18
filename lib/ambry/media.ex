@@ -202,6 +202,10 @@ defmodule Ambry.Media do
     %{
       id: media.id,
       label: media_option_label(media),
+      # Where it sits, muted, on the label's own line: the detail line below
+      # is already carrying five facts, and the series is the one that tells
+      # two same-titled records apart at a glance.
+      trailer: series_credit(media.series),
       # What it is *found* by, which its label isn't: the label composes a
       # part suffix onto the title, and no column holds "A Court of Thorns
       # and Roses (Part 1 of 2)". A picker reopened on a set member searched
@@ -239,7 +243,7 @@ defmodule Ambry.Media do
   defp media_option_detail(%MediaFlat{} = media) do
     [
       names(media.authors),
-      names(media.narrators) && "read by #{names(media.narrators)}",
+      name_credit(media.narrators) && "read by #{name_credit(media.narrators)}",
       media.publisher,
       media.published && media.published.year,
       media.duration && format_duration(media.duration),

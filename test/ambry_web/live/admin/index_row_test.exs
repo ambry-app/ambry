@@ -153,6 +153,30 @@ defmodule AmbryWeb.Admin.IndexRowTest do
     end
   end
 
+  # A GraphicAudio cast runs to a dozen people, and a row that prints all
+  # twelve buries the title it was meant to help identify.
+  test "a row credits the first narrator and counts the rest", %{conn: conn} do
+    insert(:media,
+      book: build(:book),
+      media_narrators: [
+        build(:media_narrator,
+          narrator: build(:narrator, name: "Karen Foley", person: build(:person))
+        ),
+        build(:media_narrator,
+          narrator: build(:narrator, name: "Eric Messner", person: build(:person))
+        ),
+        build(:media_narrator,
+          narrator: build(:narrator, name: "Melody Muze", person: build(:person))
+        )
+      ]
+    )
+
+    {:ok, _view, html} = live(conn, ~p"/admin/audiobooks")
+
+    assert html =~ "Read by Karen Foley and 2 others"
+    refute html =~ "Melody Muze"
+  end
+
   # In words a person reads, not the cells these were on the way out of the
   # footer ("8/30/22", "14:04:02"), which is the shape a spreadsheet wants.
   # `record_meta/1` is one helper, so the audiobooks list and the queue's

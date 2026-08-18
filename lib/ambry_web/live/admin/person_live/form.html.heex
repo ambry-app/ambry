@@ -72,27 +72,56 @@
         <div class="space-y-4">
           <%!-- ── writes ─────────────────────────────────────────────── --%>
           <div class="space-y-2">
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={to_string(@writes)}
-              phx-click="toggle-credit"
-              phx-value-kind="author"
-              class="flex items-center gap-2 pl-3"
-            >
-              <span class={[
-                "flex h-4 w-4 flex-none items-center justify-center rounded-sm",
-                (@writes && "bg-brand-dark") || "bg-zinc-800"
-              ]}>
-                <.icon :if={@writes} name="fa-check" class="h-2.5 w-2.5 text-zinc-900" />
-              </span>
-              <%!-- The label absorbs the "as": revealed, the names below it
-                  are what it is credited as, so the line reads into them
-                  rather than repeating the person's name beside the box. --%>
-              <span class="text-sm text-zinc-200">
-                Writes books{if revealed?(assigns, :author), do: " as"}
-              </span>
-            </button>
+            <%!-- The hatch rides the question it qualifies rather than
+                sitting on a line of its own underneath: two ticks and two
+                hatches was four lines to ask two questions. Baseline, not
+                centre — the two texts are different sizes (§3). --%>
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={to_string(@writes)}
+                phx-click="toggle-credit"
+                phx-value-kind="author"
+                class="flex items-center gap-2 pl-3"
+              >
+                <%!-- The tick is always in the box, hidden rather than
+                    absent. A flex container takes its baseline from its first
+                    item, and an *empty* box has no item to take one from — so
+                    it synthesized one from its own bottom edge instead, three
+                    pixels lower, and the link beside it stepped down every
+                    time the box was unticked. --%>
+                <span class={[
+                  "flex h-4 w-4 flex-none items-center justify-center rounded-sm",
+                  (@writes && "bg-brand-dark") || "bg-zinc-800"
+                ]}>
+                  <.icon
+                    name="fa-check"
+                    class={["h-2.5 w-2.5 text-zinc-900", !@writes && "invisible"]}
+                  />
+                </span>
+                <%!-- The label absorbs the "as": revealed, the names below it
+                    are what it is credited as, so the line reads into them
+                    rather than repeating the person's name beside the box. --%>
+                <span class="text-sm text-zinc-200">
+                  Writes books{if revealed?(assigns, :author), do: " as"}
+                </span>
+              </button>
+
+              <%!-- Offered whether or not the box is ticked: linking a
+                  shared pen name is how a person becomes an author at all in
+                  the composite case, and routing that through "tick, then
+                  delete the author it made" is not a route. --%>
+              <button
+                :if={not revealed?(assigns, :author)}
+                type="button"
+                phx-click="reveal-credit"
+                phx-value-kind="author"
+                class="text-xs text-zinc-400 underline"
+              >
+                Writes under a pen name?
+              </button>
+            </div>
 
             <%!-- Collapsed, the credits still ride along. A card that renders
                 nothing says nothing, and "said nothing" is indistinguishable
@@ -204,20 +233,6 @@
                 </button>
               </div>
             </div>
-
-            <%!-- Offered whether or not the box is ticked: linking a
-                shared pen name is how a person becomes an author at all in
-                the composite case, and routing that through "tick, then
-                delete the author it made" is not a route. --%>
-            <button
-              :if={not revealed?(assigns, :author)}
-              type="button"
-              phx-click="reveal-credit"
-              phx-value-kind="author"
-              class="pl-6 text-xs text-zinc-400 underline"
-            >
-              Writes under a pen name?
-            </button>
           </div>
 
           <%!-- ── narrates ───────────────────────────────────────────── --%>
@@ -225,24 +240,39 @@
               so there is no shared-narrator case to offer. The asymmetry is
               the model's, and stating it beats faking symmetry. --%>
           <div class="space-y-2">
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={to_string(@narrates)}
-              phx-click="toggle-credit"
-              phx-value-kind="narrator"
-              class="flex items-center gap-2 pl-3"
-            >
-              <span class={[
-                "flex h-4 w-4 flex-none items-center justify-center rounded-sm",
-                (@narrates && "bg-brand-dark") || "bg-zinc-800"
-              ]}>
-                <.icon :if={@narrates} name="fa-check" class="h-2.5 w-2.5 text-zinc-900" />
-              </span>
-              <span class="text-sm text-zinc-200">
-                Narrates audiobooks{if revealed?(assigns, :narrator), do: " as"}
-              </span>
-            </button>
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={to_string(@narrates)}
+                phx-click="toggle-credit"
+                phx-value-kind="narrator"
+                class="flex items-center gap-2 pl-3"
+              >
+                <span class={[
+                  "flex h-4 w-4 flex-none items-center justify-center rounded-sm",
+                  (@narrates && "bg-brand-dark") || "bg-zinc-800"
+                ]}>
+                  <.icon
+                    name="fa-check"
+                    class={["h-2.5 w-2.5 text-zinc-900", !@narrates && "invisible"]}
+                  />
+                </span>
+                <span class="text-sm text-zinc-200">
+                  Narrates audiobooks{if revealed?(assigns, :narrator), do: " as"}
+                </span>
+              </button>
+
+              <button
+                :if={not revealed?(assigns, :narrator)}
+                type="button"
+                phx-click="reveal-credit"
+                phx-value-kind="narrator"
+                class="text-xs text-zinc-400 underline"
+              >
+                Narrates under a stage name?
+              </button>
+            </div>
 
             <div :if={not revealed?(assigns, :narrator)} class="hidden">
               <.inputs_for :let={narrator_form} field={@form[:narrators]}>
@@ -284,16 +314,6 @@
                 </button>
               </div>
             </div>
-
-            <button
-              :if={not revealed?(assigns, :narrator)}
-              type="button"
-              phx-click="reveal-credit"
-              phx-value-kind="narrator"
-              class="pl-6 text-xs text-zinc-400 underline"
-            >
-              Narrates under a stage name?
-            </button>
           </div>
         </div>
       </.field_group>

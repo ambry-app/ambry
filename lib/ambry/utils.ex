@@ -52,6 +52,48 @@ defmodule Ambry.Utils do
     end
   end
 
+  @doc """
+  A credit, shortened to the name that identifies it and a count of the rest.
+
+  Long narrator lists are the case this exists for: a GraphicAudio cast runs
+  to a dozen people, and a row or a picker option that prints all twelve
+  buries the title it was meant to help you find. The first name is what
+  tells two recordings of one book apart; the others are a number.
+
+  ## Examples
+
+      iex> Ambry.Utils.name_credit([%{name: "R.C. Bray"}])
+      "R.C. Bray"
+
+      iex> Ambry.Utils.name_credit([%{name: "Kate Reading"}, %{name: "Michael Kramer"}])
+      "Kate Reading and 1 other"
+
+      iex> Ambry.Utils.name_credit([%{name: "A"}, %{name: "B"}, %{name: "C"}])
+      "A and 2 others"
+  """
+  def name_credit(nil), do: nil
+  def name_credit([]), do: nil
+  def name_credit([%{name: name}]), do: name
+
+  def name_credit([%{name: name} | rest]) do
+    case length(rest) do
+      1 -> "#{name} and 1 other"
+      n -> "#{name} and #{n} others"
+    end
+  end
+
+  @doc """
+  Where something sits in its series, in the app's one wording.
+
+  ## Examples
+
+      iex> Ambry.Utils.series_credit([%{name: "Mistborn", number: 2}])
+      "Mistborn #2"
+  """
+  def series_credit(nil), do: nil
+  def series_credit([]), do: nil
+  def series_credit(series), do: Enum.map_join(series, ", ", &"#{&1.name} ##{&1.number}")
+
   defmacro tap_ok(tuple, fun) do
     quote bind_quoted: [fun: fun, tuple: tuple] do
       case tuple do

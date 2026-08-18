@@ -60,7 +60,10 @@ defmodule AmbryWeb.Components.EntityResolver do
   `image` renders a thumbnail (cover, portrait), `detail` a muted second
   line — the disambiguation lives there, so labels stay short. When any
   option in a list carries an image, imageless rows hold the space with a
-  lettered placeholder so the column stays aligned.
+  lettered placeholder so the column stays aligned. `trailer` is a muted
+  aside on the label's own line, for the one fact that separates two
+  same-titled records (a series and its number) when the detail line is
+  already full.
 
   An option may also carry `query`: **what the record is found by, when that
   differs from how it is displayed.** A label composed from more than one
@@ -186,7 +189,18 @@ defmodule AmbryWeb.Components.EntityResolver do
               {String.first(option.label)}
             </span>
             <span class="min-w-0 grow">
-              <span class="block truncate">{option.label}</span>
+              <%!-- Where it sits rides the label's line, muted, rather than
+                  joining a detail line already carrying five facts. No middle
+                  dot: the size and colour already separate it, so the dot was
+                  a second mark doing a job that was done. It gives way three
+                  times faster than the title when the row runs out of width,
+                  because meta truncates before content (§7). --%>
+              <span class="flex min-w-0 items-baseline gap-1.5">
+                <span class="min-w-0 shrink truncate">{option.label}</span>
+                <span :if={option.trailer} class="shrink-[3] min-w-0 truncate text-xs text-zinc-500">
+                  {option.trailer}
+                </span>
+              </span>
               <span :if={option.detail} class="block truncate text-xs text-zinc-400">
                 {option.detail}
               </span>
@@ -360,10 +374,10 @@ defmodule AmbryWeb.Components.EntityResolver do
 
   defp normalize(nil), do: nil
 
-  defp normalize({label, id}), do: %{id: id, label: label, image: nil, detail: nil, query: nil}
+  @defaults %{image: nil, detail: nil, trailer: nil, query: nil}
 
-  defp normalize(%{id: _id, label: _label} = option),
-    do: Map.merge(%{image: nil, detail: nil, query: nil}, option)
+  defp normalize({label, id}), do: Map.merge(@defaults, %{id: id, label: label})
+  defp normalize(%{id: _id, label: _label} = option), do: Map.merge(@defaults, option)
 
   defp selected?(_option, nil), do: false
   defp selected?(_option, ""), do: false

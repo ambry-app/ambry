@@ -3,6 +3,7 @@ defmodule AmbryWeb.Admin.Components do
 
   use AmbryWeb, :html
 
+  import Ambry.Utils, only: [name_credit: 1, series_credit: 1]
   import AmbryWeb.Gravatar
   import AmbryWeb.TimeUtils, only: [duration_display: 1]
 
@@ -460,11 +461,14 @@ defmodule AmbryWeb.Admin.Components do
     >
       {names(@authors)}
     </p>
+    <%!-- A dozen-strong GraphicAudio cast printed in full buries the title
+          it was meant to help identify, so the row credits the narrator who
+          tells two recordings apart and counts the rest (§8). --%>
     <p
       :if={@narrators != []}
       class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
     >
-      Read by {names(@narrators)}
+      Read by {name_credit(@narrators)}
     </p>
     """
   end
@@ -493,17 +497,13 @@ defmodule AmbryWeb.Admin.Components do
   """
   def record_meta(record) do
     [
-      record |> Map.get(:series) |> series_clause(),
+      record |> Map.get(:series) |> series_credit(),
       published_clause(record),
       record |> Map.get(:duration) |> duration_display()
     ]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" · ")
   end
-
-  defp series_clause(nil), do: nil
-  defp series_clause([]), do: nil
-  defp series_clause(series), do: Enum.map_join(series, ", ", &"#{&1.name} ##{&1.number}")
 
   defp published_clause(record) do
     case {format_published(record), Map.get(record, :publisher)} do

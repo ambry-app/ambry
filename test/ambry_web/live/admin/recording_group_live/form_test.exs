@@ -185,6 +185,64 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       assert html =~ "Sarah J. Maas"
     end
 
+    # A GraphicAudio cast runs to a dozen people, and a row that prints all
+    # twelve buries the title it was meant to help identify.
+    test "a picker row credits the first narrator and counts the rest", %{conn: conn} do
+      book = insert(:book, title: "A Court of Thorns and Roses")
+      group = insert(:recording_group, name: "Graphic Audio", book: book)
+
+      insert(:media,
+        book: book,
+        part_number: 1,
+        recording_group: group,
+        media_narrators: [
+          build(:media_narrator,
+            narrator: build(:narrator, name: "Karen Foley", person: build(:person))
+          ),
+          build(:media_narrator,
+            narrator: build(:narrator, name: "Eric Messner", person: build(:person))
+          ),
+          build(:media_narrator,
+            narrator: build(:narrator, name: "Melody Muze", person: build(:person))
+          )
+        ]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      html =
+        view
+        |> element("#recording_group_form_members_0_media_id-input")
+        |> render_focus()
+
+      assert html =~ "read by Karen Foley and 2 others"
+      refute html =~ "Melody Muze"
+    end
+
+    # The detail line already carries five facts, so where a recording sits
+    # rides the label's own line instead, muted.
+    test "a picker row trails its series on the label line", %{conn: conn} do
+      series = insert(:series, name: "A Court of Thorns and Roses")
+
+      book =
+        insert(:book,
+          title: "A Court of Thorns and Roses",
+          series_books: [build(:series_book, series: series, book_number: 1)]
+        )
+
+      group = insert(:recording_group, name: "Graphic Audio", book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      html =
+        view
+        |> element("#recording_group_form_members_0_media_id-input")
+        |> render_focus()
+
+      assert html =~ "A Court of Thorns and Roses #1"
+    end
+
     test "saving edits facts and the member list together", %{conn: conn} do
       book = insert(:book)
       group = insert(:recording_group, name: "Before", book: book)

@@ -26,6 +26,7 @@ defmodule Ambry.Books do
       PubSub.UniverseDeleted
     ]
 
+  import Ambry.Utils, only: [series_credit: 1]
   import Ecto.Query
 
   alias Ambry.Books.Book
@@ -396,6 +397,9 @@ defmodule Ambry.Books do
     %{
       id: book.id,
       label: book.title,
+      # Where it sits, muted, on the label's own line — the one fact that
+      # tells two books with the same title apart at a glance.
+      trailer: series_credit(book.series),
       image: List.first(book.thumbnails || []),
       detail: book_select_detail(book)
     }
