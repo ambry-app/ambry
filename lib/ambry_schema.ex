@@ -33,7 +33,6 @@ defmodule AmbrySchema do
   import_types AmbrySchema.Sync
 
   query do
-    import_fields :node_query
     import_fields :account_queries
     import_fields :sync_queries
   end

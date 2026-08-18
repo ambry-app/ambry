@@ -6,38 +6,34 @@ defmodule AmbrySchema.MediaTest do
 
   setup :register_and_put_user_api_token
 
-  describe "Media node" do
+  # Asked through `mediaChangedSince` rather than `node(id:)`, which is the
+  # query the app actually issues. The field resolvers are the same ones; the
+  # node door was retired with the server-driven client it was built for.
+  describe "mediaChangedSince" do
     @query ~G"""
-    query Media($id: ID!) {
-      node(id: $id) {
+    query Media {
+      mediaChangedSince {
         id
-        ... on Media {
-          fullCast
-          abridged
-          duration
-          mpdPath
-          hlsPath
-          description
-          imagePath
-          chapters {
-            id
-            title
-            startTime
-            endTime
-          }
-          book {
-            __typename
-          }
-          narrators {
-            __typename
-          }
-          insertedAt
-          updatedAt
+        fullCast
+        abridged
+        duration
+        mpdPath
+        hlsPath
+        chapters {
+          id
+          title
+          startTime
+          endTime
         }
+        book {
+          id
+        }
+        insertedAt
+        updatedAt
       }
     }
     """
-    test "resolves Media fields", %{conn: conn} do
+    test "resolves a recording's fields", %{conn: conn} do
       media =
         :media
         |> build(
@@ -53,6 +49,7 @@ defmodule AmbrySchema.MediaTest do
 
       %{
         id: id,
+        book_id: book_id,
         full_cast: full_cast,
         abridged: abridged,
         duration: duration,
@@ -61,41 +58,39 @@ defmodule AmbrySchema.MediaTest do
       } = media
 
       gid = to_global_id("Media", id)
+      book_gid = to_global_id("Book", book_id)
 
-      conn =
-        post(conn, "/gql", %{
-          "query" => @query,
-          "variables" => %{id: gid}
-        })
+      conn = post(conn, "/gql", %{"query" => @query})
 
       duration_match = Decimal.to_float(duration)
 
       assert %{
                "data" => %{
-                 "node" => %{
-                   "id" => ^gid,
-                   "fullCast" => ^full_cast,
-                   "abridged" => ^abridged,
-                   "duration" => ^duration_match,
-                   "mpdPath" => ^mpd_path,
-                   "hlsPath" => ^hls_path,
-                   "chapters" => [
-                     %{
-                       "id" => "gY",
-                       "startTime" => t,
-                       "endTime" => _,
-                       "title" => "Chapter 1"
-                     }
-                   ],
-                   "book" => %{"__typename" => "Book"},
-                   "narrators" => [%{"__typename" => "Narrator"}],
-                   "insertedAt" => "" <> _,
-                   "updatedAt" => "" <> _
-                 }
+                 "mediaChangedSince" => [
+                   %{
+                     "id" => ^gid,
+                     "fullCast" => ^full_cast,
+                     "abridged" => ^abridged,
+                     "duration" => ^duration_match,
+                     "mpdPath" => ^mpd_path,
+                     "hlsPath" => ^hls_path,
+                     "chapters" => [
+                       %{
+                         "id" => "gY",
+                         "startTime" => start_time,
+                         "endTime" => _,
+                         "title" => "Chapter 1"
+                       }
+                     ],
+                     "book" => %{"id" => ^book_gid},
+                     "insertedAt" => "" <> _,
+                     "updatedAt" => "" <> _
+                   }
+                 ]
                }
              } = json_response(conn, 200)
 
-      assert t == 0.0
+      assert start_time == 0.0
     end
   end
 end

@@ -4,7 +4,6 @@ defmodule AmbrySchema.Resolvers do
   import Absinthe.Relay.Node, only: [from_global_id: 2]
   import Ecto.Query
 
-  alias Absinthe.Relay.Connection
   alias Ambry.Accounts
   alias Ambry.Accounts.User
   alias Ambry.Books.Book
@@ -47,21 +46,6 @@ defmodule AmbrySchema.Resolvers do
   def current_user(_args, %{context: %{current_user: user}}), do: {:ok, user}
   def current_user(_args, _resolution), do: {:ok, nil}
 
-  def list_authored_books(%Author{} = author, args, _resolution) do
-    author
-    |> Ecto.assoc(:books)
-    |> order_by({:desc, :published})
-    |> Connection.from_query(&Repo.all/1, args)
-  end
-
-  def list_narrated_media(%Narrator{} = narrator, args, _resolution) do
-    query =
-      from m in Ecto.assoc(narrator, :media),
-        order_by: [desc: :published]
-
-    Connection.from_query(query, &Repo.all/1, args)
-  end
-
   def people_changed_since(args, _resolution), do: Sync.changes_since(Person, args[:since])
   def authors_changed_since(args, _resolution), do: Sync.changes_since(Author, args[:since])
 
@@ -96,13 +80,6 @@ defmodule AmbrySchema.Resolvers do
     do: Sync.changes_since(RecordingGroup, args[:since])
 
   def deletions_since(args, _resolution), do: Sync.deletions_since(args[:since])
-
-  def list_series_books(%Series{} = series, args, _resolution) do
-    series
-    |> Ecto.assoc(:series_books)
-    |> order_by({:asc, :book_number})
-    |> Connection.from_query(&Repo.all/1, args)
-  end
 
   def chapters(%Media{chapters: chapters}, _args, _resolution) do
     {:ok,
@@ -140,29 +117,6 @@ defmodule AmbrySchema.Resolvers do
         {:ok, Decimal.to_float(value)}
     end
   end
-
-  def node(%{type: :author, id: id}, _resolution), do: {:ok, Repo.get(Author, id)}
-
-  def node(%{type: :author_person, id: id}, _resolution), do: {:ok, Repo.get(AuthorPerson, id)}
-
-  def node(%{type: :book, id: id}, _resolution), do: {:ok, Repo.get(Book, id)}
-  def node(%{type: :book_author, id: id}, _resolution), do: {:ok, Repo.get(BookAuthor, id)}
-
-  def node(%{type: :book_universe, id: id}, _resolution), do: {:ok, Repo.get(BookUniverse, id)}
-
-  def node(%{type: :universe, id: id}, _resolution), do: {:ok, Repo.get(Universe, id)}
-  def node(%{type: :deletion, id: id}, _resolution), do: {:ok, Repo.get(Deletion, id)}
-  def node(%{type: :media, id: id}, _resolution), do: {:ok, Repo.get(Media, id)}
-  def node(%{type: :media_narrator, id: id}, _resolution), do: {:ok, Repo.get(MediaNarrator, id)}
-
-  def node(%{type: :narrator, id: id}, _resolution), do: {:ok, Repo.get(Narrator, id)}
-  def node(%{type: :person, id: id}, _resolution), do: {:ok, Repo.get(Person, id)}
-
-  def node(%{type: :recording_group, id: id}, _resolution),
-    do: {:ok, Repo.get(RecordingGroup, id)}
-
-  def node(%{type: :series, id: id}, _resolution), do: {:ok, Repo.get(Series, id)}
-  def node(%{type: :series_book, id: id}, _resolution), do: {:ok, Repo.get(SeriesBook, id)}
 
   def type(%Author{}, _resolution), do: :author
   def type(%AuthorPerson{}, _resolution), do: :author_person

@@ -4,7 +4,7 @@ defmodule AmbrySchema.Books do
   use Absinthe.Schema.Notation
   use Absinthe.Relay.Schema.Notation, :modern
 
-  import Absinthe.Resolution.Helpers, only: [dataloader: 1, dataloader: 2]
+  import Absinthe.Resolution.Helpers, only: [dataloader: 1]
 
   alias AmbrySchema.Resolvers
 
@@ -32,19 +32,12 @@ defmodule AmbrySchema.Books do
   node object(:series) do
     field :name, non_null(:string)
 
-    connection field :series_books, node_type: :series_book do
-      resolve &Resolvers.list_series_books/3
-    end
-
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
   end
 
   node object(:universe) do
     field :name, non_null(:string)
-
-    field :books, non_null(list_of(non_null(:book))),
-      resolve: dataloader(Resolvers, args: %{order: {:asc, :title}})
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
@@ -63,17 +56,6 @@ defmodule AmbrySchema.Books do
     field :published, non_null(:date)
     field :published_format, non_null(:date_format)
 
-    field :authors, non_null(list_of(non_null(:author))),
-      resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
-
-    field :series_books, non_null(list_of(non_null(:series_book))), resolve: dataloader(Resolvers)
-
-    field :universes, non_null(list_of(non_null(:universe))),
-      resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
-
-    field :media, non_null(list_of(non_null(:media))),
-      resolve: dataloader(Resolvers, args: %{order: {:desc, :inserted_at}})
-
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
   end
@@ -88,7 +70,4 @@ defmodule AmbrySchema.Books do
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
   end
-
-  connection(node_type: :book)
-  connection(node_type: :series_book)
 end
