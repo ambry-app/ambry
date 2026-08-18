@@ -15,6 +15,30 @@ defmodule AmbryWeb.FileResponse do
   overwrites them in place, and a changed mtime changes the ETag, so
   streaming clients revalidate and pick up the new bytes without any new URL
   or cleanup dance.
+
+  ## A client that hangs up is not an error
+
+  `sendfile(2)` does not return until every byte is on the wire, and TCP
+  backpressure paces that at the rate the player drains its buffer — for a
+  whole book that is the length of the listening session. Pausing, seeking,
+  or moving to the next track makes the player close the connection
+  mid-transfer, and the pending write fails.
+
+  That failure has to be caught here, because the response is already half
+  reported by the time it happens. `Plug.Conn.send_file/5` runs the
+  `before_send` callbacks *first* (so `Plug.Telemetry` has already logged
+  `Sent 206`), then calls the adapter, and only afterwards posts the
+  `{:plug_conn, :sent}` message that tells the rest of Phoenix a response
+  went out. When the adapter raises, that message is never posted, so
+  `Phoenix.Endpoint.RenderErrors` believes nothing has been sent: it renders
+  a full 500 error page onto the closed socket, which runs `before_send`
+  again and logs the same request a second time as `Sent 500 in <the whole
+  transfer>`. Every one of those pairs in the production log is a listener
+  pressing pause.
+
+  So the rescue below reports what actually happened — the response is over —
+  by handing back a conn in the `:sent` state. Nothing escapes to be rendered
+  at, logged twice, or reported to Sentry.
   """
 
   import Plug.Conn
@@ -28,12 +52,21 @@ defmodule AmbryWeb.FileResponse do
   def send(conn, path, content_type) do
     case File.stat(path) do
       {:ok, %File.Stat{type: :regular} = stat} ->
-        send_regular_file(conn, path, content_type, stat)
+        try do
+          send_regular_file(conn, path, content_type, stat)
+        rescue
+          Bandit.TransportError -> hung_up(conn)
+        end
 
       _not_a_file ->
         conn
     end
   end
+
+  # The socket died partway through the response. There is nobody left to
+  # tell, and no second attempt worth making: say the response is finished so
+  # that no later stage tries to write one.
+  defp hung_up(conn), do: %{conn | state: :sent}
 
   defp send_regular_file(conn, path, content_type, stat) do
     etag = etag(stat)
