@@ -33,6 +33,7 @@ defmodule Ambry.People do
   alias Ambry.People.PubSub.PersonUpdated
   alias Ambry.PubSub
   alias Ambry.Repo
+  alias Ambry.Search.Query
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
 
@@ -533,11 +534,15 @@ defmodule Ambry.People do
   People rather than identities: this is what the import form's "who is behind
   this credit" control picks from, where the answer is a human, not a name
   they publish under.
+
+  Asks the index rather than the `people` table, which is what makes a person
+  findable by a name they publish under as well as their own — a person's
+  indexed record *is* their pen names, and their own name is only there when
+  it differs.
   """
   def search_people(phrase, limit) do
     Person
-    |> NameSearch.narrow(:name, phrase, limit)
-    |> Repo.all()
+    |> Query.matching(phrase, :person, limit: limit)
     |> Enum.map(&person_option/1)
   end
 

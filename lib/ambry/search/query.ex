@@ -51,6 +51,7 @@ defmodule Ambry.Search.Query do
 
   import Ecto.Query
 
+  alias Ambry.Repo
   alias Ambry.Search.Drain
   alias Ambry.Search.Record
 
@@ -147,5 +148,52 @@ defmodule Ambry.Search.Query do
     |> build(Keyword.put(opts, :types, [type]))
     |> exclude(:order_by)
     |> select([record], fragment("(?).id", record.reference))
+  end
+
+  @doc """
+  Rows of `queryable` matching `phrase`, best first, for a picker.
+
+  A picker is a different question from a list filter, which is why this is a
+  different function. A list is already narrowed by the operator and sorted
+  the way they chose, so `ids/3` throws the ranking away; a typeahead is
+  ranking and nothing else — the whole answer is which three rows go at the
+  top.
+
+  So the defaults here are the picker's: `:any`, because a term that misses
+  should not empty the box, and `partial: true`, because somebody typing has
+  not finished the word yet.
+
+  `queryable` is whatever the caller wants back — a schema, or one carrying
+  its own preloads — matched on `id`. The index's order is reapplied after
+  the fetch, since a `WHERE id IN` does not keep it.
+  """
+  def matching(queryable, phrase, type, opts \\ []) do
+    {limit, build_opts} = Keyword.pop(opts, :limit, 25)
+
+    build_opts =
+      build_opts
+      |> Keyword.put_new(:joiner, :any)
+      |> Keyword.put_new(:partial, true)
+      |> Keyword.put(:types, [type])
+
+    ranked_ids =
+      phrase
+      |> build(build_opts)
+      |> limit(^limit)
+      |> select([record], fragment("(?).id", record.reference))
+      |> Repo.all()
+
+    rows =
+      queryable
+      |> where([row], row.id in ^ranked_ids)
+      |> Repo.all()
+      |> Map.new(&{&1.id, &1})
+
+    Enum.flat_map(ranked_ids, fn id ->
+      case Map.fetch(rows, id) do
+        {:ok, row} -> [row]
+        :error -> []
+      end
+    end)
   end
 end

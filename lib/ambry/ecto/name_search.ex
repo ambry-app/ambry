@@ -1,26 +1,39 @@
 defmodule Ambry.Ecto.NameSearch do
   @moduledoc """
-  Narrowing a typeahead's options to what somebody typed, in one place.
+  Narrowing a picker's options to what somebody typed, where the thing being
+  picked is not a record.
 
-  Every picker in the admin asks the same question of a different table — "the
-  records whose name looks like this, best first" — and it used to be asked in
-  Elixir over a preloaded list of every row in that table. That works until
-  the table is the library: a resolver over books loaded every book, with its
-  cover, on every form mount.
+  Three callers, and it is worth saying what they have in common, because
+  everything else that once used this now asks `Ambry.Search.Query` instead:
 
-  Two properties are worth keeping from the version this replaces, because
-  losing either would be a visible regression:
+    * `People.search_authors/2` and `People.search_narrators/2` pick a **pen
+      name**. An author is not a record in the search index and should not
+      be; the index holds the *person*, and a credit is the name they
+      published under. A picker choosing between "Ty Franck" and "James S.A.
+      Corey" is choosing which name goes on the book, and offering it the
+      person behind both would be answering a different question.
+    * `Media.search_recording_groups/3` picks a **set within one book**.
+      Indexing every set in the library so that a picker can filter the two
+      or three belonging to one book would be all cost and no reach.
 
-    * **Accents fold.** "Rodriguez" finds "Patricia Rodríguez" — the library's
-      spelling and a file's are one narrator. `unaccent` is the SQL twin of
-      the NFD fold, the same pairing `Ambry.Inbox.AutoMatch.person_key/1` and
-      its `@name_key_sql` already rely on.
+  So this is not a sixth search engine. It is a name filter over one column
+  of one table, and for these three that is exactly the right size. What it
+  replaced — loading every row into memory and filtering in Elixir — is the
+  thing that was wrong, not the question it asks.
+
+  Two properties are load-bearing:
+
+    * **Accents fold.** "Rodriguez" finds "Patricia Rodríguez" — the
+      library's spelling and a file's are one narrator. `unaccent` is the SQL
+      twin of the NFD fold, the same pairing `Ambry.Inbox.AutoMatch.person_key/1`
+      and its `@name_key_sql` already rely on.
     * **A prefix beats a substring.** Typing "Kra" puts "Kramer" above
       "Michael Kramer" rather than sorting them alphabetically together.
 
   An empty phrase is not a failed search: it's a box the operator has just
   focused, and what belongs there is the first page of records rather than
-  nothing.
+  nothing. `Ambry.Search.Query.matching/4` keeps the same promise, so the
+  pickers behave alike whichever of the two answers them.
   """
 
   import Ecto.Query
@@ -34,16 +47,6 @@ defmodule Ambry.Ecto.NameSearch do
       trimmed -> queryable |> matching(field, trimmed) |> limit(^limit)
     end
   end
-
-  @doc """
-  The `LIKE` pattern for a phrase, for a caller whose searchable expression
-  isn't a single column.
-
-  A recording's label is `coalesce(title, book.title)` — two columns and a
-  fallback — which no field-name parameter can express, so those callers write
-  the fragment and take the escaping from here.
-  """
-  def pattern(phrase), do: "%#{escape(String.trim(phrase || ""))}%"
 
   defp matching(queryable, field, phrase) do
     anywhere = "%#{escape(phrase)}%"

@@ -44,10 +44,10 @@ defmodule Ambry.Books do
   alias Ambry.Books.SeriesFlat
   alias Ambry.Books.Universe
   alias Ambry.Books.UniverseFlat
-  alias Ambry.Ecto.NameSearch
   alias Ambry.Media.Media
   alias Ambry.PubSub
   alias Ambry.Repo
+  alias Ambry.Search.Query
 
   @book_direct_assoc_preloads [
     :authors,
@@ -625,12 +625,14 @@ defmodule Ambry.Books do
 
   @doc """
   Series matching what somebody typed into a picker.
+
+  Asks the index, so a series is findable by the authors who write it and not
+  only by its own name.
   """
   def search_series(phrase, limit) do
     Series
-    |> NameSearch.narrow(:name, phrase, limit)
-    |> select([s], {s.name, s.id})
-    |> Repo.all()
+    |> Query.matching(phrase, :series, limit: limit)
+    |> Enum.map(&{&1.name, &1.id})
   end
 
   @doc """
@@ -774,12 +776,13 @@ defmodule Ambry.Books do
 
   @doc """
   Universes matching what somebody typed into a picker.
+
+  Asks the index, so a universe is findable by who writes in it.
   """
   def search_universes(phrase, limit) do
     Universe
-    |> NameSearch.narrow(:name, phrase, limit)
-    |> select([u], {u.name, u.id})
-    |> Repo.all()
+    |> Query.matching(phrase, :universe, limit: limit)
+    |> Enum.map(&{&1.name, &1.id})
   end
 
   @doc """

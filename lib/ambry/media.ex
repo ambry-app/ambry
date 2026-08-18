@@ -50,6 +50,7 @@ defmodule Ambry.Media do
   alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
+  alias Ambry.Search.Query
   alias Ambry.Settings
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
@@ -178,10 +179,21 @@ defmodule Ambry.Media do
     |> Enum.map(&media_option/1)
   end
 
+  # Deliberately not `MediaFlat.filter(:search, …)`, which is the admin
+  # list's filter and asks a stricter question: every word has to match, and
+  # a half-typed one matches nothing. Sharing it made "sander" find no
+  # recordings at all. A picker gets the picker's knobs.
   defp media_matching(query, phrase) do
     case String.trim(phrase || "") do
-      "" -> query
-      typed -> MediaFlat.filter(query, :search, typed)
+      "" ->
+        query
+
+      typed ->
+        where(
+          query,
+          [m],
+          m.book_id in subquery(Query.ids(typed, :book, joiner: :any, partial: true))
+        )
     end
   end
 
