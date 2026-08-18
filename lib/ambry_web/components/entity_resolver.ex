@@ -61,6 +61,15 @@ defmodule AmbryWeb.Components.EntityResolver do
   line — the disambiguation lives there, so labels stay short. When any
   option in a list carries an image, imageless rows hold the space with a
   lettered placeholder so the column stays aligned.
+
+  An option may also carry `query`: **what the record is found by, when that
+  differs from how it is displayed.** A label composed from more than one
+  column has no column to match against, so reopening a filled box searched
+  for a string that could not exist and answered "No matches" about the very
+  record it was holding — an audiobook in a set is labelled "A Court of
+  Thorns and Roses (Part 1 of 2)" and titled "A Court of Thorns and Roses".
+  The label is for reading and the query is for finding; a label that is
+  itself a column needs no `query`.
   """
 
   use AmbryWeb, :live_component
@@ -292,10 +301,16 @@ defmodule AmbryWeb.Components.EntityResolver do
   defp display_value(%{held: %{label: label}}), do: label
   defp display_value(%{text: text}), do: text
 
-  # What the list filters on: the query while typing, otherwise whatever the
+  # What the list filters on: what is being typed, otherwise whatever the
   # field currently holds — an open filled field must never list records that
   # don't match what's in it.
-  defp effective_query(%{query: query}) when is_binary(query), do: query
+  #
+  # A held record answers with its own `query` when it has one, because its
+  # label may be composed rather than stored (see the moduledoc). Note the
+  # two different `query`s in play: the assign is the operator's keystrokes,
+  # `held.query` is the record's own search term.
+  defp effective_query(%{query: typed}) when is_binary(typed), do: typed
+  defp effective_query(%{held: %{query: term}}) when is_binary(term), do: term
   defp effective_query(assigns), do: display_value(assigns)
 
   # Only while the list is open. The search is a database query now, and a
@@ -308,10 +323,11 @@ defmodule AmbryWeb.Components.EntityResolver do
   end
 
   defp normalize(nil), do: nil
-  defp normalize({label, id}), do: %{id: id, label: label, image: nil, detail: nil}
+
+  defp normalize({label, id}), do: %{id: id, label: label, image: nil, detail: nil, query: nil}
 
   defp normalize(%{id: _id, label: _label} = option),
-    do: Map.merge(%{image: nil, detail: nil}, option)
+    do: Map.merge(%{image: nil, detail: nil, query: nil}, option)
 
   defp present?(nil), do: false
   defp present?(string), do: String.trim(string) != ""

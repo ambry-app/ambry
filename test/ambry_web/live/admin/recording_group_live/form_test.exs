@@ -111,6 +111,49 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       assert resolver_display(html) == "A Court of Thorns and Roses (Part 1)"
     end
 
+    # The label composes a part suffix onto the title, and no column holds
+    # "A Court of Thorns and Roses (Part 1 of 2)" — so opening the box
+    # searched for exactly that and reported "No matches" about the recording
+    # it was already holding.
+    test "opening a member picker finds the recording it is holding", %{conn: conn} do
+      book = insert(:book, title: "A Court of Thorns and Roses")
+      group = insert(:recording_group, name: "Graphic Audio", book: book, parts_total: 2)
+      held = insert(:media, book: book, part_number: 1, recording_group: group)
+      sibling = insert(:media, book: book, part_number: 2, recording_group: group)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      html =
+        view
+        |> element("#recording_group_form_members_0_media_id-input")
+        |> render_focus()
+
+      refute html =~ "No matches"
+      assert html =~ ~s(phx-value-id="#{held.id}")
+      assert html =~ ~s(phx-value-id="#{sibling.id}")
+    end
+
+    # The one credit a picker of audiobooks can be asked to disambiguate by,
+    # and the row listed everything except it.
+    test "a member picker's rows name the author", %{conn: conn} do
+      author = insert(:author, name: "Sarah J. Maas")
+
+      book =
+        insert(:book, title: "A Court of Thorns and Roses", book_authors: [%{author: author}])
+
+      group = insert(:recording_group, name: "Graphic Audio", book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+
+      html =
+        view
+        |> element("#recording_group_form_members_0_media_id-input")
+        |> render_focus()
+
+      assert html =~ "Sarah J. Maas"
+    end
+
     test "saving edits facts and the member list together", %{conn: conn} do
       book = insert(:book)
       group = insert(:recording_group, name: "Before", book: book)

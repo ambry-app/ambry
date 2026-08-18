@@ -202,6 +202,12 @@ defmodule Ambry.Media do
     %{
       id: media.id,
       label: media_option_label(media),
+      # What it is *found* by, which its label isn't: the label composes a
+      # part suffix onto the title, and no column holds "A Court of Thorns
+      # and Roses (Part 1 of 2)". A picker reopened on a set member searched
+      # for exactly that and reported "No matches" about the recording it was
+      # already holding.
+      query: media.title || media.book,
       image: media.thumbnail,
       detail: media_option_detail(media)
     }
@@ -225,8 +231,14 @@ defmodule Ambry.Media do
   # facts that separate two readings of one book. "Streaming only" is in here
   # because which recordings still cost double the disk is the whole reason
   # somebody is looking at this list.
+  #
+  # The authors lead it, bare, the way every other credit stack in the app
+  # reads (§8) — this line listed a recording's narrators and never said who
+  # wrote the thing, which is the one credit a picker of audiobooks can be
+  # asked to disambiguate by.
   defp media_option_detail(%MediaFlat{} = media) do
     [
+      names(media.authors),
       names(media.narrators) && "read by #{names(media.narrators)}",
       media.publisher,
       media.published && media.published.year,
