@@ -7,6 +7,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
 
   alias Ambry.Library.NamingTemplate
   alias Ambry.Media
+  alias Ambry.Search
   alias Ambry.Settings
 
   @impl Phoenix.LiveView
@@ -46,6 +47,34 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
               <.button phx-click="toggle-direct-play-publishing">
                 {(@direct_play_publishing && "Turn off") || "Turn on"}
               </.button>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 class="mb-1 text-lg font-bold">Search index</h2>
+          <p class="mb-4 text-sm text-zinc-400">
+            Search keeps itself current: every write marks what it changed, and the change is
+            indexed a moment later. Rebuilding is for after an upgrade that changes what a
+            record holds, or for when you'd rather see it done than take our word for it.
+          </p>
+
+          <div class="rounded-lg bg-zinc-900 p-4">
+            <div class="flex items-center gap-3">
+              <span class={[
+                "inline-block h-2.5 w-2.5 rounded-full",
+                (@index.pending == 0 && "bg-lime-500") || "bg-amber-500"
+              ]} />
+              <div class="grow">
+                <h3 class="font-semibold">
+                  {@index.records} {ngettext("record", "records", @index.records)}
+                </h3>
+                <p class="text-sm text-zinc-400" data-role="index-state">
+                  {index_blurb(@index)}
+                </p>
+              </div>
+
+              <.button phx-click="reindex">Rebuild</.button>
             </div>
           </div>
         </section>
@@ -99,6 +128,15 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
     {:noreply, assign_settings(socket)}
   end
 
+  def handle_event("reindex", _params, socket) do
+    :ok = Search.reindex_all!()
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Rebuilding the search index in the background.")
+     |> assign_settings()}
+  end
+
   def handle_event("validate-template", %{"settings" => %{"template" => template}}, socket) do
     {:noreply, assign_template(socket, template)}
   end
@@ -120,8 +158,17 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
   defp assign_settings(socket) do
     socket
     |> assign(:direct_play_publishing, Settings.direct_play_publishing?())
+    |> assign(:index, Search.stats())
     |> assign_template(Settings.library_naming_template())
   end
+
+  # Pending is normally zero and briefly not — the window between a write and
+  # the drain is milliseconds — so a count that is up says "still going",
+  # never "broken". It is only worth reading if it stays up.
+  defp index_blurb(%{pending: 0}), do: "Up to date."
+
+  defp index_blurb(%{pending: pending}),
+    do: "Catching up on #{pending} #{ngettext("change", "changes", pending)}."
 
   # A live preview against a worked example, because a template's failure mode
   # is a folder tree you don't notice is wrong until it's full of files.

@@ -290,13 +290,37 @@ defmodule Ambry.Search.Drain do
   end
 
   @doc """
-  Marks the whole library dirty and drains it.
+  Marks the whole library dirty and hands the work to a background job.
 
-  The reindex button, and what the initial migration leans on: it enqueues in
-  SQL and the first drain after boot does the rest.
+  What the reindex button calls. **Not** a synchronous drain: a library of
+  any size is minutes of rebuilding, and a button that blocks until it is
+  done is a button that times out.
+
+  The job is inserted explicitly rather than left to the listener, because
+  filling the queue by hand raises no `NOTIFY` — only the row triggers do,
+  and this writes the queue directly. Without it the work would sit until the
+  cron backstop noticed, up to a minute later. (That gap is real: it is how
+  the dev index sat empty after a backfill migration.)
   """
   def reindex_all! do
     :ok = Queue.enqueue_all!()
-    run()
+    {:ok, _job} = %{} |> Ambry.Search.RunDrain.new() |> Oban.insert()
+
+    :ok
+  end
+
+  @doc """
+  What the index holds, and whether it is behind.
+
+  `pending` is normally zero and briefly not: a write enqueues, the listener
+  drains, and the window between them is milliseconds. A number that stays
+  up is the one symptom worth showing an operator — it means nothing is
+  draining.
+  """
+  def stats do
+    %{
+      records: Repo.aggregate(Ambry.Search.Record, :count),
+      pending: Repo.one(from q in "search_index_queue", select: count())
+    }
   end
 end

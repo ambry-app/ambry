@@ -48,13 +48,18 @@ defmodule Ambry.Search do
   @user_facing_types [:book, :person, :series]
 
   @doc """
-  Rebuilds the entire index, from scratch.
+  Rebuilds the entire index, in the background.
 
   What the admin's reindex button calls. Not needed for correctness — the
   triggers cover that — but a schema change to what a record holds needs one
   pass over the library, and so does an operator who does not believe us.
   """
   defdelegate reindex_all!, to: Drain
+
+  @doc """
+  What the index holds, and whether it is behind. See `Drain.stats/0`.
+  """
+  defdelegate stats, to: Drain
 
   @doc """
   Waits for the index to reflect everything written so far. See
