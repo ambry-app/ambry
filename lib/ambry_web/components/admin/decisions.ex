@@ -2073,6 +2073,13 @@ defmodule AmbryWeb.Admin.Decisions do
           phx-change="link-group"
           class="min-w-48 flex max-w-md flex-grow items-start gap-2"
         >
+          <%!-- The box has to be stated here, unlike every other control on
+              this row. `@tailwindcss/forms` gives `input`, `select` and
+              `textarea` their padding and border, and `input_classes/1`
+              leans on that; a drop-down's trigger is a `button`, which the
+              plugin never touches, so it collapsed to exactly the height of
+              its own text. These are the plugin's own numbers, so it sits
+              level with the number boxes beside it. --%>
           <.live_component
             :if={@link.candidates != []}
             module={EntityDropdown}
@@ -2080,7 +2087,7 @@ defmodule AmbryWeb.Admin.Decisions do
             name="recording_group_id"
             options={group_options(@link)}
             value={group_choice(@link)}
-            class={input_classes("w-full")}
+            class={input_classes("w-full border px-3 py-2")}
           />
           <input
             :if={@link.mode == :create}
