@@ -22,6 +22,7 @@ defmodule Ambry.Inbox.InboxItem do
   import Ecto.Changeset
 
   alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.ReleaseName
   alias Ambry.Library
   alias Ambry.Library.Source
@@ -46,8 +47,16 @@ defmodule Ambry.Inbox.InboxItem do
     field :issue, :string
 
     # Derived from the draft, denormalized so the queue filters and counts in
-    # SQL. `put_draft/2` is its only writer.
+    # SQL. `put_draft/2` is their only writer.
     field :ready, :boolean, default: false
+
+    # What the draft says this item is, flattened for the queue's search. The
+    # `update_inbox_tsvector` trigger turns this and `path` into
+    # `search_vector`; nothing reads this column directly.
+    # `search_vector` itself is not declared: nothing in Elixir reads a
+    # tsvector, the trigger is its only writer, and `Ambry.Search.Record`
+    # leaves its own out for the same reason.
+    field :search_text, :string
 
     embeds_one :draft, Draft, on_replace: :update
 
@@ -78,9 +87,15 @@ defmodule Ambry.Inbox.InboxItem do
   @doc """
   Stages a draft, keeping the denormalized `ready` flag in step.
 
-  Readiness is *defined* by `Draft.resolved?/1` and merely *stored* here.
-  Routing every draft write through one function is what stops the column
-  drifting away from the function — there is no second place that may set it.
+  Readiness is *defined* by `Draft.resolved?/1` and merely *stored* here, and
+  the same goes for `search_text`. Routing every draft write through one
+  function is what stops either column drifting away from the draft — there
+  is no second place that may set them.
+
+  `search_text` is built here rather than in the trigger on purpose. The
+  draft is a deep embedded structure — fields wrapping values, credits
+  referencing people by key — and SQL reaching into that JSON would be a
+  second copy of its shape, going stale the first time the shape changed.
   """
   def put_draft(inbox_item, attrs) do
     changeset =
@@ -88,8 +103,49 @@ defmodule Ambry.Inbox.InboxItem do
       |> cast(%{draft: attrs}, [])
       |> cast_embed(:draft)
 
-    put_change(changeset, :ready, Draft.resolved?(fetch_field!(changeset, :draft)))
+    draft = fetch_field!(changeset, :draft)
+
+    changeset
+    |> put_change(:ready, Draft.resolved?(draft))
+    |> put_change(:search_text, search_text(draft))
   end
+
+  @doc """
+  What a draft is findable by, beyond the path it was found at.
+
+  The point of the whole column: an item whose folder is
+  `01 Angels and Demons.m4b` is findable by "Dan Brown", which no amount of
+  matching on the path can do.
+
+  Titles, credited names and series only — the things somebody would type
+  looking for this item. Not dates, not publishers, not the file's own tags:
+  a search box that matches everything matches nothing.
+  """
+  def search_text(nil), do: nil
+
+  def search_text(%Draft{} = draft) do
+    work = draft.work
+    recording = draft.recording
+
+    [
+      work && Field.value(work.title),
+      recording && Field.value(recording.title),
+      credited(work && work.authors),
+      credited(recording && recording.narrators),
+      Enum.map(draft.people || [], &Field.value(&1.name)),
+      Enum.map((work && work.series) || [], & &1.name)
+    ]
+    |> List.flatten()
+    |> Enum.reject(&(is_nil(&1) or &1 == ""))
+    |> Enum.uniq()
+    |> case do
+      [] -> nil
+      parts -> Enum.join(parts, " ")
+    end
+  end
+
+  defp credited(nil), do: []
+  defp credited(credits), do: Enum.map(credits, & &1.name)
 
   @doc """
   A short label for the item: the folder or file name, which is usually the

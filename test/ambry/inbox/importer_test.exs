@@ -701,7 +701,14 @@ defmodule Ambry.Inbox.ImporterTest do
     end
 
     {:ok, _counts} = Inbox.discover(watched)
-    {[item], false} = Inbox.list_items(filter: name)
+
+    # Looked up by path, not through the queue's filter. That filter matches
+    # words now rather than substrings, and this file's fixtures are named
+    # "Part 1 of 2" and "Part 2 of 2" — every word of one appears in the
+    # other, so the filter cannot tell two siblings apart and should never
+    # have been asked to. A helper wanting one exact row asks for it.
+    {items, _more} = Inbox.list_items()
+    item = Enum.find(items, &(&1.path == name))
     {:ok, item} = Inbox.probe_item(item)
 
     item =
