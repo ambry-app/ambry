@@ -162,8 +162,15 @@ defmodule Ambry.Search.QueryTest do
       assert length(hits("   ")) > 1
     end
 
-    test "a phrase of nothing but stop words does the same" do
-      assert length(hits("the of and")) > 1
+    # Emphatically NOT the same as an empty box. A phrase the index cannot
+    # hold matches nothing; only a box with nothing in it is an invitation to
+    # browse. Conflating them meant searching for somebody named Don returned
+    # the entire library — `don` is in English's stop list, from "don't", as
+    # are `will`, `can`, `just` and `now`.
+    test "a phrase of nothing but stop words matches nothing, not everything" do
+      assert hits("the of and") == []
+      assert hits("don") == []
+      assert hits("will") == []
     end
   end
 

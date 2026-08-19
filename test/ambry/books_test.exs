@@ -801,17 +801,14 @@ defmodule Ambry.BooksTest do
     end
 
     # There is no `LIKE` pattern left to escape: the phrase is a parameter to
-    # `plainto_tsquery`, which sees `%` as punctuation and returns no lexemes
-    # at all. So a phrase of nothing but wildcards is a phrase with nothing
-    # searchable in it, and gets what an empty box gets — the first page.
-    #
-    # A weaker guarantee than the escaping it replaces would be a regression;
-    # this is a stronger one, and the visible change is that `%` now shows
-    # the first page rather than nothing.
+    # `plainto_tsquery`, which sees `%` as punctuation and gets no lexemes
+    # from it. A phrase nothing can satisfy matches nothing — which is a
+    # different answer from an empty box, and the distinction matters: while
+    # they were the same, typing a stop word returned every row.
     test "a wildcard is punctuation, not a pattern" do
       insert(:series, name: "Mistborn")
 
-      assert [{"Mistborn", _}] = Books.search_series("%", 10)
+      assert Books.search_series("%", 10) == []
       assert [{"Mistborn", _}] = Books.search_series("", 10)
       assert Books.search_series("Wolf", 10) == []
     end

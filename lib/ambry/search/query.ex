@@ -95,20 +95,30 @@ defmodule Ambry.Search.Query do
     where(query, [r], fragment("(?).type = ANY(?)", r.reference, ^types))
   end
 
-  # `ambry_tsquery` is NULL when the phrase holds nothing searchable, and
-  # `@@ NULL` is NULL rather than false — so the emptiness has to be asked
-  # about here rather than left to the match.
+  # An empty box is not a failed search: it is one somebody has just clicked
+  # into, and the first page is what belongs there.
+  defp match(query, "", _joiner, _partial), do: order_by(query, [record], asc: record.primary)
+
+  # A phrase that produced no lexemes matches nothing, and `@@ NULL` being
+  # NULL rather than false is exactly that — so this needs no emptiness guard.
+  #
+  # **It used to have one, and that was a bug.** Treating "no lexemes" as "no
+  # phrase" meant a search for a word the stemmer drops returned the entire
+  # library, ranked arbitrarily. English's stop list holds `don` (from
+  # "don't"), `will`, `can`, `just` and `now` among others, so searching for
+  # somebody named Don got every book in the library. "Nothing typed" and
+  # "typed something the index cannot hold" are different answers, and only
+  # the first is an invitation to browse.
   defp match(query, phrase, joiner, partial) do
     from record in query,
       where:
-        fragment("ambry_tsquery(?, ?, ?) IS NULL", ^phrase, ^joiner, ^partial) or
-          fragment(
-            "? @@ ambry_tsquery(?, ?, ?)",
-            record.search_vector,
-            ^phrase,
-            ^joiner,
-            ^partial
-          ),
+        fragment(
+          "? @@ ambry_tsquery(?, ?, ?)",
+          record.search_vector,
+          ^phrase,
+          ^joiner,
+          ^partial
+        ),
       order_by: [
         desc:
           fragment(

@@ -687,13 +687,15 @@ defmodule Ambry.InboxTest do
     end
 
     # The filter interpolated the phrase straight into an `ILIKE` pattern, so
-    # typing a percent sign matched the whole queue.
+    # typing a percent sign matched the whole queue. It matches nothing now:
+    # a phrase with no lexemes in it is a phrase nothing can satisfy, which
+    # is a different answer from an empty box.
     test "a wildcard is punctuation, not a pattern" do
       root = watched_root()
       release_folder(root, "Keeper", ["book.m4b"])
       {:ok, _counts} = discover(root)
 
-      assert {[_keeper], false} = Inbox.list_items(filter: "%")
+      assert {[], false} = Inbox.list_items(filter: "%")
       assert {[], false} = Inbox.list_items(filter: "_eeper")
       assert {[_keeper], false} = Inbox.list_items(filter: "Keeper")
     end
