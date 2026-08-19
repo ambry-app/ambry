@@ -70,13 +70,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     |> assign(
       page_title: Media.Media.display_title(media),
       media: media,
-      book_id: media.book_id,
       audio_files: audio_files(media),
       file_stats: legacy_file_stats(media),
       # View state, not derived per render: deriving it from the typeahead's
       # value made the row vanish mid-edit the moment the box was cleared.
       group_row_visible: media.recording_group_id != nil or media.part_number != nil
     )
+    |> assign_book(media.book_id)
     |> assign(evidence: Evidence.new(seed_fields(media), known: Evidence.known_from(media)))
   end
 
@@ -109,6 +109,15 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       "author" => book && first_author(book),
       "narrator" => first_narrator(media)
     }
+  end
+
+  # The set drop-down is given its whole list up-front, so the list has to be
+  # rebuilt whenever the book it belongs to changes.
+  defp assign_book(socket, book_id) do
+    assign(socket,
+      book_id: book_id,
+      recording_group_options: Media.recording_group_options(book_id)
+    )
   end
 
   # The large thumbnail when it is a thumbnail *of this image* — a freshly
@@ -161,9 +170,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:noreply,
      socket
      |> assign_form(changeset)
+     # the set drop-down follows the chosen book — a set belongs to one book
+     |> assign_book(media_params["book_id"])
      |> assign(
-       # the set picker follows the chosen book — a set belongs to one book
-       book_id: media_params["book_id"],
        provenance_hints: ProvenanceHints.prune(socket.assigns.provenance_hints, media_params)
      )
      |> refresh_chips()}

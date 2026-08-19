@@ -161,20 +161,19 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  The same, within one book: what a set may hold.
+  Every audiobook of one book, as picker options.
 
-  A set belongs to a book the way its members do, so its member picker offers
-  that book's recordings and nothing else.
+  What a set may hold. A set belongs to a book the way its members do, so its
+  member picker offers that book's audiobooks and nothing else — and there
+  are two or three of them, which is a menu rather than a search. No phrase
+  and no limit: the caller is a drop-down and wants the lot.
   """
-  def search_book_media(book_id, phrase, limit)
-  def search_book_media(blank, _phrase, _limit) when blank in [nil, ""], do: []
+  def book_media_options(nil), do: []
 
-  def search_book_media(book_id, phrase, limit) do
+  def book_media_options(book_id) do
     MediaFlat
     |> where([m], m.book_id == ^book_id)
-    |> media_matching(phrase)
     |> order_by([m], asc: m.part_number, asc: m.id)
-    |> limit(^limit)
     |> Repo.all()
     |> Enum.map(&media_option/1)
   end
@@ -1175,6 +1174,18 @@ defmodule Ambry.Media do
       nil -> "#{count} #{word}"
       total -> "#{count} of #{total} #{word}"
     end
+  end
+
+  @doc """
+  Every set of one book, as picker options.
+
+  A book has one set, or none, or occasionally two. That is a drop-down.
+  """
+  def recording_group_options(book_id) do
+    book_id
+    |> recording_groups_for_book()
+    |> Repo.preload(:media)
+    |> Enum.map(&recording_group_option/1)
   end
 
   @doc """

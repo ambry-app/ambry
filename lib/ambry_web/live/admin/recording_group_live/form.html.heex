@@ -53,11 +53,13 @@
               container_class="w-14 flex-none"
               show_errors={false}
             />
+            <%!-- A drop-down, not a typeahead: the options are one book's
+                audiobooks, usually two or three, and narrowing two by typing
+                is a search box standing in for a menu. --%>
             <.input
               field={member_form[:media_id]}
-              type="autocomplete"
-              search={&Media.search_book_media(@book_id, &1, &2)}
-              fetch={&Media.media_option/1}
+              type="dropdown"
+              options={@media_options}
               container_class="grow"
             />
             <.delete_button

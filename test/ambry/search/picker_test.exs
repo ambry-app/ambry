@@ -35,12 +35,11 @@ defmodule Ambry.Search.PickerTest do
   end
 
   describe "half-typed words" do
-    test "the recording picker matches a prefix", %{book: book} do
+    test "the recording picker matches a prefix" do
       # This is the regression that moving the admin list filters onto the
       # index introduced: the pickers were sharing the list's filter, where
       # "sander" is a whole word that matches nothing.
       assert [%{id: _}] = Media.search_media("sander", 10)
-      assert [%{id: _}] = Media.search_book_media(book.id, "sander", 10)
     end
 
     test "the person picker matches a prefix", %{person: person} do

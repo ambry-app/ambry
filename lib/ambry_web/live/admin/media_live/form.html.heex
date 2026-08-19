@@ -165,11 +165,11 @@
             <div :if={@group_row_visible} class="flex items-start gap-2">
               <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
               <div class="relative grow">
+                <%!-- A book has one set, or none, or occasionally two. --%>
                 <.input
                   field={@form[:recording_group_id]}
-                  type="autocomplete"
-                  search={&Media.search_recording_groups(@book_id, &1, &2)}
-                  fetch={&Media.recording_group_option/1}
+                  type="dropdown"
+                  options={@recording_group_options}
                 />
                 <%!-- `flex` is load-bearing, not decoration: it collapses the
                     button to the icon's own box, which is what puts `top-3` on
