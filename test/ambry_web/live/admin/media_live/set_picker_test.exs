@@ -22,6 +22,43 @@ defmodule AmbryWeb.Admin.MediaLive.SetPickerTest do
       refute html =~ "Create “"
     end
 
+    # An empty inline span is a flex item with no line box, so an empty
+    # drop-down collapsed to its own padding and stood two-thirds the height
+    # of the number field beside it.
+    test "holding nothing, it still stands as tall as a field of text", %{conn: conn} do
+      media = insert(:media, book: insert(:book))
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
+
+      html = view |> element("button[phx-click='add-group-row']") |> render_click()
+
+      label =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("#media_recording_group_id-trigger span")
+        |> Floki.text()
+
+      assert label != ""
+    end
+
+    # An action meaning "remove this row" belongs beside the field, not on top
+    # of one: it removes the row rather than the field's value, and a mark
+    # inside a box reads as belonging to that box. It also collided — the
+    # ✕ was positioned exactly where the drop-down's chevron draws.
+    test "the row's ✕ sits beside the picker, not inside it", %{conn: conn} do
+      media = insert(:media, book: insert(:book))
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
+
+      html = view |> element("button[phx-click='add-group-row']") |> render_click()
+      doc = Floki.parse_document!(html)
+
+      assert Floki.find(doc, "#media_recording_group_id button[phx-click='remove-group-row']") ==
+               []
+
+      assert Floki.find(doc, "button[phx-click='remove-group-row']") != []
+    end
+
     test "offers the book's sets, and only those", %{conn: conn} do
       book = insert(:book)
       insert(:recording_group, book: book, name: "Graphic Audio")

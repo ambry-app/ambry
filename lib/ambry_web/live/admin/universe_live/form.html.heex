@@ -9,17 +9,17 @@
         <.inputs_for :let={book_universe_form} field={@form[:book_universes]}>
           <.sort_input field={@form[:book_universes_sort]} index={book_universe_form.index} />
 
-          <div class="relative">
+          <div class="flex items-start gap-2">
             <.input
               field={book_universe_form[:book_id]}
               type="autocomplete"
               search={&Books.search_books/2}
               fetch={&Books.book_option/1}
+              container_class="grow"
             />
             <.delete_button
               field={@form[:book_universes_drop]}
               index={book_universe_form.index}
-              class="absolute top-3 right-2"
             />
           </div>
         </.inputs_for>

@@ -430,9 +430,7 @@ defmodule AmbryWeb.CoreComponents do
   attr :show_errors, :boolean, default: true, doc: "disables the rendering of errors if false"
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
 
-  attr :prompt, :string,
-    default: nil,
-    doc: "select and dropdown: the empty choice's label; a dropdown without one cannot be cleared"
+  attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
 
   attr :options, :list,
     doc:
@@ -567,7 +565,6 @@ defmodule AmbryWeb.CoreComponents do
         id={@id}
         name={@name}
         options={@options}
-        prompt={@prompt}
         value={@value}
         class={
           ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++

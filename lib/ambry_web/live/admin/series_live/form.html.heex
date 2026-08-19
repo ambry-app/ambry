@@ -9,7 +9,7 @@
         <.inputs_for :let={series_book_form} field={@form[:series_books]}>
           <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
 
-          <div class="relative flex items-start gap-2">
+          <div class="flex items-start gap-2">
             <.input
               field={series_book_form[:book_number]}
               placeholder="no."
@@ -26,7 +26,6 @@
             <.delete_button
               field={@form[:series_books_drop]}
               index={series_book_form.index}
-              class="absolute top-3 right-2"
             />
           </div>
         </.inputs_for>

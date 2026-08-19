@@ -46,7 +46,7 @@
         <.inputs_for :let={member_form} field={@form[:members]}>
           <.sort_input field={@form[:members_sort]} index={member_form.index} />
 
-          <div class="relative flex items-start gap-2">
+          <div class="flex items-start gap-2">
             <.input
               field={member_form[:part_number]}
               placeholder="no."
@@ -65,7 +65,6 @@
             <.delete_button
               field={@form[:members_drop]}
               index={member_form.index}
-              class="absolute top-3 right-2"
             />
           </div>
         </.inputs_for>

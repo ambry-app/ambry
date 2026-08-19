@@ -27,15 +27,15 @@ defmodule AmbryWeb.Components.EntityDropdown do
 
       options={[%{id: 1, label: "The Expanse", image: "/x.webp", detail: "2 of 3 parts"}]}
       value={@form[:recording_group_id].value}
-      prompt="Not part of a set"
 
   All the options, up-front, in the order they should be read. There is no
   `search` and no `fetch`: the held record is in the list by construction,
   which is most of what makes this the simpler control.
 
-  `prompt` does the two jobs a `<select>` prompt does — what the closed
-  trigger says when nothing is chosen, and the first row of the list, which
-  clears the field. Omit it and the field cannot be emptied here.
+  No `prompt` either, deliberately. A `<select>`'s prompt is also its clear
+  row, and neither caller wants one: emptying these fields is the ✕ beside
+  them, which removes the row rather than blanking the field. Adding one
+  before something needs it would mean two ways to say the same thing.
 
   ## Talking to the form
 
@@ -85,8 +85,14 @@ defmodule AmbryWeb.Components.EntityDropdown do
         phx-click={JS.push("toggle", target: @myself)}
         class={[@class, "flex items-center gap-2 pr-8 text-left"]}
       >
-        <span class={["min-w-0 truncate", !@held && "text-zinc-500"]}>
-          {(@held && @held.label) || @prompt || ""}
+        <%!-- The fallback is a non-breaking space, not "". An empty inline
+            span is a flex item with no line box, so a drop-down holding
+            nothing collapsed to its own padding and stood two-thirds the
+            height of the field beside it. One space of text reserves exactly
+            what text would, at whatever size and leading the breakpoint is
+            using — which a `min-h-*` guess cannot promise. --%>
+        <span class="min-w-0 truncate">
+          {(@held && @held.label) || "\u00A0"}
         </span>
         <%!-- The one thing that tells this apart from the resolver at a
             glance, which is the point: a text box invites typing and this
@@ -106,21 +112,6 @@ defmodule AmbryWeb.Components.EntityDropdown do
         role="listbox"
         class="min-w-48 z-[35] absolute max-h-64 w-full overflow-auto rounded-b-md bg-zinc-800 text-sm shadow-xl"
       >
-        <li
-          :if={@prompt}
-          id={"#{@id}-option-none"}
-          role="option"
-          aria-selected={to_string(is_nil(@held))}
-          phx-click="pick"
-          phx-value-id=""
-          phx-target={@myself}
-          class={[
-            "cursor-pointer px-3 py-2 text-zinc-400 data-[active]:bg-zinc-700 hover:bg-zinc-700",
-            is_nil(@held) && "bg-white/5"
-          ]}
-        >
-          {@prompt}
-        </li>
         <li
           :for={option <- @options}
           id={"#{@id}-option-#{option.id}"}
@@ -155,7 +146,6 @@ defmodule AmbryWeb.Components.EntityDropdown do
      socket
      |> assign(assigns)
      |> assign_new(:value, fn -> nil end)
-     |> assign_new(:prompt, fn -> nil end)
      |> assign_new(:class, fn -> nil end)}
   end
 

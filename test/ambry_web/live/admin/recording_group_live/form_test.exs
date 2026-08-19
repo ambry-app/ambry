@@ -116,6 +116,22 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
     # a part suffix onto the title and no column holds "A Court of Thorns and
     # Roses (Part 1 of 2)", so opening the box searched for exactly that and
     # said "No matches" about the recording it was holding.
+    # Same rule as the audiobook form's set row: the ✕ removes the member, so
+    # it lives beside the picker rather than drawn on top of it.
+    test "a member row's ✕ sits beside its picker, not inside it", %{conn: conn} do
+      book = insert(:book, title: "A Court of Thorns and Roses")
+      group = insert(:recording_group, name: "Graphic Audio", book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+      doc = Floki.parse_document!(html)
+
+      picker = "#recording_group_form_members_0_media_id"
+
+      assert Floki.find(doc, "#{picker} button[name*='members_drop']") == []
+      assert Floki.find(doc, "button[name*='members_drop']") != []
+    end
+
     test "a member picker offers every audiobook of the book, held one included", %{conn: conn} do
       book = insert(:book, title: "A Court of Thorns and Roses")
       group = insert(:recording_group, name: "Graphic Audio", book: book, parts_total: 2)
