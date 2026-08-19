@@ -16,13 +16,31 @@ defmodule AmbryWeb.Components.EntityOption do
       %{id: 1, label: "A Court of Thorns and Roses", image: "/path.webp",
         detail: "GraphicAudio · 2022"}
 
-  `image` renders a thumbnail (cover, portrait), `detail` a muted second
-  line — the disambiguation lives there, so labels stay short. When any
-  option in a list carries an image, imageless rows hold the space with a
-  lettered placeholder so the column stays aligned. `trailer` is a muted
+  `image` renders a thumbnail, `detail` a muted second line — the
+  disambiguation lives there, so labels stay short. `trailer` is a muted
   aside on the label's own line, for the one fact that separates two
   same-titled records (a series and its number) when the detail line is
   already full.
+
+  ## Shape
+
+  `shape: :round` for a person, `:square` (the default) for anything with a
+  cover. A portrait is a circle everywhere else in the app — the search
+  results tile, the credit chips, the person decision's face — and a picker
+  row is not the place to be the exception. Round ones also anchor
+  `object-top`, because a head is at the top of a portrait and a square crop
+  of a tall image takes the chin.
+
+  When any option in a list has an image, imageless rows hold the space with
+  an empty tinted shape so the column stays aligned. **Not a letter**: the
+  app has no lettered-avatar idiom, and inventing one here would have been
+  the second thing this row did that nothing else does.
+
+  The tint is translucent rather than a zinc step, because the row it sits on
+  has two grounds: the list is `zinc-800` and a hovered or arrow-keyed row is
+  `zinc-700`. Any fixed step is invisible against one of them — `zinc-800`
+  disappears into the list, `zinc-700` into the hover. `white/10` lifts off
+  both.
 
   An option may also carry `query`: **what the record is found by, when that
   differs from how it is displayed.** Only the resolver reads it — a dropdown
@@ -34,7 +52,7 @@ defmodule AmbryWeb.Components.EntityOption do
 
   import AmbryWeb.CoreComponents, only: [icon: 1]
 
-  @defaults %{image: nil, detail: nil, trailer: nil, query: nil}
+  @defaults %{image: nil, detail: nil, trailer: nil, query: nil, shape: :square}
 
   @doc """
   Fills in an option's optional keys, so a row can read them without guarding.
@@ -70,16 +88,14 @@ defmodule AmbryWeb.Components.EntityOption do
       <img
         :if={@option.image}
         src={@option.image}
-        class="h-9 w-9 flex-none rounded-sm object-cover"
+        class={["h-9 w-9 flex-none object-cover", shape_classes(@option.shape)]}
         loading="lazy"
         alt=""
       />
       <span
         :if={!@option.image && @imaged}
-        class="flex h-9 w-9 flex-none items-center justify-center rounded-sm bg-zinc-700 text-sm text-zinc-500"
-      >
-        {String.first(@option.label)}
-      </span>
+        class={["bg-white/10 h-9 w-9 flex-none", shape_classes(@option.shape)]}
+      />
       <span class="min-w-0 grow">
         <%!-- Where it sits rides the label's line, muted, rather than
             joining a detail line already carrying five facts. No middle
@@ -101,4 +117,7 @@ defmodule AmbryWeb.Components.EntityOption do
     </div>
     """
   end
+
+  defp shape_classes(:round), do: "rounded-full object-top"
+  defp shape_classes(_square), do: "rounded-sm"
 end

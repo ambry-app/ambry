@@ -469,6 +469,7 @@ defmodule Ambry.People do
       id: narrator.id,
       label: narrator.name,
       image: portrait(people),
+      shape: :round,
       detail: backing(narrator.name, people)
     }
   end
@@ -512,6 +513,7 @@ defmodule Ambry.People do
       id: author.id,
       label: author.name,
       image: portrait(author.people),
+      shape: :round,
       detail: backing(author.name, author.people)
     }
   end
@@ -560,6 +562,7 @@ defmodule Ambry.People do
       id: person.id,
       label: person.name,
       image: person.thumbnails && person.thumbnails.extra_small,
+      shape: :round,
       detail: nil
     }
   end
