@@ -1175,16 +1175,11 @@ defmodule Ambry.Inbox do
     if String.trim(filter) == "" do
       query
     else
-      # A phrase with no lexemes in it — punctuation, or nothing but stop
-      # words — filters nothing, the same rule every other search here
-      # follows. `@@ NULL` is NULL rather than false, so the emptiness has to
-      # be asked about rather than left to the match.
-      where(
-        query,
-        [i],
-        fragment("ambry_tsquery(?, 'all', true) IS NULL", ^filter) or
-          fragment("? @@ ambry_tsquery(?, 'all', true)", i.search_vector, ^filter)
-      )
+      # No emptiness guard: a phrase that produced no lexemes matches nothing,
+      # and `@@ NULL` being NULL rather than false is exactly that. A guard
+      # here would mean typing a word the stemmer drops — `don`, `will`,
+      # `can`, all in English's stop list — showed the whole queue.
+      where(query, [i], fragment("? @@ ambry_tsquery(?, 'all', true)", i.search_vector, ^filter))
     end
   end
 
