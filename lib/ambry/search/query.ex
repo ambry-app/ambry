@@ -16,7 +16,7 @@ defmodule Ambry.Search.Query do
   it — hydrate it, `EXISTS` against it, limit it, join to it — is the
   caller's business.
 
-  ## Two knobs, not five modes
+  ## Two knobs and a policy, not five modes
 
     * **`:joiner`** — `:all` (every term must match) or `:any` (a term that
       misses costs nothing, a term that hits improves the rank). `:any` is
@@ -32,6 +32,14 @@ defmodule Ambry.Search.Query do
       Sanderson, per the operator, 2026-08-18. A mid-word match is what an
       `ILIKE '%…%'` buys and nobody wanted it.
 
+    * **`:narrowing`** is not a third joiner so much as the picker's policy
+      over the two: ask `:all`, and widen to `:any` only if nothing answers.
+      It exists because `:any` alone gets the relationship backwards —
+      every word you add *adds* results, when the whole reason you kept
+      typing was to remove some. Under `:narrowing` a term narrows right up
+      until the constraint is unsatisfiable, and then the box falls back to
+      the best partial matches rather than going empty.
+
   Plus `:types`, to scope to books, or people, or whatever one kind a picker
   is picking.
 
@@ -45,6 +53,21 @@ defmodule Ambry.Search.Query do
 
   `ts_rank_cd` over the A/B/C weights, with the `pg_trgm` `similarity` sum as
   a tiebreak and the record's own name last so the order is stable.
+
+  Ahead of all of it sit two booleans: does the record's name **start with**
+  the raw phrase, and failing that, does it **contain** it. This is the one
+  signal a `tsvector` throws away and a picker lives on — word order and
+  adjacency. Typing "murder" ranked The Thursday Murder Club above Murder by
+  Other Means, because that book's series repeats its title and a second
+  weight-B hit outscores a single weight-A one; and typing "murder by"
+  changed nothing at all, because `by` is a stop word and leaves the query
+  entirely.
+
+  They read the *raw* phrase rather than the parsed one on purpose. That
+  makes them the only place a stop word still counts and the only place the
+  order of the words survives. They cannot widen a result set — they run over
+  rows the query already matched — so they only ever decide which of them a
+  picker shows first.
 
   Deliberately *not* length-normalized. Normalization was tried, because it
   looks like the way to keep "Kramer" above "Michael Kramer" for "kra" — but
@@ -87,6 +110,34 @@ defmodule Ambry.Search.Query do
 
   defp joiner!(joiner) when joiner in [:all, :any], do: to_string(joiner)
 
+  @doc """
+  The ids of `type` matching `phrase`, best first, resolving `:narrowing`.
+
+  `build/2` cannot express `:narrowing` — it is two queries, and which one
+  answers depends on whether the first found anything — so it lives here,
+  where a caller has already accepted that it is fetching rows.
+  """
+  def ranked_ids(phrase, limit, opts) do
+    case Keyword.get(opts, :joiner, :narrowing) do
+      :narrowing ->
+        case fetch_ids(phrase, limit, Keyword.put(opts, :joiner, :all)) do
+          [] -> fetch_ids(phrase, limit, Keyword.put(opts, :joiner, :any))
+          ids -> ids
+        end
+
+      _joiner ->
+        fetch_ids(phrase, limit, opts)
+    end
+  end
+
+  defp fetch_ids(phrase, limit, opts) do
+    phrase
+    |> build(opts)
+    |> limit(^limit)
+    |> select([record], fragment("(?).id", record.reference))
+    |> Repo.all()
+  end
+
   defp scope_to_types(query, nil), do: query
 
   defp scope_to_types(query, types) do
@@ -120,6 +171,18 @@ defmodule Ambry.Search.Query do
           ^partial
         ),
       order_by: [
+        desc:
+          fragment(
+            "starts_with(unaccent(lower(?)), unaccent(lower(?)))",
+            record.primary,
+            ^phrase
+          ),
+        desc:
+          fragment(
+            "strpos(unaccent(lower(?)), unaccent(lower(?))) > 0",
+            record.primary,
+            ^phrase
+          ),
         desc:
           fragment(
             "ts_rank_cd(?, ambry_tsquery(?, ?, ?))",
@@ -175,9 +238,10 @@ defmodule Ambry.Search.Query do
   ranking and nothing else — the whole answer is which three rows go at the
   top.
 
-  So the defaults here are the picker's: `:any`, because a term that misses
-  should not empty the box, and `partial: true`, because somebody typing has
-  not finished the word yet.
+  So the defaults here are the picker's: `:narrowing`, so that another word
+  removes rows rather than adding them and a term that misses still cannot
+  empty the box, and `partial: true`, because somebody typing has not
+  finished the word yet.
 
   `queryable` is whatever the caller wants back — a schema, or one carrying
   its own preloads — matched on `id`. The index's order is reapplied after
@@ -188,16 +252,11 @@ defmodule Ambry.Search.Query do
 
     build_opts =
       build_opts
-      |> Keyword.put_new(:joiner, :any)
+      |> Keyword.put_new(:joiner, :narrowing)
       |> Keyword.put_new(:partial, true)
       |> Keyword.put(:types, [type])
 
-    ranked_ids =
-      phrase
-      |> build(build_opts)
-      |> limit(^limit)
-      |> select([record], fragment("(?).id", record.reference))
-      |> Repo.all()
+    ranked_ids = ranked_ids(phrase, limit, build_opts)
 
     rows =
       queryable

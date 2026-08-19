@@ -131,6 +131,47 @@ defmodule Ambry.Search.PickerTest do
     end
   end
 
+  describe "the recording picker ranks" do
+    setup do
+      # Two books whose recordings sort the wrong way round alphabetically:
+      # the match is "Zeta", and "Alpha" only shares the author.
+      person = insert(:person, name: "Ada Rivers")
+      author = insert(:author, name: "Ada Rivers", person: person)
+
+      for title <- ["Alpha of the Fold", "Zeta Protocol"] do
+        book = insert(:book, title: title, book_authors: [%{author_id: author.id}])
+        insert(:media, book: book)
+      end
+
+      :ok
+    end
+
+    test "best first, not alphabetically first" do
+      # This asked `Query.ids/3`, which drops the ORDER BY for the admin
+      # lists, then sorted by book title and took the first N — so the ten
+      # shown were the alphabetically-first ten of the candidates, and the
+      # best match was routinely not among them.
+      assert ["Zeta Protocol" | _rest] = labels(Media.search_media("zeta", 10))
+    end
+
+    test "and the limit cuts from the bottom of the ranking" do
+      assert ["Zeta Protocol"] = labels(Media.search_media("zeta protocol", 1))
+    end
+
+    test "the recordings of one book stay together, in part order" do
+      book = insert(:book, title: "Kaiju Preservation Society")
+      group = insert(:recording_group, book: book, parts_total: 2)
+
+      insert(:media, book: book, part_number: 2, recording_group_id: group.id)
+      insert(:media, book: book, part_number: 1, recording_group_id: group.id)
+
+      assert [
+               "Kaiju Preservation Society (Part 1 of 2)",
+               "Kaiju Preservation Society (Part 2 of 2)"
+             ] = labels(Media.search_media("kaiju", 10))
+    end
+  end
+
   describe "an empty box" do
     test "shows the first page rather than nothing" do
       refute Books.search_series("", 10) == []
@@ -141,4 +182,6 @@ defmodule Ambry.Search.PickerTest do
       refute Media.search_media("", 10) == []
     end
   end
+
+  defp labels(options), do: Enum.map(options, & &1.label)
 end
