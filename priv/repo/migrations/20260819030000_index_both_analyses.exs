@@ -37,12 +37,23 @@ defmodule Ambry.Repo.Migrations.IndexBothAnalyses do
     # the way the reindex button does.
     execute("UPDATE inbox_items SET path = path")
 
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'book', id FROM books")
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'series', id FROM series")
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'universe', id FROM universes")
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'person', id FROM people")
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'author', id FROM authors")
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'narrator', id FROM narrators")
+    # A deploy runs every pending migration before anything drains the
+    # queue, so an earlier one may have enqueued these already; the
+    # triggers enqueue on write too. Marking dirty twice is a no-op.
+    for {type, table} <- [
+          {"book", "books"},
+          {"series", "series"},
+          {"universe", "universes"},
+          {"person", "people"},
+          {"author", "authors"},
+          {"narrator", "narrators"}
+        ] do
+      execute("""
+      INSERT INTO search_index_queue (type, id)
+      SELECT '#{type}', id FROM #{table}
+      ON CONFLICT DO NOTHING
+      """)
+    end
   end
 
   def down do

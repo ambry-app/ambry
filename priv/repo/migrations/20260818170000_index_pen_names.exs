@@ -12,9 +12,20 @@ defmodule Ambry.Repo.Migrations.IndexPenNames do
   use Ecto.Migration
 
   def up do
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'author', id FROM authors")
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'narrator', id FROM narrators")
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'universe', id FROM universes")
+    # A deploy runs every pending migration before anything drains the
+    # queue, so an earlier one may have enqueued these already; the
+    # triggers enqueue on write too. Marking dirty twice is a no-op.
+    for {type, table} <- [
+          {"author", "authors"},
+          {"narrator", "narrators"},
+          {"universe", "universes"}
+        ] do
+      execute("""
+      INSERT INTO search_index_queue (type, id)
+      SELECT '#{type}', id FROM #{table}
+      ON CONFLICT DO NOTHING
+      """)
+    end
   end
 
   def down do

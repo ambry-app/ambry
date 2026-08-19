@@ -80,9 +80,17 @@ defmodule Ambry.Repo.Migrations.SearchIndexMaintainsItself do
     # existing row may predate a write that never reached the index, so the
     # whole thing is dirty. This is the same work the boot Task was doing on
     # every start, done once and then never again.
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'book', id FROM books")
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'series', id FROM series")
-    execute("INSERT INTO search_index_queue (type, id) SELECT 'person', id FROM people")
+    for {type, table} <- [
+          {"book", "books"},
+          {"series", "series"},
+          {"person", "people"}
+        ] do
+      execute("""
+      INSERT INTO search_index_queue (type, id)
+      SELECT '#{type}', id FROM #{table}
+      ON CONFLICT DO NOTHING
+      """)
+    end
   end
 
   def down do
