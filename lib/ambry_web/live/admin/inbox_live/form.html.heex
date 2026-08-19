@@ -164,6 +164,42 @@
         </ul>
       </section>
 
+      <%!-- What the library already has under a name this import would create.
+          Only ever after Add is pressed: before that it is an answer to a
+          question nobody asked, and on most items the sibling relink settles
+          it before it is ever true. --%>
+      <section
+        :if={@collisions != []}
+        class="border-amber-400/80 rounded-lg border-l-4 bg-zinc-900 p-4"
+        id="collisions"
+        data-role="collisions"
+      >
+        <p class="font-bold">Possible duplicates</p>
+        <p class="max-w-prose pt-1 text-sm text-zinc-400">
+          Check each of the possible duplicates found below. You can bypass this check by clicking "Add it anyway".
+        </p>
+        <ul class="mt-3 space-y-3">
+          <li :for={collision <- @collisions}>
+            <div class="flex items-baseline gap-2 text-sm">
+              <.link href={"##{collision.section}"} class="font-bold hover:underline">
+                {collision.label}
+              </.link>
+              <span :if={!collision.certain?} class="text-xs text-zinc-500">
+                same title, different author
+              </span>
+            </div>
+            <ul class="mt-1 space-y-1 pl-4">
+              <li :for={match <- collision.matches} class="text-sm text-zinc-400">
+                <.brand_link :if={collision_path(match.route)} navigate={collision_path(match.route)}>
+                  {match.label}
+                </.brand_link>
+                <span :if={!collision_path(match.route)}>{match.label}</span>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </section>
+
       <%!-- ==================== NEW OR A REPLACEMENT ==================== --%>
       <%!-- Asked before anything else, because answering it yes settles
           everything below: the audiobook already has its book, its credits,
@@ -899,7 +935,7 @@
             disabled={@unresolved != [] or @blocker != nil}
             data-role="import"
           >
-            {if @replacing, do: "Replace the files", else: "Add to the library"}
+            {import_words(@replacing, @collisions)}
           </.button>
 
           <.button :if={!@read_only} type="button" color={:zinc} phx-click="ignore">Ignore</.button>
@@ -928,6 +964,17 @@
           <p :if={@unresolved == [] and @blocker} class="text-sm text-red-400">
             Everything is settled, but this can't be imported yet. The reason is above.
           </p>
+
+          <%!-- Sticky, like the outstanding count and for the same reason: the
+              block itself is at the top of a long page, and the button that
+              would go past it is down here. --%>
+          <.link
+            :if={@collisions != []}
+            href="#collisions"
+            class="text-sm text-amber-400 underline hover:text-amber-200"
+          >
+            {length(@collisions)} thing{if length(@collisions) > 1, do: "s"} here may already be in the library.
+          </.link>
         </div>
       </.form_footer>
     </div>

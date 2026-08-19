@@ -14,6 +14,11 @@ defmodule Ambry.Inbox.RunImportTest do
   use Ambry.DataCase
 
   alias Ambry.Inbox
+  alias Ambry.Inbox.Draft
+  alias Ambry.Inbox.Draft.Credit
+  alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.Recording
+  alias Ambry.Inbox.Draft.Work
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.RunImport
 
@@ -69,6 +74,79 @@ defmodule Ambry.Inbox.RunImportTest do
 
       assert {:error, :already_imported} = Inbox.import_item_async(item)
     end
+  end
+
+  describe "import_item_async/2 and the pre-flight" do
+    # The gap the whole check exists for: the draft was seeded when nothing of
+    # this name existed, and by the time Add is pressed something does.
+    test "a draft that would create a book the library already has is refused" do
+      have_book("The Martian", "Andy Weir")
+      item = item_creating("The Martian", "Andy Weir")
+
+      assert {:error, {:collisions, [finding]}} = Inbox.import_item_async(item)
+      assert finding.kind == :book
+      refute_enqueued(worker: RunImport)
+    end
+
+    # Pressing Add again is the answer, and what makes it an answer rather
+    # than a flag is that it names what was answered.
+    test "handing the same findings back is what lets it through" do
+      have_book("The Martian", "Andy Weir")
+      item = item_creating("The Martian", "Andy Weir")
+
+      assert {:error, {:collisions, findings}} = Inbox.import_item_async(item)
+      assert {:ok, _job} = Inbox.import_item_async(item, acknowledged: findings)
+      assert_enqueued(worker: RunImport, args: %{inbox_item_id: item.id})
+    end
+
+    # A second twin turning up while the operator read the first is a
+    # collision they were never shown, so it is not one they can have agreed
+    # to.
+    test "a collision that appeared since is asked about again" do
+      have_book("The Martian", "Andy Weir")
+      item = item_creating("The Martian", "Andy Weir")
+
+      assert {:error, {:collisions, findings}} = Inbox.import_item_async(item)
+
+      have_book("The Martian", "Somebody Else")
+
+      assert {:error, {:collisions, fresh}} =
+               Inbox.import_item_async(item, acknowledged: findings)
+
+      assert fresh != findings
+      refute_enqueued(worker: RunImport)
+    end
+
+    test "an item in the library is refused before anything is looked up" do
+      have_book("The Martian", "Andy Weir")
+      item = item_creating("The Martian", "Andy Weir")
+      {:ok, item} = Inbox.update_item(item, %{status: :imported})
+
+      assert {:error, :already_imported} = Inbox.import_item_async(item)
+    end
+  end
+
+  defp have_book(title, author_name) do
+    author = insert(:author, name: author_name)
+    insert(:book, title: title, book_authors: [build(:book_author, author: author)])
+  end
+
+  defp item_creating(title, author_name) do
+    Repo.insert!(%InboxItem{
+      path: title,
+      files: ["#{title}/book.m4b"],
+      source_id: insert(:source).id,
+      draft: %Draft{
+        work: %Work{
+          mode: :create,
+          title: %Field{value: title},
+          authors: [%Credit{name: author_name, kind: :author, mode: :link, identity_id: 0}],
+          series: []
+        },
+        recording: %Recording{},
+        people: []
+      }
+    })
   end
 
   # Deliberately thin: an item with no probe and no draft can only be refused,

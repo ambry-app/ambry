@@ -812,8 +812,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   #
   # Now the server owns it. The operator goes back to the list they came from
   # and the row wears the same busy overlay every other job gives it.
+  # The pre-flight is what `@collisions` carries, and passing it back is what
+  # says "yes, those ones". A first click sends the empty list, so anything
+  # found stops it; a second sends what the operator just read, and if the
+  # library moved in between the lists differ and it stops them again.
   def handle_event("import", _params, socket) do
-    case Inbox.import_item_async(socket.assigns.item) do
+    case Inbox.import_item_async(socket.assigns.item, acknowledged: socket.assigns.collisions) do
       {:ok, job} ->
         message =
           cond do
@@ -826,6 +830,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
          socket
          |> put_flash(:info, message)
          |> push_navigate(to: socket.assigns.return_to)}
+
+      {:error, {:collisions, findings}} ->
+        {:noreply, assign(socket, collisions: findings)}
 
       {:error, :already_imported} ->
         {:noreply, put_flash(socket, :error, Inbox.describe_error(:already_imported))}
@@ -991,10 +998,39 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       busy: Inbox.busy?(job),
       # Roots are configuration and can change between seeding a draft and
       # approving it, so they're read now rather than frozen into the draft.
-      roots: Ambry.Library.list_roots()
+      roots: Ambry.Library.list_roots(),
+      # What the pre-flight found when Add was last pressed. Cleared here on
+      # purpose: any change to the draft is a change to what it would create,
+      # so an answer given about the old one may not be an answer about this
+      # one.
+      collisions: []
     )
     |> schedule_tick()
   end
+
+  @doc """
+  What the button does, which changes once the pre-flight has spoken.
+
+  Named for what pressing it does, same as it always was: after a collision
+  the thing it does is override an objection, and a button that still said
+  "Add to the library" would hide that pressing it again is the answer.
+  """
+  def import_words(true, _collisions), do: "Replace the files"
+  def import_words(false, []), do: "Add to the library"
+  def import_words(false, _collisions), do: "Add it anyway"
+
+  @doc """
+  Where a pre-flight match lives, so the operator can go and look at it.
+
+  `Ambry.Inbox.Preflight` names the record and leaves the route alone: it
+  runs nowhere near a web layer, and an author or a narrator is edited on
+  the person behind them rather than on a page of their own.
+  """
+  def collision_path({:book, id}), do: ~p"/admin/books/#{id}/edit"
+  def collision_path({:series, id}), do: ~p"/admin/series/#{id}/edit"
+  def collision_path({:set, id}), do: ~p"/admin/sets/#{id}/edit"
+  def collision_path({:person, id}), do: ~p"/admin/people/#{id}/edit"
+  def collision_path(nil), do: nil
 
   defp atom("folder"), do: :folder
   defp atom("file"), do: :file

@@ -374,6 +374,27 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert File.exists?(file)
   end
 
+  # The queue can refuse but it cannot ask: weighing "is this the same book"
+  # needs the two records side by side, and the answer to it lives on the
+  # form.
+  test "a row whose import may duplicate something sends the operator to the form", %{conn: conn} do
+    item = probed_item() |> settle()
+
+    insert(:book,
+      title: "The Way of Kings",
+      book_authors: [build(:book_author, author: build(:author, name: "Brandon Sanderson"))]
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/admin/inbox")
+
+    html =
+      view |> element("span[phx-click='import'][phx-value-id='#{item.id}']") |> render_click()
+
+    assert html =~ "may already be in the library"
+    refute_enqueued(worker: RunImport)
+    assert Inbox.get_item!(item.id).status == :pending
+  end
+
   # A row handed to an import wears the same cover every other background job
   # gives it, and says which job it is — "Working on it" over a row you just
   # pressed Add on says nothing about whether the press landed.
