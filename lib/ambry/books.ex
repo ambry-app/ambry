@@ -148,24 +148,22 @@ defmodule Ambry.Books do
   end
 
   @doc """
-  Books ranked by how many of the given keywords they match.
+  Books matching a phrase, best first, for matching a *file* against the
+  library rather than for somebody typing.
 
-  A different question from `list_books/4`'s search, which asks whether one
-  whole string appears inside one field. That is right for a person typing and
-  wrong for matching a file against the library, where the file's idea of the
-  title routinely isn't the library's — a term that misses should cost
-  nothing, and a term that hits should earn a point.
+  A term that misses costs nothing — that is `joiner: :any`, and it is the
+  whole reason this is not `list_books/4`'s search: the file's idea of the
+  title routinely isn't the library's, so the author's name should improve
+  the ranking rather than break the match.
+
+  No `partial`, unlike `search_books/2`. A prefix on the last word is for
+  somebody who has not finished typing it; a filename has no half-typed word,
+  and opening its last token to prefixes only buys noise.
   """
-  @spec match_books([String.t()], pos_integer()) :: [struct()]
-  def match_books(terms, limit \\ 10) do
-    terms |> BookFlat.by_keywords(limit) |> Repo.all()
+  @spec match_books(String.t() | nil, pos_integer()) :: [struct()]
+  def match_books(phrase, limit \\ 10) do
+    Query.matching(BookFlat, phrase, :book, limit: limit, partial: false)
   end
-
-  @doc """
-  Splits a phrase into the keywords `match_books/2` should be given.
-  """
-  @spec match_keywords(String.t() | nil) :: [String.t()]
-  defdelegate match_keywords(phrase), to: BookFlat, as: :keywords
 
   @doc """
   Returns the number of books, under the same filters `list_books/4` lists
@@ -355,21 +353,16 @@ defmodule Ambry.Books do
   Books matching what somebody typed into a picker, as rich options: cover,
   title, and the authors — the fact that tells two same-titled books apart.
 
-  **Keyword-scored, not substring-matched** (`BookFlat.by_keywords/2`), so
-  "sanderson kings" finds The Way of Kings and a term that misses costs
-  nothing. That search was built for matching a file against the library and
-  it is the better answer here too: a person typing knows the author's name
-  more often than they know the exact title.
+  Asks the index the way every other picker does: a term that misses costs
+  nothing, so "sanderson kings" finds The Way of Kings, and the last word is
+  a prefix because somebody typing has not finished it.
 
-  With nothing typed, the first page by title — a box that has just been
-  focused should show what is there, not nothing.
+  With nothing typed, the first page — a box that has just been focused
+  should show what is there, not nothing.
   """
   def search_books(phrase, limit) do
-    case match_keywords(phrase) do
-      [] -> BookFlat |> order_by(asc: :title) |> limit(^limit)
-      terms -> BookFlat.by_keywords(terms, limit)
-    end
-    |> Repo.all()
+    BookFlat
+    |> Query.matching(phrase, :book, limit: limit)
     |> Enum.map(&book_option/1)
   end
 

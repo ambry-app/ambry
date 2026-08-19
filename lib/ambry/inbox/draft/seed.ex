@@ -1222,7 +1222,6 @@ defmodule Ambry.Inbox.Draft.Seed do
     key = AutoMatch.title_key(title)
 
     title
-    |> Books.match_keywords()
     |> Books.match_books(25)
     |> Enum.filter(&(AutoMatch.title_key(&1.title) == key))
   end
