@@ -74,6 +74,62 @@ defmodule Ambry.Inbox.AutoMatchTest do
     end
   end
 
+  # The three sameness rules, which are the answer to "do two spellings mean
+  # one record" wherever it is asked — matching, relinking and the import
+  # pre-flight all go through these rather than carrying their own idea of it.
+  describe "the sameness rules" do
+    test "a name folds punctuation, spacing, case and accents" do
+      same = [
+        {"James S.A. Corey", "James S. A. Corey"},
+        {"TJ Klune", "T.J. Klune"},
+        {"Patricia Rodríguez", "Patricia Rodriguez"},
+        {"R.C. Bray", "rc bray"}
+      ]
+
+      for {one, other} <- same do
+        assert AutoMatch.person_key(one) == AutoMatch.person_key(other),
+               "expected #{one} and #{other} to be one person"
+      end
+
+      # Still identity: a different word is a different human.
+      refute AutoMatch.person_key("Sarah J. Maas") == AutoMatch.person_key("Sarah Maas")
+    end
+
+    test "a title folds punctuation, case, articles, edition words and accents" do
+      same = [
+        {"Truly, Devious", "Truly Devious"},
+        {"The Princess Bride", "Princess Bride"},
+        {"Neuromancer (Unabridged)", "Neuromancer"},
+        # Accents were the one fold titles didn't do, so the library's "Les
+        # Misérables" and a file's "Les Miserables" were two books.
+        {"Les Misérables", "Les Miserables"}
+      ]
+
+      for {one, other} <- same do
+        assert AutoMatch.title_key(one) == AutoMatch.title_key(other),
+               "expected #{one} and #{other} to be one book"
+      end
+
+      # Deliberately exact beyond the folds: a sequel is not its predecessor,
+      # and a retitling is a judgement rather than a fold.
+      refute AutoMatch.title_key("Dune Messiah") == AutoMatch.title_key("Dune")
+
+      refute AutoMatch.title_key("Harry Potter and the Philosopher's Stone") ==
+               AutoMatch.title_key("Harry Potter and the Sorcerer's Stone")
+    end
+
+    test "a series folds filler words and a subtitle head" do
+      assert AutoMatch.same_series?("Bill Hodges", "Bill Hodges Trilogy")
+      assert AutoMatch.same_series?("Kushiel's Legacy: Phedre Trilogy", "Kushiel's Legacy")
+      assert AutoMatch.same_series?("The Expanse", "Expanse")
+
+      # Goodreads-shaped sources list both of these, and only one of them
+      # belongs on the book.
+      refute AutoMatch.same_series?("The Expanse", "The Expanse (Chronological)")
+      refute AutoMatch.same_series?(nil, "The Expanse")
+    end
+  end
+
   describe "editions_for/3 outcomes" do
     # Asking Hardcover about four of its own work records is four calls but
     # one answer. Reported separately it read as nonsense across a row —

@@ -73,6 +73,43 @@ defmodule Ambry.Inbox.LookupTest do
     end
   end
 
+  describe "research_person/3 with more than one in flight" do
+    # The form does not make the operator queue up behind each search, and a
+    # full cast is fifteen people. `matches` is one jsonb column holding all
+    # of them, so two searches that each merged into the item as it was when
+    # the button was pressed, and then wrote the whole column back, meant the
+    # second to land threw away the first's results.
+    test "two searches at once both survive" do
+      item = item_with_records()
+
+      patch(Ambry.Metadata.Search, :people, fn name, _opts ->
+        {[person_match(name)], [%{"id" => "test", "name" => "Test", "status" => "ok"}]}
+      end)
+
+      # Both start from the same snapshot, which is exactly what the form
+      # hands them: the item as it was when each button was pressed.
+      [alice, bob] =
+        ["Alice Adams", "Bob Brown"]
+        |> Enum.map(fn name ->
+          Task.async(fn -> Inbox.research_person(item, name_key(name), name) end)
+        end)
+        |> Task.await_many(5000)
+
+      assert {:ok, _} = alice
+      assert {:ok, _} = bob
+
+      people = Inbox.get_item!(item.id).matches["people"]
+
+      assert Map.keys(people) |> Enum.sort() == [name_key("Alice Adams"), name_key("Bob Brown")]
+
+      for name <- ["Alice Adams", "Bob Brown"] do
+        held = people[name_key(name)]
+        assert held["name"] == name
+        assert [%{"name" => ^name}] = held["candidates"]
+      end
+    end
+  end
+
   describe "retry_provider/3" do
     # A rate limit during matching used to cost an item that provider's records
     # until somebody re-ran the whole match.
@@ -200,6 +237,19 @@ defmodule Ambry.Inbox.LookupTest do
 
       assert {:ok, _item} = Inbox.hydrate_record(item, "work", {"provider:hardcover", "hc-1"})
     end
+  end
+
+  defp name_key(name), do: Ambry.Inbox.AutoMatch.person_key(name)
+
+  defp person_match(name) do
+    %Ambry.Metadata.PersonSearch.Match{
+      provider_id: "test",
+      provider_name: "Test",
+      id: "p-#{name_key(name)}",
+      name: name,
+      images: [],
+      description: nil
+    }
   end
 
   defp item_with_records(opts \\ []) do

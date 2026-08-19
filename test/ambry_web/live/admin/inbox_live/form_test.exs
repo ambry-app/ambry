@@ -100,6 +100,54 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert [_only_one] = all_enqueued(worker: RunImport)
     end
 
+    # The library moved between the draft being settled and Add being pressed,
+    # which is the whole gap the pre-flight exists to cover. The order here is
+    # the order it happens in: settle against a library that has nothing, then
+    # something turns up.
+    test "a book that arrived since the draft was settled stops the import", %{conn: conn} do
+      item = probed_item() |> settle()
+      have_way_of_kings()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      html = view |> element("button[data-role='import']") |> render_click()
+
+      assert html =~ "Possible duplicates"
+      assert html =~ "Book: The Way of Kings"
+      assert has_element?(view, "[data-role='collisions']")
+      assert has_element?(view, "button[data-role='import']", "Add it anyway")
+
+      # nothing queued, nothing created, and the operator is still on the form
+      refute_enqueued(worker: RunImport)
+      assert %{status: :pending} = Inbox.get_item!(item.id)
+    end
+
+    test "pressing Add again is the answer, and it goes through", %{conn: conn} do
+      item = probed_item() |> settle()
+      have_way_of_kings()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      view |> element("button[data-role='import']") |> render_click()
+      view |> element("button[data-role='import']") |> render_click()
+
+      assert_redirect(view, ~p"/admin/inbox")
+      assert_enqueued(worker: RunImport, args: %{inbox_item_id: item.id})
+    end
+
+    # Editing anything changes what the import would create, so the answer
+    # given about the old draft is not an answer about this one.
+    test "changing the draft puts the question back", %{conn: conn} do
+      item = probed_item() |> settle()
+      have_way_of_kings()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      view |> element("button[data-role='import']") |> render_click()
+
+      html = render_click(view, "new-book", %{})
+
+      refute html =~ "Possible duplicates"
+      refute has_element?(view, "[data-role='collisions']")
+    end
+
     test "each outstanding decision is named, not just counted", %{conn: conn} do
       item = probed_item()
 
@@ -2430,6 +2478,13 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
 
     %{item: item, book: book, group: group}
+  end
+
+  defp have_way_of_kings do
+    insert(:book,
+      title: "The Way of Kings",
+      book_authors: [build(:book_author, author: build(:author, name: "Brandon Sanderson"))]
+    )
   end
 
   defp probed_item(opts \\ []) do

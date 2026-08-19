@@ -85,6 +85,12 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
         {:noreply, socket |> put_flash(:info, message) |> reload()}
 
+      # The queue can refuse, but it can't ask: weighing "is this the same
+      # book" needs the records side by side, and the answer to it ("link
+      # that one instead") can only be given on the form.
+      {:error, {:collisions, _findings} = reason} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(reason))}
+
       {:error, :already_imported} ->
         {:noreply, put_flash(socket, :error, Inbox.describe_error(:already_imported))}
     end

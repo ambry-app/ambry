@@ -342,6 +342,56 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   @doc """
+  `person_key/1` as an Ecto fragment, for asking the question in SQL.
+
+  Lives beside its Elixir twin because the two have to agree: `unaccent`
+  (enabled by migration) mirrors the NFD fold, and the character class
+  mirrors the strip. Two copies of this in two modules is exactly the drift
+  that puts a second "Patricia Rodriguez" in the library.
+
+      where([a], person_key_sql(a.name) == ^AutoMatch.person_key(name))
+  """
+  defmacro person_key_sql(field) do
+    quote do
+      fragment("regexp_replace(lower(unaccent(?)), '[^[:alnum:]]+', '', 'g')", unquote(field))
+    end
+  end
+
+  # Filler words a series name wears in one source and not another.
+  @series_filler ~w(trilogy series saga duology quartet quintet cycle sequence collection books novels)
+
+  @doc """
+  Whether two spellings name one series.
+
+  Filler words (Trilogy, Saga, Series), punctuation, accents and articles
+  fold; a subtitle head counts the same way it does for titles, so
+  "Kushiel's Legacy: Phedre Trilogy" is "Kushiel's Legacy". The rule lives
+  here with `person_key/1` and `title_key/1` because sameness is one
+  question with one answer per kind of record, wherever it is asked from.
+  """
+  def same_series?(one, other) when is_binary(one) and is_binary(other) do
+    a = series_key(one)
+    b = series_key(other)
+
+    a == b or series_key(series_head(one)) == b or series_key(series_head(other)) == a
+  end
+
+  def same_series?(_one, _other), do: false
+
+  defp series_head(name), do: name |> String.split(~r/\s*:\s/u, parts: 2) |> hd()
+
+  defp series_key(name) do
+    name
+    |> String.normalize(:nfd)
+    |> String.replace(~r/\p{Mn}/u, "")
+    |> String.downcase()
+    |> String.replace(~r/[^\p{L}\p{N}]+/u, " ")
+    |> String.split(" ", trim: true)
+    |> Enum.reject(&(&1 in ["the", "a", "an"] or &1 in @series_filler))
+    |> Enum.join(" ")
+  end
+
+  @doc """
   The photo and biography to propose for one credited human.
 
   Everything the providers returned is kept as evidence; this is the
@@ -2316,8 +2366,16 @@ defmodule Ambry.Inbox.AutoMatch do
 
   # Titles differ in punctuation and subtitle noise far more often than in
   # substance, and none of that should cost a match.
+  #
+  # Accents fold the same way `person_key/1` folds them, and for the same
+  # reason: "Les Miserables" and "Les Misérables" are one book, and the
+  # difference between them was one approval away from a second Book row.
+  # `title_key/1` is an identity comparison, so a fold it doesn't do is a
+  # twin it can't see.
   defp normalize(string) do
     string
+    |> String.normalize(:nfd)
+    |> String.replace(~r/\p{Mn}/u, "")
     |> String.downcase()
     |> String.replace(~r/\b(unabridged|abridged|a novel|audiobook)\b/, " ")
     |> String.replace(~r/[^\p{L}\p{N}\s]/u, " ")

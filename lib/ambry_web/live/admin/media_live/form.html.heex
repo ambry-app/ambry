@@ -110,8 +110,10 @@
             <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
             <.position_input field={media_narrator_form[:position]} index={media_narrator_form.index} />
 
-            <%!-- arrows trail the input: a leading column pushed every input
-                off the box edge whenever a list crossed one row (§3) --%>
+            <%!-- Controls trail the input: a leading column pushed every input
+                off the box edge whenever a list crossed one row (§3). Order
+                matches the import form's cards — reorder first, remove last —
+                so the destructive control is at the end of the row. --%>
             <div class="flex items-start gap-2">
               <.input
                 field={media_narrator_form[:narrator_id]}
@@ -120,15 +122,15 @@
                 fetch={&People.narrator_option/1}
                 container_class="grow"
               />
-              <.delete_button
-                field={@form[:media_narrators_drop]}
-                index={media_narrator_form.index}
-              />
               <.move_buttons
                 :if={@media_narrator_count > 1}
                 field={:media_narrators}
                 index={media_narrator_form.index}
                 count={@media_narrator_count}
+              />
+              <.delete_button
+                field={@form[:media_narrators_drop]}
+                index={media_narrator_form.index}
               />
             </div>
           </.inputs_for>

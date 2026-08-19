@@ -70,6 +70,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.Importer
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.Lookup
+  alias Ambry.Inbox.Preflight
   alias Ambry.Inbox.Progress
   alias Ambry.Inbox.ReleaseName
   alias Ambry.Inbox.RunDiscovery
@@ -909,10 +910,35 @@ defmodule Ambry.Inbox do
 
   Refuses an item that is already in the library, since the queued job would
   only rediscover that a minute later and write it onto the row as an issue.
-  """
-  def import_item_async(%InboxItem{status: :imported}), do: {:error, :already_imported}
 
-  def import_item_async(%InboxItem{} = item) do
+  ## The pre-flight
+
+  Also refuses, once, when the draft would create something the library may
+  already have, returning `{:error, {:collisions, findings}}` — see
+  `Ambry.Inbox.Preflight`. A draft is a snapshot of a library that keeps
+  moving, and this is the last moment anything is asked before rows are
+  created.
+
+  It asks again rather than trusting a flag: pass the findings back as
+  `:acknowledged` and the import proceeds only if the library still says
+  exactly that. Anything that appeared while the operator was reading is a
+  collision they were never shown, so it stops them again.
+  """
+  def import_item_async(item, opts \\ [])
+
+  def import_item_async(%InboxItem{status: :imported}, _opts), do: {:error, :already_imported}
+
+  def import_item_async(%InboxItem{} = item, opts) do
+    case Preflight.check(item) do
+      [] -> enqueue_import(item)
+      findings -> acknowledged(item, findings, Keyword.get(opts, :acknowledged))
+    end
+  end
+
+  defp acknowledged(item, findings, findings), do: enqueue_import(item)
+  defp acknowledged(_item, findings, _stale_or_absent), do: {:error, {:collisions, findings}}
+
+  defp enqueue_import(item) do
     %{inbox_item_id: item.id} |> RunImport.new() |> Oban.insert()
   end
 
@@ -978,6 +1004,16 @@ defmodule Ambry.Inbox do
     count = length(outstanding)
 
     "#{count} thing#{if count > 1, do: "s"} still to settle before this can be imported. " <>
+      "Open it to see what."
+  end
+
+  # What the queue's own import button says. The findings themselves need the
+  # form, which is where the answer ("link that book instead") can be given,
+  # so this counts them and sends the operator there.
+  def describe_error({:collisions, findings}) do
+    count = length(findings)
+
+    "#{count} thing#{if count > 1, do: "s"} here may already be in the library. " <>
       "Open it to see what."
   end
 

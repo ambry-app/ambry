@@ -75,11 +75,17 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      # the boxes at the click and the scrim names the wrong book. The edit
      # forms have always captured this (`Evidence.begin/2`); this is the same
      # discipline for the staged form.
-     |> assign(research_fields: %{}, searching_person_name: nil)
-     # Which person is being looked up again, and whose photo strip is showing
-     # in full. Both view state keyed by person key — the results themselves
-     # are evidence and live on the item.
-     |> assign(searching_person: nil, photos_expanded: %{})
+     |> assign(research_fields: %{})
+     # Which people are being looked up right now (key => the name asked
+     # about), and whose photo strip is showing in full. Both view state keyed
+     # by person key — the results themselves are evidence and live on the
+     # item.
+     #
+     # A map rather than one key, because a full cast is fifteen people and
+     # the operator does not queue up behind each search. One key meant the
+     # second search stole the first's spinner and the first to land cleared
+     # both.
+     |> assign(searching_people: %{}, photos_expanded: %{})
      |> assign(ticking: false)
      # The pending chapter-title fetch, and which ASIN's titles were last
      # poured — the chips' chosen state.
@@ -284,10 +290,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   `search_fields/3` is: until the results land, storage still describes the
   previous search.
   """
-  def person_query_name(_item, key, key, name) when is_binary(name), do: name
-
-  def person_query_name(item, key, _searching_key, _searching_name),
-    do: get_in(item.matches, ["people", key, "name"])
+  def person_query_name(item, key, searching) do
+    case Map.get(searching, key) do
+      name when is_binary(name) -> name
+      _not_searching -> get_in(item.matches, ["people", key, "name"])
+    end
+  end
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"inbox_item" => params}, socket) do
@@ -317,7 +325,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # not an answer — the way back from a replacement is the chip beside the
   # box, the same as at the work level. (`EntityResolver` only reports a pure
   # picker's value when something is picked, so this is belt and braces.)
-  def handle_event("replace-recording", %{"id" => id}, socket) do
+  def handle_event("replace-recording", %{"media_id" => id}, socket) do
     case to_int(id) do
       nil -> {:noreply, socket}
       media_id -> {:noreply, edit(socket, &Draft.Edit.replace_recording(&1, media_id))}
@@ -328,7 +336,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.new_recording/1)}
   end
 
-  def handle_event("link-book", %{"id" => id}, socket) do
+  def handle_event("link-book", %{"book_id" => id}, socket) do
     item = socket.assigns.item
 
     case to_int(id) do
@@ -609,7 +617,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      socket
-     |> assign(searching_person: key, searching_person_name: name)
+     |> update(:searching_people, &Map.put(&1, key, name))
      |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
@@ -709,7 +717,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      socket
-     |> assign(searching_person: key, searching_person_name: name)
+     |> update(:searching_people, &Map.put(&1, key, name))
      |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
@@ -812,8 +820,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   #
   # Now the server owns it. The operator goes back to the list they came from
   # and the row wears the same busy overlay every other job gives it.
+  # The pre-flight is what `@collisions` carries, and passing it back is what
+  # says "yes, those ones". A first click sends the empty list, so anything
+  # found stops it; a second sends what the operator just read, and if the
+  # library moved in between the lists differ and it stops them again.
   def handle_event("import", _params, socket) do
-    case Inbox.import_item_async(socket.assigns.item) do
+    case Inbox.import_item_async(socket.assigns.item, acknowledged: socket.assigns.collisions) do
       {:ok, job} ->
         message =
           cond do
@@ -826,6 +838,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
          socket
          |> put_flash(:info, message)
          |> push_navigate(to: socket.assigns.return_to)}
+
+      {:error, {:collisions, findings}} ->
+        {:noreply, assign(socket, collisions: findings)}
 
       {:error, :already_imported} ->
         {:noreply, put_flash(socket, :error, Inbox.describe_error(:already_imported))}
@@ -843,18 +858,21 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   @impl Phoenix.LiveView
 
-  def handle_async({:person_search, _key}, {:ok, {:ok, item}}, socket) do
+  # Only this person's search is over. `item` is the row as re-read and
+  # merged under `Lookup`'s lock, so it carries whatever a search that
+  # finished a moment ago wrote as well.
+  def handle_async({:person_search, key}, {:ok, {:ok, item}}, socket) do
     {:noreply,
      socket
-     |> assign(searching_person: nil, searching_person_name: nil)
+     |> update(:searching_people, &Map.delete(&1, key))
      |> load(item)
      |> resettle()}
   end
 
   # A provider being down costs its results and nothing else — the person is
   # still perfectly importable without a face.
-  def handle_async({:person_search, _key}, _failed, socket) do
-    {:noreply, assign(socket, searching_person: nil, searching_person_name: nil)}
+  def handle_async({:person_search, key}, _failed, socket) do
+    {:noreply, update(socket, :searching_people, &Map.delete(&1, key))}
   end
 
   def handle_async({:research, _level}, {:ok, {:ok, item}}, socket) do
@@ -887,7 +905,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply,
      socket
      |> assign(researching: nil, retrying: nil, enriching: nil)
-     |> assign(research_fields: %{}, searching_person: nil, searching_person_name: nil)
+     |> assign(research_fields: %{}, searching_people: %{})
      |> put_flash(:error, "That provider couldn't be reached just now.")}
   end
 
@@ -991,10 +1009,39 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       busy: Inbox.busy?(job),
       # Roots are configuration and can change between seeding a draft and
       # approving it, so they're read now rather than frozen into the draft.
-      roots: Ambry.Library.list_roots()
+      roots: Ambry.Library.list_roots(),
+      # What the pre-flight found when Add was last pressed. Cleared here on
+      # purpose: any change to the draft is a change to what it would create,
+      # so an answer given about the old one may not be an answer about this
+      # one.
+      collisions: []
     )
     |> schedule_tick()
   end
+
+  @doc """
+  What the button does, which changes once the pre-flight has spoken.
+
+  Named for what pressing it does, same as it always was: after a collision
+  the thing it does is override an objection, and a button that still said
+  "Add to the library" would hide that pressing it again is the answer.
+  """
+  def import_words(true, _collisions), do: "Replace the files"
+  def import_words(false, []), do: "Add to the library"
+  def import_words(false, _collisions), do: "Add it anyway"
+
+  @doc """
+  Where a pre-flight match lives, so the operator can go and look at it.
+
+  `Ambry.Inbox.Preflight` names the record and leaves the route alone: it
+  runs nowhere near a web layer, and an author or a narrator is edited on
+  the person behind them rather than on a page of their own.
+  """
+  def collision_path({:book, id}), do: ~p"/admin/books/#{id}/edit"
+  def collision_path({:series, id}), do: ~p"/admin/series/#{id}/edit"
+  def collision_path({:set, id}), do: ~p"/admin/sets/#{id}/edit"
+  def collision_path({:person, id}), do: ~p"/admin/people/#{id}/edit"
+  def collision_path(nil), do: nil
 
   defp atom("folder"), do: :folder
   defp atom("file"), do: :file

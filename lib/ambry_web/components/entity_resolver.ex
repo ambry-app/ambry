@@ -68,7 +68,25 @@ defmodule AmbryWeb.Components.EntityResolver do
 
   @limit 10
 
+  # A form control named `id` clobbers `form.id`: HTML's named getter puts the
+  # control on the form object itself, so `form.id` returns the input rather
+  # than the string in the id attribute. LiveView's patcher reads that
+  # property to match nodes, doesn't recognise the form it is looking at, and
+  # appends a second one with the same id — which pushed everything below the
+  # replacement and library pickers down by 12px on every re-render, in a way
+  # that looked like the flash was moving the page.
+  #
+  # Refused rather than documented, because the symptom points nowhere near
+  # the cause. Every other call site already qualifies the name.
+  @clobbers_form ~w(id name action method target elements length)
+
   @impl Phoenix.LiveComponent
+  def render(%{name: name} = _assigns) when name in @clobbers_form do
+    raise ArgumentError, """
+    EntityResolver was given name=#{inspect(name)}, which clobbers the     surrounding form's #{name} property and breaks LiveView's DOM patching.     Qualify it — "book_id", "media_id", "person_id" — and read that key in     the parent's phx-change handler.
+    """
+  end
+
   def render(assigns) do
     assigns =
       assigns
