@@ -143,6 +143,110 @@ defmodule Ambry.Search.QueryTest do
     end
   end
 
+  describe "joiner: :narrowing" do
+    # The picker's policy over the other two, and the answer to the
+    # complaint that started all of this: another word is typed in order to
+    # *remove* rows, and under `:any` it only ever added them.
+    # `:narrowing` is two queries and a rule about which one answers, so it
+    # is not something `build/2` can return — these go through the picker,
+    # which is the only thing that wants it.
+    test "another term narrows while the narrowed set is non-empty" do
+      wide = picked("sanderson")
+      narrow = picked("sanderson mistborn")
+
+      assert "The Way of Kings" in wide
+      assert "Mistborn: The Final Empire" in wide
+      assert narrow == ["Mistborn: The Final Empire"]
+    end
+
+    test "and widens rather than emptying when nothing matches everything" do
+      # `:all` cannot answer this — no record holds "unabridged" — so the
+      # box falls back instead of going blank.
+      assert hits("sanderson kings unabridged", joiner: :all) == []
+      assert ["The Way of Kings" | _also_by_sanderson] = picked("sanderson kings unabridged")
+    end
+
+    test "which build/2 cannot express, and says so" do
+      assert_raise FunctionClauseError, fn ->
+        Query.build("sanderson", joiner: :narrowing)
+      end
+    end
+  end
+
+  describe "stop words" do
+    setup do
+      insert(:book, title: "The End of All Things")
+      insert(:book, title: "End of Watch")
+      insert(:book, title: "Don Quixote")
+      :ok
+    end
+
+    # This is the whole of the second reported bug: every extra common word
+    # OR'd in more of the library and dragged the ranking with it.
+    test "a stop word alongside real terms changes nothing" do
+      assert hits("end of all things") == hits("the end of all things")
+      assert top("the end of all things") == "The End of All Things"
+    end
+
+    test "but a phrase that is nothing else is still a search for them" do
+      # Somebody named Don, or Will. The only case the simple branch's stop
+      # words were ever added to serve.
+      assert top("don") == "Don Quixote"
+    end
+  end
+
+  describe "prefixes are of what was typed, not of its stem" do
+    setup do
+      insert(:person, name: "Martha Wells")
+      insert(:book, title: "Red Mars")
+      :ok
+    end
+
+    test "a stemmed term does not prefix-match unrelated words" do
+      # "mars" stems to "mar", and v2 appended `:*` after stemming — so this
+      # found Martha, Marlon, Markson, Marin, Martin, Marsters and Maryam.
+      hits = hits("mars", joiner: :any, partial: true)
+
+      assert "Red Mars" in hits
+      refute "Martha Wells" in hits
+    end
+
+    test "while the prefix property itself is untouched" do
+      assert top("mar", joiner: :any, partial: true, types: [:person]) == "Martha Wells"
+    end
+  end
+
+  describe "phrase position" do
+    setup do
+      # A series that repeats its book's title, which is how the wrong book
+      # got to the top: two hits for one fact.
+      club = insert(:series, name: "Thursday Murder Club", series_books: [])
+
+      insert(:book,
+        title: "The Thursday Murder Club",
+        series_books: [%{series_id: club.id, book_number: 1}]
+      )
+
+      insert(:book, title: "Murder by Other Means")
+      :ok
+    end
+
+    test "a name that starts with the phrase outranks one that merely contains it" do
+      assert top("murder") == "Murder by Other Means"
+    end
+
+    test "a stop word inside the phrase still narrows, though it is not a term" do
+      # "by" leaves the tsquery entirely, so this and "murder" are the same
+      # search — the phrase tiebreak is the only thing that can tell them
+      # apart, and it is the reason typing more feels like it works.
+      assert top("murder by") == "Murder by Other Means"
+    end
+
+    test "and it cannot widen a result set, only reorder one" do
+      refute "The Thursday Murder Club" in hits("murder by other means")
+    end
+  end
+
   describe "partial" do
     test "a prefix finds the name it starts" do
       refute top("sander", partial: false) == "Brandon Sanderson"
@@ -205,13 +309,17 @@ defmodule Ambry.Search.QueryTest do
     end
 
     test "and a stemmed form still is" do
-      assert top("kings") == "King Rat"
+      # Not `top/1`: "The Way of Kings" contains the word "kings" literally
+      # and King Rat only reaches it through the stemmer, so the phrase-
+      # position tiebreak — rightly — puts the literal match first. What
+      # this pins is that the stemmed one is reachable at all.
+      assert "King Rat" in hits("kings")
       assert top("memories") == "Children of Memory"
     end
 
     test "an article the operator typed does not break a title without one" do
-      # The simple branch wants "the"; the english branch drops it. One
-      # branch matching is enough, which is the point of asking both.
+      # Neither branch wants it: a stop word alongside real terms is dropped
+      # from both, so the article is simply not part of the search.
       assert top("the way of kings") == "The Way of Kings"
     end
   end
@@ -263,6 +371,12 @@ defmodule Ambry.Search.QueryTest do
     |> Query.build(opts)
     |> Ambry.Repo.all()
     |> Enum.map(& &1.primary)
+  end
+
+  # What a picker actually returns, by name — the only way to see
+  # `:narrowing`, which is a rule about two queries rather than one query.
+  defp picked(phrase) do
+    phrase |> Ambry.Books.search_books(10) |> Enum.map(& &1.label)
   end
 
   defp top(phrase, opts \\ []) do

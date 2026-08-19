@@ -159,10 +159,16 @@ defmodule Ambry.Books do
   No `partial`, unlike `search_books/2`. A prefix on the last word is for
   somebody who has not finished typing it; a filename has no half-typed word,
   and opening its last token to prefixes only buys noise.
+
+  And `:any` explicitly, rather than the `:narrowing` a picker gets. Nobody
+  is typing here, so there is no "I will add a word to cut this down" to
+  serve — and narrowing would hand back the one row that happened to match
+  every token where this wants the ranked field of candidates a matcher
+  scores.
   """
   @spec match_books(String.t() | nil, pos_integer()) :: [struct()]
   def match_books(phrase, limit \\ 10) do
-    Query.matching(BookFlat, phrase, :book, limit: limit, partial: false)
+    Query.matching(BookFlat, phrase, :book, limit: limit, partial: false, joiner: :any)
   end
 
   @doc """

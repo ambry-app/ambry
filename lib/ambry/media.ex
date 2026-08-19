@@ -149,14 +149,41 @@ defmodule Ambry.Media do
   Reaches any audiobook in the library by title, book, author, narrator,
   series or universe — the same search the index offers, without its
   pagination. With nothing typed, the first page by book.
+
+  Ranked, which it has to be spelled out to be. This asked `Query.ids/3`
+  once, and that function drops the `ORDER BY` deliberately — it is the admin
+  list filter's, where the operator has already chosen a sort. A picker has
+  not chosen one: ranking *is* the answer. Sorting the candidates
+  alphabetically and then taking ten meant "mars" showed the ten
+  alphabetically-first of 69 candidate books, and Red Mars, ranked first, was
+  not among them.
+
+  The recordings of one book stay together and in part order, since which
+  book it is decides the match and the parts are a menu within it.
   """
   def search_media(phrase, limit) do
-    MediaFlat
-    |> media_matching(phrase)
-    |> order_by([m], asc: m.book, asc: m.part_number, asc: m.id)
-    |> limit(^limit)
-    |> Repo.all()
-    |> Enum.map(&media_option/1)
+    case String.trim(phrase || "") do
+      "" ->
+        # Nothing typed: the first page, by book. There is no ranking to keep.
+        MediaFlat
+        |> order_by([m], asc: m.book, asc: m.part_number, asc: m.id)
+        |> limit(^limit)
+        |> Repo.all()
+        |> Enum.map(&media_option/1)
+
+      typed ->
+        ranked_book_ids =
+          Query.ranked_ids(typed, limit, joiner: :narrowing, partial: true, types: [:book])
+
+        rank = ranked_book_ids |> Enum.with_index() |> Map.new()
+
+        MediaFlat
+        |> where([m], m.book_id in ^ranked_book_ids)
+        |> Repo.all()
+        |> Enum.sort_by(&{Map.fetch!(rank, &1.book_id), &1.part_number || 0, &1.id})
+        |> Enum.take(limit)
+        |> Enum.map(&media_option/1)
+    end
   end
 
   @doc """
@@ -175,24 +202,6 @@ defmodule Ambry.Media do
     |> order_by([m], asc: m.part_number, asc: m.id)
     |> Repo.all()
     |> Enum.map(&media_option/1)
-  end
-
-  # Deliberately not `MediaFlat.filter(:search, …)`, which is the admin
-  # list's filter and asks a stricter question: every word has to match, and
-  # a half-typed one matches nothing. Sharing it made "sander" find no
-  # recordings at all. A picker gets the picker's knobs.
-  defp media_matching(query, phrase) do
-    case String.trim(phrase || "") do
-      "" ->
-        query
-
-      typed ->
-        where(
-          query,
-          [m],
-          m.book_id in subquery(Query.ids(typed, :book, joiner: :any, partial: true))
-        )
-    end
   end
 
   @doc """
