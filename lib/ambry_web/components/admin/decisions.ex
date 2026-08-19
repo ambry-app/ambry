@@ -27,8 +27,8 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.Draft.Tier
-  alias Ambry.Media
   alias Ambry.People
+  alias AmbryWeb.Components.EntityDropdown
   alias AmbryWeb.Components.EntityResolver
 
   attr :outcomes, :list, required: true
@@ -2055,18 +2055,42 @@ defmodule AmbryWeb.Admin.Decisions do
       <%!-- Reads as a sentence across the row — "<set> no. 1 of 3" — with the
           same label-free number box the series row and the book form use. --%>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <form id="group-link" phx-change="link-group" class="min-w-48 max-w-md flex-grow">
+        <%!-- Two controls, not one box that infers which you meant.
+            Whether the book has a set to join is knowable, so the form says
+            so rather than making the operator discover it by typing: with
+            candidates there is a drop-down to join one, without them there
+            is nothing to join and the only thing to do is name a new set.
+
+            A typeahead here searched for sets belonging to a book that
+            usually does not exist yet — measured on the three "Wings and
+            Ruin" parts, its whole answer was `Create "Graphic Audio LLC"`,
+            the box echoed back. And the mode was inferred from whether what
+            you typed happened to match a record, which is what the `new` /
+            `existing` badge was for. Picking a drop-down row or typing a
+            name says it outright. --%>
+        <form
+          id="group-link"
+          phx-change="link-group"
+          class="min-w-48 flex max-w-md flex-grow items-start gap-2"
+        >
           <.live_component
-            module={EntityResolver}
-            id="group-resolver"
+            :if={@link.candidates != []}
+            module={EntityDropdown}
+            id="group-dropdown"
             name="recording_group_id"
-            text_name="name"
-            search={&Media.search_recording_groups(@book_id, &1, &2)}
-            fetch={&Media.recording_group_option/1}
-            value={if @link.mode == :link, do: @link.recording_group_id}
-            text={@link.name || ""}
-            placeholder="set name"
+            options={group_options(@link)}
+            value={group_choice(@link)}
             class={input_classes("w-full")}
+          />
+          <input
+            :if={@link.mode == :create}
+            type="text"
+            name="name"
+            value={@link.name}
+            placeholder="set name"
+            phx-debounce="500"
+            class={input_classes("w-full")}
+            data-role="group-name"
           />
         </form>
 
@@ -2127,6 +2151,25 @@ defmodule AmbryWeb.Admin.Decisions do
     </div>
     """
   end
+
+  # The sets this recording could join, plus the one row that means "none of
+  # these". `@new_group` rather than "" because an empty id can never read as
+  # chosen — `EntityOption.selected?/2` treats a blank value as nothing held,
+  # which is right everywhere else.
+  @new_group "new"
+
+  defp group_options(%GroupLink{} = link) do
+    Enum.map(link.candidates, fn candidate ->
+      %{
+        id: candidate.recording_group_id,
+        label: candidate.name,
+        detail: candidate.parts_total && "#{candidate.parts_total} parts"
+      }
+    end) ++ [%{id: @new_group, label: "New set"}]
+  end
+
+  defp group_choice(%GroupLink{mode: :link, recording_group_id: id}), do: id
+  defp group_choice(%GroupLink{}), do: @new_group
 
   @doc """
   The block's left rail — the one thing that encodes settledness (§2).

@@ -1976,10 +1976,13 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       |> form("#group-total")
       |> render_change(%{"parts_total" => "2"})
 
-      # naming through the resolver's hidden inputs: no id picked = create
+      # nothing to join, so the row is a name box and nothing else
+      refute has_element?(view, "#group-dropdown")
+      assert has_element?(view, "[data-role='group-name']")
+
       view
       |> form("#group-link")
-      |> render_change(%{"recording_group_id" => "", "name" => "GraphicAudio"})
+      |> render_change(%{"name" => "GraphicAudio"})
 
       item = Inbox.get_item!(item.id)
       link = item.draft.recording.recording_group
@@ -2006,7 +2009,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       view
       |> form("#group-link")
-      |> render_change(%{"recording_group_id" => "", "name" => "GraphicAudio"})
+      |> render_change(%{"name" => "GraphicAudio"})
 
       # the Confirm button appears once a part number exists
       view |> element("[data-role='group-link'] button", "Confirm") |> render_click()
@@ -2022,6 +2025,78 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       item = Inbox.get_item!(item.id)
       assert item.draft.recording.recording_group == nil
       assert has_element?(view, "button", "This audiobook is part of a set")
+    end
+  end
+
+  describe "joining a set that already exists" do
+    # The whole reason the control is two controls. Whether there is a set to
+    # join is knowable — the draft carries the book's sets as candidates — so
+    # the form says so, rather than making the operator discover it by typing
+    # into a search box whose answer, for a book not in the library yet, is
+    # always "no matches".
+    test "the drop-down lists the book's sets and a way to make a new one", %{conn: conn} do
+      %{item: item} = item_with_candidate_set()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      html = view |> element("#group-dropdown-trigger") |> render_click()
+
+      assert html =~ "GraphicAudio"
+      assert html =~ "New set"
+    end
+
+    # The drop-down's own click cannot be driven from here: it answers
+    # server-side and the form only learns the answer when the
+    # `entity-resolver-input` hook fires an `input` event, which no LiveView
+    # test runs. So these post what that hook posts. The bridge itself is the
+    # resolver's, shared and long-standing.
+    test "choosing one links it", %{conn: conn} do
+      %{item: item, group: group} = item_with_candidate_set()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> form("#group-link")
+      |> render_change(%{"recording_group_id" => to_string(group.id)})
+
+      link = Inbox.get_item!(item.id).draft.recording.recording_group
+      group_id = group.id
+
+      assert %{mode: :link, recording_group_id: ^group_id, curated: true} = link
+    end
+
+    test "choosing New set goes back to creating one, keeping the name", %{conn: conn} do
+      %{item: item, group: group} = item_with_candidate_set()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> form("#group-link")
+      |> render_change(%{"recording_group_id" => to_string(group.id)})
+
+      # switching back posts no name — the box is not on the page while a set
+      # is linked — and the set's name is not something to throw away because
+      # a drop-down moved
+      view |> form("#group-link") |> render_change(%{"recording_group_id" => "new"})
+
+      link = Inbox.get_item!(item.id).draft.recording.recording_group
+
+      assert link.mode == :create
+      assert link.name == "GraphicAudio"
+    end
+
+    test "the name box is only there when a set is being made", %{conn: conn} do
+      %{item: item, group: group} = item_with_candidate_set()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='group-name']")
+
+      view
+      |> form("#group-link")
+      |> render_change(%{"recording_group_id" => to_string(group.id)})
+
+      refute has_element?(view, "[data-role='group-name']")
     end
   end
 
@@ -2326,6 +2401,35 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     |> Map.new(fn input ->
       {Floki.attribute(input, "name") |> hd(), Floki.attribute(input, "value") |> hd()}
     end)
+  end
+
+  # A draft whose book is already in the library and already has a set, which
+  # is the only way candidates are non-empty: `Seed.book_groups/1` needs a
+  # linked work to have a book to ask about.
+  defp item_with_candidate_set do
+    {:ok, item} = Inbox.prepare_draft(probed_item())
+    book = insert(:book)
+    group = insert(:recording_group, book: book, name: "GraphicAudio", parts_total: 2)
+
+    link = %Draft.GroupLink{
+      mode: :create,
+      name: "GraphicAudio",
+      proposed_name: "GraphicAudio",
+      part_number: 1,
+      source: "local",
+      candidates: [
+        %Draft.GroupLink.Match{
+          recording_group_id: group.id,
+          name: group.name,
+          parts_total: group.parts_total
+        }
+      ]
+    }
+
+    draft = put_in(item.draft, [Access.key(:recording), Access.key(:recording_group)], link)
+    {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+    %{item: item, book: book, group: group}
   end
 
   defp probed_item(opts \\ []) do
