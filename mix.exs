@@ -4,7 +4,7 @@ defmodule Ambry.MixProject do
   def project do
     [
       app: :ambry,
-      version: "2.3.1",
+      version: "2.4.0",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: [:boundary, :phoenix_live_view] ++ Mix.compilers(),
