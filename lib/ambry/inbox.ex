@@ -92,7 +92,8 @@ defmodule Ambry.Inbox do
   Lists inbox items, most recent first — of whatever "recent" means for the
   view being asked for.
 
-  Options: `:status`, `:filter` (matches the path), `:offset`, `:limit`.
+  Options: `:status`, `:filter` (matches the path and what the draft says the
+  item is), `:offset`, `:limit`.
   """
   def list_items(opts \\ []) do
     limit = Keyword.get(opts, :limit, 25)
@@ -101,7 +102,7 @@ defmodule Ambry.Inbox do
     items =
       InboxItem
       |> filter_by_status(opts[:status])
-      |> filter_by_path(opts[:filter])
+      |> filter_by_search(opts[:filter])
       |> filter_by_issue(opts[:issue])
       |> order_by(^newest_first(opts[:status]))
       |> offset(^Keyword.get(opts, :offset, 0))
@@ -140,7 +141,7 @@ defmodule Ambry.Inbox do
   def count_items(opts \\ []) do
     InboxItem
     |> filter_by_status(opts[:status])
-    |> filter_by_path(opts[:filter])
+    |> filter_by_search(opts[:filter])
     |> filter_by_issue(opts[:issue])
     |> Repo.aggregate(:count)
   end
@@ -1159,9 +1160,33 @@ defmodule Ambry.Inbox do
   defp filter_by_status(query, nil), do: query
   defp filter_by_status(query, status), do: where(query, [i], i.status == ^status)
 
-  defp filter_by_path(query, blank) when blank in [nil, ""], do: query
+  # Matches the path AND what the draft says the item is, which is the whole
+  # reason the column exists: an item whose folder is
+  # `01 Angels and Demons.m4b` is findable by "Dan Brown".
+  #
+  # It also stops operator-typed `%` and `_` being live wildcards. The
+  # `ILIKE '%…%'` this replaces interpolated the phrase straight into a
+  # pattern, so typing a percent sign matched the entire queue. There is no
+  # pattern left to escape now — the phrase is a parameter to
+  # `plainto_tsquery`, which reads punctuation as punctuation.
+  defp filter_by_search(query, blank) when blank in [nil, ""], do: query
 
-  defp filter_by_path(query, filter), do: where(query, [i], ilike(i.path, ^"%#{filter}%"))
+  defp filter_by_search(query, filter) do
+    if String.trim(filter) == "" do
+      query
+    else
+      # A phrase with no lexemes in it — punctuation, or nothing but stop
+      # words — filters nothing, the same rule every other search here
+      # follows. `@@ NULL` is NULL rather than false, so the emptiness has to
+      # be asked about rather than left to the match.
+      where(
+        query,
+        [i],
+        fragment("ambry_tsquery(?, 'all', true) IS NULL", ^filter) or
+          fragment("? @@ ambry_tsquery(?, 'all', true)", i.search_vector, ^filter)
+      )
+    end
+  end
 
   # An issue cuts across the three buckets rather than replacing them (see
   # `queue_summary/0`), so it narrows whatever list is already showing

@@ -1715,10 +1715,14 @@ defmodule Ambry.Inbox.AutoMatch do
     # the difference between finding and not finding a book whose tags call it
     # "Wayfarers, Book 1". The `@offer_local` floor still decides what is
     # worth *showing*.
+    #
+    # Handed over as one phrase, not as tokens: `plainto_tsquery` splits it,
+    # folds accents, stems and drops stop words, which is what `keywords/1`
+    # was approximating for the search that used to live here.
     books =
       [hints.title, hints.release_title, hints.author, hints.series]
-      |> Enum.flat_map(&Books.match_keywords/1)
-      |> Enum.uniq()
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
       |> Books.match_books(@candidate_limit)
 
     Enum.map(books, fn book ->
@@ -1782,7 +1786,7 @@ defmodule Ambry.Inbox.AutoMatch do
   defp title_evidence?(candidate, hints) do
     wanted =
       [hints.title, hints.release_title]
-      |> Enum.flat_map(&Books.match_keywords/1)
+      |> Enum.flat_map(&keywords/1)
       |> MapSet.new()
 
     substantial?(candidate["title"], wanted) or series_label_evidence?(candidate, hints)
@@ -1791,7 +1795,7 @@ defmodule Ambry.Inbox.AutoMatch do
   defp series_label_evidence?(candidate, hints) do
     wanted =
       [hints.title, hints.release_title, hints.series]
-      |> Enum.flat_map(&Books.match_keywords/1)
+      |> Enum.flat_map(&keywords/1)
       |> MapSet.new()
 
     Enum.any?(
@@ -1814,8 +1818,33 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp wrong_volume?(_entry, _hints), do: false
 
+  @doc """
+  Splits a phrase into the words worth comparing on.
+
+  Not a search — `Ambry.Search.Query` does that, and Postgres does its own
+  tokenizing. This is for the set comparisons below, where a file's label and
+  a candidate's name are reduced to word sets and asked how much they share.
+  It lived on `Ambry.Books.BookFlat` while that view had a hand-rolled
+  keyword search to feed; the search is gone and the comparisons remain.
+
+  Punctuation goes (an apostrophe is typographic or straight depending on who
+  wrote the file) and so do the words every title contains, which would
+  otherwise count as agreement with everything in the library.
+  """
+  @stopwords ~w(a an and at by for from in of on or the to with)
+
+  def keywords(nil), do: []
+
+  def keywords(phrase) when is_binary(phrase) do
+    phrase
+    |> String.downcase()
+    |> String.split(~r/[^\p{L}\p{N}]+/u, trim: true)
+    |> Enum.reject(&(&1 in @stopwords or String.length(&1) < 2))
+    |> Enum.uniq()
+  end
+
   defp substantial?(name, wanted) do
-    words = Books.match_keywords(name)
+    words = keywords(name)
     shared = Enum.count(words, &MapSet.member?(wanted, &1))
     words != [] and shared >= min(2, length(words))
   end
@@ -1829,13 +1858,13 @@ defmodule Ambry.Inbox.AutoMatch do
   @label_filler ~w(book books bk vol volume volumes part parts no saga series)
 
   defp series_label?(series_name, hints) do
-    series_words = series_name |> Books.match_keywords() |> MapSet.new()
+    series_words = series_name |> keywords() |> MapSet.new()
 
     [hints.title, hints.release_title]
     |> Enum.reject(&is_nil/1)
     |> Enum.any?(fn label ->
       label
-      |> Books.match_keywords()
+      |> keywords()
       |> Enum.reject(
         &(MapSet.member?(series_words, &1) or &1 in @label_filler or
             Regex.match?(~r/^\d+$/, &1))
@@ -2086,13 +2115,13 @@ defmodule Ambry.Inbox.AutoMatch do
   defp series_identity(series, %{series_number: number} = hints) when not is_nil(number) do
     label_words =
       [hints.title, hints.series]
-      |> Enum.flat_map(&Books.match_keywords/1)
+      |> Enum.flat_map(&keywords/1)
       |> MapSet.new()
 
     series
     |> List.wrap()
     |> Enum.find(fn entry ->
-      words = Books.match_keywords(entry["name"])
+      words = keywords(entry["name"])
       words != [] and Enum.all?(words, &MapSet.member?(label_words, &1))
     end)
     |> case do

@@ -67,7 +67,12 @@ config :ambry, Oban,
        # Organizing is triggered by the edits that invalidate a path, so this
        # is the backstop for the one thing no edit can announce: a change to
        # the naming template itself, which invalidates every path at once.
-       {"30 4 * * *", Ambry.Media.RunOrganize}
+       {"30 4 * * *", Ambry.Media.RunOrganize},
+       # The backstop under `Ambry.Search.Listener`. `NOTIFY` is
+       # fire-and-forget, so a write that committed while the listener was
+       # restarting leaves a queue row nobody was told about. In a healthy
+       # server this finds nothing every minute.
+       {"* * * * *", Ambry.Search.RunDrain}
      ]}
   ],
   # `metadata` is deliberately serial: auto-matching a freshly scanned library

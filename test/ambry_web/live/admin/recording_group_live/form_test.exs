@@ -87,12 +87,11 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
              |> Floki.attribute("value") == [to_string(media.id)]
     end
 
-    # Regression: the member picker's records follow the posted book_id, but
+    # Regression: the member picker's options follow the posted book_id, but
     # the edit page renders the book as static text (posts nothing) — so any
-    # keystroke in any field used to leave it scoped to no book at all. What
-    # keeps the box readable now is that naming what it holds is a lookup by
-    # id (`Media.media_option/1`) rather than a search of the current scope.
-    test "editing another field leaves the member typeaheads displaying their picks", %{
+    # keystroke in any field used to leave it scoped to no book at all, and
+    # a drop-down whose options went away cannot name what it holds.
+    test "editing another field leaves the member pickers displaying their picks", %{
       conn: conn
     } do
       book = insert(:book, title: "A Court of Thorns and Roses")
@@ -111,11 +110,29 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
       assert resolver_display(html) == "A Court of Thorns and Roses (Part 1)"
     end
 
-    # The label composes a part suffix onto the title, and no column holds
-    # "A Court of Thorns and Roses (Part 1 of 2)" — so opening the box
-    # searched for exactly that and reported "No matches" about the recording
-    # it was already holding.
-    test "opening a member picker finds the recording it is holding", %{conn: conn} do
+    # A drop-down cannot lose what it holds — the option list is the book's
+    # audiobooks, so the held one is in it by construction. Worth pinning
+    # anyway: the typeahead this replaced *could*, because the label composes
+    # a part suffix onto the title and no column holds "A Court of Thorns and
+    # Roses (Part 1 of 2)", so opening the box searched for exactly that and
+    # said "No matches" about the recording it was holding.
+    # Same rule as the audiobook form's set row: the ✕ removes the member, so
+    # it lives beside the picker rather than drawn on top of it.
+    test "a member row's ✕ sits beside its picker, not inside it", %{conn: conn} do
+      book = insert(:book, title: "A Court of Thorns and Roses")
+      group = insert(:recording_group, name: "Graphic Audio", book: book)
+      insert(:media, book: book, part_number: 1, recording_group: group)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
+      doc = Floki.parse_document!(html)
+
+      picker = "#recording_group_form_members_0_media_id"
+
+      assert Floki.find(doc, "#{picker} button[name*='members_drop']") == []
+      assert Floki.find(doc, "button[name*='members_drop']") != []
+    end
+
+    test "a member picker offers every audiobook of the book, held one included", %{conn: conn} do
       book = insert(:book, title: "A Court of Thorns and Roses")
       group = insert(:recording_group, name: "Graphic Audio", book: book, parts_total: 2)
       held = insert(:media, book: book, part_number: 1, recording_group: group)
@@ -125,18 +142,19 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
 
       html =
         view
-        |> element("#recording_group_form_members_0_media_id-input")
-        |> render_focus()
+        |> element("#recording_group_form_members_0_media_id-trigger")
+        |> render_click()
 
-      refute html =~ "No matches"
+      refute html =~ "Nothing to choose from"
       assert html =~ ~s(phx-value-id="#{held.id}")
       assert html =~ ~s(phx-value-id="#{sibling.id}")
     end
 
-    # Opening a filled box used to drop its own record somewhere in an
-    # alphabetical run of near-identical siblings, so confirming what was
-    # already chosen meant reading the whole list.
-    test "the held recording leads the list and says it is the held one", %{conn: conn} do
+    # A drop-down lists its options in one fixed order — part 1, 2, 3 — so
+    # unlike the typeahead this replaced it does not pin what it holds to the
+    # top. It does not need to: the closed trigger names it, and the open
+    # list marks it.
+    test "the held recording is the one marked as held", %{conn: conn} do
       book = insert(:book, title: "A Court of Thorns and Roses")
       group = insert(:recording_group, name: "Graphic Audio", book: book, parts_total: 3)
       _first = insert(:media, book: book, part_number: 1, recording_group: group)
@@ -145,19 +163,20 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/sets/#{group.id}/edit")
 
-      # the third member's box holds part 3, which the search orders last
+      # the third member's box holds part 3, which the list orders last
       html =
         view
-        |> element("#recording_group_form_members_2_media_id-input")
-        |> render_focus()
+        |> element("#recording_group_form_members_2_media_id-trigger")
+        |> render_click()
 
       options =
         html
         |> Floki.parse_document!()
         |> Floki.find("#recording_group_form_members_2_media_id-list li[role='option']")
 
-      assert options |> List.first() |> Floki.attribute("phx-value-id") == [to_string(third.id)]
-      assert options |> List.first() |> Floki.attribute("aria-selected") == ["true"]
+      marked = Enum.filter(options, &(Floki.attribute(&1, "aria-selected") == ["true"]))
+
+      assert marked |> List.first() |> Floki.attribute("phx-value-id") == [to_string(third.id)]
 
       # and it is the only one carrying the chosen mark
       assert Enum.count(options, &(Floki.find(&1, ".fa-check") != [])) == 1
@@ -179,8 +198,8 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
 
       html =
         view
-        |> element("#recording_group_form_members_0_media_id-input")
-        |> render_focus()
+        |> element("#recording_group_form_members_0_media_id-trigger")
+        |> render_click()
 
       assert html =~ "Sarah J. Maas"
     end
@@ -212,8 +231,8 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
 
       html =
         view
-        |> element("#recording_group_form_members_0_media_id-input")
-        |> render_focus()
+        |> element("#recording_group_form_members_0_media_id-trigger")
+        |> render_click()
 
       assert html =~ "read by Karen Foley and 2 others"
       refute html =~ "Melody Muze"
@@ -237,8 +256,8 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
 
       html =
         view
-        |> element("#recording_group_form_members_0_media_id-input")
-        |> render_focus()
+        |> element("#recording_group_form_members_0_media_id-trigger")
+        |> render_click()
 
       assert html =~ "A Court of Thorns and Roses #1"
     end
@@ -274,12 +293,14 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.FormTest do
     end
   end
 
+  # What the closed drop-down says it is holding.
   defp resolver_display(html) do
     html
     |> Floki.parse_document!()
-    |> Floki.find(~s{input[name="resolver[recording_group_form_members_0_media_id]"]})
-    |> Floki.attribute("value")
+    |> Floki.find("#recording_group_form_members_0_media_id-trigger span")
     |> List.first()
+    |> Floki.text()
+    |> String.trim()
   end
 
   # Saving returns to the sets list naming the record it saved, so the list can

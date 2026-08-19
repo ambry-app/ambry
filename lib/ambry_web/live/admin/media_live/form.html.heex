@@ -112,20 +112,18 @@
 
             <%!-- arrows trail the input: a leading column pushed every input
                 off the box edge whenever a list crossed one row (§3) --%>
-            <div class="relative flex items-start gap-2">
-              <div class="relative grow">
-                <.input
-                  field={media_narrator_form[:narrator_id]}
-                  type="autocomplete"
-                  search={&People.search_narrators/2}
-                  fetch={&People.narrator_option/1}
-                />
-                <.delete_button
-                  field={@form[:media_narrators_drop]}
-                  index={media_narrator_form.index}
-                  class="absolute top-3 right-2"
-                />
-              </div>
+            <div class="flex items-start gap-2">
+              <.input
+                field={media_narrator_form[:narrator_id]}
+                type="autocomplete"
+                search={&People.search_narrators/2}
+                fetch={&People.narrator_option/1}
+                container_class="grow"
+              />
+              <.delete_button
+                field={@form[:media_narrators_drop]}
+                index={media_narrator_form.index}
+              />
               <.move_buttons
                 :if={@media_narrator_count > 1}
                 field={:media_narrators}
@@ -164,30 +162,28 @@
 
             <div :if={@group_row_visible} class="flex items-start gap-2">
               <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
-              <div class="relative grow">
-                <.input
-                  field={@form[:recording_group_id]}
-                  type="autocomplete"
-                  search={&Media.search_recording_groups(@book_id, &1, &2)}
-                  fetch={&Media.recording_group_option/1}
+              <%!-- A book has one set, or none, or occasionally two. --%>
+              <.input
+                field={@form[:recording_group_id]}
+                type="dropdown"
+                options={@recording_group_options}
+                container_class="grow"
+              />
+              <%!-- Hand-rolled because taking this audiobook out of its set is
+                  an event, not a drop input, so it has to say so. It wears
+                  `.delete_button`'s box all the same — one input tall, glyph
+                  centred, beside the field rather than inside it. --%>
+              <button
+                type="button"
+                phx-click="remove-group-row"
+                class="flex h-10 flex-none items-center"
+                title="Not part of a set"
+              >
+                <.icon
+                  name="fa-xmark"
+                  class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-400"
                 />
-                <%!-- `flex` is load-bearing, not decoration: it collapses the
-                    button to the icon's own box, which is what puts `top-3` on
-                    the input's centre line. `.delete_button` carries it for the
-                    list rows; this one is hand-rolled because removing the
-                    group is an event, not a drop input, so it has to say it. --%>
-                <button
-                  type="button"
-                  phx-click="remove-group-row"
-                  class="absolute top-3 right-2 flex"
-                  title="Not part of a set"
-                >
-                  <.icon
-                    name="fa-xmark"
-                    class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-400"
-                  />
-                </button>
-              </div>
+              </button>
             </div>
           </.field_group>
 
@@ -396,7 +392,7 @@
             <.sort_input field={@form[:supplemental_files_sort]} index={supplemental_file_form.index} />
             <.input field={supplemental_file_form[:id]} type="hidden" />
 
-            <div class="relative flex items-center gap-2">
+            <div class="flex items-center gap-2">
               <.label for={supplemental_file_form[:label].name} class="pl-3">Label</.label>
               <.input field={supplemental_file_form[:label]} placeholder="Label" container_class="grow" />
               <.label for={supplemental_file_form[:filename].name} class="pl-3">Filename</.label>
@@ -404,7 +400,6 @@
               <.delete_button
                 field={@form[:supplemental_files_drop]}
                 index={supplemental_file_form.index}
-                class="absolute top-3 right-2"
               />
             </div>
           </.inputs_for>

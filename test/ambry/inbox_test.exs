@@ -649,6 +649,55 @@ defmodule Ambry.InboxTest do
       assert %{pending: 1, ignored: 1} = Inbox.count_by_status()
     end
 
+    # The point of the item's own index: a release folder named for a part
+    # number says nothing about what the book is, and the draft does.
+    test "finds an item by what its draft says, not just by its path" do
+      root = watched_root()
+      release_folder(root, "01 Angels and Demons.m4b", ["book.m4b"])
+      {:ok, _counts} = discover(root)
+
+      {[item], false} = Inbox.list_items()
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      assert {[], false} = Inbox.list_items(filter: "Dan Brown")
+
+      draft =
+        put_in(
+          item.draft,
+          [Access.key(:work), Access.key(:authors)],
+          [%Draft.Credit{name: "Dan Brown", kind: :author, mode: :create}]
+        )
+
+      {:ok, _item} = Inbox.update_draft(item, Inbox.dump_draft(draft))
+
+      assert {[found], false} = Inbox.list_items(filter: "Dan Brown")
+      assert found.id == item.id
+
+      # and still by its path
+      assert {[^found], false} = Inbox.list_items(filter: "angels")
+    end
+
+    test "punctuation in a folder name does not hide it" do
+      root = watched_root()
+      release_folder(root, "Truly, Devious [2]", ["book.m4b"])
+      {:ok, _counts} = discover(root)
+
+      assert {[item], false} = Inbox.list_items(filter: "truly devious")
+      assert InboxItem.name(item) == "Truly, Devious [2]"
+    end
+
+    # The filter interpolated the phrase straight into an `ILIKE` pattern, so
+    # typing a percent sign matched the whole queue.
+    test "a wildcard is punctuation, not a pattern" do
+      root = watched_root()
+      release_folder(root, "Keeper", ["book.m4b"])
+      {:ok, _counts} = discover(root)
+
+      assert {[_keeper], false} = Inbox.list_items(filter: "%")
+      assert {[], false} = Inbox.list_items(filter: "_eeper")
+      assert {[_keeper], false} = Inbox.list_items(filter: "Keeper")
+    end
+
     test "the queue is newest-found first" do
       root = watched_root()
       release_folder(root, "Found first", ["book.m4b"])

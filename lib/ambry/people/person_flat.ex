@@ -5,6 +5,8 @@ defmodule Ambry.People.PersonFlat do
 
   use Ambry.Repo.FlatSchema
 
+  alias Ambry.Search.Query
+
   schema "people_flat" do
     field :name, :string
     field :thumbnail, :string
@@ -22,21 +24,8 @@ defmodule Ambry.People.PersonFlat do
   end
 
   def filter(query, :search, search_string) do
-    search_string = "%#{search_string}%"
-
     from p in query,
-      where:
-        ilike(p.name, ^search_string) or
-          fragment(
-            "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
-            p.writing_as,
-            ^search_string
-          ) or
-          fragment(
-            "EXISTS (SELECT FROM unnest(?) elem WHERE elem ILIKE ?)",
-            p.narrating_as,
-            ^search_string
-          )
+      where: p.id in subquery(Query.ids(search_string, :person))
   end
 
   def filter(query, :is_author, is_author?), do: from(p in query, where: [is_author: ^is_author?])

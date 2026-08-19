@@ -156,28 +156,27 @@
                 <.sort_input field={@form[:author_people_sort]} index={author_person_form.index} />
 
                 <%= if linked_author_row?(author_person_form) do %>
-                  <div class="relative">
+                  <div class="flex items-start gap-2">
                     <.input type="hidden" field={author_person_form[:author_id]} />
                     <.input
                       type="text"
                       name={"linked-author-#{author_person_form.index}"}
                       value={linked_author_name(author_person_form[:author_id].value)}
                       disabled
+                      container_class="grow"
                     />
                     <.delete_button
                       field={@form[:author_people_drop]}
                       index={author_person_form.index}
-                      class="absolute top-3 right-2"
                     />
                   </div>
                 <% else %>
                   <.inputs_for :let={author_form} field={author_person_form[:author]}>
-                    <div class="relative">
-                      <.input field={author_form[:name]} />
+                    <div class="flex items-start gap-2">
+                      <.input field={author_form[:name]} container_class="grow" />
                       <.delete_button
                         field={@form[:author_people_drop]}
                         index={author_person_form.index}
-                        class="absolute top-3 right-2"
                       />
                     </div>
                     <p
@@ -289,12 +288,11 @@
               <.inputs_for :let={narrator_form} field={@form[:narrators]}>
                 <.sort_input field={@form[:narrators_sort]} index={narrator_form.index} />
 
-                <div class="relative">
+                <div class="flex items-start gap-2">
                   <.input field={narrator_form[:name]} container_class="grow" />
                   <.delete_button
                     field={@form[:narrators_drop]}
                     index={narrator_form.index}
-                    class="absolute top-3 right-2"
                   />
                 </div>
               </.inputs_for>

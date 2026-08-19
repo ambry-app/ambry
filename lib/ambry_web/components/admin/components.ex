@@ -974,13 +974,25 @@ defmodule AmbryWeb.Admin.Components do
     ~H"""
     <%!-- ✕, not a trash can: removing a row from a list is the import form's
         remove idiom (undoable until save), and two removal costumes for one
-        gesture read as two different gestures. --%>
+        gesture read as two different gestures.
+
+        **It sits beside the field, never on top of one.** This used to be
+        dropped inside a picker's box with `absolute top-3 right-2`, which was
+        wrong twice over. It says the wrong thing — the gesture removes the
+        *row*, not the field's value, and a mark inside a box belongs to that
+        box. And it collides: the moment a control grew a glyph of its own
+        (the drop-down's chevron) the two drew on the same pixels.
+
+        Exactly one input tall with its glyph centred, the same idiom and for
+        the same reason as `move_buttons/1`: it lines up with the field it
+        removes by being as tall as it, not by a hand-picked `mt-3` that
+        lands 2px shy and slides off as soon as the row carries an error. --%>
     <button
       type="button"
       name={@field.name <> "[]"}
       value={@index}
       phx-click={JS.dispatch("change")}
-      class={["flex", @class]}
+      class={["flex h-10 flex-none items-center", @class]}
     >
       <.icon name="fa-xmark" class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-400" />
     </button>

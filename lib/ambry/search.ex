@@ -1,6 +1,21 @@
 defmodule Ambry.Search do
   @moduledoc """
   A context for aggregate search across books, authors, narrators and series.
+
+  ## The index maintains itself
+
+  Nothing calls this module to keep the index current. Row triggers on the
+  library's tables fill `Ambry.Search.Queue`, `Ambry.Search.Listener` notices
+  and `Ambry.Search.Drain` rebuilds what changed. That is a deliberate
+  inversion: index maintenance used to be twelve hand-placed calls in the
+  contexts' `with` chains, and any write by another path — the inbox importer
+  most of all, which its boundary forbids from calling this module — drifted
+  the index silently. The server rebuilt the whole index on every boot to hide
+  it.
+
+  A write is therefore reflected in search a moment after it commits, not
+  within the same call. Nothing in the app may depend on that moment being
+  zero; `settle/0` exists so tests don't have to.
   """
 
   use Boundary,
@@ -10,56 +25,47 @@ defmodule Ambry.Search do
       Ambry.People,
       Ambry.PubSub,
       Ambry.Repo
-    ]
+    ],
+    exports: [Listener, Query]
 
   import Ecto.Query
 
   alias Ambry.Books
   alias Ambry.Books.Book
   alias Ambry.Books.Series
-  alias Ambry.Media.Media
   alias Ambry.People
   alias Ambry.People.Person
   alias Ambry.Repo
-  alias Ambry.Search.Index
-  alias Ambry.Search.Record
+  alias Ambry.Search.Drain
+  alias Ambry.Search.Query
 
   @results_limit 36
 
-  defdelegate refresh_entire_index!, to: Index
+  # Universes are indexed — a book is findable by the universe it belongs to,
+  # and the admin picker searches them — but they are left out of user search
+  # because there is no public universe page for a result to land on. Adding
+  # `:universe` here is the second half of that feature, not this half.
+  @user_facing_types [:book, :person, :series]
 
-  def insert(%Person{id: id}), do: do_insert(:person, id)
-  def insert(%Media{id: id}), do: do_insert(:media, id)
-  def insert(%Book{id: id}), do: do_insert(:book, id)
-  def insert(%Series{id: id}), do: do_insert(:series, id)
+  @doc """
+  Rebuilds the entire index, in the background.
 
-  def update(%Person{id: id}), do: do_update(:person, id)
-  def update(%Media{id: id}), do: do_update(:media, id)
-  def update(%Book{id: id}), do: do_update(:book, id)
-  def update(%Series{id: id}), do: do_update(:series, id)
+  What the admin's reindex button calls. Not needed for correctness — the
+  triggers cover that — but a schema change to what a record holds needs one
+  pass over the library, and so does an operator who does not believe us.
+  """
+  defdelegate reindex_all!, to: Drain
 
-  def delete(%Person{id: id}), do: do_delete(:person, id)
-  def delete(%Media{id: id}), do: do_delete(:media, id)
-  def delete(%Book{id: id}), do: do_delete(:book, id)
-  def delete(%Series{id: id}), do: do_delete(:series, id)
+  @doc """
+  What the index holds, and whether it is behind. See `Drain.stats/0`.
+  """
+  defdelegate stats, to: Drain
 
-  defp do_insert(type, id) do
-    Index.insert!(type, id)
-  rescue
-    reason -> {:error, reason}
-  end
-
-  defp do_update(type, id) do
-    Index.update!(type, id)
-  rescue
-    reason -> {:error, reason}
-  end
-
-  defp do_delete(type, id) do
-    Index.delete!(type, id)
-  rescue
-    reason -> {:error, reason}
-  end
+  @doc """
+  Waits for the index to reflect everything written so far. See
+  `Ambry.Search.Drain.settle/0`.
+  """
+  defdelegate settle, to: Drain
 
   def search(query_string) do
     query_string
@@ -81,49 +87,20 @@ defmodule Ambry.Search do
     end)
   end
 
-  def query(query_string) do
-    like = "%#{query_string}%"
+  @doc """
+  The index, narrowed to what matches `query_string`, as a composable
+  queryable.
 
-    from record in Record,
-      where:
-        fragment("? @@ plainto_tsquery(?)", record.search_vector, ^query_string) or
-          ilike(record.primary, ^like) or ilike(record.secondary, ^like) or
-          ilike(record.tertiary, ^like),
-      order_by: [
-        {:desc,
-         fragment("ts_rank_cd(?, plainto_tsquery(?))", record.search_vector, ^query_string)},
-        {:desc,
-         fragment(
-           """
-           CASE
-             WHEN ? ILIKE ? THEN 1
-             WHEN ? ILIKE ? THEN 0.4
-             WHEN ? ILIKE ? THEN 0.2
-             ELSE 0
-           END
-           """,
-           record.primary,
-           ^like,
-           record.secondary,
-           ^like,
-           record.tertiary,
-           ^like
-         )},
-        {:desc,
-         fragment(
-           """
-           COALESCE(similarity(?, ?), 0) +
-           COALESCE(similarity(?, ?), 0) +
-           COALESCE(similarity(?, ?), 0)
-           """,
-           record.primary,
-           ^query_string,
-           record.secondary,
-           ^query_string,
-           record.tertiary,
-           ^query_string
-         )}
-      ]
+  User search is `:all` — every word you typed has to appear somewhere — with
+  `partial: true` on the last word. The partial is not a search-as-you-type
+  affordance here (this page is submitted, not live); it replaces the `ILIKE
+  '%…%'` arm this query used to carry beside the tsquery. That arm was
+  load-bearing in one direction only: `sander` found Sanderson through the
+  substring, never through the tsquery, and dropping it without a prefix
+  match would have been a regression.
+  """
+  def query(query_string) do
+    Query.build(query_string, joiner: :all, partial: true, types: @user_facing_types)
   end
 
   def all(query, opts \\ []) do

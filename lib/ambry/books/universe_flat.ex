@@ -5,6 +5,8 @@ defmodule Ambry.Books.UniverseFlat do
 
   use Ambry.Repo.FlatSchema
 
+  alias Ambry.Search.Query
+
   schema "universes_flat" do
     field :name, :string
     field :books, :integer
@@ -14,8 +16,7 @@ defmodule Ambry.Books.UniverseFlat do
   end
 
   def filter(query, :search, search_string) do
-    search_string = "%#{search_string}%"
-
-    from u in query, where: ilike(u.name, ^search_string)
+    from u in query,
+      where: u.id in subquery(Query.ids(search_string, :universe))
   end
 end

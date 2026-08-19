@@ -537,9 +537,18 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
          group = Media.get_recording_group!(id)
          Draft.Edit.link_group(draft, id, %{name: group.name, parts_total: group.parts_total})
        else
+         # Rename only when the form actually posted one. Switching a link to
+         # a new set posts no name — the name box is not on the page yet —
+         # and blanking the set's name because a drop-down moved would throw
+         # away the one thing detection got right.
          draft
          |> Draft.Edit.create_group()
-         |> Draft.Edit.rename_group(params["name"] || "")
+         |> then(fn draft ->
+           case params["name"] do
+             nil -> draft
+             name -> Draft.Edit.rename_group(draft, name)
+           end
+         end)
        end
      end)}
   end

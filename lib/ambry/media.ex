@@ -31,7 +31,6 @@ defmodule Ambry.Media do
   import Ecto.Query
 
   alias Ambry.Books
-  alias Ambry.Ecto.NameSearch
   alias Ambry.Library
   alias Ambry.Media.Audit
   alias Ambry.Media.Media
@@ -50,7 +49,7 @@ defmodule Ambry.Media do
   alias Ambry.Paths
   alias Ambry.PubSub
   alias Ambry.Repo
-  alias Ambry.Search
+  alias Ambry.Search.Query
   alias Ambry.Settings
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
@@ -161,28 +160,38 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  The same, within one book: what a set may hold.
+  Every audiobook of one book, as picker options.
 
-  A set belongs to a book the way its members do, so its member picker offers
-  that book's recordings and nothing else.
+  What a set may hold. A set belongs to a book the way its members do, so its
+  member picker offers that book's audiobooks and nothing else — and there
+  are two or three of them, which is a menu rather than a search. No phrase
+  and no limit: the caller is a drop-down and wants the lot.
   """
-  def search_book_media(book_id, phrase, limit)
-  def search_book_media(blank, _phrase, _limit) when blank in [nil, ""], do: []
+  def book_media_options(nil), do: []
 
-  def search_book_media(book_id, phrase, limit) do
+  def book_media_options(book_id) do
     MediaFlat
     |> where([m], m.book_id == ^book_id)
-    |> media_matching(phrase)
     |> order_by([m], asc: m.part_number, asc: m.id)
-    |> limit(^limit)
     |> Repo.all()
     |> Enum.map(&media_option/1)
   end
 
+  # Deliberately not `MediaFlat.filter(:search, …)`, which is the admin
+  # list's filter and asks a stricter question: every word has to match, and
+  # a half-typed one matches nothing. Sharing it made "sander" find no
+  # recordings at all. A picker gets the picker's knobs.
   defp media_matching(query, phrase) do
     case String.trim(phrase || "") do
-      "" -> query
-      typed -> MediaFlat.filter(query, :search, typed)
+      "" ->
+        query
+
+      typed ->
+        where(
+          query,
+          [m],
+          m.book_id in subquery(Query.ids(typed, :book, joiner: :any, partial: true))
+        )
     end
   end
 
@@ -519,7 +528,6 @@ defmodule Ambry.Media do
       changeset = Media.changeset(%Media{}, attrs, opts)
 
       with {:ok, media} <- Repo.insert(changeset),
-           :ok <- Search.insert(media),
            {:ok, _job_or_noop} <- generate_thumbnails_async(media),
            {:ok, _job} <- broadcast_media_created(media) do
         {:ok, media}
@@ -562,7 +570,6 @@ defmodule Ambry.Media do
 
       with {:ok, updated_media} <- Repo.update(changeset),
            :ok <- delete_orphaned_recording_group(media.recording_group_id),
-           :ok <- Search.update(updated_media),
            {:ok, _job_or_noop} <- delete_unused_files_async(media, updated_media),
            {:ok, _job_or_noop} <- generate_thumbnails_async(updated_media),
            {:ok, _job} <- broadcast_media_updated(updated_media) do
@@ -621,7 +628,6 @@ defmodule Ambry.Media do
     Repo.transact(fn ->
       with {:ok, deleted_media} <- Repo.delete(media),
            :ok <- delete_orphaned_recording_group(media.recording_group_id),
-           :ok <- Search.delete(deleted_media),
            {:ok, _job} <- delete_all_files_async(deleted_media, deletions),
            {:ok, _job} <- broadcast_media_deleted(deleted_media) do
         {:ok, deleted_media}
@@ -1117,27 +1123,6 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Returns the given book's recording groups for `Select` components, as
-  rich options: the set's name, its first part's cover, and how far along
-  it is ("2 of 3 parts", in the group's own wording). Book-scoped — a
-  group belongs to a book the way its members do, and a freshly created
-  empty group is offerable because the FK carries the book even before
-  any member does.
-  """
-  def search_recording_groups(book_id, phrase, limit)
-  def search_recording_groups(nil, _phrase, _limit), do: []
-  def search_recording_groups("", _phrase, _limit), do: []
-
-  def search_recording_groups(book_id, phrase, limit) do
-    RecordingGroup
-    |> where([g], g.book_id == ^book_id)
-    |> NameSearch.narrow(:name, phrase, limit)
-    |> preload(:media)
-    |> Repo.all()
-    |> Enum.map(&recording_group_option/1)
-  end
-
-  @doc """
   One recording group as a picker option, or nil.
   """
   def recording_group_option(blank) when blank in [nil, ""], do: nil
@@ -1167,6 +1152,18 @@ defmodule Ambry.Media do
       nil -> "#{count} #{word}"
       total -> "#{count} of #{total} #{word}"
     end
+  end
+
+  @doc """
+  Every set of one book, as picker options.
+
+  A book has one set, or none, or occasionally two. That is a drop-down.
+  """
+  def recording_group_options(book_id) do
+    book_id
+    |> recording_groups_for_book()
+    |> Repo.preload(:media)
+    |> Enum.map(&recording_group_option/1)
   end
 
   @doc """

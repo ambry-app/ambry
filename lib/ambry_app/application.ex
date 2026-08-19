@@ -49,10 +49,11 @@ defmodule AmbryApp.Application do
   def children(_env) do
     shared_children() ++
       [
-        # Search index refresher/warmer
-        Supervisor.child_spec({Task, &Ambry.Search.refresh_entire_index!/0},
-          id: :refresh_search_index
-        ),
+        # Drains the search index queue the moment a write commits. Not in
+        # test: it would hold a connection outside the SQL sandbox, where no
+        # transaction ever commits and so no notification is ever raised —
+        # `Ambry.Search.settle/0` drains inline there instead.
+        Ambry.Search.Listener,
         # Schedule Oban jobs for all missing thumbnails
         Supervisor.child_spec({Task, &Ambry.Thumbnails.schedule_missing_thumbnails!/0},
           id: :missing_thumbnails

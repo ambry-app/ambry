@@ -29,9 +29,9 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     |> assign(
       # the composed display: the name is local to the book
       page_title: "#{group.name} (#{group.book.title})",
-      group: group,
-      book_id: group.book_id
+      group: group
     )
+    |> assign_book(group.book_id)
   end
 
   defp apply_action(socket, :new, _params) do
@@ -42,9 +42,15 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     |> assign_form(changeset)
     |> assign(
       page_title: "New Set",
-      group: group,
-      book_id: nil
+      group: group
     )
+    |> assign_book(nil)
+  end
+
+  # The member drop-down is given its whole list up-front, so the list has to
+  # be rebuilt whenever the book it belongs to changes.
+  defp assign_book(socket, book_id) do
+    assign(socket, book_id: book_id, media_options: Media.book_media_options(book_id))
   end
 
   @impl Phoenix.LiveView
@@ -57,11 +63,11 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
     {:noreply,
      socket
      |> assign_form(changeset)
-     # The member picker searches within the chosen book — a set can only hold
-     # its own book's recordings. On the edit page with members the book
-     # renders as static text and posts nothing, so this falls back to the
-     # group's own book.
-     |> assign(book_id: group_params["book_id"] || socket.assigns.group.book_id)}
+     # The member picker offers the chosen book's audiobooks — a set can only
+     # hold its own book's. On the edit page with members the book renders as
+     # static text and posts nothing, so this falls back to the group's own
+     # book.
+     |> assign_book(group_params["book_id"] || socket.assigns.group.book_id)}
   end
 
   def handle_event("submit", %{"recording_group_form" => group_params}, socket) do

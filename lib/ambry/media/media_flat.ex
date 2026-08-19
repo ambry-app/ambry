@@ -7,6 +7,7 @@ defmodule Ambry.Media.MediaFlat do
 
   alias Ambry.Books.SeriesBookType
   alias Ambry.People.PersonName
+  alias Ambry.Search.Query
 
   schema "media_flat" do
     field :book_id, :id
@@ -36,29 +37,8 @@ defmodule Ambry.Media.MediaFlat do
   end
 
   def filter(query, :search, search_string) do
-    search_string = "%#{search_string}%"
-
     from m in query,
-      where:
-        ilike(m.book, ^search_string) or ilike(m.title, ^search_string) or
-          ilike(m.universes, ^search_string) or
-          fragment(
-            "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ?)",
-            m.series,
-            ^search_string
-          ) or
-          fragment(
-            "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
-            m.authors,
-            ^search_string,
-            ^search_string
-          ) or
-          fragment(
-            "EXISTS (SELECT FROM unnest(?) elem WHERE (elem).name ILIKE ? OR (elem).person_name ILIKE ?)",
-            m.narrators,
-            ^search_string,
-            ^search_string
-          )
+      where: m.book_id in subquery(Query.ids(search_string, :book))
   end
 
   def filter(query, :status, status), do: from(p in query, where: [status: ^status])

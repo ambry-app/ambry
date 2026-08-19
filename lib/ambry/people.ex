@@ -21,7 +21,6 @@ defmodule Ambry.People do
   import Ambry.Utils
   import Ecto.Query
 
-  alias Ambry.Ecto.NameSearch
   alias Ambry.Paths
   alias Ambry.People.Author
   alias Ambry.People.AuthorPerson
@@ -33,7 +32,7 @@ defmodule Ambry.People do
   alias Ambry.People.PubSub.PersonUpdated
   alias Ambry.PubSub
   alias Ambry.Repo
-  alias Ambry.Search
+  alias Ambry.Search.Query
   alias Ambry.Thumbnails
   alias Ambry.Thumbnails.GenerateThumbnails
 
@@ -178,7 +177,6 @@ defmodule Ambry.People do
       changeset = Person.changeset(%Person{}, attrs, opts)
 
       with {:ok, person} <- Repo.insert(changeset),
-           :ok <- Search.insert(person),
            {:ok, _job_or_noop} <- generate_thumbnails_async(person),
            {:ok, _job} <- broadcast_person_created(person) do
         {:ok, person}
@@ -213,7 +211,6 @@ defmodule Ambry.People do
 
       with {:ok, updated_person} <- Repo.update(changeset),
            :ok <- delete_orphaned_authors(person, changeset),
-           :ok <- Search.update(updated_person),
            {:ok, _job_or_noop} <- delete_unused_files_async(person, updated_person),
            {:ok, _job_or_noop} <- generate_thumbnails_async(updated_person),
            {:ok, _job} <- broadcast_person_updated(updated_person) do
@@ -308,7 +305,6 @@ defmodule Ambry.People do
 
       with :ok <- delete_exclusive_authors(person),
            {:ok, deleted_person} <- Repo.delete(changeset),
-           :ok <- Search.delete(deleted_person),
            {:ok, _job_or_noop} <- delete_all_files_async(deleted_person),
            {:ok, _job} <- broadcast_person_deleted(deleted_person) do
         {:ok, deleted_person}
@@ -451,12 +447,13 @@ defmodule Ambry.People do
   @doc """
   Narrators matching what somebody typed into a picker, as rich options:
   the person's portrait, and their real name when the stage name hides it.
+
+  Found by the stage name and by the person behind it, same as an author.
   """
   def search_narrators(phrase, limit) do
     Narrator
-    |> NameSearch.narrow(:name, phrase, limit)
     |> preload(:person)
-    |> Repo.all()
+    |> Query.matching(phrase, :narrator, limit: limit)
     |> Enum.map(&narrator_option/1)
   end
 
@@ -472,6 +469,7 @@ defmodule Ambry.People do
       id: narrator.id,
       label: narrator.name,
       image: portrait(people),
+      shape: :round,
       detail: backing(narrator.name, people)
     }
   end
@@ -492,12 +490,16 @@ defmodule Ambry.People do
   @doc """
   Authors matching what somebody typed into a picker, as rich options: a
   portrait, and the human(s) behind a pen name when that's worth saying.
+
+  Found by the pen name and by whoever is behind it, so typing "Ty Franck"
+  offers the James S.A. Corey author. The pen name is still the answer — it
+  is what goes on the book — but the human is often how you recognise which
+  one you meant.
   """
   def search_authors(phrase, limit) do
     Author
-    |> NameSearch.narrow(:name, phrase, limit)
     |> preload(:people)
-    |> Repo.all()
+    |> Query.matching(phrase, :author, limit: limit)
     |> Enum.map(&author_option/1)
   end
 
@@ -511,6 +513,7 @@ defmodule Ambry.People do
       id: author.id,
       label: author.name,
       image: portrait(author.people),
+      shape: :round,
       detail: backing(author.name, author.people)
     }
   end
@@ -537,11 +540,15 @@ defmodule Ambry.People do
   People rather than identities: this is what the import form's "who is behind
   this credit" control picks from, where the answer is a human, not a name
   they publish under.
+
+  Asks the index rather than the `people` table, which is what makes a person
+  findable by a name they publish under as well as their own — a person's
+  indexed record *is* their pen names, and their own name is only there when
+  it differs.
   """
   def search_people(phrase, limit) do
     Person
-    |> NameSearch.narrow(:name, phrase, limit)
-    |> Repo.all()
+    |> Query.matching(phrase, :person, limit: limit)
     |> Enum.map(&person_option/1)
   end
 
@@ -555,6 +562,7 @@ defmodule Ambry.People do
       id: person.id,
       label: person.name,
       image: person.thumbnails && person.thumbnails.extra_small,
+      shape: :round,
       detail: nil
     }
   end

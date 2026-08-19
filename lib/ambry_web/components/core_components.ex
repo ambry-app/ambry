@@ -22,6 +22,7 @@ defmodule AmbryWeb.CoreComponents do
   alias Ambry.Media.RecordingGroup
   alias Ambry.People.Author
   alias AmbryWeb.Admin.UploadHelpers
+  alias AmbryWeb.Components.EntityDropdown
   alias AmbryWeb.Components.EntityResolver
   alias Phoenix.HTML.Form
   alias Phoenix.HTML.FormField
@@ -420,7 +421,7 @@ defmodule AmbryWeb.CoreComponents do
   attr :type, :string,
     default: "text",
     values: ~w(checkbox color date datetime-local email file hidden month number password
-               range radio search select tel text textarea time url week autocomplete)
+               range radio search select tel text textarea time url week autocomplete dropdown)
 
   attr :field, FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
@@ -428,8 +429,12 @@ defmodule AmbryWeb.CoreComponents do
   attr :errors, :list, default: []
   attr :show_errors, :boolean, default: true, doc: "disables the rendering of errors if false"
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
+
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
-  attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
+
+  attr :options, :list,
+    doc:
+      "select: passed to `Phoenix.HTML.Form.options_for_select/2`; dropdown: `AmbryWeb.Components.EntityOption` options"
 
   attr :search, :any,
     default: nil,
@@ -537,6 +542,29 @@ defmodule AmbryWeb.CoreComponents do
         name={@name}
         search={@search}
         fetch={@fetch}
+        value={@value}
+        class={
+          ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+            input_color_classes(@errors) ++ [@class]
+        }
+      />
+      <.error :for={msg <- @errors} :if={@show_errors}>{msg}</.error>
+    </div>
+    """
+  end
+
+  # The same picker without the typing: options given up-front, click to
+  # choose. What a native `<select>` would be if a browser's option list could
+  # carry a cover and a second line.
+  def input(%{type: "dropdown"} = assigns) do
+    ~H"""
+    <div class={["space-y-2", @container_class]}>
+      <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
+      <.live_component
+        module={EntityDropdown}
+        id={@id}
+        name={@name}
+        options={@options}
         value={@value}
         class={
           ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++

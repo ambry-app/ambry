@@ -4,7 +4,7 @@ defmodule AmbrySchema.Media do
   use Absinthe.Schema.Notation
   use Absinthe.Relay.Schema.Notation, :modern
 
-  import Absinthe.Resolution.Helpers, only: [dataloader: 1, dataloader: 2, dataloader: 3]
+  import Absinthe.Resolution.Helpers, only: [dataloader: 1, dataloader: 2]
 
   alias AmbrySchema.Resolvers
 
@@ -54,10 +54,6 @@ defmodule AmbrySchema.Media do
 
     field :duration, :float, resolve: Resolvers.resolve_decimal(:duration)
 
-    @desc "Direct-play audio files, in playback order; empty for media that only has the legacy packaged artifacts below"
-    field :tracks, non_null(list_of(non_null(:media_track))),
-      resolve: dataloader(Resolvers, :media_tracks, args: %{order: {:asc, :index}})
-
     # kept as-is, not deprecated: until direct-play publishing is switched on
     # these are still the only way to play anything, and every deployed client
     # queries them
@@ -68,9 +64,6 @@ defmodule AmbrySchema.Media do
     field :chapters, non_null(list_of(non_null(:chapter))), resolve: &Resolvers.chapters/3
 
     field :book, non_null(:book), resolve: dataloader(Resolvers)
-
-    field :narrators, non_null(list_of(non_null(:narrator))),
-      resolve: dataloader(Resolvers, args: %{order: {:asc, :name}})
 
     field :published, :date
     field :published_format, non_null(:date_format)
@@ -107,9 +100,6 @@ defmodule AmbrySchema.Media do
 
     @desc "Wording for several releases; null means \"parts\""
     field :part_word_plural, :string
-
-    field :media, non_null(list_of(non_null(:media))),
-      resolve: dataloader(Resolvers, args: %{order: {:asc, :part_number}})
 
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
@@ -158,6 +148,4 @@ defmodule AmbrySchema.Media do
     field :inserted_at, non_null(:datetime)
     field :updated_at, non_null(:datetime)
   end
-
-  connection(node_type: :media)
 end

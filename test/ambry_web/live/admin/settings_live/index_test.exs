@@ -8,6 +8,50 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
 
   setup :register_and_log_in_admin_user
 
+  describe "the search index" do
+    test "says what it holds and that it is current", %{conn: conn} do
+      insert(:book)
+      insert_pair(:person)
+      Ambry.Search.Drain.run()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/settings")
+
+      assert index_heading(html) == "3 records"
+      assert html =~ "Up to date."
+    end
+
+    test "one record is not 1 records", %{conn: conn} do
+      insert(:person)
+      Ambry.Search.Drain.run()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/settings")
+
+      assert index_heading(html) == "1 record"
+    end
+
+    test "rebuilding queues the library and hands it to a job", %{conn: conn} do
+      insert(:book)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/settings")
+
+      html = view |> element("button[phx-click='reindex']") |> render_click()
+
+      assert html =~ "Rebuilding the search index in the background"
+      # Not drained inline: a library of any size is minutes of work, and a
+      # button that blocks until it is done is a button that times out.
+      assert_enqueued(worker: Ambry.Search.RunDrain)
+    end
+
+    test "a queue that has not drained says so", %{conn: conn} do
+      insert(:book)
+      :ok = Ambry.Search.Queue.enqueue_all!()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/settings")
+
+      assert html =~ "Catching up on 1 change."
+    end
+  end
+
   test "shows direct-play publishing off, with the reason", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/admin/settings")
 
@@ -94,5 +138,15 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
     |> Floki.find("[data-role='template-preview']")
     |> Floki.text()
     |> String.trim()
+  end
+
+  # The count and its word are two interpolations with HEEx whitespace
+  # between them, so this reads the rendered text rather than the markup.
+  defp index_heading(html) do
+    html
+    |> Floki.parse_document!()
+    |> Floki.find("h3")
+    |> Enum.map(&(&1 |> Floki.text() |> String.split() |> Enum.join(" ")))
+    |> Enum.find(&(&1 =~ "record"))
   end
 end

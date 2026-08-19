@@ -272,13 +272,11 @@ defmodule AmbryWeb.Admin.BookLive.EvidenceTest do
     # and never his first identity.
     import Ecto.Query, only: [from: 2]
 
-    person =
-      insert(:person,
-        name: "Ty Franck",
-        authors: [build(:author, name: "Ty Franck"), build(:author, name: "James S.A. Corey")]
-      )
-
-    with_search_index(person)
+    # Indexed by the triggers on insert; nothing has to ask for it.
+    insert(:person,
+      name: "Ty Franck",
+      authors: [build(:author, name: "Ty Franck"), build(:author, name: "James S.A. Corey")]
+    )
 
     book = %{
       result_book()

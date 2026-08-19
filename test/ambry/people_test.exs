@@ -357,7 +357,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "updates the search index" do
-      %{id: person_id, name: original_name} = person = :person |> insert() |> with_search_index()
+      %{id: person_id, name: original_name} = person = :person |> insert()
       new_name = Fake.full_name()
 
       assert [%{id: ^person_id}] = Ambry.Search.search(original_name)
@@ -421,7 +421,7 @@ defmodule Ambry.PeopleTest do
     end
 
     test "updates the search index" do
-      person = %{id: person_id, name: name} = :person |> insert() |> with_search_index()
+      person = %{id: person_id, name: name} = :person |> insert()
 
       assert [%{id: ^person_id}] = Ambry.Search.search(name)
 

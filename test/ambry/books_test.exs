@@ -276,7 +276,7 @@ defmodule Ambry.BooksTest do
     end
 
     test "updates the search index" do
-      %{id: book_id, title: original_title} = book = :book |> insert() |> with_search_index()
+      %{id: book_id, title: original_title} = book = :book |> insert()
       %{title: new_title} = params_for(:book)
 
       assert [%{id: ^book_id}] = Ambry.Search.search(original_title)
@@ -319,7 +319,7 @@ defmodule Ambry.BooksTest do
     end
 
     test "updates the search index" do
-      book = %{id: book_id, title: title} = :book |> insert() |> with_search_index()
+      book = %{id: book_id, title: title} = :book |> insert()
 
       assert [%{id: ^book_id}] = Ambry.Search.search(title)
 
@@ -677,7 +677,6 @@ defmodule Ambry.BooksTest do
       series =
         :series
         |> insert(series_books: [build(:series_book, book: book)])
-        |> with_search_index()
 
       %{id: series_id, name: original_name} = series
 
@@ -727,7 +726,6 @@ defmodule Ambry.BooksTest do
       series =
         :series
         |> insert(series_books: [build(:series_book, book: book)])
-        |> with_search_index()
 
       %{id: series_id, name: name} = series
 
@@ -802,12 +800,20 @@ defmodule Ambry.BooksTest do
       assert id == series.id
     end
 
-    # A name is operator input and `%` is legal in one; unescaped it would
-    # match every row in the table.
-    test "treats a wildcard as a character" do
+    # There is no `LIKE` pattern left to escape: the phrase is a parameter to
+    # `plainto_tsquery`, which sees `%` as punctuation and returns no lexemes
+    # at all. So a phrase of nothing but wildcards is a phrase with nothing
+    # searchable in it, and gets what an empty box gets — the first page.
+    #
+    # A weaker guarantee than the escaping it replaces would be a regression;
+    # this is a stronger one, and the visible change is that `%` now shows
+    # the first page rather than nothing.
+    test "a wildcard is punctuation, not a pattern" do
       insert(:series, name: "Mistborn")
 
-      assert Books.search_series("%", 10) == []
+      assert [{"Mistborn", _}] = Books.search_series("%", 10)
+      assert [{"Mistborn", _}] = Books.search_series("", 10)
+      assert Books.search_series("Wolf", 10) == []
     end
   end
 
