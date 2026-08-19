@@ -50,6 +50,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   any source.
   """
 
+  import Ambry.Inbox.AutoMatch, only: [person_key_sql: 1]
   import Ecto.Query
 
   alias Ambry.Books
@@ -1313,7 +1314,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp matching_series(name) do
     Series
     |> Repo.all()
-    |> Enum.filter(&same_series?(&1.name, name))
+    |> Enum.filter(&AutoMatch.same_series?(&1.name, name))
   end
 
   @doc """
@@ -1675,18 +1676,9 @@ defmodule Ambry.Inbox.Draft.Seed do
     end
   end
 
-  # The SQL twin of `AutoMatch.person_key/1`, so "James S.A. Corey" in a
-  # record finds the library's "James S. A. Corey", "T.J. Klune" finds
-  # "TJ Klune", and "Patricia Rodriguez" finds "Patricia Rodríguez"
-  # (`unaccent` — enabled by migration — mirrors the NFD fold on the Elixir
-  # side). Still identity, not similarity — a spelling difference in
-  # punctuation, spacing or accents is the same name, a different word is
-  # not.
-  @name_key_sql "regexp_replace(lower(unaccent(?)), '[^[:alnum:]]+', '', 'g')"
-
   defp identity_matches(name, :author) do
     Author
-    |> where([a], fragment(@name_key_sql, a.name) == ^AutoMatch.person_key(name))
+    |> where([a], person_key_sql(a.name) == ^AutoMatch.person_key(name))
     |> preload(:people)
     |> Repo.all()
     |> Enum.map(fn author ->
@@ -1701,7 +1693,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp identity_matches(name, :narrator) do
     Narrator
-    |> where([n], fragment(@name_key_sql, n.name) == ^AutoMatch.person_key(name))
+    |> where([n], person_key_sql(n.name) == ^AutoMatch.person_key(name))
     |> preload(:person)
     |> Repo.all()
     |> Enum.map(fn narrator ->
@@ -1716,7 +1708,7 @@ defmodule Ambry.Inbox.Draft.Seed do
 
   defp person_matches(name) do
     Person
-    |> where([p], fragment(@name_key_sql, p.name) == ^AutoMatch.person_key(name))
+    |> where([p], person_key_sql(p.name) == ^AutoMatch.person_key(name))
     |> Repo.all()
   end
 
@@ -1771,40 +1763,14 @@ defmodule Ambry.Inbox.Draft.Seed do
   defp merge_by_name(proposals) do
     proposals
     |> Enum.reduce([], fn proposal, groups ->
-      case Enum.find_index(groups, fn [held | _rest] -> same_series?(held.name, proposal.name) end) do
+      case Enum.find_index(groups, fn [held | _rest] ->
+             AutoMatch.same_series?(held.name, proposal.name)
+           end) do
         nil -> groups ++ [[proposal]]
         index -> List.update_at(groups, index, &(&1 ++ [proposal]))
       end
     end)
     |> Enum.map(fn group -> Enum.find(group, List.first(group), & &1.number) end)
-  end
-
-  # Two spellings of one series. Filler words (Trilogy, Saga, Series),
-  # punctuation, accents and articles fold; a subtitle head counts the same
-  # way it does for titles, so "Kushiel's Legacy: Phedre Trilogy" is
-  # "Kushiel's Legacy".
-  @series_filler ~w(trilogy series saga duology quartet quintet cycle sequence collection books novels)
-
-  defp same_series?(one, other) when is_binary(one) and is_binary(other) do
-    a = series_key(one)
-    b = series_key(other)
-
-    a == b or series_key(series_head(one)) == b or series_key(series_head(other)) == a
-  end
-
-  defp same_series?(_one, _other), do: false
-
-  defp series_head(name), do: name |> String.split(~r/\s*:\s/u, parts: 2) |> hd()
-
-  defp series_key(name) do
-    name
-    |> String.normalize(:nfd)
-    |> String.replace(~r/\p{Mn}/u, "")
-    |> String.downcase()
-    |> String.replace(~r/[^\p{L}\p{N}]+/u, " ")
-    |> String.split(" ", trim: true)
-    |> Enum.reject(&(&1 in ["the", "a", "an"] or &1 in @series_filler))
-    |> Enum.join(" ")
   end
 
   # The file's series number describes this book's position in the series the
