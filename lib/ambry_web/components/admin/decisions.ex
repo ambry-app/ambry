@@ -346,7 +346,7 @@ defmodule AmbryWeb.Admin.Decisions do
         :if={!@linked}
         type="button"
         phx-click="link-book"
-        phx-value-id={@book["id"]}
+        phx-value-book_id={@book["id"]}
         class={action_classes(:zinc, "flex-none")}
       >
         Yes, another edition of this
@@ -382,7 +382,7 @@ defmodule AmbryWeb.Admin.Decisions do
       <button
         type="button"
         phx-click="replace-recording"
-        phx-value-id={@recording.id}
+        phx-value-media_id={@recording.id}
         class={action_classes(:zinc, "flex-none")}
       >
         Yes, replace its files

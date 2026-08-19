@@ -560,6 +560,12 @@ defmodule AmbryWeb.CoreComponents do
     ~H"""
     <div class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
+      <%!-- `border` is the one class this list carries that the others don't
+          need. `@tailwindcss/forms` gives `input`, `select` and `textarea` a
+          1px border and the rest of the app inherits it silently; a
+          drop-down's trigger is a `button`, which the plugin never touches,
+          so without it this sat 1.6px shorter than the number box beside it
+          in the set form. --%>
       <.live_component
         module={EntityDropdown}
         id={@id}
@@ -567,7 +573,7 @@ defmodule AmbryWeb.CoreComponents do
         options={@options}
         value={@value}
         class={
-          ["py-[7px] px-[11px] block w-full rounded-md", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
+          ["py-[7px] px-[11px] block w-full rounded-md border", "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6"] ++
             input_color_classes(@errors) ++ [@class]
         }
       />

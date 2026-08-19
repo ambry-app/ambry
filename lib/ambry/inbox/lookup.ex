@@ -22,6 +22,8 @@ defmodule Ambry.Inbox.Lookup do
   is what IS inbox-specific: normalizing hits against the item's hints
   (scoring), and writing evidence into `inbox_items.matches`.
   """
+  import Ecto.Query
+
   alias Ambry.Inbox.AutoMatch
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.InboxItem
@@ -231,7 +233,27 @@ defmodule Ambry.Inbox.Lookup do
     end
   end
 
-  defp update_person(%InboxItem{} = item, key, name, found, outcomes) do
+  # **Re-read under a lock, because two of these run at once.** The form lets
+  # the operator search for as many people as they like without waiting, and
+  # `matches` is one jsonb column holding all of them: each search merged its
+  # person into the item as it was when the button was pressed, then wrote the
+  # whole column back, so the second to finish silently threw away the first's
+  # results. The operator saw two searches fight over the page.
+  #
+  # The row this merges into is therefore the committed one rather than the
+  # caller's, and the lock makes "read, merge, write" atomic across the two
+  # requests. Same shape as `Importer.claim/1`, for the same reason.
+  defp update_person(%InboxItem{id: id}, key, name, found, outcomes) do
+    Repo.transact(fn ->
+      InboxItem
+      |> where([i], i.id == ^id)
+      |> lock("FOR UPDATE")
+      |> Repo.one!()
+      |> merge_person(key, name, found, outcomes)
+    end)
+  end
+
+  defp merge_person(%InboxItem{} = item, key, name, found, outcomes) do
     matches = item.matches || %{}
     people = Map.get(matches, "people") || %{}
     held = Map.get(people, key) || %{"name" => name, "roles" => [], "local" => []}

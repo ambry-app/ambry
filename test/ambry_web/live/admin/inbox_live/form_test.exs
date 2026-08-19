@@ -111,7 +111,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
       html = view |> element("button[data-role='import']") |> render_click()
 
-      assert html =~ "You may already have this"
+      assert html =~ "Possible duplicates"
       assert html =~ "Book: The Way of Kings"
       assert has_element?(view, "[data-role='collisions']")
       assert has_element?(view, "button[data-role='import']", "Add it anyway")
@@ -144,7 +144,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
       html = render_click(view, "new-book", %{})
 
-      refute html =~ "You may already have this"
+      refute html =~ "Possible duplicates"
       refute has_element?(view, "[data-role='collisions']")
     end
 

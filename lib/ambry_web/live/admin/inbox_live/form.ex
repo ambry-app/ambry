@@ -75,11 +75,17 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      # the boxes at the click and the scrim names the wrong book. The edit
      # forms have always captured this (`Evidence.begin/2`); this is the same
      # discipline for the staged form.
-     |> assign(research_fields: %{}, searching_person_name: nil)
-     # Which person is being looked up again, and whose photo strip is showing
-     # in full. Both view state keyed by person key — the results themselves
-     # are evidence and live on the item.
-     |> assign(searching_person: nil, photos_expanded: %{})
+     |> assign(research_fields: %{})
+     # Which people are being looked up right now (key => the name asked
+     # about), and whose photo strip is showing in full. Both view state keyed
+     # by person key — the results themselves are evidence and live on the
+     # item.
+     #
+     # A map rather than one key, because a full cast is fifteen people and
+     # the operator does not queue up behind each search. One key meant the
+     # second search stole the first's spinner and the first to land cleared
+     # both.
+     |> assign(searching_people: %{}, photos_expanded: %{})
      |> assign(ticking: false)
      # The pending chapter-title fetch, and which ASIN's titles were last
      # poured — the chips' chosen state.
@@ -284,10 +290,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   `search_fields/3` is: until the results land, storage still describes the
   previous search.
   """
-  def person_query_name(_item, key, key, name) when is_binary(name), do: name
-
-  def person_query_name(item, key, _searching_key, _searching_name),
-    do: get_in(item.matches, ["people", key, "name"])
+  def person_query_name(item, key, searching) do
+    case Map.get(searching, key) do
+      name when is_binary(name) -> name
+      _not_searching -> get_in(item.matches, ["people", key, "name"])
+    end
+  end
 
   @impl Phoenix.LiveView
   def handle_event("validate", %{"inbox_item" => params}, socket) do
@@ -317,7 +325,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # not an answer — the way back from a replacement is the chip beside the
   # box, the same as at the work level. (`EntityResolver` only reports a pure
   # picker's value when something is picked, so this is belt and braces.)
-  def handle_event("replace-recording", %{"id" => id}, socket) do
+  def handle_event("replace-recording", %{"media_id" => id}, socket) do
     case to_int(id) do
       nil -> {:noreply, socket}
       media_id -> {:noreply, edit(socket, &Draft.Edit.replace_recording(&1, media_id))}
@@ -328,7 +336,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.new_recording/1)}
   end
 
-  def handle_event("link-book", %{"id" => id}, socket) do
+  def handle_event("link-book", %{"book_id" => id}, socket) do
     item = socket.assigns.item
 
     case to_int(id) do
@@ -609,7 +617,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      socket
-     |> assign(searching_person: key, searching_person_name: name)
+     |> update(:searching_people, &Map.put(&1, key, name))
      |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
@@ -709,7 +717,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     {:noreply,
      socket
-     |> assign(searching_person: key, searching_person_name: name)
+     |> update(:searching_people, &Map.put(&1, key, name))
      |> start_async({:person_search, key}, fn -> Inbox.research_person(item, key, name) end)}
   end
 
@@ -850,18 +858,21 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   @impl Phoenix.LiveView
 
-  def handle_async({:person_search, _key}, {:ok, {:ok, item}}, socket) do
+  # Only this person's search is over. `item` is the row as re-read and
+  # merged under `Lookup`'s lock, so it carries whatever a search that
+  # finished a moment ago wrote as well.
+  def handle_async({:person_search, key}, {:ok, {:ok, item}}, socket) do
     {:noreply,
      socket
-     |> assign(searching_person: nil, searching_person_name: nil)
+     |> update(:searching_people, &Map.delete(&1, key))
      |> load(item)
      |> resettle()}
   end
 
   # A provider being down costs its results and nothing else — the person is
   # still perfectly importable without a face.
-  def handle_async({:person_search, _key}, _failed, socket) do
-    {:noreply, assign(socket, searching_person: nil, searching_person_name: nil)}
+  def handle_async({:person_search, key}, _failed, socket) do
+    {:noreply, update(socket, :searching_people, &Map.delete(&1, key))}
   end
 
   def handle_async({:research, _level}, {:ok, {:ok, item}}, socket) do
@@ -894,7 +905,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply,
      socket
      |> assign(researching: nil, retrying: nil, enriching: nil)
-     |> assign(research_fields: %{}, searching_person: nil, searching_person_name: nil)
+     |> assign(research_fields: %{}, searching_people: %{})
      |> put_flash(:error, "That provider couldn't be reached just now.")}
   end
 

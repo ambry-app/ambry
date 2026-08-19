@@ -245,7 +245,7 @@
             <.live_component
               module={EntityResolver}
               id="replace-recording-resolver"
-              name="id"
+              name="media_id"
               search={&Media.search_media/2}
               fetch={&Media.media_option/1}
               value={if @replacing, do: @item.draft.replacement.media_id}
@@ -432,7 +432,7 @@
             <.live_component
               module={EntityResolver}
               id="library-book-resolver"
-              name="id"
+              name="book_id"
               search={&Books.search_books/2}
               fetch={&Books.book_option/1}
               value={if @item.draft.work.mode == :link, do: @item.draft.work.book_id}
@@ -782,12 +782,12 @@
               group={group}
               person_index={person_index}
               removable={true}
-              searching={@searching_person == person.key}
+              searching={Map.has_key?(@searching_people, person.key)}
               photos_expanded={@photos_expanded[person.key] || false}
               records={person_records(@item, person.key)}
               locals={person_locals(@item, person.key)}
               outcomes={person_outcomes(@item, person.key)}
-              query_name={person_query_name(@item, person.key, @searching_person, @searching_person_name)}
+              query_name={person_query_name(@item, person.key, @searching_people)}
               appears={@appearances[person.key] || []}
             />
           </div>
@@ -798,12 +798,12 @@
             group={group}
             person_index={0}
             removable={false}
-            searching={@searching_person == hd(group.people).key}
+            searching={Map.has_key?(@searching_people, hd(group.people).key)}
             photos_expanded={@photos_expanded[hd(group.people).key] || false}
             records={person_records(@item, hd(group.people).key)}
             locals={person_locals(@item, hd(group.people).key)}
             outcomes={person_outcomes(@item, hd(group.people).key)}
-            query_name={person_query_name(@item, hd(group.people).key, @searching_person, @searching_person_name)}
+            query_name={person_query_name(@item, hd(group.people).key, @searching_people)}
             appears={@appearances[hd(group.people).key] || []}
           />
         </div>

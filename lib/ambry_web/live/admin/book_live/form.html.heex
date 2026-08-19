@@ -55,9 +55,11 @@
           <.sort_input field={@form[:book_authors_sort]} index={book_author_form.index} />
           <.position_input field={book_author_form[:position]} index={book_author_form.index} />
 
-          <%!-- arrows trail the input: a leading column pushed every input
+          <%!-- Controls trail the input: a leading column pushed every input
               off the box edge whenever a list crossed one row (§3, two left
-              edges) --%>
+              edges). Order matches the import form's cards — reorder first,
+              remove last — so the destructive control is at the end of the
+              row rather than in the middle of it. --%>
           <div class="flex items-start gap-2">
             <.input
               field={book_author_form[:author_id]}
@@ -66,13 +68,13 @@
               fetch={&People.author_option/1}
               container_class="grow"
             />
-            <.delete_button field={@form[:book_authors_drop]} index={book_author_form.index} />
             <.move_buttons
               :if={@book_author_count > 1}
               field={:book_authors}
               index={book_author_form.index}
               count={@book_author_count}
             />
+            <.delete_button field={@form[:book_authors_drop]} index={book_author_form.index} />
           </div>
         </.inputs_for>
 
@@ -119,13 +121,13 @@
               fetch={&Books.series_option/1}
               container_class="grow"
             />
-            <.delete_button field={@form[:series_books_drop]} index={series_book_form.index} />
             <.move_buttons
               :if={@series_book_count > 1}
               field={:series_books}
               index={series_book_form.index}
               count={@series_book_count}
             />
+            <.delete_button field={@form[:series_books_drop]} index={series_book_form.index} />
           </div>
         </.inputs_for>
 
