@@ -164,13 +164,11 @@ defmodule Ambry.Search.QueryTest do
 
     # Emphatically NOT the same as an empty box. A phrase the index cannot
     # hold matches nothing; only a box with nothing in it is an invitation to
-    # browse. Conflating them meant searching for somebody named Don returned
-    # the entire library — `don` is in English's stop list, from "don't", as
-    # are `will`, `can`, `just` and `now`.
-    test "a phrase of nothing but stop words matches nothing, not everything" do
-      assert hits("the of and") == []
-      assert hits("don") == []
-      assert hits("will") == []
+    # browse. Conflating them meant a phrase the analyzer emptied returned the
+    # entire library.
+    test "a phrase with nothing searchable in it matches nothing, not everything" do
+      assert hits("%") == []
+      assert hits("- , [ ]") == []
     end
   end
 
@@ -182,6 +180,39 @@ defmodule Ambry.Search.QueryTest do
 
       assert "The Way of Kings" in book_hits
       refute "Brandon Sanderson" in book_hits
+    end
+  end
+
+  describe "both analyses" do
+    # A prose analyzer on a catalogue of proper nouns deletes names: English's
+    # stop list holds `don` (from "don't"), `will`, `can`, `just` and `now`,
+    # so "Don Quixote" indexed as `'quixot'` and a search for Don returned
+    # every record in the library.
+    #
+    # Dropping the stemmer is not the answer either — it is what makes the
+    # second pair below work. So both analyses are indexed and both are
+    # asked, which is what a real search engine's multi-fields do.
+    setup do
+      don = insert(:book, title: "Don Quixote")
+      rat = insert(:book, title: "King Rat")
+      memory = insert(:book, title: "Children of Memory")
+
+      %{don: don, rat: rat, memory: memory}
+    end
+
+    test "a name the stemmer would have deleted is findable" do
+      assert top("don") == "Don Quixote"
+    end
+
+    test "and a stemmed form still is" do
+      assert top("kings") == "King Rat"
+      assert top("memories") == "Children of Memory"
+    end
+
+    test "an article the operator typed does not break a title without one" do
+      # The simple branch wants "the"; the english branch drops it. One
+      # branch matching is enough, which is the point of asking both.
+      assert top("the way of kings") == "The Way of Kings"
     end
   end
 
