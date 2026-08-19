@@ -396,7 +396,7 @@ defmodule Ambry.MediaTest do
       assert %{part_number: 1, recording_group: %{name: "Season One", parts_total: 3}} = media
 
       assert [%{label: "Season One", detail: "1 of 3 parts"}] =
-               Media.search_recording_groups(book_id, "", 10)
+               Media.recording_group_options(book_id)
     end
 
     test "a part number requires a group" do
@@ -418,13 +418,13 @@ defmodule Ambry.MediaTest do
       media =
         insert(:media, book_id: book_id, part_number: 1, recording_group_id: group.id)
 
-      # the form posts "" when the typeahead is cleared
+      # the form posts "" when the drop-down is cleared
       {:ok, updated} =
         Media.update_media(Media.get_media!(media.id), %{"recording_group_id" => ""})
 
       assert updated.recording_group_id == nil
       assert updated.part_number == nil
-      assert [] = Media.search_recording_groups(book_id, "", 10)
+      assert [] = Media.recording_group_options(book_id)
       assert Ambry.Repo.aggregate(Ambry.Media.RecordingGroup, :count) == 0
     end
 

@@ -14,7 +14,7 @@ defmodule Ambry.Search.Index do
   trigger turns into a weighted `tsvector`:
 
     * `primary` (A) — the thing's own name: a book's title, a person's pen
-      names, a series' or universe's name
+      names, a series' or universe's name, an author's or narrator's own
     * `secondary` (B) — the names it is credited alongside
     * `tertiary` (C) — the real people behind those credits, when they are
       named differently
@@ -89,6 +89,20 @@ defmodule Ambry.Search.Index do
       )
 
     write!(:series, series_ids, series, &series_record/1)
+  end
+
+  def index!(:author, author_ids) do
+    authors =
+      Repo.all(from author in Author, where: author.id in ^author_ids, preload: [:people])
+
+    write!(:author, author_ids, authors, &identity_record/1)
+  end
+
+  def index!(:narrator, narrator_ids) do
+    narrators =
+      Repo.all(from narrator in Narrator, where: narrator.id in ^narrator_ids, preload: [:person])
+
+    write!(:narrator, narrator_ids, narrators, &identity_record/1)
   end
 
   def index!(:universe, universe_ids) do
@@ -178,6 +192,21 @@ defmodule Ambry.Search.Index do
       primary: series.name,
       secondary: join(names(series.authors)),
       tertiary: join(person_names(series.authors))
+    }
+  end
+
+  # A pen name, found by itself and by whoever is behind it.
+  #
+  # The person's own name is `secondary` rather than `primary` because the
+  # question a credit picker asks is "which name goes on the book" — the pen
+  # name is the answer, and the human is how you recognise it. So typing "Ty
+  # Franck" offers the James S.A. Corey author, ranked below an author
+  # actually called that.
+  defp identity_record(identity) do
+    %{
+      reference: Reference.new(identity),
+      primary: identity.name,
+      secondary: join(person_names([identity]))
     }
   end
 

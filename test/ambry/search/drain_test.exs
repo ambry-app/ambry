@@ -236,6 +236,40 @@ defmodule Ambry.Search.DrainTest do
       refute secondary =~ narrator.name
     end
 
+    test "a pen name is indexed with the person behind it" do
+      person = insert(:person, name: "Ty Franck")
+      author = insert(:author, name: "James S.A. Corey", person: person)
+      narrator = insert(:narrator, name: "R.C. Bray", person: person)
+
+      drain()
+
+      assert %{primary: "James S.A. Corey", secondary: "Ty Franck"} = fetch_record(author)
+      assert %{primary: "R.C. Bray", secondary: "Ty Franck"} = fetch_record(narrator)
+    end
+
+    test "a pen name that is the person's own name quotes nobody" do
+      person = insert(:person, name: "Brandon Sanderson")
+      author = insert(:author, name: "Brandon Sanderson", person: person)
+
+      drain()
+
+      assert %{primary: "Brandon Sanderson", secondary: nil} = fetch_record(author)
+    end
+
+    test "renaming the person rewrites every pen name they publish under" do
+      person = insert(:person, name: "Ty Franck")
+      author = insert(:author, name: "James S.A. Corey", person: person)
+
+      drain()
+
+      assert fetch_record(author).secondary == "Ty Franck"
+
+      {:ok, _person} = People.update_person(person, %{name: "Daniel Abraham"})
+      drain()
+
+      assert fetch_record(author).secondary == "Daniel Abraham"
+    end
+
     test "a write that never touches Ambry.Search still reaches the index" do
       person = insert(:person)
       author = insert(:author)

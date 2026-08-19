@@ -17,6 +17,9 @@ defmodule Ambry.Search.Queue do
 
   alias Ambry.Books.Book
   alias Ambry.Books.Series
+  alias Ambry.Books.Universe
+  alias Ambry.People.Author
+  alias Ambry.People.Narrator
   alias Ambry.People.Person
   alias Ambry.Repo
 
@@ -69,7 +72,10 @@ defmodule Ambry.Search.Queue do
   def enqueue_all! do
     enqueue_all!(:book, from(b in Book, select: b.id))
     enqueue_all!(:series, from(s in Series, select: s.id))
+    enqueue_all!(:universe, from(u in Universe, select: u.id))
     enqueue_all!(:person, from(p in Person, select: p.id))
+    enqueue_all!(:author, from(a in Author, select: a.id))
+    enqueue_all!(:narrator, from(n in Narrator, select: n.id))
 
     :ok
   end

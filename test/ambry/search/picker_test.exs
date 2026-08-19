@@ -29,7 +29,13 @@ defmodule Ambry.Search.PickerTest do
     universe =
       insert(:universe, name: "The Cosmere", book_universes: [%{book_id: book.id}])
 
-    media = insert(:media, book: book)
+    media =
+      insert(:media,
+        book: book,
+        media_narrators: [
+          build(:media_narrator, narrator: build(:narrator, person: build(:person)))
+        ]
+      )
 
     %{book: book, media: media, person: person, series: series, universe: universe}
   end
@@ -85,11 +91,53 @@ defmodule Ambry.Search.PickerTest do
     end
   end
 
+  describe "pen names" do
+    test "an author picker finds a pen name" do
+      insert(:author, name: "James S.A. Corey", person: build(:person, name: "Ty Franck"))
+
+      assert [%{label: "James S.A. Corey"}] = People.search_authors("corey", 10)
+    end
+
+    test "and finds it by the person behind it" do
+      # The pen name is still the answer — it is what goes on the book — but
+      # the human is often how you recognise which one you meant.
+      insert(:author, name: "James S.A. Corey", person: build(:person, name: "Ty Franck"))
+
+      assert [%{label: "James S.A. Corey"}] = People.search_authors("ty franck", 10)
+    end
+
+    test "a narrator picker does the same" do
+      insert(:narrator, name: "R.C. Bray", person: build(:person, name: "Robert Bray"))
+
+      assert [%{label: "R.C. Bray"}] = People.search_narrators("robert", 10)
+    end
+
+    test "an author publishing under their own name is listed once" do
+      insert(:author, name: "Ursula Le Guin", person: build(:person, name: "Ursula Le Guin"))
+
+      assert [%{label: "Ursula Le Guin"}] = People.search_authors("le guin", 10)
+    end
+
+    test "renaming the person rewrites the pen name's record" do
+      person = insert(:person, name: "Ty Franck")
+      insert(:author, name: "James S.A. Corey", person: person)
+
+      assert [_found] = People.search_authors("ty franck", 10)
+
+      {:ok, _person} = People.update_person(person, %{name: "Daniel Abraham"})
+
+      assert People.search_authors("ty franck", 10) == []
+      assert [%{label: "James S.A. Corey"}] = People.search_authors("abraham", 10)
+    end
+  end
+
   describe "an empty box" do
     test "shows the first page rather than nothing" do
       refute Books.search_series("", 10) == []
       refute Books.search_universes("", 10) == []
       refute People.search_people("", 10) == []
+      refute People.search_authors("", 10) == []
+      refute People.search_narrators("", 10) == []
       refute Media.search_media("", 10) == []
     end
   end

@@ -31,7 +31,6 @@ defmodule Ambry.Media do
   import Ecto.Query
 
   alias Ambry.Books
-  alias Ambry.Ecto.NameSearch
   alias Ambry.Library
   alias Ambry.Media.Audit
   alias Ambry.Media.Media
@@ -1121,27 +1120,6 @@ defmodule Ambry.Media do
     :ok = PubSub.subscribe(RecordingGroupCreated.wildcard_topic())
     :ok = PubSub.subscribe(RecordingGroupUpdated.wildcard_topic())
     :ok = PubSub.subscribe(RecordingGroupDeleted.wildcard_topic())
-  end
-
-  @doc """
-  Returns the given book's recording groups for `Select` components, as
-  rich options: the set's name, its first part's cover, and how far along
-  it is ("2 of 3 parts", in the group's own wording). Book-scoped — a
-  group belongs to a book the way its members do, and a freshly created
-  empty group is offerable because the FK carries the book even before
-  any member does.
-  """
-  def search_recording_groups(book_id, phrase, limit)
-  def search_recording_groups(nil, _phrase, _limit), do: []
-  def search_recording_groups("", _phrase, _limit), do: []
-
-  def search_recording_groups(book_id, phrase, limit) do
-    RecordingGroup
-    |> where([g], g.book_id == ^book_id)
-    |> NameSearch.narrow(:name, phrase, limit)
-    |> preload(:media)
-    |> Repo.all()
-    |> Enum.map(&recording_group_option/1)
   end
 
   @doc """

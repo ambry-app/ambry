@@ -21,7 +21,6 @@ defmodule Ambry.People do
   import Ambry.Utils
   import Ecto.Query
 
-  alias Ambry.Ecto.NameSearch
   alias Ambry.Paths
   alias Ambry.People.Author
   alias Ambry.People.AuthorPerson
@@ -448,12 +447,13 @@ defmodule Ambry.People do
   @doc """
   Narrators matching what somebody typed into a picker, as rich options:
   the person's portrait, and their real name when the stage name hides it.
+
+  Found by the stage name and by the person behind it, same as an author.
   """
   def search_narrators(phrase, limit) do
     Narrator
-    |> NameSearch.narrow(:name, phrase, limit)
     |> preload(:person)
-    |> Repo.all()
+    |> Query.matching(phrase, :narrator, limit: limit)
     |> Enum.map(&narrator_option/1)
   end
 
@@ -489,12 +489,16 @@ defmodule Ambry.People do
   @doc """
   Authors matching what somebody typed into a picker, as rich options: a
   portrait, and the human(s) behind a pen name when that's worth saying.
+
+  Found by the pen name and by whoever is behind it, so typing "Ty Franck"
+  offers the James S.A. Corey author. The pen name is still the answer — it
+  is what goes on the book — but the human is often how you recognise which
+  one you meant.
   """
   def search_authors(phrase, limit) do
     Author
-    |> NameSearch.narrow(:name, phrase, limit)
     |> preload(:people)
-    |> Repo.all()
+    |> Query.matching(phrase, :author, limit: limit)
     |> Enum.map(&author_option/1)
   end
 

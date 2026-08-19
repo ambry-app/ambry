@@ -7,6 +7,7 @@ defmodule Ambry.Search.Query do
   page needs and nothing a picker or an admin list filter can use. So each of
   them grew its own search: `Ambry.Ecto.NameSearch` for typeaheads,
   `BookFlat.by_keywords/2` for auto-match, an `ILIKE` chain per flat view.
+  All five are gone; this is what they became.
   `by_keywords/2` had got as far as reimplementing tokenization, a stopword
   list and OR-scored ranking in Ecto dynamics — `ts_rank` spelled the long
   way, over a view no index could serve.
@@ -23,8 +24,13 @@ defmodule Ambry.Search.Query do
       a hand-summed `CASE`. It is what lets "sanderson kings" find The Way of
       Kings, where an AND of both terms finds nothing.
     * **`:partial`** — opens the last term to a prefix match, so "sander"
-      finds Sanderson. This is `NameSearch`'s prefix property, and the reason
-      user search can drop the `ILIKE` arm it used to carry as a safety net.
+      finds Sanderson. This is the prefix property the name pickers used to
+      get from a `LIKE 'phrase%'`, and the reason user search can drop the
+      `ILIKE` arm it used to carry as a safety net.
+
+      Deliberately prefix and not substring: "anderson" does not find
+      Sanderson, per the operator, 2026-08-18. A mid-word match is what an
+      `ILIKE '%…%'` buys and nobody wanted it.
 
   Plus `:types`, to scope to books, or people, or whatever one kind a picker
   is picking.

@@ -192,6 +192,25 @@ defmodule Ambry.Search.QueryTest do
     end
   end
 
+  describe "what user search does not show" do
+    test "a pen name is indexed, but never a result on its own" do
+      # Authors and narrators are records so the credit pickers can ask the
+      # index for them. They would be duplicates on a results page — the
+      # person is already there, under the same name — so `Ambry.Search`
+      # scopes them out.
+      assert "Brandon Sanderson" in hits("sanderson", joiner: :any, types: [:author])
+
+      types =
+        "sanderson"
+        |> Ambry.Search.search()
+        |> Enum.map(&(&1.__struct__ |> Module.split() |> List.last()))
+        |> Enum.uniq()
+
+      refute "Author" in types
+      refute "Narrator" in types
+    end
+  end
+
   describe "cross-type results" do
     test "a series surfaces alongside its books" do
       hits = hits("stormlight")

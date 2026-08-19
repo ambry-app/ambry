@@ -16,6 +16,8 @@ defmodule Ambry.Search.Drain do
     * a **series** record, and a **universe** record, quote the names of their
       books' authors and the people behind them
     * a **person** record quotes their author and narrator pen names
+    * an **author** and a **narrator** record quote the person behind the
+      pen name
 
   So the expansion is two hops at most, and deliberately not a closure:
 
@@ -23,9 +25,11 @@ defmodule Ambry.Search.Drain do
                          a person's — never a series' or a universe's
       direct series    = series
       direct universes = universes
-      books     = direct books ∪ books of direct series ∪ books of direct universes
-      series    = direct series ∪ series of direct books
-      universes = direct universes ∪ universes of direct books
+      books      = direct books ∪ books of direct series ∪ books of direct universes
+      series     = direct series ∪ series of direct books
+      universes  = direct universes ∪ universes of direct books
+      authors    = authors ∪ authors of dirty people
+      narrators  = narrators ∪ narrators of dirty people
 
   A series or universe rename changes its books' `secondary`, so it pulls its
   books in. A book change can change its series' and universes' `secondary`
@@ -139,10 +143,18 @@ defmodule Ambry.Search.Drain do
     universes = combine(direct_universes, universes_of_books(direct_books))
     people = people(grouped)
 
+    # A pen name's record quotes the person behind it, so renaming the person
+    # rewrites every identity they publish under.
+    dirty_people = ids(grouped, :person)
+    authors = combine(ids(grouped, :author), authors_of_people(dirty_people))
+    narrators = combine(ids(grouped, :narrator), narrators_of_people(dirty_people))
+
     Index.index!(:book, books)
     Index.index!(:series, series)
     Index.index!(:universe, universes)
     Index.index!(:person, people)
+    Index.index!(:author, authors)
+    Index.index!(:narrator, narrators)
   end
 
   # Everything whose change can alter a book record, resolved to book ids.
@@ -251,6 +263,18 @@ defmodule Ambry.Search.Drain do
       )
 
     combine(authored, narrated)
+  end
+
+  defp authors_of_people([]), do: []
+
+  defp authors_of_people(person_ids) do
+    all(from(ap in AuthorPerson, where: ap.person_id in ^person_ids, select: ap.author_id))
+  end
+
+  defp narrators_of_people([]), do: []
+
+  defp narrators_of_people(person_ids) do
+    all(from(n in Narrator, where: n.person_id in ^person_ids, select: n.id))
   end
 
   defp people_of_author([]), do: []
