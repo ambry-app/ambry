@@ -141,7 +141,7 @@ defmodule AmbryWeb.Admin.Curation do
   attr :hints, :map, default: %{}, doc: "pending provenance hints, field name → hint"
   attr :proposals, :list, default: [], doc: "what ticked evidence proposes, `:chosen` included"
   attr :revert, :map, default: nil, doc: "the saved value to go back to, when it differs"
-  attr :rest, :global
+  attr :rest, :global, include: ~w(placeholder)
 
   @doc """
   One provider-fillable scalar: label, where its value came from, the

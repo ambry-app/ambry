@@ -35,7 +35,19 @@ defmodule Ambry.Media.Media do
   @marker_sources [:embedded, :file_boundaries, :manual]
 
   # provider-fillable scalar fields tracked by field-level provenance
-  @provenance_fields [:published, :published_format, :publisher, :description, :image_path]
+  #
+  # `:title` is the recording's *override*, and it belongs here for the same
+  # reason the other five do: a record can fill it, so where it came from is
+  # worth knowing. The importer has always passed a source for it
+  # (`Ambry.Inbox.Importer`) and this list is what was quietly dropping it.
+  @provenance_fields [
+    :title,
+    :published,
+    :published_format,
+    :publisher,
+    :description,
+    :image_path
+  ]
 
   schema "media" do
     belongs_to :book, Book

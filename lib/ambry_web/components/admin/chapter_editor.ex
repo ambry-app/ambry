@@ -305,7 +305,9 @@ defmodule AmbryWeb.Admin.ChapterEditor do
 
   attr :file, :map,
     default: nil,
-    doc: "the files' own list as a chip (%{chosen: boolean}), or nil when they carry none"
+    doc:
+      "the files' own list as a chip — `%{chosen: boolean}`, plus an optional `:label` and " <>
+        "`:running` for a surface that has to read the files before it can offer them"
 
   @doc """
   What the ticked evidence proposes for the titles: one chip per distinct
@@ -339,6 +341,7 @@ defmodule AmbryWeb.Admin.ChapterEditor do
           :if={@file}
           chosen={@file.chosen}
           event="take-file-chapters"
+          disabled={@file[:running] == true}
           title="take the timestamps and titles the files carry"
         >
           <span class={[
@@ -348,7 +351,7 @@ defmodule AmbryWeb.Admin.ChapterEditor do
           ]}>
             files
           </span>
-          <span>timestamps and titles as read</span>
+          <span>{file_words(@file)}</span>
         </.proposal_chip>
 
         <.proposal_chip
@@ -375,6 +378,14 @@ defmodule AmbryWeb.Admin.ChapterEditor do
   # ---------------------------------------------------------------------------
   # Vocabulary
   # ---------------------------------------------------------------------------
+
+  # The inbox already holds the probe, so its chip *states* what the rows
+  # are. An edit form holds nothing: reading a recording's forty files is an
+  # ffprobe apiece, so there the chip is an offer to go and look, and only
+  # says "as read" once it has.
+  defp file_words(%{running: true}), do: "reading the files…"
+  defp file_words(%{label: label}) when is_binary(label), do: label
+  defp file_words(_file), do: "timestamps and titles as read"
 
   @doc """
   How a title got its name, in one muted word for a dense row.

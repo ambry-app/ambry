@@ -1752,7 +1752,9 @@ defmodule AmbryWeb.Admin.Decisions do
     default: nil,
     doc: "the click, where the server owns the decision; nil where the chip writes an input"
 
-  attr :rest, :global, doc: ~s(the `data-set-input` pair, for a chip that writes an input)
+  attr :rest, :global,
+    include: ~w(disabled),
+    doc: ~s(the `data-set-input` pair, for a chip that writes an input)
 
   attr :inert, :boolean,
     default: false,

@@ -30,11 +30,15 @@
             container_class="max-w-xl"
           />
 
-          <.input
+          <.curated_input
             field={@form[:title]}
             label="Title override"
             placeholder="defaults to the book's title"
             class="max-w-xl"
+            record={@media}
+            hints={@provenance_hints}
+            proposals={@chips[:title] || []}
+            revert={@reverts[:title]}
           />
         </.field_group>
 
@@ -358,6 +362,7 @@
             <.chapter_title_chips
               id="chapter-title-chips"
               chips={title_chips(Evidence.used_records(@evidence), @chapters_applied_asin)}
+              file={@file_chapters}
             />
           </:proposals>
         </.chapter_rows>

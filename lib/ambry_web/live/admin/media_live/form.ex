@@ -36,6 +36,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   @image_params ~w(image_type image_import_url image_path)
 
   @scalar_kinds %{
+    "title" => :title,
     "published" => :published,
     "publisher" => :publisher,
     "description" => :description,
@@ -59,6 +60,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        reverts: %{},
        chapter_import: nil,
        chapters_applied_asin: nil,
+       file_chapters: %{chosen: false, running: false, label: "re-read the timestamps and titles"},
        provenance_hints: %{}
      )
      # The list the operator came from, kept so every way out of this form
@@ -282,6 +284,24 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:noreply, assign(socket, chapter_import: nil)}
   end
 
+  # The way back to the files, which the inbox has had all along and this
+  # form did not: markers are file-derived facts, and a recording whose rows
+  # are wrong had no way to say "read them again".
+  #
+  # It applies on arrival rather than previewing into the proposed column,
+  # for the same reason the inbox's chip does: the column pairs one incoming
+  # title to one existing marker, and re-reading the files is the one
+  # proposal that can legitimately change how many markers there are. Nothing
+  # is saved either way until Save.
+  def handle_event("take-file-chapters", _params, socket) do
+    media = socket.assigns.media
+
+    {:noreply,
+     socket
+     |> assign(file_chapters: %{chosen: false, running: true}, chapter_import: nil)
+     |> start_async(:file_chapters, fn -> read_file_chapters(media) end)}
+  end
+
   # ── the evidence panel ─────────────────────────────────────────────────
 
   def handle_event("research", params, socket) do
@@ -475,6 +495,31 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   def handle_async({:person_search, _key} = name, result, socket),
     do: NewPerson.handle_async(name, result, socket)
 
+  def handle_async(:file_chapters, {:ok, {:ok, {[_row | _rest] = chapters, source}}}, socket) do
+    {:noreply,
+     socket
+     |> put_file_chapters(chapters, source)
+     |> assign(file_chapters: %{chosen: true, running: false})
+     |> put_flash(:info, "Read #{length(chapters)} chapters from the files. Save to keep them.")}
+  end
+
+  # Files that carry no markers propose nothing. A chip that emptied rows the
+  # operator typed by hand would be a destructive control wearing a
+  # proposal's clothes.
+  def handle_async(:file_chapters, {:ok, {:ok, {[], _source}}}, socket) do
+    {:noreply,
+     socket
+     |> assign(file_chapters: %{chosen: false, running: false, label: "no markers in the files"})
+     |> put_flash(:error, "These files carry no chapter markers. The rows are unchanged.")}
+  end
+
+  def handle_async(:file_chapters, _failed, socket) do
+    {:noreply,
+     socket
+     |> assign(file_chapters: %{chosen: false, running: false})
+     |> put_flash(:error, "Could not read this recording's files.")}
+  end
+
   def handle_async(:evidence_search, {:ok, result}, socket) do
     {:noreply,
      socket
@@ -523,6 +568,27 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       |> Map.put("chapters", Enum.map(chapters, &chapter_params/1))
 
     assign_form(socket, Media.change_media(socket.assigns.media, params))
+  end
+
+  # Every file, in play order — the same read the inbox does before an item
+  # has a record, and an ffprobe apiece. That is why it happens on a click
+  # and not on page load.
+  defp read_file_chapters(media) do
+    with {:ok, paths} <- Media.Scanner.audio_files(media),
+         {:ok, probes} <- Media.Scanner.probe_all(paths) do
+      {:ok, Media.Scanner.chapters(probes)}
+    end
+  end
+
+  # A whole new list, markers and all — so the source line moves with it, and
+  # any titles poured from an ASIN stop being what the rows hold.
+  defp put_file_chapters(socket, chapters, source) do
+    params = Map.put(socket.assigns.form.params, "chapter_marker_source", to_string(source))
+
+    socket
+    |> assign_form(Media.change_media(socket.assigns.media, params))
+    |> put_chapters(chapters)
+    |> assign(chapters_applied_asin: nil)
   end
 
   # The narrator identity a proposed credit names — an existing narrator of
@@ -576,6 +642,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     chips =
       if evidence && Evidence.proposing?(evidence) do
         %{
+          # The record's own title, offered against the *override* — which is
+          # what a recording is called when it differs from the book, and an
+          # edition's title is the one place that difference is written down.
+          title:
+            evidence
+            |> Evidence.proposals(:title)
+            |> mark_chosen(%{"title" => Changeset.get_field(form.source, :title)}),
           published:
             evidence
             |> Evidence.proposals(:published)
@@ -622,7 +695,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp reverts(%{assigns: %{form: form, media: media}}),
-    do: Revert.offers(form, media, [:published, :publisher, :description, :image])
+    do: Revert.offers(form, media, [:title, :published, :publisher, :description, :image])
 
   defp cancel_all_uploads(socket, upload) do
     Enum.reduce(socket.assigns.uploads[upload].entries, socket, fn entry, socket ->

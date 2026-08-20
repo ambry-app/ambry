@@ -12,6 +12,7 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
   alias Ambry.Media
   alias Ambry.Metadata.Provider
   alias Ambry.People.Person
+  alias Ambry.Provenance
   alias Ambry.Repo
 
   setup :register_and_log_in_admin_user
@@ -67,6 +68,37 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
     view
     |> element(~s{[data-role="record"] input[type="checkbox"]})
     |> render_click()
+  end
+
+  # The one recording-level field a record could fill and this form never
+  # offered — `Evidence` has had the clause since it was written
+  # (`EDIT_PARITY_PLAN.md` phase 4). An edition's title is where the
+  # difference between "The Martian" and what a recording is actually called
+  # gets written down.
+  describe "the title override" do
+    test "a ticked record proposes its title, and accepting records the provider",
+         %{conn: conn} do
+      media = martian()
+      result_book() |> Map.put(:title, "The Martian: A Novel") |> patch_search()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+      search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
+      html = tick_first_record(view)
+
+      assert html =~ "proposals-media_title"
+      assert html =~ "The Martian: A Novel"
+
+      view |> element("#proposals-media_title button") |> render_click()
+      view |> form("#media-form", %{"media" => %{}}) |> render_submit()
+
+      media = Media.get_media!(media.id)
+      assert media.title == "The Martian: A Novel"
+
+      # provenance for the title used to be passed by the importer and
+      # silently dropped: `Media`'s tracked list did not carry `:title`
+      assert %{"source" => "provider:audible", "locked" => false} =
+               Provenance.entry(media, :title)
+    end
   end
 
   describe "accepting a cover proposal" do
