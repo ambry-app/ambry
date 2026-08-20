@@ -58,6 +58,10 @@ defmodule Ambry.Inbox.InboxItem do
     # leaves its own out for the same reason.
     field :search_text, :string
 
+    # Bumped by every write, and checked by every write against the value the
+    # writer read. See `versioned/1`.
+    field :lock_version, :integer, default: 1
+
     embeds_one :draft, Draft, on_replace: :update
 
     timestamps(type: :utc_datetime)
@@ -109,6 +113,50 @@ defmodule Ambry.Inbox.InboxItem do
     |> put_change(:ready, Draft.resolved?(draft))
     |> put_change(:search_text, search_text(draft))
   end
+
+  @doc """
+  The last step of every write to this table.
+
+  ## Why a version
+
+  An item is read, changed and written back from half a dozen places — the
+  form, discovery, probing, matching, the post-import sweeps — and several of
+  them run at once. All of them write the whole row, so the second to arrive
+  overwrites whatever the first decided, and nothing anywhere says so.
+  Production, 2026-08-20: the operator answered "this replaces audiobook 108"
+  and a sibling import's sweep, holding a copy of the row read seconds
+  earlier, put "a new audiobook" back. The import then refused an item whose
+  form showed nothing wrong.
+
+  So the row carries a version, every write bumps it, and every write demands
+  the version it read. A caller working from a copy that has since moved is
+  refused rather than obeyed. `Ambry.Inbox.Lookup` learned this once for
+  `matches` and closed it with a row lock; a lock each caller has to remember
+  to take is a lock the next caller forgets, which is precisely how it grew
+  back on `draft`. This is the same rule made structural.
+  """
+  def versioned(%Ecto.Changeset{} = changeset), do: optimistic_lock(changeset, :lock_version)
+
+  @doc """
+  Whether this changeset would leave the row exactly as it is.
+
+  **Only meaningful when the changeset's data is the row as read** — it
+  compares against that, not against the database — so it belongs to callers
+  that just read the row themselves, under the lock.
+
+  It exists because of a quirk that would otherwise make every version bump
+  meaningless. `Draft`'s collections are keyless `embeds_many`, so
+  `cast_embed` cannot tell an incoming element from the one already there and
+  reports every element as replaced: a draft cast back from its own dump is
+  always "changed". The post-import sweeps — which mostly find nothing to
+  relink — were therefore rewriting every draft they touched, on every
+  import. Versioned, that would bump rows nobody edited and send the
+  operator's open form stale for no reason at all.
+
+  Comparing the applied struct is what tells an edit from that noise, and it
+  is exact: equal structs mean equal jsonb.
+  """
+  def unchanged?(%Ecto.Changeset{} = changeset), do: apply_changes(changeset) == changeset.data
 
   @doc """
   What a draft is findable by, beyond the path it was found at.

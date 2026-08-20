@@ -57,8 +57,17 @@ defmodule Ambry.Inbox.Lookup do
         end
       end)
 
+    hydrated = Enum.find(records, &(AutoMatch.ref(&1) == record_ref))
+
     item
-    |> update_records(level, fn _existing -> records end)
+    # By reference rather than wholesale: the list this replaced was read
+    # before the provider was asked, and a search that finished in the
+    # meantime has records in the committed one that this never saw.
+    |> update_records(level, fn existing ->
+      Enum.map(existing, fn record ->
+        if hydrated && AutoMatch.ref(record) == record_ref, do: hydrated, else: record
+      end)
+    end)
     |> update_outcomes(level, failures)
   end
 
@@ -233,28 +242,11 @@ defmodule Ambry.Inbox.Lookup do
     end
   end
 
-  # **Re-read under a lock, because two of these run at once.** The form lets
-  # the operator search for as many people as they like without waiting, and
-  # `matches` is one jsonb column holding all of them: each search merged its
-  # person into the item as it was when the button was pressed, then wrote the
-  # whole column back, so the second to finish silently threw away the first's
-  # results. The operator saw two searches fight over the page.
-  #
-  # The row this merges into is therefore the committed one rather than the
-  # caller's, and the lock makes "read, merge, write" atomic across the two
-  # requests. Same shape as `Importer.claim/1`, for the same reason.
-  defp update_person(%InboxItem{id: id}, key, name, found, outcomes) do
-    Repo.transact(fn ->
-      InboxItem
-      |> where([i], i.id == ^id)
-      |> lock("FOR UPDATE")
-      |> Repo.one!()
-      |> merge_person(key, name, found, outcomes)
-    end)
+  defp update_person(%InboxItem{} = item, key, name, found, outcomes) do
+    update_matches(item, &merge_person(&1, key, name, found, outcomes))
   end
 
-  defp merge_person(%InboxItem{} = item, key, name, found, outcomes) do
-    matches = item.matches || %{}
+  defp merge_person(matches, key, name, found, outcomes) do
     people = Map.get(matches, "people") || %{}
     held = Map.get(people, key) || %{"name" => name, "roles" => [], "local" => []}
 
@@ -274,11 +266,35 @@ defmodule Ambry.Inbox.Lookup do
       |> Map.put("local", AutoMatch.local_people(name))
       |> Map.put("providers", outcomes)
 
-    item
-    |> InboxItem.changeset(%{
-      matches: Map.put(matches, "people", Map.put(people, key, updated))
-    })
-    |> Repo.update()
+    Map.put(matches, "people", Map.put(people, key, updated))
+  end
+
+  # **Read, change and write the row as committed, because several of these
+  # run at once.** `matches` is one jsonb column holding every level's
+  # records and every person's, and the form lets the operator search for as
+  # many people as they like without waiting. Each search used to merge its
+  # results into the item as it was when the button was pressed and write the
+  # whole column back, so the second to finish silently threw away the
+  # first's and the operator watched two searches fight over the page.
+  #
+  # Under the lock there is no in-between. Same shape as
+  # `Ambry.Inbox.update_draft_with/2` and `Importer.claim/1`, for the same
+  # reason — and `versioned/1` on the way out is what tells a form holding an
+  # older copy of this row that it has one.
+  defp update_matches(%InboxItem{id: id}, fun) do
+    Repo.transact(fn ->
+      item =
+        InboxItem
+        |> where([i], i.id == ^id)
+        |> lock("FOR UPDATE")
+        |> Repo.one!()
+
+      changeset = InboxItem.changeset(item, %{matches: fun.(item.matches || %{})})
+
+      if InboxItem.unchanged?(changeset),
+        do: {:ok, item},
+        else: changeset |> InboxItem.versioned() |> Repo.update()
+    end)
   end
 
   ## plumbing
@@ -341,13 +357,11 @@ defmodule Ambry.Inbox.Lookup do
   end
 
   defp update_records(item, level, fun) do
-    matches = item.matches || %{}
-    level_map = Map.get(matches, level, %{})
-    updated = Map.put(level_map, "candidates", fun.(Map.get(level_map, "candidates", []) || []))
-
-    item
-    |> InboxItem.changeset(%{matches: Map.put(matches, level, updated)})
-    |> Repo.update()
+    update_matches(item, fn matches ->
+      level_map = Map.get(matches, level, %{})
+      updated = Map.put(level_map, "candidates", fun.(Map.get(level_map, "candidates", []) || []))
+      Map.put(matches, level, updated)
+    end)
   end
 
   defp update_outcomes(item_or_result, level, outcomes, opts \\ [])
@@ -358,7 +372,12 @@ defmodule Ambry.Inbox.Lookup do
   defp update_outcomes({:error, _reason} = error, _level, _outcomes, _opts), do: error
 
   defp update_outcomes(%InboxItem{} = item, level, outcomes, opts) do
-    matches = item.matches || %{}
+    update_matches(item, fn matches ->
+      update_outcomes_in(matches, level, outcomes, opts)
+    end)
+  end
+
+  defp update_outcomes_in(matches, level, outcomes, opts) do
     level_map = Map.get(matches, level, %{})
     existing = Map.get(level_map, "providers", []) || []
 
@@ -373,11 +392,7 @@ defmodule Ambry.Inbox.Lookup do
     fresh = outcomes |> MapSet.new(& &1["id"]) |> maybe_clear(opts[:clear])
     kept = Enum.reject(existing, &MapSet.member?(fresh, &1["id"]))
 
-    updated = Map.put(level_map, "providers", kept ++ outcomes)
-
-    item
-    |> InboxItem.changeset(%{matches: Map.put(matches, level, updated)})
-    |> Repo.update()
+    Map.put(matches, level, Map.put(level_map, "providers", kept ++ outcomes))
   end
 
   defp maybe_clear(ids, nil), do: ids
@@ -387,17 +402,15 @@ defmodule Ambry.Inbox.Lookup do
   defp remember_query({:error, _reason} = error, _level, _query), do: error
 
   defp remember_query(%InboxItem{} = item, level, query) do
-    matches = item.matches || %{}
+    update_matches(item, fn matches ->
+      updated =
+        matches
+        |> Map.get(level, %{})
+        |> Map.put("query", to_string(query))
+        |> Map.put("query_fields", Provider.Query.non_blank_fields(query))
 
-    updated =
-      matches
-      |> Map.get(level, %{})
-      |> Map.put("query", to_string(query))
-      |> Map.put("query_fields", Provider.Query.non_blank_fields(query))
-
-    item
-    |> InboxItem.changeset(%{matches: Map.put(matches, level, updated)})
-    |> Repo.update()
+      Map.put(matches, level, updated)
+    end)
   end
 
   defp query_from(fields), do: Provider.Query.from_fields(fields)
