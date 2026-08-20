@@ -1493,13 +1493,16 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert has_element?(view, "form#research-work input[name='title']")
     end
 
-    test "the file's own tags are visible", %{conn: conn} do
+    # Not behind a disclosure: this is the evidence every decision below it
+    # is an interpretation of.
+    test "the file's own tags are visible without opening anything", %{conn: conn} do
       item = probed_item()
 
-      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert html =~ "What the files say"
+      assert html =~ "Embedded tags"
       assert html =~ "Michael Kramer"
+      refute has_element?(view, "details [data-role='tags']")
     end
   end
 
