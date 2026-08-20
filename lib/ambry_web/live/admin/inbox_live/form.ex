@@ -62,7 +62,27 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   @impl Phoenix.LiveView
   def mount(%{"id" => id} = params, _session, socket) do
-    item = Inbox.get_item!(id)
+    case Inbox.fetch_item(id) do
+      {:ok, item} -> mount_item(item, params, socket)
+      {:error, :not_found} -> gone(params, socket)
+    end
+  end
+
+  # Regrouping replaces items rather than editing them, so the id in the
+  # address bar can outlive the item: browser Back after a split or a combine
+  # lands on one of the items that were just replaced. That is the queue
+  # working, and a 404 page said the admin was broken.
+  defp gone(params, socket) do
+    {:ok,
+     socket
+     |> put_flash(
+       :info,
+       "That item is gone. Splitting and combining replace items with new ones."
+     )
+     |> push_navigate(to: return_to(params))}
+  end
+
+  defp mount_item(item, params, socket) do
     {:ok, item} = Inbox.prepare_draft(item)
 
     {:ok,

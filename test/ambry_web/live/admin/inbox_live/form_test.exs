@@ -2268,6 +2268,28 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "an item that is gone" do
+    # A split or a combine replaces items rather than editing them, so the id
+    # in the address bar outlives the item and browser Back walks straight
+    # into it. The queue is where that goes, with the list the operator was
+    # on kept.
+    test "lands back in the queue rather than on a 404", %{conn: conn} do
+      item = probed_item()
+      id = item.id
+      Repo.delete!(item)
+
+      assert {:error, {kind, %{to: to, flash: flash}}} = live(conn, ~p"/admin/inbox/#{id}")
+      assert kind in [:redirect, :live_redirect]
+      assert to == ~p"/admin/inbox"
+      assert flash["info"] =~ "gone"
+
+      assert {:error, {_kind, %{to: to}}} =
+               live(conn, ~p"/admin/inbox/#{id}?#{[status: "ignored", page: "2"]}")
+
+      assert to == ~p"/admin/inbox?#{[page: "2", status: "ignored"]}"
+    end
+  end
+
   describe "combining items that are one audiobook" do
     # The operator's real case, and the mirror of the split above: three
     # subfolders holding one audiobook, named so that nothing but a human
