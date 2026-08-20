@@ -1747,7 +1747,12 @@ defmodule AmbryWeb.Admin.Decisions do
   end
 
   attr :chosen, :boolean, required: true
-  attr :event, :string, required: true
+
+  attr :event, :string,
+    default: nil,
+    doc: "the click, where the server owns the decision; nil where the chip writes an input"
+
+  attr :rest, :global, doc: ~s(the `data-set-input` pair, for a chip that writes an input)
 
   attr :inert, :boolean,
     default: false,
@@ -1782,6 +1787,7 @@ defmodule AmbryWeb.Admin.Decisions do
     ~H"""
     <span
       title={@title}
+      {@rest}
       class={[
         "bg-brand-dark/15 ring-brand-dark/50 max-w-full rounded-md text-left text-xs ring-2 ring-inset",
         @shape == "circle" && "rounded-full p-0.5",
@@ -1803,6 +1809,7 @@ defmodule AmbryWeb.Admin.Decisions do
       type="button"
       phx-click={@event}
       {chip_values(@values)}
+      {@rest}
       title={@title}
       class={[
         "max-w-full rounded-md text-left text-xs",

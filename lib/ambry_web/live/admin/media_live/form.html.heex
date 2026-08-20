@@ -142,6 +142,27 @@
                 index={media_narrator_form.index}
               />
             </div>
+
+            <%!-- The human this credit is about to invent, asked about here
+                rather than on a form the operator has to go and find
+                afterwards. The card is the credit's own nested params: it
+                renders only where the chain reaches a person nobody has made
+                yet, which is never true of a credit that points at a narrator
+                the library already has. --%>
+            <.inputs_for
+              :let={narrator_form}
+              :if={NewPerson.creating(media_narrator_form, [:narrator, :person])}
+              field={media_narrator_form[:narrator]}
+            >
+              <.inputs_for :let={person_form} field={narrator_form[:person]}>
+                <.new_person_card
+                  form={person_form}
+                  key={NewPerson.key(media_narrator_form)}
+                  state={NewPerson.state(@new_people, NewPerson.key(media_narrator_form))}
+                  kind={:narrator}
+                />
+              </.inputs_for>
+            </.inputs_for>
           </.inputs_for>
 
           <%!-- The narrators a ticked record names. Two readings of one book

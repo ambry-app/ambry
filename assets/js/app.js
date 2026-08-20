@@ -36,6 +36,7 @@ import { ReadMoreHook } from "./hooks/read-more"
 import { ReorderRowsHook } from "./hooks/reorder-rows"
 import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
 import { ScrollMatchHook } from "./hooks/scroll-match"
+import { SetInputHook } from "./hooks/set-input"
 import { SearchBoxHook } from "./hooks/search-box"
 import { StickyFooterHook } from "./hooks/sticky-footer"
 
@@ -60,6 +61,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "paste-image": PasteImageHook,
     "sticky-footer": StickyFooterHook,
     "reorder-rows": ReorderRowsHook,
+    "set-input": SetInputHook,
     "auto-dismiss": AutoDismissHook,
   },
 })

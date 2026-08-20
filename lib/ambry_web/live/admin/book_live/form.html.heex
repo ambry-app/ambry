@@ -89,6 +89,29 @@
             />
             <.delete_button field={@form[:book_authors_drop]} index={book_author_form.index} />
           </div>
+
+          <%!-- The human this credit is about to invent, asked about here
+              rather than on a form the operator has to go and find
+              afterwards. The card is the credit's own nested params: it
+              renders only where the chain reaches a person nobody has made
+              yet, which is never true of a credit that points at an author
+              the library already has. --%>
+          <.inputs_for
+            :let={author_form}
+            :if={NewPerson.creating(book_author_form, [:author, :author_people, :person])}
+            field={book_author_form[:author]}
+          >
+            <.inputs_for :let={author_person_form} field={author_form[:author_people]}>
+              <.inputs_for :let={person_form} field={author_person_form[:person]}>
+                <.new_person_card
+                  form={person_form}
+                  key={NewPerson.key(book_author_form)}
+                  state={NewPerson.state(@new_people, NewPerson.key(book_author_form))}
+                  kind={:author}
+                />
+              </.inputs_for>
+            </.inputs_for>
+          </.inputs_for>
         </.inputs_for>
 
         <:proposals>

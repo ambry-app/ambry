@@ -8,6 +8,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   import AmbryWeb.Admin.ChapterEditor
   import AmbryWeb.Admin.Curation
+  import AmbryWeb.Admin.NewPerson, only: [new_person_card: 1]
   import AmbryWeb.Admin.ParamHelpers
   import AmbryWeb.Admin.UploadHelpers
 
@@ -22,6 +23,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
   alias AmbryWeb.Admin.Evidence
+  alias AmbryWeb.Admin.NewPerson
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
   alias AmbryWeb.Admin.ReturnTo
@@ -43,6 +45,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # Credits, which are people: accepting one of these stages a row naming the
   # human, and the save makes them (`Ambry.Ecto.EntityRef`).
   @entity_kinds %{"narrators" => :narrators}
+  @person_events NewPerson.events()
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -61,6 +64,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
      # The list the operator came from, kept so every way out of this form
      # goes back to it. See `AmbryWeb.Admin.ReturnTo`.
      |> assign(list_params: ReturnTo.list_params(params))
+     |> NewPerson.mount()
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -373,6 +377,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # the form could not. It was here once and was removed (`17aa2234`) because
   # clicking a chip the recording already had credited them again; that is
   # `proposal_chip/1`'s business now, and `already_credited?/4` is the belt.
+  # ── the people this form is about to create ────────────────────────────
+  #
+  # The card owns its own evidence and its own state; the form owns the
+  # assign it lives in and nothing else.
+  def handle_event(event, params, socket) when event in @person_events,
+    do: NewPerson.handle_event(event, params, socket)
+
   def handle_event("accept-entity", %{"field" => field, "key" => key}, socket) do
     with {:ok, kind} <- Map.fetch(@entity_kinds, field),
          %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
@@ -461,6 +472,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_async({:person_search, _key} = name, result, socket),
+    do: NewPerson.handle_async(name, result, socket)
+
   def handle_async(:evidence_search, {:ok, result}, socket) do
     {:noreply,
      socket
@@ -669,6 +683,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp save_media(socket, :edit, media_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+    media_params = NewPerson.import_photos(media_params, "media_narrators")
 
     case Media.update_media(socket.assigns.media, media_params, opts) do
       {:ok, media} ->

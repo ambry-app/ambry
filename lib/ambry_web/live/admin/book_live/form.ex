@@ -12,6 +12,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.Curation
+  import AmbryWeb.Admin.NewPerson, only: [new_person_card: 1]
 
   alias Ambry.Books
   alias Ambry.Books.Book
@@ -22,6 +23,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
   alias AmbryWeb.Admin.Evidence
+  alias AmbryWeb.Admin.NewPerson
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
   alias AmbryWeb.Admin.ReturnTo
@@ -31,6 +33,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   # the scalar fields evidence can propose, by their wire names
   @scalar_kinds %{"title" => :title, "published" => :published}
   @entity_kinds %{"authors" => :authors, "series" => :series}
+  @person_events NewPerson.events()
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -45,6 +48,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
      # The list the operator came from, kept so every way out of this form
      # goes back to it. See `AmbryWeb.Admin.ReturnTo`.
      |> assign(list_params: ReturnTo.list_params(params))
+     |> NewPerson.mount()
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -210,7 +214,17 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     end
   end
 
+  # ── the people this form is about to create ────────────────────────────
+  #
+  # The card owns its own evidence and its own state; the form owns the
+  # assign it lives in and nothing else.
+  def handle_event(event, params, socket) when event in @person_events,
+    do: NewPerson.handle_event(event, params, socket)
+
   @impl Phoenix.LiveView
+  def handle_async({:person_search, _key} = name, result, socket),
+    do: NewPerson.handle_async(name, result, socket)
+
   def handle_async(:evidence_search, {:ok, result}, socket) do
     {:noreply,
      socket
@@ -390,6 +404,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp save_book(socket, :edit, book_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+    book_params = NewPerson.import_photos(book_params, "book_authors")
 
     case Books.update_book(socket.assigns.book, book_params, opts) do
       {:ok, book} ->
@@ -411,6 +426,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp save_book(socket, :new, book_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+    book_params = NewPerson.import_photos(book_params, "book_authors")
 
     case Books.create_book(book_params, opts) do
       {:ok, book} ->

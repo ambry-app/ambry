@@ -798,9 +798,11 @@ one mechanism for "ask the databases", not a modal per provider:
 - **Ticked records grow "Proposed" chip rows** under the fields they can
   fill (`<.curated_input>` / `<.proposal_row>`), in the import form's chip
   anatomy exactly. Accepting a scalar chip takes the value; accepting an
-  entity chip (author, narrator, series) resolves or creates the entity
-  and adds its row. Evidence is session state — added, never replaced
-  while the page lives, gone when it's left.
+  entity chip (author, narrator, series) **stages** a row that names the
+  entity, and nothing is created until Save — a chip that wrote a record
+  on the spot left a person behind on every form the operator opened and
+  abandoned. Evidence is session state — added, never replaced while the
+  page lives, gone when it's left.
 - **Provenance is worn inline** on each field's header
   (`<.provenance_flag>`): "from hardcover" muted for the recorded source,
   "will record rreading-glasses" amber for an accepted-but-unsaved one,
@@ -819,6 +821,21 @@ one mechanism for "ask the databases", not a modal per provider:
   list that doesn't pair one-to-one stays visible (the proposed column
   shows where the lists diverge, which is what to fix) but is never
   poured.
+
+- **A credit that names somebody new gets that person's card**
+  (`AmbryWeb.Admin.NewPerson`). A picker may name a record the library has
+  never heard of, so an edit form can invent a `Person` — and a person made
+  of a name and nothing else is the asymmetry the whole arc was about, since
+  the same human imported through the inbox arrives with a face and a
+  biography. The card is the inbox's person card on the edit forms: a
+  provider search of their own, photos as circular chips at the size they
+  will be seen, and a biography box with the blurbs underneath it. It
+  renders **only where the nested chain reaches a person nobody has made
+  yet**, which is never true of a credit pointing at somebody who exists.
+  Its controls write the form's own inputs on the client and dispatch a
+  change (`assets/js/hooks/set-input.js`) rather than reaching into params
+  behind the cast — the same rule the reorder chevrons follow, and what
+  keeps "nothing until Save" true one join deep.
 
 Structural lists (authors, narrators, series) carry **list-level
 provenance** — one entry per list, worn as the same "from …" flag on the
