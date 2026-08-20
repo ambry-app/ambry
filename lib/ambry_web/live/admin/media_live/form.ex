@@ -170,7 +170,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         cancel_all_uploads(socket, :image)
       end
 
-    media_params = mark_typed_titles(media_params, current_chapters(socket.assigns.form))
+    media_params =
+      media_params
+      |> mark_typed_titles(current_chapters(socket.assigns.form))
+      |> naming_a_set(socket)
 
     changeset =
       socket.assigns.media
@@ -189,7 +192,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   def handle_event("submit", %{"media" => media_params}, socket) do
-    media_params = mark_typed_titles(media_params, current_chapters(socket.assigns.form))
+    media_params =
+      media_params
+      |> mark_typed_titles(current_chapters(socket.assigns.form))
+      |> naming_a_set(socket)
 
     socket =
       assign(socket,
@@ -214,7 +220,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # ── the part set ───────────────────────────────────────────────────────
 
   def handle_event("add-group-row", _params, socket) do
-    {:noreply, assign(socket, group_row_visible: true)}
+    socket = assign(socket, group_row_visible: true)
+    params = naming_a_set(socket.assigns.form.params, socket)
+
+    {:noreply, assign_form(socket, Media.change_media(socket.assigns.media, params))}
   end
 
   def handle_event("remove-group-row", _params, socket) do
@@ -429,6 +438,22 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # "Hardcover: 9" would describe a search whose records aren't shown, but a
   # work provider that was down took its editions with it, and that has to be
   # visible or the recordings list is short for no stated reason.
+  # "Part of a set" with nothing chosen is the operator saying they mean a set
+  # this book does not have yet, and the empty nested group is what makes the
+  # name box render — the same idiom `Ambry.People.AuthorPerson` uses to open
+  # a box for a pen name nobody has typed into. Only the form can say this: a
+  # recording pointing at no group and holding no part number is simply not in
+  # a set, and the schema cannot tell the two apart.
+  defp naming_a_set(params, %{assigns: %{group_row_visible: true}}) do
+    if params["recording_group_id"] in [nil, ""] do
+      Map.put_new(params, "recording_group", %{})
+    else
+      Map.delete(params, "recording_group")
+    end
+  end
+
+  defp naming_a_set(params, _not_in_a_set), do: Map.delete(params, "recording_group")
+
   defp retry_fan_out(entry, :search, query, hints) do
     {books, outcome} = MetadataSearch.books_one(entry, query)
     {Inbox.score_records(books, entry, hints), List.wrap(outcome)}
@@ -829,6 +854,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   defp format_filesize(bytes) do
     Ambry.Utils.humanize_bytes(bytes)
   end
+
+  # The drop-down's escape hatch, and the reason a blank id inside the set row
+  # does not mean "no set": leaving the set is the ✕, which is an event.
+  defp new_set_option, do: %{id: "", label: "New set"}
 
   defp preview_date_format(form) do
     format_published(%{

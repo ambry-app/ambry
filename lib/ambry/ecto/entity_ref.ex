@@ -36,8 +36,31 @@ defmodule Ambry.Ecto.EntityRef do
     if linked?(changeset, id_field) do
       changeset
     else
-      cast_assoc(changeset, assoc, opts)
+      changeset
+      |> detach(assoc)
+      |> cast_assoc(assoc, opts)
+      |> drop_stale_id(assoc, id_field)
     end
+  end
+
+  # A nested record is always a NEW record. `cast_assoc` on a loaded
+  # `belongs_to` casts *onto the loaded one* when the params carry no id —
+  # so a recording moved out of one set and into a set that doesn't exist yet
+  # would have renamed the set it was leaving, taking every other member with
+  # it. Which is the module's own rule, one step further: the record a row
+  # points at is shared, and this form may not rewrite it.
+  defp detach(changeset, assoc) do
+    %{changeset | data: Map.put(changeset.data, assoc, nil)}
+  end
+
+  # Blanking the id is how a form says "I mean a record you don't have", and
+  # Ecto refuses to write both: "cannot change belongs_to association because
+  # there is already a change setting its foreign key to nil". The nested
+  # record is the answer, and the id it lands under is Ecto's to fill in.
+  defp drop_stale_id(changeset, assoc, id_field) do
+    if get_change(changeset, assoc),
+      do: delete_change(changeset, id_field),
+      else: changeset
   end
 
   @doc """

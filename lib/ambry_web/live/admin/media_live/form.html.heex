@@ -212,13 +212,35 @@
 
             <div :if={@group_row_visible} class="flex items-start gap-2">
               <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
-              <%!-- A book has one set, or none, or occasionally two. --%>
+              <%!-- A book has one set, or none, or occasionally two. That is a
+                  drop-down — and where the book has none there is nothing to
+                  drop down to, so the only thing on offer is naming one. The
+                  import form settled this shape: a typeahead here searched
+                  for sets belonging to a book that usually has none. --%>
               <.input
+                :if={@recording_group_options != []}
                 field={@form[:recording_group_id]}
                 type="dropdown"
-                options={@recording_group_options}
+                options={@recording_group_options ++ [new_set_option()]}
                 container_class="grow"
               />
+
+              <%!-- Naming a set this book doesn't have yet. The row belongs
+                  to the recording, so the set is created by the save that
+                  puts the recording in it, and the book is the recording's
+                  own — never asked for, never postable. --%>
+              <.inputs_for :let={group_form} field={@form[:recording_group]}>
+                <div class="flex grow items-start gap-2">
+                  <.input field={group_form[:name]} placeholder="set name" container_class="grow" />
+                  <.input
+                    field={group_form[:parts_total]}
+                    type="number"
+                    min="1"
+                    placeholder="of"
+                    container_class="w-16 flex-none"
+                  />
+                </div>
+              </.inputs_for>
               <%!-- Hand-rolled because taking this audiobook out of its set is
                   an event, not a drop input, so it has to say so. It wears
                   `.delete_button`'s box all the same — one input tall, glyph
