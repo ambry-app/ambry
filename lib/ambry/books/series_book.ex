@@ -26,13 +26,17 @@ defmodule Ambry.Books.SeriesBook do
     # ordered by `book_number`.
     field :position, :integer, default: 0
 
+    # The name typed into the picker when it named a series the library
+    # doesn't have. Resolved when the form is saved — `Ambry.Ecto.EntityRef`.
+    field :series_name, :string, virtual: true
+
     timestamps(type: :utc_datetime)
   end
 
   @doc false
   def changeset(series_book, attrs) do
     series_book
-    |> cast(attrs, [:book_id, :book_number, :series_id, :position])
+    |> cast(attrs, [:book_id, :book_number, :series_id, :series_name, :position])
     |> validate_required([:book_number])
     |> validate_number(:book_number, greater_than_or_equal_to: 0)
   end
@@ -47,7 +51,7 @@ defmodule Ambry.Books.SeriesBook do
   def book_assoc_changeset(series_book, attrs) do
     series_book
     |> changeset(attrs)
-    |> validate_required([:series_id])
+    |> Ambry.Ecto.EntityRef.validate_linked_or_named(:series_id, :series_name)
     |> unique_constraint(:series_id, name: "books_series_book_id_series_id_index")
   end
 end

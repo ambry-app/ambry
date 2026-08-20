@@ -127,6 +127,7 @@
                 type="autocomplete"
                 search={&People.search_narrators/2}
                 fetch={&People.narrator_option/1}
+                create_name={media_narrator_form[:narrator_name].name}
                 container_class="grow"
               />
               <.move_buttons

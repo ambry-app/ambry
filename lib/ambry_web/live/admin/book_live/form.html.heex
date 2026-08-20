@@ -68,11 +68,16 @@
               remove last — so the destructive control is at the end of the
               row rather than in the middle of it. --%>
           <div class="flex items-start gap-2">
+            <%!-- Create mode: a book may credit an author the library has
+                never heard of, and typing their name is how you say so. The
+                name posts beside the id and becomes a person when the form
+                is saved. --%>
             <.input
               field={book_author_form[:author_id]}
               type="autocomplete"
               search={&People.search_authors/2}
               fetch={&People.author_option/1}
+              create_name={book_author_form[:author_name].name}
               container_class="grow"
             />
             <.move_buttons
@@ -127,6 +132,7 @@
               type="autocomplete"
               search={&Books.search_series/2}
               fetch={&Books.series_option/1}
+              create_name={series_book_form[:series_name].name}
               container_class="grow"
             />
             <.move_buttons
@@ -168,6 +174,7 @@
               type="autocomplete"
               search={&Books.search_universes/2}
               fetch={&Books.universe_option/1}
+              create_name={book_universe_form[:universe_name].name}
               container_class="grow"
             />
             <.delete_button

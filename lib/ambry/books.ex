@@ -44,6 +44,7 @@ defmodule Ambry.Books do
   alias Ambry.Books.SeriesFlat
   alias Ambry.Books.Universe
   alias Ambry.Books.UniverseFlat
+  alias Ambry.Ecto.EntityRef
   alias Ambry.Media.Media
   alias Ambry.PubSub
   alias Ambry.Repo
@@ -222,7 +223,7 @@ defmodule Ambry.Books do
   """
   def create_book(attrs \\ %{}, opts \\ []) do
     Repo.transact(fn ->
-      changeset = Book.changeset(%Book{}, attrs, opts)
+      changeset = Book.changeset(%Book{}, resolve_named_rows(attrs), opts)
 
       with {:ok, book} <- Repo.insert(changeset),
            {:ok, _job} <- broadcast_book_created(book) do
@@ -254,7 +255,7 @@ defmodule Ambry.Books do
   def update_book(%Book{} = book, attrs, opts \\ []) do
     Repo.transact(fn ->
       book = Repo.preload(book, @book_direct_assoc_preloads)
-      changeset = Book.changeset(book, attrs, opts)
+      changeset = Book.changeset(book, resolve_named_rows(attrs), opts)
 
       with {:ok, updated_book} <- Repo.update(changeset),
            {:ok, _job} <- broadcast_book_updated(updated_book) do
@@ -262,6 +263,39 @@ defmodule Ambry.Books do
       end
     end)
   end
+
+  # A credit or a membership may *name* what it joins instead of pointing at
+  # it — see `Ambry.Ecto.EntityRef`. The names become records here, inside the
+  # transaction the book is saved in, so a book that fails to save leaves no
+  # author behind it.
+  #
+  # **Not `cast_assoc`, deliberately.** Casting a nested `author` would build
+  # a brand-new author with no person behind it, and Ambry's model is that one
+  # human is one `Person` who holds identities; it also cannot express the
+  # answer that matters most here, which is "the library already has this
+  # human, give them the identity they were missing". That is a lookup with a
+  # decision in it (`People.find_or_create_author/1`), which is what
+  # `put_assoc`'s half of the Ecto guide is for. The rows themselves are still
+  # entirely `cast_assoc`'s: it adds them, drops them and orders them, and
+  # nothing here touches that.
+  defp resolve_named_rows(attrs) when is_map(attrs) do
+    attrs
+    |> EntityRef.resolve(
+      "book_authors",
+      "author_id",
+      "author_name",
+      &Ambry.People.find_or_create_author/1
+    )
+    |> EntityRef.resolve("series_books", "series_id", "series_name", &find_or_create_series/1)
+    |> EntityRef.resolve(
+      "book_universes",
+      "universe_id",
+      "universe_name",
+      &find_or_create_universe/1
+    )
+  end
+
+  defp resolve_named_rows(attrs), do: attrs
 
   defp broadcast_book_updated(%Book{} = book) do
     book
@@ -513,6 +547,34 @@ defmodule Ambry.Books do
     Series
     |> preload(^@series_direct_assoc_preloads)
     |> Repo.get!(id)
+  end
+
+  @doc """
+  The series or universe of a given name, creating it if the library has
+  none.
+
+  A membership row on an edit form may now *name* what it joins rather than
+  pointing at it (`Ambry.Ecto.EntityRef`), and this is what the name resolves
+  through when the form is saved. Matched by search rather than by exact
+  string, the same way a credited person is: the operator typed the name into
+  a picker that was already searching, and a second answer to "is this the
+  same series" is the drift that makes two.
+
+  A series and a universe are a name and nothing else, so there is nothing
+  here to curate afterwards — unlike a person, who arrives needing a face.
+  """
+  def find_or_create_series(name) do
+    case Ambry.Search.find_first(name, Series) do
+      %Series{} = series -> series
+      nil -> with({:ok, series} <- create_series(%{name: name}), do: series)
+    end
+  end
+
+  def find_or_create_universe(name) do
+    case Ambry.Search.find_first(name, Universe) do
+      %Universe{} = universe -> universe
+      nil -> with({:ok, universe} <- create_universe(%{name: name}), do: universe)
+    end
   end
 
   @doc """

@@ -14,14 +14,18 @@ defmodule Ambry.Books.BookUniverse do
     belongs_to :book, Book
     belongs_to :universe, Universe
 
+    # The name typed into the picker when it named a universe the library
+    # doesn't have. Resolved when the form is saved — `Ambry.Ecto.EntityRef`.
+    field :universe_name, :string, virtual: true
+
     timestamps(type: :utc_datetime)
   end
 
   @doc false
   def book_assoc_changeset(book_universe, attrs) do
     book_universe
-    |> cast(attrs, [:universe_id])
-    |> validate_required(:universe_id)
+    |> cast(attrs, [:universe_id, :universe_name])
+    |> Ambry.Ecto.EntityRef.validate_linked_or_named(:universe_id, :universe_name)
     |> unique_constraint([:book_id, :universe_id])
   end
 
