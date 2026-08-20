@@ -301,10 +301,16 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   # stale page or two chips whose different names resolve to one author —
   # "J.R.R. Tolkien" and "John Ronald Reuel Tolkien" naming the same row. The
   # rendering rule is what the operator sees; this is what makes it true.
+  #
+  # `get_field/2` and not `get_assoc/2`: a row removed with the ✕ is still in
+  # the association, marked for replacement, and counting it as credited made
+  # the chip refuse to put back the author it had just let go of — the same
+  # trap `Reordering.row_count/2` exists for. This is the applied list, which
+  # is the list on screen.
   defp already_credited?(socket, assoc, key, id) do
     socket.assigns.form.source
-    |> Changeset.get_assoc(assoc)
-    |> Enum.any?(fn row -> Changeset.get_field(row, key) == id end)
+    |> Changeset.get_field(assoc)
+    |> Enum.any?(&(Map.get(&1, key) == id))
   end
 
   # The author identity a proposed credit names: an existing author of that
