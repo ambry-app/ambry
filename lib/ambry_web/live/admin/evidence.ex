@@ -319,6 +319,15 @@ defmodule AmbryWeb.Admin.Evidence do
     end
   end
 
+  # The record's narrators, which are people. A recording's whole identity
+  # can turn on them — two readings of one book differ by nothing else — and
+  # they were the one field a ticked record could not fill.
+  defp field_values(record, :narrators) do
+    for name <- List.wrap(record["narrators"]) do
+      value(record, String.downcase(name), name, %{"name" => name})
+    end
+  end
+
   defp field_values(record, :series) do
     for %{"name" => name} = series <- List.wrap(record["series"]) do
       number = series["number"]

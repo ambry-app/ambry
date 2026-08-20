@@ -40,6 +40,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     "image" => :image
   }
 
+  # Credits, which are people: accepting one of these makes a row, and may
+  # make the human behind it (`People.find_or_create_narrator/2`).
+  @entity_kinds %{"narrators" => :narrators}
+
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
     {:ok,
@@ -362,6 +366,22 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
+  # A narrator a ticked record names, credited in one click.
+  #
+  # Two readings of one book differ by nothing but their narrators, so this is
+  # the field a record most needs to be able to fill — and it was the only one
+  # the form could not. It was here once and was removed (`17aa2234`) because
+  # clicking a chip the recording already had credited them again; that is
+  # `proposal_chip/1`'s business now, and `already_credited?/4` is the belt.
+  def handle_event("accept-entity", %{"field" => field, "key" => key}, socket) do
+    with {:ok, kind} <- Map.fetch(@entity_kinds, field),
+         %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
+      {:noreply, accept_entity(socket, kind, proposal)}
+    else
+      _missing -> {:noreply, socket}
+    end
+  end
+
   # The recording level asks two ways, like the import form: Audible's catalog
   # directly, and the editions the work-level databases keep — the route to a
   # recording no storefront will admit exists.
@@ -493,6 +513,43 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   # The narrator identity a proposed credit names — an existing narrator of
   # that name, the identity added to an existing person, or a new person.
+  defp accept_entity(socket, :narrators, proposal) do
+    narrator = People.find_or_create_narrator(proposal.params["name"], source: proposal.source)
+
+    if already_credited?(socket, :media_narrators, :narrator_id, narrator.id) do
+      socket
+    else
+      params =
+        append_row(
+          socket.assigns.form,
+          :media_narrators,
+          %{"narrator_id" => to_string(narrator.id)},
+          ~w(narrator_id)
+        )
+
+      socket
+      |> assign_form(Media.change_media(socket.assigns.media, params))
+      |> assign(
+        provenance_hints:
+          ProvenanceHints.for_list(
+            socket.assigns.provenance_hints,
+            "media_narrators",
+            proposal.source
+          )
+      )
+      |> refresh_chips()
+    end
+  end
+
+  # Two chips whose names differ can resolve to one narrator, and a stale page
+  # can send the event whatever is rendered. `get_field/2` is the list on
+  # screen: a row removed with the ✕ is still in the association.
+  defp already_credited?(socket, assoc, key, id) do
+    socket.assigns.form.source
+    |> Changeset.get_field(assoc)
+    |> Enum.any?(&(Map.get(&1, key) == id))
+  end
+
   defp refresh_chips(socket) do
     %{evidence: evidence, form: form} = socket.assigns
 
@@ -523,7 +580,18 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
           image:
             evidence
             |> Evidence.proposals(:image)
-            |> mark_chosen(Map.take(form.params, @image_params))
+            |> mark_chosen(Map.take(form.params, @image_params)),
+          narrators:
+            evidence
+            |> Evidence.proposals(:narrators)
+            |> mark_present(
+              current_labels(
+                form.source,
+                :media_narrators,
+                :narrator_id,
+                &People.narrator_option/1
+              )
+            )
         }
       else
         %{}

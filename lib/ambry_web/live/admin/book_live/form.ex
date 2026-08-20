@@ -22,7 +22,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
-  alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
@@ -244,13 +243,14 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   defp accept_entity(socket, :authors, proposal) do
-    author_id = resolve_author(proposal.params["name"], proposal.source)
+    author = People.find_or_create_author(proposal.params["name"], source: proposal.source)
+    author_id = author.id
 
     if already_credited?(socket, :book_authors, :author_id, author_id) do
       socket
     else
       socket
-      |> append_row(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
+      |> assign_rows(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
       |> assign(
         provenance_hints:
           ProvenanceHints.for_list(
@@ -276,7 +276,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       socket
     else
       socket
-      |> append_row(:series_books, row, ~w(series_id book_number))
+      |> assign_rows(:series_books, row, ~w(series_id book_number))
       |> assign(
         provenance_hints:
           ProvenanceHints.for_list(
@@ -300,39 +300,16 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   # the chip refuse to put back the author it had just let go of — the same
   # trap `Reordering.row_count/2` exists for. This is the applied list, which
   # is the list on screen.
+  # `Curation.append_row/4` answers in params; this is the form putting them on.
+  defp assign_rows(socket, assoc, new_row, keep_fields) do
+    params = append_row(socket.assigns.form, assoc, new_row, keep_fields)
+    assign_form(socket, Books.change_book(socket.assigns.book, params))
+  end
+
   defp already_credited?(socket, assoc, key, id) do
     socket.assigns.form.source
     |> Changeset.get_field(assoc)
     |> Enum.any?(&(Map.get(&1, key) == id))
-  end
-
-  # The author identity a proposed credit names: an existing author of that
-  # name, the author identity added to an existing person of that name, or a
-  # brand-new person — created with provider provenance on their name.
-  defp resolve_author(name, source) do
-    case Ambry.Search.find_first(name, Person) do
-      nil ->
-        {:ok, %{author_people: [%{author: author}]}} =
-          People.create_person(
-            %{name: name, author_people: [%{author: %{name: name}}]},
-            provenance: %{"name" => source}
-          )
-
-        author.id
-
-      %Person{authors: []} = person ->
-        {:ok, %{author_people: [%{author: author}]}} =
-          People.update_person(person, %{author_people: [%{author: %{name: person.name}}]})
-
-        author.id
-
-      %Person{authors: authors} ->
-        credited =
-          Enum.find(authors, &(String.downcase(&1.name) == String.downcase(name))) ||
-            List.first(authors)
-
-        credited.id
-    end
   end
 
   defp resolve_series(name) do
@@ -345,37 +322,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
         series.id
     end
   end
-
-  # Appends one row to a has_many by rebuilding the full row list from the
-  # changeset — existing rows keep their ids (and their place), the new one
-  # goes last. The sort/drop params are dropped because they describe the
-  # params they arrived with, not the rebuilt list.
-  defp append_row(socket, assoc, new_row, keep_fields) do
-    changeset = socket.assigns.form.source
-
-    rows =
-      changeset
-      |> Changeset.get_field(assoc)
-      |> Enum.map(fn row ->
-        base = if row.id, do: %{"id" => to_string(row.id)}, else: %{}
-
-        Enum.reduce(keep_fields, base, fn field, acc ->
-          case Map.get(row, String.to_existing_atom(field)) do
-            nil -> acc
-            value -> Map.put(acc, field, to_string(value))
-          end
-        end)
-      end)
-
-    params =
-      socket.assigns.form.params
-      |> Map.drop(["#{assoc}_sort", "#{assoc}_drop"])
-      |> Map.put(to_string(assoc), rows ++ [new_row])
-
-    assign_form(socket, Books.change_book(socket.assigns.book, params))
-  end
-
-  # ── what the ticked evidence proposes, marked against the form ─────────
 
   defp refresh_chips(socket) do
     %{evidence: evidence, form: form} = socket.assigns
@@ -416,21 +362,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp reverts(%{assigns: %{form: form, book: book}}),
     do: Revert.offers(form, book, [:title, :published])
-
-  # Which proposals the record already holds, by name, so a chip for one of
-  # them reads as present rather than as an offer. Asked of the context rather
-  # than found in a preloaded list of every author and series in the library —
-  # the same lookup `EntityResolver`'s `fetch` makes, for the same reason.
-  defp current_labels(changeset, assoc, key, fetch) do
-    changeset
-    |> Changeset.get_field(assoc)
-    |> Enum.map(fn row -> row |> Map.get(key) |> fetch.() |> option_label() end)
-    |> Enum.reject(&is_nil/1)
-  end
-
-  defp option_label(%{label: label}), do: label
-  defp option_label({label, _id}), do: label
-  defp option_label(nil), do: nil
 
   defp save_book(socket, :edit, book_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]

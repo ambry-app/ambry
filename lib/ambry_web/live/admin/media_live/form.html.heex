@@ -142,6 +142,20 @@
             </div>
           </.inputs_for>
 
+          <%!-- The narrators a ticked record names. Two readings of one book
+              differ by nothing else, so this is the field a record most needs
+              to fill; `adds_rows` is what stops a chip crediting the same
+              person twice (design language §6). --%>
+          <:proposals>
+            <.proposal_row
+              id="proposals-narrators"
+              field="narrators"
+              event="accept-entity"
+              adds_rows
+              proposals={@chips[:narrators] || []}
+            />
+          </:proposals>
+
           <:add>
             <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
             <.delete_input field={@form[:media_narrators_drop]} />

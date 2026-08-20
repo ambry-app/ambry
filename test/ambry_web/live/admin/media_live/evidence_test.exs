@@ -11,6 +11,8 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
 
   alias Ambry.Media
   alias Ambry.Metadata.Provider
+  alias Ambry.People.Person
+  alias Ambry.Repo
 
   setup :register_and_log_in_admin_user
 
@@ -177,17 +179,62 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
                has_element?(view, "#proposals-media_published button")
     end
 
-    # Narrators are credited people, and a chip that resolves a name silently
-    # created one when it matched nothing. This form does not create people.
-    test "do not propose narrators", %{conn: conn} do
+    # This used to assert the opposite — "this form does not create people" —
+    # which was a fence around a bug rather than a rule: clicking a chip the
+    # recording already had credited them again. The operator took the fence
+    # down on 2026-08-20 (`EDIT_PARITY_PLAN.md`): an edit form may credit a
+    # narrator who is new to the library, which is what the import form has
+    # always done. Two readings of one book differ by nothing but their
+    # narrators, so this is the field a record most needs to be able to fill.
+    test "propose narrators, and crediting one makes the person", %{conn: conn} do
       media = tagged_media()
       patch_search()
 
       {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
       search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
 
-      refute has_element?(view, "#proposals-narrators")
+      assert has_element?(view, "#proposals-narrators button", "Michael Kramer")
       assert Ambry.Repo.aggregate(Ambry.People.Person, :count) == 0
+
+      view |> element("#proposals-narrators button", "Michael Kramer") |> render_click()
+
+      assert [%Person{name: "Michael Kramer"}] = Repo.all(Person)
+
+      # the chip reports the credit now rather than offering it a second time
+      refute has_element?(view, "#proposals-narrators button", "Michael Kramer")
+
+      view |> form("#media-form") |> render_submit()
+
+      assert [%{name: "Michael Kramer"}] =
+               media.id
+               |> Media.get_media!()
+               |> Repo.preload(:narrators)
+               |> Map.fetch!(:narrators)
+    end
+
+    test "a narrator the recording already has is not offered again", %{conn: conn} do
+      person = insert(:person, name: "Michael Kramer")
+      narrator = insert(:narrator, name: "Michael Kramer", person: person)
+      media = tagged_media()
+
+      {:ok, media} =
+        Media.update_media(media, %{
+          "media_narrators" => %{
+            "0" => %{"narrator_id" => to_string(narrator.id), "position" => "0"}
+          }
+        })
+
+      patch_search()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+      search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
+
+      refute has_element?(view, "#proposals-narrators button", "Michael Kramer")
+      assert has_element?(view, "#proposals-narrators span", "Michael Kramer")
+
+      # and the belt: a stale page sending the event anyway credits nobody twice
+      render_click(view, "accept-entity", %{"field" => "narrators", "key" => "michael kramer"})
+      assert Repo.aggregate(Ambry.Media.MediaNarrator, :count) == 1
     end
 
     test "accepting one fills the field and records the file as the source", %{conn: conn} do

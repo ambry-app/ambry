@@ -348,6 +348,56 @@ defmodule AmbryWeb.Admin.Curation do
   end
 
   @doc """
+  The names a record's rows already carry, for `mark_present/2`.
+
+  Asked of the context row by row rather than found in a preloaded list of
+  every author in the library — the same lookup `EntityResolver`'s `fetch`
+  makes, for the same reason.
+
+  `get_field/2` and not `get_assoc/2`: a row removed with the ✕ is still in
+  the association, marked for replacement, and counting it would keep a chip
+  reporting a credit the operator just took off.
+  """
+  def current_labels(changeset, assoc, key, fetch) do
+    changeset
+    |> Ecto.Changeset.get_field(assoc)
+    |> Enum.map(fn row -> row |> Map.get(key) |> fetch.() |> option_label() end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp option_label(%{label: label}), do: label
+  defp option_label({label, _id}), do: label
+  defp option_label(nil), do: nil
+
+  @doc """
+  The form's params with one row appended to a list.
+
+  Rebuilds the whole row list from the changeset — existing rows keep their
+  ids and their place, the new one goes last — and drops the sort and drop
+  params, which describe the params they arrived with rather than the list
+  being rebuilt. Returns params; the caller owns the changeset.
+  """
+  def append_row(form, assoc, new_row, keep_fields) do
+    rows =
+      form.source
+      |> Ecto.Changeset.get_field(assoc)
+      |> Enum.map(fn row ->
+        base = if row.id, do: %{"id" => to_string(row.id)}, else: %{}
+
+        Enum.reduce(keep_fields, base, fn field, acc ->
+          case Map.get(row, String.to_existing_atom(field)) do
+            nil -> acc
+            value -> Map.put(acc, field, to_string(value))
+          end
+        end)
+      end)
+
+    form.params
+    |> Map.drop(["#{assoc}_sort", "#{assoc}_drop"])
+    |> Map.put(to_string(assoc), rows ++ [new_row])
+  end
+
+  @doc """
   Marks entity proposals (authors, narrators, series) chosen when a current
   row already carries that entity's name.
   """
