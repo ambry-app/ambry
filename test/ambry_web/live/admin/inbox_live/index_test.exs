@@ -483,6 +483,16 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   # Every row the inbox does work on gets covered, for the same reason the
   # form does: a job is about to change it, and a row that looks readable but
   # is about to be rewritten invites a click that goes nowhere.
+  describe "where a row came from" do
+    test "the row names the watched folder", %{conn: conn} do
+      item = Inbox.get_item!(probed_item().id)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox")
+
+      assert html =~ item.source.name
+    end
+  end
+
   describe "rows a job is working on" do
     test "a queued row is covered and inert", %{conn: conn} do
       # discovery enqueues the match job, so a fresh item has one

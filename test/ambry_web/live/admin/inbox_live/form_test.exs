@@ -2300,6 +2300,16 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       refute html =~ "./"
     end
 
+    # The queue row has carried the watched folder since the queue could hold
+    # more than one; the form is where the paths are actually read.
+    test "the source it was found in is on the form, in the row's own tag", %{conn: conn} do
+      item = Inbox.get_item!(probed_item().id)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ item.source.name
+    end
+
     test "the path stays when the files sit deeper than the item", %{conn: conn} do
       root = watched_root()
       disc = Path.join(root, "Some Release/Disc 1")

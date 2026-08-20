@@ -1204,6 +1204,29 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
+  attr :source, :any, required: true, doc: "the `Ambry.Library.Source` an item was found in"
+  attr :class, :any, default: nil
+
+  @doc """
+  Which watched folder an inbox item came from.
+
+  One tint for every source: they are told apart by name, and colouring them
+  apart would invent a taxonomy the model doesn't have. What import will *do*
+  with the files is deliberately not here — that is a per-import decision,
+  stated in full on the item's own destination card, and no item reaches the
+  library without passing through it.
+
+  Two surfaces ask this, so there is one answer: the queue row, and the
+  import form, where it was missing.
+  """
+  def source_tag(assigns) do
+    ~H"""
+    <span class={["bg-blue-400/15 rounded-sm px-1 py-0.5 text-xs text-blue-300", @class]}>
+      {@source.name}
+    </span>
+    """
+  end
+
   attr :files, :list, required: true
   attr :label, :string, default: nil, doc: "the card names itself — rendered inside, on the rail"
   attr :class, :any, default: nil

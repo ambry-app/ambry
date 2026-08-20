@@ -25,7 +25,14 @@
         <div class="space-y-1 rounded-lg bg-zinc-900 p-4">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0 pl-3">
-              <p class="truncate font-bold">{@page_title}</p>
+              <%!-- Which watched folder this was found in, in the queue row's
+                  own tag. The row has carried it since the queue could hold
+                  more than one source; the form, which is where an item's
+                  paths are actually read, had lost it. --%>
+              <div class="flex min-w-0 items-baseline gap-2">
+                <p class="truncate font-bold">{@page_title}</p>
+                <.source_tag source={@item.source} class="flex-none" />
+              </div>
               <%!-- Dropped when the file list below is about to print the
                   same string: a release folder and its own files, or a loose
                   file under the folder the list names first. --%>

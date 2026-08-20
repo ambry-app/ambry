@@ -247,9 +247,19 @@ defmodule Ambry.Inbox do
     end)
   end
 
-  def get_item!(id), do: Repo.get!(InboxItem, id)
+  @doc """
+  One item, carrying the source its `path` and `files` are relative to.
 
-  def fetch_item(id), do: Repo.fetch(InboxItem, id)
+  Preloaded here rather than by each caller: every one of them either
+  resolves a path or renders where the item came from, and an item without
+  its source is a struct whose two most-used columns can't be read. The write
+  path has said this for as long as it has taken a row lock (`with_item/2`).
+  """
+  def get_item!(id), do: InboxItem |> Repo.get!(id) |> Repo.preload(:source)
+
+  def fetch_item(id) do
+    with {:ok, item} <- Repo.fetch(InboxItem, id), do: {:ok, Repo.preload(item, :source)}
+  end
 
   @no_counts %{created: 0, updated: 0, skipped: 0, unreachable: 0}
 
