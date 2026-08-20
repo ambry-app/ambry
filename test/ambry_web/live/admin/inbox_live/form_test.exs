@@ -2265,6 +2265,58 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  describe "combining items that are one audiobook" do
+    # The operator's real case, and the mirror of the split above: three
+    # subfolders holding one audiobook, named so that nothing but a human
+    # could tell them from three books. The walk offers three items; the
+    # correction has to be reachable from any one of them.
+    test "the combine button makes one item of the folder", %{conn: conn} do
+      root = watched_root()
+      book = Path.join(root, "Gwendy's Button Box by Stephen King & Richard Chizmar")
+
+      for part <- 1..3, track <- 1..2 do
+        dir = Path.join(book, "Gwendy's Button Box #{part}")
+        File.mkdir_p!(dir)
+        File.cp!(tagged_fixture(true, false, nil), Path.join(dir, "Track0#{track}.mp3"))
+      end
+
+      {:ok, _counts} = discover(root)
+      {items, _more} = Inbox.list_items(filter: "Gwendy")
+      assert length(items) == 3
+
+      item = Enum.find(items, &(InboxItem.name(&1) == "Gwendy's Button Box 1"))
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "Only part of one?"
+      assert html =~ "Combine 3 items into one"
+
+      view |> element("button[data-role='combine']") |> render_click()
+      {path, _flash} = assert_redirect(view)
+
+      {[combined], _more} = Inbox.list_items(filter: "Gwendy")
+      assert path == ~p"/admin/inbox/#{combined}"
+      assert InboxItem.name(combined) == "Gwendy's Button Box by Stephen King & Richard Chizmar"
+      assert length(combined.files) == 6
+
+      # and the folder now holds one item, so there is nothing left to offer
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{combined}")
+      refute html =~ "Only part of one?"
+    end
+
+    # Every item at the top of a watched folder shares the watched folder,
+    # and an item there would own everything that ever lands in it.
+    test "a release of its own is offered nothing", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute html =~ "Only part of one?"
+    end
+  end
+
   describe "destination" do
     test "is two pickers and no prose", %{conn: conn} do
       item = probed_item(policy: :symlink) |> settle()

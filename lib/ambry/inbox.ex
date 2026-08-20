@@ -44,14 +44,17 @@ defmodule Ambry.Inbox do
     * create items from files nothing owns,
     * give an unowned file to the item that owns the folder above it,
     * drop a file that is gone from its owner (which marks that item's draft
-      stale, since the draft describes files that moved under it).
+      stale, since the draft describes files that moved under it), where
+      "gone" means no candidate in the whole walk claimed it.
 
   It may never move a file from one item to another, and it never touches an
-  imported item at all. That is what makes a split durable without a marker:
-  once the operator says five folders are five releases, the files are owned,
-  and re-walking the folder that holds them has nothing to say. It is a
-  property of the construction rather than a rule the code has to remember —
-  `record_candidate/3` groups by owner before it looks at anything else.
+  imported item at all. That is what makes a split *and* a combine durable
+  without a marker: once the operator says five folders are five releases, or
+  that three are one, the files are owned, and re-walking the folder that
+  holds them has nothing to say. It is a property of the construction rather
+  than a rule the code has to remember — `record_candidate/4` groups by owner
+  before it looks at anything else, and settles what each owner holds only
+  once the walk is over.
   """
 
   use Boundary,
@@ -306,10 +309,14 @@ defmodule Ambry.Inbox do
     if File.dir?(source.path) do
       ledger = ledger()
 
-      results =
+      # Two passes, because an owner can span several candidates and only the
+      # whole walk knows what it still holds — see `record_candidate/4`.
+      {creations, claims} =
         source.path
         |> candidates()
-        |> Enum.flat_map(&List.wrap(record_candidate(&1, ledger, source)))
+        |> Enum.map_reduce(%{}, &record_candidate(&1, &2, ledger, source))
+
+      results = List.flatten(creations) ++ Enum.map(claims, &refresh_claim/1)
 
       {:ok,
        %{
@@ -1229,20 +1236,166 @@ defmodule Ambry.Inbox do
   def split_item(%InboxItem{} = item, by) do
     case split_groups(item, by) do
       [_one] -> {:error, :not_divisible}
-      groups -> replace_with_children(item, groups)
+      groups -> regroup([item], groups)
     end
   end
 
-  defp replace_with_children(%InboxItem{} = item, groups) do
+  @doc """
+  The other items this one would be combined with, and the folder they'd
+  become — or nil when there is nothing to offer.
+
+  The offer is *the folder that holds this item*, and everything the queue
+  still has waiting under it. That is the shape the mistake comes in: a
+  release whose parts sit in subfolders the walk couldn't read as parts, so
+  it handed back one item per subfolder.
+
+  Nothing is offered for an item at the top of its source. Every item there
+  shares the source root, and "combine with the other 283 things you
+  downloaded" is not a question worth asking.
+  """
+  def combine_group(%InboxItem{status: :pending} = item) do
+    with folder when not is_nil(folder) <- parent_folder(item),
+         [_one, _two | _rest] = items <- items_under(folder, item.source_id),
+         target when not is_nil(target) <- common_folder(items) do
+      %{folder: target, items: items}
+    else
+      _nothing_to_offer -> nil
+    end
+  end
+
+  def combine_group(%InboxItem{}), do: nil
+
+  @doc """
+  Combines this item with the rest of its folder (`combine_group/1`) into one.
+  """
+  def combine_item(%InboxItem{} = item) do
+    case combine_group(item) do
+      nil -> {:error, :nothing_to_combine}
+      %{items: items} -> combine_items(items)
+    end
+  end
+
+  @doc """
+  Merges several items into a single one for the folder that holds them.
+
+  The opposite mistake to a split, and it comes from the same place. The walk
+  decides where one release ends by what a folder holds, and a folder whose
+  subfolders don't *say* they are parts reads as a container of releases —
+  deliberately, because "Gwendy's Button Box 2" is its own book far more
+  often than it is disc two of something. When it isn't, the queue has three
+  items that are one audiobook and no way to say so: import would create
+  three audiobooks, and splitting further only makes it worse.
+
+  So the operator says these are one, and they become one item at the folder
+  they share, holding every file in the order a single candidate for that
+  folder would have found them (`audio_files/1`'s order, so a rescan agrees).
+  The drafts of the parts are not merged into it. Each described a different
+  audiobook — its own title, its own chapters, its own matches — and half of
+  three wrong answers is not an answer; the combined item is probed and
+  matched fresh, as one recording.
+
+  Refused when any of them is imported (the item is the record of what was
+  imported), below two items, when they don't all come from one source, and
+  when the folder they share is the source root itself: an item there would
+  own every file that ever lands in the watched folder.
+  """
+  def combine_items(items)
+
+  def combine_items(items) when length(items) < 2, do: {:error, :not_multiple}
+
+  def combine_items([%InboxItem{} | _rest] = items) do
+    cond do
+      Enum.any?(items, &(&1.status == :imported)) -> {:error, :already_imported}
+      not one_source?(items) -> {:error, :different_sources}
+      folder = common_folder(items) -> combine_under(folder, items)
+      true -> {:error, :no_shared_folder}
+    end
+  end
+
+  defp one_source?(items), do: items |> Enum.map(& &1.source_id) |> Enum.uniq() |> length() == 1
+
+  defp combine_under(folder, items) do
+    if occupied?(folder, items) do
+      {:error, :path_taken}
+    else
+      files = items |> Enum.flat_map(& &1.files) |> Enum.sort(NaturalOrder)
+
+      with {:ok, [combined]} <- regroup(items, [{folder, files}]), do: {:ok, combined}
+    end
+  end
+
+  # An item at the path the combined one would take, that isn't one of the
+  # items being replaced. `path` is unique across the whole table, so this
+  # asks the same question the constraint would, early enough to refuse with
+  # a reason rather than a constraint error.
+  defp occupied?(folder, items) do
+    ids = Enum.map(items, & &1.id)
+
+    InboxItem
+    |> where([i], i.path == ^folder and i.id not in ^ids)
+    |> Repo.exists?()
+  end
+
+  # The items still waiting under a folder, including one sitting at the
+  # folder itself. `starts_with` rather than a LIKE: release folders are full
+  # of `%` and `_`, and a pattern would read them as wildcards.
+  defp items_under(folder, source_id) do
+    InboxItem
+    |> where([i], i.source_id == ^source_id and i.status == :pending)
+    |> where([i], i.path == ^folder or fragment("starts_with(?, ?)", i.path, ^(folder <> "/")))
+    |> order_by([i], i.path)
+    |> Repo.all()
+    |> Repo.preload(:source)
+  end
+
+  defp parent_folder(%InboxItem{path: path}) do
+    case Path.dirname(path) do
+      "." -> nil
+      folder -> folder
+    end
+  end
+
+  # The deepest folder holding all of them, or nil when that is the source
+  # root. Read off the paths rather than their parents, so that an item
+  # sitting *at* the folder counts as being in it: two or more distinct paths
+  # can only share their common folder as a prefix, and a path that is an
+  # ancestor of another is that folder.
+  defp common_folder(items) do
+    items
+    |> Enum.map(&Path.split(&1.path))
+    |> Enum.reduce(&common_prefix/2)
+    |> case do
+      [] -> nil
+      segments -> Path.join(segments)
+    end
+  end
+
+  defp common_prefix(a, b) do
+    a |> Enum.zip(b) |> Enum.take_while(fn {x, y} -> x == y end) |> Enum.map(&elem(&1, 0))
+  end
+
+  # One grouping replaced by another: the items that were wrong go, the items
+  # that are right arrive, and each of the new ones is read from scratch.
+  # Both directions are the same move, which is why they share this.
+  defp regroup(items, groups) do
     Repo.transact(fn ->
-      with {:ok, _parent} <- Repo.delete(item),
-           {:ok, children} <- insert_children(item, groups) do
+      with :ok <- delete_items(items),
+           {:ok, children} <- insert_children(hd(items), groups) do
         # In the transaction on purpose: a job for a child that didn't get
         # created must not exist either.
         Enum.each(children, fn child -> {:ok, _job} = probe_item_async(child) end)
         {:ok, children}
       end
     end)
+  end
+
+  defp delete_items(items) do
+    ids = Enum.map(items, & &1.id)
+    {deleted, _returning} = InboxItem |> where([i], i.id in ^ids) |> Repo.delete_all()
+
+    # Someone else got there first, and the grouping was decided about items
+    # that are no longer what the queue holds.
+    if deleted == length(ids), do: :ok, else: {:error, :stale}
   end
 
   @doc """
@@ -1436,14 +1589,36 @@ defmodule Ambry.Inbox do
   # release is the work. The provenance is still read, one step further on:
   # it pre-fills the import form's replace decision (`Ambry.Media.imported_from/1`),
   # demoted from a filter to a suggestion the operator confirms.
-  defp record_candidate({path, files}, ledger, source) do
-    files
-    |> Enum.group_by(&owner_of(&1, ledger))
-    |> Enum.flat_map(fn
-      {nil, orphans} -> List.wrap(adopt(path, files, orphans, source))
-      {%InboxItem{} = item, theirs} -> [refresh_owner(item, theirs)]
-    end)
+  #
+  # **What an owner still holds is answered by the whole walk, not by one
+  # candidate**, which is what makes a *combined* item durable. The walk has
+  # no idea that three subfolders are one release — that is precisely the
+  # judgement the operator made — so it offers them as three candidates, and
+  # refreshing the item from each in turn would leave it holding whichever
+  # ran last. So a candidate only ever *claims* files for their owner here,
+  # and the claims are settled once the source has been walked: an item's new
+  # file list is everything claimed for it, and a file is gone only when
+  # nothing anywhere claimed it.
+  defp record_candidate({path, files}, claims, ledger, source) do
+    by_owner = Enum.group_by(files, &owner_of(&1, ledger))
+    orphans = Map.get(by_owner, nil, [])
+
+    creations = if orphans == [], do: [], else: List.wrap(adopt(path, files, orphans, source))
+
+    claims =
+      by_owner
+      |> Map.delete(nil)
+      |> Enum.reduce(claims, fn {%InboxItem{} = item, theirs}, claims ->
+        # Appended in walk order, which is the order a single candidate for
+        # the whole folder would have produced: `audio_files/1` sorts the
+        # subtree, and the walk visits its folders in that same order.
+        Map.update(claims, item.id, {item, theirs}, fn {item, held} -> {item, held ++ theirs} end)
+      end)
+
+    {creations, claims}
   end
+
+  defp refresh_claim({_id, {item, files}}), do: refresh_owner(item, files)
 
   # A file's owner, in the order that decides it: the item that already lists
   # it, then the nearest item *above* it — which is how a file that appears

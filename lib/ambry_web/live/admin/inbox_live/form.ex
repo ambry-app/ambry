@@ -518,6 +518,22 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
+  # Recomputed here rather than taken from the assigns: the queue may have
+  # moved since this form was rendered, and the items being combined are the
+  # ones waiting under that folder *now*.
+  def handle_event("combine", _params, socket) do
+    case Inbox.combine_item(socket.assigns.item) do
+      {:ok, combined} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Combined into one item. Reading the files now.")
+         |> push_navigate(to: ~p"/admin/inbox/#{combined}")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Couldn't combine these items.")}
+    end
+  end
+
   def handle_event("add-credit", %{"section" => s}, socket) do
     {:noreply, edit(socket, &Draft.Edit.add_credit(&1, atom(s)))}
   end
@@ -1029,6 +1045,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       # split controls. Both grains exist on a GraphicAudio set; a folder of
       # three files has only the finer one.
       grains: Inbox.split_grains(item),
+      # The other half of that question, for when the walk went wrong the
+      # other way: the items waiting under the same folder as this one, which
+      # may be the parts of one audiobook.
+      combine: Inbox.combine_group(item),
       # Matching retries with a backoff measured in minutes, so an item can be
       # legitimately mid-work while the form looks like nothing was found.
       job: job,

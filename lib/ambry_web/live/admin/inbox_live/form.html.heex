@@ -127,6 +127,29 @@
             </button>
           </div>
         </div>
+
+        <%!-- The same question from the other side, and the folder answers
+            it: a release whose parts sit in subfolders that don't say they
+            are parts arrives as one item per subfolder, because "Gwendy's
+            Button Box 2" is its own book far more often than it is disc two
+            of something. When it isn't, this is the way to say so. --%>
+        <div :if={@combine && !@read_only} class="space-y-2 pt-2">
+          <.label class="pl-3">Only part of one?</.label>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              phx-click="combine"
+              data-confirm={"Combine these #{length(@combine.items)} items into one, at \"#{Path.basename(@combine.folder)}\"? They become a single inbox item, scanned fresh, and the drafts of the parts are thrown away."}
+              data-role="combine"
+              class={action_classes()}
+            >
+              Combine {length(@combine.items)} items into one
+            </button>
+
+            <p class="font-mono min-w-0 truncate text-xs text-zinc-400">{@combine.folder}</p>
+          </div>
+        </div>
       </section>
 
       <%!-- Once imported, the draft is the record of what was imported — the
