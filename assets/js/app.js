@@ -33,6 +33,7 @@ import { ListScrollResetHook } from "./hooks/list-scroll-reset"
 import { MainTainAttrsHook } from "./hooks/maintain-attrs"
 import { PasteImageHook } from "./hooks/paste-image"
 import { ReadMoreHook } from "./hooks/read-more"
+import { ReorderRowsHook } from "./hooks/reorder-rows"
 import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
 import { ScrollMatchHook } from "./hooks/scroll-match"
 import { SearchBoxHook } from "./hooks/search-box"
@@ -58,6 +59,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "scroll-match": ScrollMatchHook,
     "paste-image": PasteImageHook,
     "sticky-footer": StickyFooterHook,
+    "reorder-rows": ReorderRowsHook,
     "auto-dismiss": AutoDismissHook,
   },
 })

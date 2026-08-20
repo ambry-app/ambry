@@ -1021,6 +1021,13 @@ defmodule AmbryWeb.Admin.Components do
 
   The button at each end of the list is rendered disabled rather than hidden,
   so the controls don't shift horizontally as rows move past them.
+
+  **These send no event.** They are read by the `reorder-rows` hook on the
+  form, which swaps two hidden inputs and dispatches a change — the same
+  arrangement `inputs_for/1` documents for adding and removing rows, where the
+  client edits the form and the server only casts what it is posted. A form
+  holding one of these therefore needs `phx-hook="reorder-rows"`; the count
+  comes from `AmbryWeb.Admin.Reordering.row_count/2`.
   """
   attr :field, :atom, required: true, doc: "the association field being reordered"
   attr :index, :integer, required: true
@@ -1038,10 +1045,9 @@ defmodule AmbryWeb.Admin.Components do
     <div class={["flex h-10 flex-none flex-col justify-center", @class]} data-role="move-buttons">
       <button
         type="button"
-        phx-click="move"
-        phx-value-field={@field}
-        phx-value-index={@index}
-        phx-value-direction="up"
+        data-move="up"
+        data-move-field={@field}
+        data-move-index={@index}
         disabled={@index == 0}
         title="Move up"
         data-role="move-up"
@@ -1054,10 +1060,9 @@ defmodule AmbryWeb.Admin.Components do
       </button>
       <button
         type="button"
-        phx-click="move"
-        phx-value-field={@field}
-        phx-value-index={@index}
-        phx-value-direction="down"
+        data-move="down"
+        data-move-field={@field}
+        data-move-index={@index}
         disabled={@index == @count - 1}
         title="Move down"
         data-role="move-down"

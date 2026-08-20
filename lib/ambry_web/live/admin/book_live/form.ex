@@ -120,13 +120,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     end
   end
 
-  def handle_event("move", params, socket) do
-    changeset = socket.assigns.form.source
-    book_params = Reordering.move(changeset, socket.assigns.form.params, params)
-
-    {:noreply, assign_form(socket, Books.change_book(socket.assigns.book, book_params))}
-  end
-
   # ── the evidence panel ─────────────────────────────────────────────────
 
   def handle_event("research", params, socket) do

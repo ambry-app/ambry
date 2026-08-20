@@ -11,7 +11,14 @@
       retrying={@retrying}
     />
 
-    <.simple_form id="book-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+    <.simple_form
+      id="book-form"
+      for={@form}
+      phx-hook="reorder-rows"
+      phx-change="validate"
+      phx-submit="submit"
+      autocomplete="off"
+    >
       <%!-- What the book is called and when it came out — the two facts that
           identify the work, in one block. --%>
       <.field_group>
