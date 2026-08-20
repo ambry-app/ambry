@@ -269,15 +269,18 @@ defmodule Ambry.Books do
   # transaction the book is saved in, so a book that fails to save leaves no
   # author behind it.
   #
-  # **Not `cast_assoc`, deliberately.** Casting a nested `author` would build
-  # a brand-new author with no person behind it, and Ambry's model is that one
-  # human is one `Person` who holds identities; it also cannot express the
-  # answer that matters most here, which is "the library already has this
-  # human, give them the identity they were missing". That is a lookup with a
-  # decision in it (`People.find_or_create_author/1`), which is what
-  # `put_assoc`'s half of the Ecto guide is for. The rows themselves are still
-  # entirely `cast_assoc`'s: it adds them, drops them and orders them, and
-  # nothing here touches that.
+  # **This turns a name into an id and stops.** A row that points at something
+  # already — `book_authors[0][author_id]`, which is what picking from the box
+  # posts — is left exactly as it is, and `cast_assoc` links it the way it
+  # always has. Adding, dropping, ordering and linking the rows are all still
+  # its work; nothing here touches any of that.
+  #
+  # A *name* is the one thing a cast cannot answer. Casting a nested `author`
+  # would build a brand-new author with no person behind it, when Ambry's
+  # model is that one human is one `Person` holding identities — and it cannot
+  # express the answer that matters most, "the library already has this human,
+  # give them the identity they were missing". That is a lookup with a
+  # decision in it, and it lives in `People.find_or_create_author/1`.
   defp resolve_named_rows(attrs) when is_map(attrs) do
     attrs
     |> EntityRef.resolve(

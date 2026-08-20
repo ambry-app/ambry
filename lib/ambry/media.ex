@@ -615,12 +615,12 @@ defmodule Ambry.Media do
   # the transaction the recording is saved in, so a save that fails leaves
   # nobody behind.
   #
-  # **Not `cast_assoc`, deliberately**: casting a nested `narrator` would
-  # build a narrator with no person behind them, and one human is one
-  # `Person` who holds identities. The answer that matters most — "the
-  # library already has this human, give them the identity they were
-  # missing" — is a lookup with a decision in it, which no cast can express.
-  # The rows are still `cast_assoc`'s: it adds, drops and orders them.
+  # **This turns a name into an id and stops.** A row that already points at a
+  # narrator is left alone and `cast_assoc` links it, as ever; only a name
+  # needs answering, because a cast cannot look one up. Casting a nested
+  # `narrator` would build one with no person behind them, when one human is
+  # one `Person` holding identities, and it could never say "the library
+  # already has this human, give them the identity they were missing".
   defp resolve_named_rows(attrs) do
     EntityRef.resolve(
       attrs,
