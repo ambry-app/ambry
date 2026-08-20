@@ -52,8 +52,37 @@ defmodule AmbryWeb.Admin.Reordering do
 
   def move(%Ecto.Changeset{}, params, _params), do: params
 
+  @doc """
+  How many rows of an ordered list the form is actually rendering.
+
+  Not `length(get_assoc(changeset, assoc))`, which is the trap this exists to
+  close: a row removed with the ✕ is still *in* the association, marked for
+  replacement, and `inputs_for` skips it while a plain count does not. So the
+  form believed there was one more row than the operator could see — the last
+  visible row kept its "move down" arrow, pointing at a row that wasn't there,
+  and a single remaining row still wore arrows at all.
+
+  Every call site asks the same question ("how many rows are on screen") for
+  three purposes: whether to offer the arrows, what the last index is, and
+  whether to say the list is empty.
+  """
+  def row_count(%Ecto.Changeset{} = changeset, association) do
+    changeset
+    |> get_assoc(association)
+    |> Enum.count(&rendered?/1)
+  end
+
+  # A child marked for replacement or deletion is gone from the form; the
+  # struct form of a row (an unchanged association) is always rendered.
+  defp rendered?(%Ecto.Changeset{action: action}), do: action not in [:replace, :delete]
+  defp rendered?(_struct), do: true
+
   defp swap(changeset, params, association, field, from, to) do
-    entries = entries(changeset, params, field, get_assoc(changeset, association))
+    {params, entries} =
+      changeset
+      |> entries(params, field, get_assoc(changeset, association))
+      |> settle_drops(params, field)
+
     keys = entries |> Map.keys() |> Enum.sort_by(&String.to_integer/1)
 
     with from_key when not is_nil(from_key) <- Enum.at(keys, from),
@@ -86,6 +115,60 @@ defmodule AmbryWeb.Admin.Reordering do
     |> Enum.reduce(entries, fn {key, index}, entries ->
       Map.update!(entries, key, &Map.put(&1, "position", to_string(index)))
     end)
+  end
+
+  # **A removed row is really removed before anything is moved.**
+  #
+  # A `_drop` param names a *slot*, and a move swaps what is *in* two slots,
+  # so the two indexed the same list by different things: delete the second
+  # author and move the first one down, and the drop then landed on the row
+  # that had just moved into slot two. The deleted author came back and the
+  # kept one was destroyed, on save, silently. The middle of a list was worse
+  # — a move across a dropped slot swapped a live row into it.
+  #
+  # Dropping an entry from the params says exactly what the drop param says:
+  # `cast_assoc` deletes an existing child that the incoming list no longer
+  # mentions, which is the mechanism `drop_param` is built on. So the removal
+  # is applied here and the drop param retired, and everything after this
+  # point sees the list the operator is looking at.
+  defp settle_drops(entries, params, field) do
+    case dropped(params, field) do
+      [] ->
+        {params, entries}
+
+      dropped ->
+        entries = Map.drop(entries, dropped)
+
+        params =
+          params
+          |> Map.put(field, entries)
+          |> Map.delete(field <> "_drop")
+          |> prune_sort(field, dropped)
+
+        {params, entries}
+    end
+  end
+
+  # The slot has to leave the sort param too, or the removal invents a row.
+  # `_sort` is what tells `cast_assoc` how many entries there are: left naming
+  # a slot the entries no longer have, it builds an **empty child** for it —
+  # a book author with no author — and the form then carried a blank row that
+  # failed to save, or saved a null. That was the crash behind "the arrow on
+  # the row above the deleted one".
+  defp prune_sort(params, field, dropped) do
+    case Map.get(params, field <> "_sort") do
+      sort when is_list(sort) -> Map.put(params, field <> "_sort", sort -- dropped)
+      _no_sort -> params
+    end
+  end
+
+  # The empty string is the hidden input every drop list carries so that
+  # removing the last row still posts the parameter; it names no slot.
+  defp dropped(params, field) do
+    params
+    |> Map.get(field <> "_drop", [])
+    |> List.wrap()
+    |> Enum.reject(&(&1 == ""))
   end
 
   # What the form last submitted, or — before it has submitted anything — the

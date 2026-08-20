@@ -83,6 +83,7 @@
             id="proposals-authors"
             field="authors"
             event="accept-entity"
+            adds_rows
             proposals={@chips[:authors] || []}
           />
         </:proposals>
@@ -136,6 +137,7 @@
             id="proposals-series"
             field="series"
             event="accept-entity"
+            adds_rows
             proposals={@chips[:series] || []}
           />
         </:proposals>

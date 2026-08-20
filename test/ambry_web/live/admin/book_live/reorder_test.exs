@@ -124,6 +124,73 @@ defmodule AmbryWeb.Admin.BookLive.ReorderTest do
     end
   end
 
+  # Removing a row and reordering the rest are two mechanisms indexing one
+  # list, and they disagreed: `_drop` names a *slot*, a move swaps what is
+  # *in* two slots, so a move after a delete redirected the delete onto
+  # whichever row had just arrived in that slot. Saving then destroyed a row
+  # the operator kept and restored the one they removed, silently.
+  describe "removing a row, then reordering" do
+    test "the delete still lands on the row that was deleted", %{conn: conn} do
+      %{book: book, authors: [first, second]} = book_with_two_authors()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+      drop(view, "book_authors", "1")
+      # a stale page can still send this; the form no longer offers it
+      render_click(view, "move", %{
+        "field" => "book_authors",
+        "index" => "0",
+        "direction" => "down"
+      })
+
+      view |> form("#book-form") |> render_submit()
+
+      assert author_order(book) == [first.id]
+      refute second.id in author_order(book)
+    end
+
+    test "a row removed from the middle takes its neighbours' order with it", %{conn: conn} do
+      %{book: book, authors: [first, _second, third]} = book_with_three_authors()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+      drop(view, "book_authors", "1")
+      view |> element("[data-role='move-down']:not([disabled])") |> render_click()
+      view |> form("#book-form") |> render_submit()
+
+      # second is gone because second was removed, and the two that stayed
+      # swapped places because that is what was clicked
+      assert author_order(book) == [third.id, first.id]
+    end
+
+    # One row left is nothing to order, and the row above a deleted last row
+    # had a live "move down" pointing at a row that was no longer rendered.
+    test "the arrows follow what is on screen, not what is in the changeset", %{conn: conn} do
+      %{book: book} = book_with_two_authors()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+      assert has_element?(view, "[data-role='move-buttons']")
+
+      html = drop(view, "book_authors", "1")
+      document = Floki.parse_document!(html)
+
+      assert Floki.find(document, "[name$='[author_id]']") |> length() == 1
+      assert Floki.find(document, "[data-role='move-buttons']") == []
+    end
+  end
+
+  defp drop(view, field, index) do
+    view |> form("#book-form") |> render_change(%{"book" => %{(field <> "_drop") => [index]}})
+  end
+
+  defp book_with_three_authors do
+    book = insert(:book)
+    authors = for _ <- 1..3, do: insert(:author)
+    {:ok, book} = put_authors(book, Enum.map(authors, & &1.id))
+
+    %{book: book, authors: authors}
+  end
+
   defp book_with_two_authors do
     book = insert(:book)
     first = insert(:author)

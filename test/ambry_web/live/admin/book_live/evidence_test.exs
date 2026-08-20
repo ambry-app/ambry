@@ -231,6 +231,54 @@ defmodule AmbryWeb.Admin.BookLive.EvidenceTest do
     assert html =~ ~s(value="1")
   end
 
+  # The chip is green and ticked because the book already has that author.
+  # Clicking it again credited them a second time, and a third, which is how
+  # the same bug got the narrator chips removed from the audiobook form.
+  test "an author the book already has is not offered again", %{conn: conn} do
+    patch_search()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/books/new")
+    search(view, %{"title" => "Dungeon Crawler Carl"})
+    tick_first_record(view)
+
+    html = view |> element(~s{#proposals-authors button}) |> render_click()
+    assert html =~ "Matt Dinniman"
+
+    # nothing left to click: the chip reports what the record holds
+    refute has_element?(view, ~s{#proposals-authors button})
+    assert has_element?(view, ~s{#proposals-authors span}, "Matt Dinniman")
+
+    # and the event itself is idempotent, for a page that still shows the old chip
+    render_click(view, "accept-entity", %{"field" => "authors", "key" => "Matt Dinniman"})
+
+    assert [%{name: "Matt Dinniman"}] = Ambry.Repo.all(Ambry.People.Person)
+    assert view |> render() |> author_row_count() == 1
+  end
+
+  test "a series the book is already in is not offered again", %{conn: conn} do
+    patch_search()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/books/new")
+    search(view, %{"title" => "Dungeon Crawler Carl"})
+    tick_first_record(view)
+
+    view |> element(~s{#proposals-series button}) |> render_click()
+    refute has_element?(view, ~s{#proposals-series button})
+
+    render_click(view, "accept-entity", %{"field" => "series", "key" => "Dungeon Crawler Carl"})
+
+    assert [%{name: "Dungeon Crawler Carl"}] = Ambry.Repo.all(Ambry.Books.Series)
+    assert view |> render() |> series_row_count() == 1
+  end
+
+  defp author_row_count(html) do
+    html |> Floki.parse_document!() |> Floki.find("[name$='[author_id]']") |> length()
+  end
+
+  defp series_row_count(html) do
+    html |> Floki.parse_document!() |> Floki.find("[name$='[series_id]']") |> length()
+  end
+
   test "the record that filled fields at import is recognized: pre-ticked, and says what it gave",
        %{conn: conn} do
     book =

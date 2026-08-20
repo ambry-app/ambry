@@ -1748,6 +1748,11 @@ defmodule AmbryWeb.Admin.Decisions do
 
   attr :chosen, :boolean, required: true
   attr :event, :string, required: true
+
+  attr :inert, :boolean,
+    default: false,
+    doc: "when chosen, this chip is a statement rather than an offer — see below"
+
   attr :values, :map, default: %{}
   attr :title, :string, default: nil
   attr :shape, :string, default: "text"
@@ -1761,7 +1766,37 @@ defmodule AmbryWeb.Admin.Decisions do
   person's photos, a person's bios — because they are the same interaction and
   were being hand-written each time, which is how one of them ended up with no
   way to tell which chip was chosen.
+
+  **`inert` is for a chip that adds a row.** Clicking a chosen one appended
+  the author it was already reporting, so an author ticked green could be
+  added to the book a second time, and a third. There is nothing a click
+  could mean there, so it renders as a plain span with the same costume and
+  no click, and becomes an offer again the moment it stops being true — edit
+  the field, or remove the row.
+
+  Chosen chips elsewhere stay live on purpose. On the import form, clicking
+  the one already in use is how a decision gets confirmed: the value doesn't
+  change, the rail goes green, and the operator has said they looked.
   """
+  def proposal_chip(%{chosen: true, inert: true} = assigns) do
+    ~H"""
+    <span
+      title={@title}
+      class={[
+        "bg-brand-dark/15 ring-brand-dark/50 max-w-full rounded-md text-left text-xs ring-2 ring-inset",
+        @shape == "circle" && "rounded-full p-0.5",
+        @shape != "circle" && "inline-flex items-center gap-1.5 px-2 py-1"
+      ]}
+    >
+      <%!-- The chosen chip is the single most important state on the form, and
+            a 1px border-hue change was nearly invisible — so it says so three
+            ways: border, tint, and a check. --%>
+      <.icon :if={@shape != "circle"} name="fa-check" class="text-brand-dark h-3 w-3 flex-none" />
+      {render_slot(@inner_block)}
+    </span>
+    """
+  end
+
   def proposal_chip(assigns) do
     ~H"""
     <button

@@ -253,13 +253,21 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   defp accept_entity(socket, :authors, proposal) do
     author_id = resolve_author(proposal.params["name"], proposal.source)
 
-    socket
-    |> append_row(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
-    |> assign(
-      provenance_hints:
-        ProvenanceHints.for_list(socket.assigns.provenance_hints, "book_authors", proposal.source)
-    )
-    |> refresh_chips()
+    if already_credited?(socket, :book_authors, :author_id, author_id) do
+      socket
+    else
+      socket
+      |> append_row(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
+      |> assign(
+        provenance_hints:
+          ProvenanceHints.for_list(
+            socket.assigns.provenance_hints,
+            "book_authors",
+            proposal.source
+          )
+      )
+      |> refresh_chips()
+    end
   end
 
   defp accept_entity(socket, :series, proposal) do
@@ -271,13 +279,32 @@ defmodule AmbryWeb.Admin.BookLive.Form do
         (proposal.params["number"] && %{"book_number" => proposal.params["number"]}) || %{}
       )
 
-    socket
-    |> append_row(:series_books, row, ~w(series_id book_number))
-    |> assign(
-      provenance_hints:
-        ProvenanceHints.for_list(socket.assigns.provenance_hints, "series_books", proposal.source)
-    )
-    |> refresh_chips()
+    if already_credited?(socket, :series_books, :series_id, series_id) do
+      socket
+    else
+      socket
+      |> append_row(:series_books, row, ~w(series_id book_number))
+      |> assign(
+        provenance_hints:
+          ProvenanceHints.for_list(
+            socket.assigns.provenance_hints,
+            "series_books",
+            proposal.source
+          )
+      )
+      |> refresh_chips()
+    end
+  end
+
+  # Asked of the *resolved* record rather than of the chip: a chosen chip no
+  # longer offers a click (`proposal_chip/1`), so reaching here means either a
+  # stale page or two chips whose different names resolve to one author —
+  # "J.R.R. Tolkien" and "John Ronald Reuel Tolkien" naming the same row. The
+  # rendering rule is what the operator sees; this is what makes it true.
+  defp already_credited?(socket, assoc, key, id) do
+    socket.assigns.form.source
+    |> Changeset.get_assoc(assoc)
+    |> Enum.any?(fn row -> Changeset.get_field(row, key) == id end)
   end
 
   # The author identity a proposed credit names: an existing author of that
@@ -449,9 +476,9 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       form: to_form(changeset),
       # the move buttons need to know where the ends of each list are, and
       # the empty states whether there is a list at all
-      book_author_count: length(Changeset.get_assoc(changeset, :book_authors)),
-      series_book_count: length(Changeset.get_assoc(changeset, :series_books)),
-      book_universe_count: length(Changeset.get_assoc(changeset, :book_universes))
+      book_author_count: Reordering.row_count(changeset, :book_authors),
+      series_book_count: Reordering.row_count(changeset, :series_books),
+      book_universe_count: Reordering.row_count(changeset, :book_universes)
     )
   end
 

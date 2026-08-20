@@ -626,7 +626,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     assign(socket,
       form: to_form(changeset),
       # the move buttons need to know where the ends of the list are
-      media_narrator_count: length(Changeset.get_assoc(changeset, :media_narrators))
+      media_narrator_count: Reordering.row_count(changeset, :media_narrators)
     )
   end
 
