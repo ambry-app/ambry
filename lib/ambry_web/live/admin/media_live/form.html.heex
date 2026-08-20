@@ -11,7 +11,14 @@
       retrying={@retrying}
     />
 
-    <.simple_form id="media-form" for={@form} phx-change="validate" phx-submit="submit" autocomplete="off">
+    <.simple_form
+      id="media-form"
+      for={@form}
+      phx-hook="reorder-rows"
+      phx-change="validate"
+      phx-submit="submit"
+      autocomplete="off"
+    >
       <.form_section id="recording">
         <.field_group>
           <.input

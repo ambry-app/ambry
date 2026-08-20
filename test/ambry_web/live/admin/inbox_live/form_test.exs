@@ -1493,13 +1493,16 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert has_element?(view, "form#research-work input[name='title']")
     end
 
-    test "the file's own tags are visible", %{conn: conn} do
+    # Not behind a disclosure: this is the evidence every decision below it
+    # is an interpretation of.
+    test "the file's own tags are visible without opening anything", %{conn: conn} do
       item = probed_item()
 
-      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
 
-      assert html =~ "What the files say"
+      assert html =~ "Embedded tags"
       assert html =~ "Michael Kramer"
+      refute has_element?(view, "details [data-role='tags']")
     end
   end
 
@@ -2262,6 +2265,218 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert length(items) == 3
       # each keeps exactly what it claimed: the two books, and the stray
       assert items |> Enum.map(&length(&1.files)) |> Enum.sort() == [1, 1, 1]
+    end
+  end
+
+  # The header used to print the item's path over a file list about to print
+  # the same string two cards below it.
+  describe "where the item is, said once" do
+    test "the path goes when the file list states it", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "[data-role='item-path']")
+      # still on the page: the list prints the folder its files share
+      assert html =~ "The Way of Kings [M4B]"
+    end
+
+    # A loose file at the top of a watched folder has no directory above it,
+    # and the list printed "./" for one until it stopped answering "." to a
+    # question about where something is.
+    test "a loose file is its own path, printed once and without a directory",
+         %{conn: conn} do
+      root = watched_root()
+      File.cp!(tagged_fixture(true, false, nil), Path.join(root, "Loose Book.m4b"))
+
+      {:ok, _counts} = discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Loose Book")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "[data-role='item-path']")
+      refute html =~ "./"
+    end
+
+    # The queue row has carried the watched folder since the queue could hold
+    # more than one; the form is where the paths are actually read.
+    test "the source it was found in is on the form, in the row's own tag", %{conn: conn} do
+      item = Inbox.get_item!(probed_item().id)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ item.source.name
+    end
+
+    test "the path stays when the files sit deeper than the item", %{conn: conn} do
+      root = watched_root()
+      disc = Path.join(root, "Some Release/Disc 1")
+      File.mkdir_p!(disc)
+      File.cp!(tagged_fixture(true, false, nil), Path.join(disc, "01.m4b"))
+
+      {:ok, _counts} = discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Some Release")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # the list names "Some Release/Disc 1"; which of the two this item is
+      # is what a split or a combine is about
+      assert has_element?(view, "[data-role='item-path']")
+    end
+
+    test "the path stays when there are no files to say it", %{conn: conn} do
+      item = probed_item()
+      {:ok, item} = Inbox.update_item(item, %{files: []})
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='item-path']")
+    end
+  end
+
+  describe "an item that is gone" do
+    # A split or a combine replaces items rather than editing them, so the id
+    # in the address bar outlives the item and browser Back walks straight
+    # into it. The queue is where that goes, with the list the operator was
+    # on kept.
+    test "lands back in the queue rather than on a 404", %{conn: conn} do
+      item = probed_item()
+      id = item.id
+      Repo.delete!(item)
+
+      assert {:error, {kind, %{to: to, flash: flash}}} = live(conn, ~p"/admin/inbox/#{id}")
+      assert kind in [:redirect, :live_redirect]
+      assert to == ~p"/admin/inbox"
+      assert flash["info"] =~ "gone"
+
+      assert {:error, {_kind, %{to: to}}} =
+               live(conn, ~p"/admin/inbox/#{id}?#{[status: "ignored", page: "2"]}")
+
+      assert to == ~p"/admin/inbox?#{[page: "2", status: "ignored"]}"
+    end
+  end
+
+  # A release that ships the same part twice, which nothing but a listener
+  # can spot: the file list is where it is seen, so it is where it is fixed.
+  describe "taking one file out of the audiobook" do
+    setup %{conn: conn} do
+      root = watched_root()
+      release = Path.join(root, "Oathbringer")
+      File.mkdir_p!(release)
+
+      for name <- ["P05.m4b", "P06.m4b", "P06_CD.m4b"] do
+        File.cp!(tagged_fixture(true, false, nil), Path.join(release, name))
+      end
+
+      {:ok, _counts} = discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Oathbringer")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      %{conn: conn, item: item}
+    end
+
+    test "the ✕ on a row takes it out, and the row says so", %{conn: conn, item: item} do
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # nothing is out, so nothing is counted
+      refute has_element?(view, "[data-role='excluded-count']")
+      refute html =~ "not in this audiobook"
+
+      view
+      |> element("button[phx-value-file='Oathbringer/P06_CD.m4b']")
+      |> render_click()
+
+      assert Inbox.get_item!(item.id).excluded_files == ["Oathbringer/P06_CD.m4b"]
+
+      html = render(view)
+      assert html =~ "2 of 3 in this audiobook"
+      assert html =~ "not in this audiobook"
+
+      # still listed, because the folder still holds it
+      assert html =~ "P06_CD.m4b"
+    end
+
+    test "and the same control puts it back", %{conn: conn, item: item} do
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.m4b")
+      # the re-read that excluding queues has finished; without this the form
+      # is busy and refuses every event, which is the point of the overlay
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      assert has_element?(view, "[data-role='excluded-file']")
+
+      view
+      |> element("button[phx-value-file='Oathbringer/P06_CD.m4b']")
+      |> render_click()
+
+      assert Inbox.get_item!(item.id).excluded_files == []
+      refute has_element?(view, "[data-role='excluded-file']")
+    end
+
+    test "an imported item's files are read-only", %{conn: conn, item: item} do
+      {:ok, item} = Inbox.prepare_draft(item)
+      {:ok, item} = Inbox.update_item(item, %{status: :imported})
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "button[phx-value-file]")
+    end
+  end
+
+  describe "combining items that are one audiobook" do
+    # The operator's real case, and the mirror of the split above: three
+    # subfolders holding one audiobook, named so that nothing but a human
+    # could tell them from three books. The walk offers three items; the
+    # correction has to be reachable from any one of them.
+    test "the combine button makes one item of the folder", %{conn: conn} do
+      root = watched_root()
+      book = Path.join(root, "Gwendy's Button Box by Stephen King & Richard Chizmar")
+
+      for part <- 1..3, track <- 1..2 do
+        dir = Path.join(book, "Gwendy's Button Box #{part}")
+        File.mkdir_p!(dir)
+        File.cp!(tagged_fixture(true, false, nil), Path.join(dir, "Track0#{track}.mp3"))
+      end
+
+      {:ok, _counts} = discover(root)
+      {items, _more} = Inbox.list_items(filter: "Gwendy")
+      assert length(items) == 3
+
+      item = Enum.find(items, &(InboxItem.name(&1) == "Gwendy's Button Box 1"))
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "Only part of one?"
+      assert html =~ "Combine 3 items into one"
+
+      view |> element("button[data-role='combine']") |> render_click()
+      {path, _flash} = assert_redirect(view)
+
+      {[combined], _more} = Inbox.list_items(filter: "Gwendy")
+      assert path == ~p"/admin/inbox/#{combined}"
+      assert InboxItem.name(combined) == "Gwendy's Button Box by Stephen King & Richard Chizmar"
+      assert length(combined.files) == 6
+
+      # and the folder now holds one item, so there is nothing left to offer
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{combined}")
+      refute html =~ "Only part of one?"
+    end
+
+    # Every item at the top of a watched folder shares the watched folder,
+    # and an item there would own everything that ever lands in it.
+    test "a release of its own is offered nothing", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, _view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute html =~ "Only part of one?"
     end
   end
 

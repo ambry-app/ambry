@@ -201,13 +201,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  def handle_event("move", params, socket) do
-    changeset = socket.assigns.form.source
-    media_params = Reordering.move(changeset, socket.assigns.form.params, params)
-
-    {:noreply, assign_form(socket, Media.change_media(socket.assigns.media, media_params))}
-  end
-
   # ── the part set ───────────────────────────────────────────────────────
 
   def handle_event("add-group-row", _params, socket) do
@@ -626,7 +619,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     assign(socket,
       form: to_form(changeset),
       # the move buttons need to know where the ends of the list are
-      media_narrator_count: length(Changeset.get_assoc(changeset, :media_narrators))
+      media_narrator_count: Reordering.row_count(changeset, :media_narrators)
     )
   end
 

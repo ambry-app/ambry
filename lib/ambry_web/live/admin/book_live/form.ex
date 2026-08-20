@@ -120,13 +120,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     end
   end
 
-  def handle_event("move", params, socket) do
-    changeset = socket.assigns.form.source
-    book_params = Reordering.move(changeset, socket.assigns.form.params, params)
-
-    {:noreply, assign_form(socket, Books.change_book(socket.assigns.book, book_params))}
-  end
-
   # ── the evidence panel ─────────────────────────────────────────────────
 
   def handle_event("research", params, socket) do
@@ -253,13 +246,21 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   defp accept_entity(socket, :authors, proposal) do
     author_id = resolve_author(proposal.params["name"], proposal.source)
 
-    socket
-    |> append_row(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
-    |> assign(
-      provenance_hints:
-        ProvenanceHints.for_list(socket.assigns.provenance_hints, "book_authors", proposal.source)
-    )
-    |> refresh_chips()
+    if already_credited?(socket, :book_authors, :author_id, author_id) do
+      socket
+    else
+      socket
+      |> append_row(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
+      |> assign(
+        provenance_hints:
+          ProvenanceHints.for_list(
+            socket.assigns.provenance_hints,
+            "book_authors",
+            proposal.source
+          )
+      )
+      |> refresh_chips()
+    end
   end
 
   defp accept_entity(socket, :series, proposal) do
@@ -271,13 +272,38 @@ defmodule AmbryWeb.Admin.BookLive.Form do
         (proposal.params["number"] && %{"book_number" => proposal.params["number"]}) || %{}
       )
 
-    socket
-    |> append_row(:series_books, row, ~w(series_id book_number))
-    |> assign(
-      provenance_hints:
-        ProvenanceHints.for_list(socket.assigns.provenance_hints, "series_books", proposal.source)
-    )
-    |> refresh_chips()
+    if already_credited?(socket, :series_books, :series_id, series_id) do
+      socket
+    else
+      socket
+      |> append_row(:series_books, row, ~w(series_id book_number))
+      |> assign(
+        provenance_hints:
+          ProvenanceHints.for_list(
+            socket.assigns.provenance_hints,
+            "series_books",
+            proposal.source
+          )
+      )
+      |> refresh_chips()
+    end
+  end
+
+  # Asked of the *resolved* record rather than of the chip: a chosen chip no
+  # longer offers a click (`proposal_chip/1`), so reaching here means either a
+  # stale page or two chips whose different names resolve to one author —
+  # "J.R.R. Tolkien" and "John Ronald Reuel Tolkien" naming the same row. The
+  # rendering rule is what the operator sees; this is what makes it true.
+  #
+  # `get_field/2` and not `get_assoc/2`: a row removed with the ✕ is still in
+  # the association, marked for replacement, and counting it as credited made
+  # the chip refuse to put back the author it had just let go of — the same
+  # trap `Reordering.row_count/2` exists for. This is the applied list, which
+  # is the list on screen.
+  defp already_credited?(socket, assoc, key, id) do
+    socket.assigns.form.source
+    |> Changeset.get_field(assoc)
+    |> Enum.any?(&(Map.get(&1, key) == id))
   end
 
   # The author identity a proposed credit names: an existing author of that
@@ -449,9 +475,9 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       form: to_form(changeset),
       # the move buttons need to know where the ends of each list are, and
       # the empty states whether there is a list at all
-      book_author_count: length(Changeset.get_assoc(changeset, :book_authors)),
-      series_book_count: length(Changeset.get_assoc(changeset, :series_books)),
-      book_universe_count: length(Changeset.get_assoc(changeset, :book_universes))
+      book_author_count: Reordering.row_count(changeset, :book_authors),
+      series_book_count: Reordering.row_count(changeset, :series_books),
+      book_universe_count: Reordering.row_count(changeset, :book_universes)
     )
   end
 

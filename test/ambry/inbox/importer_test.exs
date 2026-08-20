@@ -55,6 +55,34 @@ defmodule Ambry.Inbox.ImporterTest do
       assert Decimal.compare(media.duration, 0) == :gt
     end
 
+    # A release that ships the same part twice: the operator takes one file
+    # out on the form, and what reaches the library is the audiobook they
+    # said it was — no track for it, and nothing placed for it either.
+    test "an excluded file is neither a track nor placed" do
+      item = tagged_item(files: ["P05.m4b", "P06.m4b", "P06_CD.m4b"], settle: false)
+      {:ok, item} = Inbox.exclude_file(item, "#{item.path}/P06_CD.m4b")
+      {:ok, item} = Inbox.probe_item(item)
+      item = settle(item)
+
+      assert {:ok, media} = Inbox.import_item(item)
+
+      media = Media.get_media!(media.id)
+      assert length(media.media_tracks) == 2
+
+      placed =
+        Enum.map(media.media_tracks, fn track ->
+          {:ok, path} = MediaTrack.disk_path(track)
+          Path.basename(path)
+        end)
+
+      # numbered as two, not "001, 003": the third file is not part of this
+      assert Enum.sort(placed) == ["The Way of Kings - 001.m4b", "The Way of Kings - 002.m4b"]
+
+      # and the file itself is untouched where it was found
+      [_p05, _p06, excluded] = item |> Repo.preload(:source) |> InboxItem.owned_disk_files()
+      assert File.exists?(excluded)
+    end
+
     test "a symlink import never touches the originals" do
       item = tagged_item(policy: :symlink)
       [file] = item |> Repo.preload(:source) |> InboxItem.disk_files()
@@ -737,7 +765,10 @@ defmodule Ambry.Inbox.ImporterTest do
         )
 
       names ->
-        Enum.each(names, &File.cp!(valid_audio(:mp3), Path.join(release, &1)))
+        # The same tagged fixture under each name: a multi-file release is
+        # one book in pieces, and its pieces carry the book's tags.
+        fixture = tagged_fixture(Keyword.get(opts, :dated, true), Keyword.get(opts, :narrator))
+        Enum.each(names, &File.cp!(fixture, Path.join(release, &1)))
     end
 
     # One root for the whole test — a second one would make every

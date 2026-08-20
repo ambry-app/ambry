@@ -17,54 +17,77 @@
     />
 
     <div class="-mb-4 max-w-4xl space-y-14" inert={busy?(assigns)}>
-      <%!-- the evidence: what was found, before anybody interpreted it --%>
-      <section class="space-y-1 rounded-lg bg-zinc-900 p-4">
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0 pl-3">
-            <p class="truncate font-bold">{@page_title}</p>
-            <p class="font-mono truncate text-xs text-zinc-400">{@item.path}</p>
-            <p class="text-sm text-zinc-400">{evidence(@item)}</p>
+      <%!-- the evidence: what was found, before anybody interpreted it. The
+            files themselves are part of it and sit in this section too — what
+            the tags say and which files said it are one question, and they
+            were three screens apart. --%>
+      <section class="space-y-2">
+        <div class="space-y-1 rounded-lg bg-zinc-900 p-4">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 pl-3">
+              <%!-- Which watched folder this was found in, in the queue row's
+                  own tag. The row has carried it since the queue could hold
+                  more than one source; the form, which is where an item's
+                  paths are actually read, had lost it. --%>
+              <div class="flex min-w-0 items-baseline gap-2">
+                <p class="truncate font-bold">{@page_title}</p>
+                <.source_tag source={@item.source} class="flex-none" />
+              </div>
+              <%!-- Dropped when the file list below is about to print the
+                  same string: a release folder and its own files, or a loose
+                  file under the folder the list names first. --%>
+              <p
+                :if={!stated_by_files?(@item)}
+                class="font-mono truncate text-xs text-zinc-400"
+                data-role="item-path"
+              >
+                {@item.path}
+              </p>
+              <p class="text-sm text-zinc-400">{evidence(@item)}</p>
 
-            <%!-- "Still working" and "found nothing" look identical in a form
+              <%!-- "Still working" and "found nothing" look identical in a form
                 full of empty fields, and matching now backs off for minutes
                 rather than giving up on the first rate limit. --%>
-            <.badge
-              :if={job_label(@job)}
-              color={elem(job_label(@job), 1)}
-              class="mt-1 text-xs"
-              data-role="job-status"
-            >
-              {elem(job_label(@job), 0)}
-            </.badge>
+              <.badge
+                :if={job_label(@job)}
+                color={elem(job_label(@job), 1)}
+                class="mt-1 text-xs"
+                data-role="job-status"
+              >
+                {elem(job_label(@job), 0)}
+              </.badge>
+            </div>
+
+            <div class="flex-none text-right">
+              <p class="text-sm">
+                <span class="font-bold">{@progress.resolved}</span> of {@progress.total} settled
+              </p>
+              <.button
+                :if={!@read_only}
+                type="button"
+                color={:zinc}
+                class="mt-2"
+                phx-click="rebuild"
+                data-confirm="Throw away every choice made here and rebuild from the files and providers?"
+              >
+                Start over
+              </.button>
+            </div>
           </div>
 
-          <div class="flex-none text-right">
-            <p class="text-sm">
-              <span class="font-bold">{@progress.resolved}</span> of {@progress.total} settled
-            </p>
-            <.button
-              :if={!@read_only}
-              type="button"
-              color={:zinc}
-              class="mt-2"
-              phx-click="rebuild"
-              data-confirm="Throw away every choice made here and rebuild from the files and providers?"
-            >
-              Start over
-            </.button>
-          </div>
-        </div>
-
-        <%!-- Tags are the primary source (98% of real releases carry a usable
+          <%!-- Tags are the primary source (98% of real releases carry a usable
             one) and the form used to show none of them, so a match that went
-            somewhere strange had no visible cause. --%>
-        <.disclosure
-          :if={tag_rows(@item) != [] or hint_rows(@item) != []}
-          summary="What the files say"
-          class="text-sm text-zinc-400"
-          container_class="pt-2"
-        >
-          <div class="grid grid-cols-1 gap-4 pt-2 pl-3 sm:grid-cols-2">
+            somewhere strange had no visible cause. Read, never folded: this
+            is the evidence the whole form is an interpretation of, and it was
+            behind a click on every item.
+
+            The two column headings are the naming here. A "File tags" label
+            over them would be a third heading in four lines saying what
+            "Embedded tags" already says. --%>
+          <div
+            :if={tag_rows(@item) != [] or hint_rows(@item) != []}
+            class="grid grid-cols-1 gap-4 pt-2 pl-3 sm:grid-cols-2"
+          >
             <div :if={tag_rows(@item) != []} data-role="tags">
               <p class="text-xs font-bold text-zinc-300">Embedded tags</p>
               <p :for={{label, value} <- tag_rows(@item)} class="text-xs text-zinc-400">
@@ -77,56 +100,85 @@
               <p :for={{label, value} <- hint_rows(@item)} class="text-xs text-zinc-400">
                 <span class="text-zinc-400">{label}:</span> {value}
               </p>
-              <p class="pt-1 text-xs text-zinc-400">
-                Taken from the tags first and the release name second.
-              </p>
             </div>
           </div>
-        </.disclosure>
 
-        <p :if={@item.issue} class="flex items-baseline gap-1.5 pt-2 pl-3 text-sm text-red-400">
-          <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
-          {@item.issue}
-        </p>
+          <p :if={@item.issue} class="flex items-baseline gap-1.5 pt-2 pl-3 text-sm text-red-400">
+            <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
+            {@item.issue}
+          </p>
 
-        <%!-- These files are one recording unless the operator says
+          <%!-- These files are one recording unless the operator says
             otherwise — a folder of forty mp3s is one book in forty pieces far
             more often than it is forty books. Splitting is the escape hatch
             for when it genuinely isn't: each split item becomes its own
             import, to link to its own book or take a part number. --%>
-        <%!-- Two grains, because the grouping can be wrong at two levels: a
+          <%!-- Two grains, because the grouping can be wrong at two levels: a
             folder of "1 of 5" subfolders is one release in parts, and a
             GraphicAudio set of the same shape is five recordings. The
             question labels them both rather than riding on the first. --%>
-        <div :if={@grains != %{} and !@read_only} class="space-y-2 pt-2">
-          <.label class="pl-3">Not one audiobook?</.label>
+          <div :if={@grains != %{} and !@read_only} class="space-y-2 pt-2">
+            <.label class="pl-3">Not one audiobook?</.label>
 
-          <div class="flex flex-wrap items-center gap-2">
-            <button
-              :if={@grains[:folder]}
-              type="button"
-              phx-click="split"
-              phx-value-by="folder"
-              data-confirm={"Split into #{@grains[:folder]} items, one per folder? Each becomes its own inbox item and is scanned fresh."}
-              data-role="split-folder"
-              class={action_classes()}
-            >
-              Split into {@grains[:folder]} folders
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                :if={@grains[:folder]}
+                type="button"
+                phx-click="split"
+                phx-value-by="folder"
+                data-confirm={"Split into #{@grains[:folder]} items, one per folder? Each becomes its own inbox item and is scanned fresh."}
+                data-role="split-folder"
+                class={action_classes()}
+              >
+                Split into {@grains[:folder]} folders
+              </button>
 
-            <button
-              :if={@grains[:file]}
-              type="button"
-              phx-click="split"
-              phx-value-by="file"
-              data-confirm={"Split into #{@grains[:file]} items, one per file? Each becomes its own inbox item and is scanned fresh."}
-              data-role="split"
-              class={action_classes()}
-            >
-              Split into {@grains[:file]} files
-            </button>
+              <button
+                :if={@grains[:file]}
+                type="button"
+                phx-click="split"
+                phx-value-by="file"
+                data-confirm={"Split into #{@grains[:file]} items, one per file? Each becomes its own inbox item and is scanned fresh."}
+                data-role="split"
+                class={action_classes()}
+              >
+                Split into {@grains[:file]} files
+              </button>
+            </div>
+          </div>
+
+          <%!-- The same question from the other side, and the folder answers
+            it: a release whose parts sit in subfolders that don't say they
+            are parts arrives as one item per subfolder, because "Gwendy's
+            Button Box 2" is its own book far more often than it is disc two
+            of something. When it isn't, this is the way to say so. --%>
+          <div :if={@combine && !@read_only} class="space-y-2 pt-2">
+            <.label class="pl-3">Only part of one?</.label>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                phx-click="combine"
+                data-confirm={"Combine these #{length(@combine.items)} items into one, at \"#{Path.basename(@combine.folder)}\"? They become a single inbox item, scanned fresh, and the drafts of the parts are thrown away."}
+                data-role="combine"
+                class={action_classes()}
+              >
+                Combine {length(@combine.items)} items into one
+              </button>
+
+              <p class="font-mono min-w-0 truncate text-xs text-zinc-400">{@combine.folder}</p>
+            </div>
           </div>
         </div>
+
+        <%!-- A sibling card, never nested inside the one above: a card in a
+            card is what eats the elevation ladder (§1). --%>
+        <.file_list
+          files={@item.files}
+          label="Files"
+          excluded={@item.excluded_files}
+          toggle={!@read_only && "toggle-file"}
+        />
       </section>
 
       <%!-- Once imported, the draft is the record of what was imported — the
@@ -852,11 +904,11 @@
         <% end %>
       </section>
 
-      <%!-- ==================== FILES & DESTINATION ==================== --%>
+      <%!-- ==================== DESTINATION ==================== --%>
+      <%!-- The files themselves are read at the top of the form, with the
+          tags that describe them; what is left here is where they go. --%>
       <section id="destination" class="space-y-2" inert={@read_only}>
-        <h2 class="text-xl font-bold text-zinc-100">
-          Files &amp; destination
-        </h2>
+        <h2 class="text-xl font-bold text-zinc-100">Destination</h2>
 
         <%!-- Any input may feed any output, so the root and the policy are
             chosen here rather than fixed on the watched folder. With one root
@@ -913,8 +965,6 @@
           <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
           {@destination.blocker}
         </p>
-
-        <.file_list files={@item.files} label="Files" class="mt-2" />
       </section>
 
       <%!-- ==================== THE BUTTON ==================== --%>

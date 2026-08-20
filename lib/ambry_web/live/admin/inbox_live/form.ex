@@ -62,7 +62,27 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   @impl Phoenix.LiveView
   def mount(%{"id" => id} = params, _session, socket) do
-    item = Inbox.get_item!(id)
+    case Inbox.fetch_item(id) do
+      {:ok, item} -> mount_item(item, params, socket)
+      {:error, :not_found} -> gone(params, socket)
+    end
+  end
+
+  # Regrouping replaces items rather than editing them, so the id in the
+  # address bar can outlive the item: browser Back after a split or a combine
+  # lands on one of the items that were just replaced. That is the queue
+  # working, and a 404 page said the admin was broken.
+  defp gone(params, socket) do
+    {:ok,
+     socket
+     |> put_flash(
+       :info,
+       "That item is gone. Splitting and combining replace items with new ones."
+     )
+     |> push_navigate(to: return_to(params))}
+  end
+
+  defp mount_item(item, params, socket) do
     {:ok, item} = Inbox.prepare_draft(item)
 
     {:ok,
@@ -515,6 +535,44 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Couldn't split this item.")}
+    end
+  end
+
+  # Recomputed here rather than taken from the assigns: the queue may have
+  # moved since this form was rendered, and the items being combined are the
+  # ones waiting under that folder *now*.
+  def handle_event("combine", _params, socket) do
+    case Inbox.combine_item(socket.assigns.item) do
+      {:ok, combined} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Combined into one item. Reading the files now.")
+         |> push_navigate(to: ~p"/admin/inbox/#{combined}")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Couldn't combine these items.")}
+    end
+  end
+
+  # One file in or out of the audiobook. The item is re-read either way, so
+  # the form goes busy and comes back with the recording's new length.
+  def handle_event("toggle-file", %{"file" => file}, socket) do
+    item = socket.assigns.item
+
+    result =
+      if InboxItem.excluded?(item, file),
+        do: Inbox.include_file(item, file),
+        else: Inbox.exclude_file(item, file)
+
+    case result do
+      {:ok, item} ->
+        {:noreply, load(socket, item)}
+
+      {:error, :last_file} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(:last_file))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Couldn't change that file.")}
     end
   end
 
@@ -1029,6 +1087,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       # split controls. Both grains exist on a GraphicAudio set; a folder of
       # three files has only the finer one.
       grains: Inbox.split_grains(item),
+      # The other half of that question, for when the walk went wrong the
+      # other way: the items waiting under the same folder as this one, which
+      # may be the parts of one audiobook.
+      combine: Inbox.combine_group(item),
       # Matching retries with a backoff measured in minutes, so an item can be
       # legitimately mid-work while the form looks like nothing was found.
       job: job,
@@ -1139,6 +1201,40 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def job_label(:never_ran), do: {"The files were never read", :red}
   def job_label(:incomplete), do: {"Never finished matching", :yellow}
   def job_label(_settled), do: nil
+
+  @doc """
+  Whether the file list below already states where this item is.
+
+  The header prints the item's path and the list prints the directory its
+  files share, and on most items those are the same string two cards apart:
+  a release folder holds its own files, and a loose file is its own path with
+  the folder above it on the list's first line. The header drops the line
+  rather than the list, because the list is where the operator is looking
+  when they want it.
+
+  It stays when the files sit *deeper* than the item does (a release folder
+  whose audio is all in one "Disc 1"): the list then names the subfolder, and
+  which of the two this item is is exactly what a split or a combine is
+  about. It stays when there are no files at all, where the path is the only
+  thing known about the item.
+  """
+  def stated_by_files?(%InboxItem{files: []}), do: false
+
+  def stated_by_files?(%InboxItem{path: path, files: files}) do
+    case common_dir(files) do
+      ^path -> true
+      parent -> files == [path] and parent == folder_of(path)
+    end
+  end
+
+  # `Path.dirname` says "." for a name with no directory in it; `common_dir`
+  # says "" for the same thing, because it is about to print the answer.
+  defp folder_of(path) do
+    case Path.dirname(path) do
+      "." -> ""
+      dir -> dir
+    end
+  end
 
   @doc "What the item's files say they are, for the evidence header."
   def evidence(%InboxItem{probe: probe}) when is_map(probe) do

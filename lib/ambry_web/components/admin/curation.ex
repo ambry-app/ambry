@@ -210,6 +210,10 @@ defmodule AmbryWeb.Admin.Curation do
   attr :proposals, :list, required: true
   attr :event, :string, default: "accept-proposal"
 
+  attr :adds_rows, :boolean,
+    default: false,
+    doc: "these chips append a row to a list rather than set a field's value"
+
   attr :revert, :map,
     default: nil,
     doc: ~s(`%{display:, image:}` for the saved value — rendered only while the field differs)
@@ -221,6 +225,11 @@ defmodule AmbryWeb.Admin.Curation do
   Chip anatomy is identical to the import form's: only the chosen chip's
   source tag fills lime, everyone else's is bare muted uppercase; one line
   or a list, never a partial wrap.
+
+  `adds_rows` says these chips credit a person or join a series rather than
+  fill a field, which changes what a *chosen* one means: not "the field holds
+  this" but "the record already has it", and a click has nothing to do except
+  add it twice (`proposal_chip/1`).
   """
   def proposal_row(assigns) do
     assigns = assign(assigns, :images?, Enum.any?(assigns.proposals, & &1[:image]))
@@ -237,6 +246,7 @@ defmodule AmbryWeb.Admin.Curation do
         <.proposal_chip
           :for={proposal <- @proposals}
           chosen={proposal.chosen}
+          inert={@adds_rows}
           event={@event}
           values={%{field: @field, key: proposal.key}}
         >

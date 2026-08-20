@@ -19,7 +19,6 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.Tier
   alias Ambry.Inbox.InboxItem
-  alias Ambry.Library.Source
 
   @statuses [:pending, :ignored, :imported]
 
@@ -386,14 +385,6 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp rail_class(%{status: :pending}), do: "border-l-4 border-amber-400"
   defp rail_class(%{status: :imported}), do: "border-brand-dark/40 border-l-4"
   defp rail_class(_item), do: "border-l-4 border-zinc-700"
-
-  # Which watched folder this came from. What import will *do* with it is
-  # not here on purpose: that is a per-import decision now, it is stated in
-  # full on the item's own destination card, and there is no way to import
-  # without passing through it.
-  defp source_label(%Source{name: name}), do: name
-
-  defp source_color(%Source{}), do: "bg-blue-400/15 text-blue-300"
 
   @doc """
   The candidate's name — usually the release name, and the most recognizable

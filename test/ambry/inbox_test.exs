@@ -932,6 +932,275 @@ defmodule Ambry.InboxTest do
     end
   end
 
+  # The grouping heuristic's other known failure, and the mirror of a split:
+  # a release whose parts sit in subfolders that don't say they are parts
+  # ("Gwendy's Button Box 2" is a book, not a disc) arrives as one item per
+  # subfolder. Combining is the operator's correction, and like a split it
+  # has to survive the hourly rescan or it silently un-happens.
+  describe "combine_items/1" do
+    test "makes one item of a release the walk shattered into subfolders" do
+      root = watched_root()
+      book = shattered_release(root)
+
+      assert {:ok, %{created: 3}} = discover(root)
+      {items, false} = Inbox.list_items()
+
+      assert {:ok, combined} = Inbox.combine_items(items)
+
+      assert InboxItem.disk_path(combined) == book
+      assert {[only], false} = Inbox.list_items()
+      assert only.id == combined.id
+
+      # read from scratch: each part's probe, tags and matches described a
+      # different audiobook
+      assert_enqueued(worker: Ambry.Inbox.RunProbe, args: %{inbox_item_id: combined.id})
+      for item <- items, do: refute(Repo.get(InboxItem, item.id))
+    end
+
+    # The files are one book's timeline now, so their order is playing order,
+    # and it has to be the order a single candidate for that folder would
+    # have found them in.
+    test "holds every file, in the order a scan of the folder would give" do
+      root = watched_root()
+      book = shattered_release(root)
+      {:ok, _counts} = discover(root)
+      {items, false} = Inbox.list_items()
+
+      assert {:ok, combined} = Inbox.combine_items(items)
+
+      assert InboxItem.disk_files(combined) == [
+               Path.join(book, "Gwendy's Button Box 1/Track01.mp3"),
+               Path.join(book, "Gwendy's Button Box 1/Track02.mp3"),
+               Path.join(book, "Gwendy's Button Box 2/Track01.mp3"),
+               Path.join(book, "Gwendy's Button Box 2/Track02.mp3"),
+               Path.join(book, "Gwendy's Button Box 3/Track01.mp3")
+             ]
+    end
+
+    # The walk cannot see what the operator saw, so it still offers those
+    # three subfolders as three candidates every hour. Ownership is what
+    # answers them, and it is only answerable once the whole walk is in:
+    # refreshing the item from each candidate in turn left it holding
+    # whichever ran last.
+    test "a rescan respects the combine instead of shattering the folder again" do
+      root = watched_root()
+      shattered_release(root)
+      {:ok, _counts} = discover(root)
+      {items, false} = Inbox.list_items()
+      {:ok, combined} = Inbox.combine_items(items)
+
+      assert {:ok, %{created: 0, updated: 0}} = discover(root)
+
+      assert {[item], false} = Inbox.list_items()
+      assert item.files == combined.files
+      refute Inbox.get_item!(item.id).draft
+    end
+
+    test "a file that appears in a combined folder joins it" do
+      root = watched_root()
+      book = shattered_release(root)
+      {:ok, _counts} = discover(root)
+      {items, false} = Inbox.list_items()
+      {:ok, combined} = Inbox.combine_items(items)
+
+      copy_audio(Path.join(book, "Gwendy's Button Box 3"), "Track02.mp3")
+
+      assert {:ok, %{created: 0, updated: 1}} = discover(root)
+
+      assert {[item], false} = Inbox.list_items()
+      assert length(item.files) == length(combined.files) + 1
+    end
+
+    test "refuses an imported item, a lone item, and two sources" do
+      source = insert(:source)
+      one = raw_item(%{path: "Set/One", files: ["Set/One/a.mp3"], source_id: source.id})
+
+      imported =
+        raw_item(%{
+          path: "Set/Two",
+          files: ["Set/Two/a.mp3"],
+          status: :imported,
+          source_id: source.id
+        })
+
+      assert {:error, :already_imported} = Inbox.combine_items([one, imported])
+      assert {:error, :not_multiple} = Inbox.combine_items([one])
+
+      elsewhere = raw_item(%{path: "Set/Three", files: ["Set/Three/a.mp3"]})
+      assert {:error, :different_sources} = Inbox.combine_items([one, elsewhere])
+    end
+
+    # An item at the top of a source shares only the watched folder itself,
+    # and an item there would own every file that ever lands in it.
+    test "refuses items that share nothing but the source root" do
+      source = insert(:source)
+      one = raw_item(%{path: "One.m4b", files: ["One.m4b"], source_id: source.id})
+      two = raw_item(%{path: "Two/a.mp3", files: ["Two/a.mp3"], source_id: source.id})
+
+      assert {:error, :no_shared_folder} = Inbox.combine_items([one, two])
+    end
+
+    test "refuses when something else already holds the folder" do
+      source = insert(:source)
+      one = raw_item(%{path: "Set/One", files: ["Set/One/a.mp3"], source_id: source.id})
+      two = raw_item(%{path: "Set/Two", files: ["Set/Two/a.mp3"], source_id: source.id})
+      _squatter = raw_item(%{path: "Set", files: [], source_id: source.id, status: :ignored})
+
+      assert {:error, :path_taken} = Inbox.combine_items([one, two])
+    end
+  end
+
+  # A release that ships the same part twice — Oathbringer's second part
+  # carries STORMLIGHT0302P06.mp3 and STORMLIGHT0302P06_CD.mp3, the same forty
+  # minutes at two bitrates. Splitting doesn't help and ignoring takes the
+  # whole item out, so one file goes and the rest stay.
+  describe "exclude_file/2" do
+    test "takes a file out of the recording without letting go of it" do
+      root = watched_root()
+      release = release_folder(root, "Oathbringer", ["P05.mp3", "P06.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+
+      assert {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+
+      # still held — that is what stops the next scan adopting it
+      assert length(item.files) == 3
+      assert item.excluded_files == ["Oathbringer/P06_CD.mp3"]
+
+      assert InboxItem.disk_files(item) == [
+               Path.join(release, "P05.mp3"),
+               Path.join(release, "P06.mp3")
+             ]
+
+      assert length(InboxItem.owned_disk_files(item)) == 3
+
+      # the recording changed length, so it is read again
+      assert_enqueued(worker: Ambry.Inbox.RunProbe, args: %{inbox_item_id: item.id})
+    end
+
+    # The whole reason the file stays in `files`. A shorter list would leave
+    # it owned by nobody, and discovery hands an unowned file in a
+    # partly-owned folder an item of its own — every hour, forever.
+    test "a rescan does not offer an excluded file as an item of its own" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+
+      assert {:ok, %{created: 0, updated: 0}} = discover(root)
+
+      assert {[unchanged], false} = Inbox.list_items()
+      assert unchanged.id == item.id
+      assert unchanged.excluded_files == item.excluded_files
+    end
+
+    test "probing measures the recording, not everything held" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+      {:ok, whole} = Inbox.probe_item(item)
+
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+      {:ok, part} = Inbox.probe_item(item)
+
+      assert part.probe["files"] == 2
+      assert whole.probe["files"] == 3
+
+      assert Decimal.lt?(
+               Decimal.new(part.probe["duration"]),
+               Decimal.new(whole.probe["duration"])
+             )
+    end
+
+    test "putting it back restores the recording" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+      assert {:ok, item} = Inbox.include_file(item, "Oathbringer/P06_CD.mp3")
+
+      assert item.excluded_files == []
+      assert length(InboxItem.disk_files(item)) == 2
+    end
+
+    test "refuses the last file, a file it doesn't hold, and an imported item" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+
+      assert {:error, :not_held} = Inbox.exclude_file(item, "Oathbringer/nope.mp3")
+
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+      assert {:error, :last_file} = Inbox.exclude_file(item, "Oathbringer/P05.mp3")
+
+      {:ok, imported} = Inbox.update_item(item, %{status: :imported})
+      assert {:error, :already_imported} = Inbox.exclude_file(imported, "Oathbringer/P05.mp3")
+    end
+
+    # An excluded file is a decision about the recording, so a draft built
+    # before it says so.
+    test "a curated draft is told the recording changed" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+      {:ok, item} = Inbox.probe_item(item)
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute item.draft.stale
+
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+
+      assert Inbox.get_item!(item.id).draft.stale
+    end
+  end
+
+  describe "combine_group/1" do
+    test "offers the rest of the folder, and nothing at the top of a source" do
+      root = watched_root()
+      shattered_release(root)
+      loose = copy_audio(root, "Gwendy's Final Task.m4b")
+      {:ok, _counts} = discover(root)
+
+      {items, false} = Inbox.list_items()
+      by_path = Map.new(items, &{InboxItem.disk_path(&1), &1})
+
+      assert %{items: offered, folder: folder} =
+               Inbox.combine_group(
+                 by_path[Path.join(root, "Gwendy's Button Box/Gwendy's Button Box 1")]
+               )
+
+      assert length(offered) == 3
+      assert folder == "Gwendy's Button Box"
+
+      # a loose file at the top shares only the watched folder with them
+      assert Inbox.combine_group(by_path[loose]) == nil
+    end
+
+    test "offers nothing once the folder holds one waiting item" do
+      root = watched_root()
+      release_folder(Path.join(root, "Set"), "Only", ["a.mp3"])
+      {:ok, _counts} = discover(root)
+
+      {[item], false} = Inbox.list_items()
+      assert Inbox.combine_group(item) == nil
+    end
+
+    test "an imported item is not up for regrouping" do
+      root = watched_root()
+      shattered_release(root)
+      {:ok, _counts} = discover(root)
+      {[item | _rest], false} = Inbox.list_items()
+      {:ok, item} = Inbox.update_item(item, %{status: :imported})
+
+      assert Inbox.combine_group(item) == nil
+    end
+  end
+
   describe "queue_summary/0" do
     test "splits pending into ready, waiting on a decision, and never asked" do
       ready_item(%{path: "ready"})
@@ -1080,6 +1349,22 @@ defmodule Ambry.InboxTest do
     root = Ambry.Paths.source_media_disk_path("watched-#{Ecto.UUID.generate()}")
     File.mkdir_p!(root)
     root
+  end
+
+  # The operator's real case: three subfolders that are one audiobook, named
+  # so that nothing but a human could tell them from three books.
+  defp shattered_release(root) do
+    book = Path.join(root, "Gwendy's Button Box")
+
+    for {part, files} <- [
+          {"1", ["Track01.mp3", "Track02.mp3"]},
+          {"2", ["Track01.mp3", "Track02.mp3"]},
+          {"3", ["Track01.mp3"]}
+        ] do
+      release_folder(book, "Gwendy's Button Box #{part}", files)
+    end
+
+    book
   end
 
   defp release_folder(root, name, filenames) do

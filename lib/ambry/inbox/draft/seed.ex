@@ -278,9 +278,10 @@ defmodule Ambry.Inbox.Draft.Seed do
   end
 
   # Cheap and sufficient: what a draft was built against is the set of files
-  # and their probe. Neither a rename nor a replacement can slip past it.
+  # *in the recording* and their probe. Neither a rename, nor a replacement,
+  # nor the operator taking one file out of the audiobook can slip past it.
   defp evidence(%InboxItem{} = item) do
-    :erlang.phash2({item.files, item.probe}) |> Integer.to_string()
+    :erlang.phash2({InboxItem.included(item), item.probe}) |> Integer.to_string()
   end
 
   ## replacement
@@ -1054,7 +1055,7 @@ defmodule Ambry.Inbox.Draft.Seed do
   # the value straight to the extractor.
   defp cover_field(sources, tags, item) do
     embedded =
-      if tags["has_cover_art"] && item.files != [] do
+      if tags["has_cover_art"] && InboxItem.included(item) != [] do
         %Candidate{
           value: item |> Repo.preload(:source) |> InboxItem.disk_files() |> List.first(),
           source: "embedded",
