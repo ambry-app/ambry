@@ -67,6 +67,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.Draft.Destination
   alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.Seed
+  alias Ambry.Inbox.Duplicates
   alias Ambry.Inbox.Importer
   alias Ambry.Inbox.InboxItem
   alias Ambry.Inbox.Lookup
@@ -661,6 +662,23 @@ defmodule Ambry.Inbox do
     |> InboxItem.put_draft(attrs)
     |> Repo.update()
   end
+
+  @doc """
+  Every set of library records that name the same thing.
+
+  Not an inbox report by subject — it covers records the upload flow created
+  years before this queue existed — but the definition of *the same* lives
+  here, in the rules the importer links by, and there may only be one of it.
+  See `Ambry.Inbox.Duplicates`.
+  """
+  defdelegate duplicates, to: Duplicates, as: :check
+
+  @doc """
+  How many such sets there are, and how many records were examined.
+  """
+  defdelegate duplicate_count, to: Duplicates, as: :count
+
+  defdelegate duplicates_scanned, to: Duplicates, as: :scanned
 
   @doc """
   How a provider record is referred to: its provider and that provider's id.

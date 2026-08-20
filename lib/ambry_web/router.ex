@@ -212,6 +212,8 @@ defmodule AmbryWeb.Router do
       live "/users/:user_id/playthroughs/:playthrough_id", PlaybackDebugLive.Index
       live "/users/:user_id/devices", UserDevicesLive.Index
 
+      live "/duplicates", DuplicatesLive.Index
+
       live "/audit", AuditLive.Index, :index
 
       live "/metadata-providers", MetadataLive.Providers

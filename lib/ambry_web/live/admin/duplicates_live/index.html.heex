@@ -1,0 +1,43 @@
+<.layout title={@page_title} user={@current_user} socket={@socket}>
+  <div class="flex items-baseline gap-4">
+    <%!-- The count of what was examined, not of what was found. A report of
+        nothing and a report that never ran read identically without it, and
+        this page exists to be believed. --%>
+    <p class="text-sm text-zinc-400" data-role="scanned">
+      Checked {scanned_words(@scanned)}.
+    </p>
+    <div class="grow" />
+    <.button color={:zinc} type="button" phx-click="reload">
+      <.icon name="fa-rotate" class="mr-1.5 h-4 w-4 text-current" /> Reload
+    </.button>
+  </div>
+
+  <div :if={@groups == []} class="rounded-lg bg-zinc-900 p-4" data-role="all-clear">
+    <p class="pl-3 text-sm text-zinc-300">
+      Nothing in the library is here twice.
+    </p>
+  </div>
+
+  <div :if={@groups != []} class="space-y-14">
+    <%= for kind <- [:person, :author, :narrator, :book, :series],
+            groups = of_kind(@groups, kind),
+            groups != [] do %>
+      <% {heading, hint} = section(kind) %>
+      <section class="space-y-4" data-role={"section-#{kind}"}>
+        <h2 class="text-xl font-bold text-zinc-100">{heading}</h2>
+
+        <p class="max-w-prose text-sm text-zinc-400">{hint}</p>
+
+        <%!-- One card per set, so where one ends and the next begins is the
+            shape of the page rather than a line drawn on it. --%>
+        <div
+          :for={group <- groups}
+          class="space-y-2 rounded-lg bg-zinc-900 p-4"
+          data-role="duplicate-set"
+        >
+          <.duplicate_row :for={record <- group.records} kind={kind} record={record} />
+        </div>
+      </section>
+    <% end %>
+  </div>
+</.layout>
