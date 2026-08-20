@@ -26,7 +26,16 @@
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0 pl-3">
               <p class="truncate font-bold">{@page_title}</p>
-              <p class="font-mono truncate text-xs text-zinc-400">{@item.path}</p>
+              <%!-- Dropped when the file list below is about to print the
+                  same string: a release folder and its own files, or a loose
+                  file under the folder the list names first. --%>
+              <p
+                :if={!stated_by_files?(@item)}
+                class="font-mono truncate text-xs text-zinc-400"
+                data-role="item-path"
+              >
+                {@item.path}
+              </p>
               <p class="text-sm text-zinc-400">{evidence(@item)}</p>
 
               <%!-- "Still working" and "found nothing" look identical in a form

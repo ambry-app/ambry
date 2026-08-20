@@ -1240,11 +1240,19 @@ defmodule AmbryWeb.Admin.Components do
     """
   end
 
-  defp common_dir([]), do: ""
+  @doc """
+  The directory every one of these files shares.
 
-  defp common_dir(files) do
+  Public because a caller sometimes needs to know what this card is about to
+  say: the inbox form prints the item's path above it and drops that line
+  when the list is going to state the same thing (`stated_by_files?/1`). Two
+  answers to "where is this" would have to agree, so there is one.
+  """
+  def common_dir([]), do: ""
+
+  def common_dir(files) do
     files
-    |> Enum.map(&Path.split(Path.dirname(&1)))
+    |> Enum.map(&folder_segments/1)
     |> Enum.reduce(fn segments, acc ->
       acc
       |> Enum.zip(segments)
@@ -1254,6 +1262,16 @@ defmodule AmbryWeb.Admin.Components do
     |> case do
       [] -> ""
       segments -> Path.join(segments)
+    end
+  end
+
+  # A file with no directory above it has no directory *line*: `Path.dirname`
+  # answers "." for a path that is just a name, and the card was printing
+  # "./" over the loose files at the top of a watched folder.
+  defp folder_segments(file) do
+    case Path.dirname(file) do
+      "." -> []
+      dir -> Path.split(dir)
     end
   end
 

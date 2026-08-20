@@ -1180,6 +1180,40 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def job_label(:incomplete), do: {"Never finished matching", :yellow}
   def job_label(_settled), do: nil
 
+  @doc """
+  Whether the file list below already states where this item is.
+
+  The header prints the item's path and the list prints the directory its
+  files share, and on most items those are the same string two cards apart:
+  a release folder holds its own files, and a loose file is its own path with
+  the folder above it on the list's first line. The header drops the line
+  rather than the list, because the list is where the operator is looking
+  when they want it.
+
+  It stays when the files sit *deeper* than the item does (a release folder
+  whose audio is all in one "Disc 1"): the list then names the subfolder, and
+  which of the two this item is is exactly what a split or a combine is
+  about. It stays when there are no files at all, where the path is the only
+  thing known about the item.
+  """
+  def stated_by_files?(%InboxItem{files: []}), do: false
+
+  def stated_by_files?(%InboxItem{path: path, files: files}) do
+    case common_dir(files) do
+      ^path -> true
+      parent -> files == [path] and parent == folder_of(path)
+    end
+  end
+
+  # `Path.dirname` says "." for a name with no directory in it; `common_dir`
+  # says "" for the same thing, because it is about to print the answer.
+  defp folder_of(path) do
+    case Path.dirname(path) do
+      "." -> ""
+      dir -> dir
+    end
+  end
+
   @doc "What the item's files say they are, for the evidence header."
   def evidence(%InboxItem{probe: probe}) when is_map(probe) do
     [

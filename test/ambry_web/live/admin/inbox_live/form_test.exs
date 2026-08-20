@@ -2268,6 +2268,66 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  # The header used to print the item's path over a file list about to print
+  # the same string two cards below it.
+  describe "where the item is, said once" do
+    test "the path goes when the file list states it", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "[data-role='item-path']")
+      # still on the page: the list prints the folder its files share
+      assert html =~ "The Way of Kings [M4B]"
+    end
+
+    # A loose file at the top of a watched folder has no directory above it,
+    # and the list printed "./" for one until it stopped answering "." to a
+    # question about where something is.
+    test "a loose file is its own path, printed once and without a directory",
+         %{conn: conn} do
+      root = watched_root()
+      File.cp!(tagged_fixture(true, false, nil), Path.join(root, "Loose Book.m4b"))
+
+      {:ok, _counts} = discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Loose Book")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "[data-role='item-path']")
+      refute html =~ "./"
+    end
+
+    test "the path stays when the files sit deeper than the item", %{conn: conn} do
+      root = watched_root()
+      disc = Path.join(root, "Some Release/Disc 1")
+      File.mkdir_p!(disc)
+      File.cp!(tagged_fixture(true, false, nil), Path.join(disc, "01.m4b"))
+
+      {:ok, _counts} = discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Some Release")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # the list names "Some Release/Disc 1"; which of the two this item is
+      # is what a split or a combine is about
+      assert has_element?(view, "[data-role='item-path']")
+    end
+
+    test "the path stays when there are no files to say it", %{conn: conn} do
+      item = probed_item()
+      {:ok, item} = Inbox.update_item(item, %{files: []})
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='item-path']")
+    end
+  end
+
   describe "an item that is gone" do
     # A split or a combine replaces items rather than editing them, so the id
     # in the address bar outlives the item and browser Back walks straight
