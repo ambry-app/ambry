@@ -2360,6 +2360,74 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
     end
   end
 
+  # A release that ships the same part twice, which nothing but a listener
+  # can spot: the file list is where it is seen, so it is where it is fixed.
+  describe "taking one file out of the audiobook" do
+    setup %{conn: conn} do
+      root = watched_root()
+      release = Path.join(root, "Oathbringer")
+      File.mkdir_p!(release)
+
+      for name <- ["P05.m4b", "P06.m4b", "P06_CD.m4b"] do
+        File.cp!(tagged_fixture(true, false, nil), Path.join(release, name))
+      end
+
+      {:ok, _counts} = discover(root)
+      {[item], _more} = Inbox.list_items(filter: "Oathbringer")
+      {:ok, item} = Inbox.probe_item(item)
+      Repo.delete_all(Oban.Job)
+
+      %{conn: conn, item: item}
+    end
+
+    test "the ✕ on a row takes it out, and the row says so", %{conn: conn, item: item} do
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      # nothing is out, so nothing is counted
+      refute has_element?(view, "[data-role='excluded-count']")
+      refute html =~ "not in this audiobook"
+
+      view
+      |> element("button[phx-value-file='Oathbringer/P06_CD.m4b']")
+      |> render_click()
+
+      assert Inbox.get_item!(item.id).excluded_files == ["Oathbringer/P06_CD.m4b"]
+
+      html = render(view)
+      assert html =~ "2 of 3 in this audiobook"
+      assert html =~ "not in this audiobook"
+
+      # still listed, because the folder still holds it
+      assert html =~ "P06_CD.m4b"
+    end
+
+    test "and the same control puts it back", %{conn: conn, item: item} do
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.m4b")
+      # the re-read that excluding queues has finished; without this the form
+      # is busy and refuses every event, which is the point of the overlay
+      Repo.delete_all(Oban.Job)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+      assert has_element?(view, "[data-role='excluded-file']")
+
+      view
+      |> element("button[phx-value-file='Oathbringer/P06_CD.m4b']")
+      |> render_click()
+
+      assert Inbox.get_item!(item.id).excluded_files == []
+      refute has_element?(view, "[data-role='excluded-file']")
+    end
+
+    test "an imported item's files are read-only", %{conn: conn, item: item} do
+      {:ok, item} = Inbox.prepare_draft(item)
+      {:ok, item} = Inbox.update_item(item, %{status: :imported})
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      refute has_element?(view, "button[phx-value-file]")
+    end
+  end
+
   describe "combining items that are one audiobook" do
     # The operator's real case, and the mirror of the split above: three
     # subfolders holding one audiobook, named so that nothing but a human

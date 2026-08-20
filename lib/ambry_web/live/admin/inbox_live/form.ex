@@ -554,6 +554,28 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
+  # One file in or out of the audiobook. The item is re-read either way, so
+  # the form goes busy and comes back with the recording's new length.
+  def handle_event("toggle-file", %{"file" => file}, socket) do
+    item = socket.assigns.item
+
+    result =
+      if InboxItem.excluded?(item, file),
+        do: Inbox.include_file(item, file),
+        else: Inbox.exclude_file(item, file)
+
+    case result do
+      {:ok, item} ->
+        {:noreply, load(socket, item)}
+
+      {:error, :last_file} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(:last_file))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Couldn't change that file.")}
+    end
+  end
+
   def handle_event("add-credit", %{"section" => s}, socket) do
     {:noreply, edit(socket, &Draft.Edit.add_credit(&1, atom(s)))}
   end

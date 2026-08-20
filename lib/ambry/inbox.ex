@@ -352,7 +352,7 @@ defmodule Ambry.Inbox do
     item = Repo.preload(item, :source)
 
     attrs =
-      case item.files do
+      case InboxItem.included(item) do
         [] -> %{issue: "no audio files found"}
         _files -> probe_recording(InboxItem.disk_files(item))
       end
@@ -1125,6 +1125,11 @@ defmodule Ambry.Inbox do
   def describe_error(:not_divisible),
     do: "These files are all in one folder, so splitting by folder would change nothing."
 
+  def describe_error(:last_file),
+    do: "This is the only file left in the audiobook. Ignore the whole item instead."
+
+  def describe_error(:not_held), do: "This item doesn't hold that file any more."
+
   # The invariant, phrased for a human. It names the count rather than the
   # decisions because the form lists them properly — this is the flash you get
   # if you somehow reached import from the queue.
@@ -1247,6 +1252,61 @@ defmodule Ambry.Inbox do
     case split_groups(item, by) do
       [_one] -> {:error, :not_divisible}
       groups -> regroup([item], groups)
+    end
+  end
+
+  @doc """
+  Takes one file out of an item's audiobook, or puts it back.
+
+  A release can ship the same part twice — Oathbringer's second part carries
+  `STORMLIGHT0302P06.mp3` and `STORMLIGHT0302P06_CD.mp3`, the same forty
+  minutes at two bitrates — and nothing but a listener can tell. Splitting
+  doesn't help (the rest is one audiobook) and neither does ignoring (that
+  takes the whole item out), so this is the grain in between.
+
+  **The file is not let go of.** It stays in `files`, which is what
+  discovery reads to decide who owns what; an item that shortened its list
+  instead would be handed the file back as an inbox item of its own on the
+  next scan, and every scan after that. It is listed and struck through
+  rather than hidden for the same reason a split is visible: the operator
+  decided something, and a form that quietly showed six of seven files would
+  be lying about what it holds.
+
+  The recording changes, so the item is read again — its duration, size and
+  chapter marks are all measured across the files. That is the same path a
+  file appearing on disk takes: an untouched draft is rebuilt around the new
+  reading, and a curated one is left alone and says it is out of date.
+
+  Refused on an imported item (its files are the record of what was
+  imported), for a file the item doesn't hold, and for the last one standing:
+  an audiobook with no audio in it is not a decision, it's an empty item.
+  """
+  def exclude_file(%InboxItem{} = item, file), do: set_included(item, file, false)
+
+  def include_file(%InboxItem{} = item, file), do: set_included(item, file, true)
+
+  defp set_included(%InboxItem{status: :imported}, _file, _included?),
+    do: {:error, :already_imported}
+
+  defp set_included(%InboxItem{} = item, file, included?) do
+    cond do
+      file not in item.files -> {:error, :not_held}
+      not included? and InboxItem.included(item) == [file] -> {:error, :last_file}
+      true -> reread(item, excluded_after(item, file, included?))
+    end
+  end
+
+  defp excluded_after(%InboxItem{excluded_files: excluded}, file, true), do: excluded -- [file]
+
+  defp excluded_after(%InboxItem{excluded_files: excluded}, file, false),
+    do: Enum.uniq(excluded ++ [file])
+
+  defp reread(%InboxItem{} = item, excluded) do
+    with {:ok, item} <- update_item(item, %{excluded_files: excluded}) do
+      # The draft describes a recording that just changed length.
+      mark_draft_stale(item)
+      {:ok, _job} = probe_item_async(item)
+      {:ok, item}
     end
   end
 
@@ -1740,8 +1800,11 @@ defmodule Ambry.Inbox do
     items = InboxItem |> Repo.all() |> Repo.preload(:source)
 
     %{
+      # Every file the item holds, not just the recording's: a file the
+      # operator excluded is still owned, and a ledger that forgot it would
+      # hand it an item of its own on the next scan.
       by_file:
-        for(item <- items, file <- InboxItem.disk_files(item), into: %{}, do: {file, item}),
+        for(item <- items, file <- InboxItem.owned_disk_files(item), into: %{}, do: {file, item}),
       by_path: Map.new(items, &{InboxItem.disk_path(&1), &1})
     }
   end

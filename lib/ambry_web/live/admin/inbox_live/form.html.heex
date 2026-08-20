@@ -173,7 +173,12 @@
 
         <%!-- A sibling card, never nested inside the one above: a card in a
             card is what eats the elevation ladder (§1). --%>
-        <.file_list files={@item.files} label="Files" />
+        <.file_list
+          files={@item.files}
+          label="Files"
+          excluded={@item.excluded_files}
+          toggle={!@read_only && "toggle-file"}
+        />
       </section>
 
       <%!-- Once imported, the draft is the record of what was imported — the

@@ -13,6 +13,22 @@ defmodule Ambry.Inbox.InboxItem do
   `disk_path/1` and `disk_files/1`, never by joining the columns against
   anything directly.
 
+  ## Two questions about one list
+
+  `files` is everything under this item, and `excluded_files` says which of
+  them the operator took out of the audiobook — a release that ships the same
+  part twice, which no rule can spot and only a listener would notice.
+
+  They are separate columns because they answer to different things.
+  **`files` is the ownership ledger discovery reads**: a file it doesn't
+  claim belongs to nobody, so the next hourly scan makes it an inbox item of
+  its own, and shortening the list to exclude a file would mean it came back
+  every hour, forever. So the item keeps holding it and says it isn't in the
+  recording.
+
+  Which one a caller wants is not a detail: `owned_disk_files/1` for who
+  holds what, `disk_files/1` for what a listener will hear.
+
   Every item has a source. There is no other way in, which is what makes
   the relative form an invariant rather than a convention.
   """
@@ -39,7 +55,11 @@ defmodule Ambry.Inbox.InboxItem do
     belongs_to :source, Source
 
     field :path, :string
+
+    # Everything under this item, and which of it isn't part of the
+    # recording. See the moduledoc: two questions, two lists.
     field :files, {:array, :string}, default: []
+    field :excluded_files, {:array, :string}, default: []
     field :status, Ecto.Enum, values: @statuses, default: :pending
     field :probe, :map
     field :tags, :map
@@ -75,6 +95,7 @@ defmodule Ambry.Inbox.InboxItem do
     |> cast(attrs, [
       :path,
       :files,
+      :excluded_files,
       :status,
       :probe,
       :tags,
@@ -217,9 +238,34 @@ defmodule Ambry.Inbox.InboxItem do
   def disk_path(%__MODULE__{path: path} = item), do: resolve!(item, path)
 
   @doc """
-  The item's files as absolute disk paths, in discovery order.
+  The recording's files, as absolute disk paths, in discovery order.
+
+  What a listener will hear, which is what everything downstream of curation
+  means by "the files": the probe measures these, the draft is seeded from
+  them, and import places these and writes them as tracks. Use
+  `owned_disk_files/1` for the other question — see the moduledoc.
   """
-  def disk_files(%__MODULE__{files: files} = item), do: Enum.map(files, &resolve!(item, &1))
+  def disk_files(%__MODULE__{} = item), do: Enum.map(included(item), &resolve!(item, &1))
+
+  @doc """
+  Every file this item holds, excluded ones included, as absolute disk paths.
+
+  Ownership, not playback. Discovery reads this: a file the queue no longer
+  claims belongs to nobody, and the next scan hands it an inbox item of its
+  own. Excluding a file must therefore never let go of it.
+  """
+  def owned_disk_files(%__MODULE__{files: files} = item), do: Enum.map(files, &resolve!(item, &1))
+
+  @doc """
+  The stored form of the recording's files: everything held, less what the
+  operator took out.
+  """
+  def included(%__MODULE__{files: files, excluded_files: excluded}), do: files -- excluded
+
+  @doc """
+  Whether this file is held by the item but not part of the recording.
+  """
+  def excluded?(%__MODULE__{excluded_files: excluded}, file), do: file in excluded
 
   # Raising is deliberate: these paths get probed and placed, and a path that
   # can't resolve must never quietly become a relative one.

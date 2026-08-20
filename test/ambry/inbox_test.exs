@@ -1050,6 +1050,115 @@ defmodule Ambry.InboxTest do
     end
   end
 
+  # A release that ships the same part twice — Oathbringer's second part
+  # carries STORMLIGHT0302P06.mp3 and STORMLIGHT0302P06_CD.mp3, the same forty
+  # minutes at two bitrates. Splitting doesn't help and ignoring takes the
+  # whole item out, so one file goes and the rest stay.
+  describe "exclude_file/2" do
+    test "takes a file out of the recording without letting go of it" do
+      root = watched_root()
+      release = release_folder(root, "Oathbringer", ["P05.mp3", "P06.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+
+      assert {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+
+      # still held — that is what stops the next scan adopting it
+      assert length(item.files) == 3
+      assert item.excluded_files == ["Oathbringer/P06_CD.mp3"]
+
+      assert InboxItem.disk_files(item) == [
+               Path.join(release, "P05.mp3"),
+               Path.join(release, "P06.mp3")
+             ]
+
+      assert length(InboxItem.owned_disk_files(item)) == 3
+
+      # the recording changed length, so it is read again
+      assert_enqueued(worker: Ambry.Inbox.RunProbe, args: %{inbox_item_id: item.id})
+    end
+
+    # The whole reason the file stays in `files`. A shorter list would leave
+    # it owned by nobody, and discovery hands an unowned file in a
+    # partly-owned folder an item of its own — every hour, forever.
+    test "a rescan does not offer an excluded file as an item of its own" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+
+      assert {:ok, %{created: 0, updated: 0}} = discover(root)
+
+      assert {[unchanged], false} = Inbox.list_items()
+      assert unchanged.id == item.id
+      assert unchanged.excluded_files == item.excluded_files
+    end
+
+    test "probing measures the recording, not everything held" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+      {:ok, whole} = Inbox.probe_item(item)
+
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+      {:ok, part} = Inbox.probe_item(item)
+
+      assert part.probe["files"] == 2
+      assert whole.probe["files"] == 3
+
+      assert Decimal.lt?(
+               Decimal.new(part.probe["duration"]),
+               Decimal.new(whole.probe["duration"])
+             )
+    end
+
+    test "putting it back restores the recording" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+      assert {:ok, item} = Inbox.include_file(item, "Oathbringer/P06_CD.mp3")
+
+      assert item.excluded_files == []
+      assert length(InboxItem.disk_files(item)) == 2
+    end
+
+    test "refuses the last file, a file it doesn't hold, and an imported item" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+
+      assert {:error, :not_held} = Inbox.exclude_file(item, "Oathbringer/nope.mp3")
+
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+      assert {:error, :last_file} = Inbox.exclude_file(item, "Oathbringer/P05.mp3")
+
+      {:ok, imported} = Inbox.update_item(item, %{status: :imported})
+      assert {:error, :already_imported} = Inbox.exclude_file(imported, "Oathbringer/P05.mp3")
+    end
+
+    # An excluded file is a decision about the recording, so a draft built
+    # before it says so.
+    test "a curated draft is told the recording changed" do
+      root = watched_root()
+      release_folder(root, "Oathbringer", ["P05.mp3", "P06.mp3", "P06_CD.mp3"])
+      {:ok, _counts} = discover(root)
+      {[item], false} = Inbox.list_items()
+      {:ok, item} = Inbox.probe_item(item)
+      {:ok, item} = Inbox.prepare_draft(item)
+      refute item.draft.stale
+
+      {:ok, item} = Inbox.exclude_file(item, "Oathbringer/P06_CD.mp3")
+
+      assert Inbox.get_item!(item.id).draft.stale
+    end
+  end
+
   describe "combine_group/1" do
     test "offers the rest of the folder, and nothing at the top of a source" do
       root = watched_root()

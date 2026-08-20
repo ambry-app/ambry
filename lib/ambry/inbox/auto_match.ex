@@ -850,7 +850,7 @@ defmodule Ambry.Inbox.AutoMatch do
   # operator's filesystem layout and says nothing about this release.
   defp raw_text(%InboxItem{} = item) do
     [Path.basename(item.path || "")]
-    |> Enum.concat(Enum.map(item.files || [], &Path.basename/1))
+    |> Enum.concat(Enum.map(InboxItem.included(item), &Path.basename/1))
     |> Enum.concat(tag_text(item.tags))
     |> Enum.join(" ")
   end

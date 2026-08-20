@@ -1229,6 +1229,15 @@ defmodule AmbryWeb.Admin.Components do
 
   attr :files, :list, required: true
   attr :label, :string, default: nil, doc: "the card names itself — rendered inside, on the rail"
+
+  attr :excluded, :list,
+    default: [],
+    doc: "files that are listed but not part of the thing: struck through, and counted"
+
+  attr :toggle, :string,
+    default: nil,
+    doc: "phx-click event taking a file in or out; without it the list is a fact display"
+
   attr :class, :any, default: nil
 
   @doc """
@@ -1241,21 +1250,66 @@ defmodule AmbryWeb.Admin.Components do
   Long lists scroll *inside* the card — the label and common-directory line
   stay pinned, and the scrollbar sits in its own gutter (`pr-2`), the same
   anatomy as the chapter editor's rows.
+
+  ## Taking one file out
+
+  Given `toggle`, each row grows the list-row remove (§6's ✕, for something
+  undoable), and an excluded file **stays in the list** — struck through,
+  named as out, with the way back beside it. Hiding it would make the card
+  disagree with the folder it is describing, and the operator could not
+  change their mind.
+
+  The count line appears only when something is out. A card that said "7
+  files · 0 excluded" on every item in the queue would be paying for the rare
+  case on all of them.
   """
   def file_list(assigns) do
     assigns = assign(assigns, :common, common_dir(assigns.files))
 
     ~H"""
     <div :if={@files != []} class={["space-y-1 rounded-lg bg-zinc-900 p-4", @class]}>
-      <.label :if={@label} class="pl-3">{@label}</.label>
+      <div class="flex items-baseline justify-between gap-3 pl-3">
+        <.label :if={@label}>{@label}</.label>
+        <p :if={@excluded != []} class="flex-none text-xs text-zinc-400" data-role="excluded-count">
+          {length(@files) - length(@excluded)} of {length(@files)} in this audiobook
+        </p>
+      </div>
       <%!-- The directory every file shares, printed once so the names below
           are names. On the rail, like the label above it and the rows below
           it — a card has two left edges, never three (§3). --%>
       <p :if={@common != ""} class="font-mono truncate pl-3 text-xs text-zinc-500">{@common}/</p>
       <div class="max-h-64 overflow-y-auto pr-2">
         <ul class="space-y-0.5 pt-1">
-          <li :for={file <- @files} class="font-mono truncate pl-3 text-xs text-zinc-400">
-            {file_label(file, @common)}
+          <%!-- The row lights up as a whole, because the control is at the
+              far edge of a wide card and the name is at the near one: with
+              nothing joining them, lining up the ✕ with the file it belongs
+              to is a measuring exercise. Only when there is something to
+              click — a fact list has no reason to react to a cursor. --%>
+          <li
+            :for={file <- @files}
+            class={["group flex items-baseline gap-2 rounded-sm py-0.5 pl-3 text-xs", @toggle && "hover:bg-white/5"]}
+            data-role={file in @excluded && "excluded-file"}
+          >
+            <span class={[
+              "font-mono min-w-0 truncate",
+              if(file in @excluded, do: "text-zinc-500 line-through", else: "text-zinc-400")
+            ]}>
+              {file_label(file, @common)}
+            </span>
+
+            <span :if={file in @excluded} class="flex-none text-zinc-500">not in this audiobook</span>
+
+            <button
+              :if={@toggle}
+              type="button"
+              phx-click={@toggle}
+              phx-value-file={file}
+              class="ml-auto flex-none rounded-sm px-1 text-zinc-500 hover:bg-white/10 hover:text-zinc-100 group-hover:text-zinc-300"
+              title={if file in @excluded, do: "Put this file back", else: "Not part of this audiobook"}
+              aria-label={if file in @excluded, do: "Put this file back", else: "Not part of this audiobook"}
+            >
+              <.icon name={if file in @excluded, do: "fa-rotate-left", else: "fa-xmark"} class="h-3 w-3 text-current" />
+            </button>
           </li>
         </ul>
       </div>
