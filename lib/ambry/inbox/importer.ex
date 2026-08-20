@@ -827,8 +827,12 @@ defmodule Ambry.Inbox.Importer do
     # row can explain itself tomorrow; succeeding is what resolves it. Left
     # in place, "Couldn't add this to the library" sat in red on rows whose
     # media was sitting right there in the library.
+    # `item` is the row `claim/1` locked, so this cannot be stale — but it
+    # still bumps the version, which is what tells a form open on this item
+    # that the thing it is editing is now in the library.
     item
     |> InboxItem.changeset(%{status: :imported, media_id: media.id, issue: nil})
+    |> InboxItem.versioned()
     |> Repo.update()
   end
 end

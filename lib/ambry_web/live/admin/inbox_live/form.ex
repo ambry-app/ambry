@@ -303,9 +303,26 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
     # Autosave: the form and the stored draft are never allowed to disagree,
     # so a click on any of the choice controls below can't discard typing.
+    #
+    # The one write here that can't be replayed against a newer draft — these
+    # params were rendered against a particular one — so it is the one that
+    # can come back refused. Reloading is the only honest answer: applying
+    # them anyway would overwrite whatever moved the row, unseen.
     case Inbox.update_draft(socket.assigns.item, params["draft"] || %{}) do
-      {:ok, item} -> {:noreply, load(socket, item)}
-      {:error, changeset} -> {:noreply, assign(socket, form: to_form(changeset))}
+      {:ok, item} ->
+        {:noreply, load(socket, item)}
+
+      {:error, :stale} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Something else changed this item while you were typing. Reloaded — check the last thing you entered."
+         )
+         |> load(Inbox.get_item!(socket.assigns.item.id))}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, form: to_form(changeset))}
     end
   end
 
@@ -914,9 +931,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp resettle(socket) do
     item = socket.assigns.item
 
-    case Inbox.update_draft(item, Inbox.dump_draft(Draft.Edit.resettle(item.draft, item))) do
+    case Inbox.update_draft_with(item, &Draft.Edit.resettle/2) do
       {:ok, item} -> load(socket, item)
-      {:error, _changeset} -> socket
+      {:error, _reason} -> socket
     end
   end
 
@@ -953,12 +970,22 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp hydrate_if_thin(item, _level, _ref, %{"hydrated" => true}), do: {:ok, item}
   defp hydrate_if_thin(item, level, ref, _record), do: Inbox.hydrate_record(item, level, ref)
 
+  # Applied to the draft the row holds rather than the one this socket is
+  # showing. A form can sit open for a long time while background work — a
+  # sibling import's relink sweep, a rescan — moves the row under it, and an
+  # answer written from the stale copy would take the row back with it.
+  # `fun` is a transformation, so handing it the committed draft is both
+  # safe and the only version that can't lose anything.
   defp edit(socket, fun) do
-    draft = fun.(socket.assigns.item.draft)
+    case Inbox.update_draft_with(socket.assigns.item, fn draft, _item -> fun.(draft) end) do
+      {:ok, item} ->
+        load(socket, item)
 
-    case Inbox.update_draft(socket.assigns.item, Inbox.dump_draft(draft)) do
-      {:ok, item} -> load(socket, item)
-      {:error, changeset} -> assign(socket, form: to_form(changeset))
+      {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
+        assign(socket, form: to_form(changeset))
+
+      {:error, _reason} ->
+        socket
     end
   end
 

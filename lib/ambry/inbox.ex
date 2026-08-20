@@ -423,10 +423,48 @@ defmodule Ambry.Inbox do
     end
   end
 
-  def update_item(%InboxItem{} = item, attrs) do
-    item
-    |> InboxItem.changeset(attrs)
-    |> Repo.update()
+  @doc """
+  Sets columns on an item, on the row as it is now.
+
+  Takes an id or an item, and reads the row again either way: the callers
+  here are jobs that computed `attrs` from something slow — a probe, a fan-out
+  to four metadata providers — and the copy they set out with is minutes old
+  by the time they have an answer. What they are writing does not depend on
+  what the row said in the meantime, so the fresh row is simply the right
+  thing to write onto.
+  """
+  def update_item(item_or_id, attrs)
+
+  def update_item(%InboxItem{id: id}, attrs), do: update_item(id, attrs)
+
+  def update_item(id, attrs) when is_integer(id) do
+    with_item(id, &(&1 |> InboxItem.changeset(attrs) |> write()))
+  end
+
+  # The row as committed, held for the rest of the transaction. Everything
+  # that reads an item, changes it and writes it back goes through here —
+  # `Ambry.Inbox.Lookup` and `Ambry.Inbox.Importer` take the same lock for
+  # the same reason.
+  defp with_item(id, fun) do
+    Repo.transact(fn ->
+      InboxItem
+      |> where([i], i.id == ^id)
+      |> lock("FOR UPDATE")
+      |> Repo.one!()
+      # The item callers got back before always carried its source, and
+      # plenty of them go on to resolve a path with it.
+      |> Repo.preload(:source)
+      |> fun.()
+    end)
+  end
+
+  # Every write from this module reads its row first, under that lock, so
+  # `unchanged?/1` is answerable here and a sweep that found nothing to do
+  # leaves no trace at all.
+  defp write(changeset) do
+    if InboxItem.unchanged?(changeset),
+      do: {:ok, changeset.data},
+      else: changeset |> InboxItem.versioned() |> Repo.update()
   end
 
   @doc """
@@ -464,7 +502,7 @@ defmodule Ambry.Inbox do
           rebuild_draft(item)
 
         Draft.curated?(item.draft) ->
-          update_draft(item, item.draft |> Draft.Edit.resettle(item) |> dump())
+          update_draft_with(item, &Draft.Edit.resettle/2)
 
         true ->
           rebuild_draft(item)
@@ -584,11 +622,11 @@ defmodule Ambry.Inbox do
   # stale proposal to fix on the form, not a reason to fail the import that
   # already committed.
   defp refresh_draft(%InboxItem{} = item) do
-    case update_draft(item, item.draft |> Seed.relink(item) |> dump()) do
+    case update_draft_with(item, &Seed.relink/2) do
       {:ok, _item} ->
         :ok
 
-      {:error, _changeset} ->
+      {:error, _reason} ->
         Logger.warning(fn -> "Inbox: couldn't refresh draft for item #{item.id}" end)
         :ok
     end
@@ -602,21 +640,23 @@ defmodule Ambry.Inbox do
   only ever happens when there is no draft yet — an operator's choices are
   not something a background job may overwrite.
   """
-  def prepare_draft(%InboxItem{draft: nil} = item), do: rebuild_draft(item)
-
   # An imported item's draft is the record of what was imported; nothing may
   # touch it, healing included.
   def prepare_draft(%InboxItem{status: :imported} = item), do: {:ok, item}
 
   def prepare_draft(%InboxItem{} = item) do
-    fresh =
-      item.draft
-      |> refresh_destination(item)
-      |> refresh_replacement(item)
-
-    if fresh == item.draft,
-      do: {:ok, item},
-      else: item |> InboxItem.put_draft(dump(fresh)) |> Repo.update()
+    item
+    |> update_draft_with(fn
+      nil, fresh -> Seed.build(fresh)
+      draft, fresh -> draft |> refresh_destination(fresh) |> refresh_replacement(fresh)
+    end)
+    |> case do
+      # Imported while this caller was holding the row. Healing an imported
+      # item is a no-op, not a failure — the form asks for this on mount and
+      # a read-only page is a perfectly good answer.
+      {:error, :already_imported} -> {:ok, item}
+      result -> result
+    end
   end
 
   # A decision the operator has not answered is a *default*, and a default
@@ -644,13 +684,56 @@ defmodule Ambry.Inbox do
   and editing it would be more work than starting over. Never automatic.
   """
   def rebuild_draft(%InboxItem{} = item) do
-    item
-    |> InboxItem.put_draft(item |> Seed.build() |> dump())
-    |> Repo.update()
+    update_draft_with(item, fn _discarded, fresh -> Seed.build(fresh) end)
   end
 
   @doc """
-  Saves operator edits to the staged import.
+  Applies a transformation to the draft the row actually holds.
+
+  **The way to change a draft.** Everything that changes one is a function of
+  the draft and the item — `Seed.relink/2` re-points a credit at a row that
+  now exists, `Draft.Edit.choose_field/4` records an answer, `Seed.build/1`
+  starts over — so the transformation can simply be handed the committed
+  draft instead of one the caller read earlier and may have been holding for
+  a while.
+
+  That is the whole fix for the class of bug this had: a sweep that read
+  three hundred drafts and then wrote them back one at a time was writing
+  minutes-old copies, and any answer given in between vanished without a
+  trace. Under the lock there is no in-between — the draft the function is
+  given is the draft the write lands on.
+
+  The transformation may return `nil` for "nothing to write". Note it runs
+  inside the transaction: keep it to library reads, never a provider call.
+  """
+  def update_draft_with(item_or_id, fun)
+
+  def update_draft_with(%InboxItem{id: id}, fun), do: update_draft_with(id, fun)
+
+  def update_draft_with(id, fun) when is_integer(id) do
+    with_item(id, fn
+      # An imported item's draft is the frozen record of that import.
+      %InboxItem{status: :imported} -> {:error, :already_imported}
+      item -> write_draft(item, fun.(item.draft, item))
+    end)
+  end
+
+  defp write_draft(item, nil), do: {:ok, item}
+
+  defp write_draft(item, %Draft{} = draft),
+    do: item |> InboxItem.put_draft(dump(draft)) |> write()
+
+  @doc """
+  Saves the import form's own params.
+
+  The one draft write that cannot be replayed against a newer draft, and so
+  the one that can be refused: its attrs are a rendered form, built against a
+  particular draft and meaningful only against that one. Everything else goes
+  through `update_draft_with/2`, which re-derives instead.
+
+  Returns `{:error, :stale}` when the row has moved since the form was
+  rendered. The form's answer is to reload and say so — applying the params
+  anyway is exactly the silent overwrite the version exists to stop.
 
   Every save recomputes readiness, so the queue can never claim an item is
   importable when its draft says otherwise.
@@ -660,7 +743,17 @@ defmodule Ambry.Inbox do
   def update_draft(%InboxItem{} = item, attrs) do
     item
     |> InboxItem.put_draft(attrs)
-    |> Repo.update()
+    |> InboxItem.versioned()
+    |> Repo.update(stale_error_field: :lock_version)
+    |> case do
+      {:ok, item} ->
+        {:ok, item}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        if Keyword.has_key?(changeset.errors, :lock_version),
+          do: {:error, :stale},
+          else: {:error, changeset}
+    end
   end
 
   @doc """
@@ -1415,10 +1508,8 @@ defmodule Ambry.Inbox do
     end
   end
 
-  defp mark_draft_stale(%InboxItem{draft: nil}), do: :ok
-
   defp mark_draft_stale(%InboxItem{} = item) do
-    item |> InboxItem.put_draft(item.draft |> Seed.restale(item) |> dump()) |> Repo.update()
+    update_draft_with(item, &Seed.restale/2)
     :ok
   end
 

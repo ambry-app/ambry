@@ -613,6 +613,71 @@ defmodule Ambry.InboxTest do
     end
   end
 
+  # Production, 2026-08-20: the operator answered "this replaces audiobook
+  # 108", a sibling import's post-commit sweep wrote the whole draft back
+  # from a copy of the row it had read seconds earlier, and the answer
+  # stopped existing. The import job then refused an item whose form showed
+  # nothing wrong, and no job failed anywhere.
+  describe "concurrent writes to one item" do
+    setup do
+      dir = watched_root()
+      release_folder(dir, "Contested Item", ["book.m4b"])
+      insert(:source, path: dir)
+      insert(:root, path: watched_root())
+
+      {:ok, _counts} = Inbox.discover()
+      {[item], false} = Inbox.list_items(filter: "Contested Item")
+      {:ok, item} = Inbox.probe_item(item)
+      {:ok, item} = Inbox.prepare_draft(item)
+
+      %{item: item}
+    end
+
+    test "an answer given while a sweep was working is not written back over", ctx do
+      # what the sweep read before the operator touched anything
+      sweep_holds = ctx.item
+
+      media = insert(:media, book: insert(:book))
+
+      {:ok, _answered} =
+        Inbox.update_draft_with(ctx.item, fn draft, _item ->
+          Draft.Edit.replace_recording(draft, media.id)
+        end)
+
+      {:ok, _swept} =
+        Inbox.update_draft_with(sweep_holds, fn draft, _item -> %{draft | stale: true} end)
+
+      draft = Inbox.get_item!(ctx.item.id).draft
+
+      # the sweep's own change landed...
+      assert draft.stale
+      # ...on top of the answer, rather than instead of it
+      assert %{mode: :replace, curated: true} = draft.replacement
+      assert draft.replacement.media_id == media.id
+    end
+
+    test "a sweep that finds nothing to do leaves no trace", ctx do
+      {:ok, item} = Inbox.update_draft_with(ctx.item, fn draft, _item -> draft end)
+
+      # Not merely "the draft is the same": the row must not move at all, or
+      # a form somebody has open goes stale every time an unrelated item is
+      # imported. `Draft`'s keyless collections make every re-cast look like
+      # a change, so this is the assertion that keeps that quirk contained.
+      assert item.lock_version == ctx.item.lock_version
+      assert {:ok, _saved} = Inbox.update_draft(ctx.item, Inbox.dump_draft(ctx.item.draft))
+    end
+
+    # The form's params are the one write that can't be replayed against a
+    # newer draft: they were rendered against a particular one.
+    test "form params rendered against a draft the row has moved past are refused", ctx do
+      {:ok, _moved} =
+        Inbox.update_draft_with(ctx.item, fn draft, _item -> %{draft | stale: true} end)
+
+      assert {:error, :stale} = Inbox.update_draft(ctx.item, Inbox.dump_draft(ctx.item.draft))
+      assert Inbox.get_item!(ctx.item.id).draft.stale
+    end
+  end
+
   describe "ignore_item/1 and restore_item/1" do
     test "take an item out of the queue and back, without touching files" do
       root = watched_root()
