@@ -198,12 +198,17 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
 
       view |> element("#proposals-narrators button", "Michael Kramer") |> render_click()
 
-      assert [%Person{name: "Michael Kramer"}] = Repo.all(Person)
+      # **the click creates nobody.** An edit form does nothing until Save,
+      # and a chip that wrote a person on the spot left one behind on every
+      # recording the operator looked at and abandoned.
+      assert Repo.all(Person) == []
 
-      # the chip reports the credit now rather than offering it a second time
+      # the chip reports the staged credit rather than offering it again
       refute has_element?(view, "#proposals-narrators button", "Michael Kramer")
 
       view |> form("#media-form") |> render_submit()
+
+      assert [%Person{name: "Michael Kramer"}] = Repo.all(Person)
 
       assert [%{name: "Michael Kramer"}] =
                media.id

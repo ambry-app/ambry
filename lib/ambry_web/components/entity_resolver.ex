@@ -228,7 +228,12 @@ defmodule AmbryWeb.Components.EntityResolver do
      socket
      |> assign(assigns)
      |> assign_new(:text_name, fn -> nil end)
-     |> assign_new(:text, fn -> "" end)
+     # Seeded from the field, not merely empty: a name can arrive from the
+     # server as well as from the keyboard — a proposal chip stages one in the
+     # row it appends — and a box that rendered blank would post the name
+     # away again on the next change. After the first render the operator owns
+     # it, which is what `assign_new/3` says.
+     |> assign_new(:text, fn -> assigns[:initial_text] || "" end)
      |> assign_new(:value, fn -> nil end)
      |> assign_new(:placeholder, fn -> nil end)
      |> assign_new(:class, fn -> nil end)}

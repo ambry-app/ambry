@@ -358,12 +358,39 @@ defmodule AmbryWeb.Admin.Curation do
   the association, marked for replacement, and counting it would keep a chip
   reporting a credit the operator just took off.
   """
-  def current_labels(changeset, assoc, key, fetch) do
+  def current_labels(changeset, assoc, key, fetch, name_key \\ nil) do
     changeset
     |> Ecto.Changeset.get_field(assoc)
-    |> Enum.map(fn row -> row |> Map.get(key) |> fetch.() |> option_label() end)
+    |> Enum.map(fn row ->
+      row
+      |> Map.get(key)
+      |> fetch.()
+      |> option_label()
+      |> case do
+        nil -> name_key && Map.get(row, name_key)
+        label -> label
+      end
+    end)
     |> Enum.reject(&is_nil/1)
   end
+
+  @doc """
+  Whether a list already credits this name, however it says so.
+
+  A row may point at a record or merely name one (`Ambry.Ecto.EntityRef`), and
+  both count: a chip that has been clicked once is reporting a credit that is
+  staged rather than saved, and clicking it again must not stage it twice.
+  """
+  def credits_name?(changeset, assoc, key, fetch, name_key, name) do
+    wanted = normalized(name)
+
+    changeset
+    |> current_labels(assoc, key, fetch, name_key)
+    |> Enum.any?(&(normalized(&1) == wanted))
+  end
+
+  defp normalized(nil), do: nil
+  defp normalized(name), do: name |> String.trim() |> String.downcase()
 
   defp option_label(%{label: label}), do: label
   defp option_label({label, _id}), do: label

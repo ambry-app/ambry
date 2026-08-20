@@ -15,7 +15,6 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   alias Ambry.Books
   alias Ambry.Books.Book
-  alias Ambry.Books.Series
   alias Ambry.Inbox
   alias Ambry.Media
   alias Ambry.Metadata.Provider
@@ -242,15 +241,22 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     |> refresh_chips()
   end
 
+  # **A chip stages a name; it creates nothing.**
+  #
+  # It used to create: clicking a proposed author wrote a `Person` row on the
+  # spot, so a book you never saved left a person behind, and the picker
+  # beside it — which stages — disagreed with it about when a thing becomes
+  # real. Both put the name in the row now, and the context resolves it inside
+  # the transaction that saves the book (`Ambry.Ecto.EntityRef`). An edit form
+  # does nothing until Save, without exception.
   defp accept_entity(socket, :authors, proposal) do
-    author = People.find_or_create_author(proposal.params["name"], source: proposal.source)
-    author_id = author.id
+    name = proposal.params["name"]
 
-    if already_credited?(socket, :book_authors, :author_id, author_id) do
+    if credited?(socket, :book_authors, :author_id, &People.author_option/1, :author_name, name) do
       socket
     else
       socket
-      |> assign_rows(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
+      |> assign_rows(:book_authors, %{"author_name" => name}, ~w(author_id author_name))
       |> assign(
         provenance_hints:
           ProvenanceHints.for_list(
@@ -264,19 +270,19 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   defp accept_entity(socket, :series, proposal) do
-    series_id = resolve_series(proposal.params["name"])
+    name = proposal.params["name"]
 
     row =
-      %{"series_id" => to_string(series_id)}
+      %{"series_name" => name}
       |> Map.merge(
         (proposal.params["number"] && %{"book_number" => proposal.params["number"]}) || %{}
       )
 
-    if already_credited?(socket, :series_books, :series_id, series_id) do
+    if credited?(socket, :series_books, :series_id, &Books.series_option/1, :series_name, name) do
       socket
     else
       socket
-      |> assign_rows(:series_books, row, ~w(series_id book_number))
+      |> assign_rows(:series_books, row, ~w(series_id series_name book_number))
       |> assign(
         provenance_hints:
           ProvenanceHints.for_list(
@@ -289,38 +295,17 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     end
   end
 
-  # Asked of the *resolved* record rather than of the chip: a chosen chip no
-  # longer offers a click (`proposal_chip/1`), so reaching here means either a
-  # stale page or two chips whose different names resolve to one author —
-  # "J.R.R. Tolkien" and "John Ronald Reuel Tolkien" naming the same row. The
-  # rendering rule is what the operator sees; this is what makes it true.
-  #
-  # `get_field/2` and not `get_assoc/2`: a row removed with the ✕ is still in
-  # the association, marked for replacement, and counting it as credited made
-  # the chip refuse to put back the author it had just let go of — the same
-  # trap `Reordering.row_count/2` exists for. This is the applied list, which
-  # is the list on screen.
   # `Curation.append_row/4` answers in params; this is the form putting them on.
   defp assign_rows(socket, assoc, new_row, keep_fields) do
     params = append_row(socket.assigns.form, assoc, new_row, keep_fields)
     assign_form(socket, Books.change_book(socket.assigns.book, params))
   end
 
-  defp already_credited?(socket, assoc, key, id) do
-    socket.assigns.form.source
-    |> Changeset.get_field(assoc)
-    |> Enum.any?(&(Map.get(&1, key) == id))
-  end
-
-  defp resolve_series(name) do
-    case Ambry.Search.find_first(name, Series) do
-      nil ->
-        {:ok, series} = Books.create_series(%{name: name})
-        series.id
-
-      %Series{} = series ->
-        series.id
-    end
+  # Whether this list already credits that name, by pointing at it or by
+  # holding it — a chip clicked once has staged a credit that is not saved
+  # yet, and clicking it again must not stage it twice.
+  defp credited?(socket, assoc, key, fetch, name_key, name) do
+    credits_name?(socket.assigns.form.source, assoc, key, fetch, name_key, name)
   end
 
   defp refresh_chips(socket) do
@@ -344,13 +329,25 @@ defmodule AmbryWeb.Admin.BookLive.Form do
             evidence
             |> Evidence.proposals(:authors)
             |> mark_present(
-              current_labels(form.source, :book_authors, :author_id, &People.author_option/1)
+              current_labels(
+                form.source,
+                :book_authors,
+                :author_id,
+                &People.author_option/1,
+                :author_name
+              )
             ),
           series:
             evidence
             |> Evidence.proposals(:series)
             |> mark_present(
-              current_labels(form.source, :series_books, :series_id, &Books.series_option/1)
+              current_labels(
+                form.source,
+                :series_books,
+                :series_id,
+                &Books.series_option/1,
+                :series_name
+              )
             )
         }
       else

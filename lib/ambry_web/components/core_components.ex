@@ -444,10 +444,10 @@ defmodule AmbryWeb.CoreComponents do
     default: nil,
     doc: ~s|autocomplete: `fn id -> option \| nil`, so a filled box can name what it holds|
 
-  attr :create_name, :string,
+  attr :create_field, FormField,
     default: nil,
     doc:
-      "autocomplete: the input name the typed text posts under, which turns on \"Create …\". " <>
+      "autocomplete: the field the typed name posts under, which turns on \"Create …\". " <>
         "Without it the box can only pick something that already exists."
 
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
@@ -555,7 +555,8 @@ defmodule AmbryWeb.CoreComponents do
         module={EntityResolver}
         id={@id}
         name={@name}
-        text_name={@create_name}
+        text_name={@create_field && @create_field.name}
+        initial_text={@create_field && @create_field.value}
         search={@search}
         fetch={@fetch}
         value={@value}

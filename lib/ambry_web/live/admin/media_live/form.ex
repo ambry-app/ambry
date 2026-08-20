@@ -40,8 +40,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     "image" => :image
   }
 
-  # Credits, which are people: accepting one of these makes a row, and may
-  # make the human behind it (`People.find_or_create_narrator/2`).
+  # Credits, which are people: accepting one of these stages a row naming the
+  # human, and the save makes them (`Ambry.Ecto.EntityRef`).
   @entity_kinds %{"narrators" => :narrators}
 
   @impl Phoenix.LiveView
@@ -513,18 +513,27 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   # The narrator identity a proposed credit names — an existing narrator of
   # that name, the identity added to an existing person, or a new person.
+  # A chip stages the name; the person is made when the form is saved, in the
+  # transaction that saves it. See the book form for why they used to differ.
   defp accept_entity(socket, :narrators, proposal) do
-    narrator = People.find_or_create_narrator(proposal.params["name"], source: proposal.source)
+    name = proposal.params["name"]
 
-    if already_credited?(socket, :media_narrators, :narrator_id, narrator.id) do
+    if credits_name?(
+         socket.assigns.form.source,
+         :media_narrators,
+         :narrator_id,
+         &People.narrator_option/1,
+         :narrator_name,
+         name
+       ) do
       socket
     else
       params =
         append_row(
           socket.assigns.form,
           :media_narrators,
-          %{"narrator_id" => to_string(narrator.id)},
-          ~w(narrator_id)
+          %{"narrator_name" => name},
+          ~w(narrator_id narrator_name)
         )
 
       socket
@@ -539,15 +548,6 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       )
       |> refresh_chips()
     end
-  end
-
-  # Two chips whose names differ can resolve to one narrator, and a stale page
-  # can send the event whatever is rendered. `get_field/2` is the list on
-  # screen: a row removed with the ✕ is still in the association.
-  defp already_credited?(socket, assoc, key, id) do
-    socket.assigns.form.source
-    |> Changeset.get_field(assoc)
-    |> Enum.any?(&(Map.get(&1, key) == id))
   end
 
   defp refresh_chips(socket) do
@@ -589,7 +589,8 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
                 form.source,
                 :media_narrators,
                 :narrator_id,
-                &People.narrator_option/1
+                &People.narrator_option/1,
+                :narrator_name
               )
             )
         }

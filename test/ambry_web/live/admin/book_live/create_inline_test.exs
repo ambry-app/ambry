@@ -7,8 +7,10 @@ defmodule AmbryWeb.Admin.BookLive.CreateInlineTest do
   hand, and coming back — the asymmetry `EDIT_PARITY_PLAN.md` is about. The
   picker has always been able to offer "Create …"; these forms had it off.
   """
-  use AmbryWeb.ConnCase, async: true
+  use AmbryWeb.ConnCase, async: false
+  use Patch
 
+  import Phoenix.ConnTest, except: [patch: 3]
   import Phoenix.LiveViewTest
 
   alias Ambry.Books
@@ -18,6 +20,34 @@ defmodule AmbryWeb.Admin.BookLive.CreateInlineTest do
   alias Ambry.Repo
 
   setup :register_and_log_in_admin_user
+
+  defp patch_search do
+    record = %Ambry.Metadata.Provider.Book{
+      provider: "rreading_glasses",
+      id: "76027608",
+      title: "Dungeon Crawler Carl",
+      authors: [
+        %Ambry.Metadata.Provider.Contributor{id: "1", name: "Matt Dinniman", role: "author"}
+      ],
+      series: [
+        %Ambry.Metadata.Provider.Series{id: "2", name: "Dungeon Crawler Carl", number: "1"}
+      ]
+    }
+
+    patch(Ambry.Metadata.Providers, :search_books, fn
+      "rreading_glasses", _query, _opts -> {:ok, [record]}
+      _other, _query, _opts -> {:ok, []}
+    end)
+  end
+
+  defp search(view, fields) do
+    view |> form("#research-work", fields) |> render_submit()
+    render_async(view)
+  end
+
+  defp tick_first_record(view) do
+    view |> element(~s{[data-role="record"] input[type="checkbox"]}) |> render_click()
+  end
 
   describe "a book's authors" do
     test "a typed name that matches nobody becomes a person on save", %{conn: conn} do
@@ -130,6 +160,51 @@ defmodule AmbryWeb.Admin.BookLive.CreateInlineTest do
         })
 
       refute html =~ "can&#39;t be blank"
+    end
+  end
+
+  # The rule this whole arc has to keep: **an edit form does nothing until
+  # Save.** The import form saves on every change because nothing it holds is
+  # real yet; an edit form is a record that already exists, and a control that
+  # wrote on click left records behind on every book the operator opened,
+  # looked at and abandoned.
+  describe "nothing is written before Save" do
+    test "a proposal chip stages the author rather than creating them", %{conn: conn} do
+      patch_search()
+      book = insert(:book, title: "Dungeon Crawler Carl", book_authors: [])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+      search(view, %{"title" => "Dungeon Crawler Carl"})
+      tick_first_record(view)
+
+      before = Repo.aggregate(Person, :count)
+      html = view |> element(~s{#proposals-authors button}) |> render_click()
+
+      # the row is there, holding a name
+      assert html =~ "Matt Dinniman"
+      assert Repo.aggregate(Person, :count) == before
+      refute Repo.get_by(Person, name: "Matt Dinniman")
+      # and the chip reports it, so a second click can't stage it twice
+      refute has_element?(view, ~s{#proposals-authors button})
+
+      view |> form("#book-form") |> render_submit()
+
+      assert %Person{} = Repo.get_by(Person, name: "Matt Dinniman")
+    end
+
+    test "a proposed series is staged too", %{conn: conn} do
+      patch_search()
+      book = insert(:book, title: "Dungeon Crawler Carl", series_books: [])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+      search(view, %{"title" => "Dungeon Crawler Carl"})
+      tick_first_record(view)
+
+      view |> element(~s{#proposals-series button}) |> render_click()
+      refute Repo.get_by(Series, name: "Dungeon Crawler Carl")
+
+      view |> form("#book-form") |> render_submit()
+      assert %Series{} = Repo.get_by(Series, name: "Dungeon Crawler Carl")
     end
   end
 
