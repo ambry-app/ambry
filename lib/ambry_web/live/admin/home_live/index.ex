@@ -135,7 +135,12 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   defp slow_load(socket) do
     assign(socket,
       providers: Inbox.provider_health(),
-      unreachable: Library.unreachable_locations()
+      unreachable: Library.unreachable_locations(),
+      # Reads every person, author, narrator, book and series and folds each
+      # name the way matching does — 1434 records on production. Cheap, but
+      # not on every job signal, and the answer doesn't change between one
+      # import and the next.
+      duplicates: Inbox.duplicate_count()
     )
   end
 
@@ -196,6 +201,12 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
         # a list that disagrees with the number that was clicked is its own
         # small betrayal.
         navigate: ~p"/admin/inbox?problem=issue&status=pending"
+      },
+      %{
+        words: "Records the library holds twice",
+        count: assigns.duplicates,
+        tone: :amber,
+        navigate: ~p"/admin/duplicates"
       },
       %{
         words: "Ready to publish, held by the switch",

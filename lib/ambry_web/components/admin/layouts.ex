@@ -98,6 +98,10 @@ defmodule AmbryWeb.Admin.Layouts do
           </.link>
 
           <p class={group_class()}>System</p>
+          <.link navigate={~p"/admin/duplicates"} class={nav_class(@active_path =~ "/admin/duplicates")}>
+            <.icon name="fa-magnifying-glass" class="h-5 w-5 text-current" />
+            <p>Duplicates</p>
+          </.link>
           <.link navigate={~p"/admin/audit"} class={nav_class(@active_path =~ "/admin/audit")}>
             <.icon name="fa-file-waveform" class="h-5 w-5 text-current" />
             <p>File Audit</p>

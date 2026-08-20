@@ -57,6 +57,7 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.Inbox.Draft.Replacement
   alias Ambry.Inbox.Draft.SeriesLink
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.Preflight
   alias Ambry.Library
   alias Ambry.Library.NamingTemplate
   alias Ambry.Library.Placement
@@ -90,10 +91,11 @@ defmodule Ambry.Inbox.Importer do
     # decision on one would send them to the form to fix something the form
     # can't fix.
     with {:ok, files} <- audio_files(item),
+         known = Preflight.check(item),
          {:ok, probes} <- probe_all(files),
          :ok <- resolved(item),
          {:ok, destination} <- destination(item),
-         {:ok, outcome} <- create(item, files, probes, destination) do
+         {:ok, outcome} <- create(item, files, probes, destination, known) do
       # Only now, with the records committed, is anything destroyed: a moved
       # file's source, the names a replacement moved aside, and the files the
       # recording it replaced was served from.
@@ -156,15 +158,43 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
+  # **The pre-flight again, against the library as it is at the write.**
+  #
+  # `Preflight` runs on the button, and then this import keeps going for as
+  # long as it takes to re-probe every file and copy every byte — measured on
+  # production, forty to eighty seconds, with three more imports running
+  # beside it. A sibling that committed inside that window created exactly
+  # what this one is about to create again, and nothing between the click and
+  # here would have noticed.
+  #
+  # It refuses only on findings that are **new**. The ones the operator read
+  # and accepted at the button are in both lists; a relink sweep that turned
+  # one of this draft's creates into a link while this ran can only remove
+  # them.
+  #
+  # **It is not a guarantee, and cannot be made one here.** At READ COMMITTED
+  # a peer's uncommitted rows are invisible, so two imports whose commits
+  # interleave will not see each other however carefully either one looks.
+  # This closes the minute; only serializing the identity would close the
+  # millisecond, and that would serialize the file copies of every import
+  # that shares an author. `Ambry.Inbox.Duplicates` is what says whether the
+  # remainder ever happens.
+  defp no_new_collisions(%InboxItem{} = item, known) do
+    case Preflight.check(item) -- known do
+      [] -> :ok
+      new -> {:error, {:collisions, new}}
+    end
+  end
+
   # The one branch in the whole module, and it is the smallest one there is:
   # a replacement repoints an existing recording where an ordinary import
   # creates one. Everything either side of that — the claim, the item link,
   # placement, the finish — is the same code, because it is the same import.
-  defp create(%InboxItem{draft: draft} = item, files, probes, destination) do
+  defp create(%InboxItem{draft: draft} = item, files, probes, destination, known) do
     if Replacement.replacing?(draft.replacement) do
       replace(item, files, probes, destination, draft.replacement.media_id)
     else
-      add(item, files, probes, destination)
+      add(item, files, probes, destination, known)
     end
   end
 
@@ -173,12 +203,13 @@ defmodule Ambry.Inbox.Importer do
   # fail at the commit and the worst case is a stray file in the library,
   # which the audit tooling surfaces — never a file whose source was already
   # deleted and whose record didn't survive.
-  defp add(item, files, probes, destination) do
+  defp add(item, files, probes, destination, known) do
     Repo.transact(fn ->
       # People first, and for the whole draft at once: the same human can be
       # behind two credits, and each credit creating its own left a
       # self-narrated book with two Person rows of one name.
       with {:ok, item} <- claim(item),
+           :ok <- no_new_collisions(item, known),
            {:ok, people} <- resolve_people(item.draft),
            {:ok, book} <- resolve_book(item.draft.work, people),
            {:ok, media} <- create_media(item, book, probes, people, destination),

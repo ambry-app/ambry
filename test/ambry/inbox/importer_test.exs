@@ -8,6 +8,7 @@ defmodule Ambry.Inbox.ImporterTest do
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.GroupLink
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.Preflight
   alias Ambry.Media
   alias Ambry.Media.Media.Chapter
   alias Ambry.Media.MediaTrack
@@ -423,6 +424,63 @@ defmodule Ambry.Inbox.ImporterTest do
       assert [credit] = second.draft.recording.narrators
       assert credit.curated
       assert credit.mode == :create
+    end
+  end
+
+  # The pre-flight runs on the button and this import then takes forty to
+  # eighty seconds to re-probe and copy, with three more running beside it. A
+  # sibling that commits inside that window created what this one is about to
+  # create, and nothing between the click and the write would have noticed.
+  describe "a collision that appears while the import is running" do
+    @finding %{
+      kind: :book,
+      section: :work,
+      label: "Book: The Way of Kings",
+      certain?: true,
+      matches: []
+    }
+
+    test "refuses the import, and nothing is created" do
+      item = tagged_item()
+      patch(Preflight, :check, answering([[], [@finding]]))
+
+      assert {:error, {:collisions, [@finding]}} = Inbox.import_item(item)
+
+      assert Repo.aggregate(Book, :count) == 0
+      assert Inbox.get_item!(item.id).status == :pending
+      assert Inbox.get_item!(item.id).issue =~ "may already be in the library"
+    end
+
+    # The other half, and the one that makes the guard usable: a collision the
+    # operator read at the button and accepted is in *both* readings, so it is
+    # not new and may not stop them a second time.
+    test "one the operator already accepted is not refused again" do
+      item = tagged_item()
+      patch(Preflight, :check, fn _item -> [@finding] end)
+
+      assert {:ok, _media} = Inbox.import_item(item)
+    end
+
+    # A relink sweep can turn one of this draft's creates into a link while
+    # the import runs, which only ever removes findings.
+    test "one that disappears while the import runs is not a refusal" do
+      item = tagged_item()
+      patch(Preflight, :check, answering([[@finding], []]))
+
+      assert {:ok, _media} = Inbox.import_item(item)
+    end
+
+    # One reading per call, in order, so a test can say what the library did
+    # between the button and the write.
+    defp answering(readings) do
+      {:ok, calls} = Agent.start_link(fn -> readings end)
+
+      fn _item ->
+        Agent.get_and_update(calls, fn
+          [last] -> {last, [last]}
+          [next | rest] -> {next, rest}
+        end)
+      end
     end
   end
 
