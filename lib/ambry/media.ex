@@ -31,7 +31,6 @@ defmodule Ambry.Media do
   import Ecto.Query
 
   alias Ambry.Books
-  alias Ambry.Ecto.EntityRef
   alias Ambry.Library
   alias Ambry.Media.Audit
   alias Ambry.Media.Media
@@ -535,7 +534,7 @@ defmodule Ambry.Media do
     opts = with_publishing_gate(opts)
 
     Repo.transact(fn ->
-      changeset = Media.changeset(%Media{}, resolve_named_rows(attrs), opts)
+      changeset = Media.changeset(%Media{}, attrs, opts)
 
       with {:ok, media} <- Repo.insert(changeset),
            {:ok, _job_or_noop} <- generate_thumbnails_async(media),
@@ -576,7 +575,7 @@ defmodule Ambry.Media do
     opts = with_publishing_gate(opts)
 
     Repo.transact(fn ->
-      changeset = Media.changeset(media, resolve_named_rows(attrs), opts)
+      changeset = Media.changeset(media, attrs, opts)
 
       with {:ok, updated_media} <- Repo.update(changeset),
            :ok <- delete_orphaned_recording_group(media.recording_group_id),
@@ -615,22 +614,6 @@ defmodule Ambry.Media do
   # the transaction the recording is saved in, so a save that fails leaves
   # nobody behind.
   #
-  # **This turns a name into an id and stops.** A row that already points at a
-  # narrator is left alone and `cast_assoc` links it, as ever; only a name
-  # needs answering, because a cast cannot look one up. Casting a nested
-  # `narrator` would build one with no person behind them, when one human is
-  # one `Person` holding identities, and it could never say "the library
-  # already has this human, give them the identity they were missing".
-  defp resolve_named_rows(attrs) do
-    EntityRef.resolve(
-      attrs,
-      "media_narrators",
-      "narrator_id",
-      "narrator_name",
-      &Ambry.People.find_or_create_narrator/1
-    )
-  end
-
   defp broadcast_media_updated(%Media{} = media) do
     media
     |> MediaUpdated.new()

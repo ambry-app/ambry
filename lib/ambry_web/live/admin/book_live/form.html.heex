@@ -77,7 +77,8 @@
               type="autocomplete"
               search={&People.search_authors/2}
               fetch={&People.author_option/1}
-              create_field={book_author_form[:author_name]}
+              create_name={"#{book_author_form.name}[author][name]"}
+              create_value={staged_name(book_author_form, :author)}
               container_class="grow"
             />
             <.move_buttons
@@ -132,7 +133,8 @@
               type="autocomplete"
               search={&Books.search_series/2}
               fetch={&Books.series_option/1}
-              create_field={series_book_form[:series_name]}
+              create_name={"#{series_book_form.name}[series][name]"}
+              create_value={staged_name(series_book_form, :series)}
               container_class="grow"
             />
             <.move_buttons
@@ -174,7 +176,8 @@
               type="autocomplete"
               search={&Books.search_universes/2}
               fetch={&Books.universe_option/1}
-              create_field={book_universe_form[:universe_name]}
+              create_name={"#{book_universe_form.name}[universe][name]"}
+              create_value={staged_name(book_universe_form, :universe)}
               container_class="grow"
             />
             <.delete_button

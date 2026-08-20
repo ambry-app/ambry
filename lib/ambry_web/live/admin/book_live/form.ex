@@ -252,11 +252,11 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   defp accept_entity(socket, :authors, proposal) do
     name = proposal.params["name"]
 
-    if credited?(socket, :book_authors, :author_id, &People.author_option/1, :author_name, name) do
+    if credited?(socket, :book_authors, :author_id, &People.author_option/1, :author, name) do
       socket
     else
       socket
-      |> assign_rows(:book_authors, %{"author_name" => name}, ~w(author_id author_name))
+      |> assign_rows(:book_authors, credit_row(:author, name))
       |> assign(
         provenance_hints:
           ProvenanceHints.for_list(
@@ -273,16 +273,16 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     name = proposal.params["name"]
 
     row =
-      %{"series_name" => name}
+      series_row(name)
       |> Map.merge(
         (proposal.params["number"] && %{"book_number" => proposal.params["number"]}) || %{}
       )
 
-    if credited?(socket, :series_books, :series_id, &Books.series_option/1, :series_name, name) do
+    if credited?(socket, :series_books, :series_id, &Books.series_option/1, :series, name) do
       socket
     else
       socket
-      |> assign_rows(:series_books, row, ~w(series_id series_name book_number))
+      |> assign_rows(:series_books, row)
       |> assign(
         provenance_hints:
           ProvenanceHints.for_list(
@@ -296,9 +296,37 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   # `Curation.append_row/4` answers in params; this is the form putting them on.
-  defp assign_rows(socket, assoc, new_row, keep_fields) do
-    params = append_row(socket.assigns.form, assoc, new_row, keep_fields)
+  defp assign_rows(socket, assoc, new_row) do
+    params = append_row(socket.assigns.form, assoc, new_row)
     assign_form(socket, Books.change_book(socket.assigns.book, params))
+  end
+
+  # **What a chip stages, which is a lookup and never a write.** A chip is the
+  # machine's proposal, not a choice between listed options: when the library
+  # already has the human it names, that is who they are, and staging a new
+  # one would make a second record of somebody the library knows. So the row
+  # points where it can and brings what it must.
+  #
+  # The middle answer is the one worth having. A person the library holds who
+  # has never been credited this way gains the identity — nested, so the join
+  # is created while the person is merely linked — where a bare new author
+  # would have been a second Ty Franck beside the first.
+  defp credit_row(kind, name) do
+    case People.find_credit(kind, name) do
+      {:credit, id} -> %{"#{kind}_id" => to_string(id)}
+      {:person, id} -> %{to_string(kind) => new_credit(kind, name, id)}
+      :none -> %{to_string(kind) => %{"name" => name}}
+    end
+  end
+
+  defp new_credit(:author, name, person_id),
+    do: %{"name" => name, "author_people" => [%{"person_id" => to_string(person_id)}]}
+
+  defp series_row(name) do
+    case Books.find_series(name) do
+      %{id: id} -> %{"series_id" => to_string(id)}
+      nil -> %{"series" => %{"name" => name}}
+    end
   end
 
   # Whether this list already credits that name, by pointing at it or by
@@ -334,7 +362,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
                 :book_authors,
                 :author_id,
                 &People.author_option/1,
-                :author_name
+                :author
               )
             ),
           series:
@@ -346,7 +374,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
                 :series_books,
                 :series_id,
                 &Books.series_option/1,
-                :series_name
+                :series
               )
             )
         }

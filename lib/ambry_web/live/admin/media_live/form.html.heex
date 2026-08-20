@@ -127,7 +127,8 @@
                 type="autocomplete"
                 search={&People.search_narrators/2}
                 fetch={&People.narrator_option/1}
-                create_field={media_narrator_form[:narrator_name]}
+                create_name={"#{media_narrator_form.name}[narrator][name]"}
+                create_value={staged_name(media_narrator_form, :narrator)}
                 container_class="grow"
               />
               <.move_buttons

@@ -20,19 +20,15 @@ defmodule Ambry.People.BookAuthor do
     # every list of authors is rendered in.
     field :position, :integer, default: 0
 
-    # The name typed into the picker when it named somebody the library
-    # doesn't have. Resolved to an `author_id` when the form is saved — see
-    # `Ambry.Ecto.EntityRef`.
-    field :author_name, :string, virtual: true
-
     timestamps(type: :utc_datetime)
   end
 
   @doc false
   def changeset(book_author, attrs) do
     book_author
-    |> cast(attrs, [:author_id, :author_name, :position])
-    |> EntityRef.validate_linked_or_named(:author_id, :author_name)
+    |> cast(attrs, [:author_id, :position])
+    |> EntityRef.cast_new(:author, :author_id, with: &Author.credited_changeset/2)
+    |> EntityRef.validate_linked_or_new(:author_id, :author)
     |> unique_constraint([:author_id, :book_id])
   end
 end

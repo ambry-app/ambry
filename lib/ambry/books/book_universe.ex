@@ -9,23 +9,22 @@ defmodule Ambry.Books.BookUniverse do
 
   alias Ambry.Books.Book
   alias Ambry.Books.Universe
+  alias Ambry.Ecto.EntityRef
 
   schema "books_universes" do
     belongs_to :book, Book
     belongs_to :universe, Universe
 
-    # The name typed into the picker when it named a universe the library
-    # doesn't have. Resolved when the form is saved — `Ambry.Ecto.EntityRef`.
-    field :universe_name, :string, virtual: true
-
     timestamps(type: :utc_datetime)
   end
 
   @doc false
+  # Either points at a universe or brings a new one — `Ambry.Ecto.EntityRef`.
   def book_assoc_changeset(book_universe, attrs) do
     book_universe
-    |> cast(attrs, [:universe_id, :universe_name])
-    |> Ambry.Ecto.EntityRef.validate_linked_or_named(:universe_id, :universe_name)
+    |> cast(attrs, [:universe_id])
+    |> EntityRef.cast_new(:universe, :universe_id)
+    |> EntityRef.validate_linked_or_new(:universe_id, :universe)
     |> unique_constraint([:book_id, :universe_id])
   end
 

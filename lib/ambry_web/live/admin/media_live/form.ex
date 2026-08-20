@@ -523,18 +523,12 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
          :media_narrators,
          :narrator_id,
          &People.narrator_option/1,
-         :narrator_name,
+         :narrator,
          name
        ) do
       socket
     else
-      params =
-        append_row(
-          socket.assigns.form,
-          :media_narrators,
-          %{"narrator_name" => name},
-          ~w(narrator_id narrator_name)
-        )
+      params = append_row(socket.assigns.form, :media_narrators, credit_row(name))
 
       socket
       |> assign_form(Media.change_media(socket.assigns.media, params))
@@ -547,6 +541,18 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
           )
       )
       |> refresh_chips()
+    end
+  end
+
+  # What a chip stages, which is a lookup and never a write — see the book
+  # form for why a chip answers differently from the picker beside it. The
+  # middle answer credits a person the library already holds with an identity
+  # they were missing, rather than making a second record of them.
+  defp credit_row(name) do
+    case People.find_credit(:narrator, name) do
+      {:credit, id} -> %{"narrator_id" => to_string(id)}
+      {:person, id} -> %{"narrator" => %{"name" => name, "person_id" => to_string(id)}}
+      :none -> %{"narrator" => %{"name" => name}}
     end
   end
 
@@ -590,7 +596,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
                 :media_narrators,
                 :narrator_id,
                 &People.narrator_option/1,
-                :narrator_name
+                :narrator
               )
             )
         }

@@ -445,72 +445,55 @@ defmodule Ambry.People do
   def get_narrator!(id), do: Narrator |> preload(:person) |> Repo.get!(id)
 
   @doc """
-  The author or narrator identity credited under a name, creating whatever is
-  missing.
+  Who the library already has under a credited name.
 
-  Curation credits *people*, and until now only the import form could make
-  one: an edit form could link a name to somebody the library already had and
-  nothing else, so crediting a narrator who was new to the library meant
-  leaving the form, making them by hand, and coming back. That asymmetry is
-  the thing this arc exists to remove (**operator**, 2026-08-20: "book edit
-  forms should be allowed to create authors, people, series, and universes
-  inline").
+  A **lookup, and only a lookup** — nothing here writes. Curation stages what
+  it finds and the save creates what it must (`Ambry.Ecto.EntityRef`), so a
+  proposal the operator never keeps leaves nothing behind.
 
-  Three answers, in the order they are tried:
+  Three answers, in the order they are tried, and they are three because one
+  human is one `Person` holding identities:
 
-    * nobody of that name — a new `Person` with that identity, and the
-      provider recorded as the source of their name,
-    * a person who has never been credited that way — they gain the identity
-      rather than becoming a second record of the same human,
-    * a person already credited that way — the identity whose name matches,
-      or their first, because a pen name is a name they publish under and
-      the credit names one of them.
+    * `{:credit, id}` — somebody is already credited under that exact name,
+      by the identity whose name matches among theirs; a pen name is a name
+      they publish under, and the credit names one of them.
+    * `{:person, id}` — the library has the human but has never credited them
+      this way. The identity is new; the person is not, and a second row for
+      them would be the duplicate this whole model exists to prevent.
+    * `:none` — nobody, so the credit brings a person with it.
 
-  It creates a person with a name and nothing else. Everything a provider
-  knows about them beyond it — a photo, a biography — is fetched on their own
-  page today; see `EDIT_PARITY_PLAN.md` for where that is going.
+  Matched by search rather than by exact string, the same way the pickers
+  match: a second answer to "is this the same human" is the drift that makes
+  two of them.
   """
-  def find_or_create_author(name, opts \\ []), do: credited(:author, name, opts)
-
-  def find_or_create_narrator(name, opts \\ []), do: credited(:narrator, name, opts)
-
-  defp credited(kind, name, opts) do
-    source = Keyword.get(opts, :source)
-
+  def find_credit(kind, name) when kind in [:author, :narrator] do
     case Ambry.Search.find_first(name, Person) do
       nil ->
-        attrs = Map.put(identity(kind, name), :name, name)
-        {:ok, person} = create_person(attrs, provenance: %{"name" => source})
-
-        person |> credits(kind) |> hd()
+        :none
 
       %Person{} = person ->
         case credits(person, kind) do
           [] ->
-            {:ok, person} = update_person(person, identity(kind, person.name))
-            person |> credits(kind) |> hd()
+            {:person, person.id}
 
           credits ->
-            Enum.find(credits, &(String.downcase(&1.name) == String.downcase(name))) ||
-              List.first(credits)
+            credit =
+              Enum.find(credits, &(String.downcase(&1.name) == String.downcase(name))) ||
+                List.first(credits)
+
+            {:credit, credit.id}
         end
     end
   end
 
-  # An author identity is a row on the join between a person and an author
-  # record; a narrator identity hangs off the person directly. Written out
-  # per kind rather than derived, because the two shapes are genuinely
-  # different and a clever key made a person with an empty author.
-  defp identity(:author, name), do: %{author_people: [%{author: %{name: name}}]}
-  defp identity(:narrator, name), do: %{narrators: [%{name: name}]}
-
-  # An author identity hangs off the join, a narrator identity off the person.
-  defp credits(%Person{} = person, :author),
-    do:
-      person
-      |> Repo.preload(author_people: :author)
-      |> Map.fetch!(:author_people)
-      |> Enum.map(& &1.author)
+  # An author identity hangs off the join between a person and an author
+  # record; a narrator identity hangs off the person directly.
+  defp credits(%Person{} = person, :author) do
+    person
+    |> Repo.preload(author_people: :author)
+    |> Map.fetch!(:author_people)
+    |> Enum.map(& &1.author)
+  end
 
   defp credits(%Person{} = person, :narrator),
     do: person |> Repo.preload(:narrators) |> Map.fetch!(:narrators)
