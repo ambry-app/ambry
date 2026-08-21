@@ -1095,6 +1095,12 @@ defmodule AmbryWeb.Admin.Decisions do
       "set where the card sits INSIDE a form that is not its own — the name its controls post " <>
         "under. See \"One card, two form owners\" below."
 
+  attr :link_input, :string,
+    default: nil,
+    doc: "with `input_prefix`: the input the local rows write, which is the join's `person_id`"
+
+  slot :actions, doc: "the row's own controls, beside the card's title"
+
   @doc """
   One human this import will create, as a decision card of their own.
 
@@ -1189,7 +1195,19 @@ defmodule AmbryWeb.Admin.Decisions do
           >
             <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
           </button>
+
+          {render_slot(@actions)}
         </div>
+
+        <%!-- Which human this join points at, where the card is inside a form.
+              The local rows below write it; a blank one means the person on
+              this card is being created. --%>
+        <input
+          :if={@link_input}
+          type="hidden"
+          name={@link_input}
+          value={@person.mode == :link && @person.person_id}
+        />
 
         <%!-- One human on two credits is the ordinary reason a name appears
               twice, so it is the default, and the badge above already says
@@ -1288,15 +1306,20 @@ defmodule AmbryWeb.Admin.Decisions do
             :for={local <- @locals}
             local={local}
             person_key={@person.key}
-            chosen={@person.mode == :link and @person.person_id == local["id"]}
+            link_input={@link_input}
+            chosen={@person.mode == :link and to_string(@person.person_id) == to_string(local["id"])}
           />
 
           <%!-- Linked to somebody the name search never offered (the typeahead
                 above), so the row is built from the library instead. --%>
           <.local_person_row
-            :if={@person.mode == :link and not Enum.any?(@locals, &(&1["id"] == @person.person_id))}
+            :if={
+              @person.mode == :link and
+                not Enum.any?(@locals, &(to_string(&1["id"]) == to_string(@person.person_id)))
+            }
             local={@linked}
             person_key={@person.key}
+            link_input={@link_input}
             chosen={true}
           />
         </div>
@@ -1467,6 +1490,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :person_key, :string, required: true
   attr :chosen, :boolean, required: true
 
+  attr :link_input, :string,
+    default: nil,
+    doc: "where the card is inside a form: the input this row writes rather than an event"
+
   @doc """
   A person the library already has, offered instead of creating another.
 
@@ -1494,9 +1521,11 @@ defmodule AmbryWeb.Admin.Decisions do
       <button
         :if={!@chosen}
         type="button"
-        phx-click="link-person"
+        phx-click={!@link_input && "link-person"}
         phx-value-key={@person_key}
         phx-value-id={@local["id"]}
+        data-set-input={@link_input}
+        data-set-value={@link_input && to_string(@local["id"])}
         class={action_classes(:zinc, "flex-none")}
       >
         Yes, it's them
@@ -1505,8 +1534,10 @@ defmodule AmbryWeb.Admin.Decisions do
       <button
         :if={@chosen}
         type="button"
-        phx-click="unlink-person"
+        phx-click={!@link_input && "unlink-person"}
         phx-value-key={@person_key}
+        data-set-input={@link_input}
+        data-set-value={@link_input && ""}
         class={action_classes(:zinc, "flex-none")}
       >
         No, a new person

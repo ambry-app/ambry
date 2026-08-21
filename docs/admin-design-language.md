@@ -841,6 +841,13 @@ one mechanism for "ask the databases", not a modal per provider:
   rows are walked a second time (`skip_hidden`, `skip_persistent_id`) because
   the pickers above already post those.
 
+  The card hangs off the **join row** that holds the person — `author_people`
+  for a pen name, `media_narrators[i][narrator]` for a stage name — not off
+  the person itself, because that row is where "which human is this" is
+  answered. It is what lets the card offer the people the library already has
+  by that name and link one, and what lets a pen name carry more than one
+  human (James S.A. Corey) the way the inbox always could.
+
   One thing genuinely differs, and `input_prefix` is where it is said: the
   import form saves on change and has no form of its own, so each of the
   card's controls is a little `<form>`; an edit form is one form with a Save

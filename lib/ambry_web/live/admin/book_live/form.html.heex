@@ -97,14 +97,10 @@
                 skip_hidden
                 skip_persistent_id
               >
-                <.inputs_for
-                  :let={person_form}
-                  field={author_person_form[:person]}
-                  skip_hidden
-                  skip_persistent_id
-                >
-                  <.new_person_pill form={person_form} key={NewPerson.key(book_author_form)} />
-                </.inputs_for>
+                <.new_person_pill
+                  row={author_person_form}
+                  key={"#{NewPerson.key(book_author_form)}-#{author_person_form.index}"}
+                />
               </.inputs_for>
             </.inputs_for>
 
@@ -163,16 +159,42 @@
             field={book_author_form[:author]}
           >
             <.inputs_for :let={author_person_form} field={author_form[:author_people]}>
-              <.inputs_for :let={person_form} field={author_person_form[:person]}>
-                <.new_person_card
-                  form={person_form}
-                  key={NewPerson.key(book_author_form)}
-                  state={NewPerson.state(@new_people, NewPerson.key(book_author_form))}
-                  credited={staged_name(book_author_form, :author)}
-                  kind={:author}
-                />
-              </.inputs_for>
+              <.sort_input
+                field={author_form[:author_people_sort]}
+                index={author_person_form.index}
+              />
+              <.new_person_card
+                row={author_person_form}
+                key={"#{NewPerson.key(book_author_form)}-#{author_person_form.index}"}
+                state={
+                  NewPerson.state(
+                    @new_people,
+                    "#{NewPerson.key(book_author_form)}-#{author_person_form.index}"
+                  )
+                }
+                credited={staged_name(book_author_form, :author)}
+                kind={:author}
+              >
+                <:actions>
+                  <%!-- A composite pen name's extra humans can be taken off
+                      again; the first one is what the credit is for. --%>
+                  <.delete_button
+                    :if={author_person_form.index > 0}
+                    field={author_form[:author_people_drop]}
+                    index={author_person_form.index}
+                  />
+                </:actions>
+              </.new_person_card>
             </.inputs_for>
+
+            <%!-- "James S.A. Corey" is one credit standing for two humans, and
+                the inbox has always been able to say so. --%>
+            <div class="pl-3">
+              <.add_button field={author_form[:author_people_sort]}>
+                Add another person behind this name
+              </.add_button>
+              <.delete_input field={author_form[:author_people_drop]} />
+            </div>
           </.inputs_for>
         </.inputs_for>
       </.form_section>

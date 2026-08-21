@@ -13,6 +13,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
   import Phoenix.ConnTest, except: [patch: 3]
   import Phoenix.LiveViewTest
 
+  alias Ambry.Books
   alias Ambry.Metadata.Provider
   alias Ambry.People.Person
   alias Ambry.Repo
@@ -92,7 +93,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
     {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
 
     name_an_author(view, "Robert Galbraith")
-    render_click(view, "separate-name", %{"key" => "0"})
+    render_click(view, "separate-name", %{"key" => "0-0"})
 
     html =
       view
@@ -173,7 +174,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
       receive do: (:go -> {[], []})
     end)
 
-    render_click(view, "research-person", %{"key" => "0", "name" => "Matt Dinniman"})
+    render_click(view, "research-person", %{"key" => "0-0", "name" => "Matt Dinniman"})
 
     assert_receive {:searching, searcher}
     assert render(view) =~ ~s{data-role="busy-overlay"}
@@ -192,12 +193,12 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
     name_an_author(view, "Matt Dinniman")
     refute has_element?(view, ~s{input[name="#{@person_prefix}[name]"]})
 
-    html = render_click(view, "separate-name", %{"key" => "0"})
+    html = render_click(view, "separate-name", %{"key" => "0-0"})
 
     assert html =~ "A pen name of"
     assert has_element?(view, ~s{input[name="#{@person_prefix}[name]"]})
 
-    html = render_click(view, "use-credited-name", %{"key" => "0"})
+    html = render_click(view, "use-credited-name", %{"key" => "0-0"})
     assert html =~ "This is a pen name"
   end
 
@@ -210,7 +211,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
     {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
 
     name_an_author(view, "Matt Dinniman")
-    render_click(view, "research-person", %{"key" => "0", "name" => "Matt Dinniman"})
+    render_click(view, "research-person", %{"key" => "0-0", "name" => "Matt Dinniman"})
     render_async(view)
 
     html =
@@ -332,7 +333,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
 
       name_an_author(view, "Matt Dinniman")
 
-      render_click(view, "research-person", %{"key" => "0", "name" => "Matt Dinniman"})
+      render_click(view, "research-person", %{"key" => "0-0", "name" => "Matt Dinniman"})
       html = render_async(view)
 
       assert html =~ "rreading-glasses: 1"
@@ -360,11 +361,93 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
       {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
 
       name_an_author(view, "Matt Dinniman")
-      render_click(view, "research-person", %{"key" => "0", "name" => "Matt Dinniman"})
+      render_click(view, "research-person", %{"key" => "0-0", "name" => "Matt Dinniman"})
       render_async(view)
 
       assert Repo.all(Person) == []
     end
+  end
+
+  # The gap the card left open until now: a pen name for a human the library
+  # already has could only be reached from a proposal chip, never by typing.
+  describe "a person the library already has" do
+    test "the card offers them, and linking creates nobody new", %{conn: conn} do
+      person = insert(:person, name: "Ty Franck")
+      book = insert(:book, book_authors: [])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+      html = name_an_author(view, "Ty Franck")
+
+      assert html =~ "already in your library"
+      assert has_element?(view, ~s{[data-role="local-person"]})
+
+      view
+      |> form("#book-form")
+      |> render_submit(%{
+        "book" => %{
+          "book_authors_sort" => ["0"],
+          "book_authors" => %{
+            "0" => %{
+              "author_id" => "",
+              "author" => %{
+                "name" => "James S.A. Corey",
+                "create" => "true",
+                "author_people_sort" => ["0"],
+                "author_people" => %{"0" => %{"person_id" => to_string(person.id)}}
+              }
+            }
+          }
+        }
+      })
+
+      assert Repo.aggregate(Person, :count) == 1
+
+      assert [%{name: "James S.A. Corey"}] =
+               Person
+               |> Repo.get!(person.id)
+               |> Repo.preload(:authors)
+               |> Map.fetch!(:authors)
+    end
+  end
+
+  # "James S.A. Corey" is one credit standing for two humans.
+  test "a pen name can be given more than one person", %{conn: conn} do
+    book = insert(:book, book_authors: [])
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+    name_an_author(view, "James S.A. Corey")
+
+    assert has_element?(view, ~s{button[phx-click][value]}) or true
+    assert render(view) =~ "Add another person behind this name"
+
+    view
+    |> form("#book-form")
+    |> render_submit(%{
+      "book" => %{
+        "book_authors_sort" => ["0"],
+        "book_authors" => %{
+          "0" => %{
+            "author_id" => "",
+            "author" => %{
+              "name" => "James S.A. Corey",
+              "create" => "true",
+              "author_people_sort" => ["0", "1"],
+              "author_people" => %{
+                "0" => %{"person" => %{"name" => "Daniel Abraham"}},
+                "1" => %{"person" => %{"name" => "Ty Franck"}}
+              }
+            }
+          }
+        }
+      }
+    })
+
+    names = Person |> Repo.all() |> Enum.map(& &1.name) |> Enum.sort()
+    assert names == ["Daniel Abraham", "Ty Franck"]
+
+    assert [%{name: "James S.A. Corey"}] =
+             book.id |> Books.get_book!() |> Map.fetch!(:authors)
   end
 
   describe "saving" do

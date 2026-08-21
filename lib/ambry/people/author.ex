@@ -36,13 +36,20 @@ defmodule Ambry.People.Author do
 
   A person who differs from their pen name — Robert Galbraith, J.K. Rowling —
   is said on the person's own card, which is where that question belongs.
+
+  More than one human can stand behind one pen name (James S.A. Corey), so
+  the list takes the sort and drop params every other editable list here does.
   """
   def credited_changeset(author, attrs) do
     attrs = Map.put_new_lazy(attrs, "author_people", fn -> [%{"person" => %{}}] end)
 
     author
     |> changeset(attrs)
-    |> cast_assoc(:author_people, with: &AuthorPerson.credited_changeset(&1, &2, attrs["name"]))
+    |> cast_assoc(:author_people,
+      with: &AuthorPerson.credited_changeset(&1, &2, attrs["name"]),
+      sort_param: :author_people_sort,
+      drop_param: :author_people_drop
+    )
   end
 
   @doc false

@@ -52,6 +52,7 @@ defmodule AmbryWeb.Admin.NewPerson do
   alias Ambry.Inbox.Draft.PersonDecision
   alias Ambry.Inbox.Draft.SourceRef
   alias Ambry.Metadata.Search, as: MetadataSearch
+  alias Ambry.People
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.UploadHelpers
 
@@ -136,7 +137,11 @@ defmodule AmbryWeb.Admin.NewPerson do
 
   # ── the card ───────────────────────────────────────────────────────────
 
-  attr :form, :any, required: true, doc: "the nested person form"
+  attr :row, :any,
+    required: true,
+    doc:
+      "the join row that holds `person_id` and the nested person — `author_people` or `narrator`"
+
   attr :key, :string, required: true
   attr :state, __MODULE__, required: true
   attr :kind, :atom, required: true, doc: ":author or :narrator"
@@ -144,6 +149,8 @@ defmodule AmbryWeb.Admin.NewPerson do
   attr :credited, :string,
     default: nil,
     doc: "what the credit calls them — the identity's name, never the human's"
+
+  slot :actions, doc: "the row's own controls, in the card's header"
 
   @doc """
   One human this form will create — the inbox's own card, on an edit form.
@@ -162,10 +169,13 @@ defmodule AmbryWeb.Admin.NewPerson do
   Save button and forms cannot nest.
   """
   def new_person_card(assigns) do
+    person = decision(assigns.row, assigns.key, assigns.state)
+
     assigns =
       assign(assigns,
-        person: decision(assigns.form, assigns.key, assigns.state),
-        group: group(assigns.credited, assigns.kind)
+        person: person,
+        group: group(assigns.credited, assigns.kind),
+        locals: locals(person)
       )
 
     ~H"""
@@ -173,14 +183,41 @@ defmodule AmbryWeb.Admin.NewPerson do
       person={@person}
       group={@group}
       person_index={0}
-      input_prefix={@form.name}
+      input_prefix={@row.name <> "[person]"}
+      link_input={@row.name <> "[person_id]"}
+      locals={@locals}
       searching={@state.searching?}
       photos_expanded={@state.expanded?}
       records={@state.evidence.records}
       outcomes={@state.evidence.outcomes}
       query_name={@state.query}
-    />
+    >
+      <:actions>{render_slot(@actions)}</:actions>
+    </.person_card>
     """
+  end
+
+  # People the library already has by this name, which is the outcome worth
+  # having: reusing a human is what stops two Andy Weirs sitting in the
+  # people list. Skipped once one has been chosen — the row below states it.
+  defp locals(%PersonDecision{mode: :link}), do: []
+
+  defp locals(%PersonDecision{} = person) do
+    case Field.value(person.name) do
+      nil ->
+        []
+
+      name ->
+        for option <- People.search_people(name, 5),
+            String.downcase(option.label) == String.downcase(name) do
+          %{
+            "id" => option.id,
+            "name" => option.label,
+            "has_image" => option.image != nil,
+            "has_description" => false
+          }
+        end
+    end
   end
 
   # ── an edit form's answer to the questions the card asks ───────────────
@@ -189,15 +226,18 @@ defmodule AmbryWeb.Admin.NewPerson do
   # the form that will save them. `chosen_key` is derived rather than stored
   # for the same reason: what the field holds IS the answer to "which chip is
   # in use", and a second copy of that answer could disagree with it.
-  defp decision(form, key, state) do
-    photo = form.params["image_import_url"]
-    description = form[:description].value
+  defp decision(row, key, state) do
+    staged = row.params["person"] || %{}
+    linked = presence(to_string(row[:person_id].value || ""))
+    photo = staged["image_import_url"]
+    description = staged["description"]
 
     %PersonDecision{
       key: key,
-      mode: :create,
+      mode: (linked && :link) || :create,
+      person_id: linked,
       own_name: state.own_name?,
-      name: %Field{value: form[:name].value},
+      name: %Field{value: staged["name"] || row.params["name"]},
       image: field(photo, candidates(state, :image, "image_import_url")),
       description: field(description, candidates(state, :description, "description")),
       sources: Enum.map(Evidence.used_records(state.evidence), &SourceRef.of/1)
@@ -244,7 +284,7 @@ defmodule AmbryWeb.Admin.NewPerson do
     }
   end
 
-  attr :form, :any, required: true, doc: "the nested person form"
+  attr :row, :any, required: true, doc: "the join row that holds the nested person"
   attr :key, :string, required: true
 
   @doc """
@@ -255,20 +295,22 @@ defmodule AmbryWeb.Admin.NewPerson do
   form's pen name has one person behind it until somebody splits it.
   """
   def new_person_pill(assigns) do
-    assigns = assign(assigns, :faces, [face(assigns.form, assigns.key)])
+    assigns = assign(assigns, :faces, [face(assigns.row, assigns.key)])
 
     ~H"""
     <.credit_people id={"credit-people-#{@key}"} faces={@faces} section_href="#new-people" />
     """
   end
 
-  defp face(form, key) do
+  defp face(row, key) do
+    staged = row.params["person"] || %{}
+
     %{
       key: key,
-      name: form[:name].value || "unnamed",
+      name: staged["name"] || "unnamed",
       # A blank URL is not a URL: `<img src="">` is a broken image, where the
       # pill has a grey circle to fall back to.
-      src: form.params["image_import_url"] |> presence() |> proxied_remote_image_url()
+      src: staged["image_import_url"] |> presence() |> proxied_remote_image_url()
     }
   end
 
