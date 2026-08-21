@@ -507,7 +507,11 @@ defmodule Ambry.Media do
       {:error, :not_found}
 
   """
-  def fetch_media(id), do: Repo.fetch(Media, id)
+  # With its tracks: an imported recording keeps its files there, so a media
+  # fetched without them is one you cannot ask what it is made of — and
+  # `Ambry.Media.Scanner.audio_files/1` used to answer that question from the
+  # empty transcode columns rather than refusing it.
+  def fetch_media(id), do: Media |> preload(:media_tracks) |> Repo.fetch(id)
 
   @doc """
   Fetches a single direct-play track.
@@ -1146,7 +1150,10 @@ defmodule Ambry.Media do
       id: group.id,
       label: group.name,
       image: first_member_thumbnail(group),
-      detail: parts_progress(group)
+      detail: parts_progress(group),
+      # A member's form states the set's total rather than asking for it, so
+      # the option has to carry the number and not only the words.
+      parts_total: group.parts_total
     }
   end
 

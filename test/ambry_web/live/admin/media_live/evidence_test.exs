@@ -101,6 +101,91 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
     end
   end
 
+  # One button was two operations: reading the recording's own files takes
+  # milliseconds and always has something to say, while asking every provider
+  # takes seconds and often has nothing. Working down the back catalogue
+  # asking "would the embedded cover be an improvement?" paid for the second
+  # to get the first.
+  # The last surface in the admin still saying "busy" by relabelling its own
+  # button while leaving everything editable.
+  test "a search covers the panel and freezes the form", %{conn: conn} do
+    media = martian()
+    test = self()
+
+    # The recording level asks twice — Audible directly, then the work-level
+    # databases for their editions — so only the first call is held open.
+    patch(Ambry.Metadata.Search, :books, fn _query, opts ->
+      if Keyword.fetch!(opts, :level) == :recording do
+        send(test, {:searching, self()})
+        receive do: (:go -> {[], []})
+      else
+        {[], []}
+      end
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+
+    view
+    |> form("#research-recording", %{"title" => "The Martian", "author" => "Andy Weir"})
+    |> render_submit()
+
+    assert_receive {:searching, searcher}
+
+    html = render(view)
+    assert html =~ ~s{data-role="busy-overlay"}
+    assert html =~ "Asking the databases…"
+
+    # over the whole form, the way the import form does while matching holds
+    # an item — a fan-out rebuilds the chips under every field it can fill
+    assert [_frozen] =
+             html
+             |> Floki.parse_document!()
+             |> Floki.find(~s{[inert] form#media-form})
+
+    send(searcher, :go)
+    render_async(view, 2000)
+  end
+
+  describe "reading the files without searching" do
+    test "offers the file's chips, and asks no provider", %{conn: conn} do
+      media = tagged_media(cover_art: true)
+
+      patch(Ambry.Metadata.Search, :books, fn _query, _opts ->
+        flunk("a files-only read must not ask the providers")
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+
+      render_click(view, "scan-files", %{})
+      html = render_async(view)
+
+      assert html =~ "the file&#39;s tags"
+    end
+
+    # Pressed on purpose, so it re-reads: a control that quietly does nothing
+    # the second time is worse than the round trip it saves.
+    test "reads again when pressed again", %{conn: conn} do
+      media = tagged_media(cover_art: true)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+
+      render_click(view, "scan-files", %{})
+      render_async(view)
+
+      render_click(view, "scan-files", %{})
+      assert render_async(view) =~ "the file&#39;s tags"
+    end
+
+    # The other two panels have no files to read.
+    test "is not offered where there are no files", %{conn: conn} do
+      book = insert(:book)
+
+      {:ok, _view, html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+      refute html =~ "Read files only"
+    end
+  end
+
   describe "accepting a cover proposal" do
     # The chip marked itself chosen and wrote a provenance hint, and then the
     # save posted nothing: the URL input that carries the choice is only
@@ -193,7 +278,7 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
       html = search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
 
       # the provider's record, and only the provider's
-      assert html =~ "1 records, 0 ticked"
+      assert [_one] = html |> Floki.parse_document!() |> Floki.find(~s{[data-role="record"]})
       refute has_element?(view, ~s{[data-role="record"]}, "the file's tags")
     end
 
@@ -336,6 +421,39 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
       assert ["image/" <> _type] = Plug.Conn.get_resp_header(conn, "content-type")
     end
 
+    # The fixture above is a *transcoded* recording, which is the only shape
+    # that ever had `source_files` — so the preview looked fine in tests and
+    # was a broken image for every recording the inbox imported, which is all
+    # of them now. `Media.files/2` reads the transcode columns; the tracks are
+    # where an imported recording's files are, and `Scanner.audio_files/1`
+    # asks them first.
+    test "preview it for an imported recording, whose files are its tracks",
+         %{conn: conn} do
+      media = imported_media(cover_art: true)
+
+      assert media.source_files == []
+      assert media.media_tracks != []
+
+      conn = get(conn, ~p"/admin/audiobooks/#{media}/embedded-cover")
+
+      assert conn.status == 200
+      assert ["image/" <> _type] = Plug.Conn.get_resp_header(conn, "content-type")
+    end
+
+    # The preview was the visible half. Accepting the chip read the same empty
+    # list and refused the save with "Failed to import image".
+    test "accepting it on an imported recording saves the art", %{conn: conn} do
+      media = imported_media(cover_art: true)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+
+      view
+      |> form("#media-form")
+      |> render_submit(%{"media" => %{"image_type" => "embedded", "image_path" => ""}})
+
+      assert %{image_path: "/uploads/images/" <> _rest} = Media.get_media!(media.id)
+    end
+
     # A recording whose files are gone says nothing about itself, and the
     # search still has to answer.
     test "are skipped when the file can't be read", %{conn: conn} do
@@ -346,7 +464,7 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
       html = search(view, %{"title" => "The Martian", "author" => "Andy Weir"})
 
       refute html =~ "the file&#39;s tags"
-      assert html =~ "1 records, 0 ticked"
+      assert [_one] = html |> Floki.parse_document!() |> Floki.find(~s{[data-role="record"]})
     end
   end
 
@@ -416,6 +534,26 @@ defmodule AmbryWeb.Admin.MediaLive.EvidenceTest do
   end
 
   # A real file carrying real tags, in the recording's own source folder.
+  # An imported recording's shape: tracks, and neither transcode column.
+  # `Ambry.Factory.with_probed_tracks/3` makes exactly this, except that it
+  # copies a plain sample and these need one with art inside it.
+  defp imported_media(opts) do
+    media = tagged_media(opts)
+    paths = Enum.map(media.source_files, &Ambry.Paths.web_to_disk/1)
+
+    {:ok, probes} = Media.Scanner.probe_all(paths)
+
+    tracks =
+      probes
+      |> Media.Scanner.track_attrs()
+      |> Enum.map(&%{&1 | path: Ambry.Paths.disk_to_web(&1.path)})
+
+    {:ok, media} =
+      Media.update_media(media, %{media_tracks: tracks, source_path: nil, source_files: []})
+
+    Media.get_media!(media.id)
+  end
+
   defp tagged_media(opts \\ []) do
     media = insert(:media, book: build(:book))
     folder = Media.Media.source_path(media)

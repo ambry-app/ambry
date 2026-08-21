@@ -45,6 +45,14 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   # Credits, which are people: accepting one of these stages a row naming the
   # human, and the save makes them (`Ambry.Ecto.EntityRef`).
+  # What the set drop-down's "New set" row posts. A sentinel rather than "",
+  # for the reason the import form gives where it does the same:
+  # `EntityOption.selected?/2` reads a blank value as nothing held, so an
+  # option with a blank id can never draw as chosen — picking it left the
+  # trigger empty. `naming_a_set/2` translates it back to the absence of an id
+  # that the cast wants.
+  @new_set "new"
+
   @entity_kinds %{"narrators" => :narrators}
   @person_events NewPerson.events()
 
@@ -335,6 +343,27 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
+  # The files on their own. Reading a header is milliseconds and always has
+  # something to say; a provider fan-out is seconds and often has nothing, and
+  # pairing them made "would the embedded cover be an improvement?" cost the
+  # second to get the first.
+  #
+  # Always re-reads, unlike the once-only read a search does on the way past:
+  # a control the operator pressed on purpose that quietly did nothing the
+  # second time would be worse than the round trip it saves.
+  #
+  # No scrim. `running?` is the panel's, and it means "the databases are being
+  # asked" — a header read is not that, and blanking the form for it would
+  # cost more than it takes.
+  def handle_event("scan-files", _params, socket) do
+    media = socket.assigns.media
+
+    {:noreply,
+     socket
+     |> assign(evidence: %{socket.assigns.evidence | tags: nil})
+     |> start_async(:file_tags, fn -> Media.Scanner.tags(media) end)}
+  end
+
   def handle_event("retry-provider", %{"provider" => outcome_id}, socket) do
     query = Provider.Query.from_fields(socket.assigns.evidence.fields)
     {provider_id, kind} = Outcome.split(outcome_id)
@@ -445,8 +474,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # recording pointing at no group and holding no part number is simply not in
   # a set, and the schema cannot tell the two apart.
   defp naming_a_set(params, %{assigns: %{group_row_visible: true}}) do
-    if params["recording_group_id"] in [nil, ""] do
-      Map.put_new(params, "recording_group", %{})
+    if params["recording_group_id"] in [nil, "", @new_set] do
+      params
+      |> Map.put("recording_group_id", "")
+      |> Map.put_new("recording_group", %{})
     else
       Map.delete(params, "recording_group")
     end
@@ -759,9 +790,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # The file's own art, extracted at save the way an import extracts it. The
   # path is taken from the recording rather than from a param: what the form
   # accepted was "this recording's embedded cover", and the only honest
-  # reading of that is the recording's own files.
+  # reading of that is the recording's own files — asked of the scanner,
+  # which asks the tracks before the transcode sources.
   defp handle_embedded_image(socket, %{"image_type" => "embedded"} = media_params) do
-    with [path | _rest] <- Media.Media.files(socket.assigns.media, Media.Scanner.extensions()),
+    with {:ok, [path | _rest]} <- Media.Scanner.audio_files(socket.assigns.media),
          {:ok, web_path} <- Images.extract_embedded(path) do
       {:ok, Map.put(media_params, "image_path", web_path)}
     else
@@ -857,7 +889,27 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   # The drop-down's escape hatch, and the reason a blank id inside the set row
   # does not mean "no set": leaving the set is the ✕, which is an event.
-  defp new_set_option, do: %{id: "", label: "New set"}
+  defp new_set_option, do: %{id: @new_set, label: "New set"}
+
+  # Naming one, as opposed to joining one. Read off the id the drop-down
+  # posts, which is the same thing `Ambry.Media.Media`'s cast reads to decide
+  # whether to build a set at all.
+  defp naming_a_set?(form), do: to_string(form[:recording_group_id].value || "") in ["", @new_set]
+
+  defp set_choice(form), do: (naming_a_set?(form) && @new_set) || form[:recording_group_id].value
+
+  # How many parts the set being *joined* says it has, for the line that
+  # states it. A set being named has a box for it instead, and a set that
+  # doesn't know says nothing.
+  defp joined_set_total(%{form: form, recording_group_options: options}) do
+    if !naming_a_set?(form) do
+      id = to_string(form[:recording_group_id].value)
+
+      Enum.find_value(options, fn option ->
+        to_string(option.id) == id && option.parts_total
+      end)
+    end
+  end
 
   defp preview_date_format(form) do
     format_published(%{

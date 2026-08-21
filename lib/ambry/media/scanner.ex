@@ -88,6 +88,13 @@ defmodule Ambry.Media.Scanner do
   The tracks are asked first, since an imported recording has no transcode
   sources at all.
   """
+  # **Pass a media with its tracks loaded.** An unloaded association is
+  # neither `[_ | _]` nor `[]`, so it falls through to the transcode sources
+  # below and answers as if the recording had no tracks — which, for an
+  # imported one, is every file it has. That is not detectable here: a media
+  # built with no tracks at all looks exactly the same. So the invariant lives
+  # at the two ways in, `get_media!/1` and `fetch_media/1`, which both preload
+  # them.
   def audio_files(%Media{media_tracks: [_ | _] = tracks}) do
     {:ok, tracks |> Enum.sort_by(& &1.index) |> Enum.map(&MediaTrack.disk_path!/1)}
   end

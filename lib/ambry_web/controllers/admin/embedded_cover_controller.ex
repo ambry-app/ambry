@@ -32,9 +32,14 @@ defmodule AmbryWeb.Admin.EmbeddedCoverController do
   # The same question asked of a recording that already exists: an edit form
   # offering the file's own art has to show it for the same reason the import
   # form does.
+  #
+  # **Through the scanner, which asks the tracks first.** `Media.files/2`
+  # reads `source_files`, and those are transcode bookkeeping — what a
+  # transcode *consumed* — so an imported recording has none and this found
+  # nothing to extract from. The chip rendered a 404 as an image.
   def media(conn, %{"id" => id}) do
     with {:ok, media} <- Media.fetch_media(id),
-         [path | _rest] <- Media.Media.files(media, Media.Scanner.extensions()) do
+         {:ok, [path | _rest]} <- Media.Scanner.audio_files(media) do
       send_cover(conn, path)
     else
       _no_media -> send_resp(conn, 404, "Not Found")

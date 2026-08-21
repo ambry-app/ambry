@@ -501,6 +501,10 @@ defmodule AmbryWeb.Admin.Decisions do
     default: "Search again",
     doc: ~s(the edit forms' fresh panel says "Search" — nothing was searched yet)
 
+  attr :scan_files, :boolean,
+    default: false,
+    doc: "offer the files on their own — see `AmbryWeb.Admin.Curation.evidence_panel/1`"
+
   @doc """
   An editable version of the search that produced these records.
 
@@ -554,6 +558,20 @@ defmodule AmbryWeb.Admin.Decisions do
           short next to every input it touches. --%>
       <.button color={:zinc} type="submit" disabled={@running}>
         {if @running, do: "Searching…", else: @label}
+      </.button>
+
+      <%!-- Milliseconds, and it always has something to say. Its own control
+            because pairing it with a provider fan-out made "would the
+            embedded cover be better than this one?" cost a round trip to
+            every database that has ever heard of the book. --%>
+      <.button
+        :if={@scan_files}
+        color={:zinc}
+        type="button"
+        phx-click="scan-files"
+        disabled={@running}
+      >
+        Read files only
       </.button>
     </form>
     """
@@ -2368,22 +2386,30 @@ defmodule AmbryWeb.Admin.Decisions do
           phx-change="link-group"
           class="min-w-48 flex max-w-md flex-grow items-start gap-2"
         >
-          <%!-- The box has to be stated here, unlike every other control on
-              this row. `@tailwindcss/forms` gives `input`, `select` and
-              `textarea` their padding and border, and `input_classes/1`
-              leans on that; a drop-down's trigger is a `button`, which the
-              plugin never touches, so it collapsed to exactly the height of
-              its own text. These are the plugin's own numbers, so it sits
-              level with the number boxes beside it. --%>
-          <.live_component
-            :if={@link.candidates != []}
-            module={EntityDropdown}
-            id="group-dropdown"
-            name="recording_group_id"
-            options={group_options(@link)}
-            value={group_choice(@link)}
-            class={input_classes("w-full border px-3 py-2")}
-          />
+          <%!-- **`flex-1 min-w-0`, not `w-full`.** Two `w-full` children of a
+              flex row shrink in proportion to their *content*, so naming a
+              set for a book that already has one crushed the drop-down to
+              "N…" beside a name box three times its width. Basis-zero splits
+              the column evenly however long the words in it are, which is
+              what the audiobook form's row does. --%>
+          <div :if={@link.candidates != []} class="min-w-0 flex-1">
+            <%!-- The box has to be stated here, unlike every other control on
+                this row. `@tailwindcss/forms` gives `input`, `select` and
+                `textarea` their padding and border, and `input_classes/1`
+                leans on that; a drop-down's trigger is a `button`, which the
+                plugin never touches, so it collapsed to exactly the height of
+                its own text. These are the plugin's own numbers, so it sits
+                level with the number boxes beside it. --%>
+            <.live_component
+              module={EntityDropdown}
+              id="group-dropdown"
+              name="recording_group_id"
+              options={group_options(@link)}
+              value={group_choice(@link)}
+              class={input_classes("w-full border px-3 py-2")}
+            />
+          </div>
+
           <input
             :if={@link.mode == :create}
             type="text"
@@ -2391,11 +2417,14 @@ defmodule AmbryWeb.Admin.Decisions do
             value={@link.name}
             placeholder="set name"
             phx-debounce="500"
-            class={input_classes("w-full")}
+            class={input_classes("w-full min-w-0 flex-1")}
             data-role="group-name"
           />
         </form>
 
+        <%!-- `w-20` on both boxes, not `w-16`: "total" clipped to "tota" in
+              the narrower one, and two adjacent number boxes of different
+              widths to fit one placeholder reads as an accident. --%>
         <form id="group-part" phx-change="set-group-part" class="flex-none">
           <input
             type="number"
@@ -2403,7 +2432,7 @@ defmodule AmbryWeb.Admin.Decisions do
             name="part_number"
             value={@link.part_number}
             placeholder="no."
-            class={input_classes("w-16")}
+            class={input_classes("w-20")}
             data-role="part-number"
           />
         </form>
@@ -2419,7 +2448,7 @@ defmodule AmbryWeb.Admin.Decisions do
             name="parts_total"
             value={@link.parts_total}
             placeholder="total"
-            class={input_classes("w-16")}
+            class={input_classes("w-20")}
             data-role="parts-total"
           />
         </form>
