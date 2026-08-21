@@ -13,7 +13,7 @@
     <.busy_overlay
       busy={@evidence.running?}
       label="Asking the databases…"
-      class="sticky top-0 z-40 h-screen"
+      scope={:form}
     />
 
     <div class="-mb-4 max-w-4xl space-y-7" inert={@evidence.running?}>
@@ -264,32 +264,36 @@
                   drop down to, so the only thing on offer is naming one. The
                   import form settled this shape: a typeahead here searched
                   for sets belonging to a book that usually has none. --%>
-                <%!-- The value is stated rather than taken from the field:
-                  "New set" is the absence of an id, and `cast` turns the
-                  empty string it posts into nil — so the trigger matched no
-                  option and went blank on the one choice that has nothing to
-                  point at. --%>
-                <.input
-                  :if={@recording_group_options != []}
-                  field={@form[:recording_group_id]}
-                  value={(naming_a_set?(@form) && "") || @form[:recording_group_id].value}
-                  type="dropdown"
-                  options={@recording_group_options ++ [new_set_option()]}
-                  container_class="min-w-48 max-w-md grow"
-                />
-
-                <%!-- Naming a set this book doesn't have yet. The row belongs
-                  to the recording, so the set is created by the save that
-                  puts the recording in it, and the book is the recording's
-                  own — never asked for, never postable. --%>
-                <.inputs_for :let={group_form} field={@form[:recording_group]}>
+                <%!-- One box's worth of width between them, the way the
+                  import form shares it: whichever controls are showing split
+                  the same `min-w-48 max-w-md` column, rather than each
+                  claiming one and the row growing when you switch modes. --%>
+                <div class="min-w-48 flex max-w-md grow items-start gap-2">
+                  <%!-- The value is stated rather than taken from the field:
+                    naming a set is the *absence* of an id by the time it is
+                    cast, and a blank value reads as nothing held. --%>
                   <.input
-                    :if={naming_a_set?(@form)}
-                    field={group_form[:name]}
-                    placeholder="set name"
-                    container_class="min-w-48 max-w-md grow"
+                    :if={@recording_group_options != []}
+                    field={@form[:recording_group_id]}
+                    value={set_choice(@form)}
+                    type="dropdown"
+                    options={@recording_group_options ++ [new_set_option()]}
+                    container_class="w-full"
                   />
-                </.inputs_for>
+
+                  <%!-- Naming a set this book doesn't have yet. The row
+                    belongs to the recording, so the set is created by the
+                    save that puts the recording in it, and the book is the
+                    recording's own — never asked for, never postable. --%>
+                  <.inputs_for :let={group_form} field={@form[:recording_group]}>
+                    <.input
+                      :if={naming_a_set?(@form)}
+                      field={group_form[:name]}
+                      placeholder="set name"
+                      container_class="w-full"
+                    />
+                  </.inputs_for>
+                </div>
 
                 <.input field={@form[:part_number]} placeholder="no." container_class="w-16 flex-none" />
 

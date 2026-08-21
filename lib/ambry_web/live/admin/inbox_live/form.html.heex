@@ -16,7 +16,7 @@
     <.busy_overlay
       busy={busy?(assigns)}
       label={busy_label(@job)}
-      class="sticky top-0 z-40 h-screen"
+      scope={:form}
     />
 
     <div class="-mb-4 max-w-4xl space-y-14" inert={busy?(assigns)}>

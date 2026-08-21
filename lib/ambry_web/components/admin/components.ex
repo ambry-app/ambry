@@ -86,8 +86,8 @@ defmodule AmbryWeb.Admin.Components do
   #   30   the sticky page footers — `sticky_slab_classes/0`
   #   35   a typeahead's popup: clear of the sticky footer it may open over,
   #        under the scrims that mean the form is not yours right now
-  #   40   a page-wide busy scrim (the import form's), which has to cover the
-  #        Save button or it is only advisory
+  #   40   a page-wide busy scrim (`busy_overlay/1` at `scope={:form}`), which
+  #        has to cover the Save button or it is only advisory
   #   50   this header, and the public one
   #   60   the drawer's scrim
   #   70   the side nav drawer
@@ -743,6 +743,12 @@ defmodule AmbryWeb.Admin.Components do
 
   attr :busy, :boolean, required: true
   attr :label, :string, required: true
+
+  attr :scope, :atom,
+    default: :card,
+    values: [:card, :form],
+    doc: "how much it covers, which decides both its layer and where its label sits"
+
   attr :rest, :global
 
   @doc """
@@ -762,18 +768,40 @@ defmodule AmbryWeb.Admin.Components do
   covering them; `inert` on the content beside it is what actually stops
   keyboard focus, and the LiveView refuses the events anyway — the overlay is
   the explanation, not the enforcement.
+
+  ## Two scopes, because a form is not a card
+
+  `:card` covers one block and sits at 20. `:form` covers a whole form and
+  sits at **40, above the sticky footer** — a scrim that leaves Save clickable
+  is only advisory, which is what the layer ladder above has always said and
+  what this component could not actually do: it took the classes through
+  `:global`, which rendered a *second* `class` attribute that the browser
+  discards. Every page-wide scrim in the admin was a card scrim at 20 with its
+  label centred somewhere down a form nobody could see.
+
+  So the shape is named rather than passed in. A `:form` scrim keeps its label
+  in a `sticky top-0 h-screen` child: one viewport tall, pinned to the top of
+  the view, centring its contents — so the message sits in the middle of the
+  screen and follows the scroll, instead of in the middle of a form that may
+  be three screens long.
   """
   def busy_overlay(assigns) do
     ~H"""
     <div
       :if={@busy}
-      class="bg-zinc-950/70 backdrop-blur-[1px] absolute inset-0 z-20 flex items-center justify-center gap-2 rounded-lg"
+      class={[
+        "bg-zinc-950/70 backdrop-blur-[1px] absolute inset-0 rounded-lg",
+        @scope == :card && "z-20 flex items-center justify-center gap-2",
+        @scope == :form && "z-40"
+      ]}
       data-role="busy-overlay"
       aria-live="polite"
       {@rest}
     >
-      <.icon name="fa-rotate" class="h-4 w-4 animate-spin text-zinc-300" />
-      <span class="text-sm font-semibold text-zinc-200">{@label}</span>
+      <div class={@scope == :form && "sticky top-0 flex h-screen items-center justify-center gap-2"}>
+        <.icon name="fa-rotate" class="h-4 w-4 animate-spin text-zinc-300" />
+        <span class="text-sm font-semibold text-zinc-200">{@label}</span>
+      </div>
     </div>
     """
   end

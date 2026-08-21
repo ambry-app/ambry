@@ -13,7 +13,7 @@
     <.busy_overlay
       busy={@evidence.running?}
       label="Asking the databases…"
-      class="sticky top-0 z-40 h-screen"
+      scope={:form}
     />
 
     <div class="-mb-4 max-w-4xl space-y-7" inert={@evidence.running?}>

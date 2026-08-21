@@ -45,6 +45,14 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   # Credits, which are people: accepting one of these stages a row naming the
   # human, and the save makes them (`Ambry.Ecto.EntityRef`).
+  # What the set drop-down's "New set" row posts. A sentinel rather than "",
+  # for the reason the import form gives where it does the same:
+  # `EntityOption.selected?/2` reads a blank value as nothing held, so an
+  # option with a blank id can never draw as chosen — picking it left the
+  # trigger empty. `naming_a_set/2` translates it back to the absence of an id
+  # that the cast wants.
+  @new_set "new"
+
   @entity_kinds %{"narrators" => :narrators}
   @person_events NewPerson.events()
 
@@ -466,8 +474,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # recording pointing at no group and holding no part number is simply not in
   # a set, and the schema cannot tell the two apart.
   defp naming_a_set(params, %{assigns: %{group_row_visible: true}}) do
-    if params["recording_group_id"] in [nil, ""] do
-      Map.put_new(params, "recording_group", %{})
+    if params["recording_group_id"] in [nil, "", @new_set] do
+      params
+      |> Map.put("recording_group_id", "")
+      |> Map.put_new("recording_group", %{})
     else
       Map.delete(params, "recording_group")
     end
@@ -879,12 +889,14 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   # The drop-down's escape hatch, and the reason a blank id inside the set row
   # does not mean "no set": leaving the set is the ✕, which is an event.
-  defp new_set_option, do: %{id: "", label: "New set"}
+  defp new_set_option, do: %{id: @new_set, label: "New set"}
 
   # Naming one, as opposed to joining one. Read off the id the drop-down
   # posts, which is the same thing `Ambry.Media.Media`'s cast reads to decide
   # whether to build a set at all.
-  defp naming_a_set?(form), do: to_string(form[:recording_group_id].value || "") == ""
+  defp naming_a_set?(form), do: to_string(form[:recording_group_id].value || "") in ["", @new_set]
+
+  defp set_choice(form), do: (naming_a_set?(form) && @new_set) || form[:recording_group_id].value
 
   # How many parts the set being *joined* says it has, for the line that
   # states it. A set being named has a box for it instead, and a set that
