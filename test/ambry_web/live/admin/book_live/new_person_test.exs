@@ -418,8 +418,11 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
 
     name_an_author(view, "James S.A. Corey")
 
-    assert has_element?(view, ~s{button[phx-click][value]}) or true
-    assert render(view) =~ "Add another person behind this name"
+    # The inbox's own affordance, in the inbox's own words — it lives inside
+    # the revealed pen-name block there, and it does here.
+    html = render_click(view, "separate-name", %{"key" => "0-0"})
+    assert html =~ "Is this pen name more than one person?"
+    assert html =~ "Add a person"
 
     view
     |> form("#book-form")

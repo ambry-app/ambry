@@ -140,15 +140,12 @@
               <%!-- Who this credit means, and a way down to their card. --%>
               <.inputs_for
                 :let={narrator_form}
-                :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator, :person])}
+                :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
                 field={media_narrator_form[:narrator]}
                 skip_hidden
                 skip_persistent_id
               >
-                <.new_person_pill
-                  row={narrator_form}
-                  key={NewPerson.key(media_narrator_form)}
-                />
+                <.new_person_pill row={narrator_form} key={NewPerson.key(media_narrator_form)} />
               </.inputs_for>
 
               <.move_buttons
@@ -191,7 +188,7 @@
             different question from "who read this book". The book form's
             twin, one join shallower. --%>
         <.form_section
-          :if={NewPerson.any?(@form.source, :media_narrators, :narrator, [:narrator, :person])}
+          :if={NewPerson.any?(@form.source, :media_narrators, :narrator, [:narrator])}
           id="new-people"
           title="New people"
         >
@@ -203,7 +200,7 @@
           >
             <.inputs_for
               :let={narrator_form}
-              :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator, :person])}
+              :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
               field={media_narrator_form[:narrator]}
             >
               <.new_person_card

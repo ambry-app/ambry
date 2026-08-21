@@ -30,6 +30,7 @@ defmodule AmbryWeb.Admin.Decisions do
   alias Ambry.People
   alias AmbryWeb.Components.EntityDropdown
   alias AmbryWeb.Components.EntityResolver
+  alias Phoenix.LiveView.JS
 
   attr :outcomes, :list, required: true
   attr :level, :string, default: nil
@@ -1026,6 +1027,11 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :faces, :list, required: true, doc: "`person_face/1` maps — key, name, and a src or nil"
   attr :section_href, :string, default: "#people", doc: "where the overflow pill goes"
 
+  attr :class, :any,
+    default: nil,
+    doc:
+      "beside a picker rather than inside a card, this is one input tall — see `delete_button/1`"
+
   @doc """
   Who a credit means, as a link to their card.
 
@@ -1046,7 +1052,7 @@ defmodule AmbryWeb.Admin.Decisions do
       :if={@faces != []}
       id={@id}
       phx-hook="flash-target"
-      class="flex flex-none flex-wrap gap-2"
+      class={["flex flex-none flex-wrap gap-2", @class]}
       data-role="credit-people"
     >
       <.link
@@ -1099,7 +1105,13 @@ defmodule AmbryWeb.Admin.Decisions do
     default: nil,
     doc: "with `input_prefix`: the input the local rows write, which is the join's `person_id`"
 
-  slot :actions, doc: "the row's own controls, beside the card's title"
+  attr :list_sort_name, :string,
+    default: nil,
+    doc:
+      "with `input_prefix`: the sort param of the list this card is a row of. Adding and " <>
+        "removing a person are Ecto's own list gestures there, where the inbox raises events."
+
+  attr :list_drop_name, :string, default: nil, doc: "with `input_prefix`: that list's drop param"
 
   @doc """
   One human this import will create, as a decision card of their own.
@@ -1187,16 +1199,16 @@ defmodule AmbryWeb.Admin.Decisions do
           <button
             :if={@removable}
             type="button"
-            phx-click="remove-person"
+            phx-click={(@list_drop_name && JS.dispatch("change")) || "remove-person"}
             phx-value-section={@group.section}
             phx-value-index={@group.index}
             phx-value-person={@person_index}
+            name={@list_drop_name && @list_drop_name <> "[]"}
+            value={@list_drop_name && @person_index}
             title="not one of the people behind this name"
           >
             <.icon name="fa-xmark" class="h-3 w-3 cursor-pointer hover:text-red-600" />
           </button>
-
-          {render_slot(@actions)}
         </div>
 
         <%!-- Which human this join points at, where the card is inside a form.
@@ -1257,7 +1269,7 @@ defmodule AmbryWeb.Admin.Decisions do
         <div :if={@person.mode == :create and @own_name} class="space-y-1">
           <p class="pl-3 text-xs text-zinc-400">{alias_words(@group.kind)}</p>
 
-          <.identity_box person={@person} input_prefix={@input_prefix} />
+          <.identity_box person={@person} input_prefix={@input_prefix} link_input={@link_input} />
 
           <%!-- Both escape hatches from the same state, on the rail under the
                 box they belong to. A shared pen name is the composite-author
@@ -1269,9 +1281,11 @@ defmodule AmbryWeb.Admin.Decisions do
               Is this pen name more than one person?
               <button
                 type="button"
-                phx-click="add-person"
+                phx-click={(@list_sort_name && JS.dispatch("change")) || "add-person"}
                 phx-value-section={@group.section}
                 phx-value-index={@group.index}
+                name={@list_sort_name && @list_sort_name <> "[]"}
+                value={@list_sort_name && "new"}
                 class="underline"
               >
                 Add a person
@@ -1345,6 +1359,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
   attr :person, PersonDecision, required: true
   attr :input_prefix, :string, default: nil
+  attr :link_input, :string, default: nil
 
   # The one control that has to know who owns the form. Its own `<form>` where
   # the card is the only form on the page, a plain input inside the enclosing
@@ -1358,11 +1373,15 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
+  # The id belongs to the JOIN, not to the person: picking somebody the
+  # library has means this credit points at them, and writing it under the
+  # nested person meant the pick landed on a field nothing casts — the box
+  # closed and forgot them.
   defp identity_box(assigns) do
     ~H"""
     <.person_resolver
       person={@person}
-      name={@input_prefix <> "[person_id]"}
+      name={@link_input}
       text_name={@input_prefix <> "[name]"}
     />
     """

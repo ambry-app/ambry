@@ -453,6 +453,36 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     )
   end
 
+  attr :book_author_form, :any, required: true
+  attr :author_form, :any, required: true
+  attr :new_people, :map, required: true
+
+  # The humans behind one pen name, in the order the list holds them. Pulled
+  # out of the template because the bracket renders the same cards as the
+  # bare case and only the wrapper differs (design language §9).
+  defp author_person_cards(assigns) do
+    ~H"""
+    <.inputs_for :let={author_person_form} field={@author_form[:author_people]}>
+      <.sort_input field={@author_form[:author_people_sort]} index={author_person_form.index} />
+      <.new_person_card
+        row={author_person_form}
+        key={"#{NewPerson.key(@book_author_form)}-#{author_person_form.index}"}
+        state={
+          NewPerson.state(
+            @new_people,
+            "#{NewPerson.key(@book_author_form)}-#{author_person_form.index}"
+          )
+        }
+        credited={staged_name(@book_author_form, :author)}
+        kind={:author}
+        list_sort_name={@author_form[:author_people_sort].name}
+        list_drop_name={@author_form[:author_people_drop].name}
+        removable={author_person_form.index > 0}
+      />
+    </.inputs_for>
+    """
+  end
+
   defp preview_date_format(form) do
     format_published(%{
       published_format: Ecto.Changeset.get_field(form.source, :published_format),

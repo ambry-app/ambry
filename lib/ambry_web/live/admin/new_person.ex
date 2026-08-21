@@ -43,7 +43,7 @@ defmodule AmbryWeb.Admin.NewPerson do
 
   use AmbryWeb, :html
 
-  import AmbryWeb.Admin.Decisions, only: [credit_people: 1, person_card: 1]
+  import AmbryWeb.Admin.Decisions, only: [credit_people: 1, person_card: 1, person_face: 1]
   import Phoenix.LiveView, only: [put_flash: 3, start_async: 3]
 
   alias Ambry.Inbox.Draft.Candidate
@@ -74,12 +74,13 @@ defmodule AmbryWeb.Admin.NewPerson do
   def state(new_people, key), do: Map.get(new_people, key) || %__MODULE__{}
 
   @doc """
-  The nested person changeset a credit row is about to create, or nil.
+  The join row a credit is about to hang a human off, or nil.
 
-  `EntityRef.cast_new/4` casts a nested record only for a row that points at
-  nothing, so the presence of the nested chain *is* the answer: a credit
-  linked to an existing author, or a new pen name for a person the library
-  already has, reaches no person and gets no card.
+  The path stops at the **join** — `author_people`, or the narrator itself —
+  and deliberately not at the person, because the person is the one thing
+  that might not exist: linking somebody the library already has sets
+  `person_id`, and the nested person stops being cast. A card that keyed on
+  the person vanished at the moment of the pick, taking the way back with it.
   """
   def creating(row_form, path), do: nested(row_form.source, path)
 
@@ -97,6 +98,14 @@ defmodule AmbryWeb.Admin.NewPerson do
     case Ecto.Changeset.get_change(row_form.source, assoc) do
       %Ecto.Changeset{params: %{"create" => flag}} -> flag
       _nothing -> nil
+    end
+  end
+
+  @doc "How many humans a credit's pen name stands for."
+  def people_count(row_form) do
+    case Ecto.Changeset.get_change(row_form.source, :author) do
+      %Ecto.Changeset{} = author -> length(Ecto.Changeset.get_change(author, :author_people, []))
+      _nothing -> 0
     end
   end
 
@@ -150,7 +159,12 @@ defmodule AmbryWeb.Admin.NewPerson do
     default: nil,
     doc: "what the credit calls them — the identity's name, never the human's"
 
-  slot :actions, doc: "the row's own controls, in the card's header"
+  attr :list_sort_name, :string,
+    default: nil,
+    doc: "the `author_people` sort param, for a pen name"
+
+  attr :list_drop_name, :string, default: nil
+  attr :removable, :boolean, default: false, doc: "only a pen name's extra people come off"
 
   @doc """
   One human this form will create — the inbox's own card, on an edit form.
@@ -185,15 +199,16 @@ defmodule AmbryWeb.Admin.NewPerson do
       person_index={0}
       input_prefix={@row.name <> "[person]"}
       link_input={@row.name <> "[person_id]"}
+      list_sort_name={@list_sort_name}
+      list_drop_name={@list_drop_name}
+      removable={@removable}
       locals={@locals}
       searching={@state.searching?}
       photos_expanded={@state.expanded?}
       records={@state.evidence.records}
       outcomes={@state.evidence.outcomes}
       query_name={@state.query}
-    >
-      <:actions>{render_slot(@actions)}</:actions>
-    </.person_card>
+    />
     """
   end
 
@@ -229,7 +244,7 @@ defmodule AmbryWeb.Admin.NewPerson do
   defp decision(row, key, state) do
     staged = row.params["person"] || %{}
     linked = presence(to_string(row[:person_id].value || ""))
-    photo = staged["image_import_url"]
+    photo = presence(staged["image_import_url"])
     description = staged["description"]
 
     %PersonDecision{
@@ -278,7 +293,10 @@ defmodule AmbryWeb.Admin.NewPerson do
   defp group(credited, kind) do
     %{
       credit: %Credit{name: credited, kind: kind, mode: :create, person_keys: ["one"]},
-      section: nil,
+      # The card asks "is this pen name more than one person?" of authors and
+      # not of narrators, and it asks it of the section — a narrator stays
+      # one-to-one with a human by design.
+      section: (kind == :author && "work") || "recording",
       index: 0,
       kind: kind
     }
@@ -298,21 +316,19 @@ defmodule AmbryWeb.Admin.NewPerson do
     assigns = assign(assigns, :faces, [face(assigns.row, assigns.key)])
 
     ~H"""
-    <.credit_people id={"credit-people-#{@key}"} faces={@faces} section_href="#new-people" />
+    <.credit_people
+      id={"credit-people-#{@key}"}
+      faces={@faces}
+      section_href="#new-people"
+      class="h-10 items-center"
+    />
     """
   end
 
-  defp face(row, key) do
-    staged = row.params["person"] || %{}
-
-    %{
-      key: key,
-      name: staged["name"] || "unnamed",
-      # A blank URL is not a URL: `<img src="">` is a broken image, where the
-      # pill has a grey circle to fall back to.
-      src: staged["image_import_url"] |> presence() |> proxied_remote_image_url()
-    }
-  end
+  # The inbox's own answer to "what does this pill say" — the library's name
+  # and face where the decision links to somebody, the staged ones where it
+  # will create them. Written once, there.
+  defp face(row, key), do: person_face(decision(row, key, %__MODULE__{}))
 
   defp presence(nil), do: nil
   defp presence(value), do: if(String.trim(value) != "", do: value)

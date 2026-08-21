@@ -86,7 +86,7 @@
             <%!-- Who this credit means, and a way down to their card. --%>
             <.inputs_for
               :let={author_form}
-              :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people, :person])}
+              :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
               field={book_author_form[:author]}
               skip_hidden
               skip_persistent_id
@@ -143,7 +143,7 @@
           nobody has made yet — never for a credit pointing at an author the
           library already has. --%>
       <.form_section
-        :if={NewPerson.any?(@form.source, :book_authors, :author, [:author, :author_people, :person])}
+        :if={NewPerson.any?(@form.source, :book_authors, :author, [:author, :author_people])}
         id="new-people"
         title="New people"
       >
@@ -155,46 +155,36 @@
         >
           <.inputs_for
             :let={author_form}
-            :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people, :person])}
+            :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
             field={book_author_form[:author]}
           >
-            <.inputs_for :let={author_person_form} field={author_form[:author_people]}>
-              <.sort_input
-                field={author_form[:author_people_sort]}
-                index={author_person_form.index}
+            <%!-- A bracket, never a filled block: wrapping cards in a card is
+              what eats the elevation ladder. One author credit can stand for
+              several humans, and the label names the credit they share — the
+              inbox's own People section, verbatim. --%>
+            <div
+              :if={NewPerson.people_count(book_author_form) > 1}
+              class="space-y-3 border-l-2 border-zinc-700 pl-4"
+              data-role="pen-name-group"
+            >
+              <p class="text-xs text-zinc-400">
+                {NewPerson.people_count(book_author_form)} people behind this name
+              </p>
+              <.author_person_cards
+                book_author_form={book_author_form}
+                author_form={author_form}
+                new_people={@new_people}
               />
-              <.new_person_card
-                row={author_person_form}
-                key={"#{NewPerson.key(book_author_form)}-#{author_person_form.index}"}
-                state={
-                  NewPerson.state(
-                    @new_people,
-                    "#{NewPerson.key(book_author_form)}-#{author_person_form.index}"
-                  )
-                }
-                credited={staged_name(book_author_form, :author)}
-                kind={:author}
-              >
-                <:actions>
-                  <%!-- A composite pen name's extra humans can be taken off
-                      again; the first one is what the credit is for. --%>
-                  <.delete_button
-                    :if={author_person_form.index > 0}
-                    field={author_form[:author_people_drop]}
-                    index={author_person_form.index}
-                  />
-                </:actions>
-              </.new_person_card>
-            </.inputs_for>
-
-            <%!-- "James S.A. Corey" is one credit standing for two humans, and
-                the inbox has always been able to say so. --%>
-            <div class="pl-3">
-              <.add_button field={author_form[:author_people_sort]}>
-                Add another person behind this name
-              </.add_button>
-              <.delete_input field={author_form[:author_people_drop]} />
             </div>
+
+            <.author_person_cards
+              :if={NewPerson.people_count(book_author_form) == 1}
+              book_author_form={book_author_form}
+              author_form={author_form}
+              new_people={@new_people}
+            />
+
+            <.delete_input field={author_form[:author_people_drop]} />
           </.inputs_for>
         </.inputs_for>
       </.form_section>

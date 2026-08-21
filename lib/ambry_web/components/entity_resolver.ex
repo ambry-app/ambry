@@ -262,8 +262,18 @@ defmodule AmbryWeb.Components.EntityResolver do
     {:noreply, assign(socket, open: true)}
   end
 
+  # **Looking away is the decision.** A name that has been typed and left
+  # alone, with nothing picked, is the operator saying they mean a new record
+  # — the same moment a native input would have fired `change`. Watching the
+  # typing instead answers on the first letter, and the "Create …" row alone
+  # is a click most people never make.
   def handle_event("close", _params, socket) do
-    {:noreply, assign(socket, open: false, query: nil)}
+    typed = present?(socket.assigns[:text]) and is_nil(socket.assigns.value)
+
+    {:noreply,
+     socket
+     |> assign(open: false, query: nil, created?: socket.assigns.created? or typed)
+     |> moved()}
   end
 
   def handle_event("filter", %{"resolver" => params}, socket) do
