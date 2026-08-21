@@ -81,6 +81,31 @@
               create_value={staged_name(book_author_form, :author)}
               container_class="grow"
             />
+            <%!-- Who this credit means, and a way down to their card. --%>
+            <.inputs_for
+              :let={author_form}
+              :if={NewPerson.creating(book_author_form, [:author, :author_people, :person])}
+              field={book_author_form[:author]}
+              skip_hidden
+              skip_persistent_id
+            >
+              <.inputs_for
+                :let={author_person_form}
+                field={author_form[:author_people]}
+                skip_hidden
+                skip_persistent_id
+              >
+                <.inputs_for
+                  :let={person_form}
+                  field={author_person_form[:person]}
+                  skip_hidden
+                  skip_persistent_id
+                >
+                  <.new_person_pill form={person_form} key={NewPerson.key(book_author_form)} />
+                </.inputs_for>
+              </.inputs_for>
+            </.inputs_for>
+
             <.move_buttons
               :if={@book_author_count > 1}
               field={:book_authors}

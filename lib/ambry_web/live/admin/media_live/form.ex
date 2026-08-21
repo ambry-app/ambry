@@ -8,7 +8,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   import AmbryWeb.Admin.ChapterEditor
   import AmbryWeb.Admin.Curation
-  import AmbryWeb.Admin.NewPerson, only: [new_person_card: 1]
+  import AmbryWeb.Admin.NewPerson, only: [new_person_card: 1, new_person_pill: 1]
   import AmbryWeb.Admin.ParamHelpers
   import AmbryWeb.Admin.UploadHelpers
 

@@ -12,7 +12,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.Curation
-  import AmbryWeb.Admin.NewPerson, only: [new_person_card: 1]
+  import AmbryWeb.Admin.NewPerson, only: [new_person_card: 1, new_person_pill: 1]
 
   alias Ambry.Books
   alias Ambry.Books.Book

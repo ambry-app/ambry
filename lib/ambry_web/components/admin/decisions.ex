@@ -980,38 +980,11 @@ defmodule AmbryWeb.Admin.Decisions do
               their own book appear twice, with a sentence apologising for it.
               What a credit needs is enough to recognise who it means and a way
               to get there. --%>
-        <div
-          :if={@credit.mode == :create and @persons != []}
-          class="flex flex-none flex-wrap gap-2"
-          data-role="credit-people"
-        >
-          <.link
-            :for={face <- Enum.take(@faces, person_chips())}
-            href={"#person-#{face.key}"}
-            class="bg-white/5 flex items-center gap-2 rounded-full py-1 pr-3 pl-1 text-xs text-zinc-300 hover:bg-white/10"
-          >
-            <img
-              :if={face.src}
-              src={face.src}
-              class="h-6 w-6 flex-none rounded-full object-cover"
-              alt=""
-            />
-            <span :if={!face.src} class="h-6 w-6 flex-none rounded-full bg-zinc-800" />
-            {face.name}
-          </.link>
-
-          <%!-- One credit standing for a dozen humans would push the row into
-                a paragraph of faces. The rest are a click away in the section
-                that lists every one of them. --%>
-          <.link
-            :if={length(@faces) > person_chips()}
-            href="#people"
-            title={Enum.map_join(Enum.drop(@faces, person_chips()), ", ", & &1.name)}
-            class="bg-white/10 flex items-center rounded-full px-3 py-1 text-xs tabular-nums text-zinc-300 hover:bg-white/20"
-          >
-            +{length(@faces) - person_chips()}
-          </.link>
-        </div>
+        <.credit_people
+          :if={@credit.mode == :create}
+          id={"credit-people-#{@section}-#{@index}"}
+          faces={@faces}
+        />
       </div>
 
       <%!-- The way back after a rename or a clear — the same chip the scalar
@@ -1039,6 +1012,58 @@ defmodule AmbryWeb.Admin.Decisions do
           </.proposal_chip>
         </div>
       </div>
+    </div>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :faces, :list, required: true, doc: "`person_face/1` maps — key, name, and a src or nil"
+  attr :section_href, :string, default: "#people", doc: "where the overflow pill goes"
+
+  @doc """
+  Who a credit means, as a link to their card.
+
+  **A reference, not the person.** The human lives once, in the People
+  section, because one human is one record — rendering them inside every
+  credit that named them is what made an author who reads their own book
+  appear twice, with a sentence apologising for it. What a credit needs is
+  enough to recognise who it means and a way to get there.
+
+  The way there flashes what it landed on (`assets/js/hooks/flash-target.js`),
+  because an anchor jump on a long form drops you somewhere with no
+  indication of which card was meant. Same answer, and the same `row-flash`,
+  as coming back from a form to the row you were editing.
+  """
+  def credit_people(assigns) do
+    ~H"""
+    <div
+      :if={@faces != []}
+      id={@id}
+      phx-hook="flash-target"
+      class="flex flex-none flex-wrap gap-2"
+      data-role="credit-people"
+    >
+      <.link
+        :for={face <- Enum.take(@faces, person_chips())}
+        href={"#person-#{face.key}"}
+        class="bg-white/5 flex items-center gap-2 rounded-full py-1 pr-3 pl-1 text-xs text-zinc-300 hover:bg-white/10"
+      >
+        <img :if={face.src} src={face.src} class="h-6 w-6 flex-none rounded-full object-cover" alt="" />
+        <span :if={!face.src} class="h-6 w-6 flex-none rounded-full bg-zinc-800" />
+        {face.name}
+      </.link>
+
+      <%!-- One credit standing for a dozen humans would push the row into a
+            paragraph of faces. The rest are a click away in the section that
+            lists every one of them. --%>
+      <.link
+        :if={length(@faces) > person_chips()}
+        href={@section_href}
+        title={Enum.map_join(Enum.drop(@faces, person_chips()), ", ", & &1.name)}
+        class="bg-white/10 flex items-center rounded-full px-3 py-1 text-xs tabular-nums text-zinc-300 hover:bg-white/20"
+      >
+        +{length(@faces) - person_chips()}
+      </.link>
     </div>
     """
   end

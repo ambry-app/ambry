@@ -43,7 +43,7 @@ defmodule AmbryWeb.Admin.NewPerson do
 
   use AmbryWeb, :html
 
-  import AmbryWeb.Admin.Decisions, only: [person_card: 1]
+  import AmbryWeb.Admin.Decisions, only: [credit_people: 1, person_card: 1]
   import Phoenix.LiveView, only: [put_flash: 3, start_async: 3]
 
   alias Ambry.Inbox.Draft.Candidate
@@ -212,6 +212,32 @@ defmodule AmbryWeb.Admin.NewPerson do
       section: nil,
       index: 0,
       kind: kind
+    }
+  end
+
+  attr :form, :any, required: true, doc: "the nested person form"
+  attr :key, :string, required: true
+
+  @doc """
+  The person a credit row is about to invent, as a pill beside it.
+
+  The inbox's own reference — enough to recognise who the credit means, and a
+  way down to their card. It only ever names one human here, because an edit
+  form's pen name has one person behind it until somebody splits it.
+  """
+  def new_person_pill(assigns) do
+    assigns = assign(assigns, :faces, [face(assigns.form, assigns.key)])
+
+    ~H"""
+    <.credit_people id={"credit-people-#{@key}"} faces={@faces} section_href="#new-people" />
+    """
+  end
+
+  defp face(form, key) do
+    %{
+      key: key,
+      name: form[:name].value || "unnamed",
+      src: proxied_remote_image_url(form.params["image_import_url"])
     }
   end
 
