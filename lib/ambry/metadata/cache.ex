@@ -71,6 +71,14 @@ defmodule Ambry.Metadata.Cache do
         store!(key, value)
         {:ok, value}
 
+      # Never stored: a partial answer is part of an outage, and caching it
+      # would keep serving the half that answered for the whole TTL. Passed
+      # through rather than dropped, because the half that did answer is
+      # worth having now — the caller records the miss and can ask again.
+      {:partial, value, reason} ->
+        Logger.warning("metadata fetch partial for #{key}: #{inspect(reason)}")
+        {:partial, value, reason}
+
       {:error, reason} when not is_nil(stale_entry) ->
         Logger.warning("metadata fetch failed for #{key}, serving stale: #{inspect(reason)}")
         {:ok, decode(stale_entry)}

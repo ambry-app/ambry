@@ -813,7 +813,22 @@
         class="space-y-7"
         inert={@read_only}
       >
-        <h2 class="text-xl font-bold text-zinc-100">People</h2>
+        <%!-- The edit forms' control, on the surface it came from: matching
+            asks about everyone an item arrives with, so this is normally
+            absent and appears where the operator has *added* credits. --%>
+        <div class="flex items-baseline justify-between gap-4">
+          <h2 class="text-xl font-bold text-zinc-100">People</h2>
+
+          <.button
+            :if={length(unsearched_people(@item, @searching_people)) > 1}
+            color={:zinc}
+            type="button"
+            phx-click={search_all_people(@item, @searching_people)}
+            class="flex-none"
+          >
+            Search all {length(unsearched_people(@item, @searching_people))}
+          </.button>
+        </div>
 
         <div :for={group <- Draft.people_groups(@item.draft)} class="space-y-3">
           <%!-- A bracket, never a filled block: wrapping cards in a card is

@@ -25,16 +25,30 @@ export const SetInputHook = {
 
   set(chip) {
     const form = this.el.closest("form")
+    if (!form) return
+
+    // `data-set-blank` is a JSON array of names to empty, for a control whose
+    // answer is "none of these" and therefore touches more than one field.
+    // One control, one answer, however many inputs carry it.
+    const blanks = chip.dataset.setBlank ? JSON.parse(chip.dataset.setBlank) : []
+    const pairs = chip.dataset.setInput
+      ? [[chip.dataset.setInput, chip.dataset.setValue || ""]]
+      : blanks.map((name) => [name, ""])
+
     // Names carry brackets, which need no escaping inside a quoted attribute
     // selector — and CSS.escape, which is for identifiers, would break them.
-    const input = form && form.querySelector(`[name="${chip.dataset.setInput}"]`)
+    const written = pairs
+      .map(([name, value]) => {
+        const input = form.querySelector(`[name="${name}"]`)
+        if (input) input.value = value
+        return input
+      })
+      .filter(Boolean)
 
-    if (!input) return
-
-    input.value = chip.dataset.setValue || ""
-
-    // `input`, not `change`: a textarea's phx-change fires on input, and a
-    // hidden input has no native event of its own to borrow.
-    input.dispatchEvent(new Event("input", { bubbles: true }))
+    // One dispatch however many were written: `phx-change` serializes the
+    // whole form, so a second is a second identical round trip. `input`, not
+    // `change`: a textarea's phx-change fires on input, and a hidden input has
+    // no native event of its own to borrow.
+    written[written.length - 1]?.dispatchEvent(new Event("input", { bubbles: true }))
   },
 }

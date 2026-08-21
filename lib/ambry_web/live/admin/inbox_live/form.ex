@@ -54,6 +54,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   alias Ambry.Library.Placement
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
+  alias AmbryWeb.Admin.NewPerson
   alias AmbryWeb.Admin.ReturnTo
   alias AmbryWeb.Components.EntityResolver
   alias Phoenix.LiveView.AsyncResult
@@ -287,6 +288,35 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   @doc "What each person provider said when asked about them."
   def person_outcomes(item, key), do: get_in(item.matches, ["people", key, "providers"]) || []
+
+  @doc """
+  Searches for every person nobody has asked about — the edit forms'
+  control, sharing their implementation.
+  """
+  def search_all_people(item, searching) do
+    item |> unsearched_people(searching) |> NewPerson.search_all(%{})
+  end
+
+  @doc """
+  The people on this draft nobody has asked the databases about, as
+  `{key, name}` — what the People section's "Search all" presses.
+
+  Matching asks about everyone an item arrives with, so this is normally
+  empty and the control is absent; it fills up when the operator *adds*
+  credits, which is the same state an edit form is in the whole time
+  (`AmbryWeb.Admin.NewPerson.search_all/2`).
+  """
+  def unsearched_people(item, searching) do
+    for group <- Draft.people_groups(item.draft),
+        person <- group.people,
+        person.mode == :create,
+        person_records(item, person.key) == [],
+        not Map.has_key?(searching, person.key),
+        name = Field.value(person.name),
+        name not in [nil, ""] do
+      {person.key, name}
+    end
+  end
 
   @doc """
   The people the library already has by this human's name.

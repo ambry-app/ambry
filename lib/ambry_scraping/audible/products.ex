@@ -47,6 +47,10 @@ defmodule AmbryScraping.Audible.Products do
     * `:marketplaces` — which regional catalogs to search, merged. Editions
       are regional: a UK-only recording is invisible to the US catalog no
       matter how it's queried.
+
+  Answers `{:ok, products}`, `{:partial, products, unreached}` where some of
+  the marketplaces answered and some did not, or `{:error, reason}` where
+  none did.
   """
   def search(query, opts \\ [])
 
@@ -88,13 +92,36 @@ defmodule AmbryScraping.Audible.Products do
   # One reachable marketplace is a usable answer; all of them failing is not.
   defp parse_all({[], [{_marketplace, reason} | _rest]}, _language), do: {:error, reason}
 
-  defp parse_all({products, _errors}, language) do
-    {:ok,
-     products
-     |> Enum.uniq_by(&dedupe_key/1)
-     |> Enum.map(&parse_product/1)
-     |> filter_language(language)}
+  defp parse_all({products, errors}, language) do
+    parsed =
+      products
+      |> Enum.uniq_by(&dedupe_key/1)
+      |> Enum.map(&parse_product/1)
+      |> filter_language(language)
+
+    # **A catalog that could not be reached is not a catalog with nothing in
+    # it.** This used to answer `{:ok, …}` whenever *any* marketplace came
+    # back, so a rate-limited or geo-blocked region was indistinguishable
+    # from a region where the book genuinely doesn't exist — which is the
+    # one distinction the whole setting exists to make. The results are
+    # usable and they are incomplete, and the caller is told both.
+    case errors do
+      [] -> {:ok, parsed}
+      _some -> {:partial, parsed, unreached(errors)}
+    end
   end
+
+  # Named by region, because that is the unit the operator configured and
+  # the unit they can do something about.
+  defp unreached(errors) do
+    errors
+    |> Enum.reverse()
+    |> Enum.map_join(", ", fn {marketplace, reason} -> "#{marketplace}: #{why(reason)}" end)
+  end
+
+  defp why(%{status: status}), do: "HTTP #{status}"
+  defp why(%{__exception__: true} = error), do: Exception.message(error)
+  defp why(reason), do: reason |> inspect() |> String.slice(0, 60)
 
   # NOT by ASIN: the same recording carries a *different* ASIN in each
   # regional catalog, so an ASIN key silently lets every merged marketplace

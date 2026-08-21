@@ -35,8 +35,7 @@ defmodule Ambry.Metadata.Providers.Audible do
         default: "english",
         help:
           "Only show search results in this language (Audible's language names, e.g. " <>
-            ~s{"english", "german"). Set to "any" to disable filtering. } <>
-            "Clear the cache after changing so old results don't linger."
+            ~s{"english", "german"). Set to "any" to disable filtering.}
       },
       %Provider.ConfigField{
         key: :marketplaces,
@@ -47,8 +46,9 @@ defmodule Ambry.Metadata.Providers.Audible do
           "Which regional Audible catalogs to search, comma-separated — " <>
             "us, uk, ca, au, de, fr, es, it, in, jp. Editions are regional, so a UK-only " <>
             "recording is invisible to the US catalog. Results are merged, and the same " <>
-            "recording appearing in several catalogs is collapsed. Each extra marketplace " <>
-            "is another request per lookup, and a first inbox scan is hundreds of lookups."
+            "recording appearing in several catalogs is collapsed — most books are sold in " <>
+            "every region, so widening often changes nothing. Each extra marketplace is " <>
+            "another request per lookup, and a first inbox scan is hundreds of lookups."
       }
     ]
   end
@@ -97,6 +97,10 @@ defmodule Ambry.Metadata.Providers.Audible do
     case Audible.search_books(params, opts) do
       {:ok, []} -> widen(rest, config)
       {:ok, products} -> {:ok, Enum.map(products, &product_to_book/1)}
+      # Some catalogs answered and some did not. The answer is usable and
+      # incomplete, and saying only the first half is what let a region that
+      # was rate-limited read as a region with nothing in it.
+      {:partial, products, reason} -> {:partial, Enum.map(products, &product_to_book/1), reason}
       # A failure is not an empty result — widening past it would hide an
       # outage behind a vaguer query that happens to succeed.
       {:error, reason} -> {:error, reason}

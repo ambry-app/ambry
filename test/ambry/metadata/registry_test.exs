@@ -1,6 +1,7 @@
 defmodule Ambry.Metadata.RegistryTest do
   use Ambry.DataCase
 
+  alias Ambry.Metadata.Cache
   alias Ambry.Metadata.Registry
 
   test "all/0 returns every known provider enabled by default, in priority order" do
@@ -69,6 +70,43 @@ defmodule Ambry.Metadata.RegistryTest do
     {:ok, entry} = Registry.fetch("rreading_glasses")
 
     assert entry.config == %{base_url: "https://api.bookinfo.pro"}
+  end
+
+  # The cache keys on the provider and the question and nothing else, so a
+  # question already asked kept answering the old way for the rest of its TTL
+  # — a week for searches. The operator widened Audible from `us` to
+  # `us, uk`, searched a book they had searched before, and got the US
+  # catalog's answer back (2026-08-21).
+  test "changing what a provider is asked forgets what it answered before" do
+    Cache.fetch("audible:search_books:q:x", fn -> {:ok, [:stale]} end)
+    assert {:ok, [:stale]} = Cache.fetch("audible:search_books:q:x", fn -> {:ok, [:fresh]} end)
+
+    {:ok, _row} = Registry.update("audible", %{config: %{"marketplaces" => "us, uk"}})
+
+    assert {:ok, [:fresh]} = Cache.fetch("audible:search_books:q:x", fn -> {:ok, [:fresh]} end)
+  end
+
+  # Neither changes what a question means, and emptying a provider's cache
+  # for a reorder would cost a round of lookups for nothing.
+  test "enabling, disabling and reordering keep what a provider answered" do
+    Cache.fetch("audible:search_books:q:x", fn -> {:ok, [:stale]} end)
+
+    {:ok, _row} = Registry.update("audible", %{enabled: false})
+    {:ok, _row} = Registry.update("audible", %{enabled: true, priority: 9})
+
+    assert {:ok, [:stale]} = Cache.fetch("audible:search_books:q:x", fn -> {:ok, [:fresh]} end)
+  end
+
+  # Writing the same setting again is not a change, and the operator who
+  # opens the settings and presses Save should not pay for a fresh round of
+  # provider calls.
+  test "saving a config unchanged keeps what a provider answered" do
+    {:ok, _row} = Registry.update("audible", %{config: %{"marketplaces" => "us, uk"}})
+    Cache.fetch("audible:search_books:q:x", fn -> {:ok, [:stale]} end)
+
+    {:ok, _row} = Registry.update("audible", %{config: %{"marketplaces" => "us, uk"}})
+
+    assert {:ok, [:stale]} = Cache.fetch("audible:search_books:q:x", fn -> {:ok, [:fresh]} end)
   end
 
   test "fetch/1 returns an error for unknown providers" do

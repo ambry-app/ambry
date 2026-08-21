@@ -95,14 +95,12 @@
                 fetch={&People.author_option/1}
                 create_name={"#{book_author_form.name}[author][name]"}
                 create_value={staged_name(book_author_form, :author)}
-                create_flag_name={"#{book_author_form.name}[author][create]"}
-                create_flag_value={NewPerson.chosen(book_author_form, :author)}
                 container_class="grow"
               />
               <%!-- Who this credit means, and a way down to their card. --%>
               <.inputs_for
                 :let={author_form}
-                :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
+                :if={NewPerson.carded?(book_author_form, [:author, :author_people])}
                 field={book_author_form[:author]}
                 skip_hidden
                 skip_persistent_id
@@ -146,12 +144,16 @@
           </:add>
         </.list_cluster>
 
-        <%!-- The humans these credits are about to invent, in the import form's
-          own section — under the credits that name them, because that is
-          where they came from, and separate from them, because "what is this
-          person called, and what do they look like" is a different question
-          from "who wrote this book". A card inside a card also eats the
-          elevation ladder (§1).
+        <%!-- The humans these credits are about, in the import form's own
+          section and under its own name — under the credits that name them,
+          because that is where they came from, and separate from them,
+          because "what is this person called, and what do they look like" is
+          a different question from "who wrote this book". A card inside a
+          card also eats the elevation ladder (§1).
+
+          "People", not "New people": a card can link somebody the library
+          already holds, so the section is not only about the ones being
+          made (operator, 2026-08-21).
 
           The rows are walked a second time with their hidden inputs skipped:
           the credit rows above already post those. What renders only here is
@@ -159,10 +161,22 @@
           nobody has made yet — never for a credit pointing at an author the
           library already has. --%>
         <.form_section
-          :if={NewPerson.any?(@form.source, :book_authors, :author, [:author, :author_people])}
-          id="new-people"
-          title="New people"
+          :if={NewPerson.any?(@form.source, :book_authors, [:author, :author_people])}
+          id="people"
+          title="People"
         >
+          <%!-- The audiobook form's twin: several authors accepted from a
+            record is several cards, each with a Search of its own, and this
+            presses them all. --%>
+          <:action :if={NewPerson.searchable(@people_cards, @new_people) > 1}>
+            <.button
+              color={:zinc}
+              type="button"
+              phx-click={NewPerson.search_all(@people_cards, @new_people)}
+            >
+              Search all {NewPerson.searchable(@people_cards, @new_people)}
+            </.button>
+          </:action>
           <.inputs_for
             :let={book_author_form}
             field={@form[:book_authors]}
@@ -171,7 +185,7 @@
           >
             <.inputs_for
               :let={author_form}
-              :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
+              :if={NewPerson.carded?(book_author_form, [:author, :author_people])}
               field={book_author_form[:author]}
             >
               <%!-- A bracket, never a filled block: wrapping cards in a card is

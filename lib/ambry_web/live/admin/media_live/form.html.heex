@@ -150,14 +150,12 @@
                   fetch={&People.narrator_option/1}
                   create_name={"#{media_narrator_form.name}[narrator][name]"}
                   create_value={staged_name(media_narrator_form, :narrator)}
-                  create_flag_name={"#{media_narrator_form.name}[narrator][create]"}
-                  create_flag_value={NewPerson.chosen(media_narrator_form, :narrator)}
                   container_class="grow"
                 />
                 <%!-- Who this credit means, and a way down to their card. --%>
                 <.inputs_for
                   :let={narrator_form}
-                  :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
+                  :if={NewPerson.carded?(media_narrator_form, [:narrator])}
                   field={media_narrator_form[:narrator]}
                   skip_hidden
                   skip_persistent_id
@@ -198,17 +196,30 @@
             </:add>
           </.list_cluster>
 
-          <%!-- The humans these credits are about to invent, in the import
-            form's own section — under the credits that name them, because
-            that is where they came from, and separate from them, because
-            "what is this person called, and what do they look like" is a
-            different question from "who read this book". The book form's
-            twin, one join shallower. --%>
+          <%!-- The humans these credits are about, in the import form's own
+            section and under its own name — under the credits that name
+            them, because that is where they came from, and separate from
+            them, because "what is this person called, and what do they look
+            like" is a different question from "who read this book". The book
+            form's twin, one join shallower. --%>
           <.form_section
-            :if={NewPerson.any?(@form.source, :media_narrators, :narrator, [:narrator])}
-            id="new-people"
-            title="New people"
+            :if={NewPerson.any?(@form.source, :media_narrators, [:narrator])}
+            id="people"
+            title="People"
           >
+            <%!-- Ten narrators accepted from a record is ten cards, each with
+              a Search of its own; this presses them all. It counts what it
+              would ask about, because a control that might do nothing should
+              say so before it is pressed. --%>
+            <:action :if={NewPerson.searchable(@people_cards, @new_people) > 1}>
+              <.button
+                color={:zinc}
+                type="button"
+                phx-click={NewPerson.search_all(@people_cards, @new_people)}
+              >
+                Search all {NewPerson.searchable(@people_cards, @new_people)}
+              </.button>
+            </:action>
             <.inputs_for
               :let={media_narrator_form}
               field={@form[:media_narrators]}
@@ -217,7 +228,7 @@
             >
               <.inputs_for
                 :let={narrator_form}
-                :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
+                :if={NewPerson.carded?(media_narrator_form, [:narrator])}
                 field={media_narrator_form[:narrator]}
               >
                 <.new_person_card

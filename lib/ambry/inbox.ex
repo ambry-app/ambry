@@ -815,6 +815,15 @@ defmodule Ambry.Inbox do
   defdelegate record_ref(record), to: AutoMatch, as: :ref
 
   @doc """
+  Whether two spellings mean one human, as one comparable key.
+
+  Matching's own rule, so the edit forms decide "is this record about the
+  person I asked about" exactly the way an import decides it — initials,
+  punctuation and accents all fold.
+  """
+  defdelegate person_key(name), to: AutoMatch
+
+  @doc """
   Scoring hints from a library record's own fields — what lets the edit
   forms rank provider records exactly the way matching ranks them against
   an item's tags. (The scoring itself is `score_records/3`; its true home

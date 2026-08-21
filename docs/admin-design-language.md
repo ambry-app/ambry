@@ -822,6 +822,18 @@ one mechanism for "ask the databases", not a modal per provider:
   shows where the lists diverge, which is what to fix) but is never
   poured.
 
+- **A control tells the form when it is left, not while it is being typed
+  in.** Typing a name and meaning it post the same string, so anything
+  downstream of a per-keystroke `change` reacts on the first letter — hardest
+  of all while the operator is searching for a record that already exists.
+  The picker moves its hidden inputs under the typing, so a save posts
+  whatever the box says, and raises the change on pick, create or blur, which
+  is where a native input raises it. What this replaced answered the same
+  question with a second hidden input carrying "the operator clicked Create",
+  and everything that staged a credit *without* the picker had to remember to
+  set it: a provider chip credited a new narrator and their card never
+  appeared. **A surface should read the state, not a flag beside it.**
+
 - **A credit that names somebody new gets that person's card — literally the
   inbox's card.** A picker may name a record the library has never heard of,
   so an edit form can invent a `Person`, and a person made of a name and
@@ -834,12 +846,18 @@ one mechanism for "ask the databases", not a modal per provider:
   same record list.
 
   It lives in a **section of its own** under the credits that name them — the
-  inbox's `#people` anatomy, a heading on the ground with cards below — never
-  inside the credits card, which would be a card inside a card. It renders
-  **only where the nested chain reaches a person nobody has made yet**, which
-  is never true of a credit pointing at somebody who exists, and the credit
-  rows are walked a second time (`skip_hidden`, `skip_persistent_id`) because
-  the pickers above already post those.
+  inbox's `#people` anatomy down to the heading, a heading on the ground with
+  cards below — never inside the credits card, which would be a card inside a
+  card. It renders **only where the nested chain reaches a person nobody has
+  made yet**, which is never true of a credit pointing at somebody who
+  exists, and the credit rows are walked a second time (`skip_hidden`,
+  `skip_persistent_id`) because the pickers above already post those.
+
+  It is called **People** on both surfaces, not "New people" on one of them:
+  a card can link somebody the library already holds, so the section is not
+  only about the ones being made (operator, 2026-08-21). A heading that
+  narrows what its section contains is a difference to justify, and this one
+  could not be.
 
   The card hangs off the **join row** that holds the person — `author_people`
   for a pen name, `media_narrators[i][narrator]` for a stage name — not off
@@ -847,6 +865,26 @@ one mechanism for "ask the databases", not a modal per provider:
   answered. It is what lets the card offer the people the library already has
   by that name and link one, and what lets a pen name carry more than one
   human (James S.A. Corey) the way the inbox always could.
+
+  **A ticked record about this human answers what nobody has answered.** An
+  import takes the best record's face and biography and leaves the rest one
+  click away; a credit on an edit form was only ever *offered* them, so the
+  operator who ticked a record and saved got a person with a name and nothing
+  else — the asymmetry again, one level down. Records that spell the same
+  name arrive ticked (person search is recall-first, so the rest are listed
+  and left alone) and the best of them fills the boxes nobody has filled.
+  **Absent is unanswered; present-and-empty is an answer** — the card's
+  controls are inputs, so "no photo" and a cleared biography post as `""` and
+  are left exactly as they are.
+
+  **A card rendered more than once keys its ids by the card, not by its
+  address.** An import form's people are a grid — this credit, this human
+  behind it — so the address is unique there; on an edit form every card is
+  the first person behind the first credit of the only section, and four
+  hook-bearing elements per card collided. LiveView finds elements by id
+  when it patches, so the operator saw a bio box vanish when an unrelated
+  part of the form changed. Anything repeated takes its ids from whatever is
+  actually one per copy.
 
   One thing genuinely differs, and `input_prefix` is where it is said: the
   import form saves on change and has no form of its own, so each of the
@@ -856,6 +894,17 @@ one mechanism for "ask the databases", not a modal per provider:
   on the client (`assets/js/hooks/set-input.js`) instead of raising events,
   and the state rail goes — nothing here is part-way through a decision tree.
   Everything else is the same markup.
+
+- **A section whose work repeats gets one control for all of it.** Ten
+  credits accepted from a record is ten new-person cards, each with a Search
+  of its own, and finding out about them was ten clicks in ten places
+  (operator, 2026-08-21). So the section heading carries "Search all *n*" —
+  chained `JS.push/3`, because pressing them all *is* the feature and each
+  card's handler already knows what to do with one. It counts what it would
+  ask about and disappears when that is nothing, because a control that might
+  do nothing should say so before it is pressed. Same control on the import
+  form, where matching has usually asked already, so the same rule shows it
+  only where the operator has added credits by hand.
 
 Structural lists (authors, narrators, series) carry **list-level
 provenance** — one entry per list, worn as the same "from …" flag on the

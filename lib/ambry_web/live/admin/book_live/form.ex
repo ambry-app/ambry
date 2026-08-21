@@ -404,52 +404,57 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp save_book(socket, :edit, book_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
-    book_params = NewPerson.import_photos(book_params, "book_authors")
 
-    case Books.update_book(socket.assigns.book, book_params, opts) do
-      {:ok, book} ->
-        # the title, primary author and primary series all appear in the path
-        # of every managed recording of this book
-        {:ok, _job} = Media.organize_book_async(book.id)
+    with {:ok, book_params} <- NewPerson.import_photos(book_params, "book_authors"),
+         {:ok, book} <- Books.update_book(socket.assigns.book, book_params, opts) do
+      # the title, primary author and primary series all appear in the path
+      # of every managed recording of this book
+      {:ok, _job} = Media.organize_book_async(book.id)
 
-        {:noreply,
-         socket
-         |> put_flash(:info, "Updated #{book.title}")
-         |> push_navigate(
-           to: ReturnTo.path(~p"/admin/books", socket.assigns.list_params, book.id)
-         )}
-
+      {:noreply,
+       socket
+       |> put_flash(:info, "Updated #{book.title}")
+       |> push_navigate(to: ReturnTo.path(~p"/admin/books", socket.assigns.list_params, book.id))}
+    else
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
+
+      {:error, {:failed_photos, urls}} ->
+        {:noreply, put_flash(socket, :error, NewPerson.photos_error(urls))}
     end
   end
 
   defp save_book(socket, :new, book_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
-    book_params = NewPerson.import_photos(book_params, "book_authors")
 
-    case Books.create_book(book_params, opts) do
-      {:ok, book} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Created #{book.title}")
-         |> push_navigate(
-           to: ReturnTo.path(~p"/admin/books", socket.assigns.list_params, book.id)
-         )}
-
+    with {:ok, book_params} <- NewPerson.import_photos(book_params, "book_authors"),
+         {:ok, book} <- Books.create_book(book_params, opts) do
+      {:noreply,
+       socket
+       |> put_flash(:info, "Created #{book.title}")
+       |> push_navigate(to: ReturnTo.path(~p"/admin/books", socket.assigns.list_params, book.id))}
+    else
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
+
+      {:error, {:failed_photos, urls}} ->
+        {:noreply, put_flash(socket, :error, NewPerson.photos_error(urls))}
     end
   end
 
   defp assign_form(socket, %Changeset{} = changeset) do
+    cards = NewPerson.cards(changeset, :book_authors, [:author, :author_people])
+
     assign(socket,
       form: to_form(changeset),
       # the move buttons need to know where the ends of each list are, and
       # the empty states whether there is a list at all
       book_author_count: Reordering.row_count(changeset, :book_authors),
       series_book_count: Reordering.row_count(changeset, :series_books),
-      book_universe_count: Reordering.row_count(changeset, :book_universes)
+      book_universe_count: Reordering.row_count(changeset, :book_universes),
+      # the People section's own control: the cards are rendered by
+      # `inputs_for` and a heading above them has no walk of its own
+      people_cards: cards
     )
   end
 

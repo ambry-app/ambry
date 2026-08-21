@@ -22,6 +22,7 @@ defmodule AmbryWeb.Admin.Evidence do
   # nothing to offer and no row worth rendering.
   import AmbryWeb.Admin.Decisions, only: [source_words: 1]
 
+  alias Ambry.Inbox
   alias Ambry.Media.Scanner.Tags
 
   @tags_fields ~w(title authors narrators published publisher description series asin
@@ -93,12 +94,29 @@ defmodule AmbryWeb.Admin.Evidence do
   @doc """
   Folds a person fan-out's `{matches, outcomes}` into the panel —
   `Ambry.Metadata.Search.people/2` shape, flat matches across providers.
+
+  `about: name` ticks the arrivals that are **about that human** — person
+  search is recall-first, so a search for one narrator returns everybody who
+  shares a name token with them, and only the ones spelling the same name are
+  evidence about this person. This is what an import does: `Draft.Seed` uses
+  every name-matching candidate as a source without being asked, which is why
+  an imported person arrives with a face and a biography and one credited on
+  an edit form arrived empty (operator, 2026-08-21).
   """
-  def absorb_people(%__MODULE__{} = evidence, {matches, outcomes}) do
-    absorb_records(evidence, Enum.map(matches, &person_record/1), outcomes)
+  def absorb_people(%__MODULE__{} = evidence, {matches, outcomes}, opts \\ []) do
+    absorb_records(evidence, Enum.map(matches, &person_record/1), outcomes, about(opts[:about]))
   end
 
-  defp absorb_records(evidence, fresh, outcomes) do
+  # Matching's own rule for "one human, two spellings" — initials,
+  # punctuation and accents fold (`Ambry.Inbox.person_key/1`).
+  defp about(nil), do: fn _record -> false end
+
+  defp about(name) do
+    key = Inbox.person_key(name)
+    fn record -> is_binary(record["name"]) and Inbox.person_key(record["name"]) == key end
+  end
+
+  defp absorb_records(evidence, fresh, outcomes, about \\ fn _record -> false end) do
     held = MapSet.new(evidence.records, &ref/1)
     added = Enum.reject(fresh, &MapSet.member?(held, ref(&1)))
 
@@ -106,11 +124,14 @@ defmodule AmbryWeb.Admin.Evidence do
     kept = Enum.reject(evidence.outcomes, &MapSet.member?(fresh_ids, &1["id"]))
 
     # A record this record's own provenance points back at arrives ticked —
-    # it filled fields here once, so it counts until somebody says otherwise.
+    # it filled fields here once, so it counts until somebody says otherwise
+    # — and so does one that is plainly about the human being asked about.
     # Only NEWLY arrived records auto-tick: re-searching must never re-tick
     # what the operator unticked.
     recognized =
-      for record <- added, Map.has_key?(evidence.known, ref(record)), do: ref(record)
+      for record <- added,
+          Map.has_key?(evidence.known, ref(record)) or about.(record),
+          do: ref(record)
 
     %{
       evidence
@@ -216,6 +237,11 @@ defmodule AmbryWeb.Admin.Evidence do
 
     %{evidence | used: used}
   end
+
+  @doc """
+  Unticks everything — the panel's answer to "none of these describes them".
+  """
+  def use_none(%__MODULE__{} = evidence), do: %{evidence | used: MapSet.new()}
 
   @doc "Whether a record is ticked."
   def used?(%__MODULE__{} = evidence, record), do: MapSet.member?(evidence.used, ref(record))

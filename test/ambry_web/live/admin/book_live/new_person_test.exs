@@ -54,7 +54,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
       "book" => %{
         "book_authors_sort" => ["new"],
         "book_authors" => %{
-          "new" => %{"author_id" => "", "author" => %{"name" => name, "create" => "true"}}
+          "new" => %{"author_id" => "", "author" => %{"name" => name}}
         }
       }
     })
@@ -63,25 +63,38 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
   # Typing a name and *deciding* to create one post the same name — what is
   # typed is the new record's name either way — so a card that watched the
   # typing appeared on the first letter, and did so hardest when what the
-  # operator was doing was searching for an author who already exists.
+  # operator was doing was searching for an author who already exists. The
+  # picker is where that is settled: it moves under the typing and tells the
+  # form on blur, which is when a native input would have fired `change`.
   test "typing a name is not yet a decision to create one", %{conn: conn} do
     book = insert(:book, book_authors: [])
     {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
 
+    view
+    |> form("#book-form")
+    |> render_change(%{
+      "book" => %{"book_authors_sort" => ["new"], "book_authors" => %{"new" => %{}}}
+    })
+
+    picker = "book_book_authors_0_author_id"
+
     html =
       view
-      |> form("#book-form")
-      |> render_change(%{
-        "book" => %{
-          "book_authors_sort" => ["new"],
-          "book_authors" => %{
-            "new" => %{"author_id" => "", "author" => %{"name" => "M", "create" => "false"}}
-          }
-        }
-      })
+      |> element("##{picker}-input")
+      |> render_change(%{"resolver" => %{picker => "Matt Dinn"}})
 
     refute html =~ ~s{data-role="person-card"}
-    refute html =~ "New people"
+    refute html =~ "People"
+
+    # nothing was announced to the form, which is what kept the card away:
+    # the hidden inputs moved under the typing, and a save would post the
+    # name, but no `change` was raised for anything to react to
+    refute_push_event(view, "entity-resolver:moved", %{})
+
+    # looking away is the moment it becomes one
+    view |> with_target("##{picker}") |> render_click("close", %{})
+
+    assert_push_event(view, "entity-resolver:moved", %{text: "Matt Dinn", value: ""})
   end
 
   # The card is titled by the CREDIT — "Foo, a pen name of Bar" only reads
@@ -106,7 +119,6 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
               "author_id" => "",
               "author" => %{
                 "name" => "Robert Galbraith",
-                "create" => "true",
                 "author_people" => %{"0" => %{"person" => %{"name" => "J.K. Rowling"}}}
               }
             }
@@ -140,10 +152,10 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
 
     # A section of its own, under the credits that name them — the import
     # form's anatomy. It used to be a card inside the Authors card.
-    assert has_element?(view, ~s{#new-people [data-role="person-card"]})
+    assert has_element?(view, ~s{#people [data-role="person-card"]})
 
-    assert Floki.find(Floki.parse_document!(html), ~s{#new-people h2}) |> Floki.text() ==
-             "New people"
+    assert Floki.find(Floki.parse_document!(html), ~s{#people h2}) |> Floki.text() ==
+             "People"
   end
 
   # The complaint this card was rebuilt on: it is the import form's card, not
@@ -212,12 +224,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
 
     name_an_author(view, "Matt Dinniman")
     render_click(view, "research-person", %{"key" => "0-0", "name" => "Matt Dinniman"})
-    render_async(view)
-
-    html =
-      view
-      |> element(~s{[data-role="person-card"] [data-role="record"] input[type="checkbox"]})
-      |> render_click()
+    html = render_async(view)
 
     doc = Floki.parse_document!(html)
     targets = doc |> Floki.find("[data-set-input]") |> Floki.attribute("data-set-input")
@@ -290,6 +297,79 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
       })
 
     refute html =~ ~s{data-role="person-card"}
+  end
+
+  # Every card on an edit form is the first person behind the first credit of
+  # the only section, so keying their DOM ids by that address gave every card
+  # on the page the same ones, and LiveView's patcher — which finds elements
+  # by id — moved a bio box out of one card into another (operator,
+  # 2026-08-21). A pen name standing for two humans is the same collision one
+  # credit down.
+  test "two new people share no DOM ids", %{conn: conn} do
+    book = insert(:book, book_authors: [])
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+    html =
+      view
+      |> form("#book-form")
+      |> render_change(%{
+        "book" => %{
+          "book_authors_sort" => ["a", "b"],
+          "book_authors" => %{
+            "a" => %{"author_id" => "", "author" => %{"name" => "Matt Dinniman"}},
+            "b" => %{"author_id" => "", "author" => %{"name" => "Andy Weir"}}
+          }
+        }
+      })
+
+    assert [_one, _two] = Floki.find(Floki.parse_document!(html), ~s{[data-role="person-card"]})
+
+    duplicates =
+      ~r/ id="([^"]+)"/
+      |> Regex.scan(html)
+      |> Enum.map(&Enum.at(&1, 1))
+      |> Enum.frequencies()
+      |> Enum.filter(fn {_id, count} -> count > 1 end)
+
+    assert duplicates == []
+  end
+
+  # The other call site of the same save: a book being created, where a
+  # photo that cannot be fetched must stop the save rather than quietly
+  # producing an author with no face.
+  test "a photo that cannot be downloaded stops a create and says so", %{conn: conn} do
+    patch(AmbryWeb.Admin.UploadHelpers, :handle_image_import, fn
+      @photo -> {:error, :failed_to_download_image}
+      _no_url -> {:ok, :no_image_url}
+    end)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/books/new")
+
+    html =
+      view
+      |> form("#book-form")
+      |> render_submit(%{
+        "book" => %{
+          "title" => "Dungeon Crawler Carl",
+          "published" => "2020-07-22",
+          "published_format" => "full",
+          "book_authors_sort" => ["new"],
+          "book_authors" => %{
+            "new" => %{
+              "author_id" => "",
+              "author" => %{
+                "name" => "Matt Dinniman",
+                "author_people" => %{
+                  "0" => %{"person" => %{"image_import_url" => @photo}}
+                }
+              }
+            }
+          }
+        }
+      })
+
+    assert html =~ "Couldn&#39;t download the photo chosen for a new person"
+    assert Repo.all(Person) == []
   end
 
   # A pen name for a person the library already has reaches an existing
@@ -392,7 +472,6 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
               "author_id" => "",
               "author" => %{
                 "name" => "James S.A. Corey",
-                "create" => "true",
                 "author_people_sort" => ["0"],
                 "author_people" => %{"0" => %{"person_id" => to_string(person.id)}}
               }
@@ -432,7 +511,6 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
             "author_id" => "",
             "author" => %{
               "name" => "James S.A. Corey",
-              "create" => "true",
               "author_people_sort" => ["0", "1"],
               "author_people" => %{
                 "0" => %{"person" => %{"name" => "Daniel Abraham"}},

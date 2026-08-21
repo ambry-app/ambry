@@ -74,6 +74,32 @@ defmodule Ambry.Metadata.Outcome do
     }
   end
 
+  @doc """
+  A provider answered with part of what was asked of it.
+
+  Some of what it was asked reached it and some did not — Audible's regional
+  catalogs are the case this exists for: one marketplace rate-limited while
+  the others answered used to be indistinguishable from a marketplace with
+  nothing in it, which is the one distinction the setting exists to make.
+
+  **Recorded as a failure, and deliberately.** Everything that reads these —
+  `Ambry.Inbox.unreached_providers/1`, the retry chip, `failed?/1` — asks one
+  question of them: is there something here that a retry could still get? For
+  a partial answer there is, so it says `failed` and carries the count of
+  what did come back, and the chip words itself off `partial`. A third status
+  would have meant teaching every reader a third answer to a question that
+  only has two.
+  """
+  def partial(entry, count, reason, kind \\ :search) do
+    entry
+    |> failed(reason, kind)
+    |> Map.merge(%{"count" => count, "partial" => true})
+  end
+
+  @doc "True if this outcome is a partial answer rather than nothing at all."
+  def partial?(%{"partial" => true}), do: true
+  def partial?(_outcome), do: false
+
   # A provider that cannot be asked, as opposed to one that couldn't be
   # reached: it doesn't implement this kind of call, it is switched off, or it
   # has no credentials. No request was made, so there is nothing to report and

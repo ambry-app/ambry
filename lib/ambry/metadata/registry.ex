@@ -9,6 +9,7 @@ defmodule Ambry.Metadata.Registry do
   rreading-glasses against the public instance.
   """
 
+  alias Ambry.Metadata.Cache
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.ProviderConfig
   alias Ambry.Metadata.Providers.Audible
@@ -89,10 +90,38 @@ defmodule Ambry.Metadata.Registry do
   def update(provider_id, attrs) do
     with {:ok, entry} <- fetch(provider_id) do
       row = Repo.get(ProviderConfig, provider_id) || %ProviderConfig{}
+      changes = changes(entry, row, attrs, provider_id)
 
       row
-      |> ProviderConfig.changeset(changes(entry, row, attrs, provider_id))
+      |> ProviderConfig.changeset(changes)
       |> Repo.insert_or_update()
+      |> tap(fn
+        {:ok, _saved} -> forget_stale_answers(provider_id, row, changes)
+        _failed -> :ok
+      end)
+    end
+  end
+
+  # **A cached answer was given under the old settings.** The cache keys on
+  # the provider and the question and nothing else, so changing what a
+  # provider is *asked* — which languages count, which regional catalogs to
+  # search — left every question already asked answering the old way for the
+  # rest of its TTL, a week for searches. The operator changed Audible from
+  # `us` to `us, uk`, searched a book they had searched before, and got the
+  # US catalog's answer back (2026-08-21).
+  #
+  # Emptied on a config change rather than keyed on the config: a key that
+  # carries the settings never *forgets* the old answers, it just stops
+  # finding them, and the rows sit in Postgres until their TTL expires.
+  # Enabling, disabling and reordering leave it alone — none of them changes
+  # what a question means.
+  defp forget_stale_answers(provider_id, row, changes) do
+    case Map.fetch(changes, :config) do
+      {:ok, config} when config != %{} ->
+        if config != (row.config || %{}), do: Cache.clear_provider(provider_id)
+
+      _unchanged ->
+        :ok
     end
   end
 
