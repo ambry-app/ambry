@@ -609,6 +609,11 @@ defmodule Ambry.Media do
     ]
   end
 
+  # A narrator row may *name* the person it credits instead of pointing at
+  # them — see `Ambry.Ecto.EntityRef`. The name becomes a person here, inside
+  # the transaction the recording is saved in, so a save that fails leaves
+  # nobody behind.
+  #
   defp broadcast_media_updated(%Media{} = media) do
     media
     |> MediaUpdated.new()

@@ -141,7 +141,7 @@ defmodule AmbryWeb.Admin.Curation do
   attr :hints, :map, default: %{}, doc: "pending provenance hints, field name → hint"
   attr :proposals, :list, default: [], doc: "what ticked evidence proposes, `:chosen` included"
   attr :revert, :map, default: nil, doc: "the saved value to go back to, when it differs"
-  attr :rest, :global
+  attr :rest, :global, include: ~w(placeholder)
 
   @doc """
   One provider-fillable scalar: label, where its value came from, the
@@ -345,6 +345,121 @@ defmodule AmbryWeb.Admin.Curation do
 
       Map.put(proposal, :chosen, chosen)
     end)
+  end
+
+  @doc """
+  The names a record's rows already carry, for `mark_present/2`.
+
+  Asked of the context row by row rather than found in a preloaded list of
+  every author in the library — the same lookup `EntityResolver`'s `fetch`
+  makes, for the same reason.
+
+  `get_field/2` and not `get_assoc/2`: a row removed with the ✕ is still in
+  the association, marked for replacement, and counting it would keep a chip
+  reporting a credit the operator just took off.
+  """
+  def current_labels(changeset, assoc, key, fetch, nested \\ nil) do
+    changeset
+    |> Ecto.Changeset.get_field(assoc)
+    |> Enum.map(fn row ->
+      row
+      |> Map.get(key)
+      |> fetch.()
+      |> option_label()
+      |> case do
+        nil -> nested && brought_name(row, nested)
+        label -> label
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  # The name of the record a row brought with it, if it brought one. A linked
+  # row's association is simply not loaded, which is not an answer.
+  defp brought_name(row, nested) do
+    case Map.get(row, nested) do
+      %{name: name} when is_binary(name) -> name
+      _linked_or_absent -> nil
+    end
+  end
+
+  @doc """
+  The name a row's nested record carries, if it brought one.
+
+  A row either points at a record or brings a new one (`Ambry.Ecto.EntityRef`),
+  and the picker has to render whichever it is: the label of what it points
+  at, or the name of what it brought.
+  """
+  def staged_name(row_form, assoc) do
+    case Ecto.Changeset.get_change(row_form.source, assoc) do
+      nil -> nil
+      changeset -> Ecto.Changeset.get_field(changeset, :name)
+    end
+  end
+
+  @doc """
+  Whether a list already credits this name, however it says so.
+
+  A row may point at a record or merely name one (`Ambry.Ecto.EntityRef`), and
+  both count: a chip that has been clicked once is reporting a credit that is
+  staged rather than saved, and clicking it again must not stage it twice.
+  """
+  def credits_name?(changeset, assoc, key, fetch, name_key, name) do
+    wanted = normalized(name)
+
+    changeset
+    |> current_labels(assoc, key, fetch, name_key)
+    |> Enum.any?(&(normalized(&1) == wanted))
+  end
+
+  defp normalized(nil), do: nil
+  defp normalized(name), do: name |> String.trim() |> String.downcase()
+
+  defp option_label(%{label: label}), do: label
+  defp option_label({label, _id}), do: label
+  defp option_label(nil), do: nil
+
+  @doc """
+  The form's params with one row appended to a list.
+
+  **Built from the params, not from the changeset.** Rebuilding the rows out
+  of the changeset was fine while a row was only ever an id; a row may now
+  carry a whole nested record it is about to create, and rebuilding kept the
+  columns it knew about and dropped that. The params are what the form
+  already holds — every edit the operator has made, in the shape they will be
+  posted in — so appending to them adds a row and changes nothing else. The
+  sort and drop lists travel with them untouched, which is what lets Ecto
+  reconcile the two itself (`cast_params/4` opens with `sort -- drop`).
+
+  Before anything has been posted the params are empty, and the rows are read
+  from the changeset then: ids only, which is all an untouched row is.
+  """
+  def append_row(form, assoc, new_row) do
+    key = to_string(assoc)
+    rows = rows(form, key, assoc)
+    next = rows |> Map.keys() |> Enum.map(&as_integer/1) |> Enum.max(fn -> -1 end) |> Kernel.+(1)
+
+    Map.put(form.params, key, Map.put(rows, to_string(next), new_row))
+  end
+
+  defp rows(form, key, assoc) do
+    case Map.get(form.params, key) do
+      rows when is_map(rows) ->
+        rows
+
+      _nothing_posted_yet ->
+        form.source
+        |> Ecto.Changeset.get_field(assoc)
+        |> Enum.with_index()
+        |> Map.new(fn {row, index} -> {to_string(index), %{"id" => to_string(row.id)}} end)
+    end
+  end
+
+  defp as_integer(key) do
+    case Integer.parse(to_string(key)) do
+      {integer, ""} -> integer
+      _not_a_number -> -1
+    end
   end
 
   @doc """

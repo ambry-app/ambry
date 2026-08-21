@@ -9,6 +9,7 @@ defmodule Ambry.Media.Media do
   import Ecto.Changeset
 
   alias Ambry.Books.Book
+  alias Ambry.Ecto.EntityRef
   alias Ambry.Hashids
   alias Ambry.Library
   alias Ambry.Library.Root
@@ -35,7 +36,19 @@ defmodule Ambry.Media.Media do
   @marker_sources [:embedded, :file_boundaries, :manual]
 
   # provider-fillable scalar fields tracked by field-level provenance
-  @provenance_fields [:published, :published_format, :publisher, :description, :image_path]
+  #
+  # `:title` is the recording's *override*, and it belongs here for the same
+  # reason the other five do: a record can fill it, so where it came from is
+  # worth knowing. The importer has always passed a source for it
+  # (`Ambry.Inbox.Importer`) and this list is what was quietly dropping it.
+  @provenance_fields [
+    :title,
+    :published,
+    :published_format,
+    :publisher,
+    :description,
+    :image_path
+  ]
 
   schema "media" do
     belongs_to :book, Book
@@ -164,6 +177,7 @@ defmodule Ambry.Media.Media do
       sort_param: :supplemental_files_sort,
       drop_param: :supplemental_files_drop
     )
+    |> cast_new_group()
     |> validate_part_fields()
     |> clear_legacy_provenance()
     |> maybe_clear_thumbnails()
@@ -257,17 +271,43 @@ defmodule Ambry.Media.Media do
   # the recording is no longer in isn't a fact to keep.
   defp clear_part_when_detached(changeset) do
     case fetch_change(changeset, :recording_group_id) do
-      {:ok, nil} -> put_change(changeset, :part_number, nil)
-      _unchanged_or_set -> changeset
+      # Blanking the id is also how the form says "a set this book doesn't
+      # have yet", and moving from one set to a new one is not leaving one.
+      {:ok, nil} ->
+        if get_change(changeset, :recording_group),
+          do: changeset,
+          else: put_change(changeset, :part_number, nil)
+
+      _unchanged_or_set ->
+        changeset
     end
   end
 
   defp validate_part_requires_group(changeset) do
-    if get_field(changeset, :part_number) && is_nil(get_field(changeset, :recording_group_id)) do
+    in_a_set? =
+      get_field(changeset, :recording_group_id) || get_change(changeset, :recording_group)
+
+    if get_field(changeset, :part_number) && !in_a_set? do
       add_error(changeset, :part_number, "requires a group")
     else
       changeset
     end
+  end
+
+  # A recording may name a set its book doesn't have yet, the way a book may
+  # name an author the library doesn't (`Ambry.Ecto.EntityRef`) — a set is
+  # the one entity on this form that had to be made somewhere else first.
+  #
+  # The book is not asked for: a set belongs to a book the way its members
+  # do, and `validate_group_book/1` enforces exactly that for a set being
+  # joined. Putting it on the data rather than in the params keeps it out of
+  # reach of a posted `book_id` that would disagree with the recording's own.
+  defp cast_new_group(changeset) do
+    book_id = get_field(changeset, :book_id)
+
+    EntityRef.cast_new(changeset, :recording_group, :recording_group_id,
+      with: &RecordingGroup.changeset(%{&1 | book_id: book_id}, &2)
+    )
   end
 
   # The total lives on the group, so this check can only run where the total

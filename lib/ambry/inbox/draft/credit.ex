@@ -218,6 +218,13 @@ defmodule Ambry.Inbox.Draft.Credit do
   Never wrong expensively — a placeholder person is fixed in the person form
   by creating the real people and linking this identity to each — which is
   what earns the right to default here rather than stopping to ask.
+
+  **A blank name backs nobody.** A row added by "Add an author" is switched
+  to create-mode before it has a name at all, and the key IS the name
+  (`AutoMatch.person_key/1`), so there was nothing to derive one from. The
+  first real name mints the person, in `Edit.rename_credit/4`.
   """
-  def new_person_default(name), do: [AutoMatch.person_key(name)]
+  def new_person_default(name) do
+    if blank?(name), do: [], else: [AutoMatch.person_key(name)]
+  end
 end

@@ -30,11 +30,15 @@
             container_class="max-w-xl"
           />
 
-          <.input
+          <.curated_input
             field={@form[:title]}
             label="Title override"
             placeholder="defaults to the book's title"
             class="max-w-xl"
+            record={@media}
+            hints={@provenance_hints}
+            proposals={@chips[:title] || []}
+            revert={@reverts[:title]}
           />
         </.field_group>
 
@@ -127,8 +131,23 @@
                 type="autocomplete"
                 search={&People.search_narrators/2}
                 fetch={&People.narrator_option/1}
+                create_name={"#{media_narrator_form.name}[narrator][name]"}
+                create_value={staged_name(media_narrator_form, :narrator)}
+                create_flag_name={"#{media_narrator_form.name}[narrator][create]"}
+                create_flag_value={NewPerson.chosen(media_narrator_form, :narrator)}
                 container_class="grow"
               />
+              <%!-- Who this credit means, and a way down to their card. --%>
+              <.inputs_for
+                :let={narrator_form}
+                :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
+                field={media_narrator_form[:narrator]}
+                skip_hidden
+                skip_persistent_id
+              >
+                <.new_person_pill row={narrator_form} key={NewPerson.key(media_narrator_form)} />
+              </.inputs_for>
+
               <.move_buttons
                 :if={@media_narrator_count > 1}
                 field={:media_narrators}
@@ -142,11 +161,58 @@
             </div>
           </.inputs_for>
 
+          <%!-- The narrators a ticked record names. Two readings of one book
+              differ by nothing else, so this is the field a record most needs
+              to fill; `adds_rows` is what stops a chip crediting the same
+              person twice (design language §6). --%>
+          <:proposals>
+            <.proposal_row
+              id="proposals-narrators"
+              field="narrators"
+              event="accept-entity"
+              adds_rows
+              proposals={@chips[:narrators] || []}
+            />
+          </:proposals>
+
           <:add>
             <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
             <.delete_input field={@form[:media_narrators_drop]} />
           </:add>
         </.list_cluster>
+
+        <%!-- The humans these credits are about to invent, in the import
+            form's own section — under the credits that name them, because
+            that is where they came from, and separate from them, because
+            "what is this person called, and what do they look like" is a
+            different question from "who read this book". The book form's
+            twin, one join shallower. --%>
+        <.form_section
+          :if={NewPerson.any?(@form.source, :media_narrators, :narrator, [:narrator])}
+          id="new-people"
+          title="New people"
+        >
+          <.inputs_for
+            :let={media_narrator_form}
+            field={@form[:media_narrators]}
+            skip_hidden
+            skip_persistent_id
+          >
+            <.inputs_for
+              :let={narrator_form}
+              :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
+              field={media_narrator_form[:narrator]}
+            >
+              <.new_person_card
+                row={narrator_form}
+                key={NewPerson.key(media_narrator_form)}
+                state={NewPerson.state(@new_people, NewPerson.key(media_narrator_form))}
+                credited={staged_name(media_narrator_form, :narrator)}
+                kind={:narrator}
+              />
+            </.inputs_for>
+          </.inputs_for>
+        </.form_section>
 
         <%!-- the mirror of the book form's series rows, singular: a recording
           is in at most one group, and a group belongs to this book — the
@@ -171,13 +237,35 @@
 
             <div :if={@group_row_visible} class="flex items-start gap-2">
               <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
-              <%!-- A book has one set, or none, or occasionally two. --%>
+              <%!-- A book has one set, or none, or occasionally two. That is a
+                  drop-down — and where the book has none there is nothing to
+                  drop down to, so the only thing on offer is naming one. The
+                  import form settled this shape: a typeahead here searched
+                  for sets belonging to a book that usually has none. --%>
               <.input
+                :if={@recording_group_options != []}
                 field={@form[:recording_group_id]}
                 type="dropdown"
-                options={@recording_group_options}
+                options={@recording_group_options ++ [new_set_option()]}
                 container_class="grow"
               />
+
+              <%!-- Naming a set this book doesn't have yet. The row belongs
+                  to the recording, so the set is created by the save that
+                  puts the recording in it, and the book is the recording's
+                  own — never asked for, never postable. --%>
+              <.inputs_for :let={group_form} field={@form[:recording_group]}>
+                <div class="flex grow items-start gap-2">
+                  <.input field={group_form[:name]} placeholder="set name" container_class="grow" />
+                  <.input
+                    field={group_form[:parts_total]}
+                    type="number"
+                    min="1"
+                    placeholder="of"
+                    container_class="w-16 flex-none"
+                  />
+                </div>
+              </.inputs_for>
               <%!-- Hand-rolled because taking this audiobook out of its set is
                   an event, not a drop input, so it has to say so. It wears
                   `.delete_button`'s box all the same — one input tall, glyph
@@ -321,6 +409,7 @@
             <.chapter_title_chips
               id="chapter-title-chips"
               chips={title_chips(Evidence.used_records(@evidence), @chapters_applied_asin)}
+              file={@file_chapters}
             />
           </:proposals>
         </.chapter_rows>

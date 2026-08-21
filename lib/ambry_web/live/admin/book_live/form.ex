@@ -12,18 +12,18 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   use AmbryWeb, :admin_live_view
 
   import AmbryWeb.Admin.Curation
+  import AmbryWeb.Admin.NewPerson, only: [new_person_card: 1, new_person_pill: 1]
 
   alias Ambry.Books
   alias Ambry.Books.Book
-  alias Ambry.Books.Series
   alias Ambry.Inbox
   alias Ambry.Media
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
-  alias Ambry.People.Person
   alias AmbryWeb.Admin.Evidence
+  alias AmbryWeb.Admin.NewPerson
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
   alias AmbryWeb.Admin.ReturnTo
@@ -33,6 +33,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   # the scalar fields evidence can propose, by their wire names
   @scalar_kinds %{"title" => :title, "published" => :published}
   @entity_kinds %{"authors" => :authors, "series" => :series}
+  @person_events NewPerson.events()
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -47,6 +48,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
      # The list the operator came from, kept so every way out of this form
      # goes back to it. See `AmbryWeb.Admin.ReturnTo`.
      |> assign(list_params: ReturnTo.list_params(params))
+     |> NewPerson.mount()
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -212,7 +214,17 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     end
   end
 
+  # ── the people this form is about to create ────────────────────────────
+  #
+  # The card owns its own evidence and its own state; the form owns the
+  # assign it lives in and nothing else.
+  def handle_event(event, params, socket) when event in @person_events,
+    do: NewPerson.handle_event(event, params, socket)
+
   @impl Phoenix.LiveView
+  def handle_async({:person_search, _key} = name, result, socket),
+    do: NewPerson.handle_async(name, result, socket)
+
   def handle_async(:evidence_search, {:ok, result}, socket) do
     {:noreply,
      socket
@@ -243,14 +255,22 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     |> refresh_chips()
   end
 
+  # **A chip stages a name; it creates nothing.**
+  #
+  # It used to create: clicking a proposed author wrote a `Person` row on the
+  # spot, so a book you never saved left a person behind, and the picker
+  # beside it — which stages — disagreed with it about when a thing becomes
+  # real. Both put the name in the row now, and the context resolves it inside
+  # the transaction that saves the book (`Ambry.Ecto.EntityRef`). An edit form
+  # does nothing until Save, without exception.
   defp accept_entity(socket, :authors, proposal) do
-    author_id = resolve_author(proposal.params["name"], proposal.source)
+    name = proposal.params["name"]
 
-    if already_credited?(socket, :book_authors, :author_id, author_id) do
+    if credited?(socket, :book_authors, :author_id, &People.author_option/1, :author, name) do
       socket
     else
       socket
-      |> append_row(:book_authors, %{"author_id" => to_string(author_id)}, ~w(author_id))
+      |> assign_rows(:book_authors, credit_row(:author, name))
       |> assign(
         provenance_hints:
           ProvenanceHints.for_list(
@@ -264,19 +284,19 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   end
 
   defp accept_entity(socket, :series, proposal) do
-    series_id = resolve_series(proposal.params["name"])
+    name = proposal.params["name"]
 
     row =
-      %{"series_id" => to_string(series_id)}
+      series_row(name)
       |> Map.merge(
         (proposal.params["number"] && %{"book_number" => proposal.params["number"]}) || %{}
       )
 
-    if already_credited?(socket, :series_books, :series_id, series_id) do
+    if credited?(socket, :series_books, :series_id, &Books.series_option/1, :series, name) do
       socket
     else
       socket
-      |> append_row(:series_books, row, ~w(series_id book_number))
+      |> assign_rows(:series_books, row)
       |> assign(
         provenance_hints:
           ProvenanceHints.for_list(
@@ -289,93 +309,46 @@ defmodule AmbryWeb.Admin.BookLive.Form do
     end
   end
 
-  # Asked of the *resolved* record rather than of the chip: a chosen chip no
-  # longer offers a click (`proposal_chip/1`), so reaching here means either a
-  # stale page or two chips whose different names resolve to one author —
-  # "J.R.R. Tolkien" and "John Ronald Reuel Tolkien" naming the same row. The
-  # rendering rule is what the operator sees; this is what makes it true.
-  #
-  # `get_field/2` and not `get_assoc/2`: a row removed with the ✕ is still in
-  # the association, marked for replacement, and counting it as credited made
-  # the chip refuse to put back the author it had just let go of — the same
-  # trap `Reordering.row_count/2` exists for. This is the applied list, which
-  # is the list on screen.
-  defp already_credited?(socket, assoc, key, id) do
-    socket.assigns.form.source
-    |> Changeset.get_field(assoc)
-    |> Enum.any?(&(Map.get(&1, key) == id))
-  end
-
-  # The author identity a proposed credit names: an existing author of that
-  # name, the author identity added to an existing person of that name, or a
-  # brand-new person — created with provider provenance on their name.
-  defp resolve_author(name, source) do
-    case Ambry.Search.find_first(name, Person) do
-      nil ->
-        {:ok, %{author_people: [%{author: author}]}} =
-          People.create_person(
-            %{name: name, author_people: [%{author: %{name: name}}]},
-            provenance: %{"name" => source}
-          )
-
-        author.id
-
-      %Person{authors: []} = person ->
-        {:ok, %{author_people: [%{author: author}]}} =
-          People.update_person(person, %{author_people: [%{author: %{name: person.name}}]})
-
-        author.id
-
-      %Person{authors: authors} ->
-        credited =
-          Enum.find(authors, &(String.downcase(&1.name) == String.downcase(name))) ||
-            List.first(authors)
-
-        credited.id
-    end
-  end
-
-  defp resolve_series(name) do
-    case Ambry.Search.find_first(name, Series) do
-      nil ->
-        {:ok, series} = Books.create_series(%{name: name})
-        series.id
-
-      %Series{} = series ->
-        series.id
-    end
-  end
-
-  # Appends one row to a has_many by rebuilding the full row list from the
-  # changeset — existing rows keep their ids (and their place), the new one
-  # goes last. The sort/drop params are dropped because they describe the
-  # params they arrived with, not the rebuilt list.
-  defp append_row(socket, assoc, new_row, keep_fields) do
-    changeset = socket.assigns.form.source
-
-    rows =
-      changeset
-      |> Changeset.get_field(assoc)
-      |> Enum.map(fn row ->
-        base = if row.id, do: %{"id" => to_string(row.id)}, else: %{}
-
-        Enum.reduce(keep_fields, base, fn field, acc ->
-          case Map.get(row, String.to_existing_atom(field)) do
-            nil -> acc
-            value -> Map.put(acc, field, to_string(value))
-          end
-        end)
-      end)
-
-    params =
-      socket.assigns.form.params
-      |> Map.drop(["#{assoc}_sort", "#{assoc}_drop"])
-      |> Map.put(to_string(assoc), rows ++ [new_row])
-
+  # `Curation.append_row/4` answers in params; this is the form putting them on.
+  defp assign_rows(socket, assoc, new_row) do
+    params = append_row(socket.assigns.form, assoc, new_row)
     assign_form(socket, Books.change_book(socket.assigns.book, params))
   end
 
-  # ── what the ticked evidence proposes, marked against the form ─────────
+  # **What a chip stages, which is a lookup and never a write.** A chip is the
+  # machine's proposal, not a choice between listed options: when the library
+  # already has the human it names, that is who they are, and staging a new
+  # one would make a second record of somebody the library knows. So the row
+  # points where it can and brings what it must.
+  #
+  # The middle answer is the one worth having. A person the library holds who
+  # has never been credited this way gains the identity — nested, so the join
+  # is created while the person is merely linked — where a bare new author
+  # would have been a second Ty Franck beside the first.
+  defp credit_row(kind, name) do
+    case People.find_credit(kind, name) do
+      {:credit, id} -> %{"#{kind}_id" => to_string(id)}
+      {:person, id} -> %{to_string(kind) => new_credit(kind, name, id)}
+      :none -> %{to_string(kind) => %{"name" => name}}
+    end
+  end
+
+  defp new_credit(:author, name, person_id),
+    do: %{"name" => name, "author_people" => [%{"person_id" => to_string(person_id)}]}
+
+  defp series_row(name) do
+    case Books.find_series(name) do
+      %{id: id} -> %{"series_id" => to_string(id)}
+      nil -> %{"series" => %{"name" => name}}
+    end
+  end
+
+  # Whether this list already credits that name, by pointing at it or by
+  # holding it — a chip clicked once has staged a credit that is not saved
+  # yet, and clicking it again must not stage it twice.
+  defp credited?(socket, assoc, key, fetch, name_key, name) do
+    credits_name?(socket.assigns.form.source, assoc, key, fetch, name_key, name)
+  end
 
   defp refresh_chips(socket) do
     %{evidence: evidence, form: form} = socket.assigns
@@ -398,13 +371,25 @@ defmodule AmbryWeb.Admin.BookLive.Form do
             evidence
             |> Evidence.proposals(:authors)
             |> mark_present(
-              current_labels(form.source, :book_authors, :author_id, &People.author_option/1)
+              current_labels(
+                form.source,
+                :book_authors,
+                :author_id,
+                &People.author_option/1,
+                :author
+              )
             ),
           series:
             evidence
             |> Evidence.proposals(:series)
             |> mark_present(
-              current_labels(form.source, :series_books, :series_id, &Books.series_option/1)
+              current_labels(
+                form.source,
+                :series_books,
+                :series_id,
+                &Books.series_option/1,
+                :series
+              )
             )
         }
       else
@@ -417,23 +402,9 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   defp reverts(%{assigns: %{form: form, book: book}}),
     do: Revert.offers(form, book, [:title, :published])
 
-  # Which proposals the record already holds, by name, so a chip for one of
-  # them reads as present rather than as an offer. Asked of the context rather
-  # than found in a preloaded list of every author and series in the library —
-  # the same lookup `EntityResolver`'s `fetch` makes, for the same reason.
-  defp current_labels(changeset, assoc, key, fetch) do
-    changeset
-    |> Changeset.get_field(assoc)
-    |> Enum.map(fn row -> row |> Map.get(key) |> fetch.() |> option_label() end)
-    |> Enum.reject(&is_nil/1)
-  end
-
-  defp option_label(%{label: label}), do: label
-  defp option_label({label, _id}), do: label
-  defp option_label(nil), do: nil
-
   defp save_book(socket, :edit, book_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+    book_params = NewPerson.import_photos(book_params, "book_authors")
 
     case Books.update_book(socket.assigns.book, book_params, opts) do
       {:ok, book} ->
@@ -455,6 +426,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   defp save_book(socket, :new, book_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+    book_params = NewPerson.import_photos(book_params, "book_authors")
 
     case Books.create_book(book_params, opts) do
       {:ok, book} ->
@@ -479,6 +451,38 @@ defmodule AmbryWeb.Admin.BookLive.Form do
       series_book_count: Reordering.row_count(changeset, :series_books),
       book_universe_count: Reordering.row_count(changeset, :book_universes)
     )
+  end
+
+  attr :book_author_form, :any, required: true
+  attr :author_form, :any, required: true
+  attr :new_people, :map, required: true
+
+  # The humans behind one pen name, in the order the list holds them. Pulled
+  # out of the template because the bracket renders the same cards as the
+  # bare case and only the wrapper differs (design language §9).
+  defp author_person_cards(assigns) do
+    ~H"""
+    <.inputs_for :let={author_person_form} field={@author_form[:author_people]}>
+      <.sort_input field={@author_form[:author_people_sort]} index={author_person_form.index} />
+      <.new_person_card
+        row={author_person_form}
+        key={"#{NewPerson.key(@book_author_form)}-#{author_person_form.index}"}
+        state={
+          NewPerson.state(
+            @new_people,
+            "#{NewPerson.key(@book_author_form)}-#{author_person_form.index}"
+          )
+        }
+        credited={staged_name(@book_author_form, :author)}
+        kind={:author}
+        people_count={NewPerson.people_count(@book_author_form)}
+        person_index={author_person_form.index}
+        list_sort_name={@author_form[:author_people_sort].name}
+        list_drop_name={@author_form[:author_people_drop].name}
+        removable={author_person_form.index > 0}
+      />
+    </.inputs_for>
+    """
   end
 
   defp preview_date_format(form) do

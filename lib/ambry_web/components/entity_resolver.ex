@@ -121,6 +121,18 @@ defmodule AmbryWeb.Components.EntityResolver do
         name={@text_name}
         value={@text}
       />
+      <%!-- Whether the operator *said* they meant a new record, as opposed to
+          having typed something nothing matches yet. Both post the same name,
+          because what's typed is the new record's name either way — but only
+          one of them is a decision, and a surface that reacts to the typing
+          reacts on the first letter. --%>
+      <input
+        :if={@create_flag_name}
+        type="hidden"
+        id={"#{@id}-created"}
+        name={@create_flag_name}
+        value={to_string(@created?)}
+      />
       <input
         type="text"
         id={"#{@id}-input"}
@@ -228,8 +240,19 @@ defmodule AmbryWeb.Components.EntityResolver do
      socket
      |> assign(assigns)
      |> assign_new(:text_name, fn -> nil end)
-     |> assign_new(:text, fn -> "" end)
+     # Seeded from the field, not merely empty: a name can arrive from the
+     # server as well as from the keyboard — a proposal chip stages one in the
+     # row it appends — and a box that rendered blank would post the name
+     # away again on the next change. After the first render the operator owns
+     # it, which is what `assign_new/3` says.
+     |> assign_new(:text, fn -> assigns[:initial_text] || "" end)
      |> assign_new(:value, fn -> nil end)
+     |> then(&assign(&1, :value, held_id(&1.assigns.value)))
+     |> assign_new(:create_flag_name, fn -> nil end)
+     # Sticky, on purpose: the operator goes on editing the name after
+     # choosing Create, and every keystroke is a `filter`. Only picking
+     # something that exists takes the choice back.
+     |> assign_new(:created?, fn -> assigns[:initial_created] || false end)
      |> assign_new(:placeholder, fn -> nil end)
      |> assign_new(:class, fn -> nil end)}
   end
@@ -239,8 +262,18 @@ defmodule AmbryWeb.Components.EntityResolver do
     {:noreply, assign(socket, open: true)}
   end
 
+  # **Looking away is the decision.** A name that has been typed and left
+  # alone, with nothing picked, is the operator saying they mean a new record
+  # — the same moment a native input would have fired `change`. Watching the
+  # typing instead answers on the first letter, and the "Create …" row alone
+  # is a click most people never make.
   def handle_event("close", _params, socket) do
-    {:noreply, assign(socket, open: false, query: nil)}
+    typed = present?(socket.assigns[:text]) and is_nil(socket.assigns.value)
+
+    {:noreply,
+     socket
+     |> assign(open: false, query: nil, created?: socket.assigns.created? or typed)
+     |> moved()}
   end
 
   def handle_event("filter", %{"resolver" => params}, socket) do
@@ -256,7 +289,7 @@ defmodule AmbryWeb.Components.EntityResolver do
   end
 
   def handle_event("pick", %{"id" => id}, socket) do
-    {:noreply, socket |> assign(value: id, open: false, query: nil) |> moved()}
+    {:noreply, socket |> assign(value: id, created?: false, open: false, query: nil) |> moved()}
   end
 
   def handle_event("create", _params, socket) do
@@ -264,6 +297,7 @@ defmodule AmbryWeb.Components.EntityResolver do
      socket
      |> assign(
        value: nil,
+       created?: true,
        text: effective_query(socket.assigns) || "",
        open: false,
        query: nil
@@ -304,6 +338,14 @@ defmodule AmbryWeb.Components.EntityResolver do
   # source, because there is no longer a list to find it in — and not asked at
   # all while the operator is typing, which is the common case and the one
   # where the answer would be thrown away.
+  # **A blank id is no id.** A form posts an unpicked field as `""`, which is
+  # perfectly truthy, so a freshly typed name wore the "existing" badge and
+  # claimed to be attached to a record it had never seen. Normalised once
+  # here rather than guarded at each of the places that ask.
+  defp held_id(nil), do: nil
+  defp held_id(""), do: nil
+  defp held_id(value), do: value
+
   defp held(%{query: query}) when is_binary(query), do: nil
   defp held(%{value: nil}), do: nil
   defp held(%{value: value, fetch: fetch}), do: normalize(fetch.(value))

@@ -106,7 +106,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     media = insert_media(markers())
 
     {:ok, view, html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
-    refute html =~ "chapter-title-chips"
+
+    # The files' own chip is always offered — markers are file-derived facts,
+    # and asking for them again needs no evidence. A provider's titles do.
+    assert html =~ "re-read the timestamps and titles"
+    refute html =~ "titles for"
 
     html = tick_record(view)
 
@@ -122,7 +126,10 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
 
-    view |> element("#chapter-title-chips button") |> render_click()
+    view
+    |> element("#chapter-title-chips button[phx-click='fetch-chapter-titles']")
+    |> render_click()
+
     html = render_async(view)
 
     # The proposed titles land beside the rows — the rows are the preview.
@@ -167,7 +174,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
 
     {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
-    view |> element("#chapter-title-chips button") |> render_click()
+
+    view
+    |> element("#chapter-title-chips button[phx-click='fetch-chapter-titles']")
+    |> render_click()
+
     html = render_async(view)
 
     assert html =~ "3 titles for 2 markers"
@@ -186,7 +197,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
 
     {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
-    view |> element("#chapter-title-chips button") |> render_click()
+
+    view
+    |> element("#chapter-title-chips button[phx-click='fetch-chapter-titles']")
+    |> render_click()
+
     render_async(view)
     view |> element("button[phx-click='apply-chapter-titles']") |> render_click()
 
@@ -210,7 +225,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
 
     {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
-    view |> element("#chapter-title-chips button") |> render_click()
+
+    view
+    |> element("#chapter-title-chips button[phx-click='fetch-chapter-titles']")
+    |> render_click()
+
     render_async(view)
     view |> element("button[phx-click='apply-chapter-titles']") |> render_click()
     view |> form("#media-form") |> render_submit()
@@ -224,7 +243,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
 
     {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
-    view |> element("#chapter-title-chips button") |> render_click()
+
+    view
+    |> element("#chapter-title-chips button[phx-click='fetch-chapter-titles']")
+    |> render_click()
+
     html = render_async(view)
 
     # zero markers is the count mismatch at its plainest
@@ -245,7 +268,11 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
 
     {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
     tick_record(view)
-    view |> element("#chapter-title-chips button") |> render_click()
+
+    view
+    |> element("#chapter-title-chips button[phx-click='fetch-chapter-titles']")
+    |> render_click()
+
     html = render_async(view)
 
     assert html =~ "Audnexus"

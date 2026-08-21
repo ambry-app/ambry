@@ -68,13 +68,42 @@
               remove last — so the destructive control is at the end of the
               row rather than in the middle of it. --%>
           <div class="flex items-start gap-2">
+            <%!-- Create mode: a book may credit an author the library has
+                never heard of, and typing their name is how you say so. The
+                name posts beside the id and becomes a person when the form
+                is saved. --%>
             <.input
               field={book_author_form[:author_id]}
               type="autocomplete"
               search={&People.search_authors/2}
               fetch={&People.author_option/1}
+              create_name={"#{book_author_form.name}[author][name]"}
+              create_value={staged_name(book_author_form, :author)}
+              create_flag_name={"#{book_author_form.name}[author][create]"}
+              create_flag_value={NewPerson.chosen(book_author_form, :author)}
               container_class="grow"
             />
+            <%!-- Who this credit means, and a way down to their card. --%>
+            <.inputs_for
+              :let={author_form}
+              :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
+              field={book_author_form[:author]}
+              skip_hidden
+              skip_persistent_id
+            >
+              <.inputs_for
+                :let={author_person_form}
+                field={author_form[:author_people]}
+                skip_hidden
+                skip_persistent_id
+              >
+                <.new_person_pill
+                  row={author_person_form}
+                  key={"#{NewPerson.key(book_author_form)}-#{author_person_form.index}"}
+                />
+              </.inputs_for>
+            </.inputs_for>
+
             <.move_buttons
               :if={@book_author_count > 1}
               field={:book_authors}
@@ -100,6 +129,65 @@
           <.delete_input field={@form[:book_authors_drop]} />
         </:add>
       </.list_cluster>
+
+      <%!-- The humans these credits are about to invent, in the import form's
+          own section — under the credits that name them, because that is
+          where they came from, and separate from them, because "what is this
+          person called, and what do they look like" is a different question
+          from "who wrote this book". A card inside a card also eats the
+          elevation ladder (§1).
+
+          The rows are walked a second time with their hidden inputs skipped:
+          the credit rows above already post those. What renders only here is
+          the nested chain, which exists exactly where a row reaches a person
+          nobody has made yet — never for a credit pointing at an author the
+          library already has. --%>
+      <.form_section
+        :if={NewPerson.any?(@form.source, :book_authors, :author, [:author, :author_people])}
+        id="new-people"
+        title="New people"
+      >
+        <.inputs_for
+          :let={book_author_form}
+          field={@form[:book_authors]}
+          skip_hidden
+          skip_persistent_id
+        >
+          <.inputs_for
+            :let={author_form}
+            :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
+            field={book_author_form[:author]}
+          >
+            <%!-- A bracket, never a filled block: wrapping cards in a card is
+              what eats the elevation ladder. One author credit can stand for
+              several humans, and the label names the credit they share — the
+              inbox's own People section, verbatim. --%>
+            <div
+              :if={NewPerson.people_count(book_author_form) > 1}
+              class="space-y-3 border-l-2 border-zinc-700 pl-4"
+              data-role="pen-name-group"
+            >
+              <p class="text-xs text-zinc-400">
+                {NewPerson.people_count(book_author_form)} people behind this name
+              </p>
+              <.author_person_cards
+                book_author_form={book_author_form}
+                author_form={author_form}
+                new_people={@new_people}
+              />
+            </div>
+
+            <.author_person_cards
+              :if={NewPerson.people_count(book_author_form) == 1}
+              book_author_form={book_author_form}
+              author_form={author_form}
+              new_people={@new_people}
+            />
+
+            <.delete_input field={author_form[:author_people_drop]} />
+          </.inputs_for>
+        </.inputs_for>
+      </.form_section>
 
       <.list_cluster label="Series">
         <:flag>
@@ -127,6 +215,8 @@
               type="autocomplete"
               search={&Books.search_series/2}
               fetch={&Books.series_option/1}
+              create_name={"#{series_book_form.name}[series][name]"}
+              create_value={staged_name(series_book_form, :series)}
               container_class="grow"
             />
             <.move_buttons
@@ -168,6 +258,8 @@
               type="autocomplete"
               search={&Books.search_universes/2}
               fetch={&Books.universe_option/1}
+              create_name={"#{book_universe_form.name}[universe][name]"}
+              create_value={staged_name(book_universe_form, :universe)}
               container_class="grow"
             />
             <.delete_button

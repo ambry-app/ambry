@@ -11,6 +11,7 @@ defmodule Ambry.Books.SeriesBook do
 
   alias Ambry.Books.Book
   alias Ambry.Books.Series
+  alias Ambry.Ecto.EntityRef
 
   schema "books_series" do
     belongs_to :book, Book
@@ -44,10 +45,13 @@ defmodule Ambry.Books.SeriesBook do
     |> unique_constraint(:book_id, name: "books_series_book_id_series_id_index")
   end
 
+  # A membership either points at a series or brings a new one, named in the
+  # picker — see `Ambry.Ecto.EntityRef`.
   def book_assoc_changeset(series_book, attrs) do
     series_book
     |> changeset(attrs)
-    |> validate_required([:series_id])
+    |> EntityRef.cast_new(:series, :series_id)
+    |> EntityRef.validate_linked_or_new(:series_id, :series)
     |> unique_constraint(:series_id, name: "books_series_book_id_series_id_index")
   end
 end

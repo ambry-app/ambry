@@ -738,7 +738,26 @@ defmodule Ambry.Inbox do
   defp write_draft(item, nil), do: {:ok, item}
 
   defp write_draft(item, %Draft{} = draft),
-    do: item |> InboxItem.put_draft(dump(draft)) |> write()
+    do: item |> InboxItem.put_draft(draft |> reconcile_people(item) |> dump()) |> write()
+
+  # **Every referenced key has a decision, on every write.** A person exists
+  # because a credit references their key (`Draft.referenced_keys/1`), so an
+  # edit that touches `person_keys` can leave the two out of step: restoring a
+  # removed credit references keys whose decisions were swept when it was
+  # removed, and its people then render as nothing at all, because
+  # `Draft.people_for/2` can only drop a key it cannot resolve. Seven call
+  # sites each remembered to reconcile; the symptom of the one that forgets is
+  # not an error, it is a pill that quietly isn't there.
+  #
+  # Only the gap is repaired, never the whole set. A blanket reseed on every
+  # write is the same rule stated more strongly and it is wrong: re-deriving a
+  # settled draft moves values nobody touched, which ten tests say plainly.
+  defp reconcile_people(%Draft{} = draft, %InboxItem{} = item) do
+    case Draft.referenced_keys(draft) -- Enum.map(draft.people, & &1.key) do
+      [] -> draft
+      _missing -> Seed.reseed_people(draft, item)
+    end
+  end
 
   @doc """
   Saves the import form's own params.

@@ -444,6 +444,27 @@ defmodule AmbryWeb.CoreComponents do
     default: nil,
     doc: ~s|autocomplete: `fn id -> option \| nil`, so a filled box can name what it holds|
 
+  attr :create_name, :string,
+    default: nil,
+    doc:
+      "autocomplete: the input name the typed name posts under — the *nested record's* own " <>
+        "name field, e.g. `book[book_authors][0][author][name]`. It turns on \"Create …\"; " <>
+        "without it the box can only pick something that already exists."
+
+  attr :create_value, :string,
+    default: nil,
+    doc: "autocomplete: what that box starts with, for a name staged by something else"
+
+  attr :create_flag_name, :string,
+    default: nil,
+    doc:
+      "autocomplete: an input name that records whether the operator chose \"Create …\", as " <>
+        "opposed to having typed something nothing matches yet"
+
+  attr :create_flag_value, :string,
+    default: nil,
+    doc: "autocomplete: that flag's stored value, so the choice survives a re-render"
+
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
   attr :class, :string, default: nil, doc: "class overrides"
   attr :container_class, :string, default: nil, doc: "extra classes for the container div"
@@ -529,9 +550,18 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  # A picker over existing records — the entity resolver with new-record
-  # support off, which is what an edit form wants. Custom listbox rather than
-  # a `<datalist>`, which mobile Firefox does not support.
+  # A picker over existing records, and — given `create_name` — over records
+  # the library doesn't have yet: what's typed is the new record's name until
+  # something existing is picked, and a "Create …" row makes it explicit.
+  #
+  # It used to be hardcoded off here, "which is what an edit form wants".
+  # That was the same rule that kept people out of the edit forms, and the
+  # operator retired it (`EDIT_PARITY_PLAN.md`): a form that credits an author
+  # may name one the library has never heard of. The name posts beside the id
+  # and is resolved when the form is saved (`Ambry.Ecto.EntityRef`).
+  #
+  # Custom listbox rather than a `<datalist>`, which mobile Firefox does not
+  # support and which cannot offer a create row.
   def input(%{type: "autocomplete"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
@@ -540,6 +570,10 @@ defmodule AmbryWeb.CoreComponents do
         module={EntityResolver}
         id={@id}
         name={@name}
+        text_name={@create_name}
+        initial_text={@create_value}
+        create_flag_name={@create_flag_name}
+        initial_created={@create_flag_value == "true"}
         search={@search}
         fetch={@fetch}
         value={@value}

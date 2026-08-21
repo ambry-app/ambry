@@ -25,6 +25,7 @@ import { AutoDismissHook } from "./hooks/auto-dismiss"
 import { ComboboxNavHook } from "./hooks/combobox-nav"
 import { EntityResolverInputHook } from "./hooks/entity-resolver-input"
 import { FitOrStackHook } from "./hooks/fit-or-stack"
+import { FlashTargetHook } from "./hooks/flash-target"
 import { FocusRowHook } from "./hooks/focus-row"
 import { HeaderScrollspyHook } from "./hooks/header-scrollspy"
 import { ImageSizeHook } from "./hooks/image-size"
@@ -36,6 +37,7 @@ import { ReadMoreHook } from "./hooks/read-more"
 import { ReorderRowsHook } from "./hooks/reorder-rows"
 import { ScrollIntoViewHook } from "./hooks/scroll-into-view"
 import { ScrollMatchHook } from "./hooks/scroll-match"
+import { SetInputHook } from "./hooks/set-input"
 import { SearchBoxHook } from "./hooks/search-box"
 import { StickyFooterHook } from "./hooks/sticky-footer"
 
@@ -60,6 +62,8 @@ let liveSocket = new LiveSocket("/live", Socket, {
     "paste-image": PasteImageHook,
     "sticky-footer": StickyFooterHook,
     "reorder-rows": ReorderRowsHook,
+    "flash-target": FlashTargetHook,
+    "set-input": SetInputHook,
     "auto-dismiss": AutoDismissHook,
   },
 })

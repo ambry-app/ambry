@@ -445,6 +445,60 @@ defmodule Ambry.People do
   def get_narrator!(id), do: Narrator |> preload(:person) |> Repo.get!(id)
 
   @doc """
+  Who the library already has under a credited name.
+
+  A **lookup, and only a lookup** — nothing here writes. Curation stages what
+  it finds and the save creates what it must (`Ambry.Ecto.EntityRef`), so a
+  proposal the operator never keeps leaves nothing behind.
+
+  Three answers, in the order they are tried, and they are three because one
+  human is one `Person` holding identities:
+
+    * `{:credit, id}` — somebody is already credited under that exact name,
+      by the identity whose name matches among theirs; a pen name is a name
+      they publish under, and the credit names one of them.
+    * `{:person, id}` — the library has the human but has never credited them
+      this way. The identity is new; the person is not, and a second row for
+      them would be the duplicate this whole model exists to prevent.
+    * `:none` — nobody, so the credit brings a person with it.
+
+  Matched by search rather than by exact string, the same way the pickers
+  match: a second answer to "is this the same human" is the drift that makes
+  two of them.
+  """
+  def find_credit(kind, name) when kind in [:author, :narrator] do
+    case Ambry.Search.find_first(name, Person) do
+      nil ->
+        :none
+
+      %Person{} = person ->
+        case credits(person, kind) do
+          [] ->
+            {:person, person.id}
+
+          credits ->
+            credit =
+              Enum.find(credits, &(String.downcase(&1.name) == String.downcase(name))) ||
+                List.first(credits)
+
+            {:credit, credit.id}
+        end
+    end
+  end
+
+  # An author identity hangs off the join between a person and an author
+  # record; a narrator identity hangs off the person directly.
+  defp credits(%Person{} = person, :author) do
+    person
+    |> Repo.preload(author_people: :author)
+    |> Map.fetch!(:author_people)
+    |> Enum.map(& &1.author)
+  end
+
+  defp credits(%Person{} = person, :narrator),
+    do: person |> Repo.preload(:narrators) |> Map.fetch!(:narrators)
+
+  @doc """
   Narrators matching what somebody typed into a picker, as rich options:
   the person's portrait, and their real name when the stage name hides it.
 

@@ -224,11 +224,26 @@ defmodule AmbryWeb.Admin.BookLive.EvidenceTest do
     # the rows landed in the form
     assert html =~ "Matt Dinniman"
 
-    assert [%{name: "Matt Dinniman"}] = Ambry.Repo.all(Ambry.People.Person)
-    assert [%{name: "Dungeon Crawler Carl"}] = Ambry.Repo.all(Ambry.Books.Series)
+    # ...and nothing else did: an edit form writes nothing until Save, so a
+    # chip stages the name and the save makes the record.
+    assert Ambry.Repo.all(Ambry.People.Person) == []
+    assert Ambry.Repo.all(Ambry.Books.Series) == []
 
     # the proposed series number came along
     assert html =~ ~s(value="1")
+
+    view
+    |> form("#book-form", %{
+      "book" => %{
+        "title" => "Dungeon Crawler Carl",
+        "published" => "2020-09-21",
+        "published_format" => "full"
+      }
+    })
+    |> render_submit()
+
+    assert [%{name: "Matt Dinniman"}] = Ambry.Repo.all(Ambry.People.Person)
+    assert [%{name: "Dungeon Crawler Carl"}] = Ambry.Repo.all(Ambry.Books.Series)
   end
 
   # The chip is green and ticked because the book already has that author.
@@ -251,7 +266,6 @@ defmodule AmbryWeb.Admin.BookLive.EvidenceTest do
     # and the event itself is idempotent, for a page that still shows the old chip
     render_click(view, "accept-entity", %{"field" => "authors", "key" => "Matt Dinniman"})
 
-    assert [%{name: "Matt Dinniman"}] = Ambry.Repo.all(Ambry.People.Person)
     assert view |> render() |> author_row_count() == 1
   end
 
@@ -307,7 +321,6 @@ defmodule AmbryWeb.Admin.BookLive.EvidenceTest do
 
     render_click(view, "accept-entity", %{"field" => "series", "key" => "Dungeon Crawler Carl"})
 
-    assert [%{name: "Dungeon Crawler Carl"}] = Ambry.Repo.all(Ambry.Books.Series)
     assert view |> render() |> series_row_count() == 1
   end
 

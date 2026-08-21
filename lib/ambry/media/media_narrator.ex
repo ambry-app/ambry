@@ -7,6 +7,7 @@ defmodule Ambry.Media.MediaNarrator do
 
   import Ecto.Changeset
 
+  alias Ambry.Ecto.EntityRef
   alias Ambry.Media.Media
   alias Ambry.People.Narrator
 
@@ -25,6 +26,7 @@ defmodule Ambry.Media.MediaNarrator do
   def changeset(media_narrator, attrs) do
     media_narrator
     |> cast(attrs, [:narrator_id, :position])
-    |> validate_required(:narrator_id)
+    |> EntityRef.cast_new(:narrator, :narrator_id, with: &Narrator.credited_changeset/2)
+    |> EntityRef.validate_linked_or_new(:narrator_id, :narrator)
   end
 end

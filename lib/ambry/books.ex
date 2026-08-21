@@ -516,6 +516,18 @@ defmodule Ambry.Books do
   end
 
   @doc """
+  The series or universe the library already has under a name, or nil.
+
+  A lookup, and only a lookup: curation stages what it finds, and a name that
+  finds nothing travels as a nested record the save creates
+  (`Ambry.Ecto.EntityRef`). Matched by search rather than by exact string, the
+  same way the picker matched while the name was being typed.
+  """
+  def find_series(name), do: Ambry.Search.find_first(name, Series)
+
+  def find_universe(name), do: Ambry.Search.find_first(name, Universe)
+
+  @doc """
   Creates a series.
 
   ## Examples

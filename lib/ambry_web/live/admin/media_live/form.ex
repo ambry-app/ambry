@@ -8,6 +8,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   import AmbryWeb.Admin.ChapterEditor
   import AmbryWeb.Admin.Curation
+  import AmbryWeb.Admin.NewPerson, only: [new_person_card: 1, new_person_pill: 1]
   import AmbryWeb.Admin.ParamHelpers
   import AmbryWeb.Admin.UploadHelpers
 
@@ -22,6 +23,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
   alias AmbryWeb.Admin.Evidence
+  alias AmbryWeb.Admin.NewPerson
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.Reordering
   alias AmbryWeb.Admin.ReturnTo
@@ -34,11 +36,17 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   @image_params ~w(image_type image_import_url image_path)
 
   @scalar_kinds %{
+    "title" => :title,
     "published" => :published,
     "publisher" => :publisher,
     "description" => :description,
     "image" => :image
   }
+
+  # Credits, which are people: accepting one of these stages a row naming the
+  # human, and the save makes them (`Ambry.Ecto.EntityRef`).
+  @entity_kinds %{"narrators" => :narrators}
+  @person_events NewPerson.events()
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -52,11 +60,13 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
        reverts: %{},
        chapter_import: nil,
        chapters_applied_asin: nil,
+       file_chapters: %{chosen: false, running: false, label: "re-read the timestamps and titles"},
        provenance_hints: %{}
      )
      # The list the operator came from, kept so every way out of this form
      # goes back to it. See `AmbryWeb.Admin.ReturnTo`.
      |> assign(list_params: ReturnTo.list_params(params))
+     |> NewPerson.mount()
      |> apply_action(socket.assigns.live_action, params)}
   end
 
@@ -160,7 +170,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
         cancel_all_uploads(socket, :image)
       end
 
-    media_params = mark_typed_titles(media_params, current_chapters(socket.assigns.form))
+    media_params =
+      media_params
+      |> mark_typed_titles(current_chapters(socket.assigns.form))
+      |> naming_a_set(socket)
 
     changeset =
       socket.assigns.media
@@ -179,7 +192,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   def handle_event("submit", %{"media" => media_params}, socket) do
-    media_params = mark_typed_titles(media_params, current_chapters(socket.assigns.form))
+    media_params =
+      media_params
+      |> mark_typed_titles(current_chapters(socket.assigns.form))
+      |> naming_a_set(socket)
 
     socket =
       assign(socket,
@@ -204,7 +220,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # ── the part set ───────────────────────────────────────────────────────
 
   def handle_event("add-group-row", _params, socket) do
-    {:noreply, assign(socket, group_row_visible: true)}
+    socket = assign(socket, group_row_visible: true)
+    params = naming_a_set(socket.assigns.form.params, socket)
+
+    {:noreply, assign_form(socket, Media.change_media(socket.assigns.media, params))}
   end
 
   def handle_event("remove-group-row", _params, socket) do
@@ -272,6 +291,24 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   def handle_event("cancel-chapter-import", _params, socket) do
     {:noreply, assign(socket, chapter_import: nil)}
+  end
+
+  # The way back to the files, which the inbox has had all along and this
+  # form did not: markers are file-derived facts, and a recording whose rows
+  # are wrong had no way to say "read them again".
+  #
+  # It applies on arrival rather than previewing into the proposed column,
+  # for the same reason the inbox's chip does: the column pairs one incoming
+  # title to one existing marker, and re-reading the files is the one
+  # proposal that can legitimately change how many markers there are. Nothing
+  # is saved either way until Save.
+  def handle_event("take-file-chapters", _params, socket) do
+    media = socket.assigns.media
+
+    {:noreply,
+     socket
+     |> assign(file_chapters: %{chosen: false, running: true}, chapter_import: nil)
+     |> start_async(:file_chapters, fn -> read_file_chapters(media) end)}
   end
 
   # ── the evidence panel ─────────────────────────────────────────────────
@@ -362,6 +399,29 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
+  # A narrator a ticked record names, credited in one click.
+  #
+  # Two readings of one book differ by nothing but their narrators, so this is
+  # the field a record most needs to be able to fill — and it was the only one
+  # the form could not. It was here once and was removed (`17aa2234`) because
+  # clicking a chip the recording already had credited them again; that is
+  # `proposal_chip/1`'s business now, and `already_credited?/4` is the belt.
+  # ── the people this form is about to create ────────────────────────────
+  #
+  # The card owns its own evidence and its own state; the form owns the
+  # assign it lives in and nothing else.
+  def handle_event(event, params, socket) when event in @person_events,
+    do: NewPerson.handle_event(event, params, socket)
+
+  def handle_event("accept-entity", %{"field" => field, "key" => key}, socket) do
+    with {:ok, kind} <- Map.fetch(@entity_kinds, field),
+         %{} = proposal <- Evidence.find_proposal(socket.assigns.evidence, kind, key) do
+      {:noreply, accept_entity(socket, kind, proposal)}
+    else
+      _missing -> {:noreply, socket}
+    end
+  end
+
   # The recording level asks two ways, like the import form: Audible's catalog
   # directly, and the editions the work-level databases keep — the route to a
   # recording no storefront will admit exists.
@@ -378,6 +438,22 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # "Hardcover: 9" would describe a search whose records aren't shown, but a
   # work provider that was down took its editions with it, and that has to be
   # visible or the recordings list is short for no stated reason.
+  # "Part of a set" with nothing chosen is the operator saying they mean a set
+  # this book does not have yet, and the empty nested group is what makes the
+  # name box render — the same idiom `Ambry.People.AuthorPerson` uses to open
+  # a box for a pen name nobody has typed into. Only the form can say this: a
+  # recording pointing at no group and holding no part number is simply not in
+  # a set, and the schema cannot tell the two apart.
+  defp naming_a_set(params, %{assigns: %{group_row_visible: true}}) do
+    if params["recording_group_id"] in [nil, ""] do
+      Map.put_new(params, "recording_group", %{})
+    else
+      Map.delete(params, "recording_group")
+    end
+  end
+
+  defp naming_a_set(params, _not_in_a_set), do: Map.delete(params, "recording_group")
+
   defp retry_fan_out(entry, :search, query, hints) do
     {books, outcome} = MetadataSearch.books_one(entry, query)
     {Inbox.score_records(books, entry, hints), List.wrap(outcome)}
@@ -441,6 +517,34 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_async({:person_search, _key} = name, result, socket),
+    do: NewPerson.handle_async(name, result, socket)
+
+  def handle_async(:file_chapters, {:ok, {:ok, {[_row | _rest] = chapters, source}}}, socket) do
+    {:noreply,
+     socket
+     |> put_file_chapters(chapters, source)
+     |> assign(file_chapters: %{chosen: true, running: false})
+     |> put_flash(:info, "Read #{length(chapters)} chapters from the files. Save to keep them.")}
+  end
+
+  # Files that carry no markers propose nothing. A chip that emptied rows the
+  # operator typed by hand would be a destructive control wearing a
+  # proposal's clothes.
+  def handle_async(:file_chapters, {:ok, {:ok, {[], _source}}}, socket) do
+    {:noreply,
+     socket
+     |> assign(file_chapters: %{chosen: false, running: false, label: "no markers in the files"})
+     |> put_flash(:error, "These files carry no chapter markers. The rows are unchanged.")}
+  end
+
+  def handle_async(:file_chapters, _failed, socket) do
+    {:noreply,
+     socket
+     |> assign(file_chapters: %{chosen: false, running: false})
+     |> put_flash(:error, "Could not read this recording's files.")}
+  end
+
   def handle_async(:evidence_search, {:ok, result}, socket) do
     {:noreply,
      socket
@@ -491,14 +595,85 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     assign_form(socket, Media.change_media(socket.assigns.media, params))
   end
 
+  # Every file, in play order — the same read the inbox does before an item
+  # has a record, and an ffprobe apiece. That is why it happens on a click
+  # and not on page load.
+  defp read_file_chapters(media) do
+    with {:ok, paths} <- Media.Scanner.audio_files(media),
+         {:ok, probes} <- Media.Scanner.probe_all(paths) do
+      {:ok, Media.Scanner.chapters(probes)}
+    end
+  end
+
+  # A whole new list, markers and all — so the source line moves with it, and
+  # any titles poured from an ASIN stop being what the rows hold.
+  defp put_file_chapters(socket, chapters, source) do
+    params = Map.put(socket.assigns.form.params, "chapter_marker_source", to_string(source))
+
+    socket
+    |> assign_form(Media.change_media(socket.assigns.media, params))
+    |> put_chapters(chapters)
+    |> assign(chapters_applied_asin: nil)
+  end
+
   # The narrator identity a proposed credit names — an existing narrator of
   # that name, the identity added to an existing person, or a new person.
+  # A chip stages the name; the person is made when the form is saved, in the
+  # transaction that saves it. See the book form for why they used to differ.
+  defp accept_entity(socket, :narrators, proposal) do
+    name = proposal.params["name"]
+
+    if credits_name?(
+         socket.assigns.form.source,
+         :media_narrators,
+         :narrator_id,
+         &People.narrator_option/1,
+         :narrator,
+         name
+       ) do
+      socket
+    else
+      params = append_row(socket.assigns.form, :media_narrators, credit_row(name))
+
+      socket
+      |> assign_form(Media.change_media(socket.assigns.media, params))
+      |> assign(
+        provenance_hints:
+          ProvenanceHints.for_list(
+            socket.assigns.provenance_hints,
+            "media_narrators",
+            proposal.source
+          )
+      )
+      |> refresh_chips()
+    end
+  end
+
+  # What a chip stages, which is a lookup and never a write — see the book
+  # form for why a chip answers differently from the picker beside it. The
+  # middle answer credits a person the library already holds with an identity
+  # they were missing, rather than making a second record of them.
+  defp credit_row(name) do
+    case People.find_credit(:narrator, name) do
+      {:credit, id} -> %{"narrator_id" => to_string(id)}
+      {:person, id} -> %{"narrator" => %{"name" => name, "person_id" => to_string(id)}}
+      :none -> %{"narrator" => %{"name" => name}}
+    end
+  end
+
   defp refresh_chips(socket) do
     %{evidence: evidence, form: form} = socket.assigns
 
     chips =
       if evidence && Evidence.proposing?(evidence) do
         %{
+          # The record's own title, offered against the *override* — which is
+          # what a recording is called when it differs from the book, and an
+          # edition's title is the one place that difference is written down.
+          title:
+            evidence
+            |> Evidence.proposals(:title)
+            |> mark_chosen(%{"title" => Changeset.get_field(form.source, :title)}),
           published:
             evidence
             |> Evidence.proposals(:published)
@@ -523,7 +698,19 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
           image:
             evidence
             |> Evidence.proposals(:image)
-            |> mark_chosen(Map.take(form.params, @image_params))
+            |> mark_chosen(Map.take(form.params, @image_params)),
+          narrators:
+            evidence
+            |> Evidence.proposals(:narrators)
+            |> mark_present(
+              current_labels(
+                form.source,
+                :media_narrators,
+                :narrator_id,
+                &People.narrator_option/1,
+                :narrator
+              )
+            )
         }
       else
         %{}
@@ -533,7 +720,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   defp reverts(%{assigns: %{form: form, media: media}}),
-    do: Revert.offers(form, media, [:published, :publisher, :description, :image])
+    do: Revert.offers(form, media, [:title, :published, :publisher, :description, :image])
 
   defp cancel_all_uploads(socket, upload) do
     Enum.reduce(socket.assigns.uploads[upload].entries, socket, fn entry, socket ->
@@ -594,6 +781,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp save_media(socket, :edit, media_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
+    media_params = NewPerson.import_photos(media_params, "media_narrators")
 
     case Media.update_media(socket.assigns.media, media_params, opts) do
       {:ok, media} ->
@@ -666,6 +854,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   defp format_filesize(bytes) do
     Ambry.Utils.humanize_bytes(bytes)
   end
+
+  # The drop-down's escape hatch, and the reason a blank id inside the set row
+  # does not mean "no set": leaving the set is the ✕, which is an event.
+  defp new_set_option, do: %{id: "", label: "New set"}
 
   defp preview_date_format(form) do
     format_published(%{

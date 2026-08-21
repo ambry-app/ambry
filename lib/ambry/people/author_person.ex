@@ -11,6 +11,7 @@ defmodule Ambry.People.AuthorPerson do
 
   import Ecto.Changeset
 
+  alias Ambry.Ecto.EntityRef
   alias Ambry.People.Author
   alias Ambry.People.Person
 
@@ -19,6 +20,35 @@ defmodule Ambry.People.AuthorPerson do
     belongs_to :person, Person
 
     timestamps(type: :utc_datetime)
+  end
+
+  @doc """
+  The person behind an author being created by a credit.
+
+  The mirror of `changeset/2`, which casts the *author* for a person's own
+  form. Here the person is what's new, and their name comes from the credit
+  that named them — one name typed in one box — unless the form supplied one.
+  """
+  def credited_changeset(author_person, attrs, credited_name) do
+    attrs = named_person(attrs, credited_name)
+
+    author_person
+    |> cast(attrs, [:person_id])
+    |> EntityRef.cast_new(:person, :person_id)
+    |> unique_constraint([:author_id, :person_id])
+  end
+
+  # The human is named by the credit unless the form named them, and is not
+  # nested at all when the row says which person it means: a pen name added to
+  # somebody the library already has must not make a second of them.
+  defp named_person(attrs, credited_name) do
+    if attrs["person_id"] in [nil, ""] do
+      attrs
+      |> Map.put_new("person", %{})
+      |> update_in(["person"], &Map.put_new(&1, "name", credited_name))
+    else
+      Map.delete(attrs, "person")
+    end
   end
 
   @doc false
