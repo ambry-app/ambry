@@ -235,6 +235,7 @@ defmodule AmbryWeb.Components.EntityResolver do
      # it, which is what `assign_new/3` says.
      |> assign_new(:text, fn -> assigns[:initial_text] || "" end)
      |> assign_new(:value, fn -> nil end)
+     |> then(&assign(&1, :value, held_id(&1.assigns.value)))
      |> assign_new(:placeholder, fn -> nil end)
      |> assign_new(:class, fn -> nil end)}
   end
@@ -309,6 +310,14 @@ defmodule AmbryWeb.Components.EntityResolver do
   # source, because there is no longer a list to find it in — and not asked at
   # all while the operator is typing, which is the common case and the one
   # where the answer would be thrown away.
+  # **A blank id is no id.** A form posts an unpicked field as `""`, which is
+  # perfectly truthy, so a freshly typed name wore the "existing" badge and
+  # claimed to be attached to a record it had never seen. Normalised once
+  # here rather than guarded at each of the places that ask.
+  defp held_id(nil), do: nil
+  defp held_id(""), do: nil
+  defp held_id(value), do: value
+
   defp held(%{query: query}) when is_binary(query), do: nil
   defp held(%{value: nil}), do: nil
   defp held(%{value: value, fetch: fetch}), do: normalize(fetch.(value))

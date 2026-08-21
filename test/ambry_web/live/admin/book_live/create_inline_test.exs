@@ -76,6 +76,36 @@ defmodule AmbryWeb.Admin.BookLive.CreateInlineTest do
                person |> Repo.preload(:authors) |> Map.fetch!(:authors)
     end
 
+    # A form posts an unpicked field as "", which is perfectly truthy, so the
+    # box wore the "existing" badge over a name the library had never seen —
+    # the one thing that badge exists to tell you.
+    test "a typed name is badged new, not existing", %{conn: conn} do
+      book = insert(:book, book_authors: [])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+      html =
+        view
+        |> form("#book-form")
+        |> render_change(%{
+          "book" => %{
+            "book_authors_sort" => ["new"],
+            "book_authors" => %{
+              "new" => %{"author_id" => "", "author" => %{"name" => "Zephyr Quillfeather"}}
+            }
+          }
+        })
+
+      badge =
+        html
+        |> Floki.parse_document!()
+        |> Floki.find("#book_book_authors_0_author_id span.pointer-events-none")
+        |> Floki.text()
+        |> String.trim()
+
+      assert badge == "new"
+    end
+
     # The half no param test can see: the box has to *offer* it. This is the
     # `text_name` the edit forms never passed, so the picker rendered as a
     # pure picker and there was no way to say "make one".
