@@ -40,8 +40,11 @@ defmodule AmbryWeb.Admin.Curation do
   attr :evidence, Evidence, required: true
   attr :level, :string, required: true, doc: ~s("work" or "recording" — routes the fan-out)
   attr :title, :string, required: true
-  attr :hint, :string, default: nil
   attr :retrying, :any, default: nil
+
+  attr :scan_files, :boolean,
+    default: false,
+    doc: "the recording level: its files have something to say, and asking them is not a search"
 
   @doc """
   The evidence panel: one search, fanned out to every capable provider, its
@@ -49,33 +52,42 @@ defmodule AmbryWeb.Admin.Curation do
 
   Sits **outside** the record's own `<form>` (the search is a form of its
   own), above it — evidence first, then the decisions it feeds, the order
-  the import form established. It starts **folded**: an edit form is
-  visited for reasons that mostly aren't curation, and a paragraph of
-  tick-these-records instructions above a form with no records was noise.
-  The hint appears with the records it explains.
+  the import form established. It starts **folded**: an edit form is visited
+  for reasons that mostly aren't curation.
+
+  ## Reading the files is not searching for the book
+
+  At the recording level the button did two things: it read the recording's
+  own files, and it asked every provider about the book. One takes
+  milliseconds and always has something to say; the other takes seconds and
+  often doesn't. An operator working down the back catalogue asking "would
+  the embedded cover be an improvement?" had to pay for a provider fan-out to
+  find out. So there are two buttons, and the panel says both things in its
+  title.
+
+  ## Nothing is editable while it runs
+
+  A search used to leave the whole form live and say so only by relabelling
+  its own button — the last surface in the admin still doing that. The scrim
+  is the caller's, over the whole form, because that is the size of what a
+  fan-out changes: chips appear under every field it can fill. The import
+  form has done this since matching could hold an item.
   """
   def evidence_panel(assigns) do
     ~H"""
-    <%!-- `open` is pinned server-side once a search runs: LiveView patches
-        strip a client-toggled open attribute (any results arriving would
-        slam the panel shut), and a panel with records in it should stay
-        open anyway. --%>
+    <%!-- `open` is pinned server-side once anything has been asked: LiveView
+        patches strip a client-toggled open attribute (any results arriving
+        would slam the panel shut), and a panel you have used should stay open
+        anyway. The tags belong in that list even though they put nothing in
+        the panel — a fold that closes itself the moment you press a button
+        inside it reads as the button having gone wrong. --%>
     <.disclosure
       class="pl-3 text-sm font-semibold text-zinc-200"
       container_class="space-y-2"
       data-role="evidence-panel"
-      open={@evidence.running? or @evidence.searched?}
+      open={@evidence.running? or @evidence.searched? or @evidence.tags != nil}
     >
-      <:summary_slot>
-        {@title}
-        <span :if={@evidence.searched?} class="font-normal text-zinc-400">
-          · {length(@evidence.records)} records, {MapSet.size(@evidence.used)} ticked
-        </span>
-      </:summary_slot>
-
-      <p :if={@hint && @evidence.records != []} class="max-w-prose pt-1 pl-3 text-sm text-zinc-400">
-        {@hint}
-      </p>
+      <:summary_slot>{@title}</:summary_slot>
 
       <%!-- The query, then who answered, then what they said — the import
           form's grammar, because a card of search results is a search form
@@ -87,7 +99,8 @@ defmodule AmbryWeb.Admin.Curation do
           level={@level}
           fields={@evidence.fields}
           running={@evidence.running?}
-          label={(@evidence.searched? && "Search again") || "Search"}
+          scan_files={@scan_files}
+          label={search_words(@evidence, @scan_files)}
         />
 
         <%!-- A person is searched by name — the research form's
@@ -99,7 +112,6 @@ defmodule AmbryWeb.Admin.Curation do
           event="research"
           name={@evidence.fields["name"]}
           running={@evidence.running?}
-          label={(@evidence.searched? && "Search again") || "Search"}
         />
 
         <.provider_outcomes_row
@@ -131,6 +143,12 @@ defmodule AmbryWeb.Admin.Curation do
     </.disclosure>
     """
   end
+
+  # "Search again" presumed a search; a panel that also reads files has two
+  # verbs to name and the button that does both should say so.
+  defp search_words(_evidence, true), do: "Read files & search"
+  defp search_words(%Evidence{searched?: true}, _scan), do: "Search again"
+  defp search_words(_evidence, _scan), do: "Search"
 
   attr :field, FormField, required: true
   attr :label, :string, required: true

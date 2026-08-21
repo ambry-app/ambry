@@ -335,6 +335,27 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
+  # The files on their own. Reading a header is milliseconds and always has
+  # something to say; a provider fan-out is seconds and often has nothing, and
+  # pairing them made "would the embedded cover be an improvement?" cost the
+  # second to get the first.
+  #
+  # Always re-reads, unlike the once-only read a search does on the way past:
+  # a control the operator pressed on purpose that quietly did nothing the
+  # second time would be worse than the round trip it saves.
+  #
+  # No scrim. `running?` is the panel's, and it means "the databases are being
+  # asked" — a header read is not that, and blanking the form for it would
+  # cost more than it takes.
+  def handle_event("scan-files", _params, socket) do
+    media = socket.assigns.media
+
+    {:noreply,
+     socket
+     |> assign(evidence: %{socket.assigns.evidence | tags: nil})
+     |> start_async(:file_tags, fn -> Media.Scanner.tags(media) end)}
+  end
+
   def handle_event("retry-provider", %{"provider" => outcome_id}, socket) do
     query = Provider.Query.from_fields(socket.assigns.evidence.fields)
     {provider_id, kind} = Outcome.split(outcome_id)
@@ -759,9 +780,10 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # The file's own art, extracted at save the way an import extracts it. The
   # path is taken from the recording rather than from a param: what the form
   # accepted was "this recording's embedded cover", and the only honest
-  # reading of that is the recording's own files.
+  # reading of that is the recording's own files — asked of the scanner,
+  # which asks the tracks before the transcode sources.
   defp handle_embedded_image(socket, %{"image_type" => "embedded"} = media_params) do
-    with [path | _rest] <- Media.Media.files(socket.assigns.media, Media.Scanner.extensions()),
+    with {:ok, [path | _rest]} <- Media.Scanner.audio_files(socket.assigns.media),
          {:ok, web_path} <- Images.extract_embedded(path) do
       {:ok, Map.put(media_params, "image_path", web_path)}
     else

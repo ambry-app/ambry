@@ -1,309 +1,323 @@
 <.layout title={@page_title} user={@current_user} socket={@socket}>
-  <div class="-mb-4 max-w-4xl space-y-7">
-    <%!-- Evidence first, then the decisions it feeds — the import form's
-        order. Its search is a form of its own, so it lives outside the
-        media form element. --%>
-    <.evidence_panel
-      evidence={@evidence}
-      level="recording"
-      title="Search providers"
-      hint="Tick every record of this exact reading; check the narrator first. Ticked records offer their values as chips under the fields below."
-      retrying={@retrying}
+  <div class="relative">
+    <%!-- A fan-out rebuilds the chips under every field it can fill, so a form
+        with one running is not the operator's to edit yet — and it says so
+        over the whole thing, the way the import form does while matching
+        holds an item. `sticky top-0 h-screen` keeps the scrim one viewport
+        tall and the label in view however far down the form the click was;
+        `z-40` clears the sticky footer with the Save in it, and stays under
+        the header. --%>
+    <.busy_overlay
+      busy={@evidence.running?}
+      label="Asking the databases…"
+      class="sticky top-0 z-40 h-screen"
     />
 
-    <.simple_form
-      id="media-form"
-      for={@form}
-      phx-hook="reorder-rows"
-      phx-change="validate"
-      phx-submit="submit"
-      autocomplete="off"
-    >
-      <.form_section id="recording">
-        <.field_group>
-          <.input
-            field={@form[:book_id]}
-            label="Book"
-            type="autocomplete"
-            search={&Books.search_books/2}
-            fetch={&Books.book_option/1}
-            container_class="max-w-xl"
-          />
+    <div class="-mb-4 max-w-4xl space-y-7" inert={@evidence.running?}>
+      <%!-- Evidence first, then the decisions it feeds — the import form's
+        order. Its search is a form of its own, so it lives outside the
+        media form element. --%>
+      <.evidence_panel
+        evidence={@evidence}
+        level="recording"
+        title="Read the files and search providers"
+        scan_files
+        retrying={@retrying}
+      />
 
-          <.curated_input
-            field={@form[:title]}
-            label="Title override"
-            placeholder="defaults to the book's title"
-            class="max-w-xl"
-            record={@media}
-            hints={@provenance_hints}
-            proposals={@chips[:title] || []}
-            revert={@reverts[:title]}
-          />
-        </.field_group>
+      <.simple_form
+        id="media-form"
+        for={@form}
+        phx-hook="reorder-rows"
+        phx-change="validate"
+        phx-submit="submit"
+        autocomplete="off"
+      >
+        <.form_section id="recording">
+          <.field_group>
+            <.input
+              field={@form[:book_id]}
+              label="Book"
+              type="autocomplete"
+              search={&Books.search_books/2}
+              fetch={&Books.book_option/1}
+              container_class="max-w-xl"
+            />
 
-        <.field_group>
-          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
-            <div class="space-y-1">
-              <.curated_date
-                date_field={@form[:published]}
-                format_field={@form[:published_format]}
-                label="Published"
+            <.curated_input
+              field={@form[:title]}
+              label="Title override"
+              placeholder="defaults to the book's title"
+              class="max-w-xl"
+              record={@media}
+              hints={@provenance_hints}
+              proposals={@chips[:title] || []}
+              revert={@reverts[:title]}
+            />
+          </.field_group>
+
+          <.field_group>
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-2">
+              <div class="space-y-1">
+                <.curated_date
+                  date_field={@form[:published]}
+                  format_field={@form[:published_format]}
+                  label="Published"
+                  record={@media}
+                  hints={@provenance_hints}
+                  proposals={@chips[:published] || []}
+                  revert={@reverts[:published]}
+                />
+                <span class="block pl-3 text-sm text-zinc-400">
+                  {preview_date_format(@form)}
+                </span>
+              </div>
+              <.curated_input
+                field={@form[:publisher]}
+                label="Publisher"
                 record={@media}
                 hints={@provenance_hints}
-                proposals={@chips[:published] || []}
-                revert={@reverts[:published]}
+                proposals={@chips[:publisher] || []}
+                revert={@reverts[:publisher]}
               />
-              <span class="block pl-3 text-sm text-zinc-400">
-                {preview_date_format(@form)}
-              </span>
             </div>
-            <.curated_input
-              field={@form[:publisher]}
-              label="Publisher"
-              record={@media}
-              hints={@provenance_hints}
-              proposals={@chips[:publisher] || []}
-              revert={@reverts[:publisher]}
-            />
-          </div>
 
-          <div class="flex gap-4">
-            <.input field={@form[:abridged]} label="Abridged" type="checkbox" />
-            <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
-          </div>
-        </.field_group>
+            <div class="flex gap-4">
+              <.input field={@form[:abridged]} label="Abridged" type="checkbox" />
+              <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
+            </div>
+          </.field_group>
 
-        <.field_group>
-          <div class="flex items-baseline gap-2 pl-3">
-            <.label for={@form[:description].id}>Description</.label>
-            <.provenance_flag record={@media} field={:description} hints={@provenance_hints} />
-          </div>
-          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <.input
-              id="description-input"
-              field={@form[:description]}
-              type="textarea"
-              phx-hook="maintain-attrs"
-              data-attrs="style"
-            />
-            <div class="relative">
-              <div
-                id="description-preview"
-                phx-hook="scroll-match"
-                data-target="description-input"
-                class="bg-zinc-800/50 absolute inset-0 hidden overflow-auto rounded-sm sm:block"
-              >
-                <.markdown content={@form[:description].value || ""} class="p-2" />
+          <.field_group>
+            <div class="flex items-baseline gap-2 pl-3">
+              <.label for={@form[:description].id}>Description</.label>
+              <.provenance_flag record={@media} field={:description} hints={@provenance_hints} />
+            </div>
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <.input
+                id="description-input"
+                field={@form[:description]}
+                type="textarea"
+                phx-hook="maintain-attrs"
+                data-attrs="style"
+              />
+              <div class="relative">
+                <div
+                  id="description-preview"
+                  phx-hook="scroll-match"
+                  data-target="description-input"
+                  class="bg-zinc-800/50 absolute inset-0 hidden overflow-auto rounded-sm sm:block"
+                >
+                  <.markdown content={@form[:description].value || ""} class="p-2" />
+                </div>
               </div>
             </div>
-          </div>
-          <.proposal_row
-            id="proposals-description"
-            field="description"
-            proposals={@chips[:description] || []}
-            revert={@reverts[:description]}
-          />
-        </.field_group>
-
-        <.list_cluster label="Read by">
-          <:flag>
-            <.provenance_flag
-              :if={@media_narrator_count > 0}
-              record={@media}
-              field={:media_narrators}
-              hints={@provenance_hints}
+            <.proposal_row
+              id="proposals-description"
+              field="description"
+              proposals={@chips[:description] || []}
+              revert={@reverts[:description]}
             />
-          </:flag>
-          <%!-- legal, not an error: a full-cast recording can credit nobody --%>
-          <p :if={@media_narrator_count == 0} class="pl-3 text-sm text-zinc-400">No narrators.</p>
-          <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
-            <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
-            <.position_input field={media_narrator_form[:position]} index={media_narrator_form.index} />
+          </.field_group>
 
-            <%!-- Controls trail the input: a leading column pushed every input
+          <.list_cluster label="Read by">
+            <:flag>
+              <.provenance_flag
+                :if={@media_narrator_count > 0}
+                record={@media}
+                field={:media_narrators}
+                hints={@provenance_hints}
+              />
+            </:flag>
+            <%!-- legal, not an error: a full-cast recording can credit nobody --%>
+            <p :if={@media_narrator_count == 0} class="pl-3 text-sm text-zinc-400">No narrators.</p>
+            <.inputs_for :let={media_narrator_form} field={@form[:media_narrators]}>
+              <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
+              <.position_input field={media_narrator_form[:position]} index={media_narrator_form.index} />
+
+              <%!-- Controls trail the input: a leading column pushed every input
                 off the box edge whenever a list crossed one row (§3). Order
                 matches the import form's cards — reorder first, remove last —
                 so the destructive control is at the end of the row. --%>
-            <div class="flex items-start gap-2">
-              <.input
-                field={media_narrator_form[:narrator_id]}
-                type="autocomplete"
-                search={&People.search_narrators/2}
-                fetch={&People.narrator_option/1}
-                create_name={"#{media_narrator_form.name}[narrator][name]"}
-                create_value={staged_name(media_narrator_form, :narrator)}
-                create_flag_name={"#{media_narrator_form.name}[narrator][create]"}
-                create_flag_value={NewPerson.chosen(media_narrator_form, :narrator)}
-                container_class="grow"
-              />
-              <%!-- Who this credit means, and a way down to their card. --%>
-              <.inputs_for
-                :let={narrator_form}
-                :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
-                field={media_narrator_form[:narrator]}
-                skip_hidden
-                skip_persistent_id
-              >
-                <.new_person_pill row={narrator_form} key={NewPerson.key(media_narrator_form)} />
-              </.inputs_for>
+              <div class="flex items-start gap-2">
+                <.input
+                  field={media_narrator_form[:narrator_id]}
+                  type="autocomplete"
+                  search={&People.search_narrators/2}
+                  fetch={&People.narrator_option/1}
+                  create_name={"#{media_narrator_form.name}[narrator][name]"}
+                  create_value={staged_name(media_narrator_form, :narrator)}
+                  create_flag_name={"#{media_narrator_form.name}[narrator][create]"}
+                  create_flag_value={NewPerson.chosen(media_narrator_form, :narrator)}
+                  container_class="grow"
+                />
+                <%!-- Who this credit means, and a way down to their card. --%>
+                <.inputs_for
+                  :let={narrator_form}
+                  :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
+                  field={media_narrator_form[:narrator]}
+                  skip_hidden
+                  skip_persistent_id
+                >
+                  <.new_person_pill row={narrator_form} key={NewPerson.key(media_narrator_form)} />
+                </.inputs_for>
 
-              <.move_buttons
-                :if={@media_narrator_count > 1}
-                field={:media_narrators}
-                index={media_narrator_form.index}
-                count={@media_narrator_count}
-              />
-              <.delete_button
-                field={@form[:media_narrators_drop]}
-                index={media_narrator_form.index}
-              />
-            </div>
-          </.inputs_for>
+                <.move_buttons
+                  :if={@media_narrator_count > 1}
+                  field={:media_narrators}
+                  index={media_narrator_form.index}
+                  count={@media_narrator_count}
+                />
+                <.delete_button
+                  field={@form[:media_narrators_drop]}
+                  index={media_narrator_form.index}
+                />
+              </div>
+            </.inputs_for>
 
-          <%!-- The narrators a ticked record names. Two readings of one book
+            <%!-- The narrators a ticked record names. Two readings of one book
               differ by nothing else, so this is the field a record most needs
               to fill; `adds_rows` is what stops a chip crediting the same
               person twice (design language §6). --%>
-          <:proposals>
-            <.proposal_row
-              id="proposals-narrators"
-              field="narrators"
-              event="accept-entity"
-              adds_rows
-              proposals={@chips[:narrators] || []}
-            />
-          </:proposals>
+            <:proposals>
+              <.proposal_row
+                id="proposals-narrators"
+                field="narrators"
+                event="accept-entity"
+                adds_rows
+                proposals={@chips[:narrators] || []}
+              />
+            </:proposals>
 
-          <:add>
-            <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
-            <.delete_input field={@form[:media_narrators_drop]} />
-          </:add>
-        </.list_cluster>
+            <:add>
+              <.add_button field={@form[:media_narrators_sort]}>Add narrator</.add_button>
+              <.delete_input field={@form[:media_narrators_drop]} />
+            </:add>
+          </.list_cluster>
 
-        <%!-- The humans these credits are about to invent, in the import
+          <%!-- The humans these credits are about to invent, in the import
             form's own section — under the credits that name them, because
             that is where they came from, and separate from them, because
             "what is this person called, and what do they look like" is a
             different question from "who read this book". The book form's
             twin, one join shallower. --%>
-        <.form_section
-          :if={NewPerson.any?(@form.source, :media_narrators, :narrator, [:narrator])}
-          id="new-people"
-          title="New people"
-        >
-          <.inputs_for
-            :let={media_narrator_form}
-            field={@form[:media_narrators]}
-            skip_hidden
-            skip_persistent_id
+          <.form_section
+            :if={NewPerson.any?(@form.source, :media_narrators, :narrator, [:narrator])}
+            id="new-people"
+            title="New people"
           >
             <.inputs_for
-              :let={narrator_form}
-              :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
-              field={media_narrator_form[:narrator]}
+              :let={media_narrator_form}
+              field={@form[:media_narrators]}
+              skip_hidden
+              skip_persistent_id
             >
-              <.new_person_card
-                row={narrator_form}
-                key={NewPerson.key(media_narrator_form)}
-                state={NewPerson.state(@new_people, NewPerson.key(media_narrator_form))}
-                credited={staged_name(media_narrator_form, :narrator)}
-                kind={:narrator}
-              />
+              <.inputs_for
+                :let={narrator_form}
+                :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator])}
+                field={media_narrator_form[:narrator]}
+              >
+                <.new_person_card
+                  row={narrator_form}
+                  key={NewPerson.key(media_narrator_form)}
+                  state={NewPerson.state(@new_people, NewPerson.key(media_narrator_form))}
+                  credited={staged_name(media_narrator_form, :narrator)}
+                  kind={:narrator}
+                />
+              </.inputs_for>
             </.inputs_for>
-          </.inputs_for>
-        </.form_section>
+          </.form_section>
 
-        <%!-- the mirror of the book form's series rows, singular: a recording
+          <%!-- the mirror of the book form's series rows, singular: a recording
           is in at most one group, and a group belongs to this book — the
           list follows the chosen book. Like an empty series list, an
           ungrouped recording says so and offers one add; unlike series, the
           add disappears once the (single) row is showing. The group's own
           facts — name, total, wording — are edited on its page under
           Groups. --%>
-        <div class="space-y-2">
-          <.field_group label="Part of a set">
-            <p :if={!@group_row_visible} class="pl-3 text-sm text-zinc-400">
-              Not part of a set.
-            </p>
+          <div class="space-y-2">
+            <.field_group label="Part of a set">
+              <p :if={!@group_row_visible} class="pl-3 text-sm text-zinc-400">
+                Not part of a set.
+              </p>
 
-            <%!-- The removal has to be *stated*, not merely stopped being
+              <%!-- The removal has to be *stated*, not merely stopped being
                 mentioned. Hiding the row took its two inputs out of the DOM,
                 so the submit posted neither key and `cast` changes only what
                 it is handed — the picker vanished, Save reported success, and
                 the recording came back still in its set. --%>
-            <.input :if={!@group_row_visible} type="hidden" field={@form[:recording_group_id]} />
-            <.input :if={!@group_row_visible} type="hidden" field={@form[:part_number]} />
+              <.input :if={!@group_row_visible} type="hidden" field={@form[:recording_group_id]} />
+              <.input :if={!@group_row_visible} type="hidden" field={@form[:part_number]} />
 
-            <div :if={@group_row_visible} class="flex items-start gap-2">
-              <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
-              <%!-- A book has one set, or none, or occasionally two. That is a
+              <div :if={@group_row_visible} class="flex items-start gap-2">
+                <.input field={@form[:part_number]} placeholder="no." container_class="w-14 flex-none" />
+                <%!-- A book has one set, or none, or occasionally two. That is a
                   drop-down — and where the book has none there is nothing to
                   drop down to, so the only thing on offer is naming one. The
                   import form settled this shape: a typeahead here searched
                   for sets belonging to a book that usually has none. --%>
-              <.input
-                :if={@recording_group_options != []}
-                field={@form[:recording_group_id]}
-                type="dropdown"
-                options={@recording_group_options ++ [new_set_option()]}
-                container_class="grow"
-              />
+                <.input
+                  :if={@recording_group_options != []}
+                  field={@form[:recording_group_id]}
+                  type="dropdown"
+                  options={@recording_group_options ++ [new_set_option()]}
+                  container_class="grow"
+                />
 
-              <%!-- Naming a set this book doesn't have yet. The row belongs
+                <%!-- Naming a set this book doesn't have yet. The row belongs
                   to the recording, so the set is created by the save that
                   puts the recording in it, and the book is the recording's
                   own — never asked for, never postable. --%>
-              <.inputs_for :let={group_form} field={@form[:recording_group]}>
-                <div class="flex grow items-start gap-2">
-                  <.input field={group_form[:name]} placeholder="set name" container_class="grow" />
-                  <.input
-                    field={group_form[:parts_total]}
-                    type="number"
-                    min="1"
-                    placeholder="of"
-                    container_class="w-16 flex-none"
-                  />
-                </div>
-              </.inputs_for>
-              <%!-- Hand-rolled because taking this audiobook out of its set is
+                <.inputs_for :let={group_form} field={@form[:recording_group]}>
+                  <div class="flex grow items-start gap-2">
+                    <.input field={group_form[:name]} placeholder="set name" container_class="grow" />
+                    <.input
+                      field={group_form[:parts_total]}
+                      type="number"
+                      min="1"
+                      placeholder="of"
+                      container_class="w-16 flex-none"
+                    />
+                  </div>
+                </.inputs_for>
+                <%!-- Hand-rolled because taking this audiobook out of its set is
                   an event, not a drop input, so it has to say so. It wears
                   `.delete_button`'s box all the same — one input tall, glyph
                   centred, beside the field rather than inside it. --%>
-              <button
-                type="button"
-                phx-click="remove-group-row"
-                class="flex h-10 flex-none items-center"
-                title="Not part of a set"
-              >
-                <.icon
-                  name="fa-xmark"
-                  class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-400"
-                />
-              </button>
-            </div>
-          </.field_group>
+                <button
+                  type="button"
+                  phx-click="remove-group-row"
+                  class="flex h-10 flex-none items-center"
+                  title="Not part of a set"
+                >
+                  <.icon
+                    name="fa-xmark"
+                    class="h-4 w-4 cursor-pointer text-current transition-colors hover:text-red-400"
+                  />
+                </button>
+              </div>
+            </.field_group>
 
-          <.add_button :if={!@group_row_visible} phx-click="add-group-row">
-            This audiobook is part of a set
-          </.add_button>
-        </div>
+            <.add_button :if={!@group_row_visible} phx-click="add-group-row">
+              This audiobook is part of a set
+            </.add_button>
+          </div>
 
-        <.input type="hidden" field={@form[:image_type]} />
-        <.input type="hidden" field={@form[:image_path]} />
+          <.input type="hidden" field={@form[:image_type]} />
+          <.input type="hidden" field={@form[:image_path]} />
 
-        <%= if @form[:image_path].value && @form[:image_path].value != "" do %>
-          <.field_group>
-            <div class="flex items-baseline gap-2 pl-3">
-              <.label class="flex items-center gap-2">
-                Image <.image_delete_button field={@form[:image_path]} />
-              </.label>
-              <.provenance_flag record={@media} field={:image_path} hints={@provenance_hints} />
-            </div>
-            <%!-- One cover, on the text rail (an image is content, §3) — the
+          <%= if @form[:image_path].value && @form[:image_path].value != "" do %>
+            <.field_group>
+              <div class="flex items-baseline gap-2 pl-3">
+                <.label class="flex items-center gap-2">
+                  Image <.image_delete_button field={@form[:image_path]} />
+                </.label>
+                <.provenance_flag record={@media} field={:image_path} hints={@provenance_hints} />
+              </div>
+              <%!-- One cover, on the text rail (an image is content, §3) — the
                 five-variant parade said nothing the operator could act on.
                 Whether the derived sizes exist is one fact, so it's one line. --%>
-            <%!-- The derived size inline, the original behind the magnifier.
+              <%!-- The derived size inline, the original behind the magnifier.
                 Rendering the original was showing whatever the publisher
                 embedded, at whatever size and in whatever format they used —
                 and one Martian import put 753KB of TIFF in a file named
@@ -313,212 +327,213 @@
                 lie. `extract_embedded/1` no longer produces that file, and
                 showing the derived image means the form survives the next
                 thing a publisher embeds either way. --%>
-            <div class="pl-3">
-              <.image_with_size
-                id={"image-#{@media.id}"}
-                src={preview_src(@media, @form[:image_path].value)}
-                full={@form[:image_path].value}
-                class="w-48 rounded-sm"
+              <div class="pl-3">
+                <.image_with_size
+                  id={"image-#{@media.id}"}
+                  src={preview_src(@media, @form[:image_path].value)}
+                  full={@form[:image_path].value}
+                  class="w-48 rounded-sm"
+                />
+              </div>
+              <p class="flex items-center gap-1.5 pl-3 text-xs text-zinc-400">
+                <%= if @media.thumbnails do %>
+                  <.icon name="fa-check" class="text-brand-dark h-3 w-3" /> thumbnails generated in all
+                  five sizes
+                <% else %>
+                  <.icon name="fa-triangle-exclamation" class="h-3 w-3 text-amber-300" /> thumbnails not generated yet
+                <% end %>
+              </p>
+              <.proposal_row
+                id="proposals-image"
+                field="image"
+                proposals={@chips[:image] || []}
+                revert={@reverts[:image]}
               />
-            </div>
-            <p class="flex items-center gap-1.5 pl-3 text-xs text-zinc-400">
-              <%= if @media.thumbnails do %>
-                <.icon name="fa-check" class="text-brand-dark h-3 w-3" /> thumbnails generated in all
-                five sizes
-              <% else %>
-                <.icon name="fa-triangle-exclamation" class="h-3 w-3 text-amber-300" /> thumbnails not generated yet
-              <% end %>
-            </p>
-            <.proposal_row
-              id="proposals-image"
-              field="image"
-              proposals={@chips[:image] || []}
-              revert={@reverts[:image]}
-            />
-          </.field_group>
-        <% else %>
-          <.field_group>
-            <.tabs
-              field={@form[:image_type]}
-              options={[
-                {"Upload file", "upload"},
-                {"Import image from URL", "url_import"}
-              ]}
-            >
-              <.label class="pl-3">Image</.label>
-            </.tabs>
+            </.field_group>
+          <% else %>
+            <.field_group>
+              <.tabs
+                field={@form[:image_type]}
+                options={[
+                  {"Upload file", "upload"},
+                  {"Import image from URL", "url_import"}
+                ]}
+              >
+                <.label class="pl-3">Image</.label>
+              </.tabs>
 
-            <.file_input
-              :if={@form[:image_type].value == "upload"}
-              upload={@uploads.image}
-              on_cancel="cancel-upload"
-              image_preview_class="h-48 w-48 rounded-sm"
-            />
+              <.file_input
+                :if={@form[:image_type].value == "upload"}
+                upload={@uploads.image}
+                on_cancel="cancel-upload"
+                image_preview_class="h-48 w-48 rounded-sm"
+              />
 
-            <.image_import_input
-              :if={@form[:image_type].value == "url_import"}
-              field={@form[:image_import_url]}
-              image_preview_class="h-48 w-48 rounded-sm"
-            />
+              <.image_import_input
+                :if={@form[:image_type].value == "url_import"}
+                field={@form[:image_import_url]}
+                image_preview_class="h-48 w-48 rounded-sm"
+              />
 
-            <%!-- Neither tab is the answer here: the art is a stream inside
+              <%!-- Neither tab is the answer here: the art is a stream inside
                 the audio file, and it is taken out when the form saves. The
                 picture is the whole point of the choice, so it shows. --%>
-            <div :if={@form[:image_type].value == "embedded"} class="space-y-2 pl-3">
-              <.image_with_size
-                id={"embedded-cover-#{@media.id}"}
-                src={~p"/admin/audiobooks/#{@media}/embedded-cover"}
-                class="h-48 w-48 rounded-sm object-cover"
-              />
-              <p class="text-sm text-zinc-400">Taken from the file when you save.</p>
-            </div>
+              <div :if={@form[:image_type].value == "embedded"} class="space-y-2 pl-3">
+                <.image_with_size
+                  id={"embedded-cover-#{@media.id}"}
+                  src={~p"/admin/audiobooks/#{@media}/embedded-cover"}
+                  class="h-48 w-48 rounded-sm object-cover"
+                />
+                <p class="text-sm text-zinc-400">Taken from the file when you save.</p>
+              </div>
 
-            <.proposal_row
-              id="proposals-image"
-              field="image"
-              proposals={@chips[:image] || []}
-              revert={@reverts[:image]}
+              <.proposal_row
+                id="proposals-image"
+                field="image"
+                proposals={@chips[:image] || []}
+                revert={@reverts[:image]}
+              />
+            </.field_group>
+          <% end %>
+
+          <.field_group>
+            <.input
+              field={@form[:notes]}
+              label="Notes"
+              type="textarea"
+              phx-hook="maintain-attrs"
+              data-attrs="style"
+              class="!min-h-24"
             />
           </.field_group>
-        <% end %>
+        </.form_section>
 
-        <.field_group>
-          <.input
-            field={@form[:notes]}
-            label="Notes"
-            type="textarea"
-            phx-hook="maintain-attrs"
-            data-attrs="style"
-            class="!min-h-24"
-          />
-        </.field_group>
-      </.form_section>
-
-      <%!-- Markers are file-derived facts, titles are decisions — the 1h
+        <%!-- Markers are file-derived facts, titles are decisions — the 1h
           split, in one card. A ticked record with an ASIN grows a title
           chip; the fetched titles render into the rows as a proposed
           column, and nothing lands until Take. --%>
-      <.form_section :if={@live_action == :edit} title="Chapters" id="chapters">
-        <.marker_source_input form={@form} />
+        <.form_section :if={@live_action == :edit} title="Chapters" id="chapters">
+          <.marker_source_input form={@form} />
 
-        <.chapter_rows form={@form} pending={@chapter_import}>
-          <:flag>
-            <.provenance_flag record={@media} field={:chapters} hints={@provenance_hints} />
-          </:flag>
-          <:proposals>
-            <.chapter_title_chips
-              id="chapter-title-chips"
-              chips={title_chips(Evidence.used_records(@evidence), @chapters_applied_asin)}
-              file={@file_chapters}
-            />
-          </:proposals>
-        </.chapter_rows>
-      </.form_section>
+          <.chapter_rows form={@form} pending={@chapter_import}>
+            <:flag>
+              <.provenance_flag record={@media} field={:chapters} hints={@provenance_hints} />
+            </:flag>
+            <:proposals>
+              <.chapter_title_chips
+                id="chapter-title-chips"
+                chips={title_chips(Evidence.used_records(@evidence), @chapters_applied_asin)}
+                file={@file_chapters}
+              />
+            </:proposals>
+          </.chapter_rows>
+        </.form_section>
 
-      <%!-- What the bytes are — a different question from what the recording
+        <%!-- What the bytes are — a different question from what the recording
           IS. Nothing here is editable any more: the files arrive through the
           inbox and this says what they are. --%>
-      <.form_section title="Audio" id="audio">
-        <%!-- The files this recording is served from, which is its tracks.
+        <.form_section title="Audio" id="audio">
+          <%!-- The files this recording is served from, which is its tracks.
             A fact display, not a dropzone: nothing here accepts a file, and
             dressing it as though it might would promise what it can't
             deliver. Absent for a transcoded recording, whose audio is the
             packaged trio in the fold below. --%>
-        <.file_list files={@audio_files} label="Files" />
+          <.file_list files={@audio_files} label="Files" />
 
-        <%!-- Transcoded recordings only, and assigned nil otherwise: an
+          <%!-- Transcoded recordings only, and assigned nil otherwise: an
             imported recording has no packaged artifacts and no transcode
             sources, so there is nothing here for it to fold away. --%>
-        <.field_group :if={@file_stats}>
-          <%!-- The one fold costume (§3): summary on the rail, chevron
+          <.field_group :if={@file_stats}>
+            <%!-- The one fold costume (§3): summary on the rail, chevron
               hanging in the gutter — not a lime "show" link, which wore the
               semantic accent for a purely structural action. --%>
-          <.disclosure summary="Streaming files" class="pl-3 text-sm font-semibold text-zinc-200">
-            <div class="bg-zinc-800/60 mt-2 space-y-2 rounded-md p-3">
-              <.file_stat_row label="mp4" file={@file_stats.mp4_file} />
-              <.file_stat_row label="mpd" file={@file_stats.mpd_file} />
-              <.file_stat_row label="hls" file={@file_stats.hls_master} />
-              <.file_stat_row label="hls_0" file={@file_stats.hls_playlist} />
+            <.disclosure summary="Streaming files" class="pl-3 text-sm font-semibold text-zinc-200">
+              <div class="bg-zinc-800/60 mt-2 space-y-2 rounded-md p-3">
+                <.file_stat_row label="mp4" file={@file_stats.mp4_file} />
+                <.file_stat_row label="mpd" file={@file_stats.mpd_file} />
+                <.file_stat_row label="hls" file={@file_stats.hls_master} />
+                <.file_stat_row label="hls_0" file={@file_stats.hls_playlist} />
 
-              <.disclosure summary="Source files" container_class="pt-1">
-                <div class="space-y-2 pt-2">
-                  <%= case @file_stats.source_files do %>
-                    <% error when is_atom(error) -> %>
-                      <.file_stat_row
-                        label="source"
-                        file={%{path: @media.source_path, stat: error}}
-                        error_type={:warn}
-                      />
-                    <% source_files when is_list(source_files) -> %>
-                      <.file_stat_row
-                        :if={source_files == []}
-                        label="source"
-                        file={%{path: @media.source_path, stat: :empty}}
-                        error_type={:warn}
-                      />
-                      <.file_stat_row
-                        :for={source_file <- source_files}
-                        label="source"
-                        file={source_file}
-                        error_type={:warn}
-                      />
-                  <% end %>
-                </div>
-              </.disclosure>
-            </div>
-          </.disclosure>
-        </.field_group>
+                <.disclosure summary="Source files" container_class="pt-1">
+                  <div class="space-y-2 pt-2">
+                    <%= case @file_stats.source_files do %>
+                      <% error when is_atom(error) -> %>
+                        <.file_stat_row
+                          label="source"
+                          file={%{path: @media.source_path, stat: error}}
+                          error_type={:warn}
+                        />
+                      <% source_files when is_list(source_files) -> %>
+                        <.file_stat_row
+                          :if={source_files == []}
+                          label="source"
+                          file={%{path: @media.source_path, stat: :empty}}
+                          error_type={:warn}
+                        />
+                        <.file_stat_row
+                          :for={source_file <- source_files}
+                          label="source"
+                          file={source_file}
+                          error_type={:warn}
+                        />
+                    <% end %>
+                  </div>
+                </.disclosure>
+              </div>
+            </.disclosure>
+          </.field_group>
 
-        <%!-- The one list on this form that wasn't a card: a bare upload
+          <%!-- The one list on this form that wasn't a card: a bare upload
             control on the ground, and a card below it that existed only
             once there was something in it — so the section had no name
             until it had contents. `list_cluster`'s grammar instead (§3b),
             with the dropzone as the add. --%>
-        <.list_cluster label="Supplemental files">
-          <p
-            :if={@live_action != :edit || @form[:supplemental_files].value == []}
-            class="pl-3 text-sm text-zinc-400"
-          >
-            No supplemental files.
-          </p>
+          <.list_cluster label="Supplemental files">
+            <p
+              :if={@live_action != :edit || @form[:supplemental_files].value == []}
+              class="pl-3 text-sm text-zinc-400"
+            >
+              No supplemental files.
+            </p>
 
-          <.inputs_for
-            :let={supplemental_file_form}
-            :if={@live_action == :edit}
-            field={@form[:supplemental_files]}
-          >
-            <.sort_input field={@form[:supplemental_files_sort]} index={supplemental_file_form.index} />
-            <.input field={supplemental_file_form[:id]} type="hidden" />
+            <.inputs_for
+              :let={supplemental_file_form}
+              :if={@live_action == :edit}
+              field={@form[:supplemental_files]}
+            >
+              <.sort_input field={@form[:supplemental_files_sort]} index={supplemental_file_form.index} />
+              <.input field={supplemental_file_form[:id]} type="hidden" />
 
-            <div class="flex items-center gap-2">
-              <.label for={supplemental_file_form[:label].name} class="pl-3">Label</.label>
-              <.input field={supplemental_file_form[:label]} placeholder="Label" container_class="grow" />
-              <.label for={supplemental_file_form[:filename].name} class="pl-3">Filename</.label>
-              <.input field={supplemental_file_form[:filename]} placeholder="filename.ext" container_class="grow" />
-              <.delete_button
-                field={@form[:supplemental_files_drop]}
-                index={supplemental_file_form.index}
-              />
-            </div>
-          </.inputs_for>
+              <div class="flex items-center gap-2">
+                <.label for={supplemental_file_form[:label].name} class="pl-3">Label</.label>
+                <.input field={supplemental_file_form[:label]} placeholder="Label" container_class="grow" />
+                <.label for={supplemental_file_form[:filename].name} class="pl-3">Filename</.label>
+                <.input field={supplemental_file_form[:filename]} placeholder="filename.ext" container_class="grow" />
+                <.delete_button
+                  field={@form[:supplemental_files_drop]}
+                  index={supplemental_file_form.index}
+                />
+              </div>
+            </.inputs_for>
 
-          <.delete_input field={@form[:supplemental_files_drop]} />
+            <.delete_input field={@form[:supplemental_files_drop]} />
 
-          <%!-- Inside the card, not under it. A dropzone is not an add-button
+            <%!-- Inside the card, not under it. A dropzone is not an add-button
               — it is a control the block owns, the way the cover and the
               person photo own theirs — and this was the only file input in
               the admin standing outside the thing it belongs to. --%>
-          <.file_input
-            upload={@uploads.supplemental}
-            on_cancel="cancel-supplemental-upload"
-            image_preview_class="h-12 w-12 rounded-md object-cover"
-          />
-        </.list_cluster>
-      </.form_section>
+            <.file_input
+              upload={@uploads.supplemental}
+              on_cancel="cancel-supplemental-upload"
+              image_preview_class="h-12 w-12 rounded-md object-cover"
+            />
+          </.list_cluster>
+        </.form_section>
 
-      <.form_footer>
-        <.button>Save</.button>
-      </.form_footer>
-    </.simple_form>
+        <.form_footer>
+          <.button>Save</.button>
+        </.form_footer>
+      </.simple_form>
+    </div>
   </div>
 </.layout>

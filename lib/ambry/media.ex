@@ -507,7 +507,11 @@ defmodule Ambry.Media do
       {:error, :not_found}
 
   """
-  def fetch_media(id), do: Repo.fetch(Media, id)
+  # With its tracks: an imported recording keeps its files there, so a media
+  # fetched without them is one you cannot ask what it is made of — and
+  # `Ambry.Media.Scanner.audio_files/1` used to answer that question from the
+  # empty transcode columns rather than refusing it.
+  def fetch_media(id), do: Media |> preload(:media_tracks) |> Repo.fetch(id)
 
   @doc """
   Fetches a single direct-play track.

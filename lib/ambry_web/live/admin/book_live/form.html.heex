@@ -1,136 +1,149 @@
 <.layout title={@page_title} user={@current_user} socket={@socket}>
-  <div class="-mb-4 max-w-4xl space-y-7">
-    <%!-- Evidence first, then the decisions it feeds — the import form's
-        order. Its search is a form of its own, so it lives outside the
-        book's form element. --%>
-    <.evidence_panel
-      evidence={@evidence}
-      level="work"
-      title="Search providers"
-      hint="Tick every record that describes this book. Ticked records offer their values as chips under the fields below."
-      retrying={@retrying}
+  <div class="relative">
+    <%!-- A fan-out rebuilds the chips under every field it can fill, so a form
+        with one running is not the operator's to edit yet — and it says so
+        over the whole thing, the way the import form does while matching
+        holds an item. `sticky top-0 h-screen` keeps the scrim one viewport
+        tall and the label in view however far down the form the click was;
+        `z-40` clears the sticky footer with the Save in it, and stays under
+        the header. --%>
+    <.busy_overlay
+      busy={@evidence.running?}
+      label="Asking the databases…"
+      class="sticky top-0 z-40 h-screen"
     />
 
-    <.simple_form
-      id="book-form"
-      for={@form}
-      phx-hook="reorder-rows"
-      phx-change="validate"
-      phx-submit="submit"
-      autocomplete="off"
-    >
-      <%!-- What the book is called and when it came out — the two facts that
+    <div class="-mb-4 max-w-4xl space-y-7" inert={@evidence.running?}>
+      <%!-- Evidence first, then the decisions it feeds — the import form's
+        order. Its search is a form of its own, so it lives outside the
+        book's form element. --%>
+      <.evidence_panel
+        evidence={@evidence}
+        level="work"
+        title="Search providers"
+        retrying={@retrying}
+      />
+
+      <.simple_form
+        id="book-form"
+        for={@form}
+        phx-hook="reorder-rows"
+        phx-change="validate"
+        phx-submit="submit"
+        autocomplete="off"
+      >
+        <%!-- What the book is called and when it came out — the two facts that
           identify the work, in one block. --%>
-      <.field_group>
-        <.curated_input
-          field={@form[:title]}
-          label="Title"
-          class="max-w-xl"
-          record={@book}
-          hints={@provenance_hints}
-          proposals={@chips[:title] || []}
-          revert={@reverts[:title]}
-        />
-
-        <div class="space-y-1">
-          <.curated_date
-            date_field={@form[:published]}
-            format_field={@form[:published_format]}
-            label="First published"
+        <.field_group>
+          <.curated_input
+            field={@form[:title]}
+            label="Title"
+            class="max-w-xl"
             record={@book}
             hints={@provenance_hints}
-            proposals={@chips[:published] || []}
-            revert={@reverts[:published]}
+            proposals={@chips[:title] || []}
+            revert={@reverts[:title]}
           />
-          <span class="block pl-3 text-sm text-zinc-400">
-            {preview_date_format(@form)}
-          </span>
-        </div>
-      </.field_group>
 
-      <.list_cluster label="Authors">
-        <:flag>
-          <.provenance_flag
-            :if={@book_author_count > 0}
-            record={@book}
-            field={:book_authors}
-            hints={@provenance_hints}
-          />
-        </:flag>
-        <p :if={@book_author_count == 0} class="pl-3 text-sm text-zinc-400">No authors.</p>
-        <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
-          <.sort_input field={@form[:book_authors_sort]} index={book_author_form.index} />
-          <.position_input field={book_author_form[:position]} index={book_author_form.index} />
+          <div class="space-y-1">
+            <.curated_date
+              date_field={@form[:published]}
+              format_field={@form[:published_format]}
+              label="First published"
+              record={@book}
+              hints={@provenance_hints}
+              proposals={@chips[:published] || []}
+              revert={@reverts[:published]}
+            />
+            <span class="block pl-3 text-sm text-zinc-400">
+              {preview_date_format(@form)}
+            </span>
+          </div>
+        </.field_group>
 
-          <%!-- Controls trail the input: a leading column pushed every input
+        <.list_cluster label="Authors">
+          <:flag>
+            <.provenance_flag
+              :if={@book_author_count > 0}
+              record={@book}
+              field={:book_authors}
+              hints={@provenance_hints}
+            />
+          </:flag>
+          <p :if={@book_author_count == 0} class="pl-3 text-sm text-zinc-400">No authors.</p>
+          <.inputs_for :let={book_author_form} field={@form[:book_authors]}>
+            <.sort_input field={@form[:book_authors_sort]} index={book_author_form.index} />
+            <.position_input field={book_author_form[:position]} index={book_author_form.index} />
+
+            <%!-- Controls trail the input: a leading column pushed every input
               off the box edge whenever a list crossed one row (§3, two left
               edges). Order matches the import form's cards — reorder first,
               remove last — so the destructive control is at the end of the
               row rather than in the middle of it. --%>
-          <div class="flex items-start gap-2">
-            <%!-- Create mode: a book may credit an author the library has
+            <div class="flex items-start gap-2">
+              <%!-- Create mode: a book may credit an author the library has
                 never heard of, and typing their name is how you say so. The
                 name posts beside the id and becomes a person when the form
                 is saved. --%>
-            <.input
-              field={book_author_form[:author_id]}
-              type="autocomplete"
-              search={&People.search_authors/2}
-              fetch={&People.author_option/1}
-              create_name={"#{book_author_form.name}[author][name]"}
-              create_value={staged_name(book_author_form, :author)}
-              create_flag_name={"#{book_author_form.name}[author][create]"}
-              create_flag_value={NewPerson.chosen(book_author_form, :author)}
-              container_class="grow"
-            />
-            <%!-- Who this credit means, and a way down to their card. --%>
-            <.inputs_for
-              :let={author_form}
-              :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
-              field={book_author_form[:author]}
-              skip_hidden
-              skip_persistent_id
-            >
+              <.input
+                field={book_author_form[:author_id]}
+                type="autocomplete"
+                search={&People.search_authors/2}
+                fetch={&People.author_option/1}
+                create_name={"#{book_author_form.name}[author][name]"}
+                create_value={staged_name(book_author_form, :author)}
+                create_flag_name={"#{book_author_form.name}[author][create]"}
+                create_flag_value={NewPerson.chosen(book_author_form, :author)}
+                container_class="grow"
+              />
+              <%!-- Who this credit means, and a way down to their card. --%>
               <.inputs_for
-                :let={author_person_form}
-                field={author_form[:author_people]}
+                :let={author_form}
+                :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
+                field={book_author_form[:author]}
                 skip_hidden
                 skip_persistent_id
               >
-                <.new_person_pill
-                  row={author_person_form}
-                  key={"#{NewPerson.key(book_author_form)}-#{author_person_form.index}"}
-                />
+                <.inputs_for
+                  :let={author_person_form}
+                  field={author_form[:author_people]}
+                  skip_hidden
+                  skip_persistent_id
+                >
+                  <.new_person_pill
+                    row={author_person_form}
+                    key={"#{NewPerson.key(book_author_form)}-#{author_person_form.index}"}
+                  />
+                </.inputs_for>
               </.inputs_for>
-            </.inputs_for>
 
-            <.move_buttons
-              :if={@book_author_count > 1}
-              field={:book_authors}
-              index={book_author_form.index}
-              count={@book_author_count}
+              <.move_buttons
+                :if={@book_author_count > 1}
+                field={:book_authors}
+                index={book_author_form.index}
+                count={@book_author_count}
+              />
+              <.delete_button field={@form[:book_authors_drop]} index={book_author_form.index} />
+            </div>
+          </.inputs_for>
+
+          <:proposals>
+            <.proposal_row
+              id="proposals-authors"
+              field="authors"
+              event="accept-entity"
+              adds_rows
+              proposals={@chips[:authors] || []}
             />
-            <.delete_button field={@form[:book_authors_drop]} index={book_author_form.index} />
-          </div>
-        </.inputs_for>
+          </:proposals>
 
-        <:proposals>
-          <.proposal_row
-            id="proposals-authors"
-            field="authors"
-            event="accept-entity"
-            adds_rows
-            proposals={@chips[:authors] || []}
-          />
-        </:proposals>
+          <:add>
+            <.add_button field={@form[:book_authors_sort]}>Add author</.add_button>
+            <.delete_input field={@form[:book_authors_drop]} />
+          </:add>
+        </.list_cluster>
 
-        <:add>
-          <.add_button field={@form[:book_authors_sort]}>Add author</.add_button>
-          <.delete_input field={@form[:book_authors_drop]} />
-        </:add>
-      </.list_cluster>
-
-      <%!-- The humans these credits are about to invent, in the import form's
+        <%!-- The humans these credits are about to invent, in the import form's
           own section — under the credits that name them, because that is
           where they came from, and separate from them, because "what is this
           person called, and what do they look like" is a different question
@@ -142,142 +155,143 @@
           the nested chain, which exists exactly where a row reaches a person
           nobody has made yet — never for a credit pointing at an author the
           library already has. --%>
-      <.form_section
-        :if={NewPerson.any?(@form.source, :book_authors, :author, [:author, :author_people])}
-        id="new-people"
-        title="New people"
-      >
-        <.inputs_for
-          :let={book_author_form}
-          field={@form[:book_authors]}
-          skip_hidden
-          skip_persistent_id
+        <.form_section
+          :if={NewPerson.any?(@form.source, :book_authors, :author, [:author, :author_people])}
+          id="new-people"
+          title="New people"
         >
           <.inputs_for
-            :let={author_form}
-            :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
-            field={book_author_form[:author]}
+            :let={book_author_form}
+            field={@form[:book_authors]}
+            skip_hidden
+            skip_persistent_id
           >
-            <%!-- A bracket, never a filled block: wrapping cards in a card is
+            <.inputs_for
+              :let={author_form}
+              :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people])}
+              field={book_author_form[:author]}
+            >
+              <%!-- A bracket, never a filled block: wrapping cards in a card is
               what eats the elevation ladder. One author credit can stand for
               several humans, and the label names the credit they share — the
               inbox's own People section, verbatim. --%>
-            <div
-              :if={NewPerson.people_count(book_author_form) > 1}
-              class="space-y-3 border-l-2 border-zinc-700 pl-4"
-              data-role="pen-name-group"
-            >
-              <p class="text-xs text-zinc-400">
-                {NewPerson.people_count(book_author_form)} people behind this name
-              </p>
+              <div
+                :if={NewPerson.people_count(book_author_form) > 1}
+                class="space-y-3 border-l-2 border-zinc-700 pl-4"
+                data-role="pen-name-group"
+              >
+                <p class="text-xs text-zinc-400">
+                  {NewPerson.people_count(book_author_form)} people behind this name
+                </p>
+                <.author_person_cards
+                  book_author_form={book_author_form}
+                  author_form={author_form}
+                  new_people={@new_people}
+                />
+              </div>
+
               <.author_person_cards
+                :if={NewPerson.people_count(book_author_form) == 1}
                 book_author_form={book_author_form}
                 author_form={author_form}
                 new_people={@new_people}
               />
-            </div>
 
-            <.author_person_cards
-              :if={NewPerson.people_count(book_author_form) == 1}
-              book_author_form={book_author_form}
-              author_form={author_form}
-              new_people={@new_people}
-            />
-
-            <.delete_input field={author_form[:author_people_drop]} />
+              <.delete_input field={author_form[:author_people_drop]} />
+            </.inputs_for>
           </.inputs_for>
-        </.inputs_for>
-      </.form_section>
+        </.form_section>
 
-      <.list_cluster label="Series">
-        <:flag>
-          <.provenance_flag
-            :if={@series_book_count > 0}
-            record={@book}
-            field={:series_books}
-            hints={@provenance_hints}
-          />
-        </:flag>
-        <p :if={@series_book_count == 0} class="pl-3 text-sm text-zinc-400">Not in a series.</p>
-        <.inputs_for :let={series_book_form} field={@form[:series_books]}>
-          <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
-          <.position_input field={series_book_form[:position]} index={series_book_form.index} />
-
-          <div class="flex items-start gap-2">
-            <.input
-              field={series_book_form[:book_number]}
-              placeholder="no."
-              container_class="w-14 flex-none"
-              show_errors={false}
-            />
-            <.input
-              field={series_book_form[:series_id]}
-              type="autocomplete"
-              search={&Books.search_series/2}
-              fetch={&Books.series_option/1}
-              create_name={"#{series_book_form.name}[series][name]"}
-              create_value={staged_name(series_book_form, :series)}
-              container_class="grow"
-            />
-            <.move_buttons
-              :if={@series_book_count > 1}
+        <.list_cluster label="Series">
+          <:flag>
+            <.provenance_flag
+              :if={@series_book_count > 0}
+              record={@book}
               field={:series_books}
-              index={series_book_form.index}
-              count={@series_book_count}
+              hints={@provenance_hints}
             />
-            <.delete_button field={@form[:series_books_drop]} index={series_book_form.index} />
-          </div>
-        </.inputs_for>
+          </:flag>
+          <p :if={@series_book_count == 0} class="pl-3 text-sm text-zinc-400">Not in a series.</p>
+          <.inputs_for :let={series_book_form} field={@form[:series_books]}>
+            <.sort_input field={@form[:series_books_sort]} index={series_book_form.index} />
+            <.position_input field={series_book_form[:position]} index={series_book_form.index} />
 
-        <:proposals>
-          <.proposal_row
-            id="proposals-series"
-            field="series"
-            event="accept-entity"
-            adds_rows
-            proposals={@chips[:series] || []}
-          />
-        </:proposals>
+            <div class="flex items-start gap-2">
+              <.input
+                field={series_book_form[:book_number]}
+                placeholder="no."
+                container_class="w-14 flex-none"
+                show_errors={false}
+              />
+              <.input
+                field={series_book_form[:series_id]}
+                type="autocomplete"
+                search={&Books.search_series/2}
+                fetch={&Books.series_option/1}
+                create_name={"#{series_book_form.name}[series][name]"}
+                create_value={staged_name(series_book_form, :series)}
+                container_class="grow"
+              />
+              <.move_buttons
+                :if={@series_book_count > 1}
+                field={:series_books}
+                index={series_book_form.index}
+                count={@series_book_count}
+              />
+              <.delete_button field={@form[:series_books_drop]} index={series_book_form.index} />
+            </div>
+          </.inputs_for>
 
-        <:add>
-          <.add_button field={@form[:series_books_sort]}>Add series</.add_button>
-          <.delete_input field={@form[:series_books_drop]} />
-        </:add>
-      </.list_cluster>
-
-      <.list_cluster label="Universes">
-        <p :if={@book_universe_count == 0} class="pl-3 text-sm text-zinc-400">
-          Not in a universe.
-        </p>
-        <.inputs_for :let={book_universe_form} field={@form[:book_universes]}>
-          <.sort_input field={@form[:book_universes_sort]} index={book_universe_form.index} />
-
-          <div class="flex items-start gap-2">
-            <.input
-              field={book_universe_form[:universe_id]}
-              type="autocomplete"
-              search={&Books.search_universes/2}
-              fetch={&Books.universe_option/1}
-              create_name={"#{book_universe_form.name}[universe][name]"}
-              create_value={staged_name(book_universe_form, :universe)}
-              container_class="grow"
+          <:proposals>
+            <.proposal_row
+              id="proposals-series"
+              field="series"
+              event="accept-entity"
+              adds_rows
+              proposals={@chips[:series] || []}
             />
-            <.delete_button
-              field={@form[:book_universes_drop]}
-              index={book_universe_form.index}
-            />
-          </div>
-        </.inputs_for>
+          </:proposals>
 
-        <:add>
-          <.add_button field={@form[:book_universes_sort]}>Add universe</.add_button>
-          <.delete_input field={@form[:book_universes_drop]} />
-        </:add>
-      </.list_cluster>
+          <:add>
+            <.add_button field={@form[:series_books_sort]}>Add series</.add_button>
+            <.delete_input field={@form[:series_books_drop]} />
+          </:add>
+        </.list_cluster>
 
-      <.form_footer>
-        <.button>Save</.button>
-      </.form_footer>
-    </.simple_form>
+        <.list_cluster label="Universes">
+          <p :if={@book_universe_count == 0} class="pl-3 text-sm text-zinc-400">
+            Not in a universe.
+          </p>
+          <.inputs_for :let={book_universe_form} field={@form[:book_universes]}>
+            <.sort_input field={@form[:book_universes_sort]} index={book_universe_form.index} />
+
+            <div class="flex items-start gap-2">
+              <.input
+                field={book_universe_form[:universe_id]}
+                type="autocomplete"
+                search={&Books.search_universes/2}
+                fetch={&Books.universe_option/1}
+                create_name={"#{book_universe_form.name}[universe][name]"}
+                create_value={staged_name(book_universe_form, :universe)}
+                container_class="grow"
+              />
+              <.delete_button
+                field={@form[:book_universes_drop]}
+                index={book_universe_form.index}
+              />
+            </div>
+          </.inputs_for>
+
+          <:add>
+            <.add_button field={@form[:book_universes_sort]}>Add universe</.add_button>
+            <.delete_input field={@form[:book_universes_drop]} />
+          </:add>
+        </.list_cluster>
+
+        <.form_footer>
+          <.button>Save</.button>
+        </.form_footer>
+      </.simple_form>
+    </div>
   </div>
 </.layout>

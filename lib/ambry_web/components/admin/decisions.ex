@@ -501,6 +501,10 @@ defmodule AmbryWeb.Admin.Decisions do
     default: "Search again",
     doc: ~s(the edit forms' fresh panel says "Search" — nothing was searched yet)
 
+  attr :scan_files, :boolean,
+    default: false,
+    doc: "offer the files on their own — see `AmbryWeb.Admin.Curation.evidence_panel/1`"
+
   @doc """
   An editable version of the search that produced these records.
 
@@ -554,6 +558,20 @@ defmodule AmbryWeb.Admin.Decisions do
           short next to every input it touches. --%>
       <.button color={:zinc} type="submit" disabled={@running}>
         {if @running, do: "Searching…", else: @label}
+      </.button>
+
+      <%!-- Milliseconds, and it always has something to say. Its own control
+            because pairing it with a provider fan-out made "would the
+            embedded cover be better than this one?" cost a round trip to
+            every database that has ever heard of the book. --%>
+      <.button
+        :if={@scan_files}
+        color={:zinc}
+        type="button"
+        phx-click="scan-files"
+        disabled={@running}
+      >
+        Read files only
       </.button>
     </form>
     """
