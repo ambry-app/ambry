@@ -387,9 +387,8 @@ defmodule Ambry.Inbox.Draft.Edit do
     |> follow_credit_name(was, name)
   end
 
-  defp mint_keys(%Credit{mode: :create, person_keys: []}, name) do
-    if blank?(name), do: [], else: Credit.new_person_default(name)
-  end
+  defp mint_keys(%Credit{mode: :create, person_keys: []}, name),
+    do: Credit.new_person_default(name)
 
   defp mint_keys(credit, _name), do: credit.person_keys
 

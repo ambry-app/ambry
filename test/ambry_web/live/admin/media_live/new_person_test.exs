@@ -66,6 +66,9 @@ defmodule AmbryWeb.Admin.MediaLive.NewPersonTest do
     assert html =~ "New person · Michael Kramer"
     # a narrator's alias is a stage name, not a pen name
     assert html =~ "This is a stage name"
+
+    # a section of its own, under the credits that name them
+    assert has_element?(view, ~s{#new-people [data-role="new-person"]})
   end
 
   test "a credit that points at a narrator the library has gets no card", %{conn: conn} do

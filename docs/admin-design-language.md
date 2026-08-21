@@ -832,6 +832,11 @@ one mechanism for "ask the databases", not a modal per provider:
   will be seen, and a biography box with the blurbs underneath it. It
   renders **only where the nested chain reaches a person nobody has made
   yet**, which is never true of a credit pointing at somebody who exists.
+  It lives in a **section of its own** under the credits that name them —
+  the inbox's `#people` anatomy, a heading on the ground with cards below —
+  never inside the credits card, which would be a card inside a card. The
+  rows are walked a second time with `skip_hidden` and `skip_persistent_id`,
+  because the credit rows above already post those.
   Its controls write the form's own inputs on the client and dispatch a
   change (`assets/js/hooks/set-input.js`) rather than reaching into params
   behind the cast — the same rule the reorder chevrons follow, and what

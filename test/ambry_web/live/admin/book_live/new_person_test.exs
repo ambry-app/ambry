@@ -67,6 +67,29 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
     assert html =~ ~s{data-role="new-person"}
     assert html =~ "New person · Matt Dinniman"
     assert has_element?(view, ~s{[data-role="new-person"] textarea})
+
+    # A section of its own, under the credits that name them — the import
+    # form's anatomy. It used to be a card inside the Authors card.
+    assert has_element?(view, ~s{#new-people [data-role="new-person"]})
+
+    assert Floki.find(Floki.parse_document!(html), ~s{#new-people h2}) |> Floki.text() ==
+             "New people"
+  end
+
+  # Two passes over one list: the credit rows post the hidden inputs, and the
+  # section below them posts the nested person. A row posting its id twice
+  # would be two rows as far as Ecto's `sort -- drop` is concerned.
+  test "the second pass over the rows posts no hidden input twice", %{conn: conn} do
+    book = insert(:book, book_authors: [])
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+    html = name_an_author(view, "Matt Dinniman")
+    doc = Floki.parse_document!(html)
+
+    for name <- ~w(book[book_authors][0][_persistent_id] book[book_authors][0][id]) do
+      assert length(Floki.find(doc, ~s{input[name="#{name}"]})) <= 1,
+             "#{name} is posted more than once"
+    end
   end
 
   # The whole point of nesting the person under the credit: a row that points

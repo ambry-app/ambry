@@ -83,14 +83,28 @@ defmodule AmbryWeb.Admin.NewPerson do
   linked to an existing author, or a new pen name for a person the library
   already has, reaches no person and gets no card.
   """
-  def creating(row_form, path) do
-    Enum.reduce_while(path, row_form.source, fn step, changeset ->
+  def creating(row_form, path), do: nested(row_form.source, path)
+
+  defp nested(changeset, path) do
+    Enum.reduce_while(path, changeset, fn step, changeset ->
       case Ecto.Changeset.get_change(changeset, step) do
         %Ecto.Changeset{} = nested -> {:cont, nested}
         [%Ecto.Changeset{} = nested | _rest] -> {:cont, nested}
         _nothing -> {:halt, nil}
       end
     end)
+  end
+
+  @doc """
+  Whether any row of a credit list is about to create a human.
+
+  What decides whether the section exists at all: a heading over nothing is
+  worse than no heading.
+  """
+  def any?(changeset, assoc, path) do
+    changeset
+    |> Ecto.Changeset.get_change(assoc, [])
+    |> Enum.any?(&(nested(&1, path) != nil))
   end
 
   @doc """
@@ -130,7 +144,7 @@ defmodule AmbryWeb.Admin.NewPerson do
     <div
       id={"new-person-#{@key}"}
       phx-hook="set-input"
-      class="ml-3 space-y-3 rounded-lg bg-zinc-800 p-3"
+      class="space-y-3 rounded-lg bg-zinc-900 p-4"
       data-role="new-person"
       data-person-key={@key}
     >

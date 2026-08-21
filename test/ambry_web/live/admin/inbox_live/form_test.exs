@@ -884,6 +884,49 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   end
 
   describe "credits — credited as / written by" do
+    # An added row is switched to create-mode before it has a name at all,
+    # and the person behind a created credit is keyed BY that name
+    # (`AutoMatch.person_key/1`) — so the default backing person had nothing
+    # to derive a key from and the form died on the first keystroke.
+    test "adding an author and typing into it mints the person on the first name",
+         %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      render_click(view, "add-credit", %{"section" => "work"})
+
+      index = length(Inbox.get_item!(item.id).draft.work.authors) - 1
+
+      render_change(view, "credit-change", %{
+        "section" => "work",
+        "index" => to_string(index),
+        "identity_id" => "",
+        "name" => "foo"
+      })
+
+      credit = Enum.at(Inbox.get_item!(item.id).draft.work.authors, index)
+
+      assert credit.name == "foo"
+      assert credit.mode == :create
+      assert credit.person_keys == ["foo"]
+    end
+
+    # The state that used to crash, on its own: a row exists, create-mode is
+    # set, and there is no name yet to key a person by.
+    test "an author added and not yet named backs nobody", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      render_click(view, "add-credit", %{"section" => "work"})
+
+      credit = List.last(Inbox.get_item!(item.id).draft.work.authors)
+
+      assert credit.name in [nil, ""]
+      assert credit.person_keys == []
+    end
+
     test "the composite case is two people behind one credit", %{conn: conn} do
       item = probed_item()
 
