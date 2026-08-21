@@ -813,33 +813,39 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp save_media(socket, :edit, media_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
-    media_params = NewPerson.import_photos(media_params, "media_narrators")
 
-    case Media.update_media(socket.assigns.media, media_params, opts) do
-      {:ok, media} ->
-        # a title override or a changed date moves the folder
-        {:ok, _job} = Media.organize_async(media)
+    with {:ok, media_params} <- NewPerson.import_photos(media_params, "media_narrators"),
+         {:ok, media} <- Media.update_media(socket.assigns.media, media_params, opts) do
+      # a title override or a changed date moves the folder
+      {:ok, _job} = Media.organize_async(media)
 
-        {:noreply,
-         socket
-         |> put_flash(:info, "Updated audiobook for #{media.book.title}")
-         |> push_navigate(
-           to: ReturnTo.path(~p"/admin/audiobooks", socket.assigns.list_params, media.id)
-         )}
-
+      {:noreply,
+       socket
+       |> put_flash(:info, "Updated audiobook for #{media.book.title}")
+       |> push_navigate(
+         to: ReturnTo.path(~p"/admin/audiobooks", socket.assigns.list_params, media.id)
+       )}
+    else
       {:error, %Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
+
+      {:error, {:failed_photos, urls}} ->
+        {:noreply, put_flash(socket, :error, NewPerson.photos_error(urls))}
     end
   end
 
   defp assign_form(socket, %Changeset{} = changeset) do
     # generated chapter titles are positions and follow their rows
     changeset = renumber_generated(changeset)
+    cards = NewPerson.cards(changeset, :media_narrators, [:narrator])
 
     assign(socket,
       form: to_form(changeset),
       # the move buttons need to know where the ends of the list are
-      media_narrator_count: Reordering.row_count(changeset, :media_narrators)
+      media_narrator_count: Reordering.row_count(changeset, :media_narrators),
+      # the People section's own control: the cards are rendered by
+      # `inputs_for` and a heading above them has no walk of its own
+      people_cards: cards
     )
   end
 

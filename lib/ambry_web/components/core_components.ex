@@ -455,16 +455,6 @@ defmodule AmbryWeb.CoreComponents do
     default: nil,
     doc: "autocomplete: what that box starts with, for a name staged by something else"
 
-  attr :create_flag_name, :string,
-    default: nil,
-    doc:
-      "autocomplete: an input name that records whether the operator chose \"Create …\", as " <>
-        "opposed to having typed something nothing matches yet"
-
-  attr :create_flag_value, :string,
-    default: nil,
-    doc: "autocomplete: that flag's stored value, so the choice survives a re-render"
-
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
   attr :class, :string, default: nil, doc: "class overrides"
   attr :container_class, :string, default: nil, doc: "extra classes for the container div"
@@ -572,8 +562,6 @@ defmodule AmbryWeb.CoreComponents do
         name={@name}
         text_name={@create_name}
         initial_text={@create_value}
-        create_flag_name={@create_flag_name}
-        initial_created={@create_flag_value == "true"}
         search={@search}
         fetch={@fetch}
         value={@value}

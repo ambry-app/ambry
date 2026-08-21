@@ -55,11 +55,13 @@ defmodule AmbryWeb.Admin.NewPerson do
   alias Ambry.People
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.UploadHelpers
+  alias Phoenix.LiveView.JS
 
   defstruct evidence: %Evidence{},
             searching?: false,
             expanded?: false,
             own_name?: false,
+            curated?: false,
             query: nil
 
   @type t :: %__MODULE__{}
@@ -84,23 +86,6 @@ defmodule AmbryWeb.Admin.NewPerson do
   """
   def creating(row_form, path), do: nested(row_form.source, path)
 
-  @doc """
-  Whether the operator *said* they meant a new record, rather than having
-  typed something nothing matches yet.
-
-  Both post the same name — what is typed is the new record's name either way
-  — so a card that watched the typing appeared on the first letter, and did
-  so hardest when what the operator was actually doing was searching for an
-  existing author. Only one of the two is a decision, and the picker's
-  "Create …" row is where it is made (`AmbryWeb.Components.EntityResolver`).
-  """
-  def chosen(row_form, assoc) do
-    case Ecto.Changeset.get_change(row_form.source, assoc) do
-      %Ecto.Changeset{params: %{"create" => flag}} -> flag
-      _nothing -> nil
-    end
-  end
-
   @doc "How many humans a credit's pen name stands for."
   def people_count(row_form) do
     case Ecto.Changeset.get_change(row_form.source, :author) do
@@ -109,9 +94,33 @@ defmodule AmbryWeb.Admin.NewPerson do
     end
   end
 
-  @doc "Whether this row has a person to show a card for."
-  def carded?(row_form, assoc, path),
-    do: chosen(row_form, assoc) == "true" and creating(row_form, path) != nil
+  @doc """
+  Whether this row has a person to show a card for.
+
+  **The row brings a person of its own.** Three things have to be true and
+  this one sentence is all three: the credit names something the library
+  doesn't have (a row pointing at an author it *does* casts nothing —
+  `Ambry.Ecto.EntityRef`), the name is a decision rather than half a word
+  being typed (the picker only tells the form once the box is left), and the
+  human behind it is somebody to make rather than somebody to reuse — a join
+  that already says which person it means carries no nested person at all
+  (`Ambry.People.AuthorPerson.credited_changeset/3`).
+
+  Asked of the params rather than of the changes, which is what keeps the
+  card up when the operator links a library person **from** it: the pick sets
+  `person_id`, the nested person stops being cast, and a card reading changes
+  would vanish at the moment of the pick and take the way back with it. The
+  inputs are still on the page and still post, so the params still say the
+  card is there.
+
+  This used to want a separate "the operator clicked Create" flag, because
+  the picker announced every keystroke. Everything that staged a credit
+  *without* the picker then had to remember to set it, and the provider chips
+  didn't — an accepted narrator got no card at all (operator, 2026-08-21).
+  """
+  def carded?(row_form, path) do
+    match?(%Ecto.Changeset{params: %{"person" => _person}}, creating(row_form, path))
+  end
 
   defp nested(changeset, path) do
     Enum.reduce_while(path, changeset, fn step, changeset ->
@@ -129,10 +138,92 @@ defmodule AmbryWeb.Admin.NewPerson do
   What decides whether the section exists at all: a heading over nothing is
   worse than no heading.
   """
-  def any?(changeset, assoc, nested_assoc, path) do
+  def any?(changeset, assoc, path) do
     changeset
     |> Ecto.Changeset.get_change(assoc, [])
-    |> Enum.any?(&carded?(%{source: &1}, nested_assoc, path))
+    |> Enum.any?(&carded?(%{source: &1}, path))
+  end
+
+  @doc """
+  Every card this credit list renders, as `{key, the name it credits}`.
+
+  What "Search all" needs and nothing else has: the cards are rendered by
+  `inputs_for` inside the form, and a control *above* them has no walk of its
+  own. Same walk `any?/3` makes, carrying the two things a search takes.
+
+  The key mirrors what the templates build — suffixed by the person's index
+  where the join is a list, because a pen name can stand for several humans
+  and each has a card. The list is the last step of `path` in both forms.
+  """
+  def cards(changeset, assoc, path) do
+    changeset
+    |> Ecto.Changeset.get_change(assoc, [])
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {row, index} -> row_cards(row, index, path) end)
+  end
+
+  defp row_cards(row, index, [identity | _rest] = path) do
+    row_form = %{source: row, params: row.params}
+
+    if carded?(row_form, path) do
+      key = row.params["_persistent_id"] || to_string(index)
+
+      name =
+        Ecto.Changeset.get_change(row, identity)
+        |> then(&(&1 && Ecto.Changeset.get_field(&1, :name)))
+
+      case joined(row, path) do
+        {:list, count} -> for at <- 0..(count - 1)//1, do: {"#{key}-#{at}", name}
+        :one -> [{key, name}]
+      end
+    else
+      []
+    end
+  end
+
+  # Whether the card hangs off one join or off a list of them — a stage name
+  # is one human by design, a pen name may be several.
+  defp joined(changeset, path) do
+    Enum.reduce_while(path, :one, fn step, _shape ->
+      case Ecto.Changeset.get_change(changeset, step) do
+        %Ecto.Changeset{} = nested -> {:cont, {:one, nested}}
+        [_ | _] = nested -> {:cont, {:list, nested}}
+        _nothing -> {:halt, :one}
+      end
+    end)
+    |> case do
+      {:list, rows} -> {:list, length(rows)}
+      _one -> :one
+    end
+  end
+
+  @doc """
+  Searches for every card that has not been searched for yet.
+
+  Ten chips clicked is ten new people, and finding out about them was ten
+  more clicks in ten different places (operator, 2026-08-21). Chained
+  `JS.push/3` rather than a new event: pressing them all IS the feature, and
+  each card's own handler already knows what to do with one.
+
+  Cards that have already been asked about are left out — a re-search is a
+  per-card decision, and the button is about the ones nobody has asked about.
+  """
+  def search_all(cards, new_people) do
+    cards
+    |> Enum.reject(fn {key, name} -> blank?(name) or searched?(new_people, key) end)
+    |> Enum.reduce(%JS{}, fn {key, name}, js ->
+      JS.push(js, "research-person", value: %{"key" => key, "name" => name})
+    end)
+  end
+
+  @doc "How many cards `search_all/2` would ask about."
+  def searchable(cards, new_people) do
+    Enum.count(cards, fn {key, name} -> not (blank?(name) or searched?(new_people, key)) end)
+  end
+
+  defp searched?(new_people, key) do
+    state = state(new_people, key)
+    state.searching? or state.evidence.searched?
   end
 
   @doc """
@@ -205,6 +296,7 @@ defmodule AmbryWeb.Admin.NewPerson do
       person={@person}
       group={@group}
       person_index={@person_index}
+      at={"card-" <> @key}
       input_prefix={@row.name <> "[person]"}
       link_input={@row.name <> "[person_id]"}
       list_sort_name={@list_sort_name}
@@ -252,8 +344,10 @@ defmodule AmbryWeb.Admin.NewPerson do
   defp decision(row, key, state) do
     staged = row.params["person"] || %{}
     linked = presence(to_string(row[:person_id].value || ""))
-    photo = presence(staged["image_import_url"])
-    description = staged["description"]
+    photos = candidates(state, :image, "image_import_url")
+    bios = candidates(state, :description, "description")
+    photo = presence(answered(staged, "image_import_url", photos))
+    description = answered(staged, "description", bios)
 
     %PersonDecision{
       key: key,
@@ -261,11 +355,44 @@ defmodule AmbryWeb.Admin.NewPerson do
       person_id: linked,
       own_name: state.own_name?,
       name: %Field{value: staged["name"] || row.params["name"]},
-      image: field(photo, candidates(state, :image, "image_import_url")),
-      description: field(description, candidates(state, :description, "description")),
-      sources: Enum.map(Evidence.used_records(state.evidence), &SourceRef.of/1)
+      image: field(photo, photos),
+      description: field(description, bios),
+      sources: Enum.map(Evidence.used_records(state.evidence), &SourceRef.of/1),
+      # What lights "None of these", which is the card's reading of "they
+      # touched the evidence and left nothing ticked" — the same reading the
+      # import form makes. Records arrive ticked here, so an untouched card
+      # with nothing used has simply found nobody, and must not claim to have
+      # been answered.
+      evidence_curated: state.curated?
     }
   end
+
+  # **A question nobody has answered is answered by the best record.**
+  #
+  # A ticked record only ever *offered* a face and a biography here, so
+  # finishing a person meant clicking two more chips per human — and the
+  # operator who ticked the record and saved got a person with a name and
+  # nothing else, which is the exact asymmetry `EDIT_PARITY_PLAN.md` was
+  # opened to close. An import takes the best record's answer for both and
+  # leaves the rest one click away (`Draft.Seed.scalar/2`, `alternatives:
+  # true`); so does this.
+  #
+  # **Absent is unanswered; present-and-empty is an answer.** The card's
+  # controls are inputs, so once one has rendered every later post carries
+  # it — which means "no photo" and a cleared biography arrive as `""` and
+  # are left exactly as they are. Only a person nobody has posted anything
+  # about yet has no key at all, and that is the one this fills.
+  defp answered(staged, key, candidates) do
+    case Map.fetch(staged, key) do
+      {:ok, value} -> value
+      :error -> best(candidates)
+    end
+  end
+
+  # Evidence orders proposals by the score of the record that made them, so
+  # the first is the best record's answer.
+  defp best([%Candidate{value: value} | _rest]), do: value
+  defp best(_none), do: nil
 
   defp field(value, candidates) do
     chosen = Enum.find(candidates, &(present(&1.value) == present(value)))
@@ -339,7 +466,7 @@ defmodule AmbryWeb.Admin.NewPerson do
     <.credit_people
       id={"credit-people-#{@key}"}
       faces={@faces}
-      section_href="#new-people"
+      section_href="#people"
       class="h-10 items-center"
     />
     """
@@ -365,7 +492,7 @@ defmodule AmbryWeb.Admin.NewPerson do
   Every event a card raises, so a form can forward them in one clause.
   """
   def events, do: ~w(research-person person-query toggle-person-source toggle-photos separate-name
-         use-credited-name)
+         use-credited-name uncatalogued-person)
 
   @doc """
   Handles one card event. The form that renders the card owns nothing but the
@@ -391,7 +518,21 @@ defmodule AmbryWeb.Admin.NewPerson do
     state = state(socket.assigns.new_people, key)
 
     {:noreply,
-     put_state(socket, key, %{state | evidence: Evidence.toggle(state.evidence, source, id)})}
+     put_state(socket, key, %{
+       state
+       | curated?: true,
+         evidence: Evidence.toggle(state.evidence, source, id)
+     })}
+  end
+
+  # The photo and the biography are inputs, and the button blanks them on the
+  # client the way the chips fill them (`assets/js/hooks/set-input.js`); what
+  # is left for the server is the evidence itself.
+  def handle_event("uncatalogued-person", %{"key" => key}, socket) do
+    state = state(socket.assigns.new_people, key)
+
+    {:noreply,
+     put_state(socket, key, %{state | curated?: true, evidence: Evidence.use_none(state.evidence)})}
   end
 
   # What the box holds, which stops following the credited name the moment
@@ -424,6 +565,11 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   Absorbs one card's search results. Records are added, never replaced, so a
   re-search cannot un-tick what the operator chose.
+
+  The ones actually **about** the name searched for arrive ticked, and the
+  best of them answers the photo and biography the operator hasn't answered
+  — see `Evidence.absorb_people/3` and `answered/3`. Person search is
+  recall-first, so the rest are listed and left alone.
   """
   def handle_async({:person_search, key}, {:ok, result}, socket) do
     state = state(socket.assigns.new_people, key)
@@ -432,7 +578,7 @@ defmodule AmbryWeb.Admin.NewPerson do
      put_state(socket, key, %{
        state
        | searching?: false,
-         evidence: Evidence.absorb_people(state.evidence, result)
+         evidence: Evidence.absorb_people(state.evidence, result, about: state.query)
      })}
   end
 
@@ -462,33 +608,63 @@ defmodule AmbryWeb.Admin.NewPerson do
   The walk is blind to the shape below the association on purpose: an author
   reaches their person through `author_people` and a narrator reaches theirs
   directly, and neither route is worth spelling out twice.
+
+  **A download that fails stops the save.** It used to drop the URL and carry
+  on, so a form that saved perfectly well created a person with no face and
+  said nothing about it — indistinguishable, from the operator's side, from a
+  photo that was never chosen. The recording's own cover has always flashed
+  in that case; so does a person's now, naming the ones that failed.
   """
   def import_photos(params, assoc) when is_map(params) do
     case Map.get(params, assoc) do
-      rows when is_map(rows) or is_list(rows) -> Map.put(params, assoc, walk(rows))
-      _nothing -> params
+      rows when is_map(rows) or is_list(rows) ->
+        case walk(rows, []) do
+          {walked, []} -> {:ok, Map.put(params, assoc, walked)}
+          {_walked, failed} -> {:error, {:failed_photos, Enum.reverse(failed)}}
+        end
+
+      _nothing ->
+        {:ok, params}
     end
   end
 
-  defp walk(value) when is_map(value) do
-    value
-    |> Map.new(fn {key, nested} -> {key, walk(nested)} end)
-    |> download()
+  @doc """
+  What to tell the operator when a chosen photo could not be fetched.
+  """
+  def photos_error([_one]),
+    do: "Couldn't download the photo chosen for a new person. Choose another, or clear it."
+
+  def photos_error(urls),
+    do:
+      "Couldn't download #{length(urls)} of the photos chosen for new people. " <>
+        "Choose others, or clear them."
+
+  defp walk(value, failed) when is_map(value) do
+    {pairs, failed} =
+      Enum.map_reduce(value, failed, fn {key, nested}, failed ->
+        {walked, failed} = walk(nested, failed)
+        {{key, walked}, failed}
+      end)
+
+    pairs |> Map.new() |> download(failed)
   end
 
-  defp walk(value) when is_list(value), do: Enum.map(value, &walk/1)
-  defp walk(value), do: value
+  defp walk(value, failed) when is_list(value), do: Enum.map_reduce(value, failed, &walk/2)
+  defp walk(value, failed), do: {value, failed}
 
-  defp download(%{"image_import_url" => url} = row) when is_binary(url) do
+  defp download(%{"image_import_url" => url} = row, failed) when is_binary(url) do
     if blank?(url) do
-      Map.delete(row, "image_import_url")
+      {Map.delete(row, "image_import_url"), failed}
     else
       case UploadHelpers.handle_image_import(url) do
-        {:ok, path} -> row |> Map.put("image_path", path) |> Map.delete("image_import_url")
-        _failed -> Map.delete(row, "image_import_url")
+        {:ok, path} ->
+          {row |> Map.put("image_path", path) |> Map.delete("image_import_url"), failed}
+
+        _failed ->
+          {Map.delete(row, "image_import_url"), [url | failed]}
       end
     end
   end
 
-  defp download(row), do: Map.delete(row, "image_import_url")
+  defp download(row, failed), do: {Map.delete(row, "image_import_url"), failed}
 end

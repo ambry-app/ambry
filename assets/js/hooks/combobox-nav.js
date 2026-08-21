@@ -1,13 +1,20 @@
 // Keyboard support for the entity-resolver combobox: arrows move the active
-// option, Enter picks it, Escape closes. The options are LiveView-rendered
-// `[role=option]` elements with phx-click, so "pick" is just a click.
+// option, Enter picks it, Escape and Tab close. The options are
+// LiveView-rendered `[role=option]` elements with phx-click, so "pick" is
+// just a click.
+//
+// Tab is here because closing is what tells the surrounding form this
+// control moved (`EntityResolver.moved/1`) — a mouse leaves the box by
+// clicking away, which `phx-click-away` catches, and a keyboard leaves it by
+// tabbing, which nothing did.
 export const ComboboxNavHook = {
   mounted() {
     this.input = this.el.querySelector("[role=combobox]")
 
     this.onKeydown = (event) => {
       const options = Array.from(this.el.querySelectorAll("[role=option]"))
-      if (options.length === 0 && event.key !== "Escape") return
+      const closers = ["Escape", "Tab"]
+      if (options.length === 0 && !closers.includes(event.key)) return
 
       switch (event.key) {
         case "ArrowDown":
@@ -30,7 +37,9 @@ export const ComboboxNavHook = {
           }
           break
         }
-        case "Escape": {
+        // Not prevented: Tab still moves focus, it just says so on the way.
+        case "Escape":
+        case "Tab": {
           this.pushEventTo(this.el, "close", {})
           break
         }

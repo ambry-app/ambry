@@ -587,6 +587,20 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       assert Floki.text(card) =~ "Credited as author and narrator"
     end
 
+    # The edit forms' control, on the surface it came from — one press for
+    # every person nobody has asked the databases about. Matching asks about
+    # everyone an item arrives with, so it is normally absent; a fixture
+    # whose providers were never configured is the state a credit added by
+    # hand leaves behind.
+    test "offers one search for the people nobody has asked about", %{conn: conn} do
+      item = probed_item(narrator: "Michael Kramer")
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert html =~ "Search all"
+      assert has_element?(view, "#people button", "Search all")
+    end
+
     # A person exists because a credit names them, so the list is derived and
     # deliberately has no add of its own (design language §5).
     test "has no add of its own", %{conn: conn} do

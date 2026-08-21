@@ -1396,6 +1396,9 @@ defmodule AmbryWeb.Admin.Components do
   attr :class, :any, default: nil
   slot :inner_block, required: true
 
+  slot :action,
+    doc: "a control for the section as a whole, on the heading's line at its right edge"
+
   @doc """
   A named run of field groups, for a form long enough to need finding your
   way around — the import form's anatomy, which is where this came from.
@@ -1413,7 +1416,13 @@ defmodule AmbryWeb.Admin.Components do
   def form_section(assigns) do
     ~H"""
     <section id={@id} class={["space-y-7", @class]}>
-      <h2 :if={@title} class="text-xl font-bold text-zinc-100">{@title}</h2>
+      <%!-- The heading stays on the ground with nothing under it; a control
+          for the whole section sits at the other end of its line, which is
+          where the list clusters put theirs. --%>
+      <div :if={@title || @action != []} class="flex items-baseline justify-between gap-4">
+        <h2 :if={@title} class="text-xl font-bold text-zinc-100">{@title}</h2>
+        <div :if={@action != []} class="flex-none">{render_slot(@action)}</div>
+      </div>
       {render_slot(@inner_block)}
     </section>
     """

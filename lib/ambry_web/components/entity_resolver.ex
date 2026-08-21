@@ -13,6 +13,13 @@ defmodule AmbryWeb.Components.EntityResolver do
   name under `text_name`), and the parent form's `phx-change` fires when they
   move. Parent LiveViews keep their existing handlers and param shapes.
 
+  **The form is told on blur, not per keystroke.** The hidden inputs follow
+  the typing, so a save posts whatever the box currently says; what waits for
+  the box to be left is the *announcement* — picking, creating, or looking
+  away. That is when a native input fires `change`, and it is the difference
+  between "I mean a record you don't have" and "I am still typing". See
+  `moved/1`.
+
   **The form is told by this component, not by watching the DOM.** Every
   interaction here is handled server-side, so the hidden inputs hold the new
   answer only after the patch lands; `moved/1` pushes `entity-resolver:moved`
@@ -120,18 +127,6 @@ defmodule AmbryWeb.Components.EntityResolver do
         id={"#{@id}-text"}
         name={@text_name}
         value={@text}
-      />
-      <%!-- Whether the operator *said* they meant a new record, as opposed to
-          having typed something nothing matches yet. Both post the same name,
-          because what's typed is the new record's name either way — but only
-          one of them is a decision, and a surface that reacts to the typing
-          reacts on the first letter. --%>
-      <input
-        :if={@create_flag_name}
-        type="hidden"
-        id={"#{@id}-created"}
-        name={@create_flag_name}
-        value={to_string(@created?)}
       />
       <input
         type="text"
@@ -248,11 +243,6 @@ defmodule AmbryWeb.Components.EntityResolver do
      |> assign_new(:text, fn -> assigns[:initial_text] || "" end)
      |> assign_new(:value, fn -> nil end)
      |> then(&assign(&1, :value, held_id(&1.assigns.value)))
-     |> assign_new(:create_flag_name, fn -> nil end)
-     # Sticky, on purpose: the operator goes on editing the name after
-     # choosing Create, and every keystroke is a `filter`. Only picking
-     # something that exists takes the choice back.
-     |> assign_new(:created?, fn -> assigns[:initial_created] || false end)
      |> assign_new(:placeholder, fn -> nil end)
      |> assign_new(:class, fn -> nil end)}
   end
@@ -262,60 +252,62 @@ defmodule AmbryWeb.Components.EntityResolver do
     {:noreply, assign(socket, open: true)}
   end
 
-  # **Looking away is the decision.** A name that has been typed and left
-  # alone, with nothing picked, is the operator saying they mean a new record
-  # — the same moment a native input would have fired `change`. Watching the
-  # typing instead answers on the first letter, and the "Create …" row alone
-  # is a click most people never make.
+  # **Looking away is the answer.** A name typed and left alone, with nothing
+  # picked, is the operator saying they mean a record the library doesn't
+  # have — the same moment a native input would have fired `change`, which is
+  # exactly when the form is told.
   def handle_event("close", _params, socket) do
-    typed = present?(socket.assigns[:text]) and is_nil(socket.assigns.value)
-
-    {:noreply,
-     socket
-     |> assign(open: false, query: nil, created?: socket.assigns.created? or typed)
-     |> moved()}
+    {:noreply, socket |> assign(open: false, query: nil) |> moved()}
   end
 
+  # Typing moves the box, not the form. The hidden inputs follow every
+  # keystroke so the form posts the right thing whenever it next serializes,
+  # but nothing is *announced* until the box is left — see `moved/1`.
   def handle_event("filter", %{"resolver" => params}, socket) do
     query = params[socket.assigns.id] || ""
     socket = assign(socket, query: query, open: true)
 
     # With create support on, what's typed IS the new record's name until an
-    # existing record is picked — same live behaviour the plain text input
-    # had. A pure picker only ever changes on a pick.
+    # existing record is picked. A pure picker only ever changes on a pick.
     if socket.assigns.text_name,
-      do: {:noreply, socket |> assign(value: nil, text: query) |> moved()},
+      do: {:noreply, assign(socket, value: nil, text: query)},
       else: {:noreply, socket}
   end
 
   def handle_event("pick", %{"id" => id}, socket) do
-    {:noreply, socket |> assign(value: id, created?: false, open: false, query: nil) |> moved()}
+    {:noreply, socket |> assign(value: id, open: false, query: nil) |> moved()}
   end
 
   def handle_event("create", _params, socket) do
     {:noreply,
      socket
-     |> assign(
-       value: nil,
-       created?: true,
-       text: effective_query(socket.assigns) || "",
-       open: false,
-       query: nil
-     )
+     |> assign(value: nil, text: effective_query(socket.assigns) || "", open: false, query: nil)
      |> moved()}
   end
 
   # Tells the surrounding form that this control moved, the way a native input
-  # would have.
+  # would have — which is to say on **pick, create and close, and never on a
+  # keystroke.**
   #
-  # **Only the three handlers above call it, and that is the whole point.** The
-  # hidden inputs are ordinary markup rendered from assigns, so they change
-  # for two unrelated reasons: the operator picked or typed something here, or
-  # the parent re-rendered this row around a different record entirely. The
-  # DOM cannot tell those apart — the old hook watched the value attribute
-  # mutate and fired on both, so a seeder that re-derived a credit's name had
-  # its own work reported back to it as an operator edit, and the credit was
-  # marked curated for something no human did.
+  # A keystroke is not an answer. Typing a name posts the same thing as
+  # meaning it, so a form told per keystroke has a half-typed author staged
+  # in it from the first letter — worst of all while the operator is
+  # searching for one that already exists — and every surface downstream has
+  # to guess which of the two it is looking at. What this replaced answered
+  # that guess with a second hidden input carrying a "the operator said
+  # Create" flag, which nothing that *staged* a credit knew to set: a
+  # provider chip appended a perfectly good new narrator and their card never
+  # appeared (operator, 2026-08-21). Leaving on blur is the answer, and the
+  # form hears exactly one thing.
+  #
+  # The three handlers below it call it, and nothing else does. The hidden
+  # inputs are ordinary markup rendered from assigns, so they change for two
+  # unrelated reasons: the operator moved this control, or the parent
+  # re-rendered this row around a different record entirely. The DOM cannot
+  # tell those apart — the old hook watched the value attribute mutate and
+  # fired on both, so a seeder that re-derived a credit's name had its own
+  # work reported back to it as an operator edit, and the credit was marked
+  # curated for something no human did.
   #
   # **The answer travels in the event, not just the signal to go looking for
   # it.** `push_event/3` is dispatched after the patch, so the hidden inputs

@@ -87,7 +87,7 @@ defmodule AmbryWeb.Admin.Decisions do
         >
           {outcome["name"]}: {if @retrying == outcome["id"],
             do: "asking again…",
-            else: "couldn't be reached, retry"}
+            else: unreached_words(outcome)}
         </button>
 
         <span
@@ -96,11 +96,27 @@ defmodule AmbryWeb.Admin.Decisions do
           title={outcome["reason"]}
           class="bg-red-400/10 rounded-sm px-2 py-0.5 text-xs text-red-300"
         >
-          {outcome["name"]}: couldn't be reached
+          {outcome["name"]}: {unreached_words(outcome, retry: false)}
         </span>
       </div>
     </div>
     """
+  end
+
+  # **A provider that answered by halves says so.** Audible's regional
+  # catalogs are one provider making several requests, and one region being
+  # rate-limited is not the same event as the provider being down — the
+  # records on screen came from the regions that answered, and "couldn't be
+  # reached" over the top of them reads as a lie. The count is what came
+  # back; the tooltip names the region and why.
+  defp unreached_words(outcome, opts \\ [])
+
+  defp unreached_words(%{"partial" => true, "count" => count}, opts) do
+    "#{count}, some not reached" <> if(opts[:retry] == false, do: "", else: ", retry")
+  end
+
+  defp unreached_words(_outcome, opts) do
+    "couldn't be reached" <> if(opts[:retry] == false, do: "", else: ", retry")
   end
 
   # Where a candidate stops being an alternative and starts being noise. Sits
@@ -1113,6 +1129,13 @@ defmodule AmbryWeb.Admin.Decisions do
     default: nil,
     doc: "the name these records were searched for; falls back to the person's own"
 
+  attr :at, :string,
+    default: nil,
+    doc:
+      "what this card's DOM ids are built from. Defaults to the credit's address, which is " <>
+        "unique where a card is one of a draft's; a surface that renders cards outside that " <>
+        "grid has to say. See `person_curation/1`."
+
   attr :input_prefix, :string,
     default: nil,
     doc:
@@ -1358,6 +1381,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
         <.person_curation
           person={@person}
+          at={@at}
           input_prefix={@input_prefix}
           section={@group.section}
           index={@group.index}
@@ -1636,6 +1660,8 @@ defmodule AmbryWeb.Admin.Decisions do
     default: nil,
     doc: "the name these records were searched for; falls back to the person's own"
 
+  attr :at, :string, default: nil, doc: "see below — overrides where these ids are keyed"
+
   attr :input_prefix, :string,
     default: nil,
     doc: "see `person_card/1` — set where the card sits inside a form that is not its own"
@@ -1687,11 +1713,23 @@ defmodule AmbryWeb.Admin.Decisions do
   def person_curation(assigns) do
     assigns =
       assign(assigns,
-        # One person can be rendered in two places — an author who reads their
-        # own book — so DOM ids are keyed by WHERE this is, not by who it is.
-        # The person key travels in the form's hidden field, where it belongs:
-        # the edit targets the human, the id targets the element.
-        at: "#{assigns.section}-#{assigns.index}-#{assigns.person_index}",
+        # **These ids have to be unique in the document, and the address is
+        # only unique where a card is one of a draft's.** An import form's
+        # people are a grid — this credit, this human behind it — and one
+        # person can be rendered in two places, an author who reads their own
+        # book, so keying by WHERE this is rather than by who it is is what
+        # tells those two apart. An edit form has no such grid: every card is
+        # the first person behind the first credit of the only section, so
+        # every card on it claimed `recording-0-0` and four hook-bearing
+        # elements per card collided. LiveView's own words for that are
+        # "duplicate IDs will cause undefined behavior at runtime, as DOM
+        # patching will not be able to target the correct elements", and what
+        # the operator saw was a bio box that vanished when an unrelated part
+        # of the form patched (2026-08-21). So a caller with a better answer
+        # gives it; the person key travels in the form's hidden field either
+        # way, because the edit targets the human and the id targets the
+        # element.
+        at: assigns.at || "#{assigns.section}-#{assigns.index}-#{assigns.person_index}",
         image: Field.value(assigns.person.image),
         description: Field.value(assigns.person.description),
         photos: assigns.person.image.candidates,
@@ -1771,15 +1809,24 @@ defmodule AmbryWeb.Admin.Decisions do
             doubted — it found humans of roughly this name and believed none
             of them — stays outstanding until somebody says so, and this is
             what says so. It costs nothing but the photo and the biography:
-            a name is all it takes to create a person. --%>
-      <div
-        :if={@records != [] and is_nil(@input_prefix)}
-        class="flex flex-wrap items-center gap-2 pt-1"
-      >
+            a name is all it takes to create a person.
+
+            **On both surfaces.** It was the import form's alone, on the
+            reasoning that an edit form has no outstanding decision to
+            settle — and left the records running straight into the
+            biography with nothing between them, which is how the operator
+            found it (2026-08-21). The reasoning was wrong anyway: records
+            about this name arrive ticked here, so "none of these is my
+            narrator" is a thing that needs saying, and it is one click
+            against unticking every row and clearing two fields by hand.
+            Where the card is inside a form the fields are inputs, so the
+            button empties them the way the chips fill them. --%>
+      <div :if={@records != []} class="flex flex-wrap items-center gap-2 pt-1">
         <button
           type="button"
           phx-click="uncatalogued-person"
           phx-value-key={@person.key}
+          data-set-blank={@input_prefix && blank_targets(@input_prefix)}
           data-role="none-of-these"
           class={[
             "px-[11px] rounded-md border py-1 text-xs",
@@ -1793,7 +1840,14 @@ defmodule AmbryWeb.Admin.Decisions do
         </button>
       </div>
 
-      <div :if={@photos != []} class="grid-cols-[4rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
+      <%!-- Shown while there is a face OR faces to choose from, and not only
+            the second: a photo whose record has since been unticked leaves a
+            chosen face with no strip under it, and the strip is where the
+            way out of it lives. --%>
+      <div
+        :if={@photos != [] or @image}
+        class="grid-cols-[4rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3"
+      >
         <.microlabel class="pt-1">Photos</.microlabel>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -1813,6 +1867,26 @@ defmodule AmbryWeb.Admin.Decisions do
             />
           </.proposal_chip>
 
+          <%!-- **No face is one of the faces.** This was a text button after
+              the strip, shown only once a photo was chosen, and it read as a
+              caption rather than an option — the operator whose best-match
+              photo came back wrong found no way to take it off (2026-08-21).
+              A person with no picture is a perfectly good answer, so it is
+              one of the things you pick between, in the strip, wearing the
+              same ring when it is the one in force. --%>
+          <.proposal_chip
+            chosen={is_nil(@image)}
+            shape="circle"
+            event="waive-person-field"
+            values={%{"key" => @person.key, "field" => "image"}}
+            writes={writes(@input_prefix, "[image_import_url]", "")}
+            title="no photo"
+          >
+            <span class="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-zinc-600 text-xs text-zinc-400">
+              none
+            </span>
+          </.proposal_chip>
+
           <%!-- A dozen headshots is normal and would push the rest of the credit
               off the screen; the point is that alternatives EXIST, not that
               they're all on show. --%>
@@ -1824,19 +1898,6 @@ defmodule AmbryWeb.Admin.Decisions do
             class="text-xs text-zinc-400 underline"
           >
             {if @expanded, do: "show fewer", else: "show all #{length(@photos)} photos"}
-          </button>
-
-          <button
-            :if={@image}
-            type="button"
-            phx-click={!@input_prefix && "waive-person-field"}
-            phx-value-key={@person.key}
-            phx-value-field="image"
-            data-set-input={@input_prefix && @input_prefix <> "[image_import_url]"}
-            data-set-value={@input_prefix && ""}
-            class="self-center rounded-sm border border-dashed border-zinc-600 px-2 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-          >
-            no photo
           </button>
         </div>
       </div>
@@ -1940,6 +2001,11 @@ defmodule AmbryWeb.Admin.Decisions do
   # a decision the server holds.
   defp writes(nil, _suffix, _value), do: nil
   defp writes(prefix, suffix, value), do: %{input: prefix <> suffix, value: value}
+
+  # Everything "none of these" takes back, which is everything a record ever
+  # gave this person: the face and the biography. The name is theirs.
+  defp blank_targets(prefix),
+    do: Jason.encode!([prefix <> "[image_import_url]", prefix <> "[description]"])
 
   defp photo_preview, do: @photo_preview
 
