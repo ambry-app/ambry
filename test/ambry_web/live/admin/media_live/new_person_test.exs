@@ -58,17 +58,17 @@ defmodule AmbryWeb.Admin.MediaLive.NewPersonTest do
     media = insert(:media, book: build(:book), media_narrators: [])
     {:ok, view, html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
 
-    refute html =~ ~s{data-role="new-person"}
+    refute html =~ ~s{data-role="person-card"}
 
     html = name_a_narrator(view, "Michael Kramer")
 
-    assert html =~ ~s{data-role="new-person"}
-    assert html =~ "New person · Michael Kramer"
+    assert html =~ ~s{data-role="person-card"}
+    assert html =~ "Michael Kramer"
     # a narrator's alias is a stage name, not a pen name
     assert html =~ "This is a stage name"
 
     # a section of its own, under the credits that name them
-    assert has_element?(view, ~s{#new-people [data-role="new-person"]})
+    assert has_element?(view, ~s{#new-people [data-role="person-card"]})
   end
 
   test "a credit that points at a narrator the library has gets no card", %{conn: conn} do
@@ -93,7 +93,7 @@ defmodule AmbryWeb.Admin.MediaLive.NewPersonTest do
         }
       })
 
-    refute html =~ ~s{data-role="new-person"}
+    refute html =~ ~s{data-role="person-card"}
   end
 
   test "ticking a record offers a photo and a bio that write the person's inputs",
@@ -109,7 +109,7 @@ defmodule AmbryWeb.Admin.MediaLive.NewPersonTest do
 
     html =
       view
-      |> element(~s{[data-role="new-person"] [data-role="record"] input[type="checkbox"]})
+      |> element(~s{[data-role="person-card"] [data-role="record"] input[type="checkbox"]})
       |> render_click()
 
     assert html =~ "has narrated over two hundred books"

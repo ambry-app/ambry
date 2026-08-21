@@ -60,20 +60,57 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
     book = insert(:book, book_authors: [])
     {:ok, view, html} = live(conn, ~p"/admin/books/#{book}/edit")
 
-    refute html =~ ~s{data-role="new-person"}
+    refute html =~ ~s{data-role="person-card"}
 
     html = name_an_author(view, "Matt Dinniman")
 
-    assert html =~ ~s{data-role="new-person"}
-    assert html =~ "New person · Matt Dinniman"
-    assert has_element?(view, ~s{[data-role="new-person"] textarea})
+    assert html =~ ~s{data-role="person-card"}
+    assert html =~ "Matt Dinniman"
+    assert has_element?(view, ~s{[data-role="person-card"] textarea})
 
     # A section of its own, under the credits that name them — the import
     # form's anatomy. It used to be a card inside the Authors card.
-    assert has_element?(view, ~s{#new-people [data-role="new-person"]})
+    assert has_element?(view, ~s{#new-people [data-role="person-card"]})
 
     assert Floki.find(Floki.parse_document!(html), ~s{#new-people h2}) |> Floki.text() ==
              "New people"
+  end
+
+  # The complaint this card was rebuilt on: it is the import form's card, not
+  # a lookalike, so the parts that make it that card have to be here.
+  # Landmarks rather than markup — each one is a piece somebody would notice
+  # missing.
+  test "it is the import form's card, not a redrawing of it", %{conn: conn} do
+    patch_providers()
+    book = insert(:book, book_authors: [])
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+    html = name_an_author(view, "Matt Dinniman")
+
+    # the pen-name reveal, and the photo/bio half under it
+    assert html =~ "This is a pen name"
+    assert has_element?(view, ~s{[data-role="person-face"]})
+
+    # the biography box, with the markdown preview beside it
+    assert has_element?(view, ~s{textarea[placeholder="a short bio"]})
+    assert html =~ "-preview"
+
+    # A search covers the whole card while it runs — the same scrim a matching
+    # job gets in the inbox, held open here so it can be seen.
+    test = self()
+
+    patch(Ambry.Metadata.Search, :people, fn _name ->
+      send(test, {:searching, self()})
+      receive do: (:go -> {[], []})
+    end)
+
+    render_click(view, "research-person", %{"key" => "0", "name" => "Matt Dinniman"})
+
+    assert_receive {:searching, searcher}
+    assert render(view) =~ ~s{data-role="busy-overlay"}
+
+    send(searcher, :go)
+    render_async(view)
   end
 
   # Two passes over one list: the credit rows post the hidden inputs, and the
@@ -117,7 +154,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
         }
       })
 
-    refute html =~ ~s{data-role="new-person"}
+    refute html =~ ~s{data-role="person-card"}
   end
 
   # A pen name for a person the library already has reaches an existing
@@ -146,7 +183,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
         }
       })
 
-    refute html =~ ~s{data-role="new-person"}
+    refute html =~ ~s{data-role="person-card"}
   end
 
   describe "the card's evidence" do
@@ -165,11 +202,11 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
       html = render_async(view)
 
       assert html =~ "rreading-glasses: 1"
-      assert has_element?(view, ~s{[data-role="new-person"] [data-role="record"]})
+      assert has_element?(view, ~s{[data-role="person-card"] [data-role="record"]})
 
       html =
         view
-        |> element(~s{[data-role="new-person"] [data-role="record"] input[type="checkbox"]})
+        |> element(~s{[data-role="person-card"] [data-role="record"] input[type="checkbox"]})
         |> render_click()
 
       # The chips write the person's own inputs, so the name they carry is

@@ -43,13 +43,14 @@ defmodule AmbryWeb.Admin.NewPerson do
 
   use AmbryWeb, :html
 
-  import AmbryWeb.Admin.Components
-
-  import AmbryWeb.Admin.Decisions,
-    only: [provider_outcomes_row: 1, proposal_chip: 1, record_list: 1, record_row: 1]
-
+  import AmbryWeb.Admin.Decisions, only: [person_card: 1]
   import Phoenix.LiveView, only: [put_flash: 3, start_async: 3]
 
+  alias Ambry.Inbox.Draft.Candidate
+  alias Ambry.Inbox.Draft.Credit
+  alias Ambry.Inbox.Draft.Field
+  alias Ambry.Inbox.Draft.PersonDecision
+  alias Ambry.Inbox.Draft.SourceRef
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.UploadHelpers
@@ -61,10 +62,6 @@ defmodule AmbryWeb.Admin.NewPerson do
             query: nil
 
   @type t :: %__MODULE__{}
-
-  # Enough to see there are alternatives without the card becoming a contact
-  # sheet — the threshold the inbox card folds on, for the same reason.
-  @photo_preview 5
 
   @doc "A fresh form has nobody staged."
   def mount(socket), do: Phoenix.Component.assign(socket, new_people: %{})
@@ -121,210 +118,105 @@ defmodule AmbryWeb.Admin.NewPerson do
   attr :form, :any, required: true, doc: "the nested person form"
   attr :key, :string, required: true
   attr :state, __MODULE__, required: true
-  attr :kind, :atom, required: true, doc: ":author or :narrator — words only"
+  attr :kind, :atom, required: true, doc: ":author or :narrator"
 
   @doc """
-  One human this form will create, and everything anyone knows about them.
+  One human this form will create — the inbox's own card, on an edit form.
+
+  Nothing is re-drawn here. `AmbryWeb.Admin.Decisions.person_card/1` renders
+  a `PersonDecision` and the credit that introduces it, so this builds those
+  two out of what an edit form has instead: the nested person changeset for
+  the values, and the card's own `Evidence` for the records and the chips
+  they propose. A person is a person on both surfaces, so the card is the
+  same card — the busy overlay, the photo strip at the size a face is seen,
+  the bio box with its preview and its chips, the record list.
+
+  What the card is told is different, and that is the whole difference: with
+  an `input_prefix` its three form-bearing controls become plain inputs
+  posting into the enclosing form, because an edit form is one form with a
+  Save button and forms cannot nest.
   """
   def new_person_card(assigns) do
-    photo = assigns.form.params["image_import_url"]
-    description = assigns.form[:description].value
-
     assigns =
       assign(assigns,
-        name: assigns.form[:name].value,
-        photo: photo,
-        photos: chosen(proposals(assigns.state, :image), "image_import_url", photo),
-        bios: chosen(proposals(assigns.state, :description), "description", description),
-        records: assigns.state.evidence.records,
-        outcomes: assigns.state.evidence.outcomes
+        person: decision(assigns.form, assigns.key, assigns.state),
+        group: group(assigns.form, assigns.kind)
       )
 
     ~H"""
-    <div
-      id={"new-person-#{@key}"}
-      phx-hook="set-input"
-      class="space-y-3 rounded-lg bg-zinc-900 p-4"
-      data-role="new-person"
-      data-person-key={@key}
-    >
-      <div class="flex items-baseline justify-between gap-2 pl-3">
-        <.microlabel>New person · {@name || "unnamed"}</.microlabel>
-
-        <button
-          :if={!@state.own_name?}
-          type="button"
-          phx-click="reveal-person-name"
-          phx-value-key={@key}
-          class="text-xs text-zinc-400 underline"
-        >
-          {reveal_words(@kind)}
-        </button>
-      </div>
-
-      <%!-- The exception, revealed. Left alone the human is named by the
-            credit and no name is posted at all, which is what keeps the two
-            in step while the credit is still being typed: a box on every card
-            froze the person's name at whatever the credit said one keystroke
-            in. --%>
-      <div :if={@state.own_name?} class="space-y-1">
-        <p class="pl-3 text-xs text-zinc-400">{alias_words(@kind)}</p>
-        <.input field={@form[:name]} placeholder="the person's real name" />
-      </div>
-
-      <div class="flex items-center gap-3 pl-3">
-        <.image_with_size
-          :if={@photo}
-          id={"new-person-#{@key}-photo"}
-          src={proxied_remote_image_url(@photo)}
-          class="h-12 w-12 flex-none rounded-full object-cover object-top"
-        />
-        <span
-          :if={!@photo}
-          class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-700"
-        />
-
-        <%!-- The chosen face travels as the URL the person form's own import
-              machinery takes, and is downloaded by the save that creates
-              them. Nothing is fetched while the operator is still deciding. --%>
-        <input type="hidden" name={@form.name <> "[image_import_url]"} value={@photo} />
-
-        <.button
-          type="button"
-          color={:zinc}
-          phx-click="research-person"
-          phx-value-key={@key}
-          phx-value-name={@name}
-          disabled={@state.searching? or blank?(@name)}
-        >
-          {search_words(@state)}
-        </.button>
-      </div>
-
-      <div :if={@state.evidence.searched?} class="space-y-2">
-        <.microlabel class="block pl-3">Provider records</.microlabel>
-
-        <p :if={@state.query && @state.query != @name} class="pl-3 text-xs text-zinc-400">
-          Records for "{@state.query}".
-        </p>
-
-        <.provider_outcomes_row outcomes={@outcomes} retryable={false} />
-
-        <%!-- Nothing found is a normal outcome, not a failure: plenty of
-              narrators are in no database at all. --%>
-        <p :if={@records == [] and !@state.searching?} class="pl-3 text-xs text-zinc-400">
-          Nobody by that name is in any provider we can ask. A name is all it takes to make a
-          person.
-        </p>
-
-        <.record_list records={@records} used={&Evidence.used?(@state.evidence, &1)}>
-          <:row :let={record}>
-            <.record_row
-              record={record}
-              event="toggle-person-source"
-              person_key={@key}
-              used={Evidence.used?(@state.evidence, record)}
-            />
-          </:row>
-        </.record_list>
-      </div>
-
-      <%!-- Circular and at the size they will be seen, because the decision
-            is whether a face survives a circular crop. --%>
-      <div :if={@photos != []} class="grid-cols-[4rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3">
-        <.microlabel class="pt-1">Photos</.microlabel>
-
-        <div class="flex flex-wrap items-center gap-2">
-          <.proposal_chip
-            :for={photo <- shown_photos(@photos, @state.expanded?)}
-            chosen={photo.chosen}
-            title={photo.display}
-            shape="circle"
-            data-set-input={@form.name <> "[image_import_url]"}
-            data-set-value={photo.params["image_import_url"]}
-          >
-            <.image_with_size
-              id={"new-person-#{@key}-photo-#{photo.key}"}
-              src={proxied_remote_image_url(photo.params["image_import_url"])}
-              class="h-16 w-16 rounded-full object-cover object-top"
-            />
-          </.proposal_chip>
-
-          <button
-            :if={length(@photos) > photo_preview()}
-            type="button"
-            phx-click="toggle-person-photos"
-            phx-value-key={@key}
-            class="text-xs text-zinc-400 underline"
-          >
-            {if @state.expanded?, do: "show fewer", else: "show all #{length(@photos)} photos"}
-          </button>
-
-          <button
-            :if={@photo}
-            type="button"
-            data-set-input={@form.name <> "[image_import_url]"}
-            data-set-value=""
-            class="self-center rounded-sm border border-dashed border-zinc-600 px-2 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-          >
-            no photo
-          </button>
-        </div>
-      </div>
-
-      <%!-- A provider's blurb is a starting point you tweak, not a thing you
-            take or leave, so it is the same editable box with the same chips
-            under it that every other description on these forms has. --%>
-      <div class="space-y-2">
-        <.input type="textarea" field={@form[:description]} label="Biography" />
-
-        <div :if={@bios != []} class="flex flex-wrap items-center gap-2 pl-3">
-          <.microlabel>Proposed</.microlabel>
-
-          <.proposal_chip
-            :for={bio <- @bios}
-            chosen={bio.chosen}
-            title={bio.params["description"]}
-            data-set-input={@form[:description].name}
-            data-set-value={bio.params["description"]}
-          >
-            <span class="truncate">{bio.display}</span>
-            <span class="text-zinc-500">{Enum.join(bio.providers, ", ")}</span>
-          </.proposal_chip>
-        </div>
-      </div>
-    </div>
+    <.person_card
+      person={@person}
+      group={@group}
+      person_index={0}
+      input_prefix={@form.name}
+      searching={@state.searching?}
+      photos_expanded={@state.expanded?}
+      records={@state.evidence.records}
+      outcomes={@state.evidence.outcomes}
+      query_name={@state.query}
+    />
     """
   end
 
-  defp proposals(%__MODULE__{evidence: evidence}, field) do
-    if Evidence.any_used?(evidence), do: Evidence.proposals(evidence, field), else: []
+  # ── an edit form's answer to the questions the card asks ───────────────
+
+  # The values live in the nested person's params, because they are inputs in
+  # the form that will save them. `chosen_key` is derived rather than stored
+  # for the same reason: what the field holds IS the answer to "which chip is
+  # in use", and a second copy of that answer could disagree with it.
+  defp decision(form, key, state) do
+    photo = form.params["image_import_url"]
+    description = form[:description].value
+
+    %PersonDecision{
+      key: key,
+      mode: :create,
+      own_name: state.own_name?,
+      name: %Field{value: form[:name].value},
+      image: field(photo, candidates(state, :image, "image_import_url")),
+      description: field(description, candidates(state, :description, "description")),
+      sources: Enum.map(Evidence.used_records(state.evidence), &SourceRef.of/1)
+    }
   end
 
-  # One param decides it here, not the whole set `Curation.mark_chosen/2`
-  # compares: a chip writes one input, and the rest of what the proposal
-  # carries is bookkeeping the card doesn't render.
-  defp chosen(proposals, key, current) do
-    Enum.map(proposals, &Map.put(&1, :chosen, present(&1.params[key]) == present(current)))
+  defp field(value, candidates) do
+    chosen = Enum.find(candidates, &(present(&1.value) == present(value)))
+    %Field{value: value, candidates: candidates, chosen_key: chosen && chosen.key}
+  end
+
+  # `Evidence` proposals and draft candidates are the same idea in two
+  # vocabularies — a value, a label, a key, and where it came from.
+  defp candidates(%__MODULE__{evidence: evidence}, kind, param) do
+    if Evidence.any_used?(evidence) do
+      for proposal <- Evidence.proposals(evidence, kind) do
+        %Candidate{
+          key: proposal.key,
+          value: proposal.params[param],
+          label: Enum.join(proposal.providers, ", "),
+          source: proposal.source
+        }
+      end
+    else
+      []
+    end
+  end
+
+  # The card is titled by the credit and asks its pen-name question in the
+  # credit's words, so it needs one — built from the row it hangs off. The
+  # section and index address a credit inside a draft, which an edit form
+  # does not have; every event the card raises from here carries the person's
+  # key as well, which is what this surface answers to.
+  defp group(form, kind) do
+    %{
+      credit: %Credit{name: form[:name].value, kind: kind, mode: :create, person_keys: ["one"]},
+      section: nil,
+      index: 0,
+      kind: kind
+    }
   end
 
   defp present(nil), do: ""
   defp present(value), do: to_string(value)
-
-  defp shown_photos(photos, true), do: photos
-  defp shown_photos(photos, false), do: Enum.take(photos, @photo_preview)
-
-  defp photo_preview, do: @photo_preview
-
-  defp search_words(%__MODULE__{searching?: true}), do: "Searching…"
-  defp search_words(%__MODULE__{evidence: %{searched?: true}}), do: "Search again"
-  defp search_words(_state), do: "Search providers"
-
-  defp reveal_words(:narrator), do: "This is a stage name"
-  defp reveal_words(_author), do: "This is a pen name"
-
-  defp alias_words(:narrator), do: "A stage name of"
-  defp alias_words(_author), do: "A pen name of"
 
   defp blank?(nil), do: true
   defp blank?(name), do: String.trim(name) == ""

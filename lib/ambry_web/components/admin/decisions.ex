@@ -407,6 +407,10 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :label, :string, default: "Search again"
   attr :running, :boolean, default: false
 
+  attr :standalone, :boolean,
+    default: true,
+    doc: "false where this sits inside a form that is not its own — see `person_card/1`"
+
   @doc """
   The person level's search-again form — the work-level pattern with a name
   where the work has title and author.
@@ -425,7 +429,7 @@ defmodule AmbryWeb.Admin.Decisions do
   One component, parameterised by the two things that genuinely differ —
   which event routes it, and whether there is a person key to route *to*.
   """
-  def person_research_form(assigns) do
+  def person_research_form(%{standalone: true} = assigns) do
     ~H"""
     <form
       id={["research-person", @at] |> Enum.reject(&is_nil/1) |> Enum.join("-")}
@@ -443,6 +447,27 @@ defmodule AmbryWeb.Admin.Decisions do
         {if @running, do: "Searching…", else: @label}
       </.button>
     </form>
+    """
+  end
+
+  # No box, because a form cannot nest and because there is nothing for one to
+  # add: the name is an input the operator is looking at three lines up, so
+  # the button searches for whatever it currently says. Revealing the pen-name
+  # box is how you search for somebody else.
+  def person_research_form(assigns) do
+    ~H"""
+    <div class="pl-3">
+      <.button
+        color={:zinc}
+        type="button"
+        phx-click={@event}
+        phx-value-key={@person_key}
+        phx-value-name={@name}
+        disabled={@running or @name in [nil, ""]}
+      >
+        {if @running, do: "Searching…", else: @label}
+      </.button>
+    </div>
     """
   end
 
@@ -1018,6 +1043,12 @@ defmodule AmbryWeb.Admin.Decisions do
     default: nil,
     doc: "the name these records were searched for; falls back to the person's own"
 
+  attr :input_prefix, :string,
+    default: nil,
+    doc:
+      "set where the card sits INSIDE a form that is not its own — the name its controls post " <>
+        "under. See \"One card, two form owners\" below."
+
   @doc """
   One human this import will create, as a decision card of their own.
 
@@ -1038,6 +1069,21 @@ defmodule AmbryWeb.Admin.Decisions do
   The events still address the credit that introduces them (`section`,
   `index`, `person_index`), because "remove this person" means removing them
   from that credit — the person exists only as long as a credit names them.
+
+  ## One card, two form owners
+
+  The import form saves on change and has no form element of its own, so each
+  control here is a little `<form>`. The edit forms are one big form with a
+  Save button, and forms cannot nest — the browser drops the inner tag and
+  the controls silently join the outer form.
+
+  So `input_prefix` names the two situations rather than forking the card:
+  given one, the three form-bearing controls (the identity box, the search,
+  the biography) become plain inputs posting under that prefix, and the chips
+  write those inputs on the client instead of raising events
+  (`assets/js/hooks/set-input.js`). Everything else — the overlay, the
+  titles, the records, the photo strip, the spacing — is the same markup
+  either way, which is the point: a person is a person on both surfaces.
   """
   def person_card(assigns) do
     assigns =
@@ -1051,9 +1097,12 @@ defmodule AmbryWeb.Admin.Decisions do
       )
 
     ~H"""
+    <%!-- No rail where the card is inside an edit form: a rail says how far
+        through a decision this is, and an edit form has no decision tree to
+        be part-way through (design language §9). --%>
     <div
       id={"person-#{@person.key}"}
-      class={["relative space-y-3 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@person)]}
+      class={["relative space-y-3 rounded-lg bg-zinc-900 p-4", is_nil(@input_prefix) && ["border-l-4", state_rail(@person)]]}
       data-role="person-card"
     >
       <%!-- A provider round-trip is the same kind of event as a matching job,
@@ -1120,11 +1169,15 @@ defmodule AmbryWeb.Admin.Decisions do
               "named by the credit" under a card titled by the credit was the
               same fact twice. --%>
         <p :if={@person.mode == :create and !@own_name} class="pl-3 text-xs text-zinc-400">
+          <%!-- The key travels beside the credit's address: the inbox
+                removes a person FROM a credit, while an edit form's card is
+                keyed by the row it hangs off and has no section to name. --%>
           <button
             type="button"
             phx-click="separate-name"
             phx-value-section={@group.section}
             phx-value-index={@group.index}
+            phx-value-key={@person.key}
             class="underline"
           >
             {reveal_words(@group.kind)}
@@ -1139,22 +1192,7 @@ defmodule AmbryWeb.Admin.Decisions do
         <div :if={@person.mode == :create and @own_name} class="space-y-1">
           <p class="pl-3 text-xs text-zinc-400">{alias_words(@group.kind)}</p>
 
-          <form id={"person-#{@person.key}-identity"} phx-change="person-change">
-            <input type="hidden" name="key" value={@person.key} />
-
-            <.live_component
-              module={EntityResolver}
-              id={"person-#{@person.key}-resolver"}
-              name="person_id"
-              text_name="name"
-              search={&People.search_people/2}
-              fetch={&People.person_option/1}
-              value={nil}
-              text={Field.value(@person.name) || ""}
-              placeholder="the person's real name"
-              class={input_classes("w-full")}
-            />
-          </form>
+          <.identity_box person={@person} input_prefix={@input_prefix} />
 
           <%!-- Both escape hatches from the same state, on the rail under the
                 box they belong to. A shared pen name is the composite-author
@@ -1218,6 +1256,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
         <.person_curation
           person={@person}
+          input_prefix={@input_prefix}
           section={@group.section}
           index={@group.index}
           person_index={@person_index}
@@ -1231,6 +1270,52 @@ defmodule AmbryWeb.Admin.Decisions do
         />
       </div>
     </div>
+    """
+  end
+
+  attr :person, PersonDecision, required: true
+  attr :input_prefix, :string, default: nil
+
+  # The one control that has to know who owns the form. Its own `<form>` where
+  # the card is the only form on the page, a plain input inside the enclosing
+  # one where it isn't; the box itself is the same box.
+  defp identity_box(%{input_prefix: nil} = assigns) do
+    ~H"""
+    <form id={"person-#{@person.key}-identity"} phx-change="person-change">
+      <input type="hidden" name="key" value={@person.key} />
+      <.person_resolver person={@person} name="person_id" text_name="name" />
+    </form>
+    """
+  end
+
+  defp identity_box(assigns) do
+    ~H"""
+    <.person_resolver
+      person={@person}
+      name={@input_prefix <> "[person_id]"}
+      text_name={@input_prefix <> "[name]"}
+    />
+    """
+  end
+
+  attr :person, PersonDecision, required: true
+  attr :name, :string, required: true
+  attr :text_name, :string, required: true
+
+  defp person_resolver(assigns) do
+    ~H"""
+    <.live_component
+      module={EntityResolver}
+      id={"person-#{@person.key}-resolver"}
+      name={@name}
+      text_name={@text_name}
+      search={&People.search_people/2}
+      fetch={&People.person_option/1}
+      value={nil}
+      text={Field.value(@person.name) || ""}
+      placeholder="the person's real name"
+      class={input_classes("w-full")}
+    />
     """
   end
 
@@ -1436,6 +1521,10 @@ defmodule AmbryWeb.Admin.Decisions do
     default: nil,
     doc: "the name these records were searched for; falls back to the person's own"
 
+  attr :input_prefix, :string,
+    default: nil,
+    doc: "see `person_card/1` — set where the card sits inside a form that is not its own"
+
   # Enough to see there are alternatives without the row becoming a contact
   # sheet. TMDB keeps every headshot anyone has uploaded and a working actor
   # can have dozens.
@@ -1524,6 +1613,7 @@ defmodule AmbryWeb.Admin.Decisions do
         person_key={@person.key}
         name={@query_name || Field.value(@person.name)}
         running={@searching}
+        standalone={is_nil(@input_prefix)}
       />
 
       <.provider_outcomes_row outcomes={@outcomes} retryable={false} />
@@ -1556,7 +1646,10 @@ defmodule AmbryWeb.Admin.Decisions do
             of them — stays outstanding until somebody says so, and this is
             what says so. It costs nothing but the photo and the biography:
             a name is all it takes to create a person. --%>
-      <div :if={@records != []} class="flex flex-wrap items-center gap-2 pt-1">
+      <div
+        :if={@records != [] and is_nil(@input_prefix)}
+        class="flex flex-wrap items-center gap-2 pt-1"
+      >
         <button
           type="button"
           phx-click="uncatalogued-person"
@@ -1583,6 +1676,7 @@ defmodule AmbryWeb.Admin.Decisions do
             chosen={Field.chose?(@person.image, photo)}
             event="pick-person-image"
             values={%{"key" => @person.key, "candidate" => photo.key}}
+            writes={writes(@input_prefix, "[image_import_url]", photo.value)}
             title={photo.label}
             shape="circle"
           >
@@ -1609,9 +1703,11 @@ defmodule AmbryWeb.Admin.Decisions do
           <button
             :if={@image}
             type="button"
-            phx-click="waive-person-field"
+            phx-click={!@input_prefix && "waive-person-field"}
             phx-value-key={@person.key}
             phx-value-field="image"
+            data-set-input={@input_prefix && @input_prefix <> "[image_import_url]"}
+            data-set-value={@input_prefix && ""}
             class="self-center rounded-sm border border-dashed border-zinc-600 px-2 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
           >
             no photo
@@ -1623,19 +1719,12 @@ defmodule AmbryWeb.Admin.Decisions do
             reason: an imported blurb is a starting point. --%>
       <div class="space-y-1">
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <form id={"person-bio-#{@at}"} phx-change="person-bio" phx-submit="person-bio">
-            <input type="hidden" name="key" value={@person.key} />
-            <textarea
-              id={"person-bio-#{@at}-input"}
-              name="description"
-              rows="3"
-              placeholder="a short bio"
-              phx-debounce="500"
-              phx-hook="maintain-attrs"
-              data-attrs="style"
-              class={input_classes("block w-full")}
-            >{@description}</textarea>
-          </form>
+          <.bio_box
+            at={@at}
+            person_key={@person.key}
+            description={@description}
+            input_prefix={@input_prefix}
+          />
           <div class="relative">
             <div
               id={"person-bio-#{@at}-preview"}
@@ -1661,6 +1750,7 @@ defmodule AmbryWeb.Admin.Decisions do
               chosen={Field.chose?(@person.description, bio)}
               event="pick-person-bio"
               values={%{"key" => @person.key, "candidate" => bio.key}}
+              writes={writes(@input_prefix, "[description]", bio.value)}
               title={bio.value}
             >
               <span class={[
@@ -1678,6 +1768,52 @@ defmodule AmbryWeb.Admin.Decisions do
     </div>
     """
   end
+
+  attr :at, :string, required: true
+  attr :person_key, :string, required: true
+  attr :description, :string, default: nil
+  attr :input_prefix, :string, default: nil
+
+  # The other control that has to know who owns the form. Same box, same
+  # preview beside it; only the wrapper and the name change.
+  defp bio_box(%{input_prefix: nil} = assigns) do
+    ~H"""
+    <form id={"person-bio-#{@at}"} phx-change="person-bio" phx-submit="person-bio">
+      <input type="hidden" name="key" value={@person_key} />
+      <.bio_input at={@at} name="description" description={@description} />
+    </form>
+    """
+  end
+
+  defp bio_box(assigns) do
+    ~H"""
+    <.bio_input at={@at} name={@input_prefix <> "[description]"} description={@description} />
+    """
+  end
+
+  attr :at, :string, required: true
+  attr :name, :string, required: true
+  attr :description, :string, default: nil
+
+  defp bio_input(assigns) do
+    ~H"""
+    <textarea
+      id={"person-bio-#{@at}-input"}
+      name={@name}
+      rows="3"
+      placeholder="a short bio"
+      phx-debounce="500"
+      phx-hook="maintain-attrs"
+      data-attrs="style"
+      class={input_classes("block w-full")}
+    >{@description}</textarea>
+    """
+  end
+
+  # A chip's other job, on a surface where the value is an input rather than
+  # a decision the server holds.
+  defp writes(nil, _suffix, _value), do: nil
+  defp writes(prefix, suffix, value), do: %{input: prefix <> suffix, value: value}
 
   defp photo_preview, do: @photo_preview
 
@@ -1752,9 +1888,14 @@ defmodule AmbryWeb.Admin.Decisions do
     default: nil,
     doc: "the click, where the server owns the decision; nil where the chip writes an input"
 
-  attr :rest, :global,
-    include: ~w(disabled),
-    doc: ~s(the `data-set-input` pair, for a chip that writes an input)
+  attr :rest, :global, include: ~w(disabled)
+
+  attr :writes, :map,
+    default: nil,
+    doc:
+      ~s(`%{input: name, value: value}` — a chip on a surface where the value is a form input ) <>
+        ~s(rather than a decision the server holds. It sets that input and dispatches a change ) <>
+        ~s(\(`assets/js/hooks/set-input.js`\) instead of raising `event`.)
 
   attr :inert, :boolean,
     default: false,
@@ -1809,8 +1950,10 @@ defmodule AmbryWeb.Admin.Decisions do
     ~H"""
     <button
       type="button"
-      phx-click={@event}
+      phx-click={!@writes && @event}
       {chip_values(@values)}
+      data-set-input={@writes && @writes.input}
+      data-set-value={@writes && @writes.value}
       {@rest}
       title={@title}
       class={[

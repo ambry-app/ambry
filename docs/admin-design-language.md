@@ -822,25 +822,33 @@ one mechanism for "ask the databases", not a modal per provider:
   shows where the lists diverge, which is what to fix) but is never
   poured.
 
-- **A credit that names somebody new gets that person's card**
-  (`AmbryWeb.Admin.NewPerson`). A picker may name a record the library has
-  never heard of, so an edit form can invent a `Person` — and a person made
-  of a name and nothing else is the asymmetry the whole arc was about, since
-  the same human imported through the inbox arrives with a face and a
-  biography. The card is the inbox's person card on the edit forms: a
-  provider search of their own, photos as circular chips at the size they
-  will be seen, and a biography box with the blurbs underneath it. It
-  renders **only where the nested chain reaches a person nobody has made
-  yet**, which is never true of a credit pointing at somebody who exists.
-  It lives in a **section of its own** under the credits that name them —
-  the inbox's `#people` anatomy, a heading on the ground with cards below —
-  never inside the credits card, which would be a card inside a card. The
-  rows are walked a second time with `skip_hidden` and `skip_persistent_id`,
-  because the credit rows above already post those.
-  Its controls write the form's own inputs on the client and dispatch a
-  change (`assets/js/hooks/set-input.js`) rather than reaching into params
-  behind the cast — the same rule the reorder chevrons follow, and what
-  keeps "nothing until Save" true one join deep.
+- **A credit that names somebody new gets that person's card — literally the
+  inbox's card.** A picker may name a record the library has never heard of,
+  so an edit form can invent a `Person`, and a person made of a name and
+  nothing else was the asymmetry this arc was about. So the edit forms render
+  `person_card/1` itself, not a redrawing of it:
+  `AmbryWeb.Admin.NewPerson` builds a `PersonDecision` and its `Credit` out
+  of the nested person changeset and the card's own `Evidence`. **A person is
+  a person on both surfaces** — same overlay while a search runs, same photo
+  strip at the size a face is seen, same bio box with its preview and chips,
+  same record list.
+
+  It lives in a **section of its own** under the credits that name them — the
+  inbox's `#people` anatomy, a heading on the ground with cards below — never
+  inside the credits card, which would be a card inside a card. It renders
+  **only where the nested chain reaches a person nobody has made yet**, which
+  is never true of a credit pointing at somebody who exists, and the credit
+  rows are walked a second time (`skip_hidden`, `skip_persistent_id`) because
+  the pickers above already post those.
+
+  One thing genuinely differs, and `input_prefix` is where it is said: the
+  import form saves on change and has no form of its own, so each of the
+  card's controls is a little `<form>`; an edit form is one form with a Save
+  button, and forms cannot nest. Given a prefix, the three form-bearing
+  controls become plain inputs posting under it, the chips write those inputs
+  on the client (`assets/js/hooks/set-input.js`) instead of raising events,
+  and the state rail goes — nothing here is part-way through a decision tree.
+  Everything else is the same markup.
 
 Structural lists (authors, narrators, series) carry **list-level
 provenance** — one entry per list, worn as the same "from …" flag on the
